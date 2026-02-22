@@ -1,0 +1,226 @@
+import { useState, useEffect } from 'react';
+import { useTheme } from '@/hooks/useTheme';
+import { useItemsStore } from '@/stores/itemsStore';
+import { useDatabaseStore } from '@/stores/databaseStore';
+import { useProjectStore } from '@/stores/projectStore';
+import { useUiStore } from '@/stores/uiStore';
+import Modal from '@/components/shared/Modal';
+import Ic from '@/components/shared/Ic';
+import { I } from '@/constants/icons';
+import { inp, nInp, bt } from '@/utils/styles';
+import { nn, fmt, fmt2 } from '@/utils/format';
+import { callAnthropic } from '@/utils/ai';
+
+export default function AIPricingModal() {
+  const C = useTheme();
+  const T = C.T;
+  const item = useUiStore(s => s.pricingModal);
+  const setPricingModal = useUiStore(s => s.setPricingModal);
+  const apiKey = useUiStore(s => s.appSettings.apiKey);
+  const updateItem = useItemsStore(s => s.updateItem);
+  const elements = useDatabaseStore(s => s.elements);
+  const project = useProjectStore(s => s.project);
+  const showToast = useUiStore(s => s.showToast);
+
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
+  const [selected, setSelected] = useState({ material: true, labor: true, equipment: true, subcontractor: true });
+
+  // DB matches
+  const dbMatches = item ? elements.filter(e => {
+    const codeMatch = item.code && e.code && e.code.startsWith(item.code.split(".").slice(0, 2).join("."));
+    const nameMatch = item.description && e.name && e.name.toLowerCase().includes(item.description.toLowerCase().split(" ")[0]);
+    return codeMatch || nameMatch;
+  }).slice(0, 5) : [];
+
+  useEffect(() => {
+    if (!item || !apiKey) return;
+    setLoading(true);
+    setResult(null);
+    setError(null);
+    const loc = project.address || "NYC metro area";
+    const dir = item.directive || "";
+    const prompt = `You are a construction cost estimator. Provide unit pricing for this scope item.
+
+Item: ${item.description}
+CSI Code: ${item.code || "N/A"}
+Unit: ${item.unit || "EA"}
+Directive: ${dir || "N/A"}
+Location: ${loc}
+${dir === "F/O" ? "This is Furnish Only — set labor to 0." : ""}
+${dir === "I/O" ? "This is Install Only — set material to 0." : ""}
+
+Return ONLY valid JSON (no markdown): { "material": number, "labor": number, "equipment": number, "subcontractor": number, "confidence": "high"|"medium"|"low", "source": "string describing pricing basis", "subNote": "whether typically self-performed or subcontracted", "alternatives": [{ "name": "string", "material": number, "labor": number, "equipment": number }] }
+
+Base pricing on RS Means / industry data. Apply locality adjustment factor 1.25-1.35x for NYC metro if applicable.`;
+
+    callAnthropic({ apiKey, max_tokens: 800, messages: [{ role: "user", content: prompt }] })
+      .then(text => {
+        try {
+          const json = JSON.parse(text.replace(/```json?\n?/g, "").replace(/```/g, "").trim());
+          setResult(json);
+        } catch {
+          setError("Could not parse AI response");
+        }
+      })
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [item?.id]);
+
+  if (!item) return null;
+
+  const toggleField = (f) => setSelected(s => ({ ...s, [f]: !s[f] }));
+
+  const handleApply = () => {
+    if (!result) return;
+    const fields = ["material", "labor", "equipment", "subcontractor"];
+    fields.forEach(f => {
+      if (selected[f] && result[f] != null) updateItem(item.id, f, result[f]);
+    });
+    showToast("AI pricing applied");
+    setPricingModal(null);
+  };
+
+  const handleApplyDb = (el) => {
+    updateItem(item.id, "material", el.material || 0);
+    updateItem(item.id, "labor", el.labor || 0);
+    updateItem(item.id, "equipment", el.equipment || 0);
+    showToast(`Applied "${el.name}" pricing`);
+    setPricingModal(null);
+  };
+
+  const handleApplyAlt = (alt) => {
+    if (alt.name) updateItem(item.id, "description", alt.name);
+    updateItem(item.id, "material", alt.material || 0);
+    updateItem(item.id, "labor", alt.labor || 0);
+    updateItem(item.id, "equipment", alt.equipment || 0);
+    showToast("Alternative applied");
+    setPricingModal(null);
+  };
+
+  const cards = [
+    { key: "material", label: "Material", color: C.green },
+    { key: "labor", label: "Labor", color: C.blue },
+    { key: "equipment", label: "Equipment", color: C.orange },
+    { key: "subcontractor", label: "Sub", color: C.purple },
+  ];
+
+  const selectedTotal = result ? cards.reduce((s, c) => s + (selected[c.key] ? nn(result[c.key]) : 0), 0) : 0;
+
+  return (
+    <Modal onClose={() => setPricingModal(null)} wide>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <div>
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: C.text, margin: 0 }}>
+            <Ic d={I.ai} size={16} color={C.accent} /> AI Pricing Lookup
+          </h3>
+          <div style={{ fontSize: 12, color: C.textDim, marginTop: 2 }}>
+            {item.description}{item.code && <span style={{ color: C.purple, marginLeft: 6 }}>{item.code}</span>}{item.unit && <span style={{ marginLeft: 6 }}>({item.unit})</span>}
+          </div>
+        </div>
+        <button onClick={() => setPricingModal(null)} style={{ border: "none", background: "transparent", color: C.textDim, cursor: "pointer" }}>
+          <Ic d={I.x} size={16} />
+        </button>
+      </div>
+
+      {/* Current values */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 10, padding: "6px 8px", background: C.bg2, borderRadius: 4, fontSize: 12, color: C.textDim }}>
+        <span>Current: M={fmt2(nn(item.material))}</span>
+        <span>L={fmt2(nn(item.labor))}</span>
+        <span>E={fmt2(nn(item.equipment))}</span>
+        <span>S={fmt2(nn(item.subcontractor))}</span>
+      </div>
+
+      {/* Loading */}
+      {loading && (
+        <div style={{ padding: 30, textAlign: "center" }}>
+          <div style={{ fontSize: 12, color: C.accent, fontWeight: 600, marginBottom: 8 }}>Analyzing pricing...</div>
+          <div style={{ width: 24, height: 24, border: `2px solid ${C.border}`, borderTopColor: C.accent, borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto" }} />
+        </div>
+      )}
+
+      {/* Error */}
+      {error && <div style={{ padding: 12, background: `${C.red}10`, border: `1px solid ${C.red}30`, borderRadius: 4, fontSize: 12, color: C.red }}>{error}</div>}
+
+      {/* Results */}
+      {result && (
+        <div>
+          <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+            {cards.map(c => {
+              const val = nn(result[c.key]);
+              return (
+                <div key={c.key} onClick={() => toggleField(c.key)}
+                  style={{ flex: 1, padding: "8px 6px", borderRadius: 6, border: `1px solid ${selected[c.key] ? c.color : C.border}`, background: selected[c.key] ? `${c.color}10` : C.bg2, cursor: "pointer", textAlign: "center", transition: "all 0.15s" }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: c.color, textTransform: "uppercase", marginBottom: 3 }}>{c.label}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: selected[c.key] ? c.color : C.textDim, fontFeatureSettings: "'tnum'" }}>{fmt2(val)}</div>
+                  <div style={{ fontSize: 10, color: C.textDim, marginTop: 2 }}>{selected[c.key] ? "selected" : "click to add"}</div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Confidence + source */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 8, fontSize: 12 }}>
+            <span style={{ padding: "2px 8px", borderRadius: 4, fontWeight: 600, background: result.confidence === "high" ? `${C.green}18` : result.confidence === "medium" ? `${C.orange}18` : `${C.red}18`, color: result.confidence === "high" ? C.green : result.confidence === "medium" ? C.orange : C.red }}>
+              {(result.confidence || "medium").toUpperCase()}
+            </span>
+            {result.source && <span style={{ color: C.textDim, lineHeight: 1.4 }}>{result.source}</span>}
+          </div>
+          {result.subNote && <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 8, fontStyle: "italic" }}>{result.subNote}</div>}
+
+          {/* Selected total + apply */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", background: `${C.accent}08`, borderRadius: 4, marginBottom: 8 }}>
+            <span style={{ fontSize: 12, color: C.textMuted }}>Selected Total: <strong style={{ color: C.accent, fontSize: 14, fontFeatureSettings: "'tnum'" }}>{fmt2(selectedTotal)}</strong></span>
+            <button onClick={handleApply}
+              style={bt(C, { background: C.gradient || C.accent, color: "#fff", padding: "6px 16px", fontSize: 12, fontWeight: 700 })}>
+              Apply Selected
+            </button>
+          </div>
+
+          {/* Alternatives */}
+          {result.alternatives && result.alternatives.length > 0 && (
+            <div style={{ marginTop: 6 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.textDim, textTransform: "uppercase", marginBottom: 4 }}>Alternatives</div>
+              {result.alternatives.map((alt, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 8px", background: C.bg2, borderRadius: 4, marginBottom: 3, fontSize: 12 }}>
+                  <span style={{ color: C.text }}>{alt.name}</span>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <span style={{ color: C.textDim, fontFeatureSettings: "'tnum'" }}>{fmt2(nn(alt.material) + nn(alt.labor) + nn(alt.equipment))}</span>
+                    <button onClick={() => handleApplyAlt(alt)} style={bt(C, { background: "transparent", border: `1px solid ${C.accent}40`, color: C.accent, padding: "2px 8px", fontSize: 11 })}>Apply</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* DB matches */}
+      {dbMatches.length > 0 && (
+        <div style={{ marginTop: 10, borderTop: `1px solid ${C.border}`, paddingTop: 8 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.textDim, textTransform: "uppercase", marginBottom: 4 }}>Database Matches</div>
+          {dbMatches.map(el => (
+            <div key={el.id || el.code} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 8px", background: C.bg2, borderRadius: 4, marginBottom: 3, fontSize: 12 }}>
+              <div>
+                <span style={{ color: C.purple, fontWeight: 600 }}>{el.code}</span>
+                <span style={{ color: C.text, marginLeft: 6 }}>{el.name}</span>
+              </div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <span style={{ color: C.textDim, fontFeatureSettings: "'tnum'" }}>{fmt2(nn(el.material) + nn(el.labor) + nn(el.equipment))}</span>
+                <button onClick={() => handleApplyDb(el)} style={bt(C, { background: "transparent", border: `1px solid ${C.green}40`, color: C.green, padding: "2px 8px", fontSize: 11 })}>Use</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* No API key */}
+      {!apiKey && !loading && !result && (
+        <div style={{ padding: 20, textAlign: "center", color: C.textDim, fontSize: 12 }}>
+          Add your Anthropic API key in Settings to enable AI pricing lookup.
+        </div>
+      )}
+    </Modal>
+  );
+}

@@ -1,0 +1,113 @@
+// IndexedDB storage layer — unlimited storage for large estimate data (PDFs, images).
+// Async API: get(key) → { value } | undefined, set(key, value), delete(key)
+// Keys: bldg-index, bldg-est-{id}, bldg-master, bldg-ideas, bldg-settings
+
+const DB_NAME = "bldg-estimator";
+const DB_VERSION = 1;
+const STORE_NAME = "kv";
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME);
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+// Migrate any existing localStorage data to IndexedDB on first run
+async function migrateFromLocalStorage(db) {
+  const migrated = localStorage.getItem("bldg-idb-migrated");
+  if (migrated) return;
+
+  const keys = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith("bldg-")) keys.push(key);
+  }
+
+  if (keys.length > 0) {
+    const tx = db.transaction(STORE_NAME, "readwrite");
+    const store = tx.objectStore(STORE_NAME);
+    for (const key of keys) {
+      const val = localStorage.getItem(key);
+      if (val) store.put(val, key);
+    }
+    await new Promise((resolve, reject) => {
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+    // Clean up localStorage after migration
+    for (const key of keys) {
+      localStorage.removeItem(key);
+    }
+  }
+  localStorage.setItem("bldg-idb-migrated", "1");
+}
+
+let dbPromise = null;
+
+function getDB() {
+  if (!dbPromise) {
+    dbPromise = openDB().then(async (db) => {
+      await migrateFromLocalStorage(db);
+      return db;
+    });
+  }
+  return dbPromise;
+}
+
+export const storage = {
+  async get(key) {
+    try {
+      const db = await getDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, "readonly");
+        const req = tx.objectStore(STORE_NAME).get(key);
+        req.onsuccess = () => {
+          resolve(req.result !== undefined ? { value: req.result } : undefined);
+        };
+        req.onerror = () => reject(req.error);
+      });
+    } catch (e) {
+      console.error("Storage get error:", e);
+      return undefined;
+    }
+  },
+
+  async set(key, value) {
+    try {
+      const db = await getDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, "readwrite");
+        tx.objectStore(STORE_NAME).put(
+          typeof value === "string" ? value : JSON.stringify(value),
+          key
+        );
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      });
+    } catch (e) {
+      console.error("Storage set error:", e);
+    }
+  },
+
+  async delete(key) {
+    try {
+      const db = await getDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, "readwrite");
+        tx.objectStore(STORE_NAME).delete(key);
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      });
+    } catch (e) {
+      console.error("Storage delete error:", e);
+    }
+  },
+};
