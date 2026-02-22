@@ -133,10 +133,10 @@ export default function DashboardPage() {
                     backgroundClip: "text",
                   }
                 : { color: C.accent }),
-            }}>NOVA</span>
+            }}>BLDG Omni</span>
           </div>
           <div style={{ fontSize: T.fontSize.lg, color: C.textMuted, marginBottom: T.space[8] }}>
-            Professional construction estimating. Set up in three steps.
+            Professional construction estimating. Powered by NOVA.
           </div>
           <div style={{ display: "flex", gap: T.space[4], justifyContent: "center" }}>
             {steps.map((s, i) => (

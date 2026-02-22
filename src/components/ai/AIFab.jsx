@@ -14,7 +14,7 @@ export default function AIFab() {
   return (
     <button
       onClick={() => setOpen(true)}
-      title="NOVA AI Assistant"
+      title="NOVA — AI Assistant"
       style={{
         position: "fixed", bottom: 24, right: 24, zIndex: 999,
         width: 52, height: 52, borderRadius: 14,

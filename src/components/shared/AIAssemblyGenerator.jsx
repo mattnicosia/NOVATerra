@@ -17,7 +17,7 @@ const EXAMPLE_PROMPTS = [
   "Commercial storefront entrance with aluminum frame and hardware",
 ];
 
-const SYSTEM_PROMPT = `You are a senior construction estimator and assembly builder for NOVA Estimating Software.
+const SYSTEM_PROMPT = `You are a senior construction estimator and assembly builder for BLDG Omni.
 
 When given a plain-English description of a construction assembly, generate a complete, detailed, priced assembly with all component elements.
 

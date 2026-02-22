@@ -10,7 +10,7 @@ import { callAnthropicStream, buildProjectContext, createAIAbort } from '@/utils
 import Ic from '@/components/shared/Ic';
 import { I } from '@/constants/icons';
 
-const SYSTEM_PROMPT = `You are NOVA AI, an expert construction estimating assistant embedded inside the NOVA preconstruction platform. You have deep knowledge of:
+const SYSTEM_PROMPT = `You are NOVA, an expert construction estimating AI assistant embedded inside BLDG Omni. You have deep knowledge of:
 - CSI MasterFormat divisions and specification sections
 - RS Means cost data and industry pricing
 - Construction takeoff methods and quantity surveying

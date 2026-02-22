@@ -165,10 +165,10 @@ export default function LoginPage() {
             letterSpacing: -0.5,
             marginBottom: 4,
           }}>
-            NOVA
+            BLDG Omni
           </h1>
           <p style={{ fontSize: 13, color: textMuted, fontWeight: 500 }}>
-            Construction Estimating Platform
+            Powered by NOVA
           </p>
         </div>
 

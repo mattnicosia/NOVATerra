@@ -136,7 +136,7 @@ export default function BrainstormPage() {
               <Ic d={I.ai} size={20} color="#fff" sw={2.5} />
             </div>
             <div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: C.accent, letterSpacing: 1 }}>NOVA BRAINSTORM</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: C.accent, letterSpacing: 1 }}>BRAINSTORM</div>
               <div style={{ fontSize: 11, color: C.textDim }}>Feature ideas & roadmap &mdash; built-in ideas + yours</div>
             </div>
           </div>

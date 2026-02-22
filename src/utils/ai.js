@@ -1,4 +1,4 @@
-// NOVA AI Engine — Upgraded Anthropic API layer
+// BLDG Omni AI Engine — Anthropic API layer (Powered by NOVA)
 // Supports: system messages, tool use, temperature, abort, retry, batching, image optimization
 
 const API_URL = "https://api.anthropic.com/v1/messages";

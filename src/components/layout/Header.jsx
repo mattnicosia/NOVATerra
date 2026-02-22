@@ -65,7 +65,7 @@ export default function Header() {
                     backgroundClip: "text",
                   }
                 : { color: C.accent }),
-            }}>NOVA</span>
+            }}>BLDG Omni</span>
           </span>
         )}
       </div>

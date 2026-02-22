@@ -92,7 +92,7 @@ export default function Sidebar() {
               fontSize: T.fontSize.xl, fontWeight: T.fontWeight.heavy, letterSpacing: "0.08em",
               color: P.text,
             }}>
-              NOVA
+              BLDG Omni
             </span>
           )}
         </div>

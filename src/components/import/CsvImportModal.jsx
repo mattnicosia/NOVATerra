@@ -11,7 +11,7 @@ import { autoDirective } from '@/utils/directives';
 import { autoTradeFromCode } from '@/constants/tradeGroupings';
 import { parseCSV } from '@/utils/csvParser';
 import { parseXLSX } from '@/utils/xlsxParser';
-import { NOVA_FIELDS, suggestColumnMappings, heuristicMapping, applyMappings } from '@/utils/csvColumnMapper';
+import { OMNI_FIELDS, suggestColumnMappings, heuristicMapping, applyMappings } from '@/utils/csvColumnMapper';
 import Modal from '@/components/shared/Modal';
 import Ic from '@/components/shared/Ic';
 import { I } from '@/constants/icons';
@@ -386,7 +386,7 @@ export default function CsvImportModal({ onClose, mode }) {
                           }}
                         >
                           <option value="">— Skip —</option>
-                          {NOVA_FIELDS.map(f => (
+                          {OMNI_FIELDS.map(f => (
                             <option key={f.key} value={f.key}>{f.label}</option>
                           ))}
                         </select>
