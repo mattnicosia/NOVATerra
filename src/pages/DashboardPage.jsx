@@ -14,6 +14,7 @@ import { I } from '@/constants/icons';
 import { fmt, nn } from '@/utils/format';
 import { inp, bt, pageContainer, card, sectionLabel, mono } from '@/utils/styles';
 import CsvImportModal from '@/components/import/CsvImportModal';
+import BldgOmniLogo from '@/components/shared/BldgOmniLogo';
 
 const STATUSES = ["All", "Bidding", "Submitted", "Won", "Lost", "On Hold", "Cancelled"];
 
@@ -119,21 +120,8 @@ export default function DashboardPage() {
     return (
       <div style={{ ...pageContainer(C), display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ textAlign: "center", maxWidth: 680 }}>
-          <div style={{
-            fontSize: T.fontSize['2xl'], fontWeight: T.fontWeight.heavy, marginBottom: T.space[2], letterSpacing: T.tracking.tight,
-          }}>
-            <span style={{
-              letterSpacing: "0.08em",
-              display: "inline-block",
-              ...(C.isDark && C.gradient
-                ? {
-                    background: C.gradient,
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                    backgroundClip: "text",
-                  }
-                : { color: C.accent }),
-            }}>BLDG Omni</span>
+          <div style={{ marginBottom: T.space[2] }}>
+            <BldgOmniLogo size={28} />
           </div>
           <div style={{ fontSize: T.fontSize.lg, color: C.textMuted, marginBottom: T.space[8] }}>
             Professional construction estimating. Powered by NOVA.

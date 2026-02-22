@@ -5,6 +5,7 @@ import { useProjectStore } from '@/stores/projectStore';
 import { useItemsStore } from '@/stores/itemsStore';
 import Ic from '@/components/shared/Ic';
 import Pill from '@/components/shared/Pill';
+import BldgOmniLogo from '@/components/shared/BldgOmniLogo';
 import { I } from '@/constants/icons';
 import { fmt } from '@/utils/format';
 
@@ -51,22 +52,7 @@ export default function Header() {
           </>
         )}
         {!activeId && (
-          <span style={{
-            fontSize: T.fontSize.md, fontWeight: T.fontWeight.heavy, color: C.text,
-          }}>
-            <span style={{
-              letterSpacing: "0.08em",
-              display: "inline-block",
-              ...(C.isDark && C.gradient
-                ? {
-                    background: C.gradient,
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                    backgroundClip: "text",
-                  }
-                : { color: C.accent }),
-            }}>BLDG Omni</span>
-          </span>
+          <BldgOmniLogo size={16} />
         )}
       </div>
 

@@ -8,6 +8,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { supabase } from '@/utils/supabase';
 import Ic from '@/components/shared/Ic';
 import NovaLogo from '@/components/shared/NovaLogo';
+import BldgOmniLogo from '@/components/shared/BldgOmniLogo';
 import { I } from '@/constants/icons';
 
 const globalNav = [
@@ -88,12 +89,7 @@ export default function Sidebar() {
         }} onClick={!open ? toggle : undefined}>
           <NovaLogo size={28} />
           {open && (
-            <span style={{
-              fontSize: T.fontSize.xl, fontWeight: T.fontWeight.heavy, letterSpacing: "0.08em",
-              color: P.text,
-            }}>
-              BLDG Omni
-            </span>
+            <BldgOmniLogo size={18} color={P.text} />
           )}
         </div>
         {open && (

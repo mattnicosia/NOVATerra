@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { useTheme } from '@/hooks/useTheme';
 import Ic from '@/components/shared/Ic';
+import BldgOmniLogo from '@/components/shared/BldgOmniLogo';
 import { I } from '@/constants/icons';
 
 export default function LoginPage() {
@@ -158,15 +159,9 @@ export default function LoginPage() {
               <path d="M9 20v-6h6v6" />
             </svg>
           </div>
-          <h1 style={{
-            fontSize: 26,
-            fontWeight: 800,
-            color: textColor,
-            letterSpacing: -0.5,
-            marginBottom: 4,
-          }}>
-            BLDG Omni
-          </h1>
+          <div style={{ marginBottom: 4 }}>
+            <BldgOmniLogo size={26} color={textColor} />
+          </div>
           <p style={{ fontSize: 13, color: textMuted, fontWeight: 500 }}>
             Powered by NOVA
           </p>
