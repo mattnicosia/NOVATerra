@@ -3,6 +3,7 @@
 
 import { SEED_ELEMENTS } from '@/constants/seedAssemblies';
 import { callAnthropic, buildProjectContext } from '@/utils/ai';
+import { searchSimilar } from '@/utils/vectorSearch';
 
 // ─── Division Benchmarks ($/SF by job type) ───────────────────────────
 // Low = budget/value, Mid = typical, High = premium/complex
@@ -187,21 +188,21 @@ function isNone(val) {
   return v === "none" || v === "n/a" || v === "-" || v === "--" || v === "—" || v === "";
 }
 
-export function generateScheduleLineItems(schedules) {
+export async function generateScheduleLineItems(schedules) {
   const lineItems = [];
 
-  schedules.forEach(schedule => {
+  for (const schedule of schedules) {
     const { type, entries, sheetId } = schedule;
     if (!entries || entries.length === 0) return;
 
     switch (type) {
       case "wall-types":
-        entries.forEach(entry => {
-          if (!entry.typeLabel) return;
+        for (const entry of entries) {
+          if (!entry.typeLabel) continue;
           // Match material to seed elements
           const material = (entry.material || "").toLowerCase();
           if (material.includes("metal stud") || material.includes("steel stud")) {
-            const seedMatch = findSeedByKeywords(["metal stud", "wall"], entry.studs);
+            const seedMatch = await findSeedByVector(["metal stud", "wall"], entry.studs);
             lineItems.push({
               code: "05.400",
               description: `Wall Type ${entry.typeLabel}: ${entry.material || "Metal Stud"} ${entry.studs || ""} @ ${entry.height || ""}' — ${entry.insulation || ""}`.trim(),
@@ -235,13 +236,13 @@ export function generateScheduleLineItems(schedules) {
               confidence: "medium",
             });
           }
-        });
+        }
         break;
 
       case "door":
-        entries.forEach(entry => {
-          if (!entry.mark && !entry.type) return;
-          const seedMatch = findSeedByKeywords(["door", entry.material, entry.type]);
+        for (const entry of entries) {
+          if (!entry.mark && !entry.type) continue;
+          const seedMatch = await findSeedByVector(["door", entry.material, entry.type]);
           lineItems.push({
             code: "08.110",
             description: `Door ${entry.mark || ""}: ${entry.width || ""}x${entry.height || ""} ${entry.material || ""} ${entry.type || ""}${entry.fire_rating && entry.fire_rating !== "None" ? ` (${entry.fire_rating} rated)` : ""}`.trim(),
@@ -276,13 +277,13 @@ export function generateScheduleLineItems(schedules) {
               confidence: "low",
             });
           }
-        });
+        }
         break;
 
       case "window":
-        entries.forEach(entry => {
-          if (!entry.mark && !entry.type) return;
-          const seedMatch = findSeedByKeywords(["window", entry.frame, entry.type]);
+        for (const entry of entries) {
+          if (!entry.mark && !entry.type) continue;
+          const seedMatch = await findSeedByVector(["window", entry.frame, entry.type]);
           lineItems.push({
             code: "08.510",
             description: `Window ${entry.mark || ""}: ${entry.width || ""}x${entry.height || ""} ${entry.frame || ""} ${entry.type || ""} ${entry.glazing || ""}`.trim(),
@@ -293,12 +294,12 @@ export function generateScheduleLineItems(schedules) {
             source: { type, sheetId, entry: entry.mark },
             confidence: seedMatch ? "high" : "medium",
           });
-        });
+        }
         break;
 
       case "finish":
-        entries.forEach(entry => {
-          if (!entry.room) return;
+        for (const entry of entries) {
+          if (!entry.room) continue;
 
           // ── Floor finish ──
           if (entry.floor && !isNone(entry.floor)) {
@@ -397,13 +398,13 @@ export function generateScheduleLineItems(schedules) {
               confidence: "medium",
             });
           }
-        });
+        }
         break;
 
       case "plumbing-fixture":
-        entries.forEach(entry => {
-          if (!entry.mark && !entry.fixture_type) return;
-          const seedMatch = findSeedByKeywords(["plumbing", entry.fixture_type]);
+        for (const entry of entries) {
+          if (!entry.mark && !entry.fixture_type) continue;
+          const seedMatch = await findSeedByVector(["plumbing", entry.fixture_type]);
           lineItems.push({
             code: "22.400",
             description: `${entry.fixture_type || "Plumbing Fixture"} ${entry.mark || ""}${entry.manufacturer ? ` (${entry.manufacturer})` : ""}${entry.model ? ` ${entry.model}` : ""}`.trim(),
@@ -414,12 +415,12 @@ export function generateScheduleLineItems(schedules) {
             source: { type, sheetId, entry: entry.mark },
             confidence: seedMatch ? "high" : "medium",
           });
-        });
+        }
         break;
 
       case "equipment":
-        entries.forEach(entry => {
-          if (!entry.mark && !entry.description) return;
+        for (const entry of entries) {
+          if (!entry.mark && !entry.description) continue;
           lineItems.push({
             code: "11.400",
             description: `Equipment ${entry.mark || ""}: ${entry.description || ""}${entry.size ? ` (${entry.size})` : ""}`.trim(),
@@ -428,12 +429,12 @@ export function generateScheduleLineItems(schedules) {
             source: { type, sheetId, entry: entry.mark },
             confidence: "low",
           });
-        });
+        }
         break;
 
       case "lighting-fixture":
-        entries.forEach(entry => {
-          if (!entry.mark && !entry.description) return;
+        for (const entry of entries) {
+          if (!entry.mark && !entry.description) continue;
           lineItems.push({
             code: "26.510",
             description: `Lighting ${entry.mark || ""}: ${entry.description || ""}${entry.lamp_type ? ` (${entry.lamp_type})` : ""}${entry.wattage ? ` ${entry.wattage}W` : ""}`.trim(),
@@ -442,12 +443,12 @@ export function generateScheduleLineItems(schedules) {
             source: { type, sheetId, entry: entry.mark },
             confidence: "medium",
           });
-        });
+        }
         break;
 
       case "mechanical-equipment":
-        entries.forEach(entry => {
-          if (!entry.mark && !entry.description) return;
+        for (const entry of entries) {
+          if (!entry.mark && !entry.description) continue;
           lineItems.push({
             code: "23.300",
             description: `Mech Equip ${entry.mark || ""}: ${entry.description || ""}${entry.capacity_tons_cfm ? ` (${entry.capacity_tons_cfm})` : ""}${entry.voltage ? `, ${entry.voltage}` : ""}`.trim(),
@@ -456,12 +457,12 @@ export function generateScheduleLineItems(schedules) {
             source: { type, sheetId, entry: entry.mark },
             confidence: "low",
           });
-        });
+        }
         break;
 
       case "finish-detail":
-        entries.forEach(entry => {
-          if (!entry.material_type) return;
+        for (const entry of entries) {
+          if (!entry.material_type) continue;
           lineItems.push({
             code: "09.900",
             description: `${entry.material_type}: ${entry.manufacturer || ""} ${entry.product || ""} — ${entry.color || ""} ${entry.application_area ? `(${entry.application_area})` : ""}`.trim(),
@@ -470,15 +471,48 @@ export function generateScheduleLineItems(schedules) {
             source: { type, sheetId, entry: entry.material_type },
             confidence: "low",
           });
-        });
+        }
         break;
     }
-  });
+  }
 
   return lineItems;
 }
 
 // ─── Seed Element Matching ────────────────────────────────────────────
+
+/** Vector-powered seed matching — async, falls back to keyword scoring */
+async function findSeedByVector(keywords, sizeHint) {
+  const query = keywords.filter(Boolean).join(" ") + (sizeHint ? ` ${sizeHint}` : "");
+  try {
+    const { results } = await searchSimilar(query, {
+      kinds: ['seed_element'],
+      limit: 1,
+      threshold: 0.35,
+    });
+    if (results && results.length > 0) {
+      const match = results[0];
+      return {
+        id: match.source_id,
+        name: match.metadata?.name,
+        code: match.metadata?.code,
+        unit: match.metadata?.unit,
+        trade: match.metadata?.trade,
+        material: match.metadata?.material || 0,
+        labor: match.metadata?.labor || 0,
+        equipment: match.metadata?.equipment || 0,
+        subcontractor: match.metadata?.subcontractor || 0,
+        similarity: match.similarity,
+      };
+    }
+    return null;
+  } catch {
+    // Fallback to keyword matching if vector search is unavailable
+    return findSeedByKeywords(keywords, sizeHint);
+  }
+}
+
+/** Legacy keyword-scoring fallback */
 function findSeedByKeywords(keywords, sizeHint) {
   const terms = keywords.filter(Boolean).map(k => k.toLowerCase());
   let best = null;
@@ -503,7 +537,7 @@ function findSeedByKeywords(keywords, sizeHint) {
 
 // ─── AI-Augmented ROM ─────────────────────────────────────────────────
 // Single AI call to refine ROM based on parsed schedules + project context
-export async function augmentROMWithAI({ baseline, scheduleItems, projectContext, apiKey }) {
+export async function augmentROMWithAI({ baseline, scheduleItems, projectContext, apiKey, notesContext }) {
   if (!apiKey) return baseline;
 
   const scheduleSummary = scheduleItems.map(li =>
@@ -527,7 +561,7 @@ ${scheduleSummary || "(no schedule items detected)"}
 
 ${projectContext ? `Project context:\n${projectContext}` : ""}
 
-Based on the detected schedules, refine the ROM estimates. If schedules reveal above-average complexity (many door types, high-end finishes, extensive mechanical equipment), increase the relevant divisions. If schedules show basic/standard selections, keep baseline or reduce slightly.
+${notesContext ? `${notesContext}\n` : ""}Based on the detected schedules${notesContext ? " and drawing notes" : ""}, refine the ROM estimates. If schedules reveal above-average complexity (many door types, high-end finishes, extensive mechanical equipment), increase the relevant divisions. If schedules show basic/standard selections, keep baseline or reduce slightly.
 
 Return ONLY a JSON object with:
 {

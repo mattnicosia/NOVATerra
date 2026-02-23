@@ -49,6 +49,13 @@ export function useCloudSync() {
           new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
         );
         console.log('[cloudSync] Bidirectional sync complete.');
+
+        // One-time background migration: re-push estimates with blobs so they
+        // get uploaded to Supabase Storage. Estimates created before the blob
+        // sync feature were pushed with blobs stripped and never uploaded.
+        runBlobMigration().catch(err =>
+          console.warn('[cloudSync] Blob migration failed:', err)
+        );
       } catch (err) {
         console.error('[cloudSync] Sync failed:', err);
         useUiStore.getState().setCloudSyncStatus('error');
@@ -257,4 +264,62 @@ async function syncAssemblies() {
   } else if (localAsm) {
     await cloudSync.pushData('assemblies', localAsm);
   }
+}
+
+// ─── One-Time Blob Migration ────────────────────────────────────────
+//
+// Re-pushes any local estimates that have drawing/document/specPdf blob
+// data but were previously synced without uploading blobs to Storage.
+// Runs in the background after normal sync, throttled to avoid overload.
+
+async function runBlobMigration() {
+  // v2: previous migration used proxy upload which failed on files > 4.5MB (Vercel limit)
+  // v2 uses signed-URL direct uploads — no size limit
+  const MIGRATION_KEY = 'blob_migration_v2';
+  if (localStorage.getItem(MIGRATION_KEY) === 'done') return;
+
+  const idxRaw = await storage.get('bldg-index');
+  if (!idxRaw) { localStorage.setItem(MIGRATION_KEY, 'done'); return; }
+
+  const index = JSON.parse(idxRaw.value);
+  if (!index.length) { localStorage.setItem(MIGRATION_KEY, 'done'); return; }
+
+  console.log(`[cloudSync] Blob migration: checking ${index.length} estimates...`);
+  let migrated = 0;
+
+  for (const entry of index) {
+    try {
+      const raw = await storage.get(`bldg-est-${entry.id}`);
+      if (!raw) continue;
+
+      const data = JSON.parse(raw.value);
+      let hasUnuploadedBlobs = false;
+
+      // Check drawings for blobs without storagePath
+      if (Array.isArray(data.drawings)) {
+        hasUnuploadedBlobs = data.drawings.some(d => d.data && !d.storagePath);
+      }
+      // Check documents
+      if (!hasUnuploadedBlobs && Array.isArray(data.documents)) {
+        hasUnuploadedBlobs = data.documents.some(d => d.data && !d.storagePath);
+      }
+      // Check specPdf
+      if (!hasUnuploadedBlobs && data.specPdf && !data._specPdfStoragePath) {
+        hasUnuploadedBlobs = true;
+      }
+
+      if (hasUnuploadedBlobs) {
+        console.log(`[cloudSync] Blob migration: re-pushing estimate ${entry.id}`);
+        await cloudSync.pushEstimate(entry.id, data);
+        migrated++;
+        // Small delay between pushes to avoid hammering the API
+        await new Promise(r => setTimeout(r, 500));
+      }
+    } catch (err) {
+      console.warn(`[cloudSync] Blob migration: failed for ${entry.id}:`, err.message);
+    }
+  }
+
+  localStorage.setItem(MIGRATION_KEY, 'done');
+  console.log(`[cloudSync] Blob migration complete. Re-pushed ${migrated} estimate(s).`);
 }

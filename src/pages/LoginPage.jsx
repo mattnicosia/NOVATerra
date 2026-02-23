@@ -3,6 +3,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useTheme } from '@/hooks/useTheme';
 import Ic from '@/components/shared/Ic';
 import BldgOmniLogo from '@/components/shared/BldgOmniLogo';
+import NovaPortal from '@/components/nova/NovaPortal';
 import { I } from '@/constants/icons';
 
 export default function LoginPage() {
@@ -144,20 +145,22 @@ export default function LoginPage() {
         boxShadow: "0 4px 24px rgba(0,0,0,0.06), 0 1px 4px rgba(0,0,0,0.04)",
         border: `1px solid #E5E5EA`,
       }}>
-        {/* Logo / Brand */}
+        {/* Logo / Brand — NOVA Portal */}
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <div style={{
-            width: 52, height: 52, borderRadius: 14,
-            background: "linear-gradient(135deg, #FF7A3D, #C084FC)",
-            display: "flex", alignItems: "center", justifyContent: "center",
+            position: "relative",
+            width: 72, height: 72,
             margin: "0 auto 16px",
-            boxShadow: "0 4px 16px rgba(255,122,61,0.20)",
+            display: "flex", alignItems: "center", justifyContent: "center",
           }}>
-            <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M2 20h20" />
-              <path d="M5 20V8l7-5 7 5v12" />
-              <path d="M9 20v-6h6v6" />
-            </svg>
+            {/* Glow ring behind portal */}
+            <div style={{
+              position: "absolute", top: -4, left: -4, right: -4, bottom: -4,
+              borderRadius: "50%",
+              boxShadow: "0 0 20px rgba(160,100,255,0.3), 0 0 40px rgba(100,50,220,0.12)",
+              animation: "novaLoginGlow 4s ease-in-out infinite",
+            }} />
+            <NovaPortal size="floating" state="idle" />
           </div>
           <div style={{ marginBottom: 4 }}>
             <BldgOmniLogo size={26} color={textColor} />
@@ -165,6 +168,7 @@ export default function LoginPage() {
           <p style={{ fontSize: 13, color: textMuted, fontWeight: 500 }}>
             Powered by NOVA
           </p>
+          <style>{`@keyframes novaLoginGlow { 0%, 100% { opacity: 0.5; transform: scale(1); } 50% { opacity: 0.9; transform: scale(1.06); } }`}</style>
         </div>
 
         {/* Mode tabs */}

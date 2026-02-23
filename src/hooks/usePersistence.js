@@ -13,7 +13,7 @@ import { useAlternatesStore } from '@/stores/alternatesStore';
 import { useSpecsStore } from '@/stores/specsStore';
 import { useReportsStore } from '@/stores/reportsStore';
 import { useDocumentsStore } from '@/stores/documentsStore';
-import { useBuilderStore, migrateBuilderInstances } from '@/stores/builderStore';
+import { useModuleStore, migrateModuleInstances } from '@/stores/moduleStore';
 import { useUiStore } from '@/stores/uiStore';
 import { useScanStore } from '@/stores/scanStore';
 import * as cloudSync from '@/utils/cloudSync';
@@ -164,14 +164,81 @@ export async function loadEstimate(id) {
   // If not in IndexedDB, try cloud
   if (!raw) {
     try {
-      const cloudData = await cloudSync.pullEstimate(id);
+      let cloudData = await cloudSync.pullEstimate(id);
       if (cloudData) {
-        // Cache locally for next time
+        // Hydrate blobs from Supabase Storage (drawings, documents, specPdf)
+        cloudData = await cloudSync.hydrateBlobs(cloudData);
+        // Cache locally with hydrated blobs for next time
         await storage.set(`bldg-est-${id}`, JSON.stringify(cloudData));
         raw = { value: JSON.stringify(cloudData) };
       }
     } catch (err) {
       console.warn('[loadEstimate] Cloud pull failed:', err);
+    }
+  }
+
+  // Check if locally cached data has stripped blobs that need hydration
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw.value);
+      const hasStrippedBlobs = (Array.isArray(parsed.drawings) && parsed.drawings.some(d => d._cloudBlobStripped && d.storagePath && !d.data))
+        || (Array.isArray(parsed.documents) && parsed.documents.some(d => d._cloudBlobStripped && d.storagePath && !d.data))
+        || (parsed._specPdfStripped && parsed._specPdfStoragePath && !parsed.specPdf);
+      if (hasStrippedBlobs) {
+        const hydrated = await cloudSync.hydrateBlobs(parsed);
+        await storage.set(`bldg-est-${id}`, JSON.stringify(hydrated));
+        raw = { value: JSON.stringify(hydrated) };
+      }
+    } catch (err) {
+      console.warn('[loadEstimate] Blob hydration failed:', err);
+    }
+  }
+
+  // Fallback: if drawings/docs still have no data (stale cache from before blob sync),
+  // re-pull from cloud where storagePaths may now be available, then hydrate
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw.value);
+      const drawingsMissing = Array.isArray(parsed.drawings) && parsed.drawings.length > 0
+        && parsed.drawings.some(d => !d.data);
+      const docsMissing = Array.isArray(parsed.documents) && parsed.documents.length > 0
+        && parsed.documents.some(d => !d.data);
+
+      if (drawingsMissing || docsMissing) {
+        console.log('[loadEstimate] Drawings/docs missing data, refreshing from cloud...');
+        let cloudData = await cloudSync.pullEstimate(id);
+        if (cloudData) {
+          cloudData = await cloudSync.hydrateBlobs(cloudData);
+
+          // Merge hydrated cloud blobs into local data (preserves local non-blob changes)
+          const merged = { ...parsed };
+
+          if (Array.isArray(cloudData.drawings) && drawingsMissing) {
+            merged.drawings = merged.drawings.map(d => {
+              if (d.data) return d; // already have blob locally
+              const cd = cloudData.drawings.find(c => c.id === d.id);
+              return cd?.data ? { ...d, data: cd.data, storagePath: cd.storagePath } : d;
+            });
+          }
+
+          if (Array.isArray(cloudData.documents) && docsMissing) {
+            merged.documents = merged.documents.map(d => {
+              if (d.data) return d;
+              const cd = cloudData.documents.find(c => c.id === d.id);
+              return cd?.data ? { ...d, data: cd.data, storagePath: cd.storagePath } : d;
+            });
+          }
+
+          if (!merged.specPdf && cloudData.specPdf) {
+            merged.specPdf = cloudData.specPdf;
+          }
+
+          await storage.set(`bldg-est-${id}`, JSON.stringify(merged));
+          raw = { value: JSON.stringify(merged) };
+        }
+      }
+    } catch (err) {
+      console.warn('[loadEstimate] Cloud blob refresh failed:', err);
     }
   }
 
@@ -219,7 +286,15 @@ export async function loadEstimate(id) {
     useDrawingsStore.getState().setDrawings(data.drawings || []);
     useDrawingsStore.getState().setDrawingScales(data.drawingScales || {});
     useDrawingsStore.getState().setDrawingDpi(data.drawingDpi || {});
-    useTakeoffsStore.getState().setTakeoffs(data.takeoffs || []);
+    // Migrate takeoff data: rename builderId→moduleId, builderItemId→moduleItemId
+    const migratedTakeoffs = (data.takeoffs || []).map(t => {
+      if (t.builderId !== undefined && t.moduleId === undefined) {
+        const { builderId, builderItemId, ...rest } = t;
+        return { ...rest, moduleId: builderId, moduleItemId: builderItemId };
+      }
+      return t;
+    });
+    useTakeoffsStore.getState().setTakeoffs(migratedTakeoffs);
     useTakeoffsStore.getState().setTkCalibrations(data.tkCalibrations || {});
     useBidLevelingStore.getState().setSubBidSubs(data.subBidSubs || {});
     useBidLevelingStore.getState().setBidTotals(data.bidTotals || {});
@@ -233,15 +308,15 @@ export async function loadEstimate(id) {
     useSpecsStore.getState().setClarifications(data.clarifications || []);
     useAlternatesStore.getState().setAlternates(data.alternates || []);
     useDocumentsStore.getState().setDocuments(data.documents || []);
-    // Migrate builder instances + rename framing → walls
-    let bInst = migrateBuilderInstances(data.builderInstances || {});
+    // Migrate module instances + rename framing → walls (backwards compat: read old builderInstances key)
+    let bInst = migrateModuleInstances(data.moduleInstances || data.builderInstances || {});
     if (bInst["framing"] && !bInst["walls"]) {
       bInst["walls"] = bInst["framing"];
       delete bInst["framing"];
     }
-    useBuilderStore.getState().setBuilderInstances(bInst);
-    useBuilderStore.getState().setActiveBuilder(
-      data.activeBuilder === "framing" ? "walls" : (data.activeBuilder || null)
+    useModuleStore.getState().setModuleInstances(bInst);
+    useModuleStore.getState().setActiveModule(
+      (data.activeModule || data.activeBuilder || "") === "framing" ? "walls" : (data.activeModule || data.activeBuilder || null)
     );
 
     // Restore scan results if present
@@ -297,8 +372,8 @@ export async function saveEstimate() {
     specPdf: useSpecsStore.getState().specPdf,
     alternates: useAlternatesStore.getState().alternates,
     documents: useDocumentsStore.getState().documents,
-    builderInstances: useBuilderStore.getState().builderInstances,
-    activeBuilder: useBuilderStore.getState().activeBuilder,
+    moduleInstances: useModuleStore.getState().moduleInstances,
+    activeModule: useModuleStore.getState().activeModule,
     elements: useDatabaseStore.getState().elements,
     scanResults: useScanStore.getState().scanResults,
   };

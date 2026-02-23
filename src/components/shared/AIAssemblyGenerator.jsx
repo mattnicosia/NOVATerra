@@ -2,9 +2,11 @@ import { useState, useRef } from 'react';
 import { useTheme } from '@/hooks/useTheme';
 import { useDatabaseStore } from '@/stores/databaseStore';
 import { useUiStore } from '@/stores/uiStore';
+import { useNovaStore } from '@/stores/novaStore';
 import { callAnthropicStream } from '@/utils/ai';
 import Ic from '@/components/shared/Ic';
 import { I } from '@/constants/icons';
+import NovaPortal from '@/components/nova/NovaPortal';
 import { bt, inp, nInp } from '@/utils/styles';
 import { nn, fmt2, titleCase } from '@/utils/format';
 
@@ -17,7 +19,7 @@ const EXAMPLE_PROMPTS = [
   "Commercial storefront entrance with aluminum frame and hardware",
 ];
 
-const SYSTEM_PROMPT = `You are a senior construction estimator and assembly builder for BLDG Omni.
+const SYSTEM_PROMPT = `You are NOVA, the AI construction intelligence inside BLDG Omni. You are a senior estimator and assembly builder.
 
 When given a plain-English description of a construction assembly, generate a complete, detailed, priced assembly with all component elements.
 
@@ -144,15 +146,15 @@ export default function AIAssemblyGenerator({ onClose }) {
           display: "flex", alignItems: "center", gap: 12,
         }}>
           <div style={{
-            width: 36, height: 36, borderRadius: T.radius.sm,
-            background: `linear-gradient(135deg, ${C.accent}, ${C.accentAlt || C.purple})`,
-            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+            width: 36, height: 36, flexShrink: 0,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            position: "relative",
           }}>
-            <Ic d={I.ai} size={18} color="#fff" />
+            <NovaPortal size="mini" state={loading ? "thinking" : "idle"} style={{ width: 36, height: 36 }} />
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>AI Assembly Generator</div>
-            <div style={{ fontSize: 11, color: C.textMuted }}>Describe what you need — AI builds a complete priced assembly</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>NOVA Assembly Builder</div>
+            <div style={{ fontSize: 11, color: C.textMuted }}>Describe what you need — NOVA builds a complete priced assembly</div>
           </div>
           <button onClick={onClose} style={{
             width: 28, height: 28, borderRadius: T.radius.full, border: "none",
@@ -200,7 +202,7 @@ export default function AIAssemblyGenerator({ onClose }) {
                   border: "none", cursor: prompt.trim() ? "pointer" : "not-allowed",
                   opacity: prompt.trim() ? 1 : 0.5,
                 }}>
-                  <Ic d={I.ai} size={14} color={prompt.trim() ? "#fff" : C.textDim} /> Generate
+                  <Ic d={I.ai} size={14} color={prompt.trim() ? "#fff" : C.textDim} /> Build with NOVA
                 </button>
               )}
             </div>
@@ -248,7 +250,7 @@ export default function AIAssemblyGenerator({ onClose }) {
                   width: 8, height: 8, borderRadius: 4, background: C.accent,
                   animation: "pulse 1s infinite",
                 }} />
-                <span style={{ fontSize: 10, fontWeight: 600, color: C.accent }}>Generating assembly...</span>
+                <span style={{ fontSize: 10, fontWeight: 600, color: C.accent }}>NOVA is building your assembly...</span>
               </div>
               {stream.slice(0, 500)}{stream.length > 500 ? "..." : ""}
             </div>
@@ -257,12 +259,10 @@ export default function AIAssemblyGenerator({ onClose }) {
           {/* Loading spinner if no stream yet */}
           {loading && !stream && (
             <div style={{ textAlign: "center", padding: 32 }}>
-              <div style={{
-                width: 36, height: 36, borderRadius: 18, margin: "0 auto 12px",
-                border: `3px solid ${C.border}`, borderTopColor: C.accent,
-                animation: "spin 0.8s linear infinite",
-              }} />
-              <div style={{ fontSize: 12, color: C.textMuted }}>AI is building your assembly...</div>
+              <div style={{ margin: "0 auto 12px", width: 56, height: 56, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <NovaPortal size="floating" state="thinking" />
+              </div>
+              <div style={{ fontSize: 12, color: C.textMuted }}>NOVA is building your assembly...</div>
             </div>
           )}
 

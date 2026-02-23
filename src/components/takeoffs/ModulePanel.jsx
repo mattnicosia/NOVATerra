@@ -1,34 +1,34 @@
-// BuilderPanel v2 — Measurement-centric scope tree UI
+// Module Panel — Measurement-centric scope tree UI
 // Organized around what you measure, not trade categories.
 // One measurement → many results. No implied sequence.
 import { useMemo, useCallback, useEffect, useState } from 'react';
 import { useTheme } from '@/hooks/useTheme';
-import { useBuilderStore } from '@/stores/builderStore';
+import { useModuleStore } from '@/stores/moduleStore';
 import { useTakeoffsStore } from '@/stores/takeoffsStore';
 import { useDrawingsStore } from '@/stores/drawingsStore';
-import { BUILDERS } from '@/constants/builders';
-import { computeAllDerivedWithInstances, getDrivingQty, evalCondition } from '@/utils/builderCalc';
+import { MODULES } from '@/constants/modules';
+import { computeAllDerivedWithInstances, getDrivingQty, evalCondition } from '@/utils/moduleCalc';
 import { nn, uid } from '@/utils/format';
 import { inp } from '@/utils/styles';
 import Ic from '@/components/shared/Ic';
 import { I } from '@/constants/icons';
 
-export default function BuilderPanel({ engageMeasuring, selectedDrawingId, addTakeoff, updateTakeoff, removeTakeoff, pageFilter, onDetectWallSchedule, wallScheduleLoading }) {
+export default function ModulePanel({ engageMeasuring, selectedDrawingId, addTakeoff, updateTakeoff, removeTakeoff, pageFilter, onDetectWallSchedule, wallScheduleLoading }) {
   const C = useTheme();
-  const activeBuilder = useBuilderStore(s => s.activeBuilder);
-  const instances = useBuilderStore(s => s.builderInstances);
-  const setActiveBuilder = useBuilderStore(s => s.setActiveBuilder);
-  const setSpec = useBuilderStore(s => s.setSpec);
-  const setItemStatus = useBuilderStore(s => s.setItemStatus);
-  const linkItemToTakeoff = useBuilderStore(s => s.linkItemToTakeoff);
-  const toggleCategory = useBuilderStore(s => s.toggleCategory);
+  const activeModule = useModuleStore(s => s.activeModule);
+  const instances = useModuleStore(s => s.moduleInstances);
+  const setActiveModule = useModuleStore(s => s.setActiveModule);
+  const setSpec = useModuleStore(s => s.setSpec);
+  const setItemStatus = useModuleStore(s => s.setItemStatus);
+  const linkItemToTakeoff = useModuleStore(s => s.linkItemToTakeoff);
+  const toggleCategory = useModuleStore(s => s.toggleCategory);
   // Multi-instance actions
-  const addCategoryInstance = useBuilderStore(s => s.addCategoryInstance);
-  const removeCategoryInstance = useBuilderStore(s => s.removeCategoryInstance);
-  const renameCategoryInstance = useBuilderStore(s => s.renameCategoryInstance);
-  const setCatInstanceSpec = useBuilderStore(s => s.setCatInstanceSpec);
-  const linkCatInstanceItem = useBuilderStore(s => s.linkCatInstanceItem);
-  const setCatInstanceItemStatus = useBuilderStore(s => s.setCatInstanceItemStatus);
+  const addCategoryInstance = useModuleStore(s => s.addCategoryInstance);
+  const removeCategoryInstance = useModuleStore(s => s.removeCategoryInstance);
+  const renameCategoryInstance = useModuleStore(s => s.renameCategoryInstance);
+  const setCatInstanceSpec = useModuleStore(s => s.setCatInstanceSpec);
+  const linkCatInstanceItem = useModuleStore(s => s.linkCatInstanceItem);
+  const setCatInstanceItemStatus = useModuleStore(s => s.setCatInstanceItemStatus);
 
   // Collapsed wall type instances (local UI state)
   const [collapsedInstances, setCollapsedInstances] = useState(new Set());
@@ -48,8 +48,8 @@ export default function BuilderPanel({ engageMeasuring, selectedDrawingId, addTa
   const drawingScales = useDrawingsStore(s => s.drawingScales);
   const drawingDpi = useDrawingsStore(s => s.drawingDpi);
 
-  const builderDef = BUILDERS[activeBuilder];
-  const inst = instances[activeBuilder] || { specs: {}, itemStatus: {}, itemTakeoffIds: {}, expandedCategories: {}, categoryInstances: {} };
+  const moduleDef = MODULES[activeModule];
+  const inst = instances[activeModule] || { specs: {}, itemStatus: {}, itemTakeoffIds: {}, expandedCategories: {}, categoryInstances: {} };
 
   // Build scale context for computing real measured quantities from measurement points
   const scaleCtx = useMemo(() => ({
@@ -58,15 +58,15 @@ export default function BuilderPanel({ engageMeasuring, selectedDrawingId, addTa
 
   // Compute all derived quantities (supports multi-instance categories)
   const derived = useMemo(() => {
-    if (!builderDef) return {};
-    return computeAllDerivedWithInstances(builderDef, inst.specs, takeoffs, inst.itemTakeoffIds, inst.categoryInstances || {}, scaleCtx);
-  }, [builderDef, inst.specs, inst.categoryInstances, takeoffs, inst.itemTakeoffIds, scaleCtx]);
+    if (!moduleDef) return {};
+    return computeAllDerivedWithInstances(moduleDef, inst.specs, takeoffs, inst.itemTakeoffIds, inst.categoryInstances || {}, scaleCtx);
+  }, [moduleDef, inst.specs, inst.categoryInstances, takeoffs, inst.itemTakeoffIds, scaleCtx]);
 
   // Build set of category IDs that have driving item measurements on the current page
   const catsOnPage = useMemo(() => {
-    if (pageFilter !== "page" || !selectedDrawingId || !builderDef) return null;
+    if (pageFilter !== "page" || !selectedDrawingId || !moduleDef) return null;
     const onPage = new Set();
-    builderDef.categories.forEach(cat => {
+    moduleDef.categories.forEach(cat => {
       if (!cat.drivingItemId) return;
       if (cat.multiInstance) {
         // Check all instances for measurements on this page
@@ -89,20 +89,20 @@ export default function BuilderPanel({ engageMeasuring, selectedDrawingId, addTa
       }
     });
     if (onPage.size > 0) {
-      builderDef.categories.forEach(cat => {
+      moduleDef.categories.forEach(cat => {
         if (cat.type === "derived-only" || cat.type === "manual-only") onPage.add(cat.id);
       });
     }
     return onPage;
-  }, [pageFilter, selectedDrawingId, builderDef, inst.itemTakeoffIds, inst.categoryInstances, takeoffs]);
+  }, [pageFilter, selectedDrawingId, moduleDef, inst.itemTakeoffIds, inst.categoryInstances, takeoffs]);
 
   // Sync derived quantities to takeoffs — batches all changes in one store update
   const syncDerivedToTakeoffs = useCallback(() => {
-    if (!builderDef) return;
+    if (!moduleDef) return;
     const TO_COLORS = ["#2563eb","#dc2626","#16a34a","#ea580c","#8b5cf6","#0891b2","#c026d3","#65a30d"];
 
     const currentTakeoffs = useTakeoffsStore.getState().takeoffs;
-    const currentInst = useBuilderStore.getState().builderInstances[activeBuilder] || inst;
+    const currentInst = useModuleStore.getState().moduleInstances[activeModule] || inst;
     const currentItemTakeoffIds = { ...currentInst.itemTakeoffIds };
     const currentItemStatus = { ...currentInst.itemStatus };
     const currentCategoryInstances = JSON.parse(JSON.stringify(currentInst.categoryInstances || {}));
@@ -150,8 +150,8 @@ export default function BuilderPanel({ engageMeasuring, selectedDrawingId, addTa
             color: TO_COLORS[next.length % TO_COLORS.length], drawingRef: "",
             group: groupLabel, linkedItemId: "",
             code: item.code, variables: [], formula: "", measurements: [],
-            builderId: activeBuilder,
-            builderItemId: item.id,
+            moduleId: activeModule,
+            moduleItemId: item.id,
             instanceId: instanceId || null,
           });
           itemTakeoffIds[item.id] = newId;
@@ -168,7 +168,7 @@ export default function BuilderPanel({ engageMeasuring, selectedDrawingId, addTa
       }
     };
 
-    builderDef.categories.forEach(cat => {
+    moduleDef.categories.forEach(cat => {
       if (cat.multiInstance) {
         // Process each instance separately
         const catInstances = currentCategoryInstances[cat.id] || [];
@@ -177,7 +177,7 @@ export default function BuilderPanel({ engageMeasuring, selectedDrawingId, addTa
             const derivedKey = `${catInst.id}:${item.id}`;
             const prevLen = next.length;
             const prevLinks = JSON.stringify(catInst.itemTakeoffIds);
-            syncItem(item, cat, derivedKey, catInst.itemTakeoffIds, catInst.itemStatus, `${builderDef.name} - ${cat.name} (${catInst.label})`, catInst.specs, catInst.id);
+            syncItem(item, cat, derivedKey, catInst.itemTakeoffIds, catInst.itemStatus, `${moduleDef.name} - ${cat.name} (${catInst.label})`, catInst.specs, catInst.id);
             if (next.length !== prevLen || JSON.stringify(catInst.itemTakeoffIds) !== prevLinks) {
               catInstancesChanged = true;
             }
@@ -185,7 +185,7 @@ export default function BuilderPanel({ engageMeasuring, selectedDrawingId, addTa
         });
       } else {
         // Single-instance: use top-level ids
-        const groupLabel = `${builderDef.name} - ${cat.name}`;
+        const groupLabel = `${moduleDef.name} - ${cat.name}`;
         cat.items.forEach(item => {
           syncItem(item, cat, item.id, currentItemTakeoffIds, currentItemStatus, groupLabel, currentInst.specs, null);
         });
@@ -197,13 +197,13 @@ export default function BuilderPanel({ engageMeasuring, selectedDrawingId, addTa
       useTakeoffsStore.getState().setTakeoffs(next);
     }
 
-    // Batch update builder store
+    // Batch update module store
     if (linksChanged || statusChanged || catInstancesChanged) {
-      useBuilderStore.setState(s => ({
-        builderInstances: {
-          ...s.builderInstances,
-          [activeBuilder]: {
-            ...s.builderInstances[activeBuilder],
+      useModuleStore.setState(s => ({
+        moduleInstances: {
+          ...s.moduleInstances,
+          [activeModule]: {
+            ...s.moduleInstances[activeModule],
             itemTakeoffIds: currentItemTakeoffIds,
             itemStatus: currentItemStatus,
             categoryInstances: currentCategoryInstances,
@@ -211,7 +211,7 @@ export default function BuilderPanel({ engageMeasuring, selectedDrawingId, addTa
         },
       }));
     }
-  }, [builderDef, derived, activeBuilder, inst]);
+  }, [moduleDef, derived, activeModule, inst]);
 
   // Handle driving item click (single-instance categories)
   const handleDrivingClick = useCallback((item, cat) => {
@@ -220,19 +220,19 @@ export default function BuilderPanel({ engageMeasuring, selectedDrawingId, addTa
     if (toId) {
       const exists = useTakeoffsStore.getState().takeoffs.some(t => t.id === toId);
       if (!exists) {
-        linkItemToTakeoff(activeBuilder, item.id, null);
+        linkItemToTakeoff(activeModule, item.id, null);
         toId = null;
       }
     }
     if (toId) {
       engageMeasuring(toId);
     } else {
-      const groupName = `${builderDef.name} - ${cat.name}`;
-      const newId = addTakeoff(groupName, item.name, item.unit, item.code, { builderId: activeBuilder, builderItemId: item.id, instanceId: null });
-      linkItemToTakeoff(activeBuilder, item.id, newId);
-      setItemStatus(activeBuilder, item.id, "measured");
+      const groupName = `${moduleDef.name} - ${cat.name}`;
+      const newId = addTakeoff(groupName, item.name, item.unit, item.code, { moduleId: activeModule, moduleItemId: item.id, instanceId: null });
+      linkItemToTakeoff(activeModule, item.id, newId);
+      setItemStatus(activeModule, item.id, "measured");
     }
-  }, [inst.itemTakeoffIds, selectedDrawingId, builderDef, activeBuilder, engageMeasuring, addTakeoff, linkItemToTakeoff, setItemStatus]);
+  }, [inst.itemTakeoffIds, selectedDrawingId, moduleDef, activeModule, engageMeasuring, addTakeoff, linkItemToTakeoff, setItemStatus]);
 
   // Handle driving item click for multi-instance categories
   const handleInstanceDrivingClick = useCallback((item, cat, catInst) => {
@@ -241,90 +241,90 @@ export default function BuilderPanel({ engageMeasuring, selectedDrawingId, addTa
     if (toId) {
       const exists = useTakeoffsStore.getState().takeoffs.some(t => t.id === toId);
       if (!exists) {
-        linkCatInstanceItem(activeBuilder, cat.id, catInst.id, item.id, null);
+        linkCatInstanceItem(activeModule, cat.id, catInst.id, item.id, null);
         toId = null;
       }
     }
     if (toId) {
       engageMeasuring(toId);
     } else {
-      const groupName = `${builderDef.name} - ${cat.name} (${catInst.label})`;
-      const newId = addTakeoff(groupName, `${item.name} (${catInst.label})`, item.unit, item.code, { builderId: activeBuilder, builderItemId: item.id, instanceId: catInst.id });
-      linkCatInstanceItem(activeBuilder, cat.id, catInst.id, item.id, newId);
-      setCatInstanceItemStatus(activeBuilder, cat.id, catInst.id, item.id, "measured");
+      const groupName = `${moduleDef.name} - ${cat.name} (${catInst.label})`;
+      const newId = addTakeoff(groupName, `${item.name} (${catInst.label})`, item.unit, item.code, { moduleId: activeModule, moduleItemId: item.id, instanceId: catInst.id });
+      linkCatInstanceItem(activeModule, cat.id, catInst.id, item.id, newId);
+      setCatInstanceItemStatus(activeModule, cat.id, catInst.id, item.id, "measured");
     }
-  }, [selectedDrawingId, builderDef, activeBuilder, engageMeasuring, addTakeoff, linkCatInstanceItem, setCatInstanceItemStatus]);
+  }, [selectedDrawingId, moduleDef, activeModule, engageMeasuring, addTakeoff, linkCatInstanceItem, setCatInstanceItemStatus]);
 
   // Handle spec change — useEffect([derived]) triggers sync automatically after re-render
   const handleSpecChange = useCallback((specId, value) => {
     const numVal = parseFloat(value);
-    setSpec(activeBuilder, specId, isNaN(numVal) ? value : numVal);
-  }, [activeBuilder, setSpec]);
+    setSpec(activeModule, specId, isNaN(numVal) ? value : numVal);
+  }, [activeModule, setSpec]);
 
   // Handle spec change for multi-instance categories
   const handleInstanceSpecChange = useCallback((catId, instanceId, specId, value) => {
     const numVal = parseFloat(value);
-    setCatInstanceSpec(activeBuilder, catId, instanceId, specId, isNaN(numVal) ? value : numVal);
-  }, [activeBuilder, setCatInstanceSpec]);
+    setCatInstanceSpec(activeModule, catId, instanceId, specId, isNaN(numVal) ? value : numVal);
+  }, [activeModule, setCatInstanceSpec]);
 
   // Handle manual qty change
   const handleManualQty = useCallback((item, cat, value) => {
     let toId = inst.itemTakeoffIds[item.id];
     const qty = nn(value);
     if (!toId && qty > 0) {
-      const groupName = `${builderDef.name} - ${cat.name}`;
-      const newId = addTakeoff(groupName, item.name, item.unit, item.code, { noMeasure: true, quantity: qty, builderId: activeBuilder, builderItemId: item.id, instanceId: null });
-      linkItemToTakeoff(activeBuilder, item.id, newId);
-      setItemStatus(activeBuilder, item.id, "complete");
+      const groupName = `${moduleDef.name} - ${cat.name}`;
+      const newId = addTakeoff(groupName, item.name, item.unit, item.code, { noMeasure: true, quantity: qty, moduleId: activeModule, moduleItemId: item.id, instanceId: null });
+      linkItemToTakeoff(activeModule, item.id, newId);
+      setItemStatus(activeModule, item.id, "complete");
     } else if (toId) {
       updateTakeoff(toId, "quantity", qty);
     }
-  }, [inst.itemTakeoffIds, builderDef, activeBuilder, addTakeoff, updateTakeoff, linkItemToTakeoff, setItemStatus]);
+  }, [inst.itemTakeoffIds, moduleDef, activeModule, addTakeoff, updateTakeoff, linkItemToTakeoff, setItemStatus]);
 
   // Exclude / restore item
   const toggleExclude = useCallback((item, catInst = null) => {
     if (catInst) {
       // Find cat for this instance
-      const cat = builderDef?.categories.find(c => (c.categoryInstances?.[c.id] || []).includes(catInst)) ||
-        builderDef?.categories.find(c => c.multiInstance && (inst.categoryInstances?.[c.id] || []).some(ci => ci.id === catInst.id));
+      const cat = moduleDef?.categories.find(c => (c.categoryInstances?.[c.id] || []).includes(catInst)) ||
+        moduleDef?.categories.find(c => c.multiInstance && (inst.categoryInstances?.[c.id] || []).some(ci => ci.id === catInst.id));
       if (!cat) return;
       const current = catInst.itemStatus?.[item.id];
       if (current === "excluded") {
-        setCatInstanceItemStatus(activeBuilder, cat.id, catInst.id, item.id, "pending");
+        setCatInstanceItemStatus(activeModule, cat.id, catInst.id, item.id, "pending");
       } else {
-        setCatInstanceItemStatus(activeBuilder, cat.id, catInst.id, item.id, "excluded");
+        setCatInstanceItemStatus(activeModule, cat.id, catInst.id, item.id, "excluded");
         const toId = catInst.itemTakeoffIds?.[item.id];
         if (toId) {
           removeTakeoff(toId);
-          linkCatInstanceItem(activeBuilder, cat.id, catInst.id, item.id, null);
+          linkCatInstanceItem(activeModule, cat.id, catInst.id, item.id, null);
         }
       }
     } else {
       const current = inst.itemStatus[item.id];
       if (current === "excluded") {
-        setItemStatus(activeBuilder, item.id, "pending");
+        setItemStatus(activeModule, item.id, "pending");
       } else {
-        setItemStatus(activeBuilder, item.id, "excluded");
+        setItemStatus(activeModule, item.id, "excluded");
         const toId = inst.itemTakeoffIds[item.id];
         if (toId) {
           removeTakeoff(toId);
-          linkItemToTakeoff(activeBuilder, item.id, null);
+          linkItemToTakeoff(activeModule, item.id, null);
         }
       }
     }
-  }, [inst.itemStatus, inst.itemTakeoffIds, inst.categoryInstances, activeBuilder, builderDef, setItemStatus, removeTakeoff, linkItemToTakeoff, setCatInstanceItemStatus, linkCatInstanceItem]);
+  }, [inst.itemStatus, inst.itemTakeoffIds, inst.categoryInstances, activeModule, moduleDef, setItemStatus, removeTakeoff, linkItemToTakeoff, setCatInstanceItemStatus, linkCatInstanceItem]);
 
   // Trigger sync on derived changes
   useEffect(() => {
-    if (builderDef) syncDerivedToTakeoffs();
+    if (moduleDef) syncDerivedToTakeoffs();
   }, [derived]);
 
   // Smart defaults: when a spec with defaultMap changes, auto-update dependent specs
   // e.g., changing WallHeight auto-updates SheathSheet if user hasn't manually overridden it
   // Supports range-based numeric lookup: keys are thresholds, finds largest key ≤ value
   useEffect(() => {
-    if (!builderDef) return;
-    builderDef.categories.forEach(cat => {
+    if (!moduleDef) return;
+    moduleDef.categories.forEach(cat => {
       if (!cat.multiInstance) return;
       const catInstances = inst.categoryInstances?.[cat.id] || [];
       catInstances.forEach(catInst => {
@@ -350,16 +350,16 @@ export default function BuilderPanel({ engageMeasuring, selectedDrawingId, addTa
             const allDefaults = Object.values(mapping);
             if (currentVal === undefined || allDefaults.includes(currentVal)) {
               if (currentVal !== suggestedDefault) {
-                setCatInstanceSpec(activeBuilder, cat.id, catInst.id, spec.id, suggestedDefault);
+                setCatInstanceSpec(activeModule, cat.id, catInst.id, spec.id, suggestedDefault);
               }
             }
           });
         });
       });
     });
-  }, [builderDef, inst.categoryInstances, activeBuilder, setCatInstanceSpec]);
+  }, [moduleDef, inst.categoryInstances, activeModule, setCatInstanceSpec]);
 
-  if (!builderDef) return null;
+  if (!moduleDef) return null;
 
   // ── RENDER ──────────────────────────────────────────────────────────────────
 
@@ -563,15 +563,15 @@ export default function BuilderPanel({ engageMeasuring, selectedDrawingId, addTa
     "K-Style 6\" Aluminum": "#6B7280",
     "Half-Round 6\" Copper": "#B45309",
     "Commercial Scupper": "#475569",
-    // Steel builder — structural framing
+    // Steel module — structural framing
     "W-Shapes (Beams/Columns)": "#6366F1", "HSS Tubes": "#8B5CF6",
     "Channels/Angles": "#0EA5E9", "Built-Up Plate Girders": "#475569",
-    // Steel builder — joists
+    // Steel module — joists
     "K-Series": "#6366F1", "LH-Series": "#8B5CF6", "DLH-Series": "#0EA5E9",
-    // Steel builder — decking
+    // Steel module — decking
     "1.5\" B 22ga": "#6366F1", "1.5\" B 20ga": "#6366F1",
     "2\" W 20ga": "#8B5CF6", "3\" N 20ga": "#0EA5E9", "3\" N 18ga": "#0891B2",
-    // Steel builder — misc
+    // Steel module — misc
     "Lintels": "#6B7280", "Embed Plates": "#475569",
     "Stairs": "#DC2626", "Railings": "#D97706", "Grating": "#6366F1",
   };
@@ -609,7 +609,7 @@ export default function BuilderPanel({ engageMeasuring, selectedDrawingId, addTa
           {/* Editable label */}
           <input
             value={catInst.label}
-            onChange={e => renameCategoryInstance(activeBuilder, cat.id, catInst.id, e.target.value)}
+            onChange={e => renameCategoryInstance(activeModule, cat.id, catInst.id, e.target.value)}
             onClick={e => e.stopPropagation()}
             style={{ width: 60, fontSize: 10, fontWeight: 700, color: matColor, background: "transparent", border: "none", outline: "none", padding: 0 }}
           />
@@ -668,7 +668,7 @@ export default function BuilderPanel({ engageMeasuring, selectedDrawingId, addTa
                   const toId = catInst.itemTakeoffIds?.[item.id];
                   if (toId) removeTakeoff(toId);
                 });
-                removeCategoryInstance(activeBuilder, cat.id, catInst.id);
+                removeCategoryInstance(activeModule, cat.id, catInst.id);
               }}
               title="Remove type"
               style={{ width: 14, height: 14, border: "none", background: "transparent", color: C.red, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, opacity: 0.6 }}
@@ -745,10 +745,10 @@ export default function BuilderPanel({ engageMeasuring, selectedDrawingId, addTa
                 <path d="M2 20h20" /><path d="M5 20V10l7-7 7 7v10" /><path d="M9 20v-4h6v4" />
               </svg>
             </div>
-            <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{builderDef.name}</span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{moduleDef.name} <span style={{ fontSize: 10, fontWeight: 400, color: C.textMuted }}>Module</span></span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            {activeBuilder === "walls" && onDetectWallSchedule && (
+            {activeModule === "walls" && onDetectWallSchedule && (
               <button onClick={(e) => { e.stopPropagation(); onDetectWallSchedule(); }}
                 disabled={!selectedDrawingId || wallScheduleLoading}
                 title={!selectedDrawingId ? "Select a drawing first" : "AI detects wall type schedule from current drawing"}
@@ -765,7 +765,7 @@ export default function BuilderPanel({ engageMeasuring, selectedDrawingId, addTa
                 {wallScheduleLoading ? "Scanning..." : "AI Wall Schedule"}
               </button>
             )}
-            <button onClick={(e) => { e.stopPropagation(); setActiveBuilder(null); }} style={{ width: 22, height: 22, border: "none", background: C.bg2, color: C.textDim, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 12 }}>
+            <button onClick={(e) => { e.stopPropagation(); setActiveModule(null); }} style={{ width: 22, height: 22, border: "none", background: C.bg2, color: C.textDim, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 12 }}>
               <Ic d={I.x} size={10} color={C.textDim} />
             </button>
           </div>
@@ -774,7 +774,7 @@ export default function BuilderPanel({ engageMeasuring, selectedDrawingId, addTa
 
       {/* Scope Tree */}
       <div style={{ flex: 1, overflowY: "auto", padding: "4px 0" }}>
-        {builderDef.categories.map(cat => {
+        {moduleDef.categories.map(cat => {
           if (catsOnPage && !catsOnPage.has(cat.id)) return null;
 
           const isExpanded = inst.expandedCategories[cat.id] !== false;
@@ -791,12 +791,12 @@ export default function BuilderPanel({ engageMeasuring, selectedDrawingId, addTa
                   background: `${C.bg2}60`, cursor: "pointer",
                   borderLeft: "3px solid transparent",
                 }}>
-                  <div onClick={() => toggleCategory(activeBuilder, cat.id)} style={{ display: "flex", alignItems: "center", padding: 2 }}>
+                  <div onClick={() => toggleCategory(activeModule, cat.id)} style={{ display: "flex", alignItems: "center", padding: 2 }}>
                     <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke={C.textDim} strokeWidth="1.5" style={{ transform: isExpanded ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>
                       <path d="M2 1l4 3-4 3" />
                     </svg>
                   </div>
-                  <div onClick={() => toggleCategory(activeBuilder, cat.id)} style={{ flex: 1 }}>
+                  <div onClick={() => toggleCategory(activeModule, cat.id)} style={{ flex: 1 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                       <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{cat.name}</span>
                       <span style={{ fontSize: 8, fontWeight: 600, color: C.textDim, background: `${C.text}10`, padding: "1px 4px", borderRadius: 3 }}>
@@ -805,7 +805,7 @@ export default function BuilderPanel({ engageMeasuring, selectedDrawingId, addTa
                     </div>
                   </div>
                   <button
-                    onClick={(e) => { e.stopPropagation(); addCategoryInstance(activeBuilder, cat.id); }}
+                    onClick={(e) => { e.stopPropagation(); addCategoryInstance(activeModule, cat.id); }}
                     title="Add footing type"
                     style={{
                       border: "none", borderRadius: 3, cursor: "pointer",
@@ -854,12 +854,12 @@ export default function BuilderPanel({ engageMeasuring, selectedDrawingId, addTa
                   borderLeft: isMeasuring ? `3px solid ${C.accent}` : "3px solid transparent",
                   cursor: "pointer",
                 }}>
-                  <div onClick={() => toggleCategory(activeBuilder, cat.id)} style={{ display: "flex", alignItems: "center", padding: 2 }}>
+                  <div onClick={() => toggleCategory(activeModule, cat.id)} style={{ display: "flex", alignItems: "center", padding: 2 }}>
                     <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke={C.textDim} strokeWidth="1.5" style={{ transform: isExpanded ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>
                       <path d="M2 1l4 3-4 3" />
                     </svg>
                   </div>
-                  <div onClick={() => toggleCategory(activeBuilder, cat.id)} style={{ flex: 1, minWidth: 0 }}>
+                  <div onClick={() => toggleCategory(activeModule, cat.id)} style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                       <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{cat.name}</span>
                       {drivingItem && (
@@ -916,7 +916,7 @@ export default function BuilderPanel({ engageMeasuring, selectedDrawingId, addTa
             return (
               <div key={cat.id} style={{ marginBottom: 2, borderBottom: `1px solid ${C.border}15` }}>
                 <div
-                  onClick={() => toggleCategory(activeBuilder, cat.id)}
+                  onClick={() => toggleCategory(activeModule, cat.id)}
                   style={{
                     display: "flex", alignItems: "center", gap: 6, padding: "6px 10px",
                     cursor: "pointer", opacity: hasAnyQty ? 1 : 0.6,
@@ -947,7 +947,7 @@ export default function BuilderPanel({ engageMeasuring, selectedDrawingId, addTa
             return (
               <div key={cat.id} style={{ marginBottom: 2, borderBottom: `1px solid ${C.border}15` }}>
                 <div
-                  onClick={() => toggleCategory(activeBuilder, cat.id)}
+                  onClick={() => toggleCategory(activeModule, cat.id)}
                   style={{
                     display: "flex", alignItems: "center", gap: 6, padding: "6px 10px",
                     cursor: "pointer", borderLeft: "3px solid transparent",
@@ -976,7 +976,7 @@ export default function BuilderPanel({ engageMeasuring, selectedDrawingId, addTa
 
       {/* Footer */}
       <div style={{ padding: "8px 12px", borderTop: `1px solid ${C.border}`, fontSize: 10, color: C.textDim, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span>{builderDef.name}</span>
+        <span>{moduleDef.name} Module</span>
         {!selectedDrawingId && (
           <span style={{ color: C.orange, fontWeight: 600 }}>Select a drawing</span>
         )}

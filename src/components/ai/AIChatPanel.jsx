@@ -9,6 +9,7 @@ import { useDrawingsStore } from '@/stores/drawingsStore';
 import { callAnthropicStream, buildProjectContext, createAIAbort } from '@/utils/ai';
 import Ic from '@/components/shared/Ic';
 import { I } from '@/constants/icons';
+import NovaPortal from '@/components/nova/NovaPortal';
 
 const SYSTEM_PROMPT = `You are NOVA, an expert construction estimating AI assistant embedded inside BLDG Omni. You have deep knowledge of:
 - CSI MasterFormat divisions and specification sections
@@ -165,15 +166,22 @@ export default function AIChatPanel() {
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{
-            width: 32, height: 32, borderRadius: 8,
-            background: `linear-gradient(135deg, ${C.accent}, ${C.accentAlt || C.purple || C.accent})`,
+            width: 36, height: 36, position: "relative",
             display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: `0 2px 8px ${C.accent}30`,
           }}>
-            <Ic d={I.ai} size={16} color="#fff" />
+            <div style={{
+              position: "absolute", top: -3, left: -3, right: -3, bottom: -3,
+              borderRadius: "50%",
+              boxShadow: loading
+                ? "0 0 14px rgba(160,100,255,0.5), 0 0 28px rgba(120,60,220,0.25)"
+                : "0 0 10px rgba(160,100,255,0.3), 0 0 20px rgba(100,50,220,0.1)",
+              transition: "box-shadow 0.4s ease",
+              pointerEvents: "none",
+            }} />
+            <NovaPortal size="avatar" state={loading ? "thinking" : "idle"} />
           </div>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>NOVA AI</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>NOVA</div>
             <div style={{ fontSize: 10, color: C.textDim }}>
               {project.name ? `${project.name}` : "Project Assistant"}
               {items.length > 0 && ` • ${items.length} items`}
@@ -375,11 +383,10 @@ function MessageBubble({ msg, C, streaming }) {
     }}>
       {!isUser && (
         <div style={{
-          width: 28, height: 28, borderRadius: 7, flexShrink: 0, marginTop: 2,
-          background: `linear-gradient(135deg, ${C.accent}, ${C.accentAlt || C.accent})`,
+          width: 30, height: 30, flexShrink: 0, marginTop: 2,
           display: "flex", alignItems: "center", justifyContent: "center",
         }}>
-          <Ic d={I.ai} size={12} color="#fff" />
+          <NovaPortal size="mini" state={streaming ? "thinking" : "idle"} />
         </div>
       )}
       <div style={{

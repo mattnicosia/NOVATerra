@@ -1,8 +1,8 @@
-// Builder calculation engine
-// Evaluates formulas and conditions for Smart Assembly Builders
-// Generic — works for any builder defined in builders.js
+// Module calculation engine
+// Evaluates formulas and conditions for Smart Assembly Modules
+// Generic — works for any module defined in modules.js
 import { nn } from '@/utils/format';
-import { parseRebarSpec, REBAR_WEIGHTS } from '@/constants/builders';
+import { parseRebarSpec, REBAR_WEIGHTS } from '@/constants/modules';
 import { getMeasuredQtyCtx } from '@/utils/measurementCalc';
 
 // Parse framing-specific spec strings into numeric formula variables
@@ -188,7 +188,7 @@ function computeFramingContext(ctx, specs) {
   ctx.PrintCFPerSF = (ctx.PrintThickNum / 12) * 1.10;
 
   // ══════════════════════════════════════════════════════════════
-  // FLOORS BUILDER — context parsing
+  // FLOORS MODULE — context parsing
   // ══════════════════════════════════════════════════════════════
 
   // ── Wood Framing (floors) ──
@@ -307,13 +307,13 @@ function computeFramingContext(ctx, specs) {
 }
 
 // Build a context object from specs + driving quantities for formula evaluation
-// GENERIC — reads formulaVar from builder definition, no hardcoded maps
+// GENERIC — reads formulaVar from module definition, no hardcoded maps
 // scaleCtx = { calibrations, scales, dpi, drawings } — needed to compute real quantities from measurements
-export function buildCalcContext(builderDef, specs, takeoffs, itemTakeoffIds, scaleCtx) {
+export function buildCalcContext(moduleDef, specs, takeoffs, itemTakeoffIds, scaleCtx) {
   const ctx = { ...specs };
 
-  // GENERIC: Build driving map from builder definition's formulaVar properties
-  builderDef.categories.forEach(cat => {
+  // GENERIC: Build driving map from module definition's formulaVar properties
+  moduleDef.categories.forEach(cat => {
     cat.items.forEach(item => {
       if (item.type === "driving" && item.formulaVar) {
         const toId = itemTakeoffIds[item.id];
@@ -332,8 +332,8 @@ export function buildCalcContext(builderDef, specs, takeoffs, itemTakeoffIds, sc
     });
   });
 
-  // GENERIC: Compute context helpers from builder definition
-  (builderDef.contextHelpers || []).forEach(helper => {
+  // GENERIC: Compute context helpers from module definition
+  (moduleDef.contextHelpers || []).forEach(helper => {
     if (helper.type === "rebarLineal") {
       const rebar = parseRebarSpec(specs[helper.specId]);
       ctx[helper.id] = rebar.lbsPerFt * (12 / rebar.spacing);
@@ -343,18 +343,18 @@ export function buildCalcContext(builderDef, specs, takeoffs, itemTakeoffIds, sc
     }
   });
 
-  // Builder-specific: parse spec strings into numeric variables
-  if (builderDef.id === "walls" || builderDef.id === "floors" || builderDef.id === "roof") {
+  // Module-specific: parse spec strings into numeric variables
+  if (moduleDef.id === "walls" || moduleDef.id === "floors" || moduleDef.id === "roof") {
     computeFramingContext(ctx, specs);
   }
-  if (builderDef.id === "steel") {
+  if (moduleDef.id === "steel") {
     computeSteelContext(ctx, specs);
   }
 
   return ctx;
 }
 
-// Steel builder: compute context variables for structural steel formulas
+// Steel module: compute context variables for structural steel formulas
 function computeSteelContext(ctx, specs) {
   // ── Structural Framing ratios (per ton of structural steel) ──
   ctx.SteelConnectionsPerTon = 2;
@@ -382,7 +382,7 @@ function computeSteelContext(ctx, specs) {
 }
 
 // Safely evaluate a formula string with variable substitution
-export function evalBuilderFormula(formula, context) {
+export function evalModuleFormula(formula, context) {
   if (!formula || !formula.trim()) return 0;
   try {
     let expr = formula.trim();
@@ -425,21 +425,21 @@ function applyRounding(qty, item) {
   return Math.round(qty * 100) / 100;
 }
 
-// Compute all derived quantities for a builder instance
+// Compute all derived quantities for a module instance
 // Returns { itemId: { qty: number, active: boolean }, ... }
 // scaleCtx is optional but required for live quantity updates from measurements
-export function computeAllDerived(builderDef, specs, takeoffs, itemTakeoffIds, scaleCtx) {
-  const ctx = buildCalcContext(builderDef, specs, takeoffs, itemTakeoffIds, scaleCtx);
+export function computeAllDerived(moduleDef, specs, takeoffs, itemTakeoffIds, scaleCtx) {
+  const ctx = buildCalcContext(moduleDef, specs, takeoffs, itemTakeoffIds, scaleCtx);
   const results = {};
 
   // First pass: compute all derived items
-  builderDef.categories.forEach(cat => {
+  moduleDef.categories.forEach(cat => {
     cat.items.forEach(item => {
       if (item.type === "derived") {
         const active = evalCondition(item.condition, ctx);
         let qty = 0;
         if (active && item.formula) {
-          qty = evalBuilderFormula(item.formula, ctx);
+          qty = evalModuleFormula(item.formula, ctx);
           qty = applyRounding(qty, item);
           if (qty < 0) qty = 0;
           // Store computed qty in context so later items can reference it
@@ -456,7 +456,7 @@ export function computeAllDerived(builderDef, specs, takeoffs, itemTakeoffIds, s
   return results;
 }
 
-// Get the driving quantity for a builder item from its linked takeoff
+// Get the driving quantity for a module item from its linked takeoff
 // scaleCtx is optional — when provided, computes real measured qty from measurements
 export function getDrivingQty(itemId, itemTakeoffIds, takeoffs, scaleCtx) {
   const toId = itemTakeoffIds[itemId];
@@ -486,15 +486,15 @@ function resolveDrivingQty(itemId, itemTakeoffIds, takeoffs, scaleCtx) {
 // Enhanced version that handles multi-instance categories
 // Returns: { itemId: { qty, active } } for single-instance items
 //   PLUS: { "instanceId:itemId": { qty, active } } for multi-instance items
-export function computeAllDerivedWithInstances(builderDef, globalSpecs, takeoffs, globalItemTakeoffIds, categoryInstances, scaleCtx) {
+export function computeAllDerivedWithInstances(moduleDef, globalSpecs, takeoffs, globalItemTakeoffIds, categoryInstances, scaleCtx) {
   const results = {};
 
   // Build base context from global specs + all global driving items
-  const globalCtx = buildCalcContext(builderDef, globalSpecs, takeoffs, globalItemTakeoffIds, scaleCtx);
+  const globalCtx = buildCalcContext(moduleDef, globalSpecs, takeoffs, globalItemTakeoffIds, scaleCtx);
 
   // ── PASS 1: Process multi-instance categories first ──
   // These produce quantities that may feed into derived-only categories (e.g., drywall)
-  builderDef.categories.forEach(cat => {
+  moduleDef.categories.forEach(cat => {
     if (!cat.multiInstance) return;
     const instances = categoryInstances?.[cat.id] || [];
 
@@ -507,14 +507,14 @@ export function computeAllDerivedWithInstances(builderDef, globalSpecs, takeoffs
       const mergedIds = { ...globalItemTakeoffIds, ...catInst.itemTakeoffIds };
       // Merge: spec defaults + global specs + instance specs (instance wins)
       const mergedSpecs = { ...specDefaults, ...globalSpecs, ...catInst.specs };
-      const instCtx = buildCalcContext(builderDef, mergedSpecs, takeoffs, mergedIds, scaleCtx);
+      const instCtx = buildCalcContext(moduleDef, mergedSpecs, takeoffs, mergedIds, scaleCtx);
 
       cat.items.forEach(item => {
         if (item.type === "derived") {
           const active = evalCondition(item.condition, instCtx);
           let qty = 0;
           if (active && item.formula) {
-            qty = evalBuilderFormula(item.formula, instCtx);
+            qty = evalModuleFormula(item.formula, instCtx);
             qty = applyRounding(qty, item);
             if (qty < 0) qty = 0;
           }
@@ -526,12 +526,12 @@ export function computeAllDerivedWithInstances(builderDef, globalSpecs, takeoffs
   });
 
   // ── PASS 1.5: Cross-instance aggregation ──
-  // Compute TotalDwSF for the framing builder's drywall category
-  if (builderDef.id === "walls") {
+  // Compute TotalDwSF for the framing module's drywall category
+  if (moduleDef.id === "walls") {
     let totalDwSF = 0;
 
     // Exterior walls: 1 side (interior face gets drywall)
-    const extCat = builderDef.categories.find(c => c.id === "ext-walls");
+    const extCat = moduleDef.categories.find(c => c.id === "ext-walls");
     const extDefaults = {};
     (extCat?.specs || []).forEach(s => { if (s.default !== undefined) extDefaults[s.id] = s.default; });
     const extInstances = categoryInstances?.["ext-walls"] || [];
@@ -546,7 +546,7 @@ export function computeAllDerivedWithInstances(builderDef, globalSpecs, takeoffs
     });
 
     // Interior walls: 2 sides (both faces get drywall)
-    const intCat = builderDef.categories.find(c => c.id === "int-walls");
+    const intCat = moduleDef.categories.find(c => c.id === "int-walls");
     const intDefaults = {};
     (intCat?.specs || []).forEach(s => { if (s.default !== undefined) intDefaults[s.id] = s.default; });
     const intInstances = categoryInstances?.["int-walls"] || [];
@@ -565,14 +565,14 @@ export function computeAllDerivedWithInstances(builderDef, globalSpecs, takeoffs
 
   // ── PASS 2: Process non-multi-instance categories ──
   // These include derived-only (e.g., excavation, drywall) and single-instance measurement categories
-  builderDef.categories.forEach(cat => {
+  moduleDef.categories.forEach(cat => {
     if (cat.multiInstance) return;
     cat.items.forEach(item => {
       if (item.type === "derived") {
         const active = evalCondition(item.condition, globalCtx);
         let qty = 0;
         if (active && item.formula) {
-          qty = evalBuilderFormula(item.formula, globalCtx);
+          qty = evalModuleFormula(item.formula, globalCtx);
           qty = applyRounding(qty, item);
           if (qty < 0) qty = 0;
           const camel = item.id.replace(/-([a-z])/g, (_, c) => c.toUpperCase());

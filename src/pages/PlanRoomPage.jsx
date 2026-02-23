@@ -12,12 +12,15 @@ import Ic from '@/components/shared/Ic';
 import { I } from '@/constants/icons';
 import { inp, bt } from '@/utils/styles';
 import { uid, nowStr } from '@/utils/format';
-import { callAnthropic, batchAI, optimizeImageForAI, imageBlock, buildProjectContext } from '@/utils/ai';
+import { callAnthropic, batchAI, optimizeImageForAI, imageBlock, buildProjectContext, runOCR, segmentedOCR } from '@/utils/ai';
 import { loadPdfJs } from '@/utils/pdf';
 import { SCALE_PRESETS } from '@/constants/scales';
 import { buildDetectionPrompt, buildParsePrompt, normalizeScheduleData, SCHEDULE_TYPES } from '@/utils/scheduleParsers';
 import { generateBaselineROM, generateScheduleLineItems, augmentROMWithAI, estimateProjectSF } from '@/utils/romEngine';
+import { extractDrawingNotes, buildNotesContext } from '@/utils/notesExtractor';
 import ScanResultsModal from '@/components/planroom/ScanResultsModal';
+import NovaPortal from '@/components/nova/NovaPortal';
+import { useNovaStore } from '@/stores/novaStore';
 import DocumentsPage from '@/pages/DocumentsPage';
 
 // Convert ArrayBuffer to base64
@@ -399,12 +402,12 @@ Use proper CSI MasterFormat codes (e.g., "03.300.100" for cast-in-place concrete
     if (currentDrawings.length === 0) { showToast("Upload drawings first", "error"); return; }
 
     clearScan();
-    setScanProgress({ phase: "detect", current: 0, total: currentDrawings.length, message: "Detecting schedules..." });
+    setScanProgress({ phase: "detect", current: 0, total: currentDrawings.length, message: "NOVA is scanning for schedules..." });
 
     try {
       // ── Phase 1: Detect schedules on each drawing ──
       const detections = await batchAI(currentDrawings, async (d, idx) => {
-        setScanProgress({ phase: "detect", current: idx + 1, total: currentDrawings.length, message: `Scanning sheet ${idx + 1}/${currentDrawings.length}...` });
+        setScanProgress({ phase: "detect", current: idx + 1, total: currentDrawings.length, message: `NOVA scanning sheet ${idx + 1}/${currentDrawings.length}...` });
 
         let imgData;
         const curCanvases = useDrawingsStore.getState().pdfCanvases;
@@ -415,8 +418,24 @@ Use proper CSI MasterFormat codes (e.g., "03.300.100" for cast-in-place concrete
         }
         if (!imgData) return { sheetId: d.id, schedules: [] };
 
-        const optimized = await optimizeImageForAI(imgData, 1400);
-        const prompt = buildDetectionPrompt(d.sheetTitle || d.label || d.sheetNumber);
+        const optimized = await optimizeImageForAI(imgData, 2000);
+
+        // Run segmented OCR — 4 overlapping quadrants for high-res text extraction
+        let ocrText = '';
+        try {
+          const ocrResult = await segmentedOCR(optimized.base64, optimized.width, optimized.height);
+          ocrText = ocrResult.text || '';
+          if (ocrText) console.log(`[OCR-SEG] Extracted ${ocrText.length} chars from sheet ${idx + 1}`);
+        } catch (ocrErr) {
+          console.warn('[OCR-SEG] Segmented OCR failed for sheet', idx + 1, '— falling back to single OCR');
+          try {
+            const fallback = await runOCR(optimized.base64);
+            ocrText = fallback.text || '';
+          } catch { /* OCR is optional — scan continues without it */ }
+        }
+
+        const sheetLabel = d.sheetTitle || d.label || d.sheetNumber;
+        const prompt = buildDetectionPrompt(sheetLabel, ocrText);
 
         const result = await callAnthropic({
           apiKey: key, max_tokens: 1000,
@@ -428,18 +447,19 @@ Use proper CSI MasterFormat codes (e.g., "03.300.100" for cast-in-place concrete
 
         try {
           const jsonMatch = result.match(/\[[\s\S]*\]/);
-          if (!jsonMatch) return { sheetId: d.id, sheetLabel: d.sheetTitle || d.sheetNumber || d.label, schedules: [] };
+          if (!jsonMatch) return { sheetId: d.id, sheetLabel, schedules: [], ocrText };
           const parsed = JSON.parse(jsonMatch[0]);
           return {
             sheetId: d.id,
-            sheetLabel: d.sheetTitle || d.sheetNumber || d.label,
+            sheetLabel,
             imgBase64: optimized.base64,
             imgWidth: optimized.width,
             imgHeight: optimized.height,
             schedules: Array.isArray(parsed) ? parsed : [],
+            ocrText, // Pass to Phase 2 for reuse
           };
         } catch {
-          return { sheetId: d.id, sheetLabel: d.sheetTitle || d.sheetNumber || d.label, schedules: [] };
+          return { sheetId: d.id, sheetLabel, schedules: [], ocrText };
         }
       }, 3);
 
@@ -459,24 +479,57 @@ Use proper CSI MasterFormat codes (e.g., "03.300.100" for cast-in-place concrete
               imgBase64: det.imgBase64,
               imgWidth: det.imgWidth,
               imgHeight: det.imgHeight,
+              ocrText: det.ocrText, // Pass OCR text from Phase 1
             });
           }
         });
       });
 
+      // ── Phase 1.5: Extract drawing notes ──
+      setScanProgress({ phase: "notes", current: 0, total: detections.length, message: "NOVA extracting drawing notes..." });
+
+      const drawingNotesResults = await batchAI(
+        detections.filter(d => !d.error && d.imgBase64),
+        async (det, idx) => {
+          setScanProgress({ phase: "notes", current: idx + 1, total: detections.length, message: `NOVA reading notes from sheet ${idx + 1}...` });
+          const result = await extractDrawingNotes({
+            imgBase64: det.imgBase64,
+            ocrText: det.ocrText || '',
+            sheetLabel: det.sheetLabel || `Sheet ${idx + 1}`,
+            apiKey: key,
+          });
+          // Persist notes on the drawing in drawingsStore
+          try {
+            const updateDrawing = useDrawingsStore.getState().updateDrawing;
+            if (updateDrawing) {
+              updateDrawing(det.sheetId, 'extractedNotes', result);
+            }
+          } catch { /* non-critical */ }
+          return { sheetLabel: det.sheetLabel, sheetId: det.sheetId, ...result };
+        },
+        3
+      );
+
+      const validNotesResults = drawingNotesResults.filter(r => !r.error);
+      const notesContext = buildNotesContext(validNotesResults);
+      const totalNotes = validNotesResults.reduce((sum, r) => sum + (r.notes?.length || 0), 0);
+      if (totalNotes > 0) {
+        console.log(`[Notes] Extracted ${totalNotes} notes from ${validNotesResults.length} sheets (${notesContext.length} chars context)`);
+      }
+
       if (schedulesToParse.length === 0) {
         setScanProgress({ phase: null, current: 0, total: 0, message: "" });
-        setScanResults({ schedules: [], rom: null, lineItems: [], timestamp: Date.now() });
+        setScanResults({ schedules: [], rom: null, lineItems: [], drawingNotes: validNotesResults, notesContext, timestamp: Date.now() });
         setShowScanModal(true);
         showToast("No schedules detected on the uploaded drawings");
         return;
       }
 
       // ── Phase 2: Parse each detected schedule ──
-      setScanProgress({ phase: "parse", current: 0, total: schedulesToParse.length, message: "Parsing schedules..." });
+      setScanProgress({ phase: "parse", current: 0, total: schedulesToParse.length, message: "NOVA is parsing schedules..." });
 
       const parsedSchedules = await batchAI(schedulesToParse, async (sched, idx) => {
-        setScanProgress({ phase: "parse", current: idx + 1, total: schedulesToParse.length, message: `Parsing ${SCHEDULE_TYPES.find(t => t.id === sched.type)?.label || sched.type}...` });
+        setScanProgress({ phase: "parse", current: idx + 1, total: schedulesToParse.length, message: `NOVA parsing ${SCHEDULE_TYPES.find(t => t.id === sched.type)?.label || sched.type}...` });
 
         // Crop the schedule region from the drawing
         let cropBase64 = sched.imgBase64;
@@ -504,7 +557,17 @@ Use proper CSI MasterFormat codes (e.g., "03.300.100" for cast-in-place concrete
           }
         }
 
-        const parsePrompt = buildParsePrompt(sched.type);
+        // Run OCR on the cropped schedule region for more accurate text extraction
+        let cropOcrText = '';
+        try {
+          const cropOcrResult = await runOCR(cropBase64);
+          cropOcrText = cropOcrResult.text || '';
+          if (cropOcrText) console.log(`[OCR] Extracted ${cropOcrText.length} chars from ${sched.type} schedule`);
+        } catch (ocrErr) {
+          console.warn('[OCR] Failed for schedule crop:', ocrErr.message);
+        }
+
+        const parsePrompt = buildParsePrompt(sched.type, cropOcrText, notesContext);
         if (!parsePrompt) return { ...sched, entries: [], error: "Unknown schedule type" };
 
         const result = await callAnthropic({
@@ -529,7 +592,7 @@ Use proper CSI MasterFormat codes (e.g., "03.300.100" for cast-in-place concrete
       const validSchedules = parsedSchedules.filter(s => !s.error && s.entries && s.entries.length > 0);
 
       // ── Phase 3: Generate ROM ──
-      setScanProgress({ phase: "rom", current: 0, total: 1, message: "Generating ROM estimate..." });
+      setScanProgress({ phase: "rom", current: 0, total: 1, message: "NOVA generating ROM estimate..." });
 
       const project = useProjectStore.getState().project;
       let effectiveSF = project.projectSF;
@@ -537,7 +600,7 @@ Use proper CSI MasterFormat codes (e.g., "03.300.100" for cast-in-place concrete
 
       // If project SF is missing, ask AI to estimate it
       if (!effectiveSF || parseFloat(effectiveSF) === 0) {
-        setScanProgress({ phase: "rom", current: 0, total: 1, message: "Estimating project square footage..." });
+        setScanProgress({ phase: "rom", current: 0, total: 1, message: "NOVA estimating project square footage..." });
         const projectCtxForSF = buildProjectContext({
           project,
           drawings: useDrawingsStore.getState().drawings,
@@ -562,10 +625,10 @@ Use proper CSI MasterFormat codes (e.g., "03.300.100" for cast-in-place concrete
         baseline.sfMissing = false;
         baseline.projectSF = sfEstimate.estimatedSF;
       }
-      const scheduleLineItems = generateScheduleLineItems(validSchedules);
+      const scheduleLineItems = await generateScheduleLineItems(validSchedules);
 
       // AI augmentation
-      setScanProgress({ phase: "rom", current: 0, total: 1, message: "AI refining ROM estimates..." });
+      setScanProgress({ phase: "rom", current: 0, total: 1, message: "NOVA refining ROM estimates..." });
       const projectCtx = buildProjectContext({
         project: { ...project, projectSF: effectiveSF || project.projectSF },
         items: useItemsStore.getState().items,
@@ -577,6 +640,7 @@ Use proper CSI MasterFormat codes (e.g., "03.300.100" for cast-in-place concrete
         scheduleItems: scheduleLineItems,
         projectContext: projectCtx,
         apiKey: key,
+        notesContext,
       });
 
       // Store results
@@ -591,6 +655,8 @@ Use proper CSI MasterFormat codes (e.g., "03.300.100" for cast-in-place concrete
         })),
         rom: augmentedROM,
         lineItems: scheduleLineItems,
+        drawingNotes: validNotesResults,
+        notesContext,
         timestamp: Date.now(),
       };
 
@@ -692,18 +758,18 @@ Use proper CSI MasterFormat codes (e.g., "03.300.100" for cast-in-place concrete
         {planTab === "drawings" && <>
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
-          <p style={{ color: C.textMuted, fontSize: 12, margin: 0 }}>Upload drawings then use <strong style={{ color: C.blue }}>Auto Label All</strong> to detect sheet numbers, titles &amp; scales from title blocks.</p>
+          <p style={{ color: C.textMuted, fontSize: 12, margin: 0 }}>Upload drawings then let <strong style={{ color: C.blue }}>NOVA</strong> detect sheet numbers, titles &amp; scales from title blocks.</p>
           <div style={{ display: "flex", gap: 8 }}>
             {drawings.filter(d => d.data).length > 0 && (
               <button className="ghost-btn" onClick={autoLabelAll} disabled={aiLabelLoading}
                 style={bt(C, { background: aiLabelLoading ? "rgba(91,141,239,0.08)" : "rgba(91,141,239,0.06)", border: `1px solid ${C.blue}`, color: C.blue, padding: "8px 16px", opacity: aiLabelLoading ? 0.6 : 1 })}>
-                <Ic d={I.ai} size={14} color={C.blue} /> {autoLabelProgress ? `Labeling ${autoLabelProgress.current}/${autoLabelProgress.total}...` : `Auto Label All (${drawings.filter(d => d.data && (!d.sheetNumber || !d.sheetTitle || !drawingScales[d.id])).length})`}
+                <Ic d={I.ai} size={14} color={C.blue} /> {autoLabelProgress ? `NOVA labeling ${autoLabelProgress.current}/${autoLabelProgress.total}...` : `NOVA Label (${drawings.filter(d => d.data && (!d.sheetNumber || !d.sheetTitle || !drawingScales[d.id])).length})`}
               </button>
             )}
             {drawings.filter(d => d.data).length > 0 && (
               <button className="ghost-btn" onClick={runProjectScan} disabled={!!scanProgress.phase || aiLabelLoading}
                 style={bt(C, { background: scanProgress.phase ? "rgba(168,85,247,0.08)" : "rgba(168,85,247,0.06)", border: `1px solid ${C.purple || C.accent}`, color: C.purple || C.accent, padding: "8px 16px", opacity: scanProgress.phase ? 0.7 : 1 })}>
-                <Ic d={I.ai} size={14} color={C.purple || C.accent} /> {scanProgress.phase ? `Scanning ${scanProgress.current}/${scanProgress.total}...` : "🔍 Scan Project"}
+                <Ic d={I.ai} size={14} color={C.purple || C.accent} /> {scanProgress.phase ? `NOVA scanning ${scanProgress.current}/${scanProgress.total}...` : "NOVA Scan"}
               </button>
             )}
             <button className="accent-btn" onClick={() => planFileRef.current?.click()} style={bt(C, { background: C.accent, color: "#fff", padding: "8px 16px" })}><Ic d={I.upload} size={14} color="#fff" sw={2.5} /> Upload Drawings</button>
@@ -784,9 +850,9 @@ Use proper CSI MasterFormat codes (e.g., "03.300.100" for cast-in-place concrete
           <div style={{ marginTop: 16, padding: "12px 16px", background: "rgba(91,141,239,0.06)", borderRadius: 6, border: "1px solid rgba(91,141,239,0.2)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: C.blue, marginBottom: 2 }}><Ic d={I.ai} size={14} color={C.blue} /> AI Detection Summary</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.blue, marginBottom: 2 }}><Ic d={I.ai} size={14} color={C.blue} /> NOVA Detection Summary</div>
                 <div style={{ fontSize: 10, color: C.textDim }}>
-                  <strong>Auto Label All</strong> detects sheet numbers, titles &amp; drawing scales from title blocks.
+                  NOVA reads title blocks to detect sheet numbers, titles &amp; drawing scales.
                 </div>
               </div>
               <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
@@ -800,11 +866,11 @@ Use proper CSI MasterFormat codes (e.g., "03.300.100" for cast-in-place concrete
           {scanProgress.phase && (
             <div style={{ marginTop: 12, padding: "10px 16px", background: "rgba(168,85,247,0.06)", borderRadius: 6, border: "1px solid rgba(168,85,247,0.2)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: C.purple || C.accent }}>
-                  <span style={{ display: "inline-block", width: 12, height: 12, border: "2px solid rgba(168,85,247,0.3)", borderTop: `2px solid ${C.purple || C.accent}`, borderRadius: "50%", animation: "spin 0.8s linear infinite", marginRight: 6, verticalAlign: "middle" }} />
+                <div style={{ fontSize: 11, fontWeight: 600, color: C.purple || C.accent, display: "flex", alignItems: "center", gap: 6 }}>
+                  <NovaPortal size="mini" state="thinking" style={{ width: 18, height: 18, flexShrink: 0 }} />
                   {scanProgress.message}
                 </div>
-                <span style={{ fontSize: 10, color: C.textDim }}>{scanProgress.phase === "detect" ? "Phase 1/3" : scanProgress.phase === "parse" ? "Phase 2/3" : "Phase 3/3"}</span>
+                <span style={{ fontSize: 10, color: C.textDim }}>{scanProgress.phase === "detect" ? "Phase 1/4" : scanProgress.phase === "notes" ? "Phase 2/4" : scanProgress.phase === "parse" ? "Phase 3/4" : "Phase 4/4"}</span>
               </div>
               <div style={{ height: 4, background: C.bg2, borderRadius: 2, overflow: "hidden" }}>
                 <div style={{
@@ -832,7 +898,7 @@ Use proper CSI MasterFormat codes (e.g., "03.300.100" for cast-in-place concrete
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: C.purple || C.accent, marginBottom: 2 }}>
-                    <Ic d={I.ai} size={14} color={C.purple || C.accent} /> Scan Complete
+                    <Ic d={I.ai} size={14} color={C.purple || C.accent} /> NOVA Scan Complete
                   </div>
                   <div style={{ fontSize: 10, color: C.textDim }}>
                     {scanResults.schedules?.length || 0} schedule{scanResults.schedules?.length !== 1 ? "s" : ""} found
@@ -921,8 +987,8 @@ Use proper CSI MasterFormat codes (e.g., "03.300.100" for cast-in-place concrete
                   padding: "8px 16px", fontSize: 11, fontWeight: 600,
                   boxShadow: specMapLoading ? "none" : `0 2px 8px ${C.accent}30`,
                 })}>
-                {specMapLoading ? <><span style={{ display: "inline-block", width: 12, height: 12, border: "2px solid #fff3", borderTop: "2px solid #fff", borderRadius: "50%", animation: "spin 0.8s linear infinite", marginRight: 6 }} /> Analyzing Specs...</>
-                  : <><Ic d={I.ai} size={13} color="#fff" sw={2} /> Generate Estimate from Specs</>}
+                {specMapLoading ? <><span style={{ display: "inline-block", width: 12, height: 12, border: "2px solid #fff3", borderTop: "2px solid #fff", borderRadius: "50%", animation: "spin 0.8s linear infinite", marginRight: 6 }} /> NOVA analyzing specs...</>
+                  : <><Ic d={I.ai} size={13} color="#fff" sw={2} /> NOVA Estimate from Specs</>}
               </button>
               {!apiKey && <span style={{ fontSize: 9, color: C.orange }}>Add API key in Settings</span>}
             </div>
@@ -933,7 +999,7 @@ Use proper CSI MasterFormat codes (e.g., "03.300.100" for cast-in-place concrete
             <div style={{ marginTop: 12, border: `1px solid ${C.accent}30`, borderRadius: 8, overflow: "hidden", background: `${C.accent}04` }}>
               <div style={{ padding: "8px 12px", background: `${C.accent}10`, borderBottom: `1px solid ${C.accent}20`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: C.accent }}>
-                  <Ic d={I.ai} size={12} color={C.accent} /> AI-Suggested Estimate Items
+                  <Ic d={I.ai} size={12} color={C.accent} /> NOVA-Suggested Estimate Items
                 </span>
                 <div style={{ display: "flex", gap: 6 }}>
                   <button onClick={applyAllSpecMapItems}

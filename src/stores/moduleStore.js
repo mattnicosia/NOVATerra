@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { BUILDERS } from '@/constants/builders';
+import { MODULES } from '@/constants/modules';
 
 // Simple unique ID generator (matches uid() from format.js)
 const _uid = () => Math.random().toString(36).slice(2, 10);
@@ -11,12 +11,12 @@ function getDefaultCatSpecs(cat) {
   return specs;
 }
 
-// Initialize default specs from builder definition (excludes multi-instance category specs)
-function getDefaultSpecs(builderId) {
-  const builder = BUILDERS[builderId];
-  if (!builder) return {};
+// Initialize default specs from module definition (excludes multi-instance category specs)
+function getDefaultSpecs(moduleId) {
+  const mod = MODULES[moduleId];
+  if (!mod) return {};
   const specs = {};
-  builder.categories.forEach(cat => {
+  mod.categories.forEach(cat => {
     if (cat.multiInstance) return; // multi-instance specs live in categoryInstances
     (cat.specs || []).forEach(s => { specs[s.id] = s.default; });
   });
@@ -24,20 +24,20 @@ function getDefaultSpecs(builderId) {
 }
 
 // Build default expansion state — all categories expanded by default
-function getDefaultExpanded(builderId) {
-  const builder = BUILDERS[builderId];
-  if (!builder) return {};
+function getDefaultExpanded(moduleId) {
+  const mod = MODULES[moduleId];
+  if (!mod) return {};
   const expanded = {};
-  builder.categories.forEach(cat => { expanded[cat.id] = true; });
+  mod.categories.forEach(cat => { expanded[cat.id] = true; });
   return expanded;
 }
 
 // Build default categoryInstances for multi-instance categories
-function getDefaultCategoryInstances(builderId) {
-  const builder = BUILDERS[builderId];
-  if (!builder) return {};
+function getDefaultCategoryInstances(moduleId) {
+  const mod = MODULES[moduleId];
+  if (!mod) return {};
   const catInst = {};
-  builder.categories.forEach(cat => {
+  mod.categories.forEach(cat => {
     if (!cat.multiInstance) return;
     catInst[cat.id] = [{
       id: _uid(),
@@ -50,89 +50,89 @@ function getDefaultCategoryInstances(builderId) {
   return catInst;
 }
 
-function ensureInstance(state, builderId) {
-  if (state.builderInstances[builderId]) return state.builderInstances[builderId];
+function ensureInstance(state, moduleId) {
+  if (state.moduleInstances[moduleId]) return state.moduleInstances[moduleId];
   return {
-    specs: getDefaultSpecs(builderId),
+    specs: getDefaultSpecs(moduleId),
     itemStatus: {},
     itemTakeoffIds: {},
-    expandedCategories: getDefaultExpanded(builderId),
-    categoryInstances: getDefaultCategoryInstances(builderId),
+    expandedCategories: getDefaultExpanded(moduleId),
+    categoryInstances: getDefaultCategoryInstances(moduleId),
   };
 }
 
-export const useBuilderStore = create((set, get) => ({
-  activeBuilder: null,
-  builderInstances: {},
+export const useModuleStore = create((set, get) => ({
+  activeModule: null,
+  moduleInstances: {},
 
-  setActiveBuilder: (id) => set(s => {
+  setActiveModule: (id) => set(s => {
     // Ensure instance exists when activating
-    if (id && !s.builderInstances[id]) {
+    if (id && !s.moduleInstances[id]) {
       return {
-        activeBuilder: id,
-        builderInstances: { ...s.builderInstances, [id]: ensureInstance(s, id) },
+        activeModule: id,
+        moduleInstances: { ...s.moduleInstances, [id]: ensureInstance(s, id) },
       };
     }
-    return { activeBuilder: id };
+    return { activeModule: id };
   }),
 
-  setBuilderInstances: (v) => set({ builderInstances: v }),
+  setModuleInstances: (v) => set({ moduleInstances: v }),
 
-  setSpec: (builderId, specId, value) => set(s => {
-    const inst = ensureInstance(s, builderId);
+  setSpec: (moduleId, specId, value) => set(s => {
+    const inst = ensureInstance(s, moduleId);
     return {
-      builderInstances: {
-        ...s.builderInstances,
-        [builderId]: { ...inst, specs: { ...inst.specs, [specId]: value } },
+      moduleInstances: {
+        ...s.moduleInstances,
+        [moduleId]: { ...inst, specs: { ...inst.specs, [specId]: value } },
       },
     };
   }),
 
-  setItemStatus: (builderId, itemId, status) => set(s => {
-    const inst = ensureInstance(s, builderId);
+  setItemStatus: (moduleId, itemId, status) => set(s => {
+    const inst = ensureInstance(s, moduleId);
     return {
-      builderInstances: {
-        ...s.builderInstances,
-        [builderId]: { ...inst, itemStatus: { ...inst.itemStatus, [itemId]: status } },
+      moduleInstances: {
+        ...s.moduleInstances,
+        [moduleId]: { ...inst, itemStatus: { ...inst.itemStatus, [itemId]: status } },
       },
     };
   }),
 
-  linkItemToTakeoff: (builderId, itemId, takeoffId) => set(s => {
-    const inst = ensureInstance(s, builderId);
+  linkItemToTakeoff: (moduleId, itemId, takeoffId) => set(s => {
+    const inst = ensureInstance(s, moduleId);
     return {
-      builderInstances: {
-        ...s.builderInstances,
-        [builderId]: { ...inst, itemTakeoffIds: { ...inst.itemTakeoffIds, [itemId]: takeoffId } },
+      moduleInstances: {
+        ...s.moduleInstances,
+        [moduleId]: { ...inst, itemTakeoffIds: { ...inst.itemTakeoffIds, [itemId]: takeoffId } },
       },
     };
   }),
 
-  toggleCategory: (builderId, catId) => set(s => {
-    const inst = ensureInstance(s, builderId);
+  toggleCategory: (moduleId, catId) => set(s => {
+    const inst = ensureInstance(s, moduleId);
     const expanded = { ...inst.expandedCategories };
     expanded[catId] = !expanded[catId];
     return {
-      builderInstances: {
-        ...s.builderInstances,
-        [builderId]: { ...inst, expandedCategories: expanded },
+      moduleInstances: {
+        ...s.moduleInstances,
+        [moduleId]: { ...inst, expandedCategories: expanded },
       },
     };
   }),
 
   // ── Multi-instance category actions ──────────────────────────
 
-  addCategoryInstance: (builderId, catId) => set(s => {
-    const inst = ensureInstance(s, builderId);
-    const builder = BUILDERS[builderId];
-    const cat = builder?.categories.find(c => c.id === catId);
+  addCategoryInstance: (moduleId, catId) => set(s => {
+    const inst = ensureInstance(s, moduleId);
+    const mod = MODULES[moduleId];
+    const cat = mod?.categories.find(c => c.id === catId);
     if (!cat?.multiInstance) return {};
     const existing = inst.categoryInstances?.[catId] || [];
     const letter = String.fromCharCode(65 + existing.length); // A, B, C...
     return {
-      builderInstances: {
-        ...s.builderInstances,
-        [builderId]: {
+      moduleInstances: {
+        ...s.moduleInstances,
+        [moduleId]: {
           ...inst,
           categoryInstances: {
             ...inst.categoryInstances,
@@ -149,14 +149,14 @@ export const useBuilderStore = create((set, get) => ({
     };
   }),
 
-  removeCategoryInstance: (builderId, catId, instanceId) => set(s => {
-    const inst = ensureInstance(s, builderId);
+  removeCategoryInstance: (moduleId, catId, instanceId) => set(s => {
+    const inst = ensureInstance(s, moduleId);
     const existing = inst.categoryInstances?.[catId] || [];
     if (existing.length <= 1) return {}; // must keep at least one
     return {
-      builderInstances: {
-        ...s.builderInstances,
-        [builderId]: {
+      moduleInstances: {
+        ...s.moduleInstances,
+        [moduleId]: {
           ...inst,
           categoryInstances: {
             ...inst.categoryInstances,
@@ -167,13 +167,13 @@ export const useBuilderStore = create((set, get) => ({
     };
   }),
 
-  renameCategoryInstance: (builderId, catId, instanceId, label) => set(s => {
-    const inst = ensureInstance(s, builderId);
+  renameCategoryInstance: (moduleId, catId, instanceId, label) => set(s => {
+    const inst = ensureInstance(s, moduleId);
     const existing = inst.categoryInstances?.[catId] || [];
     return {
-      builderInstances: {
-        ...s.builderInstances,
-        [builderId]: {
+      moduleInstances: {
+        ...s.moduleInstances,
+        [moduleId]: {
           ...inst,
           categoryInstances: {
             ...inst.categoryInstances,
@@ -184,13 +184,13 @@ export const useBuilderStore = create((set, get) => ({
     };
   }),
 
-  setCatInstanceSpec: (builderId, catId, instanceId, specId, value) => set(s => {
-    const inst = ensureInstance(s, builderId);
+  setCatInstanceSpec: (moduleId, catId, instanceId, specId, value) => set(s => {
+    const inst = ensureInstance(s, moduleId);
     const existing = inst.categoryInstances?.[catId] || [];
     return {
-      builderInstances: {
-        ...s.builderInstances,
-        [builderId]: {
+      moduleInstances: {
+        ...s.moduleInstances,
+        [moduleId]: {
           ...inst,
           categoryInstances: {
             ...inst.categoryInstances,
@@ -204,13 +204,13 @@ export const useBuilderStore = create((set, get) => ({
     };
   }),
 
-  linkCatInstanceItem: (builderId, catId, instanceId, itemId, takeoffId) => set(s => {
-    const inst = ensureInstance(s, builderId);
+  linkCatInstanceItem: (moduleId, catId, instanceId, itemId, takeoffId) => set(s => {
+    const inst = ensureInstance(s, moduleId);
     const existing = inst.categoryInstances?.[catId] || [];
     return {
-      builderInstances: {
-        ...s.builderInstances,
-        [builderId]: {
+      moduleInstances: {
+        ...s.moduleInstances,
+        [moduleId]: {
           ...inst,
           categoryInstances: {
             ...inst.categoryInstances,
@@ -224,13 +224,13 @@ export const useBuilderStore = create((set, get) => ({
     };
   }),
 
-  setCatInstanceItemStatus: (builderId, catId, instanceId, itemId, status) => set(s => {
-    const inst = ensureInstance(s, builderId);
+  setCatInstanceItemStatus: (moduleId, catId, instanceId, itemId, status) => set(s => {
+    const inst = ensureInstance(s, moduleId);
     const existing = inst.categoryInstances?.[catId] || [];
     return {
-      builderInstances: {
-        ...s.builderInstances,
-        [builderId]: {
+      moduleInstances: {
+        ...s.moduleInstances,
+        [moduleId]: {
           ...inst,
           categoryInstances: {
             ...inst.categoryInstances,
@@ -244,35 +244,35 @@ export const useBuilderStore = create((set, get) => ({
     };
   }),
 
-  resetBuilder: (builderId) => set(s => ({
-    builderInstances: {
-      ...s.builderInstances,
-      [builderId]: {
-        specs: getDefaultSpecs(builderId),
+  resetModule: (moduleId) => set(s => ({
+    moduleInstances: {
+      ...s.moduleInstances,
+      [moduleId]: {
+        specs: getDefaultSpecs(moduleId),
         itemStatus: {},
         itemTakeoffIds: {},
-        expandedCategories: getDefaultExpanded(builderId),
-        categoryInstances: getDefaultCategoryInstances(builderId),
+        expandedCategories: getDefaultExpanded(moduleId),
+        categoryInstances: getDefaultCategoryInstances(moduleId),
       },
     },
   })),
 }));
 
 // Migration: convert old flat data to categoryInstances format
-export function migrateBuilderInstances(instances) {
+export function migrateModuleInstances(instances) {
   if (!instances) return {};
   const migrated = { ...instances };
 
-  Object.entries(migrated).forEach(([builderId, inst]) => {
+  Object.entries(migrated).forEach(([moduleId, inst]) => {
     if (inst.categoryInstances) return; // already migrated
 
-    const builder = BUILDERS[builderId];
-    if (!builder) return;
+    const mod = MODULES[moduleId];
+    if (!mod) return;
 
     const categoryInstances = {};
     let needsMigration = false;
 
-    builder.categories.forEach(cat => {
+    mod.categories.forEach(cat => {
       if (!cat.multiInstance) return;
       needsMigration = true;
 
@@ -305,7 +305,7 @@ export function migrateBuilderInstances(instances) {
       const cleanItemTakeoffIds = { ...inst.itemTakeoffIds };
       const cleanItemStatus = { ...inst.itemStatus };
 
-      builder.categories.forEach(cat => {
+      mod.categories.forEach(cat => {
         if (!cat.multiInstance) return;
         (cat.specs || []).forEach(s => delete cleanSpecs[s.id]);
         cat.items.forEach(item => {
@@ -314,7 +314,7 @@ export function migrateBuilderInstances(instances) {
         });
       });
 
-      migrated[builderId] = {
+      migrated[moduleId] = {
         ...inst,
         specs: cleanSpecs,
         itemTakeoffIds: cleanItemTakeoffIds,

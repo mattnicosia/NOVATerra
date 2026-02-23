@@ -1,5 +1,5 @@
-// Smart Assembly Builder definitions
-// Data-driven configs — each builder defines scope tree, specs, formulas, and item types.
+// Module definitions
+// Data-driven configs — each kit defines scope tree, specs, formulas, and item types.
 // v2: Measurement-centric — organized around what you measure, not trade categories.
 // One measurement → many results. No implied sequence.
 
@@ -19,7 +19,7 @@ export function parseRebarSpec(spec) {
   return { bar, spacing, lbsPerFt };
 }
 
-export const BUILDERS = {
+export const MODULES = {
   foundation: {
     id: "foundation",
     name: "Foundation",
@@ -231,7 +231,7 @@ export const BUILDERS = {
     ],
   },
   // ═══════════════════════════════════════════════════════════════
-  // WOOD FRAMING BUILDER
+  // WOOD FRAMING MODULE
   // ═══════════════════════════════════════════════════════════════
   walls: {
     id: "walls",
@@ -1220,7 +1220,7 @@ export const BUILDERS = {
   },
 
   // ════════════════════════════════════════════════════════════════
-  // FLOORS BUILDER
+  // FLOORS MODULE
   // ════════════════════════════════════════════════════════════════
   floors: {
     id: "floors",
@@ -1525,7 +1525,7 @@ export const BUILDERS = {
   },
 
   // ═══════════════════════════════════════════════════════════════
-  // ROOF BUILDER
+  // ROOF MODULE
   // ═══════════════════════════════════════════════════════════════
   roof: {
     id: "roof",
@@ -1789,7 +1789,7 @@ export const BUILDERS = {
   },
 
   // ═══════════════════════════════════════════════════════════════
-  // STRUCTURAL STEEL BUILDER (CSI Division 05)
+  // STRUCTURAL STEEL MODULE (CSI Division 05)
   // ═══════════════════════════════════════════════════════════════
   steel: {
     id: "steel",
@@ -1948,15 +1948,483 @@ export const BUILDERS = {
       },
     ],
   },
+
+  // ═══════════════════════════════════════════════════════════════
+  // SITEWORK SCOPE KIT
+  // ═══════════════════════════════════════════════════════════════
+  sitework: {
+    id: "sitework",
+    name: "Sitework",
+    icon: "sitework",
+    description: "Earthwork, utilities, paving, flatwork, landscaping, erosion control",
+    categories: [
+
+      // ── EARTHWORK ──────────────────────────────────────────────
+      {
+        id: "earthwork",
+        name: "Earthwork",
+        type: "measurement",
+        drivingItemId: "site-area",
+        specs: [
+          { id: "CutDepth", label: "Avg Cut Depth", type: "number", unit: "ft",
+            min: 0, max: 30, step: 0.5, default: 2 },
+          { id: "FillDepth", label: "Avg Fill Depth", type: "number", unit: "ft",
+            min: 0, max: 30, step: 0.5, default: 1 },
+          { id: "TopsoilStrip", label: "Topsoil Strip", type: "select", unit: "in",
+            options: [0, 4, 6, 8, 12], default: 6 },
+          { id: "ImportExport", label: "Net Haul", type: "select",
+            options: ["Balanced", "Net Export", "Net Import"], default: "Balanced" },
+          { id: "ShrinkFactor", label: "Shrink/Swell", type: "select", unit: "%",
+            options: [0, 10, 15, 20, 25, 30], default: 25 },
+        ],
+        items: [
+          { id: "site-area", name: "Site Area", code: "31.100", unit: "SF", type: "driving", tool: "area", formulaVar: "SiteAreaSF" },
+          { id: "ew-strip-topsoil", name: "Strip & Stockpile Topsoil", code: "31.110", unit: "CY", type: "derived",
+            formula: "SiteAreaSF * (TopsoilStrip / 12) / 27", condition: "TopsoilStrip > 0" },
+          { id: "ew-cut", name: "Mass Excavation (Cut)", code: "31.200", unit: "CY", type: "derived",
+            formula: "SiteAreaSF * CutDepth / 27", condition: "CutDepth > 0" },
+          { id: "ew-fill", name: "Structural Fill", code: "31.230", unit: "CY", type: "derived",
+            formula: "SiteAreaSF * FillDepth / 27", condition: "FillDepth > 0" },
+          { id: "ew-compact", name: "Compaction", code: "31.230", unit: "CY", type: "derived",
+            formula: "SiteAreaSF * FillDepth / 27", condition: "FillDepth > 0" },
+          { id: "ew-export", name: "Export Spoils (Trucking)", code: "31.200", unit: "CY", type: "derived",
+            formula: "SiteAreaSF * CutDepth * (1 + ShrinkFactor / 100) / 27",
+            condition: "ImportExport === 'Net Export' && CutDepth > 0" },
+          { id: "ew-import", name: "Import Fill (Trucking)", code: "31.230", unit: "CY", type: "derived",
+            formula: "SiteAreaSF * FillDepth * (1 + ShrinkFactor / 100) / 27",
+            condition: "ImportExport === 'Net Import' && FillDepth > 0" },
+          { id: "ew-fine-grade", name: "Fine Grading", code: "31.220", unit: "SF", type: "derived",
+            formula: "SiteAreaSF" },
+          { id: "ew-respread-topsoil", name: "Respread Topsoil", code: "31.110", unit: "CY", type: "derived",
+            formula: "SiteAreaSF * 0.3 * (TopsoilStrip / 12) / 27", condition: "TopsoilStrip > 0" },
+        ],
+      },
+
+      // ── STORM DRAINAGE ─────────────────────────────────────────
+      {
+        id: "storm-drainage",
+        name: "Storm Drainage",
+        type: "measurement",
+        multiInstance: true,
+        drivingItemId: "storm-pipe-lf",
+        specs: [
+          { id: "PipeSize", label: "Pipe Size", type: "select", unit: "in",
+            options: [4, 6, 8, 10, 12, 15, 18, 24, 30, 36], default: 12 },
+          { id: "PipeMaterial", label: "Material", type: "select",
+            options: ["RCP", "HDPE", "PVC", "CMP"], default: "RCP" },
+          { id: "TrenchDepth", label: "Avg Depth", type: "number", unit: "ft",
+            min: 2, max: 20, step: 0.5, default: 4 },
+          { id: "TrenchWidth", label: "Trench Width", type: "number", unit: "ft",
+            min: 2, max: 8, step: 0.5, default: 3 },
+          { id: "BeddingDepth", label: "Bedding", type: "select", unit: "in",
+            options: [0, 4, 6, 8, 12], default: 6 },
+        ],
+        items: [
+          { id: "storm-pipe-lf", name: "Storm Pipe", code: "33.410", unit: "LF", type: "driving", tool: "linear", formulaVar: "StormLF",
+            descTemplate: "{PipeSize}\" {PipeMaterial} Storm" },
+          { id: "storm-trench", name: "Trench Excavation", code: "31.230", unit: "CY", type: "derived",
+            formula: "StormLF * TrenchWidth * TrenchDepth / 27" },
+          { id: "storm-bedding", name: "Pipe Bedding", code: "31.050", unit: "CY", type: "derived",
+            formula: "StormLF * TrenchWidth * (BeddingDepth / 12) / 27",
+            condition: "BeddingDepth > 0" },
+          { id: "storm-backfill", name: "Trench Backfill", code: "31.230", unit: "CY", type: "derived",
+            formula: "StormLF * TrenchWidth * (TrenchDepth - BeddingDepth / 12) / 27" },
+          { id: "storm-manholes", name: "Manholes", code: "33.440", unit: "EA", type: "manual" },
+          { id: "storm-inlets", name: "Catch Basins / Inlets", code: "33.440", unit: "EA", type: "manual" },
+        ],
+      },
+
+      // ── SANITARY SEWER ─────────────────────────────────────────
+      {
+        id: "sanitary-sewer",
+        name: "Sanitary Sewer",
+        type: "measurement",
+        multiInstance: true,
+        drivingItemId: "san-pipe-lf",
+        specs: [
+          { id: "PipeSize", label: "Pipe Size", type: "select", unit: "in",
+            options: [4, 6, 8, 10, 12, 15], default: 8 },
+          { id: "PipeMaterial", label: "Material", type: "select",
+            options: ["PVC", "DIP", "VCP"], default: "PVC" },
+          { id: "TrenchDepth", label: "Avg Depth", type: "number", unit: "ft",
+            min: 2, max: 20, step: 0.5, default: 5 },
+          { id: "TrenchWidth", label: "Trench Width", type: "number", unit: "ft",
+            min: 2, max: 6, step: 0.5, default: 3 },
+          { id: "BeddingDepth", label: "Bedding", type: "select", unit: "in",
+            options: [0, 4, 6, 8, 12], default: 6 },
+        ],
+        items: [
+          { id: "san-pipe-lf", name: "Sanitary Pipe", code: "33.310", unit: "LF", type: "driving", tool: "linear", formulaVar: "SanLF",
+            descTemplate: "{PipeSize}\" {PipeMaterial} Sanitary" },
+          { id: "san-trench", name: "Trench Excavation", code: "31.230", unit: "CY", type: "derived",
+            formula: "SanLF * TrenchWidth * TrenchDepth / 27" },
+          { id: "san-bedding", name: "Pipe Bedding", code: "31.050", unit: "CY", type: "derived",
+            formula: "SanLF * TrenchWidth * (BeddingDepth / 12) / 27",
+            condition: "BeddingDepth > 0" },
+          { id: "san-backfill", name: "Trench Backfill", code: "31.230", unit: "CY", type: "derived",
+            formula: "SanLF * TrenchWidth * (TrenchDepth - BeddingDepth / 12) / 27" },
+          { id: "san-manholes", name: "Manholes", code: "33.340", unit: "EA", type: "manual" },
+          { id: "san-cleanouts", name: "Cleanouts", code: "33.310", unit: "EA", type: "manual" },
+        ],
+      },
+
+      // ── WATER LINES ────────────────────────────────────────────
+      {
+        id: "water-lines",
+        name: "Water Lines",
+        type: "measurement",
+        multiInstance: true,
+        drivingItemId: "water-pipe-lf",
+        specs: [
+          { id: "PipeSize", label: "Pipe Size", type: "select", unit: "in",
+            options: [2, 4, 6, 8, 10, 12], default: 6 },
+          { id: "PipeMaterial", label: "Material", type: "select",
+            options: ["DIP", "PVC", "HDPE", "Copper"], default: "DIP" },
+          { id: "TrenchDepth", label: "Avg Depth", type: "number", unit: "ft",
+            min: 3, max: 10, step: 0.5, default: 4.5 },
+          { id: "TrenchWidth", label: "Trench Width", type: "number", unit: "ft",
+            min: 2, max: 6, step: 0.5, default: 2.5 },
+          { id: "BeddingDepth", label: "Bedding", type: "select", unit: "in",
+            options: [0, 4, 6, 8, 12], default: 6 },
+        ],
+        items: [
+          { id: "water-pipe-lf", name: "Water Line", code: "33.110", unit: "LF", type: "driving", tool: "linear", formulaVar: "WaterLF",
+            descTemplate: "{PipeSize}\" {PipeMaterial} Water" },
+          { id: "water-trench", name: "Trench Excavation", code: "31.230", unit: "CY", type: "derived",
+            formula: "WaterLF * TrenchWidth * TrenchDepth / 27" },
+          { id: "water-bedding", name: "Pipe Bedding", code: "31.050", unit: "CY", type: "derived",
+            formula: "WaterLF * TrenchWidth * (BeddingDepth / 12) / 27",
+            condition: "BeddingDepth > 0" },
+          { id: "water-backfill", name: "Trench Backfill", code: "31.230", unit: "CY", type: "derived",
+            formula: "WaterLF * TrenchWidth * (TrenchDepth - BeddingDepth / 12) / 27" },
+          { id: "water-valves", name: "Gate Valves", code: "33.110", unit: "EA", type: "manual" },
+          { id: "water-hydrants", name: "Fire Hydrants", code: "33.110", unit: "EA", type: "manual" },
+          { id: "water-taps", name: "Taps / Connections", code: "33.110", unit: "EA", type: "manual" },
+        ],
+      },
+
+      // ── PAVING ─────────────────────────────────────────────────
+      {
+        id: "paving",
+        name: "Paving",
+        type: "measurement",
+        multiInstance: true,
+        drivingItemId: "pave-area",
+        specs: [
+          { id: "PaveType", label: "Surface", type: "select",
+            options: ["Asphalt", "Concrete"], default: "Asphalt" },
+          { id: "AsphaltThick", label: "Asphalt Thickness", type: "select", unit: "in",
+            options: [2, 3, 4, 6], default: 3, condition: "PaveType === 'Asphalt'" },
+          { id: "ConcreteThick", label: "Concrete Thickness", type: "select", unit: "in",
+            options: [4, 5, 6, 8], default: 6, condition: "PaveType === 'Concrete'" },
+          { id: "BaseType", label: "Base Course", type: "select",
+            options: ["Aggregate Base", "Crushed Stone", "Recycled", "None"], default: "Aggregate Base" },
+          { id: "BaseThick", label: "Base Thickness", type: "select", unit: "in",
+            options: [4, 6, 8, 12], default: 6, condition: "BaseType !== 'None'" },
+          { id: "SubbaseThick", label: "Subbase Thickness", type: "select", unit: "in",
+            options: [0, 4, 6, 8, 12], default: 0 },
+        ],
+        items: [
+          { id: "pave-area", name: "Paving Area", code: "32.120", unit: "SF", type: "driving", tool: "area", formulaVar: "PaveSF",
+            descTemplate: "{PaveType} Paving" },
+          { id: "pave-asphalt", name: "Asphalt Paving", code: "32.121", unit: "TON", type: "derived",
+            condition: "PaveType === 'Asphalt'",
+            formula: "PaveSF * (AsphaltThick / 12) * 145 / 2000",
+            descTemplate: "{AsphaltThick}\" Asphalt" },
+          { id: "pave-tack", name: "Tack Coat", code: "32.121", unit: "GAL", type: "derived",
+            condition: "PaveType === 'Asphalt'",
+            formula: "PaveSF * 0.05" },
+          { id: "pave-concrete", name: "Concrete Paving", code: "32.130", unit: "CY", type: "derived",
+            condition: "PaveType === 'Concrete'",
+            formula: "PaveSF * (ConcreteThick / 12) / 27",
+            descTemplate: "{ConcreteThick}\" Concrete Paving" },
+          { id: "pave-base", name: "Base Course", code: "32.110", unit: "CY", type: "derived",
+            condition: "BaseType !== 'None'",
+            formula: "PaveSF * (BaseThick / 12) / 27",
+            descTemplate: "{BaseThick}\" {BaseType}" },
+          { id: "pave-subbase", name: "Subbase", code: "32.110", unit: "CY", type: "derived",
+            condition: "SubbaseThick > 0",
+            formula: "PaveSF * (SubbaseThick / 12) / 27" },
+          { id: "pave-subgrade", name: "Subgrade Preparation", code: "31.220", unit: "SF", type: "derived",
+            formula: "PaveSF" },
+          { id: "pave-striping", name: "Parking Striping", code: "32.170", unit: "SF", type: "manual" },
+          { id: "pave-bumpers", name: "Wheel Stops", code: "32.170", unit: "EA", type: "manual" },
+        ],
+      },
+
+      // ── CONCRETE FLATWORK ──────────────────────────────────────
+      {
+        id: "flatwork",
+        name: "Concrete Flatwork",
+        type: "measurement",
+        multiInstance: true,
+        drivingItemId: "flat-area",
+        specs: [
+          { id: "FlatType", label: "Type", type: "select",
+            options: ["Sidewalk", "Curb & Gutter", "Equipment Pad", "Apron", "Dumpster Pad"], default: "Sidewalk" },
+          { id: "Thickness", label: "Thickness", type: "select", unit: "in",
+            options: [4, 5, 6, 8], default: 4 },
+          { id: "Reinforcement", label: "Reinforcement", type: "select",
+            options: ["WWF 6x6", "WWF 4x4", "#4 @ 18\" OC", "#4 @ 12\" OC", "Fiber Mesh", "None"], default: "WWF 6x6" },
+          { id: "Finish", label: "Finish", type: "select",
+            options: ["Broom", "Exposed Aggregate", "Stamped", "Smooth"], default: "Broom" },
+        ],
+        items: [
+          { id: "flat-area", name: "Flatwork", code: "03.310", unit: "SF", type: "driving", tool: "area", formulaVar: "FlatSF",
+            descTemplate: "{FlatType}" },
+          { id: "flat-conc", name: "Concrete", code: "03.310", unit: "CY", type: "derived",
+            formula: "FlatSF * (Thickness / 12) / 27",
+            descTemplate: "{Thickness}\" Concrete ({FlatType})" },
+          { id: "flat-forms", name: "Formwork", code: "03.110", unit: "LF", type: "derived",
+            formula: "FlatSF * 0.08" },
+          { id: "flat-wwf", name: "Welded Wire Fabric", code: "03.210", unit: "SF", type: "derived",
+            condition: "Reinforcement === 'WWF 6x6' || Reinforcement === 'WWF 4x4'",
+            formula: "FlatSF * 1.1",
+            descTemplate: "{Reinforcement}" },
+          { id: "flat-rebar", name: "Rebar", code: "03.210", unit: "LBS", type: "derived",
+            condition: "Reinforcement === '#4 @ 18\" OC' || Reinforcement === '#4 @ 12\" OC'",
+            formula: "FlatSF * 0.668 * 2" },
+          { id: "flat-fiber", name: "Fiber Mesh", code: "03.050", unit: "CY", type: "derived",
+            condition: "Reinforcement === 'Fiber Mesh'",
+            formula: "FlatSF * (Thickness / 12) / 27" },
+          { id: "flat-joints", name: "Expansion Joints", code: "03.310", unit: "LF", type: "derived",
+            formula: "FlatSF * 0.04" },
+          { id: "flat-curing", name: "Curing Compound", code: "03.390", unit: "SF", type: "derived",
+            formula: "FlatSF" },
+        ],
+      },
+
+      // ── LANDSCAPING ────────────────────────────────────────────
+      {
+        id: "landscaping",
+        name: "Landscaping",
+        type: "measurement",
+        drivingItemId: "land-area",
+        specs: [
+          { id: "GroundCover", label: "Ground Cover", type: "select",
+            options: ["Seed", "Sod", "Hydroseed"], default: "Seed" },
+          { id: "TopsoilDepth", label: "Topsoil Depth", type: "select", unit: "in",
+            options: [2, 4, 6, 8], default: 4 },
+          { id: "Mulch", label: "Mulch Beds", type: "select",
+            options: ["None", "Yes"], default: "None" },
+          { id: "MulchDepth", label: "Mulch Depth", type: "select", unit: "in",
+            options: [2, 3, 4], default: 3, condition: "Mulch !== 'None'" },
+          { id: "MulchPct", label: "Bed Area %", type: "select", unit: "%",
+            options: [10, 15, 20, 25, 30], default: 15, condition: "Mulch !== 'None'" },
+          { id: "Irrigation", label: "Irrigation", type: "select",
+            options: ["None", "Basic Spray", "Drip"], default: "None" },
+        ],
+        items: [
+          { id: "land-area", name: "Landscape Area", code: "32.900", unit: "SF", type: "driving", tool: "area", formulaVar: "LandSF" },
+          { id: "land-topsoil", name: "Topsoil", code: "32.910", unit: "CY", type: "derived",
+            formula: "LandSF * (TopsoilDepth / 12) / 27" },
+          { id: "land-seed", name: "Seeding", code: "32.920", unit: "SF", type: "derived",
+            condition: "GroundCover === 'Seed'",
+            formula: "LandSF" },
+          { id: "land-sod", name: "Sod", code: "32.920", unit: "SF", type: "derived",
+            condition: "GroundCover === 'Sod'",
+            formula: "LandSF * 1.05" },
+          { id: "land-hydroseed", name: "Hydroseeding", code: "32.920", unit: "SF", type: "derived",
+            condition: "GroundCover === 'Hydroseed'",
+            formula: "LandSF" },
+          { id: "land-mulch", name: "Mulch", code: "32.940", unit: "CY", type: "derived",
+            condition: "Mulch !== 'None'",
+            formula: "LandSF * (MulchPct / 100) * (MulchDepth / 12) / 27" },
+          { id: "land-irrigation", name: "Irrigation System", code: "32.840", unit: "SF", type: "derived",
+            condition: "Irrigation !== 'None'",
+            formula: "LandSF",
+            descTemplate: "{Irrigation} Irrigation" },
+          { id: "land-trees", name: "Trees", code: "32.930", unit: "EA", type: "manual" },
+          { id: "land-shrubs", name: "Shrubs", code: "32.930", unit: "EA", type: "manual" },
+        ],
+      },
+
+      // ── EROSION CONTROL ────────────────────────────────────────
+      {
+        id: "erosion-control",
+        name: "Erosion Control",
+        type: "manual-only",
+        items: [
+          { id: "ec-silt-fence", name: "Silt Fence", code: "31.250", unit: "LF", type: "manual" },
+          { id: "ec-inlet-protect", name: "Inlet Protection", code: "31.250", unit: "EA", type: "manual" },
+          { id: "ec-const-entrance", name: "Construction Entrance", code: "31.250", unit: "EA", type: "manual" },
+          { id: "ec-stab-blanket", name: "Stabilization Blanket", code: "31.250", unit: "SF", type: "manual" },
+          { id: "ec-swppp", name: "SWPPP Management", code: "31.250", unit: "LS", type: "manual" },
+        ],
+      },
+    ],
+  },
+
+  // ═══════════════════════════════════════════════════════════════
+  // MEP SCOPE KIT
+  // ═══════════════════════════════════════════════════════════════
+  mep: {
+    id: "mep",
+    name: "MEP",
+    icon: "mep",
+    description: "Plumbing, HVAC, electrical, and fire protection systems",
+    categories: [
+
+      // ── PLUMBING ROUGH-IN ──────────────────────────────────────
+      {
+        id: "plumbing-rough",
+        name: "Plumbing Rough-In",
+        type: "measurement",
+        drivingItemId: "plumb-fixtures",
+        specs: [
+          { id: "BuildingType", label: "Building Type", type: "select",
+            options: ["Office", "Retail", "Warehouse", "Restaurant", "Healthcare", "Education", "Multi-Family"], default: "Office" },
+          { id: "WaterHeater", label: "Water Heater", type: "select",
+            options: ["None", "Tank Gas", "Tank Electric", "Tankless Gas", "Tankless Electric", "Commercial Boiler"], default: "Tank Gas" },
+        ],
+        items: [
+          { id: "plumb-fixtures", name: "Plumbing Fixtures", code: "22.400", unit: "EA", type: "driving", tool: "count", formulaVar: "FixtureCount" },
+          { id: "plumb-waste", name: "Waste / Vent Piping", code: "22.130", unit: "LF", type: "derived",
+            formula: "FixtureCount * 25" },
+          { id: "plumb-supply", name: "Supply Piping", code: "22.110", unit: "LF", type: "derived",
+            formula: "FixtureCount * 30" },
+          { id: "plumb-water-heater", name: "Water Heater", code: "22.340", unit: "EA", type: "derived",
+            condition: "WaterHeater !== 'None'",
+            formula: "FixtureCount / 30", round: "ceil",
+            descTemplate: "{WaterHeater}" },
+          { id: "plumb-cleanouts", name: "Cleanouts", code: "22.130", unit: "EA", type: "derived",
+            formula: "FixtureCount / 5", round: "ceil" },
+          { id: "plumb-floor-drains", name: "Floor Drains", code: "22.130", unit: "EA", type: "manual" },
+          { id: "plumb-roof-drains", name: "Roof Drains", code: "22.140", unit: "EA", type: "manual" },
+          { id: "plumb-grease-trap", name: "Grease Interceptor", code: "22.130", unit: "EA", type: "manual" },
+        ],
+      },
+
+      // ── HVAC ───────────────────────────────────────────────────
+      {
+        id: "hvac",
+        name: "HVAC",
+        type: "measurement",
+        drivingItemId: "hvac-area",
+        specs: [
+          { id: "SystemType", label: "System Type", type: "select",
+            options: ["Packaged RTU", "Split System", "VRF", "Chiller + AHU", "Geothermal"], default: "Packaged RTU" },
+          { id: "DuctType", label: "Ductwork", type: "select",
+            options: ["Sheet Metal", "Flex Duct", "Fabric Duct", "None"], default: "Sheet Metal" },
+          { id: "TonsPerSF", label: "Cooling Load", type: "select", unit: "SF/ton",
+            options: [250, 300, 350, 400, 500], default: 400 },
+          { id: "Controls", label: "Controls", type: "select",
+            options: ["Programmable T-stat", "BAS / DDC", "Smart Controls"], default: "Programmable T-stat" },
+        ],
+        items: [
+          { id: "hvac-area", name: "Conditioned Area", code: "23.000", unit: "SF", type: "driving", tool: "area", formulaVar: "HvacSF" },
+          { id: "hvac-tonnage", name: "Cooling Capacity", code: "23.640", unit: "TON", type: "derived",
+            formula: "HvacSF / TonsPerSF", round: "ceil",
+            descTemplate: "{SystemType}" },
+          { id: "hvac-units", name: "Equipment Units", code: "23.740", unit: "EA", type: "derived",
+            formula: "HvacSF / TonsPerSF / 25", round: "ceil",
+            descTemplate: "{SystemType}" },
+          { id: "hvac-ductwork", name: "Ductwork", code: "23.310", unit: "LBS", type: "derived",
+            condition: "DuctType !== 'None'",
+            formula: "HvacSF * 1.2",
+            descTemplate: "{DuctType}" },
+          { id: "hvac-diffusers", name: "Diffusers / Grilles", code: "23.370", unit: "EA", type: "derived",
+            formula: "HvacSF / 150", round: "ceil" },
+          { id: "hvac-controls", name: "Controls / Thermostats", code: "23.090", unit: "EA", type: "derived",
+            formula: "HvacSF / 1500", round: "ceil",
+            descTemplate: "{Controls}" },
+          { id: "hvac-insulation", name: "Duct Insulation", code: "23.070", unit: "SF", type: "derived",
+            condition: "DuctType === 'Sheet Metal'",
+            formula: "HvacSF * 0.5" },
+          { id: "hvac-exhaust", name: "Exhaust Fans", code: "23.340", unit: "EA", type: "manual" },
+          { id: "hvac-kitchen-hood", name: "Kitchen Hood", code: "23.380", unit: "EA", type: "manual" },
+        ],
+      },
+
+      // ── ELECTRICAL ─────────────────────────────────────────────
+      {
+        id: "electrical",
+        name: "Electrical",
+        type: "measurement",
+        drivingItemId: "elec-area",
+        specs: [
+          { id: "ServiceSize", label: "Service Size", type: "select", unit: "A",
+            options: [200, 400, 600, 800, 1000, 1200, 1600, 2000], default: 400 },
+          { id: "Voltage", label: "Voltage", type: "select",
+            options: ["120/208V 3PH", "277/480V 3PH", "120/240V 1PH"], default: "120/208V 3PH" },
+          { id: "LightingType", label: "Lighting", type: "select",
+            options: ["LED Recessed", "LED Linear", "LED High Bay", "Mixed"], default: "LED Recessed" },
+          { id: "FireAlarm", label: "Fire Alarm", type: "select",
+            options: ["None", "Conventional", "Addressable"], default: "Conventional" },
+          { id: "DataLow", label: "Low Voltage", type: "select",
+            options: ["None", "Basic (Cat6)", "Advanced (Cat6A + Fiber)"], default: "Basic (Cat6)" },
+        ],
+        items: [
+          { id: "elec-area", name: "Building Area", code: "26.000", unit: "SF", type: "driving", tool: "area", formulaVar: "ElecSF" },
+          { id: "elec-service", name: "Electrical Service", code: "26.240", unit: "EA", type: "derived",
+            formula: "1",
+            descTemplate: "{ServiceSize}A {Voltage} Service" },
+          { id: "elec-panels", name: "Panel Boards", code: "26.240", unit: "EA", type: "derived",
+            formula: "ElecSF / 5000", round: "ceil" },
+          { id: "elec-branch", name: "Branch Wiring", code: "26.050", unit: "LF", type: "derived",
+            formula: "ElecSF * 2.5" },
+          { id: "elec-receptacles", name: "Receptacles", code: "26.270", unit: "EA", type: "derived",
+            formula: "ElecSF / 100", round: "ceil" },
+          { id: "elec-lighting", name: "Light Fixtures", code: "26.510", unit: "EA", type: "derived",
+            formula: "ElecSF / 80", round: "ceil",
+            descTemplate: "{LightingType}" },
+          { id: "elec-switches", name: "Switches / Dimmers", code: "26.270", unit: "EA", type: "derived",
+            formula: "ElecSF / 300", round: "ceil" },
+          { id: "elec-fire-alarm", name: "Fire Alarm System", code: "28.310", unit: "EA", type: "derived",
+            condition: "FireAlarm !== 'None'",
+            formula: "1",
+            descTemplate: "{FireAlarm} Fire Alarm" },
+          { id: "elec-fa-devices", name: "FA Devices (Pulls / Detectors / Horns)", code: "28.310", unit: "EA", type: "derived",
+            condition: "FireAlarm !== 'None'",
+            formula: "ElecSF / 400", round: "ceil" },
+          { id: "elec-data", name: "Data Drops", code: "27.150", unit: "EA", type: "derived",
+            condition: "DataLow !== 'None'",
+            formula: "ElecSF / 150", round: "ceil",
+            descTemplate: "{DataLow}" },
+          { id: "elec-generator", name: "Generator", code: "26.320", unit: "EA", type: "manual" },
+          { id: "elec-ev-charger", name: "EV Charger", code: "26.370", unit: "EA", type: "manual" },
+        ],
+      },
+
+      // ── FIRE PROTECTION ────────────────────────────────────────
+      {
+        id: "fire-protection",
+        name: "Fire Protection",
+        type: "measurement",
+        drivingItemId: "fp-area",
+        specs: [
+          { id: "FPType", label: "System Type", type: "select",
+            options: ["Wet", "Dry", "Pre-Action", "Deluge"], default: "Wet" },
+          { id: "Hazard", label: "Hazard Class", type: "select",
+            options: ["Light", "Ordinary Group 1", "Ordinary Group 2", "Extra Hazard"], default: "Light" },
+        ],
+        items: [
+          { id: "fp-area", name: "Protected Area", code: "21.130", unit: "SF", type: "driving", tool: "area", formulaVar: "FpSF" },
+          { id: "fp-heads", name: "Sprinkler Heads", code: "21.130", unit: "EA", type: "derived",
+            formula: "FpSF / 130", round: "ceil",
+            descTemplate: "{FPType} — {Hazard}" },
+          { id: "fp-pipe", name: "Sprinkler Pipe", code: "21.110", unit: "LF", type: "derived",
+            formula: "FpSF * 0.15" },
+          { id: "fp-riser", name: "Risers", code: "21.110", unit: "EA", type: "derived",
+            formula: "FpSF / 52000", round: "ceil" },
+          { id: "fp-fdc", name: "Fire Dept Connection", code: "21.110", unit: "EA", type: "derived",
+            formula: "1" },
+          { id: "fp-extinguishers", name: "Fire Extinguishers", code: "10.440", unit: "EA", type: "manual" },
+        ],
+      },
+    ],
+  },
 };
 
-// List for UI selector (includes future placeholders)
-export const BUILDER_LIST = [
+// Module list for UI selector
+export const MODULE_LIST = [
   { id: "foundation", name: "Foundation", available: true },
   { id: "walls", name: "Walls", available: true },
   { id: "floors", name: "Floors", available: true },
   { id: "roof", name: "Roof", available: true },
   { id: "steel", name: "Steel", available: true },
-  { id: "sitework", name: "Sitework", available: false },
-  { id: "MEP", name: "MEP", available: false },
+  { id: "sitework", name: "Sitework", available: true },
+  { id: "mep", name: "MEP", available: true },
 ];
+// Alias for new naming convention
+export const SCOPE_KIT_LIST = MODULE_LIST;

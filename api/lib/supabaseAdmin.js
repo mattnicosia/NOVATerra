@@ -1,7 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// Trim any trailing \n from env vars (Vercel .env parsing artifact)
+const supabaseUrl = (process.env.SUPABASE_URL || '').replace(/\\n/g, '').replace(/\n/g, '').trim();
+const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').replace(/\\n/g, '').replace(/\n/g, '').trim();
 
 // Server-side Supabase client using service role key (bypasses RLS)
 // Used ONLY in serverless functions — never exposed to the browser

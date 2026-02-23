@@ -28,74 +28,74 @@ export const SEED_ELEMENTS = [
   // ── 05.400 Metal Stud Framing ─────────────────────────────────
   // Material: US Frame Factory current pricing (May 2025). Labor: commercial framing crew rates.
   // ── Drywall / Non-Structural Studs (20ga) ──
-  { id:"s350", code:"05.400", name:"Metal Stud, 1-5/8\" 20ga (Drywall)", unit:"LF", material:0.33, labor:0.80, equipment:0.05, trade:"metalFraming" },
-  { id:"s351", code:"05.400", name:"Metal Track, 1-5/8\" 20ga", unit:"LF", material:0.29, labor:0.40, equipment:0.02, trade:"metalFraming" },
-  { id:"s352", code:"05.400", name:"Metal Stud, 2-1/2\" 20ga (Drywall)", unit:"LF", material:0.39, labor:0.85, equipment:0.05, trade:"metalFraming" },
-  { id:"s353", code:"05.400", name:"Metal Track, 2-1/2\" 20ga", unit:"LF", material:0.35, labor:0.42, equipment:0.02, trade:"metalFraming" },
-  { id:"s354", code:"05.400", name:"Metal Stud, 3-5/8\" 20ga (Drywall)", unit:"LF", material:0.45, labor:0.90, equipment:0.05, trade:"metalFraming" },
-  { id:"s355", code:"05.400", name:"Metal Track, 3-5/8\" 20ga", unit:"LF", material:0.41, labor:0.45, equipment:0.02, trade:"metalFraming" },
-  { id:"s356", code:"05.400", name:"Metal Stud, 6\" 20ga (Drywall)", unit:"LF", material:0.60, labor:0.95, equipment:0.06, trade:"metalFraming" },
-  { id:"s357", code:"05.400", name:"Metal Track, 6\" 20ga", unit:"LF", material:0.56, labor:0.48, equipment:0.03, trade:"metalFraming" },
+  { id:"s350", code:"05.400", name:"Metal Stud, 1-5/8\" 20ga (Drywall)", unit:"LF", material:0.33, labor:0.80, equipment:0.05, trade:"drywall" },
+  { id:"s351", code:"05.400", name:"Metal Track, 1-5/8\" 20ga", unit:"LF", material:0.29, labor:0.40, equipment:0.02, trade:"drywall" },
+  { id:"s352", code:"05.400", name:"Metal Stud, 2-1/2\" 20ga (Drywall)", unit:"LF", material:0.39, labor:0.85, equipment:0.05, trade:"drywall" },
+  { id:"s353", code:"05.400", name:"Metal Track, 2-1/2\" 20ga", unit:"LF", material:0.35, labor:0.42, equipment:0.02, trade:"drywall" },
+  { id:"s354", code:"05.400", name:"Metal Stud, 3-5/8\" 20ga (Drywall)", unit:"LF", material:0.45, labor:0.90, equipment:0.05, trade:"drywall" },
+  { id:"s355", code:"05.400", name:"Metal Track, 3-5/8\" 20ga", unit:"LF", material:0.41, labor:0.45, equipment:0.02, trade:"drywall" },
+  { id:"s356", code:"05.400", name:"Metal Stud, 6\" 20ga (Drywall)", unit:"LF", material:0.60, labor:0.95, equipment:0.06, trade:"drywall" },
+  { id:"s357", code:"05.400", name:"Metal Track, 6\" 20ga", unit:"LF", material:0.56, labor:0.48, equipment:0.03, trade:"drywall" },
   // ── Drywall / Non-Structural Studs (25ga) ──
-  { id:"s358", code:"05.400", name:"Metal Stud, 3-5/8\" 25ga (Drywall)", unit:"LF", material:0.39, labor:0.85, equipment:0.05, trade:"metalFraming" },
-  { id:"s359", code:"05.400", name:"Metal Track, 3-5/8\" 25ga", unit:"LF", material:0.36, labor:0.42, equipment:0.02, trade:"metalFraming" },
-  { id:"s360", code:"05.400", name:"Metal Stud, 6\" 25ga (Drywall)", unit:"LF", material:0.51, labor:0.90, equipment:0.06, trade:"metalFraming" },
-  { id:"s361", code:"05.400", name:"Metal Track, 6\" 25ga", unit:"LF", material:0.48, labor:0.45, equipment:0.03, trade:"metalFraming" },
+  { id:"s358", code:"05.400", name:"Metal Stud, 3-5/8\" 25ga (Drywall)", unit:"LF", material:0.39, labor:0.85, equipment:0.05, trade:"drywall" },
+  { id:"s359", code:"05.400", name:"Metal Track, 3-5/8\" 25ga", unit:"LF", material:0.36, labor:0.42, equipment:0.02, trade:"drywall" },
+  { id:"s360", code:"05.400", name:"Metal Stud, 6\" 25ga (Drywall)", unit:"LF", material:0.51, labor:0.90, equipment:0.06, trade:"drywall" },
+  { id:"s361", code:"05.400", name:"Metal Track, 6\" 25ga", unit:"LF", material:0.48, labor:0.45, equipment:0.03, trade:"drywall" },
   // ── Structural Studs (18ga) ──
-  { id:"s362", code:"05.400", name:"Metal Stud, 3-5/8\" 18ga (Structural)", unit:"LF", material:1.20, labor:1.40, equipment:0.10, trade:"metalFraming" },
-  { id:"s363", code:"05.400", name:"Metal Track, 3-5/8\" 18ga (Structural)", unit:"LF", material:1.20, labor:0.70, equipment:0.05, trade:"metalFraming" },
-  { id:"s364", code:"05.400", name:"Metal Stud, 6\" 18ga (Structural)", unit:"LF", material:1.56, labor:1.55, equipment:0.12, trade:"metalFraming" },
-  { id:"s365", code:"05.400", name:"Metal Track, 6\" 18ga (Structural)", unit:"LF", material:1.56, labor:0.78, equipment:0.06, trade:"metalFraming" },
-  { id:"s366", code:"05.400", name:"Metal Stud, 8\" 18ga (Structural)", unit:"LF", material:1.86, labor:1.70, equipment:0.14, trade:"metalFraming" },
-  { id:"s367", code:"05.400", name:"Metal Track, 8\" 18ga (Structural)", unit:"LF", material:1.86, labor:0.85, equipment:0.07, trade:"metalFraming" },
+  { id:"s362", code:"05.400", name:"Metal Stud, 3-5/8\" 18ga (Structural)", unit:"LF", material:1.20, labor:1.40, equipment:0.10, trade:"drywall" },
+  { id:"s363", code:"05.400", name:"Metal Track, 3-5/8\" 18ga (Structural)", unit:"LF", material:1.20, labor:0.70, equipment:0.05, trade:"drywall" },
+  { id:"s364", code:"05.400", name:"Metal Stud, 6\" 18ga (Structural)", unit:"LF", material:1.56, labor:1.55, equipment:0.12, trade:"drywall" },
+  { id:"s365", code:"05.400", name:"Metal Track, 6\" 18ga (Structural)", unit:"LF", material:1.56, labor:0.78, equipment:0.06, trade:"drywall" },
+  { id:"s366", code:"05.400", name:"Metal Stud, 8\" 18ga (Structural)", unit:"LF", material:1.86, labor:1.70, equipment:0.14, trade:"drywall" },
+  { id:"s367", code:"05.400", name:"Metal Track, 8\" 18ga (Structural)", unit:"LF", material:1.86, labor:0.85, equipment:0.07, trade:"drywall" },
   // ── Structural Studs (16ga) ──
-  { id:"s368", code:"05.400", name:"Metal Stud, 3-5/8\" 16ga (Structural)", unit:"LF", material:1.48, labor:1.50, equipment:0.12, trade:"metalFraming" },
-  { id:"s369", code:"05.400", name:"Metal Track, 3-5/8\" 16ga (Structural)", unit:"LF", material:1.48, labor:0.75, equipment:0.06, trade:"metalFraming" },
-  { id:"s370", code:"05.400", name:"Metal Stud, 6\" 16ga (Structural)", unit:"LF", material:1.94, labor:1.65, equipment:0.14, trade:"metalFraming" },
-  { id:"s371", code:"05.400", name:"Metal Track, 6\" 16ga (Structural)", unit:"LF", material:1.94, labor:0.82, equipment:0.07, trade:"metalFraming" },
-  { id:"s372", code:"05.400", name:"Metal Stud, 8\" 16ga (Structural)", unit:"LF", material:2.31, labor:1.80, equipment:0.16, trade:"metalFraming" },
-  { id:"s373", code:"05.400", name:"Metal Track, 8\" 16ga (Structural)", unit:"LF", material:2.31, labor:0.90, equipment:0.08, trade:"metalFraming" },
+  { id:"s368", code:"05.400", name:"Metal Stud, 3-5/8\" 16ga (Structural)", unit:"LF", material:1.48, labor:1.50, equipment:0.12, trade:"drywall" },
+  { id:"s369", code:"05.400", name:"Metal Track, 3-5/8\" 16ga (Structural)", unit:"LF", material:1.48, labor:0.75, equipment:0.06, trade:"drywall" },
+  { id:"s370", code:"05.400", name:"Metal Stud, 6\" 16ga (Structural)", unit:"LF", material:1.94, labor:1.65, equipment:0.14, trade:"drywall" },
+  { id:"s371", code:"05.400", name:"Metal Track, 6\" 16ga (Structural)", unit:"LF", material:1.94, labor:0.82, equipment:0.07, trade:"drywall" },
+  { id:"s372", code:"05.400", name:"Metal Stud, 8\" 16ga (Structural)", unit:"LF", material:2.31, labor:1.80, equipment:0.16, trade:"drywall" },
+  { id:"s373", code:"05.400", name:"Metal Track, 8\" 16ga (Structural)", unit:"LF", material:2.31, labor:0.90, equipment:0.08, trade:"drywall" },
   // ── Structural Studs (14ga) ──
-  { id:"s374", code:"05.400", name:"Metal Stud, 3-5/8\" 14ga (Structural)", unit:"LF", material:1.85, labor:1.60, equipment:0.14, trade:"metalFraming" },
-  { id:"s375", code:"05.400", name:"Metal Track, 3-5/8\" 14ga (Structural)", unit:"LF", material:1.85, labor:0.80, equipment:0.07, trade:"metalFraming" },
-  { id:"s376", code:"05.400", name:"Metal Stud, 6\" 14ga (Structural)", unit:"LF", material:2.42, labor:1.80, equipment:0.16, trade:"metalFraming" },
-  { id:"s377", code:"05.400", name:"Metal Track, 6\" 14ga (Structural)", unit:"LF", material:2.42, labor:0.90, equipment:0.08, trade:"metalFraming" },
-  { id:"s378", code:"05.400", name:"Metal Stud, 8\" 14ga (Structural)", unit:"LF", material:2.89, labor:1.95, equipment:0.18, trade:"metalFraming" },
-  { id:"s379", code:"05.400", name:"Metal Track, 8\" 14ga (Structural)", unit:"LF", material:2.89, labor:0.98, equipment:0.09, trade:"metalFraming" },
+  { id:"s374", code:"05.400", name:"Metal Stud, 3-5/8\" 14ga (Structural)", unit:"LF", material:1.85, labor:1.60, equipment:0.14, trade:"drywall" },
+  { id:"s375", code:"05.400", name:"Metal Track, 3-5/8\" 14ga (Structural)", unit:"LF", material:1.85, labor:0.80, equipment:0.07, trade:"drywall" },
+  { id:"s376", code:"05.400", name:"Metal Stud, 6\" 14ga (Structural)", unit:"LF", material:2.42, labor:1.80, equipment:0.16, trade:"drywall" },
+  { id:"s377", code:"05.400", name:"Metal Track, 6\" 14ga (Structural)", unit:"LF", material:2.42, labor:0.90, equipment:0.08, trade:"drywall" },
+  { id:"s378", code:"05.400", name:"Metal Stud, 8\" 14ga (Structural)", unit:"LF", material:2.89, labor:1.95, equipment:0.18, trade:"drywall" },
+  { id:"s379", code:"05.400", name:"Metal Track, 8\" 14ga (Structural)", unit:"LF", material:2.89, labor:0.98, equipment:0.09, trade:"drywall" },
   // ── Structural Studs (12ga — Heavy) ──
-  { id:"s380", code:"05.400", name:"Metal Stud, 6\" 12ga (Structural)", unit:"LF", material:3.39, labor:2.10, equipment:0.20, trade:"metalFraming" },
-  { id:"s381", code:"05.400", name:"Metal Track, 6\" 12ga (Structural)", unit:"LF", material:3.39, labor:1.05, equipment:0.10, trade:"metalFraming" },
-  { id:"s382", code:"05.400", name:"Metal Stud, 8\" 12ga (Structural)", unit:"LF", material:4.07, labor:2.30, equipment:0.22, trade:"metalFraming" },
-  { id:"s383", code:"05.400", name:"Metal Track, 8\" 12ga (Structural)", unit:"LF", material:4.07, labor:1.15, equipment:0.11, trade:"metalFraming" },
+  { id:"s380", code:"05.400", name:"Metal Stud, 6\" 12ga (Structural)", unit:"LF", material:3.39, labor:2.10, equipment:0.20, trade:"drywall" },
+  { id:"s381", code:"05.400", name:"Metal Track, 6\" 12ga (Structural)", unit:"LF", material:3.39, labor:1.05, equipment:0.10, trade:"drywall" },
+  { id:"s382", code:"05.400", name:"Metal Stud, 8\" 12ga (Structural)", unit:"LF", material:4.07, labor:2.30, equipment:0.22, trade:"drywall" },
+  { id:"s383", code:"05.400", name:"Metal Track, 8\" 12ga (Structural)", unit:"LF", material:4.07, labor:1.15, equipment:0.11, trade:"drywall" },
   // ── Metal Framing Accessories ──
-  { id:"s384", code:"05.400", name:"Metal Furring Channel, 7/8\" Hat (25ga)", unit:"LF", material:0.22, labor:0.35, equipment:0.02, trade:"metalFraming" },
-  { id:"s385", code:"05.400", name:"Metal Resilient Channel (RC-1)", unit:"LF", material:0.30, labor:0.40, equipment:0.02, trade:"metalFraming" },
-  { id:"s386", code:"05.400", name:"Metal Corner Bead", unit:"LF", material:0.25, labor:0.35, equipment:0.00, trade:"metalFraming" },
-  { id:"s387", code:"05.400", name:"Metal Framing Screws, #8 TEK (box/1000)", unit:"EA", material:35.00, labor:0.00, equipment:0.00, trade:"metalFraming" },
-  { id:"s388", code:"05.400", name:"Metal Stud Bridging/Bracing, Flat Strap", unit:"LF", material:0.18, labor:0.45, equipment:0.02, trade:"metalFraming" },
-  { id:"s389", code:"05.400", name:"Metal Deflection Track (Slip Track)", unit:"LF", material:0.85, labor:0.55, equipment:0.03, trade:"metalFraming" },
+  { id:"s384", code:"05.400", name:"Metal Furring Channel, 7/8\" Hat (25ga)", unit:"LF", material:0.22, labor:0.35, equipment:0.02, trade:"drywall" },
+  { id:"s385", code:"05.400", name:"Metal Resilient Channel (RC-1)", unit:"LF", material:0.30, labor:0.40, equipment:0.02, trade:"drywall" },
+  { id:"s386", code:"05.400", name:"Metal Corner Bead", unit:"LF", material:0.25, labor:0.35, equipment:0.00, trade:"drywall" },
+  { id:"s387", code:"05.400", name:"Metal Framing Screws, #8 TEK (box/1000)", unit:"EA", material:35.00, labor:0.00, equipment:0.00, trade:"drywall" },
+  { id:"s388", code:"05.400", name:"Metal Stud Bridging/Bracing, Flat Strap", unit:"LF", material:0.18, labor:0.45, equipment:0.02, trade:"drywall" },
+  { id:"s389", code:"05.400", name:"Metal Deflection Track (Slip Track)", unit:"LF", material:0.85, labor:0.55, equipment:0.03, trade:"drywall" },
   // ── Composite Wall Assemblies (per SF of wall — for SF-based estimating) ──
-  { id:"s390", code:"05.400", name:"Metal Stud Wall, 3-5/8\" 20ga 16\" o.c. (non-structural)", unit:"SF", material:1.20, labor:2.80, equipment:0.15, trade:"metalFraming" },
-  { id:"s391", code:"05.400", name:"Metal Stud Wall, 3-5/8\" 20ga 24\" o.c. (non-structural)", unit:"SF", material:0.95, labor:2.40, equipment:0.12, trade:"metalFraming" },
-  { id:"s392", code:"05.400", name:"Metal Stud Wall, 6\" 20ga 16\" o.c. (non-structural)", unit:"SF", material:1.65, labor:3.10, equipment:0.18, trade:"metalFraming" },
-  { id:"s393", code:"05.400", name:"Metal Stud Wall, 3-5/8\" 16ga 16\" o.c. (structural)", unit:"SF", material:2.80, labor:3.50, equipment:0.25, trade:"metalFraming" },
-  { id:"s394", code:"05.400", name:"Metal Stud Wall, 6\" 16ga 16\" o.c. (structural)", unit:"SF", material:3.60, labor:3.80, equipment:0.30, trade:"metalFraming" },
+  { id:"s390", code:"05.400", name:"Metal Stud Wall, 3-5/8\" 20ga 16\" o.c. (non-structural)", unit:"SF", material:1.20, labor:2.80, equipment:0.15, trade:"drywall" },
+  { id:"s391", code:"05.400", name:"Metal Stud Wall, 3-5/8\" 20ga 24\" o.c. (non-structural)", unit:"SF", material:0.95, labor:2.40, equipment:0.12, trade:"drywall" },
+  { id:"s392", code:"05.400", name:"Metal Stud Wall, 6\" 20ga 16\" o.c. (non-structural)", unit:"SF", material:1.65, labor:3.10, equipment:0.18, trade:"drywall" },
+  { id:"s393", code:"05.400", name:"Metal Stud Wall, 3-5/8\" 16ga 16\" o.c. (structural)", unit:"SF", material:2.80, labor:3.50, equipment:0.25, trade:"drywall" },
+  { id:"s394", code:"05.400", name:"Metal Stud Wall, 6\" 16ga 16\" o.c. (structural)", unit:"SF", material:3.60, labor:3.80, equipment:0.30, trade:"drywall" },
 
   // ── Metal Stud Wall — Sheathing & Substrate Boards ───────────
-  { id:"s395", code:"06.160", name:"DensGlass Sheathing, 1/2\" (exterior gypsum)", unit:"SF", material:0.65, labor:0.75, equipment:0.08, trade:"metalFraming" },
-  { id:"s396", code:"06.160", name:"DensGlass Sheathing, 5/8\" Type X (exterior gypsum)", unit:"SF", material:0.78, labor:0.80, equipment:0.08, trade:"metalFraming" },
-  { id:"s397", code:"06.160", name:"DensGlass Shaftliner, 1\" (shaft/stairwell)", unit:"SF", material:1.10, labor:1.20, equipment:0.10, trade:"metalFraming" },
-  { id:"s398", code:"06.160", name:"Gypsum Sheathing, 1/2\" (paper-faced exterior)", unit:"SF", material:0.42, labor:0.70, equipment:0.08, trade:"metalFraming" },
-  { id:"s399", code:"06.160", name:"Gypsum Sheathing, 5/8\" (paper-faced exterior)", unit:"SF", material:0.52, labor:0.75, equipment:0.08, trade:"metalFraming" },
-  { id:"s400", code:"06.160", name:"Plywood Sheathing on Metal Studs, 1/2\" CDX", unit:"SF", material:0.91, labor:0.90, equipment:0.08, trade:"metalFraming" },
-  { id:"s401", code:"06.160", name:"Plywood Sheathing on Metal Studs, 5/8\" CDX", unit:"SF", material:1.02, labor:0.95, equipment:0.08, trade:"metalFraming" },
-  { id:"s402", code:"06.160", name:"Plywood Sheathing on Metal Studs, 3/4\" CDX", unit:"SF", material:1.12, labor:1.00, equipment:0.10, trade:"metalFraming" },
+  { id:"s395", code:"06.160", name:"DensGlass Sheathing, 1/2\" (exterior gypsum)", unit:"SF", material:0.65, labor:0.75, equipment:0.08, trade:"drywall" },
+  { id:"s396", code:"06.160", name:"DensGlass Sheathing, 5/8\" Type X (exterior gypsum)", unit:"SF", material:0.78, labor:0.80, equipment:0.08, trade:"drywall" },
+  { id:"s397", code:"06.160", name:"DensGlass Shaftliner, 1\" (shaft/stairwell)", unit:"SF", material:1.10, labor:1.20, equipment:0.10, trade:"drywall" },
+  { id:"s398", code:"06.160", name:"Gypsum Sheathing, 1/2\" (paper-faced exterior)", unit:"SF", material:0.42, labor:0.70, equipment:0.08, trade:"drywall" },
+  { id:"s399", code:"06.160", name:"Gypsum Sheathing, 5/8\" (paper-faced exterior)", unit:"SF", material:0.52, labor:0.75, equipment:0.08, trade:"drywall" },
+  { id:"s400", code:"06.160", name:"Plywood Sheathing on Metal Studs, 1/2\" CDX", unit:"SF", material:0.91, labor:0.90, equipment:0.08, trade:"drywall" },
+  { id:"s401", code:"06.160", name:"Plywood Sheathing on Metal Studs, 5/8\" CDX", unit:"SF", material:1.02, labor:0.95, equipment:0.08, trade:"drywall" },
+  { id:"s402", code:"06.160", name:"Plywood Sheathing on Metal Studs, 3/4\" CDX", unit:"SF", material:1.12, labor:1.00, equipment:0.10, trade:"drywall" },
   { id:"s403", code:"09.210", name:"Abuse-Resistant Gypsum Board, 5/8\" (high-impact)", unit:"SF", material:0.95, labor:1.90, equipment:0.15, trade:"drywall" },
 
   // ── Metal Stud Wall — Acoustical Sealant & Sound Control ─────
-  { id:"s404", code:"07.920", name:"Acoustical Sealant, Top & Bottom Track", unit:"LF", material:0.35, labor:0.40, equipment:0.00, trade:"metalFraming" },
-  { id:"s405", code:"07.920", name:"Acoustical Sealant, Perimeter of Board", unit:"LF", material:0.35, labor:0.45, equipment:0.00, trade:"metalFraming" },
-  { id:"s406", code:"07.920", name:"Acoustical Sealant, Tube (29 oz)", unit:"EA", material:5.50, labor:0.00, equipment:0.00, trade:"metalFraming" },
+  { id:"s404", code:"07.920", name:"Acoustical Sealant, Top & Bottom Track", unit:"LF", material:0.35, labor:0.40, equipment:0.00, trade:"drywall" },
+  { id:"s405", code:"07.920", name:"Acoustical Sealant, Perimeter of Board", unit:"LF", material:0.35, labor:0.45, equipment:0.00, trade:"drywall" },
+  { id:"s406", code:"07.920", name:"Acoustical Sealant, Tube (29 oz)", unit:"EA", material:5.50, labor:0.00, equipment:0.00, trade:"drywall" },
 
   // ── Metal Stud Wall — Firestopping & Fire Safing ─────────────
   { id:"s407", code:"07.840", name:"Firestop Sealant, Intumescent (joint/penetration)", unit:"LF", material:4.50, labor:6.00, equipment:0.00, trade:"firestop" },
@@ -115,11 +115,11 @@ export const SEED_ELEMENTS = [
   { id:"s419", code:"07.270", name:"Fire-Rated Joint Tape (UL)", unit:"LF", material:0.45, labor:0.55, equipment:0.00, trade:"firestop" },
 
   // ── Metal Stud Wall — Miscellaneous Accessories ──────────────
-  { id:"s420", code:"05.400", name:"Shaft Wall H-Stud, 25ga (for shaftliner)", unit:"LF", material:0.65, labor:0.85, equipment:0.05, trade:"metalFraming" },
-  { id:"s421", code:"05.400", name:"Shaft Wall C-Track, 25ga (for shaftliner)", unit:"LF", material:0.48, labor:0.45, equipment:0.03, trade:"metalFraming" },
-  { id:"s422", code:"05.400", name:"Aluminum Breakaway Clip (area sep wall)", unit:"EA", material:0.85, labor:0.50, equipment:0.00, trade:"metalFraming" },
-  { id:"s423", code:"05.400", name:"Metal Z-Furring Channel, 7/8\" (for insulation)", unit:"LF", material:0.35, labor:0.45, equipment:0.02, trade:"metalFraming" },
-  { id:"s424", code:"07.920", name:"Backer Rod, Closed Cell (various dia.)", unit:"LF", material:0.15, labor:0.20, equipment:0.00, trade:"metalFraming" },
+  { id:"s420", code:"05.400", name:"Shaft Wall H-Stud, 25ga (for shaftliner)", unit:"LF", material:0.65, labor:0.85, equipment:0.05, trade:"drywall" },
+  { id:"s421", code:"05.400", name:"Shaft Wall C-Track, 25ga (for shaftliner)", unit:"LF", material:0.48, labor:0.45, equipment:0.03, trade:"drywall" },
+  { id:"s422", code:"05.400", name:"Aluminum Breakaway Clip (area sep wall)", unit:"EA", material:0.85, labor:0.50, equipment:0.00, trade:"drywall" },
+  { id:"s423", code:"05.400", name:"Metal Z-Furring Channel, 7/8\" (for insulation)", unit:"LF", material:0.35, labor:0.45, equipment:0.02, trade:"drywall" },
+  { id:"s424", code:"07.920", name:"Backer Rod, Closed Cell (various dia.)", unit:"LF", material:0.15, labor:0.20, equipment:0.00, trade:"drywall" },
   { id:"s425", code:"07.920", name:"Fire-Rated Caulk at Head of Wall (HOW joint)", unit:"LF", material:1.80, labor:2.20, equipment:0.00, trade:"firestop" },
 
   // ── 06 Wood, Plastics & Composites ────────────────────────────
@@ -391,7 +391,7 @@ export const SEED_ELEMENTS = [
   { id:"s202", code:"04.210", name:"CMU Lintel Block, 8\"", unit:"LF", material:4.80, labor:8.00, equipment:0.30, trade:"masonry" },
   { id:"s203", code:"04.720", name:"Natural Stone Veneer", unit:"SF", material:18.00, labor:16.00, equipment:0.50, trade:"masonry" },
   { id:"s204", code:"04.720", name:"Manufactured Stone Veneer", unit:"SF", material:10.00, labor:12.00, equipment:0.40, trade:"masonry" },
-  // ── CMU Block Sizes (builder) ───────────────────────────────
+  // ── CMU Block Sizes (module) ───────────────────────────────
   { id:"s450", code:"04.210", name:"CMU Block, 6x8x16 Standard", unit:"SF", material:2.80, labor:7.00, equipment:0.35, trade:"masonry" },
   { id:"s451", code:"04.210", name:"CMU Block, 6x8x16 Lightweight", unit:"SF", material:3.40, labor:7.00, equipment:0.35, trade:"masonry" },
   { id:"s452", code:"04.210", name:"CMU Block, 10x8x16 Standard", unit:"SF", material:4.00, labor:8.00, equipment:0.45, trade:"masonry" },
@@ -419,7 +419,7 @@ export const SEED_ELEMENTS = [
   { id:"s470", code:"07.210", name:"CMU Core Fill Insulation, Foam", unit:"SF", material:1.20, labor:0.80, equipment:0.10, trade:"insulation" },
   { id:"s471", code:"07.210", name:"CMU Core Fill Insulation, Perlite", unit:"SF", material:0.90, labor:0.60, equipment:0.05, trade:"insulation" },
 
-  // ── Cast-in-Place Concrete Wall (builder) ─────────────────
+  // ── Cast-in-Place Concrete Wall (module) ─────────────────
   // Formwork
   { id:"s480", code:"03.110", name:"Wall Forms, Plywood/Job-Built", unit:"SFCA", material:3.80, labor:9.50, equipment:1.00, trade:"concrete" },
   { id:"s481", code:"03.110", name:"Wall Forms, Prefab Metal Panel", unit:"SFCA", material:2.50, labor:6.50, equipment:1.50, trade:"concrete" },
@@ -447,7 +447,7 @@ export const SEED_ELEMENTS = [
   // Rebar #6 (s003=#4, s004=#5 already exist)
   { id:"s497", code:"03.210", name:"Rebar, #6 Grade 60", unit:"LB", material:0.90, labor:0.55, equipment:0.10, trade:"concrete" },
 
-  // ── ICF (Insulated Concrete Forms) Wall (builder) ─────────
+  // ── ICF (Insulated Concrete Forms) Wall (module) ─────────
   // ICF Blocks by core width
   { id:"s500", code:"03.110", name:"ICF Block, Flat Wall 6\" Core", unit:"SF", material:5.50, labor:4.50, equipment:0.30, trade:"concrete" },
   { id:"s501", code:"03.110", name:"ICF Block, Flat Wall 8\" Core", unit:"SF", material:6.50, labor:5.00, equipment:0.30, trade:"concrete" },
@@ -464,7 +464,7 @@ export const SEED_ELEMENTS = [
   { id:"s510", code:"09.240", name:"ICF Exterior Finish, Stucco/EIFS", unit:"SF", material:3.50, labor:5.50, equipment:0.30, trade:"finishes" },
   { id:"s511", code:"09.240", name:"ICF Interior Finish, Drywall Direct-Apply", unit:"SF", material:1.20, labor:2.00, equipment:0.10, trade:"finishes" },
 
-  // ── Tilt-Up Concrete Wall (builder) ───────────────────────
+  // ── Tilt-Up Concrete Wall (module) ───────────────────────
   { id:"s520", code:"03.110", name:"Tilt-Up Panel Formwork (Casting Slab)", unit:"SF", material:2.00, labor:5.50, equipment:1.50, trade:"concrete" },
   { id:"s521", code:"03.310", name:"Tilt-Up Panel Concrete, 5-1/2\"", unit:"SF", material:5.80, labor:4.50, equipment:2.50, trade:"concrete" },
   { id:"s522", code:"03.310", name:"Tilt-Up Panel Concrete, 7-1/4\"", unit:"SF", material:7.50, labor:5.00, equipment:2.80, trade:"concrete" },
@@ -478,7 +478,7 @@ export const SEED_ELEMENTS = [
   { id:"s530", code:"03.110", name:"Tilt-Up Panel Strong-Back Bracing", unit:"SF", material:0.80, labor:1.50, equipment:0.40, trade:"concrete" },
   { id:"s531", code:"07.110", name:"Tilt-Up Panel Dampproofing", unit:"SF", material:0.65, labor:0.80, equipment:0.10, trade:"waterproofing" },
 
-  // ── Precast Concrete Wall (builder) ───────────────────────
+  // ── Precast Concrete Wall (module) ───────────────────────
   { id:"s540", code:"03.400", name:"Precast Wall Panel, Flat 6\"", unit:"SF", material:18.00, labor:4.50, equipment:5.00, trade:"concrete" },
   { id:"s541", code:"03.400", name:"Precast Wall Panel, Flat 8\"", unit:"SF", material:22.00, labor:5.00, equipment:5.50, trade:"concrete" },
   { id:"s542", code:"03.400", name:"Precast Wall Panel, Insulated Sandwich", unit:"SF", material:32.00, labor:5.50, equipment:6.00, trade:"concrete" },
@@ -490,7 +490,7 @@ export const SEED_ELEMENTS = [
   { id:"s548", code:"04.050", name:"Precast Panel Joint Grout", unit:"LF", material:1.50, labor:2.00, equipment:0.00, trade:"concrete" },
   { id:"s549", code:"07.110", name:"Precast Panel Dampproofing", unit:"SF", material:0.65, labor:0.80, equipment:0.10, trade:"waterproofing" },
 
-  // ── SIP (Structural Insulated Panel) Wall (builder) ───────
+  // ── SIP (Structural Insulated Panel) Wall (module) ───────
   { id:"s560", code:"06.120", name:"SIP Wall Panel, 4-1/2\" (R-15)", unit:"SF", material:6.50, labor:4.00, equipment:0.50, trade:"carpentry" },
   { id:"s561", code:"06.120", name:"SIP Wall Panel, 6-1/2\" (R-24)", unit:"SF", material:8.50, labor:4.50, equipment:0.50, trade:"carpentry" },
   { id:"s562", code:"06.120", name:"SIP Wall Panel, 8-1/4\" (R-32)", unit:"SF", material:10.80, labor:5.00, equipment:0.60, trade:"carpentry" },
@@ -501,7 +501,7 @@ export const SEED_ELEMENTS = [
   { id:"s567", code:"06.120", name:"SIP Top / Bottom Plates", unit:"LF", material:2.80, labor:1.50, equipment:0.00, trade:"carpentry" },
   { id:"s568", code:"06.120", name:"SIP Corner / Post Detail", unit:"LF", material:4.50, labor:3.00, equipment:0.00, trade:"carpentry" },
 
-  // ── 3D Printed Concrete Wall (builder) ────────────────────
+  // ── 3D Printed Concrete Wall (module) ────────────────────
   { id:"s580", code:"03.310", name:"3D Print Concrete Mix (Proprietary)", unit:"CF", material:12.00, labor:0.00, equipment:0.00, trade:"concrete" },
   { id:"s581", code:"03.500", name:"3D Print Wall, Machine Time", unit:"SF", material:0.00, labor:8.00, equipment:15.00, trade:"concrete" },
   { id:"s582", code:"03.210", name:"3D Print Wall Reinforcement, Fiber Mesh", unit:"SF", material:1.20, labor:0.50, equipment:0.00, trade:"concrete" },
@@ -510,7 +510,7 @@ export const SEED_ELEMENTS = [
   { id:"s585", code:"09.240", name:"3D Print Wall Finish, Smooth Coat", unit:"SF", material:1.50, labor:3.00, equipment:0.20, trade:"finishes" },
   { id:"s586", code:"03.500", name:"3D Print Mobilization / Setup", unit:"SF", material:0.00, labor:2.00, equipment:3.00, trade:"concrete" },
 
-  // ── Floor Structure — Wood Framing (builder) ──────────────
+  // ── Floor Structure — Wood Framing (module) ──────────────
   { id:"s600", code:"06.110", name:"Floor Joist, 2x8 SPF", unit:"LF", material:1.80, labor:1.20, equipment:0.10, trade:"carpentry" },
   { id:"s601", code:"06.110", name:"Floor Joist, 2x10 SPF", unit:"LF", material:2.40, labor:1.30, equipment:0.10, trade:"carpentry" },
   { id:"s602", code:"06.110", name:"Floor Joist, 2x12 SPF", unit:"LF", material:3.20, labor:1.40, equipment:0.10, trade:"carpentry" },
@@ -521,7 +521,7 @@ export const SEED_ELEMENTS = [
   { id:"s607", code:"06.160", name:"Subfloor, 3/4\" T&G OSB", unit:"SF", material:1.20, labor:0.75, equipment:0.05, trade:"carpentry" },
   { id:"s608", code:"06.160", name:"Subfloor, 1-1/8\" T&G OSB (Sturd-I-Floor)", unit:"SF", material:2.10, labor:0.90, equipment:0.05, trade:"carpentry" },
 
-  // ── Floor Structure — Wood Trusses (builder) ──────────────
+  // ── Floor Structure — Wood Trusses (module) ──────────────
   { id:"s590", code:"06.110", name:"Floor Truss, 12\" Open Web", unit:"LF", material:3.80, labor:1.40, equipment:0.20, trade:"carpentry" },
   { id:"s591", code:"06.110", name:"Floor Truss, 14\" Open Web", unit:"LF", material:4.40, labor:1.50, equipment:0.20, trade:"carpentry" },
   { id:"s592", code:"06.110", name:"Floor Truss, 16\" Open Web", unit:"LF", material:5.10, labor:1.60, equipment:0.25, trade:"carpentry" },
@@ -531,7 +531,7 @@ export const SEED_ELEMENTS = [
   { id:"s596", code:"06.110", name:"Truss Strongback Bracing", unit:"LF", material:1.60, labor:0.90, equipment:0.05, trade:"carpentry" },
   { id:"s597", code:"06.110", name:"Truss Cross Bridging", unit:"LF", material:0.85, labor:0.70, equipment:0.05, trade:"carpentry" },
 
-  // ── Floor Structure — Steel Deck (builder) ────────────────
+  // ── Floor Structure — Steel Deck (module) ────────────────
   { id:"s610", code:"05.310", name:"Steel Deck, 1.5\" B Deck 22ga", unit:"SF", material:2.80, labor:1.50, equipment:0.30, trade:"metals" },
   { id:"s611", code:"05.310", name:"Steel Deck, 1.5\" B Deck 20ga", unit:"SF", material:3.40, labor:1.60, equipment:0.30, trade:"metals" },
   { id:"s612", code:"05.310", name:"Steel Deck, 2\" B Deck 20ga", unit:"SF", material:3.80, labor:1.70, equipment:0.35, trade:"metals" },
@@ -542,14 +542,14 @@ export const SEED_ELEMENTS = [
   { id:"s617", code:"07.810", name:"Spray Fireproofing, 1-HR", unit:"SF", material:0.80, labor:1.50, equipment:0.30, trade:"fireproofing" },
   { id:"s618", code:"07.810", name:"Spray Fireproofing, 2-HR", unit:"SF", material:1.20, labor:2.00, equipment:0.40, trade:"fireproofing" },
 
-  // ── Floor Structure — Concrete on Deck (builder) ──────────
+  // ── Floor Structure — Concrete on Deck (module) ──────────
   { id:"s620", code:"03.110", name:"Elevated Slab Formwork / Reshoring", unit:"SF", material:3.00, labor:6.50, equipment:1.50, trade:"concrete" },
   { id:"s621", code:"03.110", name:"Elevated Slab Edge Form / Pour Stop", unit:"LF", material:2.50, labor:3.50, equipment:0.20, trade:"concrete" },
   { id:"s622", code:"03.310", name:"NW Concrete Topping (on deck)", unit:"CY", material:165.00, labor:50.00, equipment:40.00, trade:"concrete" },
   { id:"s623", code:"03.310", name:"LW Concrete Topping (on deck)", unit:"CY", material:195.00, labor:55.00, equipment:42.00, trade:"concrete" },
   { id:"s624", code:"03.350", name:"Elevated Slab Finishing, Trowel", unit:"SF", material:0.15, labor:1.50, equipment:0.20, trade:"concrete" },
 
-  // ── Floor Structure — Precast Plank (builder) ─────────────
+  // ── Floor Structure — Precast Plank (module) ─────────────
   { id:"s626", code:"03.400", name:"Precast Hollow Core Plank, 6\"", unit:"SF", material:10.00, labor:4.00, equipment:3.00, trade:"concrete" },
   { id:"s627", code:"03.400", name:"Precast Hollow Core Plank, 8\"", unit:"SF", material:12.50, labor:4.50, equipment:3.50, trade:"concrete" },
   { id:"s628", code:"03.400", name:"Precast Hollow Core Plank, 10\"", unit:"SF", material:15.00, labor:5.00, equipment:4.00, trade:"concrete" },
@@ -557,7 +557,7 @@ export const SEED_ELEMENTS = [
   { id:"s630", code:"03.400", name:"Precast Plank Grout, Keyway", unit:"LF", material:1.50, labor:2.00, equipment:0.00, trade:"concrete" },
   { id:"s631", code:"03.400", name:"Precast Bearing Pad, Neoprene", unit:"EA", material:3.50, labor:2.00, equipment:0.00, trade:"concrete" },
 
-  // ── Floor Structure — CLT (builder) ───────────────────────
+  // ── Floor Structure — CLT (module) ───────────────────────
   { id:"s633", code:"06.170", name:"CLT Floor Panel, 3-ply 4-1/8\"", unit:"SF", material:14.00, labor:3.50, equipment:2.50, trade:"carpentry" },
   { id:"s634", code:"06.170", name:"CLT Floor Panel, 5-ply 6-7/8\"", unit:"SF", material:22.00, labor:4.00, equipment:3.00, trade:"carpentry" },
   { id:"s635", code:"06.170", name:"CLT Floor Panel, 7-ply 9-5/8\"", unit:"SF", material:30.00, labor:4.50, equipment:3.50, trade:"carpentry" },
@@ -565,7 +565,7 @@ export const SEED_ELEMENTS = [
   { id:"s637", code:"06.170", name:"CLT Panel Connector, Angle Bracket", unit:"EA", material:8.00, labor:4.00, equipment:0.00, trade:"carpentry" },
   { id:"s638", code:"06.170", name:"CLT Acoustic Mat / Topping", unit:"SF", material:3.50, labor:1.50, equipment:0.10, trade:"carpentry" },
 
-  // ── Floor Finishes (builder) ──────────────────────────────
+  // ── Floor Finishes (module) ──────────────────────────────
   { id:"s640", code:"09.680", name:"Carpet, Broadloom Commercial", unit:"SF", material:3.50, labor:0.80, equipment:0.00, trade:"flooring" },
   { id:"s641", code:"09.680", name:"Carpet Tile, Standard", unit:"SF", material:4.50, labor:0.65, equipment:0.00, trade:"flooring" },
   { id:"s642", code:"09.650", name:"VCT (Vinyl Composition Tile)", unit:"SF", material:1.80, labor:1.20, equipment:0.00, trade:"flooring" },
@@ -582,7 +582,7 @@ export const SEED_ELEMENTS = [
   { id:"s653", code:"09.300", name:"Floor Underlayment, Self-Leveling", unit:"SF", material:1.80, labor:2.00, equipment:0.20, trade:"flooring" },
   { id:"s654", code:"09.300", name:"Floor Underlayment, Plywood 1/4\"", unit:"SF", material:0.65, labor:0.80, equipment:0.05, trade:"flooring" },
 
-  // ── Ceiling Finishes (builder) ────────────────────────────
+  // ── Ceiling Finishes (module) ────────────────────────────
   { id:"s660", code:"09.510", name:"ACT Ceiling, 2x2 Standard", unit:"SF", material:2.50, labor:2.00, equipment:0.20, trade:"ceilings" },
   { id:"s661", code:"09.510", name:"ACT Ceiling, 2x4 Standard", unit:"SF", material:2.20, labor:1.80, equipment:0.20, trade:"ceilings" },
   { id:"s662", code:"09.510", name:"ACT Ceiling, 2x2 Tegular", unit:"SF", material:3.80, labor:2.20, equipment:0.20, trade:"ceilings" },
@@ -595,7 +595,7 @@ export const SEED_ELEMENTS = [
   { id:"s669", code:"09.510", name:"Ceiling Suspension Wire & Hanger", unit:"SF", material:0.30, labor:0.60, equipment:0.05, trade:"ceilings" },
   { id:"s670", code:"09.510", name:"Seismic Ceiling Bracing", unit:"SF", material:0.45, labor:0.80, equipment:0.10, trade:"ceilings" },
 
-  // ── Roof Structure — Wood Trusses (builder) ──────────────
+  // ── Roof Structure — Wood Trusses (module) ──────────────
   { id:"s700", code:"06.170", name:"Roof Truss, 24ft Span Common", unit:"EA", material:85.00, labor:35.00, equipment:15.00, trade:"carpentry" },
   { id:"s701", code:"06.170", name:"Roof Truss, 28ft Span Common", unit:"EA", material:110.00, labor:40.00, equipment:18.00, trade:"carpentry" },
   { id:"s702", code:"06.170", name:"Roof Truss, 32ft Span Common", unit:"EA", material:140.00, labor:45.00, equipment:20.00, trade:"carpentry" },
@@ -604,7 +604,7 @@ export const SEED_ELEMENTS = [
   { id:"s705", code:"06.170", name:"Gable End Truss", unit:"EA", material:120.00, labor:35.00, equipment:15.00, trade:"carpentry" },
   { id:"s706", code:"06.170", name:"Truss Bracing, Permanent", unit:"LF", material:1.60, labor:0.90, equipment:0.05, trade:"carpentry" },
 
-  // ── Roof Structure — Wood Rafters (builder) ─────────────
+  // ── Roof Structure — Wood Rafters (module) ─────────────
   { id:"s710", code:"06.110", name:"Roof Rafter, 2x6 SPF", unit:"LF", material:1.50, labor:1.30, equipment:0.10, trade:"carpentry" },
   { id:"s711", code:"06.110", name:"Roof Rafter, 2x8 SPF", unit:"LF", material:1.90, labor:1.40, equipment:0.10, trade:"carpentry" },
   { id:"s712", code:"06.110", name:"Roof Rafter, 2x10 SPF", unit:"LF", material:2.50, labor:1.50, equipment:0.10, trade:"carpentry" },
@@ -614,7 +614,7 @@ export const SEED_ELEMENTS = [
   { id:"s716", code:"06.160", name:"Roof Sheathing, 1/2\" CDX Plywood", unit:"SF", material:1.30, labor:0.80, equipment:0.05, trade:"carpentry" },
   { id:"s717", code:"06.160", name:"Roof Sheathing, 7/16\" OSB", unit:"SF", material:0.95, labor:0.75, equipment:0.05, trade:"carpentry" },
 
-  // ── Roof Structure — Steel Joist/Deck (builder) ─────────
+  // ── Roof Structure — Steel Joist/Deck (module) ─────────
   { id:"s720", code:"05.210", name:"Steel Open Web Joist, 18K", unit:"LF", material:8.50, labor:4.00, equipment:1.50, trade:"metals" },
   { id:"s721", code:"05.210", name:"Steel Open Web Joist, 22K", unit:"LF", material:10.00, labor:4.50, equipment:1.80, trade:"metals" },
   { id:"s722", code:"05.210", name:"Steel Open Web Joist, 26K", unit:"LF", material:12.50, labor:5.00, equipment:2.00, trade:"metals" },
@@ -623,20 +623,20 @@ export const SEED_ELEMENTS = [
   { id:"s725", code:"05.310", name:"Steel Roof Deck, 3\" N 20ga", unit:"SF", material:4.20, labor:1.70, equipment:0.35, trade:"metals" },
   { id:"s726", code:"05.210", name:"Joist Bridging, Horizontal", unit:"LF", material:2.50, labor:1.80, equipment:0.15, trade:"metals" },
 
-  // ── Roof Structure — Precast/Concrete (builder) ─────────
+  // ── Roof Structure — Precast/Concrete (module) ─────────
   { id:"s730", code:"03.410", name:"Precast Roof Double Tee, 8ft Wide", unit:"SF", material:14.00, labor:5.00, equipment:4.00, trade:"concrete" },
   { id:"s731", code:"03.410", name:"Precast Roof Plank, 8\"", unit:"SF", material:12.50, labor:4.50, equipment:3.50, trade:"concrete" },
   { id:"s732", code:"07.210", name:"Roof Insulating Concrete Fill", unit:"SF", material:2.80, labor:1.50, equipment:0.40, trade:"concrete" },
   { id:"s733", code:"03.410", name:"Precast Roof Erection, Crane", unit:"SF", material:0.00, labor:3.00, equipment:4.00, trade:"concrete" },
   { id:"s734", code:"03.310", name:"Concrete Roof Topping, NW", unit:"CY", material:165.00, labor:50.00, equipment:40.00, trade:"concrete" },
 
-  // ── Roof Structure — SIP Panels (builder) ───────────────
+  // ── Roof Structure — SIP Panels (module) ───────────────
   { id:"s736", code:"06.120", name:"SIP Roof Panel, 6-1/2\"", unit:"SF", material:8.50, labor:3.00, equipment:0.50, trade:"carpentry" },
   { id:"s737", code:"06.120", name:"SIP Roof Panel, 8-1/4\"", unit:"SF", material:10.00, labor:3.20, equipment:0.55, trade:"carpentry" },
   { id:"s738", code:"06.120", name:"SIP Roof Panel, 10-1/4\"", unit:"SF", material:12.50, labor:3.50, equipment:0.60, trade:"carpentry" },
   { id:"s739", code:"06.120", name:"SIP Roof Spline / Sealant", unit:"LF", material:2.80, labor:1.40, equipment:0.10, trade:"carpentry" },
 
-  // ── Roofing Finishes (builder) ──────────────────────────
+  // ── Roofing Finishes (module) ──────────────────────────
   { id:"s740", code:"07.310", name:"Asphalt Shingles, 3-Tab", unit:"SF", material:1.00, labor:1.20, equipment:0.05, trade:"roofing" },
   { id:"s741", code:"07.310", name:"Asphalt Shingles, Architectural", unit:"SF", material:1.50, labor:1.30, equipment:0.05, trade:"roofing" },
   { id:"s742", code:"07.610", name:"Standing Seam Metal, 16\" Pan", unit:"SF", material:4.50, labor:3.50, equipment:0.30, trade:"roofing" },
@@ -656,7 +656,7 @@ export const SEED_ELEMENTS = [
   { id:"s756", code:"07.720", name:"Ridge Vent, Continuous", unit:"LF", material:2.00, labor:1.50, equipment:0.05, trade:"roofing" },
   { id:"s757", code:"07.620", name:"Pipe Boot / Flashing", unit:"EA", material:8.00, labor:6.00, equipment:0.00, trade:"roofing" },
 
-  // ── Gutters & Drainage (builder) ────────────────────────
+  // ── Gutters & Drainage (module) ────────────────────────
   { id:"s760", code:"07.630", name:"Gutter, K-Style 5\" Aluminum", unit:"LF", material:3.50, labor:3.00, equipment:0.20, trade:"roofing" },
   { id:"s761", code:"07.630", name:"Gutter, K-Style 6\" Aluminum", unit:"LF", material:4.50, labor:3.20, equipment:0.20, trade:"roofing" },
   { id:"s762", code:"07.630", name:"Gutter, Half-Round 6\" Copper", unit:"LF", material:14.00, labor:5.00, equipment:0.30, trade:"roofing" },
@@ -664,7 +664,7 @@ export const SEED_ELEMENTS = [
   { id:"s764", code:"07.630", name:"Gutter Guard / Screen", unit:"LF", material:2.00, labor:1.50, equipment:0.00, trade:"roofing" },
   { id:"s765", code:"07.630", name:"Commercial Scupper & Overflow", unit:"EA", material:85.00, labor:45.00, equipment:5.00, trade:"roofing" },
 
-  // ── 05 Metals — Steel Builder Supplemental Items ─────────────
+  // ── 05 Metals — Steel Module Supplemental Items ─────────────
   { id:"s800", code:"05.110", name:"High-Strength Bolts, A325 (w/ Nut & Washer)", unit:"LBS", material:3.50, labor:4.20, equipment:0.30, trade:"steel" },
   { id:"s801", code:"05.120", name:"Structural Welding, Field", unit:"LF", material:1.80, labor:8.50, equipment:1.20, trade:"steel" },
   { id:"s802", code:"05.110", name:"Shop Primer Paint, Structural Steel", unit:"SF", material:0.35, labor:0.45, equipment:0.10, trade:"steel" },
@@ -714,7 +714,7 @@ export const SEED_ELEMENTS = [
   { id:"s226", code:"02.500", name:"Hauling And Disposal, Debris", unit:"CY", material:0.00, labor:8.00, equipment:35.00, trade:"demo" },
   { id:"s297", code:"03.810", name:"Sawcut 4\"-6\" Conc Slab (2' Wide), Flip & Haul Off Site", unit:"LF", material:0, labor:0, equipment:0, subcontractor:35.00, trade:"demo" },
 
-  // ── Framing Builder Materials ─────────────────────────────────
+  // ── Framing Module Materials ─────────────────────────────────
   // Zip sheathing — per SF pricing (Feb 2026 market)
   { id:"s300", code:"06.160", name:"Zip Sheathing, 7/16\"", unit:"SF", material:0.95, labor:0.75, equipment:0.08, trade:"framing" },
   { id:"s301", code:"06.160", name:"Zip Sheathing, 1/2\"", unit:"SF", material:1.10, labor:0.75, equipment:0.08, trade:"framing" },
@@ -741,7 +741,7 @@ export const SEED_ELEMENTS = [
   { id:"s320", code:"06.190", name:"PSL Stud/Column, 3-1/2\" x 7-1/4\"", unit:"LF", material:11.50, labor:6.00, equipment:0.60, trade:"framing" },
   { id:"s321", code:"06.190", name:"PSL Stud/Column, 5-1/4\" x 5-1/2\"", unit:"LF", material:12.75, labor:6.00, equipment:0.60, trade:"framing" },
   { id:"s322", code:"06.190", name:"PSL Stud/Column, 5-1/4\" x 7-1/4\"", unit:"LF", material:17.25, labor:6.50, equipment:0.75, trade:"framing" },
-  // Drywall consumables (quantities derived by builder formulas)
+  // Drywall consumables (quantities derived by module formulas)
   { id:"s313", code:"09.250", name:"Joint Compound, All-Purpose", unit:"GAL", material:3.50, labor:0.00, equipment:0.00, trade:"drywall" },
   { id:"s314", code:"09.250", name:"Joint Tape, Paper", unit:"ROLL", material:3.25, labor:0.00, equipment:0.00, trade:"drywall" },
   { id:"s315", code:"09.250", name:"Drywall Screws, Coarse Thread", unit:"LBS", material:3.80, labor:0.00, equipment:0.00, trade:"drywall" },

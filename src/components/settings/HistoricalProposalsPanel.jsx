@@ -9,6 +9,7 @@ import { useUiStore } from '@/stores/uiStore';
 import { callAnthropic, pdfBlock } from '@/utils/ai';
 import { generateBaselineROM, computeCalibration } from '@/utils/romEngine';
 import { saveMasterData } from '@/hooks/usePersistence';
+import NovaPortal from '@/components/nova/NovaPortal';
 import Sec from '@/components/shared/Sec';
 import Ic from '@/components/shared/Ic';
 import { I } from '@/constants/icons';
@@ -146,9 +147,9 @@ export default function HistoricalProposalsPanel() {
       const latest = useMasterDataStore.getState().masterData.historicalProposals;
       const saved = latest[latest.length - 1];
       await generateLearningFromProposal(saved);
-      showToast(`Imported "${form.name}" — calibration data generated`);
+      showToast(`NOVA imported "${form.name}" — calibration data generated`);
     } else {
-      showToast(`Imported "${form.name}" (add division costs for calibration)`);
+      showToast(`NOVA imported "${form.name}" (add division costs for calibration)`);
     }
 
     await saveMasterData();
@@ -161,7 +162,7 @@ export default function HistoricalProposalsPanel() {
   // ── PDF Import ──
   const handlePdfUpload = async (file) => {
     if (!apiKey) {
-      showToast("Set your Anthropic API key in Settings to use PDF import", "error");
+      showToast("Set your Anthropic API key in Settings to enable NOVA extraction", "error");
       return;
     }
 
@@ -232,7 +233,7 @@ Return ONLY a JSON object with these fields. Example:
             },
           ],
         }],
-        system: "You are a construction cost analysis expert. Extract cost data from proposals accurately. Return only valid JSON.",
+        system: "You are NOVA, the AI construction intelligence inside BLDG Omni. You are analyzing a historical proposal to extract cost data for ROM calibration. Be precise and thorough. Return only valid JSON.",
       });
 
       // Parse AI response
@@ -272,15 +273,15 @@ Return ONLY a JSON object with these fields. Example:
         const latest = useMasterDataStore.getState().masterData.historicalProposals;
         const saved = latest[latest.length - 1];
         await generateLearningFromProposal(saved);
-        showToast(`Imported "${proposal.name}" from PDF — calibration data generated`);
+        showToast(`NOVA extracted "${proposal.name}" from PDF — calibration data generated`);
       } else {
-        showToast(`Imported "${proposal.name}" from PDF`);
+        showToast(`NOVA extracted "${proposal.name}" from PDF`);
       }
 
       await saveMasterData();
     } catch (err) {
       console.error("[HistoricalProposals] PDF import error:", err);
-      showToast("PDF import failed: " + (err.message || "Unknown error"), "error");
+      showToast("NOVA extraction failed: " + (err.message || "Unknown error"), "error");
     } finally {
       setImporting(false);
     }
@@ -296,7 +297,7 @@ Return ONLY a JSON object with these fields. Example:
   // ── Regenerate calibration for a proposal ──
   const handleRecalibrate = async (proposal) => {
     await generateLearningFromProposal(proposal);
-    showToast(`Calibration updated for "${proposal.name}"`);
+    showToast(`NOVA recalibrated "${proposal.name}"`);
   };
 
   // Stats
@@ -307,7 +308,7 @@ Return ONLY a JSON object with these fields. Example:
   return (
     <Sec title="Cost History (ROM Calibration)">
       <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 14 }}>
-        Import past proposals to calibrate ROM estimates. The more historical data you add, the more accurate future Scan predictions become.
+        Import past proposals so NOVA can calibrate ROM estimates. The more historical data you add, the more accurate NOVA's future predictions become.
       </div>
 
       {/* Stats bar */}
@@ -334,7 +335,7 @@ Return ONLY a JSON object with these fields. Example:
       {factorCount > 0 && (
         <div style={{ padding: 12, background: C.bg2, borderRadius: 8, border: `1px solid ${C.border}`, marginBottom: 16 }}>
           <div style={{ fontSize: 9, fontWeight: 700, color: C.accent, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
-            Active Calibration Factors
+            NOVA Calibration Factors
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {Object.entries(calibrationFactors).sort(([a], [b]) => a.localeCompare(b)).map(([div, factor]) => {
@@ -357,7 +358,7 @@ Return ONLY a JSON object with these fields. Example:
             })}
           </div>
           <div style={{ fontSize: 9, color: C.textDim, marginTop: 6 }}>
-            Positive = your costs run higher than benchmark. Negative = your costs run lower. Applied to all future ROM scans.
+            Positive = your costs run higher than benchmark. Negative = your costs run lower. NOVA applies these to all future ROM scans.
           </div>
         </div>
       )}
@@ -383,8 +384,11 @@ Return ONLY a JSON object with these fields. Example:
             display: "flex", alignItems: "center", gap: 6,
             opacity: apiKey ? 1 : 0.5,
           })}>
-          <Ic d={I.upload} size={13} color={apiKey ? C.purple : C.textDim} sw={2} />
-          {importing ? "Importing..." : "Import PDF"}
+          {importing
+            ? <NovaPortal size="mini" state="thinking" style={{ width: 16, height: 16 }} />
+            : <Ic d={I.upload} size={13} color={apiKey ? C.purple : C.textDim} sw={2} />
+          }
+          {importing ? "NOVA extracting..." : "NOVA Extract PDF"}
         </button>
         <input ref={pdfRef} type="file" accept=".pdf" style={{ display: "none" }}
           onChange={e => { const f = e.target.files?.[0]; if (f) handlePdfUpload(f); e.target.value = ""; }} />
@@ -594,8 +598,8 @@ Return ONLY a JSON object with these fields. Example:
                       {divCount > 0 && (
                         <button onClick={() => handleRecalibrate(p)}
                           style={bt(C, { background: `${C.accent}12`, border: `1px solid ${C.accent}30`, color: C.accent, padding: "5px 10px", fontSize: 10, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 })}>
-                          <Ic d={I.ai} size={11} color={C.accent} />
-                          {hasLearning ? "Recalibrate" : "Generate Calibration"}
+                          <NovaPortal size="mini" state="idle" style={{ width: 14, height: 14 }} />
+                          {hasLearning ? "NOVA Recalibrate" : "NOVA Calibrate"}
                         </button>
                       )}
                     </div>
@@ -609,14 +613,14 @@ Return ONLY a JSON object with these fields. Example:
         <div style={{ padding: "20px 16px", borderRadius: 8, border: `1px dashed ${C.border}`, textAlign: "center" }}>
           <div style={{ fontSize: 12, color: C.textDim, marginBottom: 4 }}>No historical proposals yet</div>
           <div style={{ fontSize: 10, color: C.textMuted }}>
-            Add past project data manually or import proposal PDFs to start calibrating ROM estimates.
+            Add past project data manually or let NOVA extract proposal PDFs to start calibrating ROM estimates.
           </div>
         </div>
       )}
 
       {!apiKey && (
         <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 6, background: `${C.orange}10`, border: `1px solid ${C.orange}30`, fontSize: 10, color: C.orange }}>
-          Set your Anthropic API key above to enable PDF import with AI extraction.
+          Set your Anthropic API key above to enable NOVA PDF extraction.
         </div>
       )}
     </Sec>

@@ -27,6 +27,7 @@ export default function ReportsPage() {
   const changeOrders = useItemsStore(s => s.changeOrders);
   const project = useProjectStore(s => s.project);
   const getActiveCodes = useProjectStore(s => s.getActiveCodes);
+  const divFromCode = useProjectStore(s => s.divFromCode);
   const activeCodes = getActiveCodes();
   const alternates = useAlternatesStore(s => s.alternates);
   const exclusions = useSpecsStore(s => s.exclusions);
@@ -83,11 +84,12 @@ export default function ReportsPage() {
     return { material, labor, equipment, sub, direct, markupAmounts, subtotal, customAmounts, customTotal, afterCustom, bd, tx, grand, coT, revised };
   }, [items, markup, markupOrder, customMarkups, changeOrders]);
 
-  // Division breakdown
+  // Division breakdown — normalize raw codes to "XX - Name" format
   const { usedDivisions, divTotals } = useMemo(() => {
     const dt = {};
     items.forEach(it => {
-      const div = it.division || "Unassigned";
+      const raw = it.division || "Unassigned";
+      const div = raw.includes(" - ") ? raw : (divFromCode(raw) || raw);
       if (!dt[div]) dt[div] = { total: 0, count: 0 };
       const q = nn(it.quantity);
       dt[div].total += q * (nn(it.material) + nn(it.labor) + nn(it.equipment) + nn(it.subcontractor));
@@ -95,7 +97,7 @@ export default function ReportsPage() {
     });
     const used = Object.keys(dt).sort();
     return { usedDivisions: used, divTotals: dt };
-  }, [items]);
+  }, [items, divFromCode]);
 
   // Trade breakdown
   const tradeBreakdown = useMemo(() => {
@@ -481,7 +483,11 @@ export default function ReportsPage() {
           <div>
             <div style={{ marginBottom: 8, fontSize: 11, color: C.textMuted }}>Print-ready line-item breakdown by CSI division. All quantities, unit prices, and extensions shown.</div>
             {usedDivisions.map(div => {
-              const divItems = items.filter(i => i.division === div); if (divItems.length === 0) return null;
+              const divItems = items.filter(i => {
+                const raw = i.division || "Unassigned";
+                const norm = raw.includes(" - ") ? raw : (divFromCode(raw) || raw);
+                return norm === div;
+              }); if (divItems.length === 0) return null;
               const dt = divTotals[div];
               return (
                 <Sec key={div} title={`${div} (${divItems.length} items \u2014 ${fmt(dt?.total || 0)})`}>

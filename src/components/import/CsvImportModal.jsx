@@ -12,6 +12,7 @@ import { autoTradeFromCode } from '@/constants/tradeGroupings';
 import { parseCSV } from '@/utils/csvParser';
 import { parseXLSX } from '@/utils/xlsxParser';
 import { OMNI_FIELDS, suggestColumnMappings, heuristicMapping, applyMappings } from '@/utils/csvColumnMapper';
+import NovaPortal from '@/components/nova/NovaPortal';
 import Modal from '@/components/shared/Modal';
 import Ic from '@/components/shared/Ic';
 import { I } from '@/constants/icons';
@@ -334,7 +335,7 @@ export default function CsvImportModal({ onClose, mode }) {
               border: `1px solid ${C.borderAccent || C.border}`,
               fontSize: T.fontSize.sm, color: C.accent,
             }}>
-              <Ic d={I.ai} size={14} color={C.accent} /> AI is mapping columns...
+              <NovaPortal size="mini" state="thinking" style={{ width: 18, height: 18, flexShrink: 0 }} /> NOVA is mapping your columns...
             </div>
           )}
 
@@ -345,7 +346,7 @@ export default function CsvImportModal({ onClose, mode }) {
               border: `1px solid ${C.border}`,
               fontSize: T.fontSize.xs, color: C.textDim,
             }}>
-              Add an Anthropic API key in Settings for AI auto-mapping. Using pattern matching instead.
+              Add an Anthropic API key in Settings to enable NOVA auto-mapping. Using pattern matching instead.
             </div>
           )}
 

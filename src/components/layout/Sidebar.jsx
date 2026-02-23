@@ -8,7 +8,9 @@ import { useAuthStore } from '@/stores/authStore';
 import { supabase } from '@/utils/supabase';
 import Ic from '@/components/shared/Ic';
 import NovaLogo from '@/components/shared/NovaLogo';
+import NovaPortal from '@/components/nova/NovaPortal';
 import BldgOmniLogo from '@/components/shared/BldgOmniLogo';
+import { useNovaStore } from '@/stores/novaStore';
 import { I } from '@/constants/icons';
 
 const globalNav = [
@@ -41,6 +43,8 @@ export default function Sidebar() {
   const inboxCount = useInboxStore(s => s.unreadCount);
   const user = useAuthStore(s => s.user);
   const signOut = useAuthStore(s => s.signOut);
+  const novaStatus = useNovaStore(s => s.status);
+  const novaActivity = useNovaStore(s => s.activity);
 
   const w = open ? T.sidebar.expanded : T.sidebar.collapsed;
 
@@ -214,6 +218,54 @@ export default function Sidebar() {
 
       {/* Spacer when no active estimate */}
       {!activeId && <div style={{ flex: 1 }} />}
+
+      {/* NOVA Status Indicator */}
+      <div style={{
+        padding: `${T.space[2]}px ${T.space[3]}px`,
+        display: "flex", alignItems: "center",
+        justifyContent: open ? "flex-start" : "center",
+        gap: 8,
+      }}>
+        <div style={{
+          position: "relative",
+          flexShrink: 0,
+        }}>
+          <NovaPortal size="mini" state={novaStatus} style={{ width: 24, height: 24 }} />
+          {novaStatus === "thinking" && (
+            <div style={{
+              position: "absolute", top: -2, right: -2,
+              width: 8, height: 8, borderRadius: "50%",
+              background: P.accent,
+              boxShadow: `0 0 6px ${P.accent}80`,
+              animation: "pulse 1.5s ease-in-out infinite",
+            }} />
+          )}
+        </div>
+        {open && (
+          <div style={{ flex: 1, overflow: "hidden" }}>
+            <div style={{
+              fontSize: 10, fontWeight: 700, color: novaStatus === "idle" ? P.textDim : P.accent,
+              letterSpacing: 0.5,
+            }}>
+              NOVA
+            </div>
+            {novaActivity && (
+              <div style={{
+                fontSize: 9, color: P.accent,
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                opacity: 0.8,
+              }}>
+                {novaActivity}
+              </div>
+            )}
+            {!novaActivity && (
+              <div style={{ fontSize: 9, color: P.textDim }}>
+                {novaStatus === "idle" ? "Ready" : novaStatus === "affirm" ? "Done" : "Active"}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Cloud Sync Status */}
       {user && (() => {

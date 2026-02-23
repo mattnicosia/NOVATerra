@@ -8,6 +8,24 @@
     },
     "api/import-rfp.js": {
       "maxDuration": 30
+    },
+    "api/nova-voice.js": {
+      "maxDuration": 15
+    },
+    "api/blob.js": {
+      "maxDuration": 30
+    },
+    "api/ocr.js": {
+      "maxDuration": 30
+    },
+    "api/embed.js": {
+      "maxDuration": 15
+    },
+    "api/vector-search.js": {
+      "maxDuration": 15
+    },
+    "api/seed-embeddings.js": {
+      "maxDuration": 120
     }
   },
   "rewrites": [

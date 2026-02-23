@@ -34,64 +34,186 @@ const markSyncing = () => {
   useUiStore.getState().setCloudSyncStatus("syncing");
 };
 
+// ---------- Blob sync via server-side API proxy ----------
+
+/** Get the user's Supabase JWT for API auth */
+const getAccessToken = async () => {
+  if (!supabase) return null;
+  const { data } = await supabase.auth.getSession();
+  return data?.session?.access_token || null;
+};
+
 /**
- * Strip large base64 blobs from estimate data before cloud push.
- * Drawings, documents, and specPdf can be 10-100MB+ of base64.
- * Phase 2 will sync these via Supabase Storage buckets.
+ * Upload a blob to Supabase Storage via signed URL.
+ * 1. POST /api/blob { path } → gets signed upload URL (small JSON, no file data)
+ * 2. PUT file directly to Supabase Storage via signed URL (bypasses Vercel 4.5MB limit)
+ * Returns storagePath on success, null on failure.
  */
-const stripBlobs = (data) => {
+const uploadBlob = async (path, dataUrl) => {
+  if (!dataUrl) return null;
+  try {
+    const token = await getAccessToken();
+    if (!token) return null;
+
+    // Step 1: Get signed upload URL from server
+    const signRes = await fetch('/api/blob', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ path }),
+    });
+    if (!signRes.ok) throw new Error(`Sign HTTP ${signRes.status}`);
+    const { signedUrl, storagePath } = await signRes.json();
+    if (!signedUrl) throw new Error('No signed URL returned');
+
+    // Step 2: Convert data URL to Blob
+    const dataResp = await fetch(dataUrl);
+    const blob = await dataResp.blob();
+
+    // Step 3: Upload directly to Supabase Storage (no size limit)
+    const uploadRes = await fetch(signedUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': blob.type || 'application/octet-stream' },
+      body: blob,
+    });
+    if (!uploadRes.ok) throw new Error(`Upload HTTP ${uploadRes.status}`);
+
+    return storagePath;
+  } catch (err) {
+    console.warn(`[cloudSync] uploadBlob("${path}") failed:`, err.message);
+    return null;
+  }
+};
+
+/**
+ * Download a blob from Supabase Storage via signed URL.
+ * 1. GET /api/blob?path=xxx → gets signed download URL
+ * 2. Fetch file directly from Supabase Storage
+ * Returns base64 data URL or null.
+ */
+const downloadBlob = async (storagePath) => {
+  if (!storagePath) return null;
+  try {
+    const token = await getAccessToken();
+    if (!token) return null;
+
+    // Step 1: Get signed download URL from server
+    const signRes = await fetch(`/api/blob?path=${encodeURIComponent(storagePath)}`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!signRes.ok) throw new Error(`Sign HTTP ${signRes.status}`);
+    const { signedUrl } = await signRes.json();
+    if (!signedUrl) throw new Error('No signed URL returned');
+
+    // Step 2: Download directly from Supabase Storage
+    const downloadRes = await fetch(signedUrl);
+    if (!downloadRes.ok) throw new Error(`Download HTTP ${downloadRes.status}`);
+    const blob = await downloadRes.blob();
+
+    // Step 3: Convert to data URL
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.readAsDataURL(blob);
+    });
+  } catch (err) {
+    console.warn(`[cloudSync] downloadBlob("${storagePath}") failed:`, err.message);
+    return null;
+  }
+};
+
+/**
+ * Strip base64 blobs from estimate data AND upload them to Supabase Storage.
+ * Metadata is preserved with storagePath for later hydration.
+ */
+const stripAndUploadBlobs = async (estimateId, data) => {
   if (!data) return data;
+  const userId = getUserId();
   const clean = { ...data };
 
-  // Strip drawing data (base64 PDFs/images)
+  // Upload + strip drawing data
   if (Array.isArray(clean.drawings)) {
-    clean.drawings = clean.drawings.map(d => {
+    clean.drawings = await Promise.all(clean.drawings.map(async (d) => {
       if (!d.data) return d;
+      const path = `${userId}/${estimateId}/drawings/${d.id}`;
+      const storagePath = await uploadBlob(path, d.data);
       const { data: _blob, ...rest } = d;
-      return { ...rest, _cloudBlobStripped: true };
-    });
+      return { ...rest, storagePath: storagePath || rest.storagePath, _cloudBlobStripped: true };
+    }));
   }
 
-  // Strip document data
+  // Upload + strip document data
   if (Array.isArray(clean.documents)) {
-    clean.documents = clean.documents.map(d => {
+    clean.documents = await Promise.all(clean.documents.map(async (d) => {
       if (!d.data) return d;
+      const path = `${userId}/${estimateId}/documents/${d.id}`;
+      const storagePath = await uploadBlob(path, d.data);
       const { data: _blob, ...rest } = d;
-      return { ...rest, _cloudBlobStripped: true };
-    });
+      return { ...rest, storagePath: storagePath || rest.storagePath, _cloudBlobStripped: true };
+    }));
   }
 
-  // Strip spec PDF
+  // Upload + strip spec PDF
   if (clean.specPdf) {
+    const path = `${userId}/${estimateId}/specPdf`;
+    const storagePath = await uploadBlob(path, clean.specPdf);
     clean.specPdf = null;
     clean._specPdfStripped = true;
+    clean._specPdfStoragePath = storagePath || clean._specPdfStoragePath;
   }
 
   return clean;
 };
 
 /**
- * Strip large base64 logos from master data before cloud push.
- * Company logos can be 1-5MB+ of base64 each.
+ * Hydrate stripped blobs — download from Supabase Storage and inject back.
+ * Called when loading an estimate that has _cloudBlobStripped markers.
+ */
+export const hydrateBlobs = async (data) => {
+  if (!data || !isReady()) return data;
+  const hydrated = { ...data };
+  let anyHydrated = false;
+
+  // Download drawing blobs
+  if (Array.isArray(hydrated.drawings)) {
+    hydrated.drawings = await Promise.all(hydrated.drawings.map(async (d) => {
+      if (!d._cloudBlobStripped || !d.storagePath || d.data) return d;
+      const dataUrl = await downloadBlob(d.storagePath);
+      if (!dataUrl) return d;
+      anyHydrated = true;
+      return { ...d, data: dataUrl };
+    }));
+  }
+
+  // Download document blobs
+  if (Array.isArray(hydrated.documents)) {
+    hydrated.documents = await Promise.all(hydrated.documents.map(async (d) => {
+      if (!d._cloudBlobStripped || !d.storagePath || d.data) return d;
+      const dataUrl = await downloadBlob(d.storagePath);
+      if (!dataUrl) return d;
+      anyHydrated = true;
+      return { ...d, data: dataUrl };
+    }));
+  }
+
+  // Download spec PDF
+  if (hydrated._specPdfStripped && hydrated._specPdfStoragePath && !hydrated.specPdf) {
+    const dataUrl = await downloadBlob(hydrated._specPdfStoragePath);
+    if (dataUrl) {
+      hydrated.specPdf = dataUrl;
+      anyHydrated = true;
+    }
+  }
+
+  return hydrated;
+};
+
+/**
+ * Prepare master data for cloud push.
+ * Logos are included so they sync across devices.
  */
 const stripMasterBlobs = (data) => {
   if (!data) return data;
-  const clean = { ...data };
-
-  // Strip primary company logo
-  if (clean.companyInfo?.logo) {
-    clean.companyInfo = { ...clean.companyInfo, logo: null, _logoStripped: true };
-  }
-
-  // Strip company profile logos
-  if (Array.isArray(clean.companyProfiles)) {
-    clean.companyProfiles = clean.companyProfiles.map(p => {
-      if (!p.logo) return p;
-      return { ...p, logo: null, _logoStripped: true };
-    });
-  }
-
-  return clean;
+  return data;
 };
 
 // ---------- push operations ----------
@@ -122,13 +244,13 @@ export const pushData = async (key, data) => {
 
 /**
  * Upsert an estimate to the user_estimates table.
- * Strips base64 blobs before upload.
+ * Uploads blobs to Supabase Storage, strips base64 from DB payload.
  */
 export const pushEstimate = async (estimateId, data) => {
   if (!isReady()) return;
   markSyncing();
   try {
-    const cleanData = stripBlobs(data);
+    const cleanData = await stripAndUploadBlobs(estimateId, data);
     const { error } = await supabase
       .from('user_estimates')
       .upsert(

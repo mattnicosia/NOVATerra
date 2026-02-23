@@ -31,6 +31,10 @@ export const TRADE_GROUPINGS = [
 // Quick lookup: trade key → trade object
 export const TRADE_MAP = Object.fromEntries(TRADE_GROUPINGS.map(t => [t.key, t]));
 
+// Aliases: legacy/alternate trade keys that map to canonical keys
+const TRADE_ALIASES = { metalFraming: "drywall" };
+const resolveTradeKey = (key) => TRADE_ALIASES[key] || key;
+
 // Resolve active bundles — checks databaseStore for custom overrides
 import { useDatabaseStore } from '@/stores/databaseStore';
 const getActiveBundles = () => {
@@ -44,7 +48,7 @@ const getActiveMap = () => Object.fromEntries(getActiveBundles().map(t => [t.key
 export const getTradeLabel = (item) => {
   if (item.trade) {
     const map = getActiveMap();
-    const t = map[item.trade];
+    const t = map[resolveTradeKey(item.trade)];
     return t ? t.label : item.trade;
   }
   return item.division || "Unassigned";
@@ -54,7 +58,7 @@ export const getTradeLabel = (item) => {
 export const getTradeSortOrder = (item) => {
   if (item.trade) {
     const map = getActiveMap();
-    const t = map[item.trade];
+    const t = map[resolveTradeKey(item.trade)];
     return t ? t.sort : 99;
   }
   return 99;

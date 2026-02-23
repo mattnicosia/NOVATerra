@@ -10,7 +10,7 @@ import { useAlternatesStore } from '@/stores/alternatesStore';
 import { useSpecsStore } from '@/stores/specsStore';
 import { useMasterDataStore } from '@/stores/masterDataStore';
 import { useDatabaseStore } from '@/stores/databaseStore';
-import { useBuilderStore } from '@/stores/builderStore';
+import { useModuleStore } from '@/stores/moduleStore';
 import { useUiStore } from '@/stores/uiStore';
 
 export function useAutoSave() {
@@ -28,7 +28,7 @@ export function useAutoSave() {
   const bidCells = useBidLevelingStore(s => s.bidCells);
   const alternates = useAlternatesStore(s => s.alternates);
   const exclusions = useSpecsStore(s => s.exclusions);
-  const builderInstances = useBuilderStore(s => s.builderInstances);
+  const moduleInstances = useModuleStore(s => s.moduleInstances);
   const elements = useDatabaseStore(s => s.elements);
 
   useEffect(() => {
@@ -38,7 +38,7 @@ export function useAutoSave() {
       saveEstimate();
     }, 800);
     return () => { if (timer.current) clearTimeout(timer.current); };
-  }, [persistenceLoaded, activeId, project, items, markup, markupOrder, takeoffs, drawings, bidCells, alternates, exclusions, builderInstances, elements]);
+  }, [persistenceLoaded, activeId, project, items, markup, markupOrder, takeoffs, drawings, bidCells, alternates, exclusions, moduleInstances, elements]);
 
   // Watch master data
   const masterData = useMasterDataStore(s => s.masterData);

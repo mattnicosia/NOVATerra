@@ -13,9 +13,9 @@ import { uid, nn, fmt2, nowStr } from '@/utils/format';
 import { UNITS } from '@/constants/units';
 import { PDF_RENDER_DPI, DEFAULT_IMAGE_DPI } from '@/constants/scales';
 import { callAnthropic, callAnthropicStream, optimizeImageForAI, imageBlock, cropImageRegion } from '@/utils/ai';
-import { useBuilderStore } from '@/stores/builderStore';
-import { BUILDER_LIST, BUILDERS } from '@/constants/builders';
-import BuilderPanel from '@/components/takeoffs/BuilderPanel';
+import { useModuleStore } from '@/stores/moduleStore';
+import { MODULE_LIST, MODULES } from '@/constants/modules';
+import ModulePanel from '@/components/takeoffs/ModulePanel';
 import TakeoffDimensionEngine from '@/components/takeoffs/TakeoffDimensionEngine';
 
 const TO_COLORS = ["#e05555", "#4caf7d", "#5b8def", "#e0873a", "#a87ee6", "#5ec4c4", "#e0c55a", "#cf6bbd"];
@@ -123,9 +123,9 @@ export default function TakeoffsPage() {
   const tkDbResults = useTakeoffsStore(s => s.tkDbResults);
   const setTkDbResults = useTakeoffsStore(s => s.setTkDbResults);
 
-  const activeBuilder = useBuilderStore(s => s.activeBuilder);
-  const setActiveBuilder = useBuilderStore(s => s.setActiveBuilder);
-  const builderInstances = useBuilderStore(s => s.builderInstances);
+  const activeModule = useModuleStore(s => s.activeModule);
+  const setActiveModule = useModuleStore(s => s.setActiveModule);
+  const moduleInstances = useModuleStore(s => s.moduleInstances);
 
   // Refs
   const drawingContainerRef = useRef(null);
@@ -172,7 +172,7 @@ export default function TakeoffsPage() {
     takeoffs.forEach(t => {
       if ((t.measurements || []).some(m => m.sheetId === selectedDrawingId)) idsOnPage.add(t.id);
     });
-    // For builder-derived takeoffs (no measurements), check if their driving item's takeoff is on this page
+    // For module-derived takeoffs (no measurements), check if their driving item's takeoff is on this page
     const addCatItemsOnPage = (cat, itemTakeoffIds) => {
       const drivingToId = cat.drivingItemId ? itemTakeoffIds?.[cat.drivingItemId] : null;
       if (drivingToId && idsOnPage.has(drivingToId)) {
@@ -182,10 +182,10 @@ export default function TakeoffsPage() {
         });
       }
     };
-    Object.entries(builderInstances).forEach(([builderId, inst]) => {
-      const builderDef = BUILDERS[builderId];
-      if (!builderDef) return;
-      builderDef.categories.forEach(cat => {
+    Object.entries(moduleInstances).forEach(([moduleId, inst]) => {
+      const moduleDef = MODULES[moduleId];
+      if (!moduleDef) return;
+      moduleDef.categories.forEach(cat => {
         if (cat.multiInstance) {
           (inst.categoryInstances?.[cat.id] || []).forEach(catInst => addCatItemsOnPage(cat, catInst.itemTakeoffIds));
         } else {
@@ -194,7 +194,7 @@ export default function TakeoffsPage() {
       });
     });
     return takeoffs.filter(t => idsOnPage.has(t.id));
-  }, [takeoffs, pageFilter, selectedDrawingId, builderInstances]);
+  }, [takeoffs, pageFilter, selectedDrawingId, moduleInstances]);
   const takeoffGroups = useMemo(() => {
     const g = {};
     filteredTakeoffs.forEach(t => { const k = t.group || "Ungrouped"; if (!g[k]) g[k] = []; g[k].push(t); });
@@ -202,8 +202,8 @@ export default function TakeoffsPage() {
   }, [filteredTakeoffs]);
 
   // Build a map of takeoffId → { inches, tool } for scale-aware rendering
-  // Looks up renderWidth metadata on builder driving items and the linked spec value
-  const builderRenderWidths = useMemo(() => {
+  // Looks up renderWidth metadata on module driving items and the linked spec value
+  const moduleRenderWidths = useMemo(() => {
     const map = {};
     const addItem = (item, specs, itemTakeoffIds) => {
       if (!item.renderWidth) return;
@@ -221,10 +221,10 @@ export default function TakeoffsPage() {
         map[toId] = { inches: specVal, inchesH: specH || specVal, tool: item.tool };
       }
     };
-    Object.entries(builderInstances).forEach(([builderId, inst]) => {
-      const builderDef = BUILDERS[builderId];
-      if (!builderDef) return;
-      builderDef.categories.forEach(cat => {
+    Object.entries(moduleInstances).forEach(([moduleId, inst]) => {
+      const moduleDef = MODULES[moduleId];
+      if (!moduleDef) return;
+      moduleDef.categories.forEach(cat => {
         if (cat.multiInstance) {
           // Multi-instance: iterate each category instance
           const catInstances = inst.categoryInstances?.[cat.id] || [];
@@ -238,7 +238,7 @@ export default function TakeoffsPage() {
       });
     });
     return map;
-  }, [builderInstances, takeoffs]);
+  }, [moduleInstances, takeoffs]);
 
   // ─── HELPERS ────────────────────────
 
@@ -271,24 +271,24 @@ export default function TakeoffsPage() {
     s.setTakeoffs(s.takeoffs.filter(t => t.id !== id));
     if (s.tkActiveTakeoffId === id) { setTkActiveTakeoffId(null); setTkMeasureState("idle"); setTkTool("select"); }
 
-    // Clean up builder links if this was a builder-linked takeoff
-    if (toRemove?.builderId) {
-      const bs = useBuilderStore.getState();
-      const inst = bs.builderInstances?.[toRemove.builderId];
+    // Clean up module links if this was a module-linked takeoff
+    if (toRemove?.moduleId) {
+      const bs = useModuleStore.getState();
+      const inst = bs.moduleInstances?.[toRemove.moduleId];
       if (!inst) return;
-      const builderDef = BUILDERS[toRemove.builderId];
-      if (!builderDef) return;
+      const moduleDef = MODULES[toRemove.moduleId];
+      if (!moduleDef) return;
 
       // Check multi-instance categories first
       let found = false;
-      builderDef.categories.forEach(cat => {
+      moduleDef.categories.forEach(cat => {
         if (!cat.multiInstance || found) return;
         const catInstances = inst.categoryInstances?.[cat.id] || [];
         catInstances.forEach(catInst => {
           Object.entries(catInst.itemTakeoffIds || {}).forEach(([itemId, toId]) => {
             if (toId === id) {
-              bs.linkCatInstanceItem(toRemove.builderId, cat.id, catInst.id, itemId, null);
-              bs.setCatInstanceItemStatus(toRemove.builderId, cat.id, catInst.id, itemId, "pending");
+              bs.linkCatInstanceItem(toRemove.moduleId, cat.id, catInst.id, itemId, null);
+              bs.setCatInstanceItemStatus(toRemove.moduleId, cat.id, catInst.id, itemId, "pending");
               found = true;
             }
           });
@@ -299,8 +299,8 @@ export default function TakeoffsPage() {
       if (!found) {
         Object.entries(inst.itemTakeoffIds || {}).forEach(([itemId, toId]) => {
           if (toId === id) {
-            bs.linkItemToTakeoff(toRemove.builderId, itemId, null);
-            bs.setItemStatus(toRemove.builderId, itemId, "pending");
+            bs.linkItemToTakeoff(toRemove.moduleId, itemId, null);
+            bs.setItemStatus(toRemove.moduleId, itemId, "pending");
           }
         });
       }
@@ -734,9 +734,9 @@ Return ONLY a JSON array of objects.` },
   };
 
   // ─── AI Wall Schedule Detection ─────────────────────────────────
-  const mapWallTypeToBuilderSpecs = (wallType) => {
+  const mapWallTypeToModuleSpecs = (wallType) => {
     const catId = wallType.category === "exterior" ? "ext-walls" : "int-walls";
-    const catDef = BUILDERS.walls?.categories?.find(c => c.id === catId);
+    const catDef = MODULES.walls?.categories?.find(c => c.id === catId);
     if (!catDef) return null;
 
     const mappedSpecs = {};
@@ -949,7 +949,7 @@ IMPORTANT:
       }
 
       if (parsed && Array.isArray(parsed) && parsed.length > 0) {
-        const mapped = parsed.map(wt => mapWallTypeToBuilderSpecs(wt)).filter(Boolean);
+        const mapped = parsed.map(wt => mapWallTypeToModuleSpecs(wt)).filter(Boolean);
         setWallSchedule({ loading: false, results: mapped, error: null });
         showToast(`Found ${mapped.length} wall types on this sheet`);
       } else {
@@ -963,32 +963,32 @@ IMPORTANT:
   };
 
   const createWallInstances = (selectedItems) => {
-    const store = useBuilderStore.getState();
-    if (store.activeBuilder !== "walls") {
-      useBuilderStore.getState().setActiveBuilder("walls");
+    const store = useModuleStore.getState();
+    if (store.activeModule !== "walls") {
+      useModuleStore.getState().setActiveModule("walls");
     }
 
     let created = 0;
     selectedItems.forEach(mapped => {
       // Check for existing instance with same label
-      const existing = (store.builderInstances?.walls?.categoryInstances?.[mapped.catId] || []);
+      const existing = (store.moduleInstances?.walls?.categoryInstances?.[mapped.catId] || []);
       if (existing.some(inst => inst.label === mapped.label)) return; // skip duplicate
 
       // Add new instance
-      useBuilderStore.getState().addCategoryInstance("walls", mapped.catId);
+      useModuleStore.getState().addCategoryInstance("walls", mapped.catId);
 
       // Get the newly created instance (last in array)
-      const updatedState = useBuilderStore.getState();
-      const catInstances = updatedState.builderInstances?.walls?.categoryInstances?.[mapped.catId] || [];
+      const updatedState = useModuleStore.getState();
+      const catInstances = updatedState.moduleInstances?.walls?.categoryInstances?.[mapped.catId] || [];
       const newInstance = catInstances[catInstances.length - 1];
       if (!newInstance) return;
 
       // Set label
-      useBuilderStore.getState().renameCategoryInstance("walls", mapped.catId, newInstance.id, mapped.label);
+      useModuleStore.getState().renameCategoryInstance("walls", mapped.catId, newInstance.id, mapped.label);
 
       // Set each spec
       for (const [specId, value] of Object.entries(mapped.specs)) {
-        useBuilderStore.getState().setCatInstanceSpec("walls", mapped.catId, newInstance.id, specId, value);
+        useModuleStore.getState().setCatInstanceSpec("walls", mapped.catId, newInstance.id, specId, value);
       }
       created++;
     });
@@ -1431,18 +1431,18 @@ Where confidence is "high", "medium", or "low".` },
         const color = m.color || to.color || "#5b8def";
         if (m.type === "count") {
           const p = m.points[0];
-          const brw = builderRenderWidths[to.id];
+          const brw = moduleRenderWidths[to.id];
           const scaledW = brw ? realToPx(selectedDrawingId, brw.inches) : null;
           const scaledH = brw ? realToPx(selectedDrawingId, brw.inchesH || brw.inches) : null;
           if (scaledW && scaledW >= 6) {
-            // Scaled rectangle for builder items (e.g., spread footings)
+            // Scaled rectangle for module items (e.g., spread footings)
             const hw = scaledW / 2, hh = (scaledH || scaledW) / 2;
             ctx.fillStyle = color + fillHex;
             ctx.fillRect(p.x - hw, p.y - hh, scaledW, scaledH || scaledW);
             ctx.strokeStyle = color; ctx.lineWidth = 2;
             ctx.strokeRect(p.x - hw, p.y - hh, scaledW, scaledH || scaledW);
           } else {
-            // Default circle for non-builder count markers
+            // Default circle for non-module count markers
             ctx.beginPath(); ctx.arc(p.x, p.y, 25, 0, Math.PI * 2);
             ctx.fillStyle = color; ctx.fill();
             ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke();
@@ -1451,7 +1451,7 @@ Where confidence is "high", "medium", or "low".` },
           }
         }
         if (m.type === "linear" && m.points.length >= 2) {
-          const brw = builderRenderWidths[to.id];
+          const brw = moduleRenderWidths[to.id];
           const scaledW = brw ? realToPx(selectedDrawingId, brw.inches) : null;
           const useScaledWidth = scaledW && scaledW >= 2;
           // Draw path
@@ -1496,7 +1496,7 @@ Where confidence is "high", "medium", or "low".` },
     if (tkActivePoints.length > 0 && tkActiveTakeoffId) {
       const to = takeoffs.find(t => t.id === tkActiveTakeoffId);
       const color = to?.color || "#5b8def";
-      const brwPreview = builderRenderWidths[tkActiveTakeoffId];
+      const brwPreview = moduleRenderWidths[tkActiveTakeoffId];
       const scaledPreviewW = brwPreview ? realToPx(selectedDrawingId, brwPreview.inches) : null;
       ctx.save();
 
@@ -1684,7 +1684,7 @@ Where confidence is "high", "medium", or "low".` },
       });
       ctx.restore();
     }
-  }, [takeoffs, tkActivePoints, tkCursorPt, selectedDrawingId, tkTool, tkCalibrations, drawingScales, drawingDpi, tkActiveTakeoffId, tkSelectedTakeoffId, builderRenderWidths, aiDrawingAnalysis, tkVisibility]);
+  }, [takeoffs, tkActivePoints, tkCursorPt, selectedDrawingId, tkTool, tkCalibrations, drawingScales, drawingDpi, tkActiveTakeoffId, tkSelectedTakeoffId, moduleRenderWidths, aiDrawingAnalysis, tkVisibility]);
 
   // AI Scope Suggestions
   const runScopeSuggestions = async () => {
@@ -1774,25 +1774,26 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
             </div>
           </div>
 
-          {/* Builder selector */}
-          <div style={{ padding: "6px 8px", borderBottom: `1px solid ${C.border}`, display: "flex", gap: 4, flexWrap: "wrap" }}>
+          {/* Scope Kit selector */}
+          <div style={{ padding: "6px 8px", borderBottom: `1px solid ${C.border}`, display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
             <button
-              onClick={() => setActiveBuilder(null)}
-              style={{ padding: "3px 8px", fontSize: 10, fontWeight: 600, border: `1px solid ${!activeBuilder ? C.accent + "60" : C.border}`, background: !activeBuilder ? `${C.accent}12` : "transparent", color: !activeBuilder ? C.accent : C.textDim, borderRadius: 4, cursor: "pointer" }}
+              onClick={() => setActiveModule(null)}
+              style={{ padding: "3px 8px", fontSize: 10, fontWeight: 600, border: `1px solid ${!activeModule ? C.accent + "60" : C.border}`, background: !activeModule ? `${C.accent}12` : "transparent", color: !activeModule ? C.accent : C.textDim, borderRadius: 4, cursor: "pointer" }}
             >All Takeoffs</button>
-            {BUILDER_LIST.map(b => (
+            <span style={{ fontSize: 7, fontWeight: 700, color: C.textDimmer, letterSpacing: "0.1em", textTransform: "uppercase", padding: "0 2px" }}>SCOPE KITS</span>
+            {MODULE_LIST.map(b => (
               <button
                 key={b.id}
-                onClick={() => b.available && setActiveBuilder(b.id)}
-                style={{ padding: "3px 8px", fontSize: 10, fontWeight: 600, border: `1px solid ${activeBuilder === b.id ? C.accent + "60" : C.border}`, background: activeBuilder === b.id ? `${C.accent}12` : "transparent", color: activeBuilder === b.id ? C.accent : b.available ? C.textMuted : C.textDimmer, borderRadius: 4, cursor: b.available ? "pointer" : "default", opacity: b.available ? 1 : 0.5 }}
-                title={b.available ? b.name : `${b.name} (Coming Soon)`}
+                onClick={() => b.available && setActiveModule(b.id)}
+                style={{ padding: "3px 8px", fontSize: 10, fontWeight: 600, border: `1px solid ${activeModule === b.id ? C.accent + "60" : C.border}`, background: activeModule === b.id ? `${C.accent}12` : "transparent", color: activeModule === b.id ? C.accent : b.available ? C.textMuted : C.textDimmer, borderRadius: 4, cursor: b.available ? "pointer" : "default", opacity: b.available ? 1 : 0.5 }}
+                title={b.available ? `${b.name} Kit` : `${b.name} Kit (Coming Soon)`}
               >{b.name}</button>
             ))}
           </div>
 
-          {/* Builder panel OR normal takeoff list */}
-          {activeBuilder ? (
-            <BuilderPanel engageMeasuring={engageMeasuring} selectedDrawingId={selectedDrawingId} addTakeoff={addTakeoff} updateTakeoff={updateTakeoff} removeTakeoff={removeTakeoff} pageFilter={pageFilter} onDetectWallSchedule={runWallScheduleDetection} wallScheduleLoading={wallSchedule.loading} />
+          {/* Scope Kit panel OR normal takeoff list */}
+          {activeModule ? (
+            <ModulePanel engageMeasuring={engageMeasuring} selectedDrawingId={selectedDrawingId} addTakeoff={addTakeoff} updateTakeoff={updateTakeoff} removeTakeoff={removeTakeoff} pageFilter={pageFilter} onDetectWallSchedule={runWallScheduleDetection} wallScheduleLoading={wallSchedule.loading} />
           ) : (
           <div style={{ flex: 1, overflowY: "auto", padding: "0 8px 8px" }}>
             {Object.entries(takeoffGroups).map(([group, tos]) => (

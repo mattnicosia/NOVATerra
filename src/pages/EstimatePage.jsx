@@ -164,7 +164,11 @@ export default function EstimatePage() {
   // Filter items
   const filteredItems = useMemo(() => {
     let list = items;
-    if (estDivision !== "All") list = list.filter(i => i.division === estDivision);
+    if (estDivision !== "All") list = list.filter(i => {
+      const raw = i.division || "";
+      const norm = raw.includes(" - ") ? raw : (divFromCode(raw) || raw);
+      return norm === estDivision || raw === estDivision;
+    });
     if (estSearch) {
       const q = estSearch.toLowerCase();
       list = list.filter(i => (i.description || "").toLowerCase().includes(q) || (i.code || "").toLowerCase().includes(q));
@@ -187,7 +191,9 @@ export default function EstimatePage() {
       if (estGroupBy === "trade") {
         key = getTradeLabel(item);
       } else if (estGroupBy === "division") {
-        key = item.division || "Unassigned";
+        // Normalize division — some items may have just the code (e.g. "05") instead of "05 - Metals"
+        const rawDiv = item.division || "";
+        key = rawDiv.includes(" - ") ? rawDiv : (divFromCode(rawDiv) || rawDiv || "Unassigned");
       } else {
         // subdivision (default)
         key = getSubKey(item);
@@ -199,18 +205,24 @@ export default function EstimatePage() {
     return groups;
   }, [filteredItems, estGroupBy]);
 
-  // Used divisions for dropdown
+  // Used divisions for dropdown — normalize raw division codes to "XX - Name" format
   const usedDivisions = useMemo(() => {
     const divs = new Set();
-    items.forEach(i => { if (i.division) divs.add(i.division); });
+    items.forEach(i => {
+      if (i.division) {
+        const d = i.division.includes(" - ") ? i.division : (divFromCode(i.division) || i.division);
+        divs.add(d);
+      }
+    });
     return [...divs].sort();
   }, [items]);
 
-  // Division totals
+  // Division totals — normalize raw codes to "XX - Name"
   const divTotals = useMemo(() => {
     const t = {};
     items.forEach(i => {
-      const d = i.division || "Unassigned";
+      const raw = i.division || "Unassigned";
+      const d = raw.includes(" - ") ? raw : (divFromCode(raw) || raw);
       if (!t[d]) t[d] = { count: 0, total: 0 };
       t[d].count++;
       t[d].total += getTotal(i);

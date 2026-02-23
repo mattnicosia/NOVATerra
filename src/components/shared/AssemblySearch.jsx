@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useTheme } from '@/hooks/useTheme';
 import { useDatabaseStore } from '@/stores/databaseStore';
+import { searchSimilar } from '@/utils/vectorSearch';
 import Ic from '@/components/shared/Ic';
 import { I } from '@/constants/icons';
 import { inp, bt } from '@/utils/styles';
@@ -14,7 +15,10 @@ export default function AssemblySearch({ onInsertAssembly, onInsertItem, placeho
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [previewAsm, setPreviewAsm] = useState(null);
+  const [vectorResults, setVectorResults] = useState([]);
+  const [vectorLoading, setVectorLoading] = useState(false);
   const containerRef = useRef(null);
+  const vectorDebounceRef = useRef(null);
 
   // Close on outside click
   useEffect(() => {
@@ -28,8 +32,8 @@ export default function AssemblySearch({ onInsertAssembly, onInsertItem, placeho
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Search results
-  const results = useMemo(() => {
+  // Local substring search (instant)
+  const localResults = useMemo(() => {
     if (!query.trim()) return { assemblies: [], items: [] };
     const q = query.toLowerCase();
     const asmResults = assemblies.filter(a =>
@@ -44,7 +48,55 @@ export default function AssemblySearch({ onInsertAssembly, onInsertItem, placeho
     return { assemblies: asmResults, items: itemResults };
   }, [query, assemblies, elements]);
 
-  const hasResults = results.assemblies.length > 0 || results.items.length > 0;
+  // Debounced vector search (300ms delay, fires alongside local search)
+  useEffect(() => {
+    if (!query.trim() || query.length < 3) {
+      setVectorResults([]);
+      setVectorLoading(false);
+      return;
+    }
+    clearTimeout(vectorDebounceRef.current);
+    setVectorLoading(true);
+    vectorDebounceRef.current = setTimeout(async () => {
+      try {
+        const { results } = await searchSimilar(query, {
+          kinds: ['seed_element', 'user_element', 'seed_assembly', 'assembly'],
+          limit: 5,
+          threshold: 0.35,
+        });
+        setVectorResults(results || []);
+      } catch {
+        setVectorResults([]);
+      } finally {
+        setVectorLoading(false);
+      }
+    }, 300);
+    return () => clearTimeout(vectorDebounceRef.current);
+  }, [query]);
+
+  // Merge local + vector results, deduplicating by ID
+  const mergedItems = useMemo(() => {
+    const localIds = new Set(localResults.items.map(el => el.id));
+    // Vector results that aren't already in local results
+    const vectorItems = vectorResults
+      .filter(vr => vr.kind === 'seed_element' || vr.kind === 'user_element')
+      .filter(vr => !localIds.has(vr.source_id))
+      .map(vr => ({
+        id: vr.source_id,
+        code: vr.metadata?.code || '',
+        name: vr.metadata?.name || vr.content,
+        unit: vr.metadata?.unit || '',
+        material: vr.metadata?.material || 0,
+        labor: vr.metadata?.labor || 0,
+        equipment: vr.metadata?.equipment || 0,
+        trade: vr.metadata?.trade || '',
+        _vectorMatch: true,
+        _similarity: vr.similarity,
+      }));
+    return [...localResults.items, ...vectorItems].slice(0, 12);
+  }, [localResults.items, vectorResults]);
+
+  const hasResults = localResults.assemblies.length > 0 || mergedItems.length > 0;
 
   return (
     <div ref={containerRef} style={{ position: "relative" }}>
@@ -69,12 +121,12 @@ export default function AssemblySearch({ onInsertAssembly, onInsertItem, placeho
           maxHeight: 400, overflowY: "auto", minWidth: 320, marginTop: 4,
         }}>
           {/* Assembly results */}
-          {results.assemblies.length > 0 && (
+          {localResults.assemblies.length > 0 && (
             <>
               <div style={{ padding: "5px 10px", fontSize: 8, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.8, borderBottom: `1px solid ${C.border}`, background: C.bg2, display: "flex", alignItems: "center", gap: 4 }}>
                 <Ic d={I.assembly} size={10} color={C.accent} /> Assemblies
               </div>
-              {results.assemblies.map(asm => {
+              {localResults.assemblies.map(asm => {
                 const totalPer = asm.elements.reduce((s, el) => s + (nn(el.m) + nn(el.l) + nn(el.e)) * nn(el.factor), 0);
                 const isPreviewing = previewAsm?.id === asm.id;
                 return (
@@ -111,13 +163,14 @@ export default function AssemblySearch({ onInsertAssembly, onInsertItem, placeho
             </>
           )}
 
-          {/* Database items */}
-          {results.items.length > 0 && (
+          {/* Database items (local + vector merged) */}
+          {mergedItems.length > 0 && (
             <>
-              <div style={{ padding: "5px 10px", fontSize: 8, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.8, borderBottom: `1px solid ${C.border}`, background: C.bg2 }}>
+              <div style={{ padding: "5px 10px", fontSize: 8, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.8, borderBottom: `1px solid ${C.border}`, background: C.bg2, display: "flex", alignItems: "center", gap: 4 }}>
                 Database Items
+                {vectorLoading && <span style={{ fontSize: 8, color: C.purple, marginLeft: 4 }}>searching...</span>}
               </div>
-              {results.items.map(el => (
+              {mergedItems.map(el => (
                 <div key={el.id} className="nav-item" onClick={() => {
                   onInsertItem(el);
                   setQuery(""); setIsOpen(false);
@@ -125,6 +178,11 @@ export default function AssemblySearch({ onInsertAssembly, onInsertItem, placeho
                   style={{ padding: "6px 10px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${C.bg}`, cursor: "pointer" }}>
                   <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: C.purple, fontWeight: 600, minWidth: 60 }}>{el.code}</span>
                   <span style={{ flex: 1, fontSize: 11, color: C.text }}>{el.name}</span>
+                  {el._vectorMatch && (
+                    <span style={{ fontSize: 7, color: C.purple, background: C.bg2, padding: "1px 4px", borderRadius: 4, fontWeight: 600 }}>
+                      {Math.round((el._similarity || 0) * 100)}%
+                    </span>
+                  )}
                   <span style={{ fontSize: 9, color: C.textDim }}>/{el.unit}</span>
                   <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: C.accent, fontWeight: 600 }}>{fmt2(nn(el.material) + nn(el.labor) + nn(el.equipment))}</span>
                 </div>

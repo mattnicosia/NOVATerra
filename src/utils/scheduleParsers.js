@@ -69,8 +69,12 @@ export const SCHEDULE_TYPES = [
 
 // ─── Pass 1: Detection Prompt ──────────────────────────────────────────
 // Sent with full-page image to identify which schedules exist and where
-export function buildDetectionPrompt(drawingLabel) {
+export function buildDetectionPrompt(drawingLabel, ocrText = null) {
   const typeList = SCHEDULE_TYPES.map(t => `  - "${t.id}": ${t.label} (keywords: ${t.keywords.join(", ")})`).join("\n");
+
+  const ocrSection = ocrText
+    ? `\n\nOCR-EXTRACTED TEXT FROM THIS DRAWING:\n"""\n${ocrText.slice(0, 4000)}\n"""\n\nUse this extracted text to confirm schedule table locations, titles, and column headers. The OCR text is a reliable source for text that may be small or hard to read in the image.`
+    : '';
 
   return `You are analyzing a construction drawing sheet${drawingLabel ? ` labeled "${drawingLabel}"` : ""}.
 
@@ -101,12 +105,12 @@ For EACH real schedule table you find, return:
 
 Return ONLY a JSON array. If no schedules found, return [].
 
-Example: [{"type":"door","bbox":[55,10,40,35],"confidence":"high","title":"DOOR SCHEDULE","rowCount":15}]`;
+Example: [{"type":"door","bbox":[55,10,40,35],"confidence":"high","title":"DOOR SCHEDULE","rowCount":15}]${ocrSection}`;
 }
 
 // ─── Pass 2: Parse Prompts (per schedule type) ────────────────────────
 // Sent with cropped image of the specific schedule table
-export function buildParsePrompt(scheduleType) {
+export function buildParsePrompt(scheduleType, ocrText = null, notesContext = null) {
   const typeConfig = SCHEDULE_TYPES.find(t => t.id === scheduleType);
   if (!typeConfig) return null;
 
@@ -212,7 +216,7 @@ IMPORTANT:
 - If a cell spans multiple rows, apply the value to all applicable rows
 
 Return ONLY a JSON array of objects with these fields: ${fieldList}
-If you cannot parse the schedule, return [].`;
+If you cannot parse the schedule, return [].${ocrText ? `\n\nOCR-EXTRACTED TEXT FROM THIS SCHEDULE TABLE:\n"""\n${ocrText.slice(0, 6000)}\n"""\n\nUse this OCR text as a reliable source for cell values, especially small text, abbreviations, and dimension values that may be hard to read from the image alone. Cross-reference what you see in the image with this OCR text for maximum accuracy.` : ''}${notesContext ? `\n\n${notesContext}\n\nUSE THESE DRAWING NOTES to fill in missing or incomplete schedule fields. For example:\n- If notes specify "All doors shall be HM unless noted", apply "Hollow Metal" as default door material\n- If notes specify insulation requirements, apply to wall types missing insulation info\n- If notes specify fire ratings for certain areas, apply to relevant entries\n- If notes mention specific manufacturers or standards, include that context` : ''}`;
 }
 
 // ─── Data Normalization ───────────────────────────────────────────────

@@ -1,6 +1,6 @@
 // Auto-sync takeoffs to estimate line items
 // Creates linked items automatically, syncs description/unit/quantity
-// Builder takeoffs (with builderId) are grouped into scope items with costed sub-parts
+// Module takeoffs (with moduleId) are grouped into scope items with costed sub-parts
 import { useEffect, useRef } from 'react';
 import { useTakeoffsStore } from '@/stores/takeoffsStore';
 import { useItemsStore } from '@/stores/itemsStore';
@@ -8,15 +8,15 @@ import { useDrawingsStore } from '@/stores/drawingsStore';
 import { uid, nn } from '@/utils/format';
 import { autoTradeFromCode } from '@/constants/tradeGroupings';
 import { getComputedQtyCtx } from '@/utils/measurementCalc';
-import { getBuilderItemCosts } from '@/utils/builderSeedMap';
-import { useBuilderStore } from '@/stores/builderStore';
+import { getModuleItemCosts } from '@/utils/moduleSeedMap';
+import { useModuleStore } from '@/stores/moduleStore';
 
-// Retrieve instance specs from builder store for dynamic pricing lookup
-function getInstanceSpecs(builderId, instanceId) {
-  if (!builderId || !instanceId) return null;
-  const builderInst = useBuilderStore.getState().builderInstances?.[builderId];
-  if (!builderInst) return null;
-  const cats = builderInst.categoryInstances || {};
+// Retrieve instance specs from module store for dynamic pricing lookup
+function getInstanceSpecs(moduleId, instanceId) {
+  if (!moduleId || !instanceId) return null;
+  const moduleInst = useModuleStore.getState().moduleInstances?.[moduleId];
+  if (!moduleInst) return null;
+  const cats = moduleInst.categoryInstances || {};
   for (const catId of Object.keys(cats)) {
     for (const inst of (cats[catId] || [])) {
       if (inst.id === instanceId) return inst.specs;
@@ -54,39 +54,39 @@ export function useTakeoffSync() {
     let itemsChanged = false;
     let takeoffsChanged = false;
 
-    // ── Partition takeoffs into builder-grouped and ungrouped ──
-    const builderGroups = {};  // group string → takeoff[]
+    // ── Partition takeoffs into module-grouped and ungrouped ──
+    const moduleGroups = {};  // group string → takeoff[]
     const ungrouped = [];
 
     nextTakeoffs.forEach(to => {
-      if (to.builderId && to.group) {
-        if (!builderGroups[to.group]) builderGroups[to.group] = [];
-        builderGroups[to.group].push(to);
+      if (to.moduleId && to.group) {
+        if (!moduleGroups[to.group]) moduleGroups[to.group] = [];
+        moduleGroups[to.group].push(to);
       } else {
         ungrouped.push(to);
       }
     });
 
-    // Track existing builder scope items by sourceGroup
+    // Track existing module scope items by sourceGroup
     const existingScopeMap = new Map(); // sourceGroup → item
     nextItems.forEach(it => {
       if (it.sourceGroup) existingScopeMap.set(it.sourceGroup, it);
     });
 
     // ══════════════════════════════════════════════════════════════
-    // 1. BUILDER GROUPS → Scope items with costed sub-parts
+    // 1. MODULE GROUPS → Scope items with costed sub-parts
     // ══════════════════════════════════════════════════════════════
     const processedGroups = new Set();
 
-    Object.entries(builderGroups).forEach(([group, groupTakeoffs]) => {
+    Object.entries(moduleGroups).forEach(([group, groupTakeoffs]) => {
       processedGroups.add(group);
 
       // Build sub-items from group takeoffs
       const subItems = groupTakeoffs.map(to => {
         const computedQty = getComputedQtyCtx(to, scaleCtx);
         const qty = computedQty !== null ? Math.round(computedQty * 100) / 100 : nn(to.quantity);
-        const specs = to.instanceId ? getInstanceSpecs(to.builderId, to.instanceId) : null;
-        const costs = getBuilderItemCosts(to.builderItemId, specs);
+        const specs = to.instanceId ? getInstanceSpecs(to.moduleId, to.instanceId) : null;
+        const costs = getModuleItemCosts(to.moduleItemId, specs);
         return {
           id: `si_${to.id}`,
           desc: to.description || "",
@@ -165,7 +165,7 @@ export function useTakeoffSync() {
           specVariantLabel: "", allowanceOf: "", allowanceSubMarkup: "",
           subItems,
           sourceGroup: group,
-          builderId: firstTo.builderId,
+          moduleId: firstTo.moduleId,
         });
         itemsChanged = true;
       }
@@ -191,7 +191,7 @@ export function useTakeoffSync() {
 
     // 2a. Handle new ungrouped takeoffs (no linkedItemId) — create flat estimate items
     nextTakeoffs.forEach((to, idx) => {
-      if (to.linkedItemId || (to.builderId && to.group)) return; // skip already-linked and builder-grouped
+      if (to.linkedItemId || (to.moduleId && to.group)) return; // skip already-linked and module-grouped
       const newItemId = uid();
       const dc = to.code ? to.code.split(".")[0] : "";
       const computedQty = getComputedQtyCtx(to, scaleCtx);
@@ -250,7 +250,7 @@ export function useTakeoffSync() {
       }
     });
 
-    // 3b. Handle deleted builder groups — remove scope items whose groups no longer exist
+    // 3b. Handle deleted module groups — remove scope items whose groups no longer exist
     existingScopeMap.forEach((item, group) => {
       if (!processedGroups.has(group)) {
         nextItems = nextItems.filter(it => it.id !== item.id);

@@ -5,6 +5,7 @@ import Ic from '@/components/shared/Ic';
 import { I } from '@/constants/icons';
 import { bt } from '@/utils/styles';
 import { SCHEDULE_TYPES } from '@/utils/scheduleParsers';
+import { NOTE_CATEGORIES } from '@/utils/notesExtractor';
 
 const fmt = (n) => {
   if (!n && n !== 0) return "—";
@@ -29,7 +30,8 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
 
   if (!scanResults) return null;
 
-  const { schedules = [], rom, lineItems = [] } = scanResults;
+  const { schedules = [], rom, lineItems = [], drawingNotes = [] } = scanResults;
+  const totalNotes = drawingNotes.reduce((sum, dn) => sum + (dn.notes?.length || 0), 0);
 
   // Group schedules by type
   const grouped = {};
@@ -80,6 +82,7 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
       <div style={{ display: "inline-flex", gap: 0, marginBottom: T.space[4], background: C.bg2, borderRadius: T.radius.md, padding: 3 }}>
         {[
           { k: "schedules", l: "Schedules", count: totalScheduleEntries },
+          { k: "notes", l: "Notes", count: totalNotes },
           { k: "rom", l: "ROM Overview", count: null },
           { k: "items", l: "Line Items", count: lineItems.length },
         ].map(t => (
@@ -115,6 +118,68 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
               />
             );
           })}
+        </div>
+      )}
+
+      {/* ═══ TAB: Notes ═══ */}
+      {tab === "notes" && (
+        <div style={{ maxHeight: 480, overflowY: "auto" }}>
+          {totalNotes === 0 ? (
+            <div style={{ padding: 40, textAlign: "center", color: C.textDim, fontSize: 12 }}>
+              No specification notes extracted from drawings.
+            </div>
+          ) : (
+            drawingNotes.filter(dn => dn.notes?.length > 0).map((dn, di) => (
+              <div key={di} style={{ marginBottom: 12, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+                <div style={{ padding: "8px 12px", background: C.bg, borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{dn.sheetLabel || `Sheet ${di + 1}`}</span>
+                    <span style={{ fontSize: 10, color: C.accent, fontWeight: 600, marginLeft: 8 }}>{dn.notes.length} note{dn.notes.length !== 1 ? "s" : ""}</span>
+                  </div>
+                </div>
+                {dn.sheetSummary && (
+                  <div style={{ padding: "6px 12px", fontSize: 10, color: C.textMuted, fontStyle: "italic", background: `${C.bg2}60`, borderBottom: `1px solid ${C.bg2}` }}>
+                    {dn.sheetSummary}
+                  </div>
+                )}
+                {dn.notes.map((note, ni) => {
+                  const catConfig = NOTE_CATEGORIES.find(c => c.id === note.category);
+                  const relColor = note.estimatingRelevance === 'high' ? C.green : note.estimatingRelevance === 'medium' ? C.orange : C.textDim;
+                  return (
+                    <div key={ni} style={{ padding: "6px 12px", borderBottom: `1px solid ${C.bg2}`, display: "flex", gap: 8, alignItems: "flex-start" }}>
+                      <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", gap: 3, minWidth: 80, paddingTop: 1 }}>
+                        <span style={{
+                          fontSize: 7, padding: "2px 5px", borderRadius: 3, fontWeight: 700, whiteSpace: "nowrap",
+                          background: `${catConfig?.color || C.accent}18`,
+                          color: catConfig?.color || C.accent,
+                        }}>
+                          {catConfig?.label || note.category}
+                        </span>
+                        <span style={{
+                          fontSize: 7, padding: "1px 4px", borderRadius: 2, fontWeight: 600,
+                          background: `${relColor}12`, color: relColor,
+                        }}>
+                          {note.estimatingRelevance}
+                        </span>
+                      </div>
+                      <div style={{ flex: 1, fontSize: 10, color: C.text, lineHeight: 1.5 }}>
+                        {note.text}
+                        {note.csiDivisions?.length > 0 && (
+                          <div style={{ marginTop: 2 }}>
+                            {note.csiDivisions.map((div, i) => (
+                              <span key={i} style={{ fontSize: 7, padding: "1px 4px", borderRadius: 2, background: `${C.accent}10`, color: C.accent, fontWeight: 600, fontFamily: "'DM Mono',monospace", marginRight: 3 }}>
+                                CSI {div}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))
+          )}
         </div>
       )}
 

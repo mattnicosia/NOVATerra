@@ -1,15 +1,15 @@
-// Builder item ID → Seed element ID mapping
+// Module item ID → Seed element ID mapping
 // Used by useTakeoffSync to look up per-unit costs for scope item sub-parts
 import { SEED_ELEMENTS } from '@/constants/seedAssemblies';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Explicit mapping for every derived builder item → seed element.
-// Items are grouped by builder and category for easy maintenance.
+// Explicit mapping for every derived module item → seed element.
+// Items are grouped by module and category for easy maintenance.
 // ─────────────────────────────────────────────────────────────────────────────
 const SEED_MAP = {
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // FOUNDATION BUILDER
+  // FOUNDATION MODULE
   // ═══════════════════════════════════════════════════════════════════════════
 
   // ── Strip Footings ──
@@ -52,7 +52,7 @@ const SEED_MAP = {
   "export-fill":   "s294",   // Export Fill (Off-Site) → Export Fill, Off-Site (Haul & Dump) (CY)
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // WALLS BUILDER
+  // WALLS MODULE
   // ═══════════════════════════════════════════════════════════════════════════
 
   // ── Exterior Walls — Wood derived items ──
@@ -219,7 +219,7 @@ const SEED_MAP = {
   "int-dw-screws":    "s315",   // Drywall Screws → Drywall Screws, Coarse Thread (LBS)
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // FLOORS BUILDER
+  // FLOORS MODULE
   // ═══════════════════════════════════════════════════════════════════════════
 
   // ── Floor Structure — Wood Framing ──
@@ -272,7 +272,7 @@ const SEED_MAP = {
   "ceil-seismic":     "s670",   // Seismic Bracing → Seismic Ceiling Bracing (SF)
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // ROOF BUILDER
+  // ROOF MODULE
   // ═══════════════════════════════════════════════════════════════════════════
 
   // ── Roof Structure — Wood Trusses ──
@@ -315,7 +315,7 @@ const SEED_MAP = {
   "gutter-scupper":     "s765",   // Scupper & Overflow → Commercial Scupper & Overflow (EA)
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // STEEL BUILDER
+  // STEEL MODULE
   // ═══════════════════════════════════════════════════════════════════════════
 
   // ── Structural Framing ──
@@ -388,29 +388,29 @@ function findMSSize(gaugeRow, size) {
   return bestId;
 }
 
-function resolveSpecSeed(builderItemId, specs) {
+function resolveSpecSeed(moduleItemId, specs) {
   if (!specs) return null;
   const gauge = specs.MSGauge || "20 ga";
   const size = specs.MSStudSize || '3-5/8"';
 
-  if (builderItemId === "ext-ms-studs" || builderItemId === "int-ms-studs") {
+  if (moduleItemId === "ext-ms-studs" || moduleItemId === "int-ms-studs") {
     return findMSSize(MS_STUD_SEEDS[gauge] || MS_STUD_SEEDS["20 ga"], size);
   }
-  if (builderItemId === "ext-ms-track" || builderItemId === "int-ms-track") {
+  if (moduleItemId === "ext-ms-track" || moduleItemId === "int-ms-track") {
     return findMSSize(MS_TRACK_SEEDS[gauge] || MS_TRACK_SEEDS["20 ga"], size);
   }
   return null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Look up cost for a builder-derived item
+// Look up cost for a module-derived item
 // Returns { m, l, e } (material, labor, equipment per unit)
 // specs: optional instance specs for dynamic gauge/size lookup
 // ─────────────────────────────────────────────────────────────────────────────
-export function getBuilderItemCosts(builderItemId, specs) {
+export function getModuleItemCosts(moduleItemId, specs) {
   // Try dynamic spec-based lookup first (metal studs with gauge/size)
-  const dynamicId = resolveSpecSeed(builderItemId, specs);
-  const seedId = dynamicId || SEED_MAP[builderItemId];
+  const dynamicId = resolveSpecSeed(moduleItemId, specs);
+  const seedId = dynamicId || SEED_MAP[moduleItemId];
   if (seedId) {
     const seed = SEED_ELEMENTS.find(s => s.id === seedId);
     if (seed) return { m: seed.material, l: seed.labor, e: seed.equipment };

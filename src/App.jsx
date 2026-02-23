@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { ThemeProvider, useTheme } from '@/hooks/useTheme';
 import { usePersistenceLoad, loadEstimate } from '@/hooks/usePersistence';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { useTakeoffSync } from '@/hooks/useTakeoffSync';
 import { useCloudSync } from '@/hooks/useCloudSync';
+import { useEmbeddingSync } from '@/hooks/useEmbeddingSync';
 import { useAuthStore } from '@/stores/authStore';
 import { useEstimatesStore } from '@/stores/estimatesStore';
 import { useUiStore } from '@/stores/uiStore';
@@ -14,6 +15,8 @@ import Toast from '@/components/layout/Toast';
 import AIChatPanel from '@/components/ai/AIChatPanel';
 import AIFab from '@/components/ai/AIFab';
 import LoginPage from '@/pages/LoginPage';
+import OnboardingSequence from '@/components/nova/OnboardingSequence';
+import NovaSignInSplash from '@/components/nova/NovaSignInSplash';
 
 import DashboardPage from '@/pages/DashboardPage';
 import ProjectInfoPage from '@/pages/ProjectInfoPage';
@@ -60,6 +63,7 @@ function AppContent() {
   useAutoSave();
   useTakeoffSync();
   useCloudSync();
+  useEmbeddingSync();
 
   return (
     <div style={{ display: "flex", height: "100vh", overflow: "hidden", background: C.bgGradient || C.bg }}>
@@ -124,15 +128,52 @@ function AuthLoading() {
   );
 }
 
+// Helper: reveal AppContent underneath an intro overlay
+function revealApp() {
+  const el = document.getElementById('app-reveal');
+  if (el) { el.style.opacity = '1'; el.style.pointerEvents = 'auto'; }
+}
+
 export default function App() {
   const user = useAuthStore(s => s.user);
   const loading = useAuthStore(s => s.loading);
   const init = useAuthStore(s => s.init);
 
+  // Onboarding: first sign-in only (persisted in localStorage)
+  const [onboardingComplete, setOnboardingComplete] = useState(
+    () => localStorage.getItem('nova_onboarding_complete') === 'true'
+  );
+  // Splash: every browser session (persisted in sessionStorage)
+  const [splashComplete, setSplashComplete] = useState(
+    () => sessionStorage.getItem('nova_splash_shown') === 'true'
+  );
+
   // Initialize auth on mount
   useEffect(() => {
     init();
   }, [init]);
+
+  // Reset NOVA intro — reusable for keyboard shortcut + preview button
+  const resetIntro = useCallback(() => {
+    localStorage.removeItem('nova_onboarding_complete');
+    localStorage.removeItem('nova_user_name');
+    localStorage.removeItem('nova_user_role');
+    sessionStorage.removeItem('nova_splash_shown');
+    setOnboardingComplete(false);
+    setSplashComplete(false);
+  }, []);
+
+  // Keyboard shortcut: Alt+Shift+N → replay NOVA onboarding
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.altKey && e.shiftKey && e.code === 'KeyN') {
+        e.preventDefault();
+        resetIntro();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [resetIntro]);
 
   // Show loading spinner while checking session
   if (loading) return <AuthLoading />;
@@ -144,10 +185,72 @@ export default function App() {
     </ThemeProvider>
   );
 
-  // Logged in → show main app
+  // Gate 1: First-time cinematic onboarding
+  if (!onboardingComplete) {
+    return (
+      <ThemeProvider>
+        <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden' }}>
+          <div id="app-reveal" style={{ position: 'absolute', inset: 0, opacity: 0, transition: 'opacity 1200ms ease', pointerEvents: 'none' }}>
+            <AppContent />
+          </div>
+          <OnboardingSequence
+            onComplete={() => {
+              setOnboardingComplete(true);
+              // Also mark splash as shown for this session
+              sessionStorage.setItem('nova_splash_shown', 'true');
+              setSplashComplete(true);
+            }}
+            onTransitionStart={revealApp}
+          />
+        </div>
+      </ThemeProvider>
+    );
+  }
+
+  // Gate 2: Returning user splash (every session)
+  if (!splashComplete) {
+    return (
+      <ThemeProvider>
+        <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden' }}>
+          <div id="app-reveal" style={{ position: 'absolute', inset: 0, opacity: 0, transition: 'opacity 1200ms ease', pointerEvents: 'none' }}>
+            <AppContent />
+          </div>
+          <NovaSignInSplash
+            onComplete={() => {
+              sessionStorage.setItem('nova_splash_shown', 'true');
+              setSplashComplete(true);
+            }}
+            onTransitionStart={revealApp}
+          />
+        </div>
+      </ThemeProvider>
+    );
+  }
+
+  // Normal app
   return (
     <ThemeProvider>
       <AppContent />
+      {/* Temporary: Preview Intro button — remove before rollout */}
+      <div
+        onClick={resetIntro}
+        title="Preview Intro"
+        style={{
+          position: 'fixed', bottom: 24, left: 24, zIndex: 9999,
+          width: 36, height: 36, borderRadius: '50%',
+          background: 'rgba(160,100,255,0.12)',
+          border: '1px solid rgba(160,100,255,0.25)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer', transition: 'all 300ms',
+          opacity: 0.5,
+        }}
+        onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.background = 'rgba(160,100,255,0.2)'; }}
+        onMouseLeave={e => { e.currentTarget.style.opacity = '0.5'; e.currentTarget.style.background = 'rgba(160,100,255,0.12)'; }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(200,180,255,0.7)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3" fill="rgba(160,100,255,0.3)" />
+        </svg>
+      </div>
     </ThemeProvider>
   );
 }
