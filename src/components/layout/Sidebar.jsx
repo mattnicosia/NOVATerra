@@ -30,6 +30,7 @@ const estimateNav = [
   { key: "alternates", path: "alternates", icon: I.change, label: "Alternates" },
   { key: "sov", path: "sov", icon: I.dollar, label: "Schedule of Values" },
   { key: "reports", path: "reports", icon: I.report, label: "Reports" },
+  { key: "insights", path: "insights", icon: I.insights, label: "Insights" },
 ];
 
 export default function Sidebar() {

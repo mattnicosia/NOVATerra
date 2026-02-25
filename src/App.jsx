@@ -6,6 +6,7 @@ import { useAutoSave } from '@/hooks/useAutoSave';
 import { useTakeoffSync } from '@/hooks/useTakeoffSync';
 import { useCloudSync } from '@/hooks/useCloudSync';
 import { useEmbeddingSync } from '@/hooks/useEmbeddingSync';
+import { useAutoSnapshot } from '@/hooks/useAutoSnapshot';
 import { useAuthStore } from '@/stores/authStore';
 import { useEstimatesStore } from '@/stores/estimatesStore';
 import { useUiStore } from '@/stores/uiStore';
@@ -35,6 +36,7 @@ import SettingsPage from '@/pages/SettingsPage';
 import BrainstormPage from '@/pages/BrainstormPage';
 import InboxPage from '@/pages/InboxPage';
 import DocumentsPage from '@/pages/DocumentsPage';
+import InsightsPage from '@/pages/InsightsPage';
 
 // Auto-load estimate from URL if not already loaded (handles page refresh on estimate routes)
 function EstimateLoader({ children }) {
@@ -42,6 +44,9 @@ function EstimateLoader({ children }) {
   const activeId = useEstimatesStore(s => s.activeEstimateId);
   const persistenceLoaded = useUiStore(s => s.persistenceLoaded);
   const [loading, setLoading] = useState(false);
+
+  // Auto-snapshot: track estimate changes over time
+  useAutoSnapshot(activeId);
 
   useEffect(() => {
     if (!persistenceLoaded || !id || activeId === id) return;
@@ -90,6 +95,7 @@ function AppContent() {
               <Route path="/estimate/:id/alternates" element={<EstimateLoader><AlternatesPage /></EstimateLoader>} />
               <Route path="/estimate/:id/sov" element={<EstimateLoader><ScheduleOfValuesPage /></EstimateLoader>} />
               <Route path="/estimate/:id/reports" element={<EstimateLoader><ReportsPage /></EstimateLoader>} />
+              <Route path="/estimate/:id/insights" element={<EstimateLoader><InsightsPage /></EstimateLoader>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </PageTransition>
