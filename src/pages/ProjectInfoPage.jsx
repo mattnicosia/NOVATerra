@@ -90,7 +90,7 @@ export default function ProjectInfoPage() {
   };
 
   return (
-    <div style={{ padding: T.space[7], minHeight: "100%", animation: "fadeIn 0.15s ease-out" }}>
+    <div style={{ padding: T.space[7], minHeight: "100%" }}>
       <div style={{ maxWidth: 1200 }}>
         {/* Project Details */}
         <Sec title="Project Details">

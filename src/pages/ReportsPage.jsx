@@ -148,7 +148,7 @@ export default function ReportsPage() {
   };
 
   return (
-    <div style={{ padding: T.space[7], minHeight: "100%", animation: "fadeIn 0.15s ease-out" }}>
+    <div style={{ padding: T.space[7], minHeight: "100%" }}>
       <div style={{ maxWidth: 1000 }}>
         {/* Report tabs */}
         <div style={{ display: "inline-flex", gap: 0, marginBottom: T.space[4], background: C.bg2, borderRadius: T.radius.md, padding: 3 }}>

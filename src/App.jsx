@@ -18,6 +18,8 @@ import LoginPage from '@/pages/LoginPage';
 import OnboardingSequence from '@/components/nova/OnboardingSequence';
 import NovaSignInSplash from '@/components/nova/NovaSignInSplash';
 
+import AmbientParticles from '@/components/ambient/AmbientParticles';
+import PageTransition from '@/components/ambient/PageTransition';
 import DashboardPage from '@/pages/DashboardPage';
 import ProjectInfoPage from '@/pages/ProjectInfoPage';
 import PlanRoomPage from '@/pages/PlanRoomPage';
@@ -66,28 +68,31 @@ function AppContent() {
   useEmbeddingSync();
 
   return (
-    <div style={{ display: "flex", height: "100vh", overflow: "hidden", background: C.bgGradient || C.bg }}>
+    <div style={{ display: "flex", height: "100vh", overflow: "hidden", background: C.bgGradient || C.bg, position: "relative" }}>
+      <AmbientParticles />
       <Sidebar />
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative", zIndex: 1 }}>
         <Header />
         <div style={{ flex: 1, overflow: "auto", scrollBehavior: "smooth" }}>
-          <Routes>
-            <Route path="/" element={<DashboardPage />} />
-            <Route path="/database" element={<CostDatabasePage />} />
-            <Route path="/assemblies" element={<AssembliesPage />} />
-            <Route path="/contacts" element={<ContactsPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/inbox" element={<InboxPage />} />
-            <Route path="/brainstorm" element={<BrainstormPage />} />
-            <Route path="/estimate/:id/info" element={<EstimateLoader><ProjectInfoPage /></EstimateLoader>} />
-            <Route path="/estimate/:id/plans" element={<EstimateLoader><PlanRoomPage /></EstimateLoader>} />
-            <Route path="/estimate/:id/takeoffs" element={<EstimateLoader><TakeoffsPage /></EstimateLoader>} />
-            <Route path="/estimate/:id/estimate" element={<EstimateLoader><EstimatePage /></EstimateLoader>} />
-            <Route path="/estimate/:id/alternates" element={<EstimateLoader><AlternatesPage /></EstimateLoader>} />
-            <Route path="/estimate/:id/sov" element={<EstimateLoader><ScheduleOfValuesPage /></EstimateLoader>} />
-            <Route path="/estimate/:id/reports" element={<EstimateLoader><ReportsPage /></EstimateLoader>} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <PageTransition>
+            <Routes>
+              <Route path="/" element={<DashboardPage />} />
+              <Route path="/database" element={<CostDatabasePage />} />
+              <Route path="/assemblies" element={<AssembliesPage />} />
+              <Route path="/contacts" element={<ContactsPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/inbox" element={<InboxPage />} />
+              <Route path="/brainstorm" element={<BrainstormPage />} />
+              <Route path="/estimate/:id/info" element={<EstimateLoader><ProjectInfoPage /></EstimateLoader>} />
+              <Route path="/estimate/:id/plans" element={<EstimateLoader><PlanRoomPage /></EstimateLoader>} />
+              <Route path="/estimate/:id/takeoffs" element={<EstimateLoader><TakeoffsPage /></EstimateLoader>} />
+              <Route path="/estimate/:id/estimate" element={<EstimateLoader><EstimatePage /></EstimateLoader>} />
+              <Route path="/estimate/:id/alternates" element={<EstimateLoader><AlternatesPage /></EstimateLoader>} />
+              <Route path="/estimate/:id/sov" element={<EstimateLoader><ScheduleOfValuesPage /></EstimateLoader>} />
+              <Route path="/estimate/:id/reports" element={<EstimateLoader><ReportsPage /></EstimateLoader>} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </PageTransition>
         </div>
       </div>
       <Toast />

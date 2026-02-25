@@ -127,7 +127,7 @@ export default function BrainstormPage() {
   const iconBtn = (color, extra) => ({ width: 24, height: 24, border: "none", background: C.bg2, color, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", ...extra });
 
   return (
-    <div style={{ padding: T.space[7], minHeight: "100%", animation: "fadeIn 0.15s ease-out" }}>
+    <div style={{ padding: T.space[7], minHeight: "100%" }}>
       <div style={{ maxWidth: 1000 }}>
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, justifyContent: "space-between" }}>

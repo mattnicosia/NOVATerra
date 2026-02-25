@@ -89,7 +89,7 @@ export default function AlternatesPage() {
   };
 
   return (
-    <div style={{ padding: T.space[7], minHeight: "100%", animation: "fadeIn 0.15s ease-out" }}>
+    <div style={{ padding: T.space[7], minHeight: "100%" }}>
       <div style={{ maxWidth: 1100 }}>
         <p style={{ color: C.textMuted, fontSize: 12, marginBottom: 16 }}>Define add and deduct alternates for your proposal. Mark alternates as accepted to include them in project totals.</p>
 

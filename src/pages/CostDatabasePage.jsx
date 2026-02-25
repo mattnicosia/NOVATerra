@@ -178,7 +178,7 @@ export default function CostDatabasePage() {
   const gridCols = "80px 32px 1.5fr 100px 44px 58px 58px 58px 58px 68px 44px";
 
   return (
-    <div style={{ padding: T.space[7], minHeight: "100%", animation: "fadeIn 0.15s ease-out" }}>
+    <div style={{ padding: T.space[7], minHeight: "100%" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 0, height: "calc(100vh - 160px)" }}>
         {/* Code System Selector */}
         <div style={{ display: "flex", gap: 8, marginBottom: 8, padding: "0 2px", alignItems: "stretch" }}>

@@ -741,7 +741,7 @@ Use proper CSI MasterFormat codes (e.g., "03.300.100" for cast-in-place concrete
   };
 
   return (
-    <div style={{ padding: T.space[7], minHeight: "100%", animation: "fadeIn 0.15s ease-out" }}>
+    <div style={{ padding: T.space[7], minHeight: "100%" }}>
       <div style={{ maxWidth: 1000 }}>
         {/* Tab bar */}
         <div style={{ display: "inline-flex", gap: 0, marginBottom: T.space[4], background: C.bg2, borderRadius: T.radius.md, padding: 3 }}>

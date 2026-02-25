@@ -37,7 +37,7 @@ export default function ContactsPage() {
   const headerStyle = { fontSize: 8, fontWeight: 600, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.8, padding: "0 0 4px", borderBottom: `1px solid ${C.border}`, marginBottom: 4 };
 
   return (
-    <div style={{ padding: T.space[7], minHeight: "100%", animation: "fadeIn 0.15s ease-out" }}>
+    <div style={{ padding: T.space[7], minHeight: "100%" }}>
       <div style={{ maxWidth: 1100 }}>
         <p style={{ color: C.textMuted, fontSize: 13, marginBottom: 16 }}>Manage your company info, contacts, and team. Data persists across all estimates.</p>
 

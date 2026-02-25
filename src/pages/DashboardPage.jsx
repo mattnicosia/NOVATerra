@@ -10,6 +10,7 @@ import { loadEstimate } from '@/hooks/usePersistence';
 import KPI from '@/components/shared/KPI';
 import Ic from '@/components/shared/Ic';
 import CompanySwitcher from '@/components/shared/CompanySwitcher';
+import AnimateIn from '@/components/ambient/AnimateIn';
 import { I } from '@/constants/icons';
 import { fmt, nn } from '@/utils/format';
 import { inp, bt, pageContainer, card, sectionLabel, mono } from '@/utils/styles';
@@ -131,6 +132,7 @@ export default function DashboardPage() {
               <button key={i} onClick={s.action} style={{
                 ...card(C), width: 200, padding: T.space[5], cursor: "pointer",
                 textAlign: "center", transition: T.transition.base, position: "relative",
+                animation: `staggerFadeUp 500ms cubic-bezier(0.16,1,0.3,1) ${200 + i * 120}ms both`,
               }} className="card-hover">
                 {s.done && (
                   <div style={{ position: "absolute", top: T.space[2], right: T.space[2], width: 20, height: 20, borderRadius: T.radius.full, background: C.green, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 0 8px ${C.green}40` }}>
@@ -174,31 +176,35 @@ export default function DashboardPage() {
         <CompanySwitcher />
       </div>
 
-      {/* KPI Row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: T.space[4], marginBottom: T.space[7] }}>
+      {/* KPI Row — staggered entrance */}
+      <AnimateIn stagger={60} duration={450} style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: T.space[4], marginBottom: T.space[7] }}>
         <KPI label="Active Bids" value={active} icon={I.estimate} color={C.accent} />
         <KPI label="Pipeline Value" value={fmt(pipeline)} icon={I.dollar} color={C.green} accent />
         <KPI label="Win Rate" value={winRate} icon={I.check} color={C.green} />
         <KPI label="Pending" value={pending} icon={I.bid} color={C.orange} />
         <KPI label="Total Estimates" value={companyEstimates.length} icon={I.folder} color={C.purple} />
-      </div>
+      </AnimateIn>
 
-      {/* Pipeline Status Bar */}
+      {/* Pipeline Status Bar — animated segments */}
       {companyEstimates.length > 0 && (
-        <div style={{ ...card(C), marginBottom: T.space[7], padding: T.space[4] }}>
+        <div style={{ ...card(C), marginBottom: T.space[7], padding: T.space[4], animation: "staggerFadeUp 400ms cubic-bezier(0.16,1,0.3,1) 350ms both" }}>
           <div style={{ ...sectionLabel(C), marginBottom: T.space[2] }}>Pipeline Status</div>
           <div style={{ display: "flex", borderRadius: T.radius.full, overflow: "hidden", height: 8, background: C.bg }}>
-            {STATUSES.filter(s => s !== "All" && statusCounts[s] > 0).map(s => (
-              <div key={s} style={{
+            {STATUSES.filter(s => s !== "All" && statusCounts[s] > 0).map((s, i) => (
+              <div key={s} className="pipeline-bar-segment" style={{
                 width: `${(statusCounts[s] / totalEstimates) * 100}%`,
                 background: statusColor(s), minWidth: 4,
                 boxShadow: `0 0 8px ${statusColor(s)}40`,
+                animationDelay: `${450 + i * 80}ms`,
               }} title={`${s}: ${statusCounts[s]}`} />
             ))}
           </div>
           <div style={{ display: "flex", gap: T.space[4], marginTop: T.space[2] }}>
-            {STATUSES.filter(s => s !== "All" && statusCounts[s] > 0).map(s => (
-              <div key={s} style={{ display: "flex", alignItems: "center", gap: T.space[1], fontSize: T.fontSize.xs, color: C.textMuted }}>
+            {STATUSES.filter(s => s !== "All" && statusCounts[s] > 0).map((s, i) => (
+              <div key={s} style={{
+                display: "flex", alignItems: "center", gap: T.space[1], fontSize: T.fontSize.xs, color: C.textMuted,
+                animation: `staggerFadeUp 350ms cubic-bezier(0.16,1,0.3,1) ${500 + i * 60}ms both`,
+              }}>
                 <div style={{ width: 8, height: 8, borderRadius: T.radius.sm, background: statusColor(s), boxShadow: `0 0 4px ${statusColor(s)}30` }} />
                 {s} ({statusCounts[s]})
               </div>
@@ -207,15 +213,19 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Upcoming Deadlines */}
+      {/* Upcoming Deadlines — staggered rows */}
       {upcoming.length > 0 && (
-        <div style={{ ...card(C), marginBottom: T.space[7], padding: T.space[4] }}>
+        <div style={{ ...card(C), marginBottom: T.space[7], padding: T.space[4], animation: "staggerFadeUp 400ms cubic-bezier(0.16,1,0.3,1) 400ms both" }}>
           <div style={{ ...sectionLabel(C), marginBottom: T.space[2] }}>Upcoming Bid Deadlines</div>
-          {upcoming.map(e => {
+          {upcoming.map((e, i) => {
             const daysLeft = Math.ceil((new Date(e.bidDue) - new Date()) / 86400000);
             const urgent = daysLeft <= 3;
             return (
-              <div key={e.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.border}` }}>
+              <div key={e.id} style={{
+                display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0",
+                borderBottom: `1px solid ${C.border}`,
+                animation: `staggerFadeRight 350ms cubic-bezier(0.16,1,0.3,1) ${500 + i * 50}ms both`,
+              }}>
                 <div>
                   <span style={{ fontSize: 13, fontWeight: 500, color: C.text }}>{e.name}</span>
                   <span style={{ fontSize: 11, color: C.textMuted, marginLeft: 8 }}>{e.client}</span>
@@ -227,6 +237,7 @@ export default function DashboardPage() {
                     background: urgent ? `${C.red}20` : `${C.accent}15`,
                     color: urgent ? C.red : C.accent,
                     boxShadow: urgent ? `0 0 6px ${C.red}20` : "none",
+                    animation: urgent ? "glowPulse 2s ease-in-out infinite" : "none",
                   }}>
                     {daysLeft <= 0 ? "OVERDUE" : `${daysLeft}d`}
                   </span>
@@ -241,7 +252,7 @@ export default function DashboardPage() {
       <InboxNotification C={C} T={T} navigate={navigate} />
 
       {/* Estimates Table */}
-      <div style={{ ...card(C), overflow: "hidden" }}>
+      <div style={{ ...card(C), overflow: "hidden", animation: "staggerFadeUp 450ms cubic-bezier(0.16,1,0.3,1) 500ms both" }}>
         {/* Table Header */}
         <div style={{ padding: `${T.space[3]}px ${T.space[4]}px`, borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: T.space[3] }}>
@@ -340,6 +351,7 @@ export default function DashboardPage() {
                   padding: `${T.space[3]}px ${T.space[4]}px`,
                   borderBottom: `1px solid ${C.border}`,
                   alignItems: "center", cursor: "pointer",
+                  animation: `staggerFadeRight 300ms cubic-bezier(0.16,1,0.3,1) ${600 + idx * 35}ms both`,
                 }}
                 onClick={() => handleOpen(est.id)}
               >
@@ -371,18 +383,31 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Delete confirmation */}
+      {/* Delete confirmation — cinematic modal */}
       {deleteConfirm && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.60)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }} onClick={() => setDeleteConfirm(null)}>
+        <div style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", backdropFilter: "blur(12px)",
+          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200,
+          animation: "fadeIn 0.2s ease-out",
+        }} onClick={() => setDeleteConfirm(null)}>
           <div style={{
             background: C.bg1, border: `1px solid ${C.border}`, borderRadius: T.radius.lg,
-            padding: T.space[7], width: 380, boxShadow: T.shadow.xl, animation: "scaleIn 0.15s ease-out",
+            padding: T.space[7], width: 380, boxShadow: T.shadow.xl,
+            animation: "modalEnter 0.3s cubic-bezier(0.16,1,0.3,1)",
           }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: T.fontSize.lg, fontWeight: T.fontWeight.semibold, color: C.text, marginBottom: T.space[2] }}>Delete Estimate?</div>
-            <div style={{ fontSize: T.fontSize.base, color: C.textMuted, marginBottom: T.space[5] }}>This cannot be undone. All data for this estimate will be permanently removed.</div>
-            <div style={{ display: "flex", gap: T.space[2], justifyContent: "flex-end" }}>
-              <button onClick={() => setDeleteConfirm(null)} style={bt(C, { background: C.bg2, color: C.textMuted, padding: `${T.space[2]}px ${T.space[4]}px`, border: `1px solid ${C.border}` })}>Cancel</button>
-              <button onClick={() => handleDelete(deleteConfirm)} style={bt(C, { background: C.red, color: "#fff", padding: `${T.space[2]}px ${T.space[4]}px`, boxShadow: `0 0 8px ${C.red}30` })}>Delete</button>
+            <div style={{
+              width: 48, height: 48, borderRadius: T.radius.full, margin: "0 auto",
+              marginBottom: T.space[4],
+              background: `${C.red}15`, border: `1px solid ${C.red}25`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <Ic d={I.trash} size={22} color={C.red} sw={1.7} />
+            </div>
+            <div style={{ fontSize: T.fontSize.lg, fontWeight: T.fontWeight.semibold, color: C.text, marginBottom: T.space[2], textAlign: "center" }}>Delete Estimate?</div>
+            <div style={{ fontSize: T.fontSize.base, color: C.textMuted, marginBottom: T.space[5], textAlign: "center", lineHeight: T.lineHeight.normal }}>This cannot be undone. All data for this estimate will be permanently removed.</div>
+            <div style={{ display: "flex", gap: T.space[2], justifyContent: "center" }}>
+              <button onClick={() => setDeleteConfirm(null)} style={bt(C, { background: C.bg2, color: C.textMuted, padding: `${T.space[2]}px ${T.space[5]}px`, border: `1px solid ${C.border}`, borderRadius: T.radius.sm })}>Cancel</button>
+              <button onClick={() => handleDelete(deleteConfirm)} style={bt(C, { background: C.red, color: "#fff", padding: `${T.space[2]}px ${T.space[5]}px`, boxShadow: `0 0 12px ${C.red}30`, borderRadius: T.radius.sm })}>Delete</button>
             </div>
           </div>
         </div>

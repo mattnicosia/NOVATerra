@@ -368,7 +368,7 @@ export default function EstimatePage() {
   const toggleDiv = (sk) => toggleExpandedDiv(sk);
 
   return (
-    <div style={{ padding: T.space[7], minHeight: "100%", animation: "fadeIn 0.15s ease-out" }} className="blueprint-grid">
+    <div style={{ padding: T.space[7], minHeight: "100%" }} className="blueprint-grid">
       {/* Toolbar — Row 1: Search, filters, toggles, add */}
       <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
         <div style={{ position: "relative", flex: 1, maxWidth: 220, minWidth: 120 }}>

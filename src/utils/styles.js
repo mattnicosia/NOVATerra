@@ -93,7 +93,6 @@ export const mono = () => ({
 export const pageContainer = (C) => ({
   padding: T.space[7],
   minHeight: "100%",
-  animation: "fadeIn 0.15s ease-out",
 });
 
 // Gradient accent button

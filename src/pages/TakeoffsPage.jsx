@@ -1731,7 +1731,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
 
   // ─── RENDER ─────────────────────────
   return (
-    <div style={{ animation: "fadeIn 0.15s ease-out", display: "flex", gap: 0, height: "calc(100vh - 120px)" }}>
+    <div style={{ display: "flex", gap: 0, height: "calc(100vh - 120px)" }}>
       {/* LEFT PANEL — Takeoffs list */}
       {tkPanelOpen && (
         <div style={{ width: tkPanelWidth, minWidth: 280, maxWidth: 700, background: C.bg1, borderRadius: "6px 0 0 6px", border: `1px solid ${C.border}`, borderRight: "none", display: "flex", flexDirection: "column", overflow: "hidden", flexShrink: 0 }}>

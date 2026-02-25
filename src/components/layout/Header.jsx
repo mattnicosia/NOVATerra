@@ -30,6 +30,15 @@ export default function Header() {
       display: "flex", alignItems: "center", justifyContent: "space-between",
       position: "relative", zIndex: T.z.sticky,
     }}>
+      {/* Subtle gradient line along bottom edge */}
+      <div style={{
+        position: "absolute",
+        bottom: 0, left: 0, right: 0,
+        height: 1,
+        background: `linear-gradient(90deg, transparent 0%, ${C.accent}15 30%, ${C.accent}25 50%, ${C.accent}15 70%, transparent 100%)`,
+        pointerEvents: "none",
+      }} />
+
       <div style={{ display: "flex", alignItems: "center", gap: T.space[3] }}>
         {activeId && (
           <>
@@ -38,26 +47,35 @@ export default function Header() {
                 useEstimatesStore.getState().setActiveEstimateId(null);
                 navigate("/");
               }}
+              className="ghost-btn"
               style={{
                 background: "none", border: "none", cursor: "pointer",
                 fontSize: T.fontSize.sm, color: C.textMuted, display: "flex", alignItems: "center", gap: T.space[1],
-                transition: T.transition.fast,
+                padding: "4px 8px", borderRadius: T.radius.sm,
               }}
             >
               <Ic d={I.chevron} size={12} color={C.textDim} sw={2} style={{ transform: "rotate(180deg)" }} />
               All Estimates
             </button>
-            <span style={{ color: C.textDim, fontSize: T.fontSize.sm }}>›</span>
-            <span style={{ fontSize: T.fontSize.md, fontWeight: T.fontWeight.bold, color: C.text }}>{project.name || "Untitled"}</span>
+            <span style={{ color: C.textDim, fontSize: T.fontSize.sm, opacity: 0.4 }}>›</span>
+            <span style={{
+              fontSize: T.fontSize.md, fontWeight: T.fontWeight.bold, color: C.text,
+              animation: "fadeIn 0.2s ease-out",
+            }}>{project.name || "Untitled"}</span>
           </>
         )}
         {!activeId && (
-          <BldgOmniLogo size={16} />
+          <div style={{ animation: "fadeIn 0.3s ease-out" }}>
+            <BldgOmniLogo size={16} />
+          </div>
         )}
       </div>
 
       {activeId && (
-        <div style={{ display: "flex", alignItems: "center", gap: T.space[2] }}>
+        <div style={{
+          display: "flex", alignItems: "center", gap: T.space[2],
+          animation: "staggerFadeRight 0.4s cubic-bezier(0.16,1,0.3,1) 0.1s both",
+        }}>
           <Pill label="Items" value={items.length} />
           <Pill label="Total" value={fmt(getTotals().grand)} accent />
         </div>

@@ -219,8 +219,8 @@ export default function Sidebar() {
       {/* Spacer when no active estimate */}
       {!activeId && <div style={{ flex: 1 }} />}
 
-      {/* NOVA Status Indicator */}
-      <div style={{
+      {/* NOVA Status Indicator — with ambient glow */}
+      <div className="nova-sidebar-glow" style={{
         padding: `${T.space[2]}px ${T.space[3]}px`,
         display: "flex", alignItems: "center",
         justifyContent: open ? "flex-start" : "center",
@@ -229,6 +229,7 @@ export default function Sidebar() {
         <div style={{
           position: "relative",
           flexShrink: 0,
+          zIndex: 1,
         }}>
           <NovaPortal size="mini" state={novaStatus} style={{ width: 24, height: 24 }} />
           {novaStatus === "thinking" && (
@@ -242,10 +243,12 @@ export default function Sidebar() {
           )}
         </div>
         {open && (
-          <div style={{ flex: 1, overflow: "hidden" }}>
+          <div style={{ flex: 1, overflow: "hidden", position: "relative", zIndex: 1 }}>
             <div style={{
-              fontSize: 10, fontWeight: 700, color: novaStatus === "idle" ? P.textDim : P.accent,
+              fontSize: 10, fontWeight: 700,
+              color: novaStatus === "idle" ? P.textDim : P.accent,
               letterSpacing: 0.5,
+              transition: "color 400ms ease",
             }}>
               NOVA
             </div>
@@ -254,12 +257,13 @@ export default function Sidebar() {
                 fontSize: 9, color: P.accent,
                 overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                 opacity: 0.8,
+                animation: "fadeIn 0.3s ease-out",
               }}>
                 {novaActivity}
               </div>
             )}
             {!novaActivity && (
-              <div style={{ fontSize: 9, color: P.textDim }}>
+              <div style={{ fontSize: 9, color: P.textDim, transition: "color 400ms ease" }}>
                 {novaStatus === "idle" ? "Ready" : novaStatus === "affirm" ? "Done" : "Active"}
               </div>
             )}
