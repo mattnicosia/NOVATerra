@@ -203,6 +203,67 @@ input[type="number"] {
   to { transform: scaleX(1); }
 }
 
+/* Backdrop / overlay fade in */
+@keyframes backdropFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ── Toast animations ── */
+@keyframes toastEnter {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.92);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes toastExit {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(12px) scale(0.95);
+    filter: blur(2px);
+  }
+}
+
+@keyframes toastIconPop {
+  from {
+    opacity: 0;
+    transform: scale(0.3) rotate(-45deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes toastProgress {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+/* Sidebar active indicator slide-in */
+@keyframes sidebarIndicator {
+  from {
+    opacity: 0;
+    transform: scaleY(0.3);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
 /* ═══════════════════════════════════════════════════════════
    BLUEPRINT GRID — Subtle construction-industry background
    ═══════════════════════════════════════════════════════════ */

@@ -17,6 +17,7 @@ import AssemblyCard from '@/components/shared/AssemblyCard';
 import AIAssemblyGenerator from '@/components/shared/AIAssemblyGenerator';
 import CodeManager from '@/components/shared/CodeManager';
 import SubProposalModal from '@/components/database/SubProposalModal';
+import EmptyState from '@/components/shared/EmptyState';
 
 export default function CostDatabasePage() {
   const C = useTheme();
@@ -182,21 +183,28 @@ export default function CostDatabasePage() {
       <div style={{ display: "flex", flexDirection: "column", gap: 0, height: "calc(100vh - 160px)" }}>
         {/* Code System Selector */}
         <div style={{ display: "flex", gap: 8, marginBottom: 8, padding: "0 2px", alignItems: "stretch" }}>
-          {Object.values(CODE_SYSTEMS).map(sys => {
+          {Object.values(CODE_SYSTEMS).map((sys, si) => {
             const active = codeSystem === sys.id;
             return (
-              <button key={sys.id} className="ghost-btn"
+              <button key={sys.id} className={active ? "card-hover" : "ghost-btn"}
                 onClick={() => {
                   if (!active && elements.length > 0 && !confirm(`Switch to ${sys.name}? Your existing database items will remain but codes may not match the new system.`)) return;
                   setCodeSystem(sys.id);
                 }}
-                style={{ flex: 1, padding: "10px 14px", background: active ? C.accentBg : C.bg, border: `2px solid ${active ? C.accent : C.border}`, borderRadius: 8, display: "flex", alignItems: "center", gap: 10, cursor: "pointer", transition: "all 0.2s" }}>
+                style={{
+                  flex: 1, padding: "10px 14px",
+                  background: active ? C.accentBg : C.bg,
+                  border: `2px solid ${active ? C.accent : C.border}`,
+                  borderRadius: 8, display: "flex", alignItems: "center", gap: 10,
+                  cursor: "pointer",
+                  animation: `staggerFadeUp 400ms cubic-bezier(0.16,1,0.3,1) ${si * 60}ms both`,
+                }}>
                 <span style={{ fontSize: 20 }}>{sys.icon}</span>
                 <div style={{ textAlign: "left" }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: active ? C.accent : C.text }}>{sys.name}</div>
                   <div style={{ fontSize: 9, color: C.textDim, lineHeight: 1.3 }}>{sys.desc}</div>
                 </div>
-                {active && <div style={{ marginLeft: "auto", width: 8, height: 8, borderRadius: 4, background: C.accent }} />}
+                {active && <div style={{ marginLeft: "auto", width: 8, height: 8, borderRadius: 4, background: C.accent, boxShadow: `0 0 8px ${C.accent}60` }} />}
               </button>
             );
           })}
@@ -214,7 +222,7 @@ export default function CostDatabasePage() {
         </div>
 
         {/* Tab Switcher: Items | Assemblies | Trade Bundles */}
-        <div style={{ marginBottom: 8 }}>
+        <div style={{ marginBottom: 8, animation: "staggerFadeUp 400ms cubic-bezier(0.16,1,0.3,1) 150ms both" }}>
           <div style={{ background: C.bg2, borderRadius: T.radius.md, padding: 3, display: "inline-flex" }}>
             {[
               { key: "items", label: `Items (${elements.length})`, icon: null },
@@ -231,6 +239,8 @@ export default function CostDatabasePage() {
                     border: "none",
                     borderRadius: T.radius.sm,
                     cursor: "pointer",
+                    transition: "all 200ms ease-out",
+                    boxShadow: active ? `0 2px 8px ${C.accent}30` : "none",
                   })}>
                   {tab.icon && <Ic d={tab.icon} size={14} color={active ? "#fff" : C.textMuted} />}
                   {" "}{tab.label}
@@ -253,26 +263,36 @@ export default function CostDatabasePage() {
                 style={{ padding: "6px 10px", borderRadius: 4, fontSize: 11, fontWeight: 600, color: !dbSelectedSub && !dbSearch ? C.accent : C.textMuted, background: !dbSelectedSub && !dbSearch ? C.accentBg : "transparent", marginBottom: 2 }}>
                 All Items ({elements.length})
               </div>
-              {Object.entries(dbTree).sort(([a], [b]) => a.localeCompare(b)).map(([dc, div]) => (
-                <div key={dc}>
+              {Object.entries(dbTree).sort(([a], [b]) => a.localeCompare(b)).map(([dc, div], dIdx) => (
+                <div key={dc} style={{ animation: `staggerFadeRight 280ms cubic-bezier(0.16,1,0.3,1) ${200 + dIdx * 18}ms both` }}>
                   <div className="nav-item" onClick={() => toggleDbDiv(dc)}
                     style={{ padding: "6px 10px", borderRadius: 4, display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 600, color: div.count > 0 ? C.text : C.textMuted }}>
-                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke={C.textDim} strokeWidth="1.5" style={{ transform: dbExpandedDivs.has(dc) ? "rotate(90deg)" : "rotate(0)", transition: "transform 0.15s", flexShrink: 0 }}><path d="M2 0.5l3.5 3.5L2 7.5" /></svg>
+                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke={div.count > 0 ? C.accent : C.textDim} strokeWidth="1.5" style={{ transform: dbExpandedDivs.has(dc) ? "rotate(90deg)" : "rotate(0)", transition: "transform 200ms cubic-bezier(0.16,1,0.3,1)", flexShrink: 0 }}><path d="M2 0.5l3.5 3.5L2 7.5" /></svg>
                     <Ic d={I.folder} size={12} color={div.count > 0 ? C.accent : C.textDim} />
                     <span style={{ color: div.count > 0 ? C.accent : C.textDim, fontFamily: "'DM Mono',monospace", fontSize: 10, minWidth: 18 }}>{dc}</span>
                     <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{div.name}</span>
-                    {div.count > 0 && <span style={{ fontSize: 9, color: C.accent, fontWeight: 600 }}>{div.count}</span>}
+                    {div.count > 0 && <span style={{ fontSize: 9, color: C.accent, fontWeight: 600, background: `${C.accent}12`, padding: "1px 5px", borderRadius: 6 }}>{div.count}</span>}
                   </div>
                   {dbExpandedDivs.has(dc) && <>
-                    {Object.entries(div.subs).sort(([a], [b]) => a.localeCompare(b)).map(([subKey, sub]) => {
+                    {Object.entries(div.subs).sort(([a], [b]) => a.localeCompare(b)).map(([subKey, sub], sIdx) => {
                       const isActive = dbSelectedSub === subKey;
                       const hasItems = sub.count > 0;
                       return (
                         <div key={subKey} className="nav-item" onClick={() => { setDbSelectedSub(subKey); setDbSearch(""); }}
-                          style={{ padding: "5px 10px 5px 34px", borderRadius: 4, fontSize: 10, color: isActive ? C.accent : hasItems ? C.text : C.textDim, background: isActive ? C.accentBg : "transparent", fontWeight: isActive ? 600 : hasItems ? 500 : 400, display: "flex", gap: 6, alignItems: "center", opacity: isActive || hasItems ? 1 : 0.7 }}>
+                          style={{
+                            padding: "5px 10px 5px 34px", borderRadius: 4, fontSize: 10,
+                            color: isActive ? C.accent : hasItems ? C.text : C.textDim,
+                            background: isActive ? C.accentBg : "transparent",
+                            fontWeight: isActive ? 600 : hasItems ? 500 : 400,
+                            display: "flex", gap: 6, alignItems: "center",
+                            opacity: isActive || hasItems ? 1 : 0.7,
+                            animation: `staggerFadeRight 220ms cubic-bezier(0.16,1,0.3,1) ${sIdx * 25}ms both`,
+                            borderLeft: isActive ? `2px solid ${C.accent}` : "2px solid transparent",
+                            transition: "border-color 200ms ease-out, background 150ms ease-out",
+                          }}>
                           <span style={{ fontFamily: "'DM Mono',monospace", color: isActive ? C.accent : hasItems ? C.textMuted : C.textDim, fontSize: 9 }}>{subKey}</span>
                           <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sub.name}</span>
-                          {hasItems && <span style={{ fontSize: 9, color: C.accent, fontWeight: 600 }}>{sub.count}</span>}
+                          {hasItems && <span style={{ fontSize: 9, color: C.accent, fontWeight: 600, background: `${C.accent}10`, padding: "0 4px", borderRadius: 4 }}>{sub.count}</span>}
                         </div>
                       );
                     })}
@@ -446,7 +466,13 @@ export default function CostDatabasePage() {
                 };
                 return (
                   <div key={el.id} className="db-row"
-                    style={{ display: "grid", gridTemplateColumns: gridCols, padding: isEditing ? "5px 14px" : "7px 14px", borderBottom: `1px solid ${C.bg}`, alignItems: "center", background: isEditing ? C.accentBg : idx % 2 === 1 ? C.bg2 + '40' : 'transparent' }}>
+                    style={{
+                      display: "grid", gridTemplateColumns: gridCols,
+                      padding: isEditing ? "5px 14px" : "7px 14px",
+                      borderBottom: `1px solid ${C.bg}`, alignItems: "center",
+                      background: isEditing ? C.accentBg : idx % 2 === 1 ? C.bg2 + '40' : 'transparent',
+                      animation: idx < 40 ? `staggerFadeRight 280ms cubic-bezier(0.16,1,0.3,1) ${idx * 25}ms both` : undefined,
+                    }}>
                     {isEditing ? (<>
                       <input value={el.code} onChange={e => editField("code", e.target.value)}
                         style={inp(C, { fontFamily: "'DM Mono',monospace", fontSize: 10, padding: "3px 4px", textAlign: "center" })} />
@@ -517,8 +543,10 @@ export default function CostDatabasePage() {
                         {menuOpenId === el.id && (
                           <div onClick={e => e.stopPropagation()} style={{
                             position: "absolute", right: 0, top: 24, zIndex: 100,
-                            background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6,
-                            boxShadow: "0 4px 16px rgba(0,0,0,0.18)", minWidth: 150, padding: "4px 0",
+                            background: C.glassBgDark || C.bg, border: `1px solid ${C.glassBorder || C.border}`, borderRadius: 8,
+                            backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
+                            boxShadow: "0 8px 24px rgba(0,0,0,0.25), 0 0 12px rgba(0,0,0,0.10)", minWidth: 160, padding: "4px 0",
+                            animation: "staggerFadeUp 200ms cubic-bezier(0.16,1,0.3,1) both",
                           }}>
                             <button onMouseDown={(e) => { e.stopPropagation(); duplicateElement(el.id); setMenuOpenId(null); showToast(`Copied "${el.name}"`); }}
                               style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "7px 14px", fontSize: 11, fontWeight: 500, background: "transparent", border: "none", color: C.text, cursor: "pointer", textAlign: "left" }}>
@@ -545,18 +573,11 @@ export default function CostDatabasePage() {
                 );
               })}
               {dbVisibleElements.length === 0 && (
-                <div style={{ padding: T.space[8], textAlign: "center" }}>
-                  <div style={{
-                    width: 56, height: 56, borderRadius: T.radius.full, margin: "0 auto",
-                    marginBottom: T.space[3],
-                    background: `linear-gradient(135deg, ${C.accent}20, ${C.accent}08)`,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                  }}>
-                    <Ic d={I.database} size={24} color={C.accent} sw={1.7} />
-                  </div>
-                  <div style={{ fontSize: T.fontSize.md, fontWeight: T.fontWeight.semibold, color: C.text, marginBottom: T.space[1] }}>No items{dbSelectedSub ? ` in ${dbSelectedSub}` : ""}</div>
-                  <div style={{ fontSize: T.fontSize.sm, color: C.textMuted }}>Click "Create Scope Item" to add one.</div>
-                </div>
+                <EmptyState
+                  icon={I.database}
+                  title={`No items${dbSelectedSub ? ` in ${dbSelectedSub}` : ""}`}
+                  subtitle={dbSearch ? `No results for "${dbSearch}"` : 'Click "Create Scope Item" to add one.'}
+                />
               )}
             </div>
           </div>
@@ -595,11 +616,14 @@ export default function CostDatabasePage() {
                 })
                 .map(asm => <AssemblyCard key={asm.id} asm={asm} onDelete={(id) => { if (confirm(`Delete assembly "${asm.name}"?`)) { removeAssembly(id); showToast("Assembly deleted"); } }} />)}
               {assemblies.length === 0 && (
-                <div style={{ padding: 48, textAlign: "center", background: C.bg2, borderRadius: 8, border: `1px solid ${C.border}` }}>
-                  <Ic d={I.assembly} size={32} color={C.textDim} />
-                  <div style={{ fontSize: 14, color: C.textMuted, marginTop: 8 }}>No assemblies yet.</div>
-                  <div style={{ fontSize: 11, color: C.textDim, marginTop: 4 }}>Assemblies are pre-built combinations of scope items. Create one to get started.</div>
-                </div>
+                <EmptyState
+                  icon={I.assembly}
+                  title="No assemblies yet"
+                  subtitle="Assemblies are pre-built combinations of scope items. Create one or use AI to generate."
+                  action={() => setAiAssemblyOpen(true)}
+                  actionLabel="AI Generate"
+                  actionIcon={I.ai}
+                />
               )}
             </div>
           </div>
@@ -646,7 +670,7 @@ export default function CostDatabasePage() {
                 const isExpanded = expandedBundleKey === bundle.key;
                 const items = bundleItems[bundle.key] || [];
                 return (
-                  <div key={bundle.key}>
+                  <div key={bundle.key} style={{ animation: idx < 30 ? `staggerFadeRight 280ms cubic-bezier(0.16,1,0.3,1) ${idx * 30}ms both` : undefined }}>
                     <div
                       style={{ display: "grid", gridTemplateColumns: "40px 2fr 100px 60px 52px", gap: 4, padding: "8px 14px", borderBottom: `1px solid ${C.bg}`, alignItems: "center", background: isEditing ? C.accentBg : isExpanded ? C.accentBg : idx % 2 === 1 ? C.bg2 + '40' : 'transparent', cursor: isEditing ? "default" : "pointer" }}
                       onClick={() => { if (!isEditing && count > 0) setExpandedBundleKey(isExpanded ? null : bundle.key); }}
@@ -673,7 +697,7 @@ export default function CostDatabasePage() {
                         <div style={{ textAlign: "center", fontFamily: "'DM Mono',monospace", fontSize: 10, color: C.textDim }}>{bundle.sort}</div>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           {count > 0 && (
-                            <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke={C.textDim} strokeWidth="1.5" style={{ transform: isExpanded ? "rotate(90deg)" : "rotate(0)", transition: "transform 0.15s", flexShrink: 0 }}><path d="M2 0.5l3.5 3.5L2 7.5" /></svg>
+                            <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke={isExpanded ? C.accent : C.textDim} strokeWidth="1.5" style={{ transform: isExpanded ? "rotate(90deg)" : "rotate(0)", transition: "transform 200ms cubic-bezier(0.16,1,0.3,1), stroke 200ms ease-out", flexShrink: 0 }}><path d="M2 0.5l3.5 3.5L2 7.5" /></svg>
                           )}
                           <span style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{bundle.label}</span>
                         </div>

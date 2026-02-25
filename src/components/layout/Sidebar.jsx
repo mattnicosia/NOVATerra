@@ -57,20 +57,21 @@ export default function Sidebar() {
     fontSize: T.fontSize.base, fontWeight: T.fontWeight.medium,
     color: isActive ? P.accent : P.textMuted,
     background: isActive ? P.accentBg : "transparent",
-    transition: T.transition.fast,
+    transition: "background 180ms ease-out, color 180ms ease-out",
     whiteSpace: "nowrap",
     overflow: "hidden",
     position: "relative",
   });
 
-  // Gradient glow indicator for active links
+  // Gradient glow indicator for active links — animated entrance
   const activeIndicator = {
     position: "absolute",
     left: 0, top: 4, bottom: 4,
     width: 3,
     background: P.gradient || `linear-gradient(180deg, ${P.accent}, ${P.accentAlt || P.accent})`,
     borderRadius: "0 3px 3px 0",
-    boxShadow: `0 0 8px ${P.accent}40`,
+    boxShadow: `0 0 10px ${P.accent}50`,
+    animation: "sidebarIndicator 250ms cubic-bezier(0.16, 1, 0.3, 1) both",
   };
 
   return (
@@ -117,23 +118,32 @@ export default function Sidebar() {
             Global
           </div>
         )}
-        {globalNav.map(item => (
+        {globalNav.map((item, gi) => (
           <NavLink
             key={item.key}
             to={item.path}
             end={item.path === "/"}
-            style={({ isActive }) => linkStyle(isActive)}
+            className="nav-item"
+            style={({ isActive }) => ({
+              ...linkStyle(isActive),
+              animation: `staggerFadeRight 280ms cubic-bezier(0.16,1,0.3,1) ${gi * 35}ms both`,
+            })}
           >
             {({ isActive }) => (
               <>
                 {isActive && <div style={activeIndicator} />}
-                <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                <div style={{
+                  position: "relative", display: "flex", alignItems: "center",
+                  filter: isActive ? `drop-shadow(0 0 4px ${P.accent}50)` : "none",
+                  transition: "filter 200ms ease-out",
+                }}>
                   <Ic d={item.icon} size={18} color={isActive ? P.accent : P.textMuted} />
                   {item.key === "inbox" && inboxCount > 0 && (
                     <div style={{
                       position: "absolute", top: -4, right: -6,
                       width: 8, height: 8, borderRadius: "50%",
                       background: P.accent, boxShadow: `0 0 6px ${P.accent}60`,
+                      animation: "pulse 2s ease-in-out infinite",
                     }} />
                   )}
                 </div>
@@ -145,6 +155,7 @@ export default function Sidebar() {
                         fontSize: 9, fontWeight: 700, padding: "1px 5px",
                         borderRadius: 8, background: P.accent, color: "#fff",
                         lineHeight: "14px",
+                        boxShadow: `0 0 6px ${P.accent}40`,
                       }}>{inboxCount}</span>
                     )}
                   </span>
@@ -165,6 +176,7 @@ export default function Sidebar() {
               background: P.accentBg,
               border: `1px solid ${P.borderAccent || P.border}`,
               borderRadius: T.radius.sm,
+              animation: "staggerFadeUp 350ms cubic-bezier(0.16,1,0.3,1) both",
             }}>
               <div style={{
                 display: "flex", alignItems: "center", gap: T.space[2],
@@ -172,7 +184,8 @@ export default function Sidebar() {
                 <div style={{
                   width: 8, height: 8, borderRadius: T.radius.full,
                   background: P.accent,
-                  boxShadow: `0 0 6px ${P.accent}60`,
+                  boxShadow: `0 0 8px ${P.accent}60`,
+                  animation: "pulse 2.5s ease-in-out infinite",
                 }} />
                 <span style={{
                   fontSize: T.fontSize.sm, fontWeight: T.fontWeight.bold, color: P.text,
@@ -193,16 +206,26 @@ export default function Sidebar() {
               Project
             </div>
           )}
-          {estimateNav.map(item => (
+          {estimateNav.map((item, ei) => (
             <NavLink
               key={item.key}
               to={`/estimate/${activeId}/${item.path}`}
-              style={({ isActive }) => linkStyle(isActive)}
+              className="nav-item"
+              style={({ isActive }) => ({
+                ...linkStyle(isActive),
+                animation: `staggerFadeRight 260ms cubic-bezier(0.16,1,0.3,1) ${ei * 30}ms both`,
+              })}
             >
               {({ isActive }) => (
                 <>
                   {isActive && <div style={activeIndicator} />}
-                  <Ic d={item.icon} size={18} color={isActive ? P.accent : P.textMuted} />
+                  <div style={{
+                    display: "flex", alignItems: "center",
+                    filter: isActive ? `drop-shadow(0 0 4px ${P.accent}50)` : "none",
+                    transition: "filter 200ms ease-out",
+                  }}>
+                    <Ic d={item.icon} size={18} color={isActive ? P.accent : P.textMuted} />
+                  </div>
                   {open && <span>{item.label}</span>}
                 </>
               )}

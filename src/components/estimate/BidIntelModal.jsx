@@ -85,13 +85,14 @@ Be specific — reference actual line items and numbers from the estimate.` }],
 
   return (
     <>
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 900, animation: "fadeIn 0.15s" }} />
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", zIndex: 900, animation: "backdropFadeIn 250ms ease-out both" }} />
       <div style={{
         position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)",
         width: 700, maxWidth: "95vw", maxHeight: "85vh",
-        background: C.bg, borderRadius: 12, border: `1px solid ${C.border}`,
-        boxShadow: `0 24px 64px rgba(0,0,0,0.3)`, zIndex: 901,
+        background: C.bg, borderRadius: 12, border: `1px solid ${C.glassBorder || 'rgba(255,255,255,0.08)'}`,
+        boxShadow: `0 24px 64px rgba(0,0,0,0.3), 0 0 40px rgba(0,0,0,0.15)`, zIndex: 901,
         display: "flex", flexDirection: "column", overflow: "hidden",
+        animation: "modalEnter 300ms cubic-bezier(0.16, 1, 0.3, 1) both",
       }}>
         {/* Header */}
         <div style={{

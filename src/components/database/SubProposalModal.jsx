@@ -286,8 +286,8 @@ IMPORTANT: Return ONLY valid JSON array. No markdown, no explanation. Example:
     onClose();
   };
 
-  const overlay = { position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, animation: "fadeIn 0.15s ease-out" };
-  const modal = { background: C.bg, border: `1px solid ${C.border}`, borderRadius: 12, width: step === "review" ? 1160 : 520, maxHeight: "85vh", display: "flex", flexDirection: "column", boxShadow: "0 16px 48px rgba(0,0,0,0.4)" };
+  const overlay = { position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, animation: "backdropFadeIn 250ms ease-out both" };
+  const modal = { background: C.bg, border: `1px solid ${C.glassBorder || 'rgba(255,255,255,0.08)'}`, borderRadius: 12, width: step === "review" ? 1160 : 520, maxHeight: "85vh", display: "flex", flexDirection: "column", boxShadow: "0 16px 48px rgba(0,0,0,0.4), 0 0 40px rgba(0,0,0,0.15)", animation: "modalEnter 300ms cubic-bezier(0.16, 1, 0.3, 1) both" };
 
   return (
     <div style={overlay} onClick={onClose}>
