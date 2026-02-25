@@ -74,7 +74,7 @@ export default function Toast() {
         <span style={{
           color: "#fff", fontSize: T.fontSize.base,
           fontWeight: T.fontWeight.medium,
-          lineHeight: T.lineHeight.snug,
+          lineHeight: T.lineHeight.tight,
         }}>
           {visible.msg}
         </span>

@@ -38,7 +38,7 @@ export default function ContactsPage() {
   const architects = getContactsForCompany("architects", activeCompanyId);
   const engineers = getContactsForCompany("engineers", activeCompanyId);
   const subcontractors = getContactsForCompany("subcontractors", activeCompanyId);
-  const estimators = masterData.estimators;
+  const estimators = masterData.estimators || [];
 
   const activeProfileInfo = activeCompanyId === "__all__"
     ? masterData.companyInfo
@@ -90,7 +90,8 @@ export default function ContactsPage() {
   const getInitials = (item) => {
     if (item.initials) return item.initials;
     const name = item.contact || item.company || item.name || '';
-    return name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
+    if (!name.trim()) return '?';
+    return name.trim().split(/\s+/).map(w => w[0] || '').join('').slice(0, 2).toUpperCase() || '?';
   };
 
   const tabColor = (key) => {
