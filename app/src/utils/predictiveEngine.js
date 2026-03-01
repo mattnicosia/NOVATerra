@@ -177,7 +177,25 @@ export function findNearestRelevantTag(data, x, y, description) {
     }
   }
 
-  return bestTag;
+  if (bestTag) return bestTag;
+
+  // Whole-page fallback: search ALL text items for description-matching tags
+  // This catches cases where the click point is far from relevant tags
+  let pagebestTag = null;
+  let pagebestRelevance = 0;
+
+  for (const item of data.text) {
+    if (!isLikelyTag(item.text)) continue;
+    const relevance = scoreTagRelevance(item.text, description);
+    if (relevance > pagebestRelevance && relevance >= 0.5) {
+      pagebestRelevance = relevance;
+      const dx = item.x - x;
+      const dy = item.y - y;
+      pagebestTag = { ...item, distance: Math.sqrt(dx * dx + dy * dy), relevance };
+    }
+  }
+
+  return pagebestTag;
 }
 
 // ══════════════════════════════════════════════════════════════════════
