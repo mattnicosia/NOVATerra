@@ -68,8 +68,16 @@ export function scoreTagRelevance(tagText, description) {
   const desc = description.toUpperCase();
   const descWords = desc.split(/[\s,\-\/]+/).filter(Boolean);
 
-  // Exact: tag text literally appears in description
+  // Exact: tag text literally appears in description (or vice versa)
   if (desc.includes(tag)) return 1.0;
+  if (tag.length >= 3 && descWords.some(w => w.includes(tag))) return 1.0;
+  // Reverse: description word appears in tag (e.g., tag="DUPLEX A", desc="Duplexes")
+  for (const w of descWords) {
+    if (w.length >= 3 && tag.includes(w)) return 0.95;
+    // Stem match: "DUPLEXES" → "DUPLEX" matches tag "DUPLEX"
+    const stem = w.replace(/(E?S|ING|ED)$/, "");
+    if (stem.length >= 3 && (tag.includes(stem) || stem.includes(tag))) return 0.9;
+  }
 
   // Abbreviation: tag prefix (letters only) expands to a description word
   const tagLetters = tag.replace(/[^A-Z]/g, "");
@@ -179,19 +187,20 @@ export function findNearestRelevantTag(data, x, y, description) {
 
   if (bestTag) return bestTag;
 
-  // Whole-page fallback: search ALL text items for description-matching tags
-  // This catches cases where the click point is far from relevant tags
+  // Whole-page fallback: search ALL text items (including non-tag text like "DUPLEX", "2BR")
+  // for description-relevant matches anywhere on the page
   let pagebestTag = null;
   let pagebestRelevance = 0;
 
   for (const item of data.text) {
-    if (!isLikelyTag(item.text)) continue;
-    const relevance = scoreTagRelevance(item.text, description);
+    const t = item.text.trim();
+    if (!t || t.length > 20) continue; // skip empty or very long text
+    const relevance = scoreTagRelevance(t, description);
     if (relevance > pagebestRelevance && relevance >= 0.5) {
       pagebestRelevance = relevance;
       const dx = item.x - x;
       const dy = item.y - y;
-      pagebestTag = { ...item, distance: Math.sqrt(dx * dx + dy * dy), relevance };
+      pagebestTag = { ...item, text: t, distance: Math.sqrt(dx * dx + dy * dy), relevance };
     }
   }
 

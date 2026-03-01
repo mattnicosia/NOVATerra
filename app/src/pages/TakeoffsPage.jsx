@@ -2499,44 +2499,6 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
           zIndex: 30, animation: "fadeIn 0.15s ease-out",
         }} />
       )}
-      {/* ── Floating left-side bar when measuring with panel closed ── */}
-      {!tkPanelOpen && tkActiveTakeoffId && tkMeasureState !== "idle" && (() => {
-        const activeTo = takeoffs.find(t => t.id === tkActiveTakeoffId);
-        if (!activeTo) return null;
-        const mQty = getMeasuredQty(activeTo);
-        const activeIdx = takeoffs.findIndex(t => t.id === tkActiveTakeoffId);
-        const nextTos = takeoffs.slice(activeIdx + 1, activeIdx + 4).filter(t => t.id !== tkActiveTakeoffId);
-        return (
-          <div style={{ position: "absolute", left: 8, top: 8, zIndex: 31, display: "flex", flexDirection: "column", gap: 4, animation: "fadeIn 0.15s ease-out" }}>
-            {/* Active takeoff */}
-            <div style={{ background: C.bg1, border: `1px solid ${activeTo.color}60`, borderRadius: 8, padding: "6px 10px", display: "flex", alignItems: "center", gap: 8, boxShadow: `0 2px 12px rgba(0,0,0,0.3), 0 0 0 1px ${activeTo.color}20`, minWidth: 180 }}>
-              <div style={{ width: 8, height: 8, borderRadius: "50%", background: activeTo.color, animation: "pulse 1.5s infinite", flexShrink: 0 }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: activeTo.color, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{activeTo.description}</div>
-                <div style={{ fontSize: 9, color: C.textDim, fontFamily: "'DM Mono',monospace" }}>{mQty ?? 0} {activeTo.unit}</div>
-              </div>
-              <button onClick={stopMeasuring} title="Stop (Esc)"
-                style={{ padding: "4px 10px", fontSize: 9, fontWeight: 600, borderRadius: 4, background: C.red, color: "#fff", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
-                <svg width="8" height="8" viewBox="0 0 8 8" fill="#fff"><rect width="8" height="8" rx="1" /></svg> Stop
-              </button>
-            </div>
-            {/* Next takeoffs for quick-start */}
-            {nextTos.length > 0 && (
-              <div style={{ background: C.bg1, border: `1px solid ${C.border}`, borderRadius: 6, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.2)" }}>
-                {nextTos.map(to => (
-                  <button key={to.id} onClick={() => engageMeasuring(to.id)}
-                    style={{ width: "100%", padding: "4px 10px", display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", borderBottom: `1px solid ${C.bg2}`, cursor: "pointer", fontSize: 10, color: C.textDim }}>
-                    <div style={{ width: 6, height: 6, borderRadius: 1, background: to.color, flexShrink: 0 }} />
-                    <span style={{ flex: 1, textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{to.description}</span>
-                    <svg width="8" height="8" viewBox="0 0 10 10" fill={to.color}><polygon points="2,1 9,5 2,9" /></svg>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        );
-      })()}
-
       {tkPanelOpen && (
         <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: Math.min(tkPanelWidth, 420), minWidth: 280, maxWidth: 420, background: C.bg1, borderRadius: "6px 0 0 6px", border: `1px solid ${C.border}`, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", overflow: "hidden", flexShrink: 0, zIndex: 31, boxShadow: "4px 0 24px rgba(0,0,0,0.15)", animation: "slideInLeft 0.2s ease-out" }}>
           <div style={{ padding: "8px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
@@ -3347,12 +3309,15 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
               {!hudCalibrating && !hudOutline && !hudAutoCount && hudMeasuring && activeTo && (<>
                 <div style={{ width: 8, height: 8, borderRadius: "50%", background: tkMeasureState === "measuring" ? activeTo.color : C.orange, animation: tkMeasureState === "measuring" ? "pulse 1.5s infinite" : "none" }} />
                 <span style={{ fontSize: 10, fontWeight: 600, color: activeTo.color, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{activeTo.description.substring(0, 30)}</span>
-                <span style={{ fontSize: 9, color: C.textDim }}>—</span>
+                <button onClick={stopMeasuring} title="Stop (Esc)"
+                  style={bt(C, { padding: "3px 10px", fontSize: 8, fontWeight: 600, borderRadius: 4, background: C.red, color: "#fff", display: "flex", alignItems: "center", gap: 3 })}>
+                  <svg width="8" height="8" viewBox="0 0 8 8" fill="#fff"><rect width="8" height="8" rx="1" /></svg> Stop
+                </button>
+                <div style={{ width: 1, height: 16, background: C.border }} />
                 <span style={{ fontSize: 9, fontWeight: 600, color: C.text }}>{toolLabel}:</span>
                 <span style={{ fontSize: 10, fontWeight: 700, color: C.text, fontFamily: "'DM Mono',monospace" }}>
                   {tkTool === "count" ? `${mQty ?? 0} EA` : (!scaleSet ? <span style={{ color: C.orange, fontSize: 9 }}>⚠ Set scale</span> : `${mQty ?? 0} ${tkTool === "area" ? calUnit + "²" : calUnit}`)}
                 </span>
-                <div style={{ width: 1, height: 16, background: C.border }} />
                 <span style={{ fontSize: 8, color: C.textDim }}>
                   {tkMeasureState === "measuring" ? "click to measure" : "paused"}
                 </span>
@@ -3360,20 +3325,15 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                 {/* NOVA Vision prediction badge → opens dropdown */}
                 {hudPredictions && pending.length > 0 && !tkPredRefining && (
                   <button onClick={() => setPredDropdownOpen(v => !v)}
-                    style={bt(C, { background: "linear-gradient(135deg, #6366F115, #8B5CF615)", color: "#8B5CF6", border: "1px solid #8B5CF630", padding: "2px 8px", fontSize: 8, fontWeight: 700, borderRadius: 3 })}>
+                    style={bt(C, { marginLeft: "auto", background: "linear-gradient(135deg, #6366F115, #8B5CF615)", color: "#8B5CF6", border: "1px solid #8B5CF630", padding: "2px 8px", fontSize: 8, fontWeight: 700, borderRadius: 3 })}>
                     <span style={{ fontSize: 7, fontWeight: 800, letterSpacing: 0.5 }}>NOVA</span> {pending.length} ▾
                   </button>
                 )}
                 {hudPredictions && tkPredRefining && (
-                  <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 9, color: C.orange }}>
-                    <span style={{ display: "inline-block", animation: "spin 1s linear infinite", fontSize: 10 }}>⟳</span> Refining
+                  <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 9, color: C.orange, marginLeft: "auto" }}>
+                    <span style={{ display: "inline-block", animation: "spin 1s linear infinite", fontSize: 10 }}>⟳</span> Scanning
                   </span>
                 )}
-
-                <button onClick={stopMeasuring} title="Stop (Esc)"
-                  style={bt(C, { marginLeft: "auto", padding: "3px 10px", fontSize: 8, fontWeight: 600, borderRadius: 4, background: C.red, color: "#fff", display: "flex", alignItems: "center", gap: 3 })}>
-                  <svg width="8" height="8" viewBox="0 0 8 8" fill="#fff"><rect width="8" height="8" rx="1" /></svg> Stop
-                </button>
               </>)}
 
               {/* ─ Predictions only (not measuring) ─ */}
