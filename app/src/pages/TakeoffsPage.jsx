@@ -605,9 +605,9 @@ export default function TakeoffsPage() {
     setTkActivePoints([]);
     setTkContextMenu(null);
     setTkShowVars(null);
-    // Auto-collapse panel to maximize drawing area for measuring (only in "auto" mode)
-    if (tkPanelMode === "auto") setTkPanelOpen(false);
-  }, [addMeasurement, tkPanelMode]);
+    // Always collapse panel when measuring starts — drawing area needs full focus
+    setTkPanelOpen(false);
+  }, [addMeasurement]);
 
   const stopMeasuring = useCallback(() => {
     const s = useTakeoffsStore.getState();
@@ -1485,6 +1485,23 @@ Where confidence is "high", "medium", or "low".` },
     }
 
     if (currentMeasureState !== "measuring" || !currentActiveTakeoffId) {
+      // Auto-engage: if a takeoff is selected but not engaged, clicking the canvas starts measuring
+      const selectedId = freshState.tkSelectedTakeoffId;
+      if (selectedId && selectedDrawingId) {
+        const selTo = freshState.takeoffs.find(t => t.id === selectedId);
+        if (selTo) {
+          engageMeasuring(selectedId);
+          // Use this click as the first measurement point
+          const tool = unitToTool(selTo.unit);
+          if (tool === "count") {
+            addMeasurement(selectedId, { type: "count", points: [pt], value: 1, sheetId: selectedDrawingId, color: selTo.color });
+          } else {
+            setTkActivePoints([pt]);
+          }
+          return;
+        }
+      }
+
       // Hit-test: click on existing measurement → select that takeoff
       // Scale thresholds by inverse zoom so they stay consistent in screen pixels
       const zoomScale = Math.max(1, (canvasRef.current?.width || 1) / (canvasRef.current?.getBoundingClientRect().width || 1));
@@ -1651,7 +1668,7 @@ Where confidence is "high", "medium", or "low".` },
       }
       setTkActivePoints([...tkActivePoints, snappedPt]);
     }
-  }, [tkTool, tkActivePoints, tkActiveTakeoffId, selectedDrawingId, takeoffs, tkCalibrations, tkMeasureState, tkAutoCount, drawingScales, drawingDpi, setTkSelectedTakeoffId, handleOutlineClick]);
+  }, [tkTool, tkActivePoints, tkActiveTakeoffId, selectedDrawingId, takeoffs, tkCalibrations, tkMeasureState, tkAutoCount, drawingScales, drawingDpi, setTkSelectedTakeoffId, handleOutlineClick, engageMeasuring, addMeasurement]);
 
   // ─── ZOOM / PAN ─────────────────────
   // Pinch (ctrlKey) = zoom, trackpad two-finger = pan, mouse wheel = zoom
@@ -2502,7 +2519,13 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
     <div style={{ display: "flex", gap: 0, height: "calc(100vh - 120px)", position: "relative" }}>
       {/* LEFT PANEL — Takeoffs drawer (overlay) */}
       {tkPanelOpen && (
-        <div onClick={() => setTkPanelOpen(false)} style={{
+        <div onClick={() => {
+          setTkPanelOpen(false);
+          // Auto-engage selected takeoff so next canvas click places a measurement
+          const sel = useTakeoffsStore.getState().tkSelectedTakeoffId;
+          const ms = useTakeoffsStore.getState().tkMeasureState;
+          if (sel && ms === "idle") engageMeasuring(sel);
+        }} style={{
           position: "absolute", inset: 0, background: C.isDark ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.15)",
           zIndex: 30, animation: "fadeIn 0.15s ease-out",
         }} />
