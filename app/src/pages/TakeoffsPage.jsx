@@ -186,6 +186,8 @@ export default function TakeoffsPage() {
 
   // Page filter: "all" shows every takeoff, "page" shows only those with measurements on current drawing
   const [pageFilter, setPageFilter] = useState("all");
+  // Panel mode: "auto" = collapse on measure/reopen on stop, "open" = always open, "closed" = always closed
+  const [tkPanelMode, setTkPanelMode] = useState("auto");
 
   // Persist selected drawing to sessionStorage so refresh returns to same page
   useEffect(() => {
@@ -603,9 +605,9 @@ export default function TakeoffsPage() {
     setTkActivePoints([]);
     setTkContextMenu(null);
     setTkShowVars(null);
-    // Auto-collapse panel to maximize drawing area for measuring
-    setTkPanelOpen(false);
-  }, [addMeasurement]);
+    // Auto-collapse panel to maximize drawing area for measuring (only in "auto" mode)
+    if (tkPanelMode === "auto") setTkPanelOpen(false);
+  }, [addMeasurement, tkPanelMode]);
 
   const stopMeasuring = useCallback(() => {
     const s = useTakeoffsStore.getState();
@@ -621,7 +623,9 @@ export default function TakeoffsPage() {
     }
     // Keep tkSelectedTakeoffId so measurements stay visible after stopping
     setTkMeasureState("idle"); setTkTool("select"); setTkActivePoints([]); setTkActiveTakeoffId(null); setTkContextMenu(null); setTkCursorPt(null);
-  }, [addMeasurement]);
+    // Auto-reopen panel when measuring stops (only in "auto" mode)
+    if (tkPanelMode === "auto") setTkPanelOpen(true);
+  }, [addMeasurement, tkPanelMode]);
 
   const pauseMeasuring = () => {
     setTkMeasureState("paused"); setTkActivePoints([]); setTkCursorPt(null);
@@ -1380,9 +1384,8 @@ IMPORTANT:
               setTkPredictions({ tag: result.tag, predictions: result.predictions, scanning: false, totalInstances: result.totalInstances, source: result.source });
               initPredContext(result.tag, result.source, result.confidence);
               showToast(`Found ${result.predictions.length} more "${result.tag || "items"}" — review predictions`);
-            } else {
-              showToast("No matching elements found on this page", "info");
             }
+            // Silently skip — no toast when predictions find nothing, user can still count manually
           }).catch(err => console.warn("Prediction scan failed:", err));
         }
       }
@@ -1570,8 +1573,6 @@ Where confidence is "high", "medium", or "low".` },
                   setTkPredictions({ tag: result.tag, predictions: result.predictions, scanning: false, totalInstances: result.totalInstances, source: result.source });
                   initPredContext(result.tag, result.source, result.confidence);
                   showToast(`Found ${result.predictions.length} more "${result.tag || "walls"}" — review predictions`);
-                } else {
-                  showToast("No matching elements found on this page", "info");
                 }
               } catch (err) { console.warn("Prediction scan failed:", err); }
             })();
@@ -1607,8 +1608,6 @@ Where confidence is "high", "medium", or "low".` },
                     setTkPredictions({ tag: result.tag, predictions: result.predictions, scanning: false, totalInstances: result.totalInstances, source: result.source });
                     initPredContext(result.tag, result.source, result.confidence);
                     showToast(`Found ${result.predictions.length} room predictions — review`);
-                  } else {
-                    showToast("No matching elements found on this page", "info");
                   }
                 } catch (err) { console.warn("Area prediction scan failed:", err); }
               })();
@@ -1636,8 +1635,6 @@ Where confidence is "high", "medium", or "low".` },
                   setTkPredictions({ tag: result.tag, predictions: result.predictions, scanning: false, totalInstances: result.totalInstances, source: result.source });
                   initPredContext(result.tag, result.source, result.confidence);
                   showToast(`Found ${result.predictions.length} room predictions — review`);
-                } else {
-                  showToast("No matching elements found on this page", "info");
                 }
               } catch (err) { console.warn("Area prediction scan failed:", err); }
             })();
@@ -2039,11 +2036,11 @@ Where confidence is "high", "medium", or "low".` },
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Draw existing measurements (selected takeoff at full opacity, others dimmed)
-    // tkVisibility: "all" = show all, "active" = selected only, "none" = hide all
+    // tkVisibility: "all" = show all, "page" = this page only, "active" = selected/active only
     // pageFilter: "page" syncs canvas to only show takeoffs with measurements on this drawing
     const toFillHex = (pct) => Math.round(Math.min(100, Math.max(5, pct)) * 2.55).toString(16).padStart(2, '0');
     const canvasTakeoffs = pageFilter === "page" ? filteredTakeoffs : takeoffs;
-    if (tkVisibility !== "none") canvasTakeoffs.forEach(to => {
+    canvasTakeoffs.forEach(to => {
       if (tkVisibility === "active" && to.id !== tkSelectedTakeoffId && to.id !== tkActiveTakeoffId) return;
       const isSelectedTo = to.id === tkSelectedTakeoffId || to.id === tkActiveTakeoffId;
       const fillHex = toFillHex(to.fillOpacity ?? 20);
@@ -2533,27 +2530,18 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
               {!showNotesPanel && (
               <button className="icon-btn"
                 onClick={() => {
-                  const next = { all: "page", page: "active", active: "none", none: "all" };
-                  const nv = next[tkVisibility];
+                  const next = { all: "page", page: "active", active: "all" };
+                  const nv = next[tkVisibility] || "all";
                   setTkVisibility(nv);
                   if (nv === "page") { setPageFilter("page"); setActiveModule(null); }
                   else if (tkVisibility === "page") { setPageFilter("all"); }
                 }}
-                title={tkVisibility === "all" ? "Showing all takeoffs" : tkVisibility === "page" ? "This page only" : tkVisibility === "active" ? "Selected takeoff only" : "Takeoffs hidden"}
-                style={{ width: 22, height: 22, border: `1px solid ${(tkVisibility === "active" || tkVisibility === "page") ? C.accent + "60" : C.border}`, background: tkVisibility === "page" ? C.accent + "18" : tkVisibility === "active" ? C.accent + "12" : tkVisibility === "none" ? C.bg2 : "transparent", color: tkVisibility === "page" ? C.accent : tkVisibility === "active" ? C.accent : tkVisibility === "none" ? C.textDimmer : C.textDim, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative" }}>
-                {tkVisibility === "none" ? (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" />
-                    <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" />
-                    <path d="M14.12 14.12a3 3 0 11-4.24-4.24" />
-                    <line x1="1" y1="1" x2="23" y2="23" />
-                  </svg>
-                ) : (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
-                )}
+                title={tkVisibility === "all" ? "Showing all takeoffs" : tkVisibility === "page" ? "This page only" : "Selected takeoff only"}
+                style={{ width: 22, height: 22, border: `1px solid ${(tkVisibility === "active" || tkVisibility === "page") ? C.accent + "60" : C.border}`, background: tkVisibility === "page" ? C.accent + "18" : tkVisibility === "active" ? C.accent + "12" : "transparent", color: tkVisibility === "page" ? C.accent : tkVisibility === "active" ? C.accent : C.textDim, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
                 {tkVisibility === "active" && <span style={{ position: "absolute", top: -4, right: -4, width: 12, height: 12, borderRadius: "50%", background: C.accent, color: "#fff", fontSize: 8, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>1</span>}
                 {tkVisibility === "page" && <span style={{ position: "absolute", top: -4, right: -4, width: 12, height: 12, borderRadius: "50%", background: C.accent, color: "#fff", fontSize: 7, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>P</span>}
               </button>
@@ -2963,12 +2951,26 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
         <div style={{ borderBottom: `1px solid ${C.border}` }}>
           {/* Toolbar: Drawing nav + zoom + scale + tools */}
           <div style={{ padding: "6px 10px", display: "flex", gap: 6, alignItems: "center", overflow: "hidden" }}>
-          {/* Panel toggle */}
-          <button className="icon-btn" onClick={() => setTkPanelOpen(v => !v)} title={tkPanelOpen ? "Hide takeoffs panel" : "Show takeoffs panel"}
+          {/* Panel toggle + mode selector */}
+          <button className="icon-btn"
+            onClick={() => setTkPanelOpen(v => !v)}
+            onContextMenu={e => {
+              e.preventDefault();
+              const next = { auto: "open", open: "closed", closed: "auto" };
+              const nv = next[tkPanelMode];
+              setTkPanelMode(nv);
+              if (nv === "open") setTkPanelOpen(true);
+              else if (nv === "closed") setTkPanelOpen(false);
+              showToast(`Panel: ${nv === "auto" ? "Auto (hide when measuring)" : nv === "open" ? "Always open" : "Always closed"}`);
+            }}
+            title={`${tkPanelOpen ? "Hide" : "Show"} panel · Right-click: ${tkPanelMode === "auto" ? "Auto mode" : tkPanelMode === "open" ? "Always open" : "Always closed"}`}
             style={{ width: 26, height: 26, border: `1px solid ${tkPanelOpen ? C.accent + '60' : C.border}`, background: tkPanelOpen ? C.accent + '12' : C.bg2, color: tkPanelOpen ? C.accent : C.textMuted, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, position: "relative" }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={tkPanelOpen ? C.accent : C.textMuted} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="18" rx="1" /><path d="M14 3h7M14 9h7M14 15h5" /></svg>
             {takeoffs.length > 0 && !tkPanelOpen && (
               <span style={{ position: "absolute", top: -4, right: -4, minWidth: 14, height: 14, borderRadius: 7, background: C.accent, color: "#fff", fontSize: 8, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px", lineHeight: 1 }}>{takeoffs.length}</span>
+            )}
+            {tkPanelMode !== "auto" && (
+              <span style={{ position: "absolute", bottom: -3, right: -3, width: 8, height: 8, borderRadius: "50%", background: tkPanelMode === "open" ? C.green : C.orange, border: `1px solid ${C.bg1}` }} />
             )}
           </button>
           <select value={selectedDrawingId || ""} onChange={e => { setSelectedDrawingId(e.target.value); const d = drawings.find(d => d.id === e.target.value); if (d?.type === "pdf" && d.data) renderPdfPage(d); }} style={inp(C, { width: 220, minWidth: 160, flexShrink: 1, padding: "5px 8px", fontSize: 11 })}>

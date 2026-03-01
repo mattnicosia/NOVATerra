@@ -45,7 +45,7 @@ export const useTakeoffsStore = create((set, get) => ({
   tkPanelWidth: 380,
   tkPanelOpen: true,
   toFilter: "all",
-  tkVisibility: "all",   // "all" | "active" | "none"
+  tkVisibility: "all",   // "all" | "page" | "active"
   tkNewInput: "",
   tkNewUnit: "SF",
   tkDbResults: [],
