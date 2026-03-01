@@ -2511,7 +2511,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                 style={{ padding: "2px 8px", fontSize: 9, fontWeight: 600, background: pageFilter === "all" ? C.accent : "transparent", color: pageFilter === "all" ? "#fff" : C.textDim, border: "none", borderRadius: 3, cursor: "pointer", transition: "all 0.15s" }}>
                 All
               </button>
-              <button onClick={() => setPageFilter("page")}
+              <button onClick={() => { setPageFilter("page"); setActiveModule(null); }}
                 style={{ padding: "2px 8px", fontSize: 9, fontWeight: 600, background: pageFilter === "page" ? C.accent : "transparent", color: pageFilter === "page" ? "#fff" : C.textDim, border: "none", borderRadius: 3, cursor: "pointer", transition: "all 0.15s" }}>
                 This Page{pageFilter === "page" ? ` (${filteredTakeoffs.length})` : ""}
               </button>
@@ -2869,9 +2869,11 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
               </div>
             )}
               </div>
-              {/* ModulePanel (right — slides in when active) */}
+              {/* ModulePanel (right — slides in when active, hidden when "This Page") */}
               <div style={{ width: "50%", height: "100%", overflowY: "auto" }}>
-                <ModulePanel engageMeasuring={engageMeasuring} selectedDrawingId={selectedDrawingId} addTakeoff={addTakeoff} updateTakeoff={updateTakeoff} removeTakeoff={removeTakeoff} pageFilter={pageFilter} onDetectWallSchedule={runWallScheduleDetection} wallScheduleLoading={wallSchedule.loading} />
+                {pageFilter !== "page" && (
+                  <ModulePanel engageMeasuring={engageMeasuring} selectedDrawingId={selectedDrawingId} addTakeoff={addTakeoff} updateTakeoff={updateTakeoff} removeTakeoff={removeTakeoff} pageFilter={pageFilter} onDetectWallSchedule={runWallScheduleDetection} wallScheduleLoading={wallSchedule.loading} />
+                )}
               </div>
             </div>
           </div>
