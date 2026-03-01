@@ -1333,6 +1333,11 @@ IMPORTANT:
     if (!canvasRef.current || !selectedDrawingId) return;
     setTkContextMenu(null);
 
+    // Read fresh state from store to avoid stale closure after engageMeasuring
+    const freshState = useTakeoffsStore.getState();
+    const currentMeasureState = freshState.tkMeasureState;
+    const currentActiveTakeoffId = freshState.tkActiveTakeoffId;
+
     // Outline tool — delegated to separate handler
     if (tkTool === "outline") { handleOutlineClick(e); return; }
 
@@ -1459,16 +1464,16 @@ Where confidence is "high", "medium", or "low".` },
     }
 
     // Paused — re-engage
-    if (tkMeasureState === "paused" && tkActiveTakeoffId) {
+    if (currentMeasureState === "paused" && currentActiveTakeoffId) {
       setTkMeasureState("measuring");
       if (tkTool === "count") {
-        const to = takeoffs.find(t => t.id === tkActiveTakeoffId);
+        const to = takeoffs.find(t => t.id === currentActiveTakeoffId);
         if (to) {
           if (handleCountPredictions(pt, to)) {
             if (e.detail === 2) pauseMeasuring();
             return;
           }
-          addMeasurement(tkActiveTakeoffId, { type: "count", points: [pt], value: 1, sheetId: selectedDrawingId, color: to.color });
+          addMeasurement(currentActiveTakeoffId, { type: "count", points: [pt], value: 1, sheetId: selectedDrawingId, color: to.color });
           triggerCountPredictions(pt, to);
           if (e.detail === 2) pauseMeasuring();
         }
@@ -1478,7 +1483,7 @@ Where confidence is "high", "medium", or "low".` },
       return;
     }
 
-    if (tkMeasureState !== "measuring" || !tkActiveTakeoffId) {
+    if (currentMeasureState !== "measuring" || !currentActiveTakeoffId) {
       // Hit-test: click on existing measurement → select that takeoff
       // Scale thresholds by inverse zoom so they stay consistent in screen pixels
       const zoomScale = Math.max(1, (canvasRef.current?.width || 1) / (canvasRef.current?.getBoundingClientRect().width || 1));
@@ -1514,7 +1519,7 @@ Where confidence is "high", "medium", or "low".` },
       }
       return;
     }
-    const to = takeoffs.find(t => t.id === tkActiveTakeoffId);
+    const to = takeoffs.find(t => t.id === currentActiveTakeoffId);
     if (!to) return;
 
     // Apply snap angle when Shift is held (not for count tool or first point)
@@ -1530,7 +1535,7 @@ Where confidence is "high", "medium", or "low".` },
         return;
       }
 
-      addMeasurement(tkActiveTakeoffId, { type: "count", points: [pt], value: 1, sheetId: selectedDrawingId, color: to.color });
+      addMeasurement(currentActiveTakeoffId, { type: "count", points: [pt], value: 1, sheetId: selectedDrawingId, color: to.color });
 
       // Predictive takeoff: run smart predictions whenever none exist
       triggerCountPredictions(pt, to);
@@ -1541,7 +1546,7 @@ Where confidence is "high", "medium", or "low".` },
     // LINEAR
     if (tkTool === "linear") {
       if (e.detail === 2 && tkActivePoints.length >= 2) {
-        addMeasurement(tkActiveTakeoffId, { type: "linear", points: [...tkActivePoints], value: 0, sheetId: selectedDrawingId, color: to.color });
+        addMeasurement(currentActiveTakeoffId, { type: "linear", points: [...tkActivePoints], value: 0, sheetId: selectedDrawingId, color: to.color });
         if (hasScale(selectedDrawingId)) {
           const len = calcPolylineLength(tkActivePoints, selectedDrawingId);
           showToast(`Linear: ${Math.round(len * 100) / 100} ${getDisplayUnit(selectedDrawingId)}`);
@@ -1591,7 +1596,7 @@ Where confidence is "high", "medium", or "low".` },
         const first = tkActivePoints[0];
         const dist = Math.sqrt((cx - first.x) ** 2 + (cy - first.y) ** 2);
         if (dist < 15) {
-          addMeasurement(tkActiveTakeoffId, { type: "area", points: [...tkActivePoints], value: 0, sheetId: selectedDrawingId, color: to.color });
+          addMeasurement(currentActiveTakeoffId, { type: "area", points: [...tkActivePoints], value: 0, sheetId: selectedDrawingId, color: to.color });
           if (hasScale(selectedDrawingId)) {
             const area = calcPolygonArea(tkActivePoints, selectedDrawingId);
             showToast(`Area: ${Math.round(area * 100) / 100} ${getDisplayUnit(selectedDrawingId)}²`);
@@ -1618,7 +1623,7 @@ Where confidence is "high", "medium", or "low".` },
         }
       }
       if (e.detail === 2 && tkActivePoints.length >= 3) {
-        addMeasurement(tkActiveTakeoffId, { type: "area", points: [...tkActivePoints], value: 0, sheetId: selectedDrawingId, color: to.color });
+        addMeasurement(currentActiveTakeoffId, { type: "area", points: [...tkActivePoints], value: 0, sheetId: selectedDrawingId, color: to.color });
         if (hasScale(selectedDrawingId)) {
           const area = calcPolygonArea(tkActivePoints, selectedDrawingId);
           showToast(`Area: ${Math.round(area * 100) / 100} ${getDisplayUnit(selectedDrawingId)}²`);
@@ -1758,7 +1763,9 @@ Where confidence is "high", "medium", or "low".` },
       clickPt = c ? { x: c.width / 2, y: c.height / 2 } : { x: 500, y: 400 };
     }
 
+    console.log("[NOVA] Proactive scan:", to.description, measureType, "at", clickPt);
     runSmartPredictions(drawing, to, measureType, clickPt).then(result => {
+      console.log("[NOVA] Result:", result.source, result.tag, result.predictions.length, "predictions", result.extractionStats);
       if (useTakeoffsStore.getState().tkActiveTakeoffId !== tkActiveTakeoffId) return;
       if (result.predictions.length > 0) {
         setTkPredictions({ tag: result.tag, predictions: result.predictions, scanning: false, totalInstances: result.totalInstances, source: result.source });
