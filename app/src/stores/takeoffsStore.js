@@ -56,8 +56,12 @@ export const useTakeoffsStore = create((set, get) => ({
   tkPredRejected: [],  // IDs of rejected predictions
   tkPredContext: null,  // { tag, source, confidence, matchCount, missCount, consecutiveMisses, refining }
   tkPredRefining: false, // true while NOVA is re-analyzing after misses
+  tkNovaPanelOpen: false, // NOVA Vision right-side panel
 
-  setTkPredictions: (v) => set({ tkPredictions: v, tkPredAccepted: [], tkPredRejected: [] }),
+  setTkPredictions: (v) => set(s => {
+    const hasPreds = v && v.predictions && v.predictions.length > 0;
+    return { tkPredictions: v, tkPredAccepted: [], tkPredRejected: [], tkNovaPanelOpen: hasPreds ? true : s.tkNovaPanelOpen };
+  }),
 
   acceptPrediction: (id) => set(s => {
     const newAccepted = [...s.tkPredAccepted, id];
@@ -97,7 +101,9 @@ export const useTakeoffsStore = create((set, get) => ({
     return { tkPredAccepted: ids, tkPredContext: newCtx };
   }),
 
-  clearPredictions: () => set({ tkPredictions: null, tkPredAccepted: [], tkPredRejected: [], tkPredContext: null, tkPredRefining: false }),
+  setTkNovaPanelOpen: (v) => set(s => ({ tkNovaPanelOpen: typeof v === 'function' ? v(s.tkNovaPanelOpen) : v })),
+
+  clearPredictions: () => set({ tkPredictions: null, tkPredAccepted: [], tkPredRejected: [], tkPredContext: null, tkPredRefining: false, tkNovaPanelOpen: false }),
 
   // Record a user measurement miss (clicked far from any prediction)
   recordPredictionMiss: () => set(s => {

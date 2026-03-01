@@ -154,6 +154,8 @@ export default function TakeoffsPage() {
   const recordPredictionMiss = useTakeoffsStore(s => s.recordPredictionMiss);
   const initPredContext = useTakeoffsStore(s => s.initPredContext);
   const setTkPredRefining = useTakeoffsStore(s => s.setTkPredRefining);
+  const tkNovaPanelOpen = useTakeoffsStore(s => s.tkNovaPanelOpen);
+  const setTkNovaPanelOpen = useTakeoffsStore(s => s.setTkNovaPanelOpen);
 
   // Refs
   const drawingContainerRef = useRef(null);
@@ -215,9 +217,6 @@ export default function TakeoffsPage() {
   const aiMenuBtnRef = useRef(null);
   const settingsBtnRef = useRef(null);
 
-  // Prediction review dropdown (HUD)
-  const [predDropdownOpen, setPredDropdownOpen] = useState(false);
-
   // Takeoff Command Palette
   const [tkCmdOpen, setTkCmdOpen] = useState(false);
 
@@ -239,6 +238,13 @@ export default function TakeoffsPage() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [aiMenuOpen, settingsOpen]);
+
+  // Auto-close NOVA panel when takeoff is disengaged or predictions cleared
+  useEffect(() => {
+    if (tkNovaPanelOpen && tkMeasureState === "idle" && !tkPredictions) {
+      setTkNovaPanelOpen(false);
+    }
+  }, [tkMeasureState, tkPredictions, tkNovaPanelOpen, setTkNovaPanelOpen]);
 
   // Cmd+K: open Takeoff Command Palette (capture phase to intercept global)
   useEffect(() => {
@@ -3353,11 +3359,11 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                   {tkMeasureState === "measuring" ? "click to measure" : "paused"}
                 </span>
 
-                {/* NOVA Vision prediction badge → opens dropdown */}
+                {/* NOVA Vision — compact HUD badge toggles right panel */}
                 {hudPredictions && pending.length > 0 && !tkPredRefining && (
-                  <button onClick={() => setPredDropdownOpen(v => !v)}
+                  <button onClick={() => setTkNovaPanelOpen(v => !v)}
                     style={bt(C, { marginLeft: "auto", background: "linear-gradient(135deg, #6366F115, #8B5CF615)", color: "#8B5CF6", border: "1px solid #8B5CF630", padding: "2px 8px", fontSize: 8, fontWeight: 700, borderRadius: 3 })}>
-                    <span style={{ fontSize: 7, fontWeight: 800, letterSpacing: 0.5 }}>NOVA</span> {pending.length} ▾
+                    <span style={{ fontSize: 7, fontWeight: 800, letterSpacing: 0.5 }}>NOVA</span> {pending.length} {tkNovaPanelOpen ? "◂" : "▸"}
                   </button>
                 )}
                 {hudPredictions && tkPredRefining && (
@@ -3367,7 +3373,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                 )}
               </>)}
 
-              {/* ─ Predictions only (not measuring) ─ */}
+              {/* ─ Predictions only (not measuring) — compact badge opens panel ─ */}
               {!hudCalibrating && !hudOutline && !hudAutoCount && !hudMeasuring && hudPredictions && (<>
                 <div style={{ width: 8, height: 8, borderRadius: "50%", background: tkPredRefining ? C.orange : pending.length > 0 ? "#8B5CF6" : C.green, boxShadow: `0 0 8px ${tkPredRefining ? C.orange : pending.length > 0 ? "#8B5CF6" : C.green}`, animation: tkPredRefining ? "spin 1s linear infinite" : pending.length > 0 ? "pulse 1.5s infinite" : "none" }} />
                 <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: 0.8, color: "#8B5CF6", background: "linear-gradient(135deg, #6366F115, #8B5CF615)", padding: "2px 6px", borderRadius: 3 }}>NOVA VISION</span>
@@ -3376,93 +3382,18 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                 ) : (<>
                   <span style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700, background: `${predColor}20`, color: predColor, fontFamily: "'DM Mono',monospace", border: `1px solid ${predColor}30` }}>{tkPredictions.tag || "—"}</span>
                   <span style={{ fontSize: 10, color: C.text, fontWeight: 500 }}>
-                    {pending.length > 0 ? `${preds.length} predictions` : `${accepted.length} accepted, ${rejected.length} dismissed`}
+                    {pending.length > 0 ? `${preds.length} found` : `${accepted.length} accepted`}
                   </span>
-                  {isMedConf && pending.length > 0 && (
-                    <span style={{ fontSize: 8, fontWeight: 700, color: isHighConf ? C.green : C.blue, background: isHighConf ? `${C.green}15` : `${C.blue}15`, padding: "1px 5px", borderRadius: 3 }}>
-                      {confPct}%
-                    </span>
-                  )}
                 </>)}
-                {/* Prediction review badge → opens dropdown */}
-                {pending.length > 0 && (
-                  <button onClick={() => setPredDropdownOpen(v => !v)}
-                    style={bt(C, { background: `${predColor}15`, color: predColor, border: `1px solid ${predColor}30`, padding: "2px 8px", fontSize: 8, fontWeight: 700, borderRadius: 3 })}>
-                    Review {pending.length} ▾
-                  </button>
-                )}
                 <div style={{ flex: 1 }} />
-                {pending.length > 0 && (
-                  <button onClick={handleAcceptAllAndConfirm} style={bt(C, { background: C.green, color: "#fff", padding: "3px 12px", fontSize: 8, fontWeight: 700, borderRadius: 4 })}>
-                    <Ic d={I.check} size={9} color="#fff" sw={2.5} /> Add All ({pending.length})
-                  </button>
-                )}
-                {drawings.filter(d => d.data && d.type === "pdf").length > 1 && !crossSheetScan && (
-                  <button onClick={async () => {
-                    setCrossSheetScan({ tag: tkPredictions.tag, results: [], scanning: true });
-                    try {
-                      const pdfDrawings = drawings.filter(d => d.data && d.type === "pdf" && d.id !== selectedDrawingId);
-                      const results = await scanAllSheets(pdfDrawings, tkPredictions.tag, tkTool === "count" ? "count" : "linear");
-                      setCrossSheetScan({ tag: tkPredictions.tag, results, scanning: false });
-                      const totalInstances = results.reduce((s, r) => s + r.instanceCount, 0);
-                      if (totalInstances > 0) showToast(`Found "${tkPredictions.tag}" on ${results.length} other sheet(s) (${totalInstances} instances)`);
-                      else showToast(`"${tkPredictions.tag}" not found on other sheets`);
-                    } catch (err) {
-                      console.warn("Cross-sheet scan failed:", err);
-                      setCrossSheetScan(null);
-                    }
-                  }} title="Scan all sheets" style={bt(C, { background: `${C.blue}15`, color: C.blue, border: `1px solid ${C.blue}30`, padding: "3px 8px", fontSize: 8, fontWeight: 700, borderRadius: 4, display: "flex", alignItems: "center", gap: 3 })}>
-                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={C.blue} strokeWidth="2.5" strokeLinecap="round"><path d="M4 4h6v6H4z" /><path d="M14 4h6v6h-6z" /><path d="M4 14h6v6H4z" /><path d="M14 14h6v6h-6z" /></svg>
-                    All Sheets
-                  </button>
-                )}
-                {crossSheetScan?.scanning && (
-                  <span style={{ fontSize: 8, color: C.blue, display: "flex", alignItems: "center", gap: 4 }}>
-                    <span style={{ display: "inline-block", width: 8, height: 8, border: "2px solid #3B82F640", borderTop: "2px solid #3B82F6", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} /> Scanning...
-                  </span>
-                )}
+                <button onClick={() => setTkNovaPanelOpen(v => !v)}
+                  style={bt(C, { background: `${predColor}15`, color: predColor, border: `1px solid ${predColor}30`, padding: "2px 8px", fontSize: 8, fontWeight: 700, borderRadius: 3 })}>
+                  {tkNovaPanelOpen ? "Hide Panel ◂" : `Review ${pending.length} ▸`}
+                </button>
                 <button onClick={handleDismiss} title="Dismiss" style={{ width: 22, height: 22, border: `1px solid ${C.border}`, borderRadius: 4, background: C.bg2, color: C.textDim, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke={C.textDim} strokeWidth="1.5" strokeLinecap="round"><path d="M2 2l6 6M8 2l-6 6" /></svg>
                 </button>
               </>)}
-
-              {/* ─ Prediction review dropdown ─ */}
-              {predDropdownOpen && hudPredictions && pending.length > 0 && (
-                <div style={{ position: "absolute", top: "100%", right: 12, width: 280, zIndex: T.z.dropdown, background: C.bg1, border: `1px solid ${C.border}`, borderRadius: 8, boxShadow: T.shadow.lg, maxHeight: 300, overflowY: "auto", animation: "fadeIn 0.1s ease-out" }}>
-                  <div style={{ padding: "8px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontSize: 7, fontWeight: 800, letterSpacing: 0.8, color: "#8B5CF6" }}>NOVA</span>
-                      <span style={{ padding: "2px 6px", borderRadius: 3, fontSize: 9, fontWeight: 700, background: `${predColor}20`, color: predColor, fontFamily: "'DM Mono',monospace" }}>{tkPredictions.tag || "—"}</span>
-                      {isMedConf && <span style={{ fontSize: 8, fontWeight: 700, color: isHighConf ? C.green : C.blue }}>{confPct}%</span>}
-                    </div>
-                    <button onClick={() => setPredDropdownOpen(false)} style={{ border: "none", background: "transparent", cursor: "pointer", color: C.textDim, fontSize: 12 }}>✕</button>
-                  </div>
-                  {pending.map(pred => (
-                    <div key={pred.id} style={{ padding: "6px 12px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${C.bg2}` }}>
-                      <span style={{ fontSize: 9, color: C.text, flex: 1 }}>{pred.tag || pred.type || "prediction"}</span>
-                      {pred.confidence != null && <span style={{ fontSize: 7, color: pred.confidence >= 0.7 ? C.green : C.textDim, fontWeight: 600 }}>{Math.round(pred.confidence * 100)}%</span>}
-                      <button onClick={() => handleAcceptOne(pred)} title="Add"
-                        style={{ width: 22, height: 22, border: "none", borderRadius: 4, background: `${C.green}20`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <Ic d={I.check} size={10} color={C.green} sw={2.5} />
-                      </button>
-                      <button onClick={() => rejectPrediction(pred.id)} title="Dismiss"
-                        style={{ width: 22, height: 22, border: "none", borderRadius: 4, background: `${C.red}15`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke={C.red} strokeWidth="2" strokeLinecap="round"><path d="M2 2l6 6M8 2l-6 6" /></svg>
-                      </button>
-                    </div>
-                  ))}
-                  <div style={{ padding: "8px 12px", borderTop: `1px solid ${C.border}`, display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                    <button onClick={() => { handleAcceptAllAndConfirm(); setPredDropdownOpen(false); }}
-                      style={bt(C, { background: C.green, color: "#fff", padding: "4px 10px", fontSize: 9, fontWeight: 700, borderRadius: 4 })}>
-                      Add All ({pending.length})
-                    </button>
-                    <button onClick={() => { handleDismiss(); setPredDropdownOpen(false); }}
-                      style={bt(C, { background: "transparent", border: `1px solid ${C.border}`, color: C.textDim, padding: "4px 10px", fontSize: 9, fontWeight: 600, borderRadius: 4 })}>
-                      Dismiss
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           );
         })()}
@@ -3968,6 +3899,257 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
           </>)}
         </div>
       </div>
+
+      {/* ═══ NOVA Vision Right-Side Panel ═══ */}
+      {tkNovaPanelOpen && tkPredictions && tkPredictions.predictions.length > 0 && (() => {
+        const novaPreds = tkPredictions.predictions;
+        const novaPending = novaPreds.filter(p => !tkPredAccepted.includes(p.id) && !tkPredRejected.includes(p.id));
+        const novaAccepted = novaPreds.filter(p => tkPredAccepted.includes(p.id));
+        const novaActiveTo = takeoffs.find(t => t.id === tkActiveTakeoffId);
+        const novaPredColor = novaActiveTo?.color || "#8B5CF6";
+        const novaConfidence = tkPredContext?.confidence || 0;
+        const novaConfPct = Math.round(novaConfidence * 100);
+        const novaAvgConf = novaPreds.length > 0 ? Math.round((novaPreds.reduce((s, p) => s + (p.confidence || 0), 0) / novaPreds.length) * 100) : 0;
+
+        const novaAcceptOne = (pred) => {
+          acceptPrediction(pred.id);
+          if (tkActiveTakeoffId) {
+            if (pred.type === "count" || pred.type === "wall-tag") {
+              addMeasurement(tkActiveTakeoffId, {
+                type: "count", points: [pred.point], value: 1,
+                sheetId: selectedDrawingId, color: novaActiveTo?.color || "#5b8def",
+                predicted: true, tag: tkPredictions.tag,
+              });
+            } else if (pred.type === "wall" && pred.points?.length >= 2) {
+              addMeasurement(tkActiveTakeoffId, {
+                type: "linear", points: pred.points, value: 0,
+                sheetId: selectedDrawingId, color: novaActiveTo?.color || "#5b8def",
+                predicted: true, tag: tkPredictions.tag,
+              });
+            } else if (pred.type === "area" && pred.points?.length >= 3) {
+              addMeasurement(tkActiveTakeoffId, {
+                type: "area", points: pred.points, value: 0,
+                sheetId: selectedDrawingId, color: novaActiveTo?.color || "#5b8def",
+                predicted: true, tag: pred.tag || tkPredictions.tag,
+              });
+            }
+          }
+        };
+
+        const novaAcceptAll = () => {
+          const toAdd = novaPreds.filter(p => !tkPredRejected.includes(p.id) && !tkPredAccepted.includes(p.id));
+          if (tkActiveTakeoffId && toAdd.length > 0) {
+            toAdd.forEach(pred => {
+              if (pred.type === "count" || pred.type === "wall-tag") {
+                addMeasurement(tkActiveTakeoffId, {
+                  type: "count", points: [pred.point], value: 1,
+                  sheetId: selectedDrawingId, color: novaActiveTo?.color || "#5b8def",
+                  predicted: true, tag: tkPredictions.tag,
+                });
+              } else if (pred.type === "wall" && pred.points?.length >= 2) {
+                addMeasurement(tkActiveTakeoffId, {
+                  type: "linear", points: pred.points, value: 0,
+                  sheetId: selectedDrawingId, color: novaActiveTo?.color || "#5b8def",
+                  predicted: true, tag: tkPredictions.tag,
+                });
+              } else if (pred.type === "area" && pred.points?.length >= 3) {
+                addMeasurement(tkActiveTakeoffId, {
+                  type: "area", points: pred.points, value: 0,
+                  sheetId: selectedDrawingId, color: novaActiveTo?.color || "#5b8def",
+                  predicted: true, tag: pred.tag || tkPredictions.tag,
+                });
+              }
+            });
+            showToast(`Added ${toAdd.length} predicted measurements`);
+          }
+          clearPredictions();
+        };
+
+        const novaRejectAll = () => {
+          novaPending.forEach(p => rejectPrediction(p.id));
+        };
+
+        return (
+          <div style={{
+            width: 340, flexShrink: 0, display: "flex", flexDirection: "column",
+            background: C.bg1, borderLeft: `1px solid ${C.border}`,
+            backdropFilter: T.glass.blur, WebkitBackdropFilter: T.glass.blur,
+            zIndex: T.z.overlay, animation: "slideIn 0.2s ease-out",
+            boxShadow: "-4px 0 24px rgba(0,0,0,0.15)",
+          }}>
+            {/* Header */}
+            <div style={{
+              padding: "12px 16px", borderBottom: `1px solid ${C.border}`,
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              background: "linear-gradient(135deg, #6366F108, #8B5CF608)",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 16 }}>✦</span>
+                <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: 0.5, color: "#8B5CF6", fontFamily: T.font.display }}>NOVA Vision</span>
+              </div>
+              <button onClick={() => setTkNovaPanelOpen(false)}
+                style={{ width: 24, height: 24, border: `1px solid ${C.border}`, borderRadius: 6, background: C.bg2, color: C.textDim, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke={C.textDim} strokeWidth="1.5" strokeLinecap="round"><path d="M2 2l6 6M8 2l-6 6" /></svg>
+              </button>
+            </div>
+
+            {/* Summary bar */}
+            <div style={{
+              padding: "10px 16px", borderBottom: `1px solid ${C.border}`,
+              display: "flex", alignItems: "center", gap: 10, background: C.bg,
+            }}>
+              <span style={{
+                padding: "3px 10px", borderRadius: 5, fontSize: 11, fontWeight: 700,
+                background: `${novaPredColor}15`, color: novaPredColor, border: `1px solid ${novaPredColor}25`,
+                fontFamily: T.font.mono,
+              }}>{tkPredictions.tag || "—"}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>
+                  {novaPending.length > 0 ? `${novaPending.length} found` : `${novaAccepted.length} accepted`}
+                </div>
+                <div style={{ fontSize: 9, color: C.textDim }}>avg {novaAvgConf}% confidence</div>
+              </div>
+              {tkPredictions.totalInstances > 0 && (
+                <span style={{ fontSize: 8, fontWeight: 600, color: C.textDim, background: C.bg2, padding: "2px 6px", borderRadius: 3 }}>
+                  {tkPredictions.totalInstances} total
+                </span>
+              )}
+            </div>
+
+            {/* Action buttons */}
+            {novaPending.length > 0 && (
+              <div style={{
+                padding: "8px 16px", borderBottom: `1px solid ${C.border}`,
+                display: "flex", gap: 8,
+              }}>
+                <button onClick={novaAcceptAll}
+                  style={bt(C, {
+                    flex: 1, background: C.green, color: "#fff", padding: "7px 0", fontSize: 11, fontWeight: 700,
+                    borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+                  })}>
+                  <Ic d={I.check} size={11} color="#fff" sw={2.5} /> Accept All ({novaPending.length})
+                </button>
+                <button onClick={novaRejectAll}
+                  style={bt(C, {
+                    flex: 1, background: "transparent", border: `1px solid ${C.border}`, color: C.textDim,
+                    padding: "7px 0", fontSize: 11, fontWeight: 600, borderRadius: 6,
+                  })}>
+                  Reject All
+                </button>
+              </div>
+            )}
+
+            {/* Scrollable prediction list */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "4px 0" }}>
+              {novaPreds.map(pred => {
+                const isAccepted = tkPredAccepted.includes(pred.id);
+                const isRejected = tkPredRejected.includes(pred.id);
+                const isPending = !isAccepted && !isRejected;
+                const predConf = Math.round((pred.confidence || 0) * 100);
+                const confColor = predConf >= 80 ? C.green : predConf >= 50 ? C.blue : C.orange;
+
+                return (
+                  <div key={pred.id} style={{
+                    margin: "2px 8px", padding: "8px 12px", borderRadius: 8,
+                    background: isAccepted ? `${C.green}08` : isRejected ? `${C.red}05` : C.bg,
+                    border: `1px solid ${isAccepted ? C.green + "20" : isRejected ? C.red + "15" : C.border}`,
+                    opacity: isRejected ? 0.5 : 1, transition: T.transition.fast,
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                      <div style={{
+                        width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
+                        background: isAccepted ? C.green : isRejected ? C.red : novaPredColor,
+                      }} />
+                      <span style={{ fontSize: 11, fontWeight: 600, color: C.text, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {pred.tag || pred.type || "Prediction"}
+                      </span>
+                      {isAccepted && <span style={{ fontSize: 8, fontWeight: 700, color: C.green }}>Added</span>}
+                      {isRejected && <span style={{ fontSize: 8, fontWeight: 700, color: C.red }}>Dismissed</span>}
+                    </div>
+
+                    {/* Confidence bar */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: isPending ? 8 : 0 }}>
+                      <div style={{ flex: 1, height: 3, borderRadius: 2, background: C.bg3 }}>
+                        <div style={{ width: `${predConf}%`, height: "100%", borderRadius: 2, background: confColor, transition: "width 0.3s ease" }} />
+                      </div>
+                      <span style={{ fontSize: 9, fontWeight: 700, color: confColor, fontFamily: T.font.mono, minWidth: 28, textAlign: "right" }}>{predConf}%</span>
+                    </div>
+
+                    {/* Accept / Reject buttons */}
+                    {isPending && (
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button onClick={() => novaAcceptOne(pred)}
+                          style={bt(C, {
+                            flex: 1, padding: "4px 0", fontSize: 10, fontWeight: 600, borderRadius: 5,
+                            background: `${C.green}15`, color: C.green, border: `1px solid ${C.green}25`,
+                            display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+                          })}>
+                          <Ic d={I.check} size={9} color={C.green} sw={2.5} /> Accept
+                        </button>
+                        <button onClick={() => rejectPrediction(pred.id)}
+                          style={bt(C, {
+                            flex: 1, padding: "4px 0", fontSize: 10, fontWeight: 600, borderRadius: 5,
+                            background: "transparent", color: C.textDim, border: `1px solid ${C.border}`,
+                            display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+                          })}>
+                          <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke={C.textDim} strokeWidth="2" strokeLinecap="round"><path d="M2 2l6 6M8 2l-6 6" /></svg> Reject
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Cross-sheet scan button */}
+            {drawings.filter(d => d.data && d.type === "pdf").length > 1 && (
+              <div style={{ padding: "8px 16px", borderTop: `1px solid ${C.border}` }}>
+                {crossSheetScan?.scanning ? (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "6px 0", fontSize: 10, color: C.blue }}>
+                    <span style={{ display: "inline-block", width: 10, height: 10, border: "2px solid #3B82F640", borderTop: "2px solid #3B82F6", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+                    Scanning other sheets...
+                  </div>
+                ) : (
+                  <button onClick={async () => {
+                    setCrossSheetScan({ tag: tkPredictions.tag, results: [], scanning: true });
+                    try {
+                      const pdfDrawings = drawings.filter(d => d.data && d.type === "pdf" && d.id !== selectedDrawingId);
+                      const results = await scanAllSheets(pdfDrawings, tkPredictions.tag, tkTool === "count" ? "count" : "linear");
+                      setCrossSheetScan({ tag: tkPredictions.tag, results, scanning: false });
+                      const totalInstances = results.reduce((s, r) => s + r.instanceCount, 0);
+                      if (totalInstances > 0) showToast(`Found "${tkPredictions.tag}" on ${results.length} other sheet(s) (${totalInstances} instances)`);
+                      else showToast(`"${tkPredictions.tag}" not found on other sheets`);
+                    } catch (err) {
+                      console.warn("Cross-sheet scan failed:", err);
+                      setCrossSheetScan(null);
+                    }
+                  }}
+                    style={bt(C, {
+                      width: "100%", padding: "8px 0", fontSize: 10, fontWeight: 600, borderRadius: 6,
+                      background: `${C.blue}10`, color: C.blue, border: `1px solid ${C.blue}20`,
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                    })}>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={C.blue} strokeWidth="2.5" strokeLinecap="round"><path d="M4 4h6v6H4z" /><path d="M14 4h6v6h-6z" /><path d="M4 14h6v6H4z" /><path d="M14 14h6v6h-6z" /></svg>
+                    Scan All Pages
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Footer — refining spinner */}
+            {tkPredRefining && (
+              <div style={{
+                padding: "8px 16px", borderTop: `1px solid ${C.border}`,
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                background: `${C.orange}06`, fontSize: 10, color: C.orange, fontWeight: 600,
+              }}>
+                <span style={{ display: "inline-block", animation: "spin 1s linear infinite", fontSize: 12 }}>⟳</span>
+                Refining predictions...
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Takeoff Command Palette (Cmd+K) */}
       <TakeoffCommandPalette

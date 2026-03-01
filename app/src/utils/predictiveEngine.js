@@ -10,6 +10,8 @@ import {
   findPlanTagInstances,
   isExtracted,
   isLikelyTag,
+  detectScheduleRegions,
+  isInScheduleRegion,
 } from './pdfExtractor';
 
 import {
@@ -189,12 +191,15 @@ export function findNearestRelevantTag(data, x, y, description) {
 
   // Whole-page fallback: search ALL text items (including non-tag text like "DUPLEX", "2BR")
   // for description-relevant matches anywhere on the page
+  // Filter out schedule/legend regions to avoid matching schedule entries
+  const scheduleRegions = detectScheduleRegions(data);
   let pagebestTag = null;
   let pagebestRelevance = 0;
 
   for (const item of data.text) {
     const t = item.text.trim();
     if (!t || t.length > 20) continue; // skip empty or very long text
+    if (isInScheduleRegion(item.x, item.y, scheduleRegions)) continue; // skip schedule entries
     const relevance = scoreTagRelevance(t, description);
     if (relevance > pagebestRelevance && relevance >= 0.5) {
       pagebestRelevance = relevance;

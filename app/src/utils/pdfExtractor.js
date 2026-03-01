@@ -327,8 +327,11 @@ export function findAllTagInstances(extractedData, tag) {
 // Schedules are typically dense grids of text in consistent columns
 // We want to exclude these from tag searches on plans
 // ══════════════════════════════════════════════════════════════════════
+// Keywords that indicate a schedule/legend header row
+const SCHEDULE_KEYWORDS = /\b(SCHEDULE|FINISH|MATERIAL|LEGEND|KEY|NOTES|SPECIFICATIONS?|ABBREVIATIONS?)\b/i;
+
 export function detectScheduleRegions(extractedData) {
-  if (!extractedData?.text) return [];
+  if (!extractedData?.text || extractedData.text.length === 0) return [];
 
   // Group text items by approximate Y position (rows)
   const rowTolerance = 8; // px
@@ -346,27 +349,54 @@ export function detectScheduleRegions(extractedData) {
   }
   if (currentRow.length >= 3) rows.push(currentRow);
 
+  // Mark rows that contain schedule-related keywords
+  const keywordRows = new Set();
+  for (let i = 0; i < rows.length; i++) {
+    const rowText = rows[i].map(t => t.text).join(" ");
+    if (SCHEDULE_KEYWORDS.test(rowText)) {
+      // Mark this row and a few surrounding rows as schedule
+      for (let j = Math.max(0, i - 1); j < Math.min(rows.length, i + 6); j++) {
+        keywordRows.add(j);
+      }
+    }
+  }
+
   // Find clusters of consecutive dense rows (schedules)
   const regions = [];
   let regionStart = null;
+  const pad = 30; // vertical padding around schedule regions
 
   for (let i = 0; i < rows.length; i++) {
-    if (rows[i].length >= 4) { // Dense row
-      if (!regionStart) regionStart = i;
+    const isDense = rows[i].length >= 3; // lowered from 4 to catch 3-column schedules
+    const isKeywordMarked = keywordRows.has(i);
+    if (isDense || isKeywordMarked) {
+      if (regionStart === null) regionStart = i;
     } else {
       if (regionStart !== null && (i - regionStart) >= 3) {
-        // 3+ consecutive dense rows = schedule region
+        // 3+ consecutive dense/keyword rows = schedule region
         const regionRows = rows.slice(regionStart, i);
         const allItems = regionRows.flat();
         regions.push({
-          minX: Math.min(...allItems.map(t => t.x)) - 20,
-          minY: Math.min(...allItems.map(t => t.y)) - 20,
-          maxX: Math.max(...allItems.map(t => t.x + (t.width || 50))) + 20,
-          maxY: Math.max(...allItems.map(t => t.y + (t.height || 15))) + 20,
+          minX: Math.min(...allItems.map(t => t.x)) - pad,
+          minY: Math.min(...allItems.map(t => t.y)) - pad,
+          maxX: Math.max(...allItems.map(t => t.x + (t.width || 50))) + pad,
+          maxY: Math.max(...allItems.map(t => t.y + (t.height || 15))) + pad,
         });
       }
       regionStart = null;
     }
+  }
+
+  // Handle trailing region at end of rows
+  if (regionStart !== null && (rows.length - regionStart) >= 3) {
+    const regionRows = rows.slice(regionStart);
+    const allItems = regionRows.flat();
+    regions.push({
+      minX: Math.min(...allItems.map(t => t.x)) - pad,
+      minY: Math.min(...allItems.map(t => t.y)) - pad,
+      maxX: Math.max(...allItems.map(t => t.x + (t.width || 50))) + pad,
+      maxY: Math.max(...allItems.map(t => t.y + (t.height || 15))) + pad,
+    });
   }
 
   return regions;
