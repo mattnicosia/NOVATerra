@@ -2505,22 +2505,42 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
       {tkPanelOpen && (
         <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: Math.min(tkPanelWidth, 420), minWidth: 280, maxWidth: 420, background: C.bg1, borderRadius: "6px 0 0 6px", border: `1px solid ${C.border}`, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", overflow: "hidden", flexShrink: 0, zIndex: 31, boxShadow: "4px 0 24px rgba(0,0,0,0.15)", animation: "slideInLeft 0.2s ease-out" }}>
           <div style={{ padding: "8px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 14, fontWeight: 600, color: C.text }}>Takeoffs</span>
+            {/* Panel mode tabs: Takeoffs | Notes */}
+            <div style={{ display: "flex", gap: 0, background: C.bg2, borderRadius: 5, padding: 2 }}>
+              <button onClick={() => setShowNotesPanel(false)}
+                style={{ padding: "3px 10px", fontSize: 11, fontWeight: 600, background: !showNotesPanel ? C.accent : "transparent", color: !showNotesPanel ? "#fff" : C.textDim, border: "none", borderRadius: 4, cursor: "pointer", transition: "all 0.15s", display: "flex", alignItems: "center", gap: 4 }}>
+                <Ic d={I.ruler} size={10} color={!showNotesPanel ? "#fff" : C.textDim} /> Takeoffs
+              </button>
+              <button onClick={() => setShowNotesPanel(true)}
+                style={{ padding: "3px 10px", fontSize: 11, fontWeight: 600, background: showNotesPanel ? C.accent : "transparent", color: showNotesPanel ? "#fff" : C.textDim, border: "none", borderRadius: 4, cursor: "pointer", transition: "all 0.15s", display: "flex", alignItems: "center", gap: 4 }}>
+                <Ic d={I.report} size={10} color={showNotesPanel ? "#fff" : C.textDim} /> Notes
+              </button>
+            </div>
+            {/* Takeoffs sub-filters (only when Takeoffs tab active) */}
+            {!showNotesPanel && (
             <div style={{ display: "flex", gap: 2, background: C.bg2, borderRadius: 4, padding: 2 }}>
-              <button onClick={() => setPageFilter("all")}
+              <button onClick={() => { setPageFilter("all"); if (tkVisibility === "page") setTkVisibility("all"); }}
                 style={{ padding: "2px 8px", fontSize: 9, fontWeight: 600, background: pageFilter === "all" ? C.accent : "transparent", color: pageFilter === "all" ? "#fff" : C.textDim, border: "none", borderRadius: 3, cursor: "pointer", transition: "all 0.15s" }}>
                 All
               </button>
-              <button onClick={() => { setPageFilter("page"); setActiveModule(null); }}
+              <button onClick={() => { setPageFilter("page"); setActiveModule(null); setTkVisibility("page"); }}
                 style={{ padding: "2px 8px", fontSize: 9, fontWeight: 600, background: pageFilter === "page" ? C.accent : "transparent", color: pageFilter === "page" ? "#fff" : C.textDim, border: "none", borderRadius: 3, cursor: "pointer", transition: "all 0.15s" }}>
                 This Page{pageFilter === "page" ? ` (${filteredTakeoffs.length})` : ""}
               </button>
             </div>
+            )}
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              {!showNotesPanel && (
               <button className="icon-btn"
-                onClick={() => { const next = { all: "active", active: "none", none: "all" }; setTkVisibility(next[tkVisibility]); }}
-                title={tkVisibility === "all" ? "Showing all takeoffs" : tkVisibility === "active" ? "Selected takeoff only" : "Takeoffs hidden"}
-                style={{ width: 22, height: 22, border: `1px solid ${tkVisibility === "active" ? C.accent + "60" : C.border}`, background: tkVisibility === "active" ? C.accent + "12" : tkVisibility === "none" ? C.bg2 : "transparent", color: tkVisibility === "active" ? C.accent : tkVisibility === "none" ? C.textDimmer : C.textDim, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative" }}>
+                onClick={() => {
+                  const next = { all: "page", page: "active", active: "none", none: "all" };
+                  const nv = next[tkVisibility];
+                  setTkVisibility(nv);
+                  if (nv === "page") { setPageFilter("page"); setActiveModule(null); }
+                  else if (tkVisibility === "page") { setPageFilter("all"); }
+                }}
+                title={tkVisibility === "all" ? "Showing all takeoffs" : tkVisibility === "page" ? "This page only" : tkVisibility === "active" ? "Selected takeoff only" : "Takeoffs hidden"}
+                style={{ width: 22, height: 22, border: `1px solid ${(tkVisibility === "active" || tkVisibility === "page") ? C.accent + "60" : C.border}`, background: tkVisibility === "page" ? C.accent + "18" : tkVisibility === "active" ? C.accent + "12" : tkVisibility === "none" ? C.bg2 : "transparent", color: tkVisibility === "page" ? C.accent : tkVisibility === "active" ? C.accent : tkVisibility === "none" ? C.textDimmer : C.textDim, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative" }}>
                 {tkVisibility === "none" ? (
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" />
@@ -2535,8 +2555,9 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                   </svg>
                 )}
                 {tkVisibility === "active" && <span style={{ position: "absolute", top: -4, right: -4, width: 12, height: 12, borderRadius: "50%", background: C.accent, color: "#fff", fontSize: 8, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>1</span>}
+                {tkVisibility === "page" && <span style={{ position: "absolute", top: -4, right: -4, width: 12, height: 12, borderRadius: "50%", background: C.accent, color: "#fff", fontSize: 7, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>P</span>}
               </button>
-              <button className="ghost-btn" onClick={() => setShowNotesPanel(!showNotesPanel)} style={bt(C, { background: showNotesPanel ? "rgba(91,141,239,0.08)" : "transparent", border: `1px solid ${showNotesPanel ? C.blue : C.border}`, color: showNotesPanel ? C.blue : C.textMuted, padding: "4px 8px", fontSize: 9 })}><Ic d={I.report} size={10} color={showNotesPanel ? C.blue : C.textMuted} /> Notes</button>
+              )}
               <button className="icon-btn" onClick={() => setTkPanelOpen(false)} title="Collapse panel" style={{ width: 22, height: 22, border: "none", background: C.bg2, color: C.textDim, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 1L2 5l4 4" /></svg>
               </button>
