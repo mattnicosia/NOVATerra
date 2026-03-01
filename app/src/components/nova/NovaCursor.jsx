@@ -65,10 +65,12 @@ export default function NovaCursor() {
 
     // Hover detection via delegation
     const onEnter = (e) => {
+      if (!e.target || !e.target.closest) return;
       const target = e.target.closest('[data-interactive], button, a, input, textarea, select');
       if (target) ring.classList.add('nova-ring-hovering');
     };
     const onLeave = (e) => {
+      if (!e.target || !e.target.closest) return;
       const target = e.target.closest('[data-interactive], button, a, input, textarea, select');
       if (target) ring.classList.remove('nova-ring-hovering');
     };

@@ -1337,9 +1337,10 @@ IMPORTANT:
     const freshState = useTakeoffsStore.getState();
     const currentMeasureState = freshState.tkMeasureState;
     const currentActiveTakeoffId = freshState.tkActiveTakeoffId;
+    const currentTool = freshState.tkTool;
 
     // Outline tool — delegated to separate handler
-    if (tkTool === "outline") { handleOutlineClick(e); return; }
+    if (currentTool === "outline") { handleOutlineClick(e); return; }
 
     const rect = canvasRef.current.getBoundingClientRect();
     const cx = (e.clientX - rect.left) * (canvasRef.current.width / rect.width);
@@ -1458,7 +1459,7 @@ Where confidence is "high", "medium", or "low".` },
     }
 
     // Calibrate mode
-    if (tkTool === "calibrate") {
+    if (currentTool === "calibrate") {
       if (tkActivePoints.length === 0) { setTkActivePoints([pt]); } else { setTkActivePoints([tkActivePoints[0], pt]); }
       return;
     }
@@ -1466,7 +1467,7 @@ Where confidence is "high", "medium", or "low".` },
     // Paused — re-engage
     if (currentMeasureState === "paused" && currentActiveTakeoffId) {
       setTkMeasureState("measuring");
-      if (tkTool === "count") {
+      if (currentTool === "count") {
         const to = takeoffs.find(t => t.id === currentActiveTakeoffId);
         if (to) {
           if (handleCountPredictions(pt, to)) {
@@ -1528,7 +1529,7 @@ Where confidence is "high", "medium", or "low".` },
       : pt;
 
     // COUNT
-    if (tkTool === "count") {
+    if (currentTool === "count") {
       // ── Proximity auto-accept: if clicking near a ghost prediction, accept it instead ──
       if (handleCountPredictions(pt, to)) {
         if (e.detail === 2) { pauseMeasuring(); }
@@ -1544,7 +1545,7 @@ Where confidence is "high", "medium", or "low".` },
     }
 
     // LINEAR
-    if (tkTool === "linear") {
+    if (currentTool === "linear") {
       if (e.detail === 2 && tkActivePoints.length >= 2) {
         addMeasurement(currentActiveTakeoffId, { type: "linear", points: [...tkActivePoints], value: 0, sheetId: selectedDrawingId, color: to.color });
         if (hasScale(selectedDrawingId)) {
@@ -1591,7 +1592,7 @@ Where confidence is "high", "medium", or "low".` },
     }
 
     // AREA
-    if (tkTool === "area") {
+    if (currentTool === "area") {
       if (tkActivePoints.length >= 3) {
         const first = tkActivePoints[0];
         const dist = Math.sqrt((cx - first.x) ** 2 + (cy - first.y) ** 2);

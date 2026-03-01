@@ -35,50 +35,29 @@ const markSyncing = () => {
   useUiStore.getState().setCloudSyncStatus("syncing");
 };
 
-// ---------- Blob sync via server-side API proxy ----------
+// ---------- Blob sync via Supabase client ----------
 
-/** Get the user's Supabase JWT for API auth */
-const getAccessToken = async () => {
-  if (!supabase) return null;
-  const { data } = await supabase.auth.getSession();
-  return data?.session?.access_token || null;
-};
+const BLOB_BUCKET = 'blobs';
 
 /**
- * Upload a blob to Supabase Storage via signed URL.
- * 1. POST /api/blob { path } → gets signed upload URL (small JSON, no file data)
- * 2. PUT file directly to Supabase Storage via signed URL (bypasses Vercel 4.5MB limit)
+ * Upload a blob directly to Supabase Storage via the JS client.
+ * Uses the authenticated user's session — no server proxy needed.
  * Returns storagePath on success, null on failure.
  */
 const uploadBlob = async (path, dataUrl) => {
-  if (!dataUrl) return null;
+  if (!dataUrl || !supabase) return null;
   try {
-    const token = await getAccessToken();
-    if (!token) return null;
-
-    // Step 1: Get signed upload URL from server
-    const signRes = await fetch('/api/blob', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify({ path }),
-    });
-    if (!signRes.ok) throw new Error(`Sign HTTP ${signRes.status}`);
-    const { signedUrl, storagePath } = await signRes.json();
-    if (!signedUrl) throw new Error('No signed URL returned');
-
-    // Step 2: Convert data URL to Blob
+    // Convert data URL to Blob
     const dataResp = await fetch(dataUrl);
     const blob = await dataResp.blob();
 
-    // Step 3: Upload directly to Supabase Storage (no size limit)
-    const uploadRes = await fetch(signedUrl, {
-      method: 'PUT',
-      headers: { 'Content-Type': blob.type || 'application/octet-stream' },
-      body: blob,
-    });
-    if (!uploadRes.ok) throw new Error(`Upload HTTP ${uploadRes.status}`);
+    // Upload directly via Supabase client (handles CORS + auth)
+    const { error } = await supabase.storage
+      .from(BLOB_BUCKET)
+      .upload(path, blob, { upsert: true, contentType: blob.type || 'application/octet-stream' });
 
-    return storagePath;
+    if (error) throw error;
+    return path;
   } catch (err) {
     console.warn(`[cloudSync] uploadBlob("${path}") failed:`, err.message);
     return null;
@@ -86,35 +65,24 @@ const uploadBlob = async (path, dataUrl) => {
 };
 
 /**
- * Download a blob from Supabase Storage via signed URL.
- * 1. GET /api/blob?path=xxx → gets signed download URL
- * 2. Fetch file directly from Supabase Storage
+ * Download a blob from Supabase Storage via the JS client.
  * Returns base64 data URL or null.
  */
 const downloadBlob = async (storagePath) => {
-  if (!storagePath) return null;
+  if (!storagePath || !supabase) return null;
   try {
-    const token = await getAccessToken();
-    if (!token) return null;
+    const { data, error } = await supabase.storage
+      .from(BLOB_BUCKET)
+      .download(storagePath);
 
-    // Step 1: Get signed download URL from server
-    const signRes = await fetch(`/api/blob?path=${encodeURIComponent(storagePath)}`, {
-      headers: { 'Authorization': `Bearer ${token}` },
-    });
-    if (!signRes.ok) throw new Error(`Sign HTTP ${signRes.status}`);
-    const { signedUrl } = await signRes.json();
-    if (!signedUrl) throw new Error('No signed URL returned');
+    if (error) throw error;
+    if (!data) return null;
 
-    // Step 2: Download directly from Supabase Storage
-    const downloadRes = await fetch(signedUrl);
-    if (!downloadRes.ok) throw new Error(`Download HTTP ${downloadRes.status}`);
-    const blob = await downloadRes.blob();
-
-    // Step 3: Convert to data URL
+    // Convert Blob to data URL
     return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result);
-      reader.readAsDataURL(blob);
+      reader.readAsDataURL(data);
     });
   } catch (err) {
     console.warn(`[cloudSync] downloadBlob("${storagePath}") failed:`, err.message);
