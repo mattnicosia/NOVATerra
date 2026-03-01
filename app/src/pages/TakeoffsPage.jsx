@@ -256,34 +256,11 @@ export default function TakeoffsPage() {
     const byGroup = takeoffs.filter(t => (t.bidContext || "base") === activeGroupId);
     if (pageFilter === "all") return byGroup;
     if (!selectedDrawingId) return byGroup;
-    // Build set of takeoff IDs that have measurements on the current drawing
-    const idsOnPage = new Set();
-    byGroup.forEach(t => {
-      if ((t.measurements || []).some(m => m.sheetId === selectedDrawingId)) idsOnPage.add(t.id);
-    });
-    // For module-derived takeoffs (no measurements), check if their driving item's takeoff is on this page
-    const addCatItemsOnPage = (cat, itemTakeoffIds) => {
-      const drivingToId = cat.drivingItemId ? itemTakeoffIds?.[cat.drivingItemId] : null;
-      if (drivingToId && idsOnPage.has(drivingToId)) {
-        cat.items.forEach(item => {
-          const toId = itemTakeoffIds?.[item.id];
-          if (toId) idsOnPage.add(toId);
-        });
-      }
-    };
-    Object.entries(moduleInstances).forEach(([moduleId, inst]) => {
-      const moduleDef = MODULES[moduleId];
-      if (!moduleDef) return;
-      moduleDef.categories.forEach(cat => {
-        if (cat.multiInstance) {
-          (inst.categoryInstances?.[cat.id] || []).forEach(catInst => addCatItemsOnPage(cat, catInst.itemTakeoffIds));
-        } else {
-          addCatItemsOnPage(cat, inst.itemTakeoffIds);
-        }
-      });
-    });
-    return byGroup.filter(t => idsOnPage.has(t.id));
-  }, [takeoffs, pageFilter, selectedDrawingId, moduleInstances, activeGroupId]);
+    // Strict filter: only takeoffs that have measurements on the current drawing
+    return byGroup.filter(t =>
+      (t.measurements || []).some(m => m.sheetId === selectedDrawingId)
+    );
+  }, [takeoffs, pageFilter, selectedDrawingId, activeGroupId]);
   const takeoffGroups = useMemo(() => {
     const g = {};
     filteredTakeoffs.forEach(t => { const k = t.group || "Ungrouped"; if (!g[k]) g[k] = []; g[k].push(t); });
