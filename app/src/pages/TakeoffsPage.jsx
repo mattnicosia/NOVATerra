@@ -26,6 +26,7 @@ import { runPredictions, runSmartPredictions, scanAllSheets, findNearbyPredictio
 import { extractSchedules, scanAllDrawingsForSchedules } from '@/utils/scheduleParser';
 import { analyzeDrawingGeometry, generateAutoMeasurements } from '@/utils/geometryEngine';
 import { evalCondition } from '@/utils/moduleCalc';
+import NotesPanel from '@/components/estimate/NotesPanel';
 
 const TO_COLORS = ["#E53E3E", "#38A169", "#3182CE", "#DD6B20", "#805AD5", "#D53F8C", "#2B6CB0", "#C53030"];
 
@@ -2542,6 +2543,11 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
             </div>
           </div>
 
+          {showNotesPanel ? (
+            <div style={{ flex: 1, overflowY: "auto" }}>
+              <NotesPanel />
+            </div>
+          ) : (<>
           {/* Group Bar (bid context tabs) */}
           <div style={{ padding: "4px 8px", borderBottom: `1px solid ${C.border}` }}>
             <GroupBar />
@@ -2613,7 +2619,8 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
               )}
             </div>
 
-          {/* Module selector */}
+          {/* Module selector — hidden when filtering to "This Page" */}
+          {pageFilter !== "page" && (
           <div style={{ padding: "10px 10px 8px", borderBottom: `1px solid ${C.border}`, background: `linear-gradient(180deg, ${C.bg2}, ${C.bg1})` }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
               <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", padding: "4px 12px", borderRadius: 5, background: `linear-gradient(135deg, #8B5CF6, #6D28D9, #1a1025)`, color: "#fff", whiteSpace: "nowrap", boxShadow: "0 2px 8px rgba(139,92,246,0.4)" }}>MODULES</span>
@@ -2636,6 +2643,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
               )})}
             </div>
           </div>
+          )}
 
           {/* Module panel + takeoff list — slide transition */}
           <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
@@ -2922,6 +2930,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
               </button>
             </div>
           )}
+          </>)}
         </div>
       )}
 
