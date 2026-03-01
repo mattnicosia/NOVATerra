@@ -2639,7 +2639,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
 
           {/* Module panel + takeoff list — slide transition */}
           <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
-            <div style={{ display: "flex", width: "200%", height: "100%", transform: `translateX(${activeModule ? '-50%' : '0'})`, transition: "transform 0.2s ease" }}>
+            <div style={{ display: "flex", width: "200%", height: "100%", transform: `translateX(${activeModule && pageFilter !== "page" ? '-50%' : '0'})`, transition: "transform 0.2s ease" }}>
               {/* Takeoff list (left) */}
               <div style={{ width: "50%", height: "100%", overflowY: "auto", padding: "0 8px 8px" }}>
             {Object.entries(takeoffGroups).map(([group, tos]) => {
