@@ -6,14 +6,179 @@
 import {
   extractPageData,
   findNearestTag,
+  findAdjacentText,
   findPlanTagInstances,
   isExtracted,
+  isLikelyTag,
 } from './pdfExtractor';
 
 import {
   analyzeDrawingGeometry,
   generateAutoMeasurements,
 } from './geometryEngine';
+
+// ══════════════════════════════════════════════════════════════════════
+// DESCRIPTION-AWARE FILTERING
+// Scores how well a tag matches a takeoff description, detects differentiators
+// ══════════════════════════════════════════════════════════════════════
+
+// Common construction abbreviation map (prefix → expanded words)
+const ABBREV_MAP = {
+  D: ["duplex", "door"],
+  S: ["single", "slab"],
+  T: ["triplex", "tee"],
+  W: ["window", "wall"],
+  IW: ["interior wall"],
+  EW: ["exterior wall"],
+  BR: ["bedroom"],
+  BA: ["bathroom", "bath"],
+  KIT: ["kitchen"],
+  LR: ["living room"],
+  COL: ["column"],
+  FTG: ["footing"],
+  BM: ["beam"],
+  HDR: ["header"],
+  STR: ["stair"],
+  CLG: ["ceiling"],
+  FLR: ["floor"],
+  RF: ["roof"],
+  DK: ["deck"],
+  GAR: ["garage"],
+  PTN: ["partition"],
+  CMU: ["cmu", "block"],
+  CLR: ["clear"],
+  RM: ["room"],
+  CL: ["closet"],
+  HW: ["hallway"],
+  ENT: ["entry"],
+  PR: ["porch"],
+  UT: ["utility"],
+};
+
+/**
+ * Score 0.0–1.0 how well a tag matches a takeoff description
+ * 1.0  = tag text literally found in description
+ * 0.85 = tag prefix expands to a word in description via ABBREV_MAP
+ * 0.6  = tag prefix matches start of a description word
+ * 0.0  = no relationship
+ */
+export function scoreTagRelevance(tagText, description) {
+  if (!tagText || !description) return 0;
+  const tag = tagText.trim().toUpperCase();
+  const desc = description.toUpperCase();
+  const descWords = desc.split(/[\s,\-\/]+/).filter(Boolean);
+
+  // Exact: tag text literally appears in description
+  if (desc.includes(tag)) return 1.0;
+
+  // Abbreviation: tag prefix (letters only) expands to a description word
+  const tagLetters = tag.replace(/[^A-Z]/g, "");
+  if (tagLetters && ABBREV_MAP[tagLetters]) {
+    const expansions = ABBREV_MAP[tagLetters];
+    for (const exp of expansions) {
+      if (desc.toLowerCase().includes(exp)) return 0.85;
+    }
+  }
+
+  // Prefix match: tag letters match start of any description word
+  if (tagLetters.length >= 1) {
+    for (const word of descWords) {
+      if (word.startsWith(tagLetters) && word.length > tagLetters.length) return 0.6;
+    }
+  }
+
+  return 0;
+}
+
+/**
+ * Detect differentiator symbols near a tag position that modulate confidence.
+ * Looks for 1-3 char adjacent text (e.g., "D" near "2BR" = Duplex confirmation).
+ * Returns { text, matches, confidenceModifier }
+ */
+export function detectDifferentiator(extractedData, tagX, tagY, description) {
+  if (!description) return null;
+  const adjacent = findAdjacentText(extractedData, tagX, tagY, 80);
+  if (adjacent.length === 0) return null;
+
+  const desc = description.toUpperCase();
+  const descWords = desc.split(/[\s,\-\/]+/).filter(Boolean);
+
+  // Known differentiator patterns
+  const diffPatterns = [
+    /^[DSTMQ]$/i,                 // Single-letter type codes: D=Duplex, S=Single, T=Triplex
+    /^[0-9]BR$/i,                 // Bedroom counts: 1BR, 2BR, 3BR
+    /^[A-Z]$/i,                   // Single letter type codes
+    /^[A-Z][0-9]$/i,              // Type + number: A1, B2
+  ];
+
+  for (const adj of adjacent) {
+    const t = adj.text.toUpperCase();
+    const isDiff = diffPatterns.some(p => p.test(t));
+    if (!isDiff) continue;
+
+    // Check if this differentiator confirms the takeoff description
+    const letterPart = t.replace(/[^A-Z]/g, "");
+    let matches = false;
+
+    // Check abbreviation map
+    if (ABBREV_MAP[letterPart]) {
+      matches = ABBREV_MAP[letterPart].some(exp => desc.toLowerCase().includes(exp));
+    }
+    // Check direct inclusion in description
+    if (!matches) {
+      matches = descWords.some(w => w.startsWith(letterPart) || w.includes(t));
+    }
+
+    return {
+      text: adj.text,
+      matches,
+      confidenceModifier: matches ? 1.15 : 0.4,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Find the nearest tag that is relevant to the takeoff description.
+ * Checks nearest first — if relevance ≥ 0.3, uses it.
+ * Otherwise searches wider for the most relevant tag.
+ * Falls through to null if nothing relevant found.
+ */
+export function findNearestRelevantTag(data, x, y, description) {
+  if (!data?.text) return null;
+
+  // Try nearest tag first
+  const nearest = findNearestTag(data, x, y, 150);
+  if (nearest) {
+    const relevance = scoreTagRelevance(nearest.text, description);
+    if (relevance >= 0.3) {
+      return { ...nearest, relevance };
+    }
+  }
+
+  // Search wider radius for any relevant tag (must pass isLikelyTag to avoid noise)
+  let bestTag = null;
+  let bestScore = 0;
+
+  for (const item of data.text) {
+    if (!isLikelyTag(item.text)) continue;
+    const dx = item.x - x;
+    const dy = item.y - y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist > 300) continue; // wider search radius
+
+    const relevance = scoreTagRelevance(item.text, description);
+    // Weight by relevance, penalize distance
+    const score = relevance * (1 - dist / 400);
+    if (score > bestScore && relevance >= 0.3) {
+      bestScore = score;
+      bestTag = { ...item, distance: dist, relevance };
+    }
+  }
+
+  return bestTag;
+}
 
 // ══════════════════════════════════════════════════════════════════════
 // WALL GEOMETRY ASSOCIATION
@@ -175,8 +340,9 @@ function nextPredId() { return `pred-${++_predictionId}-${Date.now().toString(36
 /**
  * Generate count predictions (fixtures, devices, footings, etc.)
  * Each tag instance = one count marker at the tag position
+ * @param {string} takeoffDescription - Description of the active takeoff for differentiator detection
  */
-export function predictCounts(extractedData, tag, excludePositions = []) {
+export function predictCounts(extractedData, tag, excludePositions = [], takeoffDescription = "") {
   const instances = findPlanTagInstances(extractedData, tag);
 
   return instances
@@ -186,21 +352,35 @@ export function predictCounts(extractedData, tag, excludePositions = []) {
         Math.sqrt((p.x - inst.x) ** 2 + (p.y - inst.y) ** 2) < 40
       );
     })
-    .map(inst => ({
-      id: nextPredId(),
-      type: "count",
-      tag,
-      point: { x: inst.x, y: inst.y },
-      confidence: 0.92,
-      tagItem: inst,
-    }));
+    .map(inst => {
+      let confidence = 0.92;
+      let differentiator = null;
+
+      if (takeoffDescription) {
+        differentiator = detectDifferentiator(extractedData, inst.x, inst.y, takeoffDescription);
+        if (differentiator) {
+          confidence = Math.min(1, confidence * differentiator.confidenceModifier);
+        }
+      }
+
+      return {
+        id: nextPredId(),
+        type: "count",
+        tag,
+        point: { x: inst.x, y: inst.y },
+        confidence,
+        tagItem: inst,
+        ...(differentiator ? { differentiator: { text: differentiator.text, matches: differentiator.matches } } : {}),
+      };
+    });
 }
 
 /**
  * Generate wall predictions
  * Each tag instance → detect wall geometry → trace wall segment
+ * @param {string} takeoffDescription - Description of the active takeoff for differentiator detection
  */
-export function predictWalls(extractedData, tag, existingMeasurement = null, excludePositions = []) {
+export function predictWalls(extractedData, tag, existingMeasurement = null, excludePositions = [], takeoffDescription = "") {
   const instances = findPlanTagInstances(extractedData, tag);
 
   return instances
@@ -210,17 +390,24 @@ export function predictWalls(extractedData, tag, existingMeasurement = null, exc
       );
     })
     .map(inst => {
+      let differentiator = null;
+      if (takeoffDescription) {
+        differentiator = detectDifferentiator(extractedData, inst.x, inst.y, takeoffDescription);
+      }
+      const confMod = differentiator ? differentiator.confidenceModifier : 1;
+      const diffMeta = differentiator ? { differentiator: { text: differentiator.text, matches: differentiator.matches } } : {};
+
       const segment = detectWallSegment(extractedData.lines, inst.x, inst.y);
       if (!segment) {
-        // Fallback: just mark the tag position (user can trace manually)
         return {
           id: nextPredId(),
           type: "wall-tag",
           tag,
           point: { x: inst.x, y: inst.y },
-          confidence: 0.5,
+          confidence: Math.min(1, 0.5 * confMod),
           tagItem: inst,
           needsManualTrace: true,
+          ...diffMeta,
         };
       }
 
@@ -230,9 +417,10 @@ export function predictWalls(extractedData, tag, existingMeasurement = null, exc
         tag,
         points: segment.points,
         wallWidth: segment.wallWidth,
-        confidence: segment.confidence,
+        confidence: Math.min(1, segment.confidence * confMod),
         tagItem: inst,
         sourceLines: segment.sourceLines,
+        ...diffMeta,
       };
     });
 }
@@ -252,9 +440,12 @@ export function predictWalls(extractedData, tag, existingMeasurement = null, exc
 export async function runPredictions(drawing, takeoff, measurementType, clickPoint) {
   // Step 1: Extract page data (cached after first call)
   const data = await extractPageData(drawing);
+  const description = takeoff.description || "";
 
-  // Step 2: Find the tag nearest to where the user clicked
-  const nearestTag = findNearestTag(data, clickPoint.x, clickPoint.y, 150);
+  // Step 2: Find the tag nearest to where the user clicked (description-aware)
+  const nearestTag = description
+    ? findNearestRelevantTag(data, clickPoint.x, clickPoint.y, description)
+    : findNearestTag(data, clickPoint.x, clickPoint.y, 150);
   if (!nearestTag) {
     return { tag: null, predictions: [], extractionStats: data.stats, message: "No tag found near click point" };
   }
@@ -267,9 +458,9 @@ export async function runPredictions(drawing, takeoff, measurementType, clickPoi
   // Step 4: Generate predictions based on measurement type
   let predictions;
   if (measurementType === "count") {
-    predictions = predictCounts(data, nearestTag.text, existingPositions);
+    predictions = predictCounts(data, nearestTag.text, existingPositions, description);
   } else {
-    predictions = predictWalls(data, nearestTag.text, takeoff, existingPositions);
+    predictions = predictWalls(data, nearestTag.text, takeoff, existingPositions, description);
   }
 
   return {
@@ -286,9 +477,10 @@ export async function runPredictions(drawing, takeoff, measurementType, clickPoi
  * @param {Object} geometryResult - Output from analyzeDrawingGeometry()
  * @param {string} drawingId - The drawing ID for sheetId
  * @param {Array} excludePositions - Existing measurement centroids to skip
+ * @param {string} takeoffDescription - Description for relevance filtering
  * @returns {Array} Prediction objects for rooms
  */
-export function predictAreas(geometryResult, drawingId, excludePositions = []) {
+export function predictAreas(geometryResult, drawingId, excludePositions = [], takeoffDescription = "") {
   if (!geometryResult || !geometryResult.rooms) return [];
 
   return geometryResult.rooms
@@ -300,19 +492,33 @@ export function predictAreas(geometryResult, drawingId, excludePositions = []) {
     })
     .map(room => {
       const label = geometryResult.roomLabels.find(rl => rl.roomId === room.id);
+      const labelText = label?.label || "";
+
+      // Score room label against takeoff description
+      let confidence = room.confidence;
+      if (takeoffDescription && labelText) {
+        const relevance = scoreTagRelevance(labelText, takeoffDescription);
+        if (relevance < 0.15) return null; // Filter out irrelevant rooms
+        confidence = confidence * Math.max(relevance, 0.3);
+      } else if (!labelText) {
+        // No label — neutral confidence
+        confidence = 0.5;
+      }
+
       return {
         id: nextPredId(),
         type: "area",
-        tag: label?.label || `Room`,
+        tag: labelText || `Room`,
         points: room.polygon,
-        point: room.centroid, // For rendering/centering
+        point: room.centroid,
         area: room.area,
         perimeter: room.perimeter,
-        confidence: room.confidence,
+        confidence,
         roomId: room.id,
         source: "geometry",
       };
-    });
+    })
+    .filter(Boolean);
 }
 
 /**
@@ -327,31 +533,43 @@ export function predictAreas(geometryResult, drawingId, excludePositions = []) {
 export async function runSmartPredictions(drawing, takeoff, measurementType, clickPoint) {
   // Step 1: Extract page data (cached)
   const data = await extractPageData(drawing);
+  const description = takeoff.description || "";
 
   const existingPositions = (takeoff.measurements || [])
     .filter(m => m.sheetId === drawing.id)
     .flatMap(m => m.points || []);
 
   // ── Phase 1: Tag detection (instant, free) ──
-  const nearestTag = findNearestTag(data, clickPoint.x, clickPoint.y, 150);
+  // Use description-aware tag search when description is available
+  const nearestTag = description
+    ? findNearestRelevantTag(data, clickPoint.x, clickPoint.y, description)
+    : findNearestTag(data, clickPoint.x, clickPoint.y, 150);
 
   if (nearestTag) {
+    const relevance = nearestTag.relevance ?? scoreTagRelevance(nearestTag.text, description);
     let predictions;
     if (measurementType === "count") {
-      predictions = predictCounts(data, nearestTag.text, existingPositions);
+      predictions = predictCounts(data, nearestTag.text, existingPositions, description);
     } else if (measurementType === "linear") {
-      predictions = predictWalls(data, nearestTag.text, takeoff, existingPositions);
+      predictions = predictWalls(data, nearestTag.text, takeoff, existingPositions, description);
     } else if (measurementType === "area") {
-      // For area with a tag, try geometry-based room detection
       try {
         const geometry = await analyzeDrawingGeometry(drawing);
-        predictions = predictAreas(geometry, drawing.id, existingPositions);
+        predictions = predictAreas(geometry, drawing.id, existingPositions, description);
       } catch (err) {
         console.warn("Geometry analysis failed for area predictions:", err);
         predictions = [];
       }
     } else {
-      predictions = predictCounts(data, nearestTag.text, existingPositions);
+      predictions = predictCounts(data, nearestTag.text, existingPositions, description);
+    }
+
+    // Apply relevance score to confidence
+    if (relevance > 0 && relevance < 1) {
+      predictions = predictions.map(p => ({
+        ...p,
+        confidence: Math.min(1, p.confidence * Math.max(relevance, 0.5)),
+      }));
     }
 
     if (predictions.length > 0) {
@@ -360,7 +578,7 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
         tagPosition: { x: nearestTag.x, y: nearestTag.y },
         predictions,
         source: "tag",
-        confidence: 0.85,
+        confidence: 0.85 * Math.max(relevance, 0.5),
         extractionStats: data.stats,
         totalInstances: findPlanTagInstances(data, nearestTag.text).length,
       };
@@ -369,7 +587,11 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
 
   // ── Phase 2: Geometry detection (instant, free) ──
   // Works even without tags — analyzes vector geometry
-  if (measurementType === "linear" || measurementType === "area") {
+  // Skip geometry fallback if description suggests non-geometric items (e.g., "Duplexes")
+  const descRelatesToGeometry = !description || scoreTagRelevance("Wall", description) >= 0.3
+    || scoreTagRelevance("Room", description) >= 0.3 || scoreTagRelevance("Floor", description) >= 0.3;
+
+  if ((measurementType === "linear" || measurementType === "area") && descRelatesToGeometry) {
     try {
       const geometry = await analyzeDrawingGeometry(drawing);
 
@@ -414,7 +636,7 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
       }
 
       if (measurementType === "area" && geometry.rooms.length > 0) {
-        const predictions = predictAreas(geometry, drawing.id, existingPositions);
+        const predictions = predictAreas(geometry, drawing.id, existingPositions, description);
         if (predictions.length > 0) {
           return {
             tag: "Rooms",
@@ -432,12 +654,20 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
   }
 
   // ── Phase 3: Count via geometry (openings detection) ──
+  // Only fall through to openings if the takeoff description relates to doors/windows,
+  // or if no description is set (generic count)
   if (measurementType === "count") {
     try {
       const geometry = await analyzeDrawingGeometry(drawing);
       if (geometry.openings.length > 0) {
         const predictions = geometry.openings
           .filter(o => {
+            // Filter by description relevance — skip openings unrelated to the takeoff
+            if (description) {
+              const openingLabel = o.type === "door" ? "Door" : "Window";
+              const relevance = scoreTagRelevance(openingLabel, description);
+              if (relevance < 0.15) return false;
+            }
             return !existingPositions.some(p =>
               Math.sqrt((p.x - o.position.x) ** 2 + (p.y - o.position.y) ** 2) < 40
             );

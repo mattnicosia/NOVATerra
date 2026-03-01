@@ -27,7 +27,7 @@ import { extractSchedules, scanAllDrawingsForSchedules } from '@/utils/scheduleP
 import { analyzeDrawingGeometry, generateAutoMeasurements } from '@/utils/geometryEngine';
 import { evalCondition } from '@/utils/moduleCalc';
 
-const TO_COLORS = ["#C0392B", "#27AE60", "#2980B9", "#D35400", "#8E44AD", "#16A085", "#F39C12", "#E74C3C"];
+const TO_COLORS = ["#E53E3E", "#38A169", "#3182CE", "#DD6B20", "#805AD5", "#D53F8C", "#2B6CB0", "#C53030"];
 
 // Parse complete JSON objects from a partial/streaming JSON array string
 function parsePartialJsonArray(text) {
@@ -625,6 +625,8 @@ export default function TakeoffsPage() {
     setTkActivePoints([]);
     setTkContextMenu(null);
     setTkShowVars(null);
+    // Auto-collapse panel to maximize drawing area for measuring
+    setTkPanelOpen(false);
   }, [addMeasurement]);
 
   const stopMeasuring = useCallback(() => {
@@ -1644,6 +1646,25 @@ Where confidence is "high", "medium", or "low".` },
           const area = calcPolygonArea(tkActivePoints, selectedDrawingId);
           showToast(`Area: ${Math.round(area * 100) / 100} ${getDisplayUnit(selectedDrawingId)}²`);
         } else { showToast("Area measurement saved — set scale to see value"); }
+        // Area predictions: run smart predictions whenever none exist
+        const { tkPredictions: areaPredsDbl } = useTakeoffsStore.getState();
+        if (!areaPredsDbl) {
+          const drawing = useDrawingsStore.getState().drawings.find(d => d.id === selectedDrawingId);
+          if (drawing && drawing.type === "pdf" && drawing.data) {
+            (async () => {
+              try {
+                const result = await runSmartPredictions(drawing, to, "area", tkActivePoints[0]);
+                if (result.predictions.length > 0) {
+                  setTkPredictions({ tag: result.tag, predictions: result.predictions, scanning: false, totalInstances: result.totalInstances, source: result.source });
+                  initPredContext(result.tag, result.source, result.confidence);
+                  showToast(`Found ${result.predictions.length} room predictions — review`);
+                } else {
+                  showToast("No matching elements found on this page", "info");
+                }
+              } catch (err) { console.warn("Area prediction scan failed:", err); }
+            })();
+          }
+        }
         pauseMeasuring();
         return;
       }
@@ -1735,9 +1756,14 @@ Where confidence is "high", "medium", or "low".` },
   useEffect(() => { setTkPan({ x: 0, y: 0 }); }, [selectedDrawingId, setTkPan]);
 
   // Clear + proactively trigger predictions when switching takeoff items or sheets
+  // Only fires when actively measuring (not idle/selected-but-not-measuring)
   useEffect(() => {
     clearPredictions();
     if (!tkActiveTakeoffId || !selectedDrawingId) return;
+
+    // Guard: only trigger predictions when actively measuring
+    const currentMeasureState = useTakeoffsStore.getState().tkMeasureState;
+    if (currentMeasureState !== "measuring" && currentMeasureState !== "paused") return;
 
     const to = useTakeoffsStore.getState().takeoffs.find(t => t.id === tkActiveTakeoffId);
     if (!to) return;
@@ -1764,7 +1790,7 @@ Where confidence is "high", "medium", or "low".` },
         initPredContext(result.tag, result.source, result.confidence);
       }
     }).catch(err => console.warn("Proactive prediction failed:", err));
-  }, [tkActiveTakeoffId, selectedDrawingId]);
+  }, [tkActiveTakeoffId, selectedDrawingId, tkMeasureState]);
 
   // Auto-scroll thumbnail strip to active drawing
   useEffect(() => {
@@ -2036,8 +2062,10 @@ Where confidence is "high", "medium", or "low".` },
 
     // Draw existing measurements (selected takeoff at full opacity, others dimmed)
     // tkVisibility: "all" = show all, "active" = selected only, "none" = hide all
+    // pageFilter: "page" syncs canvas to only show takeoffs with measurements on this drawing
     const toFillHex = (pct) => Math.round(Math.min(100, Math.max(5, pct)) * 2.55).toString(16).padStart(2, '0');
-    if (tkVisibility !== "none") takeoffs.forEach(to => {
+    const canvasTakeoffs = pageFilter === "page" ? filteredTakeoffs : takeoffs;
+    if (tkVisibility !== "none") canvasTakeoffs.forEach(to => {
       if (tkVisibility === "active" && to.id !== tkSelectedTakeoffId && to.id !== tkActiveTakeoffId) return;
       const isSelectedTo = to.id === tkSelectedTakeoffId || to.id === tkActiveTakeoffId;
       const fillHex = toFillHex(to.fillOpacity ?? 20);
@@ -2196,7 +2224,7 @@ Where confidence is "high", "medium", or "low".` },
       ctx.restore();
     }
 
-  }, [takeoffs, selectedDrawingId, tkSelectedTakeoffId, tkActiveTakeoffId, moduleRenderWidths, tkVisibility, drawingScales, drawingDpi, geoAnalysis]);
+  }, [takeoffs, filteredTakeoffs, pageFilter, selectedDrawingId, tkSelectedTakeoffId, tkActiveTakeoffId, moduleRenderWidths, tkVisibility, drawingScales, drawingDpi, geoAnalysis]);
 
   // Overlay canvas: cursor-dependent content + calibration + AI analysis (lightweight — OK to re-render on cursor move)
   useEffect(() => {
@@ -3166,11 +3194,11 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
           const isHighConf = ctxConfidence >= 0.75;
           const isMedConf = ctxConfidence >= 0.5;
 
-          const handleAcceptAll = () => acceptAllPredictions();
-          const handleConfirmAccepted = () => {
-            const acc = preds.filter(p => tkPredAccepted.includes(p.id) && !tkPredRejected.includes(p.id));
-            if (tkActiveTakeoffId) {
-              acc.forEach(pred => {
+          // One-click: accept all pending predictions and immediately create measurements
+          const handleAcceptAllAndConfirm = () => {
+            const toAdd = preds.filter(p => !tkPredRejected.includes(p.id));
+            if (tkActiveTakeoffId && toAdd.length > 0) {
+              toAdd.forEach(pred => {
                 if (pred.type === "count" || pred.type === "wall-tag") {
                   addMeasurement(tkActiveTakeoffId, {
                     type: "count", points: [pred.point], value: 1,
@@ -3191,9 +3219,34 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                   });
                 }
               });
-              showToast(`Added ${acc.length} predicted measurements`);
+              showToast(`Added ${toAdd.length} predicted measurements`);
             }
             clearPredictions();
+          };
+          // Individual accept: immediately add measurement for a single prediction
+          const handleAcceptOne = (pred) => {
+            acceptPrediction(pred.id);
+            if (tkActiveTakeoffId) {
+              if (pred.type === "count" || pred.type === "wall-tag") {
+                addMeasurement(tkActiveTakeoffId, {
+                  type: "count", points: [pred.point], value: 1,
+                  sheetId: selectedDrawingId, color: activeTo?.color || "#5b8def",
+                  predicted: true, tag: tkPredictions.tag,
+                });
+              } else if (pred.type === "wall" && pred.points?.length >= 2) {
+                addMeasurement(tkActiveTakeoffId, {
+                  type: "linear", points: pred.points, value: 0,
+                  sheetId: selectedDrawingId, color: activeTo?.color || "#5b8def",
+                  predicted: true, tag: tkPredictions.tag,
+                });
+              } else if (pred.type === "area" && pred.points?.length >= 3) {
+                addMeasurement(tkActiveTakeoffId, {
+                  type: "area", points: pred.points, value: 0,
+                  sheetId: selectedDrawingId, color: activeTo?.color || "#5b8def",
+                  predicted: true, tag: pred.tag || tkPredictions.tag,
+                });
+              }
+            }
           };
           const handleDismiss = () => clearPredictions();
 
@@ -3300,13 +3353,8 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                 )}
                 <div style={{ flex: 1 }} />
                 {pending.length > 0 && (
-                  <button onClick={handleAcceptAll} style={bt(C, { background: `${C.green}15`, color: C.green, border: `1px solid ${C.green}30`, padding: "3px 10px", fontSize: 8, fontWeight: 700, borderRadius: 4 })}>
-                    <Ic d={I.check} size={9} color={C.green} sw={2.5} /> Accept All ({pending.length})
-                  </button>
-                )}
-                {accepted.length > 0 && (
-                  <button onClick={handleConfirmAccepted} style={bt(C, { background: predColor, color: "#fff", padding: "3px 12px", fontSize: 8, fontWeight: 700, borderRadius: 4 })}>
-                    Confirm {accepted.length}
+                  <button onClick={handleAcceptAllAndConfirm} style={bt(C, { background: C.green, color: "#fff", padding: "3px 12px", fontSize: 8, fontWeight: 700, borderRadius: 4 })}>
+                    <Ic d={I.check} size={9} color="#fff" sw={2.5} /> Add All ({pending.length})
                   </button>
                 )}
                 {drawings.filter(d => d.data && d.type === "pdf").length > 1 && !crossSheetScan && (
@@ -3351,7 +3399,8 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                   {pending.map(pred => (
                     <div key={pred.id} style={{ padding: "6px 12px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${C.bg2}` }}>
                       <span style={{ fontSize: 9, color: C.text, flex: 1 }}>{pred.tag || pred.type || "prediction"}</span>
-                      <button onClick={() => acceptPrediction(pred.id)} title="Accept"
+                      {pred.confidence != null && <span style={{ fontSize: 7, color: pred.confidence >= 0.7 ? C.green : C.textDim, fontWeight: 600 }}>{Math.round(pred.confidence * 100)}%</span>}
+                      <button onClick={() => handleAcceptOne(pred)} title="Add"
                         style={{ width: 22, height: 22, border: "none", borderRadius: 4, background: `${C.green}20`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                         <Ic d={I.check} size={10} color={C.green} sw={2.5} />
                       </button>
@@ -3362,9 +3411,9 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                     </div>
                   ))}
                   <div style={{ padding: "8px 12px", borderTop: `1px solid ${C.border}`, display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                    <button onClick={() => { handleAcceptAll(); setPredDropdownOpen(false); }}
-                      style={bt(C, { background: `${C.green}15`, color: C.green, border: `1px solid ${C.green}30`, padding: "4px 10px", fontSize: 9, fontWeight: 700, borderRadius: 4 })}>
-                      Accept All
+                    <button onClick={() => { handleAcceptAllAndConfirm(); setPredDropdownOpen(false); }}
+                      style={bt(C, { background: C.green, color: "#fff", padding: "4px 10px", fontSize: 9, fontWeight: 700, borderRadius: 4 })}>
+                      Add All ({pending.length})
                     </button>
                     <button onClick={() => { handleDismiss(); setPredDropdownOpen(false); }}
                       style={bt(C, { background: "transparent", border: `1px solid ${C.border}`, color: C.textDim, padding: "4px 10px", fontSize: 9, fontWeight: 600, borderRadius: 4 })}>

@@ -282,6 +282,30 @@ export function findNearestTag(extractedData, canvasX, canvasY, maxRadius = 100)
   return nearest;
 }
 
+// Find short text items (1-4 chars) near a position — used for differentiator detection
+// e.g., "D" for Duplex, "S" for Single near a "2BR" tag
+export function findAdjacentText(extractedData, x, y, maxRadius = 80) {
+  if (!extractedData?.text) return [];
+
+  return extractedData.text
+    .filter(item => {
+      const t = item.text.trim();
+      if (t.length < 1 || t.length > 4) return false;
+      // Skip items that are themselves tags (handled separately)
+      if (isLikelyTag(t) && t.length > 2) return false;
+      const dx = item.x - x;
+      const dy = item.y - y;
+      return Math.sqrt(dx * dx + dy * dy) < maxRadius;
+    })
+    .map(item => ({
+      text: item.text.trim(),
+      x: item.x,
+      y: item.y,
+      distance: Math.sqrt((item.x - x) ** 2 + (item.y - y) ** 2),
+    }))
+    .sort((a, b) => a.distance - b.distance);
+}
+
 // Find ALL instances of a specific tag on the page
 export function findAllTagInstances(extractedData, tag) {
   if (!extractedData?.text || !tag) return [];
