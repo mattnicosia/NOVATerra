@@ -72,37 +72,32 @@ export default function ModulePanel({ engageMeasuring, selectedDrawingId, addTak
     return computeAllDerivedWithInstances(moduleDef, inst.specs, takeoffs, inst.itemTakeoffIds, inst.categoryInstances || {}, scaleCtx);
   }, [moduleDef, inst.specs, inst.categoryInstances, takeoffs, inst.itemTakeoffIds, scaleCtx]);
 
-  // Build set of category IDs that have driving item measurements on the current page
+  // Build set of category IDs that have any item with measurements on the current page
   const catsOnPage = useMemo(() => {
     if (pageFilter !== "page" || !selectedDrawingId || !moduleDef) return null;
     const onPage = new Set();
+    // Collect all takeoff IDs that have measurements on this drawing
+    const takeoffIdsOnPage = new Set();
+    takeoffs.forEach(t => {
+      if ((t.measurements || []).some(m => m.sheetId === selectedDrawingId)) takeoffIdsOnPage.add(t.id);
+    });
+    // A category is on-page only if at least one of its items has a takeoff with measurements here
     moduleDef.categories.forEach(cat => {
-      if (!cat.drivingItemId) return;
       if (cat.multiInstance) {
-        // Check all instances for measurements on this page
         const catInstances = inst.categoryInstances?.[cat.id] || [];
         catInstances.forEach(catInst => {
-          const drivingToId = catInst.itemTakeoffIds?.[cat.drivingItemId];
-          if (!drivingToId) return;
-          const drivingTo = takeoffs.find(t => t.id === drivingToId);
-          if (drivingTo && (drivingTo.measurements || []).some(m => m.sheetId === selectedDrawingId)) {
-            onPage.add(cat.id);
+          for (const item of cat.items) {
+            const toId = catInst.itemTakeoffIds?.[item.id];
+            if (toId && takeoffIdsOnPage.has(toId)) { onPage.add(cat.id); return; }
           }
         });
       } else {
-        const drivingToId = inst.itemTakeoffIds?.[cat.drivingItemId];
-        if (!drivingToId) return;
-        const drivingTo = takeoffs.find(t => t.id === drivingToId);
-        if (drivingTo && (drivingTo.measurements || []).some(m => m.sheetId === selectedDrawingId)) {
-          onPage.add(cat.id);
+        for (const item of cat.items) {
+          const toId = inst.itemTakeoffIds?.[item.id];
+          if (toId && takeoffIdsOnPage.has(toId)) { onPage.add(cat.id); break; }
         }
       }
     });
-    if (onPage.size > 0) {
-      moduleDef.categories.forEach(cat => {
-        if (cat.type === "derived-only" || cat.type === "manual-only") onPage.add(cat.id);
-      });
-    }
     return onPage;
   }, [pageFilter, selectedDrawingId, moduleDef, inst.itemTakeoffIds, inst.categoryInstances, takeoffs]);
 
@@ -377,6 +372,8 @@ export default function ModulePanel({ engageMeasuring, selectedDrawingId, addTak
   }, [moduleDef, inst.categoryInstances, activeModule, setCatInstanceSpec]);
 
   if (!moduleDef) return null;
+  // Hide entire panel when "This Page" filter yields no categories
+  if (catsOnPage && catsOnPage.size === 0) return null;
 
   // ── RENDER ──────────────────────────────────────────────────────────────────
 
