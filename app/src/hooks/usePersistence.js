@@ -1,0 +1,596 @@
+import { useEffect, useRef } from 'react';
+import { storage } from '@/utils/storage';
+import { useEstimatesStore } from '@/stores/estimatesStore';
+import { useProjectStore } from '@/stores/projectStore';
+import { useItemsStore, DEFAULT_MARKUP_ORDER } from '@/stores/itemsStore';
+import { useTakeoffsStore } from '@/stores/takeoffsStore';
+import { useDrawingsStore } from '@/stores/drawingsStore';
+import { useBidLevelingStore } from '@/stores/bidLevelingStore';
+import { useDatabaseStore } from '@/stores/databaseStore';
+import { useMasterDataStore } from '@/stores/masterDataStore';
+import { useAlternatesStore } from '@/stores/alternatesStore';
+import { useSpecsStore } from '@/stores/specsStore';
+import { useReportsStore } from '@/stores/reportsStore';
+import { useDocumentsStore } from '@/stores/documentsStore';
+import { useModuleStore, migrateModuleInstances } from '@/stores/moduleStore';
+import { useUiStore } from '@/stores/uiStore';
+import { useScanStore } from '@/stores/scanStore';
+import { useGroupsStore, DEFAULT_GROUPS } from '@/stores/groupsStore';
+import { useCalendarStore } from '@/stores/calendarStore';
+import { useBidPackagesStore } from '@/stores/bidPackagesStore';
+import * as cloudSync from '@/utils/cloudSync';
+import { loadAudioMeta } from '@/utils/novaAudioStorage';
+import { migrateIndexEntry, migrateProposal } from '@/utils/costHistoryMigration';
+
+// Load all persisted data on mount
+export function usePersistenceLoad() {
+  const loaded = useRef(false);
+
+  useEffect(() => {
+    if (loaded.current) return;
+    loaded.current = true;
+
+    (async () => {
+      let localHasData = false;
+      let hadCorruptedIndex = false;
+      let hadCorruptedMaster = false;
+
+      // Load estimates index
+      const idxRaw = await storage.get("bldg-index");
+      if (idxRaw) {
+        try {
+          // Defensive: validate value is a non-empty string before parsing
+          if (!idxRaw.value || typeof idxRaw.value !== 'string' || idxRaw.value.trim().length === 0) {
+            throw new Error('Empty or invalid index data in IndexedDB');
+          }
+          const parsed = JSON.parse(idxRaw.value);
+          if (!Array.isArray(parsed)) throw new Error('Index data is not an array');
+          // Migrate: ensure all index entries have companyProfileId
+          let migrated = parsed.map(e =>
+            e.companyProfileId === undefined ? { ...e, companyProfileId: "" } : e
+          );
+          // Migrate: two-axis taxonomy (buildingType, workType) + new fields
+          migrated = migrated.map(migrateIndexEntry);
+          useEstimatesStore.getState().setEstimatesIndex(migrated);
+          if (migrated.some((e, i) => e !== parsed[i])) {
+            await storage.set("bldg-index", JSON.stringify(migrated));
+          }
+          if (migrated.length > 0) localHasData = true;
+        } catch (err) {
+          console.error("[usePersistence] Failed to parse estimates index:", err);
+          hadCorruptedIndex = true;
+          await storage.delete("bldg-index"); // Clear corrupted data so cloud sync can recover
+        }
+      }
+
+      // Load master data
+      const masterRaw = await storage.get("bldg-master");
+      if (masterRaw) {
+        try {
+          // Defensive: validate value is a non-empty string before parsing
+          if (!masterRaw.value || typeof masterRaw.value !== 'string' || masterRaw.value.trim().length === 0) {
+            throw new Error('Empty or invalid master data in IndexedDB');
+          }
+          const master = JSON.parse(masterRaw.value);
+          if (typeof master !== 'object' || master === null || Array.isArray(master)) {
+            throw new Error('Master data is not a valid object');
+          }
+          // Migrate: two-axis taxonomy for historical proposals
+          if (Array.isArray(master.historicalProposals)) {
+            const before = master.historicalProposals;
+            master.historicalProposals = before.map(migrateProposal);
+            if (master.historicalProposals.some((p, i) => p !== before[i])) {
+              await storage.set("bldg-master", JSON.stringify(master));
+            }
+          }
+          useMasterDataStore.getState().setMasterData({
+            ...useMasterDataStore.getState().masterData,
+            ...master,
+          });
+          localHasData = true;
+        } catch (err) {
+          console.error("[usePersistence] Failed to parse master data:", err);
+          hadCorruptedMaster = true;
+          await storage.delete("bldg-master"); // Clear corrupted data so cloud sync can recover
+        }
+      }
+
+      // Load app settings
+      const settingsRaw = await storage.get("bldg-settings");
+      if (settingsRaw) {
+        try {
+          const settings = JSON.parse(settingsRaw.value);
+          useUiStore.getState().setAppSettings({
+            ...useUiStore.getState().appSettings,
+            ...settings,
+          });
+        } catch (err) {
+          console.error("[usePersistence] Failed to parse settings:", err);
+          await storage.delete("bldg-settings"); // Clear corrupted data so cloud sync can recover
+        }
+      }
+      // Migrate: ensure defaultMarkupOrder has all standard keys and `active` field
+      {
+        const as = useUiStore.getState().appSettings;
+        const saved = as.defaultMarkupOrder || [];
+        const savedKeys = new Set(saved.map(m => m.key));
+        const missing = DEFAULT_MARKUP_ORDER.filter(m => !savedKeys.has(m.key));
+        // Pre-launch: entries missing `active` default to false (user picks their own)
+        const merged = [
+          ...saved.map(m => ({ ...m, active: m.active !== undefined ? m.active : false })),
+          ...missing,
+        ];
+        if (missing.length > 0 || saved.some(m => m.active === undefined)) {
+          useUiStore.getState().updateSetting("defaultMarkupOrder", merged);
+        }
+        // Also ensure defaultMarkup has overheadAndProfit key
+        if (as.defaultMarkup && as.defaultMarkup.overheadAndProfit === undefined) {
+          useUiStore.getState().updateSetting("defaultMarkup.overheadAndProfit", 20);
+        }
+      }
+
+      // Load assemblies (global library)
+      const asmRaw = await storage.get("bldg-assemblies");
+      if (asmRaw) {
+        try {
+          useDatabaseStore.getState().setAssemblies(JSON.parse(asmRaw.value));
+        } catch (err) {
+          console.error("[usePersistence] Failed to parse assemblies:", err);
+          await storage.delete("bldg-assemblies"); // Clear corrupted data so cloud sync can recover
+        }
+      }
+
+      // Load calendar tasks
+      const calRaw = await storage.get("bldg-calendar");
+      if (calRaw) {
+        try {
+          const tasks = JSON.parse(calRaw.value);
+          if (Array.isArray(tasks)) useCalendarStore.getState().setTasks(tasks);
+        } catch (err) {
+          console.error("[usePersistence] Failed to parse calendar:", err);
+          await storage.delete("bldg-calendar");
+        }
+      }
+
+      // Load proposal templates
+      await useReportsStore.getState().loadTemplatesFromStorage();
+
+      // Load scan learning records (global)
+      await useScanStore.getState().loadLearningRecords();
+      await useScanStore.getState().loadParameterCorrections();
+
+      // ─── Cloud Pull: if local is empty or corrupted, try pulling from cloud ───
+      if (!localHasData) {
+        let recoveredFromCloud = false;
+        try {
+          // Pull estimates index
+          const cloudIndex = await cloudSync.pullData('index');
+          if (cloudIndex && Array.isArray(cloudIndex) && cloudIndex.length > 0) {
+            useEstimatesStore.getState().setEstimatesIndex(cloudIndex);
+            await storage.set("bldg-index", JSON.stringify(cloudIndex));
+            if (hadCorruptedIndex) recoveredFromCloud = true;
+
+            // Pull all estimates and cache locally
+            const cloudEstimates = await cloudSync.pullAllEstimates();
+            for (const ce of cloudEstimates) {
+              await storage.set(`bldg-est-${ce.estimate_id}`, JSON.stringify(ce.data));
+            }
+          }
+
+          // Pull master data
+          const cloudMaster = await cloudSync.pullData('master');
+          if (cloudMaster) {
+            useMasterDataStore.getState().setMasterData({
+              ...useMasterDataStore.getState().masterData,
+              ...cloudMaster,
+            });
+            await storage.set("bldg-master", JSON.stringify(cloudMaster));
+            if (hadCorruptedMaster) recoveredFromCloud = true;
+          }
+
+          // Pull settings
+          const cloudSettings = await cloudSync.pullData('settings');
+          if (cloudSettings) {
+            useUiStore.getState().setAppSettings({
+              ...useUiStore.getState().appSettings,
+              ...cloudSettings,
+            });
+            await storage.set("bldg-settings", JSON.stringify(cloudSettings));
+          }
+
+          // Pull assemblies
+          const cloudAsm = await cloudSync.pullData('assemblies');
+          if (cloudAsm && Array.isArray(cloudAsm)) {
+            useDatabaseStore.getState().setAssemblies(cloudAsm);
+            await storage.set("bldg-assemblies", JSON.stringify(cloudAsm));
+          }
+        } catch (err) {
+          console.warn('[usePersistence] Cloud pull failed:', err);
+        }
+
+        // Only show error toast if data was corrupted AND cloud recovery didn't help
+        if ((hadCorruptedIndex || hadCorruptedMaster) && !recoveredFromCloud) {
+          const what = [
+            hadCorruptedIndex && 'estimates',
+            hadCorruptedMaster && 'company data',
+          ].filter(Boolean).join(' and ');
+          useUiStore.getState().showToast(`Failed to load ${what} — please check your connection`, "error");
+        } else if (recoveredFromCloud) {
+          console.log('[usePersistence] Recovered corrupted local data from cloud successfully');
+        }
+      }
+
+      // Load NOVA custom audio metadata
+      try { await loadAudioMeta(); } catch { /* audio not critical */ }
+
+      // Signal that persistence load is complete — auto-save can now safely write
+      useUiStore.getState().setPersistenceLoaded(true);
+    })();
+  }, []);
+}
+
+// Load a specific estimate into stores
+export async function loadEstimate(id) {
+  let raw = await storage.get(`bldg-est-${id}`);
+
+  // If not in IndexedDB, try cloud
+  if (!raw) {
+    try {
+      let cloudData = await cloudSync.pullEstimate(id);
+      if (cloudData) {
+        // Hydrate blobs from Supabase Storage (drawings, documents, specPdf)
+        cloudData = await cloudSync.hydrateBlobs(cloudData);
+        // Cache locally with hydrated blobs for next time
+        await storage.set(`bldg-est-${id}`, JSON.stringify(cloudData));
+        raw = { value: JSON.stringify(cloudData) };
+      }
+    } catch (err) {
+      console.warn('[loadEstimate] Cloud pull failed:', err);
+    }
+  }
+
+  // Check if locally cached data has stripped blobs that need hydration
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw.value);
+      const hasStrippedBlobs = (Array.isArray(parsed.drawings) && parsed.drawings.some(d => d._cloudBlobStripped && d.storagePath && !d.data))
+        || (Array.isArray(parsed.documents) && parsed.documents.some(d => d._cloudBlobStripped && d.storagePath && !d.data))
+        || (parsed._specPdfStripped && parsed._specPdfStoragePath && !parsed.specPdf);
+      if (hasStrippedBlobs) {
+        const hydrated = await cloudSync.hydrateBlobs(parsed);
+        await storage.set(`bldg-est-${id}`, JSON.stringify(hydrated));
+        raw = { value: JSON.stringify(hydrated) };
+      }
+    } catch (err) {
+      console.warn('[loadEstimate] Blob hydration failed:', err);
+      useUiStore.getState().showToast("Some drawings may not have loaded — check cloud connection", "error");
+    }
+  }
+
+  // Fallback: if drawings/docs still have no data (stale cache from before blob sync),
+  // re-pull from cloud where storagePaths may now be available, then hydrate
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw.value);
+      const drawingsMissing = Array.isArray(parsed.drawings) && parsed.drawings.length > 0
+        && parsed.drawings.some(d => !d.data);
+      const docsMissing = Array.isArray(parsed.documents) && parsed.documents.length > 0
+        && parsed.documents.some(d => !d.data);
+
+      if (drawingsMissing || docsMissing) {
+        console.log('[loadEstimate] Drawings/docs missing data, refreshing from cloud...');
+        let cloudData = await cloudSync.pullEstimate(id);
+        if (cloudData) {
+          cloudData = await cloudSync.hydrateBlobs(cloudData);
+
+          // Merge hydrated cloud blobs into local data (preserves local non-blob changes)
+          const merged = { ...parsed };
+
+          if (Array.isArray(cloudData.drawings) && drawingsMissing) {
+            merged.drawings = merged.drawings.map(d => {
+              if (d.data) return d; // already have blob locally
+              const cd = cloudData.drawings.find(c => c.id === d.id);
+              return cd?.data ? { ...d, data: cd.data, storagePath: cd.storagePath } : d;
+            });
+          }
+
+          if (Array.isArray(cloudData.documents) && docsMissing) {
+            merged.documents = merged.documents.map(d => {
+              if (d.data) return d;
+              const cd = cloudData.documents.find(c => c.id === d.id);
+              return cd?.data ? { ...d, data: cd.data, storagePath: cd.storagePath } : d;
+            });
+          }
+
+          if (!merged.specPdf && cloudData.specPdf) {
+            merged.specPdf = cloudData.specPdf;
+          }
+
+          await storage.set(`bldg-est-${id}`, JSON.stringify(merged));
+          raw = { value: JSON.stringify(merged) };
+        }
+      }
+    } catch (err) {
+      console.warn('[loadEstimate] Cloud blob refresh failed:', err);
+      useUiStore.getState().showToast("Some drawings may not have loaded — check cloud connection", "error");
+    }
+  }
+
+  if (!raw) return false;
+
+  try {
+    const data = JSON.parse(raw.value);
+
+    // Ensure backwards compatibility: old estimates without setupComplete are treated as complete
+    const projectData = data.project || useProjectStore.getState().project;
+    if (projectData.setupComplete === undefined) projectData.setupComplete = true;
+    useProjectStore.getState().setProject(projectData);
+    useProjectStore.getState().setCodeSystem(data.codeSystem || "csi-commercial");
+    useProjectStore.getState().setCustomCodes(data.customCodes || {});
+    // Migrate: ensure all items have bidContext
+    const itemsWithContext = (data.items || []).map(i =>
+      i.bidContext !== undefined ? i : { ...i, bidContext: "base" }
+    );
+    useItemsStore.getState().setItems(itemsWithContext);
+    const loadedMarkup = data.markup || useItemsStore.getState().markup;
+    // Strip legacy compound flag from markup object
+    const { compound: _legacyCompound, ...cleanMarkup } = loadedMarkup;
+    useItemsStore.getState().setMarkup(cleanMarkup);
+    if (data.markupOrder) {
+      useItemsStore.getState().setMarkupOrder(data.markupOrder);
+    } else if (_legacyCompound) {
+      // Migrate: old compound:true → set all markupOrder items to compound:true
+      useItemsStore.getState().setMarkupOrder(DEFAULT_MARKUP_ORDER.map(mo => ({ ...mo, compound: true })));
+    }
+    // Migrate: ensure per-estimate markupOrder has all standard keys and `active` field
+    {
+      const cur = useItemsStore.getState().markupOrder || [];
+      const curKeys = new Set(cur.map(m => m.key));
+      const missing = DEFAULT_MARKUP_ORDER.filter(m => !curKeys.has(m.key));
+      // Existing estimate entries that lack `active` were active before this feature → default true
+      // Newly added missing entries use the DEFAULT (false) so they don't surprise the user
+      const merged = [
+        ...cur.map(m => ({ ...m, active: m.active !== undefined ? m.active : true })),
+        ...missing,
+      ];
+      if (missing.length > 0 || cur.some(m => m.active === undefined)) {
+        useItemsStore.getState().setMarkupOrder(merged);
+      }
+      // Ensure markup object has overheadAndProfit
+      const mk = useItemsStore.getState().markup;
+      if (mk.overheadAndProfit === undefined) {
+        useItemsStore.getState().setMarkup({ ...mk, overheadAndProfit: 20 });
+      }
+    }
+    useItemsStore.getState().setCustomMarkups(data.customMarkups || []);
+    useItemsStore.getState().setChangeOrders(data.changeOrders || []);
+    useItemsStore.getState().setProjectAssemblies(data.projectAssemblies || []);
+    useDrawingsStore.getState().setDrawings(data.drawings || []);
+    useDrawingsStore.getState().setDrawingScales(data.drawingScales || {});
+    useDrawingsStore.getState().setDrawingDpi(data.drawingDpi || {});
+    // Migrate takeoff data: rename builderId→moduleId, builderItemId→moduleItemId
+    const migratedTakeoffs = (data.takeoffs || []).map(t => {
+      if (t.builderId !== undefined && t.moduleId === undefined) {
+        const { builderId, builderItemId, ...rest } = t;
+        return { ...rest, moduleId: builderId, moduleItemId: builderItemId };
+      }
+      return t;
+    });
+    // Migrate: ensure all takeoffs have bidContext
+    const takeoffsWithContext = migratedTakeoffs.map(t =>
+      t.bidContext !== undefined ? t : { ...t, bidContext: "base" }
+    );
+    useTakeoffsStore.getState().setTakeoffs(takeoffsWithContext);
+    useTakeoffsStore.getState().setTkCalibrations(data.tkCalibrations || {});
+    useBidLevelingStore.getState().setSubBidSubs(data.subBidSubs || {});
+    useBidLevelingStore.getState().setBidTotals(data.bidTotals || {});
+    useBidLevelingStore.getState().setBidCells(data.bidCells || {});
+    useBidLevelingStore.getState().setBidSelections(data.bidSelections || {});
+    useBidLevelingStore.getState().setLinkedSubs(data.linkedSubs || []);
+    useBidLevelingStore.getState().setSubKeyLabels(data.subKeyLabels || {});
+    useSpecsStore.getState().setSpecs(data.specs || []);
+    useSpecsStore.getState().setSpecPdf(data.specPdf || null);
+    useSpecsStore.getState().setExclusions(data.exclusions || []);
+    useSpecsStore.getState().setClarifications(data.clarifications || []);
+    useAlternatesStore.getState().setAlternates(data.alternates || []);
+    useDocumentsStore.getState().setDocuments(data.documents || []);
+    // Migrate module instances + rename framing → walls (backwards compat: read old builderInstances key)
+    let bInst = migrateModuleInstances(data.moduleInstances || data.builderInstances || {});
+    if (bInst["framing"] && !bInst["walls"]) {
+      bInst["walls"] = bInst["framing"];
+      delete bInst["framing"];
+    }
+    useModuleStore.getState().setModuleInstances(bInst);
+    useModuleStore.getState().setActiveModule(
+      (data.activeModule || data.activeBuilder || "") === "framing" ? "walls" : (data.activeModule || data.activeBuilder || null)
+    );
+
+    // Restore scan results if present
+    if (data.scanResults) {
+      useScanStore.getState().setScanResults(data.scanResults);
+    } else {
+      useScanStore.getState().clearScan();
+    }
+
+    // Load groups (bid context)
+    useGroupsStore.getState().setGroups(data.groups || [...DEFAULT_GROUPS]);
+
+    // Load bid packages
+    useBidPackagesStore.getState().setBidPackages(data.bidPackages || []);
+    useBidPackagesStore.getState().setInvitations(data.bidInvitations || {});
+    useBidPackagesStore.getState().setProposals(data.bidProposals || {});
+
+    // Load database elements with master/override merge + migration
+    useDatabaseStore.getState().loadUserElements(data.elements || []);
+
+    useEstimatesStore.getState().setActiveEstimateId(id);
+    return true;
+  } catch (e) {
+    console.error("Failed to load estimate:", e);
+    return false;
+  }
+}
+
+// Save the active estimate
+export async function saveEstimate() {
+  const id = useEstimatesStore.getState().activeEstimateId;
+  if (!id) return;
+
+  const data = {
+    project: useProjectStore.getState().project,
+    codeSystem: useProjectStore.getState().codeSystem,
+    customCodes: useProjectStore.getState().customCodes,
+    items: useItemsStore.getState().items,
+    markup: useItemsStore.getState().markup,
+    markupOrder: useItemsStore.getState().markupOrder,
+    customMarkups: useItemsStore.getState().customMarkups,
+    changeOrders: useItemsStore.getState().changeOrders,
+    projectAssemblies: useItemsStore.getState().projectAssemblies,
+    drawings: useDrawingsStore.getState().drawings,
+    drawingScales: useDrawingsStore.getState().drawingScales,
+    drawingDpi: useDrawingsStore.getState().drawingDpi,
+    takeoffs: useTakeoffsStore.getState().takeoffs,
+    tkCalibrations: useTakeoffsStore.getState().tkCalibrations,
+    subBidSubs: useBidLevelingStore.getState().subBidSubs,
+    bidTotals: useBidLevelingStore.getState().bidTotals,
+    bidCells: useBidLevelingStore.getState().bidCells,
+    bidSelections: useBidLevelingStore.getState().bidSelections,
+    linkedSubs: useBidLevelingStore.getState().linkedSubs,
+    subKeyLabels: useBidLevelingStore.getState().subKeyLabels,
+    exclusions: useSpecsStore.getState().exclusions,
+    clarifications: useSpecsStore.getState().clarifications,
+    specs: useSpecsStore.getState().specs,
+    specPdf: useSpecsStore.getState().specPdf,
+    alternates: useAlternatesStore.getState().alternates,
+    documents: useDocumentsStore.getState().documents,
+    moduleInstances: useModuleStore.getState().moduleInstances,
+    activeModule: useModuleStore.getState().activeModule,
+    elements: useDatabaseStore.getState().getUserElements(),
+    scanResults: useScanStore.getState().scanResults,
+    groups: useGroupsStore.getState().groups,
+    bidPackages: useBidPackagesStore.getState().bidPackages,
+    bidInvitations: useBidPackagesStore.getState().invitations,
+    bidProposals: useBidPackagesStore.getState().proposals,
+  };
+
+  const estOk = await storage.set(`bldg-est-${id}`, JSON.stringify(data));
+  if (!estOk) {
+    useUiStore.getState().showToast("Save failed — check storage space", "error");
+    return; // Don't update index if estimate didn't save
+  }
+
+  // Compute division totals snapshot for Cost History analytics
+  const divisionTotals = {};
+  for (const item of data.items) {
+    const div = item.division || item.code?.slice(0, 2) || "00";
+    divisionTotals[div] = (divisionTotals[div] || 0) + (item.total || 0);
+  }
+
+  // Build index entry fields
+  const totals = useItemsStore.getState().getTotals();
+  const entryFields = {
+    name: data.project.name,
+    client: data.project.client,
+    status: data.project.status,
+    bidDue: data.project.bidDue,
+    walkthroughDate: data.project.walkthroughDate || "",
+    rfiDueDate: data.project.rfiDueDate || "",
+    otherDueDate: data.project.otherDueDate || "",
+    otherDueLabel: data.project.otherDueLabel || "",
+    grandTotal: totals.grand,
+    elementCount: data.items.length,
+    lastModified: new Date().toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }),
+    estimator: data.project.estimator,
+    jobType: data.project.jobType,
+    companyProfileId: data.project.companyProfileId || "",
+    buildingType: data.project.buildingType || "",
+    workType: data.project.workType || "",
+    architect: data.project.architect || "",
+    projectSF: data.project.projectSF || 0,
+    zipCode: data.project.zipCode || "",
+    divisionTotals,
+    outcomeMetadata: data.project.outcomeMetadata || {},
+  };
+
+  // If this estimate isn't in the index yet (freshly created), add it
+  const existsInIndex = useEstimatesStore.getState().estimatesIndex.some(e => e.id === id);
+  if (!existsInIndex) {
+    const newEntry = { id, ...entryFields };
+    useEstimatesStore.getState().setEstimatesIndex([
+      ...useEstimatesStore.getState().estimatesIndex,
+      newEntry,
+    ]);
+  } else {
+    useEstimatesStore.getState().updateIndexEntry(id, entryFields);
+  }
+
+  const idx = useEstimatesStore.getState().estimatesIndex;
+  const idxOk = await storage.set("bldg-index", JSON.stringify(idx));
+  if (!idxOk) {
+    console.error("[usePersistence] Failed to save estimates index");
+  }
+
+  // ─── Cloud Push (non-blocking) ───
+  cloudSync.pushEstimate(id, data).catch(err => {
+    console.warn('[usePersistence] Cloud push failed for estimate:', err?.message);
+  });
+  cloudSync.pushData('index', idx).catch(err => {
+    console.warn('[usePersistence] Cloud push failed for index:', err?.message);
+  });
+}
+
+// Save master data
+export async function saveMasterData() {
+  const master = useMasterDataStore.getState().masterData;
+  const ok = await storage.set("bldg-master", JSON.stringify(master));
+  if (!ok) {
+    useUiStore.getState().showToast("Failed to save company data", "error");
+  }
+
+  // Cloud push (non-blocking)
+  cloudSync.pushData('master', master).catch(err => {
+    console.warn('[usePersistence] Cloud push failed for master:', err?.message);
+  });
+}
+
+// Save app settings
+export async function saveSettings() {
+  const settings = useUiStore.getState().appSettings;
+  const ok = await storage.set("bldg-settings", JSON.stringify(settings));
+  if (!ok) {
+    console.error("[usePersistence] Failed to save settings");
+  }
+
+  // Cloud push (non-blocking)
+  cloudSync.pushData('settings', settings).catch(err => {
+    console.warn('[usePersistence] Cloud push failed for settings:', err?.message);
+  });
+}
+
+// Save assemblies (global library)
+export async function saveAssemblies() {
+  const assemblies = useDatabaseStore.getState().assemblies;
+  const ok = await storage.set("bldg-assemblies", JSON.stringify(assemblies));
+  if (!ok) {
+    console.error("[usePersistence] Failed to save assemblies");
+  }
+
+  // Cloud push (non-blocking)
+  cloudSync.pushData('assemblies', assemblies).catch(err => {
+    console.warn('[usePersistence] Cloud push failed for assemblies:', err?.message);
+  });
+}
+
+// Save calendar tasks
+export async function saveCalendar() {
+  const tasks = useCalendarStore.getState().tasks;
+  const ok = await storage.set("bldg-calendar", JSON.stringify(tasks));
+  if (!ok) {
+    console.error("[usePersistence] Failed to save calendar");
+  }
+
+  // Cloud push (non-blocking)
+  cloudSync.pushData('calendar', tasks).catch(err => {
+    console.warn('[usePersistence] Cloud push failed for calendar:', err?.message);
+  });
+}

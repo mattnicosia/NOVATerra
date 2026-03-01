@@ -1,0 +1,29 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+.vercel
+
+# Environment / secrets
+.env
+.env.*
+
+# OS files
+.DS_Store
+
+# IDE / editor
+.vscode
+.idea
+
+# Logs
+*.log
+
+# Claude session data
+.claude/
+
+# Archive (large binaries, not source)
+Archive/
+
+# Apple Pages documents
+*.pages

@@ -1,0 +1,261 @@
+import React, { useState } from 'react';
+import { useTheme } from '@/hooks/useTheme';
+import { useWidgetStore } from '@/stores/widgetStore';
+import { WIDGET_REGISTRY } from '@/constants/widgetRegistry';
+import WidgetActionMenu from './WidgetActionMenu';
+
+/* ────────────────────────────────────────────────────────
+   WidgetWrapper — minimal shell for each widget
+   Flat by default, subtle lift on hover.
+   Three modes: normal (three-dot menu), move (drag handle),
+   or full edit (drag handle + remove).
+   ──────────────────────────────────────────────────────── */
+
+export default function WidgetWrapper({ id, widgetType, editMode, movingWidgetId, currentW, children, onConfigure, onReplace }) {
+  const C = useTheme();
+  const dk = C.isDark;
+  const ov = (a) => dk ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  const removeWidget = useWidgetStore(s => s.removeWidget);
+  const activeMenuId = useWidgetStore(s => s.activeMenuId);
+  const setActiveMenu = useWidgetStore(s => s.setActiveMenu);
+  const clearActiveMenu = useWidgetStore(s => s.clearActiveMenu);
+  const clearMovingWidget = useWidgetStore(s => s.clearMovingWidget);
+  const reg = WIDGET_REGISTRY[widgetType] || {};
+  const isRemovable = reg.removable !== false;
+
+  const isMoving = movingWidgetId === id;
+  const showMenu = activeMenuId === id;
+  const showEditChrome = editMode;
+  const showMoveChrome = !editMode && isMoving;
+  const showDotButton = !editMode && !isMoving;
+  const [hovered, setHovered] = useState(false);
+
+  const isActive = showEditChrome || showMoveChrome;
+
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        height: '100%',
+        borderRadius: 14,
+        background: dk
+          ? (isActive ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.03)')
+          : (isActive ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.6)'),
+        border: `1px solid ${isActive
+          ? `${C.accent}4D`
+          : (hovered
+            ? (dk ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)')
+            : (dk ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)')
+          )
+        }`,
+        boxShadow: isActive
+          ? `0 0 0 1px ${C.accent}1A, 0 4px 16px rgba(0,0,0,0.15)`
+          : (hovered
+            ? (dk ? '0 2px 12px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.08)')
+            : 'none'
+          ),
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'visible',
+        transition: 'border-color 0.2s, box-shadow 0.2s, background 0.2s',
+        position: 'relative',
+      }}
+    >
+
+      {/* ── Full edit mode chrome ─────────────────────── */}
+      {showEditChrome && (
+        <>
+          <div className="widget-drag-handle" style={{
+            height: 26,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'grab',
+            borderBottom: `1px solid ${dk ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
+            borderRadius: '14px 14px 0 0',
+            flexShrink: 0,
+            gap: 6,
+          }}>
+            <svg width="14" height="8" viewBox="0 0 14 8" fill="none" style={{ opacity: 0.4 }}>
+              <circle cx="3" cy="2" r="1.2" fill={C.textMuted} />
+              <circle cx="7" cy="2" r="1.2" fill={C.textMuted} />
+              <circle cx="11" cy="2" r="1.2" fill={C.textMuted} />
+              <circle cx="3" cy="6" r="1.2" fill={C.textMuted} />
+              <circle cx="7" cy="6" r="1.2" fill={C.textMuted} />
+              <circle cx="11" cy="6" r="1.2" fill={C.textMuted} />
+            </svg>
+            <span style={{
+              fontSize: 8, fontWeight: 600, letterSpacing: '0.1em',
+              textTransform: 'uppercase', color: C.textDim,
+              fontFamily: C.T.font.display,
+            }}>{reg.label || widgetType}</span>
+          </div>
+
+          {isRemovable && (
+            <button
+              onClick={(e) => { e.stopPropagation(); removeWidget(id); }}
+              style={{
+                position: 'absolute', top: 4, right: 4, zIndex: 2,
+                width: 20, height: 20, borderRadius: '50%',
+                border: 'none', cursor: 'pointer',
+                background: `${C.red}33`, color: C.red,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 11, fontWeight: 600, lineHeight: 1, padding: 0,
+                transition: 'background 0.15s',
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = `${C.red}59`}
+              onMouseLeave={(e) => e.currentTarget.style.background = `${C.red}33`}
+            >&times;</button>
+          )}
+
+          {reg.configFields && onConfigure && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onConfigure(id, widgetType); }}
+              style={{
+                position: 'absolute', top: 4, right: 28, zIndex: 2,
+                width: 20, height: 20, borderRadius: '50%',
+                border: 'none', cursor: 'pointer',
+                background: ov(0.08), color: C.textMuted,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 10, lineHeight: 1, padding: 0,
+                transition: 'background 0.15s',
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = ov(0.15)}
+              onMouseLeave={(e) => e.currentTarget.style.background = ov(0.08)}
+            >&#9881;</button>
+          )}
+        </>
+      )}
+
+      {/* ── Single-widget move mode chrome ────────────── */}
+      {showMoveChrome && (
+        <>
+          <div className="widget-drag-handle" style={{
+            height: 26,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'grab',
+            borderBottom: `1px solid ${dk ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
+            borderRadius: '14px 14px 0 0',
+            flexShrink: 0,
+            gap: 6,
+          }}>
+            <svg width="14" height="8" viewBox="0 0 14 8" fill="none" style={{ opacity: 0.4 }}>
+              <circle cx="3" cy="2" r="1.2" fill={C.textMuted} />
+              <circle cx="7" cy="2" r="1.2" fill={C.textMuted} />
+              <circle cx="11" cy="2" r="1.2" fill={C.textMuted} />
+              <circle cx="3" cy="6" r="1.2" fill={C.textMuted} />
+              <circle cx="7" cy="6" r="1.2" fill={C.textMuted} />
+              <circle cx="11" cy="6" r="1.2" fill={C.textMuted} />
+            </svg>
+            <span style={{
+              fontSize: 8, fontWeight: 600, letterSpacing: '0.1em',
+              textTransform: 'uppercase', color: C.accent,
+              fontFamily: C.T.font.display,
+            }}>Drag to move</span>
+          </div>
+
+          <button
+            onClick={(e) => { e.stopPropagation(); clearMovingWidget(); }}
+            style={{
+              position: 'absolute', top: 4, right: 6, zIndex: 2,
+              padding: '2px 10px', borderRadius: 6,
+              border: `1px solid ${C.accent}4D`,
+              background: `${C.accent}26`, color: C.accent,
+              fontSize: 8, fontWeight: 600, cursor: 'pointer',
+              fontFamily: C.T.font.display, lineHeight: '16px',
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = `${C.accent}40`}
+            onMouseLeave={(e) => e.currentTarget.style.background = `${C.accent}26`}
+          >Done</button>
+        </>
+      )}
+
+      {/* ── Normal mode: drag handle bar + three-dot button ─── */}
+      {showDotButton && (
+        <>
+          <div className="widget-drag-handle" style={{
+            height: 16,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'grab',
+            borderRadius: '14px 14px 0 0',
+            flexShrink: 0,
+            opacity: hovered ? 0.5 : 0,
+            transition: 'opacity 0.2s',
+          }}>
+            <svg width="20" height="4" viewBox="0 0 20 4" fill="none" style={{ display: 'block' }}>
+              <rect x="0" y="0" width="20" height="1.5" rx="0.75" fill={C.textMuted} />
+              <rect x="0" y="2.5" width="20" height="1.5" rx="0.75" fill={C.textMuted} />
+            </svg>
+          </div>
+
+          <button
+            onClick={(e) => { e.stopPropagation(); setActiveMenu(id); }}
+            style={{
+              position: 'absolute', top: 6, right: 6, zIndex: 3,
+              width: 22, height: 22, borderRadius: 6,
+              border: `1px solid ${showMenu
+                ? (dk ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.12)')
+                : 'transparent'}`,
+              cursor: 'pointer',
+              background: showMenu
+                ? (dk ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)')
+                : 'transparent',
+              color: showMenu ? C.text : C.textMuted,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: 0,
+              opacity: showMenu ? 1 : (hovered ? 0.7 : 0),
+              transition: 'opacity 0.2s, background 0.15s, border-color 0.15s',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.opacity = '1';
+              e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)';
+              e.currentTarget.style.borderColor = dk ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.12)';
+            }}
+            onMouseLeave={e => {
+              if (!showMenu) {
+                e.currentTarget.style.opacity = hovered ? '0.7' : '0';
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.borderColor = 'transparent';
+              }
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <circle cx="3.5" cy="7" r="1.3" fill="currentColor" />
+              <circle cx="7" cy="7" r="1.3" fill="currentColor" />
+              <circle cx="10.5" cy="7" r="1.3" fill="currentColor" />
+            </svg>
+          </button>
+        </>
+      )}
+
+      {/* ── Action menu popover ───────────────────────── */}
+      {showMenu && (
+        <WidgetActionMenu
+          widgetId={id}
+          widgetType={widgetType}
+          currentW={currentW}
+          onClose={clearActiveMenu}
+          onConfigure={onConfigure}
+          onReplace={onReplace}
+        />
+      )}
+
+      {/* ── Widget content ────────────────────────────── */}
+      <div style={{
+        flex: 1,
+        padding: isActive ? '6px 12px 12px' : '2px 14px 12px',
+        overflow: 'hidden',
+        pointerEvents: isActive ? 'none' : 'auto',
+        minHeight: 0,
+      }}>
+        {children}
+      </div>
+    </div>
+  );
+}

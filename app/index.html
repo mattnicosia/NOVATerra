@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>NOVATerra</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400&family=Inter:wght@400;500;600&family=Outfit:wght@500;700&display=swap" />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400&family=Inter:wght@400;500;600&family=Outfit:wght@500;700&display=swap" rel="stylesheet" />
+    <style>
+      /* Nova Loading Screen — pure CSS, zero JS */
+      @keyframes breatheOrb {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.08); opacity: 0.78; }
+      }
+      @keyframes spinRingA {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+      @keyframes spinRingB {
+        from { transform: rotate(360deg); }
+        to { transform: rotate(0deg); }
+      }
+      @keyframes spinRingC {
+        from { transform: rotateX(72deg) rotate(0deg); }
+        to { transform: rotateX(72deg) rotate(360deg); }
+      }
+      @keyframes shimmer {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(200%); }
+      }
+      @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(12px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes pulseGlow {
+        0%, 100% { box-shadow: 0 0 60px rgba(139,92,246,0.25), 0 0 120px rgba(109,40,217,0.12); }
+        50% { box-shadow: 0 0 80px rgba(139,92,246,0.4), 0 0 160px rgba(109,40,217,0.2); }
+      }
+      .nova-load-root {
+        display: flex; align-items: center; justify-content: center; flex-direction: column;
+        height: 100vh; background: #06060C; position: relative; overflow: hidden;
+      }
+      /* Ambient radial glow behind orb */
+      .nova-load-root::before {
+        content: ''; position: absolute; top: 50%; left: 50%;
+        transform: translate(-50%, -55%);
+        width: 600px; height: 600px; border-radius: 50%;
+        background: radial-gradient(circle, rgba(109,40,217,0.08) 0%, rgba(139,92,246,0.04) 30%, transparent 70%);
+        pointer-events: none;
+      }
+      /* Grain overlay */
+      .nova-load-root::after {
+        content: ''; position: absolute; inset: 0;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+        pointer-events: none; opacity: 0.5;
+      }
+      /* Nova Orb container */
+      .nova-orb-wrap {
+        position: relative; width: 120px; height: 120px;
+        perspective: 600px; margin-bottom: 28px;
+        animation: fadeInUp 0.8s ease-out both;
+      }
+      /* Halo */
+      .nova-orb-halo {
+        position: absolute; inset: -24px; border-radius: 50%;
+        background: radial-gradient(circle, rgba(139,92,246,0.14) 0%, rgba(139,92,246,0.04) 50%, transparent 70%);
+        animation: breatheOrb 5s ease-in-out infinite;
+      }
+      /* Ring A — outer */
+      .nova-orb-ringA {
+        position: absolute; inset: -8px; border-radius: 50%;
+        border: 1px solid rgba(139,92,246,0.15);
+        animation: spinRingA 22s linear infinite;
+      }
+      /* Ring B — inner, reverse */
+      .nova-orb-ringB {
+        position: absolute; inset: 6px; border-radius: 50%;
+        border: 1px solid rgba(167,139,250,0.08);
+        animation: spinRingB 15s linear infinite;
+      }
+      /* Ring C — equatorial, 3D tilt */
+      .nova-orb-ringC {
+        position: absolute; inset: -3px; border-radius: 50%;
+        border: 1px solid rgba(167,139,250,0.12);
+        animation: spinRingC 34s linear infinite;
+      }
+      /* Core orb — layered radial gradients */
+      .nova-orb-core {
+        width: 120px; height: 120px; border-radius: 50%; position: relative;
+        background:
+          radial-gradient(circle at 50% 48%, rgba(255,255,255,0.85) 0%, rgba(200,160,255,0.5) 8%, rgba(120,60,220,0.4) 20%, transparent 40%),
+          radial-gradient(circle at 50% 50%, rgba(215,175,255,0.7) 0%, rgba(150,78,255,0.5) 18%, rgba(90,24,220,0.3) 35%, rgba(60,10,160,0.8) 55%),
+          radial-gradient(circle at 50% 50%, #18063C 0%, #0A031A 42%, #060210 82%, #020108 100%);
+        box-shadow:
+          0 20px 60px rgba(109,40,217,0.35),
+          0 8px 24px rgba(0,0,0,0.55),
+          0 0 80px rgba(139,92,246,0.15);
+        animation: pulseGlow 4s ease-in-out infinite;
+      }
+      /* Vignette on orb edge */
+      .nova-orb-core::after {
+        content: ''; position: absolute; inset: 0; border-radius: 50%;
+        background: radial-gradient(circle, transparent 55%, rgba(2,1,8,0.7) 100%);
+      }
+      /* Brand name */
+      .nova-load-brand {
+        font-family: 'DM Sans', system-ui, sans-serif;
+        font-size: 18px; font-weight: 600; letter-spacing: 0.08em;
+        color: rgba(200,175,255,0.7);
+        animation: fadeInUp 0.8s ease-out 0.2s both;
+        margin: 0;
+      }
+      /* Progress shimmer bar */
+      .nova-load-shimmer {
+        width: 80px; height: 2px; margin-top: 20px; border-radius: 1px;
+        background: rgba(139,92,246,0.12); overflow: hidden; position: relative;
+        animation: fadeInUp 0.8s ease-out 0.4s both;
+      }
+      .nova-load-shimmer::after {
+        content: ''; position: absolute; inset: 0;
+        width: 50%; border-radius: 1px;
+        background: linear-gradient(90deg, transparent, rgba(139,92,246,0.5), transparent);
+        animation: shimmer 1.8s ease-in-out infinite;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div class="nova-load-root">
+        <div class="nova-orb-wrap">
+          <div class="nova-orb-halo"></div>
+          <div class="nova-orb-ringA"></div>
+          <div class="nova-orb-ringB"></div>
+          <div class="nova-orb-ringC"></div>
+          <div class="nova-orb-core"></div>
+        </div>
+        <p class="nova-load-brand">NOVATerra</p>
+        <div class="nova-load-shimmer"></div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

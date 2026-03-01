@@ -1,0 +1,258 @@
+import { create } from 'zustand';
+import { uid, today, nowStr } from '@/utils/format';
+import { storage } from '@/utils/storage';
+import { useUiStore } from '@/stores/uiStore';
+import { useProjectStore } from '@/stores/projectStore';
+import { useItemsStore } from '@/stores/itemsStore';
+import { useDrawingsStore } from '@/stores/drawingsStore';
+import { useTakeoffsStore } from '@/stores/takeoffsStore';
+import { useBidLevelingStore } from '@/stores/bidLevelingStore';
+import { useSpecsStore } from '@/stores/specsStore';
+import { useAlternatesStore } from '@/stores/alternatesStore';
+import { useDocumentsStore } from '@/stores/documentsStore';
+import { useModuleStore } from '@/stores/moduleStore';
+import { useScanStore } from '@/stores/scanStore';
+import { useDatabaseStore } from '@/stores/databaseStore';
+import { useMasterDataStore } from '@/stores/masterDataStore';
+import * as cloudSync from '@/utils/cloudSync';
+
+export const useEstimatesStore = create((set, get) => ({
+  estimatesIndex: [],
+  activeEstimateId: null,
+  draftId: null,  // Non-null when estimate is a draft (not yet persisted to DB)
+
+  setEstimatesIndex: (v) => set({ estimatesIndex: v }),
+  setActiveEstimateId: (v) => set({ activeEstimateId: v }),
+  clearDraft: () => set({ draftId: null }),
+
+  createEstimate: async (companyProfileId) => {
+    const id = uid();
+    const settings = useUiStore.getState().appSettings;
+
+    // Don't add to estimatesIndex yet — it will appear on the dashboard
+    // only after the first save (auto-save triggers once the user is on the page).
+    set({ activeEstimateId: id });
+
+    // Save blank estimate data to IndexedDB so loadEstimate can hydrate stores
+    const data = {
+      project: {
+        name: "New Estimate", client: "", architect: "", engineer: "", estimator: "",
+        address: "", date: today(), bidDue: "", bidDueTime: "", walkthroughDate: "",
+        rfiDueDate: "", otherDueDate: "", otherDueLabel: "", description: "",
+        projectSF: "", jobType: "", buildingType: "", workType: "",
+        bidType: "", bidDelivery: "", bidRequirements: {},
+        status: "Bidding", referredByType: "", referredByName: "",
+        outcomeMetadata: {},
+        laborType: settings.defaultLaborType || "open_shop",
+        companyProfileId: companyProfileId || "",
+        setupComplete: false,  // triggers document-first onboarding
+      },
+      codeSystem: "csi-commercial",
+      items: [],
+      markup: { overhead: 10, profit: 10, contingency: 5, generalConditions: 0, insurance: 2, tax: 0, bond: 0 },
+      markupOrder: [
+        { key: "overhead", label: "Overhead", compound: false },
+        { key: "profit", label: "Profit", compound: false },
+        { key: "contingency", label: "Contingency", compound: false },
+        { key: "generalConditions", label: "General Conditions", compound: false },
+        { key: "insurance", label: "Insurance", compound: false },
+      ],
+      customMarkups: [],
+      changeOrders: [],
+      drawings: [],
+      takeoffs: [],
+      drawingScales: {},
+      drawingDpi: {},
+      tkCalibrations: {},
+      subBidSubs: {},
+      bidTotals: {},
+      bidCells: {},
+      bidSelections: {},
+      linkedSubs: [],
+      subKeyLabels: {},
+      exclusions: (() => {
+        const profile = useMasterDataStore.getState().getCompanyInfo(companyProfileId);
+        return (profile?.boilerplateExclusions || [])
+          .filter(e => e.text)
+          .map(e => ({ id: uid(), text: e.text, source: "boilerplate" }));
+      })(),
+      clarifications: (() => {
+        const profile = useMasterDataStore.getState().getCompanyInfo(companyProfileId);
+        return (profile?.boilerplateNotes || [])
+          .filter(n => n.text)
+          .map(n => ({ id: uid(), text: n.text, category: n.category || "clarification", source: "boilerplate" }));
+      })(),
+      specs: [],
+      specPdf: null,
+      alternates: [],
+      documents: [],
+    };
+    await storage.set(`bldg-est-${id}`, JSON.stringify(data));
+
+    // Cloud sync estimate data (non-blocking)
+    cloudSync.pushEstimate(id, data).catch(() => {});
+
+    return id;
+  },
+
+  // Create a draft estimate in memory only — no IndexedDB or cloud persistence.
+  // Hydrates all stores with blank defaults so the Project Info page can render.
+  // The first Save on ProjectInfoPage will persist to IndexedDB.
+  initDraftEstimate: (companyProfileId) => {
+    const id = uid();
+    const settings = useUiStore.getState().appSettings;
+
+    const blankProject = {
+      name: "", client: "", architect: "", engineer: "", estimator: "",
+      address: "", date: today(), bidDue: "", bidDueTime: "", walkthroughDate: "",
+      rfiDueDate: "", otherDueDate: "", otherDueLabel: "", description: "",
+      projectSF: "", jobType: "", buildingType: "", workType: "",
+      bidType: "", bidDelivery: "", bidRequirements: {},
+      status: "Bidding", referredByType: "", referredByName: "",
+      outcomeMetadata: {},
+      laborType: settings.defaultLaborType || "open_shop",
+      companyProfileId: companyProfileId || "",
+    };
+    const blankMarkup = { overhead: 10, profit: 10, contingency: 5, generalConditions: 0, insurance: 2, tax: 0, bond: 0, overheadAndProfit: 20 };
+    const blankMarkupOrder = [
+      { key: "overhead", label: "Overhead", compound: false, active: true },
+      { key: "profit", label: "Profit", compound: false, active: true },
+      { key: "contingency", label: "Contingency", compound: false, active: true },
+      { key: "generalConditions", label: "General Conditions", compound: false, active: false },
+      { key: "insurance", label: "Insurance", compound: false, active: true },
+    ];
+
+    // Hydrate all stores with blank data (same stores as loadEstimate in usePersistence.js)
+    useProjectStore.getState().setProject(blankProject);
+    useProjectStore.getState().setCodeSystem("csi-commercial");
+    useProjectStore.getState().setCustomCodes({});
+    useItemsStore.getState().setItems([]);
+    useItemsStore.getState().setMarkup(blankMarkup);
+    useItemsStore.getState().setMarkupOrder(blankMarkupOrder);
+    useItemsStore.getState().setCustomMarkups([]);
+    useItemsStore.getState().setChangeOrders([]);
+    useDrawingsStore.getState().setDrawings([]);
+    useDrawingsStore.getState().setDrawingScales({});
+    useDrawingsStore.getState().setDrawingDpi({});
+    useTakeoffsStore.getState().setTakeoffs([]);
+    useTakeoffsStore.getState().setTkCalibrations({});
+    useBidLevelingStore.getState().setSubBidSubs({});
+    useBidLevelingStore.getState().setBidTotals({});
+    useBidLevelingStore.getState().setBidCells({});
+    useBidLevelingStore.getState().setBidSelections({});
+    useBidLevelingStore.getState().setLinkedSubs([]);
+    useBidLevelingStore.getState().setSubKeyLabels({});
+    useSpecsStore.getState().setSpecs([]);
+    useSpecsStore.getState().setSpecPdf(null);
+    // Auto-populate boilerplate from company profile
+    const draftProfile = useMasterDataStore.getState().getCompanyInfo(companyProfileId);
+    const bpExclusions = (draftProfile?.boilerplateExclusions || [])
+      .filter(e => e.text)
+      .map(e => ({ id: uid(), text: e.text, source: "boilerplate" }));
+    const bpClarifications = (draftProfile?.boilerplateNotes || [])
+      .filter(n => n.text)
+      .map(n => ({ id: uid(), text: n.text, category: n.category || "clarification", source: "boilerplate" }));
+    useSpecsStore.getState().setExclusions(bpExclusions);
+    useSpecsStore.getState().setClarifications(bpClarifications);
+    useAlternatesStore.getState().setAlternates([]);
+    useDocumentsStore.getState().setDocuments([]);
+    useModuleStore.getState().setModuleInstances({});
+    useModuleStore.getState().setActiveModule(null);
+    useScanStore.getState().clearScan();
+    useDatabaseStore.getState().loadUserElements([]);
+
+    // Set active ID last — EstimateLoader checks activeId === id to skip DB load
+    set({ activeEstimateId: id, draftId: id });
+
+    return id;
+  },
+
+  deleteEstimate: async (id) => {
+    const idx = get().estimatesIndex.filter(e => e.id !== id);
+    set({
+      estimatesIndex: idx,
+      activeEstimateId: get().activeEstimateId === id ? null : get().activeEstimateId,
+    });
+    await storage.set("bldg-index", JSON.stringify(idx));
+    await storage.delete(`bldg-est-${id}`);
+
+    // Track deleted ID locally so cloud sync doesn't pull it back
+    try {
+      const raw = await storage.get("bldg-deleted-ids");
+      const deletedIds = raw ? JSON.parse(raw.value) : [];
+      if (!deletedIds.includes(id)) deletedIds.push(id);
+      await storage.set("bldg-deleted-ids", JSON.stringify(deletedIds));
+    } catch {}
+
+    // Cloud sync — await so deletion completes before user closes app
+    try {
+      await cloudSync.deleteEstimate(id);
+      await cloudSync.pushData('index', idx);
+    } catch (err) {
+      console.warn('[deleteEstimate] Cloud sync failed, will retry on next sync:', err.message);
+    }
+  },
+
+  duplicateEstimate: async (id) => {
+    const raw = await storage.get(`bldg-est-${id}`);
+    if (!raw) return;
+    const data = JSON.parse(raw.value);
+    const newId = uid();
+    data.project.name = data.project.name + " (Copy)";
+    await storage.set(`bldg-est-${newId}`, JSON.stringify(data));
+
+    const src = get().estimatesIndex.find(e => e.id === id);
+    const newEntry = { ...src, id: newId, name: data.project.name, lastModified: nowStr() };
+    const idx = [...get().estimatesIndex, newEntry];
+    set({ estimatesIndex: idx });
+    await storage.set("bldg-index", JSON.stringify(idx));
+
+    // Cloud sync (non-blocking)
+    cloudSync.pushEstimate(newId, data).catch(() => {});
+    cloudSync.pushData('index', idx).catch(() => {});
+
+    return newId;
+  },
+
+  updateIndexEntry: (id, updates) => {
+    set(s => ({
+      estimatesIndex: s.estimatesIndex.map(e => e.id === id ? { ...e, ...updates } : e),
+    }));
+  },
+
+  // Import a pre-built estimate from an RFP
+  importFromRfp: async (estimateData) => {
+    const id = uid();
+    const data = { ...estimateData };
+    const est = {
+      id,
+      name: data.project?.name || "Imported RFP",
+      client: data.project?.client || "",
+      status: data.project?.status || "Bidding",
+      bidDue: data.project?.bidDue || "",
+      grandTotal: 0,
+      elementCount: 0,
+      lastModified: nowStr(),
+      estimator: data.project?.estimator || "",
+      jobType: data.project?.jobType || "",
+      companyProfileId: data.project?.companyProfileId || "",
+      buildingType: data.project?.buildingType || "",
+      workType: data.project?.workType || "",
+      architect: data.project?.architect || "",
+      projectSF: data.project?.projectSF || 0,
+      zipCode: data.project?.zipCode || "",
+      divisionTotals: {},
+      outcomeMetadata: data.project?.outcomeMetadata || {},
+    };
+    const idx = [...get().estimatesIndex, est];
+    set({ estimatesIndex: idx, activeEstimateId: id });
+    await storage.set("bldg-index", JSON.stringify(idx));
+    await storage.set(`bldg-est-${id}`, JSON.stringify(data));
+
+    // Cloud sync (non-blocking)
+    cloudSync.pushEstimate(id, data).catch(() => {});
+    cloudSync.pushData('index', idx).catch(() => {});
+
+    return id;
+  },
+}));

@@ -1,0 +1,759 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--app-bg, #06060C);
+  color: var(--app-text, #EEEDF5);
+  overflow: hidden;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* ── Nova cursor system ── */
+.nova-cursor-active, .nova-cursor-active * { cursor: none !important; }
+.nova-ring-hovering { width: 44px !important; height: 44px !important; border-color: rgba(255,255,255,0.3) !important; }
+.nova-ripple {
+  position: fixed; border-radius: 50%; border: 1px solid rgba(255,255,255,0.18);
+  pointer-events: none; z-index: 15; animation: rippleOut 0.75s ease-out forwards;
+}
+
+/* Remove number input spinners */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Scrollbars — refined with subtle accent on hover */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.08);
+  border-radius: 3px;
+  transition: background 200ms;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.16); }
+
+/* ═══════════════════════════════════════════════════════════
+   KEYFRAME ANIMATIONS — Orchestrated motion system
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Entrance animations ── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes slideOut {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(8px) scale(0.97); }
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-100%); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* Stagger entrance — the workhorse animation for lists/grids */
+@keyframes staggerFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+/* Stagger entrance — horizontal variant */
+@keyframes staggerFadeRight {
+  from {
+    opacity: 0;
+    transform: translateX(-12px) scale(0.97);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+/* Page-level entrance */
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+    filter: blur(1px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+/* Modal / overlay entrance — with scale */
+@keyframes modalEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(8px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0);
+  }
+}
+
+/* Expand from nothing — for height transitions */
+@keyframes expandIn {
+  from {
+    opacity: 0;
+    max-height: 0;
+    transform: scaleY(0.8);
+    transform-origin: top;
+  }
+  to {
+    opacity: 1;
+    max-height: 800px;
+    transform: scaleY(1);
+  }
+}
+
+/* ── Sustain / loop animations ── */
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.02); }
+}
+
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(0,212,255,0.10); }
+  50% { box-shadow: 0 0 16px rgba(0,212,255,0.20); }
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes borderGlow {
+  0%, 100% { border-color: rgba(0,212,255,0.15); }
+  50% { border-color: rgba(0,212,255,0.30); }
+}
+
+/* Ambient breathe — for backgrounds and atmospheric elements */
+@keyframes ambientBreathe {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(1);
+    filter: blur(40px);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.05);
+    filter: blur(50px);
+  }
+}
+
+/* Number highlight flash — when a value changes */
+@keyframes valueFlash {
+  0% { background: rgba(0,212,255,0.15); }
+  100% { background: transparent; }
+}
+
+/* Grand total pulse — subtle scale pop when total changes */
+@keyframes totalPulse {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+
+/* Line item total flash — brief accent glow on recalculation */
+@keyframes lineFlash {
+  0% { color: rgba(0,212,255,1); }
+  100% { color: inherit; }
+}
+
+/* Success checkmark */
+@keyframes checkmarkDraw {
+  from { stroke-dashoffset: 30; }
+  to { stroke-dashoffset: 0; }
+}
+
+/* Pipeline bar fill */
+@keyframes barFill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+/* Backdrop / overlay fade in */
+@keyframes backdropFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ── Toast animations ── */
+@keyframes toastEnter {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.92);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes toastExit {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(12px) scale(0.95);
+    filter: blur(2px);
+  }
+}
+
+@keyframes toastIconPop {
+  from {
+    opacity: 0;
+    transform: scale(0.3) rotate(-45deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes toastProgress {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+/* Sidebar active indicator slide-in */
+@keyframes sidebarIndicator {
+  from {
+    opacity: 0;
+    transform: scaleY(0.3);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+/* ── Nova keyframes ── */
+@keyframes fadeUp { from{opacity:0;transform:translateY(12px);} to{opacity:1;transform:translateY(0);} }
+@keyframes fadeLeft { from{opacity:0;transform:translateX(-16px);} to{opacity:1;transform:translateX(0);} }
+@keyframes fadeRight { from{opacity:0;transform:translateX(16px);} to{opacity:1;transform:translateX(0);} }
+@keyframes spinSlow { from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
+@keyframes breatheAmb { 0%,100%{transform:translate(-50%,-50%) scale(1);opacity:1;} 50%{transform:translate(-50%,-50%) scale(1.08);opacity:.7;} }
+@keyframes breatheOrb { 0%,100%{transform:scale(1);opacity:1;} 50%{transform:scale(1.1);opacity:.72;} }
+@keyframes pulseDot { 0%,100%{opacity:1;} 50%{opacity:.3;} }
+@keyframes rippleOut { from{transform:translate(-50%,-50%) scale(0);opacity:1;} to{transform:translate(-50%,-50%) scale(4);opacity:0;} }
+@keyframes drift { from{transform:translate(0,0);} to{transform:translate(28px,18px);} }
+
+/* ── Login page ── */
+@keyframes novaLoginFade { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes novaLoginGlow { 0%, 100% { opacity: 0.5; transform: scale(1); } 50% { opacity: 1; transform: scale(1.08); } }
+.login-hero   { animation: novaLoginFade 0.8s cubic-bezier(0.16,1,0.3,1) 0.1s both; }
+.login-card   { animation: novaLoginFade 0.8s cubic-bezier(0.16,1,0.3,1) 0.25s both; }
+.login-glow   { animation: novaLoginGlow 4s ease-in-out infinite; }
+.login-confirm{ animation: novaLoginFade 0.6s ease-out both; }
+
+/* ═══════════════════════════════════════════════════════════
+   BLUEPRINT GRID — Subtle construction-industry background
+   ═══════════════════════════════════════════════════════════ */
+.blueprint-grid {
+  background-image:
+    linear-gradient(rgba(0,212,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,255,0.025) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   INTERACTIVE CLASSES — Hover, active, and focus states
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Table rows ── */
+.row {
+  transition: background 120ms ease-out, box-shadow 120ms ease-out;
+}
+.row:hover {
+  background: rgba(255,255,255,0.035);
+  box-shadow: inset 3px 0 0 rgba(0,212,255,0.15);
+}
+
+.est-row {
+  transition: background 120ms ease-out, box-shadow 120ms ease-out;
+}
+.est-row:hover {
+  background: rgba(255,255,255,0.045) !important;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06), inset 3px 0 0 rgba(0,212,255,0.12);
+}
+
+.est-col {
+  border-right: 1px solid rgba(255,255,255,0.04);
+}
+.est-col:last-child {
+  border-right: none;
+}
+
+.db-row {
+  transition: background 120ms ease-out, box-shadow 120ms ease-out;
+}
+.db-row:hover {
+  background: rgba(255,255,255,0.03);
+  box-shadow: inset 3px 0 0 rgba(0,212,255,0.10);
+  cursor: pointer;
+}
+
+/* ── Navigation items ── */
+.nav-item {
+  transition: background 120ms ease-out, color 120ms ease-out, transform 80ms ease-out;
+}
+.nav-item:hover {
+  background: rgba(255,255,255,0.04);
+}
+.nav-item:active {
+  transform: scale(0.98);
+}
+
+/* ── Icon buttons ── */
+.icon-btn {
+  transition: background 120ms ease-out, color 120ms ease-out, transform 80ms ease-out, box-shadow 120ms ease-out;
+  border-radius: 6px;
+}
+.icon-btn:hover {
+  background: rgba(255,255,255,0.07);
+  box-shadow: 0 0 8px rgba(255,255,255,0.03);
+}
+.icon-btn:active {
+  transform: scale(0.92);
+  background: rgba(255,255,255,0.10);
+}
+
+/* ── Ghost buttons ── */
+.ghost-btn {
+  transition: background 120ms ease-out, color 120ms ease-out;
+}
+.ghost-btn:hover { background: rgba(255,255,255,0.04); }
+
+/* ── Accent buttons — the primary CTA style ── */
+.accent-btn {
+  transition: filter 150ms ease-out, transform 150ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 150ms ease-out;
+}
+.accent-btn:hover {
+  filter: brightness(1.15);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(0,212,255,0.18), 0 0 12px rgba(0,212,255,0.08);
+}
+.accent-btn:active {
+  transform: translateY(0) scale(0.97);
+  filter: brightness(0.95);
+  box-shadow: 0 0 8px rgba(0,212,255,0.10);
+}
+
+/* ── Code buttons ── */
+.code-btn {
+  transition: background 100ms ease-out;
+}
+.code-btn:hover { background: rgba(0,212,255,0.08); }
+
+/* ═══════════════════════════════════════════════════════════
+   CARD SYSTEMS — Elevation and glass effects
+   ═══════════════════════════════════════════════════════════ */
+
+/* Card hover elevation — the default card interaction */
+.card-hover {
+  transition: box-shadow 200ms ease-out, transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1), border-color 200ms ease-out;
+}
+.card-hover:hover {
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35), 0 0 20px rgba(255,255,255,0.03);
+  transform: translateY(-3px);
+  border-color: rgba(255,255,255,0.12);
+}
+.card-hover:active {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+}
+
+/* KPI card hover — more elevated feel */
+.kpi-card {
+  transition: box-shadow 200ms ease-out, transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1), border-color 200ms ease-out;
+}
+.kpi-card:hover {
+  box-shadow: 0 8px 28px rgba(0,0,0,0.35), 0 0 30px rgba(255,255,255,0.04);
+  transform: translateY(-3px);
+  border-color: rgba(255,255,255,0.14);
+}
+
+/* Glass card */
+.glass-card {
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255,255,255,0.06);
+  transition: box-shadow 200ms ease-out, border-color 200ms ease-out, transform 200ms ease-out;
+}
+.glass-card:hover {
+  box-shadow: 0 6px 24px rgba(0,0,0,0.30);
+  border-color: rgba(255,255,255,0.10);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FORM ELEMENTS — Focus, validation, and interaction
+   ═══════════════════════════════════════════════════════════ */
+
+input, textarea, select {
+  transition: border-color 150ms ease-out, box-shadow 150ms ease-out, background 150ms ease-out;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: rgba(0,212,255,0.50) !important;
+  box-shadow: 0 0 0 3px rgba(0,212,255,0.08), 0 0 12px rgba(0,212,255,0.06);
+}
+
+/* Keyboard focus indicator for accessibility */
+*:focus-visible {
+  outline: 2px solid rgba(0,212,255,0.40);
+  outline-offset: 2px;
+}
+
+/* ── Button base ── */
+button {
+  transition: filter 100ms ease-out, transform 100ms ease-out, background 100ms ease-out, color 100ms ease-out, box-shadow 100ms ease-out;
+}
+button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  filter: saturate(0.5);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   UTILITIES — Reusable visual helpers
+   ═══════════════════════════════════════════════════════════ */
+
+/* Frosted glass */
+.glass {
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #00D4FF, #7B61FF);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Gradient border — via mask composite */
+.gradient-border {
+  position: relative;
+}
+.gradient-border::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(0,212,255,0.20), rgba(123,97,255,0.20));
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  -webkit-mask-composite: xor;
+  pointer-events: none;
+}
+
+/* Skeleton loading shimmer */
+.skeleton {
+  background: linear-gradient(90deg, #191D27 25%, #222836 50%, #191D27 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite ease-in-out;
+  border-radius: 6px;
+}
+
+/* Glow underline for active nav */
+.glow-indicator {
+  position: relative;
+}
+.glow-indicator::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, #00D4FF, #7B61FF);
+  border-radius: 0 3px 3px 0;
+  box-shadow: 0 0 8px rgba(0,212,255,0.30);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   AMBIENT EFFECTS — Atmospheric visual enhancements
+   ═══════════════════════════════════════════════════════════ */
+
+/* NOVA sidebar glow — radial behind the portal */
+.nova-sidebar-glow {
+  position: relative;
+}
+.nova-sidebar-glow::before {
+  content: "";
+  position: absolute;
+  inset: -20px;
+  background: radial-gradient(circle, rgba(160,100,255,0.08) 0%, transparent 70%);
+  animation: breathe 6s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Value change flash */
+.value-flash {
+  animation: valueFlash 600ms ease-out;
+}
+
+/* Pipeline bar animated fill */
+.pipeline-bar-segment {
+  transform-origin: left;
+  animation: barFill 800ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LIGHT THEME OVERRIDES — Inverts hover/interaction colors
+   ═══════════════════════════════════════════════════════════ */
+
+/* Scrollbars */
+.theme-light ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.10); }
+.theme-light ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.20); }
+
+/* Table rows */
+.theme-light .row:hover {
+  background: rgba(0,0,0,0.03);
+  box-shadow: inset 3px 0 0 rgba(0,122,255,0.18);
+}
+.theme-light .est-row:hover {
+  background: rgba(0,0,0,0.03) !important;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.06), inset 3px 0 0 rgba(0,122,255,0.12);
+}
+.theme-light .est-col {
+  border-right-color: rgba(0,0,0,0.06);
+}
+.theme-light .db-row:hover {
+  background: rgba(0,0,0,0.03);
+  box-shadow: inset 3px 0 0 rgba(0,122,255,0.12);
+}
+
+/* Navigation items */
+.theme-light .nav-item:hover { background: rgba(0,0,0,0.04); }
+
+/* Icon buttons */
+.theme-light .icon-btn:hover {
+  background: rgba(0,0,0,0.06);
+  box-shadow: 0 0 8px rgba(0,0,0,0.03);
+}
+.theme-light .icon-btn:active { background: rgba(0,0,0,0.10); }
+
+/* Ghost buttons */
+.theme-light .ghost-btn:hover { background: rgba(0,0,0,0.04); }
+
+/* Card hover */
+.theme-light .card-hover:hover {
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08), 0 0 20px rgba(0,0,0,0.02);
+  border-color: rgba(0,0,0,0.12);
+}
+.theme-light .card-hover:active {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+
+/* KPI card hover */
+.theme-light .kpi-card:hover {
+  box-shadow: 0 8px 28px rgba(0,0,0,0.08), 0 0 30px rgba(0,0,0,0.02);
+  border-color: rgba(0,0,0,0.12);
+}
+
+/* Glass card */
+.theme-light .glass-card {
+  border-color: rgba(0,0,0,0.08);
+}
+.theme-light .glass-card:hover {
+  box-shadow: 0 6px 24px rgba(0,0,0,0.06);
+  border-color: rgba(0,0,0,0.12);
+}
+
+/* Skeleton loading */
+.theme-light .skeleton {
+  background: linear-gradient(90deg, #E8E8E8 25%, #F5F5F5 50%, #E8E8E8 75%);
+  background-size: 200% 100%;
+}
+
+/* Focus ring — use accent blue on light */
+.theme-light input:focus, .theme-light textarea:focus, .theme-light select:focus {
+  border-color: rgba(0,122,255,0.50) !important;
+  box-shadow: 0 0 0 3px rgba(0,122,255,0.08), 0 0 12px rgba(0,122,255,0.06);
+}
+.theme-light *:focus-visible {
+  outline-color: rgba(0,122,255,0.40);
+}
+
+/* Gradient text — keep working on light */
+.theme-light .gradient-text {
+  background: linear-gradient(135deg, #007AFF, #5856D6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Hide NOVA ambient effects on light themes */
+.theme-light .nova-sidebar-glow::before { display: none; }
+
+/* ═══════════════════════════════════════════════════════════
+   ACCESSIBILITY — Reduced motion support
+   ═══════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PRINT
+   ═══════════════════════════════════════════════════════════ */
+@media print {
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .no-print { display: none !important; }
+
+  /* ── Hide app chrome — only show report content ── */
+  .app-shell {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  /* Hide AmbientBackground, Toast, AIChatPanel, NovaCursor */
+  .app-shell > *:not(.app-main) {
+    display: none !important;
+  }
+  .app-main {
+    display: block !important;
+    overflow: visible !important;
+    position: static !important;
+  }
+  /* Hide NovaHeader and ProjectTabBar */
+  .app-main > *:not(.app-viewport) {
+    display: none !important;
+  }
+  .app-viewport {
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  /* Reset report page wrapper (remove padding/animation) */
+  .app-viewport > * {
+    padding: 0 !important;
+    min-height: auto !important;
+    animation: none !important;
+  }
+
+  /* ── Print-only logo header (repeats on every page) ── */
+  .print-header {
+    display: block !important;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 44px;
+    padding: 6px 0;
+    background: #fff;
+    z-index: 9999;
+  }
+  .print-header img {
+    max-height: 36px;
+    max-width: 180px;
+  }
+
+  /* ── Report containers: clean for print ── */
+  #proposal-print, .sov-doc, .report-doc {
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    font-family: 'DM Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  }
+  #proposal-print { padding: 0 20px !important; }
+
+  /* ── SOV table support (repeating headers) ── */
+  .sov-doc { padding: 0 !important; }
+  .sov-table { display: table; width: 100%; }
+  .sov-thead { display: table-header-group; }
+  .sov-tbody { display: table-row-group; }
+  .sov-row { display: table-row; }
+  .sov-row > * { display: table-cell; padding: 6px 4px; vertical-align: middle; }
+
+  /* ── Dark backgrounds / cosmetics ── */
+  .blueprint-grid { background-image: none !important; }
+
+  /* ── Currency — ensure mono font for alignment ── */
+  .print-mono {
+    font-family: 'DM Mono', 'SF Mono', 'Menlo', monospace !important;
+    font-variant-numeric: tabular-nums;
+  }
+}
