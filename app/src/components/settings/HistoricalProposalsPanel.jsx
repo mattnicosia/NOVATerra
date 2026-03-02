@@ -469,9 +469,12 @@ Return ONLY a JSON object. Example:
   // ── Auto-extract on file selection (with resume matching) ──
   const handlePdfFilesSelected = async (files) => {
     if (!files || files.length === 0) return;
-    const fileArray = Array.from(files).filter(f => f.name.toLowerCase().endsWith(".pdf"));
+    const allFiles = Array.from(files);
+    console.log("[BatchUpload] Received", allFiles.length, "files from picker");
+    const fileArray = allFiles.filter(f => f.name.toLowerCase().endsWith(".pdf"));
+    console.log("[BatchUpload] Filtered to", fileArray.length, "PDFs");
     if (fileArray.length === 0) {
-      showToast("No PDF files found", "error");
+      showToast("No PDF files found in selection", "error");
       return;
     }
 
@@ -512,6 +515,7 @@ Return ONLY a JSON object. Example:
     }
 
     if (newItems.length > 0) addToUploadQueue(newItems);
+    console.log("[BatchUpload] Queued:", newItems.length, "new,", resumed, "resumed,", skipped, "skipped. Total queue:", useMasterDataStore.getState().pdfUploadQueue.length);
     setShowQueue(true);
     await saveUploadQueue();
 
@@ -938,8 +942,8 @@ Return ONLY a JSON object. Example:
             <span style={{ fontSize: 10, color: C.textDim, transition: "transform 150ms", transform: showQueue ? "rotate(90deg)" : "rotate(0deg)", display: "inline-block" }}>▸</span>
           </div>
 
-          {/* ── Batch Progress UI (shown for bulk uploads > 5 items) ── */}
-          {batchMode && showQueue && (
+          {/* ── Batch Progress UI (shown for bulk uploads > 5 items) — always visible in batch mode ── */}
+          {batchMode && (
             <div style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}` }}>
               {/* Progress bar */}
               <div style={{ height: 6, borderRadius: 3, background: `${C.textDim}15`, marginBottom: 8, overflow: "hidden" }}>
