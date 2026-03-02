@@ -468,8 +468,10 @@ Return ONLY a JSON object. Example:
 
   // ── Auto-extract on file selection (with resume matching) ──
   const handlePdfFilesSelected = async (files) => {
+    try {
     if (!files || files.length === 0) return;
-    const allFiles = Array.from(files);
+    // files may already be an Array (from onChange snapshot) or a FileList
+    const allFiles = Array.isArray(files) ? files : Array.from(files);
     console.log("[BatchUpload] Received", allFiles.length, "files from picker");
     const fileArray = allFiles.filter(f => f.name.toLowerCase().endsWith(".pdf"));
     console.log("[BatchUpload] Filtered to", fileArray.length, "PDFs");
@@ -528,6 +530,10 @@ Return ONLY a JSON object. Example:
 
     // Start worker pool (no base64 read yet — workers read lazily)
     processQueue();
+    } catch (err) {
+      console.error("[BatchUpload] Error in handlePdfFilesSelected:", err);
+      showToast(`Upload error: ${err.message}`, "error");
+    }
   };
 
   // ── Folder picker handler ──
@@ -899,9 +905,9 @@ Return ONLY a JSON object. Example:
           Upload Folder
         </button>
         <input ref={pdfRef} type="file" accept=".pdf" multiple style={{ display: "none" }}
-          onChange={e => { handlePdfFilesSelected(e.target.files); e.target.value = ""; }} />
+          onChange={e => { const files = Array.from(e.target.files); e.target.value = ""; handlePdfFilesSelected(files); }} />
         <input ref={folderRef} type="file" webkitdirectory="" style={{ display: "none" }}
-          onChange={e => { handleFolderSelected(e.target.files); e.target.value = ""; }} />
+          onChange={e => { const files = Array.from(e.target.files); e.target.value = ""; handleFolderSelected(files); }} />
         {queueExtracting > 0 && !batchMode && (
           <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 5, background: `${C.orange}10`, border: `1px solid ${C.orange}25` }}>
             <NovaOrb size={14} scheme="nova" />
