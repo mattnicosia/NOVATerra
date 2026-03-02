@@ -117,8 +117,9 @@ export function useEmbeddingSync() {
 
         if (newProposals.length > 0) {
           const texts = newProposals.map(p => {
-            const divSummary = (p.divisions || [])
-              .map(d => `Div ${d.code}: $${d.cost || 0}`)
+            const divs = p.divisions || {};
+            const divSummary = (Array.isArray(divs) ? divs : Object.entries(divs))
+              .map(d => Array.isArray(d) ? `Div ${d[0]}: $${d[1] || 0}` : `Div ${d.code}: $${d.cost || 0}`)
               .join(', ');
             return `${p.name || ''} — ${p.client || ''} — ${p.jobType || ''} — ${p.projectSF || '?'} SF — $${p.totalCost || 0} total${divSummary ? ` — ${divSummary}` : ''}`;
           });
