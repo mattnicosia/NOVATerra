@@ -1,4 +1,4 @@
-# BLDG Omni — Technical Scaling Notes
+# NOVATerra — Technical Scaling Notes
 **Created: February 25, 2026**
 
 ---

@@ -53,14 +53,25 @@ export default function KPI({ label, value, sub, icon, color, accent }) {
   const C = useTheme();
   const T = C.T;
   const displayValue = useCountUp(value);
+
+  // Liquid Glass: both modes use translucent glass with specular
+  const glassBg = C.glassBg || (C.isDark ? 'rgba(15,15,30,0.38)' : 'rgba(255,255,255,0.32)');
+  const shadow = [
+    T.glass.specular,
+    accent ? `${T.shadow.md}, 0 0 24px ${C.accent}${C.isDark ? '20' : '30'}` : T.shadow.sm,
+    T.glass.edge,
+  ].join(', ');
+
   return (
     <div className="kpi-card" style={{
       padding: T.space[5], borderRadius: T.radius.md,
-      background: C.glassBg || 'rgba(18,21,28,0.55)',
+      background: C.isDark
+        ? glassBg
+        : `linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 50%), ${glassBg}`,
       backdropFilter: T.glass.blur,
       WebkitBackdropFilter: T.glass.blur,
-      border: `1px solid ${accent ? (C.borderAccent || C.accent + '30') : (C.glassBorder || 'rgba(255,255,255,0.06)')}`,
-      boxShadow: accent ? `${T.shadow.md}, 0 0 20px ${C.accent}15` : T.shadow.sm,
+      border: `1px solid ${accent ? (C.accent + (C.isDark ? '30' : '25')) : T.glass.border}`,
+      boxShadow: shadow,
       display: "flex", flexDirection: "column", gap: T.space[2],
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>

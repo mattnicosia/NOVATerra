@@ -203,7 +203,7 @@ export default function ModelSidebar() {
             />
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8, color: C.textDim }}>
               <span>Ground</span>
-              <span style={{ fontFamily: "'DM Mono',monospace" }}>{sectionPlaneY.toFixed(1)} ft</span>
+              <span style={{ fontFamily: "'DM Sans',sans-serif" }}>{sectionPlaneY.toFixed(1)} ft</span>
               <span>Top</span>
             </div>
           </div>
@@ -246,7 +246,7 @@ export default function ModelSidebar() {
                 <span style={{ fontSize: T.fontSize.xs, color: C.text, flex: 1, textAlign: 'left' }}>
                   {f.name}
                 </span>
-                <span style={{ fontSize: 8, color: C.textDim, fontFamily: "'DM Mono',monospace" }}>
+                <span style={{ fontSize: 8, color: C.textDim, fontFamily: "'DM Sans',sans-serif" }}>
                   {count}
                 </span>
               </button>
@@ -264,7 +264,7 @@ export default function ModelSidebar() {
               <span style={{ fontSize: T.fontSize.xs, color: C.textDim }}>Coverage</span>
               <span style={{
                 fontSize: T.fontSize.sm, fontWeight: T.fontWeight.heavy,
-                fontFamily: "'DM Mono',monospace",
+                fontFamily: "'DM Sans',sans-serif",
                 color: coverageStats.pct >= 80 ? '#10B981' : coverageStats.pct >= 50 ? C.orange : '#EF4444',
               }}>
                 {coverageStats.pct}%
@@ -418,7 +418,7 @@ export default function ModelSidebar() {
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
                     {layer.name || 'Unnamed'}
                   </span>
-                  <span style={{ fontSize: 9, color: C.textDim, fontFamily: "'DM Mono',monospace", flexShrink: 0, marginLeft: 8 }}>
+                  <span style={{ fontSize: 9, color: C.textDim, fontFamily: "'DM Sans',sans-serif", flexShrink: 0, marginLeft: 8 }}>
                     {layer.thickness > 0 ? `${layer.thickness}m` : ''}
                   </span>
                 </div>
@@ -432,7 +432,7 @@ export default function ModelSidebar() {
           )}
 
           <DetailRow C={C} T={T} label="Cost" value={
-            <span style={{ fontFamily: "'DM Mono',monospace", fontWeight: T.fontWeight.bold, color: selected.cost > 0 ? C.text : C.textDim }}>
+            <span style={{ fontFamily: "'DM Sans',sans-serif", fontWeight: T.fontWeight.bold, color: selected.cost > 0 ? C.text : C.textDim }}>
               {selected.cost > 0 ? fmt(selected.cost) : 'Not linked'}
             </span>
           } />
@@ -506,7 +506,7 @@ export default function ModelSidebar() {
               </span>
               <span style={{ fontSize: 9, color: C.textDim, flexShrink: 0 }}>{data.count}</span>
               {data.cost > 0 && (
-                <span style={{ fontSize: 9, color: C.textMuted, fontFamily: "'DM Mono',monospace", flexShrink: 0 }}>
+                <span style={{ fontSize: 9, color: C.textMuted, fontFamily: "'DM Sans',sans-serif", flexShrink: 0 }}>
                   {fmt(data.cost)}
                 </span>
               )}
@@ -568,7 +568,7 @@ function IFCPropertyDisplay({ C, T, properties }) {
                       fontSize: 9, borderBottom: `1px solid ${C.border}10`,
                     }}>
                       <span style={{ color: C.textDim }}>{k}</span>
-                      <span style={{ color: C.text, fontFamily: "'DM Mono',monospace" }}>{String(v)}</span>
+                      <span style={{ color: C.text, fontFamily: "'DM Sans',sans-serif" }}>{String(v)}</span>
                     </div>
                   ))
                 ) : (
@@ -583,7 +583,7 @@ function IFCPropertyDisplay({ C, T, properties }) {
                 fontSize: 9, borderBottom: `1px solid ${C.border}10`,
               }}>
                 <span style={{ color: C.textDim }}>{k}</span>
-                <span style={{ color: C.text, fontFamily: "'DM Mono',monospace" }}>{String(v)}</span>
+                <span style={{ color: C.text, fontFamily: "'DM Sans',sans-serif" }}>{String(v)}</span>
               </div>
             ))
           )}
@@ -599,7 +599,7 @@ function StatBox({ C, T, label, value, color }) {
       padding: '8px', borderRadius: T.radius.sm,
       background: C.bg2, textAlign: 'center',
     }}>
-      <div style={{ fontSize: T.fontSize.lg, fontWeight: T.fontWeight.heavy, color: color || C.text, fontFamily: "'DM Mono',monospace" }}>
+      <div style={{ fontSize: T.fontSize.lg, fontWeight: T.fontWeight.heavy, color: color || C.text, fontFamily: "'DM Sans',sans-serif" }}>
         {value}
       </div>
       <div style={{ fontSize: 9, color: C.textDim, marginTop: 2 }}>{label}</div>
@@ -612,7 +612,7 @@ function MiniStat({ C, T, label, value, color }) {
     <div style={{ textAlign: 'center', padding: '4px 0' }}>
       <div style={{
         fontSize: T.fontSize.sm, fontWeight: T.fontWeight.heavy,
-        color: color || C.text, fontFamily: "'DM Mono',monospace",
+        color: color || C.text, fontFamily: "'DM Sans',sans-serif",
       }}>
         {value}
       </div>

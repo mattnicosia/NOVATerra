@@ -240,7 +240,7 @@ export default function ItemDetailPanel({ itemId, onClose, onNavigate }) {
               color: item.code ? C.accent : C.textDim,
               background: `${C.accent}08`, border: `1px solid ${C.accent}30`,
               borderRadius: T.radius.sm, cursor: "pointer",
-              fontFamily: "'DM Mono',monospace", fontFeatureSettings: "'tnum'",
+              fontFamily: "'DM Sans',sans-serif", fontFeatureSettings: "'tnum'",
             }}
           >
             {item.code || "Pick Code..."}
@@ -294,11 +294,11 @@ export default function ItemDetailPanel({ itemId, onClose, onNavigate }) {
         <div style={{ borderTop: `1px solid ${C.border}30`, paddingTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: T.fontSize.sm }}>
             <span style={{ color: C.textDim }}>Unit Total</span>
-            <span style={{ fontWeight: 600, color: C.text, fontFamily: "'DM Mono',monospace", fontFeatureSettings: "'tnum'" }}>{fmt2(unitTotal)}</span>
+            <span style={{ fontWeight: 600, color: C.text, fontFamily: "'DM Sans',sans-serif", fontFeatureSettings: "'tnum'" }}>{fmt2(unitTotal)}</span>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: T.fontSize.md }}>
             <span style={{ fontWeight: 600, color: C.text }}>Line Total</span>
-            <span style={{ fontWeight: 700, color: C.accent, fontFamily: "'DM Mono',monospace", fontFeatureSettings: "'tnum'", fontSize: T.fontSize.lg }}>{fmt(lt)}</span>
+            <span style={{ fontWeight: 700, color: C.accent, fontFamily: "'DM Sans',sans-serif", fontFeatureSettings: "'tnum'", fontSize: T.fontSize.lg }}>{fmt(lt)}</span>
           </div>
         </div>
       </div>
@@ -364,7 +364,7 @@ export default function ItemDetailPanel({ itemId, onClose, onNavigate }) {
                   placeholder="L" style={nInp(C, { flex: 1, background: "transparent", border: "1px solid transparent", padding: "2px", fontSize: 10 })} />
                 <input type="number" value={si.e} onChange={e => updateSubItem(item.id, si.id, "e", parseFloat(e.target.value) || 0)}
                   placeholder="E" style={nInp(C, { flex: 1, background: "transparent", border: "1px solid transparent", padding: "2px", fontSize: 10 })} />
-                <span style={{ fontSize: 10, fontWeight: 600, color: C.text, fontFamily: "'DM Mono',monospace", minWidth: 44, textAlign: "right" }}>{fmt2(siTotal)}</span>
+                <span style={{ fontSize: 10, fontWeight: 600, color: C.text, fontFamily: "'DM Sans',sans-serif", minWidth: 44, textAlign: "right" }}>{fmt2(siTotal)}</span>
               </div>
             </div>
           );
@@ -431,7 +431,7 @@ export default function ItemDetailPanel({ itemId, onClose, onNavigate }) {
           {/* CO2e */}
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ width: 70, fontSize: T.fontSize.xs, fontWeight: 600, color: C.textDim }}>CO\u2082e</span>
-            <span style={{ fontSize: T.fontSize.sm, color: co2 > 0 ? C.green : C.textDim, fontFamily: "'DM Mono',monospace" }}>
+            <span style={{ fontSize: T.fontSize.sm, color: co2 > 0 ? C.green : C.textDim, fontFamily: "'DM Sans',sans-serif" }}>
               {co2 > 0 ? formatCarbon(co2) : "\u2014"}
             </span>
           </div>

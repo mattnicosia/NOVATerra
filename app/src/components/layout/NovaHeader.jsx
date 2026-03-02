@@ -251,8 +251,8 @@ export default function NovaHeader() {
   const novaTask = useNovaStore(s => s.activeTask);
   const selectedPalette = useUiStore(s => s.appSettings.selectedPalette);
   const updateSetting = useUiStore(s => s.updateSetting);
-  const activeTheme = selectedPalette?.startsWith('clarity') ? 'light' : selectedPalette?.startsWith('matte') ? 'dark' : 'nova';
-  const isNova = !selectedPalette || selectedPalette.startsWith('nova');
+  const activeTheme = selectedPalette === 'dark' ? 'dark' : 'light';
+  const isNova = false; // NOVA theme temporarily removed
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
@@ -260,16 +260,16 @@ export default function NovaHeader() {
 
   /* ── Header-specific derived colors ── */
 
-  // Header background — NOVA gets galaxy glass, matte gets clean black glass, light gets frosted white
-  const hBg = isNova
-    ? 'linear-gradient(180deg, rgba(12,11,20,0.96) 0%, rgba(8,8,16,0.55) 100%)'
-    : dk
-      ? `linear-gradient(180deg, ${C.bg}F5 0%, ${C.bg}CC 100%)`
-      : 'linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0.82) 100%)';
-  const hShadow = dk
-    ? '0 1px 0 rgba(255,255,255,0.07), 0 1px 40px rgba(0,0,0,0.4)'
-    : '0 1px 0 rgba(0,0,0,0.04), 0 4px 20px rgba(0,0,0,0.06)';
-  const hBorderB = dk ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)';
+  // Header — Apple Liquid Glass: nearly transparent bar, thin specular, no heavy shadow
+  const hBg = dk
+    ? `linear-gradient(180deg, rgba(15,15,30,0.40) 0%, rgba(15,15,30,0.20) 100%)`
+    : `linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.06) 100%)`;
+  const hShadow = [
+    T.glass.specularLg,
+    T.glass.edge,
+    dk ? '0 1px 12px rgba(0,0,0,0.15)' : '0 1px 8px rgba(20,30,80,0.03)',
+  ].join(', ');
+  const hBorderB = T.glass.borderLight;
 
   // Overlays — white-alpha on dark, black-alpha on light
   const ov = (darkA, lightA) => dk ? `rgba(255,255,255,${darkA})` : `rgba(0,0,0,${lightA})`;
@@ -303,7 +303,8 @@ export default function NovaHeader() {
       padding: '0 28px',
       background: hBg,
       boxShadow: hShadow,
-      backdropFilter: 'blur(28px)', WebkitBackdropFilter: 'blur(28px)',
+      backdropFilter: T.glass.blur,
+      WebkitBackdropFilter: T.glass.blur,
       borderBottom: `1px solid ${hBorderB}`,
       fontFamily: T.font.display,
       zIndex: 100, flexShrink: 0,
@@ -314,7 +315,7 @@ export default function NovaHeader() {
         <NovaTerraLogo size={22} />
       </div>
 
-      {/* Center — Navigation */}
+      {/* Center — Navigation: active tab = Liquid Glass pill */}
       <nav style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
         {NAV_ITEMS.map(item => (
           <NavLink
@@ -324,18 +325,31 @@ export default function NovaHeader() {
             data-interactive
             style={({ isActive }) => ({
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-              padding: '6px 20px', borderRadius: 8, cursor: 'pointer',
-              position: 'relative', transition: 'all 0.2s ease',
-              border: '1px solid transparent',
-              color: isActive ? navActive : navInactive,
-              background: isActive ? ov(0.08, 0.05) : 'transparent',
-              borderColor: isActive ? ov(0.12, 0.06) : 'transparent',
+              padding: '6px 20px', borderRadius: 12, cursor: 'pointer',
+              position: 'relative', transition: 'all 0.25s ease',
               textDecoration: 'none',
+              color: isActive ? navActive : navInactive,
+              // Active = Apple Liquid Glass pill — subtle, ghost-like
+              background: isActive
+                ? (dk ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.15)')
+                : 'transparent',
+              border: `0.5px solid ${isActive
+                ? (dk ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.30)')
+                : 'transparent'}`,
+              boxShadow: isActive
+                ? [T.glass.specularSm, T.glass.edge].join(', ')
+                : 'none',
+              backdropFilter: isActive
+                ? (dk ? 'blur(12px) saturate(150%)' : 'blur(12px) saturate(170%) brightness(1.04)')
+                : 'none',
+              WebkitBackdropFilter: isActive
+                ? (dk ? 'blur(12px) saturate(150%)' : 'blur(12px) saturate(170%) brightness(1.04)')
+                : 'none',
             })}
             onMouseEnter={e => {
               if (!e.currentTarget.classList.contains('active')) {
-                e.currentTarget.style.background = ov(0.05, 0.03);
-                e.currentTarget.style.borderColor = ov(0.07, 0.04);
+                e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.10)';
+                e.currentTarget.style.borderColor = dk ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.18)';
               }
             }}
             onMouseLeave={e => {
@@ -349,7 +363,7 @@ export default function NovaHeader() {
               <>
                 <div style={{ width: 17, height: 17, flexShrink: 0 }}>{item.icon}</div>
                 <span style={{
-                  fontSize: 9.5, fontWeight: 500, letterSpacing: '0.08em',
+                  fontSize: 9.5, fontWeight: isActive ? 600 : 500, letterSpacing: '0.08em',
                   textTransform: 'uppercase', lineHeight: 1,
                 }}>{item.label}</span>
                 {item.badge && (
@@ -362,9 +376,9 @@ export default function NovaHeader() {
                 {isActive && (
                   <div style={{
                     position: 'absolute', bottom: -1, left: '50%', transform: 'translateX(-50%)',
-                    width: 24, height: 1,
+                    width: 24, height: 1.5,
                     background: `linear-gradient(90deg, transparent, ${accent}, transparent)`,
-                    boxShadow: `0 0 8px ${accent}`,
+                    boxShadow: `0 0 10px ${accent}`,
                   }} />
                 )}
               </>
@@ -394,7 +408,7 @@ export default function NovaHeader() {
               {novaActivity}
             </span>
             {novaTask?.progress > 0 && (
-              <span style={{ fontSize: 9, color: `${accent}80`, fontWeight: 600, fontFamily: "'DM Mono', monospace" }}>
+              <span style={{ fontSize: 9, color: `${accent}80`, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
                 {novaTask.progress}%
               </span>
             )}
@@ -428,7 +442,7 @@ export default function NovaHeader() {
             background: ov(0.06, 0.05),
             border: `1px solid ${ov(0.08, 0.08)}`,
             borderRadius: 4, padding: '1px 5px',
-            fontFamily: "'DM Mono', monospace", marginLeft: 2,
+            fontFamily: "'DM Sans', sans-serif", marginLeft: 2,
           }}>{'\u2318'}K</kbd>
         </button>
 
@@ -486,20 +500,18 @@ export default function NovaHeader() {
               border: `1.5px solid ${C.bg}`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 8, fontWeight: 700, color: '#fff',
-              padding: '0 3px', fontFamily: "'DM Mono', monospace",
+              padding: '0 3px', fontFamily: "'DM Sans', sans-serif",
             }}>{unreadCount > 9 ? '9+' : unreadCount}</div>
           )}
         </button>
 
-        {/* Theme Toggle */}
+        {/* Theme Toggle — Light / Dark */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 1, padding: 2, marginLeft: 2, borderRadius: 7, background: ov(0.03, 0.03), border: `1px solid ${ov(0.04, 0.04)}` }}>
           {[
-            { key: 'light', palette: 'clarity:1', title: 'Light',
+            { key: 'light', palette: 'light', title: 'Light',
               icon: <svg width={11} height={11} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><circle cx="8" cy="8" r="2.8"/><path d="M8 2v1.5M8 12.5V14M2 8h1.5M12.5 8H14M4 4l1 1M11 11l1 1M4 12l1-1M11 5l1-1"/></svg> },
-            { key: 'dark', palette: 'matte', title: 'Dark',
+            { key: 'dark', palette: 'dark', title: 'Dark',
               icon: <svg width={11} height={11} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M13.6 9.8A6 6 0 116.2 2.4a4.5 4.5 0 007.4 7.4z"/></svg> },
-            { key: 'nova', palette: 'nova', title: 'NOVA',
-              icon: <svg width={11} height={11} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"><path d="M8 1.5l1.5 5L14.5 8l-5 1.5L8 14.5l-1.5-5L1.5 8l5-1.5z"/></svg> },
           ].map(t => (
             <button key={t.key} data-interactive title={t.title}
               onClick={() => updateSetting('selectedPalette', t.palette)}

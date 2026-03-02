@@ -610,7 +610,7 @@ export default function PlanRoomPage() {
                       {scanProgress.message || "Scanning..."}
                     </span>
                     {scanProgress.total > 0 && (
-                      <span style={{ fontSize: 10, color: C.textDim, fontFamily: "'DM Mono', monospace" }}>
+                      <span style={{ fontSize: 10, color: C.textDim, fontFamily: "'DM Sans', sans-serif" }}>
                         {scanProgress.current}/{scanProgress.total}
                       </span>
                     )}
@@ -802,7 +802,7 @@ export default function PlanRoomPage() {
                         border: `2px solid ${costColor}40`,
                         display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
                       }}>
-                        <span style={{ fontSize: 9, fontWeight: 800, color: costColor, fontFamily: "'DM Mono',monospace" }}>
+                        <span style={{ fontSize: 9, fontWeight: 800, color: costColor, fontFamily: "'DM Sans',sans-serif" }}>
                           {composite}
                         </span>
                       </div>
@@ -851,21 +851,21 @@ export default function PlanRoomPage() {
                   <div style={{ display: "flex", gap: T.space[5], marginBottom: T.space[4], padding: `${T.space[4]}px`, background: `${C.purple || C.accent}04`, borderRadius: T.radius.sm, border: `1px solid ${C.purple || C.accent}10` }}>
                     <div style={{ flex: 1, textAlign: "center" }}>
                       <div style={{ fontSize: 9, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600, marginBottom: 4 }}>Low Estimate</div>
-                      <div style={{ fontSize: T.fontSize.xl, fontWeight: T.fontWeight.bold, color: C.purple || C.accent, fontFamily: "'DM Mono',monospace" }}>
+                      <div style={{ fontSize: T.fontSize.xl, fontWeight: T.fontWeight.bold, color: C.purple || C.accent, fontFamily: "'DM Sans',sans-serif" }}>
                         ${Math.round(scanResults.rom.totals.low).toLocaleString()}
                       </div>
                     </div>
                     <div style={{ width: 1, background: `${C.purple || C.accent}15` }} />
                     <div style={{ flex: 1, textAlign: "center" }}>
                       <div style={{ fontSize: 9, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600, marginBottom: 4 }}>Mid Estimate</div>
-                      <div style={{ fontSize: T.fontSize.xl, fontWeight: T.fontWeight.bold, color: C.text, fontFamily: "'DM Mono',monospace" }}>
+                      <div style={{ fontSize: T.fontSize.xl, fontWeight: T.fontWeight.bold, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>
                         ${Math.round(scanResults.rom.totals.mid).toLocaleString()}
                       </div>
                     </div>
                     <div style={{ width: 1, background: `${C.purple || C.accent}15` }} />
                     <div style={{ flex: 1, textAlign: "center" }}>
                       <div style={{ fontSize: 9, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600, marginBottom: 4 }}>High Estimate</div>
-                      <div style={{ fontSize: T.fontSize.xl, fontWeight: T.fontWeight.bold, color: C.purple || C.accent, fontFamily: "'DM Mono',monospace" }}>
+                      <div style={{ fontSize: T.fontSize.xl, fontWeight: T.fontWeight.bold, color: C.purple || C.accent, fontFamily: "'DM Sans',sans-serif" }}>
                         ${Math.round(scanResults.rom.totals.high).toLocaleString()}
                       </div>
                     </div>
@@ -941,7 +941,7 @@ export default function PlanRoomPage() {
                           : d.type === "image" && d.data ? <img src={d.data} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                           : <span style={{ fontSize: 6, color: C.textDim, display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>PDF</span>}
                       </div>
-                      <span style={{ fontFamily: "'DM Mono',monospace", fontWeight: 700, color: C.accent, minWidth: 70, fontSize: 10 }}>
+                      <span style={{ fontFamily: "'DM Sans',sans-serif", fontWeight: 700, color: C.accent, minWidth: 70, fontSize: 10 }}>
                         {d.sheetNumber || "—"}
                       </span>
                       <span style={{ flex: 1, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -992,7 +992,7 @@ export default function PlanRoomPage() {
                     const allocated = items.some(i => i.specSection === sp.section);
                     return (
                       <div key={sp.id} style={{ display: "flex", alignItems: "center", gap: T.space[2], padding: "4px 0", borderBottom: `1px solid ${C.border}08`, fontSize: T.fontSize.xs }}>
-                        <span style={{ fontFamily: "'DM Mono',monospace", fontWeight: 600, color: C.purple || C.accent, minWidth: 70, fontSize: 10 }}>
+                        <span style={{ fontFamily: "'DM Sans',sans-serif", fontWeight: 600, color: C.purple || C.accent, minWidth: 70, fontSize: 10 }}>
                           {sp.section || "—"}
                         </span>
                         <span style={{ flex: 1, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -1039,7 +1039,7 @@ export default function PlanRoomPage() {
                   {[...novaHistory].reverse().slice(0, 10).map((h, i) => (
                     <div key={i} style={{ display: "flex", alignItems: "center", gap: T.space[2], padding: "3px 0", borderBottom: `1px solid ${C.border}06`, fontSize: 10 }}>
                       <Ic d={I.check} size={10} color={C.green} />
-                      <span style={{ color: C.textDim, fontFamily: "'DM Mono',monospace", fontSize: 9, minWidth: 60 }}>
+                      <span style={{ color: C.textDim, fontFamily: "'DM Sans',sans-serif", fontSize: 9, minWidth: 60 }}>
                         {new Date(h.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </span>
                       <span style={{ color: C.text, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -1175,7 +1175,7 @@ function FactorBar({ label, value, color, C }) {
     <div style={{ marginBottom: 6 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
         <span style={{ fontSize: 9, fontWeight: 600, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.04em" }}>{label}</span>
-        <span style={{ fontSize: 11, fontWeight: 700, color: value > 1.05 ? C.orange : value < 0.95 ? C.green : C.text, fontFamily: "'DM Mono',monospace" }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: value > 1.05 ? C.orange : value < 0.95 ? C.green : C.text, fontFamily: "'DM Sans',sans-serif" }}>
           {value.toFixed(2)}×
         </span>
       </div>
@@ -1202,7 +1202,7 @@ function StatPill({ label, value, unit, C, T, accent }) {
         <span style={{
           fontSize: T.fontSize.lg, fontWeight: T.fontWeight.bold,
           color: accent ? (C.purple || C.accent) : C.text,
-          fontFamily: typeof value === "number" || String(value).startsWith("$") ? "'DM Mono',monospace" : "'DM Sans',sans-serif",
+          fontFamily: typeof value === "number" || String(value).startsWith("$") ? "'DM Sans',sans-serif" : "'DM Sans',sans-serif",
         }}>
           {value}
         </span>

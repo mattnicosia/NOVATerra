@@ -35,14 +35,20 @@ export default function Header() {
   const activeTab = activeId ? estimateNav.find(n => currentPath.endsWith(`/${n.path}`))?.key : null;
 
   return (
-    <div style={{
+    <div className={!C.isDark ? 'scroll-edge-soft' : undefined} style={{
       minHeight: T.header.height,
       padding: `0 ${T.space[6]}px`,
-      background: C.glassBg || 'rgba(18,21,28,0.55)',
+      background: C.isDark
+        ? (C.glassBg || 'rgba(15,15,30,0.38)')
+        : `linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 50%), ${C.glassBg || 'rgba(255,255,255,0.32)'}`,
       backdropFilter: T.glass.blur,
       WebkitBackdropFilter: T.glass.blur,
-      borderBottom: `1px solid ${C.glassBorder || C.border}`,
-      boxShadow: T.shadow.sm,
+      borderBottom: `1px solid ${T.glass.border || (C.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.55)')}`,
+      boxShadow: [
+        T.glass.specular,
+        T.shadow.sm,
+        T.glass.edge,
+      ].join(', '),
       display: "flex", flexDirection: "column", justifyContent: "center",
       position: "relative", zIndex: T.z.sticky,
     }}>

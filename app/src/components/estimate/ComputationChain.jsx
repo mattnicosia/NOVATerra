@@ -149,7 +149,7 @@ function DimensionCard({ v, idx, C, updateVariable, removeVariable, nInp }) {
         placeholder="0"
         style={{
           width: 64, padding: "3px 4px", fontSize: 18, fontWeight: 700,
-          fontFamily: "'DM Mono',monospace", textAlign: "center",
+          fontFamily: "'DM Sans',sans-serif", textAlign: "center",
           color: C.text, background: `${color}06`, border: `1px solid ${color}18`,
           borderRadius: 6, outline: "none", fontFeatureSettings: "'tnum'",
         }}
@@ -290,7 +290,7 @@ export default function ComputationChain({ item }) {
           {narrative.map((seg, i) => {
             if (seg.type === "measured") {
               return (
-                <span key={i} style={{ fontWeight: 700, color: C.purple, fontFamily: "'DM Mono',monospace", fontSize: 14 }}>
+                <span key={i} style={{ fontWeight: 700, color: C.purple, fontFamily: "'DM Sans',sans-serif", fontSize: 14 }}>
                   {seg.text} <span style={{ fontSize: 11, fontWeight: 500, fontFamily: "'DM Sans',sans-serif" }}>{seg.unit}</span>
                 </span>
               );
@@ -298,7 +298,7 @@ export default function ComputationChain({ item }) {
             if (seg.type === "variable") {
               const clr = resolveColor(C, seg.color);
               return (
-                <span key={i} style={{ fontWeight: 700, color: clr, fontFamily: "'DM Mono',monospace", fontSize: 14 }}>
+                <span key={i} style={{ fontWeight: 700, color: clr, fontFamily: "'DM Sans',sans-serif", fontSize: 14 }}>
                   {seg.text}<span style={{ fontSize: 10, fontWeight: 500, fontFamily: "'DM Sans',sans-serif", marginLeft: 2 }}>{seg.unit}</span>
                   <span style={{ fontSize: 10, fontWeight: 400, color: C.textDim, fontFamily: "'DM Sans',sans-serif", marginLeft: 2 }}>{seg.label}</span>
                 </span>
@@ -308,13 +308,13 @@ export default function ComputationChain({ item }) {
               return <span key={i} style={{ color: C.textDim, fontWeight: 500, padding: "0 3px", fontSize: 14 }}>{seg.text}</span>;
             }
             if (seg.type === "constant") {
-              return <span key={i} style={{ fontWeight: 600, color: C.text, fontFamily: "'DM Mono',monospace", fontSize: 14 }}>{seg.text}</span>;
+              return <span key={i} style={{ fontWeight: 600, color: C.text, fontFamily: "'DM Sans',sans-serif", fontSize: 14 }}>{seg.text}</span>;
             }
             return null;
           })}
           <span style={{ color: C.textDim, fontWeight: 500, padding: "0 4px", fontSize: 14 }}>=</span>
           <span style={{
-            fontWeight: 800, color: chainColor, fontFamily: "'DM Mono',monospace", fontSize: 16,
+            fontWeight: 800, color: chainColor, fontFamily: "'DM Sans',sans-serif", fontSize: 16,
             background: `${chainColor}12`, padding: "2px 8px", borderRadius: 5,
           }}>
             {resultRounded} <span style={{ fontSize: 11, fontWeight: 500, fontFamily: "'DM Sans',sans-serif" }}>{fresh.unit || "EA"}</span>
@@ -331,7 +331,7 @@ export default function ComputationChain({ item }) {
           textAlign: "center", minWidth: 90,
         }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: C.purple, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 3 }}>Measured</div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: C.purple, fontFamily: "'DM Mono',monospace", fontFeatureSettings: "'tnum'" }}>{measured}</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: C.purple, fontFamily: "'DM Sans',sans-serif", fontFeatureSettings: "'tnum'" }}>{measured}</div>
           <div style={{ fontSize: 10, color: C.textDim, marginTop: 2 }}>{fresh.unit || "EA"}</div>
         </div>
 
@@ -357,7 +357,7 @@ export default function ComputationChain({ item }) {
               boxShadow: `0 2px 12px ${chainColor}12`,
             }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: chainColor, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 3 }}>Result</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: chainColor, fontFamily: "'DM Mono',monospace", fontFeatureSettings: "'tnum'" }}>{resultRounded}</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: chainColor, fontFamily: "'DM Sans',sans-serif", fontFeatureSettings: "'tnum'" }}>{resultRounded}</div>
               <div style={{ fontSize: 10, color: C.textDim, marginTop: 2 }}>{fresh.unit || "EA"}</div>
             </div>
           </>
@@ -455,7 +455,7 @@ export default function ComputationChain({ item }) {
             placeholder='e.g. Qty * Height / 27'
             style={inp(C, {
               flex: 1, maxWidth: 400, padding: "6px 10px", fontSize: 13,
-              fontFamily: "'DM Mono',monospace", fontWeight: 500,
+              fontFamily: "'DM Sans',sans-serif", fontWeight: 500,
               background: C.bg, border: `1px solid ${formula ? C.orange + "30" : C.border}`,
               borderRadius: 6,
             })}

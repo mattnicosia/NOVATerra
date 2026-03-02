@@ -336,14 +336,14 @@ function DeltaRow({ C, T, label, value, pct, large }) {
       <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
         <span style={{
           fontSize: large ? T.fontSize.md : T.fontSize.sm,
-          fontFamily: "'DM Mono',monospace",
+          fontFamily: "'DM Sans',sans-serif",
           fontWeight: large ? T.fontWeight.bold : T.fontWeight.medium,
           color,
         }}>
           {isPositive ? "+" : ""}{fmt(value)}
         </span>
         {pct !== undefined && !isZero && (
-          <span style={{ fontSize: 9, color, fontFamily: "'DM Mono',monospace" }}>
+          <span style={{ fontSize: 9, color, fontFamily: "'DM Sans',sans-serif" }}>
             ({isPositive ? "+" : ""}{pct.toFixed(1)}%)
           </span>
         )}
@@ -362,12 +362,12 @@ function DeltaCard({ C, T, label, delta, pct, isCurrency = true }) {
       <div style={{ ...sectionLabel(C), marginBottom: 4 }}>{label}</div>
       <div style={{
         fontSize: T.fontSize.lg, fontWeight: T.fontWeight.heavy,
-        fontFamily: "'DM Mono',monospace", color,
+        fontFamily: "'DM Sans',sans-serif", color,
       }}>
         {isPositive ? "+" : ""}{isCurrency ? fmt(delta) : delta}
       </div>
       {pct !== undefined && !isZero && (
-        <div style={{ fontSize: T.fontSize.xs, color, fontFamily: "'DM Mono',monospace" }}>
+        <div style={{ fontSize: T.fontSize.xs, color, fontFamily: "'DM Sans',sans-serif" }}>
           ({isPositive ? "+" : ""}{pct.toFixed(1)}%)
         </div>
       )}
@@ -390,7 +390,7 @@ function DivisionRow({ C, T, label, d }) {
         <span style={{ fontSize: T.fontSize.sm, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 160 }}>
           {label}
         </span>
-        <span style={{ fontSize: T.fontSize.sm, fontFamily: "'DM Mono',monospace", color, flexShrink: 0 }}>
+        <span style={{ fontSize: T.fontSize.sm, fontFamily: "'DM Sans',sans-serif", color, flexShrink: 0 }}>
           {isPositive ? "+" : ""}{fmt(d.totalDelta)}
         </span>
       </div>

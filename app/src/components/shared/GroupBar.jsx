@@ -11,6 +11,7 @@ import { bt } from '@/utils/styles';
 export default function GroupBar() {
   const C = useTheme();
   const T = C.T;
+  const dk = C.isDark;
 
   const groups = useGroupsStore(s => s.groups);
   const addGroup = useGroupsStore(s => s.addGroup);
@@ -155,9 +156,13 @@ export default function GroupBar() {
   return (
     <>
       <div style={{
-        display: "flex", alignItems: "center", gap: 2, padding: "4px 8px",
-        background: C.glassBg, borderRadius: T.radius.md,
-        border: `1px solid ${C.glassBorder}`,
+        display: "flex", alignItems: "center", gap: 3, padding: "4px 8px",
+        background: dk ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.08)',
+        backdropFilter: T.glass.blurLight,
+        WebkitBackdropFilter: T.glass.blurLight,
+        borderRadius: T.radius.md,
+        border: `0.5px solid ${dk ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.18)'}`,
+        boxShadow: [T.glass.specularSm, T.glass.edge].join(', '),
         flexShrink: 0, overflowX: "auto", minHeight: 36,
       }}>
         {groups.map(g => {
@@ -180,17 +185,32 @@ export default function GroupBar() {
                 padding: "5px 10px", borderRadius: T.radius.sm,
                 cursor: "pointer", whiteSpace: "nowrap", fontSize: 11, fontWeight: 600,
                 fontFamily: "'DM Sans', sans-serif",
-                transition: "all 0.15s",
-                background: isActive ? (C.gradient || C.accent) : "transparent",
-                color: isActive ? "#fff" : C.textDim,
-                border: isDragOver ? `2px solid ${C.accent}` : "2px solid transparent",
-                boxShadow: isDragOver ? `0 0 8px ${C.accent}40` : "none",
+                transition: "all 0.25s ease",
+                background: isActive
+                  ? (dk ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.30)')
+                  : "transparent",
+                color: isActive ? C.text : C.textDim,
+                border: isDragOver
+                  ? `1px solid ${C.accent}60`
+                  : isActive
+                    ? `0.5px solid ${dk ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.40)'}`
+                    : "0.5px solid transparent",
+                boxShadow: isDragOver
+                  ? `0 0 8px ${C.accent}30`
+                  : isActive
+                    ? [
+                        `inset 0 0.5px 0 ${dk ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.55)'}`,
+                        `0 0 0 0.5px ${dk ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.15)'}`,
+                      ].join(', ')
+                    : "none",
+                backdropFilter: isActive ? 'blur(8px) saturate(150%)' : 'none',
+                WebkitBackdropFilter: isActive ? 'blur(8px) saturate(150%)' : 'none',
               }}
             >
               {ind && (
                 <span style={{
-                  fontSize: 10, fontWeight: 800, color: isActive ? "#fff" : ind.color,
-                  lineHeight: 1, marginRight: 1,
+                  fontSize: 10, fontWeight: 800, color: isActive ? ind.color : ind.color,
+                  lineHeight: 1, marginRight: 1, opacity: isActive ? 0.9 : 0.7,
                 }}>
                   {ind.char}
                 </span>
@@ -216,8 +236,10 @@ export default function GroupBar() {
               )}
 
               <span style={{
-                fontSize: 9, opacity: 0.7, fontWeight: 500,
-                background: isActive ? "rgba(255,255,255,0.2)" : `${C.accent}15`,
+                fontSize: 9, opacity: 0.65, fontWeight: 500,
+                background: isActive
+                  ? (dk ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)')
+                  : (dk ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'),
                 padding: "1px 5px", borderRadius: 8, minWidth: 16, textAlign: "center",
               }}>
                 {count}

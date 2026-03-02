@@ -68,7 +68,7 @@
 ---
 
 ## REPLICATION TIMELINE
-| Who | Time to Replicate BLDG Omni Features |
+| Who | Time to Replicate NOVATerra Features |
 |---|---|
 | Autodesk | 18-30 months (has data, distracted by Forma consolidation) |
 | Procore | 24-36 months (estimating not priority, CEO transition) |
@@ -81,13 +81,13 @@
 4. Legacy architecture in estimating products (Esticom, ProEst)
 5. Organizational transitions (Procore: new CEO; Autodesk: 9% layoff)
 
-## BLDG OMNI'S DEFENSIBLE ADVANTAGES
+## NOVATERRA'S DEFENSIBLE ADVANTAGES
 1. 9-schedule-type parsing — depth neither has attempted
 2. Calibration feedback loop — improves with every project
 3. AI-native (no legacy debt) — ships daily vs. their monthly cadence
 4. Incumbents' attention is elsewhere
 
-## BLDG OMNI'S VULNERABILITIES
+## NOVATERRA'S VULNERABILITIES
 1. Distribution — Autodesk adds 400 ACC logos/quarter
 2. Data scale — they have millions of plan sets to train on
 3. Bundle pricing — they can offer estimating "free" with platform

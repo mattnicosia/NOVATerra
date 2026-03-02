@@ -95,7 +95,7 @@ export default function AdminEstimateDetail() {
             flex: "1 1 150px", minWidth: 150,
           }}>
             <div style={{ fontSize: 10, color: C.textMuted, marginBottom: 4 }}>{s.label}</div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: s.color, fontFamily: "'DM Mono', monospace" }}>
+            <div style={{ fontSize: 24, fontWeight: 700, color: s.color, fontFamily: "'DM Sans', sans-serif" }}>
               {s.value}
             </div>
           </div>
@@ -134,10 +134,10 @@ export default function AdminEstimateDetail() {
                   {item.description || item.name || "—"}
                 </span>
                 <span style={{ color: C.textMuted }}>{item.trade || item.division || "—"}</span>
-                <span style={{ textAlign: "right", color: C.textDim, fontFamily: "'DM Mono', monospace" }}>
+                <span style={{ textAlign: "right", color: C.textDim, fontFamily: "'DM Sans', sans-serif" }}>
                   {item.quantity ?? "—"}
                 </span>
-                <span style={{ textAlign: "right", color: C.text, fontFamily: "'DM Mono', monospace", fontWeight: 500 }}>
+                <span style={{ textAlign: "right", color: C.text, fontFamily: "'DM Sans', sans-serif", fontWeight: 500 }}>
                   {item.total ? `$${Math.round(item.total).toLocaleString()}` : "—"}
                 </span>
               </div>
@@ -169,7 +169,7 @@ export default function AdminEstimateDetail() {
             marginTop: 12, padding: 16, borderRadius: T.radius.sm,
             background: "rgba(0,0,0,0.3)", border: `1px solid ${C.border}`,
             fontSize: 10, color: C.textMuted,
-            fontFamily: "'DM Mono', monospace",
+            fontFamily: "'DM Sans', sans-serif",
             overflow: "auto", maxHeight: 500,
             whiteSpace: "pre-wrap", wordBreak: "break-word",
           }}>

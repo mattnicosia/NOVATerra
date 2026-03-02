@@ -111,16 +111,16 @@ export default function AdminUsersPage() {
                 <span style={{ color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {u.name || "—"}
                 </span>
-                <span style={{ color: C.textDim, fontFamily: "'DM Mono', monospace", fontSize: 11 }}>
+                <span style={{ color: C.textDim, fontFamily: "'DM Sans', sans-serif", fontSize: 11 }}>
                   {u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}
                 </span>
-                <span style={{ color: C.textDim, fontFamily: "'DM Mono', monospace", fontSize: 11 }}>
+                <span style={{ color: C.textDim, fontFamily: "'DM Sans', sans-serif", fontSize: 11 }}>
                   {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleDateString() : "never"}
                 </span>
-                <span style={{ textAlign: "right", color: C.text, fontWeight: 600, fontFamily: "'DM Mono', monospace" }}>
+                <span style={{ textAlign: "right", color: C.text, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
                   {u.estimateCount}
                 </span>
-                <span style={{ textAlign: "right", color: C.text, fontWeight: 600, fontFamily: "'DM Mono', monospace" }}>
+                <span style={{ textAlign: "right", color: C.text, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
                   {u.embeddingCount}
                 </span>
               </div>

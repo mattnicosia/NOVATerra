@@ -73,16 +73,16 @@ export default function DivisionDeepDive() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>{meta.label}</div>
-                  <div style={{ fontSize: 8, color: C.textDim, fontFamily: "'DM Mono',monospace" }}>
+                  <div style={{ fontSize: 8, color: C.textDim, fontFamily: "'DM Sans',sans-serif" }}>
                     Div {meta.codes}
                   </div>
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: C.text, fontFamily: "'DM Mono',monospace" }}>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>
                     {d.index.toFixed(1)}
                   </div>
                   <div style={{
-                    fontSize: 9, fontWeight: 700, fontFamily: "'DM Mono',monospace",
+                    fontSize: 9, fontWeight: 700, fontFamily: "'DM Sans',sans-serif",
                     color: d.yoy > 3 ? C.orange : d.yoy > 0 ? C.green : C.textDim,
                   }}>
                     {d.yoy > 0 ? "+" : ""}{d.yoy.toFixed(1)}% YoY
@@ -103,7 +103,7 @@ export default function DivisionDeepDive() {
                       <div key={f.code} style={{
                         fontSize: 8, padding: "2px 5px", borderRadius: 3,
                         background: `${color}12`, color,
-                        fontFamily: "'DM Mono',monospace", fontWeight: 600,
+                        fontFamily: "'DM Sans',sans-serif", fontWeight: 600,
                       }}>
                         {f.code}: {pct > 0 ? "+" : ""}{pct}%
                       </div>

@@ -1,4 +1,4 @@
-# BLDG Omni — Business Plan & Go-To-Market Strategy
+# NOVATerra — Business Plan & Go-To-Market Strategy
 **Created: February 25, 2026**
 
 ---
@@ -15,11 +15,11 @@
 
 ## COMPETITIVE POSITION
 
-BLDG Omni occupies an **empty quadrant**: AI-native + full estimating. No competitor is here.
+NOVATerra occupies an **empty quadrant**: AI-native + full estimating. No competitor is here.
 
 | | AI-Native | Legacy/Minimal AI |
 |---|---|---|
-| **Full Estimating** | **BLDG Omni (ALONE)** | Sage ($365/mo), Procore ($375+/mo), STACK ($1,899/yr) |
+| **Full Estimating** | **NOVATerra (ALONE)** | Sage ($365/mo), Procore ($375+/mo), STACK ($1,899/yr) |
 | **Takeoff Only** | Togal.AI ($22M raised), Attentive.ai ($49M raised) | Bluebeam ($260-440/yr), OST |
 
 ### Unique Advantages
@@ -93,4 +93,4 @@ Breakeven: 1-2 paying Pro customers.
 
 ## LONG-TERM PLAY
 
-**"Bloomberg Terminal of Construction Costs"**: Every estimate creates proprietary cost data. At 1,000+ users, aggregate anonymized data → sell market intelligence. RSMeans charges $2K-$10K/year for quarterly data. BLDG Omni data would be real-time from actual bids. $20M-$100M revenue opportunity.
+**"Bloomberg Terminal of Construction Costs"**: Every estimate creates proprietary cost data. At 1,000+ users, aggregate anonymized data → sell market intelligence. RSMeans charges $2K-$10K/year for quarterly data. NOVATerra data would be real-time from actual bids. $20M-$100M revenue opportunity.

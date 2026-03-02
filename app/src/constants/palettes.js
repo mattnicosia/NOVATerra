@@ -43,13 +43,15 @@ export const C_DEFAULT = {
   forceDark: true,
 };
 
-// Shared light-mode base
+// Shared light-mode base — Liquid Glass v2: ultra-transparent glass over vivid backgrounds
+// Apple WWDC25: "Light is bent, shaped, and concentrated — not obscured."
+// Glass must be transparent enough that the colorful mesh background bleeds through clearly.
 const LB = {
   border: "#D1D1D6", borderLight: "#E5E5EA",
   green: "#30D158", red: "#FF3B30", blue: "#0A84FF", purple: "#BF5AF2",
   orange: "#FF9500", cyan: "#64D2FF", yellow: "#FFD60A",
-  glassBg: "rgba(255,255,255,0.55)", glassBorder: "rgba(0,0,0,0.08)",
-  glassBgDark: "rgba(255,255,255,0.72)",
+  glassBg: "rgba(255,255,255,0.38)", glassBorder: "rgba(255,255,255,0.50)",
+  glassBgDark: "rgba(255,255,255,0.52)",
 };
 
 // Helper: hex to rgba
@@ -171,25 +173,25 @@ export const PALETTES = [
         gradient: "linear-gradient(135deg, #C084FC, #64D2FF)", gradientSubtle: `linear-gradient(135deg, ${hR("#C084FC", 0.12)}, ${hR("#64D2FF", 0.12)})`, gradientText: "linear-gradient(135deg, #C084FC, #64D2FF)",
         sidebarBg: "rgba(6,9,28,0.90)",
       },
-      { // 3 — NOVA Light
-        bg: "#F5F3FF", bg1: "#FFFFFF", bg2: "#EDE9FC", bg3: "#E0D8F5",
-        border: "#CCC0E8", borderLight: "#E0D8F5", borderAccent: hR("#7C3AED", 0.15),
+      { // 3 — NOVA Light: barely purple neutral
+        bg: "#F8F7FC", bg1: "#FFFFFF", bg2: "#F0EEF6", bg3: "#E8E5EE",
+        border: "#D4D0DE", borderLight: "#E2DFEA", borderAccent: hR("#7C3AED", 0.15),
         text: "#1A1030", textMuted: "#5A4E80", textDim: "#9890BC",
         accent: "#7C3AED", accentDim: dk("#7C3AED"), accentBg: hR("#7C3AED", 0.08), accentAlt: "#3B82F6",
         gradient: "linear-gradient(135deg, #7C3AED, #3B82F6)", gradientSubtle: `linear-gradient(135deg, ${hR("#7C3AED", 0.08)}, ${hR("#3B82F6", 0.08)})`, gradientText: "linear-gradient(135deg, #7C3AED, #3B82F6)",
-        ...LB, border: "#CCC0E8", borderLight: "#E0D8F5",
-        sidebarBg: "rgba(245,243,255,0.85)",
-        bgGradient: `radial-gradient(ellipse at 20% 20%, ${hR("#7C3AED",0.08)} 0%, transparent 50%), radial-gradient(ellipse at 80% 20%, ${hR("#3B82F6",0.06)} 0%, transparent 50%), #F5F3FF`,
+        ...LB, border: "#D4D0DE", borderLight: "#E2DFEA",
+        sidebarBg: "rgba(248,247,252,0.90)",
+        bgGradient: `radial-gradient(ellipse at 18% 12%, ${hR("#7C3AED",0.12)} 0%, transparent 50%), radial-gradient(ellipse at 82% 22%, ${hR("#3B82F6",0.10)} 0%, transparent 50%), radial-gradient(ellipse at 50% 78%, ${hR("#C084FC",0.08)} 0%, transparent 50%), #F8F7FC`,
       },
-      { // 4 — Stardust — light blue-tint
-        bg: "#F3F4FA", bg1: "#FFFFFF", bg2: "#EAECF8", bg3: "#DDDFE8",
-        border: "#C4C8E0", borderLight: "#DDDFE8", borderAccent: hR("#3B82F6", 0.15),
+      { // 4 — Stardust — barely blue neutral
+        bg: "#F6F7FB", bg1: "#FFFFFF", bg2: "#EDEEF5", bg3: "#E4E5ED",
+        border: "#CDD0DC", borderLight: "#DDDFE8", borderAccent: hR("#3B82F6", 0.15),
         text: "#101830", textMuted: "#4A5078", textDim: "#9098BC",
         accent: "#3B82F6", accentDim: dk("#3B82F6"), accentBg: hR("#3B82F6", 0.08), accentAlt: "#7C3AED",
         gradient: "linear-gradient(135deg, #3B82F6, #7C3AED)", gradientSubtle: `linear-gradient(135deg, ${hR("#3B82F6", 0.08)}, ${hR("#7C3AED", 0.08)})`, gradientText: "linear-gradient(135deg, #3B82F6, #7C3AED)",
-        ...LB, border: "#C4C8E0", borderLight: "#DDDFE8",
-        sidebarBg: "rgba(243,244,250,0.85)",
-        bgGradient: `radial-gradient(ellipse at 20% 20%, ${hR("#3B82F6",0.08)} 0%, transparent 50%), radial-gradient(ellipse at 80% 20%, ${hR("#7C3AED",0.06)} 0%, transparent 50%), #F3F4FA`,
+        ...LB, border: "#CDD0DC", borderLight: "#DDDFE8",
+        sidebarBg: "rgba(246,247,251,0.90)",
+        bgGradient: `radial-gradient(ellipse at 18% 12%, ${hR("#3B82F6",0.12)} 0%, transparent 50%), radial-gradient(ellipse at 82% 22%, ${hR("#7C3AED",0.10)} 0%, transparent 50%), radial-gradient(ellipse at 50% 72%, ${hR("#60A5FA",0.08)} 0%, transparent 50%), #F6F7FB`,
       },
     ],
   },
@@ -233,17 +235,17 @@ export const PALETTES = [
         gradient: "linear-gradient(135deg, #404040, #808080)", gradientSubtle: "linear-gradient(135deg, rgba(64,64,64,0.06), rgba(128,128,128,0.06))", gradientText: "linear-gradient(135deg, #404040, #808080)",
         ...LB, border: "#D0D0D0", borderLight: "#E0E0E0",
         sidebarBg: "rgba(245,245,245,0.85)",
-        bgGradient: `radial-gradient(ellipse at 20% 20%, rgba(64,64,64,0.06) 0%, transparent 50%), radial-gradient(ellipse at 80% 20%, rgba(128,128,128,0.05) 0%, transparent 50%), #F5F5F5`,
+        bgGradient: `radial-gradient(ellipse at 12% 12%, rgba(64,64,64,0.11) 0%, transparent 45%), radial-gradient(ellipse at 88% 22%, rgba(128,128,128,0.09) 0%, transparent 45%), radial-gradient(ellipse at 50% 72%, rgba(80,80,80,0.07) 0%, transparent 50%), #F5F5F5`,
       },
       { // 4 — Fog
-        bg: "#F0F0F0", bg1: "#FAFAFA", bg2: "#E8E8E8", bg3: "#DADADA",
-        border: "#C8C8C8", borderLight: "#DADADA", borderAccent: "rgba(128,128,128,0.12)",
+        bg: "#F2F2F2", bg1: "#FAFAFA", bg2: "#EAEAEA", bg3: "#DCDCDC",
+        border: "#CACACA", borderLight: "#DCDCDC", borderAccent: "rgba(128,128,128,0.12)",
         text: "#1A1A1A", textMuted: "#606060", textDim: "#A0A0A0",
         accent: "#808080", accentDim: "#606060", accentBg: "rgba(128,128,128,0.06)", accentAlt: "#404040",
         gradient: "linear-gradient(135deg, #808080, #404040)", gradientSubtle: "linear-gradient(135deg, rgba(128,128,128,0.06), rgba(64,64,64,0.06))", gradientText: "linear-gradient(135deg, #808080, #404040)",
-        ...LB, border: "#C8C8C8", borderLight: "#DADADA",
-        sidebarBg: "rgba(240,240,240,0.85)",
-        bgGradient: `radial-gradient(ellipse at 20% 20%, rgba(128,128,128,0.06) 0%, transparent 50%), radial-gradient(ellipse at 80% 20%, rgba(64,64,64,0.05) 0%, transparent 50%), #F0F0F0`,
+        ...LB, border: "#CACACA", borderLight: "#DCDCDC",
+        sidebarBg: "rgba(242,242,242,0.88)",
+        bgGradient: `radial-gradient(ellipse at 12% 12%, rgba(128,128,128,0.11) 0%, transparent 45%), radial-gradient(ellipse at 88% 22%, rgba(64,64,64,0.09) 0%, transparent 45%), radial-gradient(ellipse at 50% 68%, rgba(100,100,100,0.07) 0%, transparent 50%), #F2F2F2`,
       },
     ],
   },
@@ -272,33 +274,33 @@ export const PALETTES = [
     },
     variants: [
       null, // 0 — Graphite (dark base, system forces light for main)
-      { // 1 — Clean: pure white
-        bg: "#FFFFFF", bg1: "#FFFFFF", bg2: "#F2F2F7", bg3: "#E5E5EA",
-        border: "#D1D1D6", borderLight: "#E5E5EA", borderAccent: hR("#007AFF", 0.12),
+      { // 1 — Clean: neutral near-white so vivid mesh bleeds through glass
+        bg: "#F5F6FA", bg1: "#FFFFFF", bg2: "#ECEEF4", bg3: "#E3E5ED",
+        border: "#CCCFD8", borderLight: "#DDDFE6", borderAccent: hR("#007AFF", 0.15),
         text: "#1D1D1F", textMuted: "#8E8E93", textDim: "#AEAEB2",
-        ...LB, border: "#D1D1D6", borderLight: "#E5E5EA",
-        sidebarBg: "rgba(255,255,255,0.92)",
-        bgGradient: "#FFFFFF",
+        ...LB, border: "#CCCFD8", borderLight: "#DDDFE6",
+        sidebarBg: "rgba(245,246,250,0.92)",
+        bgGradient: `radial-gradient(ellipse at 8% 6%, ${hR("#007AFF",0.14)} 0%, transparent 55%), radial-gradient(ellipse at 92% 85%, ${hR("#5AC8FA",0.12)} 0%, transparent 55%), radial-gradient(ellipse at 50% 42%, ${hR("#BF5AF2",0.10)} 0%, transparent 50%), radial-gradient(ellipse at 78% 55%, ${hR("#30D158",0.08)} 0%, transparent 45%), #F5F6FA`,
       },
-      { // 2 — Warm: cream tint
-        bg: "#FAF9F6", bg1: "#FFFFFF", bg2: "#F3F1EC", bg3: "#EAE7DF",
-        border: "#D5D2C9", borderLight: "#E7E4DB", borderAccent: hR("#007AFF", 0.12),
+      { // 2 — Warm: barely warm neutral → translucent glass cards
+        bg: "#F9F8F5", bg1: "#FFFFFF", bg2: "#F0EEEA", bg3: "#E6E4DF",
+        border: "#D5D2CC", borderLight: "#E0DDD7", borderAccent: hR("#007AFF", 0.15),
         text: "#1D1D1F", textMuted: "#8A877E", textDim: "#AEABA3",
-        ...LB, border: "#D5D2C9", borderLight: "#E7E4DB",
-        sidebarBg: "rgba(250,249,246,0.92)",
-        bgGradient: "#FAF9F6",
+        ...LB, border: "#D5D2CC", borderLight: "#E0DDD7",
+        sidebarBg: "rgba(249,248,245,0.92)",
+        bgGradient: `radial-gradient(ellipse at 12% 10%, ${hR("#007AFF",0.10)} 0%, transparent 50%), radial-gradient(ellipse at 88% 82%, ${hR("#FF9500",0.08)} 0%, transparent 50%), radial-gradient(ellipse at 50% 48%, ${hR("#FF6B6B",0.06)} 0%, transparent 50%), #F9F8F5`,
       },
-      { // 3 — Cool: blue-gray tint
-        bg: "#F5F7FA", bg1: "#FFFFFF", bg2: "#ECF0F5", bg3: "#DDE3EC",
-        border: "#C8D0DA", borderLight: "#DDE3EC", borderAccent: hR("#0A84FF", 0.12),
+      { // 3 — Cool: barely cool neutral → translucent glass cards
+        bg: "#F5F6FA", bg1: "#FFFFFF", bg2: "#ECEEF3", bg3: "#E2E5EC",
+        border: "#CDD1DA", borderLight: "#DDDFE8", borderAccent: hR("#0A84FF", 0.15),
         text: "#1D1D1F", textMuted: "#6B7280", textDim: "#9CA3AF",
         accent: "#0A84FF", accentDim: "#0066CC", accentBg: hR("#0A84FF", 0.08), accentAlt: "#64D2FF",
         gradient: "linear-gradient(135deg, #0A84FF, #64D2FF)",
         gradientSubtle: `linear-gradient(135deg, ${hR("#0A84FF", 0.08)}, ${hR("#64D2FF", 0.08)})`,
         gradientText: "linear-gradient(135deg, #0A84FF, #64D2FF)",
-        ...LB, border: "#C8D0DA", borderLight: "#DDE3EC",
-        sidebarBg: "rgba(245,247,250,0.92)",
-        bgGradient: "#F5F7FA",
+        ...LB, border: "#CDD1DA", borderLight: "#DDDFE8",
+        sidebarBg: "rgba(245,246,250,0.92)",
+        bgGradient: `radial-gradient(ellipse at 8% 8%, ${hR("#0A84FF",0.12)} 0%, transparent 50%), radial-gradient(ellipse at 92% 22%, ${hR("#64D2FF",0.10)} 0%, transparent 50%), radial-gradient(ellipse at 42% 72%, ${hR("#5E5CE6",0.08)} 0%, transparent 50%), #F5F6FA`,
       },
     ],
   },

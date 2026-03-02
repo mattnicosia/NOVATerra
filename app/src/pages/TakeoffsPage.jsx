@@ -4,15 +4,16 @@ import { useDrawingsStore } from '@/stores/drawingsStore';
 import { useTakeoffsStore } from '@/stores/takeoffsStore';
 import { useItemsStore } from '@/stores/itemsStore';
 import { useProjectStore } from '@/stores/projectStore';
+import { useSpecsStore } from '@/stores/specsStore';
 import { useUiStore } from '@/stores/uiStore';
 import { useDatabaseStore } from '@/stores/databaseStore';
 import Ic from '@/components/shared/Ic';
 import { I } from '@/constants/icons';
-import { inp, nInp, bt } from '@/utils/styles';
+import { inp, nInp, bt, truncate } from '@/utils/styles';
 import { uid, nn, fmt2, nowStr } from '@/utils/format';
 import { UNITS } from '@/constants/units';
 import { PDF_RENDER_DPI, DEFAULT_IMAGE_DPI } from '@/constants/scales';
-import { callAnthropic, callAnthropicStream, optimizeImageForAI, imageBlock, cropImageRegion } from '@/utils/ai';
+import { callAnthropic, callAnthropicStream, optimizeImageForAI, imageBlock, cropImageRegion, buildProjectContext } from '@/utils/ai';
 import { useModuleStore } from '@/stores/moduleStore';
 import { useModelStore } from '@/stores/modelStore';
 import { outlineToFeet, detectBuildingOutline, ensureDrawingImage } from '@/utils/outlineDetector';
@@ -22,13 +23,78 @@ import TakeoffDimensionEngine from '@/components/takeoffs/TakeoffDimensionEngine
 import TakeoffCommandPalette from '@/components/takeoffs/TakeoffCommandPalette';
 import GroupBar from '@/components/shared/GroupBar';
 import { extractPageData, isExtracted } from '@/utils/pdfExtractor';
-import { runPredictions, runSmartPredictions, scanAllSheets, findNearbyPrediction } from '@/utils/predictiveEngine';
+import { runSmartPredictions, scanAllSheets, findNearbyPrediction, warmPredictions, recordPredictionFeedback } from '@/utils/predictiveEngine';
 import { extractSchedules, scanAllDrawingsForSchedules } from '@/utils/scheduleParser';
 import { analyzeDrawingGeometry, generateAutoMeasurements } from '@/utils/geometryEngine';
 import { evalCondition } from '@/utils/moduleCalc';
+import { autoTradeFromCode } from '@/constants/tradeGroupings';
 import NotesPanel from '@/components/estimate/NotesPanel';
+import NovaOrb from '@/components/dashboard/NovaOrb';
+import { MessageBubble, ActionCards, QUICK_ACTIONS } from '@/components/ai/AIChatPanel';
+import { NOVA_TOOLS, executeNovaTool } from '@/utils/novaTools';
 
 const TO_COLORS = ["#E53E3E", "#38A169", "#3182CE", "#DD6B20", "#805AD5", "#D53F8C", "#2B6CB0", "#C53030"];
+
+// ─── NOVA Prefetch + Session Cache ──────────────────────────────────────
+const _novaCache = new Map();          // key (lowercase trimmed) → { result | error, timestamp }
+
+function _novaCacheEvict() {
+  if (_novaCache.size <= 10) return;
+  let oldest = null, oldestKey = null;
+  _novaCache.forEach((v, k) => { if (!oldest || v.timestamp < oldest) { oldest = v.timestamp; oldestKey = k; } });
+  if (oldestKey) _novaCache.delete(oldestKey);
+}
+
+const NOVA_SYSTEM_PROMPT = `You are a construction cost estimator. Given an item description, return a JSON object with CSI code, description, unit, and unit pricing.
+
+Determine if the item is a SINGLE item or MULTI-PART scope item:
+- SINGLE: Items with a single unit rate (e.g., "fire extinguisher cabinet", "black metal siding", "carpet tile")
+- MULTI: Items that are typically composed of multiple sub-components (e.g., "drywall partition" = studs + GWB + taping + insulation)
+
+Return ONLY valid JSON (no markdown fences, no explanation):
+
+For SINGLE items:
+{ "type": "single", "code": "07.46.23", "description": "Black Metal Siding - 24ga Standing Seam", "unit": "SF", "division": "07 - Thermal & Moisture Protection", "material": 8.50, "labor": 4.25, "equipment": 0.50, "subcontractor": 0 }
+
+For MULTI-PART items:
+{ "type": "multi", "groupName": "Drywall Partition", "items": [
+  { "code": "09.22.16", "description": "Metal Studs 3-5/8\\" 25ga", "unit": "SF", "division": "09 - Finishes", "material": 1.85, "labor": 2.10, "equipment": 0, "subcontractor": 0 },
+  { "code": "09.29.10", "description": "5/8\\" Type X GWB Both Sides", "unit": "SF", "division": "09 - Finishes", "material": 1.20, "labor": 1.50, "equipment": 0, "subcontractor": 0 }
+]}
+
+Rules:
+- Use standard CSI MasterFormat codes (XX.XX.XX format)
+- Include division name as "XX - Name"
+- Be specific in descriptions
+- Base pricing on current US market UNIT rates (cost per unit)
+- Set subcontractor > 0 for trades typically subbed out (electrical, plumbing, HVAC, fire protection)
+- For multi-part, include 2-6 component items
+- Return ONLY the JSON object, nothing else`;
+
+function buildNovaUserMsg(inputText, project) {
+  const contextLines = [
+    project.name && project.name !== "New Estimate" && `Project: ${project.name}`,
+    project.client && `Client: ${project.client}`,
+    project.buildingType && `Building Type: ${project.buildingType}`,
+    project.workType && `Work Type: ${project.workType}`,
+    project.projectSF && `Project SF: ${nn(project.projectSF).toLocaleString()}`,
+    project.floorCount && `Floors: ${project.floorCount}`,
+    project.jobType && `Job Type: ${project.jobType}`,
+    project.address && `Location: ${project.address}`,
+    project.zipCode && `Zip: ${project.zipCode}`,
+  ].filter(Boolean);
+  return inputText.trim() + (contextLines.length > 0
+    ? "\n\nProject context:\n" + contextLines.join("\n")
+    : "");
+}
+
+function parseNovaResponse(text) {
+  const clean = text.replace(/```json\n?|```/g, "").trim();
+  const parsed = JSON.parse(clean);
+  if (parsed.type === "single" && parsed.code && parsed.description) return { result: parsed };
+  if (parsed.type === "multi" && Array.isArray(parsed.items) && parsed.items.length > 0) return { result: parsed };
+  return { error: "NOVA couldn't identify this item" };
+}
 
 // Parse complete JSON objects from a partial/streaming JSON array string
 function parsePartialJsonArray(text) {
@@ -166,7 +232,7 @@ export default function TakeoffsPage() {
   const tkDragTakeoff = useRef(null);
   const tkDragOverTakeoff = useRef(null);
   const tkLastWheelX = useRef(0);  // tracks recent deltaX to detect trackpad vs mouse
-  const thumbnailStripRef = useRef(null);
+  const compactStripRef = useRef(null);
   const shiftHeldRef = useRef(false);
   const rafCursorRef = useRef(null);
   const pendingCursorRef = useRef(null);
@@ -187,7 +253,7 @@ export default function TakeoffsPage() {
   }, []);
 
   // Page filter: "all" shows every takeoff, "page" shows only those with measurements on current drawing
-  const [pageFilter, setPageFilter] = useState("all");
+  const [pageFilter, setPageFilter] = useState("page");
   // Panel mode: "auto" = collapse on measure/reopen on stop, "open" = always open, "closed" = always closed
   const [tkPanelMode, setTkPanelMode] = useState("auto");
 
@@ -211,10 +277,17 @@ export default function TakeoffsPage() {
   // Geometry Analysis (wall/room detection from vectors)
   const [geoAnalysis, setGeoAnalysis] = useState({ loading: false, results: null });
 
+  // Measurement micro-feedback — flash takeoff ID when measurement completes
+  const [measureFlashId, setMeasureFlashId] = useState(null);
+  const measureFlashTimer = useRef(null);
+  const triggerMeasureFlash = useCallback((toId) => {
+    setMeasureFlashId(toId);
+    if (measureFlashTimer.current) clearTimeout(measureFlashTimer.current);
+    measureFlashTimer.current = setTimeout(() => setMeasureFlashId(null), 600);
+  }, []);
+
   // Toolbar dropdowns
-  const [aiMenuOpen, setAiMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const aiMenuBtnRef = useRef(null);
   const settingsBtnRef = useRef(null);
 
   // Takeoff Command Palette
@@ -225,26 +298,35 @@ export default function TakeoffsPage() {
   const toggleGroupCollapse = (group) =>
     setCollapsedGroups(prev => ({ ...prev, [group]: !prev[group] }));
 
+  // AI item lookup state for search dropdown
+  // null = idle, "loading" = waiting for AI, { result } = AI returned data, { error } = AI failed
+  const [aiLookup, setAiLookup] = useState(null);
+
   // Cross-sheet scan results
   const [crossSheetScan, setCrossSheetScan] = useState(null); // { tag, results: [{drawingId, sheetNumber, instanceCount}], scanning }
 
+  // NOVA Chat — inline state (reuses uiStore for persistence)
+  const novaChatMessages = useUiStore(s => s.aiChatMessages);
+  const setNovaChatMessages = useUiStore(s => s.setAiChatMessages);
+  const [novaChatInput, setNovaChatInput] = useState("");
+  const [novaChatLoading, setNovaChatLoading] = useState(false);
+  const novaChatScrollRef = useRef(null);
+  const novaChatInputRef = useRef(null);
+
+  // + button mini-menu state
+  const [plusMenuOpen, setPlusMenuOpen] = useState(false);
+  const plusMenuRef = useRef(null);
+
   // Close AI menu / settings popover on outside click
   useEffect(() => {
-    if (!aiMenuOpen && !settingsOpen) return;
+    if (!settingsOpen && !plusMenuOpen) return;
     const handler = (e) => {
-      if (aiMenuOpen && aiMenuBtnRef.current && !aiMenuBtnRef.current.contains(e.target)) setAiMenuOpen(false);
       if (settingsOpen && settingsBtnRef.current && !settingsBtnRef.current.contains(e.target)) setSettingsOpen(false);
+      if (plusMenuOpen && plusMenuRef.current && !plusMenuRef.current.contains(e.target)) setPlusMenuOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [aiMenuOpen, settingsOpen]);
-
-  // Auto-close NOVA panel when takeoff is disengaged or predictions cleared
-  useEffect(() => {
-    if (tkNovaPanelOpen && tkMeasureState === "idle" && !tkPredictions) {
-      setTkNovaPanelOpen(false);
-    }
-  }, [tkMeasureState, tkPredictions, tkNovaPanelOpen, setTkNovaPanelOpen]);
+  }, [settingsOpen, plusMenuOpen]);
 
   // Cmd+K: open Takeoff Command Palette (capture phase to intercept global)
   useEffect(() => {
@@ -388,6 +470,7 @@ export default function TakeoffsPage() {
     const { noMeasure, quantity, ...extraFields } = opts;
     const bidCtx = useUiStore.getState().activeGroupId || "base";
     useTakeoffsStore.getState().setTakeoffs([...current, { id, description: desc || "New Takeoff", quantity: quantity || "", unit, color: TO_COLORS[Math.floor(Math.random() * TO_COLORS.length)], drawingRef: "", group, linkedItemId: "", code, variables: [], formula: "", measurements: [], bidContext: bidCtx, ...extraFields }]);
+    clearPredictions(); // Immediately clear stale predictions from previous takeoff
     const drawingId = useDrawingsStore.getState().selectedDrawingId;
     if (drawingId && desc && !opts.noMeasure) {
       setTkActiveTakeoffId(id); setTkTool(unitToTool(unit)); setTkMeasureState("measuring"); setTkActivePoints([]); setTkContextMenu(null);
@@ -400,6 +483,7 @@ export default function TakeoffsPage() {
     const current = useTakeoffsStore.getState().takeoffs;
     const bidCtx = useUiStore.getState().activeGroupId || "base";
     useTakeoffsStore.getState().setTakeoffs([...current, { id, description: el.name, quantity: "", unit: el.unit || "SF", color: TO_COLORS[Math.floor(Math.random() * TO_COLORS.length)], drawingRef: "", group: "", linkedItemId: "", code: el.code, variables: [], formula: "", measurements: [], bidContext: bidCtx }]);
+    clearPredictions(); // Immediately clear stale predictions from previous takeoff
     setTkNewInput(""); setTkDbResults([]);
     showToast(`Added: ${el.name} — measuring`);
     const drawingId = useDrawingsStore.getState().selectedDrawingId;
@@ -412,6 +496,7 @@ export default function TakeoffsPage() {
     const unit = tkNewUnit || "SF";
     const bidCtx = activeGroupId || "base";
     setTakeoffs([...takeoffs, { id, description: desc.trim(), quantity: "", unit, color: TO_COLORS[takeoffs.length % TO_COLORS.length], drawingRef: "", group: "", linkedItemId: "", code: "", variables: [], formula: "", measurements: [], bidContext: bidCtx }]);
+    clearPredictions(); // Immediately clear stale predictions from previous takeoff
     setTkNewInput(""); setTkDbResults([]);
     showToast(`Added: ${desc.trim()} — measuring`);
     if (selectedDrawingId) { setTimeout(() => { setTkActiveTakeoffId(id); setTkTool(unitToTool(unit)); setTkMeasureState("measuring"); setTkActivePoints([]); setTkContextMenu(null); }, 50); }
@@ -438,6 +523,125 @@ export default function TakeoffsPage() {
     setTkNewInput("");
     setTkDbResults([]);
     showToast(`Inserted ${asm.elements.length} takeoff items from "${asm.name}"`);
+  };
+
+  // ─── AI ITEM LOOKUP (NOVA) — manual trigger only ─────────────
+
+  const lookupItemWithNova = async (inputText) => {
+    if (!inputText?.trim()) return;
+    const key = inputText.toLowerCase().trim().replace(/\s+/g, " ");
+
+    // 1. Check session cache — instant hit
+    const cached = _novaCache.get(key);
+    if (cached?.result) {
+      setAiLookup({ result: cached.result });
+      return;
+    }
+
+    // 2. Fresh API call
+    setAiLookup("loading");
+    const userMsg = buildNovaUserMsg(inputText, project);
+    try {
+      const text = await callAnthropic({
+        max_tokens: 1200,
+        messages: [{ role: "user", content: userMsg }],
+        system: NOVA_SYSTEM_PROMPT,
+        temperature: 0.3,
+      });
+      const { result, error } = parseNovaResponse(text);
+      if (result) {
+        _novaCache.set(key, { result, timestamp: Date.now() }); _novaCacheEvict();
+        setAiLookup({ result });
+      } else {
+        setAiLookup({ error: error || "NOVA couldn't identify this item" });
+      }
+    } catch (err) {
+      console.error("[NOVA Lookup] Error:", err);
+      setAiLookup({ error: err.message || "AI lookup failed" });
+    }
+  };
+
+  const addTakeoffFromAI = (item) => {
+    const id = uid();
+    const current = useTakeoffsStore.getState().takeoffs;
+    const bidCtx = useUiStore.getState().activeGroupId || "base";
+    useTakeoffsStore.getState().setTakeoffs([...current, {
+      id,
+      description: item.description,
+      quantity: "",
+      unit: item.unit || "SF",
+      color: TO_COLORS[Math.floor(Math.random() * TO_COLORS.length)],
+      drawingRef: "",
+      group: "",
+      linkedItemId: "",
+      code: item.code || "",
+      variables: [],
+      formula: "",
+      measurements: [],
+      bidContext: bidCtx,
+      _aiCosts: {
+        material: nn(item.material),
+        labor: nn(item.labor),
+        equipment: nn(item.equipment),
+        subcontractor: nn(item.subcontractor),
+      },
+    }]);
+    clearPredictions();
+    setTkNewInput(""); setTkDbResults([]); setAiLookup(null);
+    showToast(`✦ Added: ${item.description} — AI priced — measuring`);
+    const drawingId = useDrawingsStore.getState().selectedDrawingId;
+    if (drawingId) {
+      setTkActiveTakeoffId(id); setTkTool(unitToTool(item.unit || "SF")); setTkMeasureState("measuring"); setTkActivePoints([]); setTkContextMenu(null);
+    }
+  };
+
+  const insertAIGroupIntoTakeoffs = (result) => {
+    const bidCtx = useUiStore.getState().activeGroupId || "base";
+    const current = useTakeoffsStore.getState().takeoffs;
+    const groupName = result.groupName || "AI Group";
+    const newTakeoffs = result.items.map((item, i) => ({
+      id: uid(),
+      description: item.description,
+      quantity: "",
+      unit: item.unit || "SF",
+      color: TO_COLORS[(current.length + i) % TO_COLORS.length],
+      drawingRef: "",
+      group: groupName,
+      linkedItemId: "",
+      code: item.code || "",
+      variables: [],
+      formula: "",
+      measurements: [],
+      bidContext: bidCtx,
+      _aiCosts: {
+        material: nn(item.material),
+        labor: nn(item.labor),
+        equipment: nn(item.equipment),
+        subcontractor: nn(item.subcontractor),
+      },
+    }));
+    useTakeoffsStore.getState().setTakeoffs([...current, ...newTakeoffs]);
+    clearPredictions();
+    setTkNewInput(""); setTkDbResults([]); setAiLookup(null);
+    showToast(`✦ Added ${result.items.length} items as "${groupName}" — AI priced`);
+  };
+
+  const addTakeoffFromAIAsSingle = (result) => {
+    // Collapse multi-part into one item with aggregated costs
+    const totalM = result.items.reduce((s, it) => s + nn(it.material), 0);
+    const totalL = result.items.reduce((s, it) => s + nn(it.labor), 0);
+    const totalE = result.items.reduce((s, it) => s + nn(it.equipment), 0);
+    const totalS = result.items.reduce((s, it) => s + nn(it.subcontractor), 0);
+    const firstItem = result.items[0];
+    addTakeoffFromAI({
+      code: firstItem.code || "",
+      description: result.groupName || firstItem.description,
+      unit: firstItem.unit || "SF",
+      material: Math.round(totalM * 100) / 100,
+      labor: Math.round(totalL * 100) / 100,
+      equipment: Math.round(totalE * 100) / 100,
+      subcontractor: Math.round(totalS * 100) / 100,
+    });
   };
 
   // ─── MEASUREMENT ENGINE ─────────────
@@ -578,7 +782,8 @@ export default function TakeoffsPage() {
       if (t.id !== takeoffId) return t;
       return { ...t, measurements: [...(t.measurements || []), { id: uid(), ...measurement }] };
     }));
-  }, []);
+    triggerMeasureFlash(takeoffId);
+  }, [triggerMeasureFlash]);
 
   const removeMeasurement = useCallback((takeoffId, measurementId) => {
     const s = useTakeoffsStore.getState();
@@ -613,6 +818,12 @@ export default function TakeoffsPage() {
     setTkShowVars(null);
     // Always collapse panel when measuring starts — drawing area needs full focus
     setTkPanelOpen(false);
+    // Pre-warm prediction cache in background — predictions will be instant on first click
+    const drawState = useDrawingsStore.getState();
+    const warmDrawing = drawState.drawings.find(d => d.id === drawState.selectedDrawingId);
+    if (warmDrawing && warmDrawing.type === "pdf" && warmDrawing.data) {
+      warmPredictions(warmDrawing, to.description).catch(() => {});
+    }
   }, [addMeasurement]);
 
   const stopMeasuring = useCallback(() => {
@@ -1311,29 +1522,6 @@ IMPORTANT:
     setTkActivePoints([...pts, snappedPt]);
   }, [tkTool, tkActivePoints, selectedDrawingId, showToast]);
 
-  // ─── AI AUTO-OUTLINE — detect building perimeter with Claude Vision ────
-  const [aiOutlineLoading, setAiOutlineLoading] = useState(false);
-  const handleAiOutline = useCallback(async () => {
-    if (!selectedDrawingId) {
-      showToast('Select a drawing first', 'error');
-      return;
-    }
-    setAiOutlineLoading(true);
-    try {
-      const drawing = drawings.find(d => d.id === selectedDrawingId);
-      await ensureDrawingImage(drawing);
-      const { polygon } = await detectBuildingOutline(selectedDrawingId);
-      const feetPoly = outlineToFeet(polygon, selectedDrawingId);
-      useModelStore.getState().setOutline(selectedDrawingId, feetPoly, 'ai', polygon);
-      showToast(`AI detected building outline (${polygon.length} vertices)`);
-    } catch (err) {
-      console.error('AI outline error:', err);
-      showToast(err.message || 'Outline detection failed', 'error');
-    } finally {
-      setAiOutlineLoading(false);
-    }
-  }, [selectedDrawingId, drawings, showToast]);
-
   // ─── CANVAS CLICK HANDLER ──────────
   const handleCanvasClick = useCallback((e) => {
     if (!canvasRef.current || !selectedDrawingId) return;
@@ -1345,9 +1533,6 @@ IMPORTANT:
     const currentActiveTakeoffId = freshState.tkActiveTakeoffId;
     const currentTool = freshState.tkTool;
 
-    // Outline tool — delegated to separate handler
-    if (currentTool === "outline") { handleOutlineClick(e); return; }
-
     const rect = canvasRef.current.getBoundingClientRect();
     const cx = (e.clientX - rect.left) * (canvasRef.current.width / rect.width);
     const cy = (e.clientY - rect.top) * (canvasRef.current.height / rect.height);
@@ -1355,14 +1540,17 @@ IMPORTANT:
 
     // ── Count prediction helpers (shared by paused handler and main count path) ──
     const handleCountPredictions = (clickPt, to) => {
-      const { tkPredictions: preds, tkPredAccepted: accepted, tkPredRejected: rejected } = useTakeoffsStore.getState();
+      const s = useTakeoffsStore.getState();
+      const currentActiveId = s.tkActiveTakeoffId;
+      const { tkPredictions: preds, tkPredAccepted: accepted, tkPredRejected: rejected } = s;
       if (preds && preds.predictions.length > 0) {
         const nearbyPred = findNearbyPrediction(preds.predictions, clickPt, accepted, rejected, 30);
         if (nearbyPred) {
           acceptPrediction(nearbyPred.id);
-          addMeasurement(tkActiveTakeoffId, {
+          recordPredictionFeedback(preds.tag, preds.strategy, true);
+          addMeasurement(currentActiveId, {
             type: "count", points: [nearbyPred.point || clickPt], value: 1,
-            sheetId: selectedDrawingId, color: to.color, predicted: true, tag: preds.tag,
+            sheetId: useDrawingsStore.getState().selectedDrawingId, color: to.color, predicted: true, tag: preds.tag,
           });
           return true;
         }
@@ -1370,10 +1558,11 @@ IMPORTANT:
         const ctx = useTakeoffsStore.getState().tkPredContext;
         if (ctx && ctx.consecutiveMisses >= 3) {
           clearPredictions();
-          const drawing = useDrawingsStore.getState().drawings.find(d => d.id === selectedDrawingId);
+          const drawingId = useDrawingsStore.getState().selectedDrawingId;
+          const drawing = useDrawingsStore.getState().drawings.find(d => d.id === drawingId);
           if (drawing && drawing.type === "pdf" && drawing.data) {
             runSmartPredictions(drawing, to, "count", clickPt).then(result => {
-              if (useTakeoffsStore.getState().tkActiveTakeoffId !== tkActiveTakeoffId) return;
+              if (useTakeoffsStore.getState().tkActiveTakeoffId !== currentActiveId) return;
               if (result.predictions.length > 0) {
                 setTkPredictions({ tag: result.tag, predictions: result.predictions, scanning: false, totalInstances: result.totalInstances, source: result.source });
                 initPredContext(result.tag, result.source, result.confidence);
@@ -1581,6 +1770,7 @@ Where confidence is "high", "medium", or "low".` },
           const nearbyPred = findNearbyPrediction(linPreds.predictions, tkActivePoints[0], linAccepted, linRejected, 50);
           if (nearbyPred) {
             acceptPrediction(nearbyPred.id);
+            recordPredictionFeedback(linPreds.tag, linPreds.strategy, true);
           } else {
             recordPredictionMiss();
             const ctx = useTakeoffsStore.getState().tkPredContext;
@@ -1674,7 +1864,7 @@ Where confidence is "high", "medium", or "low".` },
       }
       setTkActivePoints([...tkActivePoints, snappedPt]);
     }
-  }, [tkTool, tkActivePoints, tkActiveTakeoffId, selectedDrawingId, takeoffs, tkCalibrations, tkMeasureState, tkAutoCount, drawingScales, drawingDpi, setTkSelectedTakeoffId, handleOutlineClick, engageMeasuring, addMeasurement]);
+  }, [tkTool, tkActivePoints, tkActiveTakeoffId, selectedDrawingId, takeoffs, tkCalibrations, tkMeasureState, tkAutoCount, drawingScales, drawingDpi, setTkSelectedTakeoffId, engageMeasuring, addMeasurement]);
 
   // ─── ZOOM / PAN ─────────────────────
   // Pinch (ctrlKey) = zoom, trackpad two-finger = pan, mouse wheel = zoom
@@ -1789,19 +1979,25 @@ Where confidence is "high", "medium", or "low".` },
 
     console.log("[NOVA] Proactive scan:", to.description, measureType, "at", clickPt);
     runSmartPredictions(drawing, to, measureType, clickPt).then(result => {
-      console.log("[NOVA] Result:", result.source, result.tag, result.predictions.length, "predictions", result.extractionStats);
-      if (useTakeoffsStore.getState().tkActiveTakeoffId !== tkActiveTakeoffId) return;
+      console.log("[NOVA] Result:", result.source, result.strategy, result.tag, result.predictions.length, "predictions", result.message || "");
+      // Double-check: takeoff must still be active AND result must be for this takeoff
+      const currentActiveId = useTakeoffsStore.getState().tkActiveTakeoffId;
+      if (currentActiveId !== tkActiveTakeoffId) return;
+      if (result.takeoffId && result.takeoffId !== tkActiveTakeoffId) return;
       if (result.predictions.length > 0) {
-        setTkPredictions({ tag: result.tag, predictions: result.predictions, scanning: false, totalInstances: result.totalInstances, source: result.source });
+        setTkPredictions({ tag: result.tag, predictions: result.predictions, scanning: false, totalInstances: result.totalInstances, source: result.source, strategy: result.strategy, takeoffId: result.takeoffId });
         initPredContext(result.tag, result.source, result.confidence);
+      } else if (result.message) {
+        // Store the message so NOVA panel can show contextual guidance
+        setTkPredictions({ tag: null, predictions: [], scanning: false, totalInstances: 0, source: "none", strategy: result.strategy, message: result.message, takeoffId: result.takeoffId });
       }
     }).catch(err => console.warn("Proactive prediction failed:", err));
   }, [tkActiveTakeoffId, selectedDrawingId, tkMeasureState]);
 
-  // Auto-scroll thumbnail strip to active drawing
+  // Auto-scroll filmstrip to active drawing
   useEffect(() => {
-    if (thumbnailStripRef.current && selectedDrawingId) {
-      const el = thumbnailStripRef.current.querySelector(`[data-drawing-id="${selectedDrawingId}"]`);
+    if (selectedDrawingId && compactStripRef.current) {
+      const el = compactStripRef.current.querySelector(`[data-drawing-id="${selectedDrawingId}"]`);
       if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
     }
   }, [selectedDrawingId]);
@@ -1814,11 +2010,16 @@ Where confidence is "high", "medium", or "low".` },
     return () => container.removeEventListener('wheel', handleDrawingWheel);
   }, [handleDrawingWheel]);
 
-  // Escape key — first Esc stops measuring (keeps selection), second deselects
+  // Keyboard flow — Escape / Tab / Enter for pro takeoff workflow
   useEffect(() => {
     const handler = (e) => {
+      // Skip when user is typing in an input/textarea/select
+      const tag = document.activeElement?.tagName;
+      const isTyping = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+
       if (e.key === "Escape") {
         setTkContextMenu(null);
+        if (isTyping) { document.activeElement.blur(); return; }
         if (tkMeasureState === "measuring" || tkMeasureState === "paused") {
           stopMeasuring(); // stops measuring but keeps tkSelectedTakeoffId
         } else if (tkSelectedTakeoffId) {
@@ -1829,15 +2030,59 @@ Where confidence is "high", "medium", or "low".` },
           setTkActivePoints([]);
           if (tkTool !== "select") setTkTool("select");
         }
+        return;
+      }
+
+      // Tab — navigate between takeoffs (skip when typing in inputs)
+      if (e.key === "Tab" && !isTyping) {
+        const allTos = useTakeoffsStore.getState().takeoffs;
+        if (allTos.length === 0) return;
+        e.preventDefault();
+        const currentIdx = allTos.findIndex(t => t.id === tkSelectedTakeoffId);
+        let nextIdx;
+        if (e.shiftKey) {
+          nextIdx = currentIdx <= 0 ? allTos.length - 1 : currentIdx - 1;
+        } else {
+          nextIdx = currentIdx < allTos.length - 1 ? currentIdx + 1 : 0;
+        }
+        // If currently measuring, stop first then move
+        if (tkMeasureState === "measuring" || tkMeasureState === "paused") {
+          stopMeasuring();
+        }
+        const nextId = allTos[nextIdx].id;
+        setTkSelectedTakeoffId(nextId);
+        // Scroll the selected row into view
+        requestAnimationFrame(() => {
+          const el = document.querySelector(`[data-takeoff-id="${nextId}"]`);
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        });
+        return;
+      }
+
+      // Enter — engage measuring on selected takeoff (skip when typing)
+      if (e.key === "Enter" && !isTyping) {
+        if (tkSelectedTakeoffId && tkMeasureState !== "measuring") {
+          const drawingId = useDrawingsStore.getState().selectedDrawingId;
+          if (drawingId) {
+            e.preventDefault();
+            engageMeasuring(tkSelectedTakeoffId);
+          }
+        }
+        return;
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [tkTool, tkMeasureState, tkSelectedTakeoffId]);
 
-  // DB search effect — includes assemblies
+  // DB search effect — search items + assemblies (NOVA only on explicit click)
   useEffect(() => {
-    if (!tkNewInput.trim()) { setTkDbResults([]); return; }
+    if (!tkNewInput.trim()) {
+      setTkDbResults([]); setAiLookup(null);
+      return;
+    }
+    setAiLookup(null); // Reset AI lookup when input changes
+
     const q = tkNewInput.toLowerCase();
     const itemResults = elements.filter(el =>
       (el.name || "").toLowerCase().includes(q) || (el.code || "").toLowerCase().includes(q)
@@ -1881,13 +2126,30 @@ Where confidence is "high", "medium", or "low".` },
   }, [drawings.length]);
 
   // ─── PREDICTIVE TAKEOFF: Background PDF extraction when drawing changes ───
+  // Extracts selected drawing immediately, then pre-extracts adjacent drawings (next/prev)
   useEffect(() => {
     if (!selectedDrawingId) return;
-    const drawing = drawings.find(d => d.id === selectedDrawingId);
-    if (!drawing || drawing.type !== "pdf" || !drawing.data) return;
-    if (isExtracted(drawing.id)) return; // already cached
-    // Extract in background — no UI loading state needed, it's fast and cached
-    extractPageData(drawing).catch(err => console.warn("PDF extraction failed:", err));
+    const pdfDrawings = drawings.filter(d => d.type === "pdf" && d.data);
+    const drawing = pdfDrawings.find(d => d.id === selectedDrawingId);
+    if (!drawing) return;
+
+    // Extract selected drawing (immediate)
+    if (!isExtracted(drawing.id)) {
+      extractPageData(drawing).catch(err => console.warn("PDF extraction failed:", err));
+    }
+
+    // Pre-extract adjacent drawings (staggered, non-blocking)
+    const idx = pdfDrawings.findIndex(d => d.id === selectedDrawingId);
+    if (idx !== -1 && pdfDrawings.length > 1) {
+      const nextIdx = (idx + 1) % pdfDrawings.length;
+      const prevIdx = (idx - 1 + pdfDrawings.length) % pdfDrawings.length;
+      const adjacent = [pdfDrawings[nextIdx], pdfDrawings[prevIdx]].filter(d => d && !isExtracted(d.id));
+      let cancelled = false;
+      const timers = adjacent.map((d, i) => setTimeout(() => {
+        if (!cancelled) extractPageData(d).catch(() => {});
+      }, 300 + i * 200)); // stagger: 300ms, 500ms
+      return () => { cancelled = true; timers.forEach(clearTimeout); };
+    }
   }, [selectedDrawingId, drawings]);
 
   // ─── PREDICTIVE TAKEOFF: Ghost prediction rendering (animated) ───
@@ -2356,43 +2618,6 @@ Where confidence is "high", "medium", or "low".` },
       ctx.restore();
     }
 
-    // Outline tool — in-progress polygon preview
-    if (tkTool === "outline" && tkActivePoints.length >= 1) {
-      ctx.save();
-      ctx.strokeStyle = '#6366F1'; ctx.lineWidth = 3; ctx.setLineDash([8, 5]);
-      // Draw committed points
-      ctx.beginPath();
-      ctx.moveTo(tkActivePoints[0].x, tkActivePoints[0].y);
-      for (let i = 1; i < tkActivePoints.length; i++) ctx.lineTo(tkActivePoints[i].x, tkActivePoints[i].y);
-      // Rubber-band line to cursor
-      if (tkCursorPt) ctx.lineTo(tkCursorPt.x, tkCursorPt.y);
-      ctx.stroke();
-      // Close preview line from cursor back to first point
-      if (tkCursorPt && tkActivePoints.length >= 2) {
-        ctx.strokeStyle = '#6366F180'; ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(tkCursorPt.x, tkCursorPt.y);
-        ctx.lineTo(tkActivePoints[0].x, tkActivePoints[0].y);
-        ctx.stroke();
-      }
-      ctx.setLineDash([]);
-      // Vertex dots
-      tkActivePoints.forEach((p, i) => {
-        ctx.beginPath(); ctx.arc(p.x, p.y, i === 0 ? 7 : 4, 0, Math.PI * 2);
-        ctx.fillStyle = i === 0 ? '#6366F1' : '#6366F180';
-        ctx.fill();
-        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
-      });
-      // Vertex count label
-      if (tkActivePoints.length >= 1) {
-        const last = tkCursorPt || tkActivePoints[tkActivePoints.length - 1];
-        ctx.font = 'bold 11px sans-serif'; ctx.fillStyle = '#6366F1';
-        ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
-        ctx.fillText(`${tkActivePoints.length} pts — ${tkActivePoints.length >= 3 ? 'click first point or dbl-click to close' : 'click to add vertices'}`, last.x + 14, last.y - 6);
-      }
-      ctx.restore();
-    }
-
     // Calibration points
     if (tkTool === "calibrate" && tkActivePoints.length >= 1) {
       ctx.save();
@@ -2591,7 +2816,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
 
           {showNotesPanel ? (
             <div style={{ flex: 1, overflowY: "auto" }}>
-              <NotesPanel />
+              <NotesPanel inline />
             </div>
           ) : (<>
           {/* Group Bar (bid context tabs) */}
@@ -2603,8 +2828,17 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
             <div style={{ padding: "6px 10px", borderBottom: `1px solid ${C.border}`, display: "flex", gap: 6, alignItems: "center", position: "relative" }}>
               <div style={{ position: "relative", flex: 1 }}>
                 <input value={tkNewInput} onChange={e => setTkNewInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter") addTakeoffFreeform(tkNewInput); }}
-                  placeholder="Search database or type new item..."
+                  onKeyDown={e => {
+                    if (e.key === "Enter" && tkNewInput.trim()) {
+                      // Smart Enter: NOVA single → add AI-priced, DB match → add first hit, else freeform
+                      if (aiLookup?.result?.type === "single") { addTakeoffFromAI(aiLookup.result); }
+                      else if (aiLookup?.result?.type === "multi") { insertAIGroupIntoTakeoffs(aiLookup.result); }
+                      else if (tkDbResults.length > 0 && tkDbResults[0]._type === "item") { addTakeoffFromDb(tkDbResults[0]); }
+                      else if (tkDbResults.length > 0 && tkDbResults[0]._type === "assembly") { insertAssemblyIntoTakeoffs(tkDbResults[0]); }
+                      else { addTakeoffFreeform(tkNewInput); }
+                    }
+                  }}
+                  placeholder="Search or type item · Enter ⏎ to add · Tab ↹ navigate"
                   style={inp(C, { paddingLeft: 28, fontSize: 11, padding: "7px 10px 7px 28px" })} />
                 <div style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)" }}><Ic d={I.search} size={12} color={C.textDim} /></div>
               </div>
@@ -2618,12 +2852,34 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                 <optgroup label="Volume"><option value="CY">CY</option><option value="CF">CF</option></optgroup>
                 <optgroup label="Other"><option value="TON">TON</option><option value="GAL">GAL</option><option value="LS">LS</option><option value="ROLL">ROLL</option><option value="BAG">BAG</option></optgroup>
               </select>
-              <button className="accent-btn" onClick={() => addTakeoffFreeform(tkNewInput)} disabled={!tkNewInput.trim()} title="Add as freeform" style={bt(C, { background: tkNewInput.trim() ? C.accent : C.bg3, color: tkNewInput.trim() ? "#fff" : C.textDim, padding: "5px 8px", flexShrink: 0 })}>
-                <Ic d={I.plus} size={12} color={tkNewInput.trim() ? "#fff" : C.textDim} sw={2.5} />
-              </button>
-              {/* DB + Assembly search dropdown */}
-              {tkDbResults.length > 0 && (
-                <div style={{ position: "absolute", left: 10, right: 10, top: "100%", zIndex: 50, background: C.bg1, border: `1px solid ${C.border}`, borderRadius: "0 0 6px 6px", boxShadow: "0 4px 16px rgba(0,0,0,0.30)", maxHeight: 320, overflowY: "auto" }}>
+              <div ref={plusMenuRef} style={{ position: "relative", flexShrink: 0 }}>
+                <button className="accent-btn" onClick={() => { if (tkNewInput.trim()) setPlusMenuOpen(v => !v); }} disabled={!tkNewInput.trim()} title="Add item" style={bt(C, { background: tkNewInput.trim() ? C.accent : C.bg3, color: tkNewInput.trim() ? "#fff" : C.textDim, padding: "5px 8px" })}>
+                  <Ic d={I.plus} size={12} color={tkNewInput.trim() ? "#fff" : C.textDim} sw={2.5} />
+                </button>
+                {plusMenuOpen && tkNewInput.trim() && (
+                  <div style={{ position: "absolute", right: 0, top: "calc(100% + 4px)", zIndex: 60, background: C.bg1, border: `1px solid ${C.border}`, borderRadius: 8, boxShadow: "0 4px 20px rgba(0,0,0,0.30)", minWidth: 210, overflow: "hidden" }}>
+                    <div className="nav-item" onClick={() => { addTakeoffFreeform(tkNewInput); setPlusMenuOpen(false); }}
+                      style={{ padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", borderBottom: `1px solid ${C.border}` }}>
+                      <Ic d={I.plus} size={11} color={C.textDim} sw={2} />
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: C.text }}>Add as freeform</div>
+                        <div style={{ fontSize: 9, color: C.textDim }}>No pricing — measure only</div>
+                      </div>
+                    </div>
+                    <div className="nav-item" onClick={() => { lookupItemWithNova(tkNewInput); setPlusMenuOpen(false); }}
+                      style={{ padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                      <Ic d={I.ai} size={11} color={C.accent} />
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: C.accent }}>Ask NOVA to price</div>
+                        <div style={{ fontSize: 9, color: C.textDim }}>Get code, description & pricing</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              {/* DB + Assembly search dropdown — show when there's input (for freeform/NOVA options) */}
+              {tkNewInput.trim() && (
+                <div style={{ position: "absolute", left: 10, right: 10, top: "100%", zIndex: 50, background: C.bg1, border: `1px solid ${C.border}`, borderRadius: "0 0 6px 6px", boxShadow: "0 4px 16px rgba(0,0,0,0.30)", maxHeight: 380, overflowY: "auto" }}>
                   {tkDbResults.some(r => r._type === "assembly") && (
                     <>
                       <div style={{ padding: "4px 8px", fontSize: 8, fontWeight: 600, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.8, borderBottom: `1px solid ${C.border}`, background: C.bg2, display: "flex", alignItems: "center", gap: 4 }}>
@@ -2637,7 +2893,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                             <Ic d={I.assembly} size={12} color={C.accent} />
                             <span style={{ flex: 1, fontSize: 11, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{asm.name}</span>
                             <span style={{ fontSize: 8, color: C.textMuted, background: C.bg2, padding: "1px 6px", borderRadius: 8 }}>{asm.elements.length} items</span>
-                            <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: C.accent, fontWeight: 600 }}>{fmt2(totalPer)}</span>
+                            <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, color: C.accent, fontWeight: 600 }}>{fmt2(totalPer)}</span>
                           </div>
                         );
                       })}
@@ -2649,17 +2905,76 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                       {tkDbResults.filter(r => r._type === "item").map(el => (
                         <div key={el.id} className="nav-item" onClick={() => addTakeoffFromDb(el)}
                           style={{ padding: "6px 10px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${C.bg}`, cursor: "pointer" }}>
-                          <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: C.purple, fontWeight: 600, minWidth: 60 }}>{el.code}</span>
+                          <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, color: C.purple, fontWeight: 600, minWidth: 60 }}>{el.code}</span>
                           <span style={{ flex: 1, fontSize: 11, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{el.name}</span>
                           <span style={{ fontSize: 9, color: C.textDim }}>/{el.unit}</span>
-                          <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: C.accent, fontWeight: 600 }}>{fmt2(nn(el.material) + nn(el.labor) + nn(el.equipment))}</span>
+                          <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, color: C.accent, fontWeight: 600 }}>{fmt2(nn(el.material) + nn(el.labor) + nn(el.equipment))}</span>
                         </div>
                       ))}
                     </>
                   )}
-                  <div className="nav-item" onClick={() => addTakeoffFreeform(tkNewInput)}
-                    style={{ padding: "6px 10px", display: "flex", alignItems: "center", gap: 6, cursor: "pointer", color: C.accent, fontSize: 10, fontWeight: 500, borderTop: `1px solid ${C.border}` }}>
-                    <Ic d={I.plus} size={10} color={C.accent} sw={2} /> Add "{tkNewInput}" as new item
+                  {/* NOVA AI Results Section */}
+                  {aiLookup === "loading" && (
+                    <div style={{ padding: "10px 10px", borderTop: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 8, background: `${C.accent}06` }}>
+                      <span style={{ width: 14, height: 14, border: `2px solid ${C.border}`, borderTopColor: C.accent, borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "inline-block", flexShrink: 0 }} />
+                      <span style={{ fontSize: 10, color: C.textDim, fontWeight: 500 }}>NOVA is thinking...</span>
+                    </div>
+                  )}
+                  {aiLookup?.result?.type === "single" && (
+                    <div style={{ borderTop: `1px solid ${C.border}` }}>
+                      <div style={{ padding: "4px 8px", fontSize: 8, fontWeight: 600, color: C.accent, textTransform: "uppercase", letterSpacing: 0.8, borderBottom: `1px solid ${C.border}`, background: `${C.accent}08`, display: "flex", alignItems: "center", gap: 4 }}>
+                        <Ic d={I.ai} size={10} color={C.accent} /> NOVA Suggestion
+                      </div>
+                      <div className="nav-item" onClick={() => addTakeoffFromAI(aiLookup.result)}
+                        style={{ padding: "6px 10px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                        <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, color: C.purple, fontWeight: 600, minWidth: 60 }}>{aiLookup.result.code}</span>
+                        <span style={{ flex: 1, fontSize: 11, color: C.text, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{aiLookup.result.description}</span>
+                        <span style={{ fontSize: 9, color: C.textDim }}>/{aiLookup.result.unit}</span>
+                        <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, color: C.green, fontWeight: 600 }}>{fmt2(nn(aiLookup.result.material) + nn(aiLookup.result.labor) + nn(aiLookup.result.equipment) + nn(aiLookup.result.subcontractor))}</span>
+                      </div>
+                    </div>
+                  )}
+                  {aiLookup?.result?.type === "multi" && (
+                    <div style={{ borderTop: `1px solid ${C.border}` }}>
+                      <div style={{ padding: "4px 8px", fontSize: 8, fontWeight: 600, color: C.accent, textTransform: "uppercase", letterSpacing: 0.8, borderBottom: `1px solid ${C.border}`, background: `${C.accent}08`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <Ic d={I.ai} size={10} color={C.accent} /> NOVA: {aiLookup.result.groupName} ({aiLookup.result.items.length} parts)
+                        </span>
+                      </div>
+                      {aiLookup.result.items.map((item, idx) => (
+                        <div key={idx} className="nav-item" onClick={() => addTakeoffFromAI(item)}
+                          style={{ padding: "4px 10px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", borderBottom: idx < aiLookup.result.items.length - 1 ? `1px solid ${C.bg2}` : "none" }}>
+                          <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 8, color: C.purple, fontWeight: 600, minWidth: 55 }}>{item.code}</span>
+                          <span style={{ flex: 1, fontSize: 10, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.description}</span>
+                          <span style={{ fontSize: 8, color: C.textDim }}>/{item.unit}</span>
+                          <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 8, color: C.green, fontWeight: 600 }}>{fmt2(nn(item.material) + nn(item.labor) + nn(item.equipment) + nn(item.subcontractor))}</span>
+                        </div>
+                      ))}
+                      <div style={{ display: "flex", gap: 4, padding: "4px 10px", borderTop: `1px solid ${C.border}` }}>
+                        <div className="nav-item" onClick={() => insertAIGroupIntoTakeoffs(aiLookup.result)}
+                          style={{ flex: 1, padding: "5px 8px", textAlign: "center", cursor: "pointer", fontSize: 10, fontWeight: 600, color: "#fff", background: C.accent, borderRadius: 4 }}>
+                          Add All as Group
+                        </div>
+                        <div className="nav-item" onClick={() => addTakeoffFromAIAsSingle(aiLookup.result)}
+                          style={{ flex: 1, padding: "5px 8px", textAlign: "center", cursor: "pointer", fontSize: 10, fontWeight: 500, color: C.textDim, background: C.bg3, borderRadius: 4 }}>
+                          Add as single line
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {aiLookup?.error && (
+                    <div style={{ padding: "6px 10px", borderTop: `1px solid ${C.border}`, background: `rgba(231,76,60,0.06)` }}>
+                      <div style={{ fontSize: 10, color: "#E74C3C", marginBottom: 4 }}>{aiLookup.error}</div>
+                      <span className="nav-item" onClick={() => lookupItemWithNova(tkNewInput)}
+                        style={{ fontSize: 9, color: C.accent, cursor: "pointer", fontWeight: 600 }}>Retry</span>
+                    </div>
+                  )}
+                  {/* Footer: Freeform option */}
+                  <div style={{ borderTop: `1px solid ${C.border}` }}>
+                    <div className="nav-item" onClick={() => addTakeoffFreeform(tkNewInput)}
+                      style={{ padding: "5px 10px", display: "flex", alignItems: "center", gap: 6, cursor: "pointer", color: C.textDim, fontSize: 10, fontWeight: 500 }}>
+                      <Ic d={I.plus} size={10} color={C.textDim} sw={2} /> Add "{tkNewInput}" as freeform (no pricing)
+                    </div>
                   </div>
                 </div>
               )}
@@ -2700,40 +3015,40 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
               const isGroupCollapsed = !!collapsedGroups[group];
               return (
               <div key={group} style={{
-                marginBottom: 16,
-                background: `rgba(255,255,255,0.03)`,
+                marginBottom: T.space[3],
+                background: C.isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)',
                 backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
-                border: `1px solid rgba(255,255,255,0.08)`,
-                borderRadius: 16,
+                border: `1px solid ${C.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'}`,
+                borderRadius: T.radius.md,
                 overflow: "hidden",
-                boxShadow: `0 2px 4px rgba(0,0,0,0.2), 0 8px 24px rgba(0,0,0,0.4), inset 0 0.5px 0 rgba(255,255,255,0.08)`,
+                boxShadow: T.shadow.sm,
                 transition: T.transition.base,
               }}>
                 {/* Card header */}
                 <div style={{
                   display: "flex", alignItems: "center", justifyContent: "space-between",
-                  padding: "10px 12px",
-                  background: "rgba(255,255,255,0.04)",
-                  borderBottom: isGroupCollapsed ? "none" : `1px solid rgba(255,255,255,0.06)`,
-                  borderLeft: group !== "Ungrouped" ? `3px solid ${C.accent}` : "none",
+                  padding: `${T.space[2]}px ${T.space[3]}px`,
+                  background: C.isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+                  borderBottom: isGroupCollapsed ? "none" : `1px solid ${C.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}`,
+                  borderLeft: group !== "Ungrouped" ? `3px solid ${C.accent}` : "3px solid transparent",
                 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <Ic d={group === "Ungrouped" ? I.layers : I.assembly} size={13} color={C.accent} />
-                    <span style={{ fontSize: 12, fontWeight: 600, color: C.text, letterSpacing: -0.2 }}>{group}</span>
-                    <span style={{ fontSize: 9, color: C.textMuted, fontWeight: 500 }}>{tos.length} item{tos.length !== 1 ? "s" : ""}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: T.space[2], minWidth: 0 }}>
+                    <Ic d={group === "Ungrouped" ? I.layers : I.assembly} size={12} color={C.accent} />
+                    <span style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.semibold, color: C.text, letterSpacing: -0.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{group}</span>
+                    <span style={{ fontSize: 9, color: C.textDim, fontWeight: T.fontWeight.medium, flexShrink: 0 }}>{tos.length}</span>
                   </div>
-                  <button onClick={() => toggleGroupCollapse(group)} style={{ background: "none", border: "none", cursor: "pointer", padding: 4, display: "flex", alignItems: "center", borderRadius: 6 }}>
+                  <button onClick={() => toggleGroupCollapse(group)} style={{ background: "none", border: "none", cursor: "pointer", padding: 4, display: "flex", alignItems: "center", borderRadius: T.radius.sm, flexShrink: 0 }}>
                     <Ic d={I.chevron} size={10} color={C.textDim} style={{ transform: isGroupCollapsed ? "rotate(-90deg)" : "rotate(90deg)", transition: "transform 0.2s cubic-bezier(0.25,0.1,0.25,1)" }} />
                   </button>
                 </div>
                 {!isGroupCollapsed && <>
-                <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 12px", fontSize: 8, fontWeight: 600, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.8, borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 4, padding: `${T.space[1]}px ${T.space[3]}px`, fontSize: 8, fontWeight: T.fontWeight.semibold, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.6, borderBottom: `1px solid ${C.isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.04)'}` }}>
                   <div style={{ width: 12 }}></div>
                   <div style={{ flex: 2, minWidth: 80 }}>Description</div>
                   <div style={{ width: 55, textAlign: "right" }}>Qty</div>
                   <div style={{ width: 36 }}>Unit</div>
                   <div style={{ width: 50 }}>Sheet</div>
-                  <div style={{ width: 56 }}></div>
+                  <div style={{ width: 52 }}></div>
                 </div>
                 {tos.map(to => {
                   const isActive = tkActiveTakeoffId === to.id;
@@ -2750,8 +3065,8 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                   const hasVars = (to.variables || []).length > 0;
                   const ctrlBtnS = { width: 20, height: 20, border: "none", background: "transparent", borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" };
                   return (
-                    <div key={to.id}>
-                      <div className="row" draggable
+                    <div key={to.id} data-takeoff-id={to.id}>
+                      <div className={`row${to._aiCosts ? ' nova-priced' : ''}${isSelected ? ' row-selected' : ''}${isMeasuring ? ' row-measuring' : ''}`} draggable
                         onDragStart={() => { tkDragTakeoff.current = to.id; }}
                         onDragEnter={() => { tkDragOverTakeoff.current = to.id; }}
                         onDragEnd={tkDragReorder}
@@ -2760,10 +3075,12 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                           // Single click = select only (never auto-start measuring)
                           setTkSelectedTakeoffId(to.id);
                         }}
-                        style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 6px", borderBottom: `1px solid ${C.bg2}`, cursor: "grab",
-                          background: isMeasuring ? `${to.color}18` : isSelected ? `${to.color}0C` : "transparent",
+                        style={{ '--rc': to.color, position: "relative", zIndex: isSelected && !isMeasuring ? 2 : undefined, display: "flex", alignItems: "center", gap: 4, padding: `${T.space[1]}px ${T.space[2]}px`,
+                          borderBottom: `1px solid ${C.isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.04)'}`, cursor: "grab",
+                          background: isMeasuring ? `${to.color}18` : isSelected ? `${to.color}0A` : "transparent",
                           borderLeft: isMeasuring ? `3px solid ${to.color}` : isSelected ? `3px solid ${to.color}80` : "3px solid transparent",
-                          boxShadow: isMeasuring ? `inset 0 0 0 1px ${to.color}40` : "none" }}>
+                          boxShadow: isMeasuring ? `inset 0 0 0 1px ${to.color}30` : "none",
+                          transition: "background 100ms ease-out" }}>
                         {/* Play / Pause / Resume — left of color for faster engage */}
                         <div style={{ width: 20, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={e => e.stopPropagation()}>
                           {isActive && tkMeasureState === "measuring" ? (
@@ -2780,25 +3097,33 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                             </button>
                           )}
                         </div>
-                        <div style={{ width: 12, height: 12, borderRadius: 2, background: to.color, flexShrink: 0, cursor: "pointer", position: "relative" }} onClick={e => { e.stopPropagation(); e.currentTarget.querySelector('input')?.click(); }}>
+                        <div style={{ width: 10, height: 10, borderRadius: 2, background: to.color, flexShrink: 0, cursor: "pointer", position: "relative" }} onClick={e => { e.stopPropagation(); e.currentTarget.querySelector('input')?.click(); }}>
                           {isMeasuring && <div style={{ position: "absolute", inset: -2, borderRadius: 3, border: `2px solid ${to.color}`, animation: "pulse 1.5s infinite" }} />}
                           <input type="color" value={to.color} onChange={e => updateTakeoff(to.id, "color", e.target.value)} onClick={e => e.stopPropagation()} style={{ position: "absolute", opacity: 0, width: 0, height: 0, top: 0, left: 0 }} />
                         </div>
-                        <div style={{ flex: 2, minWidth: 80 }} onClick={e => e.stopPropagation()}>
-                          <input value={to.description} onChange={e => updateTakeoff(to.id, "description", e.target.value)} placeholder="Description..." style={inp(C, { background: "transparent", border: "1px solid transparent", padding: "2px 4px", fontSize: 11 })} />
-                          {to.code && <div style={{ fontSize: 8, color: C.purple, fontFamily: "'DM Mono',monospace", paddingLeft: 4 }}>{to.code}</div>}
+                        {/* Tier 1: Description — LOUD */}
+                        <div style={{ flex: 2, minWidth: 80, minHeight: 0 }} onClick={e => e.stopPropagation()}>
+                          <input value={to.description} onChange={e => updateTakeoff(to.id, "description", e.target.value)} placeholder="Description..." style={inp(C, { background: "transparent", border: "1px solid transparent", padding: "2px 4px", fontSize: T.fontSize.base, fontWeight: T.fontWeight.medium })} />
+                          {/* Tier 2: Code/NOVA badge — medium */}
+                          {(to.code || to._aiCosts) && <div style={{ fontSize: 8, color: `${C.purple}B0`, fontFamily: T.font.mono, paddingLeft: 4, display: "flex", alignItems: "center", gap: 3, lineHeight: 1.2, ...truncate() }}>
+                            {to.code || ""}
+                            {to._aiCosts && <span style={{ color: C.accent, fontSize: 7, fontWeight: T.fontWeight.bold, display: "inline-flex", alignItems: "center", gap: 2, background: `${C.accent}0A`, padding: "0 3px", borderRadius: 2 }} title={`NOVA: M $${fmt2(to._aiCosts.material)} · L $${fmt2(to._aiCosts.labor)} · E $${fmt2(to._aiCosts.equipment)}`}>✦ NOVA</span>}
+                          </div>}
                         </div>
+                        {/* Tier 1: Qty — LOUD */}
                         <div style={{ width: 55 }} onClick={e => e.stopPropagation()}>
                           {hasMeasurements ? (
-                            noScale ? <div style={{ fontSize: 8, color: C.orange, fontWeight: 600, padding: "2px 4px", cursor: "help" }} title="Set a scale to see quantities">⚠ Scale</div>
-                              : <div style={{ fontSize: 11, fontWeight: 700, color: C.text, padding: "2px 4px", fontFamily: "'DM Mono',monospace" }}>{displayQty}</div>
+                            noScale ? <div style={{ fontSize: 8, color: C.orange, fontWeight: T.fontWeight.semibold, padding: "2px 4px", cursor: "help" }} title="Set a scale to see quantities">⚠ Scale</div>
+                              : <div className={measureFlashId === to.id ? "measure-complete" : ""} style={{ '--rc': to.color, fontSize: T.fontSize.base, fontWeight: T.fontWeight.heavy || 800, color: measureFlashId === to.id ? to.color : C.text, padding: "2px 4px", fontFamily: T.font.mono, fontFeatureSettings: "'tnum'", borderRadius: 3, transition: "color 300ms ease" }}>{displayQty}</div>
                           ) : (
-                            <input type="number" value={to.quantity} onChange={e => updateTakeoff(to.id, "quantity", e.target.value)} placeholder="0" style={nInp(C, { background: "transparent", border: "1px solid transparent", padding: "2px 4px", fontSize: 11, fontWeight: 600 })} />
+                            <input type="number" value={to.quantity} onChange={e => updateTakeoff(to.id, "quantity", e.target.value)} placeholder="0" style={nInp(C, { background: "transparent", border: "1px solid transparent", padding: "2px 4px", fontSize: T.fontSize.base, fontWeight: T.fontWeight.bold })} />
                           )}
-                          {hasFormula && computedQty !== null && <div style={{ fontSize: 7, color: C.accent, fontFamily: "'DM Mono',monospace", paddingLeft: 2 }}>={Math.round(computedQty * 100) / 100}</div>}
+                          {/* Tier 3: Formula result — whisper */}
+                          {hasFormula && computedQty !== null && <div style={{ fontSize: 7, color: `${C.accent}90`, fontFamily: T.font.mono, paddingLeft: 2 }}>={Math.round(computedQty * 100) / 100}</div>}
                         </div>
+                        {/* Tier 3: Unit — whisper */}
                         <div style={{ width: 36 }} onClick={e => e.stopPropagation()}>
-                          <select value={to.unit} onChange={e => { updateTakeoff(to.id, "unit", e.target.value); if (tkActiveTakeoffId === to.id) { setTkTool(unitToTool(e.target.value)); setTkActivePoints([]); } }} style={inp(C, { background: "transparent", border: "1px solid transparent", padding: "2px 1px", fontSize: 8 })}>
+                          <select value={to.unit} onChange={e => { updateTakeoff(to.id, "unit", e.target.value); if (tkActiveTakeoffId === to.id) { setTkTool(unitToTool(e.target.value)); setTkActivePoints([]); } }} style={inp(C, { background: "transparent", border: "1px solid transparent", padding: "2px 1px", fontSize: 8, color: C.textDim })}>
                             {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                           </select>
                         </div>
@@ -2824,59 +3149,61 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                           })()}
                         </div>
                         <div style={{ width: 52, display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center" }} onClick={e => e.stopPropagation()}>
-                          {/* Stop button (visible when measuring or paused) */}
+                          {/* Always visible: Stop button + measurement count */}
                           {(isActive && tkMeasureState === "measuring") || isPaused ? (
                             <button className="icon-btn" onClick={() => stopMeasuring()} title="Stop" style={ctrlBtnS}>
                               <svg width="8" height="8" viewBox="0 0 8 8" fill={C.red}><rect width="8" height="8" rx="1"/></svg>
                             </button>
                           ) : null}
-                          {totalMCount > 0 && <span style={{ fontSize: 7, fontWeight: 700, color: to.color, background: `${to.color}18`, borderRadius: 3, padding: "1px 3px", minWidth: 14, textAlign: "center" }}>{totalMCount}</span>}
-                          <button className="icon-btn" onClick={() => setTkShowVars(tkShowVars === to.id ? null : to.id)} title="Variables & Formula" style={{ width: 20, height: 20, border: "none", background: hasVars || hasFormula ? `${C.accent}18` : "transparent", color: hasVars || hasFormula ? C.accent : C.textDim, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700 }}>ƒ</button>
-                          {unitToTool(to.unit) === "count" && selectedDrawing?.data && (
-                            <button className="icon-btn" onClick={e => { e.stopPropagation(); startAutoCount(to.id); }} title="Auto Count"
-                              style={{ width: 20, height: 20, border: "none", background: tkAutoCount?.takeoffId === to.id ? "rgba(168,126,230,0.2)" : "transparent", color: C.purple, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={C.purple} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20V10 M18 20v-4 M6 20v-6" /></svg>
-                            </button>
-                          )}
-                          <button className="icon-btn" onClick={() => { const nt = { ...takeoffs.find(t => t.id === to.id), id: uid(), linkedItemId: "", measurements: [] }; setTakeoffs([...takeoffs, nt]); }} title="Duplicate" style={{ width: 20, height: 20, border: "none", background: "transparent", color: C.textDim, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center" }}><Ic d={I.copy} size={10} /></button>
-                          <button className="icon-btn" onClick={() => removeTakeoff(to.id)} title="Delete" style={{ width: 20, height: 20, border: "none", background: "transparent", color: C.red, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center" }}><Ic d={I.trash} size={10} /></button>
+                          {totalMCount > 0 && <span className={measureFlashId === to.id ? "badge-bump" : ""} style={{ fontSize: 7, fontWeight: T.fontWeight.bold, color: to.color, background: `${to.color}18`, borderRadius: 3, padding: "1px 3px", minWidth: 14, textAlign: "center", fontFeatureSettings: "'tnum'" }}>{totalMCount}</span>}
+                          {/* Hover-reveal: Formula, Auto-count, Duplicate, Delete */}
+                          <div className="tk-row-actions" style={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center" }}>
+                            <button className="icon-btn" onClick={() => setTkShowVars(tkShowVars === to.id ? null : to.id)} title="Variables & Formula" style={{ width: 20, height: 20, border: "none", background: hasVars || hasFormula ? `${C.accent}18` : "transparent", color: hasVars || hasFormula ? C.accent : C.textDim, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700 }}>ƒ</button>
+                            {unitToTool(to.unit) === "count" && selectedDrawing?.data && (
+                              <button className="icon-btn" onClick={e => { e.stopPropagation(); startAutoCount(to.id); }} title="Auto Count"
+                                style={{ width: 20, height: 20, border: "none", background: tkAutoCount?.takeoffId === to.id ? "rgba(168,126,230,0.2)" : "transparent", color: C.purple, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={C.purple} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20V10 M18 20v-4 M6 20v-6" /></svg>
+                              </button>
+                            )}
+                            <button className="icon-btn" onClick={() => { const nt = { ...takeoffs.find(t => t.id === to.id), id: uid(), linkedItemId: "", measurements: [] }; setTakeoffs([...takeoffs, nt]); }} title="Duplicate" style={{ width: 20, height: 20, border: "none", background: "transparent", color: C.textDim, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center" }}><Ic d={I.copy} size={10} /></button>
+                            <button className="icon-btn" onClick={() => removeTakeoff(to.id)} title="Delete" style={{ width: 20, height: 20, border: "none", background: "transparent", color: C.red, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center" }}><Ic d={I.trash} size={10} /></button>
+                          </div>
                         </div>
-                      </div>
-
-                      {/* Color, width & opacity controls when selected */}
-                      {isSelected && !isMeasuring && (
-                        <div style={{ padding: "4px 6px 4px 25px", background: `${to.color}06`, borderBottom: `1px solid ${C.bg2}`, display: "flex", flexDirection: "column", gap: 3 }} onClick={e => e.stopPropagation()}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            <span style={{ fontSize: 8, color: C.textDim, fontWeight: 600, minWidth: 28 }}>Color</span>
-                            <div style={{ display: "flex", gap: 2 }}>
-                              {TO_COLORS.map(c => (
-                                <div key={c} onClick={() => updateTakeoff(to.id, "color", c)}
-                                  style={{ width: 12, height: 12, borderRadius: 2, background: c, cursor: "pointer", border: to.color === c ? "2px solid #fff" : "1px solid transparent", boxShadow: to.color === c ? `0 0 0 1px ${c}` : "none" }} />
-                              ))}
-                              <div style={{ position: "relative", width: 12, height: 12, borderRadius: 2, background: `conic-gradient(red, yellow, lime, cyan, blue, magenta, red)`, cursor: "pointer" }}
-                                onClick={e => { e.stopPropagation(); e.currentTarget.querySelector('input')?.click(); }}>
-                                <input type="color" value={to.color} onChange={e => updateTakeoff(to.id, "color", e.target.value)} onClick={e => e.stopPropagation()} style={{ position: "absolute", opacity: 0, width: 0, height: 0, top: 0, left: 0 }} />
+                        {/* Floating controls popover — absolute positioned, no layout shift */}
+                        {isSelected && !isMeasuring && (
+                          <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: T.z.dropdown, padding: "8px 10px 8px 27px", background: `linear-gradient(180deg, ${C.bg1}, ${C.bg2}30)`, border: `1px solid ${C.border}`, borderTop: "none", borderRadius: "0 0 8px 8px", boxShadow: T.shadow.md, display: "flex", flexDirection: "column", gap: 5 }} onClick={e => e.stopPropagation()}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <span style={{ fontSize: 7, color: C.textDim, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, minWidth: 28 }}>Color</span>
+                              <div style={{ display: "flex", gap: 3 }}>
+                                {TO_COLORS.map(c => (
+                                  <div key={c} onClick={() => updateTakeoff(to.id, "color", c)}
+                                    style={{ width: 14, height: 14, borderRadius: 3, background: c, cursor: "pointer", border: to.color === c ? "2px solid #fff" : "1px solid transparent", boxShadow: to.color === c ? `0 0 0 1px ${c}, 0 0 6px ${c}40` : "none", transition: "all 100ms" }} />
+                                ))}
+                                <div style={{ position: "relative", width: 14, height: 14, borderRadius: 3, background: `conic-gradient(red, yellow, lime, cyan, blue, magenta, red)`, cursor: "pointer" }}
+                                  onClick={e => { e.stopPropagation(); e.currentTarget.querySelector('input')?.click(); }}>
+                                  <input type="color" value={to.color} onChange={e => updateTakeoff(to.id, "color", e.target.value)} onClick={e => e.stopPropagation()} style={{ position: "absolute", opacity: 0, width: 0, height: 0, top: 0, left: 0 }} />
+                                </div>
                               </div>
                             </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <span style={{ fontSize: 7, color: C.textDim, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, minWidth: 28 }}>Stroke</span>
+                              <input type="range" min="1" max="10" step="1"
+                                value={to.strokeWidth ?? 3}
+                                onChange={e => updateTakeoff(to.id, "strokeWidth", Number(e.target.value))}
+                                style={{ width: 70, height: 3, accentColor: to.color, cursor: "pointer" }} />
+                              <span style={{ fontSize: 8, color: C.textDim, fontFamily: "'DM Sans',sans-serif", minWidth: 18 }}>{to.strokeWidth ?? 3}px</span>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <span style={{ fontSize: 7, color: C.textDim, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, minWidth: 28 }}>Fill</span>
+                              <input type="range" min="5" max="100" step="5"
+                                value={to.fillOpacity ?? 20}
+                                onChange={e => updateTakeoff(to.id, "fillOpacity", Number(e.target.value))}
+                                style={{ width: 70, height: 3, accentColor: to.color, cursor: "pointer" }} />
+                              <span style={{ fontSize: 8, color: C.textDim, fontFamily: "'DM Sans',sans-serif", minWidth: 24 }}>{to.fillOpacity ?? 20}%</span>
+                            </div>
                           </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            <span style={{ fontSize: 8, color: C.textDim, fontWeight: 600, minWidth: 28 }}>Width</span>
-                            <input type="range" min="1" max="10" step="1"
-                              value={to.strokeWidth ?? 3}
-                              onChange={e => updateTakeoff(to.id, "strokeWidth", Number(e.target.value))}
-                              style={{ width: 60, height: 3, accentColor: to.color, cursor: "pointer" }} />
-                            <span style={{ fontSize: 8, color: C.textDim, fontFamily: "'DM Mono',monospace", minWidth: 18 }}>{to.strokeWidth ?? 3}px</span>
-                          </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            <span style={{ fontSize: 8, color: C.textDim, fontWeight: 600, minWidth: 28 }}>Fill</span>
-                            <input type="range" min="5" max="100" step="5"
-                              value={to.fillOpacity ?? 20}
-                              onChange={e => updateTakeoff(to.id, "fillOpacity", Number(e.target.value))}
-                              style={{ width: 60, height: 3, accentColor: to.color, cursor: "pointer" }} />
-                            <span style={{ fontSize: 8, color: C.textDim, fontFamily: "'DM Mono',monospace", minWidth: 24 }}>{to.fillOpacity ?? 20}%</span>
-                          </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
 
                       {/* Dimension Engine */}
                       {tkShowVars === to.id && (
@@ -2894,24 +3221,33 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                     </div>
                   );
                 })}
-                <button className="ghost-btn" onClick={() => addTakeoff(group)} style={{ display: "flex", alignItems: "center", gap: 5, width: "100%", padding: "7px 12px", background: "transparent", color: C.textDim, cursor: "pointer", fontSize: 10, fontWeight: 500, border: "none", borderTop: `1px solid rgba(255,255,255,0.04)` }}><Ic d={I.plus} size={9} /> Add item</button>
+                <button className="ghost-btn" onClick={() => addTakeoff(group)} style={{ display: "flex", alignItems: "center", gap: T.space[1], width: "100%", padding: `${T.space[2]}px ${T.space[3]}px`, background: "transparent", color: C.textDim, cursor: "pointer", fontSize: T.fontSize.xs, fontWeight: T.fontWeight.medium, border: "none", borderTop: `1px solid ${C.isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.04)'}` }}><Ic d={I.plus} size={9} /> Add item</button>
                 </>}
               </div>
               );
             })}
 
             {takeoffs.length === 0 && (
-              <div style={{ textAlign: "center", padding: T.space[8], border: `1px dashed ${C.border}`, borderRadius: T.radius.md, marginTop: T.space[2] }}>
+              <div style={{ textAlign: "center", padding: `${T.space[8]}px ${T.space[5]}px`, borderRadius: T.radius.lg, marginTop: T.space[3], background: `linear-gradient(180deg, ${C.accent}06, transparent)`, position: "relative", overflow: "hidden" }}>
+                {/* Decorative rings */}
+                <div style={{ position: "absolute", top: -20, left: "50%", transform: "translateX(-50%)", width: 120, height: 120, borderRadius: "50%", border: `1px solid ${C.accent}08`, animation: "breathe 4s ease-in-out infinite" }} />
+                <div style={{ position: "absolute", top: -10, left: "50%", transform: "translateX(-50%)", width: 100, height: 100, borderRadius: "50%", border: `1px solid ${C.accent}12`, animation: "breathe 4s ease-in-out infinite 0.5s" }} />
                 <div style={{
-                  width: 64, height: 64, borderRadius: T.radius.full, margin: "0 auto",
-                  marginBottom: T.space[3],
-                  background: `linear-gradient(135deg, ${C.accent}20, ${C.accent}08)`,
+                  width: 56, height: 56, borderRadius: T.radius.full, margin: "0 auto",
+                  marginBottom: T.space[3], position: "relative",
+                  background: `linear-gradient(135deg, ${C.accent}18, ${C.accent}06)`,
                   display: "flex", alignItems: "center", justifyContent: "center",
+                  boxShadow: `0 0 24px ${C.accent}12`,
                 }}>
-                  <Ic d={I.ruler} size={28} color={C.accent} sw={1.7} />
+                  <Ic d={I.ruler} size={24} color={C.accent} sw={1.7} />
                 </div>
-                <div style={{ fontSize: T.fontSize.lg, fontWeight: T.fontWeight.semibold, color: C.text, marginBottom: T.space[1] }}>No takeoffs yet</div>
-                <div style={{ fontSize: T.fontSize.base, color: C.textMuted }}>Search scope items above or add measurements from your drawings.</div>
+                <div style={{ fontSize: T.fontSize.md, fontWeight: T.fontWeight.bold, color: C.text, marginBottom: T.space[1] }}>Ready to measure</div>
+                <div style={{ fontSize: T.fontSize.sm, color: C.textMuted, lineHeight: 1.5, maxWidth: 220, margin: "0 auto" }}>Search for a scope item above, or type any description and press Enter to start.</div>
+                <div style={{ display: "flex", justifyContent: "center", gap: 12, marginTop: T.space[4], fontSize: 8, color: C.textDim }}>
+                  <span>⏎ Add item</span>
+                  <span>↹ Navigate</span>
+                  <span>⌘K Palette</span>
+                </div>
               </div>
             )}
               </div>
@@ -2949,7 +3285,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 11, fontWeight: 600, color: C.text }}>{sg.name}</div>
                     <div style={{ fontSize: 9, color: C.textMuted, lineHeight: 1.4, marginTop: 1 }}>{sg.desc}</div>
-                    {sg.code && <span style={{ fontSize: 8, fontFamily: "'DM Mono',monospace", color: C.purple }}>{sg.code}</span>}
+                    {sg.code && <span style={{ fontSize: 8, fontFamily: "'DM Sans',sans-serif", color: C.purple }}>{sg.code}</span>}
                   </div>
                   <div style={{ display: "flex", gap: 3, flexShrink: 0, paddingTop: 2 }}>
                     <button onClick={() => {
@@ -2983,7 +3319,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
       )}
 
       {/* DRAWING VIEWER — full width */}
-      <div style={{ flex: 1, minWidth: 300, background: C.bg1, borderRadius: "6px", border: `1px solid ${C.border}`, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+      <div style={{ flex: 1, minWidth: 300, background: C.bg1, borderRadius: "6px", border: `1px solid ${C.border}`, overflow: "hidden", display: "flex", flexDirection: "column", marginLeft: tkPanelOpen ? Math.min(tkPanelWidth, 420) : 0, transition: "margin-left 0.2s ease-out" }}>
         {/* Toolbar */}
         <div style={{ borderBottom: `1px solid ${C.border}` }}>
           {/* Toolbar: Drawing nav + zoom + scale + tools */}
@@ -3010,14 +3346,34 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
               <span style={{ position: "absolute", bottom: -3, right: -3, width: 8, height: 8, borderRadius: "50%", background: tkPanelMode === "open" ? C.green : C.orange, border: `1px solid ${C.bg1}` }} />
             )}
           </button>
-          <select value={selectedDrawingId || ""} onChange={e => { setSelectedDrawingId(e.target.value); const d = drawings.find(d => d.id === e.target.value); if (d?.type === "pdf" && d.data) renderPdfPage(d); }} style={inp(C, { width: 220, minWidth: 160, flexShrink: 1, padding: "5px 8px", fontSize: 11 })}>
-            <option value="">— Select Drawing —</option>
-            {drawings.map(d => <option key={d.id} value={d.id}>{d.sheetNumber || d.pageNumber || "?"} — {d.sheetTitle || d.label}{!d.data ? " (needs re-upload)" : ""}</option>)}
-          </select>
-          <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
-            <button className="icon-btn" title="Previous" onClick={() => { const idx = drawings.findIndex(d => d.id === selectedDrawingId); if (idx > 0) { setSelectedDrawingId(drawings[idx - 1].id); if (drawings[idx - 1].type === "pdf" && drawings[idx - 1].data) renderPdfPage(drawings[idx - 1]); } }} style={{ width: 24, height: 24, border: "none", background: C.bg2, color: C.textMuted, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 11 }}>◀</button>
-            <button className="icon-btn" title="Next" onClick={() => { const idx = drawings.findIndex(d => d.id === selectedDrawingId); if (idx < drawings.length - 1) { setSelectedDrawingId(drawings[idx + 1].id); if (drawings[idx + 1].type === "pdf" && drawings[idx + 1].data) renderPdfPage(drawings[idx + 1]); } }} style={{ width: 24, height: 24, border: "none", background: C.bg2, color: C.textMuted, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 11 }}>▶</button>
+          {/* Drawing filmstrip */}
+          <button className="icon-btn" title="Previous" onClick={() => { const idx = drawings.findIndex(d => d.id === selectedDrawingId); if (idx > 0) { setSelectedDrawingId(drawings[idx - 1].id); if (drawings[idx - 1].type === "pdf" && drawings[idx - 1].data) renderPdfPage(drawings[idx - 1]); } }} style={{ width: 24, height: 24, border: "none", background: C.bg2, color: C.textMuted, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 11, flexShrink: 0 }}>◀</button>
+          <div ref={compactStripRef} className="hide-scrollbar" style={{ display: "flex", gap: 3, overflowX: "auto", flex: 1, minWidth: 0, padding: "2px 0" }}>
+            {drawings.length === 0 ? (
+              <div style={{ fontSize: 10, color: C.textDim, padding: "4px 8px", fontStyle: "italic" }}>No drawings</div>
+            ) : drawings.map(d => {
+              const thumb = d.type === "pdf" ? pdfCanvases[d.id] : d.data;
+              const isAct = selectedDrawingId === d.id;
+              const hasMeas = takeoffs.some(to => (to.measurements || []).some(m => m.sheetId === d.id));
+              const labelBg = isAct ? `${C.accent}D0` : hasMeas ? `${C.accent}90` : "rgba(0,0,0,0.65)";
+              return (
+                <div key={d.id} data-drawing-id={d.id} className="icon-btn" onClick={() => { setSelectedDrawingId(d.id); if (d.type === "pdf" && d.data) renderPdfPage(d); }}
+                  title={`${d.sheetNumber || d.pageNumber || "?"} — ${d.sheetTitle || d.label || ""}`}
+                  style={{
+                    width: 48, height: 32, flexShrink: 0, borderRadius: 4,
+                    overflow: "hidden", cursor: "pointer", position: "relative",
+                    border: isAct ? `2px solid ${C.accent}` : `1px solid ${C.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.10)'}`,
+                    boxShadow: isAct ? `0 0 8px ${C.accent}30` : "none",
+                    background: C.bg2,
+                  }}>
+                  {thumb ? <img src={thumb} style={{ width: "100%", height: "100%", objectFit: "cover", opacity: d.data ? 1 : 0.4 }} />
+                    : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, color: C.textDim }}>{d.sheetNumber || "?"}</div>}
+                  <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "0 2px", background: labelBg, fontSize: 6, fontWeight: 700, color: "#fff", textAlign: "center", lineHeight: "12px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{d.sheetNumber || d.pageNumber || "?"}</div>
+                </div>
+              );
+            })}
           </div>
+          <button className="icon-btn" title="Next" onClick={() => { const idx = drawings.findIndex(d => d.id === selectedDrawingId); if (idx < drawings.length - 1) { setSelectedDrawingId(drawings[idx + 1].id); if (drawings[idx + 1].type === "pdf" && drawings[idx + 1].data) renderPdfPage(drawings[idx + 1]); } }} style={{ width: 24, height: 24, border: "none", background: C.bg2, color: C.textMuted, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 11, flexShrink: 0 }}>▶</button>
           <div style={{ display: "flex", gap: 2, alignItems: "center", borderLeft: `1px solid ${C.border}`, paddingLeft: 6, flexShrink: 0 }}>
             <button onClick={() => setTkZoom(Math.max(25, tkZoom - 25))} style={{ width: 22, height: 22, border: "none", background: C.bg2, color: C.textMuted, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 12 }}>−</button>
             <span style={{ fontSize: 9, color: C.textDim, fontWeight: 600, width: 32, textAlign: "center" }}>{tkZoom}%</span>
@@ -3052,94 +3408,16 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
             {drawingScales[selectedDrawingId] === "custom" && tkCalibrations[selectedDrawingId] && <span style={{ color: C.green, fontWeight: 600, fontSize: 8 }}>✓ Cal</span>}
             {!drawingScales[selectedDrawingId] && !tkCalibrations[selectedDrawingId] && <span style={{ fontSize: 7, color: C.orange, fontWeight: 500 }} title="No scale set">⚠ No scale</span>}
           </>)}
-          {/* Divider + AI Tools dropdown + Outline + Settings gear */}
+          {/* Divider + Settings gear + NOVA orb toggle */}
           {selectedDrawing && (<>
             <div style={{ width: 1, height: 20, background: C.border, margin: "0 2px", flexShrink: 0 }} />
-                {/* AI Tools dropdown */}
-                <div ref={aiMenuBtnRef} style={{ position: "relative", flexShrink: 0 }}>
-                  <button onClick={() => setAiMenuOpen(v => !v)}
-                    style={bt(C, {
-                      padding: "3px 8px", fontSize: 8, fontWeight: 600, borderRadius: 4,
-                      background: (aiDrawingAnalysis?.loading || pdfSchedules.loading)
-                        ? C.bg3 : `linear-gradient(135deg, ${C.accent}, ${C.purple || C.accent})`,
-                      color: (aiDrawingAnalysis?.loading || pdfSchedules.loading) ? C.textDim : "#fff",
-                      boxShadow: (aiDrawingAnalysis?.loading || pdfSchedules.loading) ? "none" : `0 1px 4px ${C.accent}30`,
-                    })}>
-                    {(aiDrawingAnalysis?.loading || pdfSchedules.loading)
-                      ? <><span style={{ display: "inline-block", width: 10, height: 10, border: "2px solid #fff3", borderTop: "2px solid #fff", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} /> Running...</>
-                      : <><Ic d={I.ai} size={9} color="#fff" /> AI Tools ▾</>}
-                  </button>
-                  {aiMenuOpen && (() => {
-                    const r = aiMenuBtnRef.current?.getBoundingClientRect();
-                    return (
-                      <div style={{ position: "fixed", top: (r?.bottom || 0) + 4, left: r?.left || 0, width: 240, background: C.bg1, border: `1px solid ${C.border}`, borderRadius: 8, boxShadow: T.shadow.lg, zIndex: T.z.dropdown, animation: "fadeIn 0.1s ease-out", overflow: "hidden" }}>
-                        {[
-                          { label: "AI Auto-Detect", desc: "Scan drawing and identify all measurable elements", icon: I.ai, loading: aiDrawingAnalysis?.loading, hasResults: aiDrawingAnalysis?.results?.length > 0, resultLabel: aiDrawingAnalysis?.results ? `${aiDrawingAnalysis.results.length} found` : null, action: () => { runDrawingAnalysis(); setAiMenuOpen(false); }, color: C.accent },
-                          { label: "Scan Schedules", desc: "Find schedules in PDFs (auto-fallback to AI for scanned docs)", icon: I.insights, loading: pdfSchedules.loading, hasResults: pdfSchedules.results?.length > 0, resultLabel: pdfSchedules.results ? `${pdfSchedules.results.length} schedules` : null, action: () => { runPdfScheduleScan(); setAiMenuOpen(false); }, color: "#10B981" },
-                        ].map(item => (
-                          <button key={item.label} onClick={item.action} disabled={item.loading}
-                            style={{ width: "100%", padding: "8px 12px", background: "transparent", border: "none", display: "flex", alignItems: "center", gap: 10, cursor: item.loading ? "wait" : "pointer", textAlign: "left", transition: "background 0.1s" }}
-                            onMouseEnter={e => e.currentTarget.style.background = `${item.color}10`}
-                            onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                            <div style={{ width: 24, height: 24, borderRadius: 6, background: `${item.color}15`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                              {item.loading
-                                ? <span style={{ display: "inline-block", width: 10, height: 10, border: `2px solid ${item.color}30`, borderTop: `2px solid ${item.color}`, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-                                : <Ic d={item.icon} size={11} color={item.color} />}
-                            </div>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 11, fontWeight: 600, color: C.text }}>{item.label}</div>
-                              <div style={{ fontSize: 9, color: C.textDim, marginTop: 1 }}>{item.desc}</div>
-                            </div>
-                            {item.hasResults && item.resultLabel && (
-                              <span style={{ fontSize: 8, fontWeight: 700, color: item.color, background: `${item.color}15`, padding: "2px 6px", borderRadius: 10, flexShrink: 0 }}>{item.resultLabel}</span>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                </div>
-                <div style={{ width: 1, height: 18, background: C.border, margin: "0 2px" }} />
-                {/* Outline buttons */}
-                <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
-                  <span style={{ fontSize: 7, color: C.textDim, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginRight: 2 }}>Outline</span>
-                  <button onClick={handleAiOutline} disabled={aiOutlineLoading}
-                    title="AI: Auto-detect building perimeter"
-                    style={bt(C, {
-                      padding: "3px 7px", fontSize: 8, fontWeight: 600, borderRadius: 4, display: "flex", alignItems: "center", gap: 3,
-                      background: aiOutlineLoading ? '#6366F180' : `linear-gradient(135deg, #6366F1, #8B5CF6)`,
-                      color: "#fff", boxShadow: `0 1px 3px #6366F130`,
-                    })}>
-                    {aiOutlineLoading
-                      ? <><span style={{ display: "inline-block", width: 9, height: 9, border: "1.5px solid #fff3", borderTop: "1.5px solid #fff", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} /> Detecting...</>
-                      : <><Ic d={I.ai} size={9} color="#fff" /> AI</>}
-                  </button>
-                  <button onClick={() => { stopMeasuring(); setTkTool("outline"); setTkActivePoints([]); }}
-                    title="Manually trace building perimeter"
-                    style={bt(C, {
-                      padding: "3px 7px", fontSize: 8, fontWeight: 600, borderRadius: 4, display: "flex", alignItems: "center", gap: 3,
-                      background: tkTool === "outline" ? '#6366F1' : C.bg3,
-                      color: tkTool === "outline" ? "#fff" : C.textMuted,
-                      border: tkTool === "outline" ? '1px solid #6366F1' : `1px solid ${C.border}`,
-                    })}>
-                    <Ic d={I.polygon} size={9} color={tkTool === "outline" ? "#fff" : C.textDim} /> Draw
-                  </button>
-                  {modelOutlines[selectedDrawingId] && (
-                    <button onClick={() => {
-                      useModelStore.setState(s => {
-                        const next = { ...s.outlines };
-                        delete next[selectedDrawingId];
-                        return { outlines: next };
-                      });
-                      showToast('Outline cleared');
-                    }}
-                      title="Remove outline for this drawing"
-                      style={bt(C, {
-                        padding: "3px 7px", fontSize: 8, fontWeight: 600, borderRadius: 4, display: "flex", alignItems: "center", gap: 3,
-                        background: "transparent", border: `1px solid ${C.border}`, color: C.textDim,
-                      })}>
-                      <Ic d={I.x} size={8} color={C.textDim} /> Clear
-                    </button>
+                {/* NOVA Orb — always-present panel toggle */}
+                <div style={{ position: "relative", flexShrink: 0, display: "flex", alignItems: "center" }} title="Toggle NOVA">
+                  <NovaOrb size={30} onClick={() => setTkNovaPanelOpen(v => !v)} />
+                  {tkPredictions?.predictions?.length > 0 && !tkNovaPanelOpen && (
+                    <span style={{ position: "absolute", top: -2, right: -4, background: C.accent, color: "#fff", fontSize: 7, fontWeight: 800, padding: "1px 4px", borderRadius: 6, minWidth: 14, textAlign: "center", pointerEvents: "none" }}>
+                      {tkPredictions.predictions.filter(p => !tkPredAccepted.includes(p.id) && !tkPredRejected.includes(p.id)).length}
+                    </span>
                   )}
                 </div>
                 {/* Settings gear popover (DPI + future settings) */}
@@ -3173,56 +3451,14 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
           </div>
         </div>
 
-        {/* Thumbnail strip for drawing navigation */}
-        {drawings.filter(d => d.data).length > 1 && (
-          <div ref={thumbnailStripRef} style={{
-            padding: "4px 10px", borderBottom: `1px solid ${C.border}`, display: "flex", gap: 4,
-            alignItems: "center", overflowX: "auto", overflowY: "hidden", flexShrink: 0,
-            background: C.bg, height: 68,
-          }}>
-            {drawings.filter(d => d.data).map(d => {
-              const isActiveDrw = d.id === selectedDrawingId;
-              const thumb = d.type === "pdf" ? pdfCanvases[d.id] : d.data;
-              const hasMeas = takeoffs.some(to => (to.measurements || []).some(m => m.sheetId === d.id));
-              return (
-                <div key={d.id} data-drawing-id={d.id}
-                  onClick={() => { setSelectedDrawingId(d.id); if (d.type === "pdf" && d.data && !pdfCanvases[d.id]) renderPdfPage(d); }}
-                  title={`${d.sheetNumber || "?"} — ${d.sheetTitle || d.label || ""}`}
-                  style={{
-                    flexShrink: 0, width: 72, height: 56, borderRadius: 4, overflow: "hidden",
-                    cursor: "pointer", position: "relative", background: C.bg2,
-                    border: isActiveDrw ? `2px solid ${C.accent}` : `1px solid ${C.border}`,
-                    boxShadow: isActiveDrw ? `0 0 0 1px ${C.accent}40` : "none",
-                    opacity: isActiveDrw ? 1 : 0.75, transition: "all 0.15s ease",
-                  }}>
-                  {thumb ? (
-                    <img src={thumb} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                  ) : (
-                    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, color: C.textDim }}>...</div>
-                  )}
-                  <div style={{
-                    position: "absolute", bottom: 0, left: 0, right: 0, padding: "1px 3px",
-                    background: "rgba(0,0,0,0.7)", fontSize: 7, fontWeight: 600, color: "#fff",
-                    textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                  }}>{d.sheetNumber || d.pageNumber || "?"}</div>
-                  {hasMeas && (
-                    <div style={{ position: "absolute", top: 2, right: 2, width: 6, height: 6, borderRadius: "50%", background: C.accent, border: "1px solid rgba(0,0,0,0.3)" }} />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
         {/* ── Unified Measurement HUD ── */}
         {(() => {
           // Determine HUD mode
           const hudCalibrating = tkTool === "calibrate" && tkActivePoints.length === 2;
-          const hudOutline = tkTool === "outline";
           const hudAutoCount = !!tkAutoCount;
           const hudMeasuring = selectedDrawing?.data && tkMeasureState !== "idle" && tkActiveTakeoffId;
           const hudPredictions = tkPredictions && tkPredictions.predictions.length > 0;
-          const hudActive = hudCalibrating || hudOutline || hudAutoCount || hudMeasuring || hudPredictions;
+          const hudActive = hudCalibrating || hudAutoCount || hudMeasuring || hudPredictions;
           if (!hudActive) return null;
 
           const activeTo = hudMeasuring ? takeoffs.find(t => t.id === tkActiveTakeoffId) : null;
@@ -3246,6 +3482,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
           const handleAcceptAllAndConfirm = () => {
             const toAdd = preds.filter(p => !tkPredRejected.includes(p.id));
             if (tkActiveTakeoffId && toAdd.length > 0) {
+              toAdd.forEach(() => recordPredictionFeedback(tkPredictions?.tag, tkPredictions?.strategy, true));
               toAdd.forEach(pred => {
                 if (pred.type === "count" || pred.type === "wall-tag") {
                   addMeasurement(tkActiveTakeoffId, {
@@ -3274,6 +3511,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
           // Individual accept: immediately add measurement for a single prediction
           const handleAcceptOne = (pred) => {
             acceptPrediction(pred.id);
+            recordPredictionFeedback(tkPredictions?.tag, tkPredictions?.strategy, true);
             if (tkActiveTakeoffId) {
               if (pred.type === "count" || pred.type === "wall-tag") {
                 addMeasurement(tkActiveTakeoffId, {
@@ -3299,7 +3537,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
           const handleDismiss = () => clearPredictions();
 
           return (
-            <div style={{ height: 32, padding: "0 12px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 8, background: hudCalibrating ? "rgba(220,38,38,0.05)" : hudOutline ? "rgba(99,102,241,0.06)" : hudAutoCount ? "rgba(168,126,230,0.06)" : activeTo ? `${activeTo.color}08` : C.bg1, transition: "background 0.2s ease", flexShrink: 0, animation: "fadeIn 0.15s ease-out", position: "relative" }}>
+            <div style={{ height: 32, padding: "0 12px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 8, background: hudCalibrating ? "rgba(220,38,38,0.05)" : hudAutoCount ? "rgba(168,126,230,0.06)" : activeTo ? `${activeTo.color}08` : C.bg1, transition: "background 0.2s ease", flexShrink: 0, animation: "fadeIn 0.15s ease-out", position: "relative" }}>
 
               {/* ─ Calibrating mode ─ */}
               {hudCalibrating && (<>
@@ -3318,22 +3556,8 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                 <button onClick={() => { setTkActivePoints([]); setTkTool("select"); }} style={bt(C, { background: "transparent", border: `1px solid ${C.border}`, color: C.textDim, padding: "4px 8px", fontSize: 9 })}>✕</button>
               </>)}
 
-              {/* ─ Outline mode ─ */}
-              {!hudCalibrating && hudOutline && (<>
-                <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#6366F1", animation: "pulse 1.5s infinite" }} />
-                <span style={{ fontSize: 10, fontWeight: 600, color: "#6366F1" }}>Trace outline</span>
-                <span style={{ fontSize: 8, fontWeight: 700, color: "#fff", background: "#6366F1", padding: "1px 6px", borderRadius: 3 }}>{tkActivePoints.length} pts</span>
-                <span style={{ fontSize: 8, color: C.textDim, fontStyle: "italic" }}>
-                  {tkActivePoints.length < 3 ? "click to trace perimeter" : "click first point or dbl-click to close"}
-                </span>
-                <button onClick={() => { setTkActivePoints([]); setTkTool("select"); }} title="Cancel"
-                  style={bt(C, { marginLeft: "auto", padding: "3px 10px", fontSize: 8, fontWeight: 600, borderRadius: 4, background: C.red, color: "#fff" })}>
-                  ✕ Cancel
-                </button>
-              </>)}
-
               {/* ─ Auto Count mode ─ */}
-              {!hudCalibrating && !hudOutline && hudAutoCount && (<>
+              {!hudCalibrating && hudAutoCount && (<>
                 <span style={{ fontSize: 13 }}>🔢</span>
                 <span style={{ fontSize: 10, fontWeight: 600, color: C.purple }}>Auto Count</span>
                 {tkAutoCount.phase === "select" && <span style={{ fontSize: 9, color: C.text }}>Click a <strong>sample symbol</strong> to count matches</span>}
@@ -3343,7 +3567,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
               </>)}
 
               {/* ─ Measuring mode (compact) ─ */}
-              {!hudCalibrating && !hudOutline && !hudAutoCount && hudMeasuring && activeTo && (<>
+              {!hudCalibrating && !hudAutoCount && hudMeasuring && activeTo && (<>
                 <div style={{ width: 8, height: 8, borderRadius: "50%", background: tkMeasureState === "measuring" ? activeTo.color : C.orange, animation: tkMeasureState === "measuring" ? "pulse 1.5s infinite" : "none" }} />
                 <span style={{ fontSize: 10, fontWeight: 600, color: activeTo.color, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{activeTo.description.substring(0, 30)}</span>
                 <button onClick={stopMeasuring} title="Stop (Esc)"
@@ -3352,7 +3576,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                 </button>
                 <div style={{ width: 1, height: 16, background: C.border }} />
                 <span style={{ fontSize: 9, fontWeight: 600, color: C.text }}>{toolLabel}:</span>
-                <span style={{ fontSize: 10, fontWeight: 700, color: C.text, fontFamily: "'DM Mono',monospace" }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>
                   {tkTool === "count" ? `${mQty ?? 0} EA` : (!scaleSet ? <span style={{ color: C.orange, fontSize: 9 }}>⚠ Set scale</span> : `${mQty ?? 0} ${tkTool === "area" ? calUnit + "²" : calUnit}`)}
                 </span>
                 <span style={{ fontSize: 8, color: C.textDim }}>
@@ -3374,13 +3598,13 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
               </>)}
 
               {/* ─ Predictions only (not measuring) — compact badge opens panel ─ */}
-              {!hudCalibrating && !hudOutline && !hudAutoCount && !hudMeasuring && hudPredictions && (<>
+              {!hudCalibrating && !hudAutoCount && !hudMeasuring && hudPredictions && (<>
                 <div style={{ width: 8, height: 8, borderRadius: "50%", background: tkPredRefining ? C.orange : pending.length > 0 ? "#8B5CF6" : C.green, boxShadow: `0 0 8px ${tkPredRefining ? C.orange : pending.length > 0 ? "#8B5CF6" : C.green}`, animation: tkPredRefining ? "spin 1s linear infinite" : pending.length > 0 ? "pulse 1.5s infinite" : "none" }} />
                 <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: 0.8, color: "#8B5CF6", background: "linear-gradient(135deg, #6366F115, #8B5CF615)", padding: "2px 6px", borderRadius: 3 }}>NOVA VISION</span>
                 {tkPredRefining ? (
                   <span style={{ fontSize: 10, color: C.orange, fontWeight: 600 }}>Scanning...</span>
                 ) : (<>
-                  <span style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700, background: `${predColor}20`, color: predColor, fontFamily: "'DM Mono',monospace", border: `1px solid ${predColor}30` }}>{tkPredictions.tag || "—"}</span>
+                  <span style={{ padding: "2px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700, background: `${predColor}20`, color: predColor, fontFamily: "'DM Sans',sans-serif", border: `1px solid ${predColor}30` }}>{tkPredictions.tag || "—"}</span>
                   <span style={{ fontSize: 10, color: C.text, fontWeight: 500 }}>
                     {pending.length > 0 ? `${preds.length} found` : `${accepted.length} accepted`}
                   </span>
@@ -3447,7 +3671,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                   <span style={{ flex: 1, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                     title={item.notes || item.name}>{item.name}</span>
                   {isCount ? (
-                    <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: C.accent, fontWeight: 600, flexShrink: 0 }}>
+                    <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, color: C.accent, fontWeight: 600, flexShrink: 0 }}>
                       {item.quantity || (item.locations || []).length} {item.unit}
                     </span>
                   ) : (
@@ -3513,7 +3737,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                       </div>
                       <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                         {specSummary.map((s, j) => (
-                          <span key={j} style={{ fontSize: 9, padding: "1px 6px", borderRadius: 3, background: `${C.accent}10`, color: C.text, fontFamily: "'DM Mono',monospace" }}>{s}</span>
+                          <span key={j} style={{ fontSize: 9, padding: "1px 6px", borderRadius: 3, background: `${C.accent}10`, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>{s}</span>
                         ))}
                       </div>
                       {wt.finishes && (
@@ -3574,20 +3798,20 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                         <span style={{ fontSize: 8, fontWeight: 700, padding: "2px 6px", borderRadius: 3, background: `${typeColor}15`, color: typeColor, textTransform: "uppercase" }}>{sched.type}</span>
                         <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{sched.title}</span>
                         <span style={{ fontSize: 9, color: C.textDim }}>Sheet {sched.sheetNumber}</span>
-                        <span style={{ fontSize: 9, color: C.textDim, fontFamily: "'DM Mono',monospace" }}>{sched.itemCount} items</span>
+                        <span style={{ fontSize: 9, color: C.textDim, fontFamily: "'DM Sans',sans-serif" }}>{sched.itemCount} items</span>
                       </div>
                       {/* Schedule rows */}
                       {sched.data.slice(0, 8).map((row, j) => (
                         <div key={j} style={{ padding: "6px 20px 6px 36px", display: "flex", alignItems: "center", gap: 8, fontSize: 10 }}>
-                          <span style={{ fontWeight: 700, color: typeColor, minWidth: 40, fontFamily: "'DM Mono',monospace" }}>
+                          <span style={{ fontWeight: 700, color: typeColor, minWidth: 40, fontFamily: "'DM Sans',sans-serif" }}>
                             {row.typeLabel || row.mark || row.roomNo || "—"}
                           </span>
                           <span style={{ flex: 1, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {row.description || row.roomName || row.type || ""}
                           </span>
                           {row.material && <span style={{ fontSize: 8, padding: "1px 5px", borderRadius: 3, background: `${C.accent}10`, color: C.text }}>{row.material}</span>}
-                          {row.MSStudSize && <span style={{ fontSize: 8, padding: "1px 5px", borderRadius: 3, background: `${C.accent}10`, color: C.text, fontFamily: "'DM Mono',monospace" }}>{row.MSStudSize}</span>}
-                          {row.MSGauge && <span style={{ fontSize: 8, padding: "1px 5px", borderRadius: 3, background: `${C.accent}10`, color: C.text, fontFamily: "'DM Mono',monospace" }}>{row.MSGauge}</span>}
+                          {row.MSStudSize && <span style={{ fontSize: 8, padding: "1px 5px", borderRadius: 3, background: `${C.accent}10`, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>{row.MSStudSize}</span>}
+                          {row.MSGauge && <span style={{ fontSize: 8, padding: "1px 5px", borderRadius: 3, background: `${C.accent}10`, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>{row.MSGauge}</span>}
                           {row.confidence && (
                             <span style={{ fontSize: 7, fontWeight: 600, color: row.confidence === "high" ? C.green : row.confidence === "low" ? C.orange : C.textDim }}>
                               {row.confidence}
@@ -3629,12 +3853,16 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
           {!selectedDrawing ? (
             <div style={{ color: C.textDim, textAlign: "center", padding: 40, maxWidth: 400, animation: "fadeIn 0.3s ease-out" }}>
               {drawings.length === 0 ? (<>
-                {/* Workflow stepper empty state */}
-                <div style={{ width: 56, height: 56, borderRadius: 16, background: `${C.accent}10`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-                  <Ic d={I.plans} size={28} color={C.accent} sw={1.5} />
+                {/* Workflow stepper empty state — confident & beautiful */}
+                <div style={{ position: "relative", display: "inline-block", marginBottom: 20 }}>
+                  <div style={{ position: "absolute", inset: -16, borderRadius: "50%", border: `1px solid ${C.accent}10`, animation: "breathe 4s ease-in-out infinite" }} />
+                  <div style={{ position: "absolute", inset: -8, borderRadius: "50%", border: `1px solid ${C.accent}15`, animation: "breathe 4s ease-in-out infinite 0.4s" }} />
+                  <div style={{ width: 56, height: 56, borderRadius: 16, background: `linear-gradient(135deg, ${C.accent}18, ${C.accent}06)`, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 0 32px ${C.accent}15`, position: "relative" }}>
+                    <Ic d={I.plans} size={26} color={C.accent} sw={1.5} />
+                  </div>
                 </div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: C.text, marginBottom: 4 }}>Start your takeoff</div>
-                <div style={{ fontSize: 11, color: C.textMuted, lineHeight: 1.5, marginBottom: 20 }}>Upload drawings in the <strong style={{ color: C.text }}>Discovery</strong> tab to begin.</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: C.text, marginBottom: 6, letterSpacing: -0.3 }}>Start your takeoff</div>
+                <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.5, marginBottom: 24 }}>Upload drawings in the <strong style={{ color: C.text }}>Discovery</strong> tab to begin.</div>
                 <div style={{ textAlign: "left", display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
                   {[
                     { step: 1, label: "Upload drawings", desc: "Go to Discovery tab to add PDFs or images", icon: I.upload },
@@ -3652,16 +3880,19 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                   ))}
                 </div>
                 <div style={{ display: "flex", gap: 12, justifyContent: "center", fontSize: 9, color: C.textDim }}>
-                  <span><kbd style={{ padding: "1px 4px", borderRadius: 3, background: C.bg2, border: `1px solid ${C.border}`, fontSize: 9, fontFamily: "'DM Mono',monospace" }}>⌘K</kbd> Command palette</span>
-                  <span><kbd style={{ padding: "1px 4px", borderRadius: 3, background: C.bg2, border: `1px solid ${C.border}`, fontSize: 9, fontFamily: "'DM Mono',monospace" }}>Esc</kbd> Stop measuring</span>
+                  <span><kbd style={{ padding: "1px 4px", borderRadius: 3, background: C.bg2, border: `1px solid ${C.border}`, fontSize: 9, fontFamily: "'DM Sans',sans-serif" }}>⌘K</kbd> Command palette</span>
+                  <span><kbd style={{ padding: "1px 4px", borderRadius: 3, background: C.bg2, border: `1px solid ${C.border}`, fontSize: 9, fontFamily: "'DM Sans',sans-serif" }}>Esc</kbd> Stop measuring</span>
                 </div>
               </>) : (<>
-                {/* Select a drawing — enhanced with thumbnails */}
-                <div style={{ width: 48, height: 48, borderRadius: 12, background: C.bg2, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
-                  <Ic d={I.chevron} size={20} color={C.textMuted} sw={2} />
+                {/* Select a drawing — confident with thumbnails */}
+                <div style={{ position: "relative", display: "inline-block", marginBottom: 16 }}>
+                  <div style={{ position: "absolute", inset: -8, borderRadius: "50%", border: `1px solid ${C.accent}10`, animation: "breathe 3s ease-in-out infinite" }} />
+                  <div style={{ width: 48, height: 48, borderRadius: 14, background: `linear-gradient(135deg, ${C.accent}12, ${C.accent}06)`, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+                    <Ic d={I.plans} size={22} color={C.accent} sw={1.5} />
+                  </div>
                 </div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 4 }}>Select a drawing</div>
-                <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>You have {drawings.length} drawing{drawings.length !== 1 ? "s" : ""} uploaded</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 4, letterSpacing: -0.2 }}>Choose a drawing</div>
+                <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 6 }}>{drawings.length} drawing{drawings.length !== 1 ? "s" : ""} ready to measure</div>
                 <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 12, marginBottom: 12 }}>
                   {drawings.filter(d => d.data).slice(0, 3).map(d => {
                     const thumb = d.type === "pdf" ? pdfCanvases[d.id] : d.data;
@@ -3811,7 +4042,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                         {keySpecs.map((s, i) => (
                           <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", borderTop: i === 0 ? `1px solid ${C.border}40` : "none" }}>
                             <span style={{ color: C.textDim, fontSize: 8 }}>{s.label}</span>
-                            <span style={{ fontWeight: 600, color: C.text, fontFamily: "'DM Mono',monospace" }}>{s.value}{s.unit ? ` ${s.unit}` : ""}</span>
+                            <span style={{ fontWeight: 600, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>{s.value}{s.unit ? ` ${s.unit}` : ""}</span>
                           </div>
                         ))}
                       </div>
@@ -3900,73 +4131,73 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
         </div>
       </div>
 
-      {/* ═══ NOVA Vision Right-Side Panel ═══ */}
-      {tkNovaPanelOpen && tkPredictions && tkPredictions.predictions.length > 0 && (() => {
-        const novaPreds = tkPredictions.predictions;
+      {/* ═══ Unified NOVA Right Panel — Vision / Tools / Chat ═══ */}
+      {tkNovaPanelOpen && (() => {
+        const novaPreds = tkPredictions?.predictions || [];
         const novaPending = novaPreds.filter(p => !tkPredAccepted.includes(p.id) && !tkPredRejected.includes(p.id));
         const novaAccepted = novaPreds.filter(p => tkPredAccepted.includes(p.id));
         const novaActiveTo = takeoffs.find(t => t.id === tkActiveTakeoffId);
         const novaPredColor = novaActiveTo?.color || "#8B5CF6";
-        const novaConfidence = tkPredContext?.confidence || 0;
-        const novaConfPct = Math.round(novaConfidence * 100);
         const novaAvgConf = novaPreds.length > 0 ? Math.round((novaPreds.reduce((s, p) => s + (p.confidence || 0), 0) / novaPreds.length) * 100) : 0;
 
         const novaAcceptOne = (pred) => {
           acceptPrediction(pred.id);
+          recordPredictionFeedback(tkPredictions?.tag, tkPredictions?.strategy, true);
           if (tkActiveTakeoffId) {
             if (pred.type === "count" || pred.type === "wall-tag") {
-              addMeasurement(tkActiveTakeoffId, {
-                type: "count", points: [pred.point], value: 1,
-                sheetId: selectedDrawingId, color: novaActiveTo?.color || "#5b8def",
-                predicted: true, tag: tkPredictions.tag,
-              });
+              addMeasurement(tkActiveTakeoffId, { type: "count", points: [pred.point], value: 1, sheetId: selectedDrawingId, color: novaActiveTo?.color || "#5b8def", predicted: true, tag: tkPredictions.tag });
             } else if (pred.type === "wall" && pred.points?.length >= 2) {
-              addMeasurement(tkActiveTakeoffId, {
-                type: "linear", points: pred.points, value: 0,
-                sheetId: selectedDrawingId, color: novaActiveTo?.color || "#5b8def",
-                predicted: true, tag: tkPredictions.tag,
-              });
+              addMeasurement(tkActiveTakeoffId, { type: "linear", points: pred.points, value: 0, sheetId: selectedDrawingId, color: novaActiveTo?.color || "#5b8def", predicted: true, tag: tkPredictions.tag });
             } else if (pred.type === "area" && pred.points?.length >= 3) {
-              addMeasurement(tkActiveTakeoffId, {
-                type: "area", points: pred.points, value: 0,
-                sheetId: selectedDrawingId, color: novaActiveTo?.color || "#5b8def",
-                predicted: true, tag: pred.tag || tkPredictions.tag,
-              });
+              addMeasurement(tkActiveTakeoffId, { type: "area", points: pred.points, value: 0, sheetId: selectedDrawingId, color: novaActiveTo?.color || "#5b8def", predicted: true, tag: pred.tag || tkPredictions.tag });
             }
           }
         };
-
         const novaAcceptAll = () => {
           const toAdd = novaPreds.filter(p => !tkPredRejected.includes(p.id) && !tkPredAccepted.includes(p.id));
           if (tkActiveTakeoffId && toAdd.length > 0) {
+            toAdd.forEach(() => recordPredictionFeedback(tkPredictions?.tag, tkPredictions?.strategy, true));
             toAdd.forEach(pred => {
-              if (pred.type === "count" || pred.type === "wall-tag") {
-                addMeasurement(tkActiveTakeoffId, {
-                  type: "count", points: [pred.point], value: 1,
-                  sheetId: selectedDrawingId, color: novaActiveTo?.color || "#5b8def",
-                  predicted: true, tag: tkPredictions.tag,
-                });
-              } else if (pred.type === "wall" && pred.points?.length >= 2) {
-                addMeasurement(tkActiveTakeoffId, {
-                  type: "linear", points: pred.points, value: 0,
-                  sheetId: selectedDrawingId, color: novaActiveTo?.color || "#5b8def",
-                  predicted: true, tag: tkPredictions.tag,
-                });
-              } else if (pred.type === "area" && pred.points?.length >= 3) {
-                addMeasurement(tkActiveTakeoffId, {
-                  type: "area", points: pred.points, value: 0,
-                  sheetId: selectedDrawingId, color: novaActiveTo?.color || "#5b8def",
-                  predicted: true, tag: pred.tag || tkPredictions.tag,
-                });
-              }
+              if (pred.type === "count" || pred.type === "wall-tag") addMeasurement(tkActiveTakeoffId, { type: "count", points: [pred.point], value: 1, sheetId: selectedDrawingId, color: novaActiveTo?.color || "#5b8def", predicted: true, tag: tkPredictions.tag });
+              else if (pred.type === "wall" && pred.points?.length >= 2) addMeasurement(tkActiveTakeoffId, { type: "linear", points: pred.points, value: 0, sheetId: selectedDrawingId, color: novaActiveTo?.color || "#5b8def", predicted: true, tag: tkPredictions.tag });
+              else if (pred.type === "area" && pred.points?.length >= 3) addMeasurement(tkActiveTakeoffId, { type: "area", points: pred.points, value: 0, sheetId: selectedDrawingId, color: novaActiveTo?.color || "#5b8def", predicted: true, tag: pred.tag || tkPredictions.tag });
             });
             showToast(`Added ${toAdd.length} predicted measurements`);
           }
           clearPredictions();
         };
+        const novaRejectAll = () => { novaPending.forEach(p => { rejectPrediction(p.id); recordPredictionFeedback(tkPredictions?.tag, tkPredictions?.strategy, false); }); };
 
-        const novaRejectAll = () => {
-          novaPending.forEach(p => rejectPrediction(p.id));
+        // NOVA Chat handler
+        const handleNovaChat = async (text) => {
+          const msg = (text || novaChatInput).trim();
+          if (!msg || novaChatLoading) return;
+          const userMsg = { role: "user", text: msg };
+          const updated = [...novaChatMessages, userMsg];
+          setNovaChatMessages(updated);
+          setNovaChatInput("");
+          setNovaChatLoading(true);
+          try {
+            const ctx = buildProjectContext({ project, items: useItemsStore.getState().items, takeoffs, specs: useSpecsStore.getState().specs, drawings });
+            const apiMsgs = updated.map((m, i) => {
+              if (m.actions) return { role: "assistant", content: m.text || "Done." };
+              if (i === 0 && m.role === "user") return { role: "user", content: `[Project Context]\n${ctx}\n\n[Question]\n${m.text}` };
+              return { role: m.role, content: m.text };
+            });
+            const CHAT_SYS = `You are NOVA, an expert construction estimating AI. Be concise and direct. Reference CSI codes when relevant. You have tools to modify the estimate.`;
+            const resp = await callAnthropic({ system: CHAT_SYS, max_tokens: 2000, messages: apiMsgs, tools: NOVA_TOOLS });
+            if (typeof resp === "string") {
+              setNovaChatMessages([...updated, { role: "assistant", text: resp }]);
+            } else if (resp?.content) {
+              const textParts = []; const toolCalls = [];
+              for (const b of resp.content) { if (b.type === "text") textParts.push(b.text); else if (b.type === "tool_use") toolCalls.push(b); }
+              const toolResults = toolCalls.map(tc => { try { return { tool_use_id: tc.id, ...executeNovaTool(tc.name, tc.input) }; } catch (err) { return { tool_use_id: tc.id, success: false, message: err.message }; } });
+              const actionMsg = { role: "assistant", text: textParts.join("\n") || "", actions: toolResults };
+              setNovaChatMessages([...updated, actionMsg]);
+            }
+          } catch (err) {
+            setNovaChatMessages([...updated, { role: "assistant", text: `⚠️ ${err.message}` }]);
+          } finally { setNovaChatLoading(false); }
         };
 
         return (
@@ -3974,179 +4205,173 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
             width: 340, flexShrink: 0, display: "flex", flexDirection: "column",
             background: C.bg1, borderLeft: `1px solid ${C.border}`,
             backdropFilter: T.glass.blur, WebkitBackdropFilter: T.glass.blur,
-            zIndex: T.z.overlay, animation: "slideIn 0.2s ease-out",
-            boxShadow: "-4px 0 24px rgba(0,0,0,0.15)",
+            animation: "slideIn 0.2s ease-out", boxShadow: "-4px 0 24px rgba(0,0,0,0.15)",
           }}>
-            {/* Header */}
+            {/* ── NOVA Header — Orb + Title ── */}
             <div style={{
-              padding: "12px 16px", borderBottom: `1px solid ${C.border}`,
+              padding: "14px 16px 10px", borderBottom: `1px solid ${C.border}`,
               display: "flex", alignItems: "center", justifyContent: "space-between",
-              background: "linear-gradient(135deg, #6366F108, #8B5CF608)",
+              background: `linear-gradient(135deg, ${C.accent}06, ${C.purple || C.accent}04)`,
             }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 16 }}>✦</span>
-                <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: 0.5, color: "#8B5CF6", fontFamily: T.font.display }}>NOVA Vision</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", overflow: "visible" }}>
+                  <div style={{ transform: "scale(0.22)", transformOrigin: "center" }}><NovaOrb /></div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: 0.5, color: C.text, fontFamily: T.font.display }}>NOVA</div>
+                  <div style={{ fontSize: 9, color: C.textDim, fontWeight: 500 }}>Powered by AI</div>
+                </div>
               </div>
               <button onClick={() => setTkNovaPanelOpen(false)}
-                style={{ width: 24, height: 24, border: `1px solid ${C.border}`, borderRadius: 6, background: C.bg2, color: C.textDim, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                style={{ width: 24, height: 24, border: `1px solid ${C.border}`, borderRadius: 6, background: C.bg2, color: C.textDim, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke={C.textDim} strokeWidth="1.5" strokeLinecap="round"><path d="M2 2l6 6M8 2l-6 6" /></svg>
               </button>
             </div>
 
-            {/* Summary bar */}
-            <div style={{
-              padding: "10px 16px", borderBottom: `1px solid ${C.border}`,
-              display: "flex", alignItems: "center", gap: 10, background: C.bg,
-            }}>
-              <span style={{
-                padding: "3px 10px", borderRadius: 5, fontSize: 11, fontWeight: 700,
-                background: `${novaPredColor}15`, color: novaPredColor, border: `1px solid ${novaPredColor}25`,
-                fontFamily: T.font.mono,
-              }}>{tkPredictions.tag || "—"}</span>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>
-                  {novaPending.length > 0 ? `${novaPending.length} found` : `${novaAccepted.length} accepted`}
+            {/* ═══ Unified Scrollable Content ═══ */}
+            <div ref={novaChatScrollRef} style={{ flex: 1, overflowY: "auto" }}>
+
+              {/* ── Predictions Section (when active) ── */}
+              {novaPreds.length > 0 && (<>
+                <div style={{ padding: "10px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 10, background: C.bg }}>
+                  <span style={{ padding: "3px 10px", borderRadius: 5, fontSize: 11, fontWeight: 700, background: `${novaPredColor}15`, color: novaPredColor, border: `1px solid ${novaPredColor}25`, fontFamily: T.font.mono }}>{tkPredictions?.tag || "—"}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{novaPending.length > 0 ? `${novaPending.length} found` : `${novaAccepted.length} accepted`}</div>
+                    <div style={{ fontSize: 9, color: C.textDim }}>avg {novaAvgConf}% confidence</div>
+                  </div>
                 </div>
-                <div style={{ fontSize: 9, color: C.textDim }}>avg {novaAvgConf}% confidence</div>
-              </div>
-              {tkPredictions.totalInstances > 0 && (
-                <span style={{ fontSize: 8, fontWeight: 600, color: C.textDim, background: C.bg2, padding: "2px 6px", borderRadius: 3 }}>
-                  {tkPredictions.totalInstances} total
-                </span>
-              )}
-            </div>
-
-            {/* Action buttons */}
-            {novaPending.length > 0 && (
-              <div style={{
-                padding: "8px 16px", borderBottom: `1px solid ${C.border}`,
-                display: "flex", gap: 8,
-              }}>
-                <button onClick={novaAcceptAll}
-                  style={bt(C, {
-                    flex: 1, background: C.green, color: "#fff", padding: "7px 0", fontSize: 11, fontWeight: 700,
-                    borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
-                  })}>
-                  <Ic d={I.check} size={11} color="#fff" sw={2.5} /> Accept All ({novaPending.length})
-                </button>
-                <button onClick={novaRejectAll}
-                  style={bt(C, {
-                    flex: 1, background: "transparent", border: `1px solid ${C.border}`, color: C.textDim,
-                    padding: "7px 0", fontSize: 11, fontWeight: 600, borderRadius: 6,
-                  })}>
-                  Reject All
-                </button>
-              </div>
-            )}
-
-            {/* Scrollable prediction list */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "4px 0" }}>
-              {novaPreds.map(pred => {
-                const isAccepted = tkPredAccepted.includes(pred.id);
-                const isRejected = tkPredRejected.includes(pred.id);
-                const isPending = !isAccepted && !isRejected;
-                const predConf = Math.round((pred.confidence || 0) * 100);
-                const confColor = predConf >= 80 ? C.green : predConf >= 50 ? C.blue : C.orange;
-
-                return (
-                  <div key={pred.id} style={{
-                    margin: "2px 8px", padding: "8px 12px", borderRadius: 8,
-                    background: isAccepted ? `${C.green}08` : isRejected ? `${C.red}05` : C.bg,
-                    border: `1px solid ${isAccepted ? C.green + "20" : isRejected ? C.red + "15" : C.border}`,
-                    opacity: isRejected ? 0.5 : 1, transition: T.transition.fast,
-                  }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                      <div style={{
-                        width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
-                        background: isAccepted ? C.green : isRejected ? C.red : novaPredColor,
-                      }} />
-                      <span style={{ fontSize: 11, fontWeight: 600, color: C.text, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {pred.tag || pred.type || "Prediction"}
-                      </span>
-                      {isAccepted && <span style={{ fontSize: 8, fontWeight: 700, color: C.green }}>Added</span>}
-                      {isRejected && <span style={{ fontSize: 8, fontWeight: 700, color: C.red }}>Dismissed</span>}
-                    </div>
-
-                    {/* Confidence bar */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: isPending ? 8 : 0 }}>
-                      <div style={{ flex: 1, height: 3, borderRadius: 2, background: C.bg3 }}>
-                        <div style={{ width: `${predConf}%`, height: "100%", borderRadius: 2, background: confColor, transition: "width 0.3s ease" }} />
+                {novaPending.length > 0 && (
+                  <div style={{ padding: "8px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", gap: 8 }}>
+                    <button onClick={novaAcceptAll} style={bt(C, { flex: 1, background: C.green, color: "#fff", padding: "7px 0", fontSize: 11, fontWeight: 700, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 })}>
+                      <Ic d={I.check} size={11} color="#fff" sw={2.5} /> Accept All ({novaPending.length})
+                    </button>
+                    <button onClick={novaRejectAll} style={bt(C, { flex: 1, background: "transparent", border: `1px solid ${C.border}`, color: C.textDim, padding: "7px 0", fontSize: 11, fontWeight: 600, borderRadius: 6 })}>Reject All</button>
+                  </div>
+                )}
+                <div style={{ padding: "4px 0" }}>
+                  {novaPreds.map(pred => {
+                    const isAccepted = tkPredAccepted.includes(pred.id);
+                    const isRejected = tkPredRejected.includes(pred.id);
+                    const isPending = !isAccepted && !isRejected;
+                    const predConf = Math.round((pred.confidence || 0) * 100);
+                    const confColor = predConf >= 80 ? C.green : predConf >= 50 ? C.blue : C.orange;
+                    return (
+                      <div key={pred.id} style={{ margin: "2px 8px", padding: "8px 12px", borderRadius: 8, background: isAccepted ? `${C.green}08` : isRejected ? `${C.red}05` : C.bg, border: `1px solid ${isAccepted ? C.green + "20" : isRejected ? C.red + "15" : C.border}`, opacity: isRejected ? 0.5 : 1, transition: T.transition.fast }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                          <div style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, background: isAccepted ? C.green : isRejected ? C.red : novaPredColor }} />
+                          <span style={{ fontSize: 11, fontWeight: 600, color: C.text, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pred.tag || pred.type || "Prediction"}</span>
+                          {isAccepted && <span style={{ fontSize: 8, fontWeight: 700, color: C.green }}>Added</span>}
+                          {isRejected && <span style={{ fontSize: 8, fontWeight: 700, color: C.red }}>Dismissed</span>}
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: isPending ? 8 : 0 }}>
+                          <div style={{ flex: 1, height: 3, borderRadius: 2, background: C.bg3 }}><div style={{ width: `${predConf}%`, height: "100%", borderRadius: 2, background: confColor, transition: "width 0.3s ease" }} /></div>
+                          <span style={{ fontSize: 9, fontWeight: 700, color: confColor, fontFamily: T.font.mono, minWidth: 28, textAlign: "right" }}>{predConf}%</span>
+                        </div>
+                        {isPending && (
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <button onClick={() => novaAcceptOne(pred)} style={bt(C, { flex: 1, padding: "4px 0", fontSize: 10, fontWeight: 600, borderRadius: 5, background: `${C.green}15`, color: C.green, border: `1px solid ${C.green}25`, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 })}><Ic d={I.check} size={9} color={C.green} sw={2.5} /> Accept</button>
+                            <button onClick={() => { rejectPrediction(pred.id); recordPredictionFeedback(tkPredictions?.tag, tkPredictions?.strategy, false); }} style={bt(C, { flex: 1, padding: "4px 0", fontSize: 10, fontWeight: 600, borderRadius: 5, background: "transparent", color: C.textDim, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 })}>
+                              <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke={C.textDim} strokeWidth="2" strokeLinecap="round"><path d="M2 2l6 6M8 2l-6 6" /></svg> Reject
+                            </button>
+                          </div>
+                        )}
                       </div>
-                      <span style={{ fontSize: 9, fontWeight: 700, color: confColor, fontFamily: T.font.mono, minWidth: 28, textAlign: "right" }}>{predConf}%</span>
-                    </div>
-
-                    {/* Accept / Reject buttons */}
-                    {isPending && (
-                      <div style={{ display: "flex", gap: 6 }}>
-                        <button onClick={() => novaAcceptOne(pred)}
-                          style={bt(C, {
-                            flex: 1, padding: "4px 0", fontSize: 10, fontWeight: 600, borderRadius: 5,
-                            background: `${C.green}15`, color: C.green, border: `1px solid ${C.green}25`,
-                            display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
-                          })}>
-                          <Ic d={I.check} size={9} color={C.green} sw={2.5} /> Accept
-                        </button>
-                        <button onClick={() => rejectPrediction(pred.id)}
-                          style={bt(C, {
-                            flex: 1, padding: "4px 0", fontSize: 10, fontWeight: 600, borderRadius: 5,
-                            background: "transparent", color: C.textDim, border: `1px solid ${C.border}`,
-                            display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
-                          })}>
-                          <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke={C.textDim} strokeWidth="2" strokeLinecap="round"><path d="M2 2l6 6M8 2l-6 6" /></svg> Reject
-                        </button>
+                    );
+                  })}
+                </div>
+                {drawings.filter(d => d.data && d.type === "pdf").length > 1 && (
+                  <div style={{ padding: "8px 16px", borderTop: `1px solid ${C.border}` }}>
+                    {crossSheetScan?.scanning ? (
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "6px 0", fontSize: 10, color: C.blue }}>
+                        <span style={{ display: "inline-block", width: 10, height: 10, border: "2px solid #3B82F640", borderTop: "2px solid #3B82F6", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} /> Scanning other sheets...
                       </div>
+                    ) : (
+                      <button onClick={async () => {
+                        setCrossSheetScan({ tag: tkPredictions.tag, results: [], scanning: true });
+                        try {
+                          const pdfDrawings = drawings.filter(d => d.data && d.type === "pdf" && d.id !== selectedDrawingId);
+                          const results = await scanAllSheets(pdfDrawings, tkPredictions.tag, tkTool === "count" ? "count" : "linear");
+                          setCrossSheetScan({ tag: tkPredictions.tag, results, scanning: false });
+                          const total = results.reduce((s, r) => s + r.instanceCount, 0);
+                          if (total > 0) showToast(`Found "${tkPredictions.tag}" on ${results.length} other sheet(s)`); else showToast(`Not found on other sheets`);
+                        } catch (err) { setCrossSheetScan(null); }
+                      }} style={bt(C, { width: "100%", padding: "8px 0", fontSize: 10, fontWeight: 600, borderRadius: 6, background: `${C.blue}10`, color: C.blue, border: `1px solid ${C.blue}20`, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 })}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={C.blue} strokeWidth="2.5" strokeLinecap="round"><path d="M4 4h6v6H4z" /><path d="M14 4h6v6h-6z" /><path d="M4 14h6v6H4z" /><path d="M14 14h6v6h-6z" /></svg> Scan All Pages
+                      </button>
                     )}
                   </div>
-                );
-              })}
-            </div>
+                )}
+                {tkPredRefining && <div style={{ padding: "8px 16px", borderTop: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: `${C.orange}06`, fontSize: 10, color: C.orange, fontWeight: 600 }}><span style={{ display: "inline-block", animation: "spin 1s linear infinite", fontSize: 12 }}>⟳</span> Refining...</div>}
+              </>)}
 
-            {/* Cross-sheet scan button */}
-            {drawings.filter(d => d.data && d.type === "pdf").length > 1 && (
-              <div style={{ padding: "8px 16px", borderTop: `1px solid ${C.border}` }}>
-                {crossSheetScan?.scanning ? (
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "6px 0", fontSize: 10, color: C.blue }}>
-                    <span style={{ display: "inline-block", width: 10, height: 10, border: "2px solid #3B82F640", borderTop: "2px solid #3B82F6", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-                    Scanning other sheets...
-                  </div>
-                ) : (
-                  <button onClick={async () => {
-                    setCrossSheetScan({ tag: tkPredictions.tag, results: [], scanning: true });
-                    try {
-                      const pdfDrawings = drawings.filter(d => d.data && d.type === "pdf" && d.id !== selectedDrawingId);
-                      const results = await scanAllSheets(pdfDrawings, tkPredictions.tag, tkTool === "count" ? "count" : "linear");
-                      setCrossSheetScan({ tag: tkPredictions.tag, results, scanning: false });
-                      const totalInstances = results.reduce((s, r) => s + r.instanceCount, 0);
-                      if (totalInstances > 0) showToast(`Found "${tkPredictions.tag}" on ${results.length} other sheet(s) (${totalInstances} instances)`);
-                      else showToast(`"${tkPredictions.tag}" not found on other sheets`);
-                    } catch (err) {
-                      console.warn("Cross-sheet scan failed:", err);
-                      setCrossSheetScan(null);
-                    }
-                  }}
-                    style={bt(C, {
-                      width: "100%", padding: "8px 0", fontSize: 10, fontWeight: 600, borderRadius: 6,
-                      background: `${C.blue}10`, color: C.blue, border: `1px solid ${C.blue}20`,
-                      display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                    })}>
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={C.blue} strokeWidth="2.5" strokeLinecap="round"><path d="M4 4h6v6H4z" /><path d="M14 4h6v6h-6z" /><path d="M4 14h6v6H4z" /><path d="M14 14h6v6h-6z" /></svg>
-                    Scan All Pages
+              {/* ── NOVA Features ── */}
+              <div style={{ padding: 12 }}>
+                {[
+                  { label: "NOVA Vision", desc: novaPreds.length > 0 ? `${novaPending.length} predictions pending` : !tkActiveTakeoffId ? "Select a takeoff to start" : tkMeasureState === "idle" ? "Start measuring — NOVA predicts matches" : "Measure near a tag to generate predictions", icon: I.ai, action: null, color: C.accent, status: novaPreds.length > 0 ? "active" : "info" },
+                  { label: "Auto-Detect", desc: "Scan drawing for all measurable elements", icon: I.ai, loading: aiDrawingAnalysis?.loading, hasResults: aiDrawingAnalysis?.results?.length > 0, resultLabel: aiDrawingAnalysis?.results ? `${aiDrawingAnalysis.results.length} found` : null, action: () => runDrawingAnalysis(), color: C.accent },
+                  { label: "Scan Schedules", desc: "Find schedules in PDFs", icon: I.insights, loading: pdfSchedules.loading, hasResults: pdfSchedules.results?.length > 0, resultLabel: pdfSchedules.results ? `${pdfSchedules.results.length} schedules` : null, action: () => runPdfScheduleScan(), color: "#10B981" },
+                ].map(item => (
+                  <button key={item.label} onClick={item.action} disabled={item.loading || !item.action}
+                    style={{ width: "100%", padding: "10px 12px", background: item.status === "active" ? `${item.color}06` : C.bg, border: `1px solid ${item.status === "active" ? item.color + "25" : C.border}`, borderRadius: 8, display: "flex", alignItems: "center", gap: 10, cursor: item.action ? (item.loading ? "wait" : "pointer") : "default", textAlign: "left", transition: "all 0.15s", marginBottom: 6, opacity: item.action ? 1 : 0.8 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 8, background: `${item.color}12`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      {item.loading ? <span style={{ display: "inline-block", width: 12, height: 12, border: `2px solid ${item.color}30`, borderTop: `2px solid ${item.color}`, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} /> : <Ic d={item.icon} size={14} color={item.color} />}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{item.label}</div>
+                      <div style={{ fontSize: 9, color: C.textDim, marginTop: 2 }}>{item.desc}</div>
+                    </div>
+                    {item.hasResults && item.resultLabel && <span style={{ fontSize: 8, fontWeight: 700, color: item.color, background: `${item.color}15`, padding: "2px 6px", borderRadius: 10, flexShrink: 0 }}>{item.resultLabel}</span>}
                   </button>
+                ))}
+              </div>
+
+              {/* ── Chat Section ── */}
+              <div style={{ padding: "0 12px 12px", borderTop: `1px solid ${C.border}` }}>
+                {novaChatMessages.length === 0 && !novaChatLoading && (
+                  <div style={{ padding: "12px 0 4px" }}>
+                    <div style={{ textAlign: "center", marginBottom: 10 }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: C.text, marginBottom: 2 }}>Chat with NOVA</div>
+                      <div style={{ fontSize: 9, color: C.textDim }}>Ask about scope, pricing, or specs</div>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      {QUICK_ACTIONS.slice(0, 3).map((qa, i) => (
+                        <button key={i} onClick={() => handleNovaChat(qa.label)}
+                          style={{ background: `${C.accent}06`, border: `1px solid ${C.accent}15`, borderRadius: 6, padding: "7px 10px", cursor: "pointer", textAlign: "left", fontSize: 10, color: C.text, fontWeight: 500, display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" }}>
+                          <span style={{ fontSize: 11 }}>{qa.icon}</span> {qa.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {novaChatMessages.map((msg, i) => (
+                  <div key={i} style={{ paddingTop: i === 0 ? 8 : 0 }}>
+                    <MessageBubble msg={msg} C={C} />
+                    {msg.actions && <ActionCards actions={msg.actions} C={C} />}
+                  </div>
+                ))}
+                {novaChatLoading && (
+                  <div style={{ display: "flex", gap: 4, padding: "8px 0", alignItems: "center" }}>
+                    {[0, 1, 2].map(n => (<div key={n} style={{ width: 5, height: 5, borderRadius: 3, background: C.accent, opacity: 0.4, animation: `novaPulse 1.2s ${n * 0.2}s infinite` }} />))}
+                    <span style={{ fontSize: 10, color: C.textMuted, marginLeft: 4 }}>Thinking...</span>
+                  </div>
                 )}
               </div>
-            )}
+            </div>
 
-            {/* Footer — refining spinner */}
-            {tkPredRefining && (
-              <div style={{
-                padding: "8px 16px", borderTop: `1px solid ${C.border}`,
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                background: `${C.orange}06`, fontSize: 10, color: C.orange, fontWeight: 600,
-              }}>
-                <span style={{ display: "inline-block", animation: "spin 1s linear infinite", fontSize: 12 }}>⟳</span>
-                Refining predictions...
+            {/* ── Chat Input (pinned at bottom) ── */}
+            <div style={{ padding: "8px 12px 12px", borderTop: `1px solid ${C.border}`, flexShrink: 0 }}>
+              <div style={{ display: "flex", gap: 6, alignItems: "flex-end", background: C.bg, borderRadius: 8, border: `1px solid ${C.border}`, padding: "6px 10px" }}>
+                <textarea ref={novaChatInputRef} value={novaChatInput} onChange={e => setNovaChatInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleNovaChat(); } }}
+                  placeholder="Ask NOVA..." rows={1}
+                  style={{ flex: 1, border: "none", outline: "none", resize: "none", background: "transparent", color: C.text, fontSize: 12, fontFamily: "inherit", lineHeight: 1.4, maxHeight: 80, padding: 0 }}
+                  onInput={e => { e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 80) + "px"; }} />
+                <button onClick={() => handleNovaChat()} disabled={!novaChatInput.trim() || novaChatLoading}
+                  style={{ width: 26, height: 26, borderRadius: 6, border: "none", background: novaChatInput.trim() && !novaChatLoading ? C.accent : `${C.text}10`, color: novaChatInput.trim() && !novaChatLoading ? "#fff" : C.textDim, cursor: novaChatInput.trim() && !novaChatLoading ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <Ic d={I.send} size={12} color={novaChatInput.trim() && !novaChatLoading ? "#fff" : C.textDim} />
+                </button>
               </div>
-            )}
+            </div>
           </div>
         );
       })()}
@@ -4163,7 +4388,6 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
         onRunAnalysis={runDrawingAnalysis}
         onRunSchedules={runPdfScheduleScan}
         onRunGeometry={runGeometryAnalysis}
-        onAiOutline={handleAiOutline}
         onAutoCount={() => setTkAutoCount({ phase: "select" })}
         getMeasuredQty={getMeasuredQty}
       />

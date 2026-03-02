@@ -392,7 +392,7 @@ export default function BuildingSketch({ outlines, floorAssignments, floors, pro
           <text key={`lbl-${i}`}
             x={l.x} y={l.y}
             fill={C.textDim} fontSize={7}
-            fontFamily="'DM Mono',monospace" fontWeight={500}
+            fontFamily="'DM Sans',sans-serif" fontWeight={500}
             textAnchor="end" dominantBaseline="middle"
             opacity={0.6}
           >
@@ -413,7 +413,7 @@ export default function BuildingSketch({ outlines, floorAssignments, floors, pro
             {/* Label */}
             <text x={d.tx} y={d.ty}
               fill={C.accent} fontSize={8}
-              fontFamily="'DM Mono',monospace" fontWeight={600}
+              fontFamily="'DM Sans',sans-serif" fontWeight={600}
               textAnchor="middle" dominantBaseline="middle"
               opacity={0.7}
             >
@@ -427,7 +427,7 @@ export default function BuildingSketch({ outlines, floorAssignments, floors, pro
       {(data.polyW > 0 || data.polyD > 0) && (
         <div style={{
           textAlign: "center", fontSize: 9, color: C.textDim, marginTop: 4,
-          fontFamily: "'DM Mono',monospace", fontWeight: 500,
+          fontFamily: "'DM Sans',sans-serif", fontWeight: 500,
         }}>
           {data.polyW > 0 && data.polyD > 0
             ? `${data.polyW}' × ${data.polyD}' footprint`

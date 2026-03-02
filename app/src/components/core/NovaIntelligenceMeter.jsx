@@ -70,7 +70,7 @@ export default function NovaIntelligenceMeter({ proposalCount, elementCount, ass
           <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
             <span style={{
               fontSize: 28, fontWeight: 700, color: levelColor,
-              fontFamily: "'DM Mono', monospace", lineHeight: 1,
+              fontFamily: "'DM Sans', sans-serif", lineHeight: 1,
             }}>
               {score}
             </span>

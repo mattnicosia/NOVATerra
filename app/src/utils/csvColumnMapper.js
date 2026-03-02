@@ -1,6 +1,6 @@
 import { callAnthropic } from '@/utils/ai';
 
-/** BLDG Omni target fields available for CSV column mapping */
+/** NOVATerra target fields available for CSV column mapping */
 export const OMNI_FIELDS = [
   { key: "code",           label: "Code (CSI)",        type: "string" },
   { key: "description",    label: "Description",       type: "string" },
@@ -19,9 +19,9 @@ const FIELD_KEYS = new Set(OMNI_FIELDS.map(f => f.key));
 
 // ─── AI-Powered Column Mapping ──────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are a construction estimating data mapper. Given CSV column headers and sample data from an estimating software export (likely ProEst), map each column to the appropriate BLDG Omni estimating field.
+const SYSTEM_PROMPT = `You are a construction estimating data mapper. Given CSV column headers and sample data from an estimating software export (likely ProEst), map each column to the appropriate NOVATerra estimating field.
 
-Available BLDG Omni fields:
+Available NOVATerra fields:
 - code: CSI division code (e.g., "03.100.010", "03 30 00")
 - description: Item description text
 - division: Division name or number
@@ -35,15 +35,15 @@ Available BLDG Omni fields:
 - notes: Additional notes or remarks
 
 IMPORTANT:
-- Prefer per-unit cost columns over total cost columns. BLDG Omni stores per-unit rates.
+- Prefer per-unit cost columns over total cost columns. NOVATerra stores per-unit rates.
 - If a column looks like a combined "total cost" or "unit price" that merges material+labor+equipment, map it to "material" (the user can adjust).
 - Map row numbers, internal IDs, or irrelevant columns to null (skip).
 - If you see columns like "Ext Material" or "Total Material", those are extended/total (qty × rate) — skip those if a per-unit column exists for the same cost type.
 
-Return ONLY valid JSON: an object where keys are the exact CSV column header strings and values are either a BLDG Omni field key string or null.`;
+Return ONLY valid JSON: an object where keys are the exact CSV column header strings and values are either a NOVATerra field key string or null.`;
 
 /**
- * Use AI to suggest column mappings from CSV headers to BLDG Omni fields.
+ * Use AI to suggest column mappings from CSV headers to NOVATerra fields.
  * @param {*} _unused - formerly apiKey, now unused (kept for call-site compat)
  * @param {string[]} headers
  * @param {string[][]} sampleRows - first 3-5 data rows for context
@@ -54,7 +54,7 @@ export async function suggestColumnMappings(_unused, headers, sampleRows) {
     .map(r => r.join(" | "))
     .join("\n");
 
-  const userMsg = `CSV headers and sample data:\n\n${table}\n\nMap each column header to a BLDG Omni field key or null. Return JSON only.`;
+  const userMsg = `CSV headers and sample data:\n\n${table}\n\nMap each column header to a NOVATerra field key or null. Return JSON only.`;
 
   try {
     const raw = await callAnthropic({
@@ -158,7 +158,7 @@ const SKIP_PATTERNS = /^\s*(total|subtotal|grand\s*total|sub-total|sum|──|�
 
 /**
  * Transform CSV rows into item presets using confirmed column mappings.
- * @param {Record<string, string|null>} mappings - header → BLDG Omni field key or null
+ * @param {Record<string, string|null>} mappings - header → NOVATerra field key or null
  * @param {string[]} headers - CSV headers (defines column index)
  * @param {string[][]} rows - all CSV data rows
  * @param {{ divideTotals: boolean }} options
@@ -168,7 +168,7 @@ export function applyMappings(mappings, headers, rows, options = {}) {
   const { divideTotals = false } = options;
   const numberFields = new Set(["quantity", "material", "labor", "equipment", "subcontractor"]);
 
-  // Build index map: BLDG Omni field → column index
+  // Build index map: NOVATerra field → column index
   const fieldToIdx = {};
   headers.forEach((h, i) => {
     const field = mappings[h];

@@ -159,6 +159,9 @@ export function usePersistenceLoad() {
       await useScanStore.getState().loadLearningRecords();
       await useScanStore.getState().loadParameterCorrections();
 
+      // Load PDF upload queue (resumes pending extractions)
+      await loadUploadQueue();
+
       // ─── Cloud Pull: if local is empty or corrupted, try pulling from cloud ───
       if (!localHasData) {
         let recoveredFromCloud = false;
@@ -551,6 +554,29 @@ export async function saveMasterData() {
   cloudSync.pushData('master', master).catch(err => {
     console.warn('[usePersistence] Cloud push failed for master:', err?.message);
   });
+}
+
+// Save PDF upload queue (separate from master data to keep it lean)
+export async function saveUploadQueue() {
+  const queue = useMasterDataStore.getState().pdfUploadQueue;
+  // Strip extractedData from persistence to save space; keep metadata only
+  const slim = queue.filter(q => q.status !== "saved").map(({ extractedData, ...rest }) => rest);
+  await storage.set('bldg-upload-queue', JSON.stringify(slim));
+}
+
+// Load PDF upload queue
+export async function loadUploadQueue() {
+  const raw = await storage.get('bldg-upload-queue');
+  if (raw?.value) {
+    try {
+      const queue = JSON.parse(raw.value);
+      // Crash recovery: "extracting" items → reset to "queued" (file data lost)
+      const fixed = queue.map(q => q.status === 'extracting' ? { ...q, status: 'queued' } : q);
+      useMasterDataStore.setState({ pdfUploadQueue: fixed });
+    } catch {
+      console.warn('[usePersistence] Failed to parse upload queue');
+    }
+  }
 }
 
 // Save app settings

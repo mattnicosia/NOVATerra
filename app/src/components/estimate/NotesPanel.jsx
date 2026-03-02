@@ -12,7 +12,7 @@ import { nn, fmt2 } from '@/utils/format';
 import { hasAllowance, getAllowanceFields, getItemAllowanceTotal, generateAllowanceNote } from '@/utils/allowances';
 import { callAnthropicStream, buildProjectContext } from '@/utils/ai';
 
-export default function NotesPanel() {
+export default function NotesPanel({ inline = false }) {
   const C = useTheme();
   const T = C.T;
   const exclusions = useSpecsStore(s => s.exclusions);
@@ -128,12 +128,18 @@ Generate 5-10 RFIs, prioritized by impact on bid accuracy.` }],
 
   return (
     <>
-    {/* Backdrop overlay */}
-    <div onClick={() => setShowNotesPanel(false)} style={{
-      position: "fixed", inset: 0, background: "rgba(0,0,0,0.25)",
-      zIndex: (T.z.overlay || 100) - 1, animation: "fadeIn 0.15s ease-out",
-    }} />
-    <div style={{
+    {/* Backdrop overlay — skip in inline mode */}
+    {!inline && (
+      <div onClick={() => setShowNotesPanel(false)} style={{
+        position: "fixed", inset: 0, background: "rgba(0,0,0,0.25)",
+        zIndex: (T.z.overlay || 100) - 1, animation: "fadeIn 0.15s ease-out",
+      }} />
+    )}
+    <div style={inline ? {
+      position: "relative", width: "100%", height: "100%",
+      display: "flex", flexDirection: "column",
+      background: "transparent",
+    } : {
       position: "fixed", right: 0, top: 52, bottom: 0, width: 420,
       background: C.glassBg || C.bg1,
       backdropFilter: T.glass?.blur || "blur(16px)", WebkitBackdropFilter: T.glass?.blur || "blur(16px)",
@@ -142,13 +148,15 @@ Generate 5-10 RFIs, prioritized by impact on bid accuracy.` }],
       zIndex: T.z.overlay || 100, display: "flex", flexDirection: "column",
       animation: "slideIn 0.2s ease-out",
     }}>
-      {/* Header */}
+      {/* Header — hidden in inline mode (parent has its own toggle) */}
+      {!inline && (
       <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.glassBorder || C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", background: `linear-gradient(180deg, ${C.accent}08 0%, transparent 100%)` }}>
         <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>Notes & Exclusions</h3>
         <button onClick={() => setShowNotesPanel(false)} style={{ border: "none", background: "transparent", color: C.textDim, cursor: "pointer" }}>
           <Ic d={I.x} size={16} />
         </button>
       </div>
+      )}
 
       {/* Tabs — pill style, title case */}
       <div style={{ display: "flex", gap: 4, padding: "8px 12px", borderBottom: `1px solid ${C.border}` }}>
@@ -295,7 +303,7 @@ Generate 5-10 RFIs, prioritized by impact on bid accuracy.` }],
                       <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>RFI #{rfi.id}: {rfi.subject}</div>
                     </div>
                     {rfi.reference && (
-                      <div style={{ fontSize: 10, color: C.purple, fontWeight: 600, marginBottom: 4, fontFamily: "'DM Mono',monospace" }}>
+                      <div style={{ fontSize: 10, color: C.purple, fontWeight: 600, marginBottom: 4, fontFamily: "'DM Sans',sans-serif" }}>
                         Ref: {rfi.reference}
                       </div>
                     )}

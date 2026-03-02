@@ -47,7 +47,7 @@ function KpiCard({ icon, label, value, sub, color, accent }) {
       <div>
         <span style={{
           fontSize: 24, fontWeight: 700, color: C.text,
-          fontFamily: "'DM Mono', monospace", lineHeight: 1,
+          fontFamily: "'DM Sans', sans-serif", lineHeight: 1,
         }}>
           {typeof value === 'number' ? value.toLocaleString() : value}
         </span>
@@ -219,7 +219,7 @@ export default function CoreOverview() {
                 <span style={{ fontSize: 10, color: C.textDim, flexShrink: 0 }}>
                   {p.client || "—"}
                 </span>
-                <span style={{ fontSize: 10, color: C.textDim, fontFamily: "'DM Mono', monospace", flexShrink: 0 }}>
+                <span style={{ fontSize: 10, color: C.textDim, fontFamily: "'DM Sans', sans-serif", flexShrink: 0 }}>
                   {p.totalCost ? `$${Math.round(p.totalCost).toLocaleString()}` : "—"}
                 </span>
                 <span style={{ fontSize: 9, color: C.textDim, flexShrink: 0 }}>

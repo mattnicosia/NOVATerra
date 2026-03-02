@@ -278,17 +278,21 @@ export default function DashboardCenter({ activeProject }) {
               {row.label}
             </div>
             <div style={{
-              flex: 1, height: 3, borderRadius: 2,
+              flex: 1, height: 5, borderRadius: 3,
               background: ov(0.06),
               overflow: 'hidden', position: 'relative',
-            }}>
+              cursor: 'pointer',
+            }}
+              onMouseEnter={e => { const bar = e.currentTarget.querySelector('div'); if (bar) bar.style.filter = 'brightness(1.3)'; }}
+              onMouseLeave={e => { const bar = e.currentTarget.querySelector('div'); if (bar) bar.style.filter = 'brightness(1)'; }}
+            >
               <div style={{
                 position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-                borderRadius: 2, background: row.gradient,
-                boxShadow: `0 0 8px ${row.shadow}`,
+                borderRadius: 3, background: row.gradient,
+                boxShadow: `0 0 10px ${row.shadow}`,
                 transform: `scaleX(${barScales[i] || 0})`,
                 transformOrigin: 'left',
-                transition: 'transform 0.8s cubic-bezier(0.16,1,0.3,1)',
+                transition: 'transform 0.8s cubic-bezier(0.16,1,0.3,1), filter 120ms ease-out',
               }} />
             </div>
             <div style={{

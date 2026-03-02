@@ -35,7 +35,7 @@ function ChartCard({ seriesKey, data, series }) {
             {series.label}
           </div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 4 }}>
-            <span style={{ fontSize: 18, fontWeight: 800, color: C.text, fontFamily: "'DM Mono',monospace" }}>
+            <span style={{ fontSize: 18, fontWeight: 800, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>
               {series.unit === '$M' ? `$${Math.round(current).toLocaleString()}M` : current?.toFixed(1)}
             </span>
             <span style={{ fontSize: 9, color: C.textDim }}>{series.unit}</span>
@@ -45,7 +45,7 @@ function ChartCard({ seriesKey, data, series }) {
           {mom !== null && (
             <div style={{
               padding: "3px 6px", borderRadius: 4, fontSize: 9, fontWeight: 700,
-              fontFamily: "'DM Mono',monospace",
+              fontFamily: "'DM Sans',sans-serif",
               background: `${mom >= 0 ? C.green : C.red}15`,
               color: mom >= 0 ? C.green : C.red,
             }}>
@@ -55,7 +55,7 @@ function ChartCard({ seriesKey, data, series }) {
           {yoy !== null && (
             <div style={{
               padding: "3px 6px", borderRadius: 4, fontSize: 9, fontWeight: 700,
-              fontFamily: "'DM Mono',monospace",
+              fontFamily: "'DM Sans',sans-serif",
               background: `${yoy >= 0 ? C.green : C.red}15`,
               color: yoy >= 0 ? C.green : C.red,
             }}>

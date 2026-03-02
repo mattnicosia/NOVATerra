@@ -24,38 +24,39 @@ function injectOverrides() {
   const s = document.createElement('style');
   s.textContent = `
     .react-grid-placeholder {
-      background: rgba(139,92,246,0.10) !important;
-      border-radius: 16px !important;
-      border: 2px dashed rgba(139,92,246,0.35) !important;
+      background: rgba(255,255,255,0.06) !important;
+      border-radius: 20px !important;
+      border: 1.5px dashed rgba(255,255,255,0.20) !important;
       opacity: 1 !important;
       backdrop-filter: blur(8px) !important;
     }
     .react-resizable-handle {
       opacity: 0;
-      transition: opacity 0.25s ease;
+      transition: opacity 0.3s ease;
       z-index: 10;
     }
     .react-grid-item:hover > .react-resizable-handle {
-      opacity: 0.45;
+      opacity: 0.2;
     }
     .react-grid-item:hover > .react-resizable-handle:hover {
-      opacity: 1;
+      opacity: 0.45;
     }
-    /* Corner handle (se) — diagonal icon */
+    /* Corner handle (se) — tiny rounded dot */
     .react-resizable-handle-se {
-      bottom: 2px !important;
-      right: 2px !important;
+      bottom: 4px !important;
+      right: 4px !important;
       cursor: nwse-resize !important;
     }
     .react-resizable-handle-se::after {
-      border-right: 2px solid rgba(139,92,246,0.5) !important;
-      border-bottom: 2px solid rgba(139,92,246,0.5) !important;
-      width: 8px !important;
-      height: 8px !important;
+      border: none !important;
+      width: 5px !important;
+      height: 5px !important;
       right: 4px !important;
       bottom: 4px !important;
+      border-radius: 1.5px !important;
+      background: rgba(255,255,255,0.45) !important;
     }
-    /* Bottom edge handle (s) — horizontal bar */
+    /* Bottom edge handle (s) — thin white pill */
     .react-resizable-handle-s {
       bottom: 0 !important;
       left: 20% !important;
@@ -70,13 +71,13 @@ function injectOverrides() {
       left: 50% !important;
       top: 50% !important;
       transform: translate(-50%, -50%) !important;
-      width: 40px !important;
-      height: 3px !important;
+      width: 28px !important;
+      height: 2px !important;
       border: none !important;
-      border-radius: 2px !important;
-      background: rgba(139,92,246,0.5) !important;
+      border-radius: 1px !important;
+      background: rgba(255,255,255,0.35) !important;
     }
-    /* Right edge handle (e) — vertical bar */
+    /* Right edge handle (e) — thin white pill */
     .react-resizable-handle-e {
       right: 0 !important;
       top: 20% !important;
@@ -91,11 +92,11 @@ function injectOverrides() {
       left: 50% !important;
       top: 50% !important;
       transform: translate(-50%, -50%) !important;
-      width: 3px !important;
-      height: 40px !important;
+      width: 2px !important;
+      height: 28px !important;
       border: none !important;
-      border-radius: 2px !important;
-      background: rgba(139,92,246,0.5) !important;
+      border-radius: 1px !important;
+      background: rgba(255,255,255,0.35) !important;
     }
     .react-grid-item {
       transition: transform 0.25s cubic-bezier(0.16,1,0.3,1),
@@ -110,8 +111,8 @@ function injectOverrides() {
     .react-grid-item.react-draggable-dragging {
       z-index: 100;
       opacity: 0.92;
-      box-shadow: 0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(139,92,246,0.2) !important;
-      border-radius: 16px;
+      box-shadow: 0 20px 48px rgba(0,0,0,0.35), 0 0 0 0.5px rgba(255,255,255,0.15) !important;
+      border-radius: 20px;
     }
   `;
   document.head.appendChild(s);

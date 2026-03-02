@@ -56,16 +56,16 @@ export const T = {
   // Font families
   font: {
     sans: "'DM Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-    mono: "'DM Mono', 'SF Mono', 'Menlo', monospace",
+    mono: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif",
     display: "'Outfit', 'DM Sans', sans-serif",
   },
 
-  // Border radii (3 tiers + full)
+  // Border radii — Apple Liquid Glass: larger, softer corners
   radius: {
-    sm: 6,
-    md: 10,
-    lg: 14,
-    xl: 20,
+    sm: 8,
+    md: 12,
+    lg: 20,
+    xl: 26,
     full: 9999,
   },
 
@@ -79,6 +79,20 @@ export const T = {
     glow: '0 0 20px rgba(0,212,255,0.15), 0 0 40px rgba(0,212,255,0.05)',
     glowAccent: '0 0 12px rgba(0,212,255,0.20)',
     glowPurple: '0 0 12px rgba(123,97,255,0.20)',
+  },
+
+  // Elevation shadows — Liquid Glass LIGHT: Apple-exact, barely-there depth
+  // Apple clear look: widgets have virtually NO drop shadow — glass just floats.
+  // Only modals/dropdowns get noticeable shadow.
+  shadowLight: {
+    none: 'none',
+    sm: '0 1px 2px rgba(20,30,80,0.04), 0 2px 6px rgba(20,30,80,0.03)',
+    md: '0 2px 4px rgba(20,30,80,0.06), 0 4px 12px rgba(20,30,80,0.04)',
+    lg: '0 4px 8px rgba(20,30,80,0.08), 0 8px 24px rgba(20,30,80,0.06)',
+    xl: '0 8px 16px rgba(20,30,80,0.10), 0 16px 40px rgba(20,30,80,0.08)',
+    glow: '0 0 20px rgba(0,122,255,0.18), 0 0 40px rgba(0,122,255,0.08)',
+    glowAccent: '0 0 16px rgba(0,122,255,0.22)',
+    glowPurple: '0 0 16px rgba(123,97,255,0.22)',
   },
 
   // Transitions
@@ -131,18 +145,117 @@ export const T = {
     body:       { fontSize: 13, fontWeight: 400, lineHeight: 1.5 },
     caption:    { fontSize: 10, fontWeight: 400, lineHeight: 1.4 },
     label:      { fontSize: 10, fontWeight: 600, lineHeight: 1.2, textTransform: 'uppercase', letterSpacing: 0.8 },
-    mono:       { fontSize: 12, fontWeight: 500, fontFamily: "'DM Mono','SF Mono','Menlo',monospace" },
-    monoBig:    { fontSize: 14, fontWeight: 600, fontFamily: "'DM Mono','SF Mono','Menlo',monospace" },
+    mono:       { fontSize: 12, fontWeight: 500, fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif" },
+    monoBig:    { fontSize: 14, fontWeight: 600, fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif" },
   },
 
-  // Frosted glass — tuned for dark surfaces
+  // Liquid Glass DARK — Apple-exact: nearly invisible glass on dark wallpapers.
+  // Apple macOS Tahoe 26: widgets are ghost-like, wallpaper bleeds through completely.
+  // Specular is a thin whisper, not a bold stripe. No heavy inner glow.
   glass: {
-    blur: 'blur(24px)',
-    blurLight: 'blur(16px)',
-    bg: 'rgba(18,21,28,0.55)',
-    bgDark: 'rgba(11,13,17,0.75)',
-    border: 'rgba(255,255,255,0.06)',
-    borderHover: 'rgba(255,255,255,0.10)',
-    borderLight: 'rgba(255,255,255,0.03)',
+    blur: 'blur(24px) saturate(180%) brightness(1.08)',
+    blurLight: 'blur(16px) saturate(160%) brightness(1.04)',
+    blurHover: 'blur(28px) saturate(200%) brightness(1.10)',
+    bg: 'rgba(255,255,255,0.04)',
+    bgDark: 'rgba(10,10,22,0.40)',
+    border: 'rgba(255,255,255,0.10)',
+    borderHover: 'rgba(255,255,255,0.18)',
+    borderLight: 'rgba(255,255,255,0.05)',
+    // Specular — thin, subtle top-edge highlight
+    specularSm: 'inset 0 0.5px 0 rgba(255,255,255,0.18)',
+    specular: 'inset 0 0.5px 0 rgba(255,255,255,0.22)',
+    specularLg: 'inset 0 1px 0 rgba(255,255,255,0.28)',
+    specularHover: 'inset 0 1px 0 rgba(255,255,255,0.35)',
+    // Hairline edge — 0.5px, barely perceptible
+    edge: '0 0 0 0.5px rgba(255,255,255,0.06)',
+    edgeHover: '0 0 0 0.5px rgba(255,255,255,0.12)',
+    // Bottom-edge specular — light catching underside of glass
+    specularBottom: 'inset 0 -0.5px 0 rgba(255,255,255,0.06)',
+    specularBottomLg: 'inset 0 -1px 0 rgba(255,255,255,0.10)',
+    // Inner depth shadow — gives glass thickness
+    innerDepth: 'inset 0 1px 3px rgba(0,0,0,0.08)',
+    innerDepthLg: 'inset 0 2px 6px rgba(0,0,0,0.12)',
+    // Refraction glow — subtle light spread at glass edges
+    refraction: '0 0 6px rgba(255,255,255,0.03)',
+    refractionHover: '0 0 10px rgba(255,255,255,0.06)',
+    // Lens gradient — brightness variance within glass (CSS string for overlay)
+    lens: 'linear-gradient(180deg, rgba(255,255,255,0.06) 0%, transparent 35%, transparent 75%, rgba(0,0,0,0.03) 100%)',
+    lensHover: 'linear-gradient(180deg, rgba(255,255,255,0.10) 0%, transparent 35%, transparent 75%, rgba(0,0,0,0.04) 100%)',
+  },
+
+  // Liquid Glass LIGHT — Apple-exact: "Clear Look" from macOS Tahoe 26.
+  //
+  // Apple's widgets are GHOST-LIKE: the wallpaper (our gradient mesh) bleeds
+  // through almost completely. The glass surface is defined ONLY by:
+  //   1. A razor-thin specular highlight along the top edge
+  //   2. A whisper-thin 0.5px hairline border
+  //   3. A subtle backdrop-filter blur that softens what's behind it
+  //   4. NO drop shadow — glass floats seamlessly on the background
+  //
+  // Apple: "Light is bent, shaped, and concentrated—not obscured."
+  glassLight: {
+    blur: 'blur(24px) saturate(200%) brightness(1.08)',
+    blurLight: 'blur(16px) saturate(170%) brightness(1.04)',
+    blurHover: 'blur(28px) saturate(220%) brightness(1.10)',
+    // Nearly invisible — mesh COLOR bleeds through almost completely
+    bg: 'rgba(255,255,255,0.08)',
+    bgDark: 'rgba(255,255,255,0.18)',
+    // Whisper-thin borders — barely perceptible luminous edge
+    border: 'rgba(255,255,255,0.25)',
+    borderHover: 'rgba(255,255,255,0.40)',
+    borderLight: 'rgba(255,255,255,0.12)',
+    // Specular — thin, restrained top-edge highlight (NOT full white)
+    specularSm: 'inset 0 0.5px 0 rgba(255,255,255,0.45)',
+    specular: 'inset 0 0.5px 0 rgba(255,255,255,0.55)',
+    specularLg: 'inset 0 1px 0 rgba(255,255,255,0.65)',
+    specularHover: 'inset 0 1px 0 rgba(255,255,255,0.75)',
+    // Hairline edge — 0.5px, ghost-like
+    edge: '0 0 0 0.5px rgba(255,255,255,0.15)',
+    edgeHover: '0 0 0 0.5px rgba(255,255,255,0.30)',
+    // Bottom-edge specular — light catching underside of glass
+    specularBottom: 'inset 0 -0.5px 0 rgba(255,255,255,0.35)',
+    specularBottomLg: 'inset 0 -1px 0 rgba(255,255,255,0.50)',
+    // Inner depth shadow — gives glass thickness
+    innerDepth: 'inset 0 1px 3px rgba(20,30,80,0.04)',
+    innerDepthLg: 'inset 0 2px 6px rgba(20,30,80,0.06)',
+    // Refraction glow — subtle light spread at glass edges
+    refraction: '0 0 8px rgba(255,255,255,0.15)',
+    refractionHover: '0 0 14px rgba(255,255,255,0.25)',
+    // Lens gradient — brightness variance within glass (CSS string for overlay)
+    lens: 'linear-gradient(180deg, rgba(255,255,255,0.20) 0%, rgba(255,255,255,0.05) 35%, transparent 75%, rgba(0,0,0,0.02) 100%)',
+    lensHover: 'linear-gradient(180deg, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.10) 35%, transparent 75%, rgba(0,0,0,0.03) 100%)',
   },
 };
+
+// Density-aware token builder — compact mode: font -1px, spacing ×0.75, tighter line-height
+export function buildTokens(density = "comfortable") {
+  if (density !== "compact") return T;
+  return {
+    ...T,
+    space: Object.fromEntries(
+      Object.entries(T.space).map(([k, v]) => [k, Math.round(v * 0.75)])
+    ),
+    fontSize: Object.fromEntries(
+      Object.entries(T.fontSize).map(([k, v]) => [k, Math.max(v - 1, 7)])
+    ),
+    lineHeight: {
+      tight: 1.1,
+      normal: 1.3,
+      relaxed: 1.4,
+    },
+    size: {
+      sm: { height: 24, padding: '3px 8px', fontSize: 10, iconSize: 11 },
+      md: { height: 28, padding: '5px 10px', fontSize: 12, iconSize: 13 },
+      lg: { height: 34, padding: '8px 16px', fontSize: 13, iconSize: 14 },
+    },
+    type: {
+      heading:    { fontSize: 18, fontWeight: 700, lineHeight: 1.15 },
+      subheading: { fontSize: 13, fontWeight: 600, lineHeight: 1.25 },
+      body:       { fontSize: 12, fontWeight: 400, lineHeight: 1.4 },
+      caption:    { fontSize: 9, fontWeight: 400, lineHeight: 1.3 },
+      label:      { fontSize: 9, fontWeight: 600, lineHeight: 1.2, textTransform: 'uppercase', letterSpacing: 0.8 },
+      mono:       { fontSize: 11, fontWeight: 500, fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif" },
+      monoBig:    { fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif" },
+    },
+  };
+}

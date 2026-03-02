@@ -515,7 +515,7 @@ export default function NovaScriptEditor() {
                 type="text"
                 value={val || ''}
                 onChange={e => handleChange(section, field.path, e.target.value, 'text')}
-                style={inp(C, { padding: '5px 10px', fontSize: 12, fontFamily: "'DM Mono',monospace" })}
+                style={inp(C, { padding: '5px 10px', fontSize: 12, fontFamily: "'DM Sans',sans-serif" })}
               />
             </div>
           )}
@@ -704,7 +704,7 @@ export default function NovaScriptEditor() {
                   </div>
                 </div>
                 {meta && (
-                  <div style={{ fontSize: 9, color: C.textMuted, fontFamily: "'DM Mono',monospace", marginTop: 6 }}>
+                  <div style={{ fontSize: 9, color: C.textMuted, fontFamily: "'DM Sans',sans-serif", marginTop: 6 }}>
                     {meta.name} ({(meta.size / 1024).toFixed(0)} KB)
                   </div>
                 )}
@@ -725,7 +725,7 @@ export default function NovaScriptEditor() {
                     onChange={e => handleVolumeChange(slot.key, parseFloat(e.target.value))}
                     style={{ flex: 1, height: 3, accentColor: C.accent, cursor: 'pointer' }}
                   />
-                  <span style={{ fontSize: 9, color: C.textMuted, minWidth: 28, textAlign: 'right', fontFamily: "'DM Mono',monospace" }}>
+                  <span style={{ fontSize: 9, color: C.textMuted, minWidth: 28, textAlign: 'right', fontFamily: "'DM Sans',sans-serif" }}>
                     {Math.round(vol * 100)}%
                   </span>
                 </div>

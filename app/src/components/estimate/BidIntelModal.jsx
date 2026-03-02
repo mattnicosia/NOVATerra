@@ -129,7 +129,7 @@ Be specific — reference actual line items and numbers from the estimate.` }],
           ].map((s, i) => (
             <div key={i} style={{ padding: "4px 10px", background: `${s.color}08`, borderRadius: 6, border: `1px solid ${s.color}15` }}>
               <div style={{ fontSize: 8, fontWeight: 600, color: s.color, textTransform: "uppercase", letterSpacing: 0.5 }}>{s.label}</div>
-              <div style={{ fontSize: 14, fontWeight: 800, color: s.color, fontFamily: "'DM Mono',monospace" }}>{s.value}</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: s.color, fontFamily: "'DM Sans',sans-serif" }}>{s.value}</div>
             </div>
           ))}
         </div>

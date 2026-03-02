@@ -326,7 +326,7 @@ export default function InboxPage() {
               display: "flex", justifyContent: "space-between", alignItems: "center",
               padding: "6px 10px", borderRadius: 6, background: C.bg, border: `1px solid ${C.border}`, marginBottom: 4,
             }}>
-              <span style={{ fontSize: 12, color: C.text, fontFamily: "'DM Mono',monospace" }}>{email}</span>
+              <span style={{ fontSize: 12, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>{email}</span>
               <button style={{ background: "none", border: "none", cursor: "pointer", padding: 2 }} onClick={() => handleRemoveSender(email)}>
                 <Ic d={I.x} size={12} color={C.textDim} />
               </button>

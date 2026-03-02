@@ -3,25 +3,21 @@ import { useTheme } from '@/hooks/useTheme';
 import { useBidPackagesStore } from '@/stores/bidPackagesStore';
 import Ic from '@/components/shared/Ic';
 import { I } from '@/constants/icons';
+import { statusBadge } from '@/utils/styles';
 
 const STATUS_COLORS = {
-  pending: { bg: '#48484A', text: '#AEAEB2', label: 'Pending' },
-  sent: { bg: '#1C3D5A', text: '#64D2FF', label: 'Sent' },
-  opened: { bg: '#4A3D1C', text: '#FFD60A', label: 'Opened' },
-  downloaded: { bg: '#4A2D1C', text: '#FF9F0A', label: 'Downloaded' },
-  submitted: { bg: '#1C3D2A', text: '#30D158', label: 'Submitted' },
-  parsed: { bg: '#2D1C4A', text: '#BF5AF2', label: 'Parsed' },
+  pending: { color: '#AEAEB2', label: 'Pending' },
+  sent: { color: '#64D2FF', label: 'Sent' },
+  opened: { color: '#FFD60A', label: 'Opened' },
+  downloaded: { color: '#FF9F0A', label: 'Downloaded' },
+  submitted: { color: '#30D158', label: 'Submitted' },
+  parsed: { color: '#BF5AF2', label: 'Parsed' },
 };
 
 function StatusPill({ status }) {
   const s = STATUS_COLORS[status] || STATUS_COLORS.pending;
   return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center',
-      padding: '2px 8px', borderRadius: 6,
-      fontSize: 11, fontWeight: 600,
-      background: s.bg, color: s.text,
-    }}>
+    <span style={statusBadge(s.color)}>
       {s.label}
     </span>
   );

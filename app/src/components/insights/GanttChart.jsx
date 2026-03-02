@@ -80,7 +80,7 @@ export default function GanttChart() {
           return (
             <g key={`tick-${d}`}>
               <line x1={x} y1={PAD_T} x2={x} y2={chartH - PAD_B} stroke={C.border} strokeWidth={0.5} opacity={0.5} />
-              <text x={x} y={chartH - PAD_B + 16} textAnchor="middle" fontSize={9} fill={C.textDim} fontFamily="'DM Mono',monospace">
+              <text x={x} y={chartH - PAD_B + 16} textAnchor="middle" fontSize={9} fill={C.textDim} fontFamily="'DM Sans',sans-serif">
                 {d === 0 ? "Start" : `Day ${d}`}
               </text>
             </g>
@@ -176,7 +176,7 @@ export default function GanttChart() {
                   y={y + ROW_H / 2 + 1}
                   textAnchor="middle"
                   fontSize={9}
-                  fontFamily="'DM Mono',monospace"
+                  fontFamily="'DM Sans',sans-serif"
                   fontWeight={600}
                   fill="#fff"
                   pointerEvents="none"
@@ -223,7 +223,7 @@ export default function GanttChart() {
                   <text x={barX + barWidth + 14} y={y + 14} fontSize={9} fill="#fff" fontFamily="'DM Sans',sans-serif">
                     {act.duration}d · ES:{act.earlyStart} EF:{act.earlyFinish}
                   </text>
-                  <text x={barX + barWidth + 14} y={y + 26} fontSize={9} fill="#aaa" fontFamily="'DM Mono',monospace">
+                  <text x={barX + barWidth + 14} y={y + 26} fontSize={9} fill="#aaa" fontFamily="'DM Sans',sans-serif">
                     {fmt(act.totalCost)} · Float: {act.totalFloat}d
                   </text>
                 </g>

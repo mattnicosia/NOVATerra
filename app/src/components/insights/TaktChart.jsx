@@ -110,7 +110,7 @@ export default function TaktChart() {
           return (
             <g key={`ttick-${d}`}>
               <line x1={x} y1={PAD_T} x2={x} y2={chartH - PAD_B} stroke={C.border} strokeWidth={0.5} opacity={0.4} />
-              <text x={x} y={chartH - PAD_B + 16} textAnchor="middle" fontSize={9} fill={C.textDim} fontFamily="'DM Mono',monospace">
+              <text x={x} y={chartH - PAD_B + 16} textAnchor="middle" fontSize={9} fill={C.textDim} fontFamily="'DM Sans',sans-serif">
                 {d === 0 ? "Start" : `Day ${d}`}
               </text>
             </g>

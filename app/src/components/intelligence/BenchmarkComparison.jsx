@@ -85,7 +85,7 @@ export default function BenchmarkComparison() {
         <div style={{ marginBottom: 14 }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
             <span style={{ fontSize: 10, fontWeight: 600, color: C.accent }}>NOVA Benchmark</span>
-            <span style={{ fontSize: 10, fontWeight: 700, color: C.text, fontFamily: "'DM Mono',monospace" }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>
               ${industry.low} — ${industry.mid} — ${industry.high}/SF
             </span>
           </div>
@@ -96,7 +96,7 @@ export default function BenchmarkComparison() {
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
             <span style={{ fontSize: 10, fontWeight: 600, color: C.orange }}>Industry Average (ENR)</span>
-            <span style={{ fontSize: 10, fontWeight: 700, color: C.text, fontFamily: "'DM Mono',monospace" }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>
               ${industry.mid}/SF median
             </span>
           </div>
@@ -130,9 +130,9 @@ export default function BenchmarkComparison() {
                   background: `${color}12`, border: `1px solid ${color}25`,
                   display: "flex", gap: 4, alignItems: "center",
                 }}>
-                  <span style={{ fontWeight: 700, color: C.text, fontFamily: "'DM Mono',monospace" }}>Div {div}</span>
+                  <span style={{ fontWeight: 700, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>Div {div}</span>
                   <span style={{ color: C.textDim }}>{divInfo?.label || ""}</span>
-                  <span style={{ fontWeight: 700, color, fontFamily: "'DM Mono',monospace" }}>
+                  <span style={{ fontWeight: 700, color, fontFamily: "'DM Sans',sans-serif" }}>
                     {pct > 0 ? "+" : ""}{pct}%
                   </span>
                 </div>
@@ -177,13 +177,13 @@ export default function BenchmarkComparison() {
                 </span>
                 <GradientBar pct={(ind.mid / maxHigh) * 100} color={isSelected ? C.accent : C.textDim} />
                 <span style={{
-                  fontSize: 9, fontWeight: 700, fontFamily: "'DM Mono',monospace",
+                  fontSize: 9, fontWeight: 700, fontFamily: "'DM Sans',sans-serif",
                   color: C.text, minWidth: 70, textAlign: "right",
                 }}>
                   ${ind.low}–${ind.high}
                 </span>
                 <span style={{
-                  fontSize: 8, color: C.textDim, fontFamily: "'DM Mono',monospace", minWidth: 30,
+                  fontSize: 8, color: C.textDim, fontFamily: "'DM Sans',sans-serif", minWidth: 30,
                 }}>
                   mid ${ind.mid}
                 </span>

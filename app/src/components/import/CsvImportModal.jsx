@@ -356,7 +356,7 @@ export default function CsvImportModal({ onClose, mode }) {
                           {h}
                         </span>
                       </td>
-                      <td style={{ ...tdStyle(C, T), fontSize: T.fontSize.xs, color: C.textDim, fontFamily: "'DM Mono', monospace" }}>
+                      <td style={{ ...tdStyle(C, T), fontSize: T.fontSize.xs, color: C.textDim, fontFamily: "'DM Sans', sans-serif" }}>
                         {samples.slice(0, 2).join(", ").slice(0, 40)}
                       </td>
                       <td style={tdStyle(C, T)}>

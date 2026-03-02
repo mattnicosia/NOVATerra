@@ -1,4 +1,4 @@
-# BLDG Omni — Product Vision & UX Strategy
+# NOVATerra — Product Vision & UX Strategy
 **Created: February 25, 2026**
 
 ---

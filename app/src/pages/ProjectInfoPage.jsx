@@ -46,7 +46,7 @@ function CompletionRing({ pct, size = 52, stroke = 3, C }) {
       </svg>
       <div style={{
         position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 11, fontWeight: 700, color, fontFamily: "'DM Mono', monospace",
+        fontSize: 11, fontWeight: 700, color, fontFamily: "'DM Sans', sans-serif",
       }}>
         {pct}%
       </div>

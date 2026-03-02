@@ -90,7 +90,7 @@ function MiniCard({ v, idx, C, onUpdate, onRemove }) {
       <input type="number" value={v.value} onChange={e => onUpdate(idx, "value", e.target.value)}
         onFocus={e => e.target.select()} placeholder="0"
         style={{ width: 52, padding: "2px 3px", fontSize: 15, fontWeight: 700,
-          fontFamily: "'DM Mono',monospace", textAlign: "center",
+          fontFamily: "'DM Sans',sans-serif", textAlign: "center",
           color: C.text, background: `${color}06`, border: `1px solid ${color}18`,
           borderRadius: 5, outline: "none", fontFeatureSettings: "'tnum'" }} />
       {unitLabel && <div style={{ fontSize: 9, color: C.textDim, fontWeight: 500 }}>{unitLabel}</div>}
@@ -165,26 +165,26 @@ export default function TakeoffDimensionEngine({ takeoff, updateTakeoff, measure
         Dimension Engine
       </div>
 
-      {/* Result bar */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, padding: "6px 10px", background: `${accentColor}06`, borderRadius: 6, border: `1px solid ${accentColor}12` }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 8, fontWeight: 700, color: C.purple, textTransform: "uppercase", letterSpacing: 0.5 }}>Measured</div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: C.purple, fontFamily: "'DM Mono',monospace" }}>{measuredQty !== null ? measuredQty : nn(takeoff.quantity) || 0}</div>
-          <div style={{ fontSize: 8, color: C.textDim }}>{takeoff.unit}</div>
+      {/* Tier 1: Result bar — DOMINANT */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12, padding: "10px 14px", background: `linear-gradient(135deg, ${accentColor}08, ${C.purple || accentColor}06)`, borderRadius: 8, border: `1px solid ${accentColor}15` }}>
+        <div style={{ textAlign: "center", minWidth: 64 }}>
+          <div style={{ fontSize: 7, fontWeight: 700, color: C.purple, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 2 }}>Measured</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: C.purple, fontFamily: "'DM Sans',sans-serif", lineHeight: 1.1 }}>{measuredQty !== null ? measuredQty : nn(takeoff.quantity) || 0}</div>
+          <div style={{ fontSize: 8, color: C.textDim, marginTop: 1 }}>{takeoff.unit}</div>
         </div>
         {hasFormula && (<>
-          <svg width="20" height="10" viewBox="0 0 20 10" style={{ flexShrink: 0 }}>
-            <line x1="0" y1="5" x2="14" y2="5" stroke={accentColor} strokeWidth="1.5" opacity="0.4" />
-            <polygon points="14,1 20,5 14,9" fill={accentColor} opacity="0.6" />
+          <svg width="24" height="12" viewBox="0 0 24 12" style={{ flexShrink: 0 }}>
+            <line x1="0" y1="6" x2="16" y2="6" stroke={accentColor} strokeWidth="1.5" opacity="0.4" />
+            <polygon points="16,2 24,6 16,10" fill={accentColor} opacity="0.6" />
           </svg>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 8, fontWeight: 700, color: accentColor, textTransform: "uppercase", letterSpacing: 0.5 }}>Result</div>
-            <div style={{ fontSize: 17, fontWeight: 800, color: accentColor, fontFamily: "'DM Mono',monospace" }}>{computedQty !== null ? Math.round(computedQty * 100) / 100 : "\u2014"}</div>
-            <div style={{ fontSize: 8, color: C.textDim }}>{takeoff.unit}</div>
+          <div style={{ textAlign: "center", minWidth: 64 }}>
+            <div style={{ fontSize: 7, fontWeight: 700, color: accentColor, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 2 }}>Result</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: accentColor, fontFamily: "'DM Sans',sans-serif", lineHeight: 1.1 }}>{computedQty !== null ? Math.round(computedQty * 100) / 100 : "\u2014"}</div>
+            <div style={{ fontSize: 8, color: C.textDim, marginTop: 1 }}>{takeoff.unit}</div>
           </div>
         </>)}
         {hasFormula && computedQty === null && measuredQty === null && (
-          <div style={{ fontSize: 8, color: C.orange, fontWeight: 600, marginLeft: 8 }}>Set scale to see result</div>
+          <div style={{ fontSize: 9, color: C.orange, fontWeight: 600, marginLeft: 8 }}>Set scale to see result</div>
         )}
       </div>
 
@@ -246,7 +246,7 @@ export default function TakeoffDimensionEngine({ takeoff, updateTakeoff, measure
           <input value={formula} onChange={e => updateTakeoff(takeoff.id, "formula", e.target.value)}
             placeholder='e.g. Qty * Height / 27'
             style={inp(C, { flex: 1, padding: "4px 8px", fontSize: 11,
-              fontFamily: "'DM Mono',monospace", fontWeight: 500,
+              fontFamily: "'DM Sans',sans-serif", fontWeight: 500,
               background: C.bg, border: `1px solid ${formula ? C.orange + "30" : C.border}`, borderRadius: 5 })} />
           {hasFormula && (
             <button onClick={() => updateTakeoff(takeoff.id, "formula", "")}
@@ -259,10 +259,10 @@ export default function TakeoffDimensionEngine({ takeoff, updateTakeoff, measure
         </div>
       </div>
 
-      {/* Scenarios */}
-      <div style={{ marginBottom: 8 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 6 }}>
-          <span style={{ fontSize: 8, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.6 }}>Scenarios</span>
+      {/* Tier 3: Scenarios — whisper */}
+      <div style={{ marginBottom: 8, opacity: 0.85 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 5 }}>
+          <span style={{ fontSize: 7, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.7 }}>Quick formulas</span>
           <div style={{ display: "flex", gap: 0, background: C.bg2, borderRadius: 4, padding: 2 }}>
             {scenarioCats.map(cat => (
               <button key={cat} onClick={() => setScenarioCat(cat)}
@@ -276,9 +276,12 @@ export default function TakeoffDimensionEngine({ takeoff, updateTakeoff, measure
         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
           {SCENARIOS.filter(s => s.cat === scenarioCat).map((s, i) => (
             <button key={i} onClick={() => applyScenario(s)}
+              onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.06)"; e.currentTarget.style.boxShadow = `0 2px 8px ${C.accent}25`; e.currentTarget.style.background = `${C.accent}12`; e.currentTarget.style.borderColor = `${C.accent}50`; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.background = `${C.accent}06`; e.currentTarget.style.borderColor = `${C.accent}30`; }}
               style={{ padding: "3px 9px", fontSize: 9, fontWeight: 600,
                 border: `1px solid ${C.accent}30`, background: `${C.accent}06`,
-                color: C.accent, borderRadius: 5, cursor: "pointer" }}>{s.label}</button>
+                color: C.accent, borderRadius: 5, cursor: "pointer",
+                transition: "all 0.12s ease-out" }}>{s.label}</button>
           ))}
         </div>
       </div>
@@ -295,7 +298,7 @@ export default function TakeoffDimensionEngine({ takeoff, updateTakeoff, measure
               <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 0", fontSize: 9 }}>
                 <span style={{ width: 8, height: 8, borderRadius: 2, background: m.color || takeoff.color, display: "inline-block" }} />
                 <span style={{ color: C.textDim, fontWeight: 500, textTransform: "capitalize" }}>{m.type}</span>
-                <span style={{ fontFamily: "'DM Mono',monospace", fontWeight: 600, color: mVal !== null ? C.text : C.orange }}>{mVal !== null ? mVal : "\u26A0 no scale"}</span>
+                <span style={{ fontFamily: "'DM Sans',sans-serif", fontWeight: 600, color: mVal !== null ? C.text : C.orange }}>{mVal !== null ? mVal : "\u26A0 no scale"}</span>
                 <span style={{ color: C.textDim, fontSize: 7 }}>{m.sheetId === selectedDrawingId ? "(this)" : "(other)"}</span>
                 <button onClick={() => removeMeasurement(takeoff.id, m.id)}
                   style={{ marginLeft: "auto", width: 12, height: 12, border: "none", background: "transparent", color: C.red, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>

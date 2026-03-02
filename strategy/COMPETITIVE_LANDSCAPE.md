@@ -1,4 +1,4 @@
-# BLDG Omni — Competitive Landscape
+# NOVATerra — Competitive Landscape
 **Created: February 25, 2026**
 
 ---
@@ -62,8 +62,8 @@
 - **Appears to be struggling operationally.** Not a major threat.
 
 ## KEY GAPS NO COMPETITOR FILLS
-1. AI-powered schedule-to-estimate pipeline (BLDG Omni unique)
-2. Historical proposal calibration (BLDG Omni unique)
+1. AI-powered schedule-to-estimate pipeline (NOVATerra unique)
+2. Historical proposal calibration (NOVATerra unique)
 3. Unified AI experience (not fragmented modules)
 4. SMB-accessible AI estimating
 5. Multi-schedule intelligence (9 types simultaneously)

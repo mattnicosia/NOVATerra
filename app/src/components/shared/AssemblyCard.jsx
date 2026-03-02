@@ -61,8 +61,8 @@ export default function AssemblyCard({ asm, onDelete }) {
           <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{titleCase(asm.name)}</div>
           <div style={{ fontSize: 10, color: C.textMuted }}>{asm.description} &bull; {asm.elements.length} elements</div>
         </div>
-        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: C.purple, fontWeight: 600 }}>{asm.code}</div>
-        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, fontWeight: 700, color: C.accent }}>{fmt2(totalPer)}<span style={{ fontSize: 9, color: C.textDim }}>/unit</span></div>
+        <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: C.purple, fontWeight: 600 }}>{asm.code}</div>
+        <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, fontWeight: 700, color: C.accent }}>{fmt2(totalPer)}<span style={{ fontSize: 9, color: C.textDim }}>/unit</span></div>
         {onDelete && (
           <button onClick={e => { e.stopPropagation(); onDelete(asm.id); }}
             style={{ width: 24, height: 24, border: "none", background: "transparent", color: C.red, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", opacity: 0.5, flexShrink: 0 }}
@@ -83,13 +83,13 @@ export default function AssemblyCard({ asm, onDelete }) {
               const elTotal = (nn(el.m) + nn(el.l) + nn(el.e)) * nn(el.factor);
               return (
                 <div key={i} style={{ display: "grid", gridTemplateColumns: "60px 2fr 40px 70px 70px 70px 80px", gap: 6, padding: "4px 0", borderBottom: `1px solid ${C.bg}`, alignItems: "center", fontSize: 11 }}>
-                  <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: C.purple }}>{el.code}</span>
+                  <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, color: C.purple }}>{el.code}</span>
                   <span style={{ color: C.text }}>{titleCase(el.desc)}</span>
                   <span style={{ color: C.textDim, fontSize: 10 }}>{el.unit}</span>
-                  <span style={{ textAlign: "right", fontFamily: "'DM Mono',monospace", color: C.green }}>{fmt2(nn(el.m) * nn(el.factor))}</span>
-                  <span style={{ textAlign: "right", fontFamily: "'DM Mono',monospace", color: C.blue }}>{fmt2(nn(el.l) * nn(el.factor))}</span>
-                  <span style={{ textAlign: "right", fontFamily: "'DM Mono',monospace", color: C.orange }}>{fmt2(nn(el.e) * nn(el.factor))}</span>
-                  <span style={{ textAlign: "right", fontFamily: "'DM Mono',monospace", fontWeight: 600 }}>{fmt2(elTotal)}</span>
+                  <span style={{ textAlign: "right", fontFamily: "'DM Sans',sans-serif", color: C.green }}>{fmt2(nn(el.m) * nn(el.factor))}</span>
+                  <span style={{ textAlign: "right", fontFamily: "'DM Sans',sans-serif", color: C.blue }}>{fmt2(nn(el.l) * nn(el.factor))}</span>
+                  <span style={{ textAlign: "right", fontFamily: "'DM Sans',sans-serif", color: C.orange }}>{fmt2(nn(el.e) * nn(el.factor))}</span>
+                  <span style={{ textAlign: "right", fontFamily: "'DM Sans',sans-serif", fontWeight: 600 }}>{fmt2(elTotal)}</span>
                 </div>
               );
             })}
@@ -100,7 +100,7 @@ export default function AssemblyCard({ asm, onDelete }) {
             <span style={{ fontSize: 11, fontWeight: 600, color: C.textMuted }}>Quantity:</span>
             <input type="number" value={qty} onChange={e => setQty(e.target.value)} min="1" style={nInp(C, { width: 70, padding: "6px 8px", fontSize: 13, fontWeight: 600, textAlign: "center" })} />
             <div style={{ flex: 1, textAlign: "right" }}>
-              <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, fontWeight: 700, color: C.accent }}>{fmt(grandTotal)}</span>
+              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, fontWeight: 700, color: C.accent }}>{fmt(grandTotal)}</span>
               <span style={{ fontSize: 10, color: C.textDim, marginLeft: 6 }}>total</span>
             </div>
             <button className="accent-btn" onClick={insertAssembly} style={bt(C, { background: C.accent, color: "#fff", padding: "8px 16px", fontSize: 11 })}>

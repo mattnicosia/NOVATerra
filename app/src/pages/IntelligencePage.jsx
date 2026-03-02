@@ -256,7 +256,7 @@ export default function IntelligencePage() {
                   return (
                     <div key={y} style={{
                       flex: 1, textAlign: "center", fontSize: 7,
-                      fontFamily: "'DM Mono',monospace",
+                      fontFamily: "'DM Sans',sans-serif",
                       color: yoy > 5 ? C.orange : yoy > 0 ? C.green : C.textDim,
                       fontWeight: yoy > 5 ? 700 : 400,
                     }}>
@@ -297,12 +297,12 @@ export default function IntelligencePage() {
                           transition: "width 600ms ease",
                         }} />
                       </div>
-                      <span style={{ fontSize: 9, fontWeight: 700, color: C.text, fontFamily: "'DM Mono',monospace", minWidth: 26, textAlign: "right" }}>
+                      <span style={{ fontSize: 9, fontWeight: 700, color: C.text, fontFamily: "'DM Sans',sans-serif", minWidth: 26, textAlign: "right" }}>
                         {d.index.toFixed(0)}
                       </span>
                       <span style={{
                         fontSize: 8, fontWeight: 600, minWidth: 28, textAlign: "right",
-                        fontFamily: "'DM Mono',monospace",
+                        fontFamily: "'DM Sans',sans-serif",
                         color: d.yoy > 3 ? C.orange : d.yoy > 0 ? C.green : C.textDim,
                       }}>
                         +{d.yoy.toFixed(1)}%

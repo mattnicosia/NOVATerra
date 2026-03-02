@@ -1,16 +1,20 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useTheme } from '@/hooks/useTheme';
 import { useItemsStore } from '@/stores/itemsStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { GradientBar } from '@/components/intelligence/PureCSSChart';
 import { fmt } from '@/utils/format';
+import Ic from '@/components/shared/Ic';
+import { I } from '@/constants/icons';
 
 export default function DivisionNavigator({ activeDivision, onSelectDivision }) {
   const C = useTheme();
   const T = C.T;
+  const dk = C.isDark;
   const items = useItemsStore(s => s.items);
   const divFromCode = useProjectStore(s => s.divFromCode);
   const getItemTotal = useItemsStore(s => s.getItemTotal);
+  const [collapsed, setCollapsed] = useState(false);
 
   const divisions = useMemo(() => {
     const map = {};
@@ -46,43 +50,153 @@ export default function DivisionNavigator({ activeDivision, onSelectDivision }) 
     return { color: C.textDim, char: "\u25CB" };
   };
 
+  /* ── Collapsed strip ── */
+  if (collapsed) {
+    return (
+      <div style={{
+        width: 40,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        flexShrink: 0,
+        paddingTop: 8,
+        gap: 8,
+        background: dk
+          ? 'rgba(255,255,255,0.03)'
+          : 'rgba(255,255,255,0.06)',
+        backdropFilter: T.glass.blurLight,
+        WebkitBackdropFilter: T.glass.blurLight,
+        borderRight: `0.5px solid ${dk ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.15)'}`,
+        transition: "width 0.3s cubic-bezier(0.16,1,0.3,1)",
+      }}>
+        <button
+          onClick={() => setCollapsed(false)}
+          style={{
+            background: "transparent", border: "none", cursor: "pointer",
+            padding: 6, borderRadius: T.radius.sm,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            transition: "background 0.2s",
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+          title="Expand divisions"
+        >
+          <Ic d={I.chevron} size={12} color={C.textDim} style={{ transform: "rotate(0deg)" }} />
+        </button>
+        <span style={{
+          writingMode: "vertical-rl",
+          fontSize: 9,
+          fontWeight: 600,
+          letterSpacing: 1.2,
+          color: C.textDim,
+          textTransform: "uppercase",
+          opacity: 0.6,
+        }}>DIVISIONS</span>
+        <span style={{
+          fontSize: 9,
+          fontWeight: 600,
+          color: C.accent,
+          background: dk ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+          borderRadius: T.radius.full,
+          padding: "2px 0",
+          width: 24,
+          textAlign: "center",
+        }}>{totalDivisions}</span>
+      </div>
+    );
+  }
+
+  /* ── Expanded glass panel ── */
   return (
     <div style={{
       width: 200,
-      borderRight: `1px solid ${C.border}`,
       overflowY: "auto",
-      background: C.bg,
       display: "flex",
       flexDirection: "column",
       flexShrink: 0,
+      background: dk
+        ? 'rgba(255,255,255,0.03)'
+        : 'rgba(255,255,255,0.06)',
+      backdropFilter: T.glass.blurLight,
+      WebkitBackdropFilter: T.glass.blurLight,
+      borderRight: `0.5px solid ${dk ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.15)'}`,
+      boxShadow: [T.glass.specularSm, T.glass.edge].join(', '),
+      transition: "width 0.3s cubic-bezier(0.16,1,0.3,1)",
     }}>
+      {/* Header with collapse toggle */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: `${T.space[2]}px ${T.space[3]}px`,
+        borderBottom: `0.5px solid ${dk ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'}`,
+      }}>
+        <button
+          onClick={() => setCollapsed(true)}
+          style={{
+            background: "transparent", border: "none", cursor: "pointer",
+            padding: 4, borderRadius: T.radius.sm,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            transition: "background 0.2s",
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+          title="Collapse divisions"
+        >
+          <Ic d={I.chevron} size={10} color={C.textDim} style={{ transform: "rotate(180deg)" }} />
+        </button>
+        <span style={{
+          fontSize: 9,
+          fontWeight: 600,
+          letterSpacing: 1,
+          color: C.textDim,
+          textTransform: "uppercase",
+        }}>Divisions</span>
+        <span style={{
+          fontSize: 9,
+          color: C.textDim,
+          background: dk ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+          padding: "1px 6px",
+          borderRadius: T.radius.full,
+          fontWeight: 500,
+        }}>{totalDivisions}</span>
+      </div>
+
       {/* All button */}
       <button
         onClick={() => onSelectDivision("All")}
         style={{
           width: "100%",
-          padding: `${T.space[3]}px ${T.space[4]}px`,
-          background: activeDivision === "All" ? `${C.accent}15` : "transparent",
+          padding: `${T.space[2]}px ${T.space[3]}px`,
+          background: activeDivision === "All"
+            ? (dk ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.25)')
+            : "transparent",
           border: "none",
-          borderBottom: `1px solid ${C.border}`,
+          borderBottom: `0.5px solid ${dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)'}`,
           cursor: "pointer",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          fontSize: T.fontSize.sm,
-          fontWeight: 700,
-          color: activeDivision === "All" ? C.accent : C.text,
-          fontFamily: "'DM Sans',sans-serif",
-          transition: T.transition.fast,
-        }}
-      >
-        <span>All Divisions</span>
-        <span style={{
           fontSize: T.fontSize.xs,
+          fontWeight: 600,
+          color: activeDivision === "All" ? C.text : C.textDim,
+          fontFamily: "'DM Sans',sans-serif",
+          transition: "all 0.2s ease",
+          boxShadow: activeDivision === "All"
+            ? `inset 0 0.5px 0 ${dk ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.4)'}`
+            : "none",
+        }}
+        onMouseEnter={e => { if (activeDivision !== "All") e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)'; }}
+        onMouseLeave={e => { if (activeDivision !== "All") e.currentTarget.style.background = "transparent"; }}
+      >
+        <span>All</span>
+        <span style={{
+          fontSize: 9,
           color: C.textDim,
-          background: C.bg2,
+          background: dk ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
           padding: "1px 6px",
           borderRadius: T.radius.full,
+          fontWeight: 500,
         }}>{totalItems}</span>
       </button>
 
@@ -97,52 +211,60 @@ export default function DivisionNavigator({ activeDivision, onSelectDivision }) 
               onClick={() => onSelectDivision(isActive ? "All" : div.code)}
               style={{
                 width: "100%",
-                padding: `${T.space[2]}px ${T.space[4]}px`,
-                background: isActive ? `${C.accent}12` : "transparent",
+                padding: `${T.space[2]}px ${T.space[3]}px`,
+                background: isActive
+                  ? (dk ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.25)')
+                  : "transparent",
                 border: "none",
-                borderBottom: `1px solid ${C.border}30`,
+                borderBottom: `0.5px solid ${dk ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.025)'}`,
                 borderLeft: isActive ? `2px solid ${C.accent}` : "2px solid transparent",
                 cursor: "pointer",
                 display: "flex",
                 flexDirection: "column",
-                gap: 3,
+                gap: 2,
                 textAlign: "left",
-                transition: T.transition.fast,
+                transition: "all 0.2s ease",
                 fontFamily: "'DM Sans',sans-serif",
+                boxShadow: isActive
+                  ? `inset 0 0.5px 0 ${dk ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.35)'}`
+                  : "none",
               }}
-              onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = `${C.text}06`; }}
+              onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)'; }}
               onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = "transparent"; }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 6, width: "100%" }}>
-                <span style={{ fontSize: 10, color: dot.color, lineHeight: 1 }}>{dot.char}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 5, width: "100%" }}>
+                <span style={{ fontSize: 8, color: dot.color, lineHeight: 1 }}>{dot.char}</span>
                 <span style={{
-                  fontSize: T.fontSize.xs,
-                  fontWeight: 600,
-                  color: isActive ? C.accent : C.text,
+                  fontSize: 10,
+                  fontWeight: isActive ? 600 : 500,
+                  color: isActive ? C.text : C.textDim,
                   flex: 1,
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
+                  letterSpacing: 0.1,
                 }}>{div.name}</span>
                 <span style={{
-                  fontSize: 9,
+                  fontSize: 8,
                   color: C.textDim,
                   flexShrink: 0,
+                  opacity: 0.6,
                 }}>{div.itemCount}</span>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, paddingLeft: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 5, paddingLeft: 13 }}>
                 <GradientBar
                   pct={div.pricedPct}
                   color={div.health === "complete" ? C.green : div.health === "partial" ? C.orange : C.textDim}
-                  height={3}
+                  height={2}
                 />
                 <span style={{
                   fontSize: 8,
                   color: C.textDim,
-                  fontFamily: "'DM Mono',monospace",
+                  fontFamily: "'DM Sans',sans-serif",
                   flexShrink: 0,
                   minWidth: 28,
                   textAlign: "right",
+                  opacity: 0.7,
                 }}>{fmt(div.total)}</span>
               </div>
             </button>
@@ -152,14 +274,15 @@ export default function DivisionNavigator({ activeDivision, onSelectDivision }) 
 
       {/* Bottom summary */}
       <div style={{
-        padding: `${T.space[3]}px ${T.space[4]}px`,
-        borderTop: `1px solid ${C.border}`,
-        fontSize: T.fontSize.xs,
+        padding: `${T.space[2]}px ${T.space[3]}px`,
+        borderTop: `0.5px solid ${dk ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'}`,
+        fontSize: 9,
         color: C.textDim,
         display: "flex",
         justifyContent: "space-between",
+        opacity: 0.7,
       }}>
-        <span>{totalDivisions} divisions</span>
+        <span>{totalDivisions} div</span>
         <span>{totalItems} items</span>
       </div>
     </div>

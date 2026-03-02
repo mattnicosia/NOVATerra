@@ -123,7 +123,7 @@ export default function LevelingView() {
         </span>
         <span style={{
           fontSize: T.fontSize.xl, fontWeight: 700, color: C.green,
-          fontFamily: "'DM Mono',monospace", fontFeatureSettings: "'tnum'",
+          fontFamily: "'DM Sans',sans-serif", fontFeatureSettings: "'tnum'",
         }}>
           {fmt(totalBidValue)}
         </span>
@@ -152,7 +152,7 @@ export default function LevelingView() {
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <div style={{ fontSize: T.fontSize.xs, color: C.textDim }}>Internal</div>
-                  <div style={{ fontSize: T.fontSize.base, fontWeight: 700, color: C.text, fontFamily: "'DM Mono',monospace", fontFeatureSettings: "'tnum'" }}>{fmt(sub.total)}</div>
+                  <div style={{ fontSize: T.fontSize.base, fontWeight: 700, color: C.text, fontFamily: "'DM Sans',sans-serif", fontFeatureSettings: "'tnum'" }}>{fmt(sub.total)}</div>
                 </div>
               </div>
 
@@ -188,7 +188,7 @@ export default function LevelingView() {
                               placeholder="$0"
                               style={nInp(C, { width: "100%", padding: "3px 6px", fontSize: T.fontSize.sm, fontWeight: 600, textAlign: "right" })} />
                             {subTotal > 0 && subTotal !== nn(bidTotals[subBid.id]) && (
-                              <span style={{ fontSize: 9, color: C.textDim, fontFamily: "'DM Mono',monospace" }}>Items: {fmt(subTotal)}</span>
+                              <span style={{ fontSize: 9, color: C.textDim, fontFamily: "'DM Sans',sans-serif" }}>Items: {fmt(subTotal)}</span>
                             )}
                           </div>
                           <button onClick={() => removeSubBidSub(sub.sk, subBid.id)}
@@ -212,7 +212,7 @@ export default function LevelingView() {
                     {skLinked.map(ls => (
                       <div key={ls.id} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: T.fontSize.xs }}>
                         <span style={{ color: C.orange }}>{ls.name || "Linked"}</span>
-                        <span style={{ fontFamily: "'DM Mono',monospace", color: C.orange, fontWeight: 600 }}>{fmt(nn(ls.totalBid))}</span>
+                        <span style={{ fontFamily: "'DM Sans',sans-serif", color: C.orange, fontWeight: 600 }}>{fmt(nn(ls.totalBid))}</span>
                       </div>
                     ))}
                   </div>
@@ -254,7 +254,7 @@ export default function LevelingView() {
                     placeholder="$0" style={nInp(C, { width: 100, padding: "5px 8px", fontSize: T.fontSize.base, fontWeight: 700, color: C.green, border: `1px solid ${C.green}` })} />
                 )}
                 {sel.source && (
-                  <span style={{ fontSize: T.fontSize.base, fontWeight: 700, color: C.green, fontFamily: "'DM Mono',monospace", fontFeatureSettings: "'tnum'", whiteSpace: "nowrap" }}>
+                  <span style={{ fontSize: T.fontSize.base, fontWeight: 700, color: C.green, fontFamily: "'DM Sans',sans-serif", fontFeatureSettings: "'tnum'", whiteSpace: "nowrap" }}>
                     {fmt(selVal)}
                   </span>
                 )}

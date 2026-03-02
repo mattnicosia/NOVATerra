@@ -18,7 +18,7 @@ function StatBox({ label, value, C, T, accent }) {
     }}>
       <div style={{
         fontSize: T.fontSize.lg, fontWeight: T.fontWeight.heavy,
-        fontFamily: "'DM Mono',monospace",
+        fontFamily: "'DM Sans',sans-serif",
         color: accent ? C.accent : C.text,
       }}>
         {value}
@@ -292,7 +292,7 @@ export default function ScheduleSidebar() {
             <div style={{ flex: 1, fontSize: T.fontSize.xs, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {act.label}
             </div>
-            <div style={{ fontSize: 9, fontFamily: "'DM Mono',monospace", color: C.textDim, flexShrink: 0 }}>
+            <div style={{ fontSize: 9, fontFamily: "'DM Sans',sans-serif", color: C.textDim, flexShrink: 0 }}>
               {act.duration}d
             </div>
             {act.isCritical && (
@@ -309,7 +309,7 @@ function DetailRow({ label, value, C, T, valueColor }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
       <span style={{ fontSize: 9, color: C.textDim }}>{label}</span>
-      <span style={{ fontSize: T.fontSize.xs, fontFamily: "'DM Mono',monospace", color: valueColor || C.text, fontWeight: 500 }}>
+      <span style={{ fontSize: T.fontSize.xs, fontFamily: "'DM Sans',sans-serif", color: valueColor || C.text, fontWeight: 500 }}>
         {value}
       </span>
     </div>

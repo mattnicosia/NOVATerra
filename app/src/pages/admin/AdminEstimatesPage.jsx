@@ -84,13 +84,13 @@ export default function AdminEstimatesPage() {
                 <span style={{ color: C.accent, fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {e.userEmail}
                 </span>
-                <span style={{ textAlign: "right", color: C.text, fontFamily: "'DM Mono', monospace", fontWeight: 600 }}>
+                <span style={{ textAlign: "right", color: C.text, fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>
                   {e.totalCost ? `$${Math.round(e.totalCost).toLocaleString()}` : "—"}
                 </span>
-                <span style={{ textAlign: "right", color: C.textDim, fontFamily: "'DM Mono', monospace" }}>
+                <span style={{ textAlign: "right", color: C.textDim, fontFamily: "'DM Sans', sans-serif" }}>
                   {e.lineItemCount}
                 </span>
-                <span style={{ textAlign: "right", color: C.textDim, fontFamily: "'DM Mono', monospace", fontSize: 11 }}>
+                <span style={{ textAlign: "right", color: C.textDim, fontFamily: "'DM Sans', sans-serif", fontSize: 11 }}>
                   {e.updated_at ? new Date(e.updated_at).toLocaleDateString() : "—"}
                 </span>
               </div>
@@ -116,7 +116,7 @@ export default function AdminEstimatesPage() {
           >
             Previous
           </button>
-          <span style={{ fontSize: 12, color: C.textMuted, fontFamily: "'DM Mono', monospace" }}>
+          <span style={{ fontSize: 12, color: C.textMuted, fontFamily: "'DM Sans', sans-serif" }}>
             {page} / {totalPages}
           </span>
           <button

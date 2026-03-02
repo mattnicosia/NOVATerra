@@ -64,7 +64,7 @@ export default function AdminEmbeddingsPage() {
               <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
                 <span style={{
                   fontSize: 26, fontWeight: 700, color: C.text,
-                  fontFamily: "'DM Mono', monospace", lineHeight: 1,
+                  fontFamily: "'DM Sans', sans-serif", lineHeight: 1,
                 }}>
                   {count.toLocaleString()}
                 </span>
@@ -125,7 +125,7 @@ export default function AdminEmbeddingsPage() {
               </span>
               {kinds.map(k => (
                 <span key={k} style={{
-                  textAlign: "right", fontFamily: "'DM Mono', monospace",
+                  textAlign: "right", fontFamily: "'DM Sans', sans-serif",
                   color: row.kinds[k] ? C.text : C.textDim,
                   fontWeight: row.kinds[k] ? 500 : 400,
                 }}>
@@ -133,7 +133,7 @@ export default function AdminEmbeddingsPage() {
                 </span>
               ))}
               <span style={{
-                textAlign: "right", fontFamily: "'DM Mono', monospace",
+                textAlign: "right", fontFamily: "'DM Sans', sans-serif",
                 fontWeight: 700, color: C.text,
               }}>
                 {row.total.toLocaleString()}

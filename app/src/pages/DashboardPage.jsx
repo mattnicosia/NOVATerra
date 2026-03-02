@@ -13,7 +13,7 @@ import CompanySwitcher from '@/components/shared/CompanySwitcher';
 import AnimateIn from '@/components/ambient/AnimateIn';
 import { I } from '@/constants/icons';
 import { fmt, nn } from '@/utils/format';
-import { inp, bt, pageContainer, card, sectionLabel, mono } from '@/utils/styles';
+import { inp, bt, pageContainer, card, sectionLabel, mono, statusBadge, moneyCell } from '@/utils/styles';
 import CsvImportModal from '@/components/import/CsvImportModal';
 import NovaTerraLogo from '@/components/shared/NovaTerraLogo';
 
@@ -200,26 +200,44 @@ export default function DashboardPage() {
       {companyEstimates.length > 0 && (
         <div style={{ ...card(C), marginBottom: T.space[8], padding: T.space[4] }}>
           <div style={{ ...sectionLabel(C), marginBottom: T.space[2] }}>Pipeline Status</div>
-          <div style={{ display: "flex", borderRadius: T.radius.full, overflow: "hidden", height: 8, background: C.bg }}>
-            {STATUSES.filter(s => s !== "All" && statusCounts[s] > 0).map((s, i) => (
-              <div key={s} className="pipeline-bar-segment" style={{
-                width: `${(statusCounts[s] / totalEstimates) * 100}%`,
-                background: statusColor(s), minWidth: 4,
-                boxShadow: `0 0 8px ${statusColor(s)}40`,
-                animationDelay: `${450 + i * 80}ms`,
-              }} title={`${s}: ${statusCounts[s]}`} />
-            ))}
+          <div style={{ display: "flex", gap: 2, height: 14 }}>
+            {STATUSES.filter(s => s !== "All" && statusCounts[s] > 0).map((s, i, arr) => {
+              const pct = (statusCounts[s] / totalEstimates) * 100;
+              const sc = statusColor(s);
+              return (
+                <div key={s} className="pipeline-bar-segment" style={{
+                  width: `${pct}%`,
+                  background: `linear-gradient(180deg, ${sc}, ${sc}A0)`,
+                  minWidth: 6,
+                  boxShadow: `0 0 10px ${sc}25`,
+                  animationDelay: `${450 + i * 80}ms`,
+                  borderRadius: i === 0 && arr.length === 1 ? T.radius.full
+                    : i === 0 ? `${T.radius.full} 0 0 ${T.radius.full}`
+                    : i === arr.length - 1 ? `0 ${T.radius.full} ${T.radius.full} 0`
+                    : 2,
+                  transition: "filter 150ms ease-out",
+                  cursor: "pointer",
+                }}
+                  onMouseEnter={e => e.currentTarget.style.filter = "brightness(1.25)"}
+                  onMouseLeave={e => e.currentTarget.style.filter = "brightness(1)"}
+                  title={`${s}: ${statusCounts[s]} (${Math.round(pct)}%)`}
+                />
+              );
+            })}
           </div>
-          <div style={{ display: "flex", gap: T.space[4], marginTop: T.space[2] }}>
-            {STATUSES.filter(s => s !== "All" && statusCounts[s] > 0).map((s, i) => (
-              <div key={s} style={{
-                display: "flex", alignItems: "center", gap: T.space[1], fontSize: T.fontSize.xs, color: C.textMuted,
-                animation: `staggerFadeUp 350ms cubic-bezier(0.16,1,0.3,1) ${500 + i * 60}ms both`,
-              }}>
-                <div style={{ width: 8, height: 8, borderRadius: T.radius.sm, background: statusColor(s), boxShadow: `0 0 4px ${statusColor(s)}30` }} />
-                {s} ({statusCounts[s]})
-              </div>
-            ))}
+          <div style={{ display: "flex", gap: T.space[4], marginTop: T.space[3], flexWrap: "wrap" }}>
+            {STATUSES.filter(s => s !== "All" && statusCounts[s] > 0).map((s, i) => {
+              const pct = Math.round((statusCounts[s] / totalEstimates) * 100);
+              return (
+                <div key={s} style={{
+                  display: "flex", alignItems: "center", gap: T.space[1], fontSize: T.fontSize.xs, color: C.textMuted,
+                  animation: `staggerFadeUp 350ms cubic-bezier(0.16,1,0.3,1) ${500 + i * 60}ms both`,
+                }}>
+                  <div style={{ width: 8, height: 8, borderRadius: T.radius.sm, background: statusColor(s), boxShadow: `0 0 4px ${statusColor(s)}30` }} />
+                  {s} <span style={{ fontWeight: T.fontWeight.semibold, color: C.text }}>{statusCounts[s]}</span> <span style={{ fontSize: 9, color: C.textDim }}>({pct}%)</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -232,20 +250,17 @@ export default function DashboardPage() {
             const daysLeft = Math.ceil((new Date(e.bidDue) - new Date()) / 86400000);
             const urgent = daysLeft <= 3;
             return (
-              <div key={e.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.border}` }}>
-                <div>
-                  <span style={{ fontSize: 13, fontWeight: 500, color: C.text }}>{e.name}</span>
-                  <span style={{ fontSize: 11, color: C.textMuted, marginLeft: 8 }}>{e.client}</span>
+              <div key={e.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: `${T.space[3]}px 0`, borderBottom: `1px solid ${C.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)'}` }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <span style={{ fontSize: T.fontSize.base, fontWeight: T.fontWeight.medium, color: C.text }}>{e.name}</span>
+                  <span style={{ fontSize: T.fontSize.sm, color: C.textMuted, marginLeft: T.space[2] }}>{e.client}</span>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 11, color: urgent ? C.red : C.textMuted }}>{e.bidDue}</span>
-                  <span style={{
-                    fontSize: T.fontSize.xs, fontWeight: T.fontWeight.semibold, padding: "2px 8px", borderRadius: T.radius.full,
-                    background: urgent ? `${C.red}20` : `${C.accent}15`,
-                    color: urgent ? C.red : C.accent,
+                <div style={{ display: "flex", alignItems: "center", gap: T.space[2], flexShrink: 0 }}>
+                  <span style={{ fontSize: T.fontSize.sm, color: urgent ? C.red : C.textMuted }}>{e.bidDue}</span>
+                  <span style={statusBadge(urgent ? C.red : C.accent, {
                     boxShadow: urgent ? `0 0 6px ${C.red}20` : "none",
                     animation: urgent ? "glowPulse 2s ease-in-out infinite" : "none",
-                  }}>
+                  })}>
                     {daysLeft <= 0 ? "OVERDUE" : `${daysLeft}d`}
                   </span>
                 </div>
@@ -349,33 +364,35 @@ export default function DashboardPage() {
               <span>Modified</span>
               <span></span>
             </div>
-            {filtered.map((est, idx) => (
+            {filtered.map((est, idx) => {
+              const sc = statusColor(est.status);
+              const total = nn(est.grandTotal);
+              return (
               <div
                 key={est.id}
                 className="row"
                 style={{
                   display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 80px",
-                  padding: `${T.space[4]}px ${T.space[5]}px`,
-                  borderBottom: `1px solid ${C.border}`,
+                  padding: `${T.space[3]}px ${T.space[5]}px`,
+                  borderBottom: `1px solid ${C.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)'}`,
+                  borderLeft: `3px solid ${sc}40`,
                   alignItems: "center", cursor: "pointer",
+                  background: idx % 2 === 1 ? (C.isDark ? 'rgba(255,255,255,0.015)' : 'rgba(0,0,0,0.012)') : "transparent",
                   animation: `staggerFadeRight 300ms cubic-bezier(0.16,1,0.3,1) ${600 + idx * 35}ms both`,
                 }}
                 onClick={() => handleOpen(est.id)}
               >
-                <span style={{ fontSize: T.fontSize.md, fontWeight: T.fontWeight.semibold, color: C.text }}>{est.name || "Untitled"}</span>
-                <span style={{ fontSize: 12, color: C.textMuted }}>{est.client || "-"}</span>
+                <span style={{ fontSize: T.fontSize.md, fontWeight: T.fontWeight.semibold, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", paddingRight: 8 }}>{est.name || "Untitled"}</span>
+                <span style={{ fontSize: T.fontSize.sm, color: C.textMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{est.client || "\u2014"}</span>
                 <span>
-                  <span style={{
-                    fontSize: T.fontSize.xs, fontWeight: T.fontWeight.semibold, padding: "2px 8px", borderRadius: T.radius.full,
-                    background: `${statusColor(est.status)}20`, color: statusColor(est.status),
-                  }}>
+                  <span style={statusBadge(sc)}>
                     {est.status || "Draft"}
                   </span>
                 </span>
-                <span style={{ ...mono(), fontSize: T.fontSize.sm, color: C.text, textAlign: "right" }}>
+                <span style={moneyCell(C, total)}>
                   {fmt(est.grandTotal)}
                 </span>
-                <span style={{ fontSize: 11, color: C.textDim }}>{est.lastModified || "-"}</span>
+                <span style={{ fontSize: T.fontSize.xs, color: C.textDim }}>{est.lastModified || "\u2014"}</span>
                 <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }} onClick={e => e.stopPropagation()}>
                   <button onClick={() => handleDuplicate(est.id)} title="Duplicate" style={{ background: "none", border: "none", cursor: "pointer", padding: 4, borderRadius: 4, display: "flex" }} className="icon-btn">
                     <Ic d={I.copy} size={13} color={C.textDim} />
@@ -385,7 +402,8 @@ export default function DashboardPage() {
                   </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

@@ -12,7 +12,7 @@ import Ic from '@/components/shared/Ic';
 import { I } from '@/constants/icons';
 import NovaOrb from '@/components/dashboard/NovaOrb';
 
-const SYSTEM_PROMPT = `You are NOVA, an expert construction estimating AI assistant embedded inside BLDG Omni. You have deep knowledge of:
+const SYSTEM_PROMPT = `You are NOVA, an expert construction estimating AI assistant embedded inside NOVATerra. You have deep knowledge of:
 - CSI MasterFormat divisions and specification sections
 - RS Means cost data and industry pricing
 - Construction takeoff methods and quantity surveying
@@ -41,7 +41,7 @@ Formatting rules:
 You are helpful, knowledgeable, and construction-savvy. Think like a senior estimator with 20 years of experience.`;
 
 // Quick action suggestions shown when chat is empty
-const QUICK_ACTIONS = [
+export const QUICK_ACTIONS = [
   { label: "What's missing from my estimate?", icon: "🔍" },
   { label: "Review my takeoff quantities", icon: "📐" },
   { label: "Suggest value engineering options", icon: "💡" },
@@ -390,7 +390,7 @@ export default function AIChatPanel() {
 }
 
 // ─── Action Cards — show tool results inline ─────────────────────────
-function ActionCards({ actions, C }) {
+export function ActionCards({ actions, C }) {
   if (!actions || actions.length === 0) return null;
 
   const isCostField = (f) => ["material", "labor", "equipment", "subcontractor"].includes(f);
@@ -497,7 +497,7 @@ function ActionCards({ actions, C }) {
 }
 
 // ─── Message Bubble ──────────────────────────────────────────────
-function MessageBubble({ msg, C, streaming }) {
+export function MessageBubble({ msg, C, streaming }) {
   const isUser = msg.role === "user";
 
   // Simple markdown-lite rendering
@@ -605,7 +605,7 @@ function renderInline(text, C) {
     } else if (m.type === "code") {
       parts.push(<code key={key++} style={{
         background: `${C.accent}12`, padding: "1px 5px", borderRadius: 4,
-        fontSize: "0.92em", fontFamily: "'DM Mono', monospace", color: C.accent,
+        fontSize: "0.92em", fontFamily: "'DM Sans', sans-serif", color: C.accent,
       }}>{m.inner}</code>);
     } else if (m.type === "italic") {
       parts.push(<em key={key++}>{m.inner}</em>);

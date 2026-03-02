@@ -12,7 +12,7 @@ export default function SumRow({ label, value, bold, border, color }) {
       ...(border ? { borderTop: `1px solid ${C.border}`, paddingTop: T.space[3], marginTop: T.space[2] } : {}),
     }}>
       <span>{label}</span>
-      <span style={{ fontFamily: "'DM Mono',monospace" }}>{value}</span>
+      <span style={{ fontFamily: "'DM Sans',sans-serif" }}>{value}</span>
     </div>
   );
 }

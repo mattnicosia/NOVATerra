@@ -13,6 +13,7 @@ export const useUiStore = create((set, get) => ({
     selectedPalette: "matte",
     customPalettes: [],
     fontSize: 13,
+    density: "comfortable",  // "comfortable" | "compact"
     sidebarDefault: "open",
     fredApiKey: "",
     defaultMarkup: { overhead: 10, profit: 10, overheadAndProfit: 20, contingency: 5, generalConditions: 0, insurance: 2, fee: 0, tax: 0, bond: 0 },

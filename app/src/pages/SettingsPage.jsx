@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useMemo } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useTheme } from '@/hooks/useTheme';
 import { useMasterDataStore } from '@/stores/masterDataStore';
 import { useUiStore } from '@/stores/uiStore';
@@ -6,7 +6,7 @@ import { useItemsStore, DEFAULT_MARKUP_ORDER } from '@/stores/itemsStore';
 import { useInboxStore } from '@/stores/inboxStore';
 import { useAuthStore } from '@/stores/authStore';
 import { supabase } from '@/utils/supabase';
-import { PALETTES } from '@/constants/palettes';
+// PALETTES import removed — theme selection temporarily disabled
 import Sec from '@/components/shared/Sec';
 import Ic from '@/components/shared/Ic';
 import { I } from '@/constants/icons';
@@ -50,16 +50,6 @@ export default function SettingsPage() {
   const [senderEmails, setSenderEmails] = useState([]);
   const [newSenderEmail, setNewSenderEmail] = useState("");
 
-  const activePalette = useMemo(() => {
-    const sp = appSettings.selectedPalette || "";
-    const spBase = sp.includes(":") ? sp.split(":")[0] : sp;
-    const spVar = sp.includes(":") ? parseInt(sp.split(":")[1], 10) || 0 : 0;
-    const pal = PALETTES.find(p => p.id === spBase) || PALETTES[0];
-    if (spVar > 0 && pal.variants && pal.variants[spVar]) {
-      return { ...pal, overrides: { ...pal.overrides, ...pal.variants[spVar] } };
-    }
-    return pal;
-  }, [appSettings.selectedPalette]);
 
   const handleLogoUpload = (file) => {
     const reader = new FileReader();
@@ -374,7 +364,7 @@ export default function SettingsPage() {
               <label style={{ fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.5 }}>FRED API Key (Market Data)</label>
               <div style={{ display: "flex", gap: 8, marginTop: 4, alignItems: "center" }}>
                 <input type="password" value={appSettings.fredApiKey || ""} onChange={e => updateSetting("fredApiKey", e.target.value)} placeholder="Your FRED API key..."
-                  style={inp(C, { padding: "8px 12px", fontSize: 12, fontFamily: "'DM Mono',monospace", flex: 1, maxWidth: 500 })} />
+                  style={inp(C, { padding: "8px 12px", fontSize: 12, fontFamily: "'DM Sans',sans-serif", flex: 1, maxWidth: 500 })} />
               </div>
               <div style={{ fontSize: 10, color: C.textDim, marginTop: 6 }}>Free API key for live construction market data (lumber, steel, housing starts). Get one at <a href="https://fred.stlouisfed.org/docs/api/api_key.html" target="_blank" rel="noopener" style={{ color: C.accent, fontWeight: 500, textDecoration: "none" }}>fred.stlouisfed.org</a></div>
             </div>
@@ -412,95 +402,9 @@ export default function SettingsPage() {
           </div>
         </Sec>
 
-        {/* Theme & Color Palette */}
-        <Sec title="Theme & Color Palette">
-          <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 14 }}>Choose a color palette to theme the entire interface. Upload a logo above to generate palettes from your brand colors.</div>
-
-          {/* Built-in Palettes */}
-          <div style={{ fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8 }}>Built-in Palettes</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(180px,1fr))", gap: 10, marginBottom: 16 }}>
-            {PALETTES.map(pal => {
-              const sp = appSettings.selectedPalette || "";
-              const spBase = sp.includes(":") ? sp.split(":")[0] : sp;
-              const spVar = sp.includes(":") ? parseInt(sp.split(":")[1], 10) || 0 : 0;
-              const sel = spBase === pal.id;
-              const varCount = pal.variants ? pal.variants.length : 1;
-              const activeVar = sel ? spVar : 0;
-              const accentColor = sel ? (pal.preview[activeVar] || pal.preview[0]) : pal.preview[0];
-              const varLabel = pal.variantLabels ? pal.variantLabels[activeVar] : null;
-
-              const handleClick = () => {
-                if (!sel) {
-                  updateSetting("selectedPalette", pal.id);
-                } else {
-                  const next = (spVar + 1) % varCount;
-                  updateSetting("selectedPalette", next === 0 ? pal.id : `${pal.id}:${next}`);
-                }
-              };
-
-              return (
-                <div key={pal.id} className="nav-item" onClick={handleClick}
-                  style={{
-                    padding: 10, borderRadius: 8, transition: "all 0.2s", cursor: "pointer",
-                    border: `2px solid ${sel ? accentColor : C.border}`,
-                    background: sel ? `${accentColor}10` : C.bg1,
-                    boxShadow: sel ? `0 0 0 1px ${accentColor}40` : "none",
-                  }}>
-                  {/* Decorative preview bar — NOT clickable per-swatch */}
-                  <div style={{ display: "flex", gap: 0, marginBottom: 8, borderRadius: 4, overflow: "hidden" }}>
-                    {pal.preview.map((c, i) => (
-                      <div key={i} style={{ flex: 1, height: 24, background: c }} />
-                    ))}
-                  </div>
-                  {/* Palette name + variant label */}
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: sel ? accentColor : C.text }}>{pal.name}</div>
-                      {sel && varLabel
-                        ? <div style={{ fontSize: 9, fontWeight: 600, color: accentColor, opacity: 0.8 }}>{varLabel}</div>
-                        : <div style={{ fontSize: 9, color: C.textDim }}>{pal.desc}</div>
-                      }
-                    </div>
-                    {sel && <div style={{ width: 18, height: 18, borderRadius: "50%", background: accentColor, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Ic d={I.check} size={11} color="#fff" sw={3} /></div>}
-                  </div>
-                  {/* Dot indicators — one per variant */}
-                  {sel && varCount > 1 && (
-                    <div style={{ display: "flex", gap: 4, marginTop: 6, justifyContent: "center" }}>
-                      {pal.variants.map((_, i) => (
-                        <div key={i} style={{
-                          width: 6, height: 6, borderRadius: "50%", transition: "all 0.15s",
-                          background: i === activeVar ? accentColor : `${C.textDim}40`,
-                          boxShadow: i === activeVar ? `0 0 6px ${accentColor}60` : "none",
-                        }} />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Live Preview */}
-          <div style={{ padding: 14, borderRadius: 8, border: `1px solid ${activePalette.overrides?.border || C.border}`, background: activePalette.overrides?.bg || C.bg, marginBottom: 16 }}>
-            <div style={{ fontSize: 9, fontWeight: 700, color: activePalette.overrides?.textDim || C.textDim, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 10 }}>Live Preview — {activePalette.name}</div>
-            <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-              <div style={{ padding: "8px 14px", borderRadius: 6, background: activePalette.overrides?.accent || C.accent, color: "#fff", fontSize: 11, fontWeight: 600 }}>Primary Button</div>
-              <div style={{ padding: "8px 14px", borderRadius: 6, border: `1px solid ${activePalette.overrides?.accent || C.accent}`, color: activePalette.overrides?.accent || C.accent, fontSize: 11, fontWeight: 600, background: "transparent" }}>Secondary</div>
-              <div style={{ padding: "8px 14px", borderRadius: 6, background: activePalette.overrides?.bg1 || C.bg1, border: `1px solid ${activePalette.overrides?.border || C.border}`, fontSize: 11 }}>
-                <span style={{ color: activePalette.overrides?.text || C.text, fontWeight: 600 }}>Card Title</span>
-                <span style={{ color: activePalette.overrides?.textMuted || C.textMuted, marginLeft: 8 }}>subtitle text</span>
-              </div>
-              <div style={{ display: "flex", gap: 4 }}>
-                <div style={{ padding: "3px 8px", borderRadius: 4, background: activePalette.overrides?.green || C.green, color: "#fff", fontSize: 9, fontWeight: 700 }}>Won</div>
-                <div style={{ padding: "3px 8px", borderRadius: 4, background: activePalette.overrides?.orange || C.orange, color: "#fff", fontSize: 9, fontWeight: 700 }}>Pending</div>
-                <div style={{ padding: "3px 8px", borderRadius: 4, background: activePalette.overrides?.red || C.red, color: "#fff", fontSize: 9, fontWeight: 700 }}>Lost</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Display Options */}
-          <div style={{ fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8 }}>Display Options</div>
-          <div style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
+        {/* Display Options */}
+        <Sec title="Display Options">
+          <div style={{ display: "flex", gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>
             <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 12, color: C.text }}>
               <input type="checkbox" checked={appSettings.sidebarDefault} onChange={e => updateSetting("sidebarDefault", e.target.checked)}
                 style={{ width: 16, height: 16, accentColor: C.accent }} />
@@ -511,7 +415,21 @@ export default function SettingsPage() {
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <input type="range" min="11" max="16" value={appSettings.fontSize || 13} onChange={e => updateSetting("fontSize", parseInt(e.target.value))}
                   style={{ width: 120, accentColor: C.accent }} />
-                <span style={{ fontSize: 12, fontFamily: "'DM Mono',monospace", color: C.textMuted }}>{appSettings.fontSize || 13}px</span>
+                <span style={{ fontSize: 12, fontFamily: "'DM Sans',sans-serif", color: C.textMuted }}>{appSettings.fontSize || 13}px</span>
+              </div>
+            </div>
+            <div>
+              <label style={{ fontSize: 9, color: C.textDim, fontWeight: 600, display: "block", marginBottom: 4 }}>Density</label>
+              <div style={{ display: "flex", gap: 0, borderRadius: 6, overflow: "hidden", border: `1px solid ${C.border}` }}>
+                {["comfortable", "compact"].map(d => (
+                  <button key={d} onClick={() => updateSetting("density", d)}
+                    style={{
+                      padding: "5px 14px", fontSize: 10, fontWeight: 600, border: "none", cursor: "pointer",
+                      background: (appSettings.density || "comfortable") === d ? C.accent : "transparent",
+                      color: (appSettings.density || "comfortable") === d ? "#fff" : C.textDim,
+                      transition: "all 120ms ease-out", textTransform: "capitalize",
+                    }}>{d}</button>
+                ))}
               </div>
             </div>
           </div>
@@ -918,7 +836,7 @@ function EmailInboxSection({ C, T, showToast }) {
         {/* Forwarding address */}
         <div style={{ padding: 12, borderRadius: 8, background: `${C.accent}08`, border: `1px solid ${C.accent}20`, marginBottom: 16 }}>
           <div style={{ fontSize: 11, color: C.textDim, fontWeight: 600, marginBottom: 4 }}>YOUR FORWARDING ADDRESS</div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: C.accent, fontFamily: "'DM Mono',monospace" }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: C.accent, fontFamily: "'DM Sans',sans-serif" }}>
             bids@novabuild.app
           </div>
           <div style={{ fontSize: 11, color: C.textMuted, marginTop: 4 }}>
@@ -938,7 +856,7 @@ function EmailInboxSection({ C, T, showToast }) {
               display: "flex", justifyContent: "space-between", alignItems: "center",
               padding: "6px 10px", borderRadius: 6, background: C.bg, border: `1px solid ${C.border}`, marginBottom: 4,
             }}>
-              <span style={{ fontSize: 12, color: C.text, fontFamily: "'DM Mono',monospace" }}>{email}</span>
+              <span style={{ fontSize: 12, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>{email}</span>
               <button style={{ background: "none", border: "none", cursor: "pointer", padding: 2 }} onClick={() => handleRemoveSender(email)}>
                 <Ic d={I.x} size={12} color={C.textDim} />
               </button>

@@ -71,9 +71,11 @@ export const STRUCTURAL_SYSTEMS = [
 // ─── Delivery Methods ───────────────────────────────────────
 // Project delivery — affects pricing strategy and win/loss patterns
 export const DELIVERY_METHODS = [
-  { key: "hard-bid",     label: "Hard Bid" },
+  { key: "hard-bid",     label: "Hard Bid / Lump Sum" },
+  { key: "lump-sum",     label: "Lump Sum" },
   { key: "negotiated",   label: "Negotiated" },
   { key: "cm-at-risk",   label: "CM at Risk" },
+  { key: "cost-plus",    label: "Cost-Plus" },
   { key: "design-build", label: "Design-Build" },
   { key: "gmp",          label: "GMP" },
 ];

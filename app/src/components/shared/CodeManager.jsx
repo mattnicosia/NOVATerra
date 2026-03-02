@@ -183,7 +183,7 @@ export default function CodeManager({ onClose }) {
             value={newDivCode}
             onChange={e => setNewDivCode(e.target.value)}
             autoFocus
-            style={inp(C, { width: 80, fontSize: 12, fontFamily: "'DM Mono',monospace", textAlign: "center" })}
+            style={inp(C, { width: 80, fontSize: 12, fontFamily: "'DM Sans',sans-serif", textAlign: "center" })}
           />
           <input
             placeholder="Division name..."
@@ -228,7 +228,7 @@ export default function CodeManager({ onClose }) {
                   style={{ transform: isExpanded ? "rotate(90deg)" : "rotate(0)", transition: "transform 0.15s", flexShrink: 0 }}>
                   <path d="M2 0.5l3.5 3.5L2 7.5" />
                 </svg>
-                <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, color: C.accent, fontWeight: 700, minWidth: 22 }}>{dc}</span>
+                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, color: C.accent, fontWeight: 700, minWidth: 22 }}>{dc}</span>
 
                 {editingDiv === dc ? (
                   <input
@@ -310,7 +310,7 @@ export default function CodeManager({ onClose }) {
                         opacity: subHidden ? 0.45 : 1,
                         background: subHidden ? `${C.red}06` : "transparent",
                       }}>
-                        <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: C.purple, fontWeight: 600, minWidth: 42 }}>
+                        <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: C.purple, fontWeight: 600, minWidth: 42 }}>
                           {subKey}
                         </span>
 
@@ -386,7 +386,7 @@ export default function CodeManager({ onClose }) {
                         value={newSubCode}
                         onChange={e => setNewSubCode(e.target.value)}
                         autoFocus
-                        style={inp(C, { width: 70, fontSize: 10, fontFamily: "'DM Mono',monospace", textAlign: "center", padding: "2px 4px" })}
+                        style={inp(C, { width: 70, fontSize: 10, fontFamily: "'DM Sans',sans-serif", textAlign: "center", padding: "2px 4px" })}
                       />
                       <input
                         placeholder="Subdivision name..."

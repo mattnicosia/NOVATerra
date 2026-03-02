@@ -261,10 +261,16 @@ export function detectRooms(walls, graph) {
   // A room is a cycle of walls where each wall connects to the next at endpoints
   const visitedCycles = new Set(); // Prevent duplicate rooms
 
+  let _cycleOpsCount = 0;  // Global operation counter to prevent exponential blowup
+  const CYCLE_OPS_LIMIT = 50000; // Max DFS operations across all findCycles calls
+
   function findCycles(startWallId, maxDepth = 12) {
     const cycles = [];
+    if (_cycleOpsCount >= CYCLE_OPS_LIMIT) return cycles; // Time guard
 
     function dfs(currentWallId, path, visitedInPath) {
+      _cycleOpsCount++;
+      if (_cycleOpsCount >= CYCLE_OPS_LIMIT) return; // Abort if exceeded
       if (path.length > maxDepth) return;
 
       const currentWall = wallMap.get(currentWallId);
@@ -533,12 +539,17 @@ export function associateTagsWithRooms(textItems, rooms) {
 // Complete analysis pipeline for a drawing
 // ══════════════════════════════════════════════════════════════════════
 
+// ── Geometry cache (per drawing ID) ──────────────────────────────
+const _geometryCache = new Map();
+
 /**
- * Run complete geometry analysis on a drawing
+ * Run complete geometry analysis on a drawing (cached per drawing ID)
  * @param {Object} drawing - Drawing with PDF data
  * @returns {Object} { walls, rooms, openings, wallTags, roomLabels, stats }
  */
 export async function analyzeDrawingGeometry(drawing) {
+  if (_geometryCache.has(drawing.id)) return _geometryCache.get(drawing.id);
+
   const pageData = await extractPageData(drawing);
 
   // Detect walls from line segments
@@ -562,7 +573,7 @@ export async function analyzeDrawingGeometry(drawing) {
   // Associate labels with rooms
   const roomLabels = associateTagsWithRooms(pageData.text, rooms);
 
-  return {
+  const result = {
     walls,
     rooms,
     openings,
@@ -578,6 +589,15 @@ export async function analyzeDrawingGeometry(drawing) {
       roomLabelCount: roomLabels.length,
     },
   };
+
+  _geometryCache.set(drawing.id, result);
+  // LRU eviction: cap at 5 drawings
+  if (_geometryCache.size > 5) {
+    const oldest = _geometryCache.keys().next().value;
+    _geometryCache.delete(oldest);
+  }
+
+  return result;
 }
 
 // ══════════════════════════════════════════════════════════════════════

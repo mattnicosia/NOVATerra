@@ -39,7 +39,7 @@ function SourceCard({ icon, iconColor, title, count, description, status, C, T }
             {status === "active" ? "Active" : "Pending"}
           </span>
         </div>
-        <div style={{ fontSize: 22, fontWeight: 700, color: C.text, fontFamily: "'DM Mono', monospace", marginBottom: 4 }}>
+        <div style={{ fontSize: 22, fontWeight: 700, color: C.text, fontFamily: "'DM Sans', sans-serif", marginBottom: 4 }}>
           {count.toLocaleString()}
         </div>
         <p style={{ fontSize: 11, color: C.textMuted, margin: 0, lineHeight: 1.5 }}>

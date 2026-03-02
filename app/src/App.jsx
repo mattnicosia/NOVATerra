@@ -26,6 +26,7 @@ import LoginPage from '@/pages/LoginPage';
 const AIChatPanel = lazy(() => import('@/components/ai/AIChatPanel'));
 const AmbientBackground = lazy(() => import('@/components/nova/AmbientBackground'));
 const AmbientParticles = lazy(() => import('@/components/ambient/AmbientParticles'));
+const LiquidGlassBackground = lazy(() => import('@/components/ambient/LiquidGlassBackground'));
 const NovaCursor = lazy(() => import('@/components/nova/NovaCursor'));
 const CommandPalette = lazy(() => import('@/components/shared/CommandPalette'));
 const OnboardingSequence = lazy(() => import('@/components/nova/OnboardingSequence'));
@@ -182,8 +183,6 @@ function AppContent() {
   const C = useTheme();
   const location = useLocation();
   const isDashboard = location.pathname === '/';
-  const selectedPalette = useUiStore(s => s.appSettings.selectedPalette);
-  const isNova = !selectedPalette || selectedPalette.startsWith('nova');
   usePersistenceLoad();
   useAutoSave();
   useTakeoffSync();
@@ -193,32 +192,32 @@ function AppContent() {
 
   // Sync body background to theme (covers areas outside app-shell + prevents flash)
   // Also toggle theme-light/theme-dark class for CSS hover state overrides
+  const density = useUiStore(s => s.appSettings?.density || "comfortable");
   useEffect(() => {
     document.documentElement.style.setProperty('--app-bg', C.bg);
     document.documentElement.style.setProperty('--app-text', C.text);
     document.documentElement.classList.toggle('theme-light', !C.isDark);
     document.documentElement.classList.toggle('theme-dark', C.isDark);
-  }, [C.bg, C.text, C.isDark]);
+    document.documentElement.classList.toggle('density-compact', density === "compact");
+  }, [C.bg, C.text, C.isDark, density]);
 
   return (
     <div className="app-shell" style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden", background: C.bgGradient || C.bg, position: "relative" }}>
-      <Suspense fallback={null}>{isNova && <AmbientBackground />}</Suspense>
-      <Suspense fallback={null}>{isNova && isDashboard && <AmbientParticles />}</Suspense>
-      {/* Subtle accent glow for non-NOVA dark themes — adds depth to flat backgrounds */}
-      {!isNova && C.isDark && (
-        <>
-          <div style={{
-            position: 'fixed', width: 600, height: 600, top: -120, right: -60,
-            borderRadius: '50%', filter: 'blur(120px)', pointerEvents: 'none', zIndex: 0,
-            background: `radial-gradient(ellipse, ${C.accent}0A 0%, transparent 70%)`,
-          }} />
-          <div style={{
-            position: 'fixed', width: 500, height: 500, bottom: -100, left: -40,
-            borderRadius: '50%', filter: 'blur(120px)', pointerEvents: 'none', zIndex: 0,
-            background: `radial-gradient(ellipse, ${C.accentDim || C.accent}08 0%, transparent 70%)`,
-          }} />
-        </>
-      )}
+      {/* Liquid Glass mesh background — vivid animated color field for BOTH modes */}
+      <Suspense fallback={null}><LiquidGlassBackground /></Suspense>
+      {/* SVG refraction filter — subtle distortion simulating glass lensing */}
+      <svg style={{ position: 'absolute', width: 0, height: 0, pointerEvents: 'none' }} aria-hidden="true">
+        <defs>
+          <filter id="glass-refract" x="-5%" y="-5%" width="110%" height="110%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.015 0.012" numOctaves="3" seed="42" result="noise" />
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" xChannelSelector="R" yChannelSelector="G" />
+          </filter>
+          <filter id="glass-refract-lg" x="-5%" y="-5%" width="110%" height="110%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.008 0.006" numOctaves="3" seed="17" result="noise" />
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale="4" xChannelSelector="R" yChannelSelector="G" />
+          </filter>
+        </defs>
+      </svg>
       <div className="app-main" style={{ position: "relative", zIndex: 10, display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
         <NovaHeader />
         <ProjectTabBar />

@@ -156,7 +156,7 @@ export default function CarbonBenchmarkWidget() {
         }}>
           <div style={{
             fontSize: 18, fontWeight: 700, color: hasData ? sColor : C.textDim,
-            fontFamily: "'DM Mono', monospace", lineHeight: 1,
+            fontFamily: "'DM Sans', sans-serif", lineHeight: 1,
           }}>
             {hasData ? score : '\u2014'}
           </div>
@@ -206,7 +206,7 @@ export default function CarbonBenchmarkWidget() {
             )}
             <div style={{
               fontSize: 11, fontWeight: 600, color: r.color,
-              fontFamily: "'DM Mono', monospace",
+              fontFamily: "'DM Sans', sans-serif",
               minWidth: 48, textAlign: 'right', flexShrink: 0,
             }}>{r.value}</div>
           </div>

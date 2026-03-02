@@ -471,51 +471,77 @@ export default function ReportsPage() {
 
         {/* BID FORM */}
         {reportType === "bidForm" && (
-          <div className="report-doc" style={{ background: "#fff", color: "#1a1a2e", padding: "40px 48px", borderRadius: 8, border: `1px solid ${C.border}`, fontFamily: T.font.sans }}>
-            <div style={{ textAlign: "center", marginBottom: 24 }}>
-              <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: 2 }}>BID FORM</div>
-              <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>{project.name || "[Project Name]"}</div>
-              <div style={{ fontSize: 11, color: "#888" }}>{project.address}</div>
+          <div className="report-doc" style={{ background: "#fff", color: "#1a1a2e", padding: "40px 48px", borderRadius: T.radius.lg, border: `1px solid ${C.border}`, fontFamily: T.font.sans, boxShadow: T.shadow.lg, lineHeight: 1.5 }}>
+            {/* Letterhead — matching SOV professional style */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, paddingBottom: 14, borderBottom: "2px solid #1a1a2e" }}>
+              <div>
+                {companyInfo?.logo ? (
+                  <img src={companyInfo.logo} alt="Logo" style={{ maxHeight: 48, maxWidth: 180, marginBottom: 4 }} />
+                ) : (
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1a2e", letterSpacing: 0.5 }}>{companyInfo?.name || "YOUR COMPANY"}</div>
+                )}
+                <div style={{ fontSize: 9, color: "#888" }}>{companyInfo?.address}{companyInfo?.city ? `, ${companyInfo.city}` : ""}{companyInfo?.state ? `, ${companyInfo.state}` : ""} {companyInfo?.zip || ""}</div>
+                <div style={{ fontSize: 9, color: "#888" }}>{companyInfo?.phone}{companyInfo?.email ? ` \u2022 ${companyInfo.email}` : ""}</div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: 2, color: "#1a1a2e" }}>BID FORM</div>
+                <div style={{ fontSize: 10, color: "#888", marginTop: 2 }}>{new Date().toLocaleDateString()}</div>
+              </div>
+            </div>
+
+            {/* Project info */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#222" }}>{project.name || "[Project Name]"}</div>
+              {project.address && <div style={{ fontSize: 10, color: "#888" }}>{project.address}</div>}
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
-              <div><div style={{ fontSize: 9, fontWeight: 600, color: "#888", textTransform: "uppercase", marginBottom: 2 }}>From</div><div style={{ fontSize: 12, fontWeight: 600 }}>{companyInfo?.name || "[Your Company]"}</div><div style={{ fontSize: 10, color: "#666" }}>{companyInfo?.address} {companyInfo?.city}, {companyInfo?.state} {companyInfo?.zip}</div></div>
-              <div><div style={{ fontSize: 9, fontWeight: 600, color: "#888", textTransform: "uppercase", marginBottom: 2 }}>To</div><div style={{ fontSize: 12, fontWeight: 600 }}>{project.client || "[Owner/Client]"}</div><div style={{ fontSize: 10, color: "#666" }}>{project.architect ? `Architect: ${project.architect}` : ""}</div></div>
+              <div><div style={{ fontSize: 9, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 2 }}>From</div><div style={{ fontSize: 12, fontWeight: 600 }}>{companyInfo?.name || "[Your Company]"}</div><div style={{ fontSize: 10, color: "#666" }}>{companyInfo?.address} {companyInfo?.city}, {companyInfo?.state} {companyInfo?.zip}</div></div>
+              <div><div style={{ fontSize: 9, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 2 }}>To</div><div style={{ fontSize: 12, fontWeight: 600 }}>{project.client || "[Owner/Client]"}</div><div style={{ fontSize: 10, color: "#666" }}>{project.architect ? `Architect: ${project.architect}` : ""}</div></div>
             </div>
 
-            <div style={{ fontSize: 11, marginBottom: 16 }}>
+            <div style={{ fontSize: 11, marginBottom: 16, color: "#444", lineHeight: 1.6 }}>
               Having examined the plans, specifications, and addenda for the above project, the undersigned proposes to furnish all labor, materials, and equipment required for the complete performance of the work as follows:
             </div>
 
-            <div style={{ padding: "14px 20px", background: "#f0f0f0", borderRadius: 4, marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontSize: 14, fontWeight: 700 }}>BASE BID</div>
-              <div style={{ fontSize: 20, fontWeight: 800, fontFamily: T.font.mono }}>{fmt(totals.grand)}</div>
+            {/* Base Bid — dark gradient accent */}
+            <div style={{ padding: "18px 24px", background: "linear-gradient(135deg, #1a1a2e, #2d2b55)", borderRadius: 6, marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", letterSpacing: 1, textTransform: "uppercase" }}>Base Bid</div>
+              <div style={{ fontSize: 24, fontWeight: 800, fontFamily: T.font.mono, color: "#fff" }}>{fmt(totals.grand)}</div>
             </div>
 
+            {/* Alternates with accent border */}
             {alternates.map((alt, i) => {
               const t = alt.items.reduce((s, ai) => (nn(ai.material) + nn(ai.labor) + nn(ai.equipment) + nn(ai.subcontractor)) * nn(ai.quantity) + s, 0);
               return (
-                <div key={alt.id} style={{ padding: "10px 20px", background: "#f8f8f8", borderRadius: 4, marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div key={alt.id} style={{ padding: "12px 20px", background: "#fafafa", borderRadius: 4, marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center", borderLeft: "3px solid #1a1a2e" }}>
                   <div><div style={{ fontSize: 11, fontWeight: 600 }}>Alternate #{i + 1}: {alt.name}</div><div style={{ fontSize: 10, color: "#666" }}>{alt.description} ({alt.type})</div></div>
                   <div style={{ fontSize: 14, fontWeight: 700, fontFamily: T.font.mono }}>{alt.type === "deduct" ? "\u2212" : "+"}{fmt(t)}</div>
                 </div>
               );
             })}
 
+            {/* Addenda + Time of Completion */}
             <div style={{ marginTop: 16, padding: "12px 20px", border: "1px solid #ddd", borderRadius: 4 }}>
-              <div style={{ fontSize: 10, fontWeight: 600, color: "#888", marginBottom: 4 }}>ADDENDA ACKNOWLEDGED</div>
+              <div style={{ fontSize: 10, fontWeight: 600, color: "#888", marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>Addenda Acknowledged</div>
               <div style={{ fontSize: 11, color: "#666" }}>No. _______ through No. _______</div>
             </div>
             <div style={{ marginTop: 12, padding: "12px 20px", border: "1px solid #ddd", borderRadius: 4 }}>
-              <div style={{ fontSize: 10, fontWeight: 600, color: "#888", marginBottom: 4 }}>TIME OF COMPLETION</div>
+              <div style={{ fontSize: 10, fontWeight: 600, color: "#888", marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>Time of Completion</div>
               <div style={{ fontSize: 11, color: "#666" }}>_____ calendar days from Notice to Proceed</div>
             </div>
 
-            <div style={{ marginTop: 24, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-              <div><div style={{ borderBottom: "1px solid #999", height: 30 }} /><div style={{ fontSize: 9, color: "#888", marginTop: 2 }}>Company Name</div></div>
-              <div><div style={{ borderBottom: "1px solid #999", height: 30 }} /><div style={{ fontSize: 9, color: "#888", marginTop: 2 }}>Date</div></div>
-              <div><div style={{ borderBottom: "1px solid #999", height: 30 }} /><div style={{ fontSize: 9, color: "#888", marginTop: 2 }}>Authorized Signature</div></div>
-              <div><div style={{ borderBottom: "1px solid #999", height: 30 }} /><div style={{ fontSize: 9, color: "#888", marginTop: 2 }}>Printed Name & Title</div></div>
+            {/* Professional attestation + signature block */}
+            <div style={{ marginTop: 24, padding: "16px 20px", background: "#fafafa", borderRadius: 4, border: "1px solid #eee" }}>
+              <div style={{ fontSize: 10, color: "#666", lineHeight: 1.6, marginBottom: 16 }}>
+                The undersigned hereby certifies that this bid is submitted in good faith, without collusion or fraud, and that the bidder has carefully examined the contract documents and site conditions. This bid shall remain valid for a period of sixty (60) days from the date of submission.
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+                <div><div style={{ borderBottom: "1px solid #999", height: 30 }} /><div style={{ fontSize: 9, color: "#888", marginTop: 2 }}>Company Name</div></div>
+                <div><div style={{ borderBottom: "1px solid #999", height: 30 }} /><div style={{ fontSize: 9, color: "#888", marginTop: 2 }}>Date</div></div>
+                <div><div style={{ borderBottom: "1px solid #999", height: 30 }} /><div style={{ fontSize: 9, color: "#888", marginTop: 2 }}>Authorized Signature</div></div>
+                <div><div style={{ borderBottom: "1px solid #999", height: 30 }} /><div style={{ fontSize: 9, color: "#888", marginTop: 2 }}>Printed Name & Title</div></div>
+              </div>
             </div>
           </div>
         )}
@@ -523,7 +549,7 @@ export default function ReportsPage() {
         {/* DETAILED ESTIMATE */}
         {reportType === "detailed" && (
           <div>
-            <div style={{ marginBottom: 8, fontSize: 11, color: C.textMuted }}>Print-ready line-item breakdown by CSI division. All quantities, unit prices, and extensions shown.</div>
+            <div style={{ marginBottom: 12, fontSize: 11, color: C.textMuted }}>Print-ready line-item breakdown by CSI division. All quantities, unit prices, and extensions shown.</div>
             {usedDivisions.map(div => {
               const divItems = items.filter(i => {
                 const raw = i.division || "Unassigned";
@@ -532,27 +558,41 @@ export default function ReportsPage() {
               }); if (divItems.length === 0) return null;
               const dt = divTotals[div];
               return (
-                <Sec key={div} title={`${div} (${divItems.length} items \u2014 ${fmt(dt?.total || 0)})`}>
-                  <div style={{ display: "grid", gridTemplateColumns: "60px 2fr .5fr .4fr .7fr .7fr .7fr .7fr .8fr", gap: 6, marginBottom: 4, fontSize: 8, fontWeight: 600, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                <Sec key={div} title={`${div}`} compact>
+                  {/* Division summary line */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, paddingBottom: 6, borderBottom: `1px solid ${C.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}` }}>
+                    <span style={{ fontSize: 10, color: C.textDim }}>{divItems.length} item{divItems.length !== 1 ? "s" : ""}</span>
+                    <span style={{ fontSize: 12, fontWeight: T.fontWeight.bold, fontFamily: T.font.mono, color: C.text }}>{fmt(dt?.total || 0)}</span>
+                  </div>
+                  {/* Column headers — lighter weight */}
+                  <div style={{ display: "grid", gridTemplateColumns: "60px 2fr .5fr .4fr .7fr .7fr .7fr .7fr .8fr", gap: 6, marginBottom: 4, padding: "0 4px", fontSize: 8, fontWeight: T.fontWeight.medium, color: C.textDim, textTransform: "uppercase", letterSpacing: T.tracking.wider }}>
                     <span>Code</span><span>Description</span><span style={{ textAlign: "right" }}>Qty</span><span>Unit</span><span style={{ textAlign: "right" }}>Matl</span><span style={{ textAlign: "right" }}>Labor</span><span style={{ textAlign: "right" }}>Equip</span><span style={{ textAlign: "right" }}>Sub</span><span style={{ textAlign: "right" }}>Total</span>
                   </div>
-                  {divItems.map(item => {
+                  {/* Item rows — breathing room + alternating */}
+                  {divItems.map((item, idx) => {
                     const q = nn(item.quantity);
                     const t = getTotal(item);
+                    const isOdd = idx % 2 === 1;
                     return (
-                      <div key={item.id} style={{ display: "grid", gridTemplateColumns: "60px 2fr .5fr .4fr .7fr .7fr .7fr .7fr .8fr", gap: 6, padding: "4px 0", borderBottom: `1px solid ${C.bg2}`, alignItems: "center", fontSize: 11 }}>
+                      <div key={item.id} style={{ display: "grid", gridTemplateColumns: "60px 2fr .5fr .4fr .7fr .7fr .7fr .7fr .8fr", gap: 6, padding: "8px 4px", borderBottom: `1px solid ${C.bg2}`, alignItems: "center", fontSize: 11, background: isOdd ? (C.isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.018)') : "transparent", borderRadius: 2 }}>
                         <span style={{ fontFamily: T.font.mono, fontSize: 9, color: C.purple }}>{item.code}</span>
                         <span style={{ color: C.text }}>{item.description}</span>
                         <span style={{ textAlign: "right", fontFamily: T.font.mono }}>{q}</span>
                         <span style={{ color: C.textDim, fontSize: 10 }}>{item.unit}</span>
-                        <span style={{ textAlign: "right", fontFamily: T.font.mono }}>{nn(item.material) ? fmt2(nn(item.material)) : ""}</span>
-                        <span style={{ textAlign: "right", fontFamily: T.font.mono }}>{nn(item.labor) ? fmt2(nn(item.labor)) : ""}</span>
-                        <span style={{ textAlign: "right", fontFamily: T.font.mono }}>{nn(item.equipment) ? fmt2(nn(item.equipment)) : ""}</span>
-                        <span style={{ textAlign: "right", fontFamily: T.font.mono }}>{nn(item.subcontractor) ? fmt2(nn(item.subcontractor)) : ""}</span>
-                        <span style={{ textAlign: "right", fontWeight: 600, fontFamily: T.font.mono }}>{fmt(t)}</span>
+                        <span style={{ textAlign: "right", fontFamily: T.font.mono, color: C.textMuted }}>{nn(item.material) ? fmt2(nn(item.material)) : ""}</span>
+                        <span style={{ textAlign: "right", fontFamily: T.font.mono, color: C.textMuted }}>{nn(item.labor) ? fmt2(nn(item.labor)) : ""}</span>
+                        <span style={{ textAlign: "right", fontFamily: T.font.mono, color: C.textMuted }}>{nn(item.equipment) ? fmt2(nn(item.equipment)) : ""}</span>
+                        <span style={{ textAlign: "right", fontFamily: T.font.mono, color: C.textMuted }}>{nn(item.subcontractor) ? fmt2(nn(item.subcontractor)) : ""}</span>
+                        <span style={{ textAlign: "right", fontWeight: T.fontWeight.semibold, fontFamily: T.font.mono, color: C.text }}>{fmt(t)}</span>
                       </div>
                     );
                   })}
+                  {/* Division subtotal */}
+                  <div style={{ display: "grid", gridTemplateColumns: "60px 2fr .5fr .4fr .7fr .7fr .7fr .7fr .8fr", gap: 6, padding: "10px 4px 6px", borderTop: `1.5px solid ${C.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`, marginTop: 4 }}>
+                    <span /><span style={{ fontSize: 10, fontWeight: T.fontWeight.semibold, color: C.textDim }}>Subtotal</span>
+                    <span /><span /><span /><span /><span /><span />
+                    <span style={{ textAlign: "right", fontFamily: T.font.mono, fontWeight: T.fontWeight.bold, fontSize: 12, color: C.text }}>{fmt(dt?.total || 0)}</span>
+                  </div>
                 </Sec>
               );
             })}

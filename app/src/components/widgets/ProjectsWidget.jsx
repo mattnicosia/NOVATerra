@@ -148,11 +148,10 @@ export default function ProjectsWidget() {
   const [confirmDelete, setConfirmDelete] = useState(null);
 
   const glassCardStyle = {
-    background: C.glassBg, borderRadius: 10, padding: 6, position: 'relative',
-    boxShadow: dk
-      ? `0 2px 12px rgba(0,0,0,0.3), 0 1px 0 ${C.glassBorder} inset`
-      : `0 2px 8px rgba(0,0,0,0.06), 0 1px 0 ${C.glassBorder} inset`,
-    border: `1px solid ${C.glassBorder}`,
+    borderRadius: 10, padding: 6, position: 'relative',
+    background: 'transparent',
+    border: 'none',
+    boxShadow: 'none',
   };
 
   const hasEstimates = estimates.length > 0;

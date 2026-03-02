@@ -5,14 +5,14 @@ import { WIDGET_REGISTRY } from '@/constants/widgetRegistry';
 import WidgetActionMenu from './WidgetActionMenu';
 
 /* ────────────────────────────────────────────────────────
-   WidgetWrapper — minimal shell for each widget
-   Flat by default, subtle lift on hover.
-   Three modes: normal (three-dot menu), move (drag handle),
-   or full edit (drag handle + remove).
+   WidgetWrapper — Liquid Glass shell for each widget
+   Apple WWDC25-219: translucent glass panels with
+   backdrop-filter blur, specular highlights, and luminous edges.
    ──────────────────────────────────────────────────────── */
 
 export default function WidgetWrapper({ id, widgetType, editMode, movingWidgetId, currentW, children, onConfigure, onReplace }) {
   const C = useTheme();
+  const T = C.T;
   const dk = C.isDark;
   const ov = (a) => dk ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   const removeWidget = useWidgetStore(s => s.removeWidget);
@@ -32,33 +32,35 @@ export default function WidgetWrapper({ id, widgetType, editMode, movingWidgetId
 
   const isActive = showEditChrome || showMoveChrome;
 
+  // Apple Liquid Glass — specular + hairline edge ONLY (no drop shadow on widgets)
+  const glassShadow = isActive
+    ? `0 0 0 1px ${C.accent}1A, 0 4px 16px rgba(0,0,0,0.10)`
+    : hovered
+      ? [T.glass.specularHover, T.glass.edgeHover].join(', ')
+      : [T.glass.specular, T.glass.edge].join(', ');
+
   return (
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
         height: '100%',
-        borderRadius: 14,
-        background: dk
-          ? (isActive ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.03)')
-          : (isActive ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.6)'),
-        border: `1px solid ${isActive
+        borderRadius: T.radius.lg,
+        // Apple Liquid Glass — ghost-like: background bleeds through almost completely
+        background: isActive
+          ? (dk ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.85)')
+          : (dk ? T.glass.bg : 'rgba(255,255,255,0.08)'),
+        backdropFilter: isActive ? undefined : (hovered ? T.glass.blurHover : T.glass.blur),
+        WebkitBackdropFilter: isActive ? undefined : (hovered ? T.glass.blurHover : T.glass.blur),
+        border: `0.5px solid ${isActive
           ? `${C.accent}4D`
-          : (hovered
-            ? (dk ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)')
-            : (dk ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)')
-          )
+          : (hovered ? T.glass.borderHover : T.glass.border)
         }`,
-        boxShadow: isActive
-          ? `0 0 0 1px ${C.accent}1A, 0 4px 16px rgba(0,0,0,0.15)`
-          : (hovered
-            ? (dk ? '0 2px 12px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.08)')
-            : 'none'
-          ),
+        boxShadow: glassShadow,
         display: 'flex',
         flexDirection: 'column',
         overflow: 'visible',
-        transition: 'border-color 0.2s, box-shadow 0.2s, background 0.2s',
+        transition: 'border-color 0.3s, box-shadow 0.3s, background 0.3s, backdrop-filter 0.3s',
         position: 'relative',
       }}
     >

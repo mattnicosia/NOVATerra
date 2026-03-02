@@ -8,7 +8,7 @@ import Ic from '@/components/shared/Ic';
 import EmptyState from '@/components/shared/EmptyState';
 import CompanySwitcher from '@/components/shared/CompanySwitcher';
 import { I } from '@/constants/icons';
-import { inp, bt, card } from '@/utils/styles';
+import { inp, bt, card, statusBadge, moneyCell } from '@/utils/styles';
 import { fmt } from '@/utils/format';
 
 const STATUS_TABS = [
@@ -126,7 +126,7 @@ function KanbanCard({ est, C, T, navigate, onStatusChange, onDuplicate, onDelete
         <div style={{ fontSize: 10, color: C.textDim, marginBottom: 6 }}>{est.client}</div>
       )}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, fontWeight: 600, color: C.text }}>
+        <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, fontWeight: 600, color: C.text }}>
           {est.grandTotal ? fmt(est.grandTotal) : '—'}
         </span>
         {est.bidDue && (
@@ -417,50 +417,52 @@ export default function ProjectsPage() {
                 {/* Rows */}
                 {sorted.map((est, idx) => {
                   const sc = statusColor(est.status);
+                  const total = est.grandTotal || 0;
                   return (
                     <div
                       key={est.id}
+                      className="row"
                       onClick={() => navigate(`/estimate/${est.id}/estimate`)}
                       style={{
                         display: 'grid', gridTemplateColumns: '2.5fr 1.2fr .8fr 1fr .8fr .9fr 80px',
                         gap: 8, padding: `${T.space[3]}px ${T.space[4]}px`,
-                        borderBottom: `1px solid ${C.border}`, cursor: 'pointer',
-                        transition: 'background 0.12s',
+                        borderBottom: `1px solid ${C.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)'}`,
+                        borderLeft: `3px solid ${sc}40`,
+                        background: idx % 2 === 1 ? (C.isDark ? 'rgba(255,255,255,0.015)' : 'rgba(0,0,0,0.012)') : 'transparent',
+                        cursor: 'pointer',
+                        transition: 'background 100ms ease-out',
                         animation: `staggerFadeRight 280ms cubic-bezier(0.16,1,0.3,1) ${idx * 25}ms both`,
                         alignItems: 'center',
                       }}
-                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
                     >
                       {/* Project name + type */}
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: C.text, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: T.fontSize.base, fontWeight: T.fontWeight.semibold, color: C.text, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {est.name || 'Untitled'}
                         </div>
                         {(est.jobType || est.estimator) && (
-                          <div style={{ fontSize: 10, color: C.textDim, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {[est.jobType, est.estimator].filter(Boolean).join(' · ')}
+                          <div style={{ fontSize: T.fontSize.xs, color: C.textDim, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {[est.jobType, est.estimator].filter(Boolean).join(' \u00b7 ')}
                           </div>
                         )}
                       </div>
 
                       {/* Client */}
-                      <div style={{ fontSize: 12, color: C.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {est.client || '—'}
+                      <div style={{ fontSize: T.fontSize.sm, color: C.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {est.client || '\u2014'}
                       </div>
 
                       {/* Status badge — clickable for inline change */}
                       <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
                         <button
                           onClick={() => setStatusDropdownId(statusDropdownId === est.id ? null : est.id)}
-                          style={{
-                            fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4,
-                            color: sc, background: `${sc}15`, border: `1px solid ${sc}30`,
-                            textTransform: 'uppercase', letterSpacing: 0.3, whiteSpace: 'nowrap',
-                            cursor: 'pointer', transition: 'all 0.12s',
-                          }}
-                          onMouseEnter={e => { e.currentTarget.style.background = `${sc}25`; }}
-                          onMouseLeave={e => { e.currentTarget.style.background = `${sc}15`; }}
+                          style={statusBadge(sc, {
+                            cursor: 'pointer',
+                            border: 'none',
+                            transition: 'all 100ms ease-out',
+                          })}
+                          onMouseEnter={e => { e.currentTarget.style.background = `${sc}28`; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = `${sc}18`; }}
                         >
                           {est.status || 'Draft'}
                         </button>
@@ -475,41 +477,33 @@ export default function ProjectsPage() {
                       </div>
 
                       {/* Value */}
-                      <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, fontWeight: 600, color: C.text, textAlign: 'right' }}>
-                        {est.grandTotal ? fmt(est.grandTotal) : '—'}
+                      <div style={moneyCell(C, total)}>
+                        {total ? fmt(total) : '\u2014'}
                       </div>
 
                       {/* Bid Due */}
-                      <div style={{ fontSize: 11, color: isDueThisWeek(est.bidDue) ? '#FBBF24' : C.textMuted }}>
-                        {est.bidDue || '—'}
+                      <div style={{ fontSize: T.fontSize.sm, color: isDueThisWeek(est.bidDue) ? C.yellow || '#FBBF24' : C.textMuted }}>
+                        {est.bidDue || '\u2014'}
                       </div>
 
                       {/* Modified */}
-                      <div style={{ fontSize: 10, color: C.textDim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {est.lastModified || '—'}
+                      <div style={{ fontSize: T.fontSize.xs, color: C.textDim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {est.lastModified || '\u2014'}
                       </div>
 
                       {/* Actions */}
                       <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
-                        <button title="Duplicate" onClick={e => handleDuplicate(e, est)} style={{
-                          width: 26, height: 26, borderRadius: 4, border: 'none', background: 'transparent',
+                        <button title="Duplicate" onClick={e => handleDuplicate(e, est)} className="icon-btn" style={{
+                          width: 26, height: 26, borderRadius: T.radius.sm, border: 'none', background: 'transparent',
                           cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          color: C.textDim, transition: 'color 0.12s',
-                        }}
-                          onMouseEnter={e => { e.currentTarget.style.color = C.accent; e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
-                          onMouseLeave={e => { e.currentTarget.style.color = C.textDim; e.currentTarget.style.background = 'transparent'; }}
-                        >
-                          <Ic d={I.copy || I.duplicate || "M8 4H4a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-4M14 2h-4v4h4V2zM12 2v4h4"} size={12} />
+                        }}>
+                          <Ic d={I.copy || I.duplicate || "M8 4H4a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-4M14 2h-4v4h4V2zM12 2v4h4"} size={12} color={C.textDim} />
                         </button>
-                        <button title="Delete" onClick={e => { e.stopPropagation(); setDeleteConfirm(est.id); }} style={{
-                          width: 26, height: 26, borderRadius: 4, border: 'none', background: 'transparent',
+                        <button title="Delete" onClick={e => { e.stopPropagation(); setDeleteConfirm(est.id); }} className="icon-btn" style={{
+                          width: 26, height: 26, borderRadius: T.radius.sm, border: 'none', background: 'transparent',
                           cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          color: C.textDim, transition: 'color 0.12s',
-                        }}
-                          onMouseEnter={e => { e.currentTarget.style.color = C.red; e.currentTarget.style.background = 'rgba(251,113,133,0.05)'; }}
-                          onMouseLeave={e => { e.currentTarget.style.color = C.textDim; e.currentTarget.style.background = 'transparent'; }}
-                        >
-                          <Ic d={I.trash} size={12} />
+                        }}>
+                          <Ic d={I.trash} size={12} color={C.red} />
                         </button>
                       </div>
                     </div>
@@ -523,7 +517,7 @@ export default function ProjectsPage() {
                   fontSize: 11, color: C.textDim, borderTop: `1px solid ${C.border}`,
                 }}>
                   <span>{sorted.length} project{sorted.length !== 1 ? 's' : ''}{search && ` matching "${search}"`}{dueThisWeek && ' · due this week'}</span>
-                  <span style={{ fontFamily: "'DM Mono',monospace", fontWeight: 600, color: C.textMuted }}>
+                  <span style={{ fontFamily: "'DM Sans',sans-serif", fontWeight: 600, color: C.textMuted }}>
                     Total: {fmt(sorted.reduce((s, e) => s + (e.grandTotal || 0), 0))}
                   </span>
                 </div>

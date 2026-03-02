@@ -86,7 +86,7 @@ export default function IntelligenceKPI({ label, value, sub, delta, icon, color,
         {delta && (
           <span style={{
             fontSize: 10, fontWeight: 700, color: deltaColor,
-            fontFamily: "'DM Mono',monospace",
+            fontFamily: "'DM Sans',sans-serif",
           }}>
             {isPositive ? "+" : ""}{delta}
           </span>

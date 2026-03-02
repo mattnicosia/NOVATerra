@@ -1,7 +1,7 @@
 // Cost History Panel — Unified view of all estimates + historical proposals
 // Lives on Settings page, feeds learning records to scanStore for calibration
 
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useCallback } from 'react';
 import { useTheme } from '@/hooks/useTheme';
 import { useMasterDataStore } from '@/stores/masterDataStore';
 import { useEstimatesStore } from '@/stores/estimatesStore';
@@ -9,8 +9,9 @@ import { useScanStore } from '@/stores/scanStore';
 import { useUiStore } from '@/stores/uiStore';
 import { callAnthropic, pdfBlock } from '@/utils/ai';
 import { generateBaselineROM, computeCalibration } from '@/utils/romEngine';
-import { saveMasterData } from '@/hooks/usePersistence';
+import { saveMasterData, saveUploadQueue } from '@/hooks/usePersistence';
 import { mapStatusToOutcome, migrateJobType } from '@/utils/costHistoryMigration';
+import { uid } from '@/utils/format';
 import { BUILDING_TYPES, WORK_TYPES, OUTCOME_STATUSES, LOST_REASONS,
   STRUCTURAL_SYSTEMS, DELIVERY_METHODS,
   getBuildingTypeLabel, getWorkTypeLabel, getOutcomeInfo,
@@ -19,6 +20,10 @@ import { DEFAULT_LABOR_TYPES } from '@/utils/laborTypes';
 import { resolveLocationFactors } from '@/constants/locationFactors';
 import { extractYear, getEscalationFactor, formatEscalation } from '@/utils/costEscalation';
 import { getCurrentYear } from '@/constants/constructionCostIndex';
+import {
+  MARKUP_PRESETS, MARKUP_CATEGORIES, classifyMarkup, getMarkupCategory,
+  groupMarkupsByCategory,
+} from '@/constants/markupTaxonomy';
 import CostHistoryEntryForm from '@/components/costHistory/CostHistoryEntryForm';
 import CostHistoryAnalytics from '@/components/costHistory/CostHistoryAnalytics';
 import NovaOrb from '@/components/dashboard/NovaOrb';
@@ -57,6 +62,19 @@ const ROM_DIVISIONS = [
   { code: "33", label: "Utilities" },
 ];
 
+// Module-level map for PDF base64 data (too large for IndexedDB persistence)
+const fileDataMap = new Map();
+
+// Read a File to base64 string
+function readFileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target.result.split(",")[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function HistoricalProposalsPanel() {
   const C = useTheme();
   const T = C.T;
@@ -73,24 +91,29 @@ export default function HistoricalProposalsPanel() {
   const addLearningRecord = useScanStore(s => s.addLearningRecord);
   const calibrationFactors = useScanStore.getState().getCalibrationFactors();
 
+  // Upload queue (store-backed)
+  const uploadQueue = useMasterDataStore(s => s.pdfUploadQueue);
+  const addToUploadQueue = useMasterDataStore(s => s.addToUploadQueue);
+  const updateQueueItem = useMasterDataStore(s => s.updateQueueItem);
+  const removeQueueItem = useMasterDataStore(s => s.removeQueueItem);
+  const clearSavedFromQueue = useMasterDataStore(s => s.clearSavedFromQueue);
+
   // UI state
   const [showForm, setShowForm] = useState(false);   // "manual" | "pdf-review" | false
   const [formInitial, setFormInitial] = useState(null);
   const [editingId, setEditingId] = useState(null);
-  const [importing, setImporting] = useState(false);
+  const [reviewingQueueId, setReviewingQueueId] = useState(null); // queue item being reviewed
   const [expandedId, setExpandedId] = useState(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showQueue, setShowQueue] = useState(true);
   const pdfRef = useRef(null);
-
-  // Multi-upload queue
-  const pdfQueueRef = useRef([]);          // files waiting to be processed
-  const [queueTotal, setQueueTotal] = useState(0);   // total files in current batch
-  const [queueIndex, setQueueIndex] = useState(0);   // current file being processed (1-indexed)
+  const extractingRef = useRef(false); // prevents concurrent extraction loops
 
   // Filters
   const [filterBuildingType, setFilterBuildingType] = useState("");
   const [filterWorkType, setFilterWorkType] = useState("");
   const [filterLaborType, setFilterLaborType] = useState("");
+  const [filterDeliveryMethod, setFilterDeliveryMethod] = useState("");
   const [filterOutcome, setFilterOutcome] = useState("");
   const [filterSearch, setFilterSearch] = useState("");
 
@@ -131,6 +154,7 @@ export default function HistoricalProposalsPanel() {
       workType: p.workType || migrateJobType(p.jobType).workType,
       totalCost: p.totalCost || 0,
       divisions: p.divisions || {},
+      markups: p.markups || [],
       outcome: p.outcome || "pending",
       outcomeMetadata: p.outcomeMetadata || {},
       laborType: p.laborType || "",
@@ -151,6 +175,7 @@ export default function HistoricalProposalsPanel() {
       if (filterBuildingType && entry.buildingType !== filterBuildingType) return false;
       if (filterWorkType && entry.workType !== filterWorkType) return false;
       if (filterLaborType && entry.laborType !== filterLaborType) return false;
+      if (filterDeliveryMethod && entry.deliveryMethod !== filterDeliveryMethod) return false;
       if (filterOutcome && entry.outcome !== filterOutcome) return false;
       if (filterSearch) {
         const s = filterSearch.toLowerCase();
@@ -158,29 +183,32 @@ export default function HistoricalProposalsPanel() {
       }
       return true;
     });
-  }, [unifiedEntries, filterBuildingType, filterWorkType, filterLaborType, filterOutcome, filterSearch]);
+  }, [unifiedEntries, filterBuildingType, filterWorkType, filterLaborType, filterDeliveryMethod, filterOutcome, filterSearch]);
 
   // ── Learning record generation ──
-  // Normalizes historical costs to current-year dollars before calibrating
   const generateLearningFromProposal = async (proposal) => {
     const bt = proposal.buildingType || proposal.jobType || "commercial-office";
     const wt = proposal.workType || "";
     const romPrediction = generateBaselineROM(proposal.projectSF, bt, wt, {});
 
-    // Normalize division costs to current-year dollars
     const proposalYear = extractYear(proposal.date);
     const currentYr = getCurrentYear();
     const actuals = { divisions: {} };
     Object.entries(proposal.divisions || {}).forEach(([div, cost]) => {
       const c = parseFloat(cost);
       if (c > 0) {
-        // Escalate each division's cost from proposal year to current year
         const factor = getEscalationFactor(proposalYear, currentYr);
         actuals.divisions[div] = Math.round(c * factor);
       }
     });
 
     const calibration = computeCalibration(romPrediction, actuals);
+
+    // Compute markup patterns for future analytics
+    const mkps = proposal.markups || [];
+    const divTotal = Object.values(actuals.divisions).reduce((s, v) => s + v, 0);
+    const mkpTotal = mkps.reduce((s, m) => s + (m.calculatedAmount || 0), 0);
+
     await addLearningRecord({
       source: "historical-proposal",
       proposalId: proposal.id,
@@ -188,7 +216,7 @@ export default function HistoricalProposalsPanel() {
       projectSF: proposal.projectSF,
       buildingType: bt,
       workType: wt,
-      jobType: bt, // backward compat
+      jobType: bt,
       laborType: proposal.laborType || "",
       zipCode: proposal.zipCode || "",
       stories: proposal.stories || 0,
@@ -203,11 +231,253 @@ export default function HistoricalProposalsPanel() {
       },
       actuals,
       calibration,
+      // Markup patterns — enables "avg O&P for this building type" intelligence
+      markupPatterns: mkpTotal > 0 ? {
+        markupTotal: mkpTotal,
+        divisionTotal: divTotal,
+        markupPct: divTotal > 0 ? Math.round((mkpTotal / divTotal) * 1000) / 10 : 0,
+        items: mkps.map(m => {
+          const tax = classifyMarkup(m.key);
+          return {
+            key: m.key, type: m.type, inputValue: m.inputValue,
+            calculatedAmount: m.calculatedAmount,
+            category: tax.category, comparable: tax.comparable,
+          };
+        }),
+        // Pre-computed category totals for fast aggregation
+        byCategory: (() => {
+          const groups = {};
+          mkps.forEach(m => {
+            const cat = classifyMarkup(m.key).category;
+            groups[cat] = (groups[cat] || 0) + (m.calculatedAmount || 0);
+          });
+          return groups;
+        })(),
+      } : undefined,
     });
     return calibration;
   };
 
-  // ── Manual entry save ──
+  // ── Extract single PDF via AI ──
+  const extractProposalPdf = async (base64, fileName) => {
+    const response = await callAnthropic({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 4000,
+      messages: [{
+        role: "user",
+        content: [
+          pdfBlock(base64),
+          {
+            type: "text",
+            text: `You are analyzing a construction proposal/bid document. Extract the following information:
+
+1. **projectName**: The project name
+2. **client**: The client/owner name
+3. **architect**: The architect firm name (if mentioned)
+4. **projectSF**: Building square footage (number only)
+5. **buildingType**: Classify as one of: ${BUILDING_TYPES.map(b => `"${b.key}"`).join(", ")}
+6. **workType**: Classify as one of: ${WORK_TYPES.map(w => `"${w.key}"`).join(", ")}
+7. **totalCost**: Total bid/proposal amount (number only, no $ or commas)
+8. **divisions**: Object mapping CSI division codes to dollar amounts:
+   "01": General Requirements, "02": Demo, "03": Concrete, "04": Masonry,
+   "05": Metals, "06": Wood/Carpentry, "07": Thermal & Moisture, "08": Openings,
+   "09": Finishes, "10": Specialties, "11": Equipment, "14": Conveying,
+   "21": Fire Suppression, "22": Plumbing, "23": HVAC, "26": Electrical,
+   "27": Communications, "28": Electronic Safety, "31": Earthwork,
+   "32": Exterior, "33": Utilities
+9. **laborType**: Classify as one of: "open_shop", "union", "prevailing_wage".
+   Look for prevailing wage requirements, Davis-Bacon language, union labor clauses.
+   Government and public school projects are typically "prevailing_wage". Default to "open_shop" if unclear.
+10. **zipCode**: The project zip code (extract from project address). 5 digits only.
+11. **stories**: Number of stories/floors above grade (number only). Default to 1 if not stated.
+12. **structuralSystem**: Classify as one of: ${STRUCTURAL_SYSTEMS.map(s => `"${s.key}"`).join(", ")}.
+    Infer from structural scope section or division breakdown.
+13. **deliveryMethod**: Classify as one of: ${DELIVERY_METHODS.map(d => `"${d.key}"`).join(", ")}.
+    Look at bid instructions, contract type, or cover page.
+14. **markups**: Array of below-the-line items (indirect costs) found in the proposal — costs ABOVE the division subtotal that make up the total bid.
+
+For each markup found, extract:
+- "key": one of:
+  MARGIN: "fee" (profit only), "op" (overhead & profit combined), "overhead" (overhead alone), "profit" (profit alone)
+  GENERAL: "gc" (General Conditions — duration-dependent site costs), "gr" (General Requirements — flat fee project resources)
+  PROJECT COSTS: "bond", "permit", "insurance", "contingency", "precon" (preconstruction services), "escalation", "design" (design services — Design-Build only)
+  TAX: "tax" (sales tax)
+  If none match, use "custom"
+- "label": the exact label used in the proposal (e.g. "General Contractor's Fee", "Builder's Risk Insurance")
+- "type": "dollar" if a flat dollar amount, "percent" if expressed as a percentage
+- "inputValue": the number (dollar amount or percentage without % sign)
+- "category": one of "margin", "general", "project-cost", "tax", "custom"
+
+CLASSIFICATION RULES:
+- "O&P" or "Overhead & Profit" → key: "op", category: "margin"
+- "Fee" alone (without "overhead") → key: "fee", category: "margin" (Fee = profit only)
+- If BOTH overhead and profit are separate lines → use "overhead" and "profit" respectively
+- "General Conditions" → key: "gc", category: "general"
+- "General Requirements" → key: "gr", category: "general"
+- "Mobilization" is a breakout of GR/GC — include it in "gc" or "gr" based on context
+- "Bond" or "Payment & Performance Bond" → key: "bond", category: "project-cost"
+- "Permit" or "Permit Fees" → key: "permit", category: "project-cost"
+- "Insurance", "GL Insurance", "Builder's Risk" → key: "insurance", category: "project-cost"
+- "Preconstruction" → key: "precon", category: "project-cost"
+- "Design Fee/Services" → key: "design", category: "project-cost"
+
+IMPORTANT: If General Conditions/Requirements costs appear as BOTH a CSI Division 01 line AND a separate below-the-line markup, only include them in ONE place — prefer divisions["01"]. Goal: sum(divisions) + sum(markups calculated as $) ≈ totalCost.
+
+Return ONLY a JSON object. Example:
+{
+  "projectName": "ABC Office Renovation",
+  "client": "ABC Corp",
+  "architect": "Smith & Associates",
+  "projectSF": 25000,
+  "buildingType": "commercial-office",
+  "workType": "renovation",
+  "totalCost": 850000,
+  "divisions": { "03": 45000, "05": 30000, "09": 60000, "22": 35000, "23": 55000, "26": 40000 },
+  "markups": [
+    { "key": "gc", "label": "General Conditions", "type": "dollar", "inputValue": 120000, "category": "general" },
+    { "key": "op", "label": "Overhead & Profit", "type": "percent", "inputValue": 15, "category": "margin" },
+    { "key": "insurance", "label": "GL Insurance", "type": "percent", "inputValue": 2.5, "category": "project-cost" }
+  ],
+  "laborType": "open_shop",
+  "zipCode": "10001",
+  "stories": 3,
+  "structuralSystem": "steel-frame",
+  "deliveryMethod": "hard-bid"
+}`,
+          },
+        ],
+      }],
+      system: "You are NOVA, the AI construction intelligence inside NOVATerra. Analyze this historical proposal to extract cost data. Be precise with division costs vs below-the-line markups. Return only valid JSON.",
+    });
+
+    // Parse response
+    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    if (!parsed || !parsed.projectName) {
+      throw new Error(`Could not extract proposal data from "${fileName}"`);
+    }
+
+    // Compute calculatedAmount for markups
+    const extractedDivSum = Object.values(parsed.divisions || {}).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+    const processedMarkups = (parsed.markups || []).map(m => {
+      const tax = classifyMarkup(m.key || "custom");
+      return {
+        id: uid(),
+        key: m.key || "custom",
+        label: m.label || tax.label || "",
+        category: m.category || tax.category,
+        type: m.type || "dollar",
+        inputValue: m.inputValue || 0,
+        calculatedAmount: m.type === "percent"
+          ? Math.round(extractedDivSum * (parseFloat(m.inputValue) || 0) / 100)
+          : parseFloat(m.inputValue) || 0,
+      };
+    });
+
+    return {
+      name: parsed.projectName || fileName,
+      client: parsed.client || "",
+      architect: parsed.architect || "",
+      date: new Date().toISOString().split("T")[0],
+      projectSF: parsed.projectSF != null ? String(parsed.projectSF) : "",
+      buildingType: parsed.buildingType || "",
+      workType: parsed.workType || "",
+      totalCost: parsed.totalCost != null ? String(parsed.totalCost) : "",
+      divisions: parsed.divisions || {},
+      markups: processedMarkups,
+      laborType: parsed.laborType || "",
+      zipCode: parsed.zipCode || "",
+      stories: parsed.stories != null ? String(parsed.stories) : "",
+      structuralSystem: parsed.structuralSystem || "",
+      deliveryMethod: parsed.deliveryMethod || "",
+      source: "pdf",
+      sourceFileName: fileName,
+      outcome: "pending",
+      outcomeMetadata: {},
+    };
+  };
+
+  // ── Process extraction queue sequentially ──
+  const processQueue = useCallback(async () => {
+    if (extractingRef.current) return; // already running
+    extractingRef.current = true;
+
+    try {
+      while (true) {
+        const queue = useMasterDataStore.getState().pdfUploadQueue;
+        const next = queue.find(q => q.status === "queued" && fileDataMap.has(q.id));
+        if (!next) break;
+
+        updateQueueItem(next.id, { status: "extracting" });
+        try {
+          const base64 = fileDataMap.get(next.id);
+          const extracted = await extractProposalPdf(base64, next.fileName);
+          updateQueueItem(next.id, { status: "extracted", extractedData: extracted });
+          fileDataMap.delete(next.id); // free memory
+        } catch (err) {
+          console.error("[CostHistory] PDF extraction error:", err);
+          updateQueueItem(next.id, { status: "failed", error: err.message || "Extraction failed" });
+        }
+        await saveUploadQueue();
+      }
+    } finally {
+      extractingRef.current = false;
+    }
+  }, [updateQueueItem]);
+
+  // ── Auto-extract on file selection ──
+  const handlePdfFilesSelected = async (files) => {
+    if (!files || files.length === 0) return;
+    const fileArray = Array.from(files);
+
+    // Create queue entries and read files to base64 in parallel
+    const newItems = [];
+    const readPromises = [];
+    for (const file of fileArray) {
+      const id = uid();
+      newItems.push({
+        id,
+        fileName: file.name,
+        fileSize: file.size,
+        status: "queued",
+        error: null,
+        extractedData: null,
+        addedAt: Date.now(),
+      });
+      readPromises.push(
+        readFileToBase64(file).then(b64 => fileDataMap.set(id, b64))
+      );
+    }
+
+    addToUploadQueue(newItems);
+    setShowQueue(true);
+    await saveUploadQueue();
+
+    // Wait for all files to be read, then start extraction
+    await Promise.all(readPromises);
+    processQueue();
+  };
+
+  // ── Retry a failed extraction ──
+  const handleRetry = (queueItem) => {
+    if (!fileDataMap.has(queueItem.id)) {
+      // File data lost (page refresh) — need re-select
+      showToast(`File data lost for "${queueItem.fileName}" — please re-upload`, "error");
+      return;
+    }
+    updateQueueItem(queueItem.id, { status: "queued", error: null });
+    processQueue();
+  };
+
+  // ── Review an extracted queue item ──
+  const handleReviewQueueItem = (queueItem) => {
+    setFormInitial(queueItem.extractedData);
+    setEditingId(null);
+    setReviewingQueueId(queueItem.id);
+    setShowForm("pdf-review");
+  };
+
+  // ── Manual entry save / PDF review save ──
   const handleSaveEntry = async (formData) => {
     const proposal = {
       ...formData,
@@ -215,12 +485,17 @@ export default function HistoricalProposalsPanel() {
     };
 
     if (editingId) {
-      // Update existing
       updateHistoricalProposal(editingId, proposal);
       showToast(`Updated "${formData.name}"`);
     } else {
       addHistoricalProposal(proposal);
       showToast(`Added "${formData.name}" to Cost History`);
+    }
+
+    // Mark queue item as saved (if reviewing from queue)
+    if (reviewingQueueId) {
+      updateQueueItem(reviewingQueueId, { status: "saved" });
+      await saveUploadQueue();
     }
 
     // Auto-generate learning record if we have division data
@@ -241,165 +516,20 @@ export default function HistoricalProposalsPanel() {
     setFormInitial(null);
     setEditingId(null);
 
-    // If there are more PDFs in the queue, process the next one
-    if (pdfQueueRef.current.length > 0) {
-      const nextFile = pdfQueueRef.current.shift();
-      setQueueIndex(prev => prev + 1);
-      // Small delay so the user sees the save toast before next extraction starts
-      setTimeout(() => handlePdfUpload(nextFile), 300);
-    } else {
-      // Queue finished
-      setQueueTotal(0);
-      setQueueIndex(0);
-    }
-  };
-
-  // ── PDF Import (single file) ──
-  const handlePdfUpload = async (file) => {
-    setImporting(true);
-    try {
-      const reader = new FileReader();
-      const base64 = await new Promise((resolve, reject) => {
-        reader.onload = (e) => resolve(e.target.result.split(",")[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-
-      const response = await callAnthropic({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 4000,
-        messages: [{
-          role: "user",
-          content: [
-            pdfBlock(base64),
-            {
-              type: "text",
-              text: `You are analyzing a construction proposal/bid document. Extract the following information:
-
-1. **projectName**: The project name
-2. **client**: The client/owner name
-3. **architect**: The architect firm name (if mentioned)
-4. **projectSF**: Building square footage (number only)
-5. **buildingType**: Classify as one of: ${BUILDING_TYPES.map(b => `"${b.key}"`).join(", ")}
-6. **workType**: Classify as one of: ${WORK_TYPES.map(w => `"${w.key}"`).join(", ")}
-7. **totalCost**: Total bid/proposal amount (number only, no $ or commas)
-8. **divisions**: Object mapping CSI division codes to dollar amounts:
-   "01": General Requirements, "02": Demo, "03": Concrete, "04": Masonry,
-   "05": Metals, "06": Wood/Carpentry, "07": Thermal & Moisture, "08": Openings,
-   "09": Finishes, "10": Specialties, "11": Equipment, "14": Conveying,
-   "21": Fire Suppression, "22": Plumbing, "23": HVAC, "26": Electrical,
-   "27": Communications, "28": Electronic Safety, "31": Earthwork,
-   "32": Exterior, "33": Utilities
-9. **laborType**: Classify as one of: "open_shop", "union", "prevailing_wage".
-   Look for prevailing wage requirements, Davis-Bacon language, union labor clauses.
-   Government and public school projects are typically "prevailing_wage". Default to "open_shop" if unclear.
-10. **zipCode**: The project zip code (extract from project address on cover sheet). 5 digits only.
-11. **stories**: Number of stories/floors above grade (number only). Default to 1 if not stated.
-12. **structuralSystem**: Classify as one of: ${STRUCTURAL_SYSTEMS.map(s => `"${s.key}"`).join(", ")}.
-    Infer from structural scope section or division breakdown.
-13. **deliveryMethod**: Classify as one of: ${DELIVERY_METHODS.map(d => `"${d.key}"`).join(", ")}.
-    Look at bid instructions, contract type, or cover page.
-
-Return ONLY a JSON object. Example:
-{
-  "projectName": "ABC Office Renovation",
-  "client": "ABC Corp",
-  "architect": "Smith & Associates",
-  "projectSF": 25000,
-  "buildingType": "commercial-office",
-  "workType": "renovation",
-  "totalCost": 850000,
-  "divisions": { "03": 45000, "05": 30000, "09": 60000, "22": 35000, "23": 55000, "26": 40000 },
-  "laborType": "open_shop",
-  "zipCode": "10001",
-  "stories": 3,
-  "structuralSystem": "steel-frame",
-  "deliveryMethod": "hard-bid"
-}`,
-            },
-          ],
-        }],
-        system: "You are NOVA, the AI construction intelligence inside BLDG Omni. Analyze this historical proposal to extract cost data. Be precise. Return only valid JSON.",
-      });
-
-      let parsed;
-      try {
-        const jsonMatch = response.match(/\{[\s\S]*\}/);
-        parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
-      } catch {
-        showToast(`Failed to parse AI response for "${file.name}"`, "error");
-        setImporting(false);
-        processNextInQueue();
-        return;
+    // Auto-open next extracted item from queue
+    if (reviewingQueueId) {
+      setReviewingQueueId(null);
+      const queue = useMasterDataStore.getState().pdfUploadQueue;
+      const nextExtracted = queue.find(q => q.status === "extracted" && q.extractedData);
+      if (nextExtracted) {
+        setTimeout(() => handleReviewQueueItem(nextExtracted), 200);
       }
-
-      if (!parsed || !parsed.projectName) {
-        showToast(`Could not extract proposal data from "${file.name}"`, "error");
-        setImporting(false);
-        processNextInQueue();
-        return;
-      }
-
-      // Open review form pre-filled with extraction
-      // Convert numeric values to strings for form inputs (preserve 0, don't coerce to "")
-      setFormInitial({
-        name: parsed.projectName || file.name,
-        client: parsed.client || "",
-        architect: parsed.architect || "",
-        date: new Date().toISOString().split("T")[0],
-        projectSF: parsed.projectSF != null ? String(parsed.projectSF) : "",
-        buildingType: parsed.buildingType || "",
-        workType: parsed.workType || "",
-        totalCost: parsed.totalCost != null ? String(parsed.totalCost) : "",
-        divisions: parsed.divisions || {},
-        laborType: parsed.laborType || "",
-        zipCode: parsed.zipCode || "",
-        stories: parsed.stories != null ? String(parsed.stories) : "",
-        structuralSystem: parsed.structuralSystem || "",
-        deliveryMethod: parsed.deliveryMethod || "",
-        source: "pdf",
-        sourceFileName: file.name,
-        outcome: "pending",
-        outcomeMetadata: {},
-      });
-      setEditingId(null);
-      setShowForm("pdf-review");
-    } catch (err) {
-      console.error("[CostHistory] PDF import error:", err);
-      showToast("NOVA extraction failed: " + (err.message || "Unknown error"), "error");
-      processNextInQueue();
-    } finally {
-      setImporting(false);
     }
-  };
-
-  // Process next file in the PDF queue (after error/skip)
-  const processNextInQueue = () => {
-    if (pdfQueueRef.current.length > 0) {
-      const nextFile = pdfQueueRef.current.shift();
-      setQueueIndex(prev => prev + 1);
-      setTimeout(() => handlePdfUpload(nextFile), 300);
-    } else {
-      setQueueTotal(0);
-      setQueueIndex(0);
-    }
-  };
-
-  // ── Multi-PDF Upload Handler ──
-  const handlePdfFilesSelected = (files) => {
-    if (!files || files.length === 0) return;
-    const fileArray = Array.from(files);
-    // First file gets processed immediately, rest go to queue
-    const [first, ...rest] = fileArray;
-    pdfQueueRef.current = rest;
-    setQueueTotal(fileArray.length);
-    setQueueIndex(1);
-    handlePdfUpload(first);
   };
 
   // ── Delete ──
   const handleDelete = async (id, source) => {
-    if (source === "estimate") return; // Can't delete estimates from here
+    if (source === "estimate") return;
     removeHistoricalProposal(id);
     await saveMasterData();
     showToast("Entry removed from Cost History");
@@ -407,7 +537,7 @@ Return ONLY a JSON object. Example:
 
   // ── Edit ──
   const handleEdit = (entry) => {
-    if (entry.source === "estimate") return; // Can't edit estimates from here
+    if (entry.source === "estimate") return;
     const p = historicalProposals.find(hp => hp.id === entry.id);
     if (!p) return;
     setFormInitial({
@@ -420,6 +550,7 @@ Return ONLY a JSON object. Example:
       workType: p.workType || "",
       totalCost: p.totalCost != null ? String(p.totalCost) : "",
       divisions: p.divisions || {},
+      markups: p.markups || [],
       laborType: p.laborType || "",
       zipCode: p.zipCode || "",
       stories: p.stories != null ? String(p.stories) : "",
@@ -432,20 +563,21 @@ Return ONLY a JSON object. Example:
       sourceFileName: p.sourceFileName || "",
     });
     setEditingId(entry.id);
+    setReviewingQueueId(null);
     setShowForm("edit");
   };
 
   // ── Recalibrate ──
   const handleRecalibrate = async (entry) => {
     const proposal = entry.source === "estimate"
-      ? { id: entry.id, projectSF: entry.projectSF, buildingType: entry.buildingType, workType: entry.workType, divisions: entry.divisions, name: entry.name }
+      ? { id: entry.id, projectSF: entry.projectSF, buildingType: entry.buildingType, workType: entry.workType, divisions: entry.divisions, markups: entry.markups || [], name: entry.name }
       : historicalProposals.find(p => p.id === entry.id);
     if (!proposal) return;
     await generateLearningFromProposal(proposal);
     showToast(`NOVA recalibrated "${entry.name}"`);
   };
 
-  // ── Quick outcome change for historical proposals ──
+  // ── Quick outcome change ──
   const handleOutcomeChange = async (entry, newOutcome) => {
     if (entry.source === "estimate") return;
     updateProposalOutcome(entry.id, newOutcome, {});
@@ -454,6 +586,13 @@ Return ONLY a JSON object. Example:
 
   // Stats
   const factorCount = Object.keys(calibrationFactors).length;
+
+  // Queue stats
+  const queueActive = uploadQueue.length > 0;
+  const queueExtracted = uploadQueue.filter(q => q.status === "extracted").length;
+  const queueExtracting = uploadQueue.filter(q => q.status === "extracting").length;
+  const queueSaved = uploadQueue.filter(q => q.status === "saved").length;
+  const queueFailed = uploadQueue.filter(q => q.status === "failed").length;
 
   // Source badge
   const sourceBadge = (source) => {
@@ -481,6 +620,23 @@ Return ONLY a JSON object. Example:
         background: `${color}18`, color,
       }}>
         {info.label}
+      </span>
+    );
+  };
+
+  // Queue status badge
+  const queueStatusBadge = (status) => {
+    const config = {
+      queued: { color: C.textDim, label: "Queued", icon: "○" },
+      extracting: { color: C.orange, label: "Extracting...", icon: "⟳" },
+      extracted: { color: C.blue, label: "Ready for Review", icon: "◉" },
+      saved: { color: C.green, label: "Saved", icon: "✓" },
+      failed: { color: C.red, label: "Failed", icon: "×" },
+    };
+    const c = config[status] || config.queued;
+    return (
+      <span style={{ fontSize: 9, fontWeight: 600, color: c.color, display: "flex", alignItems: "center", gap: 3 }}>
+        <span style={{ fontSize: 11 }}>{c.icon}</span> {c.label}
       </span>
     );
   };
@@ -545,9 +701,9 @@ Return ONLY a JSON object. Example:
                   background: `${color}12`, border: `1px solid ${color}30`,
                   display: "flex", alignItems: "center", gap: 3,
                 }}>
-                  <span style={{ fontWeight: 700, color: C.text, fontFamily: "'DM Mono',monospace" }}>Div {div}</span>
+                  <span style={{ fontWeight: 700, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>Div {div}</span>
                   <span style={{ color: C.textDim }}>{divInfo?.label || ""}</span>
-                  <span style={{ fontWeight: 700, color, fontFamily: "'DM Mono',monospace" }}>
+                  <span style={{ fontWeight: 700, color, fontFamily: "'DM Sans',sans-serif" }}>
                     {pct > 0 ? "+" : ""}{pct}%
                   </span>
                 </div>
@@ -559,7 +715,7 @@ Return ONLY a JSON object. Example:
 
       {/* Action buttons */}
       <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-        <button onClick={() => { setShowForm("manual"); setFormInitial(null); setEditingId(null); }}
+        <button onClick={() => { setShowForm("manual"); setFormInitial(null); setEditingId(null); setReviewingQueueId(null); }}
           style={bt(C, {
             background: C.bg2, border: `1px solid ${C.border}`,
             color: C.text, padding: "7px 12px", fontSize: 11, fontWeight: 600,
@@ -568,30 +724,115 @@ Return ONLY a JSON object. Example:
           <Ic d={I.plus} size={12} color={C.textDim} sw={2} />
           Manual Entry
         </button>
-        <button onClick={() => pdfRef.current?.click()} disabled={importing}
+        <button onClick={() => pdfRef.current?.click()}
           style={bt(C, {
-            background: C.bg2, border: `1px solid ${C.border}`,
+            background: `${C.purple}12`, border: `1px solid ${C.purple}30`,
             color: C.purple,
             padding: "7px 12px", fontSize: 11, fontWeight: 600,
             display: "flex", alignItems: "center", gap: 5,
           })}>
-          {importing
-            ? <NovaOrb size={14} scheme="nova" />
-            : <Ic d={I.upload} size={12} color={C.purple} sw={2} />
-          }
-          {importing
-            ? (queueTotal > 1 ? `Extracting ${queueIndex} of ${queueTotal}...` : "Extracting...")
-            : "NOVA Extract PDFs"
-          }
+          <Ic d={I.upload} size={12} color={C.purple} sw={2} />
+          Upload Proposals
         </button>
         <input ref={pdfRef} type="file" accept=".pdf" multiple style={{ display: "none" }}
           onChange={e => { handlePdfFilesSelected(e.target.files); e.target.value = ""; }} />
-        {queueTotal > 1 && !importing && pdfQueueRef.current.length > 0 && (
-          <span style={{ fontSize: 10, color: C.textMuted, fontStyle: "italic" }}>
-            {pdfQueueRef.current.length} more PDF{pdfQueueRef.current.length !== 1 ? "s" : ""} queued
-          </span>
+        {queueExtracting > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 5, background: `${C.orange}10`, border: `1px solid ${C.orange}25` }}>
+            <NovaOrb size={14} scheme="nova" />
+            <span style={{ fontSize: 10, color: C.orange, fontWeight: 600 }}>
+              Extracting {queueExtracting} PDF{queueExtracting !== 1 ? "s" : ""}...
+            </span>
+          </div>
         )}
       </div>
+
+      {/* ── Upload Queue Panel ── */}
+      {queueActive && (
+        <div style={{ marginBottom: 14, borderRadius: 8, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+          {/* Queue header */}
+          <div
+            onClick={() => setShowQueue(v => !v)}
+            style={{
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              padding: "8px 12px", background: C.bg2, cursor: "pointer",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: C.text }}>Upload Queue</span>
+              {queueExtracted > 0 && (
+                <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 3, background: `${C.blue}18`, color: C.blue }}>
+                  {queueExtracted} ready for review
+                </span>
+              )}
+              {queueSaved > 0 && (
+                <span style={{ fontSize: 9, color: C.textDim }}>{queueSaved} saved</span>
+              )}
+              {queueFailed > 0 && (
+                <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 3, background: `${C.red}18`, color: C.red }}>
+                  {queueFailed} failed
+                </span>
+              )}
+            </div>
+            <span style={{ fontSize: 10, color: C.textDim, transition: "transform 150ms", transform: showQueue ? "rotate(90deg)" : "rotate(0deg)", display: "inline-block" }}>▸</span>
+          </div>
+
+          {/* Queue items */}
+          {showQueue && (
+            <div style={{ padding: "4px 8px 8px" }}>
+              {uploadQueue.map(q => (
+                <div key={q.id} style={{
+                  display: "flex", alignItems: "center", gap: 8, padding: "5px 8px",
+                  borderRadius: 4, marginBottom: 2,
+                  background: q.status === "extracted" ? `${C.blue}06` : "transparent",
+                }}>
+                  {/* File name */}
+                  <span style={{ flex: 1, fontSize: 10, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {q.fileName}
+                  </span>
+                  {/* File size */}
+                  <span style={{ fontSize: 9, color: C.textMuted, whiteSpace: "nowrap" }}>
+                    {q.fileSize ? `${Math.round(q.fileSize / 1024)}KB` : ""}
+                  </span>
+                  {/* Status */}
+                  {queueStatusBadge(q.status)}
+                  {/* Actions */}
+                  {q.status === "extracted" && (
+                    <button onClick={() => handleReviewQueueItem(q)}
+                      style={bt(C, {
+                        background: C.blue, color: "#fff", padding: "3px 10px",
+                        fontSize: 9, fontWeight: 700, borderRadius: 4,
+                      })}>
+                      Review
+                    </button>
+                  )}
+                  {q.status === "failed" && (
+                    <button onClick={() => handleRetry(q)}
+                      style={bt(C, {
+                        background: `${C.orange}15`, border: `1px solid ${C.orange}35`,
+                        color: C.orange, padding: "3px 10px", fontSize: 9, fontWeight: 600,
+                      })}>
+                      Retry
+                    </button>
+                  )}
+                  {(q.status === "saved" || q.status === "failed") && (
+                    <button onClick={() => { removeQueueItem(q.id); saveUploadQueue(); }}
+                      style={{ background: "none", border: "none", cursor: "pointer", padding: 2, opacity: 0.4 }}>
+                      <Ic d={I.x || I.close} size={10} color={C.textDim} />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {/* Clear completed */}
+              {queueSaved > 0 && (
+                <button onClick={() => { clearSavedFromQueue(); saveUploadQueue(); }}
+                  style={{ background: "none", border: "none", color: C.textDim, fontSize: 9, cursor: "pointer", padding: "4px 0", fontWeight: 600 }}>
+                  Clear {queueSaved} completed
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Filter bar */}
       <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
@@ -610,6 +851,11 @@ Return ONLY a JSON object. Example:
           <option value="">All Labor Types</option>
           {DEFAULT_LABOR_TYPES.map(lt => <option key={lt.key} value={lt.key}>{lt.label}</option>)}
         </select>
+        <select value={filterDeliveryMethod} onChange={e => setFilterDeliveryMethod(e.target.value)}
+          style={inp(C, { padding: "4px 8px", fontSize: 10, width: 130 })}>
+          <option value="">All Delivery Methods</option>
+          {DELIVERY_METHODS.map(d => <option key={d.key} value={d.key}>{d.label}</option>)}
+        </select>
         <select value={filterOutcome} onChange={e => setFilterOutcome(e.target.value)}
           style={inp(C, { padding: "4px 8px", fontSize: 10, width: 110 })}>
           <option value="">All Outcomes</option>
@@ -618,8 +864,8 @@ Return ONLY a JSON object. Example:
         <input value={filterSearch} onChange={e => setFilterSearch(e.target.value)}
           placeholder="Search name, client, architect..."
           style={inp(C, { padding: "4px 8px", fontSize: 10, width: 180 })} />
-        {(filterBuildingType || filterWorkType || filterLaborType || filterOutcome || filterSearch) && (
-          <button onClick={() => { setFilterBuildingType(""); setFilterWorkType(""); setFilterLaborType(""); setFilterOutcome(""); setFilterSearch(""); }}
+        {(filterBuildingType || filterWorkType || filterLaborType || filterDeliveryMethod || filterOutcome || filterSearch) && (
+          <button onClick={() => { setFilterBuildingType(""); setFilterWorkType(""); setFilterLaborType(""); setFilterDeliveryMethod(""); setFilterOutcome(""); setFilterSearch(""); }}
             style={{ background: "none", border: "none", color: C.accent, fontSize: 10, cursor: "pointer", fontWeight: 600, padding: "4px 6px" }}>
             Clear filters
           </button>
@@ -658,7 +904,6 @@ Return ONLY a JSON object. Example:
             const costPerSF = entry.projectSF > 0 && entry.totalCost > 0
               ? Math.round(entry.totalCost / entry.projectSF)
               : 0;
-            // Adjusted $/SF — normalize to current year dollars
             const entryYear = extractYear(entry.date);
             const currentYr = getCurrentYear();
             const escalationFactor = getEscalationFactor(entryYear, currentYr);
@@ -667,6 +912,7 @@ Return ONLY a JSON object. Example:
               : costPerSF;
             const divCount = Object.keys(entry.divisions || {}).length;
             const hasLearning = learningRecords.some(r => r.proposalId === entry.id);
+            const entryMarkups = entry.markups || [];
 
             return (
               <div key={`${entry.source}-${entry.id}`}>
@@ -679,49 +925,39 @@ Return ONLY a JSON object. Example:
                     border: `1px solid ${isExpanded ? C.accent + '30' : C.border}`,
                     transition: "all 0.12s",
                   }}>
-                  {/* Project */}
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 11, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.name}</div>
                   </div>
-                  {/* Client */}
                   <div style={{ fontSize: 10, color: C.textDim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {entry.client || "—"}
                   </div>
-                  {/* Type */}
                   <div style={{ fontSize: 9, color: C.textDim, lineHeight: 1.3 }}>
                     <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{getBuildingTypeLabel(entry.buildingType)}</div>
                     {entry.workType && <div style={{ color: C.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{getWorkTypeLabel(entry.workType)}</div>}
                   </div>
-                  {/* SF */}
-                  <div style={{ fontSize: 10, color: C.text, textAlign: "right", fontFamily: "'DM Mono',monospace" }}>
+                  <div style={{ fontSize: 10, color: C.text, textAlign: "right", fontFamily: "'DM Sans',sans-serif" }}>
                     {entry.projectSF > 0 ? entry.projectSF.toLocaleString() : "—"}
                   </div>
-                  {/* $/SF */}
-                  <div style={{ fontSize: 10, color: C.text, textAlign: "right", fontFamily: "'DM Mono',monospace" }}>
+                  <div style={{ fontSize: 10, color: C.text, textAlign: "right", fontFamily: "'DM Sans',sans-serif" }}>
                     {costPerSF > 0 ? `$${costPerSF}` : "—"}
                   </div>
-                  {/* Adj $/SF */}
-                  <div style={{ fontSize: 10, textAlign: "right", fontFamily: "'DM Mono',monospace" }}>
+                  <div style={{ fontSize: 10, textAlign: "right", fontFamily: "'DM Sans',sans-serif" }}>
                     {adjCostPerSF > 0 && adjCostPerSF !== costPerSF ? (
                       <span style={{ color: C.accent, fontWeight: 600 }}>${adjCostPerSF}</span>
                     ) : adjCostPerSF > 0 ? (
                       <span style={{ color: C.textDim }}>—</span>
                     ) : "—"}
                   </div>
-                  {/* Total */}
-                  <div style={{ fontSize: 10, color: C.text, textAlign: "right", fontWeight: 600, fontFamily: "'DM Mono',monospace" }}>
+                  <div style={{ fontSize: 10, color: C.text, textAlign: "right", fontWeight: 600, fontFamily: "'DM Sans',sans-serif" }}>
                     {entry.totalCost > 0 ? fmtCost(entry.totalCost) : "—"}
                   </div>
-                  {/* Outcome */}
                   <div style={{ textAlign: "center" }}>
                     {outcomeBadge(entry.outcome)}
                   </div>
-                  {/* Source */}
                   <div style={{ textAlign: "center", display: "flex", gap: 3, justifyContent: "center", alignItems: "center" }}>
                     {sourceBadge(entry.source)}
                     {hasLearning && <span style={{ fontSize: 8, fontWeight: 700, color: C.green }}>Cal</span>}
                   </div>
-                  {/* Actions */}
                   <div style={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
                     {entry.source !== "estimate" && (
                       <button onClick={e => { e.stopPropagation(); handleDelete(entry.id, entry.source); }}
@@ -816,13 +1052,45 @@ Return ONLY a JSON object. Example:
                           return (
                             <div key={div} style={{ display: "flex", justifyContent: "space-between", padding: "3px 6px", borderRadius: 3, background: C.bg2, fontSize: 10 }}>
                               <span style={{ color: C.textDim }}>
-                                <span style={{ fontWeight: 700, fontFamily: "'DM Mono',monospace" }}>{div}</span> {divInfo?.label || ""}
+                                <span style={{ fontWeight: 700, fontFamily: "'DM Sans',sans-serif" }}>{div}</span> {divInfo?.label || ""}
                               </span>
-                              <span style={{ fontWeight: 600, color: C.text, fontFamily: "'DM Mono',monospace" }}>{fmtCost(cost)}</span>
+                              <span style={{ fontWeight: 600, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>{fmtCost(cost)}</span>
                             </div>
                           );
                         })}
                       </div>
+                    )}
+
+                    {/* Markups breakdown — grouped by category */}
+                    {entryMarkups.length > 0 && (
+                      <>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: C.accent, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+                          Indirect Costs / Markups
+                        </div>
+                        {MARKUP_CATEGORIES.map(cat => {
+                          const catItems = entryMarkups.filter(m => (classifyMarkup(m.key)).category === cat.key);
+                          if (catItems.length === 0) return null;
+                          const catColor = C[cat.color] || C.accent;
+                          return (
+                            <div key={cat.key} style={{ marginBottom: 6 }}>
+                              <div style={{ fontSize: 8, fontWeight: 700, color: catColor, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2, opacity: 0.8 }}>
+                                {cat.label}
+                              </div>
+                              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 3 }}>
+                                {catItems.map(m => (
+                                  <div key={m.id || m.key} style={{ display: "flex", justifyContent: "space-between", padding: "3px 6px", borderRadius: 3, background: `${catColor}08`, fontSize: 10 }}>
+                                    <span style={{ color: C.textDim }}>{m.label || m.key}</span>
+                                    <span style={{ fontWeight: 600, color: catColor, fontFamily: "'DM Sans',sans-serif" }}>
+                                      {m.type === "percent" ? `${m.inputValue}%` : ""} {fmtCost(m.calculatedAmount)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        <div style={{ height: 4 }} />
+                      </>
                     )}
 
                     {/* Notes */}
@@ -839,7 +1107,6 @@ Return ONLY a JSON object. Example:
                             <Ic d={I.edit} size={11} color={C.textDim} />
                             Edit
                           </button>
-                          {/* Quick outcome */}
                           <select value={entry.outcome} onChange={e => { e.stopPropagation(); handleOutcomeChange(entry, e.target.value); }}
                             onClick={e => e.stopPropagation()}
                             style={inp(C, { padding: "4px 8px", fontSize: 10, width: 90 })}>
@@ -882,7 +1149,7 @@ Return ONLY a JSON object. Example:
       {/* Entry Form Modal */}
       {showForm && (
         <CostHistoryEntryForm
-          onClose={() => { setShowForm(false); setFormInitial(null); setEditingId(null); }}
+          onClose={() => { setShowForm(false); setFormInitial(null); setEditingId(null); setReviewingQueueId(null); }}
           onSave={handleSaveEntry}
           initial={formInitial}
           mode={showForm === "pdf-review" ? "pdf-review" : showForm === "edit" ? "edit" : "manual"}

@@ -296,7 +296,7 @@ Rules:
 
                   {/* Code */}
                   <span style={{
-                    fontFamily: "'DM Mono', monospace", fontSize: 10, fontWeight: 600,
+                    fontFamily: "'DM Sans', sans-serif", fontSize: 10, fontWeight: 600,
                     color: C.purple, minWidth: 54, flexShrink: 0,
                   }}>
                     {item.code || "—"}
@@ -326,7 +326,7 @@ Rules:
                   {/* Line total */}
                   <span style={{
                     fontSize: 12, fontWeight: 700, color: C.text,
-                    fontFeatureSettings: "'tnum'", fontFamily: "'DM Mono', monospace",
+                    fontFeatureSettings: "'tnum'", fontFamily: "'DM Sans', sans-serif",
                     minWidth: 70, textAlign: "right", flexShrink: 0,
                   }}>
                     {fmt2(lineTotal)}
@@ -397,7 +397,7 @@ Rules:
               <div style={{ fontSize: 12, color: C.textDim }}>
                 Selected Total: <strong style={{
                   color: C.accent, fontSize: 15, fontWeight: 700,
-                  fontFeatureSettings: "'tnum'", fontFamily: "'DM Mono', monospace",
+                  fontFeatureSettings: "'tnum'", fontFamily: "'DM Sans', sans-serif",
                 }}>{fmt2(selectedTotal)}</strong>
               </div>
               {!showSaveAssembly && selected.size > 1 && (

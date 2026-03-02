@@ -34,7 +34,7 @@ function DataRow({ label, value, C, mono }) {
       <span style={{ fontSize: 11, color: C.textMuted, fontWeight: 500 }}>{label}</span>
       <span style={{
         fontSize: 12, color: C.text, fontWeight: 500,
-        fontFamily: mono ? "'DM Mono', monospace" : "inherit",
+        fontFamily: mono ? "'DM Sans', sans-serif" : "inherit",
         maxWidth: "60%", textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
       }}>{value || "—"}</span>
     </div>
@@ -111,7 +111,7 @@ export default function AdminUserDetail() {
             display: "flex", flexDirection: "column", gap: 6,
           }}>
             <span style={{ fontSize: 10, color: C.textMuted, fontWeight: 500 }}>{s.label}</span>
-            <span style={{ fontSize: 22, fontWeight: 700, color: s.color, fontFamily: "'DM Mono', monospace" }}>
+            <span style={{ fontSize: 22, fontWeight: 700, color: s.color, fontFamily: "'DM Sans', sans-serif" }}>
               {s.value}
             </span>
           </div>
@@ -156,7 +156,7 @@ export default function AdminUserDetail() {
                   {e.projectName}
                 </span>
                 <span style={{ fontSize: 10, color: C.textDim }}>{e.client || "—"}</span>
-                <span style={{ fontSize: 11, color: C.text, fontFamily: "'DM Mono', monospace", fontWeight: 600 }}>
+                <span style={{ fontSize: 11, color: C.text, fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>
                   {e.totalCost ? `$${Math.round(e.totalCost).toLocaleString()}` : "—"}
                 </span>
                 <span style={{ fontSize: 10, color: C.textDim }}>
@@ -179,7 +179,7 @@ export default function AdminUserDetail() {
                 fontSize: 11, color: C.text,
               }}>
                 <span style={{ color: C.textMuted }}>{kind}: </span>
-                <strong style={{ fontFamily: "'DM Mono', monospace" }}>{count}</strong>
+                <strong style={{ fontFamily: "'DM Sans', sans-serif" }}>{count}</strong>
               </div>
             ))}
           </div>
@@ -212,7 +212,7 @@ export default function AdminUserDetail() {
                     margin: "4px 0 0", padding: 12, borderRadius: T.radius.sm,
                     background: "rgba(0,0,0,0.3)", border: `1px solid ${C.border}`,
                     fontSize: 10, color: C.textMuted,
-                    fontFamily: "'DM Mono', monospace",
+                    fontFamily: "'DM Sans', sans-serif",
                     overflow: "auto", maxHeight: 300,
                     whiteSpace: "pre-wrap", wordBreak: "break-word",
                   }}>

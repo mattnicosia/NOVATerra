@@ -144,14 +144,14 @@ export default function AssemblySearch({ onInsertAssembly, onInsertItem, placeho
                       <span style={{ flex: 1, fontSize: 11, fontWeight: 600, color: C.text }}>{asm.name}</span>
                       <span style={{ fontSize: 7, color: C.green, background: `${C.green}15`, padding: "1px 5px", borderRadius: 4, fontWeight: 700 }}>PROJECT</span>
                       <span style={{ fontSize: 8, color: C.textMuted, background: C.bg2, padding: "1px 6px", borderRadius: 8 }}>{asm.elements.length} items</span>
-                      <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: C.accent, fontWeight: 600 }}>{fmt2(totalPer)}/ea</span>
+                      <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, color: C.accent, fontWeight: 600 }}>{fmt2(totalPer)}/ea</span>
                     </div>
                     {isPreviewing && (
                       <div style={{ padding: "8px 12px", background: C.bg2, borderBottom: `1px solid ${C.border}` }}>
                         {asm.elements.map((el, i) => (
                           <div key={i} style={{ fontSize: 10, color: C.textMuted, padding: "2px 0", display: "flex", justifyContent: "space-between" }}>
                             <span>{el.desc}</span>
-                            <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: C.accent }}>{fmt2((nn(el.m) + nn(el.l) + nn(el.e)) * nn(el.factor))}</span>
+                            <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, color: C.accent }}>{fmt2((nn(el.m) + nn(el.l) + nn(el.e)) * nn(el.factor))}</span>
                           </div>
                         ))}
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
@@ -186,7 +186,7 @@ export default function AssemblySearch({ onInsertAssembly, onInsertItem, placeho
                       <Ic d={I.assembly} size={12} color={C.accent} />
                       <span style={{ flex: 1, fontSize: 11, fontWeight: 600, color: C.text }}>{asm.name}</span>
                       <span style={{ fontSize: 8, color: C.textMuted, background: C.bg2, padding: "1px 6px", borderRadius: 8 }}>{asm.elements.length} items</span>
-                      <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: C.accent, fontWeight: 600 }}>{fmt2(totalPer)}/ea</span>
+                      <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, color: C.accent, fontWeight: 600 }}>{fmt2(totalPer)}/ea</span>
                     </div>
                     {/* Inline preview when clicked */}
                     {isPreviewing && (
@@ -194,7 +194,7 @@ export default function AssemblySearch({ onInsertAssembly, onInsertItem, placeho
                         {asm.elements.map((el, i) => (
                           <div key={i} style={{ fontSize: 10, color: C.textMuted, padding: "2px 0", display: "flex", justifyContent: "space-between" }}>
                             <span>{el.desc}</span>
-                            <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: C.accent }}>{fmt2((nn(el.m) + nn(el.l) + nn(el.e)) * nn(el.factor))}</span>
+                            <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, color: C.accent }}>{fmt2((nn(el.m) + nn(el.l) + nn(el.e)) * nn(el.factor))}</span>
                           </div>
                         ))}
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
@@ -226,7 +226,7 @@ export default function AssemblySearch({ onInsertAssembly, onInsertItem, placeho
                   setQuery(""); setIsOpen(false);
                 }}
                   style={{ padding: "6px 10px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${C.bg}`, cursor: "pointer" }}>
-                  <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: C.purple, fontWeight: 600, minWidth: 60 }}>{el.code}</span>
+                  <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, color: C.purple, fontWeight: 600, minWidth: 60 }}>{el.code}</span>
                   <span style={{ flex: 1, fontSize: 11, color: C.text }}>{el.name}</span>
                   {el._vectorMatch && (
                     <span style={{ fontSize: 7, color: C.purple, background: C.bg2, padding: "1px 4px", borderRadius: 4, fontWeight: 600 }}>
@@ -234,7 +234,7 @@ export default function AssemblySearch({ onInsertAssembly, onInsertItem, placeho
                     </span>
                   )}
                   <span style={{ fontSize: 9, color: C.textDim }}>/{el.unit}</span>
-                  <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: C.accent, fontWeight: 600 }}>{fmt2(nn(el.material) + nn(el.labor) + nn(el.equipment))}</span>
+                  <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, color: C.accent, fontWeight: 600 }}>{fmt2(nn(el.material) + nn(el.labor) + nn(el.equipment))}</span>
                 </div>
               ))}
             </>

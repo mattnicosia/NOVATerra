@@ -79,10 +79,10 @@ export default function MarketTicker() {
               <span style={{ fontSize: 9, fontWeight: 600, color: item.color, textTransform: "uppercase", letterSpacing: 0.5 }}>
                 {item.label}
               </span>
-              <span style={{ fontSize: 10, fontWeight: 700, color: C.text, fontFamily: "'DM Mono',monospace" }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>
                 {item.value}
               </span>
-              <span style={{ fontSize: 9, fontWeight: 700, color: deltaColor, fontFamily: "'DM Mono',monospace" }}>
+              <span style={{ fontSize: 9, fontWeight: 700, color: deltaColor, fontFamily: "'DM Sans',sans-serif" }}>
                 {isUp ? "\u25B2" : item.delta < 0 ? "\u25BC" : "\u25CF"}{" "}
                 {Math.abs(item.delta)}%
               </span>

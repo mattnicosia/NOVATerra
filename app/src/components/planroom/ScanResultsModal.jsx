@@ -240,7 +240,7 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
                         {note.csiDivisions?.length > 0 && (
                           <div style={{ marginTop: 2 }}>
                             {note.csiDivisions.map((div, i) => (
-                              <span key={i} style={{ fontSize: 7, padding: "1px 4px", borderRadius: 2, background: `${C.accent}10`, color: C.accent, fontWeight: 600, fontFamily: "'DM Mono',monospace", marginRight: 3 }}>
+                              <span key={i} style={{ fontSize: 7, padding: "1px 4px", borderRadius: 2, background: `${C.accent}10`, color: C.accent, fontWeight: 600, fontFamily: "'DM Sans',sans-serif", marginRight: 3 }}>
                                 CSI {div}
                               </span>
                             ))}
@@ -312,25 +312,25 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
             </div>
             {Object.entries(rom.divisions || {}).sort(([a], [b]) => a.localeCompare(b)).map(([div, data]) => (
               <div key={div} style={{ display: "grid", gridTemplateColumns: "44px 1fr 80px 80px 80px 70px", padding: "5px 10px", borderBottom: `1px solid ${C.bg2}`, alignItems: "center", background: data.aiReason ? `${C.blue}04` : "transparent" }}>
-                <div style={{ fontSize: 10, fontWeight: 700, fontFamily: "'DM Mono',monospace", color: C.accent }}>{div}</div>
+                <div style={{ fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans',sans-serif", color: C.accent }}>{div}</div>
                 <div style={{ fontSize: 10, color: C.text }}>
                   {data.label}
                   {data.aiReason && <span style={{ display: "block", fontSize: 8, color: C.blue, fontStyle: "italic" }}>{data.aiReason}</span>}
                 </div>
-                <div style={{ fontSize: 10, textAlign: "right", color: C.textMuted, fontFamily: "'DM Mono',monospace" }}>{fmt(data.total?.low)}</div>
-                <div style={{ fontSize: 10, textAlign: "right", color: C.text, fontWeight: 600, fontFamily: "'DM Mono',monospace" }}>{fmt(data.total?.mid)}</div>
-                <div style={{ fontSize: 10, textAlign: "right", color: C.textMuted, fontFamily: "'DM Mono',monospace" }}>{fmt(data.total?.high)}</div>
-                <div style={{ fontSize: 9, textAlign: "right", color: C.textDim, fontFamily: "'DM Mono',monospace" }}>{fmtSF(data.perSF?.mid)}</div>
+                <div style={{ fontSize: 10, textAlign: "right", color: C.textMuted, fontFamily: "'DM Sans',sans-serif" }}>{fmt(data.total?.low)}</div>
+                <div style={{ fontSize: 10, textAlign: "right", color: C.text, fontWeight: 600, fontFamily: "'DM Sans',sans-serif" }}>{fmt(data.total?.mid)}</div>
+                <div style={{ fontSize: 10, textAlign: "right", color: C.textMuted, fontFamily: "'DM Sans',sans-serif" }}>{fmt(data.total?.high)}</div>
+                <div style={{ fontSize: 9, textAlign: "right", color: C.textDim, fontFamily: "'DM Sans',sans-serif" }}>{fmtSF(data.perSF?.mid)}</div>
               </div>
             ))}
             {/* Totals row */}
             <div style={{ display: "grid", gridTemplateColumns: "44px 1fr 80px 80px 80px 70px", padding: "8px 10px", background: C.bg, borderTop: `1px solid ${C.border}` }}>
               <div />
               <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>TOTAL</div>
-              <div style={{ fontSize: 11, textAlign: "right", fontWeight: 700, color: C.textMuted, fontFamily: "'DM Mono',monospace" }}>{fmt(rom.totals?.low)}</div>
-              <div style={{ fontSize: 11, textAlign: "right", fontWeight: 700, color: C.green, fontFamily: "'DM Mono',monospace" }}>{fmt(rom.totals?.mid)}</div>
-              <div style={{ fontSize: 11, textAlign: "right", fontWeight: 700, color: C.textMuted, fontFamily: "'DM Mono',monospace" }}>{fmt(rom.totals?.high)}</div>
-              <div style={{ fontSize: 10, textAlign: "right", fontWeight: 700, color: C.textDim, fontFamily: "'DM Mono',monospace" }}>
+              <div style={{ fontSize: 11, textAlign: "right", fontWeight: 700, color: C.textMuted, fontFamily: "'DM Sans',sans-serif" }}>{fmt(rom.totals?.low)}</div>
+              <div style={{ fontSize: 11, textAlign: "right", fontWeight: 700, color: C.green, fontFamily: "'DM Sans',sans-serif" }}>{fmt(rom.totals?.mid)}</div>
+              <div style={{ fontSize: 11, textAlign: "right", fontWeight: 700, color: C.textMuted, fontFamily: "'DM Sans',sans-serif" }}>{fmt(rom.totals?.high)}</div>
+              <div style={{ fontSize: 10, textAlign: "right", fontWeight: 700, color: C.textDim, fontFamily: "'DM Sans',sans-serif" }}>
                 {rom.projectSF > 0 ? fmtSF(rom.totals?.mid / rom.projectSF) : "—"}
               </div>
             </div>
@@ -344,11 +344,11 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
               const pct = maxMid > 0 ? ((data.total?.mid || 0) / maxMid) * 100 : 0;
               return (
                 <div key={div} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                  <div style={{ width: 30, fontSize: 9, fontWeight: 600, color: C.textDim, fontFamily: "'DM Mono',monospace" }}>{div}</div>
+                  <div style={{ width: 30, fontSize: 9, fontWeight: 600, color: C.textDim, fontFamily: "'DM Sans',sans-serif" }}>{div}</div>
                   <div style={{ flex: 1, height: 14, background: C.bg2, borderRadius: 3, overflow: "hidden" }}>
                     <div style={{ width: `${pct}%`, height: "100%", background: `linear-gradient(90deg, ${C.accent}, ${C.blue})`, borderRadius: 3, transition: "width 0.3s ease" }} />
                   </div>
-                  <div style={{ width: 60, fontSize: 9, textAlign: "right", color: C.textMuted, fontFamily: "'DM Mono',monospace" }}>{fmt(data.total?.mid)}</div>
+                  <div style={{ width: 60, fontSize: 9, textAlign: "right", color: C.textMuted, fontFamily: "'DM Sans',sans-serif" }}>{fmt(data.total?.mid)}</div>
                 </div>
               );
             })}
@@ -441,15 +441,15 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
                       <div key={li._idx} onClick={() => toggleItem(li._idx)}
                         style={{ display: "grid", gridTemplateColumns: "28px 70px 1fr 40px 60px 60px 60px", padding: "4px 8px", borderBottom: `1px solid ${C.bg2}`, alignItems: "center", cursor: "pointer", background: selectedItems.has(li._idx) ? `${C.accent}06` : "transparent", opacity: selectedItems.has(li._idx) ? 1 : 0.6 }}>
                         <div><input type="checkbox" checked={selectedItems.has(li._idx)} onChange={() => toggleItem(li._idx)} onClick={e => e.stopPropagation()} /></div>
-                        <div style={{ fontSize: 9, fontFamily: "'DM Mono',monospace", color: C.accent }}>{li.code}</div>
+                        <div style={{ fontSize: 9, fontFamily: "'DM Sans',sans-serif", color: C.accent }}>{li.code}</div>
                         <div style={{ fontSize: 10, color: C.text, paddingRight: 8 }}>
                           {li.description}
                           <ConfidenceBadge confidence={li.confidence} C={C} />
                         </div>
                         <div style={{ fontSize: 9, color: C.textDim, fontWeight: 600 }}>{li.unit}</div>
-                        <div style={{ fontSize: 9, textAlign: "right", fontFamily: "'DM Mono',monospace", color: li.m > 0 ? C.text : C.textDim }}>{li.m > 0 ? `$${li.m.toFixed(2)}` : "—"}</div>
-                        <div style={{ fontSize: 9, textAlign: "right", fontFamily: "'DM Mono',monospace", color: li.l > 0 ? C.text : C.textDim }}>{li.l > 0 ? `$${li.l.toFixed(2)}` : "—"}</div>
-                        <div style={{ fontSize: 9, textAlign: "right", fontFamily: "'DM Mono',monospace", color: (li.m + li.l + (li.e || 0)) > 0 ? C.green : C.textDim }}>
+                        <div style={{ fontSize: 9, textAlign: "right", fontFamily: "'DM Sans',sans-serif", color: li.m > 0 ? C.text : C.textDim }}>{li.m > 0 ? `$${li.m.toFixed(2)}` : "—"}</div>
+                        <div style={{ fontSize: 9, textAlign: "right", fontFamily: "'DM Sans',sans-serif", color: li.l > 0 ? C.text : C.textDim }}>{li.l > 0 ? `$${li.l.toFixed(2)}` : "—"}</div>
+                        <div style={{ fontSize: 9, textAlign: "right", fontFamily: "'DM Sans',sans-serif", color: (li.m + li.l + (li.e || 0)) > 0 ? C.green : C.textDim }}>
                           {(li.m + li.l + (li.e || 0)) > 0 ? `$${(li.m + li.l + (li.e || 0)).toFixed(2)}` : "—"}
                         </div>
                       </div>

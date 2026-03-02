@@ -421,7 +421,7 @@ IMPORTANT: Return ONLY valid JSON array. No markdown, no explanation. Example:
                 <span style={{ fontSize: 9, fontWeight: 600, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.5 }}>Project Location</span>
                 <input value={pricingZip} onChange={e => handleZipChange(e.target.value)}
                   placeholder="Zip" maxLength={5}
-                  style={inp(C, { fontSize: 11, padding: "3px 6px", width: 56, textAlign: "center", fontFamily: "'DM Mono',monospace" })} />
+                  style={inp(C, { fontSize: 11, padding: "3px 6px", width: 56, textAlign: "center", fontFamily: "'DM Sans',sans-serif" })} />
                 {hasLocationData && (
                   <span style={{ fontSize: 10, color: C.accent, fontWeight: 600 }}>{pricingLoc.label}</span>
                 )}
@@ -463,7 +463,7 @@ IMPORTANT: Return ONLY valid JSON array. No markdown, no explanation. Example:
                         style={{ cursor: "pointer", accentColor: C.accent }} />
                     </div>
                     <input value={item.specSection} onChange={e => updateExtractedItem(item.id, "specSection", e.target.value)}
-                      style={inp(C, { fontFamily: "'DM Mono',monospace", fontSize: 9, padding: "3px 3px", textAlign: "center", color: C.purple })}
+                      style={inp(C, { fontFamily: "'DM Sans',sans-serif", fontSize: 9, padding: "3px 3px", textAlign: "center", color: C.purple })}
                       placeholder="XX.YYY" />
                     <input value={item.name} onChange={e => updateExtractedItem(item.id, "name", e.target.value)}
                       style={inp(C, { fontSize: 10, padding: "3px 5px" })} />

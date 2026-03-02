@@ -10,6 +10,7 @@ export const useCalendarStore = create((set, get) => ({
   // UI state
   selectedDate: today(),
   viewMonth: { year: now.getFullYear(), month: now.getMonth() },
+  calendarView: 'month', // 'month' | 'week' | 'day'
 
   // ── Actions ──────────────────────────────────────────────
 
@@ -44,6 +45,8 @@ export const useCalendarStore = create((set, get) => ({
   setSelectedDate: (date) => set({ selectedDate: date }),
 
   setViewMonth: (year, month) => set({ viewMonth: { year, month } }),
+
+  setCalendarView: (view) => set({ calendarView: view }),
 
   // Bulk set (for persistence restore / cloud sync)
   setTasks: (tasks) => set({ tasks: Array.isArray(tasks) ? tasks : [] }),

@@ -19,7 +19,7 @@ const EXAMPLE_PROMPTS = [
   "Commercial storefront entrance with aluminum frame and hardware",
 ];
 
-const SYSTEM_PROMPT = `You are NOVA, the AI construction intelligence inside BLDG Omni. You are a senior estimator and assembly builder.
+const SYSTEM_PROMPT = `You are NOVA, the AI construction intelligence inside NOVATerra. You are a senior estimator and assembly builder.
 
 When given a plain-English description of a construction assembly, generate a complete, detailed, priced assembly with all component elements.
 
@@ -240,7 +240,7 @@ export default function AIAssemblyGenerator({ onClose }) {
           {loading && stream && !result && (
             <div style={{
               padding: 14, background: C.bg2, borderRadius: 8, border: `1px solid ${C.border}`,
-              marginBottom: 14, fontSize: 11, color: C.textMuted, fontFamily: "'DM Mono', monospace",
+              marginBottom: 14, fontSize: 11, color: C.textMuted, fontFamily: "'DM Sans', sans-serif",
               whiteSpace: "pre-wrap", maxHeight: 200, overflowY: "auto", lineHeight: 1.6,
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
@@ -292,7 +292,7 @@ export default function AIAssemblyGenerator({ onClose }) {
                     onChange={(e) => setResult({ ...result, code: e.target.value })}
                     style={{
                       ...inp(C), width: 100, fontSize: 11, fontWeight: 600, padding: "4px 8px",
-                      fontFamily: "'DM Mono', monospace", color: C.purple, textAlign: "center",
+                      fontFamily: "'DM Sans', sans-serif", color: C.purple, textAlign: "center",
                       background: "transparent", border: `1px solid transparent`,
                     }}
                     onFocus={(e) => e.target.style.borderColor = C.accent}
@@ -344,7 +344,7 @@ export default function AIAssemblyGenerator({ onClose }) {
                     }}>
                       {isEditing ? (<>
                         <input value={el.code} onChange={e => updateElement(idx, "code", e.target.value)}
-                          style={inp(C, { fontFamily: "'DM Mono',monospace", fontSize: 9, padding: "2px 4px" })} />
+                          style={inp(C, { fontFamily: "'DM Sans',sans-serif", fontSize: 9, padding: "2px 4px" })} />
                         <input value={el.desc} onChange={e => updateElement(idx, "desc", e.target.value)} autoFocus
                           style={inp(C, { fontSize: 11, padding: "2px 6px" })} />
                         <input value={el.unit} onChange={e => updateElement(idx, "unit", e.target.value)}
@@ -357,7 +357,7 @@ export default function AIAssemblyGenerator({ onClose }) {
                           style={nInp(C, { fontSize: 10, padding: "2px 4px", color: C.orange })} />
                         <input type="number" value={el.factor || 1} onChange={e => updateElement(idx, "factor", parseFloat(e.target.value) || 1)}
                           style={nInp(C, { fontSize: 10, padding: "2px 4px", textAlign: "center" })} />
-                        <div style={{ textAlign: "right", fontFamily: "'DM Mono',monospace", fontWeight: 600 }}>{fmt2(elTotal)}</div>
+                        <div style={{ textAlign: "right", fontFamily: "'DM Sans',sans-serif", fontWeight: 600 }}>{fmt2(elTotal)}</div>
                         <button onClick={() => setEditingIdx(null)} style={{
                           width: 22, height: 22, border: "none", background: "transparent",
                           borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
@@ -365,14 +365,14 @@ export default function AIAssemblyGenerator({ onClose }) {
                           <Ic d={I.check} size={11} color={C.green} sw={2.5} />
                         </button>
                       </>) : (<>
-                        <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: C.purple, fontWeight: 600 }}>{el.code}</span>
+                        <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, color: C.purple, fontWeight: 600 }}>{el.code}</span>
                         <span style={{ color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{el.desc}</span>
                         <span style={{ fontSize: 10, color: C.textDim, textAlign: "center" }}>{el.unit}</span>
-                        <span style={{ textAlign: "right", fontFamily: "'DM Mono',monospace", fontSize: 10, color: C.green }}>{fmt2(nn(el.m) * nn(el.factor || 1))}</span>
-                        <span style={{ textAlign: "right", fontFamily: "'DM Mono',monospace", fontSize: 10, color: C.blue }}>{fmt2(nn(el.l) * nn(el.factor || 1))}</span>
-                        <span style={{ textAlign: "right", fontFamily: "'DM Mono',monospace", fontSize: 10, color: C.orange }}>{fmt2(nn(el.e) * nn(el.factor || 1))}</span>
-                        <span style={{ textAlign: "center", fontFamily: "'DM Mono',monospace", fontSize: 9, color: C.textDim }}>{nn(el.factor || 1) !== 1 ? `×${el.factor}` : ""}</span>
-                        <span style={{ textAlign: "right", fontFamily: "'DM Mono',monospace", fontWeight: 600 }}>{fmt2(elTotal)}</span>
+                        <span style={{ textAlign: "right", fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: C.green }}>{fmt2(nn(el.m) * nn(el.factor || 1))}</span>
+                        <span style={{ textAlign: "right", fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: C.blue }}>{fmt2(nn(el.l) * nn(el.factor || 1))}</span>
+                        <span style={{ textAlign: "right", fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: C.orange }}>{fmt2(nn(el.e) * nn(el.factor || 1))}</span>
+                        <span style={{ textAlign: "center", fontFamily: "'DM Sans',sans-serif", fontSize: 9, color: C.textDim }}>{nn(el.factor || 1) !== 1 ? `×${el.factor}` : ""}</span>
+                        <span style={{ textAlign: "right", fontFamily: "'DM Sans',sans-serif", fontWeight: 600 }}>{fmt2(elTotal)}</span>
                         <div style={{ display: "flex", gap: 1 }}>
                           <button onClick={() => setEditingIdx(idx)} title="Edit" style={{
                             width: 18, height: 18, border: "none", background: "transparent",
@@ -407,7 +407,7 @@ export default function AIAssemblyGenerator({ onClose }) {
                   <span style={{ color: C.orange }}>E: {fmt2(result.elements.reduce((s, el) => s + nn(el.e) * nn(el.factor || 1), 0))}</span>
                 </span>
                 <span style={{
-                  fontSize: 16, fontWeight: 700, fontFamily: "'DM Mono', monospace",
+                  fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif",
                   ...(C.isDark && C.gradient
                     ? { background: C.gradient, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }
                     : { color: C.accent }),

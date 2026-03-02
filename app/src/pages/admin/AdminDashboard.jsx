@@ -33,7 +33,7 @@ function KpiCard({ label, value, icon, color, C }) {
       </div>
       <span style={{
         fontSize: 28, fontWeight: 700, color: C.text,
-        fontFamily: "'DM Mono', monospace", lineHeight: 1,
+        fontFamily: "'DM Sans', sans-serif", lineHeight: 1,
       }}>
         {typeof value === 'number' ? value.toLocaleString() : value ?? "—"}
       </span>
@@ -104,7 +104,7 @@ export default function AdminDashboard() {
                 <span style={{ fontSize: 11, color: C.textMuted, fontWeight: 500 }}>{kind}</span>
                 <span style={{
                   fontSize: 14, fontWeight: 700, color: C.text,
-                  fontFamily: "'DM Mono', monospace",
+                  fontFamily: "'DM Sans', sans-serif",
                 }}>{count.toLocaleString()}</span>
               </div>
             ))}
@@ -135,7 +135,7 @@ export default function AdminDashboard() {
                   <Ic d={I.user} size={12} color={C.accent} />
                 </div>
                 <span style={{ fontSize: 12, color: C.text, fontWeight: 500, flex: 1 }}>{u.email}</span>
-                <span style={{ fontSize: 10, color: C.textDim, fontFamily: "'DM Mono', monospace" }}>
+                <span style={{ fontSize: 10, color: C.textDim, fontFamily: "'DM Sans', sans-serif" }}>
                   {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleDateString() : "never"}
                 </span>
               </div>

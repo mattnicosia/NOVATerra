@@ -128,7 +128,7 @@ export default function AlternatesPage() {
                     <div style={{ fontSize: 10, color: C.textMuted, lineHeight: 1.4 }}>{s.reasoning}</div>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: C.green, fontFamily: "'DM Mono',monospace", whiteSpace: "nowrap" }}>~{s.savings_pct}% savings</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: C.green, fontFamily: "'DM Sans',sans-serif", whiteSpace: "nowrap" }}>~{s.savings_pct}% savings</div>
                     <button className="ghost-btn" onClick={() => {
                       const newAlt = { id: uid(), name: s.suggestion, type: "deduct", description: `VE: Replace ${s.original} with ${s.suggestion}. ${s.reasoning}`, items: [{ id: uid(), description: s.suggestion, unit: "LS", quantity: 1, material: 0, labor: 0, equipment: 0, subcontractor: 0 }], accepted: false };
                       setAlternates([...alternates, newAlt]);
@@ -172,11 +172,11 @@ export default function AlternatesPage() {
                     </span>
                     <input value={alt.name} onChange={e => updateAlternate(alt.id, "name", e.target.value)} placeholder="Alternate name..." style={inp(C, { flex: 1, fontWeight: 600, fontSize: 13, padding: "5px 10px" })} />
                     <div style={{ textAlign: "right", minWidth: 140 }}>
-                      <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, fontWeight: 700, color: alt.type === "deduct" ? C.green : C.blue }}>
+                      <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, fontWeight: 700, color: alt.type === "deduct" ? C.green : C.blue }}>
                         {alt.type === "deduct" ? "\u2212" : "+"}{fmt(altGrand)}
                       </div>
                       {markupAmount > 0 && (
-                        <div style={{ fontSize: 9, color: C.textDim, fontFamily: "'DM Mono',monospace" }}>
+                        <div style={{ fontSize: 9, color: C.textDim, fontFamily: "'DM Sans',sans-serif" }}>
                           direct {fmt(altDirect)} + markup {fmt(markupAmount)}
                         </div>
                       )}
@@ -234,7 +234,7 @@ export default function AlternatesPage() {
                           <input type="number" value={ai.labor} onChange={e => updateAlternateItem(alt.id, ai.id, "labor", e.target.value)} placeholder="0" style={nInp(C, { fontSize: 11, padding: "4px 6px", textAlign: "right" })} />
                           <input type="number" value={ai.equipment} onChange={e => updateAlternateItem(alt.id, ai.id, "equipment", e.target.value)} placeholder="0" style={nInp(C, { fontSize: 11, padding: "4px 6px", textAlign: "right" })} />
                           <input type="number" value={ai.subcontractor} onChange={e => updateAlternateItem(alt.id, ai.id, "subcontractor", e.target.value)} placeholder="0" style={nInp(C, { fontSize: 11, padding: "4px 6px", textAlign: "right" })} />
-                          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 11, fontWeight: 600, color: C.text, textAlign: "right" }}>{fmt(t)}</div>
+                          <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, fontWeight: 600, color: C.text, textAlign: "right" }}>{fmt(t)}</div>
                           <button className="icon-btn" onClick={() => removeAlternateItem(alt.id, ai.id)} style={{ width: 20, height: 20, border: "none", background: "transparent", color: C.red, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
                             <Ic d={I.x} size={9} />
                           </button>
@@ -266,9 +266,9 @@ export default function AlternatesPage() {
                   )}
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, fontWeight: 600, color: alt.total < 0 ? C.green : C.blue }}>{alt.total < 0 ? "\u2212" : "+"}{fmt(Math.abs(alt.total))}</span>
+                  <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 12, fontWeight: 600, color: alt.total < 0 ? C.green : C.blue }}>{alt.total < 0 ? "\u2212" : "+"}{fmt(Math.abs(alt.total))}</span>
                   {alt.markupAmount !== 0 && (
-                    <div style={{ fontSize: 9, color: C.textDim, fontFamily: "'DM Mono',monospace" }}>
+                    <div style={{ fontSize: 9, color: C.textDim, fontFamily: "'DM Sans',sans-serif" }}>
                       incl. {fmt(Math.abs(alt.markupAmount))} markup
                     </div>
                   )}
@@ -277,17 +277,17 @@ export default function AlternatesPage() {
             ))}
             <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0 4px", borderTop: `2px solid ${C.accent}`, marginTop: 6 }}>
               <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Base Bid</span>
-              <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, fontWeight: 700, color: C.accent }}>{fmt(totals.grand)}</span>
+              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 14, fontWeight: 700, color: C.accent }}>{fmt(totals.grand)}</span>
             </div>
             {totals.acceptedAltTotal !== 0 && (
               <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
                 <span style={{ fontSize: 12, fontWeight: 600, color: C.textMuted }}>Accepted Alternates</span>
-                <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, fontWeight: 600, color: totals.acceptedAltTotal < 0 ? C.green : C.blue }}>{totals.acceptedAltTotal < 0 ? "\u2212" : "+"}{fmt(Math.abs(totals.acceptedAltTotal))}</span>
+                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, fontWeight: 600, color: totals.acceptedAltTotal < 0 ? C.green : C.blue }}>{totals.acceptedAltTotal < 0 ? "\u2212" : "+"}{fmt(Math.abs(totals.acceptedAltTotal))}</span>
               </div>
             )}
             <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0 2px", borderTop: `1px solid ${C.border}`, marginTop: 4 }}>
               <span style={{ fontSize: 14, fontWeight: 700, color: C.purple }}>Contract Total</span>
-              <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 16, fontWeight: 700, color: C.purple }}>{fmt(totals.grandWithAlts)}</span>
+              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, fontWeight: 700, color: C.purple }}>{fmt(totals.grandWithAlts)}</span>
             </div>
           </div>
         )}

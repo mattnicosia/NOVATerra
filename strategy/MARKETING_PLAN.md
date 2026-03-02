@@ -1,4 +1,4 @@
-# BLDG Omni — Marketing Rollout Plan
+# NOVATerra — Marketing Rollout Plan
 **Created: February 25, 2026**
 
 ---
@@ -35,7 +35,7 @@
 
 ## PHASE 4: Guerrilla Tactics (Months 3-6, Cost: $500-3K)
 
-- Live Bidding Competition at conferences — BLDG Omni vs. spreadsheets
+- Live Bidding Competition at conferences — NOVATerra vs. spreadsheets
 - Jobsite pop-up demos — iPad demos on active sites, film reactions
 - "Estimator's Survival Kit" mailer to 100-200 target GCs ($15-30/unit)
 - Competitor event ambush — host parallel events near Procore/STACK conferences

@@ -3,6 +3,7 @@
 
 import { useMemo, useState } from 'react';
 import { useTheme } from '@/hooks/useTheme';
+import { bt } from '@/utils/styles';
 import { useScanStore } from '@/stores/scanStore';
 import { getBuildingTypeLabel, getWorkTypeLabel } from '@/constants/constructionTypes';
 import {
@@ -10,6 +11,12 @@ import {
   getAllDivisionIndices, getCurrentYear,
 } from '@/constants/constructionCostIndex';
 import { extractYear, getEscalationFactor, formatEscalation, normalizeEntry } from '@/utils/costEscalation';
+import {
+  MARKUP_TAXONOMY, MARKUP_CATEGORIES, classifyMarkup, getMarkupCategory,
+  detectMarginGrouping, isInsuranceAssumedInOP, detectGeneralCostGrouping,
+} from '@/constants/markupTaxonomy';
+import { getDeliveryMethodLabel } from '@/constants/constructionTypes';
+import { RangeBar, Ring } from '@/components/intelligence/PureCSSChart';
 
 const fmtCost = (n) => {
   if (!n && n !== 0) return "—";
@@ -26,6 +33,8 @@ export default function CostHistoryAnalytics({ entries }) {
   const learningRecords = useScanStore(s => s.learningRecords);
   const calibrationFactors = useScanStore.getState().getCalibrationFactors();
   const [showTrendDetail, setShowTrendDetail] = useState(false);
+  const [markupView, setMarkupView] = useState("holistic");
+  const [generalCombined, setGeneralCombined] = useState(true);
 
   const stats = useMemo(() => {
     const won = entries.filter(e => e.outcome === "won");
@@ -128,6 +137,118 @@ export default function CostHistoryAnalytics({ entries }) {
     };
   }, [entries, calibrationFactors]);
 
+  // ── Markup analytics aggregation ──
+  const markupStats = useMemo(() => {
+    const withMarkups = entries.filter(e => (e.markups || []).length > 0);
+    if (withMarkups.length === 0) return null;
+
+    // ── Holistic Overview ──
+    const categoryTotals = {};
+    MARKUP_CATEGORIES.forEach(c => { categoryTotals[c.key] = { sum: 0, count: 0, pcts: [] }; });
+
+    withMarkups.forEach(entry => {
+      const divTotal = Object.values(entry.divisions || {}).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+      (entry.markups || []).forEach(m => {
+        const tax = classifyMarkup(m.key);
+        const amt = m.calculatedAmount || 0;
+        if (amt > 0) {
+          categoryTotals[tax.category].sum += amt;
+          categoryTotals[tax.category].count += 1;
+          if (divTotal > 0) categoryTotals[tax.category].pcts.push((amt / divTotal) * 100);
+        }
+      });
+    });
+
+    const holistic = MARKUP_CATEGORIES.map(cat => ({
+      ...cat,
+      totalAmount: categoryTotals[cat.key].sum,
+      occurrences: categoryTotals[cat.key].count,
+      avgPctOfDirect: categoryTotals[cat.key].pcts.length > 0
+        ? Math.round((categoryTotals[cat.key].pcts.reduce((a, b) => a + b, 0) / categoryTotals[cat.key].pcts.length) * 10) / 10
+        : 0,
+    })).filter(c => c.totalAmount > 0);
+
+    const totalIndirect = holistic.reduce((s, c) => s + c.totalAmount, 0);
+    const totalDirect = withMarkups.reduce((s, e) =>
+      s + Object.values(e.divisions || {}).reduce((ds, v) => ds + (parseFloat(v) || 0), 0), 0);
+    const indirectPctOfDirect = totalDirect > 0 ? Math.round((totalIndirect / totalDirect) * 1000) / 10 : 0;
+
+    // ── Margin Analysis ──
+    const marginEntries = withMarkups.map(entry => {
+      const divTotal = Object.values(entry.divisions || {}).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+      const marginItems = (entry.markups || []).filter(m => classifyMarkup(m.key).category === "margin");
+      const totalMargin = marginItems.reduce((s, m) => s + (m.calculatedAmount || 0), 0);
+      const grouping = detectMarginGrouping(marginItems);
+      return {
+        entryId: entry.id, name: entry.name,
+        deliveryMethod: entry.deliveryMethod, buildingType: entry.buildingType,
+        totalMargin, marginPct: divTotal > 0 ? Math.round((totalMargin / divTotal) * 1000) / 10 : 0,
+        grouping,
+      };
+    }).filter(e => e.totalMargin > 0);
+
+    const marginByDelivery = {};
+    marginEntries.forEach(e => {
+      const dm = e.deliveryMethod || "unknown";
+      if (!marginByDelivery[dm]) marginByDelivery[dm] = { pcts: [], count: 0, label: getDeliveryMethodLabel(dm) || dm };
+      marginByDelivery[dm].pcts.push(e.marginPct);
+      marginByDelivery[dm].count += 1;
+    });
+
+    const marginGroupings = {};
+    marginEntries.forEach(e => { marginGroupings[e.grouping] = (marginGroupings[e.grouping] || 0) + 1; });
+
+    // ── General Costs Analysis ──
+    const generalEntries = withMarkups.map(entry => {
+      const divTotal = Object.values(entry.divisions || {}).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+      const div01 = parseFloat(entry.divisions?.["01"]) || 0;
+      const gcMarkups = (entry.markups || []).filter(m => classifyMarkup(m.key).category === "general");
+      const gcMarkupTotal = gcMarkups.reduce((s, m) => s + (m.calculatedAmount || 0), 0);
+      const grouping = detectGeneralCostGrouping(entry.markups, entry.divisions);
+      const combinedGeneral = div01 + gcMarkupTotal;
+      return {
+        entryId: entry.id, name: entry.name, buildingType: entry.buildingType,
+        div01, gcMarkupTotal, combinedGeneral,
+        combinedPct: divTotal > 0 ? Math.round((combinedGeneral / divTotal) * 1000) / 10 : 0,
+        grouping,
+      };
+    }).filter(e => e.combinedGeneral > 0);
+
+    const overlapCount = generalEntries.filter(e => e.grouping === "both-overlap").length;
+
+    // ── Project-Specific Costs ──
+    const projectCostKeys = MARKUP_TAXONOMY.filter(t => t.category === "project-cost");
+    const projectCostStats = projectCostKeys.map(tax => {
+      const relevant = withMarkups.filter(e =>
+        (e.markups || []).some(m => m.key === tax.key && (m.calculatedAmount || 0) > 0)
+      );
+      if (relevant.length === 0) return null;
+      const pcts = [];
+      relevant.forEach(e => {
+        const divTotal = Object.values(e.divisions || {}).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+        const item = e.markups.find(m => m.key === tax.key);
+        if (divTotal > 0 && item) pcts.push(((item.calculatedAmount || 0) / divTotal) * 100);
+      });
+      return {
+        key: tax.key, label: tax.label,
+        projectCount: relevant.length, totalProjects: withMarkups.length,
+        presencePct: Math.round((relevant.length / withMarkups.length) * 100),
+        avgPct: pcts.length > 0 ? Math.round((pcts.reduce((a, b) => a + b, 0) / pcts.length) * 10) / 10 : 0,
+        minPct: pcts.length > 0 ? Math.round(Math.min(...pcts) * 10) / 10 : 0,
+        maxPct: pcts.length > 0 ? Math.round(Math.max(...pcts) * 10) / 10 : 0,
+      };
+    }).filter(Boolean);
+
+    const insuranceAssumedCount = withMarkups.filter(e => isInsuranceAssumedInOP(e.markups || [])).length;
+
+    return {
+      withMarkups, holistic, totalIndirect, totalDirect, indirectPctOfDirect,
+      marginEntries, marginByDelivery, marginGroupings,
+      generalEntries, overlapCount,
+      projectCostStats, insuranceAssumedCount,
+    };
+  }, [entries]);
+
   // Stat card helper
   const StatCard = ({ label, value, sub, color, wide }) => (
     <div style={{
@@ -135,7 +256,7 @@ export default function CostHistoryAnalytics({ entries }) {
       minWidth: wide ? 180 : 110, flex: wide ? "1 1 180px" : "0 0 auto",
     }}>
       <div style={{ fontSize: 9, color: C.textDim, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>{label}</div>
-      <div style={{ fontSize: 18, fontWeight: 800, color: color || C.text, fontFamily: "'DM Mono',monospace" }}>{value}</div>
+      <div style={{ fontSize: 18, fontWeight: 800, color: color || C.text, fontFamily: "'DM Sans',sans-serif" }}>{value}</div>
       {sub && <div style={{ fontSize: 9, color: C.textDim, marginTop: 2 }}>{sub}</div>}
     </div>
   );
@@ -173,7 +294,7 @@ export default function CostHistoryAnalytics({ entries }) {
                   <div style={{
                     position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)",
                     fontSize: 7, fontWeight: 700, color: barColor, whiteSpace: "nowrap",
-                    fontFamily: "'DM Mono',monospace",
+                    fontFamily: "'DM Sans',sans-serif",
                   }}>
                     {d.index}
                   </div>
@@ -182,7 +303,7 @@ export default function CostHistoryAnalytics({ entries }) {
               <div style={{
                 fontSize: 7, color: isCurrent || isBase ? C.text : C.textDim,
                 fontWeight: isCurrent || isBase ? 700 : 400,
-                fontFamily: "'DM Mono',monospace",
+                fontFamily: "'DM Sans',sans-serif",
               }}>
                 {String(d.year).slice(-2)}
               </div>
@@ -243,7 +364,7 @@ export default function CostHistoryAnalytics({ entries }) {
           {stats.trendData.map(d => (
             <div key={d.year} style={{
               flex: 1, textAlign: "center", fontSize: 7,
-              fontFamily: "'DM Mono',monospace",
+              fontFamily: "'DM Sans',sans-serif",
               color: d.yoy > 5 ? C.orange : d.yoy > 0 ? C.green : C.textDim,
               fontWeight: d.yoy > 5 ? 700 : 400,
             }}>
@@ -273,12 +394,12 @@ export default function CostHistoryAnalytics({ entries }) {
                     <div key={d.category} style={{ display: "flex", alignItems: "center", gap: 5, padding: "2px 0" }}>
                       <span style={{ fontSize: 8, color: C.textDim, width: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
                       <GradientBar pct={(d.index / maxDiv) * 100} color={d.yoy > 3 ? C.orange : C.accent} />
-                      <span style={{ fontSize: 9, fontWeight: 700, color: C.text, fontFamily: "'DM Mono',monospace", minWidth: 28, textAlign: "right" }}>
+                      <span style={{ fontSize: 9, fontWeight: 700, color: C.text, fontFamily: "'DM Sans',sans-serif", minWidth: 28, textAlign: "right" }}>
                         {Math.round(d.index * 10) / 10}
                       </span>
                       <span style={{
                         fontSize: 8, fontWeight: 600, minWidth: 28, textAlign: "right",
-                        fontFamily: "'DM Mono',monospace",
+                        fontFamily: "'DM Sans',sans-serif",
                         color: d.yoy > 3 ? C.orange : d.yoy > 0 ? C.green : C.textDim,
                       }}>
                         {d.yoy > 0 ? "+" : ""}{Math.round(d.yoy * 10) / 10}%
@@ -304,9 +425,9 @@ export default function CostHistoryAnalytics({ entries }) {
                   <div key={t.key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={{ fontSize: 9, color: C.textDim, width: 90, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.label}</span>
                     <GradientBar pct={(t.adjPerSF / maxPerSF) * 100} color={C.accent} />
-                    <span style={{ fontSize: 10, fontWeight: 700, color: C.text, fontFamily: "'DM Mono',monospace", minWidth: 35, textAlign: "right" }}>${t.adjPerSF}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: C.text, fontFamily: "'DM Sans',sans-serif", minWidth: 35, textAlign: "right" }}>${t.adjPerSF}</span>
                     {t.avgPerSF !== t.adjPerSF && (
-                      <span style={{ fontSize: 7, color: C.textDim, fontFamily: "'DM Mono',monospace" }}>${t.avgPerSF}</span>
+                      <span style={{ fontSize: 7, color: C.textDim, fontFamily: "'DM Sans',sans-serif" }}>${t.avgPerSF}</span>
                     )}
                     <span style={{ fontSize: 8, color: C.textDim }}>({t.count})</span>
                   </div>
@@ -328,7 +449,7 @@ export default function CostHistoryAnalytics({ entries }) {
                 <div key={t.key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <span style={{ fontSize: 9, color: C.textDim, width: 90, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.label}</span>
                   <GradientBar pct={t.rate} color={t.rate >= 50 ? C.green : C.orange} />
-                  <span style={{ fontSize: 10, fontWeight: 700, color: t.rate >= 50 ? C.green : C.orange, fontFamily: "'DM Mono',monospace", minWidth: 30, textAlign: "right" }}>{t.rate}%</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: t.rate >= 50 ? C.green : C.orange, fontFamily: "'DM Sans',sans-serif", minWidth: 30, textAlign: "right" }}>{t.rate}%</span>
                   <span style={{ fontSize: 8, color: C.textDim }}>({t.won}/{t.total})</span>
                 </div>
               ))}
@@ -348,7 +469,7 @@ export default function CostHistoryAnalytics({ entries }) {
                   <div key={cl.name} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={{ fontSize: 9, color: C.textDim, width: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cl.name}</span>
                     <GradientBar pct={maxVal > 0 ? (cl.totalValue / maxVal) * 100 : 0} color={C.blue} />
-                    <span style={{ fontSize: 10, fontWeight: 700, color: C.text, fontFamily: "'DM Mono',monospace", minWidth: 50, textAlign: "right" }}>{fmtCost(cl.totalValue)}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: C.text, fontFamily: "'DM Sans',sans-serif", minWidth: 50, textAlign: "right" }}>{fmtCost(cl.totalValue)}</span>
                     {wr !== null && (
                       <span style={{ fontSize: 8, color: wr >= 50 ? C.green : C.orange, fontWeight: 600 }}>{wr}%</span>
                     )}
@@ -359,6 +480,331 @@ export default function CostHistoryAnalytics({ entries }) {
           </div>
         )}
       </div>
+
+      {/* ── Markup / Indirect Cost Analytics ── */}
+      {markupStats && (
+        <div style={{ marginTop: 14, borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+            Indirect Cost Intelligence — {markupStats.withMarkups.length} proposals with markup data
+          </div>
+
+          {/* View switcher tabs */}
+          <div style={{ display: "flex", gap: 4, marginBottom: 12, flexWrap: "wrap" }}>
+            {[
+              { key: "holistic", label: "Overview" },
+              { key: "margin",   label: "Margin" },
+              { key: "general",  label: "General Costs" },
+              { key: "project",  label: "Project Costs" },
+            ].map(v => (
+              <button key={v.key} onClick={() => setMarkupView(v.key)}
+                style={bt(C, {
+                  background: markupView === v.key ? `${C.accent}15` : "transparent",
+                  border: `1px solid ${markupView === v.key ? C.accent + '40' : C.border}`,
+                  color: markupView === v.key ? C.accent : C.textDim,
+                  padding: "4px 10px", fontSize: 10, fontWeight: 600,
+                })}>
+                {v.label}
+              </button>
+            ))}
+          </div>
+
+          {/* ═══ View A: Holistic Indirect Costs Overview ═══ */}
+          {markupView === "holistic" && (
+            <div>
+              {/* Top stat */}
+              <div style={{ display: "flex", gap: 10, marginBottom: 12, alignItems: "center" }}>
+                <StatCard label="Total Indirect" value={fmtCost(markupStats.totalIndirect)}
+                  sub={`${markupStats.indirectPctOfDirect}% of direct costs`}
+                  color={C.accent} />
+                <StatCard label="Direct Costs" value={fmtCost(markupStats.totalDirect)}
+                  sub={`Across ${markupStats.withMarkups.length} proposals`} />
+
+                {/* Ring chart */}
+                {markupStats.holistic.length > 1 && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <Ring
+                      segments={markupStats.holistic.map(h => ({
+                        value: h.totalAmount,
+                        color: C[h.color] || C.accent,
+                        label: h.label,
+                      }))}
+                      size={60} thickness={8}
+                      centerLabel=""
+                      centerValue={`${markupStats.indirectPctOfDirect}%`}
+                    />
+                    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                      {markupStats.holistic.map(h => (
+                        <div key={h.key} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <div style={{ width: 6, height: 6, borderRadius: 3, background: C[h.color] || C.accent }} />
+                          <span style={{ fontSize: 8, color: C.textDim }}>{h.label}</span>
+                          <span style={{ fontSize: 8, fontWeight: 700, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>
+                            {h.avgPctOfDirect}%
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Category breakdown bars */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {markupStats.holistic.map(h => {
+                  const maxPct = Math.max(...markupStats.holistic.map(x => x.avgPctOfDirect));
+                  const catColor = C[h.color] || C.accent;
+                  return (
+                    <div key={h.key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <div style={{ width: 6, height: 6, borderRadius: 3, background: catColor, flexShrink: 0 }} />
+                      <span style={{ fontSize: 9, color: C.textDim, width: 90, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {h.label}
+                      </span>
+                      <GradientBar pct={maxPct > 0 ? (h.avgPctOfDirect / maxPct) * 100 : 0} color={catColor} />
+                      <span style={{ fontSize: 10, fontWeight: 700, color: catColor, fontFamily: "'DM Sans',sans-serif", minWidth: 35, textAlign: "right" }}>
+                        {h.avgPctOfDirect}%
+                      </span>
+                      <span style={{ fontSize: 8, color: C.textDim }}>
+                        ({h.occurrences} items)
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ═══ View B: Margin Analysis ═══ */}
+          {markupView === "margin" && (
+            <div>
+              {/* Margin stats */}
+              <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                {markupStats.marginEntries.length > 0 && (() => {
+                  const pcts = markupStats.marginEntries.map(e => e.marginPct);
+                  const avg = Math.round((pcts.reduce((a, b) => a + b, 0) / pcts.length) * 10) / 10;
+                  const min = Math.round(Math.min(...pcts) * 10) / 10;
+                  const max = Math.round(Math.max(...pcts) * 10) / 10;
+                  // Most common grouping
+                  const topGrouping = Object.entries(markupStats.marginGroupings).sort((a, b) => b[1] - a[1])[0];
+                  const groupingLabels = {
+                    combined: "O&P Combined", split: "Fee + Overhead Split",
+                    "fee-only": "Fee Only", "overhead-only": "Overhead Only", none: "None",
+                  };
+                  return (
+                    <>
+                      <StatCard label="Avg Margin" value={`${avg}%`}
+                        sub={`Range: ${min}% – ${max}%`} color={C.accent} />
+                      <StatCard label="Projects" value={markupStats.marginEntries.length}
+                        sub="With margin data" />
+                      <StatCard label="Most Common" value={groupingLabels[topGrouping?.[0]] || "—"}
+                        sub={`${topGrouping?.[1] || 0} of ${markupStats.marginEntries.length} projects`}
+                        color={C.blue} />
+                    </>
+                  );
+                })()}
+              </div>
+
+              {/* Margin by delivery method */}
+              {Object.keys(markupStats.marginByDelivery).length > 0 && (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+                    Margin % by Delivery Method
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {Object.entries(markupStats.marginByDelivery)
+                      .sort((a, b) => b[1].count - a[1].count)
+                      .map(([dm, data]) => {
+                        const avg = Math.round((data.pcts.reduce((a, b) => a + b, 0) / data.pcts.length) * 10) / 10;
+                        const min = Math.round(Math.min(...data.pcts) * 10) / 10;
+                        const max = Math.round(Math.max(...data.pcts) * 10) / 10;
+                        return (
+                          <div key={dm} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ fontSize: 9, color: C.textDim, width: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {data.label}
+                            </span>
+                            <div style={{ flex: 1 }}>
+                              <RangeBar low={min} mid={avg} high={max} color={C.accent} height={5} />
+                            </div>
+                            <span style={{ fontSize: 10, fontWeight: 700, color: C.accent, fontFamily: "'DM Sans',sans-serif", minWidth: 35, textAlign: "right" }}>
+                              {avg}%
+                            </span>
+                            <span style={{ fontSize: 8, color: C.textDim }}>({data.count})</span>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+
+              {/* Grouping breakdown */}
+              {Object.keys(markupStats.marginGroupings).length > 1 && (
+                <div style={{ padding: "8px 10px", borderRadius: 6, background: C.bg2, fontSize: 10 }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>
+                    How GCs Present Their Margin
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {Object.entries(markupStats.marginGroupings).map(([g, count]) => {
+                      const labels = {
+                        combined: "O&P Combined", split: "Fee + Overhead",
+                        "fee-only": "Fee Only", "overhead-only": "Overhead Only",
+                      };
+                      return (
+                        <span key={g} style={{ color: C.text, fontWeight: 600 }}>
+                          {labels[g] || g}: <span style={{ color: C.accent }}>{count}</span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ═══ View C: General Costs ═══ */}
+          {markupView === "general" && (
+            <div>
+              {/* Combined/Separated toggle */}
+              <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
+                <button onClick={() => setGeneralCombined(true)}
+                  style={bt(C, {
+                    background: generalCombined ? `${C.blue}15` : "transparent",
+                    border: `1px solid ${generalCombined ? C.blue + '40' : C.border}`,
+                    color: generalCombined ? C.blue : C.textDim,
+                    padding: "3px 8px", fontSize: 9, fontWeight: 600,
+                  })}>
+                  Combined (GC + GR + Div 01)
+                </button>
+                <button onClick={() => setGeneralCombined(false)}
+                  style={bt(C, {
+                    background: !generalCombined ? `${C.blue}15` : "transparent",
+                    border: `1px solid ${!generalCombined ? C.blue + '40' : C.border}`,
+                    color: !generalCombined ? C.blue : C.textDim,
+                    padding: "3px 8px", fontSize: 9, fontWeight: 600,
+                  })}>
+                  Separated
+                </button>
+              </div>
+
+              {/* Overlap warning */}
+              {markupStats.overlapCount > 0 && (
+                <div style={{ padding: "6px 10px", borderRadius: 6, background: `${C.orange}10`, border: `1px solid ${C.orange}25`, marginBottom: 10, fontSize: 9, color: C.orange }}>
+                  ⚠ {markupStats.overlapCount} proposal{markupStats.overlapCount > 1 ? "s" : ""} have BOTH Division 01 costs AND GC/GR markups — possible overlap
+                </div>
+              )}
+
+              {markupStats.generalEntries.length > 0 && (() => {
+                if (generalCombined) {
+                  // Combined view
+                  const pcts = markupStats.generalEntries.map(e => e.combinedPct);
+                  const avg = Math.round((pcts.reduce((a, b) => a + b, 0) / pcts.length) * 10) / 10;
+                  const maxPct = Math.max(...pcts);
+                  return (
+                    <div>
+                      <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                        <StatCard label="Avg General Cost" value={`${avg}%`}
+                          sub={`of direct costs (${markupStats.generalEntries.length} projects)`}
+                          color={C.blue} />
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                        {markupStats.generalEntries.slice(0, 12).map(e => (
+                          <div key={e.entryId} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ fontSize: 9, color: C.textDim, width: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {e.name}
+                            </span>
+                            <GradientBar pct={maxPct > 0 ? (e.combinedPct / maxPct) * 100 : 0} color={C.blue} />
+                            <span style={{ fontSize: 10, fontWeight: 700, color: C.blue, fontFamily: "'DM Sans',sans-serif", minWidth: 35, textAlign: "right" }}>
+                              {e.combinedPct}%
+                            </span>
+                            {e.grouping === "both-overlap" && (
+                              <span style={{ fontSize: 7, color: C.orange, fontWeight: 700 }}>⚠</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                } else {
+                  // Separated view
+                  const withDiv01 = markupStats.generalEntries.filter(e => e.div01 > 0);
+                  const withGCMarkup = markupStats.generalEntries.filter(e => e.gcMarkupTotal > 0);
+                  const avgDiv01Pct = withDiv01.length > 0
+                    ? Math.round((withDiv01.reduce((s, e) => s + e.div01, 0) / withDiv01.reduce((s, e) => s + (Object.values(e.divisions || {}).reduce((ds, v) => ds + (parseFloat(v) || 0), 0) || 1), 0)) * 1000) / 10
+                    : 0;
+                  return (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      <div style={{ padding: "8px 10px", borderRadius: 6, background: C.bg2 }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: C.textDim, marginBottom: 4 }}>Division 01 (Direct Cost)</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>
+                          {withDiv01.length} of {markupStats.generalEntries.length} projects have Div 01 costs
+                        </div>
+                      </div>
+                      <div style={{ padding: "8px 10px", borderRadius: 6, background: C.bg2 }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: C.blue, marginBottom: 4 }}>GC / GR Markups (Below the Line)</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>
+                          {withGCMarkup.length} of {markupStats.generalEntries.length} projects have GC/GR markups
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+              })()}
+            </div>
+          )}
+
+          {/* ═══ View D: Project-Specific Costs ═══ */}
+          {markupView === "project" && (
+            <div>
+              <div style={{ fontSize: 9, color: C.textDim, marginBottom: 10, fontStyle: "italic" }}>
+                Project-specific costs are only averaged across projects where they appear — not all projects.
+              </div>
+
+              {markupStats.projectCostStats.length > 0 ? (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  {markupStats.projectCostStats.map(pc => {
+                    const tax = classifyMarkup(pc.key);
+                    const isInsurance = pc.key === "insurance";
+                    return (
+                      <div key={pc.key} style={{ padding: "8px 10px", borderRadius: 6, background: C.bg2, border: `1px solid ${C.border}` }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: C.text }}>{pc.label}</span>
+                          <span style={{ fontSize: 8, color: C.textDim, background: `${C.orange}10`, padding: "1px 5px", borderRadius: 3 }}>
+                            {pc.projectCount} of {pc.totalProjects} projects
+                          </span>
+                        </div>
+                        <div style={{ marginBottom: 4 }}>
+                          <RangeBar low={pc.minPct} mid={pc.avgPct} high={pc.maxPct} color={C.orange} height={4} />
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9 }}>
+                          <span style={{ color: C.textDim }}>
+                            {pc.minPct}% — {pc.maxPct}%
+                          </span>
+                          <span style={{ fontWeight: 700, color: C.orange, fontFamily: "'DM Sans',sans-serif" }}>
+                            avg {pc.avgPct}%
+                          </span>
+                        </div>
+                        {isInsurance && !tax.projectSpecific && (
+                          <div style={{ fontSize: 8, color: C.textDim, marginTop: 3, fontStyle: "italic" }}>
+                            Typical range: 1.5% – 3.5% of bid
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={{ fontSize: 10, color: C.textDim, textAlign: "center", padding: 16 }}>
+                  No project-specific cost data yet
+                </div>
+              )}
+
+              {/* Insurance assumed-in-O&P callout */}
+              {markupStats.insuranceAssumedCount > 0 && (
+                <div style={{ marginTop: 10, padding: "6px 10px", borderRadius: 6, background: `${C.blue}08`, border: `1px solid ${C.blue}15`, fontSize: 9, color: C.blue }}>
+                  Insurance not broken out on {markupStats.insuranceAssumedCount} of {markupStats.withMarkups.length} proposals — likely included in O&P or Overhead
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -24,7 +24,7 @@ export function BarChart({ data, height = 80, showLabels = true, showValues = fa
               flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 1,
             }}>
               {showValues && isLast && (
-                <div style={{ fontSize: 7, fontWeight: 700, color, fontFamily: "'DM Mono',monospace", whiteSpace: "nowrap" }}>
+                <div style={{ fontSize: 7, fontWeight: 700, color, fontFamily: "'DM Sans',sans-serif", whiteSpace: "nowrap" }}>
                   {typeof d.value === 'number' ? d.value.toLocaleString() : d.value}
                 </div>
               )}
@@ -32,9 +32,14 @@ export function BarChart({ data, height = 80, showLabels = true, showValues = fa
                 width: "100%", maxWidth: 20, borderRadius: "2px 2px 0 0",
                 height: animate ? h : h,
                 background: `linear-gradient(180deg, ${color}, ${color}50)`,
-                transition: animate ? "height 600ms cubic-bezier(0.34, 1.56, 0.64, 1)" : "none",
+                transition: animate ? "height 600ms cubic-bezier(0.34, 1.56, 0.64, 1), filter 120ms ease-out" : "filter 120ms ease-out",
                 opacity: isLast ? 1 : 0.7,
-              }} />
+                cursor: "pointer",
+              }}
+                onMouseEnter={e => { e.currentTarget.style.filter = "brightness(1.3)"; e.currentTarget.style.opacity = "1"; }}
+                onMouseLeave={e => { e.currentTarget.style.filter = "brightness(1)"; e.currentTarget.style.opacity = isLast ? "1" : "0.7"; }}
+                title={typeof d.value === 'number' ? d.value.toLocaleString() : String(d.value)}
+              />
             </div>
           );
         })}
@@ -44,7 +49,7 @@ export function BarChart({ data, height = 80, showLabels = true, showValues = fa
           {data.map((d, i) => (
             <div key={i} style={{
               flex: 1, textAlign: "center", fontSize: 7,
-              fontFamily: "'DM Mono',monospace",
+              fontFamily: "'DM Sans',sans-serif",
               color: i === data.length - 1 ? C.text : C.textDim,
               fontWeight: i === data.length - 1 ? 700 : 400,
             }}>
@@ -164,7 +169,7 @@ export function Ring({ segments, size = 80, thickness = 8, centerLabel, centerVa
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
       }}>
         {centerValue && (
-          <div style={{ fontSize: size * 0.2, fontWeight: 800, color: C.text, fontFamily: "'DM Mono',monospace" }}>
+          <div style={{ fontSize: size * 0.2, fontWeight: 800, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>
             {centerValue}
           </div>
         )}
@@ -179,7 +184,7 @@ export function Ring({ segments, size = 80, thickness = 8, centerLabel, centerVa
 }
 
 // ── Gradient Bar (horizontal) ──
-export function GradientBar({ pct, color, height = 4 }) {
+export function GradientBar({ pct, color, height = 4, glow }) {
   const C = useTheme();
   return (
     <div style={{ height, borderRadius: height / 2, background: C.bg2, flex: 1, position: "relative" }}>
@@ -187,6 +192,7 @@ export function GradientBar({ pct, color, height = 4 }) {
         position: "absolute", left: 0, top: 0, height: "100%",
         width: `${Math.min(pct, 100)}%`, borderRadius: height / 2,
         background: `linear-gradient(90deg, ${color}80, ${color})`,
+        boxShadow: glow ? `0 0 8px ${color}30` : "none",
         transition: "width 600ms cubic-bezier(0.34, 1.56, 0.64, 1)",
       }} />
     </div>

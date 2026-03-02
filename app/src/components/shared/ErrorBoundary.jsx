@@ -67,7 +67,7 @@ export default class ErrorBoundary extends Component {
               background: 'rgba(248,113,113,0.06)',
               border: '1px solid rgba(248,113,113,0.1)',
               fontSize: 11, color: '#F87171',
-              fontFamily: "'DM Mono', monospace",
+              fontFamily: "'DM Sans', sans-serif",
               whiteSpace: 'pre-wrap', wordBreak: 'break-word',
               maxHeight: 120, overflow: 'auto',
             }}>

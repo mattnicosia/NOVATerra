@@ -12,12 +12,165 @@ import {
   isLikelyTag,
   detectScheduleRegions,
   isInScheduleRegion,
+  getScheduleRegions,
 } from './pdfExtractor';
 
 import {
   analyzeDrawingGeometry,
   generateAutoMeasurements,
 } from './geometryEngine';
+
+// ══════════════════════════════════════════════════════════════════════
+// PREDICTION LEARNING RECORD — accumulates accept/reject feedback
+// Persists during the app session, modulates confidence for future predictions
+// ══════════════════════════════════════════════════════════════════════
+const _learningRecord = new Map(); // key: `${tag}::${strategy}` → { accepts, rejects, lastUsed }
+
+/**
+ * Record a user accept/reject for a prediction tag + strategy
+ * Called from TakeoffsPage when user accepts or rejects predictions
+ */
+export function recordPredictionFeedback(tag, strategy, accepted) {
+  if (!tag) return;
+  const key = `${tag.toUpperCase()}::${strategy || "tag-based"}`;
+  const entry = _learningRecord.get(key) || { accepts: 0, rejects: 0, lastUsed: 0 };
+  if (accepted) entry.accepts++; else entry.rejects++;
+  entry.lastUsed = Date.now();
+  _learningRecord.set(key, entry);
+
+  // LRU eviction: cap at 50 entries
+  if (_learningRecord.size > 50) {
+    let oldest = null, oldestKey = null;
+    _learningRecord.forEach((v, k) => { if (!oldest || v.lastUsed < oldest) { oldest = v.lastUsed; oldestKey = k; } });
+    if (oldestKey) _learningRecord.delete(oldestKey);
+  }
+}
+
+/**
+ * Get a confidence multiplier based on historical accept/reject ratio for a tag
+ * Returns 0.7–1.2 multiplier (penalizes low-accept tags, boosts high-accept tags)
+ */
+export function getLearningMultiplier(tag, strategy) {
+  if (!tag) return 1.0;
+  const key = `${tag.toUpperCase()}::${strategy || "tag-based"}`;
+  const entry = _learningRecord.get(key);
+  if (!entry || (entry.accepts + entry.rejects) < 2) return 1.0; // Not enough data
+  const total = entry.accepts + entry.rejects;
+  const ratio = entry.accepts / total;
+  // Map ratio: 0% → 0.7x, 50% → 1.0x, 100% → 1.2x
+  return 0.7 + ratio * 0.5;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// WARM PREDICTION CACHE — pre-compute tag analysis before user clicks
+// ══════════════════════════════════════════════════════════════════════
+const _warmCache = new Map(); // key: `${drawingId}::${description}` → { strategy, data, scheduleRegions, tagScores, allTags, timestamp }
+
+function _warmCacheEvict() {
+  if (_warmCache.size <= 5) return;
+  let oldest = null, oldestKey = null;
+  _warmCache.forEach((v, k) => { if (!oldest || v.timestamp < oldest) { oldest = v.timestamp; oldestKey = k; } });
+  if (oldestKey) _warmCache.delete(oldestKey);
+}
+
+/**
+ * Pre-compute tag analysis for a drawing + description combination.
+ * Call this when engaging measurement mode so data is warm before user clicks.
+ */
+export async function warmPredictions(drawing, description) {
+  const key = `${drawing.id}::${description || ""}`;
+  if (_warmCache.has(key)) return; // already warm
+
+  try {
+    const data = await extractPageData(drawing);
+    const strategy = classifyTakeoffStrategy(description);
+
+    // For surface strategies, no tag work needed — just cache the strategy
+    if (strategy === "exterior-surface" || strategy === "interior-surface") {
+      // Also pre-warm geometry in background
+      analyzeDrawingGeometry(drawing).catch(() => {});
+      _warmCache.set(key, { strategy, data, timestamp: Date.now() });
+      _warmCacheEvict();
+      return;
+    }
+
+    // For tag-based/structural: pre-score all tags against the description
+    // Use combined schedule regions (detected + external from scan system)
+    const scheduleRegions = getScheduleRegions(drawing.id) || data.scheduleRegions || detectScheduleRegions(data);
+    const headerPositions = findScheduleHeaderPositions(data.text);
+    const tagScores = new Map(); // tagText → relevance score
+    const allTags = [];
+
+    for (const item of data.text) {
+      if (!isLikelyTag(item.text)) continue;
+      if (isInScheduleRegion(item.x, item.y, scheduleRegions)) continue;
+      // Suppress tags near schedule header keywords
+      if (headerPositions.length > 0 && isNearScheduleHeader(item, headerPositions)) continue;
+      const score = description ? scoreTagRelevance(item.text, description) : 0;
+      tagScores.set(item.text, Math.max(tagScores.get(item.text) || 0, score));
+      allTags.push(item);
+    }
+
+    _warmCache.set(key, { strategy, data, scheduleRegions, tagScores, allTags, timestamp: Date.now() });
+    _warmCacheEvict();
+  } catch (err) {
+    console.warn("[NOVA Warm] Failed:", err.message);
+  }
+}
+
+/**
+ * Retrieve warm cache data for a drawing + description.
+ * Returns null if not warmed yet.
+ */
+export function getWarmData(drawingId, description) {
+  return _warmCache.get(`${drawingId}::${description || ""}`) || null;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// SCHEDULE HEADER KEYWORD SUPPRESSION
+// Tags that appear near schedule column headers are schedule entries,
+// not plan-area tags. This catches schedules missed by region detection.
+// ══════════════════════════════════════════════════════════════════════
+const SCHEDULE_HEADER_WORDS = new Set([
+  'SCHEDULE', 'LEGEND', 'KEY', 'NOTES', 'SPECIFICATIONS', 'SPEC',
+  'ABBREVIATIONS', 'MARK', 'TYPE', 'SIZE', 'DESCRIPTION', 'MANUFACTURER',
+  'MODEL', 'QUANTITY', 'QTY', 'REMARKS', 'HEIGHT', 'WIDTH', 'THICKNESS',
+  'RATING', 'FINISH', 'MATERIAL', 'CATALOG', 'CAT#', 'SERIES',
+  'HARDWARE', 'GLASS', 'FRAME', 'DETAIL', 'NOTE', 'COLOR', 'GAUGE',
+  'HEAD', 'JAMB', 'SILL', 'LOUVER', 'CFM', 'BTU', 'VOLTS', 'AMPS',
+  'WATTS', 'HP', 'RPM', 'GPM', 'MOUNTING', 'LOCATION', 'DOOR',
+  'WINDOW', 'FIXTURE', 'EQUIPMENT', 'SYMBOL',
+]);
+
+/**
+ * Pre-compute positions of schedule header keywords on a page.
+ * Returns an array of {x, y} positions for known schedule headers.
+ */
+function findScheduleHeaderPositions(textItems) {
+  const positions = [];
+  for (const item of textItems) {
+    const word = item.text.trim().toUpperCase();
+    if (SCHEDULE_HEADER_WORDS.has(word)) {
+      positions.push({ x: item.x, y: item.y });
+    }
+  }
+  return positions;
+}
+
+/**
+ * Check if a text item is near a schedule header keyword.
+ * Tags within ~100px vertically of schedule headers are likely schedule entries.
+ */
+function isNearScheduleHeader(item, headerPositions, radius = 100) {
+  for (const hp of headerPositions) {
+    // Check horizontal overlap (same column region) AND vertical proximity
+    const dx = Math.abs(item.x - hp.x);
+    const dy = Math.abs(item.y - hp.y);
+    // Schedule entries are typically below headers in the same column (within 300px horizontal, 200px vertical)
+    if (dx < 300 && dy < 200 && dy > 0) return true;
+  }
+  return false;
+}
 
 // ══════════════════════════════════════════════════════════════════════
 // DESCRIPTION-AWARE FILTERING
@@ -57,6 +210,59 @@ const ABBREV_MAP = {
   UT: ["utility"],
 };
 
+// ══════════════════════════════════════════════════════════════════════
+// TAKEOFF STRATEGY CLASSIFICATION
+// Categorizes takeoff descriptions into prediction strategies so the engine
+// doesn't show irrelevant results (e.g., window tags for siding takeoffs)
+// ══════════════════════════════════════════════════════════════════════
+
+// Exterior surface items — measured by area/linear along building exterior.
+// These have no plan tags; they relate to exterior walls, not rooms or openings.
+const EXTERIOR_SURFACE_TERMS = [
+  "siding", "cladding", "sheathing", "stucco", "eifs", "dryvit", "hardie",
+  "lap", "board and batten", "vinyl", "fiber cement", "metal panel",
+  "rain screen", "rainscreen", "facade", "veneer", "brick veneer",
+  "stone veneer", "waterproofing", "weather barrier", "house wrap",
+  "tyvek", "vapor barrier", "air barrier", "flashing", "soffit", "fascia",
+  "trim", "exterior trim", "cornice", "exterior finish", "exterior paint",
+  "exterior coating", "exterior insulation",
+];
+
+// Interior surface items — measured by area on interior walls/ceilings
+const INTERIOR_SURFACE_TERMS = [
+  "drywall", "gypsum", "gyp", "plaster", "paint", "primer", "texture",
+  "wallpaper", "wainscot", "paneling", "tile", "backsplash", "acoustic",
+  "ceiling tile", "ceiling grid", "suspended ceiling", "drop ceiling",
+  "interior finish", "interior paint", "interior coating",
+  "flooring", "hardwood", "carpet", "lvp", "vinyl plank", "vinyl tile",
+  "lvt", "laminate", "epoxy floor", "epoxy coating", "polished concrete",
+  "terrazzo", "rubber flooring", "sheet vinyl", "vct", "porcelain tile",
+  "ceramic tile", "wood floor", "bamboo", "cork floor", "linoleum",
+];
+
+// Structural items that relate to geometry (walls, floors)
+const STRUCTURAL_GEOMETRY_TERMS = [
+  "wall", "partition", "framing", "stud", "plate", "header", "joist",
+  "rafter", "truss", "beam", "column", "footing", "foundation",
+  "slab", "floor", "roof", "deck", "shear wall", "bracing",
+  "blocking", "furring", "insulation", "batt",
+];
+
+/**
+ * Classify a takeoff description into a prediction strategy.
+ * Returns: "exterior-surface" | "interior-surface" | "structural" | "tag-based" | "general"
+ */
+export function classifyTakeoffStrategy(description) {
+  if (!description) return "general";
+  const desc = description.toLowerCase();
+
+  if (EXTERIOR_SURFACE_TERMS.some(t => desc.includes(t))) return "exterior-surface";
+  if (INTERIOR_SURFACE_TERMS.some(t => desc.includes(t))) return "interior-surface";
+  if (STRUCTURAL_GEOMETRY_TERMS.some(t => desc.includes(t))) return "structural";
+
+  return "tag-based"; // default: try to find plan tags
+}
+
 /**
  * Score 0.0–1.0 how well a tag matches a takeoff description
  * 1.0  = tag text literally found in description
@@ -90,11 +296,28 @@ export function scoreTagRelevance(tagText, description) {
     }
   }
 
+  // Reverse abbreviation: description words (as abbreviations) expand to match tag text
+  // Example: description="W" → ABBREV_MAP["W"] = ["window"] → tag "WINDOW" matches
+  for (const word of descWords) {
+    const wordLetters = word.replace(/[^A-Z]/g, "");
+    if (wordLetters && ABBREV_MAP[wordLetters]) {
+      for (const exp of ABBREV_MAP[wordLetters]) {
+        if (tag.toLowerCase().includes(exp)) return 0.8;
+      }
+    }
+  }
+
   // Prefix match: tag letters match start of any description word
-  if (tagLetters.length >= 1) {
+  // Require at least 2-letter prefix to avoid false positives (e.g., "S" matching "Siding")
+  if (tagLetters.length >= 2) {
     for (const word of descWords) {
       if (word.startsWith(tagLetters) && word.length > tagLetters.length) return 0.6;
     }
+  }
+
+  // Reverse prefix: description word is a prefix of tag (e.g., desc="WIN" matches tag "WINDOW")
+  for (const word of descWords) {
+    if (word.length >= 2 && tag.startsWith(word) && tag.length > word.length) return 0.6;
   }
 
   return 0;
@@ -158,11 +381,11 @@ export function detectDifferentiator(extractedData, tagX, tagY, description) {
 export function findNearestRelevantTag(data, x, y, description) {
   if (!data?.text) return null;
 
-  // Try nearest tag first
+  // Try nearest tag first — require 0.5 relevance to reduce false positives
   const nearest = findNearestTag(data, x, y, 150);
   if (nearest) {
     const relevance = scoreTagRelevance(nearest.text, description);
-    if (relevance >= 0.3) {
+    if (relevance >= 0.5) {
       return { ...nearest, relevance };
     }
   }
@@ -181,7 +404,7 @@ export function findNearestRelevantTag(data, x, y, description) {
     const relevance = scoreTagRelevance(item.text, description);
     // Weight by relevance, penalize distance
     const score = relevance * (1 - dist / 400);
-    if (score > bestScore && relevance >= 0.3) {
+    if (score > bestScore && relevance >= 0.5) {
       bestScore = score;
       bestTag = { ...item, distance: dist, relevance };
     }
@@ -189,23 +412,30 @@ export function findNearestRelevantTag(data, x, y, description) {
 
   if (bestTag) return bestTag;
 
-  // Whole-page fallback: search ALL text items (including non-tag text like "DUPLEX", "2BR")
-  // for description-relevant matches anywhere on the page
-  // Filter out schedule/legend regions to avoid matching schedule entries
-  const scheduleRegions = detectScheduleRegions(data);
+  // Constrained fallback: search text within 500px of click point (NOT whole page)
+  // for description-relevant matches. Filter out schedule/legend regions.
+  const scheduleRegions = data.scheduleRegions || detectScheduleRegions(data);
+  const headerPositions = findScheduleHeaderPositions(data.text);
+  const fallbackRadius = 500;
   let pagebestTag = null;
-  let pagebestRelevance = 0;
+  let pagebestScore = 0;
 
   for (const item of data.text) {
     const t = item.text.trim();
     if (!t || t.length > 20) continue; // skip empty or very long text
-    if (isInScheduleRegion(item.x, item.y, scheduleRegions)) continue; // skip schedule entries
+    const dx = item.x - x;
+    const dy = item.y - y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist > fallbackRadius) continue; // constrain to nearby area
+    if (isInScheduleRegion(item.x, item.y, scheduleRegions)) continue;
+    if (headerPositions.length > 0 && isNearScheduleHeader(item, headerPositions)) continue;
     const relevance = scoreTagRelevance(t, description);
-    if (relevance > pagebestRelevance && relevance >= 0.5) {
-      pagebestRelevance = relevance;
-      const dx = item.x - x;
-      const dy = item.y - y;
-      pagebestTag = { ...item, text: t, distance: Math.sqrt(dx * dx + dy * dy), relevance };
+    if (relevance < 0.5) continue;
+    // Weight by relevance AND distance (closer = better)
+    const score = relevance * (1 - dist / (fallbackRadius * 1.2));
+    if (score > pagebestScore) {
+      pagebestScore = score;
+      pagebestTag = { ...item, text: t, distance: dist, relevance };
     }
   }
 
@@ -469,41 +699,6 @@ export function predictWalls(extractedData, tag, existingMeasurement = null, exc
  * @param {Object} clickPoint - Where the user clicked {x, y} in canvas coords
  * @returns {Object} { tag, predictions[], extractionStats }
  */
-export async function runPredictions(drawing, takeoff, measurementType, clickPoint) {
-  // Step 1: Extract page data (cached after first call)
-  const data = await extractPageData(drawing);
-  const description = takeoff.description || "";
-
-  // Step 2: Find the tag nearest to where the user clicked (description-aware)
-  const nearestTag = description
-    ? findNearestRelevantTag(data, clickPoint.x, clickPoint.y, description)
-    : findNearestTag(data, clickPoint.x, clickPoint.y, 150);
-  if (!nearestTag) {
-    return { tag: null, predictions: [], extractionStats: data.stats, message: "No tag found near click point" };
-  }
-
-  // Step 3: Get existing measurement positions to exclude
-  const existingPositions = (takeoff.measurements || [])
-    .filter(m => m.sheetId === drawing.id)
-    .flatMap(m => m.points || []);
-
-  // Step 4: Generate predictions based on measurement type
-  let predictions;
-  if (measurementType === "count") {
-    predictions = predictCounts(data, nearestTag.text, existingPositions, description);
-  } else {
-    predictions = predictWalls(data, nearestTag.text, takeoff, existingPositions, description);
-  }
-
-  return {
-    tag: nearestTag.text,
-    tagPosition: { x: nearestTag.x, y: nearestTag.y },
-    predictions,
-    extractionStats: data.stats,
-    totalInstances: findPlanTagInstances(data, nearestTag.text).length,
-  };
-}
-
 /**
  * Generate area predictions from geometry analysis (rooms)
  * @param {Object} geometryResult - Output from analyzeDrawingGeometry()
@@ -540,7 +735,7 @@ export function predictAreas(geometryResult, drawingId, excludePositions = [], t
       return {
         id: nextPredId(),
         type: "area",
-        tag: labelText || `Room`,
+        tag: labelText || takeoffDescription || `Room`,
         points: room.polygon,
         point: room.centroid,
         area: room.area,
@@ -563,19 +758,135 @@ export function predictAreas(geometryResult, drawingId, excludePositions = [], t
  * @returns {Object} { tag, predictions[], source, confidence, totalInstances }
  */
 export async function runSmartPredictions(drawing, takeoff, measurementType, clickPoint) {
-  // Step 1: Extract page data (cached)
-  const data = await extractPageData(drawing);
   const description = takeoff.description || "";
+
+  // Step 1: Check warm cache first, fall back to extraction
+  const warm = getWarmData(drawing.id, description);
+  const data = warm?.data || await extractPageData(drawing);
 
   const existingPositions = (takeoff.measurements || [])
     .filter(m => m.sheetId === drawing.id)
     .flatMap(m => m.points || []);
 
+  // Step 2: Classify takeoff strategy (use warm cache if available)
+  const strategy = warm?.strategy || classifyTakeoffStrategy(description);
+  console.log("[NOVA] Strategy:", strategy, "for", JSON.stringify(description), "measureType:", measurementType, warm ? "(warm)" : "");
+
+  // ── SURFACE strategies: geometry only, NO tag detection ──
+  // Surface items (siding, stucco, drywall, paint) must NEVER use tag detection.
+  // Descriptions like "Black Metal Siding" contain common words ("METAL") that
+  // appear everywhere on plans (window schedules, material callouts) and produce
+  // garbage predictions. Only geometry-based predictions are valid for surfaces.
+  if (strategy === "exterior-surface" || strategy === "interior-surface") {
+    try {
+      const geometry = await analyzeDrawingGeometry(drawing);
+
+      if ((measurementType === "linear" || measurementType === "area") && geometry.walls.length > 0) {
+        const wallMeasurements = generateAutoMeasurements(geometry, drawing.id, {
+          includeWalls: true, includeRooms: false, includeOpenings: false,
+        });
+        const predictions = wallMeasurements
+          .filter(m => {
+            const centerX = (m.points[0].x + m.points[1].x) / 2;
+            const centerY = (m.points[0].y + m.points[1].y) / 2;
+            const dist = Math.sqrt((centerX - clickPoint.x) ** 2 + (centerY - clickPoint.y) ** 2);
+            return dist < 600;
+          })
+          .filter(m => !existingPositions.some(p =>
+            Math.sqrt((p.x - m.points[0].x) ** 2 + (p.y - m.points[0].y) ** 2) < 40
+          ))
+          .map(m => ({
+            id: nextPredId(),
+            type: "wall",
+            tag: description || (strategy === "exterior-surface" ? "Exterior Wall" : "Interior Wall"),
+            points: m.points,
+            wallWidth: m.wallWidth,
+            confidence: (m.confidence || 0.7) * 0.65,
+            source: "geometry",
+          }));
+
+        if (predictions.length > 0) {
+          return {
+            tag: description || (strategy === "exterior-surface" ? "Exterior" : "Interior"),
+            predictions,
+            source: "geometry",
+            confidence: 0.55,
+            extractionStats: data.stats,
+            totalInstances: predictions.length,
+            strategy,
+            takeoffId: takeoff.id,
+          };
+        }
+      }
+
+      // Interior surfaces can also match rooms
+      if (strategy === "interior-surface" && measurementType === "area" && geometry.rooms.length > 0) {
+        const predictions = predictAreas(geometry, drawing.id, existingPositions, description);
+        if (predictions.length > 0) {
+          return {
+            tag: description || "Interior Surface",
+            predictions,
+            source: "geometry",
+            confidence: 0.65,
+            extractionStats: data.stats,
+            totalInstances: predictions.length,
+            strategy,
+            takeoffId: takeoff.id,
+          };
+        }
+      }
+    } catch (err) {
+      console.warn("[NOVA] Geometry failed for", strategy, ":", err);
+    }
+
+    // No geometry — surface items cannot use tag detection, return empty.
+    // Future: Vision API will handle texture/pattern recognition for surfaces.
+    return {
+      tag: null,
+      predictions: [],
+      source: "none",
+      confidence: 0,
+      extractionStats: data.stats,
+      strategy,
+      takeoffId: takeoff.id,
+      message: strategy === "exterior-surface"
+        ? `NOVA recognizes "${description}" as an exterior surface. Automatic predictions for surfaces require drawing geometry or future vision analysis. Measure manually for now.`
+        : `NOVA recognizes "${description}" as an interior surface. Automatic predictions for surfaces require room geometry or future vision analysis. Measure manually for now.`,
+    };
+  }
+
   // ── Phase 1: Tag detection (instant, free) ──
-  // Use description-aware tag search when description is available
-  const nearestTag = description
-    ? findNearestRelevantTag(data, clickPoint.x, clickPoint.y, description)
-    : findNearestTag(data, clickPoint.x, clickPoint.y, 150);
+  // Use warm cache tag scores when available to skip re-scoring
+  let nearestTag;
+  if (warm?.tagScores && warm.tagScores.size > 0 && description) {
+    // Fast path: use pre-scored tags from warm cache
+    const scheduleRegions = warm.scheduleRegions || getScheduleRegions(drawing.id) || detectScheduleRegions(data);
+    let bestTag = null, bestScore = 0;
+    for (const item of (warm.allTags || [])) {
+      if (isInScheduleRegion(item.x, item.y, scheduleRegions)) continue;
+      const dx = item.x - clickPoint.x, dy = item.y - clickPoint.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > 300) continue;
+      const relevance = warm.tagScores.get(item.text) || 0;
+      if (relevance < 0.5) continue;
+      const score = relevance * (1 - dist / 400);
+      if (score > bestScore) { bestScore = score; bestTag = { ...item, distance: dist, relevance }; }
+    }
+    // Also check nearest within tight radius (even if score lower)
+    if (!bestTag) {
+      const nearest = findNearestTag(data, clickPoint.x, clickPoint.y, 150);
+      if (nearest) {
+        const relevance = warm.tagScores.get(nearest.text) ?? scoreTagRelevance(nearest.text, description);
+        if (relevance >= 0.5) bestTag = { ...nearest, relevance };
+      }
+    }
+    nearestTag = bestTag;
+  } else {
+    // Standard path: no warm cache
+    nearestTag = description
+      ? findNearestRelevantTag(data, clickPoint.x, clickPoint.y, description)
+      : findNearestTag(data, clickPoint.x, clickPoint.y, 150);
+  }
 
   if (nearestTag) {
     const relevance = nearestTag.relevance ?? scoreTagRelevance(nearestTag.text, description);
@@ -596,11 +907,17 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
       predictions = predictCounts(data, nearestTag.text, existingPositions, description);
     }
 
-    // Apply relevance score to confidence
+    // Apply relevance score and learning multiplier to confidence
+    const learnMult = getLearningMultiplier(nearestTag.text, strategy);
     if (relevance > 0 && relevance < 1) {
       predictions = predictions.map(p => ({
         ...p,
-        confidence: Math.min(1, p.confidence * Math.max(relevance, 0.5)),
+        confidence: Math.min(1, p.confidence * Math.max(relevance, 0.5) * learnMult),
+      }));
+    } else {
+      predictions = predictions.map(p => ({
+        ...p,
+        confidence: Math.min(1, p.confidence * learnMult),
       }));
     }
 
@@ -610,18 +927,25 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
         tagPosition: { x: nearestTag.x, y: nearestTag.y },
         predictions,
         source: "tag",
-        confidence: 0.85 * Math.max(relevance, 0.5),
+        confidence: Math.min(1, 0.85 * Math.max(relevance, 0.5) * learnMult),
         extractionStats: data.stats,
         totalInstances: findPlanTagInstances(data, nearestTag.text).length,
+        strategy,
+        takeoffId: takeoff.id,
       };
     }
   }
 
   // ── Phase 2: Geometry detection (instant, free) ──
   // Works even without tags — analyzes vector geometry
-  // Skip geometry fallback if description suggests non-geometric items (e.g., "Duplexes")
-  const descRelatesToGeometry = !description || scoreTagRelevance("Wall", description) >= 0.3
-    || scoreTagRelevance("Room", description) >= 0.3 || scoreTagRelevance("Floor", description) >= 0.3;
+  // Allow geometry for: structural items, items with wall/room/floor in name,
+  // or items with no description (generic fallback)
+  const descRelatesToGeometry = !description
+    || strategy === "structural"
+    || scoreTagRelevance("Wall", description) >= 0.3
+    || scoreTagRelevance("Room", description) >= 0.3
+    || scoreTagRelevance("Floor", description) >= 0.3
+    || scoreTagRelevance("Ceiling", description) >= 0.3;
 
   if ((measurementType === "linear" || measurementType === "area") && descRelatesToGeometry) {
     try {
@@ -663,6 +987,7 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
             confidence: 0.75,
             extractionStats: data.stats,
             totalInstances: predictions.length,
+            strategy,
           };
         }
       }
@@ -671,12 +996,14 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
         const predictions = predictAreas(geometry, drawing.id, existingPositions, description);
         if (predictions.length > 0) {
           return {
-            tag: "Rooms",
+            tag: description || "Rooms",
             predictions,
             source: "geometry",
             confidence: 0.7,
             extractionStats: data.stats,
             totalInstances: predictions.length,
+            strategy,
+            takeoffId: takeoff.id,
           };
         }
       }
@@ -687,8 +1014,9 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
 
   // ── Phase 3: Count via geometry (openings detection) ──
   // Only fall through to openings if the takeoff description relates to doors/windows,
-  // or if no description is set (generic count)
-  if (measurementType === "count") {
+  // or if no description is set (generic count).
+  // NEVER show openings for items classified as surfaces or structural.
+  if (measurementType === "count" && strategy === "tag-based") {
     try {
       const geometry = await analyzeDrawingGeometry(drawing);
       if (geometry.openings.length > 0) {
@@ -721,6 +1049,8 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
             confidence: 0.6,
             extractionStats: data.stats,
             totalInstances: predictions.length,
+            strategy,
+            takeoffId: takeoff.id,
           };
         }
       }
@@ -730,14 +1060,17 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
   }
 
   // Phase 4: Vision API fallback would go here (future implementation)
-  // For now, return empty
   return {
     tag: null,
     predictions: [],
     source: "none",
     confidence: 0,
     extractionStats: data.stats,
-    message: "No predictions could be generated",
+    strategy,
+    takeoffId: takeoff.id,
+    message: description
+      ? `No predictions for "${description}" — NOVA couldn't find matching tags or geometry. Measure manually.`
+      : "No predictions could be generated",
   };
 }
 
@@ -772,24 +1105,6 @@ export function findNearbyPrediction(predictions, point, acceptedIds, rejectedId
 /**
  * Run predictions using a known tag (e.g., from a previous detection)
  */
-export async function runPredictionsForTag(drawing, tag, measurementType, excludePositions = []) {
-  const data = await extractPageData(drawing);
-
-  let predictions;
-  if (measurementType === "count") {
-    predictions = predictCounts(data, tag, excludePositions);
-  } else {
-    predictions = predictWalls(data, tag, null, excludePositions);
-  }
-
-  return {
-    tag,
-    predictions,
-    extractionStats: data.stats,
-    totalInstances: findPlanTagInstances(data, tag).length,
-  };
-}
-
 /**
  * Cross-sheet scanning — find tag instances across all drawings
  */
@@ -818,53 +1133,4 @@ export async function scanAllSheets(drawings, tag, measurementType) {
   return results;
 }
 
-// ══════════════════════════════════════════════════════════════════════
-// PREDICTION STATE
-// Manages active predictions for the UI
-// ══════════════════════════════════════════════════════════════════════
-const predictionState = {
-  active: false,
-  tag: null,
-  predictions: [],
-  accepted: new Set(),
-  rejected: new Set(),
-  scanning: false,
-};
-
-export function getPredictionState() { return { ...predictionState }; }
-
-export function setPredictions(tag, predictions) {
-  predictionState.active = true;
-  predictionState.tag = tag;
-  predictionState.predictions = predictions;
-  predictionState.accepted.clear();
-  predictionState.rejected.clear();
-}
-
-export function acceptPrediction(id) { predictionState.accepted.add(id); }
-export function rejectPrediction(id) { predictionState.rejected.add(id); }
-
-export function acceptAll() {
-  predictionState.predictions.forEach(p => {
-    if (!predictionState.rejected.has(p.id)) predictionState.accepted.add(p.id);
-  });
-}
-
-export function getAcceptedPredictions() {
-  return predictionState.predictions.filter(p =>
-    predictionState.accepted.has(p.id) && !predictionState.rejected.has(p.id)
-  );
-}
-
-export function clearPredictions() {
-  predictionState.active = false;
-  predictionState.tag = null;
-  predictionState.predictions = [];
-  predictionState.accepted.clear();
-  predictionState.rejected.clear();
-  predictionState.scanning = false;
-}
-
-export function setScanningState(scanning) {
-  predictionState.scanning = scanning;
-}
+// (Prediction state is managed via Zustand takeoffsStore — no module-level state needed)

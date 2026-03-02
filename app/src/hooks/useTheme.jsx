@@ -1,74 +1,50 @@
 import { createContext, useContext, useMemo } from 'react';
-import { C_DEFAULT, PALETTES, buildDarkPanel, findLightVariant } from '@/constants/palettes';
+import { C_DEFAULT, PALETTES } from '@/constants/palettes';
 import { useUiStore } from '@/stores/uiStore';
-import { T } from '@/utils/designTokens';
+import { T, buildTokens } from '@/utils/designTokens';
 
 const ThemeContext = createContext({ ...C_DEFAULT, T, isDark: false });
 
 export function ThemeProvider({ children }) {
   const selectedPalette = useUiStore(s => s.appSettings.selectedPalette);
-  const customPalettes = useUiStore(s => s.appSettings.customPalettes);
+  const density = useUiStore(s => s.appSettings?.density || "comfortable");
 
   const value = useMemo(() => {
-    const allPalettes = [...PALETTES, ...(customPalettes || [])];
+    const tokens = buildTokens(density);
 
-    // Support "paletteId:variantIndex" format  (e.g. "mars:2")
-    let palId = selectedPalette;
-    let variantIdx = 0;
-    if (palId && palId.includes(":")) {
-      const parts = palId.split(":");
-      palId = parts[0];
-      variantIdx = parseInt(parts[1], 10) || 0;
+    // Simple dark/light toggle — Clarity palette is the base
+    const isDarkMode = selectedPalette === 'dark';
+    const palette = PALETTES.find(p => p.id === 'clarity') || PALETTES[0];
+    const darkBase = { ...C_DEFAULT, ...(palette.overrides || {}) };
+
+    if (isDarkMode) {
+      // Dark Liquid Glass: Clarity dark base + dark glass tokens (with specular/lensing)
+      // Override glass values to be translucent for dark Liquid Glass effect
+      const colors = {
+        ...darkBase,
+        glassBg: 'rgba(255,255,255,0.04)',
+        glassBorder: 'rgba(255,255,255,0.10)',
+        glassBgDark: 'rgba(10,10,22,0.40)',
+      };
+      return { ...colors, T: tokens, isDark: true, panel: { ...colors, T: tokens, isDark: true } };
     }
 
-    const palette = allPalettes.find(p => p.id === palId);
-    let colors = palette ? { ...C_DEFAULT, ...(palette.overrides || {}) } : { ...C_DEFAULT };
+    // Light Liquid Glass: Clarity Clean (variant 1) + light glass/shadow tokens
+    const lightVariant = palette.variants?.[1] || {};
+    const mainColors = { ...darkBase, ...lightVariant };
 
-    // Apply variant overrides on top
-    if (palette && palette.variants && variantIdx > 0 && palette.variants[variantIdx]) {
-      colors = { ...colors, ...palette.variants[variantIdx] };
-    }
+    // Panel uses dark base
+    const panel = { ...darkBase, T: tokens, isDark: true };
 
-    // Detect if resolved colors are dark
-    const hex = colors.bg.replace('#', '');
-    const r = parseInt(hex.substring(0, 2), 16) || 0;
-    const g = parseInt(hex.substring(2, 4), 16) || 0;
-    const b = parseInt(hex.substring(4, 6), 16) || 0;
-    const isDark = (r * 0.299 + g * 0.587 + b * 0.114) < 128;
+    // Swap to light glass/shadow tokens
+    const lightT = {
+      ...tokens,
+      shadow: tokens.shadowLight || tokens.shadow,
+      glass: tokens.glassLight || tokens.glass,
+    };
 
-    // If forceDark is set, skip light-variant override — everything stays dark
-    if (colors.forceDark) {
-      // If a light variant was selected on a forceDark palette, revert surfaces to dark base
-      if (!isDark) {
-        const darkBase = palette ? { ...C_DEFAULT, ...(palette.overrides || {}) } : { ...C_DEFAULT };
-        colors = { ...colors,
-          bg: darkBase.bg, bg1: darkBase.bg1, bg2: darkBase.bg2, bg3: darkBase.bg3,
-          text: darkBase.text, textMuted: darkBase.textMuted, textDim: darkBase.textDim,
-          border: darkBase.border, borderLight: darkBase.borderLight,
-          sidebarBg: darkBase.sidebarBg, glassBg: darkBase.glassBg,
-          glassBorder: darkBase.glassBorder, glassBgDark: darkBase.glassBgDark,
-          bgGradient: darkBase.bgGradient,
-        };
-      }
-      return { ...colors, T, isDark: true, panel: { ...colors, T, isDark: true } };
-    }
-
-    // Force main = light, panel = dark (regardless of selected variant)
-    let mainColors = colors;
-    if (isDark) {
-      // User selected a dark variant — find the palette's light variant for main
-      const lightVariant = findLightVariant(palette);
-      if (lightVariant) {
-        mainColors = { ...colors, ...lightVariant };
-      }
-    }
-
-    // Panel always uses palette's dark base
-    const panelColors = buildDarkPanel(mainColors, palette);
-    const panel = { ...panelColors, T, isDark: true };
-
-    return { ...mainColors, T, isDark: false, panel };
-  }, [selectedPalette, customPalettes]);
+    return { ...mainColors, T: lightT, isDark: false, panel };
+  }, [selectedPalette, density]);
 
   return (
     <ThemeContext.Provider value={value}>

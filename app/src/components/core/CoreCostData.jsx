@@ -55,19 +55,19 @@ export default function CoreCostData() {
       }}>
         <div style={{ display: "flex", gap: 20 }}>
           <div>
-            <span style={{ fontSize: 20, fontWeight: 700, color: C.text, fontFamily: "'DM Mono', monospace" }}>
+            <span style={{ fontSize: 20, fontWeight: 700, color: C.text, fontFamily: "'DM Sans', sans-serif" }}>
               {userElements.length}
             </span>
             <span style={{ fontSize: 11, color: C.textMuted, marginLeft: 6 }}>user elements</span>
           </div>
           <div>
-            <span style={{ fontSize: 20, fontWeight: 700, color: C.text, fontFamily: "'DM Mono', monospace" }}>
+            <span style={{ fontSize: 20, fontWeight: 700, color: C.text, fontFamily: "'DM Sans', sans-serif" }}>
               {assemblies.length}
             </span>
             <span style={{ fontSize: 11, color: C.textMuted, marginLeft: 6 }}>assemblies</span>
           </div>
           <div>
-            <span style={{ fontSize: 20, fontWeight: 700, color: C.text, fontFamily: "'DM Mono', monospace" }}>
+            <span style={{ fontSize: 20, fontWeight: 700, color: C.text, fontFamily: "'DM Sans', sans-serif" }}>
               {groupedByTrade.length}
             </span>
             <span style={{ fontSize: 11, color: C.textMuted, marginLeft: 6 }}>trades</span>
@@ -149,7 +149,7 @@ export default function CoreCostData() {
                   </svg>
                   <span style={{ fontSize: 12, fontWeight: 600 }}>{tradeLabel(trade)}</span>
                 </div>
-                <span style={{ fontSize: 11, color: C.textDim, fontFamily: "'DM Mono', monospace" }}>
+                <span style={{ fontSize: 11, color: C.textDim, fontFamily: "'DM Sans', sans-serif" }}>
                   {items.length} item{items.length !== 1 ? 's' : ''}
                 </span>
               </button>
@@ -179,12 +179,12 @@ export default function CoreCostData() {
                       fontSize: 11.5, color: C.text,
                       borderTop: `1px solid ${C.border}08`,
                     }}>
-                      <span style={{ color: C.textMuted, fontFamily: "'DM Mono', monospace", fontSize: 10.5 }}>{el.code || "—"}</span>
+                      <span style={{ color: C.textMuted, fontFamily: "'DM Sans', sans-serif", fontSize: 10.5 }}>{el.code || "—"}</span>
                       <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{el.name || "Untitled"}</span>
                       <span style={{ color: C.textDim, fontSize: 10.5 }}>{el.unit || "—"}</span>
-                      <span style={{ textAlign: "right", fontFamily: "'DM Mono', monospace", fontSize: 10.5 }}>${nn(el.material)}</span>
-                      <span style={{ textAlign: "right", fontFamily: "'DM Mono', monospace", fontSize: 10.5 }}>${nn(el.labor)}</span>
-                      <span style={{ textAlign: "right", fontWeight: 600, fontFamily: "'DM Mono', monospace", fontSize: 10.5 }}>
+                      <span style={{ textAlign: "right", fontFamily: "'DM Sans', sans-serif", fontSize: 10.5 }}>${nn(el.material)}</span>
+                      <span style={{ textAlign: "right", fontFamily: "'DM Sans', sans-serif", fontSize: 10.5 }}>${nn(el.labor)}</span>
+                      <span style={{ textAlign: "right", fontWeight: 600, fontFamily: "'DM Sans', sans-serif", fontSize: 10.5 }}>
                         ${nn((el.material || 0) + (el.labor || 0) + (el.equipment || 0))}
                       </span>
                     </div>

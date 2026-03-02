@@ -8,6 +8,50 @@ import { loadPdfJs } from './pdf';
 // ── Cache (per drawing ID) ──────────────────────────────────────────
 const cache = new Map();
 
+// ── External schedule regions (injected by scan system) ────────────
+const _externalScheduleRegions = new Map(); // drawingId → regions[]
+
+/**
+ * Register schedule regions detected by the scan system (AI Vision).
+ * Merges into cached extraction data if available.
+ */
+export function registerExternalScheduleRegions(drawingId, regions) {
+  if (!regions || regions.length === 0) return;
+  _externalScheduleRegions.set(drawingId, regions);
+  // Merge into cached data if it exists
+  if (cache.has(drawingId)) {
+    const cached = cache.get(drawingId);
+    cached.scheduleRegions = mergeScheduleRegions(
+      cached.scheduleRegions || [],
+      regions
+    );
+  }
+}
+
+/**
+ * Get all schedule regions for a drawing (detected + external).
+ */
+export function getScheduleRegions(drawingId) {
+  const cached = cache.get(drawingId);
+  const detected = cached?.scheduleRegions || [];
+  const external = _externalScheduleRegions.get(drawingId) || [];
+  if (external.length === 0) return detected;
+  return mergeScheduleRegions(detected, external);
+}
+
+// Merge two region arrays, deduplicating overlapping regions
+function mergeScheduleRegions(a, b) {
+  const merged = [...a];
+  for (const reg of b) {
+    const alreadyCovered = merged.some(r =>
+      reg.minX >= r.minX - 20 && reg.maxX <= r.maxX + 20 &&
+      reg.minY >= r.minY - 20 && reg.maxY <= r.maxY + 20
+    );
+    if (!alreadyCovered) merged.push(reg);
+  }
+  return merged;
+}
+
 // ── Matrix math helpers ─────────────────────────────────────────────
 const identityMatrix = () => [1, 0, 0, 1, 0, 0];
 
@@ -225,6 +269,9 @@ export async function extractPageData(drawing) {
     },
   };
 
+  // Pre-compute schedule regions so downstream code doesn't re-detect every call
+  result.scheduleRegions = detectScheduleRegions(result);
+
   cache.set(drawing.id, result);
   return result;
 }
@@ -245,11 +292,12 @@ export function isExtracted(drawingId) {
 // ══════════════════════════════════════════════════════════════════════
 
 // Common construction tag patterns:
-// Wall types: "0A", "1A", "2B", "EW-1", "IW-3", "W1", "W2A"
+// Wall types: "0A", "1A", "2B", "EW-1", "IW-3", "IW-3A", "EW-1B", "W1", "W2A"
 // Fixture types: "1A", "2B", "A1", "F1", "L-1", "P-1"
-// Door types: "D1", "D2", "D-101"
+// Door types: "D1", "D2", "D-101", "D201"
 // Window types: "W1", "W-1", "W101"
-const TAG_PATTERN = /^[A-Z0-9][-.]?[A-Z0-9]{0,4}$/i;
+// Room/area: "RM-1", "RM-1A", "BR", "2BR"
+const TAG_PATTERN = /^[A-Z0-9]{1,3}[-.]?[A-Z0-9]{0,4}$/i;
 
 // Detect if a text item looks like a construction tag (short, alphanumeric)
 export function isLikelyTag(text) {
@@ -324,15 +372,101 @@ export function findAllTagInstances(extractedData, tag) {
 
 // ══════════════════════════════════════════════════════════════════════
 // SCHEDULE/LEGEND REGION DETECTION
-// Schedules are typically dense grids of text in consistent columns
-// We want to exclude these from tag searches on plans
+// Two detection strategies:
+//   1. Rectangle-based: schedules typically have bordered table cells (very reliable)
+//   2. Text-density-based: fallback for unbordered schedules (keyword + dense rows)
 // ══════════════════════════════════════════════════════════════════════
 // Keywords that indicate a schedule/legend header row
-const SCHEDULE_KEYWORDS = /\b(SCHEDULE|FINISH|MATERIAL|LEGEND|KEY|NOTES|SPECIFICATIONS?|ABBREVIATIONS?)\b/i;
+const SCHEDULE_KEYWORDS = /\b(SCHEDULE|FINISH|MATERIAL|LEGEND|KEY|NOTES|SPECIFICATIONS?|ABBREVIATIONS?|TYPE|MARK|SIZE|DESCRIPTION|MANUFACTURER|MODEL|QUANTITY|QTY|REMARKS?|HEIGHT|WIDTH|THICKNESS|RATING)\b/i;
 
 export function detectScheduleRegions(extractedData) {
   if (!extractedData?.text || extractedData.text.length === 0) return [];
 
+  const regions = [];
+  const pad = 30; // padding around detected regions
+
+  // ── Strategy 1: Rectangle-based detection (high confidence) ──
+  // Schedules have dense grids of rectangles at consistent spacing.
+  // Look for clusters of aligned rectangles that form table cells.
+  if (extractedData.rects && extractedData.rects.length > 0) {
+    // Find rectangles that are table-cell-sized (not tiny dots or huge page borders)
+    const tableCells = extractedData.rects.filter(r => {
+      const w = r.width, h = r.height;
+      return w > 20 && w < 800 && h > 8 && h < 200;
+    });
+
+    if (tableCells.length >= 3) {
+      // Cluster rectangles by proximity — overlapping or adjacent rects = same table
+      const cellBounds = tableCells.map(r => ({
+        minX: Math.min(r.x1, r.x2, r.x3, r.x4),
+        minY: Math.min(r.y1, r.y2, r.y3, r.y4),
+        maxX: Math.max(r.x1, r.x2, r.x3, r.x4),
+        maxY: Math.max(r.y1, r.y2, r.y3, r.y4),
+      }));
+
+      // Simple greedy clustering: merge overlapping/adjacent bounds
+      const clusters = [];
+      const used = new Set();
+
+      for (let i = 0; i < cellBounds.length; i++) {
+        if (used.has(i)) continue;
+        let cluster = { ...cellBounds[i] };
+        used.add(i);
+        let changed = true;
+
+        while (changed) {
+          changed = false;
+          for (let j = 0; j < cellBounds.length; j++) {
+            if (used.has(j)) continue;
+            const b = cellBounds[j];
+            // Check overlap or adjacency (within 5px gap)
+            const gap = 5;
+            if (b.minX <= cluster.maxX + gap && b.maxX >= cluster.minX - gap &&
+                b.minY <= cluster.maxY + gap && b.maxY >= cluster.minY - gap) {
+              cluster.minX = Math.min(cluster.minX, b.minX);
+              cluster.minY = Math.min(cluster.minY, b.minY);
+              cluster.maxX = Math.max(cluster.maxX, b.maxX);
+              cluster.maxY = Math.max(cluster.maxY, b.maxY);
+              used.add(j);
+              changed = true;
+            }
+          }
+        }
+
+        // Count how many original cells are in this cluster
+        const cellCount = cellBounds.filter((b, idx) => used.has(idx) &&
+          b.minX >= cluster.minX - 5 && b.maxX <= cluster.maxX + 5 &&
+          b.minY >= cluster.minY - 5 && b.maxY <= cluster.maxY + 5
+        ).length;
+
+        // A table needs at least 3 cells in a cluster
+        if (cellCount >= 3) {
+          clusters.push(cluster);
+        }
+      }
+
+      // Check each cluster: does it contain schedule keywords?
+      for (const cluster of clusters) {
+        const textsInCluster = extractedData.text.filter(t =>
+          t.x >= cluster.minX - 10 && t.x <= cluster.maxX + 10 &&
+          t.y >= cluster.minY - 10 && t.y <= cluster.maxY + 10
+        );
+        const clusterText = textsInCluster.map(t => t.text).join(" ");
+        // Rectangle cluster with keywords = definite schedule
+        // Rectangle cluster with 8+ text items = probable schedule even without keywords
+        if (SCHEDULE_KEYWORDS.test(clusterText) || textsInCluster.length >= 8) {
+          regions.push({
+            minX: cluster.minX - pad,
+            minY: cluster.minY - pad,
+            maxX: cluster.maxX + pad,
+            maxY: cluster.maxY + pad,
+          });
+        }
+      }
+    }
+  }
+
+  // ── Strategy 2: Text-density-based detection (fallback) ──
   // Group text items by approximate Y position (rows)
   const rowTolerance = 8; // px
   const rows = [];
@@ -343,60 +477,77 @@ export function detectScheduleRegions(extractedData) {
     if (Math.abs(sorted[i].y - currentRow[0].y) < rowTolerance) {
       currentRow.push(sorted[i]);
     } else {
-      if (currentRow.length >= 3) rows.push(currentRow); // Rows with 3+ items = possible table
+      if (currentRow.length >= 2) rows.push(currentRow);
       currentRow = [sorted[i]];
     }
   }
-  if (currentRow.length >= 3) rows.push(currentRow);
+  if (currentRow.length >= 2) rows.push(currentRow);
 
   // Mark rows that contain schedule-related keywords
   const keywordRows = new Set();
   for (let i = 0; i < rows.length; i++) {
     const rowText = rows[i].map(t => t.text).join(" ");
     if (SCHEDULE_KEYWORDS.test(rowText)) {
-      // Mark this row and a few surrounding rows as schedule
-      for (let j = Math.max(0, i - 1); j < Math.min(rows.length, i + 6); j++) {
+      for (let j = Math.max(0, i - 1); j < Math.min(rows.length, i + 8); j++) {
         keywordRows.add(j);
       }
     }
   }
 
-  // Find clusters of consecutive dense rows (schedules)
-  const regions = [];
+  // Find clusters of consecutive dense rows — require keyword anchor OR 5+ consecutive dense rows
   let regionStart = null;
-  const pad = 30; // vertical padding around schedule regions
+  let hasKeyword = false;
 
   for (let i = 0; i < rows.length; i++) {
-    const isDense = rows[i].length >= 3; // lowered from 4 to catch 3-column schedules
+    const isDense = rows[i].length >= 3; // Require 3+ items per row for schedule detection
     const isKeywordMarked = keywordRows.has(i);
     if (isDense || isKeywordMarked) {
       if (regionStart === null) regionStart = i;
+      if (isKeywordMarked) hasKeyword = true;
     } else {
-      if (regionStart !== null && (i - regionStart) >= 3) {
-        // 3+ consecutive dense/keyword rows = schedule region
-        const regionRows = rows.slice(regionStart, i);
-        const allItems = regionRows.flat();
-        regions.push({
-          minX: Math.min(...allItems.map(t => t.x)) - pad,
-          minY: Math.min(...allItems.map(t => t.y)) - pad,
-          maxX: Math.max(...allItems.map(t => t.x + (t.width || 50))) + pad,
-          maxY: Math.max(...allItems.map(t => t.y + (t.height || 15))) + pad,
-        });
+      if (regionStart !== null) {
+        const rowCount = i - regionStart;
+        // Require keyword anchor for shorter regions, or 4+ rows without keyword
+        if ((hasKeyword && rowCount >= 2) || rowCount >= 4) {
+          const regionRows = rows.slice(regionStart, i);
+          const allItems = regionRows.flat();
+          const candidate = {
+            minX: Math.min(...allItems.map(t => t.x)) - pad,
+            minY: Math.min(...allItems.map(t => t.y)) - pad,
+            maxX: Math.max(...allItems.map(t => t.x + (t.width || 50))) + pad,
+            maxY: Math.max(...allItems.map(t => t.y + (t.height || 15))) + pad,
+          };
+          // Don't add if already covered by a rectangle-detected region
+          const alreadyCovered = regions.some(r =>
+            candidate.minX >= r.minX && candidate.maxX <= r.maxX &&
+            candidate.minY >= r.minY && candidate.maxY <= r.maxY
+          );
+          if (!alreadyCovered) regions.push(candidate);
+        }
       }
       regionStart = null;
+      hasKeyword = false;
     }
   }
 
-  // Handle trailing region at end of rows
-  if (regionStart !== null && (rows.length - regionStart) >= 3) {
-    const regionRows = rows.slice(regionStart);
-    const allItems = regionRows.flat();
-    regions.push({
-      minX: Math.min(...allItems.map(t => t.x)) - pad,
-      minY: Math.min(...allItems.map(t => t.y)) - pad,
-      maxX: Math.max(...allItems.map(t => t.x + (t.width || 50))) + pad,
-      maxY: Math.max(...allItems.map(t => t.y + (t.height || 15))) + pad,
-    });
+  // Handle trailing region
+  if (regionStart !== null) {
+    const rowCount = rows.length - regionStart;
+    if ((hasKeyword && rowCount >= 2) || rowCount >= 4) {
+      const regionRows = rows.slice(regionStart);
+      const allItems = regionRows.flat();
+      const candidate = {
+        minX: Math.min(...allItems.map(t => t.x)) - pad,
+        minY: Math.min(...allItems.map(t => t.y)) - pad,
+        maxX: Math.max(...allItems.map(t => t.x + (t.width || 50))) + pad,
+        maxY: Math.max(...allItems.map(t => t.y + (t.height || 15))) + pad,
+      };
+      const alreadyCovered = regions.some(r =>
+        candidate.minX >= r.minX && candidate.maxX <= r.maxX &&
+        candidate.minY >= r.minY && candidate.maxY <= r.maxY
+      );
+      if (!alreadyCovered) regions.push(candidate);
+    }
   }
 
   return regions;
@@ -410,6 +561,7 @@ export function isInScheduleRegion(x, y, regions) {
 // Find tag instances, excluding schedule/legend regions
 export function findPlanTagInstances(extractedData, tag) {
   const allInstances = findAllTagInstances(extractedData, tag);
-  const scheduleRegions = detectScheduleRegions(extractedData);
+  // Use pre-computed schedule regions from extractPageData when available
+  const scheduleRegions = extractedData.scheduleRegions || detectScheduleRegions(extractedData);
   return allInstances.filter(inst => !isInScheduleRegion(inst.x, inst.y, scheduleRegions));
 }

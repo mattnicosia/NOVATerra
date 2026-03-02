@@ -6,7 +6,7 @@ Upload this document at the start of any new chat to provide full context on the
 
 ## PROJECT OVERVIEW
 
-**Platform:** BLDG Omni — AI-powered construction estimating SaaS
+**Platform:** NOVATerra — AI-powered construction estimating SaaS
 **AI Identity:** Nova — the platform's estimating intelligence
 **Creator:** Matt, partner at Montana Contracting Corp, founder/CEO of BLDG Estimating
 **Tech Stack:** React / Next.js, Canvas 2D renderer, Web Audio API, ElevenLabs voice, Claude API (planned)
@@ -120,7 +120,7 @@ Abbreviated. 12 seconds.
 
 ## BRAND ARCHITECTURE
 
-- **Platform:** BLDG Omni
+- **Platform:** NOVATerra
 - **AI:** Nova
 - **Marketplace:** The Store
 - **Economy:** Tokens

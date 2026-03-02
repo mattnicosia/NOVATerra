@@ -170,7 +170,7 @@ export default function PortfolioIntelligence() {
               <div key={t.key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ fontSize: 9, color: C.textDim, width: 90, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.label}</span>
                 <GradientBar pct={t.rate} color={t.rate >= 50 ? C.green : C.orange} />
-                <span style={{ fontSize: 10, fontWeight: 700, color: t.rate >= 50 ? C.green : C.orange, fontFamily: "'DM Mono',monospace", minWidth: 28, textAlign: "right" }}>{t.rate}%</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: t.rate >= 50 ? C.green : C.orange, fontFamily: "'DM Sans',sans-serif", minWidth: 28, textAlign: "right" }}>{t.rate}%</span>
                 <span style={{ fontSize: 8, color: C.textDim }}>({t.won}/{t.total})</span>
               </div>
             ))}
@@ -199,7 +199,7 @@ export default function PortfolioIntelligence() {
                 <div key={cl.name} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <span style={{ fontSize: 9, color: C.textDim, width: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cl.name}</span>
                   <GradientBar pct={maxVal > 0 ? (cl.totalValue / maxVal) * 100 : 0} color={C.blue} />
-                  <span style={{ fontSize: 9, fontWeight: 700, color: C.text, fontFamily: "'DM Mono',monospace", minWidth: 45, textAlign: "right" }}>{fmtCost(cl.totalValue)}</span>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: C.text, fontFamily: "'DM Sans',sans-serif", minWidth: 45, textAlign: "right" }}>{fmtCost(cl.totalValue)}</span>
                   {wr !== null && <span style={{ fontSize: 8, color: wr >= 50 ? C.green : C.orange, fontWeight: 600 }}>{wr}%</span>}
                 </div>
               );

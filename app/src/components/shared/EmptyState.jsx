@@ -6,6 +6,7 @@ import Ic from './Ic';
 export default function EmptyState({ icon, title, subtitle, action, actionLabel, actionIcon, color }) {
   const C = useTheme();
   const T = C.T;
+  const dk = C.isDark;
   const accentColor = color || C.accent;
 
   return (
@@ -15,13 +16,16 @@ export default function EmptyState({ icon, title, subtitle, action, actionLabel,
       textAlign: 'center',
       animation: 'staggerFadeUp 500ms cubic-bezier(0.16,1,0.3,1) both',
     }}>
-      {/* Animated icon ring */}
+      {/* Animated icon ring — glass */}
       {icon && (
         <div style={{
           position: 'relative',
           width: 80, height: 80, borderRadius: T.radius.full,
-          background: `linear-gradient(135deg, ${accentColor}18, ${accentColor}06)`,
-          border: `1px solid ${accentColor}20`,
+          background: dk ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.15)',
+          backdropFilter: T.glass.blurLight,
+          WebkitBackdropFilter: T.glass.blurLight,
+          border: `0.5px solid ${dk ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.30)'}`,
+          boxShadow: [T.glass.specular, T.glass.edge].join(', '),
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           marginBottom: T.space[5],
           animation: 'staggerFadeUp 600ms cubic-bezier(0.16,1,0.3,1) 100ms both',
@@ -30,7 +34,7 @@ export default function EmptyState({ icon, title, subtitle, action, actionLabel,
           <div style={{
             position: 'absolute', inset: -6,
             borderRadius: T.radius.full,
-            border: `1px solid ${accentColor}10`,
+            border: `0.5px solid ${dk ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.12)'}`,
             animation: 'breathe 4s ease-in-out infinite',
           }} />
           <Ic d={icon} size={32} color={accentColor} sw={1.5} />
@@ -61,23 +65,30 @@ export default function EmptyState({ icon, title, subtitle, action, actionLabel,
         </div>
       )}
 
-      {/* CTA button */}
+      {/* CTA button — liquid glass */}
       {action && (
         <button
           onClick={action}
           className="accent-btn"
           style={{
-            border: 'none', borderRadius: T.radius.sm, cursor: 'pointer',
-            background: C.gradient || accentColor, color: '#fff',
+            borderRadius: T.radius.md, cursor: 'pointer',
+            background: dk ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.25)',
+            backdropFilter: 'blur(16px) saturate(170%)',
+            WebkitBackdropFilter: 'blur(16px) saturate(170%)',
+            color: C.text,
+            border: `0.5px solid ${dk ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.35)'}`,
             padding: '10px 22px', fontSize: T.fontSize.base,
             fontWeight: T.fontWeight.semibold,
             fontFamily: "'DM Sans',sans-serif",
             display: 'flex', alignItems: 'center', gap: T.space[2],
-            boxShadow: `0 0 16px ${accentColor}25`,
+            boxShadow: [
+              `inset 0 0.5px 0 ${dk ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.50)'}`,
+              `0 0 0 0.5px ${dk ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.12)'}`,
+            ].join(', '),
             animation: 'staggerFadeUp 500ms cubic-bezier(0.16,1,0.3,1) 400ms both',
           }}
         >
-          {actionIcon && <Ic d={actionIcon} size={14} color="#fff" sw={2.5} />}
+          {actionIcon && <Ic d={actionIcon} size={14} color={accentColor} sw={2.5} />}
           {actionLabel || 'Get Started'}
         </button>
       )}

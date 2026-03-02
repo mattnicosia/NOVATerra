@@ -315,7 +315,7 @@ export default function ModelTab() {
             <div style={{
               padding: '4px 10px', borderRadius: T.radius.sm,
               background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
-              fontSize: 10, fontFamily: "'DM Mono',monospace",
+              fontSize: 10, fontFamily: "'DM Sans',sans-serif",
               display: 'flex', gap: 6, alignItems: 'center',
             }}>
               <span style={{ color: '#10B981' }}>{coverageStats.pct}% covered</span>
@@ -350,7 +350,7 @@ export default function ModelTab() {
           position: 'absolute', bottom: 12, left: 12, zIndex: 10,
           padding: '4px 10px', borderRadius: T.radius.sm,
           background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
-          fontSize: 10, color: '#aaa', fontFamily: "'DM Mono',monospace",
+          fontSize: 10, color: '#aaa', fontFamily: "'DM Sans',sans-serif",
         }}>
           {elements.length} elements · {ifcLoaded ? 'IFC' : 'Takeoffs'}
         </div>

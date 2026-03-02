@@ -126,7 +126,7 @@ export default function CarbonBreakdownWidget() {
         {totalCO2e > 0 && (
           <div style={{
             fontSize: 10, fontWeight: 600, color: C.text,
-            fontFamily: "'DM Mono', monospace",
+            fontFamily: "'DM Sans', sans-serif",
           }}>
             {formatCarbon(totalCO2e)}
             {projectSF > 0 && (

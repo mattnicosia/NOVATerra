@@ -435,10 +435,10 @@ export default function ModulePanel({ engageMeasuring, selectedDrawingId, addTak
             onChange={e => handleManualQty(item, cat, e.target.value)}
             onClick={e => e.stopPropagation()}
             placeholder="0"
-            style={{ width: 45, textAlign: "right", fontSize: 11, fontFamily: "'DM Mono',monospace", background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 3, padding: "2px 4px", color: C.text, outline: "none" }}
+            style={{ width: 45, textAlign: "right", fontSize: 11, fontFamily: "'DM Sans',sans-serif", background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 3, padding: "2px 4px", color: C.text, outline: "none" }}
           />
         ) : (
-          <span style={{ fontSize: 11, fontFamily: "'DM Mono',monospace", color: hasQty ? C.text : C.textDimmer, fontFeatureSettings: "'tnum'", minWidth: 40, textAlign: "right" }}>
+          <span style={{ fontSize: 11, fontFamily: "'DM Sans',sans-serif", color: hasQty ? C.text : C.textDimmer, fontFeatureSettings: "'tnum'", minWidth: 40, textAlign: "right" }}>
             {hasQty ? (qty >= 1000 ? Math.round(qty).toLocaleString() : Math.round(qty * 100) / 100) : "—"}
           </span>
         )}
@@ -721,7 +721,7 @@ export default function ModulePanel({ engageMeasuring, selectedDrawingId, addTak
 
           {/* Driving qty */}
           {drivingQty > 0 && (
-            <span style={{ fontSize: 11, fontFamily: "'DM Mono',monospace", fontWeight: 600, color: C.text }}>
+            <span style={{ fontSize: 11, fontFamily: "'DM Sans',sans-serif", fontWeight: 600, color: C.text }}>
               {drivingQty >= 1000 ? Math.round(drivingQty).toLocaleString() : Math.round(drivingQty * 100) / 100}
             </span>
           )}
@@ -971,7 +971,7 @@ export default function ModulePanel({ engageMeasuring, selectedDrawingId, addTak
                     )}
                   </div>
                   {drivingQty > 0 && (
-                    <span style={{ fontSize: 12, fontFamily: "'DM Mono',monospace", fontWeight: 600, color: C.text, fontFeatureSettings: "'tnum'" }}>
+                    <span style={{ fontSize: 12, fontFamily: "'DM Sans',sans-serif", fontWeight: 600, color: C.text, fontFeatureSettings: "'tnum'" }}>
                       {drivingQty >= 1000 ? Math.round(drivingQty).toLocaleString() : Math.round(drivingQty * 100) / 100}
                     </span>
                   )}

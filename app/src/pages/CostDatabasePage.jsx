@@ -269,7 +269,7 @@ export default function CostDatabasePage({ embedded = false }) {
                     style={{ padding: "6px 10px", borderRadius: 4, display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 600, color: div.count > 0 ? C.text : C.textMuted }}>
                     <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke={div.count > 0 ? C.accent : C.textDim} strokeWidth="1.5" style={{ transform: dbExpandedDivs.has(dc) ? "rotate(90deg)" : "rotate(0)", transition: "transform 200ms cubic-bezier(0.16,1,0.3,1)", flexShrink: 0 }}><path d="M2 0.5l3.5 3.5L2 7.5" /></svg>
                     <Ic d={I.folder} size={12} color={div.count > 0 ? C.accent : C.textDim} />
-                    <span style={{ color: div.count > 0 ? C.accent : C.textDim, fontFamily: "'DM Mono',monospace", fontSize: 10, minWidth: 18 }}>{dc}</span>
+                    <span style={{ color: div.count > 0 ? C.accent : C.textDim, fontFamily: "'DM Sans',sans-serif", fontSize: 10, minWidth: 18 }}>{dc}</span>
                     <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{div.name}</span>
                     {div.count > 0 && <span style={{ fontSize: 9, color: C.accent, fontWeight: 600, background: `${C.accent}12`, padding: "1px 5px", borderRadius: 6 }}>{div.count}</span>}
                   </div>
@@ -290,7 +290,7 @@ export default function CostDatabasePage({ embedded = false }) {
                             borderLeft: isActive ? `2px solid ${C.accent}` : "2px solid transparent",
                             transition: "border-color 200ms ease-out, background 150ms ease-out",
                           }}>
-                          <span style={{ fontFamily: "'DM Mono',monospace", color: isActive ? C.accent : hasItems ? C.textMuted : C.textDim, fontSize: 9 }}>{subKey}</span>
+                          <span style={{ fontFamily: "'DM Sans',sans-serif", color: isActive ? C.accent : hasItems ? C.textMuted : C.textDim, fontSize: 9 }}>{subKey}</span>
                           <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sub.name}</span>
                           {hasItems && <span style={{ fontSize: 9, color: C.accent, fontWeight: 600, background: `${C.accent}10`, padding: "0 4px", borderRadius: 4 }}>{sub.count}</span>}
                         </div>
@@ -300,7 +300,7 @@ export default function CostDatabasePage({ embedded = false }) {
                     {addSubForDiv === dc ? (
                       <div style={{ display: "flex", gap: 4, alignItems: "center", padding: "4px 10px 4px 34px" }}>
                         <input placeholder={`${dc}.`} value={newSubCode} onChange={e => setNewSubCode(e.target.value)} autoFocus
-                          style={inp(C, { width: 56, fontSize: 9, fontFamily: "'DM Mono',monospace", textAlign: "center", padding: "2px 3px" })} />
+                          style={inp(C, { width: 56, fontSize: 9, fontFamily: "'DM Sans',sans-serif", textAlign: "center", padding: "2px 3px" })} />
                         <input placeholder="Name..." value={newSubName} onChange={e => setNewSubName(e.target.value)}
                           onKeyDown={e => {
                             if (e.key === "Enter") {
@@ -417,7 +417,7 @@ export default function CostDatabasePage({ embedded = false }) {
                   <input
                     value={moveCode} onChange={e => setMoveCode(e.target.value)}
                     placeholder="e.g. 05.210" autoFocus
-                    style={inp(C, { width: 110, fontFamily: "'DM Mono',monospace", fontSize: 11, padding: "4px 8px" })}
+                    style={inp(C, { width: 110, fontFamily: "'DM Sans',sans-serif", fontSize: 11, padding: "4px 8px" })}
                     onKeyDown={e => { if (e.key === "Enter" && canConfirm) { updateElement(movingId, "code", moveCode); showToast(`Moved to ${moveCode}`); setMovingId(null); setMoveCode(""); } if (e.key === "Escape") { setMovingId(null); setMoveCode(""); } }}
                   />
                   <div style={{ display: "flex", gap: 3, flex: 1, overflow: "hidden", flexWrap: "wrap" }}>
@@ -475,7 +475,7 @@ export default function CostDatabasePage({ embedded = false }) {
                     }}>
                     {isEditing ? (<>
                       <input value={el.code} onChange={e => editField("code", e.target.value)}
-                        style={inp(C, { fontFamily: "'DM Mono',monospace", fontSize: 10, padding: "3px 4px", textAlign: "center" })} />
+                        style={inp(C, { fontFamily: "'DM Sans',sans-serif", fontSize: 10, padding: "3px 4px", textAlign: "center" })} />
                       <select value={el.directive || ""} onChange={e => { updateElement(el.id, "directive", e.target.value); updateElement(el.id, "directiveOverride", !!e.target.value); }}
                         style={inp(C, { fontSize: 8, padding: "2px 1px", textAlign: "center", fontWeight: 700, color: dirColor })}>
                         <option value="">Auto</option>
@@ -510,7 +510,7 @@ export default function CostDatabasePage({ embedded = false }) {
                         </button>
                       </div>
                     </>) : (<>
-                      <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: C.purple, fontWeight: 600, cursor: "pointer" }} onClick={() => addFromDB(el)}>{el.code}</div>
+                      <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: C.purple, fontWeight: 600, cursor: "pointer" }} onClick={() => addFromDB(el)}>{el.code}</div>
                       <select value={el.directive || ""} onChange={e => { updateElement(el.id, "directive", e.target.value); updateElement(el.id, "directiveOverride", !!e.target.value); }}
                         title={el.directiveOverride ? "Manual override (click to change)" : "Auto-calculated"}
                         style={{ fontSize: 8, fontWeight: 700, color: dirColor, textAlign: "center", background: "transparent", border: "none", cursor: "pointer", padding: "1px 0", appearance: "none", WebkitAppearance: "none", width: "100%", textDecoration: el.directiveOverride ? "underline" : "none" }}>
@@ -529,10 +529,10 @@ export default function CostDatabasePage({ embedded = false }) {
                         )}
                       </div>
                       <div style={{ textAlign: "right", fontSize: 10, color: C.textMuted }}>/{el.unit}</div>
-                      <div style={{ textAlign: "right", fontFamily: "'DM Mono',monospace", fontSize: 10, color: C.green }}>{fmt2(el.material)}</div>
-                      <div style={{ textAlign: "right", fontFamily: "'DM Mono',monospace", fontSize: 10, color: C.blue }}>{fmt2(el.labor)}</div>
-                      <div style={{ textAlign: "right", fontFamily: "'DM Mono',monospace", fontSize: 10, color: C.orange }}>{fmt2(el.equipment)}</div>
-                      <div style={{ textAlign: "right", fontFamily: "'DM Mono',monospace", fontSize: 10, color: C.red }}>{nn(el.subcontractor) > 0 ? fmt2(el.subcontractor) : "—"}</div>
+                      <div style={{ textAlign: "right", fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: C.green }}>{fmt2(el.material)}</div>
+                      <div style={{ textAlign: "right", fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: C.blue }}>{fmt2(el.labor)}</div>
+                      <div style={{ textAlign: "right", fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: C.orange }}>{fmt2(el.equipment)}</div>
+                      <div style={{ textAlign: "right", fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: C.red }}>{nn(el.subcontractor) > 0 ? fmt2(el.subcontractor) : "—"}</div>
                       <div style={{ textAlign: "right", fontSize: 8, color: C.textDim, lineHeight: 1.3 }}><div>{el.addedBy || "—"}</div><div>{el.addedDate || ""}</div></div>
                       <div style={{ position: "relative", display: "flex", justifyContent: "flex-end" }}>
                         <button className="icon-btn" title="Actions"
@@ -685,7 +685,7 @@ export default function CostDatabasePage({ embedded = false }) {
                         <input value={(bundle.divisions || []).join(", ")} onChange={e => updateBundle(bundle.key, "divisions", e.target.value.split(",").map(s => s.trim()).filter(Boolean))}
                           placeholder="01, 02..."
                           onClick={e => e.stopPropagation()}
-                          style={inp(C, { fontSize: 10, padding: "3px 6px", fontFamily: "'DM Mono',monospace" })} />
+                          style={inp(C, { fontSize: 10, padding: "3px 6px", fontFamily: "'DM Sans',sans-serif" })} />
                         <div style={{ textAlign: "center", fontSize: 10, color: C.textDim }}>{count}</div>
                         <div style={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
                           <button className="icon-btn" title="Done" onClick={(e) => { e.stopPropagation(); setEditingBundleKey(null); }}
@@ -694,14 +694,14 @@ export default function CostDatabasePage({ embedded = false }) {
                           </button>
                         </div>
                       </>) : (<>
-                        <div style={{ textAlign: "center", fontFamily: "'DM Mono',monospace", fontSize: 10, color: C.textDim }}>{bundle.sort}</div>
+                        <div style={{ textAlign: "center", fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: C.textDim }}>{bundle.sort}</div>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           {count > 0 && (
                             <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke={isExpanded ? C.accent : C.textDim} strokeWidth="1.5" style={{ transform: isExpanded ? "rotate(90deg)" : "rotate(0)", transition: "transform 200ms cubic-bezier(0.16,1,0.3,1), stroke 200ms ease-out", flexShrink: 0 }}><path d="M2 0.5l3.5 3.5L2 7.5" /></svg>
                           )}
                           <span style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{bundle.label}</span>
                         </div>
-                        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: C.textMuted }}>
+                        <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, color: C.textMuted }}>
                           {(bundle.divisions || []).length > 0 ? bundle.divisions.join(", ") : <span style={{ fontStyle: "italic", color: C.textDim }}>sub-based</span>}
                         </div>
                         <div style={{ textAlign: "center", fontSize: 10, color: count > 0 ? C.accent : C.textDim, fontWeight: count > 0 ? 600 : 400 }}>{count}</div>
@@ -726,13 +726,13 @@ export default function CostDatabasePage({ embedded = false }) {
                         </div>
                         {items.sort((a, b) => (a.code || "").localeCompare(b.code || "")).map((el, i) => (
                           <div key={el.id} style={{ display: "grid", gridTemplateColumns: "80px 1.5fr 60px 62px 62px 62px 62px 100px", gap: 4, padding: "4px 14px 4px 54px", fontSize: 11, borderBottom: `1px solid ${C.borderLight || C.border}`, alignItems: "center" }}>
-                            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: C.purple }}>{el.code || "—"}</div>
+                            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, color: C.purple }}>{el.code || "—"}</div>
                             <div style={{ color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{titleCase(el.name) || "Unnamed"}</div>
                             <div style={{ textAlign: "right", fontSize: 10, color: C.textMuted }}>/{el.unit}</div>
-                            <div style={{ textAlign: "right", fontFamily: "'DM Mono',monospace", fontSize: 10, color: C.green }}>{fmt2(el.material)}</div>
-                            <div style={{ textAlign: "right", fontFamily: "'DM Mono',monospace", fontSize: 10, color: C.blue }}>{fmt2(el.labor)}</div>
-                            <div style={{ textAlign: "right", fontFamily: "'DM Mono',monospace", fontSize: 10, color: C.orange }}>{fmt2(el.equipment)}</div>
-                            <div style={{ textAlign: "right", fontFamily: "'DM Mono',monospace", fontSize: 10, color: C.red }}>{nn(el.subcontractor) > 0 ? fmt2(el.subcontractor) : "—"}</div>
+                            <div style={{ textAlign: "right", fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: C.green }}>{fmt2(el.material)}</div>
+                            <div style={{ textAlign: "right", fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: C.blue }}>{fmt2(el.labor)}</div>
+                            <div style={{ textAlign: "right", fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: C.orange }}>{fmt2(el.equipment)}</div>
+                            <div style={{ textAlign: "right", fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: C.red }}>{nn(el.subcontractor) > 0 ? fmt2(el.subcontractor) : "—"}</div>
                             <div style={{ textAlign: "right" }}>
                               <select value={el.trade || ""} onChange={e => updateElement(el.id, "trade", e.target.value)}
                                 style={{ fontSize: 9, padding: "2px 4px", background: C.bg2, color: C.text, border: `1px solid ${C.border}`, borderRadius: 3, cursor: "pointer", maxWidth: "100%" }}>

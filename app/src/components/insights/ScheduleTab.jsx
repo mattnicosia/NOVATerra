@@ -113,16 +113,16 @@ export default function ScheduleTab() {
         {/* Summary stats */}
         <div style={{ display: "flex", gap: T.space[4], alignItems: "center" }}>
           <div style={{ fontSize: T.fontSize.xs, color: C.textDim }}>
-            <span style={{ fontFamily: "'DM Mono',monospace", color: C.accent, fontWeight: 600 }}>{projectEndDay}</span> days
+            <span style={{ fontFamily: "'DM Sans',sans-serif", color: C.accent, fontWeight: 600 }}>{projectEndDay}</span> days
           </div>
           <div style={{ fontSize: T.fontSize.xs, color: C.textDim }}>
-            <span style={{ fontFamily: "'DM Mono',monospace", color: C.text, fontWeight: 600 }}>{activities.length}</span> activities
+            <span style={{ fontFamily: "'DM Sans',sans-serif", color: C.text, fontWeight: 600 }}>{activities.length}</span> activities
           </div>
           <div style={{ fontSize: T.fontSize.xs, color: C.textDim }}>
-            <span style={{ fontFamily: "'DM Mono',monospace", color: C.red || "#ef4444", fontWeight: 600 }}>{criticalCount}</span> critical
+            <span style={{ fontFamily: "'DM Sans',sans-serif", color: C.red || "#ef4444", fontWeight: 600 }}>{criticalCount}</span> critical
           </div>
           <div style={{ fontSize: T.fontSize.xs, color: C.textDim }}>
-            <span style={{ fontFamily: "'DM Mono',monospace", color: C.text, fontWeight: 600 }}>{fmt(totalCost)}</span>
+            <span style={{ fontFamily: "'DM Sans',sans-serif", color: C.text, fontWeight: 600 }}>{fmt(totalCost)}</span>
           </div>
         </div>
       </div>

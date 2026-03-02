@@ -10,6 +10,7 @@ import { autoTradeFromCode } from '@/constants/tradeGroupings';
 import { getComputedQtyCtx } from '@/utils/measurementCalc';
 import { getModuleItemCosts } from '@/utils/moduleSeedMap';
 import { useModuleStore } from '@/stores/moduleStore';
+import { useProjectStore } from '@/stores/projectStore';
 
 // Retrieve instance specs from module store for dynamic pricing lookup
 function getInstanceSpecs(moduleId, instanceId) {
@@ -164,11 +165,12 @@ export function useTakeoffSync() {
       } else {
         // Create new scope item
         const newItemId = uid();
+        const divFromCode = useProjectStore.getState().divFromCode;
         nextItems.push({
           id: newItemId,
           code: firstTo.code || "",
           description: group,   // "Steel - Structural Framing (Type A)"
-          division: dc ? `${dc} - ` : "",
+          division: divFromCode(firstTo.code) || "",
           quantity: 1,
           unit: "EA",
           material: Math.round(totalM * 100) / 100,
@@ -207,19 +209,22 @@ export function useTakeoffSync() {
     // ══════════════════════════════════════════════════════════════
 
     // 2a. Handle new ungrouped takeoffs (no linkedItemId) — create flat estimate items
+    const divFromCode = useProjectStore.getState().divFromCode;
     nextTakeoffs.forEach((to, idx) => {
       if (to.linkedItemId || (to.moduleId && to.group)) return; // skip already-linked and module-grouped
       const newItemId = uid();
-      const dc = to.code ? to.code.split(".")[0] : "";
       const computedQty = getComputedQtyCtx(to, scaleCtx);
       nextItems.push({
         id: newItemId,
         code: to.code || "",
         description: to.description || "",
-        division: dc ? `${dc} - ` : "",
+        division: divFromCode(to.code) || "",
         quantity: computedQty !== null ? Math.round(computedQty * 100) / 100 : 0,
         unit: to.unit || "SF",
-        material: 0, labor: 0, equipment: 0, subcontractor: 0,
+        material: nn(to._aiCosts?.material) || 0,
+        labor: nn(to._aiCosts?.labor) || 0,
+        equipment: nn(to._aiCosts?.equipment) || 0,
+        subcontractor: nn(to._aiCosts?.subcontractor) || 0,
         trade: autoTradeFromCode(to.code) || "",
         directive: "", notes: "", drawingRef: to.drawingRef || "",
         variables: [], formula: "",

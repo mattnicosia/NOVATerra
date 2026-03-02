@@ -2,6 +2,27 @@ import { create } from 'zustand';
 import { uid } from '@/utils/format';
 
 export const useMasterDataStore = create((set, get) => ({
+  // ── PDF Upload Queue (persisted separately in bldg-upload-queue) ──
+  pdfUploadQueue: [],
+
+  addToUploadQueue: (items) => set(s => ({
+    pdfUploadQueue: [...s.pdfUploadQueue, ...items],
+  })),
+
+  updateQueueItem: (id, updates) => set(s => ({
+    pdfUploadQueue: s.pdfUploadQueue.map(q =>
+      q.id === id ? { ...q, ...updates } : q
+    ),
+  })),
+
+  removeQueueItem: (id) => set(s => ({
+    pdfUploadQueue: s.pdfUploadQueue.filter(q => q.id !== id),
+  })),
+
+  clearSavedFromQueue: () => set(s => ({
+    pdfUploadQueue: s.pdfUploadQueue.filter(q => q.status !== "saved"),
+  })),
+
   masterData: {
     clients: [],
     architects: [],
