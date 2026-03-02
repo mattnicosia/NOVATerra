@@ -62,8 +62,9 @@ const ROM_DIVISIONS = [
   { code: "33", label: "Utilities" },
 ];
 
-// Module-level map for PDF base64 data (too large for IndexedDB persistence)
-const fileDataMap = new Map();
+// Module-level map: queue-id → File object (lightweight fs reference, ~0 memory)
+// Base64 reading happens lazily when a worker picks up the item
+const fileObjectMap = new Map();
 
 // Read a File to base64 string
 function readFileToBase64(file) {
@@ -107,7 +108,12 @@ export default function HistoricalProposalsPanel() {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showQueue, setShowQueue] = useState(true);
   const pdfRef = useRef(null);
-  const extractingRef = useRef(false); // prevents concurrent extraction loops
+  const folderRef = useRef(null);
+  const extractingRef = useRef(false); // legacy flag — now managed by worker pool
+  const activeWorkersRef = useRef(0);
+  const pausedRef = useRef(false);
+  const batchStatsRef = useRef({ startTime: null, completed: 0, lastItemMs: 0 });
+  const [isPaused, setIsPaused] = useState(false); // for UI re-render on pause toggle
 
   // Filters
   const [filterBuildingType, setFilterBuildingType] = useState("");
@@ -162,6 +168,7 @@ export default function HistoricalProposalsPanel() {
       stories: p.stories || 0,
       structuralSystem: p.structuralSystem || "",
       deliveryMethod: p.deliveryMethod || "",
+      proposalType: p.proposalType || "gc",
       sourceFileName: p.sourceFileName,
       notes: p.notes || "",
     }));
@@ -295,6 +302,7 @@ export default function HistoricalProposalsPanel() {
 13. **deliveryMethod**: Classify as one of: ${DELIVERY_METHODS.map(d => `"${d.key}"`).join(", ")}.
     Look at bid instructions, contract type, or cover page.
 14. **markups**: Array of below-the-line items (indirect costs) found in the proposal — costs ABOVE the division subtotal that make up the total bid.
+15. **proposalType**: "gc" if this is a General Contractor/CM proposal (multiple divisions, below-the-line markups like O&P/GC/Bond, covers the whole project), or "sub" if this is a Subcontractor proposal (single trade/division, scope inclusions/exclusions, no GC markups). Default to "gc" if unclear.
 
 For each markup found, extract:
 - "key": one of:
@@ -390,6 +398,7 @@ Return ONLY a JSON object. Example:
       stories: parsed.stories != null ? String(parsed.stories) : "",
       structuralSystem: parsed.structuralSystem || "",
       deliveryMethod: parsed.deliveryMethod || "",
+      proposalType: parsed.proposalType || "gc",
       source: "pdf",
       sourceFileName: fileName,
       outcome: "pending",
@@ -397,76 +406,199 @@ Return ONLY a JSON object. Example:
     };
   };
 
-  // ── Process extraction queue sequentially ──
+  // ── Parallel worker pool (replaces sequential processQueue) ──
+  const CONCURRENCY = 3;
+
   const processQueue = useCallback(async () => {
-    if (extractingRef.current) return; // already running
-    extractingRef.current = true;
+    // Init batch stats on first call
+    if (!batchStatsRef.current.startTime) {
+      batchStatsRef.current = { startTime: Date.now(), completed: 0, lastItemMs: 0 };
+    }
 
-    try {
-      while (true) {
-        const queue = useMasterDataStore.getState().pdfUploadQueue;
-        const next = queue.find(q => q.status === "queued" && fileDataMap.has(q.id));
-        if (!next) break;
+    // Spawn workers up to CONCURRENCY limit
+    const spawnWorker = async () => {
+      activeWorkersRef.current++;
+      try {
+        while (true) {
+          // Check pause
+          if (pausedRef.current) {
+            break; // worker exits; resume will re-spawn
+          }
 
-        updateQueueItem(next.id, { status: "extracting" });
-        try {
-          const base64 = fileDataMap.get(next.id);
-          const extracted = await extractProposalPdf(base64, next.fileName);
-          updateQueueItem(next.id, { status: "extracted", extractedData: extracted });
-          fileDataMap.delete(next.id); // free memory
-        } catch (err) {
-          console.error("[CostHistory] PDF extraction error:", err);
-          updateQueueItem(next.id, { status: "failed", error: err.message || "Extraction failed" });
+          const queue = useMasterDataStore.getState().pdfUploadQueue;
+          const next = queue.find(q => q.status === "queued" && fileObjectMap.has(q.id));
+          if (!next) break; // no work left
+
+          updateQueueItem(next.id, { status: "extracting" });
+          const itemStart = Date.now();
+
+          try {
+            // Lazy-read: convert File → base64 only now
+            const file = fileObjectMap.get(next.id);
+            const base64 = await readFileToBase64(file);
+            const extracted = await extractProposalPdf(base64, next.fileName);
+            updateQueueItem(next.id, { status: "extracted", extractedData: extracted });
+            fileObjectMap.delete(next.id); // free File ref
+            batchStatsRef.current.completed++;
+            batchStatsRef.current.lastItemMs = Date.now() - itemStart;
+          } catch (err) {
+            console.error("[CostHistory] PDF extraction error:", err);
+            const is429 = err?.message?.includes("429") || err?.message?.toLowerCase().includes("rate");
+            if (is429) {
+              // Rate limited — put back in queue and sleep
+              updateQueueItem(next.id, { status: "queued", error: null });
+              await new Promise(r => setTimeout(r, 5000));
+            } else {
+              updateQueueItem(next.id, { status: "failed", error: err.message || "Extraction failed" });
+            }
+          }
+          await saveUploadQueue();
         }
-        await saveUploadQueue();
+      } finally {
+        activeWorkersRef.current--;
       }
-    } finally {
-      extractingRef.current = false;
+    };
+
+    // Launch workers up to CONCURRENCY (don't exceed already-running ones)
+    const toSpawn = CONCURRENCY - activeWorkersRef.current;
+    for (let i = 0; i < toSpawn; i++) {
+      spawnWorker(); // fire-and-forget — each loops independently
     }
   }, [updateQueueItem]);
 
-  // ── Auto-extract on file selection ──
+  // ── Auto-extract on file selection (with resume matching) ──
   const handlePdfFilesSelected = async (files) => {
     if (!files || files.length === 0) return;
-    const fileArray = Array.from(files);
-
-    // Create queue entries and read files to base64 in parallel
-    const newItems = [];
-    const readPromises = [];
-    for (const file of fileArray) {
-      const id = uid();
-      newItems.push({
-        id,
-        fileName: file.name,
-        fileSize: file.size,
-        status: "queued",
-        error: null,
-        extractedData: null,
-        addedAt: Date.now(),
-      });
-      readPromises.push(
-        readFileToBase64(file).then(b64 => fileDataMap.set(id, b64))
-      );
+    const fileArray = Array.from(files).filter(f => f.name.toLowerCase().endsWith(".pdf"));
+    if (fileArray.length === 0) {
+      showToast("No PDF files found", "error");
+      return;
     }
 
-    addToUploadQueue(newItems);
+    const existingQueue = useMasterDataStore.getState().pdfUploadQueue;
+    const newItems = [];
+    let resumed = 0;
+    let skipped = 0;
+
+    for (const file of fileArray) {
+      // Resume matching: find existing queue entry by fileName + fileSize
+      const match = existingQueue.find(q => q.fileName === file.name && q.fileSize === file.size);
+
+      if (match) {
+        if (match.status === "extracted" || match.status === "saved") {
+          skipped++; // already done
+          continue;
+        }
+        // Bind fresh File object to existing queue item
+        fileObjectMap.set(match.id, file);
+        if (match.status === "failed") {
+          updateQueueItem(match.id, { status: "queued", error: null });
+        }
+        resumed++;
+      } else {
+        // New file — create queue entry
+        const id = uid();
+        fileObjectMap.set(id, file); // lightweight reference, no base64 yet
+        newItems.push({
+          id,
+          fileName: file.name,
+          fileSize: file.size,
+          status: "queued",
+          error: null,
+          extractedData: null,
+          addedAt: Date.now(),
+        });
+      }
+    }
+
+    if (newItems.length > 0) addToUploadQueue(newItems);
     setShowQueue(true);
     await saveUploadQueue();
 
-    // Wait for all files to be read, then start extraction
-    await Promise.all(readPromises);
+    // Toast feedback
+    if (resumed > 0 || skipped > 0) {
+      showToast(`Resumed ${resumed} pending, ${newItems.length} new, ${skipped} already done`);
+    } else if (newItems.length > 0) {
+      showToast(`Queued ${newItems.length} PDF${newItems.length !== 1 ? "s" : ""} for extraction`);
+    }
+
+    // Start worker pool (no base64 read yet — workers read lazily)
     processQueue();
+  };
+
+  // ── Folder picker handler ──
+  const handleFolderSelected = (files) => {
+    handlePdfFilesSelected(files);
   };
 
   // ── Retry a failed extraction ──
   const handleRetry = (queueItem) => {
-    if (!fileDataMap.has(queueItem.id)) {
-      // File data lost (page refresh) — need re-select
-      showToast(`File data lost for "${queueItem.fileName}" — please re-upload`, "error");
+    if (!fileObjectMap.has(queueItem.id)) {
+      // File reference lost (page refresh) — need re-select folder
+      showToast(`File data lost for "${queueItem.fileName}" — please re-select folder`, "error");
       return;
     }
     updateQueueItem(queueItem.id, { status: "queued", error: null });
     processQueue();
+  };
+
+  // ── Retry all failed items ──
+  const handleRetryAll = () => {
+    const queue = useMasterDataStore.getState().pdfUploadQueue;
+    let retried = 0;
+    queue.forEach(q => {
+      if (q.status === "failed" && fileObjectMap.has(q.id)) {
+        updateQueueItem(q.id, { status: "queued", error: null });
+        retried++;
+      }
+    });
+    if (retried > 0) {
+      showToast(`Retrying ${retried} failed item${retried !== 1 ? "s" : ""}`);
+      processQueue();
+    } else {
+      showToast("No retryable items (re-select folder to rebind files)", "error");
+    }
+  };
+
+  // ── Pause / Resume ──
+  const handleTogglePause = () => {
+    const newState = !pausedRef.current;
+    pausedRef.current = newState;
+    setIsPaused(newState);
+    if (!newState) {
+      // Resuming — restart workers
+      processQueue();
+    }
+  };
+
+  // ── Batch accept: save all extracted items at once ──
+  const handleBatchAccept = async () => {
+    const queue = useMasterDataStore.getState().pdfUploadQueue;
+    const extracted = queue.filter(q => q.status === "extracted" && q.extractedData);
+    if (extracted.length === 0) return;
+
+    for (const q of extracted) {
+      addHistoricalProposal({
+        ...q.extractedData,
+        source: "pdf",
+        sourceFileName: q.fileName,
+      });
+      updateQueueItem(q.id, { status: "saved" });
+    }
+    await saveMasterData();
+    await saveUploadQueue();
+    showToast(`Saved ${extracted.length} proposal${extracted.length !== 1 ? "s" : ""} to Cost History`);
+
+    // Generate learning records in background (non-blocking)
+    setTimeout(async () => {
+      const proposals = useMasterDataStore.getState().masterData.historicalProposals || [];
+      for (const q of extracted) {
+        const match = proposals.find(p => p.sourceFileName === q.fileName);
+        if (match) {
+          try { await generateLearningFromProposal(match); } catch (e) { console.warn("Learning gen error:", e); }
+        }
+      }
+    }, 100);
   };
 
   // ── Review an extracted queue item ──
@@ -593,6 +725,24 @@ Return ONLY a JSON object. Example:
   const queueExtracting = uploadQueue.filter(q => q.status === "extracting").length;
   const queueSaved = uploadQueue.filter(q => q.status === "saved").length;
   const queueFailed = uploadQueue.filter(q => q.status === "failed").length;
+  const queueQueued = uploadQueue.filter(q => q.status === "queued").length;
+  const queueTotal = uploadQueue.length;
+  const queueDone = queueExtracted + queueSaved;
+  const queueProcessing = queueDone + queueFailed;
+  const batchMode = queueTotal > 5; // show batch UI for bulk uploads
+  const batchPct = queueTotal > 0 ? Math.round((queueProcessing / queueTotal) * 100) : 0;
+
+  // ETA calculation
+  const batchEta = useMemo(() => {
+    const { completed, startTime } = batchStatsRef.current;
+    if (!startTime || completed === 0) return null;
+    const elapsedMs = Date.now() - startTime;
+    const avgMs = elapsedMs / completed;
+    const remaining = queueQueued + queueExtracting;
+    const etaMs = remaining * avgMs;
+    if (etaMs < 60_000) return "< 1 min";
+    return `~${Math.ceil(etaMs / 60_000)} min`;
+  }, [queueQueued, queueExtracting]);
 
   // Source badge
   const sourceBadge = (source) => {
@@ -714,7 +864,7 @@ Return ONLY a JSON object. Example:
       )}
 
       {/* Action buttons */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
         <button onClick={() => { setShowForm("manual"); setFormInitial(null); setEditingId(null); setReviewingQueueId(null); }}
           style={bt(C, {
             background: C.bg2, border: `1px solid ${C.border}`,
@@ -734,9 +884,21 @@ Return ONLY a JSON object. Example:
           <Ic d={I.upload} size={12} color={C.purple} sw={2} />
           Upload Proposals
         </button>
+        <button onClick={() => folderRef.current?.click()}
+          style={bt(C, {
+            background: `${C.purple}06`, border: `1px solid ${C.purple}20`,
+            color: C.purple,
+            padding: "7px 12px", fontSize: 11, fontWeight: 600,
+            display: "flex", alignItems: "center", gap: 5,
+          })}>
+          <Ic d={I.folder || I.upload} size={12} color={C.purple} sw={2} />
+          Upload Folder
+        </button>
         <input ref={pdfRef} type="file" accept=".pdf" multiple style={{ display: "none" }}
           onChange={e => { handlePdfFilesSelected(e.target.files); e.target.value = ""; }} />
-        {queueExtracting > 0 && (
+        <input ref={folderRef} type="file" webkitdirectory="" style={{ display: "none" }}
+          onChange={e => { handleFolderSelected(e.target.files); e.target.value = ""; }} />
+        {queueExtracting > 0 && !batchMode && (
           <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 5, background: `${C.orange}10`, border: `1px solid ${C.orange}25` }}>
             <NovaOrb size={14} scheme="nova" />
             <span style={{ fontSize: 10, color: C.orange, fontWeight: 600 }}>
@@ -776,9 +938,88 @@ Return ONLY a JSON object. Example:
             <span style={{ fontSize: 10, color: C.textDim, transition: "transform 150ms", transform: showQueue ? "rotate(90deg)" : "rotate(0deg)", display: "inline-block" }}>▸</span>
           </div>
 
+          {/* ── Batch Progress UI (shown for bulk uploads > 5 items) ── */}
+          {batchMode && showQueue && (
+            <div style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}` }}>
+              {/* Progress bar */}
+              <div style={{ height: 6, borderRadius: 3, background: `${C.textDim}15`, marginBottom: 8, overflow: "hidden" }}>
+                <div style={{
+                  height: "100%", borderRadius: 3, transition: "width 300ms ease",
+                  width: `${batchPct}%`,
+                  background: `linear-gradient(90deg, ${C.accent}, ${C.blue})`,
+                }} />
+              </div>
+
+              {/* Stats row */}
+              <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 8 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: C.text }}>
+                  {queueProcessing}/{queueTotal} processed ({batchPct}%)
+                </span>
+                {queueExtracting > 0 && (
+                  <span style={{ fontSize: 9, fontWeight: 600, color: C.orange, display: "flex", alignItems: "center", gap: 3 }}>
+                    <NovaOrb size={10} scheme="nova" /> {queueExtracting} active
+                  </span>
+                )}
+                {queueFailed > 0 && (
+                  <span style={{ fontSize: 9, fontWeight: 600, color: C.red }}>
+                    {queueFailed} failed
+                  </span>
+                )}
+                {batchEta && (queueQueued > 0 || queueExtracting > 0) && (
+                  <span style={{ fontSize: 9, color: C.textDim }}>
+                    {batchEta} remaining
+                  </span>
+                )}
+                {isPaused && (
+                  <span style={{ fontSize: 9, fontWeight: 700, color: C.orange, padding: "1px 6px", borderRadius: 3, background: `${C.orange}15` }}>
+                    PAUSED
+                  </span>
+                )}
+              </div>
+
+              {/* Action buttons row */}
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <button onClick={handleTogglePause}
+                  style={bt(C, {
+                    background: isPaused ? `${C.accent}15` : `${C.orange}15`,
+                    border: `1px solid ${isPaused ? C.accent + '35' : C.orange + '35'}`,
+                    color: isPaused ? C.accent : C.orange,
+                    padding: "4px 10px", fontSize: 9, fontWeight: 700,
+                  })}>
+                  {isPaused ? "Resume" : "Pause"}
+                </button>
+                {queueExtracted > 0 && (
+                  <button onClick={handleBatchAccept}
+                    style={bt(C, {
+                      background: `${C.green}15`, border: `1px solid ${C.green}35`,
+                      color: C.green, padding: "4px 10px", fontSize: 9, fontWeight: 700,
+                    })}>
+                    Accept All {queueExtracted}
+                  </button>
+                )}
+                {queueFailed > 0 && (
+                  <button onClick={handleRetryAll}
+                    style={bt(C, {
+                      background: `${C.orange}10`, border: `1px solid ${C.orange}30`,
+                      color: C.orange, padding: "4px 10px", fontSize: 9, fontWeight: 700,
+                    })}>
+                    Retry All {queueFailed} Failed
+                  </button>
+                )}
+              </div>
+
+              {/* Currently extracting file names */}
+              {queueExtracting > 0 && (
+                <div style={{ marginTop: 6, fontSize: 9, color: C.textDim }}>
+                  Extracting: {uploadQueue.filter(q => q.status === "extracting").map(q => q.fileName).join(", ")}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Queue items */}
           {showQueue && (
-            <div style={{ padding: "4px 8px 8px" }}>
+            <div style={{ padding: "4px 8px 8px", maxHeight: batchMode ? 300 : undefined, overflowY: batchMode ? "auto" : undefined }}>
               {uploadQueue.map(q => (
                 <div key={q.id} style={{
                   display: "flex", alignItems: "center", gap: 8, padding: "5px 8px",
@@ -796,7 +1037,7 @@ Return ONLY a JSON object. Example:
                   {/* Status */}
                   {queueStatusBadge(q.status)}
                   {/* Actions */}
-                  {q.status === "extracted" && (
+                  {q.status === "extracted" && !batchMode && (
                     <button onClick={() => handleReviewQueueItem(q)}
                       style={bt(C, {
                         background: C.blue, color: "#fff", padding: "3px 10px",
@@ -805,7 +1046,7 @@ Return ONLY a JSON object. Example:
                       Review
                     </button>
                   )}
-                  {q.status === "failed" && (
+                  {q.status === "failed" && !batchMode && (
                     <button onClick={() => handleRetry(q)}
                       style={bt(C, {
                         background: `${C.orange}15`, border: `1px solid ${C.orange}35`,

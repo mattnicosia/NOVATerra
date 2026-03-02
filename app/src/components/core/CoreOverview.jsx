@@ -9,7 +9,6 @@ import { useDrawingsStore } from '@/stores/drawingsStore';
 import { useUiStore } from '@/stores/uiStore';
 import { useCoreStore } from '@/stores/coreStore';
 import NovaIntelligenceMeter from '@/components/core/NovaIntelligenceMeter';
-import SubProposalModal from '@/components/database/SubProposalModal';
 import CsvImportModal from '@/components/import/CsvImportModal';
 import Ic from '@/components/shared/Ic';
 import { I } from '@/constants/icons';
@@ -73,7 +72,6 @@ export default function CoreOverview() {
   const drawings = useDrawingsStore(s => s.drawings);
 
   // Modals
-  const [showSubModal, setShowSubModal] = useState(false);
   const [showCsvModal, setShowCsvModal] = useState(false);
 
   // Compute stats
@@ -174,7 +172,6 @@ export default function CoreOverview() {
       }}>
         {[
           { label: "Upload Proposal", icon: I.upload, color: "#8B5CF6", action: () => setActiveTab("proposals") },
-          { label: "Import Sub Proposal", icon: I.download, color: "#3B82F6", action: () => setShowSubModal(true) },
           { label: "Import CSV / Excel", icon: I.layers, color: "#10B981", action: () => setShowCsvModal(true) },
         ].map(a => (
           <button
@@ -261,7 +258,6 @@ export default function CoreOverview() {
       )}
 
       {/* Modals */}
-      {showSubModal && <SubProposalModal onClose={() => setShowSubModal(false)} />}
       {showCsvModal && <CsvImportModal onClose={() => setShowCsvModal(false)} />}
     </div>
   );

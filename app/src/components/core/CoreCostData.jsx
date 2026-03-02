@@ -5,7 +5,6 @@ import { useMemo, useState } from 'react';
 import { useTheme } from '@/hooks/useTheme';
 import { useDatabaseStore } from '@/stores/databaseStore';
 import { useUiStore } from '@/stores/uiStore';
-import SubProposalModal from '@/components/database/SubProposalModal';
 import CsvImportModal from '@/components/import/CsvImportModal';
 import Ic from '@/components/shared/Ic';
 import { I } from '@/constants/icons';
@@ -20,7 +19,6 @@ export default function CoreCostData() {
   const elements = useDatabaseStore(s => s.elements);
   const assemblies = useDatabaseStore(s => s.assemblies);
 
-  const [showSubModal, setShowSubModal] = useState(false);
   const [showCsvModal, setShowCsvModal] = useState(false);
   const [expandedTrade, setExpandedTrade] = useState(null);
 
@@ -76,21 +74,6 @@ export default function CoreCostData() {
 
         <div style={{ display: "flex", gap: 8 }}>
           <button
-            onClick={() => setShowSubModal(true)}
-            style={{
-              display: "flex", alignItems: "center", gap: 6,
-              padding: "8px 14px", borderRadius: T.radius.md,
-              background: `${C.accent}10`, border: `1px solid ${C.accent}25`,
-              cursor: "pointer", color: C.accent,
-              fontSize: 11.5, fontWeight: 600, transition: "all 0.15s",
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = `${C.accent}1A`; }}
-            onMouseLeave={e => { e.currentTarget.style.background = `${C.accent}10`; }}
-          >
-            <Ic d={I.upload} size={13} color={C.accent} />
-            Import Sub Proposal
-          </button>
-          <button
             onClick={() => setShowCsvModal(true)}
             style={{
               display: "flex", alignItems: "center", gap: 6,
@@ -119,7 +102,7 @@ export default function CoreCostData() {
           <path d={I.database} />
         </svg>
         <span style={{ fontSize: 11, color: C.textMuted, lineHeight: 1.4 }}>
-          User-created cost items and imported sub proposals are auto-embedded into NOVA's intelligence. Items from the seed database are not shown here.
+          User-created cost items and imports are auto-embedded into NOVA's intelligence. Items from the seed database are not shown here.
         </span>
       </div>
 
@@ -205,23 +188,22 @@ export default function CoreCostData() {
             No user cost data yet
           </h3>
           <p style={{ fontSize: 11.5, color: C.textMuted, margin: "0 0 14px" }}>
-            Import subcontractor proposals or CSV files to build your custom cost database.
+            Import CSV files or add items from the Cost Database to build your custom cost data.
           </p>
           <button
-            onClick={() => setShowSubModal(true)}
+            onClick={() => setShowCsvModal(true)}
             style={{
               padding: "8px 18px", borderRadius: T.radius.md,
               background: C.accent, border: "none", cursor: "pointer",
               color: "#fff", fontSize: 12, fontWeight: 600,
             }}
           >
-            Import Sub Proposal
+            Import CSV / Excel
           </button>
         </div>
       )}
 
       {/* Modals */}
-      {showSubModal && <SubProposalModal onClose={() => setShowSubModal(false)} />}
       {showCsvModal && <CsvImportModal onClose={() => setShowCsvModal(false)} />}
     </div>
   );

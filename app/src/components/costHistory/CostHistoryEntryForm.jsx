@@ -86,6 +86,7 @@ export default function CostHistoryEntryForm({ onClose, onSave, initial, mode = 
     stories: "",
     structuralSystem: "",
     deliveryMethod: "",
+    proposalType: "gc",
     outcome: "pending",
     outcomeMetadata: {},
     divisions: {},
@@ -261,6 +262,14 @@ export default function CostHistoryEntryForm({ onClose, onSave, initial, mode = 
             style={inp(C, { padding: "6px 10px", fontSize: 11 })}>
             <option value="">— Select —</option>
             {BUILDING_TYPES.map(b => <option key={b.key} value={b.key}>{b.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={{ fontSize: 9, color: C.textDim, fontWeight: 600 }}>Proposal Type</label>
+          <select value={form.proposalType || "gc"} onChange={e => up("proposalType", e.target.value)}
+            style={inp(C, { padding: "6px 10px", fontSize: 11 })}>
+            <option value="gc">GC Proposal</option>
+            <option value="sub">Sub Proposal</option>
           </select>
         </div>
         <div>
