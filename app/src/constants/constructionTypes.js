@@ -34,6 +34,8 @@ export const WORK_TYPES = [
   { key: "historic-restoration", label: "Historic Restoration", multiplier: 1.35 },
   { key: "shell-core",           label: "Shell & Core",         multiplier: 0.70 },
   { key: "capital-improvement",  label: "Capital Improvement",  multiplier: 0.85 },
+  { key: "demolition",           label: "Demolition",           multiplier: 0.30 },
+  { key: "interior-demo",        label: "Interior Demolition",  multiplier: 0.20 },
 ];
 
 // ─── Outcome Statuses ─────────────────────────────────────────
@@ -44,6 +46,7 @@ export const OUTCOME_STATUSES = [
   { key: "lost",      label: "Lost",      color: "red"     },
   { key: "withdrawn", label: "Withdrawn", color: "orange"  },
   { key: "no-bid",    label: "No Bid",    color: "textDim" },
+  { key: "unknown",  label: "Unknown",  color: "textDim" },
 ];
 
 // ─── Lost Reasons ─────────────────────────────────────────────
