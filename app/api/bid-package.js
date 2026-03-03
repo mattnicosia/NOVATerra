@@ -24,7 +24,7 @@ export default async function handler(req, res) {
 
   // ── CREATE BID PACKAGE (POST) ──
   if (req.method === 'POST') {
-    const { estimateId, name, scopeItems, drawingIds, coverMessage, dueDate, subs } = req.body || {};
+    const { estimateId, name, scopeItems, scopeSheet, drawingIds, coverMessage, dueDate, subs } = req.body || {};
 
     if (!estimateId || !name) {
       return res.status(400).json({ error: 'Missing required fields: estimateId, name' });
@@ -41,6 +41,7 @@ export default async function handler(req, res) {
           scope_items: scopeItems || [],
           drawing_ids: drawingIds || [],
           cover_message: coverMessage || '',
+          scope_sheet: scopeSheet || '',
           due_date: dueDate || null,
           status: 'active',
         })

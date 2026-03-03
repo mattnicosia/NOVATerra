@@ -4,13 +4,14 @@ import { today } from '@/utils/format';
 
 const blankProject = () => ({
   name: "New Estimate", client: "", architect: "", engineer: "", estimator: "",
-  address: "", date: today(), bidDue: "", bidDueTime: "", walkthroughDate: "",
-  rfiDueDate: "", otherDueDate: "", otherDueLabel: "", description: "",
+  address: "", date: today(), bidDue: "", bidDueTime: "", walkthroughDate: "", walkthroughTime: "",
+  rfiDueDate: "", rfiDueTime: "", otherDueDate: "", otherDueLabel: "", description: "",
   projectSF: "", jobType: "", bidType: "", bidDelivery: "", bidRequirements: {},
   status: "Bidding", referredByType: "", referredByName: "",
   laborType: "open_shop",
   zipCode: "", locationMetroId: "",
   companyProfileId: "",
+  estimateNumber: "",       // unique internal estimate number (required)
   projectNumber: "",        // project/job number from title block
 
   // Building parameters

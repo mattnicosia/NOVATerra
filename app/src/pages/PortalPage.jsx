@@ -28,6 +28,11 @@ export default function PortalPage() {
   const [submitted, setSubmitted] = useState(false);
   const [dragOver, setDragOver] = useState(false);
 
+  // Structured bid form
+  const [bidAmount, setBidAmount] = useState('');
+  const [subInclusions, setSubInclusions] = useState('');
+  const [subExclusions, setSubExclusions] = useState('');
+
   // Extract token from URL
   useEffect(() => {
     const path = window.location.pathname;
@@ -120,7 +125,13 @@ export default function PortalPage() {
       const confirmResp = await fetch('/api/portal-confirm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, proposalId }),
+        body: JSON.stringify({
+          token,
+          proposalId,
+          bidAmount: bidAmount ? parseFloat(bidAmount.replace(/[^0-9.]/g, '')) : null,
+          subInclusions: subInclusions.trim() || null,
+          subExclusions: subExclusions.trim() || null,
+        }),
       });
 
       if (!confirmResp.ok) {
@@ -269,6 +280,23 @@ export default function PortalPage() {
               </div>
             </div>
           )}
+
+          {/* Scope Sheet */}
+          {pkg?.scopeSheet && (
+            <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, color: C.textMuted, marginBottom: 8 }}>
+                Scope Summary
+              </div>
+              <div style={{
+                fontSize: 12, color: C.textMuted, lineHeight: 1.6,
+                whiteSpace: 'pre-wrap',
+                padding: '10px 12px', borderRadius: 8,
+                background: 'rgba(255,255,255,0.03)',
+              }}>
+                {pkg.scopeSheet}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Drawings */}
@@ -359,6 +387,72 @@ export default function PortalPage() {
                 </div>
               )}
 
+              {/* Structured Bid Form */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
+                <div>
+                  <label style={{ color: C.textMuted, fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>
+                    Bid Amount
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: C.textDim, fontSize: 15, fontWeight: 600 }}>$</span>
+                    <input
+                      type="text"
+                      value={bidAmount}
+                      onChange={e => setBidAmount(e.target.value)}
+                      placeholder="0"
+                      style={{
+                        width: '100%', boxSizing: 'border-box', padding: '12px 14px 12px 28px',
+                        borderRadius: 10, border: `1px solid ${C.border}`,
+                        background: 'rgba(255,255,255,0.04)', color: C.text,
+                        fontSize: 18, fontWeight: 600, outline: 'none',
+                        fontFamily: "'DM Sans', sans-serif",
+                      }}
+                    />
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <label style={{ color: C.textMuted, fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>
+                      Key Inclusions <span style={{ fontWeight: 400 }}>(optional)</span>
+                    </label>
+                    <textarea
+                      value={subInclusions}
+                      onChange={e => setSubInclusions(e.target.value)}
+                      placeholder="What's included in your bid..."
+                      rows={3}
+                      style={{
+                        width: '100%', boxSizing: 'border-box', padding: '10px 12px',
+                        borderRadius: 8, border: `1px solid ${C.border}`,
+                        background: 'rgba(255,255,255,0.04)', color: C.text,
+                        fontSize: 13, resize: 'vertical', outline: 'none',
+                        fontFamily: "'DM Sans', sans-serif",
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ color: C.textMuted, fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>
+                      Key Exclusions <span style={{ fontWeight: 400 }}>(optional)</span>
+                    </label>
+                    <textarea
+                      value={subExclusions}
+                      onChange={e => setSubExclusions(e.target.value)}
+                      placeholder="What's NOT included..."
+                      rows={3}
+                      style={{
+                        width: '100%', boxSizing: 'border-box', padding: '10px 12px',
+                        borderRadius: 8, border: `1px solid ${C.border}`,
+                        background: 'rgba(255,255,255,0.04)', color: C.text,
+                        fontSize: 13, resize: 'vertical', outline: 'none',
+                        fontFamily: "'DM Sans', sans-serif",
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, color: C.textMuted, marginBottom: 8 }}>
+                Upload Proposal Document
+              </div>
               <div
                 onDragOver={e => { e.preventDefault(); setDragOver(true); }}
                 onDragLeave={() => setDragOver(false)}
@@ -414,8 +508,16 @@ export default function PortalPage() {
         </div>
 
         {/* Footer */}
-        <div style={{ textAlign: 'center', padding: '24px 0 40px', color: C.textDim, fontSize: 12 }}>
-          Powered by NOVA Estimating
+        <div style={{ textAlign: 'center', padding: '24px 0 40px' }}>
+          <a
+            href="/sub-dashboard"
+            style={{ color: C.accent, fontSize: 12, fontWeight: 600, textDecoration: 'none', marginBottom: 8, display: 'inline-block' }}
+          >
+            View all your bids &rarr;
+          </a>
+          <div style={{ color: C.textDim, fontSize: 12 }}>
+            Powered by NOVA Estimating
+          </div>
         </div>
       </div>
       <SpinStyle />
@@ -428,16 +530,8 @@ export default function PortalPage() {
 function LogoHeader() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
-      <div style={{
-        width: 36, height: 36, borderRadius: 10,
-        background: 'linear-gradient(135deg, #7C5CFC, #BF5AF2)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>
-        <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-          <path d="M2 20h20 M5 20V8l7-5 7 5v12 M9 20v-6h6v6" />
-        </svg>
-      </div>
-      <span style={{ color: C.text, fontSize: 16, fontWeight: 600 }}>NOVA</span>
+      <img src="/novaterra-nt.png" alt="NT" style={{ height: 32, width: 32, objectFit: 'contain' }} />
+      <img src="/novaterra-wordmark.png" alt="NOVATerra" style={{ height: 20, objectFit: 'contain' }} />
     </div>
   );
 }

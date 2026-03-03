@@ -64,7 +64,7 @@ function extractJSON(text, type = 'array') {
  * @param {Function} options.onError — Called on error (receives error message)
  * @returns {Promise<Object|null>} scan results or null on failure
  */
-export async function runFullScan({ onComplete, onError } = {}) {
+export async function runFullScan({ onComplete, onError, signal } = {}) {
   const currentDrawings = useDrawingsStore.getState().drawings.filter(d => d.data);
   if (currentDrawings.length === 0) {
     const msg = 'No drawings to scan. Upload documents first.';
@@ -73,16 +73,27 @@ export async function runFullScan({ onComplete, onError } = {}) {
     return null;
   }
 
-  const { setScanResults, setScanProgress, setScanError, clearScan } = useScanStore.getState();
+  const { setScanResults, setScanProgress, setScanError, clearScan, createAbortController } = useScanStore.getState();
   const showToast = useUiStore.getState().showToast;
 
+  // Create abort controller if no external signal provided
+  const abortSignal = signal || createAbortController();
+  const checkAbort = () => {
+    if (abortSignal.aborted) throw new Error('__SCAN_STOPPED__');
+  };
+
   clearScan();
+  // Re-create controller after clearScan reset it
+  if (!signal) useScanStore.getState().createAbortController();
+
   useNovaStore.getState().startTask('scan', `Scanning ${currentDrawings.length} drawings...`);
   setScanProgress({ phase: "detect", current: 0, total: currentDrawings.length, message: "NOVA scanning for schedules..." });
 
   try {
     // ── Phase 1: Detect schedules ──
+    checkAbort();
     const detections = await batchAI(currentDrawings, async (d, idx) => {
+      checkAbort();
       setScanProgress({ phase: "detect", current: idx + 1, total: currentDrawings.length, message: `Scanning sheet ${idx + 1}/${currentDrawings.length}...` });
       let imgData;
       const curCanvases = useDrawingsStore.getState().pdfCanvases;
@@ -124,6 +135,7 @@ export async function runFullScan({ onComplete, onError } = {}) {
     });
 
     // ── Phase 1.5: Extract drawing notes ──
+    checkAbort();
     useNovaStore.getState().updateProgress(25, 'Extracting drawing notes...');
     setScanProgress({ phase: "notes", current: 0, total: detections.length, message: "Extracting drawing notes..." });
     const drawingNotesResults = await batchAI(
@@ -139,6 +151,7 @@ export async function runFullScan({ onComplete, onError } = {}) {
     const notesContext = buildNotesContext(validNotesResults);
 
     // ── Phase 2: Parse schedules (skip if none detected) ──
+    checkAbort();
     let validSchedules = [];
     if (schedulesToParse.length > 0) {
       useNovaStore.getState().updateProgress(50, 'Parsing schedules...');
@@ -274,6 +287,7 @@ export async function runFullScan({ onComplete, onError } = {}) {
     }
 
     // ── Phase 2.6: Multi-signal parameter detection engine ──
+    checkAbort();
     try {
       useNovaStore.getState().updateProgress(55, 'Running parameter detection engine...');
       setScanProgress({ phase: "params", current: 0, total: 1, message: "Multi-signal parameter detection..." });
@@ -361,6 +375,7 @@ export async function runFullScan({ onComplete, onError } = {}) {
     }
 
     // ── Phase 3: Generate ROM (always runs — produces estimates from drawings + notes even without schedules) ──
+    checkAbort();
     useNovaStore.getState().updateProgress(75, 'Generating ROM estimate...');
     setScanProgress({ phase: "rom", current: 0, total: 1, message: "Generating ROM estimate..." });
     const proj = useProjectStore.getState().project;
@@ -405,10 +420,21 @@ export async function runFullScan({ onComplete, onError } = {}) {
     useNovaStore.getState().completeTask(scanMsg);
     useNovaStore.getState().notify(scanMsg, 'success');
 
+    // Clear abort controller on success
+    try { useScanStore.setState({ scanAbortController: null }); } catch { /* ok */ }
+
     onComplete?.(results);
     return results;
 
   } catch (err) {
+    // Handle user-initiated stop gracefully
+    if (err.message === '__SCAN_STOPPED__' || abortSignal.aborted) {
+      setScanProgress({ phase: null, current: 0, total: 0, message: "" });
+      showToast("Scan stopped");
+      useNovaStore.getState().completeTask("Scan stopped by user");
+      onError?.("Scan stopped");
+      return null;
+    }
     setScanError(err.message);
     setScanProgress({ phase: null, current: 0, total: 0, message: "" });
     showToast(`Scan failed: ${err.message}`, "error");

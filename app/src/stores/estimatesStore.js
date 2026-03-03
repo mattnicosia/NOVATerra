@@ -42,8 +42,8 @@ export const useEstimatesStore = create((set, get) => ({
       project: {
         name: "New Estimate", client: "", architect: "", engineer: "", estimator: "",
         estimateNumber: estimateNumber || "",
-        address: "", date: today(), bidDue: "", bidDueTime: "", walkthroughDate: "",
-        rfiDueDate: "", otherDueDate: "", otherDueLabel: "", description: "",
+        address: "", date: today(), bidDue: "", bidDueTime: "", walkthroughDate: "", walkthroughTime: "",
+        rfiDueDate: "", rfiDueTime: "", otherDueDate: "", otherDueLabel: "", description: "",
         projectSF: "", jobType: "", buildingType: "", workType: "",
         bidType: "", bidDelivery: "", bidRequirements: {},
         status: "Bidding", referredByType: "", referredByName: "",
@@ -198,7 +198,9 @@ export const useEstimatesStore = create((set, get) => ({
       const deletedIds = raw ? JSON.parse(raw.value) : [];
       if (!deletedIds.includes(id)) deletedIds.push(id);
       await storage.set(idbKey("bldg-deleted-ids"), JSON.stringify(deletedIds));
-    } catch {}
+    } catch (err) {
+      console.error('[deleteEstimate] Failed to track deleted ID — estimate may resurrect from cloud:', err);
+    }
 
     // Cloud sync — await so deletion completes before user closes app
     try {

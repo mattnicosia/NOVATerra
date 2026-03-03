@@ -49,6 +49,8 @@ export default function CsvImportModal({ onClose, mode }) {
   // New estimate fields (mode="new")
   const [estName, setEstName] = useState("");
   const [estClient, setEstClient] = useState("");
+  const [estNumber, setEstNumber] = useState("");
+  const [estNumError, setEstNumError] = useState("");
 
   // Import progress
   const [importing, setImporting] = useState(false);
@@ -176,6 +178,22 @@ export default function CsvImportModal({ onClose, mode }) {
 
   const executeImport = async () => {
     if (previewItems.length === 0) return;
+
+    // Validate estimate number for new estimates
+    if (mode === "new") {
+      const trimmedNum = estNumber.trim();
+      if (!trimmedNum) {
+        setEstNumError("Estimate number is required");
+        return;
+      }
+      const existing = useEstimatesStore.getState().estimatesIndex;
+      const dup = existing.find(e => e.estimateNumber === trimmedNum);
+      if (dup) {
+        setEstNumError(`Estimate #${trimmedNum} already exists ("${dup.name}")`);
+        return;
+      }
+    }
+
     setImporting(true);
 
     try {
@@ -209,10 +227,11 @@ export default function CsvImportModal({ onClose, mode }) {
       if (mode === "new") {
         const companyId = useUiStore.getState().appSettings.activeCompanyId;
         const effectiveId = companyId === "__all__" ? "" : companyId;
-        const id = await useEstimatesStore.getState().createEstimate(effectiveId);
+        const id = await useEstimatesStore.getState().createEstimate(effectiveId, estNumber.trim());
         await loadEstimate(id);
 
         useProjectStore.getState().updateProject("name", estName);
+        useProjectStore.getState().updateProject("estimateNumber", estNumber.trim());
         if (estClient) useProjectStore.getState().updateProject("client", estClient);
 
         useItemsStore.getState().setItems(newItems);
@@ -402,25 +421,39 @@ export default function CsvImportModal({ onClose, mode }) {
 
           {/* New estimate fields */}
           {mode === "new" && (
-            <div style={{ display: "flex", gap: T.space[3], marginBottom: T.space[4] }}>
-              <div style={{ flex: 1 }}>
-                <label style={labelStyle(C, T)}>Estimate Name</label>
-                <input
-                  value={estName}
-                  onChange={(e) => setEstName(e.target.value)}
-                  style={{ ...inp(C), width: "100%" }}
-                  placeholder="e.g. ProEst Import"
-                />
+            <div style={{ marginBottom: T.space[4] }}>
+              <div style={{ display: "flex", gap: T.space[3], marginBottom: estNumError ? 4 : 0 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle(C, T)}>Estimate Number *</label>
+                  <input
+                    value={estNumber}
+                    onChange={(e) => { setEstNumber(e.target.value); setEstNumError(""); }}
+                    style={{ ...inp(C), width: "100%", borderColor: estNumError ? (C.red || "#f44") : undefined }}
+                    placeholder="e.g. EST-2026-001"
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle(C, T)}>Estimate Name</label>
+                  <input
+                    value={estName}
+                    onChange={(e) => setEstName(e.target.value)}
+                    style={{ ...inp(C), width: "100%" }}
+                    placeholder="e.g. ProEst Import"
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle(C, T)}>Client</label>
+                  <input
+                    value={estClient}
+                    onChange={(e) => setEstClient(e.target.value)}
+                    style={{ ...inp(C), width: "100%" }}
+                    placeholder="Optional"
+                  />
+                </div>
               </div>
-              <div style={{ flex: 1 }}>
-                <label style={labelStyle(C, T)}>Client</label>
-                <input
-                  value={estClient}
-                  onChange={(e) => setEstClient(e.target.value)}
-                  style={{ ...inp(C), width: "100%" }}
-                  placeholder="Optional"
-                />
-              </div>
+              {estNumError && (
+                <div style={{ fontSize: 11, color: C.red || "#f44", marginTop: 4 }}>{estNumError}</div>
+              )}
             </div>
           )}
 

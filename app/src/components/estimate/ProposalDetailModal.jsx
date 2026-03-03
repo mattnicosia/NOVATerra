@@ -1,14 +1,17 @@
+import { useState } from 'react';
 import { useTheme } from '@/hooks/useTheme';
 import Modal from '@/components/shared/Modal';
 import Ic from '@/components/shared/Ic';
 import { I } from '@/constants/icons';
+import ScopeGapReport from './ScopeGapReport';
 
 const fmt = (v) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(v || 0);
 
-export default function ProposalDetailModal({ proposal, onClose }) {
+export default function ProposalDetailModal({ proposal, onClose, estimateItems, projectName, packageName }) {
   const C = useTheme();
   const T = C.T;
+  const [activeTab, setActiveTab] = useState('details');
 
   if (!proposal) return null;
 
@@ -21,11 +24,13 @@ export default function ProposalDetailModal({ proposal, onClose }) {
 
   const confidencePct = Math.round((pd.confidence || 0) * 100);
   const confidenceColor = confidencePct >= 80 ? '#30D158' : confidencePct >= 50 ? '#FF9F0A' : '#FF453A';
+  const subName = pd.subcontractorName || proposal.subCompany || 'Unknown Sub';
+  const hasEstimate = estimateItems && estimateItems.length > 0;
 
   return (
     <Modal onClose={onClose} extraWide>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
         <div style={{
           width: 40, height: 40, borderRadius: 10,
           background: 'linear-gradient(135deg, rgba(48,209,88,0.2), rgba(48,209,88,0.05))',
@@ -35,7 +40,7 @@ export default function ProposalDetailModal({ proposal, onClose }) {
         </div>
         <div style={{ flex: 1 }}>
           <h3 style={{ color: C.text, fontSize: 16, fontWeight: 600, margin: 0 }}>
-            {pd.subcontractorName || proposal.subCompany || 'Parsed Proposal'}
+            {subName}
           </h3>
           <div style={{ color: C.textMuted, fontSize: 12, marginTop: 2 }}>
             {proposal.filename || 'proposal.pdf'}
@@ -61,7 +66,48 @@ export default function ProposalDetailModal({ proposal, onClose }) {
         )}
       </div>
 
+      {/* Tab Bar */}
+      {hasEstimate && (pd.lineItems?.length > 0 || pd.exclusions?.length > 0) && (
+        <div style={{
+          display: 'flex', gap: 0, marginBottom: 16,
+          borderBottom: `1px solid ${C.border}`,
+        }}>
+          {[
+            { key: 'details', label: 'Details' },
+            { key: 'gaps', label: 'Scope Gaps', icon: I.shield },
+          ].map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              style={{
+                background: 'none', border: 'none',
+                padding: '8px 16px', cursor: 'pointer',
+                fontSize: 13, fontWeight: 600,
+                color: activeTab === tab.key ? C.accent : C.textMuted,
+                borderBottom: activeTab === tab.key ? `2px solid ${C.accent}` : '2px solid transparent',
+                marginBottom: -1,
+                display: 'flex', alignItems: 'center', gap: 6,
+              }}
+            >
+              {tab.icon && <Ic d={tab.icon} size={13} color={activeTab === tab.key ? C.accent : C.textMuted} />}
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div style={{ maxHeight: 480, overflowY: 'auto' }}>
+        {activeTab === 'gaps' && hasEstimate ? (
+          <ScopeGapReport
+            estimateItems={estimateItems}
+            parsedProposal={pd}
+            projectName={projectName}
+            packageName={packageName}
+            subName={subName}
+          />
+        ) : (
+          <>
+        {/* Details tab content — original body */}
         {/* Line Items */}
         {lineItems.length > 0 && (
           <Section title="Line Items" count={lineItems.length}>
@@ -197,6 +243,8 @@ export default function ProposalDetailModal({ proposal, onClose }) {
           }}>
             Proposal is being parsed by AI... Check back shortly.
           </div>
+        )}
+          </>
         )}
       </div>
 

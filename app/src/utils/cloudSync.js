@@ -282,7 +282,7 @@ export const pushEstimate = async (estimateId, data) => {
       const { error } = await supabase
         .from('user_estimates')
         .upsert(
-          { user_id: getUserId(), estimate_id: estimateId, data: cleanData, updated_at: new Date().toISOString(), ...getScope() },
+          { user_id: getUserId(), estimate_id: estimateId, data: cleanData, updated_at: new Date().toISOString(), deleted_at: null, ...getScope() },
           { onConflict: 'user_id,estimate_id,org_id' }
         );
       if (error) throw error;
@@ -295,16 +295,18 @@ export const pushEstimate = async (estimateId, data) => {
 };
 
 /**
- * Delete an estimate from the cloud.
+ * Soft-delete an estimate in the cloud (sets deleted_at timestamp).
+ * The row stays in the DB but all pull queries filter it out.
+ * This prevents resurrection even if the client's IndexedDB is wiped.
  */
 export const deleteEstimate = async (estimateId) => {
   if (!isReady()) return;
   markSyncing();
   try {
-    // Always scope delete to current user (RLS is defense-in-depth, not sole guard)
+    // Soft-delete: SET deleted_at instead of DELETE
     let query = supabase
       .from('user_estimates')
-      .delete()
+      .update({ deleted_at: new Date().toISOString() })
       .eq('estimate_id', estimateId)
       .eq('user_id', getUserId());
 
@@ -392,7 +394,8 @@ export const pullAllEstimatesWithMeta = async () => {
     const scope = getScope();
     let query = supabase
       .from('user_estimates')
-      .select('estimate_id, data, updated_at, user_id');
+      .select('estimate_id, data, updated_at, user_id')
+      .is('deleted_at', null); // Exclude soft-deleted estimates
 
     if (scope.org_id) {
       // Org mode: pull all org estimates (RLS handles visibility)
@@ -422,7 +425,8 @@ export const pullEstimate = async (estimateId) => {
     let query = supabase
       .from('user_estimates')
       .select('data')
-      .eq('estimate_id', estimateId);
+      .eq('estimate_id', estimateId)
+      .is('deleted_at', null); // Exclude soft-deleted
 
     if (scope.org_id) {
       query = query.eq('org_id', scope.org_id);
@@ -449,7 +453,8 @@ export const pullAllEstimates = async () => {
     const scope = getScope();
     let query = supabase
       .from('user_estimates')
-      .select('estimate_id, data, user_id');
+      .select('estimate_id, data, user_id')
+      .is('deleted_at', null); // Exclude soft-deleted estimates
 
     if (scope.org_id) {
       query = query.eq('org_id', scope.org_id);

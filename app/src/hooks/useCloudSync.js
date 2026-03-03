@@ -247,11 +247,13 @@ async function syncEstimates() {
   if (cleanedDeletedIds.length !== deletedIds.length) {
     await storage.set(idbKey('bldg-deleted-ids'), JSON.stringify(cleanedDeletedIds));
   }
+  // Rebuild deleted set from cleaned list (original deletedSet is stale after retry loop)
+  const activeDeletedSet = new Set(cleanedDeletedIds);
 
   // Pull estimates that exist in cloud but not locally
   // SKIP any that were locally deleted (prevents resurrection)
   for (const ce of cloudEstimates) {
-    if (deletedSet.has(ce.estimate_id)) {
+    if (activeDeletedSet.has(ce.estimate_id)) {
       continue; // Don't pull back a deleted estimate
     }
     if (!localIndexMap.has(ce.estimate_id)) {

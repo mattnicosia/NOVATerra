@@ -54,6 +54,18 @@
     "api/parse-proposal.js": {
       "maxDuration": 60
     },
+    "api/scope-gap-narrative.js": {
+      "maxDuration": 60
+    },
+    "api/award-bid.js": {
+      "maxDuration": 60
+    },
+    "api/sub-magic-link.js": {
+      "maxDuration": 15
+    },
+    "api/sub-dashboard.js": {
+      "maxDuration": 15
+    },
     "api/sub-pool.js": {
       "maxDuration": 15
     },

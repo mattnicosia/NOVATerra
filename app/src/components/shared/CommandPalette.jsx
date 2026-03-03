@@ -4,6 +4,8 @@ import { useTheme } from '@/hooks/useTheme';
 import { useCommandPaletteStore } from '@/stores/commandPaletteStore';
 import { useEstimatesStore } from '@/stores/estimatesStore';
 import { useUiStore } from '@/stores/uiStore';
+import { loadEstimate } from '@/hooks/usePersistence';
+import NewEstimateModal from '@/components/shared/NewEstimateModal';
 import Ic from '@/components/shared/Ic';
 import { I } from '@/constants/icons';
 
@@ -26,7 +28,7 @@ const PAGES = [
   { id: 'nav-dashboard', label: 'Dashboard', path: '/', icon: I.dashboard, category: 'Pages' },
   { id: 'nav-database', label: 'Cost Database', path: '/core?tab=database', icon: I.database, category: 'Pages' },
   { id: 'nav-assemblies', label: 'Assemblies', path: '/assemblies', icon: I.assembly, category: 'Pages' },
-  { id: 'nav-contacts', label: 'Contacts', path: '/contacts', icon: I.user, category: 'Pages' },
+  { id: 'nav-contacts', label: 'People', path: '/contacts', icon: I.user, category: 'Pages' },
   { id: 'nav-settings', label: 'Settings', path: '/settings', icon: I.settings, category: 'Pages' },
   { id: 'nav-inbox', label: 'Inbox', path: '/inbox', icon: I.inbox, category: 'Pages' },
 ];
@@ -55,6 +57,7 @@ export default function CommandPalette() {
   const inputRef = useRef(null);
   const listRef = useRef(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [showNewModal, setShowNewModal] = useState(false);
 
   // Focus input on open
   useEffect(() => {
@@ -134,10 +137,8 @@ export default function CommandPalette() {
     } else if (item.path) {
       navigate(item.path);
     } else if (item.action === 'create') {
-      const companyId = activeCompanyId === '__all__' ? '' : activeCompanyId;
-      createEstimate(companyId).then(id => {
-        if (id) navigate(`/estimate/${id}/estimate`);
-      });
+      setShowNewModal(true);
+      return; // Don't close the palette — the modal will overlay
     } else if (item.action === 'ai-chat') {
       setAiChatOpen(!aiChatOpen);
     }
@@ -164,7 +165,24 @@ export default function CommandPalette() {
     if (el) el.scrollIntoView({ block: 'nearest' });
   }, [activeIndex]);
 
-  if (!open) return null;
+  const handleNewCreated = async (id) => {
+    setShowNewModal(false);
+    close();
+    await loadEstimate(id);
+    navigate(`/estimate/${id}/estimate`);
+  };
+
+  if (!open && !showNewModal) return null;
+
+  if (showNewModal) {
+    return (
+      <NewEstimateModal
+        companyProfileId={activeCompanyId === '__all__' ? '' : activeCompanyId}
+        onCreated={handleNewCreated}
+        onClose={() => { setShowNewModal(false); close(); }}
+      />
+    );
+  }
 
   // Group results by category for section headers
   let lastCategory = '';

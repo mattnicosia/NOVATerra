@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '@/hooks/useTheme';
 import { useMasterDataStore } from '@/stores/masterDataStore';
@@ -28,10 +28,12 @@ export default function ContactsPage() {
   const getContactsForCompany = useMasterDataStore(s => s.getContactsForCompany);
   const getCompanyInfo = useMasterDataStore(s => s.getCompanyInfo);
   const activeCompanyId = useUiStore(s => s.appSettings.activeCompanyId);
+  const showToast = useUiStore(s => s.showToast);
 
   const [activeTab, setActiveTab] = useState('clients');
   const [search, setSearch] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [dupWarning, setDupWarning] = useState(null);
 
   const companyTag = activeCompanyId === "__all__" ? "" : activeCompanyId;
   const clients = getContactsForCompany("clients", activeCompanyId);
@@ -53,30 +55,85 @@ export default function ContactsPage() {
   };
   const totalContacts = Object.values(counts).reduce((a, b) => a + b, 0);
 
-  const filterBySearch = (items, fields) => {
-    if (!search) return items;
-    const q = search.toLowerCase();
-    return items.filter(item => fields.some(f => (item[f] || '').toLowerCase().includes(q)));
-  };
-
-  const getActiveItems = () => {
+  // ── Get all items for current tab ──
+  const getAllItems = () => {
     switch (activeTab) {
-      case 'clients': return filterBySearch(clients, ['company', 'contact', 'email']);
-      case 'architects': return filterBySearch(architects, ['company', 'contact', 'email']);
-      case 'engineers': return filterBySearch(engineers, ['company', 'contact', 'email']);
-      case 'estimators': return filterBySearch(estimators, ['name', 'email', 'initials']);
-      case 'subcontractors': return filterBySearch(subcontractors, ['company', 'trade', 'contact', 'email']);
+      case 'clients': return clients;
+      case 'architects': return architects;
+      case 'engineers': return engineers;
+      case 'estimators': return estimators;
+      case 'subcontractors': return subcontractors;
       default: return [];
     }
   };
-  const activeItems = getActiveItems();
+  const allItems = getAllItems();
 
-  const handleAdd = () => {
+  // ── Group by company ──
+  const grouped = useMemo(() => {
+    if (activeTab === 'estimators') return null; // estimators are flat (no company)
+    const map = new Map();
+    const q = search.toLowerCase();
+    allItems.forEach(item => {
+      // search filter
+      if (q) {
+        const fields = ['company', 'contact', 'email', 'trade', 'phone', 'name'];
+        const match = fields.some(f => (item[f] || '').toLowerCase().includes(q));
+        if (!match) return;
+      }
+      const key = (item.company || '').trim() || '__unnamed__';
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(item);
+    });
+    return map;
+  }, [allItems, search, activeTab]);
+
+  // ── Filtered estimators (flat) ──
+  const filteredEstimators = useMemo(() => {
+    if (activeTab !== 'estimators') return [];
+    const q = search.toLowerCase();
+    return q ? estimators.filter(e => ['name', 'email', 'initials'].some(f => (e[f] || '').toLowerCase().includes(q))) : estimators;
+  }, [estimators, search, activeTab]);
+
+  // ── Duplicate detection ──
+  const checkDuplicate = (companyName, contactName, email) => {
+    const items = getAllItems();
+    const cn = (companyName || '').trim().toLowerCase();
+    const ct = (contactName || '').trim().toLowerCase();
+    const em = (email || '').trim().toLowerCase();
+
+    for (const item of items) {
+      const isCo = (item.company || '').trim().toLowerCase() === cn && cn;
+      const isCt = (item.contact || item.name || '').trim().toLowerCase() === ct && ct;
+      const isEm = (item.email || '').trim().toLowerCase() === em && em;
+
+      if (isEm) return { match: item, reason: `Email "${email}" already exists` };
+      if (isCo && isCt) return { match: item, reason: `"${contactName}" at "${companyName}" already exists` };
+    }
+    return null;
+  };
+
+  // ── Add person to existing company ──
+  const handleAddPerson = (companyName) => {
+    const templates = {
+      clients: { company: companyName, contact: '', email: '', phone: '', address: '', notes: '', companyProfileId: companyTag },
+      architects: { company: companyName, contact: '', email: '', phone: '', companyProfileId: companyTag },
+      engineers: { company: companyName, contact: '', email: '', phone: '', companyProfileId: companyTag },
+      subcontractors: { company: companyName, trade: '', contact: '', email: '', phone: '', notes: '', rating: '', companyProfileId: companyTag },
+    };
+    addMasterItem(activeTab, templates[activeTab]);
+    showToast(`Person added to ${companyName}`);
+  };
+
+  // ── Add new company or estimator ──
+  const handleAddNew = () => {
+    if (activeTab === 'estimators') {
+      addMasterItem('estimators', { name: '', initials: '', email: '' });
+      return;
+    }
     const templates = {
       clients: { company: '', contact: '', email: '', phone: '', address: '', notes: '', companyProfileId: companyTag },
       architects: { company: '', contact: '', email: '', phone: '', companyProfileId: companyTag },
       engineers: { company: '', contact: '', email: '', phone: '', companyProfileId: companyTag },
-      estimators: { name: '', initials: '', email: '' },
       subcontractors: { company: '', trade: '', contact: '', email: '', phone: '', notes: '', rating: '', companyProfileId: companyTag },
     };
     addMasterItem(activeTab, templates[activeTab]);
@@ -85,6 +142,29 @@ export default function ContactsPage() {
   const handleDelete = (id) => {
     removeMasterItem(activeTab, id);
     setDeleteConfirm(null);
+  };
+
+  // ── Duplicate-aware field update ──
+  const handleFieldUpdate = (tab, id, field, value) => {
+    // Check for duplicate on key fields
+    if (field === 'email' && value.includes('@')) {
+      const dup = checkDuplicate('', '', value);
+      if (dup && dup.match.id !== id) {
+        setDupWarning({ id, msg: dup.reason });
+        setTimeout(() => setDupWarning(prev => prev?.id === id ? null : prev), 4000);
+      }
+    }
+    if (field === 'contact' || field === 'name') {
+      const item = allItems.find(i => i.id === id);
+      if (item) {
+        const dup = checkDuplicate(item.company || '', value, '');
+        if (dup && dup.match.id !== id) {
+          setDupWarning({ id, msg: dup.reason });
+          setTimeout(() => setDupWarning(prev => prev?.id === id ? null : prev), 4000);
+        }
+      }
+    }
+    updateMasterItem(tab, id, field, value);
   };
 
   const getInitials = (item) => {
@@ -108,6 +188,8 @@ export default function ContactsPage() {
   const accent = tabColor(activeTab);
   const inputStyle = inp(C, { padding: '6px 10px', fontSize: 12 });
   const inputBoldStyle = inp(C, { padding: '6px 10px', fontSize: 12, fontWeight: 600 });
+  const tabLabel = TABS.find(t => t.key === activeTab)?.label || '';
+  const singularLabel = tabLabel.replace(/s$/, '');
 
   return (
     <div style={{ padding: T.space[7], minHeight: '100%' }}>
@@ -115,9 +197,9 @@ export default function ContactsPage() {
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: T.space[5] }}>
           <div>
-            <h1 style={{ fontSize: T.fontSize.xl, fontWeight: T.fontWeight.bold, color: C.text, marginBottom: T.space[1] }}>Contacts</h1>
+            <h1 style={{ fontSize: T.fontSize.xl, fontWeight: T.fontWeight.bold, color: C.text, marginBottom: T.space[1] }}>People</h1>
             <p style={{ color: C.textMuted, fontSize: T.fontSize.sm }}>
-              {totalContacts} contact{totalContacts !== 1 ? 's' : ''} across all categories
+              {totalContacts} {totalContacts === 1 ? 'person' : 'people'} across all categories
             </p>
           </div>
           <CompanySwitcher />
@@ -139,7 +221,7 @@ export default function ContactsPage() {
         </div>
 
         {/* Tabs + Search */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: T.space[4] }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: T.space[4], flexWrap: 'wrap', gap: 8 }}>
           <div style={{ display: 'flex', gap: 2, background: C.bg2, borderRadius: T.radius.md, padding: 3 }}>
             {TABS.map(tab => {
               const isActive = activeTab === tab.key;
@@ -163,47 +245,85 @@ export default function ContactsPage() {
           </div>
           <div style={{ display: 'flex', gap: T.space[2], alignItems: 'center' }}>
             <div style={{ position: 'relative' }}>
-              <input placeholder="Search contacts..." value={search} onChange={e => setSearch(e.target.value)} style={inp(C, { width: 200, paddingLeft: 30, fontSize: 12, padding: '6px 10px 6px 30px' })} />
+              <input placeholder="Search people..." value={search} onChange={e => setSearch(e.target.value)} style={inp(C, { width: 200, paddingLeft: 30, fontSize: 12, padding: '6px 10px 6px 30px' })} />
               <div style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }}><Ic d={I.search} size={12} color={C.textDim} /></div>
             </div>
-            <button onClick={handleAdd} className="accent-btn" style={bt(C, { background: C.gradient || accent, color: '#fff', padding: '6px 16px', borderRadius: T.radius.sm, boxShadow: `0 0 12px ${accent}20` })}>
-              <Ic d={I.plus} size={13} color="#fff" sw={2.5} /> Add {TABS.find(t => t.key === activeTab)?.label.replace(/s$/, '')}
+            <button onClick={handleAddNew} className="accent-btn" style={bt(C, { background: C.gradient || accent, color: '#fff', padding: '6px 16px', borderRadius: T.radius.sm, boxShadow: `0 0 12px ${accent}20` })}>
+              <Ic d={I.plus} size={13} color="#fff" sw={2.5} /> {activeTab === 'estimators' ? 'Add Estimator' : 'Add Company'}
             </button>
           </div>
         </div>
 
-        {/* Contact list */}
+        {/* ── Content ── */}
         <div style={{ ...card(C), overflow: 'hidden' }}>
-          {activeItems.length === 0 ? (
-            search ? (
-              <EmptyState icon={I.search} title="No matches" subtitle={`No ${activeTab} match "${search}"`} color={accent} />
+          {activeTab === 'estimators' ? (
+            /* ── Estimators: flat list (no company grouping) ── */
+            filteredEstimators.length === 0 ? (
+              search
+                ? <EmptyState icon={I.search} title="No matches" subtitle={`No estimators match "${search}"`} color={accent} />
+                : <EmptyState icon={I.user} title="No estimators yet" subtitle="Add your first estimator." action={handleAddNew} actionLabel="Add Estimator" actionIcon={I.plus} color={accent} />
             ) : (
-              <EmptyState icon={TABS.find(t => t.key === activeTab)?.icon} title={`No ${activeTab} yet`} subtitle={`Add your first ${activeTab.replace(/s$/, '')} to start building your contact book.`} action={handleAdd} actionLabel={`Add ${TABS.find(t => t.key === activeTab)?.label.replace(/s$/, '')}`} actionIcon={I.plus} color={accent} />
+              <>
+                <div style={{ ...sectionLabel(C), fontSize: 9, padding: `${T.space[2]}px ${T.space[4]}px`, background: C.bg2, borderBottom: `1px solid ${C.border}`, display: 'grid', gridTemplateColumns: '40px 1.2fr .6fr 1.5fr 36px', gap: 8 }}>
+                  <span /><span>Name</span><span>Initials</span><span>Email</span><span />
+                </div>
+                {filteredEstimators.map((item, idx) => (
+                  <div key={item.id} className="row" style={{ padding: `${T.space[2]}px ${T.space[4]}px`, borderBottom: `1px solid ${C.border}`, animation: `staggerFadeRight 280ms cubic-bezier(0.16,1,0.3,1) ${idx * 30}ms both` }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '40px 1.2fr .6fr 1.5fr 36px', gap: 8, alignItems: 'center' }}>
+                      <ContactAvatar initials={getInitials(item)} color={accent} T={T} />
+                      <input value={item.name} onChange={e => handleFieldUpdate('estimators', item.id, 'name', e.target.value)} placeholder="Full Name" style={inputBoldStyle} />
+                      <input value={item.initials || ''} onChange={e => handleFieldUpdate('estimators', item.id, 'initials', e.target.value)} placeholder="MN" style={inp(C, { padding: '6px 10px', fontSize: 12, textAlign: 'center', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 2 })} />
+                      <input value={item.email || ''} onChange={e => handleFieldUpdate('estimators', item.id, 'email', e.target.value)} placeholder="Email" style={inputStyle} />
+                      <button className="icon-btn" onClick={() => setDeleteConfirm(item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 4, display: 'flex' }}><Ic d={I.trash} size={12} color={C.red} /></button>
+                    </div>
+                    {dupWarning?.id === item.id && <DupBanner msg={dupWarning.msg} C={C} T={T} />}
+                  </div>
+                ))}
+                <div style={{ padding: `${T.space[3]}px ${T.space[4]}px` }}>
+                  <button className="ghost-btn" onClick={handleAddNew} style={bt(C, { background: 'transparent', border: `1px dashed ${C.border}`, color: C.textMuted, padding: '8px 16px', borderRadius: T.radius.sm, width: '100%', justifyContent: 'center' })}>
+                    <Ic d={I.plus} size={12} color={C.textDim} /> Add Estimator
+                  </button>
+                </div>
+              </>
             )
           ) : (
-            <>
-              {/* Column headers */}
-              <ColumnHeaders tab={activeTab} C={C} T={T} />
-
-              {/* Rows */}
-              {activeItems.map((item, idx) => (
-                <div key={item.id} className="row" style={{ padding: `${T.space[2]}px ${T.space[4]}px`, borderBottom: `1px solid ${C.border}`, animation: `staggerFadeRight 280ms cubic-bezier(0.16,1,0.3,1) ${idx * 30}ms both` }}>
-                  <ContactRow tab={activeTab} item={item} accent={accent} T={T} C={C} inputStyle={inputStyle} inputBoldStyle={inputBoldStyle} updateMasterItem={updateMasterItem} onDelete={() => setDeleteConfirm(item.id)} getInitials={getInitials} />
+            /* ── Company-grouped tabs ── */
+            !grouped || grouped.size === 0 ? (
+              search
+                ? <EmptyState icon={I.search} title="No matches" subtitle={`No ${activeTab} match "${search}"`} color={accent} />
+                : <EmptyState icon={TABS.find(t => t.key === activeTab)?.icon} title={`No ${activeTab} yet`} subtitle={`Add your first ${singularLabel.toLowerCase()} company to start building your directory.`} action={handleAddNew} actionLabel={`Add ${singularLabel} Company`} actionIcon={I.plus} color={accent} />
+            ) : (
+              <>
+                {[...grouped.entries()].map(([companyName, people], gIdx) => (
+                  <CompanyGroup
+                    key={companyName + gIdx}
+                    companyName={companyName}
+                    people={people}
+                    tab={activeTab}
+                    accent={accent}
+                    C={C} T={T}
+                    inputStyle={inputStyle}
+                    inputBoldStyle={inputBoldStyle}
+                    handleFieldUpdate={handleFieldUpdate}
+                    onDeletePerson={setDeleteConfirm}
+                    onAddPerson={handleAddPerson}
+                    getInitials={getInitials}
+                    dupWarning={dupWarning}
+                    isLast={gIdx === grouped.size - 1}
+                  />
+                ))}
+                <div style={{ padding: `${T.space[3]}px ${T.space[4]}px` }}>
+                  <button className="ghost-btn" onClick={handleAddNew} style={bt(C, { background: 'transparent', border: `1px dashed ${C.border}`, color: C.textMuted, padding: '8px 16px', borderRadius: T.radius.sm, width: '100%', justifyContent: 'center' })}>
+                    <Ic d={I.plus} size={12} color={C.textDim} /> Add {singularLabel} Company
+                  </button>
                 </div>
-              ))}
-
-              {/* Add row */}
-              <div style={{ padding: `${T.space[3]}px ${T.space[4]}px` }}>
-                <button className="ghost-btn" onClick={handleAdd} style={bt(C, { background: 'transparent', border: `1px dashed ${C.border}`, color: C.textMuted, padding: '8px 16px', borderRadius: T.radius.sm, width: '100%', justifyContent: 'center' })}>
-                  <Ic d={I.plus} size={12} color={C.textDim} /> Add {TABS.find(t => t.key === activeTab)?.label.replace(/s$/, '')}
-                </button>
-              </div>
-            </>
+              </>
+            )
           )}
         </div>
 
         <div style={{ padding: `${T.space[3]}px ${T.space[4]}px`, marginTop: T.space[3], fontSize: T.fontSize.xs, color: C.textDim, textAlign: 'center' }}>
-          Contact data saves automatically and persists across all estimates.
+          People data saves automatically and persists across all estimates.
         </div>
       </div>
 
@@ -214,11 +334,11 @@ export default function ContactsPage() {
             <div style={{ width: 48, height: 48, borderRadius: T.radius.full, margin: '0 auto', marginBottom: T.space[4], background: `${C.red}15`, border: `1px solid ${C.red}25`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Ic d={I.trash} size={22} color={C.red} sw={1.7} />
             </div>
-            <div style={{ fontSize: T.fontSize.md, fontWeight: T.fontWeight.semibold, color: C.text, marginBottom: T.space[2], textAlign: 'center' }}>Delete Contact?</div>
-            <div style={{ fontSize: T.fontSize.sm, color: C.textMuted, marginBottom: T.space[5], textAlign: 'center' }}>This contact will be removed permanently.</div>
+            <div style={{ fontSize: T.fontSize.md, fontWeight: T.fontWeight.semibold, color: C.text, marginBottom: T.space[2], textAlign: 'center' }}>Remove Person?</div>
+            <div style={{ fontSize: T.fontSize.sm, color: C.textMuted, marginBottom: T.space[5], textAlign: 'center' }}>This person will be removed from the directory.</div>
             <div style={{ display: 'flex', gap: T.space[2], justifyContent: 'center' }}>
               <button onClick={() => setDeleteConfirm(null)} style={bt(C, { background: C.bg2, color: C.textMuted, padding: `${T.space[2]}px ${T.space[5]}px`, border: `1px solid ${C.border}`, borderRadius: T.radius.sm })}>Cancel</button>
-              <button onClick={() => handleDelete(deleteConfirm)} style={bt(C, { background: C.red, color: '#fff', padding: `${T.space[2]}px ${T.space[5]}px`, boxShadow: `0 0 12px ${C.red}30`, borderRadius: T.radius.sm })}>Delete</button>
+              <button onClick={() => handleDelete(deleteConfirm)} style={bt(C, { background: C.red, color: '#fff', padding: `${T.space[2]}px ${T.space[5]}px`, boxShadow: `0 0 12px ${C.red}30`, borderRadius: T.radius.sm })}>Remove</button>
             </div>
           </div>
         </div>
@@ -227,75 +347,123 @@ export default function ContactsPage() {
   );
 }
 
-// Column headers per tab
-function ColumnHeaders({ tab, C, T }) {
-  const base = { ...sectionLabel(C), fontSize: 9, padding: `${T.space[2]}px ${T.space[4]}px`, background: C.bg2, borderBottom: `1px solid ${C.border}` };
-  const grids = {
-    clients: { gridTemplateColumns: '40px 1.5fr 1fr 1.2fr .8fr 1fr 36px', cols: ['', 'Company', 'Contact', 'Email', 'Phone', 'Notes', ''] },
-    architects: { gridTemplateColumns: '40px 1.5fr 1fr 1.2fr .8fr 36px', cols: ['', 'Firm', 'Contact', 'Email', 'Phone', ''] },
-    engineers: { gridTemplateColumns: '40px 1.5fr 1fr 1.2fr .8fr 36px', cols: ['', 'Firm', 'Contact', 'Email', 'Phone', ''] },
-    estimators: { gridTemplateColumns: '40px 1.2fr .6fr 1.5fr 36px', cols: ['', 'Name', 'Initials', 'Email', ''] },
-    subcontractors: { gridTemplateColumns: '40px 1.4fr .7fr 1fr 1.2fr .7fr .5fr 36px', cols: ['', 'Company', 'Trade', 'Contact', 'Email', 'Phone', 'Rating', ''] },
-  };
-  const g = grids[tab];
+/* ── Company Group ── */
+function CompanyGroup({ companyName, people, tab, accent, C, T, inputStyle, inputBoldStyle, handleFieldUpdate, onDeletePerson, onAddPerson, getInitials, dupWarning, isLast }) {
+  const isUnnamed = companyName === '__unnamed__';
+  const personCount = people.length;
+  const firstPerson = people[0];
+
+  // For the company header, use the first person's company field
+  const companyDisplayName = isUnnamed ? 'New Company' : companyName;
+
+  // Fields specific to sub tab
+  const isSub = tab === 'subcontractors';
+
   return (
-    <div style={{ ...base, display: 'grid', gridTemplateColumns: g.gridTemplateColumns, gap: 8 }}>
-      {g.cols.map((c, i) => <span key={i}>{c}</span>)}
+    <div style={{ borderBottom: isLast ? 'none' : `1px solid ${C.border}` }}>
+      {/* Company header bar */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: `${T.space[3]}px ${T.space[4]}px`,
+        background: C.bg2,
+        borderBottom: `1px solid ${C.border}`,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: T.space[3] }}>
+          <div style={{
+            width: 32, height: 32, borderRadius: T.radius.sm,
+            background: `${accent}12`, border: `1px solid ${accent}20`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 11, fontWeight: 700, color: accent,
+          }}>
+            {companyDisplayName.slice(0, 2).toUpperCase()}
+          </div>
+          <div>
+            {/* Editable company name — update all people in this group */}
+            <input
+              value={isUnnamed ? '' : companyName}
+              onChange={e => {
+                const newName = e.target.value;
+                people.forEach(p => handleFieldUpdate(tab, p.id, 'company', newName));
+              }}
+              placeholder="Company Name"
+              style={inp(C, { padding: '3px 8px', fontSize: 13, fontWeight: 600, background: 'transparent', border: 'none', color: C.text, minWidth: 180 })}
+            />
+            <div style={{ fontSize: 10, color: C.textDim, paddingLeft: 8 }}>
+              {personCount} {personCount === 1 ? 'person' : 'people'}
+              {isSub && firstPerson?.trade && <span> · {firstPerson.trade}</span>}
+            </div>
+          </div>
+        </div>
+        <button
+          className="ghost-btn"
+          onClick={() => onAddPerson(companyName === '__unnamed__' ? '' : companyName)}
+          style={bt(C, { background: 'transparent', border: `1px solid ${C.border}`, color: C.textMuted, padding: '4px 12px', fontSize: 10, borderRadius: T.radius.sm })}
+        >
+          <Ic d={I.plus} size={10} color={C.textDim} /> Add Person
+        </button>
+      </div>
+
+      {/* People rows */}
+      {people.map((item, idx) => (
+        <div key={item.id} style={{ padding: `${T.space[2]}px ${T.space[4]}px ${T.space[2]}px ${T.space[4] + 44}px`, borderBottom: idx < people.length - 1 ? `1px solid ${C.border}40` : 'none', animation: `staggerFadeRight 280ms cubic-bezier(0.16,1,0.3,1) ${idx * 30}ms both` }}>
+          <PersonRow
+            tab={tab}
+            item={item}
+            accent={accent}
+            C={C} T={T}
+            inputStyle={inputStyle}
+            handleFieldUpdate={handleFieldUpdate}
+            onDelete={() => onDeletePerson(item.id)}
+            getInitials={getInitials}
+          />
+          {dupWarning?.id === item.id && <DupBanner msg={dupWarning.msg} C={C} T={T} />}
+        </div>
+      ))}
     </div>
   );
 }
 
-// Contact row per tab
-function ContactRow({ tab, item, accent, T, C, inputStyle, inputBoldStyle, updateMasterItem, onDelete, getInitials }) {
+/* ── Person Row (indented under company) ── */
+function PersonRow({ tab, item, accent, C, T, inputStyle, handleFieldUpdate, onDelete, getInitials }) {
   const avatar = <ContactAvatar initials={getInitials(item)} color={accent} T={T} />;
-  const delBtn = <button className="icon-btn" onClick={onDelete} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 4, display: 'flex' }}><Ic d={I.trash} size={12} color={C.red} /></button>;
+  const delBtn = (
+    <button className="icon-btn" onClick={onDelete} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 4, display: 'flex' }}>
+      <Ic d={I.trash} size={12} color={C.red} />
+    </button>
+  );
 
   if (tab === 'clients') {
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: '40px 1.5fr 1fr 1.2fr .8fr 1fr 36px', gap: 8, alignItems: 'center' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '32px 1.2fr 1.2fr .8fr 1fr 36px', gap: 8, alignItems: 'center' }}>
         {avatar}
-        <input value={item.company} onChange={e => updateMasterItem('clients', item.id, 'company', e.target.value)} placeholder="Company" style={inputBoldStyle} />
-        <input value={item.contact || ''} onChange={e => updateMasterItem('clients', item.id, 'contact', e.target.value)} placeholder="Contact" style={inputStyle} />
-        <input value={item.email || ''} onChange={e => updateMasterItem('clients', item.id, 'email', e.target.value)} placeholder="Email" style={inputStyle} />
-        <input value={item.phone || ''} onChange={e => updateMasterItem('clients', item.id, 'phone', e.target.value)} placeholder="Phone" style={inputStyle} />
-        <input value={item.notes || ''} onChange={e => updateMasterItem('clients', item.id, 'notes', e.target.value)} placeholder="Notes" style={inp(C, { padding: '6px 10px', fontSize: 11 })} />
+        <input value={item.contact || ''} onChange={e => handleFieldUpdate('clients', item.id, 'contact', e.target.value)} placeholder="Person Name" style={inputStyle} />
+        <input value={item.email || ''} onChange={e => handleFieldUpdate('clients', item.id, 'email', e.target.value)} placeholder="Email" style={inputStyle} />
+        <input value={item.phone || ''} onChange={e => handleFieldUpdate('clients', item.id, 'phone', e.target.value)} placeholder="Phone" style={inputStyle} />
+        <input value={item.notes || ''} onChange={e => handleFieldUpdate('clients', item.id, 'notes', e.target.value)} placeholder="Notes / Role" style={inp(C, { padding: '6px 10px', fontSize: 11 })} />
         {delBtn}
       </div>
     );
   }
   if (tab === 'architects' || tab === 'engineers') {
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: '40px 1.5fr 1fr 1.2fr .8fr 36px', gap: 8, alignItems: 'center' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '32px 1.2fr 1.5fr 1fr 36px', gap: 8, alignItems: 'center' }}>
         {avatar}
-        <input value={item.company} onChange={e => updateMasterItem(tab, item.id, 'company', e.target.value)} placeholder="Firm" style={inputBoldStyle} />
-        <input value={item.contact || ''} onChange={e => updateMasterItem(tab, item.id, 'contact', e.target.value)} placeholder="Contact" style={inputStyle} />
-        <input value={item.email || ''} onChange={e => updateMasterItem(tab, item.id, 'email', e.target.value)} placeholder="Email" style={inputStyle} />
-        <input value={item.phone || ''} onChange={e => updateMasterItem(tab, item.id, 'phone', e.target.value)} placeholder="Phone" style={inputStyle} />
-        {delBtn}
-      </div>
-    );
-  }
-  if (tab === 'estimators') {
-    return (
-      <div style={{ display: 'grid', gridTemplateColumns: '40px 1.2fr .6fr 1.5fr 36px', gap: 8, alignItems: 'center' }}>
-        {avatar}
-        <input value={item.name} onChange={e => updateMasterItem('estimators', item.id, 'name', e.target.value)} placeholder="Full Name" style={inputBoldStyle} />
-        <input value={item.initials || ''} onChange={e => updateMasterItem('estimators', item.id, 'initials', e.target.value)} placeholder="MN" style={inp(C, { padding: '6px 10px', fontSize: 12, textAlign: 'center', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 2 })} />
-        <input value={item.email || ''} onChange={e => updateMasterItem('estimators', item.id, 'email', e.target.value)} placeholder="Email" style={inputStyle} />
+        <input value={item.contact || ''} onChange={e => handleFieldUpdate(tab, item.id, 'contact', e.target.value)} placeholder="Person Name" style={inputStyle} />
+        <input value={item.email || ''} onChange={e => handleFieldUpdate(tab, item.id, 'email', e.target.value)} placeholder="Email" style={inputStyle} />
+        <input value={item.phone || ''} onChange={e => handleFieldUpdate(tab, item.id, 'phone', e.target.value)} placeholder="Phone" style={inputStyle} />
         {delBtn}
       </div>
     );
   }
   if (tab === 'subcontractors') {
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: '40px 1.4fr .7fr 1fr 1.2fr .7fr .5fr 36px', gap: 8, alignItems: 'center' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '32px .6fr 1fr 1.2fr .8fr .4fr 36px', gap: 8, alignItems: 'center' }}>
         {avatar}
-        <input value={item.company} onChange={e => updateMasterItem('subcontractors', item.id, 'company', e.target.value)} placeholder="Company" style={inputBoldStyle} />
-        <input value={item.trade || ''} onChange={e => updateMasterItem('subcontractors', item.id, 'trade', e.target.value)} placeholder="Trade" style={inputStyle} />
-        <input value={item.contact || ''} onChange={e => updateMasterItem('subcontractors', item.id, 'contact', e.target.value)} placeholder="Contact" style={inputStyle} />
-        <input value={item.email || ''} onChange={e => updateMasterItem('subcontractors', item.id, 'email', e.target.value)} placeholder="Email" style={inputStyle} />
-        <input value={item.phone || ''} onChange={e => updateMasterItem('subcontractors', item.id, 'phone', e.target.value)} placeholder="Phone" style={inputStyle} />
-        <RatingBadge value={item.rating} onChange={v => updateMasterItem('subcontractors', item.id, 'rating', v)} C={C} T={T} />
+        <input value={item.trade || ''} onChange={e => handleFieldUpdate('subcontractors', item.id, 'trade', e.target.value)} placeholder="Trade" style={inputStyle} />
+        <input value={item.contact || ''} onChange={e => handleFieldUpdate('subcontractors', item.id, 'contact', e.target.value)} placeholder="Person Name" style={inputStyle} />
+        <input value={item.email || ''} onChange={e => handleFieldUpdate('subcontractors', item.id, 'email', e.target.value)} placeholder="Email" style={inputStyle} />
+        <input value={item.phone || ''} onChange={e => handleFieldUpdate('subcontractors', item.id, 'phone', e.target.value)} placeholder="Phone" style={inputStyle} />
+        <RatingBadge value={item.rating} onChange={v => handleFieldUpdate('subcontractors', item.id, 'rating', v)} C={C} T={T} />
         {delBtn}
       </div>
     );
@@ -303,9 +471,25 @@ function ContactRow({ tab, item, accent, T, C, inputStyle, inputBoldStyle, updat
   return null;
 }
 
+/* ── Duplicate warning banner ── */
+function DupBanner({ msg, C, T }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 6,
+      padding: '4px 12px', marginTop: 4,
+      background: `${C.orange}12`, border: `1px solid ${C.orange}25`,
+      borderRadius: T.radius.sm, fontSize: 10, color: C.orange, fontWeight: 500,
+      animation: 'fadeIn 0.2s ease-out',
+    }}>
+      <Ic d={I.alertTriangle || I.x} size={11} color={C.orange} />
+      Possible duplicate: {msg}
+    </div>
+  );
+}
+
 function ContactAvatar({ initials, color, T }) {
   return (
-    <div style={{ width: 32, height: 32, borderRadius: T.radius.full, background: `${color}15`, border: `1px solid ${color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: color, letterSpacing: 0.5, flexShrink: 0 }}>
+    <div style={{ width: 28, height: 28, borderRadius: T.radius.full, background: `${color}15`, border: `1px solid ${color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: color, letterSpacing: 0.5, flexShrink: 0 }}>
       {initials}
     </div>
   );

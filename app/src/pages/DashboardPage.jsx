@@ -15,6 +15,7 @@ import { I } from '@/constants/icons';
 import { fmt, nn } from '@/utils/format';
 import { inp, bt, pageContainer, card, sectionLabel, mono, statusBadge, moneyCell } from '@/utils/styles';
 import CsvImportModal from '@/components/import/CsvImportModal';
+import NewEstimateModal from '@/components/shared/NewEstimateModal';
 import NovaTerraLogo from '@/components/shared/NovaTerraLogo';
 
 const STATUSES = ["All", "Bidding", "Submitted", "Won", "Lost", "On Hold", "Cancelled"];
@@ -36,6 +37,7 @@ export default function DashboardPage() {
   const [search, setSearch] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
+  const [showNewModal, setShowNewModal] = useState(false);
 
   // Company-scoped estimates — include unassigned (empty companyProfileId) estimates
   const companyEstimates = useMemo(() => {
@@ -57,6 +59,7 @@ export default function DashboardPage() {
     if (statusFilter !== "All") list = list.filter(e => e.status === statusFilter);
     if (search) list = list.filter(e =>
       (e.name || "").toLowerCase().includes(search.toLowerCase()) ||
+      (e.estimateNumber || "").toLowerCase().includes(search.toLowerCase()) ||
       (e.client || "").toLowerCase().includes(search.toLowerCase())
     );
     return list;
@@ -83,9 +86,10 @@ export default function DashboardPage() {
     .sort((a, b) => new Date(a.bidDue) - new Date(b.bidDue))
     .slice(0, 5);
 
-  const handleCreate = async () => {
-    const companyId = activeCompanyId === "__all__" ? "" : activeCompanyId;
-    const id = await createEstimate(companyId);
+  const handleCreate = () => setShowNewModal(true);
+
+  const handleNewCreated = async (id) => {
+    setShowNewModal(false);
     await loadEstimate(id);
     navigate(`/estimate/${id}/estimate`);
   };
@@ -382,7 +386,10 @@ export default function DashboardPage() {
                 }}
                 onClick={() => handleOpen(est.id)}
               >
-                <span style={{ fontSize: T.fontSize.md, fontWeight: T.fontWeight.semibold, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", paddingRight: 8 }}>{est.name || "Untitled"}</span>
+                <span style={{ fontSize: T.fontSize.md, fontWeight: T.fontWeight.semibold, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", paddingRight: 8 }}>
+                  {est.name || "Untitled"}
+                  {est.estimateNumber && <span style={{ fontSize: T.fontSize.xs, color: C.accent, fontWeight: 500, marginLeft: 6 }}>#{est.estimateNumber}</span>}
+                </span>
                 <span style={{ fontSize: T.fontSize.sm, color: C.textMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{est.client || "\u2014"}</span>
                 <span>
                   <span style={statusBadge(sc)}>
@@ -438,6 +445,13 @@ export default function DashboardPage() {
         </div>
       )}
       {csvImportOpen && <CsvImportModal onClose={() => setCsvImportOpen(false)} mode="new" />}
+      {showNewModal && (
+        <NewEstimateModal
+          companyProfileId={activeCompanyId === "__all__" ? "" : activeCompanyId}
+          onCreated={handleNewCreated}
+          onClose={() => setShowNewModal(false)}
+        />
+      )}
     </div>
   );
 }

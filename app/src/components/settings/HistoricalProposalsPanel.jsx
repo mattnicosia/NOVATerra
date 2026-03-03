@@ -9,7 +9,7 @@ import { useScanStore } from '@/stores/scanStore';
 import { useUiStore } from '@/stores/uiStore';
 import { callAnthropic, pdfBlock } from '@/utils/ai';
 import { generateBaselineROM, computeCalibration } from '@/utils/romEngine';
-import { saveMasterData, saveUploadQueue } from '@/hooks/usePersistence';
+import { saveMasterData, saveUploadQueue, savePdfBase64, loadPdfBase64, deletePdfBase64, deletePdfBase64Batch } from '@/hooks/usePersistence';
 import { mapStatusToOutcome, migrateJobType } from '@/utils/costHistoryMigration';
 import { uid } from '@/utils/format';
 import { BUILDING_TYPES, WORK_TYPES, OUTCOME_STATUSES, LOST_REASONS,
@@ -131,7 +131,6 @@ export default function HistoricalProposalsPanel() {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showQueue, setShowQueue] = useState(true);
   const pdfRef = useRef(null);
-  const folderRef = useRef(null);
   const extractingRef = useRef(false); // legacy flag — now managed by worker pool
   const activeWorkersRef = useRef(0);
   const pausedRef = useRef(false);
@@ -453,8 +452,14 @@ Return ONLY a JSON object. Example:
           }
 
           const queue = useMasterDataStore.getState().pdfUploadQueue;
-          const next = queue.find(q => q.status === "queued" && base64DataMap.has(q.id));
+          const next = queue.find(q => q.status === "queued");
           if (!next) break; // no work left
+
+          // Load base64 from IndexedDB if not in memory (e.g. after page refresh)
+          if (!base64DataMap.has(next.id)) {
+            const stored = await loadPdfBase64(next.id);
+            if (stored) base64DataMap.set(next.id, stored);
+          }
 
           updateQueueItem(next.id, { status: "extracting" });
           const itemStart = Date.now();
@@ -462,7 +467,7 @@ Return ONLY a JSON object. Example:
           try {
             const base64 = base64DataMap.get(next.id);
             if (!base64 || base64.length < 100) {
-              throw new Error(`PDF data missing for "${next.fileName}" — please re-select files`);
+              throw new Error(`PDF data missing for "${next.fileName}" — please re-upload file`);
             }
             console.log(`[BatchUpload] Sending "${next.fileName}" to AI (${(base64.length / 1024).toFixed(0)} KB base64)`);
             const extracted = await extractProposalPdf(base64, next.fileName);
@@ -504,7 +509,6 @@ Return ONLY a JSON object. Example:
   const handlePdfFilesSelected = async (files) => {
     try {
     if (!files || files.length === 0) return;
-    // files may already be an Array (from onChange snapshot) or a FileList
     const allFiles = Array.isArray(files) ? files : Array.from(files);
     console.log("[BatchUpload] Received", allFiles.length, "files from picker");
     const MAX_PDF_SIZE = 25 * 1024 * 1024; // 25 MB raw — Anthropic limit is 32 MB for full request
@@ -525,19 +529,26 @@ Return ONLY a JSON object. Example:
     // Eagerly read ALL files to base64 BEFORE clearing the file input.
     // This prevents a browser bug where clearing the input (e.target.value = "")
     // can invalidate File objects, making them read as 0 bytes.
-    const readResults = await Promise.allSettled(
-      fileArray.map(async (file) => {
-        if (file.size > MAX_PDF_SIZE) return { file, skip: "oversized" };
-        if (file.size === 0) return { file, skip: "empty" };
-        try {
-          const base64 = await readFileToBase64(file);
-          return { file, base64 };
-        } catch (err) {
-          console.error(`[BatchUpload] Failed to read "${file.name}":`, err.message);
-          return { file, skip: "read_error", error: err.message };
-        }
-      })
-    );
+    // Read in batches of 10 to avoid browser memory pressure on large folders.
+    const BATCH_SIZE = 10;
+    const readResults = [];
+    for (let i = 0; i < fileArray.length; i += BATCH_SIZE) {
+      const batch = fileArray.slice(i, i + BATCH_SIZE);
+      const batchResults = await Promise.allSettled(
+        batch.map(async (file) => {
+          if (file.size > MAX_PDF_SIZE) return { file, skip: "oversized" };
+          if (file.size === 0) return { file, skip: "empty" };
+          try {
+            const base64 = await readFileToBase64(file);
+            return { file, base64 };
+          } catch (err) {
+            console.error(`[BatchUpload] Failed to read "${file.name}":`, err.message);
+            return { file, skip: "read_error", error: err.message };
+          }
+        })
+      );
+      readResults.push(...batchResults);
+    }
 
     for (const result of readResults) {
       const { file, base64, skip, error } = result.status === "fulfilled" ? result.value : { file: null, skip: "rejected" };
@@ -563,12 +574,26 @@ Return ONLY a JSON object. Example:
       const match = existingQueue.find(q => q.fileName === file.name && q.fileSize === file.size);
 
       if (match) {
+        if (match.status === "extracted" && !match.extractedData) {
+          // Status says extracted but data was lost (old persistence stripped it) — re-extract
+          base64DataMap.set(match.id, base64);
+          savePdfBase64(match.id, base64);
+          updateQueueItem(match.id, { status: "queued", error: null });
+          resumed++;
+          continue;
+        }
         if (match.status === "extracted" || match.status === "saved") {
-          skipped++; // already done
+          // Already extracted — still bind base64 for PDF preview if missing
+          if (!base64DataMap.has(match.id)) {
+            base64DataMap.set(match.id, base64);
+            savePdfBase64(match.id, base64);
+          }
+          skipped++;
           continue;
         }
         // Bind eagerly-read base64 to existing queue item
         base64DataMap.set(match.id, base64);
+        savePdfBase64(match.id, base64); // persist for PDF preview across refreshes
         if (match.status === "failed") {
           updateQueueItem(match.id, { status: "queued", error: null });
         }
@@ -577,6 +602,7 @@ Return ONLY a JSON object. Example:
         // New file — create queue entry with base64 already read
         const id = uid();
         base64DataMap.set(id, base64);
+        savePdfBase64(id, base64); // persist for PDF preview across refreshes
         newItems.push({
           id,
           fileName: file.name,
@@ -613,9 +639,6 @@ Return ONLY a JSON object. Example:
   };
 
   // ── Folder picker handler ──
-  const handleFolderSelected = async (files) => {
-    await handlePdfFilesSelected(files);
-  };
 
   // ── Retry a failed extraction ──
   const handleRetry = (queueItem) => {
@@ -688,11 +711,19 @@ Return ONLY a JSON object. Example:
   };
 
   // ── Review an extracted queue item ──
-  const handleReviewQueueItem = (queueItem) => {
+  const handleReviewQueueItem = async (queueItem) => {
+    if (!queueItem.extractedData) {
+      // Data lost (old persistence stripped it) — need re-upload to re-extract
+      showToast(`Data lost for "${queueItem.fileName}" — re-upload the file to re-extract`, "error");
+      return;
+    }
     setFormInitial(queueItem.extractedData);
     setEditingId(null);
     setReviewingQueueId(queueItem.id);
-    setReviewPdfBase64(base64DataMap.get(queueItem.id) || null);
+    // Try in-memory first, then fall back to IndexedDB (survives page refresh)
+    let b64 = base64DataMap.get(queueItem.id) || null;
+    if (!b64) b64 = await loadPdfBase64(queueItem.id);
+    setReviewPdfBase64(b64);
     setShowForm("pdf-review");
   };
 
@@ -737,8 +768,9 @@ Return ONLY a JSON object. Example:
 
     // Auto-open next extracted item from queue
     if (reviewingQueueId) {
-      // Free base64 memory for the saved item
+      // Free base64 memory + IndexedDB for the saved item
       base64DataMap.delete(reviewingQueueId);
+      deletePdfBase64(reviewingQueueId);
       setReviewPdfBase64(null);
       setReviewingQueueId(null);
       const queue = useMasterDataStore.getState().pdfUploadQueue;
@@ -974,20 +1006,8 @@ Return ONLY a JSON object. Example:
           <Ic d={I.upload} size={12} color={C.purple} sw={2} />
           Upload Proposals
         </button>
-        <button onClick={() => folderRef.current?.click()}
-          style={bt(C, {
-            background: `${C.purple}06`, border: `1px solid ${C.purple}20`,
-            color: C.purple,
-            padding: "7px 12px", fontSize: 11, fontWeight: 600,
-            display: "flex", alignItems: "center", gap: 5,
-          })}>
-          <Ic d={I.folder || I.upload} size={12} color={C.purple} sw={2} />
-          Upload Folder
-        </button>
         <input ref={pdfRef} type="file" accept=".pdf" multiple style={{ display: "none" }}
           onChange={async (e) => { const files = Array.from(e.target.files); await handlePdfFilesSelected(files); e.target.value = ""; }} />
-        <input ref={folderRef} type="file" webkitdirectory="" style={{ display: "none" }}
-          onChange={async (e) => { const files = Array.from(e.target.files); await handleFolderSelected(files); e.target.value = ""; }} />
         {queueExtracting > 0 && !batchMode && (
           <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 5, background: `${C.orange}10`, border: `1px solid ${C.orange}25` }}>
             <NovaOrb size={14} scheme="nova" />
@@ -1025,7 +1045,20 @@ Return ONLY a JSON object. Example:
                 </span>
               )}
             </div>
-            <span style={{ fontSize: 10, color: C.textDim, transition: "transform 150ms", transform: showQueue ? "rotate(90deg)" : "rotate(0deg)", display: "inline-block" }}>▸</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <button onClick={(e) => {
+                e.stopPropagation();
+                const ids = uploadQueue.map(q => q.id);
+                ids.forEach(id => base64DataMap.delete(id));
+                deletePdfBase64Batch(ids);
+                ids.forEach(id => removeQueueItem(id));
+                saveUploadQueue();
+              }}
+                style={{ background: "none", border: "none", cursor: "pointer", fontSize: 9, color: C.red || "#f44", fontWeight: 600, padding: "2px 6px" }}>
+                Clear All
+              </button>
+              <span style={{ fontSize: 10, color: C.textDim, transition: "transform 150ms", transform: showQueue ? "rotate(90deg)" : "rotate(0deg)", display: "inline-block" }}>▸</span>
+            </div>
           </div>
 
           {/* ── Batch Progress UI (shown for bulk uploads > 5 items) — always visible in batch mode ── */}
@@ -1096,7 +1129,7 @@ Return ONLY a JSON object. Example:
                       })}>
                       Retry All {queueFailed} Failed
                     </button>
-                    <button onClick={() => { uploadQueue.filter(q => q.status === "failed").forEach(q => base64DataMap.delete(q.id)); clearFailedFromQueue(); saveUploadQueue(); }}
+                    <button onClick={() => { const ids = uploadQueue.filter(q => q.status === "failed").map(q => q.id); ids.forEach(id => base64DataMap.delete(id)); deletePdfBase64Batch(ids); clearFailedFromQueue(); saveUploadQueue(); }}
                       style={bt(C, {
                         background: `${C.red || "#f44"}10`, border: `1px solid ${C.red || "#f44"}30`,
                         color: C.red || "#f44", padding: "4px 10px", fontSize: 9, fontWeight: 700,
@@ -1120,9 +1153,12 @@ Return ONLY a JSON object. Example:
           {showQueue && (
             <div style={{ padding: "4px 8px 8px", maxHeight: batchMode ? 300 : undefined, overflowY: batchMode ? "auto" : undefined }}>
               {uploadQueue.map(q => (
-                <div key={q.id} style={{
+                <div key={q.id}
+                  onClick={() => q.status === "extracted" && q.extractedData && handleReviewQueueItem(q)}
+                  style={{
                   display: "flex", alignItems: "center", gap: 8, padding: "5px 8px",
                   borderRadius: 4, marginBottom: 2,
+                  cursor: q.status === "extracted" && q.extractedData ? "pointer" : "default",
                   background: q.status === "extracted" ? `${C.blue}06` : q.status === "failed" ? `${C.red || "#f44"}08` : "transparent",
                 }}>
                   {/* File name + error detail */}
@@ -1144,8 +1180,8 @@ Return ONLY a JSON object. Example:
                   {/* Status */}
                   {queueStatusBadge(q.status)}
                   {/* Actions */}
-                  {q.status === "extracted" && !batchMode && (
-                    <button onClick={() => handleReviewQueueItem(q)}
+                  {q.status === "extracted" && q.extractedData && (
+                    <button onClick={(e) => { e.stopPropagation(); handleReviewQueueItem(q); }}
                       style={bt(C, {
                         background: C.blue, color: "#fff", padding: "3px 10px",
                         fontSize: 9, fontWeight: 700, borderRadius: 4,
@@ -1153,8 +1189,11 @@ Return ONLY a JSON object. Example:
                       Review
                     </button>
                   )}
-                  {q.status === "failed" && !batchMode && (
-                    <button onClick={() => handleRetry(q)}
+                  {q.status === "extracted" && !q.extractedData && (
+                    <span style={{ fontSize: 8, color: C.orange, fontWeight: 600 }}>Re-upload to restore</span>
+                  )}
+                  {q.status === "failed" && (
+                    <button onClick={(e) => { e.stopPropagation(); handleRetry(q); }}
                       style={bt(C, {
                         background: `${C.orange}15`, border: `1px solid ${C.orange}35`,
                         color: C.orange, padding: "3px 10px", fontSize: 9, fontWeight: 600,
@@ -1162,8 +1201,8 @@ Return ONLY a JSON object. Example:
                       Retry
                     </button>
                   )}
-                  {(q.status === "saved" || q.status === "failed") && (
-                    <button onClick={() => { removeQueueItem(q.id); saveUploadQueue(); }}
+                  {q.status !== "extracting" && (
+                    <button onClick={(e) => { e.stopPropagation(); base64DataMap.delete(q.id); deletePdfBase64(q.id); removeQueueItem(q.id); saveUploadQueue(); }}
                       style={{ background: "none", border: "none", cursor: "pointer", padding: 2, opacity: 0.4 }}>
                       <Ic d={I.x || I.close} size={10} color={C.textDim} />
                     </button>
@@ -1172,7 +1211,7 @@ Return ONLY a JSON object. Example:
               ))}
               {/* Clear completed */}
               {queueSaved > 0 && (
-                <button onClick={() => { uploadQueue.filter(q => q.status === "saved").forEach(q => base64DataMap.delete(q.id)); clearSavedFromQueue(); saveUploadQueue(); }}
+                <button onClick={() => { const ids = uploadQueue.filter(q => q.status === "saved").map(q => q.id); ids.forEach(id => base64DataMap.delete(id)); deletePdfBase64Batch(ids); clearSavedFromQueue(); saveUploadQueue(); }}
                   style={{ background: "none", border: "none", color: C.textDim, fontSize: 9, cursor: "pointer", padding: "4px 0", fontWeight: 600 }}>
                   Clear {queueSaved} completed
                 </button>
@@ -1498,8 +1537,8 @@ Return ONLY a JSON object. Example:
       {showForm && (
         <CostHistoryEntryForm
           onClose={() => {
-            // Free base64 memory if closing without saving
-            if (reviewingQueueId) base64DataMap.delete(reviewingQueueId);
+            // Free base64 memory + IndexedDB if closing without saving
+            if (reviewingQueueId) { base64DataMap.delete(reviewingQueueId); deletePdfBase64(reviewingQueueId); }
             setShowForm(false); setFormInitial(null); setEditingId(null);
             setReviewingQueueId(null); setReviewPdfBase64(null);
           }}

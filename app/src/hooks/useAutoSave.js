@@ -48,6 +48,9 @@ export function useAutoSave() {
     if (draftId && activeId === draftId) return;
     if (estTimer.current) clearTimeout(estTimer.current);
     estTimer.current = setTimeout(() => {
+      // Guard: verify estimate wasn't deleted during debounce window
+      const currentId = useEstimatesStore.getState().activeEstimateId;
+      if (!currentId) return;
       saveEstimate().catch(err => {
         console.error('[autoSave] Estimate save failed:', err);
         useUiStore.getState().showToast("Auto-save failed — retrying...", "error");
@@ -67,6 +70,8 @@ export function useAutoSave() {
     if (draftId && activeId === draftId) return;
     if (drawTimer.current) clearTimeout(drawTimer.current);
     drawTimer.current = setTimeout(() => {
+      const currentId = useEstimatesStore.getState().activeEstimateId;
+      if (!currentId) return;
       saveEstimate().catch(err => {
         console.error('[autoSave] Drawing save failed:', err);
       });

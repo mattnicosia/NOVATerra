@@ -11,8 +11,9 @@ import { useUiStore } from '@/stores/uiStore';
 import Modal from '@/components/shared/Modal';
 import Ic from '@/components/shared/Ic';
 import { I } from '@/constants/icons';
-import { getTradeLabel, getTradeSortOrder, autoTradeFromCode } from '@/constants/tradeGroupings';
+import { getTradeLabel, getTradeSortOrder, autoTradeFromCode, TRADE_GROUPINGS } from '@/constants/tradeGroupings';
 import { CSI } from '@/constants/csi';
+import { generateScopeSheet } from '@/utils/scopeSheetGenerator';
 
 const STEPS = [
   { key: 'scope', label: 'Select Scope', icon: I.estimate },
@@ -40,7 +41,7 @@ export default function CreateBidPackageModal({ onClose }) {
 
   // Form state
   const [selectedItems, setSelectedItems] = useState([]);
-  const [selectedDrawings, setSelectedDrawings] = useState([]);
+  const [selectedDrawings, setSelectedDrawings] = useState(() => drawings.map(d => d.id));
   const [selectedSubs, setSelectedSubs] = useState([]);
   const [packageName, setPackageName] = useState(project.name || '');
   const [dueDate, setDueDate] = useState(project.bidDue || '');
@@ -48,6 +49,25 @@ export default function CreateBidPackageModal({ onClose }) {
   const [sending, setSending] = useState(false);
   const [subSearch, setSubSearch] = useState('');
   const [groupMode, setGroupMode] = useState('trade');
+  const [autoSelectedSubs, setAutoSelectedSubs] = useState(false);
+
+  // Derive selected trades/divisions from scope selection for auto-matching subs
+  const selectedTrades = useMemo(() => {
+    const trades = new Set();
+    const selectedSet = new Set(selectedItems);
+    for (const item of items) {
+      if (!selectedSet.has(item.id)) continue;
+      const trade = item.trade || autoTradeFromCode(item.code);
+      if (trade) trades.add(trade);
+      // Also collect division names for fuzzy matching
+      const div = item.division || item.code?.slice(0, 2);
+      if (div) {
+        const divName = CSI[div]?.name;
+        if (divName) trades.add(divName.toLowerCase());
+      }
+    }
+    return trades;
+  }, [selectedItems, items]);
 
   // Group items by the active grouping mode
   const groups = useMemo(() => {
@@ -132,9 +152,10 @@ export default function CreateBidPackageModal({ onClose }) {
 
     setSending(true);
     try {
-      const scopeItems = items
-        .filter(i => selectedItems.includes(i.id))
+      const selectedEstItems = items.filter(i => selectedItems.includes(i.id));
+      const scopeItems = selectedEstItems
         .map(i => ({ id: i.id, code: i.code, description: i.description, division: i.division }));
+      const scopeSheet = generateScopeSheet(selectedEstItems, CSI);
 
       const subsToInvite = subs
         .filter(s => selectedSubs.includes(s.id))
@@ -147,6 +168,7 @@ export default function CreateBidPackageModal({ onClose }) {
         estimateId,
         name: packageName,
         scopeItems,
+        scopeSheet: scopeSheet.plainText,
         drawingIds: selectedDrawings,
         coverMessage,
         dueDate: dueDate || null,
@@ -165,7 +187,7 @@ export default function CreateBidPackageModal({ onClose }) {
       setPackageInvitations(pkgId, localInvites);
 
       // Call API to create in Supabase + generate tokens
-      const token = user?.access_token || (await useAuthStore.getState().getSession())?.access_token;
+      const token = useAuthStore.getState().session?.access_token;
       const resp = await fetch('/api/bid-package', {
         method: 'POST',
         headers: {
@@ -176,6 +198,7 @@ export default function CreateBidPackageModal({ onClose }) {
           estimateId,
           name: packageName,
           scopeItems,
+          scopeSheet: scopeSheet.html,
           drawingIds: selectedDrawings,
           coverMessage,
           dueDate: dueDate || null,
@@ -190,24 +213,30 @@ export default function CreateBidPackageModal({ onClose }) {
 
       const { package: serverPkg, invitations: serverInvites } = await resp.json();
 
-      // Send invite emails for each invitation
-      for (const inv of serverInvites) {
-        fetch('/api/send-bid-invite', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            invitationId: inv.id,
-            packageId: serverPkg.id,
-          }),
-        }).catch(err => {
-          console.warn('Failed to send invite:', err);
-        });
-      }
+      // Send invite emails — await all, track failures
+      const sendResults = await Promise.allSettled(
+        serverInvites.map(inv =>
+          fetch('/api/send-bid-invite', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              invitationId: inv.id,
+              packageId: serverPkg.id,
+            }),
+          }).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); })
+        )
+      );
 
-      showToast(`Bid package sent to ${subsToInvite.length} sub${subsToInvite.length !== 1 ? 's' : ''}`, 'success');
+      const failed = sendResults.filter(r => r.status === 'rejected').length;
+      const sent = sendResults.length - failed;
+      if (failed > 0) {
+        showToast(`Sent to ${sent} sub${sent !== 1 ? 's' : ''}, ${failed} failed to send`, 'warning');
+      } else {
+        showToast(`Bid package sent to ${sent} sub${sent !== 1 ? 's' : ''}`, 'success');
+      }
       onClose();
     } catch (err) {
       console.error('Create bid package error:', err);
@@ -319,7 +348,7 @@ export default function CreateBidPackageModal({ onClose }) {
                     </span>
                     <span style={{ color: C.textDim, fontSize: 11 }}>({group.items.length})</span>
                   </div>
-                  {someSel && (
+                  {(allSel || someSel) && (
                     <div style={{ paddingLeft: 28 }}>
                       {group.items.map(item => (
                         <div
@@ -362,7 +391,20 @@ export default function CreateBidPackageModal({ onClose }) {
               <p style={{ color: C.textDim, fontSize: 13, textAlign: 'center', padding: 40 }}>
                 No drawings uploaded yet. You can skip this step.
               </p>
-            ) : (
+            ) : (<>
+              <button
+                onClick={() => {
+                  const allIds = drawings.map(d => d.id);
+                  setSelectedDrawings(selectedDrawings.length === allIds.length ? [] : allIds);
+                }}
+                style={{
+                  background: 'none', border: `1px solid ${C.border}`, color: C.accent,
+                  borderRadius: 6, padding: '4px 12px', fontSize: 11, fontWeight: 600,
+                  cursor: 'pointer', marginBottom: 10,
+                }}
+              >
+                {selectedDrawings.length === drawings.length ? 'Deselect All' : 'Select All'}
+              </button>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 8 }}>
                 {drawings.map(d => {
                   const sel = selectedDrawings.includes(d.id);
@@ -390,7 +432,7 @@ export default function CreateBidPackageModal({ onClose }) {
                   );
                 })}
               </div>
-            )}
+            </>)}
           </div>
         )}
 
@@ -401,12 +443,32 @@ export default function CreateBidPackageModal({ onClose }) {
             <p style={{ color: C.textMuted, fontSize: 13, margin: '0 0 12px' }}>
               Choose which subs to invite. They'll receive an email with a link to view details and submit a proposal.
             </p>
-            <input
-              placeholder="Search subs..."
-              value={subSearch}
-              onChange={e => setSubSearch(e.target.value)}
-              style={{ ...inputStyle, marginBottom: 12 }}
-            />
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <input
+                placeholder="Search subs..."
+                value={subSearch}
+                onChange={e => setSubSearch(e.target.value)}
+                style={{ ...inputStyle, flex: 1 }}
+              />
+              <button
+                onClick={() => {
+                  const allIds = filteredSubs.map(s => s.id);
+                  const allSelected = allIds.every(id => selectedSubs.includes(id));
+                  if (allSelected) {
+                    setSelectedSubs(prev => prev.filter(id => !allIds.includes(id)));
+                  } else {
+                    setSelectedSubs(prev => [...new Set([...prev, ...allIds])]);
+                  }
+                }}
+                style={{
+                  background: 'none', border: `1px solid ${C.border}`, color: C.accent,
+                  borderRadius: 8, padding: '0 12px', fontSize: 11, fontWeight: 600,
+                  cursor: 'pointer', whiteSpace: 'nowrap',
+                }}
+              >
+                {filteredSubs.every(s => selectedSubs.includes(s.id)) ? 'Deselect All' : 'Select All'}
+              </button>
+            </div>
             {filteredSubs.length === 0 ? (
               <p style={{ color: C.textDim, fontSize: 13, textAlign: 'center', padding: 40 }}>
                 {subs.length === 0 ? 'No subcontractors in contacts. Add subs in the Contacts page first.' : 'No matches found.'}
@@ -487,6 +549,31 @@ export default function CreateBidPackageModal({ onClose }) {
                 style={{ ...inputStyle, resize: 'vertical' }}
               />
             </div>
+
+            {/* Auto-generated scope sheet preview */}
+            {selectedItems.length > 0 && (() => {
+              const scopeSheet = generateScopeSheet(
+                items.filter(i => selectedItems.includes(i.id)),
+                CSI,
+              );
+              return scopeSheet.divisions.length > 0 ? (
+                <div style={{ marginTop: 16 }}>
+                  <label style={{ color: C.textMuted, fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 6 }}>
+                    Scope Summary (auto-generated, included in invite)
+                  </label>
+                  <div style={{
+                    maxHeight: 180, overflowY: 'auto',
+                    padding: '12px 14px', borderRadius: 10,
+                    background: 'rgba(255,255,255,0.03)',
+                    border: `1px solid ${C.border}`,
+                    fontSize: 12, color: C.textMuted,
+                    whiteSpace: 'pre-wrap', lineHeight: 1.6,
+                  }}>
+                    {scopeSheet.plainText}
+                  </div>
+                </div>
+              ) : null;
+            })()}
           </div>
         )}
 
@@ -537,7 +624,30 @@ export default function CreateBidPackageModal({ onClose }) {
             </button>
           )}
           <button
-            onClick={step === 4 ? handleSend : () => setStep(step + 1)}
+            onClick={step === 4 ? handleSend : () => {
+              const next = step + 1;
+              // Auto-select subs by trade match when entering step 3
+              if (next === 2 && !autoSelectedSubs && selectedTrades.size > 0) {
+                const TRADE_LABEL_MAP = {};
+                for (const g of TRADE_GROUPINGS) {
+                  TRADE_LABEL_MAP[g.key] = g.label.toLowerCase();
+                }
+                const matched = subs.filter(s => {
+                  const subTrade = (s.trade || '').toLowerCase();
+                  if (!subTrade) return false;
+                  for (const t of selectedTrades) {
+                    const tradeLabel = TRADE_LABEL_MAP[t] || t;
+                    if (subTrade.includes(tradeLabel) || tradeLabel.includes(subTrade)) return true;
+                  }
+                  return false;
+                });
+                if (matched.length > 0) {
+                  setSelectedSubs(prev => [...new Set([...prev, ...matched.map(s => s.id)])]);
+                }
+                setAutoSelectedSubs(true);
+              }
+              setStep(next);
+            }}
             disabled={!canNext() || sending}
             style={{
               background: canNext() ? `linear-gradient(135deg, ${C.accent}, #BF5AF2)` : C.border,

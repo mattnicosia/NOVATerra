@@ -109,6 +109,7 @@ export default function PlanRoomPage() {
   const showToast = useUiStore(s => s.showToast);
   const removeDocument = useDocumentsStore(s => s.removeDocument);
   const clearScan = useScanStore(s => s.clearScan);
+  const stopScan = useScanStore(s => s.stopScan);
   const scanError = useScanStore(s => s.scanError);
   const divFromCode = useProjectStore(s => s.divFromCode);
   const addElement = useItemsStore(s => s.addElement);
@@ -148,8 +149,13 @@ export default function PlanRoomPage() {
     await handleFileUpload(files, {
       showToast,
       onScanComplete: () => setShowScanModal(true),
+      onBidInfoReady: () => {
+        // Auto-advance to Project Info when bid info is extracted
+        const estId = useEstimatesStore.getState().activeEstimateId;
+        if (estId) navigate(`/estimate/${estId}/info`);
+      },
     });
-  }, [showToast]);
+  }, [showToast, navigate]);
 
   // Rescan handler
   const handleRescan = useCallback(async () => {
@@ -303,8 +309,24 @@ export default function PlanRoomPage() {
               {!scanProgress.phase && hasProcessing && (
                 <div style={{ fontSize: 10, color: C.textDim }}>Processing uploaded documents...</div>
               )}
-              <div style={{ fontSize: 9, color: C.textDim, marginTop: 8 }}>
-                This may take a minute depending on the number of sheets. Project info will be auto-filled from your title blocks.
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
+                <div style={{ fontSize: 9, color: C.textDim }}>
+                  This may take a minute depending on the number of sheets. Project info will be auto-filled from your title blocks.
+                </div>
+                <button
+                  onClick={() => { stopScan(); setRescanning(false); }}
+                  style={{
+                    background: "transparent", border: `1px solid ${C.red || "#ef4444"}30`,
+                    color: C.red || "#ef4444", fontSize: 9, fontWeight: 600,
+                    padding: "4px 12px", borderRadius: 6, cursor: "pointer",
+                    fontFamily: "'DM Sans', sans-serif", flexShrink: 0, marginLeft: 12,
+                    transition: "all 0.15s ease",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = `${C.red || "#ef4444"}10`; e.currentTarget.style.borderColor = `${C.red || "#ef4444"}50`; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = `${C.red || "#ef4444"}30`; }}
+                >
+                  Stop
+                </button>
               </div>
             </div>
           ) : (
@@ -467,7 +489,22 @@ export default function PlanRoomPage() {
                 <NovaOrb size={18} scheme="nova" />
                 {scanProgress.message}
               </div>
-              <span style={{ fontSize: 10, color: C.textDim }}>{scanProgress.phase === "detect" ? "Phase 1/4" : scanProgress.phase === "notes" ? "Phase 2/4" : scanProgress.phase === "parse" ? "Phase 3/4" : "Phase 4/4"}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 10, color: C.textDim }}>{scanProgress.phase === "detect" ? "Phase 1/4" : scanProgress.phase === "notes" ? "Phase 2/4" : scanProgress.phase === "parse" ? "Phase 3/4" : "Phase 4/4"}</span>
+                <button
+                  onClick={() => { stopScan(); setRescanning(false); }}
+                  style={{
+                    background: "transparent", border: `1px solid ${C.red || "#ef4444"}30`,
+                    color: C.red || "#ef4444", fontSize: 9, fontWeight: 600,
+                    padding: "3px 10px", borderRadius: 5, cursor: "pointer",
+                    fontFamily: "'DM Sans', sans-serif", transition: "all 0.15s ease",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = `${C.red || "#ef4444"}10`; e.currentTarget.style.borderColor = `${C.red || "#ef4444"}50`; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = `${C.red || "#ef4444"}30`; }}
+                >
+                  Stop
+                </button>
+              </div>
             </div>
             <div style={{ height: 4, background: C.bg2, borderRadius: 2, overflow: "hidden" }}>
               <div style={{ height: "100%", background: `linear-gradient(90deg, ${C.purple || C.accent}, ${C.accent})`, borderRadius: 2, transition: "width 0.3s ease", width: scanProgress.total > 0 ? `${Math.round((scanProgress.current / scanProgress.total) * 100)}%` : "0%" }} />
@@ -627,6 +664,20 @@ export default function PlanRoomPage() {
                         transition: "width 0.3s ease",
                       }} />
                     </div>
+                    <button
+                      onClick={() => { stopScan(); setRescanning(false); }}
+                      style={{
+                        background: "transparent", border: `1px solid ${C.red || "#ef4444"}30`,
+                        color: C.red || "#ef4444", fontSize: 9, fontWeight: 600,
+                        padding: "3px 10px", borderRadius: 5, cursor: "pointer",
+                        fontFamily: "'DM Sans', sans-serif", flexShrink: 0,
+                        transition: "all 0.15s ease",
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = `${C.red || "#ef4444"}10`; e.currentTarget.style.borderColor = `${C.red || "#ef4444"}50`; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = `${C.red || "#ef4444"}30`; }}
+                    >
+                      Stop
+                    </button>
                   </div>
                 )}
 

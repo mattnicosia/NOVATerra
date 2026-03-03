@@ -56,11 +56,11 @@ function CompletionRing({ pct, size = 52, stroke = 3, C }) {
 
 /* ── Visual Timeline for Bid Schedule ── */
 function BidTimeline({ project, C }) {
+  const fmtTime = (t) => t ? new Date(`2000-01-01T${t}`).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
   const events = [
-    { key: 'date', label: 'Estimate Start', value: project.date, color: C.accent },
-    { key: 'walkthroughDate', label: 'Walkthrough', value: project.walkthroughDate, color: '#F59E0B' },
-    { key: 'rfiDueDate', label: 'RFI Due', value: project.rfiDueDate, color: '#EF4444' },
-    { key: 'bidDue', label: 'Bid Due', value: project.bidDue, color: '#34D399' },
+    { key: 'walkthroughDate', label: 'Walkthrough', value: project.walkthroughDate, time: fmtTime(project.walkthroughTime), color: '#F59E0B' },
+    { key: 'rfiDueDate', label: 'RFI Due', value: project.rfiDueDate, time: fmtTime(project.rfiDueTime), color: '#EF4444' },
+    { key: 'bidDue', label: 'Bid Due', value: project.bidDue, time: fmtTime(project.bidDueTime), color: '#34D399' },
   ].filter(e => e.value);
 
   if (events.length < 2) return null;
@@ -89,6 +89,7 @@ function BidTimeline({ project, C }) {
           <span style={{ fontSize: 8, fontWeight: 600, color: evt.color, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{evt.label}</span>
           <span style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>
             {new Date(evt.value + 'T00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            {evt.time && <span style={{ marginLeft: 3, opacity: 0.7 }}>{evt.time}</span>}
           </span>
         </div>
       ))}
@@ -148,6 +149,7 @@ export default function ProjectInfoPage() {
     } else {
       updateIndexEntry(activeEstimateId, {
         name: project.name || "Untitled",
+        estimateNumber: project.estimateNumber || "",
         client: project.client || "",
         status: project.status || "Bidding",
         bidDue: project.bidDue || "",
@@ -248,6 +250,10 @@ export default function ProjectInfoPage() {
         {/* ── Project Details ── */}
         <Sec title="Project Details" icon={SECTION_ICONS['Project Details']}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
+            <Fld label="Estimate Number">
+              <input value={project.estimateNumber || ""} onChange={e => up("estimateNumber", e.target.value)} placeholder="e.g. EST-2026-001" style={inp(C)} />
+              {autoTag('estimateNumber')}
+            </Fld>
             <Fld label="Project Name">
               <input value={project.name} onChange={e => up("name", e.target.value)} placeholder="e.g. Smith Residence" style={inp(C)} />
               {autoTag('name')}
@@ -267,10 +273,6 @@ export default function ProjectInfoPage() {
               <select value={project.status || "Active"} onChange={e => up("status", e.target.value)} style={inp(C)}>
                 <option>Active</option><option>Bidding</option><option>Submitted</option><option>Won</option><option>Lost</option><option>On Hold</option><option>Cancelled</option>
               </select>
-            </Fld>
-            <Fld label="Bid Due Date">
-              <input type="date" value={project.bidDue} onChange={e => up("bidDue", e.target.value)}
-                style={inp(C, { color: project.bidDue ? C.red : C.text, fontWeight: project.bidDue ? 600 : 400 })} />
             </Fld>
             <Fld label="Building Type">
               <select value={project.buildingType || ""} onChange={e => up("buildingType", e.target.value)} style={inp(C)}>
@@ -474,9 +476,6 @@ export default function ProjectInfoPage() {
           {/* Visual Timeline */}
           <BidTimeline project={project} C={C} />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
-            <Fld label="Estimate Date">
-              <input type="date" value={project.date} onChange={e => up("date", e.target.value)} style={inp(C)} />
-            </Fld>
             <Fld label="Bid Due Date">
               <input type="date" value={project.bidDue} onChange={e => up("bidDue", e.target.value)}
                 style={inp(C, { color: project.bidDue ? C.red : C.text, fontWeight: project.bidDue ? 600 : 400 })} />
@@ -487,8 +486,14 @@ export default function ProjectInfoPage() {
             <Fld label="Walkthrough Date">
               <input type="date" value={project.walkthroughDate || ""} onChange={e => up("walkthroughDate", e.target.value)} style={inp(C)} />
             </Fld>
+            <Fld label="Walkthrough Time">
+              <input type="time" value={project.walkthroughTime || ""} onChange={e => up("walkthroughTime", e.target.value)} style={inp(C)} />
+            </Fld>
             <Fld label="RFI Due Date">
               <input type="date" value={project.rfiDueDate || ""} onChange={e => up("rfiDueDate", e.target.value)} style={inp(C)} />
+            </Fld>
+            <Fld label="RFI Due Time">
+              <input type="time" value={project.rfiDueTime || ""} onChange={e => up("rfiDueTime", e.target.value)} style={inp(C)} />
             </Fld>
             {showAll && (
               <Fld label={project.otherDueLabel || "Other Due Date"}>

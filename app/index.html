@@ -4,6 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NOVATerra</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta property="og:title" content="NOVATerra — AI-Powered Construction Estimating" />
+    <meta property="og:description" content="Powered by NOVA. Scope sheets, bid management, and cost intelligence for general contractors." />
+    <meta property="og:image" content="/novaterra-wordmark.png" />
+    <meta property="og:type" content="website" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" />
@@ -104,13 +109,10 @@
         content: ''; position: absolute; inset: 0; border-radius: 50%;
         background: radial-gradient(circle, transparent 55%, rgba(2,1,8,0.7) 100%);
       }
-      /* Brand name */
+      /* Brand logo — actual NOVATerra wordmark PNG (transparent) */
       .nova-load-brand {
-        font-family: 'DM Sans', system-ui, sans-serif;
-        font-size: 18px; font-weight: 600; letter-spacing: 0.08em;
-        color: rgba(200,175,255,0.7);
+        height: 40px; width: auto;
         animation: fadeInUp 0.8s ease-out 0.2s both;
-        margin: 0;
       }
       /* Progress shimmer bar */
       .nova-load-shimmer {
@@ -136,7 +138,7 @@
           <div class="nova-orb-ringC"></div>
           <div class="nova-orb-core"></div>
         </div>
-        <p class="nova-load-brand">NOVATerra</p>
+        <img class="nova-load-brand" src="/novaterra-wordmark.png" alt="NOVATerra" />
         <div class="nova-load-shimmer"></div>
       </div>
     </div>

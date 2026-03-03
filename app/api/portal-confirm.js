@@ -13,7 +13,7 @@ export default async function handler(req, res) {
 
   if (!supabaseAdmin) return res.status(500).json({ error: 'Database not configured' });
 
-  const { token, proposalId } = req.body || {};
+  const { token, proposalId, bidAmount, subInclusions, subExclusions } = req.body || {};
 
   if (!token || !proposalId) {
     return res.status(400).json({ error: 'Missing token or proposalId' });
@@ -40,6 +40,19 @@ export default async function handler(req, res) {
 
     if (propErr || !proposal) {
       return res.status(404).json({ error: 'Proposal not found' });
+    }
+
+    // Store structured input from the bid form (if provided)
+    const structuredInput = {};
+    if (bidAmount) structuredInput.bidAmount = bidAmount;
+    if (subInclusions) structuredInput.inclusions = subInclusions;
+    if (subExclusions) structuredInput.exclusions = subExclusions;
+
+    if (Object.keys(structuredInput).length > 0) {
+      await supabaseAdmin
+        .from('bid_proposals')
+        .update({ parsed_data: { structuredInput } })
+        .eq('id', proposalId);
     }
 
     // Update invitation status to submitted

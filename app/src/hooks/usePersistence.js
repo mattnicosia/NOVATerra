@@ -197,16 +197,28 @@ export function usePersistenceLoad() {
       if (!localHasData) {
         let recoveredFromCloud = false;
         try {
+          // Load deleted IDs so we don't resurrect estimates the user previously deleted
+          const deletedRaw = await storage.get(idbKey('bldg-deleted-ids'));
+          let deletedIds = [];
+          try { deletedIds = deletedRaw ? JSON.parse(deletedRaw.value) : []; }
+          catch { deletedIds = []; }
+          const deletedSet = new Set(deletedIds);
+
           // Pull estimates index
           const cloudIndex = await cloudSync.pullData('index');
           if (cloudIndex && Array.isArray(cloudIndex) && cloudIndex.length > 0) {
-            useEstimatesStore.getState().setEstimatesIndex(cloudIndex);
-            await storage.set(idbKey("bldg-index"), JSON.stringify(cloudIndex));
+            // Filter out locally-deleted estimates before restoring
+            const filteredIndex = deletedSet.size > 0
+              ? cloudIndex.filter(e => !deletedSet.has(e.id))
+              : cloudIndex;
+            useEstimatesStore.getState().setEstimatesIndex(filteredIndex);
+            await storage.set(idbKey("bldg-index"), JSON.stringify(filteredIndex));
             if (hadCorruptedIndex) recoveredFromCloud = true;
 
-            // Pull all estimates and cache locally
+            // Pull all estimates and cache locally (skip deleted)
             const cloudEstimates = await cloudSync.pullAllEstimates();
             for (const ce of cloudEstimates) {
+              if (deletedSet.has(ce.estimate_id)) continue; // Don't resurrect deleted
               await storage.set(idbKey(`bldg-est-${ce.estimate_id}`), JSON.stringify(ce.data));
             }
           }
@@ -453,6 +465,7 @@ export async function loadEstimate(id) {
     useBidPackagesStore.getState().setBidPackages(data.bidPackages || []);
     useBidPackagesStore.getState().setInvitations(data.bidInvitations || {});
     useBidPackagesStore.getState().setProposals(data.bidProposals || {});
+    useBidPackagesStore.getState().setScopeGapResults(data.bidScopeGapResults || {});
 
     // Load database elements with master/override merge + migration
     useDatabaseStore.getState().loadUserElements(data.elements || []);
@@ -469,6 +482,17 @@ export async function loadEstimate(id) {
 export async function saveEstimate() {
   const id = useEstimatesStore.getState().activeEstimateId;
   if (!id) return;
+
+  // Guard: skip save if estimate was deleted (race with auto-save debounce timer)
+  const draftId = useEstimatesStore.getState().draftId;
+  if (!draftId || id !== draftId) {
+    // Not a draft — verify it still exists in the index
+    const existsLocally = useEstimatesStore.getState().estimatesIndex.some(e => e.id === id);
+    if (!existsLocally) {
+      console.warn('[saveEstimate] Estimate no longer in index — skipping save for', id);
+      return;
+    }
+  }
 
   const data = {
     project: useProjectStore.getState().project,
@@ -505,6 +529,7 @@ export async function saveEstimate() {
     bidPackages: useBidPackagesStore.getState().bidPackages,
     bidInvitations: useBidPackagesStore.getState().invitations,
     bidProposals: useBidPackagesStore.getState().proposals,
+    bidScopeGapResults: useBidPackagesStore.getState().scopeGapResults,
   };
 
   const estOk = await storage.set(idbKey(`bldg-est-${id}`), JSON.stringify(data));

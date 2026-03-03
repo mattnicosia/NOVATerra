@@ -12,7 +12,7 @@ import RfpDetailModal from '@/components/inbox/RfpDetailModal';
 import ImportConfirmModal from '@/components/inbox/ImportConfirmModal';
 import Ic from '@/components/shared/Ic';
 import { I } from '@/constants/icons';
-import { bt, pageContainer, card, sectionLabel, inp } from '@/utils/styles';
+import { bt, pageContainer, card, sectionLabel } from '@/utils/styles';
 import { titleCase, uid, nowStr } from '@/utils/format';
 import { loadPdfJs } from '@/utils/pdf';
 
@@ -54,15 +54,13 @@ export default function InboxPage() {
     fetchRfps, subscribeToRfps, setFilter,
     dismissRfp, importRfp, retryParse,
     loadReadIds, markAsRead,
-    registerSenderEmail, removeSenderEmail, fetchSenderEmails,
+    fetchSenderEmails,
   } = useInboxStore();
 
   const [viewRfp, setViewRfp] = useState(null);
   const [importRfpData, setImportRfpData] = useState(null);
   const [importing, setImporting] = useState(false);
   const [senderEmails, setSenderEmails] = useState([]);
-  const [newSender, setNewSender] = useState("");
-  const [addingSender, setAddingSender] = useState(false);
 
   // Fetch RFPs + subscribe (user is already authenticated at this point)
   useEffect(() => {
@@ -89,42 +87,6 @@ export default function InboxPage() {
   const handleView = (rfp) => {
     markAsRead(rfp.id);
     setViewRfp(rfp);
-  };
-
-  const handleAddSender = async () => {
-    const email = newSender.trim().toLowerCase();
-    if (!email || !email.includes("@")) return;
-    if (senderEmails.includes(email)) {
-      showToast("Email already registered");
-      return;
-    }
-    setAddingSender(true);
-    try {
-      const result = await registerSenderEmail(email);
-      if (result.error) {
-        if (result.error === "duplicate") {
-          // Already exists in DB — sync local state and clear input
-          setSenderEmails(prev => prev.includes(email) ? prev : [...prev, email]);
-          setNewSender("");
-          showToast("Email already registered");
-        } else {
-          showToast(result.error);
-        }
-      } else {
-        setSenderEmails(prev => [...prev, email]);
-        setNewSender("");
-        showToast("Sender email approved");
-      }
-    } catch (err) {
-      showToast("Failed to add: " + err.message);
-    }
-    setAddingSender(false);
-  };
-
-  const handleRemoveSender = async (email) => {
-    await removeSenderEmail(email);
-    setSenderEmails(prev => prev.filter(e => e !== email));
-    showToast("Sender email removed");
   };
 
   const handleImport = async (rfp) => {
@@ -305,58 +267,6 @@ export default function InboxPage() {
           </button>
         </div>
 
-        {/* Approved Senders */}
-        <div style={{
-          ...card(C), padding: T.space[4], marginBottom: T.space[5],
-        }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: T.space[3] }}>
-            <div style={{ fontSize: T.fontSize.xs, fontWeight: T.fontWeight.semibold, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.5 }}>
-              Approved Sender Emails
-            </div>
-            <span style={{ fontSize: T.fontSize.xs, color: C.textDim }}>
-              {senderEmails.length} registered
-            </span>
-          </div>
-          <div style={{ fontSize: T.fontSize.xs, color: C.textMuted, marginBottom: T.space[3], lineHeight: 1.5 }}>
-            Only emails forwarded from these addresses will be processed. Add the email address you forward RFPs from (e.g. your work email).
-          </div>
-
-          {senderEmails.map(email => (
-            <div key={email} style={{
-              display: "flex", justifyContent: "space-between", alignItems: "center",
-              padding: "6px 10px", borderRadius: 6, background: C.bg, border: `1px solid ${C.border}`, marginBottom: 4,
-            }}>
-              <span style={{ fontSize: 12, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>{email}</span>
-              <button style={{ background: "none", border: "none", cursor: "pointer", padding: 2 }} onClick={() => handleRemoveSender(email)}>
-                <Ic d={I.x} size={12} color={C.textDim} />
-              </button>
-            </div>
-          ))}
-
-          <div style={{ display: "flex", gap: 8, marginTop: senderEmails.length > 0 ? 8 : 0 }}>
-            <input type="email" value={newSender} onChange={e => setNewSender(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && handleAddSender()}
-              placeholder="sender@example.com" style={inp(C, { flex: 1, fontSize: 12 })} />
-            <button type="button"
-              style={bt(C, { padding: "6px 14px", fontSize: T.fontSize.xs, background: C.accent, color: "#fff", opacity: addingSender ? 0.6 : 1 })}
-              onClick={handleAddSender}
-              disabled={addingSender}
-            >
-              {addingSender ? "..." : "Add"}
-            </button>
-          </div>
-
-          {senderEmails.length === 0 && (
-            <div style={{
-              marginTop: T.space[3], padding: T.space[3], borderRadius: 6,
-              background: `${C.orange}12`, border: `1px solid ${C.orange}30`,
-              fontSize: T.fontSize.xs, color: C.orange, lineHeight: 1.5,
-            }}>
-              <strong>No senders registered.</strong> Forwarded emails will be silently dropped until you add at least one approved sender address above.
-            </div>
-          )}
-        </div>
-
         {/* Filter tabs */}
         <div style={{ display: "flex", gap: T.space[1], marginBottom: T.space[4] }}>
           {FILTERS.map(f => (
@@ -404,7 +314,7 @@ export default function InboxPage() {
             <div style={{ color: C.textMuted, marginTop: T.space[3], fontSize: T.fontSize.sm }}>
               {rfps.length === 0
                 ? (senderEmails.length === 0
-                  ? "Add an approved sender email above, then forward an RFP to get started."
+                  ? "Add an approved sender email in Settings, then forward an RFP to get started."
                   : "No RFPs yet. Forward an email to bids@novabuild.app to get started.")
                 : filter === "unread"
                   ? "All caught up! No unread emails."

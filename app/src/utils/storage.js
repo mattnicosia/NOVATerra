@@ -115,6 +115,22 @@ export const storage = {
     }
   },
 
+  async clearAll() {
+    try {
+      const db = await getDB();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, "readwrite");
+        tx.objectStore(STORE_NAME).clear();
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      });
+      return true;
+    } catch (e) {
+      console.error("Storage clearAll error:", e);
+      return false;
+    }
+  },
+
   async getUsage() {
     try {
       if (navigator.storage?.estimate) {

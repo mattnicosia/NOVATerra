@@ -114,6 +114,16 @@ export function classifyFile(filename, contentType, size) {
     /[_-]DWG/i, /[_-]PLN/i,
   ];
 
+  // RFP / Invitation to Bid patterns — highest priority for bid info extraction
+  const rfpPatterns = [
+    /rfp/i, /rfi/i, /invitation\s*(to|for)\s*bid/i, /ITB/i,
+    /request\s*(for|to)\s*(proposal|qualif|bid)/i,
+    /bid\s*package/i, /bid\s*invitation/i, /bid\s*notice/i,
+    /solicitation/i, /procurement/i,
+    /pre[\s-]*bid/i, /notice\s*to\s*(bidders?|contractors?)/i,
+    /instructions?\s*to\s*bidders?/i,
+  ];
+
   // Spec patterns
   const specPatterns = [
     /spec/i, /project\s*manual/i, /division/i, /csi/i,
@@ -126,6 +136,8 @@ export function classifyFile(filename, contentType, size) {
   // Images and CAD files → drawing
   if (isImage || isDwg) return "drawing";
   if (isPdf) {
+    // Check RFP first — these contain bid requirements
+    if (rfpPatterns.some(p => p.test(lower))) return "rfp";
     if (drawingPatterns.some(p => p.test(lower))) return "drawing";
     if (specPatterns.some(p => p.test(lower))) return "specification";
     // Large PDFs (>10MB) with "plan" anywhere → likely drawing sets

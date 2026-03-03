@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTheme } from '@/hooks/useTheme';
 import { useDashboardData } from '@/hooks/useDashboardData';
+import NewEstimateModal from '@/components/shared/NewEstimateModal';
 
 /* ────────────────────────────────────────────────────────
    ProjectsWidget — projects list + create estimate CTA
@@ -139,6 +140,10 @@ export default function ProjectsWidget() {
     handleOpenEstimate: onOpenProject,
     handleDeleteEstimate: onDeleteProject,
     handleCreateEstimate: onCreateEstimate,
+    showNewEstimateModal,
+    setShowNewEstimateModal,
+    handleNewEstimateCreated,
+    activeCompanyId,
   } = useDashboardData();
 
   const activeEstimateId = activeEstimate?.id || null;
@@ -277,6 +282,13 @@ export default function ProjectsWidget() {
         <ConfirmDelete name={confirmDelete.name}
           onConfirm={() => { onDeleteProject?.(confirmDelete.id); setConfirmDelete(null); }}
           onCancel={() => setConfirmDelete(null)}
+        />
+      )}
+      {showNewEstimateModal && (
+        <NewEstimateModal
+          companyProfileId={activeCompanyId === '__all__' ? '' : activeCompanyId}
+          onCreated={handleNewEstimateCreated}
+          onClose={() => setShowNewEstimateModal(false)}
         />
       )}
     </div>

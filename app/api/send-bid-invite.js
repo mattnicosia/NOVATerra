@@ -91,6 +91,7 @@ export default async function handler(req, res) {
 
         <div style="color:#7C5CFC;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Scope</div>
         ${scopeHtml}
+        ${pkg.scope_sheet ? `<div style="margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);"><div style="color:#7C5CFC;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Scope Summary</div>${pkg.scope_sheet}</div>` : ''}
       </div>
 
       ${pkg.cover_message ? `<div style="background:rgba(255,255,255,0.04);border-radius:8px;padding:16px;margin-bottom:20px;border-left:3px solid #7C5CFC;"><p style="color:#CCCCCC;font-size:14px;margin:0;line-height:1.6;">${escapeHtml(pkg.cover_message)}</p></div>` : ''}

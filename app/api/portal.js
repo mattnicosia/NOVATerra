@@ -102,6 +102,7 @@ export default async function handler(req, res) {
         id: pkg.id,
         name: pkg.name,
         scopeItems: pkg.scope_items,
+        scopeSheet: pkg.scope_sheet || '',
         coverMessage: pkg.cover_message,
         dueDate: pkg.due_date,
         status: pkg.status,

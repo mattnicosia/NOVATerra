@@ -1,9 +1,13 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useTheme } from '@/hooks/useTheme';
 import { useBidPackagesStore } from '@/stores/bidPackagesStore';
+import { useItemsStore } from '@/stores/itemsStore';
+import { useAuthStore } from '@/stores/authStore';
+import { useUiStore } from '@/stores/uiStore';
 import Ic from '@/components/shared/Ic';
 import { I } from '@/constants/icons';
 import { statusBadge } from '@/utils/styles';
+import { analyzeGaps } from '@/utils/scopeGapEngine';
 
 const STATUS_COLORS = {
   pending: { color: '#AEAEB2', label: 'Pending' },
@@ -12,6 +16,8 @@ const STATUS_COLORS = {
   downloaded: { color: '#FF9F0A', label: 'Downloaded' },
   submitted: { color: '#30D158', label: 'Submitted' },
   parsed: { color: '#BF5AF2', label: 'Parsed' },
+  awarded: { color: '#30D158', label: 'Awarded' },
+  not_awarded: { color: '#8E8E93', label: 'Not Awarded' },
 };
 
 function StatusPill({ status }) {
@@ -23,8 +29,20 @@ function StatusPill({ status }) {
   );
 }
 
-function InvitationRow({ inv, onResend }) {
+const fmtShort = (v) => {
+  if (!v) return null;
+  if (v >= 1000000) return `$${(v / 1000000).toFixed(1)}M`;
+  if (v >= 1000) return `$${Math.round(v / 1000)}K`;
+  return `$${Math.round(v)}`;
+};
+
+function InvitationRow({ inv, proposal, gapReport, onResend, onViewProposal }) {
   const C = useTheme();
+  const hasProposal = proposal?.parsedData && Object.keys(proposal.parsedData).length > 0;
+  const pd = hasProposal ? proposal.parsedData : null;
+  const score = gapReport?.coverageScore;
+  const scoreColor = score >= 80 ? '#30D158' : score >= 60 ? '#FF9F0A' : '#FF453A';
+
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 8,
@@ -41,7 +59,41 @@ function InvitationRow({ inv, onResend }) {
           {inv.subTrade || inv.sub_trade ? ` · ${inv.subTrade || inv.sub_trade}` : ''}
         </div>
       </div>
+
+      {/* Inline bid + coverage when parsed */}
+      {pd && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {pd.totalBid > 0 && (
+            <span style={{ color: C.text, fontSize: 12, fontWeight: 600, fontFamily: 'monospace' }}>
+              {fmtShort(pd.totalBid)}
+            </span>
+          )}
+          {score != null && (
+            <span style={{
+              background: `${scoreColor}18`, color: scoreColor,
+              padding: '1px 5px', borderRadius: 4, fontSize: 10, fontWeight: 700,
+            }}>
+              {score}%
+            </span>
+          )}
+        </div>
+      )}
+
       <StatusPill status={inv.status} />
+      {hasProposal && onViewProposal && (
+        <button
+          onClick={() => onViewProposal(proposal)}
+          style={{
+            background: 'none', border: 'none', color: '#30D158',
+            cursor: 'pointer', fontSize: 11, fontWeight: 600,
+            padding: '4px 8px', borderRadius: 6,
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = 'rgba(48,209,88,0.12)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'none'}
+        >
+          View
+        </button>
+      )}
       {(inv.status === 'sent' || inv.status === 'pending') && (
         <button
           onClick={() => onResend(inv)}
@@ -60,17 +112,59 @@ function InvitationRow({ inv, onResend }) {
   );
 }
 
-export default function BidPackagesPanel({ onCreateNew, onViewProposal }) {
+export default function BidPackagesPanel({ onCreateNew, onViewProposal, onCompare, onAward }) {
   const C = useTheme();
   const T = C.T;
   const bidPackages = useBidPackagesStore(s => s.bidPackages);
   const invitations = useBidPackagesStore(s => s.invitations);
+  const proposals = useBidPackagesStore(s => s.proposals);
   const getPackageStats = useBidPackagesStore(s => s.getPackageStats);
+  const items = useItemsStore(s => s.items);
   const [expandedId, setExpandedId] = useState(null);
 
+  // Auto-compute gap reports for parsed proposals
+  const gapReports = useMemo(() => {
+    if (!items?.length) return {};
+    const reports = {};
+    for (const [invId, proposal] of Object.entries(proposals)) {
+      if (proposal?.parsedData && Object.keys(proposal.parsedData).length > 0) {
+        reports[invId] = analyzeGaps(items, proposal.parsedData);
+      }
+    }
+    return reports;
+  }, [proposals, items]);
+
+  const showToast = useUiStore(s => s.showToast);
+
   const handleResend = async (inv) => {
-    // TODO: call send-bid-invite API to resend
-    console.log('Resend invite to', inv.subEmail || inv.sub_email);
+    try {
+      const token = useAuthStore.getState().session?.access_token;
+
+      // Find the package for this invitation
+      const pkgId = Object.entries(invitations).find(([, invites]) =>
+        invites.some(i => i.id === inv.id)
+      )?.[0];
+
+      if (!pkgId) throw new Error('Package not found');
+
+      const resp = await fetch('/api/send-bid-invite', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          invitationId: inv.id,
+          packageId: pkgId,
+        }),
+      });
+
+      if (!resp.ok) throw new Error('Failed to resend');
+      showToast(`Invite resent to ${inv.subEmail || inv.sub_email}`, 'success');
+    } catch (err) {
+      console.error('Resend failed:', err);
+      showToast('Failed to resend invitation', 'error');
+    }
   };
 
   if (bidPackages.length === 0) {
@@ -150,13 +244,14 @@ export default function BidPackagesPanel({ onCreateNew, onViewProposal }) {
 
               {/* Mini status summary */}
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                {stats.submitted > 0 && (
+                {stats.total > 0 && (
                   <span style={{
-                    background: '#1C3D2A', color: '#30D158',
+                    background: stats.submitted > 0 ? '#1C3D2A' : 'rgba(255,255,255,0.06)',
+                    color: stats.submitted > 0 ? '#30D158' : C.textMuted,
                     padding: '2px 8px', borderRadius: 6,
                     fontSize: 11, fontWeight: 600,
                   }}>
-                    {stats.submitted} received
+                    {stats.submitted} of {stats.total} responded
                   </span>
                 )}
               </div>
@@ -201,10 +296,69 @@ export default function BidPackagesPanel({ onCreateNew, onViewProposal }) {
                     <InvitationRow
                       key={inv.id}
                       inv={inv}
+                      proposal={proposals[inv.id]}
+                      gapReport={gapReports[inv.id]}
                       onResend={handleResend}
+                      onViewProposal={onViewProposal ? (p) => onViewProposal({ ...p, _packageName: pkg.name }) : undefined}
                     />
                   ))}
                 </div>
+
+                {/* Action buttons */}
+                {(() => {
+                  const parsedProposals = pkgInvites
+                    .map(inv => proposals[inv.id])
+                    .filter(p => p?.parsedData && Object.keys(p.parsedData).length > 0);
+                  const isAwarded = pkg.status === 'awarded';
+                  return (
+                    <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                      {parsedProposals.length >= 2 && onCompare && (
+                        <button
+                          onClick={() => onCompare(pkg, parsedProposals)}
+                          style={{
+                            flex: 1,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                            background: `linear-gradient(135deg, ${C.accent}15, #BF5AF215)`,
+                            border: `1px solid ${C.accent}30`,
+                            color: C.accent, borderRadius: 8,
+                            padding: '8px 16px', fontSize: 12, fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <Ic d={I.report} size={13} color={C.accent} />
+                          Compare {parsedProposals.length}
+                        </button>
+                      )}
+                      {parsedProposals.length >= 1 && onAward && !isAwarded && (
+                        <button
+                          onClick={() => onAward(pkg)}
+                          style={{
+                            flex: 1,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                            background: 'linear-gradient(135deg, rgba(48,209,88,0.12), rgba(48,209,88,0.05))',
+                            border: '1px solid rgba(48,209,88,0.25)',
+                            color: '#30D158', borderRadius: 8,
+                            padding: '8px 16px', fontSize: 12, fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <Ic d={I.check} size={13} color="#30D158" />
+                          Award
+                        </button>
+                      )}
+                      {isAwarded && (
+                        <div style={{
+                          flex: 1, textAlign: 'center',
+                          padding: '8px 16px', borderRadius: 8,
+                          background: 'rgba(48,209,88,0.08)', border: '1px solid rgba(48,209,88,0.15)',
+                          color: '#30D158', fontSize: 12, fontWeight: 600,
+                        }}>
+                          Awarded
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>

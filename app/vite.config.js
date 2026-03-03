@@ -37,9 +37,10 @@ export default defineConfig({
     port: 5173,
     open: true,
     proxy: {
-      // Forward /api/* to production Vercel serverless functions
+      // Proxy /api/* to Vercel (production by default, or local via API_TARGET env var)
+      // Usage: API_TARGET=http://localhost:3001 npm run dev  (for local function testing)
       '/api': {
-        target: 'https://app-nova-42373ca7.vercel.app',
+        target: process.env.API_TARGET || 'https://app-nova-42373ca7.vercel.app',
         changeOrigin: true,
         secure: true,
       },

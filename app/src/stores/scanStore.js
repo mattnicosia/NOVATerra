@@ -15,6 +15,9 @@ export const useScanStore = create((set, get) => ({
   // Parameter correction records — tracks user corrections to auto-detected values
   parameterCorrections: [],   // [{ field, detected, corrected, buildingType, projectSF, timestamp }]
 
+  // Abort controller for cancelling scans
+  scanAbortController: null,
+
   // ── Actions ──
   setScanResults: (results) => set({ scanResults: results }),
 
@@ -22,7 +25,26 @@ export const useScanStore = create((set, get) => ({
 
   setScanError: (error) => set({ scanError: error }),
 
-  clearScan: () => set({ scanResults: null, scanProgress: { phase: null, current: 0, total: 0, message: "" }, scanError: null }),
+  clearScan: () => set({ scanResults: null, scanProgress: { phase: null, current: 0, total: 0, message: "" }, scanError: null, scanAbortController: null }),
+
+  // Create abort controller for a new scan — returns the AbortSignal
+  createAbortController: () => {
+    const controller = new AbortController();
+    set({ scanAbortController: controller });
+    return controller.signal;
+  },
+
+  // Stop an in-progress scan
+  stopScan: () => {
+    const { scanAbortController } = get();
+    if (scanAbortController) {
+      scanAbortController.abort();
+    }
+    set({
+      scanAbortController: null,
+      scanProgress: { phase: null, current: 0, total: 0, message: "" },
+    });
+  },
 
   // ── Learning Records ──
   addLearningRecord: async (record) => {

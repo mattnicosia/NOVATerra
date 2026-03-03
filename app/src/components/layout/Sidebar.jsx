@@ -15,7 +15,7 @@ const globalNav = [
   { key: "inbox", path: "/inbox", icon: I.inbox, label: "Inbox" },
   { key: "core", path: "/core", icon: I.database, label: "NOVA Core" },
   { key: "intelligence", path: "/intelligence", icon: I.intelligence, label: "Intelligence" },
-  { key: "contacts", path: "/contacts", icon: I.user, label: "Contacts" },
+  { key: "contacts", path: "/contacts", icon: I.user, label: "People" },
   { key: "settings", path: "/settings", icon: I.settings, label: "Settings" },
 ];
 

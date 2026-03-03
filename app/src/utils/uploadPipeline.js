@@ -372,11 +372,12 @@ export async function aiClassifyDocument(file) {
       max_tokens: 100,
       messages: [{ role: "user", content: [
         { type: "image", source: { type: "base64", media_type: "image/jpeg", data: imgBase64 } },
-        { type: "text", text: `Classify this document page. Is it:\n1. "drawing" — a construction blueprint, plan, elevation, section, or detail drawing\n2. "specification" — a written specification document, project manual, or bid document\n3. "general" — any other document type\n\nRespond with ONLY one word: drawing, specification, or general` }
+        { type: "text", text: `Classify this construction document page. Is it:\n1. "rfp" — a Request for Proposal, Invitation to Bid, bid package, notice to bidders, or instructions to bidders containing bid requirements\n2. "drawing" — a construction blueprint, plan, elevation, section, or detail drawing\n3. "specification" — a written specification document, project manual, or technical spec\n4. "general" — any other document type\n\nRespond with ONLY one word: rfp, drawing, specification, or general` }
       ] }],
     });
 
     const result = text.trim().toLowerCase();
+    if (result.includes("rfp") || result.includes("invitation") || result.includes("bid")) return "rfp";
     if (result.includes("drawing")) return "drawing";
     if (result.includes("specification") || result.includes("spec")) return "specification";
     return "general";
@@ -385,17 +386,173 @@ export async function aiClassifyDocument(file) {
   }
 }
 
+// ─── Extract bid info from RFP / ITB document ─────────────────────────────
+// Sends the PDF to Claude and extracts project/bid fields.
+// Returns number of fields populated.
+export async function extractBidInfoFromDocument(file) {
+  const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+  if (!isPdf) return 0;
+
+  const data = await new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.onerror = () => rej(new Error("Read failed"));
+    r.readAsDataURL(file);
+  });
+  const base64 = data.split(",")[1];
+  if (!base64 || base64.length < 100) return 0;
+
+  useNovaStore.getState().startTask('rfp', `Reading bid requirements from ${file.name}...`);
+
+  try {
+    const text = await callAnthropic({
+      max_tokens: 2000,
+      messages: [{ role: "user", content: [
+        { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64 } },
+        { type: "text", text: `You are reading a construction bid document (RFP, ITB, or bid package). Extract ALL bid-relevant information you can find.
+
+Return ONLY a JSON object with these fields (use null for any field you cannot find):
+{
+  "projectName": "Full project name",
+  "projectNumber": "Project or job number",
+  "client": "Owner or client name",
+  "architect": "Architect or design firm",
+  "engineer": "Engineer firm name",
+  "address": "Project street address, city, state, zip",
+  "bidDue": "Bid due date in YYYY-MM-DD format",
+  "bidDueTime": "Bid due time in HH:MM format (24hr)",
+  "walkthroughDate": "Pre-bid walkthrough date in YYYY-MM-DD format",
+  "walkthroughTime": "Walkthrough time in HH:MM format (24hr)",
+  "rfiDueDate": "RFI/question due date in YYYY-MM-DD format",
+  "rfiDueTime": "RFI due time in HH:MM format (24hr)",
+  "scopeSummary": "1-2 sentence summary of the project scope",
+  "buildingType": "commercial-office, educational, healthcare, residential-multi, industrial, retail, hospitality, religious, recreation, or other",
+  "estimatedSF": "Total square footage if mentioned (number only)",
+  "bondRequired": true/false,
+  "prevailingWage": true/false,
+  "deliveryMethod": "GC, CM, Design-Build, or other"
+}
+
+CRITICAL: Respond with ONLY the JSON object. No markdown, no explanation.` }
+      ] }],
+    });
+
+    const clean = text.replace(/```json|```/g, "").trim();
+    const jsonMatch = clean.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("No JSON");
+    const parsed = JSON.parse(jsonMatch[0]);
+
+    // Apply extracted fields to project store
+    const proj = useProjectStore.getState().project;
+    const updates = {};
+    const detected = { ...(proj.autoDetected || {}) };
+    let fieldCount = 0;
+
+    if (parsed.projectName && (!proj.name || proj.name === "New Estimate")) {
+      updates.name = parsed.projectName; detected.name = true; fieldCount++;
+    }
+    if (parsed.projectNumber && !proj.projectNumber) {
+      updates.projectNumber = parsed.projectNumber; detected.projectNumber = true; fieldCount++;
+    }
+    if (parsed.client && !proj.client) {
+      updates.client = parsed.client; detected.client = true; fieldCount++;
+    }
+    if (parsed.architect && !proj.architect) {
+      updates.architect = parsed.architect; detected.architect = true; fieldCount++;
+    }
+    if (parsed.engineer && !proj.engineer) {
+      updates.engineer = parsed.engineer; detected.engineer = true; fieldCount++;
+    }
+    if (parsed.address && !proj.address) {
+      updates.address = parsed.address; detected.address = true; fieldCount++;
+      // Auto-extract zip
+      const zipMatch = parsed.address.match(/\b(\d{5})(?:-\d{4})?\b/);
+      if (zipMatch && (!proj.zipCode || proj.zipCode.length < 5)) {
+        updates.zipCode = zipMatch[1]; detected.zipCode = true;
+      }
+    }
+    if (parsed.bidDue && !proj.bidDue) {
+      updates.bidDue = parsed.bidDue; detected.bidDue = true; fieldCount++;
+    }
+    if (parsed.bidDueTime && !proj.bidDueTime) {
+      updates.bidDueTime = parsed.bidDueTime; detected.bidDueTime = true; fieldCount++;
+    }
+    if (parsed.walkthroughDate && !proj.walkthroughDate) {
+      updates.walkthroughDate = parsed.walkthroughDate; detected.walkthroughDate = true; fieldCount++;
+    }
+    if (parsed.walkthroughTime && !proj.walkthroughTime) {
+      updates.walkthroughTime = parsed.walkthroughTime; detected.walkthroughTime = true; fieldCount++;
+    }
+    if (parsed.rfiDueDate && !proj.rfiDueDate) {
+      updates.rfiDueDate = parsed.rfiDueDate; detected.rfiDueDate = true; fieldCount++;
+    }
+    if (parsed.rfiDueTime && !proj.rfiDueTime) {
+      updates.rfiDueTime = parsed.rfiDueTime; detected.rfiDueTime = true; fieldCount++;
+    }
+    if (parsed.buildingType && parsed.buildingType !== "other" && !proj.buildingType) {
+      updates.buildingType = parsed.buildingType; detected.buildingType = true; fieldCount++;
+    }
+    if (parsed.estimatedSF && !proj.projectSF) {
+      const sf = parseInt(String(parsed.estimatedSF).replace(/[^0-9]/g, ""));
+      if (sf > 0) { updates.projectSF = sf; detected.projectSF = true; fieldCount++; }
+    }
+    if (parsed.scopeSummary) {
+      updates.scopeSummary = parsed.scopeSummary; fieldCount++;
+    }
+    if (parsed.bondRequired != null) {
+      updates.bondRequired = parsed.bondRequired; fieldCount++;
+    }
+    if (parsed.prevailingWage != null) {
+      updates.prevailingWage = parsed.prevailingWage; fieldCount++;
+    }
+    if (parsed.deliveryMethod) {
+      updates.deliveryMethod = parsed.deliveryMethod; fieldCount++;
+    }
+
+    if (fieldCount > 0) {
+      updates.autoDetected = detected;
+      useProjectStore.getState().setProject({ ...useProjectStore.getState().project, ...updates });
+
+      // Update estimate index
+      try {
+        const estId = useEstimatesStore.getState().activeEstimateId;
+        if (estId) {
+          const indexUpdates = {};
+          if (updates.name) indexUpdates.name = updates.name;
+          if (updates.client) indexUpdates.client = updates.client;
+          if (updates.architect) indexUpdates.architect = updates.architect;
+          useEstimatesStore.getState().updateIndexEntry(estId, indexUpdates);
+        }
+      } catch { /* non-critical */ }
+    }
+
+    const msg = `Extracted ${fieldCount} fields from ${file.name}`;
+    useNovaStore.getState().completeTask(msg);
+    useNovaStore.getState().notify(msg, 'success');
+    return fieldCount;
+  } catch (err) {
+    console.warn('[uploadPipeline] RFP extraction failed:', err.message);
+    useNovaStore.getState().failTask(err.message);
+    return 0;
+  }
+}
+
 // ─── Main upload orchestrator ───────────────────────────────────────────────
-// Processes files: classifies, extracts, labels, scans, detects outlines.
+// Priority order: RFP/ITB → Specifications → Drawings
+// Once bid info is extracted, auto-advances user while scanning continues.
+//
 // options.onScanComplete: called when scan finishes (e.g., to show results modal)
-// options.navigate: router navigate function (for setup mode redirect)
+// options.onBidInfoReady: called when bid info is extracted and user can proceed
 // options.showToast: toast notification function
 export async function handleFileUpload(files, options = {}) {
   if (!files || files.length === 0) return;
 
   const showToast = options.showToast || useUiStore.getState().showToast;
-  const drawingDocIds = [];
-  const specDocIds = [];
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // STEP 1: Classify all files and register them as documents
+  // ═══════════════════════════════════════════════════════════════════════════
+  const classified = { rfp: [], specification: [], drawing: [], general: [] };
 
   for (const file of files) {
     const currentDocs = useDocumentsStore.getState().documents;
@@ -408,7 +565,7 @@ export async function handleFileUpload(files, options = {}) {
 
     // AI classification for ambiguous PDFs
     const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-    if (docType === "general" && isPdf) {
+    if ((docType === "general") && isPdf) {
       try {
         const aiType = await Promise.race([
           aiClassifyDocument(file),
@@ -418,62 +575,120 @@ export async function handleFileUpload(files, options = {}) {
       } catch { /* classification non-critical */ }
     }
 
+    const processingMsg = docType === "rfp" ? "Reading bid requirements..."
+      : docType === "drawing" ? "Extracting pages..."
+      : docType === "specification" ? "Parsing specifications..."
+      : "Stored";
+
     const doc = useDocumentsStore.getState().addDocument({
       filename: file.name,
       contentType: file.type,
       size: file.size,
       docType,
-      processingStatus: "processing",
-      processingMessage: docType === "drawing" ? "Extracting pages..." : docType === "specification" ? "Parsing specifications..." : "Stored",
+      processingStatus: docType === "general" ? "complete" : "processing",
+      processingMessage: processingMsg,
     });
 
-    if (docType === "drawing") {
-      try {
-        const drawingIds = await extractDrawingPages(file);
-        useDocumentsStore.getState().updateDocument(doc.id, {
-          processingMessage: `${drawingIds.length} pages extracted — labeling...`,
-          pageCount: drawingIds.length,
-          drawingIds,
-        });
-        drawingDocIds.push({ docId: doc.id, drawingIds });
-        showToast(`${file.name}: ${drawingIds.length} sheets extracted`);
-      } catch (err) {
-        useDocumentsStore.getState().updateDocument(doc.id, { processingStatus: "error", processingError: err.message, processingMessage: "Extraction failed" });
-        showToast(`${file.name}: extraction failed — ${err.message}`, "error");
-      }
-    } else if (docType === "specification") {
-      try {
-        const sectionCount = await processSpecBook(file);
-        useDocumentsStore.getState().updateDocument(doc.id, {
-          processingStatus: "complete",
-          processingMessage: `${sectionCount} sections parsed`,
-        });
-        specDocIds.push(doc.id);
-        showToast(`${file.name}: ${sectionCount} spec sections parsed`);
-      } catch (err) {
-        useDocumentsStore.getState().updateDocument(doc.id, { processingStatus: "error", processingError: err.message, processingMessage: "Parse failed" });
-        showToast(`${file.name}: spec parse failed — ${err.message}`, "error");
-      }
-    } else {
+    // Store general docs data immediately
+    if (docType === "general") {
       const data = await new Promise((res) => {
         const r = new FileReader();
         r.onload = () => res(r.result);
         r.onerror = () => res(null);
         r.readAsDataURL(file);
       });
-      useDocumentsStore.getState().updateDocument(doc.id, {
-        data,
+      useDocumentsStore.getState().updateDocument(doc.id, { data, processingStatus: "complete", processingMessage: "Stored" });
+    }
+
+    classified[docType] = classified[docType] || [];
+    classified[docType].push({ file, docId: doc.id });
+  }
+
+  let bidInfoExtracted = false;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // STEP 2: Process RFP/ITB documents FIRST — these have all the bid info
+  // ═══════════════════════════════════════════════════════════════════════════
+  for (const { file, docId } of classified.rfp) {
+    try {
+      const fieldCount = await extractBidInfoFromDocument(file);
+      useDocumentsStore.getState().updateDocument(docId, {
         processingStatus: "complete",
-        processingMessage: "Stored",
+        processingMessage: fieldCount > 0 ? `${fieldCount} bid fields extracted` : "Analyzed — no bid fields found",
+      });
+      if (fieldCount >= 3) bidInfoExtracted = true;
+      showToast(`${file.name}: ${fieldCount} bid fields extracted`);
+    } catch (err) {
+      useDocumentsStore.getState().updateDocument(docId, {
+        processingStatus: "error", processingError: err.message,
+        processingMessage: "RFP extraction failed",
       });
     }
   }
 
-  // Auto-label + auto-scan + outline detection for drawings
+  // ═══════════════════════════════════════════════════════════════════════════
+  // STEP 3: Process Specifications — also contain bid info (Div 00/01)
+  // ═══════════════════════════════════════════════════════════════════════════
+  for (const { file, docId } of classified.specification) {
+    try {
+      // If we haven't found bid info yet, try extracting from spec front matter
+      if (!bidInfoExtracted) {
+        const rfpFields = await extractBidInfoFromDocument(file);
+        if (rfpFields >= 3) bidInfoExtracted = true;
+      }
+      const sectionCount = await processSpecBook(file);
+      useDocumentsStore.getState().updateDocument(docId, {
+        processingStatus: "complete",
+        processingMessage: `${sectionCount} sections parsed`,
+      });
+      showToast(`${file.name}: ${sectionCount} spec sections parsed`);
+    } catch (err) {
+      useDocumentsStore.getState().updateDocument(docId, {
+        processingStatus: "error", processingError: err.message,
+        processingMessage: "Parse failed",
+      });
+      showToast(`${file.name}: spec parse failed — ${err.message}`, "error");
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUTO-ADVANCE: If bid info was found, complete setup & let user proceed
+  // while drawing processing continues in the background
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (bidInfoExtracted && useProjectStore.getState().project.setupComplete === false) {
+    useProjectStore.getState().setProject({ ...useProjectStore.getState().project, setupComplete: true });
+    showToast("Bid requirements found — project info populated");
+    options.onBidInfoReady?.();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // STEP 4: Process Drawings — extract pages, label, scan, outline
+  // (continues in background after user advances)
+  // ═══════════════════════════════════════════════════════════════════════════
+  const drawingDocIds = [];
+  for (const { file, docId } of classified.drawing) {
+    try {
+      const drawingIds = await extractDrawingPages(file);
+      useDocumentsStore.getState().updateDocument(docId, {
+        processingMessage: `${drawingIds.length} pages extracted — labeling...`,
+        pageCount: drawingIds.length,
+        drawingIds,
+      });
+      drawingDocIds.push({ docId, drawingIds });
+      showToast(`${file.name}: ${drawingIds.length} sheets extracted`);
+    } catch (err) {
+      useDocumentsStore.getState().updateDocument(docId, {
+        processingStatus: "error", processingError: err.message,
+        processingMessage: "Extraction failed",
+      });
+      showToast(`${file.name}: extraction failed — ${err.message}`, "error");
+    }
+  }
+
   if (drawingDocIds.length > 0) {
     const allNewDrawingIds = drawingDocIds.flatMap(d => d.drawingIds);
 
-    // Step 1: Auto-label
+    // Step 4a: Auto-label
     for (const { docId } of drawingDocIds) {
       useDocumentsStore.getState().updateDocument(docId, { processingMessage: "NOVA labeling sheets..." });
     }
@@ -482,13 +697,25 @@ export async function handleFileUpload(files, options = {}) {
       for (const { docId } of drawingDocIds) {
         useDocumentsStore.getState().updateDocument(docId, { processingMessage: "Labeled — scanning for schedules..." });
       }
+
+      // If no bid info from RFP/specs, check title blocks (first drawing label extracted metadata)
+      if (!bidInfoExtracted) {
+        const proj = useProjectStore.getState().project;
+        const hasBidInfo = proj.name && proj.name !== "New Estimate" && (proj.bidDue || proj.architect || proj.client);
+        if (hasBidInfo && proj.setupComplete === false) {
+          useProjectStore.getState().setProject({ ...useProjectStore.getState().project, setupComplete: true });
+          showToast("Project info extracted from drawings");
+          options.onBidInfoReady?.();
+          bidInfoExtracted = true;
+        }
+      }
     } catch (err) {
       for (const { docId } of drawingDocIds) {
         useDocumentsStore.getState().updateDocument(docId, { processingMessage: `Label failed: ${err.message}` });
       }
     }
 
-    // Step 2: Auto-scan
+    // Step 4b: Auto-scan (schedule detection + ROM)
     try {
       await runFullScan({
         onComplete: () => { if (options.onScanComplete) options.onScanComplete(); },
@@ -512,18 +739,12 @@ export async function handleFileUpload(files, options = {}) {
       }
     }
 
-    // Step 3: Outline detection (non-blocking)
+    // Step 4c: Outline detection (non-blocking)
     try { await autoDetectOutlines(); } catch { /* non-critical */ }
+  }
 
-    // Complete setup mode
-    if (useProjectStore.getState().project.setupComplete === false) {
-      useProjectStore.getState().setProject({ ...useProjectStore.getState().project, setupComplete: true });
-    }
-
-    // Navigate to Discovery (only used in setup mode from DocumentsPage)
-    if (options.navigate) {
-      const estId = useEstimatesStore.getState().activeEstimateId;
-      if (estId) options.navigate(`/estimate/${estId}/plans`);
-    }
+  // Complete setup mode if still pending (fallback — no bid info found but files processed)
+  if (useProjectStore.getState().project.setupComplete === false) {
+    useProjectStore.getState().setProject({ ...useProjectStore.getState().project, setupComplete: true });
   }
 }

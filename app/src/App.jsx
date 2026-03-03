@@ -56,6 +56,7 @@ const ProjectsPage = lazy(() => import("@/pages/ProjectsPage"));
 const CorePage = lazy(() => import("@/pages/CorePage"));
 const BidPackagesPage = lazy(() => import("@/pages/BidPackagesPage"));
 const PortalPage = lazy(() => import("@/pages/PortalPage"));
+const SubDashboardPage = lazy(() => import("@/pages/SubDashboardPage"));
 
 // Admin pages (lazy-loaded, only accessed by admin users)
 const AdminLayout = lazy(() => import("@/pages/admin/AdminLayout"));
@@ -552,6 +553,15 @@ export default function App() {
     return (
       <Suspense fallback={<AuthLoading />}>
         <PortalPage />
+      </Suspense>
+    );
+  }
+
+  // Sub dashboard — public, magic-link auth
+  if (window.location.pathname.startsWith("/sub-dashboard")) {
+    return (
+      <Suspense fallback={<AuthLoading />}>
+        <SubDashboardPage />
       </Suspense>
     );
   }

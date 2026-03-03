@@ -3,11 +3,14 @@ import { useTheme } from '@/hooks/useTheme';
 import { useEstimatesStore } from '@/stores/estimatesStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useBidPackagesStore } from '@/stores/bidPackagesStore';
+import { useItemsStore } from '@/stores/itemsStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useUiStore } from '@/stores/uiStore';
 import BidPackagesPanel from '@/components/estimate/BidPackagesPanel';
 import CreateBidPackageModal from '@/components/estimate/CreateBidPackageModal';
 import ProposalDetailModal from '@/components/estimate/ProposalDetailModal';
+import ProposalComparisonMatrix from '@/components/estimate/ProposalComparisonMatrix';
+import AwardBidModal from '@/components/estimate/AwardBidModal';
 import Ic from '@/components/shared/Ic';
 import { I } from '@/constants/icons';
 
@@ -19,9 +22,12 @@ export default function BidPackagesPage() {
   const bidPackages = useBidPackagesStore(s => s.bidPackages);
   const user = useAuthStore(s => s.user);
   const showToast = useUiStore(s => s.showToast);
+  const estimateItems = useItemsStore(s => s.items);
 
   const [showCreate, setShowCreate] = useState(false);
   const [selectedProposal, setSelectedProposal] = useState(null);
+  const [compareData, setCompareData] = useState(null);
+  const [awardPkg, setAwardPkg] = useState(null);
   const [syncing, setSyncing] = useState(false);
 
   // Sync with server on mount
@@ -123,6 +129,8 @@ export default function BidPackagesPage() {
       <BidPackagesPanel
         onCreateNew={() => setShowCreate(true)}
         onViewProposal={(proposal) => setSelectedProposal(proposal)}
+        onCompare={(pkg, proposals) => setCompareData({ pkg, proposals })}
+        onAward={(pkg) => setAwardPkg(pkg)}
       />
 
       {/* Modals */}
@@ -133,6 +141,23 @@ export default function BidPackagesPage() {
         <ProposalDetailModal
           proposal={selectedProposal}
           onClose={() => setSelectedProposal(null)}
+          estimateItems={estimateItems}
+          projectName={project?.name}
+          packageName={selectedProposal._packageName}
+        />
+      )}
+      {compareData && (
+        <ProposalComparisonMatrix
+          bidPackage={compareData.pkg}
+          proposals={compareData.proposals}
+          estimateItems={estimateItems}
+          onClose={() => setCompareData(null)}
+        />
+      )}
+      {awardPkg && (
+        <AwardBidModal
+          bidPackage={awardPkg}
+          onClose={() => setAwardPkg(null)}
         />
       )}
 

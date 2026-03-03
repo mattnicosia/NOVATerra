@@ -6,12 +6,14 @@ export const useBidPackagesStore = create((set, get) => ({
   bidPackages: [],
   invitations: {},       // keyed by packageId → invitation[]
   proposals: {},         // keyed by invitationId → proposal
+  scopeGapResults: {},   // keyed by invitationId → gap report cache
   activeBidPackageId: null,
 
   // ── Setters (for persistence hydration) ──
   setBidPackages: (v) => set({ bidPackages: v }),
   setInvitations: (v) => set({ invitations: v }),
   setProposals: (v) => set({ proposals: v }),
+  setScopeGapResults: (v) => set({ scopeGapResults: v }),
   setActiveBidPackageId: (v) => set({ activeBidPackageId: v }),
 
   // ── Bid Package CRUD ──
@@ -23,10 +25,24 @@ export const useBidPackagesStore = create((set, get) => ({
     bidPackages: s.bidPackages.map(p => p.id === id ? { ...p, ...updates } : p),
   })),
 
-  removeBidPackage: (id) => set(s => ({
-    bidPackages: s.bidPackages.filter(p => p.id !== id),
-    invitations: (() => { const inv = { ...s.invitations }; delete inv[id]; return inv; })(),
-  })),
+  removeBidPackage: (id) => set(s => {
+    // Clean up invitations, proposals, and scopeGapResults for this package
+    const pkgInvites = s.invitations[id] || [];
+    const newInvitations = { ...s.invitations };
+    delete newInvitations[id];
+    const newProposals = { ...s.proposals };
+    const newGapResults = { ...s.scopeGapResults };
+    for (const inv of pkgInvites) {
+      delete newProposals[inv.id];
+      delete newGapResults[inv.id];
+    }
+    return {
+      bidPackages: s.bidPackages.filter(p => p.id !== id),
+      invitations: newInvitations,
+      proposals: newProposals,
+      scopeGapResults: newGapResults,
+    };
+  }),
 
   // ── Invitations ──
   setPackageInvitations: (packageId, invites) => set(s => ({
@@ -59,6 +75,10 @@ export const useBidPackagesStore = create((set, get) => ({
   // ── Proposals ──
   addProposal: (invitationId, proposal) => set(s => ({
     proposals: { ...s.proposals, [invitationId]: { id: uid(), parseStatus: 'pending', ...proposal } },
+  })),
+
+  setScopeGapResult: (invitationId, result) => set(s => ({
+    scopeGapResults: { ...s.scopeGapResults, [invitationId]: result },
   })),
 
   updateProposalParsedData: (invitationId, parsedData, parseStatus = 'parsed') => set(s => ({

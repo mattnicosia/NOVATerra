@@ -35,7 +35,7 @@ export default function Toast() {
 
   return (
     <div style={{
-      position: "fixed", bottom: T.space[6], right: T.space[6],
+      position: "fixed", bottom: T.space[6], left: "50%", transform: "translateX(-50%)",
       minWidth: 220, maxWidth: 380,
       background: `linear-gradient(135deg, ${bg}E8, ${bg}D0)`,
       backdropFilter: "blur(16px)",

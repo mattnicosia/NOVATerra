@@ -7,6 +7,7 @@ import { loadEstimate } from '@/hooks/usePersistence';
 import Ic from '@/components/shared/Ic';
 import EmptyState from '@/components/shared/EmptyState';
 import CompanySwitcher from '@/components/shared/CompanySwitcher';
+import NewEstimateModal from '@/components/shared/NewEstimateModal';
 import { I } from '@/constants/icons';
 import { inp, bt, card, statusBadge, moneyCell } from '@/utils/styles';
 import { fmt } from '@/utils/format';
@@ -119,9 +120,20 @@ function KanbanCard({ est, C, T, navigate, onStatusChange, onDuplicate, onDelete
         e.currentTarget.style.boxShadow = '';
       }}
     >
-      <div style={{ fontSize: 12, fontWeight: 600, color: C.text, marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {est.name || 'Untitled'}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+          {est.name || 'Untitled'}
+        </div>
+        {est.status === 'Won' && (
+          <span style={{ fontSize: 8, fontWeight: 700, color: '#34D399', background: 'rgba(52,211,153,0.15)', padding: '1px 5px', borderRadius: 3, flexShrink: 0 }}>WON</span>
+        )}
+        {est.status === 'Lost' && (
+          <span style={{ fontSize: 8, fontWeight: 700, color: '#FB7185', background: 'rgba(251,113,133,0.15)', padding: '1px 5px', borderRadius: 3, flexShrink: 0 }}>LOST</span>
+        )}
       </div>
+      {est.estimateNumber && (
+        <div style={{ fontSize: 9, color: C.accent, fontWeight: 500, marginBottom: 2 }}>#{est.estimateNumber}</div>
+      )}
       {est.client && (
         <div style={{ fontSize: 10, color: C.textDim, marginBottom: 6 }}>{est.client}</div>
       )}
@@ -187,6 +199,7 @@ export default function ProjectsPage() {
     const q = search.toLowerCase();
     return weekFiltered.filter(e =>
       (e.name || '').toLowerCase().includes(q) ||
+      (e.estimateNumber || '').toLowerCase().includes(q) ||
       (e.client || '').toLowerCase().includes(q) ||
       (e.estimator || '').toLowerCase().includes(q) ||
       (e.jobType || '').toLowerCase().includes(q) ||
@@ -237,9 +250,14 @@ export default function ProjectsPage() {
     return companyFiltered.filter(e => isDueThisWeek(e.bidDue)).length;
   }, [companyFiltered]);
 
-  const handleNewEstimate = async () => {
-    const companyId = (activeCompanyId === '__all__' ? '' : activeCompanyId) || '';
-    const id = await createEstimate(companyId);
+  const [showNewModal, setShowNewModal] = useState(false);
+
+  const handleNewEstimate = () => {
+    setShowNewModal(true);
+  };
+
+  const handleNewCreated = async (id) => {
+    setShowNewModal(false);
     await loadEstimate(id);
     navigate(`/estimate/${id}/documents`);
   };
@@ -435,10 +453,17 @@ export default function ProjectsPage() {
                         alignItems: 'center',
                       }}
                     >
-                      {/* Project name + type */}
+                      {/* Project name + estimate number + type */}
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: T.fontSize.base, fontWeight: T.fontWeight.semibold, color: C.text, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {est.name || 'Untitled'}
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                          <span style={{ fontSize: T.fontSize.base, fontWeight: T.fontWeight.semibold, color: C.text, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {est.name || 'Untitled'}
+                          </span>
+                          {est.estimateNumber && (
+                            <span style={{ fontSize: T.fontSize.xs, color: C.accent, fontWeight: 500, flexShrink: 0 }}>
+                              #{est.estimateNumber}
+                            </span>
+                          )}
                         </div>
                         {(est.jobType || est.estimator) && (
                           <div style={{ fontSize: T.fontSize.xs, color: C.textDim, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -587,6 +612,13 @@ export default function ProjectsPage() {
             </div>
           </div>
         </div>
+      )}
+      {showNewModal && (
+        <NewEstimateModal
+          companyProfileId={activeCompanyId === '__all__' ? '' : activeCompanyId}
+          onCreated={handleNewCreated}
+          onClose={() => setShowNewModal(false)}
+        />
       )}
     </div>
   );

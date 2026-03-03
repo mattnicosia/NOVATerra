@@ -52,6 +52,7 @@ export const OUTCOME_STATUSES = [
 // ─── Lost Reasons ─────────────────────────────────────────────
 export const LOST_REASONS = [
   { key: "price",        label: "Price" },
+  { key: "not-proceeded", label: "Project Did Not Proceed" },
   { key: "schedule",     label: "Schedule" },
   { key: "relationship", label: "Relationship" },
   { key: "scope",        label: "Scope / Qualifications" },

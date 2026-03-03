@@ -91,13 +91,17 @@ export function useDashboardData() {
     await deleteEstimate(id);
   }, [selectedEstimateId, deleteEstimate]);
 
-  // Create estimate handler — persists to IndexedDB + hydrates stores before navigating
-  const handleCreateEstimate = useCallback(async () => {
-    const companyId = activeCompanyId === '__all__' ? '' : activeCompanyId;
-    const id = await createEstimate(companyId);
+  // Create estimate handler — opens the NewEstimateModal
+  const [showNewEstimateModal, setShowNewEstimateModal] = useState(false);
+  const handleCreateEstimate = useCallback(() => {
+    setShowNewEstimateModal(true);
+  }, []);
+
+  const handleNewEstimateCreated = useCallback(async (id) => {
+    setShowNewEstimateModal(false);
     await loadEstimate(id);
     navigate(`/estimate/${id}/documents`);
-  }, [activeCompanyId, createEstimate, navigate]);
+  }, [navigate]);
 
   // Map estimate to display props
   const activeProject = useMemo(() => {
@@ -150,5 +154,9 @@ export function useDashboardData() {
     handleOpenEstimate,
     handleCreateEstimate,
     handleDeleteEstimate,
+    showNewEstimateModal,
+    setShowNewEstimateModal,
+    handleNewEstimateCreated,
+    activeCompanyId,
   };
 }
