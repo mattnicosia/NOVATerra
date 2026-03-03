@@ -43,6 +43,7 @@ export const useTakeoffsStore = create((set, get) => ({
   tkZoom: 100,
   tkPan: { x: 0, y: 0 },
   tkPanelWidth: 380,
+  tkPanelTier: "compact",   // "compact" | "standard" | "full"
   tkPanelOpen: true,
   toFilter: "all",
   tkVisibility: "all",   // "all" | "page" | "active"
@@ -154,6 +155,7 @@ export const useTakeoffsStore = create((set, get) => ({
   setTkZoom: (v) => set(s => ({ tkZoom: typeof v === 'function' ? v(s.tkZoom) : v })),
   setTkPan: (v) => set(s => ({ tkPan: typeof v === 'function' ? v(s.tkPan) : v })),
   setTkPanelWidth: (v) => set({ tkPanelWidth: v }),
+  setTkPanelTier: (v) => set({ tkPanelTier: v }),
   setTkPanelOpen: (v) => set({ tkPanelOpen: v }),
   setToFilter: (v) => set({ toFilter: v }),
   setTkVisibility: (v) => set({ tkVisibility: v }),

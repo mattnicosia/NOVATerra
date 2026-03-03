@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
+import { useState, useRef, useCallback, useMemo, useEffect, lazy, Suspense } from 'react';
 import { useTheme } from '@/hooks/useTheme';
 import { useDrawingsStore } from '@/stores/drawingsStore';
 import { useTakeoffsStore } from '@/stores/takeoffsStore';
@@ -10,7 +10,7 @@ import { useDatabaseStore } from '@/stores/databaseStore';
 import Ic from '@/components/shared/Ic';
 import { I } from '@/constants/icons';
 import { inp, nInp, bt, truncate } from '@/utils/styles';
-import { uid, nn, fmt2, nowStr } from '@/utils/format';
+import { uid, nn, fmt, fmt2, nowStr } from '@/utils/format';
 import { UNITS } from '@/constants/units';
 import { PDF_RENDER_DPI, DEFAULT_IMAGE_DPI } from '@/constants/scales';
 import { callAnthropic, callAnthropicStream, optimizeImageForAI, imageBlock, cropImageRegion, buildProjectContext } from '@/utils/ai';
@@ -28,6 +28,8 @@ import { extractSchedules, scanAllDrawingsForSchedules } from '@/utils/scheduleP
 import { analyzeDrawingGeometry, generateAutoMeasurements } from '@/utils/geometryEngine';
 import { evalCondition } from '@/utils/moduleCalc';
 import { autoTradeFromCode } from '@/constants/tradeGroupings';
+const EstimatePanelView = lazy(() => import('@/components/estimate/EstimatePanelView'));
+const ItemDetailPanel = lazy(() => import('@/components/estimate/ItemDetailPanel'));
 import NotesPanel from '@/components/estimate/NotesPanel';
 import NovaOrb from '@/components/dashboard/NovaOrb';
 import { MessageBubble, ActionCards, QUICK_ACTIONS } from '@/components/ai/AIChatPanel';
@@ -138,8 +140,12 @@ export default function TakeoffsPage() {
   const activeGroupId = useUiStore(s => s.activeGroupId);
   const showNotesPanel = useUiStore(s => s.showNotesPanel);
   const setShowNotesPanel = useUiStore(s => s.setShowNotesPanel);
+  const estGroupBy = useUiStore(s => s.estGroupBy);
+  const setEstGroupBy = useUiStore(s => s.setEstGroupBy);
   const project = useProjectStore(s => s.project);
   const items = useItemsStore(s => s.items);
+  const getItemTotal = useItemsStore(s => s.getItemTotal);
+  const getTotals = useItemsStore(s => s.getTotals);
   const elements = useDatabaseStore(s => s.elements);
   const assemblies = useDatabaseStore(s => s.assemblies);
 
@@ -190,6 +196,8 @@ export default function TakeoffsPage() {
   const setTkPan = useTakeoffsStore(s => s.setTkPan);
   const tkPanelWidth = useTakeoffsStore(s => s.tkPanelWidth);
   const setTkPanelWidth = useTakeoffsStore(s => s.setTkPanelWidth);
+  const tkPanelTier = useTakeoffsStore(s => s.tkPanelTier);
+  const setTkPanelTier = useTakeoffsStore(s => s.setTkPanelTier);
   const tkPanelOpen = useTakeoffsStore(s => s.tkPanelOpen);
   const setTkPanelOpen = useTakeoffsStore(s => s.setTkPanelOpen);
   const toFilter = useTakeoffsStore(s => s.toFilter);
@@ -205,6 +213,21 @@ export default function TakeoffsPage() {
   const activeModule = useModuleStore(s => s.activeModule);
   const setActiveModule = useModuleStore(s => s.setActiveModule);
   const moduleInstances = useModuleStore(s => s.moduleInstances);
+  const lastModuleRef = useRef(null); // tracks last non-null module for "Modules" toggle
+
+  // Restore activeModule from sessionStorage on mount
+  useEffect(() => {
+    const savedModule = sessionStorage.getItem("bldg-activeModule");
+    if (savedModule && savedModule !== "null") {
+      useModuleStore.getState().setActiveModule(savedModule);
+      lastModuleRef.current = savedModule;
+    }
+  }, []);
+  // Persist activeModule to sessionStorage + track last module
+  useEffect(() => {
+    sessionStorage.setItem("bldg-activeModule", activeModule || "");
+    if (activeModule) lastModuleRef.current = activeModule;
+  }, [activeModule]);
 
   // Predictive takeoff store
   const tkPredictions = useTakeoffsStore(s => s.tkPredictions);
@@ -238,8 +261,14 @@ export default function TakeoffsPage() {
   const pendingCursorRef = useRef(null);
   const cursorCanvasRef = useRef(null); // overlay canvas for cursor-dependent content
   const predictionCanvasRef = useRef(null); // overlay for ghost predictions
+  const tkTransformRef = useRef(null); // ref for transform div (zoom-to-cursor offset)
   const predScanAnimRef = useRef(null); // RAF handle for scan wave animation
   const predScanPhaseRef = useRef(0); // animation phase (0–1, repeating pulse)
+  const snapAngleOnRef = useRef(false); // snap angle toggle (persistent, not keyboard-dependent)
+
+  // Snap angle toggle — persistent state + ref mirror
+  const [snapAngleOn, setSnapAngleOn] = useState(() => sessionStorage.getItem("bldg-snapAngle") === "true");
+  useEffect(() => { snapAngleOnRef.current = snapAngleOn; sessionStorage.setItem("bldg-snapAngle", snapAngleOn); }, [snapAngleOn]);
 
   // Cleanup RAF cursor on unmount
   useEffect(() => () => { if (rafCursorRef.current) cancelAnimationFrame(rafCursorRef.current); }, []);
@@ -253,9 +282,36 @@ export default function TakeoffsPage() {
   }, []);
 
   // Page filter: "all" shows every takeoff, "page" shows only those with measurements on current drawing
-  const [pageFilter, setPageFilter] = useState("page");
+  const [pageFilter, setPageFilter] = useState(() => sessionStorage.getItem("bldg-pageFilter") || "all");
   // Panel mode: "auto" = collapse on measure/reopen on stop, "open" = always open, "closed" = always closed
-  const [tkPanelMode, setTkPanelMode] = useState("auto");
+  const [tkPanelMode, setTkPanelMode] = useState("open");
+
+  // Persist pageFilter to sessionStorage
+  useEffect(() => { sessionStorage.setItem("bldg-pageFilter", pageFilter); }, [pageFilter]);
+
+  // Restore tkVisibility from sessionStorage on mount
+  useEffect(() => {
+    const savedVis = sessionStorage.getItem("bldg-tkVisibility");
+    if (savedVis && ["all", "page", "active"].includes(savedVis)) {
+      useTakeoffsStore.getState().setTkVisibility(savedVis);
+    }
+  }, []);
+
+  // Persist tkVisibility to sessionStorage when it changes
+  useEffect(() => { sessionStorage.setItem("bldg-tkVisibility", tkVisibility); }, [tkVisibility]);
+
+  // Restore panel width and tier from sessionStorage on mount
+  useEffect(() => {
+    const savedW = sessionStorage.getItem("bldg-tkPanelWidth");
+    const savedTier = sessionStorage.getItem("bldg-tkPanelTier");
+    if (savedW) {
+      const w = Number(savedW);
+      if (w >= 280 && w <= 1000) useTakeoffsStore.getState().setTkPanelWidth(w);
+    }
+    if (savedTier && ["compact", "standard", "full"].includes(savedTier)) {
+      useTakeoffsStore.getState().setTkPanelTier(savedTier);
+    }
+  }, []);
 
   // Persist selected drawing to sessionStorage so refresh returns to same page
   useEffect(() => {
@@ -277,6 +333,13 @@ export default function TakeoffsPage() {
   // Geometry Analysis (wall/room detection from vectors)
   const [geoAnalysis, setGeoAnalysis] = useState({ loading: false, results: null });
 
+  // Memoized item lookup by ID — avoids O(n) items.find() per takeoff row
+  const itemById = useMemo(() => {
+    const map = {};
+    items.forEach(i => { map[i.id] = i; });
+    return map;
+  }, [items]);
+
   // Measurement micro-feedback — flash takeoff ID when measurement completes
   const [measureFlashId, setMeasureFlashId] = useState(null);
   const measureFlashTimer = useRef(null);
@@ -286,9 +349,16 @@ export default function TakeoffsPage() {
     measureFlashTimer.current = setTimeout(() => setMeasureFlashId(null), 600);
   }, []);
 
+  // Cost edit popover — Standard/Full tier inline editing
+  const [costEditId, setCostEditId] = useState(null);
+  // Full tier — selected estimate item for detail panel
+  const [estSelectedItemId, setEstSelectedItemId] = useState(null);
+
   // Toolbar dropdowns
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsBtnRef = useRef(null);
+  const [toolsFolderOpen, setToolsFolderOpen] = useState(false);
+  const toolsBtnRef = useRef(null);
 
   // Takeoff Command Palette
   const [tkCmdOpen, setTkCmdOpen] = useState(false);
@@ -816,8 +886,8 @@ export default function TakeoffsPage() {
     setTkActivePoints([]);
     setTkContextMenu(null);
     setTkShowVars(null);
-    // Always collapse panel when measuring starts — drawing area needs full focus
-    setTkPanelOpen(false);
+    // Collapse panel when measuring starts (unless pinned open)
+    if (tkPanelMode !== "open") setTkPanelOpen(false);
     // Pre-warm prediction cache in background — predictions will be instant on first click
     const drawState = useDrawingsStore.getState();
     const warmDrawing = drawState.drawings.find(d => d.id === drawState.selectedDrawingId);
@@ -841,7 +911,16 @@ export default function TakeoffsPage() {
     // Keep tkSelectedTakeoffId so measurements stay visible after stopping
     setTkMeasureState("idle"); setTkTool("select"); setTkActivePoints([]); setTkActiveTakeoffId(null); setTkContextMenu(null); setTkCursorPt(null);
     // Auto-reopen panel when measuring stops (only in "auto" mode)
-    if (tkPanelMode === "auto") setTkPanelOpen(true);
+    if (tkPanelMode === "auto") {
+      setTkPanelOpen(true);
+      // Restore tier if it was auto-collapsed during measuring
+      const savedTier = sessionStorage.getItem("bldg-tkPanelTier");
+      const savedW = sessionStorage.getItem("bldg-tkPanelWidth");
+      if (savedTier && savedTier !== useTakeoffsStore.getState().tkPanelTier) {
+        useTakeoffsStore.getState().setTkPanelTier(savedTier);
+        if (savedW) useTakeoffsStore.getState().setTkPanelWidth(Number(savedW));
+      }
+    }
   }, [addMeasurement, tkPanelMode]);
 
   const pauseMeasuring = () => {
@@ -1435,15 +1514,50 @@ IMPORTANT:
     setTakeoffs(arr);
   };
 
-  // Panel resize
+  // Panel resize with snap tiers
+  const TIER_SNAPS = [
+    { name: "compact",  target: 350, min: 280, max: 420 },
+    { name: "standard", target: 550, min: 421, max: 700 },
+    { name: "full",     target: 900, min: 701, max: 1000 },
+  ];
+  const SNAP_MAGNETIC = 30;
+  const [isDraggingPanel, setIsDraggingPanel] = useState(false);
+  const isLargeScreen = typeof window !== "undefined" && window.innerWidth >= 1200;
+  const maxPanelWidth = isLargeScreen ? 1000 : 420;
+
   const startTkDrag = useCallback((e) => {
     e.preventDefault();
     const startX = e.clientX; const startW = tkPanelWidth;
-    const onMove = (ev) => { setTkPanelWidth(Math.max(280, Math.min(700, startW + (ev.clientX - startX)))); };
-    const onUp = () => { document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
+    setIsDraggingPanel(true);
+    const onMove = (ev) => {
+      let w = Math.max(280, Math.min(maxPanelWidth, startW + (ev.clientX - startX)));
+      // Magnetic snap to tier targets on large screens
+      if (isLargeScreen) {
+        for (const tier of TIER_SNAPS) {
+          if (Math.abs(w - tier.target) < SNAP_MAGNETIC) { w = tier.target; break; }
+        }
+      }
+      setTkPanelWidth(w);
+      const tierName = w <= 420 ? "compact" : w <= 700 ? "standard" : "full";
+      if (tierName !== useTakeoffsStore.getState().tkPanelTier) {
+        useTakeoffsStore.getState().setTkPanelTier(tierName);
+      }
+    };
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      setIsDraggingPanel(false);
+      const finalW = useTakeoffsStore.getState().tkPanelWidth;
+      sessionStorage.setItem("bldg-tkPanelWidth", String(finalW));
+      sessionStorage.setItem("bldg-tkPanelTier", useTakeoffsStore.getState().tkPanelTier);
+    };
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
-  }, [tkPanelWidth, setTkPanelWidth]);
+  }, [tkPanelWidth, setTkPanelWidth, maxPanelWidth, isLargeScreen]);
 
   // Render PDF page
   const renderPdfPage = useCallback(async (drawing) => {
@@ -1515,8 +1629,8 @@ IMPORTANT:
     }
     if (e.detail === 2 && pts.length >= 3) { finishOutline(pts); return; }
 
-    // Apply snap angle when Shift is held
-    const snappedPt = (e.shiftKey && pts.length >= 1)
+    // Apply snap angle when Shift is held or snap toggle is on
+    const snappedPt = ((e.shiftKey || snapAngleOnRef.current) && pts.length >= 1)
       ? snapAngle(pts[pts.length - 1], pt)
       : pt;
     setTkActivePoints([...pts, snappedPt]);
@@ -1527,11 +1641,28 @@ IMPORTANT:
     if (!canvasRef.current || !selectedDrawingId) return;
     setTkContextMenu(null);
 
+    // Auto-close/collapse panel on canvas click (only in "auto" mode — "open" keeps it pinned)
+    if (tkPanelOpen && tkPanelMode === "auto") {
+      const currentTier = useTakeoffsStore.getState().tkPanelTier;
+      if (currentTier !== "compact") {
+        // In Standard/Full tier, auto-collapse to compact instead of closing entirely
+        useTakeoffsStore.getState().setTkPanelTier("compact");
+        useTakeoffsStore.getState().setTkPanelWidth(350);
+      } else {
+        setTkPanelOpen(false);
+      }
+    }
+
     // Read fresh state from store to avoid stale closure after engageMeasuring
     const freshState = useTakeoffsStore.getState();
     const currentMeasureState = freshState.tkMeasureState;
     const currentActiveTakeoffId = freshState.tkActiveTakeoffId;
     const currentTool = freshState.tkTool;
+
+    // Auto-engage selected takeoff if idle (so canvas is always ready for takeoffs)
+    if (currentMeasureState === "idle" && freshState.tkSelectedTakeoffId && !currentActiveTakeoffId) {
+      engageMeasuring(freshState.tkSelectedTakeoffId);
+    }
 
     const rect = canvasRef.current.getBoundingClientRect();
     const cx = (e.clientX - rect.left) * (canvasRef.current.width / rect.width);
@@ -1735,8 +1866,8 @@ Where confidence is "high", "medium", or "low".` },
     const to = takeoffs.find(t => t.id === currentActiveTakeoffId);
     if (!to) return;
 
-    // Apply snap angle when Shift is held (not for count tool or first point)
-    const snappedPt = (e.shiftKey && tkActivePoints.length >= 1)
+    // Apply snap angle when Shift is held or snap toggle is on (not for count tool or first point)
+    const snappedPt = ((e.shiftKey || snapAngleOnRef.current) && tkActivePoints.length >= 1)
       ? snapAngle(tkActivePoints[tkActivePoints.length - 1], pt)
       : pt;
 
@@ -1900,7 +2031,13 @@ Where confidence is "high", "medium", or "low".` },
       const newZoom = Math.max(10, Math.min(800, Math.round(prevZoom * zoomFactor)));
       if (newZoom !== prevZoom) {
         const scaleChange = newZoom / prevZoom;
-        setTkPan({ x: mx - scaleChange * (mx - prevPan.x), y: my - scaleChange * (my - prevPan.y) });
+        // Account for flex centering offset — the transform div is centered by the
+        // flex container, so mouse coords must be relative to the div's layout origin
+        const flexX = tkTransformRef.current?.offsetLeft || 0;
+        const flexY = tkTransformRef.current?.offsetTop || 0;
+        const lx = mx - flexX;
+        const ly = my - flexY;
+        setTkPan({ x: lx - scaleChange * (lx - prevPan.x), y: ly - scaleChange * (ly - prevPan.y) });
         setTkZoom(newZoom);
       }
     } else {
@@ -2336,7 +2473,7 @@ Where confidence is "high", "medium", or "low".` },
     canvasTakeoffs.forEach(to => {
       if (tkVisibility === "active" && to.id !== tkSelectedTakeoffId && to.id !== tkActiveTakeoffId) return;
       const isSelectedTo = to.id === tkSelectedTakeoffId || to.id === tkActiveTakeoffId;
-      const fillHex = toFillHex(to.fillOpacity ?? 20);
+      const fillHex = toFillHex(to.fillOpacity ?? 75);
       const sw = to.strokeWidth ?? 3;
       (to.measurements || []).forEach(m => {
         if (m.sheetId !== selectedDrawingId) return;
@@ -2492,7 +2629,7 @@ Where confidence is "high", "medium", or "low".` },
       ctx.restore();
     }
 
-  }, [takeoffs, filteredTakeoffs, pageFilter, selectedDrawingId, tkSelectedTakeoffId, tkActiveTakeoffId, moduleRenderWidths, tkVisibility, drawingScales, drawingDpi, geoAnalysis]);
+  }, [takeoffs, filteredTakeoffs, pageFilter, selectedDrawingId, tkSelectedTakeoffId, tkActiveTakeoffId, moduleRenderWidths, tkVisibility, drawingScales, drawingDpi, geoAnalysis, activeModule]);
 
   // Overlay canvas: cursor-dependent content + calibration + AI analysis (lightweight — OK to re-render on cursor move)
   useEffect(() => {
@@ -2554,7 +2691,7 @@ Where confidence is "high", "medium", or "low".` },
       if (tkCursorPt) { ctx.beginPath(); ctx.arc(tkCursorPt.x, tkCursorPt.y, 3, 0, Math.PI * 2); ctx.fillStyle = color + "80"; ctx.fill(); }
 
       // Snap angle guide line + badge (when Shift is held)
-      if (shiftHeldRef.current && tkCursorPt && tkActivePoints.length >= 1 && (tkTool === "linear" || tkTool === "area")) {
+      if ((shiftHeldRef.current || snapAngleOnRef.current) && tkCursorPt && tkActivePoints.length >= 1 && (tkTool === "linear" || tkTool === "area")) {
         const anchor = tkActivePoints[tkActivePoints.length - 1];
         const dx = tkCursorPt.x - anchor.x;
         const dy = tkCursorPt.y - anchor.y;
@@ -2762,7 +2899,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
         }} />
       )}
       {tkPanelOpen && (
-        <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: Math.min(tkPanelWidth, 420), minWidth: 280, maxWidth: 420, background: C.bg1, borderRadius: "6px 0 0 6px", border: `1px solid ${C.border}`, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", overflow: "hidden", flexShrink: 0, zIndex: 31, boxShadow: "4px 0 24px rgba(0,0,0,0.15)", animation: "slideInLeft 0.2s ease-out" }}>
+        <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: tkPanelWidth, minWidth: 280, maxWidth: maxPanelWidth, background: C.bg1, borderRadius: "6px 0 0 6px", border: `1px solid ${C.border}`, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", overflow: "hidden", flexShrink: 0, zIndex: 31, boxShadow: "4px 0 24px rgba(0,0,0,0.15)", animation: isDraggingPanel ? "none" : "slideInLeft 0.2s ease-out" }}>
           <div style={{ padding: "8px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
             {/* Panel mode tabs: Takeoffs | Notes */}
             <div style={{ display: "flex", gap: 0, background: C.bg2, borderRadius: 5, padding: 2 }}>
@@ -2814,11 +2951,36 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
             </div>
           </div>
 
+          {/* GroupBy toggle — Standard/Full tier */}
+          {tkPanelTier !== "compact" && !showNotesPanel && (
+            <div style={{ padding: "3px 12px 4px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 8, color: C.textDim, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.6 }}>Group</span>
+              <div style={{ display: "flex", gap: 0, background: C.bg2, borderRadius: 4, padding: 1 }}>
+                {[
+                  { key: "subdivision", label: "Sub" },
+                  { key: "division", label: "Div" },
+                  { key: "trade", label: "Trade" },
+                ].map(v => (
+                  <button key={v.key} onClick={() => setEstGroupBy(v.key)} style={{
+                    padding: "2px 7px", fontSize: 8, fontWeight: estGroupBy === v.key ? 700 : 500,
+                    background: estGroupBy === v.key ? C.accent : "transparent",
+                    color: estGroupBy === v.key ? "#fff" : C.textDim,
+                    border: "none", borderRadius: 3, cursor: "pointer", transition: "all 0.15s",
+                  }}>{v.label}</button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {showNotesPanel ? (
             <div style={{ flex: 1, overflowY: "auto" }}>
               <NotesPanel inline />
             </div>
           ) : (<>
+          {/* Full tier: split layout with estimate grid on right */}
+          <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }}>
+          {/* Left column: takeoff list (full width in compact/standard, fixed 350px in full) */}
+          <div style={{ width: tkPanelTier === "full" ? 350 : "100%", flexShrink: 0, display: "flex", flexDirection: "column", overflow: "hidden", borderRight: tkPanelTier === "full" ? `1px solid ${C.border}` : "none" }}>
           {/* Group Bar (bid context tabs) */}
           <div style={{ padding: "4px 8px", borderBottom: `1px solid ${C.border}` }}>
             <GroupBar />
@@ -2982,27 +3144,43 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
 
           {/* Module selector — hidden when filtering to "This Page" */}
           {pageFilter !== "page" && (
-          <div style={{ padding: "10px 10px 8px", borderBottom: `1px solid ${C.border}`, background: `linear-gradient(180deg, ${C.bg2}, ${C.bg1})` }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
-              <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", padding: "4px 12px", borderRadius: 5, background: `linear-gradient(135deg, #8B5CF6, #6D28D9, #1a1025)`, color: "#fff", whiteSpace: "nowrap", boxShadow: "0 2px 8px rgba(139,92,246,0.4)" }}>MODULES</span>
-              <div style={{ flex: 1, height: 1, background: C.gradientSubtle }} />
-            </div>
-            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ padding: "8px 10px 8px", borderBottom: `1px solid ${C.border}` }}>
+            {/* All / Modules toggle — equal visual weight */}
+            <div style={{ display: "flex", gap: 0, background: C.bg2, borderRadius: 5, padding: 2, marginBottom: activeModule ? 7 : 0 }}>
               <button
                 onClick={() => setActiveModule(null)}
-                style={{ padding: "4px 10px", fontSize: 10, fontWeight: 600, border: !activeModule ? "none" : `1px solid ${C.accent}20`, background: !activeModule ? C.gradient : C.bg3, color: !activeModule ? "#fff" : C.textMuted, borderRadius: 4, cursor: "pointer", transition: "all 0.15s", boxShadow: !activeModule ? "0 1px 6px rgba(139,92,246,0.3)" : "none" }}
-              >All</button>
+                style={{ flex: 1, padding: "4px 0", fontSize: 10, fontWeight: 600, background: !activeModule ? C.accent : "transparent", color: !activeModule ? "#fff" : C.textDim, border: "none", borderRadius: 4, cursor: "pointer", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={!activeModule ? "#fff" : C.textDim} strokeWidth="2" strokeLinecap="round"><path d="M8 6h13 M8 12h13 M8 18h13 M3 6h.01 M3 12h.01 M3 18h.01" /></svg>
+                All
+              </button>
+              <button
+                onClick={() => {
+                  if (activeModule) return; // already in module mode
+                  const last = lastModuleRef.current || MODULE_LIST.find(b => b.available)?.id || null;
+                  if (last) setActiveModule(last);
+                }}
+                style={{ flex: 1, padding: "4px 0", fontSize: 10, fontWeight: 600, background: activeModule ? C.accent : "transparent", color: activeModule ? "#fff" : C.textDim, border: "none", borderRadius: 4, cursor: "pointer", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={activeModule ? "#fff" : C.textDim} strokeWidth="2" strokeLinecap="round"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /></svg>
+                Modules
+              </button>
+            </div>
+            {/* Module pills — only when in module mode */}
+            {activeModule && (
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
               {MODULE_LIST.map(b => {
                 const isActive = activeModule === b.id;
                 return (
                 <button
                   key={b.id}
                   onClick={() => b.available && setActiveModule(b.id)}
-                  style={{ padding: "4px 10px", fontSize: 10, fontWeight: 600, border: isActive ? "none" : `1px solid ${C.accent}20`, background: isActive ? C.gradient : C.bg3, color: isActive ? "#fff" : b.available ? C.textMuted : C.textDimmer, borderRadius: 4, cursor: b.available ? "pointer" : "default", opacity: b.available ? 1 : 0.5, transition: "all 0.15s", boxShadow: isActive ? "0 1px 6px rgba(139,92,246,0.3)" : "none" }}
+                  style={{ padding: "3px 9px", fontSize: 9, fontWeight: 600, border: `1px solid ${isActive ? C.accent + '60' : C.border}`, background: isActive ? C.accent + '15' : "transparent", color: isActive ? C.accent : b.available ? C.textMuted : C.textDimmer, borderRadius: 4, cursor: b.available ? "pointer" : "default", opacity: b.available ? 1 : 0.4, transition: "all 0.15s" }}
                   title={b.available ? `${b.name} Module` : `${b.name} Module (Coming Soon)`}
                 >{b.name}</button>
               )})}
             </div>
+            )}
           </div>
           )}
 
@@ -3047,6 +3225,10 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                   <div style={{ flex: 2, minWidth: 80 }}>Description</div>
                   <div style={{ width: 55, textAlign: "right" }}>Qty</div>
                   <div style={{ width: 36 }}>Unit</div>
+                  {tkPanelTier !== "compact" && <>
+                    <div style={{ width: 55, textAlign: "right" }}>$/Unit</div>
+                    <div style={{ width: 65, textAlign: "right" }}>Total</div>
+                  </>}
                   <div style={{ width: 50 }}>Sheet</div>
                   <div style={{ width: 52 }}></div>
                 </div>
@@ -3127,6 +3309,25 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                             {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                           </select>
                         </div>
+                        {/* Cost columns — Standard/Full tier */}
+                        {tkPanelTier !== "compact" && (() => {
+                          const linkedItem = itemById[to.linkedItemId];
+                          const itemTotal = linkedItem ? getItemTotal(linkedItem) : 0;
+                          const itemQty = linkedItem ? nn(linkedItem.quantity) : 0;
+                          const unitCost = itemQty > 0 ? itemTotal / itemQty : 0;
+                          const hasCost = itemTotal > 0;
+                          return <>
+                            <div style={{ width: 55, textAlign: "right", fontSize: 9, fontFeatureSettings: "'tnum'", color: hasCost ? C.textDim : `${C.textDim}40`, padding: "2px 2px" }}
+                              onClick={e => { e.stopPropagation(); if (linkedItem) setCostEditId(costEditId === to.id ? null : to.id); }}
+                              title={linkedItem ? `M: $${fmt2(nn(linkedItem.material))} · L: $${fmt2(nn(linkedItem.labor))} · E: $${fmt2(nn(linkedItem.equipment))} · S: $${fmt2(nn(linkedItem.subcontractor))}` : "No linked item"}>
+                              {hasCost ? `$${fmt2(unitCost)}` : "—"}
+                            </div>
+                            <div style={{ width: 65, textAlign: "right", fontSize: 10, fontWeight: 700, fontFeatureSettings: "'tnum'", color: hasCost ? C.green : `${C.textDim}40`, padding: "2px 2px" }}
+                              onClick={e => { e.stopPropagation(); if (linkedItem) setCostEditId(costEditId === to.id ? null : to.id); }}>
+                              {hasCost ? fmt(itemTotal) : "—"}
+                            </div>
+                          </>;
+                        })()}
                         <div style={{ width: 50, overflow: "hidden" }} onClick={e => e.stopPropagation()}>
                           {(() => {
                             const mSheets = [...new Set((to.measurements || []).map(m => m.sheetId).filter(Boolean))];
@@ -3203,6 +3404,36 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                             </div>
                           </div>
                         )}
+                        {/* Inline cost edit popover — Standard/Full tier */}
+                        {costEditId === to.id && tkPanelTier !== "compact" && (() => {
+                          const li = itemById[to.linkedItemId];
+                          if (!li) return <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: T.z.dropdown + 1, padding: "8px 12px", background: C.bg1, border: `1px solid ${C.border}`, borderRadius: "0 0 8px 8px", boxShadow: T.shadow.md, fontSize: 9, color: C.textDim }} onClick={e => e.stopPropagation()}>No linked estimate item yet</div>;
+                          const upd = (field, val) => useItemsStore.getState().updateItem(li.id, field, Number(val) || 0);
+                          const costFields = [
+                            { key: "material", label: "Material", short: "M" },
+                            { key: "labor", label: "Labor", short: "L" },
+                            { key: "equipment", label: "Equipment", short: "E" },
+                            { key: "subcontractor", label: "Sub", short: "S" },
+                          ];
+                          return (
+                            <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: T.z.dropdown + 1, padding: "8px 10px", background: `linear-gradient(180deg, ${C.bg1}, ${C.bg2}30)`, border: `1px solid ${C.accent}30`, borderTop: "none", borderRadius: "0 0 8px 8px", boxShadow: T.shadow.md }} onClick={e => e.stopPropagation()}>
+                              <div style={{ fontSize: 8, fontWeight: 700, color: C.accent, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4 }}>Unit Costs</div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
+                                {costFields.map(f => (
+                                  <div key={f.key} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                    <span style={{ fontSize: 8, color: C.textDim, fontWeight: 600, width: 12 }}>{f.short}</span>
+                                    <input type="number" value={nn(li[f.key]) || ""} onChange={e => upd(f.key, e.target.value)}
+                                      placeholder="0" style={nInp(C, { background: C.bg2, border: `1px solid ${C.border}`, padding: "3px 5px", fontSize: 10, fontWeight: 600, borderRadius: 4, width: "100%", fontFeatureSettings: "'tnum'" })} />
+                                  </div>
+                                ))}
+                              </div>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4, paddingTop: 4, borderTop: `1px solid ${C.border}` }}>
+                                <span style={{ fontSize: 8, color: C.textDim }}>Total: <strong style={{ color: C.green }}>{fmt(getItemTotal(li))}</strong></span>
+                                <button onClick={() => setCostEditId(null)} style={{ fontSize: 8, color: C.accent, background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>Done</button>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       {/* Dimension Engine */}
@@ -3302,24 +3533,82 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
 
           {/* Footer */}
           {takeoffs.length > 0 && (
-            <div style={{ padding: "6px 12px", borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 10 }}>
+            <div style={{ padding: "5px 12px", borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "center", alignItems: "center", gap: 8, fontSize: 10 }}>
               <span style={{ color: C.textMuted }}>
                 <strong style={{ color: C.text }}>{takeoffs.length}</strong> items
                 {takeoffs.reduce((s, t) => (t.measurements || []).length + s, 0) > 0 &&
                   <> · <strong style={{ color: C.accent }}>{takeoffs.reduce((s, t) => (t.measurements || []).length + s, 0)}</strong> measurements</>}
               </span>
-              <button onClick={runScopeSuggestions} disabled={tkScopeSuggestions?.loading} title="AI: What am I missing?"
-                style={bt(C, { padding: "3px 8px", fontSize: 8, fontWeight: 600, background: tkScopeSuggestions?.loading ? C.bg3 : "linear-gradient(135deg,#2563eb,#1d4ed8)", color: tkScopeSuggestions?.loading ? C.textDim : "#fff", borderRadius: 4, display: "flex", alignItems: "center", gap: 4 })}>
-                <Ic d={I.ai} size={9} color={tkScopeSuggestions?.loading ? C.textDim : "#fff"} /> What's Missing?
-              </button>
+              {tkPanelTier !== "compact" && getTotals().grand > 0 && (
+                <span style={{ color: C.green, fontWeight: 700, fontFamily: "'DM Sans',sans-serif", fontFeatureSettings: "'tnum'" }}>{fmt(getTotals().grand)}</span>
+              )}
             </div>
           )}
+          </div>{/* end left column */}
+
+          {/* Right column: Estimate grid — Full tier only */}
+          {tkPanelTier === "full" && (
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
+              <Suspense fallback={<div style={{ padding: 20, textAlign: "center", fontSize: 10, color: C.textDim }}>Loading estimate...</div>}>
+                <EstimatePanelView
+                  onSelectItem={(id) => setEstSelectedItemId(prev => prev === id ? null : id)}
+                  selectedItemId={estSelectedItemId}
+                />
+              </Suspense>
+            </div>
+          )}
+          </div>{/* end flex split container */}
           </>)}
+
+          {/* Drag handle — right edge of panel */}
+          <div
+            onMouseDown={startTkDrag}
+            style={{
+              position: "absolute", right: -3, top: 0, bottom: 0, width: 6,
+              cursor: "col-resize", zIndex: 32,
+              background: "transparent",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}
+            onMouseEnter={e => e.currentTarget.querySelector('.grip-bar').style.background = C.accent + '60'}
+            onMouseLeave={e => e.currentTarget.querySelector('.grip-bar').style.background = C.border}
+          >
+            <div className="grip-bar" style={{ width: 3, height: 24, borderRadius: 2, background: C.border, transition: "background 0.15s" }} />
+          </div>
+
+          {/* Tier indicator during drag */}
+          {isDraggingPanel && (
+            <div style={{
+              position: "absolute", right: -52, top: "50%", transform: "translateY(-50%)",
+              background: C.bg1, border: `1px solid ${C.accent}`, borderRadius: 6,
+              padding: "3px 8px", fontSize: 9, fontWeight: 700, color: C.accent,
+              whiteSpace: "nowrap", zIndex: 100, boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+              pointerEvents: "none",
+            }}>
+              {tkPanelTier === "compact" ? "Compact" : tkPanelTier === "standard" ? "Standard" : "Full"}
+            </div>
+          )}
         </div>
       )}
 
-      {/* DRAWING VIEWER — full width */}
-      <div style={{ flex: 1, minWidth: 300, background: C.bg1, borderRadius: "6px", border: `1px solid ${C.border}`, overflow: "hidden", display: "flex", flexDirection: "column", marginLeft: tkPanelOpen ? Math.min(tkPanelWidth, 420) : 0, transition: "margin-left 0.2s ease-out" }}>
+      {/* Item Detail Panel — Full tier, slides in from right over drawing viewer */}
+      {estSelectedItemId && tkPanelTier === "full" && (
+        <Suspense fallback={null}>
+          <ItemDetailPanel
+            itemId={estSelectedItemId}
+            onClose={() => setEstSelectedItemId(null)}
+            onNavigate={(dir) => {
+              const currentItems = useItemsStore.getState().items;
+              const idx = currentItems.findIndex(i => i.id === estSelectedItemId);
+              if (idx === -1) return;
+              const nextIdx = idx + dir;
+              if (nextIdx >= 0 && nextIdx < currentItems.length) setEstSelectedItemId(currentItems[nextIdx].id);
+            }}
+          />
+        </Suspense>
+      )}
+
+      {/* DRAWING VIEWER — full width, zIndex above backdrop so canvas is always interactive */}
+      <div style={{ flex: 1, minWidth: 300, background: C.bg1, borderRadius: "6px", border: `1px solid ${C.border}`, overflow: "hidden", display: "flex", flexDirection: "column", marginLeft: tkPanelOpen ? tkPanelWidth : 0, transition: isDraggingPanel ? "none" : "margin-left 0.2s ease-out", position: "relative", zIndex: 35 }}>
         {/* Toolbar */}
         <div style={{ borderBottom: `1px solid ${C.border}` }}>
           {/* Toolbar: Drawing nav + zoom + scale + tools */}
@@ -3346,6 +3635,24 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
               <span style={{ position: "absolute", bottom: -3, right: -3, width: 8, height: 8, borderRadius: "50%", background: tkPanelMode === "open" ? C.green : C.orange, border: `1px solid ${C.bg1}` }} />
             )}
           </button>
+          {/* Tier cycle button — large screens only */}
+          {isLargeScreen && tkPanelOpen && (
+            <button className="icon-btn"
+              onClick={() => {
+                const tiers = ["compact", "standard", "full"];
+                const targets = [350, 550, 900];
+                const idx = tiers.indexOf(tkPanelTier);
+                const next = (idx + 1) % 3;
+                setTkPanelWidth(targets[next]);
+                setTkPanelTier(tiers[next]);
+                sessionStorage.setItem("bldg-tkPanelWidth", String(targets[next]));
+                sessionStorage.setItem("bldg-tkPanelTier", tiers[next]);
+              }}
+              title={`Panel: ${tkPanelTier === "compact" ? "Compact" : tkPanelTier === "standard" ? "Standard" : "Full"} · Click to cycle`}
+              style={{ width: 26, height: 26, border: `1px solid ${tkPanelTier !== "compact" ? C.accent + '40' : C.border}`, background: tkPanelTier !== "compact" ? C.accent + '08' : C.bg2, color: tkPanelTier !== "compact" ? C.accent : C.textMuted, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, fontSize: 8, fontWeight: 700, fontFamily: "'DM Sans',sans-serif" }}>
+              {tkPanelTier === "compact" ? "C" : tkPanelTier === "standard" ? "S" : "F"}
+            </button>
+          )}
           {/* Drawing filmstrip */}
           <button className="icon-btn" title="Previous" onClick={() => { const idx = drawings.findIndex(d => d.id === selectedDrawingId); if (idx > 0) { setSelectedDrawingId(drawings[idx - 1].id); if (drawings[idx - 1].type === "pdf" && drawings[idx - 1].data) renderPdfPage(drawings[idx - 1]); } }} style={{ width: 24, height: 24, border: "none", background: C.bg2, color: C.textMuted, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 11, flexShrink: 0 }}>◀</button>
           <div ref={compactStripRef} className="hide-scrollbar" style={{ display: "flex", gap: 3, overflowX: "auto", flex: 1, minWidth: 0, padding: "2px 0" }}>
@@ -3408,6 +3715,73 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
             {drawingScales[selectedDrawingId] === "custom" && tkCalibrations[selectedDrawingId] && <span style={{ color: C.green, fontWeight: 600, fontSize: 8 }}>✓ Cal</span>}
             {!drawingScales[selectedDrawingId] && !tkCalibrations[selectedDrawingId] && <span style={{ fontSize: 7, color: C.orange, fontWeight: 500 }} title="No scale set">⚠ No scale</span>}
           </>)}
+          {/* Undo last point button — visible during active measurement */}
+          {tkActivePoints.length > 0 && (
+            <button
+              className="icon-btn"
+              onClick={() => setTkActivePoints(tkActivePoints.slice(0, -1))}
+              title="Undo last point (removes the most recent click)"
+              style={{ width: 24, height: 24, border: `1px solid ${C.border}`, background: C.bg2, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 4v6h6 M3.51 15a9 9 0 105.64-12.36L1 10" /></svg>
+            </button>
+          )}
+          {/* Snap angle toggle — persistent snap lock */}
+          <button
+            className="icon-btn"
+            onClick={() => setSnapAngleOn(v => !v)}
+            title={snapAngleOn ? "Snap Angle: ON (click to turn off, or hold Shift)" : "Snap Angle: OFF (click to lock on, or hold Shift temporarily)"}
+            style={{ width: 24, height: 24, border: `1px solid ${snapAngleOn ? C.accent + '60' : C.border}`, background: snapAngleOn ? C.accent + '18' : C.bg2, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, position: "relative" }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={snapAngleOn ? C.accent : C.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
+              <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+              <line x1="12" y1="22.08" x2="12" y2="12" />
+            </svg>
+            {snapAngleOn && <span style={{ position: "absolute", top: -3, right: -3, width: 7, height: 7, borderRadius: "50%", background: C.accent, border: `1px solid ${C.bg1}` }} />}
+          </button>
+          {/* Tools folder — iPhone-style expanding grid */}
+          <div ref={toolsBtnRef} style={{ position: "relative", flexShrink: 0 }}>
+            <button
+              className="icon-btn"
+              onClick={() => setToolsFolderOpen(v => !v)}
+              title="Tools"
+              style={{ width: 24, height: 24, border: `1px solid ${toolsFolderOpen ? C.accent + '60' : C.border}`, background: toolsFolderOpen ? C.accent + '18' : C.bg2, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={toolsFolderOpen ? C.accent : C.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" />
+              </svg>
+            </button>
+            {toolsFolderOpen && (() => {
+              const r = toolsBtnRef.current?.getBoundingClientRect();
+              const tools = [
+                { id: "checkdim", label: "Check Dim", icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.text} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M2 20h20 M2 20V4 M6 16V8 M10 16V6 M14 16v-4 M18 16V8" /></svg>, desc: "Measure without creating a takeoff", soon: true },
+                { id: "angle", label: "Angle", icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.text} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 19H5V5" /><path d="M5 19l14-14" /></svg>, desc: "Measure angles between lines", soon: true },
+                { id: "compare", label: "Compare", icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.text} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="8" height="8" rx="1" /><rect x="14" y="13" width="8" height="8" rx="1" /><path d="M7 11v2a2 2 0 002 2h2 M17 13v-2a2 2 0 00-2-2h-2" /></svg>, desc: "Overlay drawings for revision comparison", soon: true },
+                { id: "screenshot", label: "Screenshot", icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.text} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" /><circle cx="12" cy="13" r="4" /></svg>, desc: "Export canvas view as image", soon: true },
+                { id: "labels", label: "Labels", icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.text} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>, desc: "Toggle measurement labels on canvas", soon: true },
+                { id: "snap", label: "Snap Angle", icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={snapAngleOn ? C.accent : C.text} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" /></svg>, desc: snapAngleOn ? "Snap is ON" : "Lock to 45° angles", active: snapAngleOn, action: () => { setSnapAngleOn(v => !v); } },
+              ];
+              return (<>
+                <div onClick={() => setToolsFolderOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 199 }} />
+                <div style={{ position: "fixed", top: (r?.bottom || 0) + 6, left: Math.max(8, (r?.left || 0) - 60), width: 200, background: C.bg1, border: `1px solid ${C.border}`, borderRadius: 10, boxShadow: "0 8px 32px rgba(0,0,0,0.35)", zIndex: 200, padding: 8, animation: "fadeIn 0.12s ease-out" }}>
+                  <div style={{ fontSize: 8, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.8, padding: "2px 4px 6px", borderBottom: `1px solid ${C.border}` }}>Tools</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, padding: "8px 0 4px" }}>
+                    {tools.map(t => (
+                      <button key={t.id} onClick={() => { if (t.action) { t.action(); setToolsFolderOpen(false); } else if (!t.soon) { setToolsFolderOpen(false); } }}
+                        title={t.desc}
+                        style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "8px 4px", background: t.active ? C.accent + '15' : "transparent", border: t.active ? `1px solid ${C.accent}40` : "1px solid transparent", borderRadius: 8, cursor: t.soon && !t.action ? "default" : "pointer", opacity: t.soon && !t.action ? 0.45 : 1, transition: "all 0.12s" }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 8, background: t.active ? C.accent + '20' : C.bg2, display: "flex", alignItems: "center", justifyContent: "center", border: `1px solid ${t.active ? C.accent + '30' : C.border}` }}>
+                          {t.icon}
+                        </div>
+                        <span style={{ fontSize: 7, fontWeight: 600, color: t.active ? C.accent : C.textMuted, lineHeight: 1.1, textAlign: "center" }}>{t.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>);
+            })()}
+          </div>
           {/* Divider + Settings gear + NOVA orb toggle */}
           {selectedDrawing && (<>
             <div style={{ width: 1, height: 20, background: C.border, margin: "0 2px", flexShrink: 0 }} />
@@ -3917,7 +4291,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
               <span style={{ fontSize: 10, color: C.textDim }}>Drawing data is not stored between sessions.<br />Go to <strong>Discovery</strong> to re-attach the file.</span>
             </div>
           ) : (
-            <div style={{ transform: `translate(${tkPan.x}px,${tkPan.y}px) scale(${tkZoom / 100})`, transformOrigin: "0 0", position: "relative" }}>
+            <div ref={tkTransformRef} style={{ transform: `translate(${tkPan.x}px,${tkPan.y}px) scale(${tkZoom / 100})`, transformOrigin: "0 0", position: "relative" }}>
               {selectedDrawing.type === "image" ? (
                 <img ref={drawingImgRef} src={selectedDrawing.data} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", display: "block" }}
                   onLoad={e => { const w = e.target.naturalWidth, h = e.target.naturalHeight; if (canvasRef.current) { canvasRef.current.width = w; canvasRef.current.height = h; } if (cursorCanvasRef.current) { cursorCanvasRef.current.width = w; cursorCanvasRef.current.height = h; } if (predictionCanvasRef.current) { predictionCanvasRef.current.width = w; predictionCanvasRef.current.height = h; } }} />
@@ -3972,10 +4346,10 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                   // Measuring: update cursor position for live preview (RAF throttled)
                   if (tkActivePoints.length === 0) return;
                   let snapped = pt;
-                  if (e.shiftKey && tkActivePoints.length >= 1) {
+                  if ((e.shiftKey || snapAngleOnRef.current) && tkActivePoints.length >= 1) {
                     snapped = snapAngle(tkActivePoints[tkActivePoints.length - 1], pt);
                   }
-                  shiftHeldRef.current = e.shiftKey;
+                  shiftHeldRef.current = e.shiftKey || snapAngleOnRef.current;
                   pendingCursorRef.current = snapped;
                   if (!rafCursorRef.current) {
                     rafCursorRef.current = requestAnimationFrame(() => {
@@ -4121,6 +4495,15 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                   <Ic d={I.check} size={12} color={C.accent} /> Close & Finish Area
                 </div>
               )}
+              <div className="nav-item" onClick={() => { setSnapAngleOn(v => !v); setTkContextMenu(null); }}
+                style={{ padding: "7px 12px", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, color: snapAngleOn ? C.accent : C.text, borderBottom: `1px solid ${C.bg2}` }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={snapAngleOn ? C.accent : C.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
+                  <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                  <line x1="12" y1="22.08" x2="12" y2="12" />
+                </svg>
+                Snap Angle {snapAngleOn ? "✓ ON" : "OFF"}
+              </div>
               <div className="nav-item" onClick={() => { stopMeasuring(); setTkContextMenu(null); }}
                 style={{ padding: "8px 12px", fontSize: 10, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, color: C.red, borderTop: `1px solid ${C.border}` }}>
                 <svg width="10" height="10" viewBox="0 0 10 10" fill={C.red}><rect width="10" height="10" rx="1.5" /></svg>

@@ -447,6 +447,43 @@ export default function EstimatePage() {
               ))}
             </div>
 
+            {/* GroupBy toggle: Subdivision | Division | Trade */}
+            {viewMode !== "leveling" && (
+            <div style={{
+              display: "flex",
+              background: dk ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.10)',
+              backdropFilter: 'blur(8px) saturate(150%)',
+              WebkitBackdropFilter: 'blur(8px) saturate(150%)',
+              borderRadius: T.radius.sm,
+              overflow: "hidden",
+              border: `0.5px solid ${dk ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.20)'}`,
+              boxShadow: `inset 0 0.5px 0 ${dk ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.35)'}`,
+              flexShrink: 0,
+            }}>
+              {[
+                { key: "subdivision", label: "Subdivision" },
+                { key: "division", label: "Division" },
+                { key: "trade", label: "Trade" },
+              ].map(v => (
+                <button key={v.key} onClick={() => setEstGroupBy(v.key)}
+                  style={{
+                    padding: "5px 10px", fontSize: 9, fontWeight: 600, border: "none", cursor: "pointer",
+                    transition: "all 0.25s ease",
+                    background: estGroupBy === v.key
+                      ? (dk ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.40)')
+                      : "transparent",
+                    color: estGroupBy === v.key ? C.text : C.textMuted,
+                    fontFamily: "'DM Sans',sans-serif",
+                    boxShadow: estGroupBy === v.key
+                      ? `inset 0 0.5px 0 ${dk ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.50)'}`
+                      : "none",
+                  }}>
+                  {v.label}
+                </button>
+              ))}
+            </div>
+            )}
+
             <div style={{ flex: 1 }} />
 
             {/* Status indicators — quiet, informational */}
