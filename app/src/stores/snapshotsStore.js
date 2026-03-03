@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { storage } from '@/utils/storage';
 import { uid, nowStr } from '@/utils/format';
+import { idbKey } from '@/utils/idbKey';
 
 const SNAPSHOTS_KEY_PREFIX = "bldg-snapshots-";
 
@@ -25,7 +26,7 @@ export const useSnapshotsStore = create((set, get) => ({
   // ── Load ──────────────────────────────────────────────────
   loadSnapshots: async (estimateId) => {
     try {
-      const raw = await storage.get(`${SNAPSHOTS_KEY_PREFIX}${estimateId}`);
+      const raw = await storage.get(idbKey(`${SNAPSHOTS_KEY_PREFIX}${estimateId}`));
       if (raw) {
         const parsed = JSON.parse(raw.value);
         set(s => ({
@@ -41,7 +42,7 @@ export const useSnapshotsStore = create((set, get) => ({
   _persist: async (estimateId) => {
     const list = get().snapshots[estimateId] || [];
     await storage.set(
-      `${SNAPSHOTS_KEY_PREFIX}${estimateId}`,
+      idbKey(`${SNAPSHOTS_KEY_PREFIX}${estimateId}`),
       JSON.stringify(list)
     );
   },

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { storage } from '@/utils/storage';
 import { useUiStore } from '@/stores/uiStore';
+import { idbKey } from '@/utils/idbKey';
 
 export const useScanStore = create((set, get) => ({
   // Scan results for the current estimate
@@ -29,7 +30,7 @@ export const useScanStore = create((set, get) => ({
     set({ learningRecords: records });
     // Persist learning data globally (shared across estimates)
     try {
-      const ok = await storage.set('bldg-scan-learning', JSON.stringify(records));
+      const ok = await storage.set(idbKey('bldg-scan-learning'), JSON.stringify(records));
       if (!ok) {
         console.error('[scanStore] Failed to persist learning record');
         useUiStore.getState().showToast("Calibration data save failed", "error");
@@ -42,7 +43,7 @@ export const useScanStore = create((set, get) => ({
 
   loadLearningRecords: async () => {
     try {
-      const raw = await storage.get('bldg-scan-learning');
+      const raw = await storage.get(idbKey('bldg-scan-learning'));
       if (raw) {
         const records = JSON.parse(raw.value);
         set({ learningRecords: records });
@@ -136,7 +137,7 @@ export const useScanStore = create((set, get) => ({
 
     // Persist globally
     try {
-      await storage.set('bldg-param-corrections', JSON.stringify(corrections));
+      await storage.set(idbKey('bldg-param-corrections'), JSON.stringify(corrections));
     } catch (err) {
       console.warn('[scanStore] Failed to persist parameter correction:', err);
     }
@@ -144,7 +145,7 @@ export const useScanStore = create((set, get) => ({
 
   loadParameterCorrections: async () => {
     try {
-      const raw = await storage.get('bldg-param-corrections');
+      const raw = await storage.get(idbKey('bldg-param-corrections'));
       if (raw) {
         const corrections = JSON.parse(raw.value);
         set({ parameterCorrections: corrections });

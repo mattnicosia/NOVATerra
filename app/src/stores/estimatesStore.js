@@ -14,7 +14,10 @@ import { useModuleStore } from '@/stores/moduleStore';
 import { useScanStore } from '@/stores/scanStore';
 import { useDatabaseStore } from '@/stores/databaseStore';
 import { useMasterDataStore } from '@/stores/masterDataStore';
+import { useAuthStore } from '@/stores/authStore';
+import { useOrgStore } from '@/stores/orgStore';
 import * as cloudSync from '@/utils/cloudSync';
+import { idbKey } from '@/utils/idbKey';
 
 export const useEstimatesStore = create((set, get) => ({
   estimatesIndex: [],
@@ -25,7 +28,7 @@ export const useEstimatesStore = create((set, get) => ({
   setActiveEstimateId: (v) => set({ activeEstimateId: v }),
   clearDraft: () => set({ draftId: null }),
 
-  createEstimate: async (companyProfileId) => {
+  createEstimate: async (companyProfileId, estimateNumber) => {
     const id = uid();
     const settings = useUiStore.getState().appSettings;
 
@@ -34,9 +37,11 @@ export const useEstimatesStore = create((set, get) => ({
     set({ activeEstimateId: id });
 
     // Save blank estimate data to IndexedDB so loadEstimate can hydrate stores
+    const { ownerId, orgId } = get()._getOwnership();
     const data = {
       project: {
         name: "New Estimate", client: "", architect: "", engineer: "", estimator: "",
+        estimateNumber: estimateNumber || "",
         address: "", date: today(), bidDue: "", bidDueTime: "", walkthroughDate: "",
         rfiDueDate: "", otherDueDate: "", otherDueLabel: "", description: "",
         projectSF: "", jobType: "", buildingType: "", workType: "",
@@ -46,6 +51,7 @@ export const useEstimatesStore = create((set, get) => ({
         laborType: settings.defaultLaborType || "open_shop",
         companyProfileId: companyProfileId || "",
         setupComplete: false,  // triggers document-first onboarding
+        ownerId, orgId,
       },
       codeSystem: "csi-commercial",
       items: [],
@@ -87,12 +93,22 @@ export const useEstimatesStore = create((set, get) => ({
       alternates: [],
       documents: [],
     };
-    await storage.set(`bldg-est-${id}`, JSON.stringify(data));
+    await storage.set(idbKey(`bldg-est-${id}`), JSON.stringify(data));
 
     // Cloud sync estimate data (non-blocking)
     cloudSync.pushEstimate(id, data).catch(() => {});
 
     return id;
+  },
+
+  // Get ownership metadata for new estimates
+  _getOwnership: () => {
+    const userId = useAuthStore.getState().user?.id;
+    const org = useOrgStore.getState().org;
+    return {
+      ownerId: userId || null,
+      orgId: org?.id || null,
+    };
   },
 
   // Create a draft estimate in memory only — no IndexedDB or cloud persistence.
@@ -168,20 +184,20 @@ export const useEstimatesStore = create((set, get) => ({
   },
 
   deleteEstimate: async (id) => {
-    const idx = get().estimatesIndex.filter(e => e.id !== id);
-    set({
-      estimatesIndex: idx,
-      activeEstimateId: get().activeEstimateId === id ? null : get().activeEstimateId,
-    });
-    await storage.set("bldg-index", JSON.stringify(idx));
-    await storage.delete(`bldg-est-${id}`);
+    set(s => ({
+      estimatesIndex: s.estimatesIndex.filter(e => e.id !== id),
+      activeEstimateId: s.activeEstimateId === id ? null : s.activeEstimateId,
+    }));
+    const idx = get().estimatesIndex; // read after atomic set
+    await storage.set(idbKey("bldg-index"), JSON.stringify(idx));
+    await storage.delete(idbKey(`bldg-est-${id}`));
 
     // Track deleted ID locally so cloud sync doesn't pull it back
     try {
-      const raw = await storage.get("bldg-deleted-ids");
+      const raw = await storage.get(idbKey("bldg-deleted-ids"));
       const deletedIds = raw ? JSON.parse(raw.value) : [];
       if (!deletedIds.includes(id)) deletedIds.push(id);
-      await storage.set("bldg-deleted-ids", JSON.stringify(deletedIds));
+      await storage.set(idbKey("bldg-deleted-ids"), JSON.stringify(deletedIds));
     } catch {}
 
     // Cloud sync — await so deletion completes before user closes app
@@ -194,18 +210,22 @@ export const useEstimatesStore = create((set, get) => ({
   },
 
   duplicateEstimate: async (id) => {
-    const raw = await storage.get(`bldg-est-${id}`);
+    const raw = await storage.get(idbKey(`bldg-est-${id}`));
     if (!raw) return;
     const data = JSON.parse(raw.value);
     const newId = uid();
+    const { ownerId, orgId } = get()._getOwnership();
     data.project.name = data.project.name + " (Copy)";
-    await storage.set(`bldg-est-${newId}`, JSON.stringify(data));
+    data.project.ownerId = ownerId;
+    data.project.orgId = orgId;
+    await storage.set(idbKey(`bldg-est-${newId}`), JSON.stringify(data));
 
     const src = get().estimatesIndex.find(e => e.id === id);
-    const newEntry = { ...src, id: newId, name: data.project.name, lastModified: nowStr() };
-    const idx = [...get().estimatesIndex, newEntry];
-    set({ estimatesIndex: idx });
-    await storage.set("bldg-index", JSON.stringify(idx));
+    if (!src) return; // guard against stale reference
+    const newEntry = { ...src, id: newId, name: data.project.name, lastModified: nowStr(), ownerId, orgId };
+    set(s => ({ estimatesIndex: [...s.estimatesIndex, newEntry] }));
+    const idx = get().estimatesIndex; // read after atomic set
+    await storage.set(idbKey("bldg-index"), JSON.stringify(idx));
 
     // Cloud sync (non-blocking)
     cloudSync.pushEstimate(newId, data).catch(() => {});
@@ -224,9 +244,13 @@ export const useEstimatesStore = create((set, get) => ({
   importFromRfp: async (estimateData) => {
     const id = uid();
     const data = { ...estimateData };
+    const { ownerId, orgId } = get()._getOwnership();
+    // Stamp ownership on project data
+    if (data.project) { data.project.ownerId = ownerId; data.project.orgId = orgId; }
     const est = {
       id,
       name: data.project?.name || "Imported RFP",
+      estimateNumber: data.project?.estimateNumber || "",
       client: data.project?.client || "",
       status: data.project?.status || "Bidding",
       bidDue: data.project?.bidDue || "",
@@ -243,11 +267,12 @@ export const useEstimatesStore = create((set, get) => ({
       zipCode: data.project?.zipCode || "",
       divisionTotals: {},
       outcomeMetadata: data.project?.outcomeMetadata || {},
+      ownerId, orgId,
     };
     const idx = [...get().estimatesIndex, est];
     set({ estimatesIndex: idx, activeEstimateId: id });
-    await storage.set("bldg-index", JSON.stringify(idx));
-    await storage.set(`bldg-est-${id}`, JSON.stringify(data));
+    await storage.set(idbKey("bldg-index"), JSON.stringify(idx));
+    await storage.set(idbKey(`bldg-est-${id}`), JSON.stringify(data));
 
     // Cloud sync (non-blocking)
     cloudSync.pushEstimate(id, data).catch(() => {});

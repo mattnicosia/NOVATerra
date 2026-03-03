@@ -21,13 +21,44 @@ import { useBidPackagesStore } from '@/stores/bidPackagesStore';
 import * as cloudSync from '@/utils/cloudSync';
 import { loadAudioMeta } from '@/utils/novaAudioStorage';
 import { migrateIndexEntry, migrateProposal } from '@/utils/costHistoryMigration';
+import { idbKey } from '@/utils/idbKey';
+import { useAuthStore } from '@/stores/authStore';
+import { useOrgStore } from '@/stores/orgStore';
+
+// Reset all Zustand stores to defaults and clear localStorage flags.
+// Called on sign-out to prevent data leaking between users.
+export function resetAllStores() {
+  useEstimatesStore.getState().setEstimatesIndex([]);
+  useEstimatesStore.setState({ activeEstimateId: null, draftId: null });
+  useMasterDataStore.getState().setMasterData({
+    clients: [], architects: [], engineers: [], estimators: [], subcontractors: [],
+    historicalProposals: [], companyProfiles: [],
+    jobTypes: useMasterDataStore.getState().masterData.jobTypes, // keep defaults
+    bidDeliveryTypes: useMasterDataStore.getState().masterData.bidDeliveryTypes,
+    bidTypes: useMasterDataStore.getState().masterData.bidTypes,
+    companyInfo: { name: "", address: "", city: "", state: "", zip: "", phone: "", email: "", website: "", licenseNo: "", logo: null, brandColors: [], palettes: [], boilerplateExclusions: [], boilerplateNotes: [] },
+  });
+  useMasterDataStore.setState({ pdfUploadQueue: [] });
+  useCalendarStore.getState().setTasks([]);
+  useDatabaseStore.getState().setAssemblies([]);
+  useUiStore.getState().setPersistenceLoaded(false);
+  useUiStore.setState({ aiChatMessages: [], aiChatInput: "" });
+
+  // Clear localStorage flags that are user-session-scoped
+  localStorage.removeItem('blob_migration_v2');
+  localStorage.removeItem('nova_cmd_recents');
+  localStorage.removeItem('READ_IDS_KEY');
+  localStorage.removeItem('intelligence_cache');
+}
 
 // Load all persisted data on mount
 export function usePersistenceLoad() {
   const loaded = useRef(false);
+  const orgReady = useOrgStore(s => s.orgReady);
 
   useEffect(() => {
     if (loaded.current) return;
+    if (!orgReady) return; // Wait for org fetch to resolve before reading org-scoped keys
     loaded.current = true;
 
     (async () => {
@@ -36,7 +67,7 @@ export function usePersistenceLoad() {
       let hadCorruptedMaster = false;
 
       // Load estimates index
-      const idxRaw = await storage.get("bldg-index");
+      const idxRaw = await storage.get(idbKey("bldg-index"));
       if (idxRaw) {
         try {
           // Defensive: validate value is a non-empty string before parsing
@@ -53,18 +84,18 @@ export function usePersistenceLoad() {
           migrated = migrated.map(migrateIndexEntry);
           useEstimatesStore.getState().setEstimatesIndex(migrated);
           if (migrated.some((e, i) => e !== parsed[i])) {
-            await storage.set("bldg-index", JSON.stringify(migrated));
+            await storage.set(idbKey("bldg-index"), JSON.stringify(migrated));
           }
           if (migrated.length > 0) localHasData = true;
         } catch (err) {
           console.error("[usePersistence] Failed to parse estimates index:", err);
           hadCorruptedIndex = true;
-          await storage.delete("bldg-index"); // Clear corrupted data so cloud sync can recover
+          await storage.delete(idbKey("bldg-index")); // Clear corrupted data so cloud sync can recover
         }
       }
 
       // Load master data
-      const masterRaw = await storage.get("bldg-master");
+      const masterRaw = await storage.get(idbKey("bldg-master"));
       if (masterRaw) {
         try {
           // Defensive: validate value is a non-empty string before parsing
@@ -80,7 +111,7 @@ export function usePersistenceLoad() {
             const before = master.historicalProposals;
             master.historicalProposals = before.map(migrateProposal);
             if (master.historicalProposals.some((p, i) => p !== before[i])) {
-              await storage.set("bldg-master", JSON.stringify(master));
+              await storage.set(idbKey("bldg-master"), JSON.stringify(master));
             }
           }
           useMasterDataStore.getState().setMasterData({
@@ -91,12 +122,12 @@ export function usePersistenceLoad() {
         } catch (err) {
           console.error("[usePersistence] Failed to parse master data:", err);
           hadCorruptedMaster = true;
-          await storage.delete("bldg-master"); // Clear corrupted data so cloud sync can recover
+          await storage.delete(idbKey("bldg-master")); // Clear corrupted data so cloud sync can recover
         }
       }
 
-      // Load app settings
-      const settingsRaw = await storage.get("bldg-settings");
+      // Load app settings (always user-scoped — idbKey("bldg-settings") returns unprefixed)
+      const settingsRaw = await storage.get(idbKey("bldg-settings"));
       if (settingsRaw) {
         try {
           const settings = JSON.parse(settingsRaw.value);
@@ -106,7 +137,7 @@ export function usePersistenceLoad() {
           });
         } catch (err) {
           console.error("[usePersistence] Failed to parse settings:", err);
-          await storage.delete("bldg-settings"); // Clear corrupted data so cloud sync can recover
+          await storage.delete(idbKey("bldg-settings")); // Clear corrupted data so cloud sync can recover
         }
       }
       // Migrate: ensure defaultMarkupOrder has all standard keys and `active` field
@@ -130,25 +161,25 @@ export function usePersistenceLoad() {
       }
 
       // Load assemblies (global library)
-      const asmRaw = await storage.get("bldg-assemblies");
+      const asmRaw = await storage.get(idbKey("bldg-assemblies"));
       if (asmRaw) {
         try {
           useDatabaseStore.getState().setAssemblies(JSON.parse(asmRaw.value));
         } catch (err) {
           console.error("[usePersistence] Failed to parse assemblies:", err);
-          await storage.delete("bldg-assemblies"); // Clear corrupted data so cloud sync can recover
+          await storage.delete(idbKey("bldg-assemblies")); // Clear corrupted data so cloud sync can recover
         }
       }
 
       // Load calendar tasks
-      const calRaw = await storage.get("bldg-calendar");
+      const calRaw = await storage.get(idbKey("bldg-calendar"));
       if (calRaw) {
         try {
           const tasks = JSON.parse(calRaw.value);
           if (Array.isArray(tasks)) useCalendarStore.getState().setTasks(tasks);
         } catch (err) {
           console.error("[usePersistence] Failed to parse calendar:", err);
-          await storage.delete("bldg-calendar");
+          await storage.delete(idbKey("bldg-calendar"));
         }
       }
 
@@ -170,13 +201,13 @@ export function usePersistenceLoad() {
           const cloudIndex = await cloudSync.pullData('index');
           if (cloudIndex && Array.isArray(cloudIndex) && cloudIndex.length > 0) {
             useEstimatesStore.getState().setEstimatesIndex(cloudIndex);
-            await storage.set("bldg-index", JSON.stringify(cloudIndex));
+            await storage.set(idbKey("bldg-index"), JSON.stringify(cloudIndex));
             if (hadCorruptedIndex) recoveredFromCloud = true;
 
             // Pull all estimates and cache locally
             const cloudEstimates = await cloudSync.pullAllEstimates();
             for (const ce of cloudEstimates) {
-              await storage.set(`bldg-est-${ce.estimate_id}`, JSON.stringify(ce.data));
+              await storage.set(idbKey(`bldg-est-${ce.estimate_id}`), JSON.stringify(ce.data));
             }
           }
 
@@ -187,7 +218,7 @@ export function usePersistenceLoad() {
               ...useMasterDataStore.getState().masterData,
               ...cloudMaster,
             });
-            await storage.set("bldg-master", JSON.stringify(cloudMaster));
+            await storage.set(idbKey("bldg-master"), JSON.stringify(cloudMaster));
             if (hadCorruptedMaster) recoveredFromCloud = true;
           }
 
@@ -198,14 +229,14 @@ export function usePersistenceLoad() {
               ...useUiStore.getState().appSettings,
               ...cloudSettings,
             });
-            await storage.set("bldg-settings", JSON.stringify(cloudSettings));
+            await storage.set(idbKey("bldg-settings"), JSON.stringify(cloudSettings));
           }
 
           // Pull assemblies
           const cloudAsm = await cloudSync.pullData('assemblies');
           if (cloudAsm && Array.isArray(cloudAsm)) {
             useDatabaseStore.getState().setAssemblies(cloudAsm);
-            await storage.set("bldg-assemblies", JSON.stringify(cloudAsm));
+            await storage.set(idbKey("bldg-assemblies"), JSON.stringify(cloudAsm));
           }
         } catch (err) {
           console.warn('[usePersistence] Cloud pull failed:', err);
@@ -229,12 +260,12 @@ export function usePersistenceLoad() {
       // Signal that persistence load is complete — auto-save can now safely write
       useUiStore.getState().setPersistenceLoaded(true);
     })();
-  }, []);
+  }, [orgReady]);
 }
 
 // Load a specific estimate into stores
 export async function loadEstimate(id) {
-  let raw = await storage.get(`bldg-est-${id}`);
+  let raw = await storage.get(idbKey(`bldg-est-${id}`));
 
   // If not in IndexedDB, try cloud
   if (!raw) {
@@ -244,7 +275,7 @@ export async function loadEstimate(id) {
         // Hydrate blobs from Supabase Storage (drawings, documents, specPdf)
         cloudData = await cloudSync.hydrateBlobs(cloudData);
         // Cache locally with hydrated blobs for next time
-        await storage.set(`bldg-est-${id}`, JSON.stringify(cloudData));
+        await storage.set(idbKey(`bldg-est-${id}`), JSON.stringify(cloudData));
         raw = { value: JSON.stringify(cloudData) };
       }
     } catch (err) {
@@ -261,7 +292,7 @@ export async function loadEstimate(id) {
         || (parsed._specPdfStripped && parsed._specPdfStoragePath && !parsed.specPdf);
       if (hasStrippedBlobs) {
         const hydrated = await cloudSync.hydrateBlobs(parsed);
-        await storage.set(`bldg-est-${id}`, JSON.stringify(hydrated));
+        await storage.set(idbKey(`bldg-est-${id}`), JSON.stringify(hydrated));
         raw = { value: JSON.stringify(hydrated) };
       }
     } catch (err) {
@@ -309,7 +340,7 @@ export async function loadEstimate(id) {
             merged.specPdf = cloudData.specPdf;
           }
 
-          await storage.set(`bldg-est-${id}`, JSON.stringify(merged));
+          await storage.set(idbKey(`bldg-est-${id}`), JSON.stringify(merged));
           raw = { value: JSON.stringify(merged) };
         }
       }
@@ -476,7 +507,7 @@ export async function saveEstimate() {
     bidProposals: useBidPackagesStore.getState().proposals,
   };
 
-  const estOk = await storage.set(`bldg-est-${id}`, JSON.stringify(data));
+  const estOk = await storage.set(idbKey(`bldg-est-${id}`), JSON.stringify(data));
   if (!estOk) {
     useUiStore.getState().showToast("Save failed — check storage space", "error");
     return; // Don't update index if estimate didn't save
@@ -493,6 +524,7 @@ export async function saveEstimate() {
   const totals = useItemsStore.getState().getTotals();
   const entryFields = {
     name: data.project.name,
+    estimateNumber: data.project.estimateNumber || "",
     client: data.project.client,
     status: data.project.status,
     bidDue: data.project.bidDue,
@@ -513,6 +545,8 @@ export async function saveEstimate() {
     zipCode: data.project.zipCode || "",
     divisionTotals,
     outcomeMetadata: data.project.outcomeMetadata || {},
+    ownerId: data.project.ownerId || useAuthStore.getState().user?.id || null,
+    orgId: data.project.orgId || useOrgStore.getState().org?.id || null,
   };
 
   // If this estimate isn't in the index yet (freshly created), add it
@@ -528,7 +562,7 @@ export async function saveEstimate() {
   }
 
   const idx = useEstimatesStore.getState().estimatesIndex;
-  const idxOk = await storage.set("bldg-index", JSON.stringify(idx));
+  const idxOk = await storage.set(idbKey("bldg-index"), JSON.stringify(idx));
   if (!idxOk) {
     console.error("[usePersistence] Failed to save estimates index");
   }
@@ -545,7 +579,7 @@ export async function saveEstimate() {
 // Save master data
 export async function saveMasterData() {
   const master = useMasterDataStore.getState().masterData;
-  const ok = await storage.set("bldg-master", JSON.stringify(master));
+  const ok = await storage.set(idbKey("bldg-master"), JSON.stringify(master));
   if (!ok) {
     useUiStore.getState().showToast("Failed to save company data", "error");
   }
@@ -559,14 +593,19 @@ export async function saveMasterData() {
 // Save PDF upload queue (separate from master data to keep it lean)
 export async function saveUploadQueue() {
   const queue = useMasterDataStore.getState().pdfUploadQueue;
-  // Strip extractedData from persistence to save space; keep metadata only
-  const slim = queue.filter(q => q.status !== "saved").map(({ extractedData, ...rest }) => rest);
-  await storage.set('bldg-upload-queue', JSON.stringify(slim));
+  // Keep extractedData for "extracted" items (needed for review after refresh)
+  // Strip it from other statuses to save space; filter out "saved" items entirely
+  const slim = queue.filter(q => q.status !== "saved").map(q => {
+    if (q.status === "extracted") return q; // keep extractedData for review
+    const { extractedData, ...rest } = q;
+    return rest;
+  });
+  await storage.set(idbKey('bldg-upload-queue'), JSON.stringify(slim));
 }
 
 // Load PDF upload queue
 export async function loadUploadQueue() {
-  const raw = await storage.get('bldg-upload-queue');
+  const raw = await storage.get(idbKey('bldg-upload-queue'));
   if (raw?.value) {
     try {
       const queue = JSON.parse(raw.value);
@@ -579,10 +618,33 @@ export async function loadUploadQueue() {
   }
 }
 
+// ── Per-item PDF base64 persistence (survives page refresh) ──
+const PDF_BASE64_PREFIX = 'bldg-pdf-b64-';
+
+export async function savePdfBase64(queueId, base64) {
+  if (!queueId || !base64) return;
+  await storage.set(idbKey(PDF_BASE64_PREFIX + queueId), base64);
+}
+
+export async function loadPdfBase64(queueId) {
+  if (!queueId) return null;
+  const raw = await storage.get(idbKey(PDF_BASE64_PREFIX + queueId));
+  return raw?.value || null;
+}
+
+export async function deletePdfBase64(queueId) {
+  if (!queueId) return;
+  await storage.delete(idbKey(PDF_BASE64_PREFIX + queueId));
+}
+
+export async function deletePdfBase64Batch(queueIds) {
+  await Promise.all(queueIds.map(id => deletePdfBase64(id)));
+}
+
 // Save app settings
 export async function saveSettings() {
   const settings = useUiStore.getState().appSettings;
-  const ok = await storage.set("bldg-settings", JSON.stringify(settings));
+  const ok = await storage.set(idbKey("bldg-settings"), JSON.stringify(settings));
   if (!ok) {
     console.error("[usePersistence] Failed to save settings");
   }
@@ -596,7 +658,7 @@ export async function saveSettings() {
 // Save assemblies (global library)
 export async function saveAssemblies() {
   const assemblies = useDatabaseStore.getState().assemblies;
-  const ok = await storage.set("bldg-assemblies", JSON.stringify(assemblies));
+  const ok = await storage.set(idbKey("bldg-assemblies"), JSON.stringify(assemblies));
   if (!ok) {
     console.error("[usePersistence] Failed to save assemblies");
   }
@@ -610,7 +672,7 @@ export async function saveAssemblies() {
 // Save calendar tasks
 export async function saveCalendar() {
   const tasks = useCalendarStore.getState().tasks;
-  const ok = await storage.set("bldg-calendar", JSON.stringify(tasks));
+  const ok = await storage.set(idbKey("bldg-calendar"), JSON.stringify(tasks));
   if (!ok) {
     console.error("[usePersistence] Failed to save calendar");
   }

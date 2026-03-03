@@ -10,10 +10,17 @@
 import { supabase } from './supabase';
 import { useAuthStore } from '@/stores/authStore';
 import { useUiStore } from '@/stores/uiStore';
+import { useOrgStore } from '@/stores/orgStore';
 
 // ---------- helpers ----------
 
 const getUserId = () => useAuthStore.getState().user?.id;
+
+// Returns { org_id } for org mode or { org_id: null } for solo mode
+const getScope = () => {
+  const org = useOrgStore.getState().org;
+  return org ? { org_id: org.id } : { org_id: null };
+};
 
 const isReady = () => {
   if (!supabase) return false;
@@ -245,11 +252,13 @@ export const pushData = async (key, data) => {
   try {
     await withRetry(`pushData("${key}")`, async () => {
       const cleanData = key === 'master' ? stripMasterBlobs(data) : data;
+      // Settings are always user-scoped (never org-scoped)
+      const scope = key === 'settings' ? { org_id: null } : getScope();
       const { error } = await supabase
         .from('user_data')
         .upsert(
-          { user_id: getUserId(), key, data: cleanData, updated_at: new Date().toISOString() },
-          { onConflict: 'user_id,key' }
+          { user_id: getUserId(), key, data: cleanData, updated_at: new Date().toISOString(), ...scope },
+          { onConflict: 'user_id,key,org_id' }
         );
       if (error) throw error;
     });
@@ -273,8 +282,8 @@ export const pushEstimate = async (estimateId, data) => {
       const { error } = await supabase
         .from('user_estimates')
         .upsert(
-          { user_id: getUserId(), estimate_id: estimateId, data: cleanData, updated_at: new Date().toISOString() },
-          { onConflict: 'user_id,estimate_id' }
+          { user_id: getUserId(), estimate_id: estimateId, data: cleanData, updated_at: new Date().toISOString(), ...getScope() },
+          { onConflict: 'user_id,estimate_id,org_id' }
         );
       if (error) throw error;
     });
@@ -292,11 +301,19 @@ export const deleteEstimate = async (estimateId) => {
   if (!isReady()) return;
   markSyncing();
   try {
-    const { error } = await supabase
+    // Always scope delete to current user (RLS is defense-in-depth, not sole guard)
+    let query = supabase
       .from('user_estimates')
       .delete()
-      .eq('user_id', getUserId())
-      .eq('estimate_id', estimateId);
+      .eq('estimate_id', estimateId)
+      .eq('user_id', getUserId());
+
+    const scope = getScope();
+    if (scope.org_id) {
+      query = query.eq('org_id', scope.org_id);
+    }
+
+    const { error } = await query;
     if (error) throw error;
     markSynced();
   } catch (err) {
@@ -314,12 +331,21 @@ export const deleteEstimate = async (estimateId) => {
 export const pullData = async (key) => {
   if (!isReady()) return null;
   try {
-    const { data, error } = await supabase
+    // Settings are always user-scoped; other data uses org scope
+    const scope = key === 'settings' ? { org_id: null } : getScope();
+    let query = supabase
       .from('user_data')
       .select('data')
       .eq('user_id', getUserId())
-      .eq('key', key)
-      .maybeSingle();
+      .eq('key', key);
+
+    if (scope.org_id) {
+      query = query.eq('org_id', scope.org_id);
+    } else {
+      query = query.is('org_id', null);
+    }
+
+    const { data, error } = await query.maybeSingle();
     if (error) throw error;
     return data?.data || null;
   } catch (err) {
@@ -335,12 +361,20 @@ export const pullData = async (key) => {
 export const pullDataWithMeta = async (key) => {
   if (!isReady()) return null;
   try {
-    const { data, error } = await supabase
+    const scope = key === 'settings' ? { org_id: null } : getScope();
+    let query = supabase
       .from('user_data')
       .select('data, updated_at')
       .eq('user_id', getUserId())
-      .eq('key', key)
-      .maybeSingle();
+      .eq('key', key);
+
+    if (scope.org_id) {
+      query = query.eq('org_id', scope.org_id);
+    } else {
+      query = query.is('org_id', null);
+    }
+
+    const { data, error } = await query.maybeSingle();
     if (error) throw error;
     return data ? { data: data.data, updated_at: data.updated_at } : null;
   } catch (err) {
@@ -355,10 +389,19 @@ export const pullDataWithMeta = async (key) => {
 export const pullAllEstimatesWithMeta = async () => {
   if (!isReady()) return [];
   try {
-    const { data, error } = await supabase
+    const scope = getScope();
+    let query = supabase
       .from('user_estimates')
-      .select('estimate_id, data, updated_at')
-      .eq('user_id', getUserId());
+      .select('estimate_id, data, updated_at, user_id');
+
+    if (scope.org_id) {
+      // Org mode: pull all org estimates (RLS handles visibility)
+      query = query.eq('org_id', scope.org_id);
+    } else {
+      query = query.eq('user_id', getUserId()).is('org_id', null);
+    }
+
+    const { data, error } = await query;
     if (error) throw error;
     return data || [];
   } catch (err) {
@@ -375,12 +418,19 @@ export const pullAllEstimatesWithMeta = async () => {
 export const pullEstimate = async (estimateId) => {
   if (!isReady()) return null;
   try {
-    const { data, error } = await supabase
+    const scope = getScope();
+    let query = supabase
       .from('user_estimates')
       .select('data')
-      .eq('user_id', getUserId())
-      .eq('estimate_id', estimateId)
-      .maybeSingle();
+      .eq('estimate_id', estimateId);
+
+    if (scope.org_id) {
+      query = query.eq('org_id', scope.org_id);
+    } else {
+      query = query.eq('user_id', getUserId()).is('org_id', null);
+    }
+
+    const { data, error } = await query.maybeSingle();
     if (error) throw error;
     return data?.data || null;
   } catch (err) {
@@ -396,10 +446,18 @@ export const pullEstimate = async (estimateId) => {
 export const pullAllEstimates = async () => {
   if (!isReady()) return [];
   try {
-    const { data, error } = await supabase
+    const scope = getScope();
+    let query = supabase
       .from('user_estimates')
-      .select('estimate_id, data')
-      .eq('user_id', getUserId());
+      .select('estimate_id, data, user_id');
+
+    if (scope.org_id) {
+      query = query.eq('org_id', scope.org_id);
+    } else {
+      query = query.eq('user_id', getUserId()).is('org_id', null);
+    }
+
+    const { data, error } = await query;
     if (error) throw error;
     return data || [];
   } catch (err) {

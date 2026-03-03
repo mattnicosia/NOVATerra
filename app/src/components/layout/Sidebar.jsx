@@ -3,6 +3,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { useUiStore } from '@/stores/uiStore';
 import { useInboxStore } from '@/stores/inboxStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useOrgStore } from '@/stores/orgStore';
 import { supabase } from '@/utils/supabase';
 import Ic from '@/components/shared/Ic';
 import NovaTerraLogo from '@/components/shared/NovaTerraLogo';
@@ -30,6 +31,11 @@ export default function Sidebar() {
   const inboxCount = useInboxStore(s => s.unreadCount);
   const user = useAuthStore(s => s.user);
   const signOut = useAuthStore(s => s.signOut);
+  const membership = useOrgStore(s => s.membership);
+  const org = useOrgStore(s => s.org);
+  // Hooks must be at top level — not inside conditionals or IIFEs
+  const syncStatus = useUiStore(s => s.cloudSyncStatus);
+  const syncLastAt = useUiStore(s => s.cloudSyncLastAt);
   const w = open ? T.sidebar.expanded : T.sidebar.collapsed;
 
   const linkStyle = (isActive) => ({
@@ -57,6 +63,11 @@ export default function Sidebar() {
     boxShadow: `0 0 10px ${P.accent}50`,
     animation: "sidebarIndicator 250ms cubic-bezier(0.16, 1, 0.3, 1) both",
   };
+
+  // Cloud sync status (computed from hooks at top level)
+  const statusColor = syncStatus === "synced" ? P.accent : syncStatus === "syncing" ? P.accent : syncStatus === "error" ? P.orange : P.textDim;
+  const statusLabel = syncStatus === "synced" ? `Synced${syncLastAt ? ` ${syncLastAt}` : ""}` : syncStatus === "syncing" ? "Syncing..." : syncStatus === "error" ? "Tap to retry" : "Cloud sync";
+  const isClickable = syncStatus === "error";
 
   return (
     <div data-tour="projects" style={{
@@ -151,26 +162,19 @@ export default function Sidebar() {
       <div style={{ flex: 1 }} />
 
       {/* Cloud Sync Status */}
-      {user && (() => {
-        const syncStatus = useUiStore(s => s.cloudSyncStatus);
-        const syncLastAt = useUiStore(s => s.cloudSyncLastAt);
-        const statusColor = syncStatus === "synced" ? P.accent : syncStatus === "syncing" ? P.accent : syncStatus === "error" ? P.orange : P.textDim;
-        const statusLabel = syncStatus === "synced" ? `Synced${syncLastAt ? ` ${syncLastAt}` : ""}` : syncStatus === "syncing" ? "Syncing..." : syncStatus === "error" ? "Tap to retry" : "Cloud sync";
-        const isClickable = syncStatus === "error";
-        return (
-          <div style={{ padding: `0 ${T.space[3]}px`, marginBottom: T.space[2] }}>
-            <div style={{ borderTop: `1px solid ${P.border}`, marginBottom: T.space[2] }} />
-            <div
-              onClick={isClickable ? retryCloudSync : undefined}
-              style={{ display: "flex", alignItems: "center", justifyContent: open ? "flex-start" : "center", gap: 6, cursor: isClickable ? "pointer" : "default", padding: `${T.space[1]}px ${open ? T.space[2] : 0}px` }}
-              title={isClickable ? "Click to retry cloud sync" : undefined}
-            >
-              <div style={{ width: 6, height: 6, borderRadius: 3, background: statusColor, flexShrink: 0, boxShadow: syncStatus === "syncing" ? `0 0 6px ${P.accent}80` : "none", animation: syncStatus === "syncing" ? "pulse 1.5s ease-in-out infinite" : "none" }} />
-              {open && <span style={{ fontSize: 9, color: statusColor, fontWeight: 500 }}>{statusLabel}</span>}
-            </div>
+      {user && (
+        <div style={{ padding: `0 ${T.space[3]}px`, marginBottom: T.space[2] }}>
+          <div style={{ borderTop: `1px solid ${P.border}`, marginBottom: T.space[2] }} />
+          <div
+            onClick={isClickable ? retryCloudSync : undefined}
+            style={{ display: "flex", alignItems: "center", justifyContent: open ? "flex-start" : "center", gap: 6, cursor: isClickable ? "pointer" : "default", padding: `${T.space[1]}px ${open ? T.space[2] : 0}px` }}
+            title={isClickable ? "Click to retry cloud sync" : undefined}
+          >
+            <div style={{ width: 6, height: 6, borderRadius: 3, background: statusColor, flexShrink: 0, boxShadow: syncStatus === "syncing" ? `0 0 6px ${P.accent}80` : "none", animation: syncStatus === "syncing" ? "pulse 1.5s ease-in-out infinite" : "none" }} />
+            {open && <span style={{ fontSize: 9, color: statusColor, fontWeight: 500 }}>{statusLabel}</span>}
           </div>
-        );
-      })()}
+        </div>
+      )}
 
       {/* User / Sign Out */}
       {user && (
@@ -192,14 +196,14 @@ export default function Sidebar() {
           >
             <div style={{
               width: 28, height: 28, borderRadius: T.radius.full,
-              background: P.accentBg,
-              border: `1px solid ${P.borderAccent || P.border}`,
+              background: membership?.color || P.accentBg,
+              border: membership?.color ? `1px solid ${membership.color}40` : `1px solid ${P.borderAccent || P.border}`,
               display: "flex", alignItems: "center", justifyContent: "center",
               flexShrink: 0,
               fontSize: T.fontSize.sm, fontWeight: T.fontWeight.bold,
-              color: P.accent,
+              color: membership?.color ? '#fff' : P.accent,
             }}>
-              {(user.user_metadata?.full_name || user.email || "?")[0].toUpperCase()}
+              {(membership?.display_name || user.user_metadata?.full_name || user.email || "?")[0].toUpperCase()}
             </div>
             {open && (
               <div style={{ flex: 1, overflow: "hidden" }}>
@@ -207,13 +211,13 @@ export default function Sidebar() {
                   fontSize: T.fontSize.sm, fontWeight: T.fontWeight.medium, color: P.text,
                   overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                 }}>
-                  {user.user_metadata?.full_name || user.email?.split("@")[0] || "User"}
+                  {membership?.display_name || user.user_metadata?.full_name || user.email?.split("@")[0] || "User"}
                 </div>
                 <div style={{
                   fontSize: T.fontSize.xs, color: P.textDim,
                   overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                 }}>
-                  Sign out
+                  {org ? org.name : 'Sign out'}
                 </div>
               </div>
             )}

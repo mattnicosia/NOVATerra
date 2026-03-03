@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { storage } from '@/utils/storage';
 import { useUiStore } from '@/stores/uiStore';
 import { DEFAULT_SECTION_ORDER, DEFAULT_SECTION_VISIBILITY } from '@/constants/proposalSections';
+import { idbKey } from '@/utils/idbKey';
 
 const TEMPLATES_KEY = "bldg-proposal-templates";
 
@@ -112,7 +113,7 @@ export const useReportsStore = create((set, get) => ({
     const next = [...proposalTemplates, template];
     set({ proposalTemplates: next });
     try {
-      const ok = await storage.set(TEMPLATES_KEY, JSON.stringify(next));
+      const ok = await storage.set(idbKey(TEMPLATES_KEY), JSON.stringify(next));
       if (!ok) useUiStore.getState().showToast("Template save failed", "error");
     } catch (err) {
       console.error('[reportsStore] Template save error:', err);
@@ -133,7 +134,7 @@ export const useReportsStore = create((set, get) => ({
     const next = get().proposalTemplates.filter(t => t.id !== id);
     set({ proposalTemplates: next });
     try {
-      const ok = await storage.set(TEMPLATES_KEY, JSON.stringify(next));
+      const ok = await storage.set(idbKey(TEMPLATES_KEY), JSON.stringify(next));
       if (!ok) useUiStore.getState().showToast("Template delete failed to persist", "error");
     } catch (err) {
       console.error('[reportsStore] Template delete error:', err);
@@ -142,7 +143,7 @@ export const useReportsStore = create((set, get) => ({
   },
 
   loadTemplatesFromStorage: async () => {
-    const raw = await storage.get(TEMPLATES_KEY);
+    const raw = await storage.get(idbKey(TEMPLATES_KEY));
     if (raw) {
       try {
         set({ proposalTemplates: JSON.parse(raw.value) });

@@ -17,6 +17,7 @@ import { DEFAULT_LABOR_TYPES } from '@/utils/laborTypes';
 import { uid } from '@/utils/format';
 
 import NovaScriptEditor from '@/components/settings/NovaScriptEditor';
+import TeamPanel from '@/components/settings/TeamPanel';
 
 export default function SettingsPage() {
   const C = useTheme();
@@ -434,6 +435,9 @@ export default function SettingsPage() {
             </div>
           </div>
         </Sec>
+
+        {/* Team / Organization */}
+        {supabase && <TeamPanel />}
 
         {/* Email Inbox */}
         {supabase && <EmailInboxSection C={C} T={T} showToast={showToast} />}
