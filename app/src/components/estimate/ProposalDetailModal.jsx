@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useTheme } from '@/hooks/useTheme';
+import { useAuthStore } from '@/stores/authStore';
+import { useUiStore } from '@/stores/uiStore';
 import Modal from '@/components/shared/Modal';
 import Ic from '@/components/shared/Ic';
 import { I } from '@/constants/icons';
@@ -12,6 +14,7 @@ export default function ProposalDetailModal({ proposal, onClose, estimateItems, 
   const C = useTheme();
   const T = C.T;
   const [activeTab, setActiveTab] = useState('details');
+  const [downloading, setDownloading] = useState(false);
 
   if (!proposal) return null;
 
@@ -26,6 +29,38 @@ export default function ProposalDetailModal({ proposal, onClose, estimateItems, 
   const confidenceColor = confidencePct >= 80 ? '#30D158' : confidencePct >= 50 ? '#FF9F0A' : '#FF453A';
   const subName = pd.subcontractorName || proposal.subCompany || 'Unknown Sub';
   const hasEstimate = estimateItems && estimateItems.length > 0;
+
+  const handleDownload = async () => {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      const token = useAuthStore.getState().session?.access_token;
+      if (!token) throw new Error('Not authenticated');
+      const resp = await fetch('/api/proposal-download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ proposalId: proposal.id }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error || 'Download failed');
+      }
+      const { url, filename } = await resp.json();
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('[ProposalDetailModal] Download error:', err);
+      useUiStore.getState().showToast(err.message || 'Download failed', 'error');
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   return (
     <Modal onClose={onClose} extraWide>
@@ -249,7 +284,21 @@ export default function ProposalDetailModal({ proposal, onClose, estimateItems, 
       </div>
 
       {/* Footer */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
+        <button
+          onClick={handleDownload}
+          disabled={downloading}
+          style={{
+            background: 'none', border: `1px solid ${C.accent}30`,
+            color: C.accent, borderRadius: 8, padding: '8px 16px',
+            fontSize: 13, fontWeight: 600, cursor: downloading ? 'wait' : 'pointer',
+            opacity: downloading ? 0.6 : 1,
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}
+        >
+          <Ic d={I.download} size={13} color={C.accent} />
+          {downloading ? 'Downloading…' : 'Download PDF'}
+        </button>
         <button
           onClick={onClose}
           style={{

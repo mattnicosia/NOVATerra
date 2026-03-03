@@ -28,6 +28,9 @@ const blankProject = () => ({
   // { "roomCounts.bathrooms": 0.85, "floorCount": 0.92, ... }
   parameterConfidence: {},
 
+  // Outcome tracking
+  outcomeMetadata: {},  // { status, contractAmount, lostReason, competitor, competitorAmount, awardDate, notes }
+
   // Setup onboarding: false = new estimate, user must upload docs or skip first
   setupComplete: true,  // default true so existing/loaded estimates skip onboarding
 });

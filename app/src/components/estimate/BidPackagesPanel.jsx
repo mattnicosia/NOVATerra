@@ -112,7 +112,7 @@ function InvitationRow({ inv, proposal, gapReport, onResend, onViewProposal }) {
   );
 }
 
-export default function BidPackagesPanel({ onCreateNew, onViewProposal, onCompare, onAward }) {
+export default function BidPackagesPanel({ onCreateNew, onViewProposal, onCompare, onAward, onClose: onClosePackage }) {
   const C = useTheme();
   const T = C.T;
   const bidPackages = useBidPackagesStore(s => s.bidPackages);
@@ -244,7 +244,25 @@ export default function BidPackagesPanel({ onCreateNew, onViewProposal, onCompar
 
               {/* Mini status summary */}
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                {stats.total > 0 && (
+                {pkg.status === 'awarded' && (
+                  <span style={{
+                    background: '#1C3D2A', color: '#30D158',
+                    padding: '2px 8px', borderRadius: 6,
+                    fontSize: 11, fontWeight: 600,
+                  }}>
+                    Awarded
+                  </span>
+                )}
+                {pkg.status === 'closed' && (
+                  <span style={{
+                    background: 'rgba(142,142,147,0.12)', color: '#8E8E93',
+                    padding: '2px 8px', borderRadius: 6,
+                    fontSize: 11, fontWeight: 600,
+                  }}>
+                    Closed
+                  </span>
+                )}
+                {pkg.status !== 'awarded' && pkg.status !== 'closed' && stats.total > 0 && (
                   <span style={{
                     background: stats.submitted > 0 ? '#1C3D2A' : 'rgba(255,255,255,0.06)',
                     color: stats.submitted > 0 ? '#30D158' : C.textMuted,
@@ -354,6 +372,41 @@ export default function BidPackagesPanel({ onCreateNew, onViewProposal, onCompar
                           color: '#30D158', fontSize: 12, fontWeight: 600,
                         }}>
                           Awarded
+                        </div>
+                      )}
+                      {/* Close/Archive — available when not yet awarded/closed */}
+                      {!isAwarded && pkg.status !== 'closed' && (
+                        <button
+                          onClick={() => {
+                            if (onClosePackage) onClosePackage(pkg);
+                            else {
+                              if (!window.confirm(`Close "${pkg.name}"? This won't delete it but marks it as closed.`)) return;
+                              useBidPackagesStore.getState().updateBidPackage(pkg.id, { status: 'closed', closedAt: new Date().toISOString() });
+                              showToast('Package closed', 'success');
+                            }
+                          }}
+                          style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                            background: 'none',
+                            border: `1px solid ${C.border}`,
+                            color: C.textMuted, borderRadius: 8,
+                            padding: '8px 14px', fontSize: 12, fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                          title="Close this bid package"
+                        >
+                          <Ic d={I.x} size={12} color={C.textMuted} />
+                          Close
+                        </button>
+                      )}
+                      {pkg.status === 'closed' && !isAwarded && (
+                        <div style={{
+                          textAlign: 'center',
+                          padding: '8px 14px', borderRadius: 8,
+                          background: 'rgba(142,142,147,0.08)', border: '1px solid rgba(142,142,147,0.15)',
+                          color: '#8E8E93', fontSize: 12, fontWeight: 600,
+                        }}>
+                          Closed
                         </div>
                       )}
                     </div>

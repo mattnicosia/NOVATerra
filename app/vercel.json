@@ -48,6 +48,9 @@
     "api/portal-upload.js": {
       "maxDuration": 15
     },
+    "api/proposal-download.js": {
+      "maxDuration": 15
+    },
     "api/portal-confirm.js": {
       "maxDuration": 30
     },
