@@ -68,6 +68,14 @@ async function runCloudSync() {
   await trySync('Assemblies', syncAssemblies);
   await trySync('Calendar', syncCalendar);
 
+  // CRITICAL: If a user-switch wipe occurred above, resetAllStores() set
+  // persistenceLoaded = false. The sync just pulled fresh data from cloud,
+  // so we must restore persistenceLoaded so auto-save and EstimateLoader work.
+  if (!useUiStore.getState().persistenceLoaded) {
+    useUiStore.getState().setPersistenceLoaded(true);
+    console.log('[cloudSync] Restored persistenceLoaded after user-switch recovery');
+  }
+
   if (failures === 0) {
     useUiStore.getState().setCloudSyncStatus('synced');
     useUiStore.getState().setCloudSyncLastAt(

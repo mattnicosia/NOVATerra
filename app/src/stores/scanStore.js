@@ -18,14 +18,18 @@ export const useScanStore = create((set, get) => ({
   // Abort controller for cancelling scans
   scanAbortController: null,
 
+  // Flag: scan completed but user hasn't reviewed results yet
+  scanResultsPending: false,
+
   // ── Actions ──
   setScanResults: (results) => set({ scanResults: results }),
+  setScanResultsPending: (v) => set({ scanResultsPending: v }),
 
   setScanProgress: (progress) => set({ scanProgress: progress }),
 
   setScanError: (error) => set({ scanError: error }),
 
-  clearScan: () => set({ scanResults: null, scanProgress: { phase: null, current: 0, total: 0, message: "" }, scanError: null, scanAbortController: null }),
+  clearScan: () => set({ scanResults: null, scanProgress: { phase: null, current: 0, total: 0, message: "" }, scanError: null, scanAbortController: null, scanResultsPending: false }),
 
   // Create abort controller for a new scan — returns the AbortSignal
   createAbortController: () => {

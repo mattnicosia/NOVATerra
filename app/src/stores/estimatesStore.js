@@ -32,12 +32,23 @@ export const useEstimatesStore = create((set, get) => ({
     const id = uid();
     const settings = useUiStore.getState().appSettings;
 
-    // Don't add to estimatesIndex yet — it will appear on the dashboard
-    // only after the first save (auto-save triggers once the user is on the page).
-    set({ activeEstimateId: id });
+    // Add to index immediately so the estimate is visible on the dashboard
+    // even if the user navigates away before auto-save fires.
+    const { ownerId, orgId } = get()._getOwnership();
+    const newEntry = {
+      id, name: "New Estimate", estimateNumber: estimateNumber || "",
+      client: "", status: "Bidding", bidDue: "", grandTotal: 0, elementCount: 0,
+      lastModified: nowStr(), estimator: "", jobType: "",
+      companyProfileId: companyProfileId || "", buildingType: "", workType: "",
+      architect: "", projectSF: 0, zipCode: "", divisionTotals: {},
+      outcomeMetadata: {}, ownerId, orgId,
+    };
+    set(s => ({
+      activeEstimateId: id,
+      estimatesIndex: [...s.estimatesIndex, newEntry],
+    }));
 
     // Save blank estimate data to IndexedDB so loadEstimate can hydrate stores
-    const { ownerId, orgId } = get()._getOwnership();
     const data = {
       project: {
         name: "New Estimate", client: "", architect: "", engineer: "", estimator: "",
@@ -95,8 +106,13 @@ export const useEstimatesStore = create((set, get) => ({
     };
     await storage.set(idbKey(`bldg-est-${id}`), JSON.stringify(data));
 
+    // Persist index immediately so the estimate survives a page reload
+    const idx = get().estimatesIndex;
+    storage.set(idbKey("bldg-index"), JSON.stringify(idx)).catch(() => {});
+
     // Cloud sync estimate data (non-blocking)
     cloudSync.pushEstimate(id, data).catch(() => {});
+    cloudSync.pushData('index', idx).catch(() => {});
 
     return id;
   },

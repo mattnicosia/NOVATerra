@@ -718,7 +718,16 @@ export async function handleFileUpload(files, options = {}) {
     // Step 4b: Auto-scan (schedule detection + ROM)
     try {
       await runFullScan({
-        onComplete: () => { if (options.onScanComplete) options.onScanComplete(); },
+        onComplete: () => {
+          if (bidInfoExtracted) {
+            // User was auto-advanced — mark results as pending review
+            import('@/stores/scanStore').then(m => {
+              m.useScanStore.getState().setScanResultsPending(true);
+            });
+            showToast("NOVA scan complete — review schedule results in Plan Room");
+          }
+          if (options.onScanComplete) options.onScanComplete();
+        },
       });
       for (const { docId, drawingIds } of drawingDocIds) {
         const count = drawingIds.length;
@@ -746,5 +755,8 @@ export async function handleFileUpload(files, options = {}) {
   // Complete setup mode if still pending (fallback — no bid info found but files processed)
   if (useProjectStore.getState().project.setupComplete === false) {
     useProjectStore.getState().setProject({ ...useProjectStore.getState().project, setupComplete: true });
+    if (classified.rfp.length > 0 || classified.specification.length > 0) {
+      showToast("Couldn't extract bid info automatically — please fill in project details", "warn");
+    }
   }
 }

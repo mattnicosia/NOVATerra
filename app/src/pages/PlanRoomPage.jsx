@@ -143,6 +143,15 @@ export default function PlanRoomPage() {
     return () => clearInterval(interval);
   }, []);
 
+  // Auto-show scan results if user returns to PlanRoom with pending results
+  const scanResultsPending = useScanStore(s => s.scanResultsPending);
+  useEffect(() => {
+    if (scanResultsPending && scanResults && !showScanModal) {
+      setShowScanModal(true);
+      useScanStore.getState().setScanResultsPending(false);
+    }
+  }, [scanResultsPending, scanResults, showScanModal]);
+
   // Upload handler
   const handleUpload = useCallback(async (files) => {
     setUploadExpanded(false);
