@@ -6,6 +6,39 @@ import { cors } from './lib/cors.js';
 import { verifyUser } from './lib/supabaseAdmin.js';
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
+const MAX_BODY_BYTES = 50 * 1024 * 1024; // 50 MB
+
+// Read the raw request body manually (bypasses Vercel's default ~5 MB body parser limit)
+function readRawBody(req) {
+  return new Promise((resolve, reject) => {
+    // If Vercel already parsed the body, use it directly
+    if (req.body && typeof req.body === 'object') {
+      resolve(req.body);
+      return;
+    }
+
+    const chunks = [];
+    let totalBytes = 0;
+    req.on('data', (chunk) => {
+      totalBytes += chunk.length;
+      if (totalBytes > MAX_BODY_BYTES) {
+        reject(new Error(`Request body too large (>${MAX_BODY_BYTES / 1024 / 1024} MB)`));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => {
+      try {
+        const raw = Buffer.concat(chunks).toString('utf-8');
+        resolve(JSON.parse(raw));
+      } catch (err) {
+        reject(new Error('Invalid JSON body: ' + err.message));
+      }
+    });
+    req.on('error', reject);
+  });
+}
 
 export default async function handler(req, res) {
   if (cors(req, res)) return;
@@ -22,11 +55,26 @@ export default async function handler(req, res) {
   const apiKey = (process.env.ANTHROPIC_API_KEY || '').replace(/\\n/g, '').replace(/\n/g, '').replace(/\r/g, '').replace(/"/g, '').trim();
   if (!apiKey) return res.status(500).json({ error: "AI service not configured" });
 
-  const { model, max_tokens, messages, system, temperature, tools, tool_choice, stream } = req.body;
+  // Parse body — handles both pre-parsed (small) and raw stream (large PDFs)
+  let parsed;
+  try {
+    parsed = await readRawBody(req);
+  } catch (err) {
+    console.error("[ai-proxy] Body parse error:", err.message);
+    return res.status(400).json({ error: err.message });
+  }
+
+  const { model, max_tokens, messages, system, temperature, tools, tool_choice, stream } = parsed;
 
   if (!messages || !Array.isArray(messages)) {
+    console.error("[ai-proxy] Missing messages. Body keys:", Object.keys(parsed || {}));
     return res.status(400).json({ error: "messages is required" });
   }
+
+  // Log request shape for debugging (no content — just structure)
+  const contentTypes = messages[0]?.content?.map?.(c => c.type) || [];
+  const bodySize = JSON.stringify(parsed).length;
+  console.log(`[ai-proxy] model=${model || "default"} content=[${contentTypes}] bodySize=${(bodySize / 1024 / 1024).toFixed(1)}MB`);
 
   const body = { model: model || "claude-sonnet-4-20250514", max_tokens: max_tokens || 1000, messages };
   if (system) body.system = system;
@@ -35,17 +83,12 @@ export default async function handler(req, res) {
   if (tool_choice) body.tool_choice = tool_choice;
   if (stream) body.stream = true;
 
-  // Detect PDF/document content blocks -> add required beta header
-  const hasPdf = messages.some(m =>
-    Array.isArray(m.content) && m.content.some(c => c.type === "document")
-  );
-
+  // PDF/document support is now GA — no beta header needed (pdfs-2024-09-25 was deprecated)
   const headers = {
     "Content-Type": "application/json",
     "x-api-key": apiKey,
     "anthropic-version": "2023-06-01",
   };
-  if (hasPdf) headers["anthropic-beta"] = "pdfs-2024-09-25";
 
   try {
     const anthropicResp = await fetch(ANTHROPIC_API_URL, {
@@ -59,11 +102,8 @@ export default async function handler(req, res) {
       if (!anthropicResp.ok) {
         const errBody = await anthropicResp.json().catch(() => ({}));
         const msg = errBody?.error?.message || anthropicResp.statusText;
-        // Don't forward Anthropic 401/403 as 401 — would confuse client auth
         const clientStatus = (anthropicResp.status === 401 || anthropicResp.status === 403) ? 502 : anthropicResp.status;
-        if (anthropicResp.status === 401 || anthropicResp.status === 403) {
-          console.error("[ai-proxy] Anthropic API key rejected (stream):", anthropicResp.status, msg);
-        }
+        console.error(`[ai-proxy] Anthropic stream error ${anthropicResp.status}:`, msg);
         return res.status(clientStatus).json({ error: msg });
       }
 
@@ -82,7 +122,6 @@ export default async function handler(req, res) {
           res.write(chunk);
         }
       } catch (streamErr) {
-        // Client may have disconnected — that's okay
         console.warn("[ai-proxy] Stream error:", streamErr.message);
       } finally {
         res.end();
@@ -97,12 +136,9 @@ export default async function handler(req, res) {
     if (!anthropicResp.ok) {
       const msg = data?.error?.message || anthropicResp.statusText || "Unknown error";
       const errType = data?.error?.type || "";
-      // IMPORTANT: Don't forward Anthropic's 401 as 401 — the client would
-      // misinterpret it as a Supabase session expiry.  Return 502 instead.
       const clientStatus = (status === 401 || status === 403) ? 502 : status;
-      if (status === 401 || status === 403) {
-        console.error("[ai-proxy] Anthropic API key rejected:", status, msg);
-      }
+      // Log ALL errors (not just 401/403) for debugging
+      console.error(`[ai-proxy] Anthropic error ${status} ${errType}: ${msg}`);
       return res.status(clientStatus).json({ error: { message: msg, type: errType } });
     }
 
@@ -112,3 +148,11 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "AI proxy error: " + err.message });
   }
 }
+
+// Disable Vercel's built-in body parser so we can handle large PDFs manually
+// (Vercel's default limit is ~5MB which is too small for base64-encoded PDFs)
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};

@@ -62,16 +62,37 @@ const ROM_DIVISIONS = [
   { code: "33", label: "Utilities" },
 ];
 
-// Module-level map: queue-id → File object (lightweight fs reference, ~0 memory)
-// Base64 reading happens lazily when a worker picks up the item
-const fileObjectMap = new Map();
+// Module-level map: queue-id → base64 string (eagerly read at selection time)
+// Eager reading prevents File objects from being invalidated when the input is cleared
+const base64DataMap = new Map();
 
 // Read a File to base64 string
 function readFileToBase64(file) {
   return new Promise((resolve, reject) => {
+    if (!file || !(file instanceof File || file instanceof Blob)) {
+      reject(new Error(`Invalid file object: ${typeof file}`));
+      return;
+    }
+    if (file.size === 0) {
+      reject(new Error(`File "${file.name}" is empty (0 bytes)`));
+      return;
+    }
     const reader = new FileReader();
-    reader.onload = (e) => resolve(e.target.result.split(",")[1]);
-    reader.onerror = reject;
+    reader.onload = (e) => {
+      const dataUrl = e.target.result;
+      if (!dataUrl || typeof dataUrl !== "string") {
+        reject(new Error(`FileReader returned invalid result for "${file.name}"`));
+        return;
+      }
+      const base64 = dataUrl.split(",")[1] || "";
+      if (!base64) {
+        reject(new Error(`Empty base64 after reading "${file.name}" (${file.size} bytes, dataUrl length: ${dataUrl.length})`));
+        return;
+      }
+      console.log(`[BatchUpload] Read "${file.name}": ${file.size} bytes → ${(base64.length / 1024).toFixed(0)} KB base64`);
+      resolve(base64);
+    };
+    reader.onerror = () => reject(new Error(`FileReader error for "${file.name}": ${reader.error?.message || "unknown"}`));
     reader.readAsDataURL(file);
   });
 }
@@ -98,12 +119,14 @@ export default function HistoricalProposalsPanel() {
   const updateQueueItem = useMasterDataStore(s => s.updateQueueItem);
   const removeQueueItem = useMasterDataStore(s => s.removeQueueItem);
   const clearSavedFromQueue = useMasterDataStore(s => s.clearSavedFromQueue);
+  const clearFailedFromQueue = useMasterDataStore(s => s.clearFailedFromQueue);
 
   // UI state
   const [showForm, setShowForm] = useState(false);   // "manual" | "pdf-review" | false
   const [formInitial, setFormInitial] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [reviewingQueueId, setReviewingQueueId] = useState(null); // queue item being reviewed
+  const [reviewPdfBase64, setReviewPdfBase64] = useState(null); // base64 for PDF preview in form
   const [expandedId, setExpandedId] = useState(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showQueue, setShowQueue] = useState(true);
@@ -267,6 +290,10 @@ export default function HistoricalProposalsPanel() {
 
   // ── Extract single PDF via AI ──
   const extractProposalPdf = async (base64, fileName) => {
+    if (!base64 || base64.length < 100) {
+      throw new Error(`Cannot extract "${fileName}": base64 is empty or too short (${base64?.length || 0} chars)`);
+    }
+    console.log(`[BatchUpload] Sending "${fileName}" to AI (${(base64.length / 1024).toFixed(0)} KB base64)`);
     const response = await callAnthropic({
       model: "claude-sonnet-4-20250514",
       max_tokens: 4000,
@@ -426,28 +453,35 @@ Return ONLY a JSON object. Example:
           }
 
           const queue = useMasterDataStore.getState().pdfUploadQueue;
-          const next = queue.find(q => q.status === "queued" && fileObjectMap.has(q.id));
+          const next = queue.find(q => q.status === "queued" && base64DataMap.has(q.id));
           if (!next) break; // no work left
 
           updateQueueItem(next.id, { status: "extracting" });
           const itemStart = Date.now();
 
           try {
-            // Lazy-read: convert File → base64 only now
-            const file = fileObjectMap.get(next.id);
-            const base64 = await readFileToBase64(file);
+            const base64 = base64DataMap.get(next.id);
+            if (!base64 || base64.length < 100) {
+              throw new Error(`PDF data missing for "${next.fileName}" — please re-select files`);
+            }
+            console.log(`[BatchUpload] Sending "${next.fileName}" to AI (${(base64.length / 1024).toFixed(0)} KB base64)`);
             const extracted = await extractProposalPdf(base64, next.fileName);
             updateQueueItem(next.id, { status: "extracted", extractedData: extracted });
-            fileObjectMap.delete(next.id); // free File ref
+            // Keep base64 in memory for PDF preview during review
+            // It will be freed when the user saves/closes the review form
             batchStatsRef.current.completed++;
             batchStatsRef.current.lastItemMs = Date.now() - itemStart;
           } catch (err) {
             console.error("[CostHistory] PDF extraction error:", err);
             const is429 = err?.message?.includes("429") || err?.message?.toLowerCase().includes("rate");
-            if (is429) {
-              // Rate limited — put back in queue and sleep
-              updateQueueItem(next.id, { status: "queued", error: null });
-              await new Promise(r => setTimeout(r, 5000));
+            const isOverloaded = err?.message?.includes("529") || err?.message?.toLowerCase().includes("overloaded");
+            if (is429 || isOverloaded) {
+              // Rate limited or overloaded — exponential backoff and retry
+              const retries = next.retryCount || 0;
+              const backoff = Math.min(5000 * Math.pow(2, retries), 60000); // 5s, 10s, 20s, 40s, 60s max
+              console.log(`[BatchUpload] ${is429 ? "429" : "529"} on "${next.fileName}", backoff ${backoff / 1000}s (retry #${retries + 1})`);
+              updateQueueItem(next.id, { status: "queued", error: null, retryCount: retries + 1 });
+              await new Promise(r => setTimeout(r, backoff));
             } else {
               updateQueueItem(next.id, { status: "failed", error: err.message || "Extraction failed" });
             }
@@ -473,6 +507,7 @@ Return ONLY a JSON object. Example:
     // files may already be an Array (from onChange snapshot) or a FileList
     const allFiles = Array.isArray(files) ? files : Array.from(files);
     console.log("[BatchUpload] Received", allFiles.length, "files from picker");
+    const MAX_PDF_SIZE = 25 * 1024 * 1024; // 25 MB raw — Anthropic limit is 32 MB for full request
     const fileArray = allFiles.filter(f => f.name.toLowerCase().endsWith(".pdf"));
     console.log("[BatchUpload] Filtered to", fileArray.length, "PDFs");
     if (fileArray.length === 0) {
@@ -484,8 +519,46 @@ Return ONLY a JSON object. Example:
     const newItems = [];
     let resumed = 0;
     let skipped = 0;
+    let oversized = 0;
+    let readErrors = 0;
 
-    for (const file of fileArray) {
+    // Eagerly read ALL files to base64 BEFORE clearing the file input.
+    // This prevents a browser bug where clearing the input (e.target.value = "")
+    // can invalidate File objects, making them read as 0 bytes.
+    const readResults = await Promise.allSettled(
+      fileArray.map(async (file) => {
+        if (file.size > MAX_PDF_SIZE) return { file, skip: "oversized" };
+        if (file.size === 0) return { file, skip: "empty" };
+        try {
+          const base64 = await readFileToBase64(file);
+          return { file, base64 };
+        } catch (err) {
+          console.error(`[BatchUpload] Failed to read "${file.name}":`, err.message);
+          return { file, skip: "read_error", error: err.message };
+        }
+      })
+    );
+
+    for (const result of readResults) {
+      const { file, base64, skip, error } = result.status === "fulfilled" ? result.value : { file: null, skip: "rejected" };
+      if (!file) continue;
+
+      if (skip === "oversized") {
+        console.warn("[BatchUpload] Skipping oversized file:", file.name, `(${(file.size / 1024 / 1024).toFixed(1)} MB)`);
+        oversized++;
+        continue;
+      }
+      if (skip === "empty") {
+        console.warn("[BatchUpload] Skipping empty file:", file.name);
+        readErrors++;
+        continue;
+      }
+      if (skip === "read_error") {
+        showToast(`Could not read "${file.name}": ${error}`, "error");
+        readErrors++;
+        continue;
+      }
+
       // Resume matching: find existing queue entry by fileName + fileSize
       const match = existingQueue.find(q => q.fileName === file.name && q.fileSize === file.size);
 
@@ -494,16 +567,16 @@ Return ONLY a JSON object. Example:
           skipped++; // already done
           continue;
         }
-        // Bind fresh File object to existing queue item
-        fileObjectMap.set(match.id, file);
+        // Bind eagerly-read base64 to existing queue item
+        base64DataMap.set(match.id, base64);
         if (match.status === "failed") {
           updateQueueItem(match.id, { status: "queued", error: null });
         }
         resumed++;
       } else {
-        // New file — create queue entry
+        // New file — create queue entry with base64 already read
         const id = uid();
-        fileObjectMap.set(id, file); // lightweight reference, no base64 yet
+        base64DataMap.set(id, base64);
         newItems.push({
           id,
           fileName: file.name,
@@ -517,18 +590,21 @@ Return ONLY a JSON object. Example:
     }
 
     if (newItems.length > 0) addToUploadQueue(newItems);
-    console.log("[BatchUpload] Queued:", newItems.length, "new,", resumed, "resumed,", skipped, "skipped. Total queue:", useMasterDataStore.getState().pdfUploadQueue.length);
+    console.log("[BatchUpload] Queued:", newItems.length, "new,", resumed, "resumed,", skipped, "skipped,", readErrors, "read errors. Total queue:", useMasterDataStore.getState().pdfUploadQueue.length);
     setShowQueue(true);
     await saveUploadQueue();
 
     // Toast feedback
+    if (oversized > 0) {
+      showToast(`Skipped ${oversized} file${oversized !== 1 ? "s" : ""} over 25 MB (too large for API)`, "error");
+    }
     if (resumed > 0 || skipped > 0) {
       showToast(`Resumed ${resumed} pending, ${newItems.length} new, ${skipped} already done`);
     } else if (newItems.length > 0) {
       showToast(`Queued ${newItems.length} PDF${newItems.length !== 1 ? "s" : ""} for extraction`);
     }
 
-    // Start worker pool (no base64 read yet — workers read lazily)
+    // Start worker pool (base64 already read — workers use stored data)
     processQueue();
     } catch (err) {
       console.error("[BatchUpload] Error in handlePdfFilesSelected:", err);
@@ -537,13 +613,13 @@ Return ONLY a JSON object. Example:
   };
 
   // ── Folder picker handler ──
-  const handleFolderSelected = (files) => {
-    handlePdfFilesSelected(files);
+  const handleFolderSelected = async (files) => {
+    await handlePdfFilesSelected(files);
   };
 
   // ── Retry a failed extraction ──
   const handleRetry = (queueItem) => {
-    if (!fileObjectMap.has(queueItem.id)) {
+    if (!base64DataMap.has(queueItem.id)) {
       // File reference lost (page refresh) — need re-select folder
       showToast(`File data lost for "${queueItem.fileName}" — please re-select folder`, "error");
       return;
@@ -557,7 +633,7 @@ Return ONLY a JSON object. Example:
     const queue = useMasterDataStore.getState().pdfUploadQueue;
     let retried = 0;
     queue.forEach(q => {
-      if (q.status === "failed" && fileObjectMap.has(q.id)) {
+      if (q.status === "failed" && base64DataMap.has(q.id)) {
         updateQueueItem(q.id, { status: "queued", error: null });
         retried++;
       }
@@ -566,7 +642,7 @@ Return ONLY a JSON object. Example:
       showToast(`Retrying ${retried} failed item${retried !== 1 ? "s" : ""}`);
       processQueue();
     } else {
-      showToast("No retryable items (re-select folder to rebind files)", "error");
+      showToast("File references lost — use 'Clear Failed' then re-upload folder", "error");
     }
   };
 
@@ -616,6 +692,7 @@ Return ONLY a JSON object. Example:
     setFormInitial(queueItem.extractedData);
     setEditingId(null);
     setReviewingQueueId(queueItem.id);
+    setReviewPdfBase64(base64DataMap.get(queueItem.id) || null);
     setShowForm("pdf-review");
   };
 
@@ -660,6 +737,9 @@ Return ONLY a JSON object. Example:
 
     // Auto-open next extracted item from queue
     if (reviewingQueueId) {
+      // Free base64 memory for the saved item
+      base64DataMap.delete(reviewingQueueId);
+      setReviewPdfBase64(null);
       setReviewingQueueId(null);
       const queue = useMasterDataStore.getState().pdfUploadQueue;
       const nextExtracted = queue.find(q => q.status === "extracted" && q.extractedData);
@@ -905,9 +985,9 @@ Return ONLY a JSON object. Example:
           Upload Folder
         </button>
         <input ref={pdfRef} type="file" accept=".pdf" multiple style={{ display: "none" }}
-          onChange={e => { const files = Array.from(e.target.files); e.target.value = ""; handlePdfFilesSelected(files); }} />
+          onChange={async (e) => { const files = Array.from(e.target.files); await handlePdfFilesSelected(files); e.target.value = ""; }} />
         <input ref={folderRef} type="file" webkitdirectory="" style={{ display: "none" }}
-          onChange={e => { const files = Array.from(e.target.files); e.target.value = ""; handleFolderSelected(files); }} />
+          onChange={async (e) => { const files = Array.from(e.target.files); await handleFolderSelected(files); e.target.value = ""; }} />
         {queueExtracting > 0 && !batchMode && (
           <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 5, background: `${C.orange}10`, border: `1px solid ${C.orange}25` }}>
             <NovaOrb size={14} scheme="nova" />
@@ -1008,13 +1088,22 @@ Return ONLY a JSON object. Example:
                   </button>
                 )}
                 {queueFailed > 0 && (
-                  <button onClick={handleRetryAll}
-                    style={bt(C, {
-                      background: `${C.orange}10`, border: `1px solid ${C.orange}30`,
-                      color: C.orange, padding: "4px 10px", fontSize: 9, fontWeight: 700,
-                    })}>
-                    Retry All {queueFailed} Failed
-                  </button>
+                  <>
+                    <button onClick={handleRetryAll}
+                      style={bt(C, {
+                        background: `${C.orange}10`, border: `1px solid ${C.orange}30`,
+                        color: C.orange, padding: "4px 10px", fontSize: 9, fontWeight: 700,
+                      })}>
+                      Retry All {queueFailed} Failed
+                    </button>
+                    <button onClick={() => { uploadQueue.filter(q => q.status === "failed").forEach(q => base64DataMap.delete(q.id)); clearFailedFromQueue(); saveUploadQueue(); }}
+                      style={bt(C, {
+                        background: `${C.red || "#f44"}10`, border: `1px solid ${C.red || "#f44"}30`,
+                        color: C.red || "#f44", padding: "4px 10px", fontSize: 9, fontWeight: 700,
+                      })}>
+                      Clear {queueFailed} Failed
+                    </button>
+                  </>
                 )}
               </div>
 
@@ -1034,12 +1123,20 @@ Return ONLY a JSON object. Example:
                 <div key={q.id} style={{
                   display: "flex", alignItems: "center", gap: 8, padding: "5px 8px",
                   borderRadius: 4, marginBottom: 2,
-                  background: q.status === "extracted" ? `${C.blue}06` : "transparent",
+                  background: q.status === "extracted" ? `${C.blue}06` : q.status === "failed" ? `${C.red || "#f44"}08` : "transparent",
                 }}>
-                  {/* File name */}
-                  <span style={{ flex: 1, fontSize: 10, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {q.fileName}
-                  </span>
+                  {/* File name + error detail */}
+                  <div style={{ flex: 1, overflow: "hidden" }}>
+                    <span style={{ fontSize: 10, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>
+                      {q.fileName}
+                    </span>
+                    {q.status === "failed" && q.error && (
+                      <span style={{ fontSize: 8, color: C.red || "#f44", opacity: 0.8, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                        title={q.error}>
+                        {q.error.length > 80 ? q.error.slice(0, 80) + "…" : q.error}
+                      </span>
+                    )}
+                  </div>
                   {/* File size */}
                   <span style={{ fontSize: 9, color: C.textMuted, whiteSpace: "nowrap" }}>
                     {q.fileSize ? `${Math.round(q.fileSize / 1024)}KB` : ""}
@@ -1075,7 +1172,7 @@ Return ONLY a JSON object. Example:
               ))}
               {/* Clear completed */}
               {queueSaved > 0 && (
-                <button onClick={() => { clearSavedFromQueue(); saveUploadQueue(); }}
+                <button onClick={() => { uploadQueue.filter(q => q.status === "saved").forEach(q => base64DataMap.delete(q.id)); clearSavedFromQueue(); saveUploadQueue(); }}
                   style={{ background: "none", border: "none", color: C.textDim, fontSize: 9, cursor: "pointer", padding: "4px 0", fontWeight: 600 }}>
                   Clear {queueSaved} completed
                 </button>
@@ -1400,10 +1497,16 @@ Return ONLY a JSON object. Example:
       {/* Entry Form Modal */}
       {showForm && (
         <CostHistoryEntryForm
-          onClose={() => { setShowForm(false); setFormInitial(null); setEditingId(null); setReviewingQueueId(null); }}
+          onClose={() => {
+            // Free base64 memory if closing without saving
+            if (reviewingQueueId) base64DataMap.delete(reviewingQueueId);
+            setShowForm(false); setFormInitial(null); setEditingId(null);
+            setReviewingQueueId(null); setReviewPdfBase64(null);
+          }}
           onSave={handleSaveEntry}
           initial={formInitial}
           mode={showForm === "pdf-review" ? "pdf-review" : showForm === "edit" ? "edit" : "manual"}
+          pdfBase64={reviewPdfBase64}
         />
       )}
     </Sec>

@@ -23,6 +23,10 @@ export const useMasterDataStore = create((set, get) => ({
     pdfUploadQueue: s.pdfUploadQueue.filter(q => q.status !== "saved"),
   })),
 
+  clearFailedFromQueue: () => set(s => ({
+    pdfUploadQueue: s.pdfUploadQueue.filter(q => q.status !== "failed"),
+  })),
+
   masterData: {
     clients: [],
     architects: [],

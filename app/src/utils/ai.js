@@ -63,6 +63,20 @@ export async function callAnthropic({
   if (tools) body.tools = tools;
   if (tool_choice) body.tool_choice = tool_choice;
 
+  // Pre-flight: log body size and check for empty document content
+  const bodyJson = JSON.stringify(body);
+  const bodySizeMB = (bodyJson.length / 1024 / 1024).toFixed(1);
+  const docBlocks = body.messages?.[0]?.content?.filter?.(c => c.type === "document") || [];
+  for (const doc of docBlocks) {
+    const b64Len = doc?.source?.data?.length || 0;
+    if (b64Len < 100) {
+      console.error(`[AI] Document block has empty/tiny base64 (${b64Len} chars). Body size: ${bodySizeMB} MB`);
+    }
+  }
+  if (parseFloat(bodySizeMB) > 4.0) {
+    console.warn(`[AI] Request body is ${bodySizeMB} MB — may exceed Vercel's 4.5 MB limit`);
+  }
+
   let activeToken = token;
   let lastError;
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -73,7 +87,7 @@ export async function callAnthropic({
           "Content-Type": "application/json",
           "Authorization": `Bearer ${activeToken}`,
         },
-        body: JSON.stringify(body),
+        body: bodyJson,
         ...(signal ? { signal } : {}),
       });
       if (resp.status === 429) {

@@ -14,6 +14,7 @@ import Modal from '@/components/shared/Modal';
 import Ic from '@/components/shared/Ic';
 import { I } from '@/constants/icons';
 import { inp, nInp, bt } from '@/utils/styles';
+import PdfPreviewPanel from '@/components/costHistory/PdfPreviewPanel';
 import {
   MARKUP_TAXONOMY, MARKUP_CATEGORIES, MARKUP_PRESETS,
   classifyMarkup, getMarkupCategory,
@@ -61,7 +62,7 @@ const ROM_DIVISIONS = [
  *  - initial: optional pre-filled data (from PDF extraction or editing existing)
  *  - mode: "manual" | "pdf-review" | "edit"
  */
-export default function CostHistoryEntryForm({ onClose, onSave, initial, mode = "manual" }) {
+export default function CostHistoryEntryForm({ onClose, onSave, initial, mode = "manual", pdfBase64 }) {
   const C = useTheme();
   const masterData = useMasterDataStore(s => s.masterData);
   const addMasterItem = useMasterDataStore(s => s.addMasterItem);
@@ -221,15 +222,8 @@ export default function CostHistoryEntryForm({ onClose, onSave, initial, mode = 
   // Which preset keys are already added
   const usedKeys = new Set((form.markups || []).filter(m => m.key !== "custom").map(m => m.key));
 
-  return (
-    <Modal onClose={onClose} width={720}>
-      <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 4 }}>{title}</div>
-      {mode === "pdf-review" && (
-        <div style={{ fontSize: 10, color: C.orange, fontWeight: 600, marginBottom: 12 }}>
-          NOVA extracted the data below — review and edit before saving
-        </div>
-      )}
-
+  const formBody = (
+    <>
       {/* Essential Info */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
         <div>
@@ -643,6 +637,46 @@ export default function CostHistoryEntryForm({ onClose, onSave, initial, mode = 
           {mode === "pdf-review" ? "Save Extraction" : mode === "edit" ? "Update" : "Save Entry"}
         </button>
       </div>
+    </>
+  );
+
+  const hasPdf = !!pdfBase64;
+
+  return (
+    <Modal onClose={onClose} width={hasPdf ? 1340 : 720}>
+      {hasPdf ? (
+        <div style={{ display: "flex", gap: 20, minHeight: 0 }}>
+          {/* Left: PDF viewer */}
+          <div style={{
+            flex: "0 0 540px", minHeight: 0,
+            maxHeight: "calc(88vh - 80px)", overflow: "hidden",
+            display: "flex", flexDirection: "column",
+            borderRight: `1px solid ${C.border}`, paddingRight: 16,
+          }}>
+            <PdfPreviewPanel base64={pdfBase64} />
+          </div>
+          {/* Right: Form (scrollable) */}
+          <div style={{ flex: 1, minWidth: 0, overflowY: "auto", maxHeight: "calc(88vh - 80px)", paddingRight: 4 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 4 }}>{title}</div>
+            {mode === "pdf-review" && (
+              <div style={{ fontSize: 10, color: C.orange, fontWeight: 600, marginBottom: 12 }}>
+                NOVA extracted the data below — review and edit before saving
+              </div>
+            )}
+            {formBody}
+          </div>
+        </div>
+      ) : (
+        <>
+          <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 4 }}>{title}</div>
+          {mode === "pdf-review" && (
+            <div style={{ fontSize: 10, color: C.orange, fontWeight: 600, marginBottom: 12 }}>
+              NOVA extracted the data below — review and edit before saving
+            </div>
+          )}
+          {formBody}
+        </>
+      )}
     </Modal>
   );
 }
