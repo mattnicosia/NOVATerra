@@ -15,7 +15,9 @@ import { saveSettings, saveMasterData } from '@/hooks/usePersistence';
 
 import { DEFAULT_LABOR_TYPES } from '@/utils/laborTypes';
 import { uid } from '@/utils/format';
+import { processLogo } from '@/utils/imageUtils';
 
+import LogoPill from '@/components/shared/LogoPill';
 import NovaScriptEditor from '@/components/settings/NovaScriptEditor';
 import TeamPanel from '@/components/settings/TeamPanel';
 
@@ -52,19 +54,14 @@ export default function SettingsPage() {
   const [newSenderEmail, setNewSenderEmail] = useState("");
 
 
-  const handleLogoUpload = (file) => {
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const dataUrl = e.target.result;
+  const handleLogoUpload = async (file) => {
+    try {
+      const dataUrl = await processLogo(file);
       updateCompanyInfo("logo", dataUrl);
       showToast("Logo uploaded");
-      try {
-        // placeholder for future brand features
-      } catch {
-        showToast("Logo uploaded");
-      }
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      showToast("Failed to process logo");
+    }
   };
 
   const handleSave = async () => {
@@ -480,19 +477,14 @@ function CompanyProfilesSection({ C, T, masterData, showToast, logoFileRef, hand
     }
   };
 
-  const handleProfileLogoUpload = (file) => {
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const dataUrl = e.target.result;
+  const handleProfileLogoUpload = async (file) => {
+    try {
+      const dataUrl = await processLogo(file);
       updateField("logo", dataUrl);
       showToast("Logo uploaded");
-      try {
-        // placeholder for future brand features
-      } catch {
-        showToast("Logo uploaded");
-      }
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      showToast("Failed to process logo");
+    }
   };
 
   const handleCreateProfile = () => {
@@ -533,12 +525,11 @@ function CompanyProfilesSection({ C, T, masterData, showToast, logoFileRef, hand
             display: "flex", alignItems: "center", justifyContent: "center",
             position: "relative", overflow: "hidden",
           }}>
-          {masterData.companyInfo?.logo
-            ? <img src={masterData.companyInfo.logo} style={{ maxHeight: 56, maxWidth: 80, objectFit: "contain" }} />
-            : <div style={{ width: 48, height: 48, borderRadius: 8, background: C.accent + "20", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <LogoPill src={masterData.companyInfo?.logo} maxHeight={56} maxWidth={80}
+            fallback={<div style={{ width: 48, height: 48, borderRadius: 8, background: C.accent + "20", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <Ic d={I.folder} size={24} color={C.accent} />
-              </div>
-          }
+              </div>}
+          />
         </div>
 
         {/* Additional profile tiles */}
@@ -558,12 +549,11 @@ function CompanyProfilesSection({ C, T, masterData, showToast, logoFileRef, hand
                 title="Delete profile">
                 <Ic d={I.x} size={10} color={C.textDim} />
               </button>
-              {p.logo
-                ? <img src={p.logo} style={{ maxHeight: 56, maxWidth: 80, objectFit: "contain" }} />
-                : <div style={{ width: 48, height: 48, borderRadius: 8, background: C.purple + "20", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <LogoPill src={p.logo} maxHeight={56} maxWidth={80}
+                fallback={<div style={{ width: 48, height: 48, borderRadius: 8, background: C.purple + "20", display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <Ic d={I.folder} size={24} color={C.purple} />
-                  </div>
-              }
+                  </div>}
+              />
             </div>
           );
         })}
@@ -599,13 +589,12 @@ function CompanyProfilesSection({ C, T, masterData, showToast, logoFileRef, hand
                 onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = C.accent; }}
                 onDragLeave={e => { e.currentTarget.style.borderColor = C.border; }}
                 onDrop={e => { e.preventDefault(); e.currentTarget.style.borderColor = C.border; if (e.dataTransfer.files[0]) handleProfileLogoUpload(e.dataTransfer.files[0]); }}>
-                {editingProfile?.logo
-                  ? <img src={editingProfile.logo} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
-                  : <div style={{ textAlign: "center" }}>
+                <LogoPill src={editingProfile?.logo} maxHeight={90} maxWidth={90}
+                  fallback={<div style={{ textAlign: "center" }}>
                       <Ic d={I.upload} size={18} color={C.textDim} />
                       <div style={{ fontSize: 8, color: C.textDim, marginTop: 4 }}>Upload Logo</div>
-                    </div>
-                }
+                    </div>}
+                />
               </div>
               <input ref={profileLogoRef} type="file" accept="image/*,.jpg,.jpeg,.png,.svg,.webp" style={{ display: "none" }} onChange={e => {
                 const f = e.target.files?.[0];

@@ -2,6 +2,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { useUiStore } from '@/stores/uiStore';
 import { useMasterDataStore } from '@/stores/masterDataStore';
 import Ic from '@/components/shared/Ic';
+import LogoPill from '@/components/shared/LogoPill';
 import { I } from '@/constants/icons';
 
 export default function CompanySwitcher() {
@@ -35,20 +36,18 @@ export default function CompanySwitcher() {
       {/* Primary profile */}
       <button onClick={() => set("")} title={companyInfo?.name || "Primary"}
         style={cardStyle(activeCompanyId === "")}>
-        {companyInfo?.logo
-          ? <img src={companyInfo.logo} style={{ maxHeight: 28, maxWidth: 44, objectFit: "contain" }} />
-          : <Ic d={I.folder} size={18} color={activeCompanyId === "" ? C.accent : C.textMuted} />
-        }
+        <LogoPill src={companyInfo?.logo} maxHeight={28} maxWidth={44}
+          fallback={<Ic d={I.folder} size={18} color={activeCompanyId === "" ? C.accent : C.textMuted} />}
+        />
       </button>
 
       {/* Additional profiles */}
       {companyProfiles.map(p => (
         <button key={p.id} onClick={() => set(p.id)} title={p.name || "Unnamed"}
           style={cardStyle(activeCompanyId === p.id)}>
-          {p.logo
-            ? <img src={p.logo} style={{ maxHeight: 28, maxWidth: 44, objectFit: "contain" }} />
-            : <Ic d={I.folder} size={18} color={activeCompanyId === p.id ? C.accent : C.textMuted} />
-          }
+          <LogoPill src={p.logo} maxHeight={28} maxWidth={44}
+            fallback={<Ic d={I.folder} size={18} color={activeCompanyId === p.id ? C.accent : C.textMuted} />}
+          />
         </button>
       ))}
     </div>
