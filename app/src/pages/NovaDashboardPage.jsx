@@ -8,7 +8,7 @@ import WidgetGrid from '@/components/widgets/WidgetGrid';
 import WidgetPickerModal from '@/components/widgets/WidgetPickerModal';
 import WidgetReplacePicker from '@/components/widgets/WidgetReplacePicker';
 import DashboardFooter from '@/components/dashboard/DashboardFooter';
-import CompanySwitcher from '@/components/shared/CompanySwitcher';
+// CompanySwitcher removed — profile selection moved to NovaHeader dropdown
 
 /* ────────────────────────────────────────────────────────
    NovaDashboardPage — widget-based dashboard
@@ -80,13 +80,6 @@ export default function NovaDashboardPage() {
         overflow: 'auto',
         animation: 'fadeUp 1s cubic-bezier(0.16,1,0.3,1) 0.5s both',
       }}>
-        {/* Company filter */}
-        <div style={{
-          padding: '12px 28px 0',
-          animation: 'fadeUp 0.6s cubic-bezier(0.16,1,0.3,1) 0.8s both',
-        }}>
-          <CompanySwitcher />
-        </div>
         <WidgetGrid onConfigure={handleConfigure} onReplace={handleReplace} />
       </div>
 

@@ -87,7 +87,7 @@ export default function Sidebar() {
           display: "flex", alignItems: "center", gap: T.space[2],
           cursor: "pointer",
         }} onClick={!open ? toggle : undefined}>
-          <NovaTerraLogo size={open ? 22 : 16} />
+          <NovaTerraLogo size={open ? 40 : 24} />
         </div>
         {open && (
           <button onClick={toggle} style={{

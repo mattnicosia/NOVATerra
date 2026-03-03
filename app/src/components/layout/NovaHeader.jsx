@@ -9,6 +9,7 @@ import NovaTerraLogo from '@/components/shared/NovaTerraLogo';
 import { useNovaStore } from '@/stores/novaStore';
 import { useCommandPaletteStore } from '@/stores/commandPaletteStore';
 import NotificationCenter from '@/components/shared/NotificationCenter';
+import LogoPill from '@/components/shared/LogoPill';
 
 /* ── Nav icon SVGs ── */
 const NAV_ICONS = {
@@ -85,23 +86,15 @@ function LogoPortal({ isNova, accent }) {
   );
 }
 
-/* ── Profile Dropdown — fully theme-aware ── */
+/* ── Profile Dropdown — user account menu ── */
 function ProfileDropdown({ onClose }) {
   const C = useTheme();
   const dk = C.isDark;
   const navigate = useNavigate();
   const user = useAuthStore(s => s.user);
   const signOut = useAuthStore(s => s.signOut);
-  const masterData = useMasterDataStore(s => s.masterData);
-  const activeCompanyId = useUiStore(s => s.appSettings.activeCompanyId);
-  const updateSetting = useUiStore(s => s.updateSetting);
   const dropdownRef = useRef(null);
 
-  const companyInfo = masterData?.companyInfo || {};
-  const companyProfiles = masterData?.companyProfiles || [];
-  const primaryName = companyInfo.name || 'Primary Company';
-
-  /* Dropdown derived colors */
   const ddBg = dk
     ? `linear-gradient(145deg, ${C.bg2}F2 0%, ${C.bg1}EB 100%)`
     : 'linear-gradient(145deg, rgba(255,255,255,0.98) 0%, rgba(250,250,252,0.96) 100%)';
@@ -111,7 +104,6 @@ function ProfileDropdown({ onClose }) {
     : '0 8px 32px rgba(0,0,0,0.12), 0 0 1px rgba(0,0,0,0.06)';
   const ddDivider = dk ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
   const ddHover = dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)';
-  const ddText = dk ? 'rgba(238,237,245,0.82)' : 'rgba(0,0,0,0.78)';
   const ddTextDim = dk ? 'rgba(238,237,245,0.45)' : 'rgba(0,0,0,0.40)';
   const ddTextMuted = dk ? 'rgba(238,237,245,0.65)' : 'rgba(0,0,0,0.55)';
   const ddIconMuted = dk ? 'rgba(238,237,245,0.5)' : 'rgba(0,0,0,0.40)';
@@ -124,21 +116,19 @@ function ProfileDropdown({ onClose }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [onClose]);
 
-  const itemStyle = (isActive) => ({
+  const itemStyle = () => ({
     display: 'flex', alignItems: 'center', gap: 8,
     padding: '8px 12px', borderRadius: 6, cursor: 'pointer',
     transition: 'background 0.15s',
-    background: isActive ? `${C.accent}18` : 'transparent',
+    background: 'transparent',
     border: 'none', width: '100%', textAlign: 'left',
-    fontFamily: "'Outfit', 'DM Sans', sans-serif",
+    fontFamily: "'DM Sans', sans-serif",
   });
-
-  function selectCompany(id) { updateSetting('activeCompanyId', id); onClose(); }
 
   return (
     <div ref={dropdownRef} style={{
       position: 'absolute', top: '100%', right: 0, marginTop: 8,
-      width: 220, padding: '8px 6px',
+      width: 200, padding: '8px 6px',
       background: ddBg,
       backdropFilter: 'blur(32px)', WebkitBackdropFilter: 'blur(32px)',
       border: `1px solid ${ddBorder}`,
@@ -149,68 +139,19 @@ function ProfileDropdown({ onClose }) {
       <div style={{
         padding: '6px 12px 10px', fontSize: 10, fontWeight: 400,
         color: ddTextDim, letterSpacing: '0.03em',
-        fontFamily: "'Outfit', 'DM Sans', sans-serif",
+        fontFamily: "'DM Sans', sans-serif",
         borderBottom: `1px solid ${ddDivider}`, marginBottom: 4,
         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
       }}>
         {user?.email || 'user@example.com'}
       </div>
 
-      {/* All Companies */}
-      <div
-        onClick={() => selectCompany('__all__')}
-        onMouseEnter={e => { if (activeCompanyId !== '__all__') e.currentTarget.style.background = ddHover; }}
-        onMouseLeave={e => { if (activeCompanyId !== '__all__') e.currentTarget.style.background = 'transparent'; }}
-        style={itemStyle(activeCompanyId === '__all__')}
-      >
-        {activeCompanyId === '__all__' && (
-          <div style={{ width: 5, height: 5, borderRadius: '50%', background: C.accent, boxShadow: `0 0 6px ${C.accent}99`, flexShrink: 0 }} />
-        )}
-        <span style={{ fontSize: 11, fontWeight: 500, color: ddText }}>All Companies</span>
-      </div>
-
-      {/* Primary company */}
-      <div
-        onClick={() => selectCompany('')}
-        onMouseEnter={e => { if (activeCompanyId !== '') e.currentTarget.style.background = ddHover; }}
-        onMouseLeave={e => { if (activeCompanyId !== '') e.currentTarget.style.background = 'transparent'; }}
-        style={itemStyle(activeCompanyId === '')}
-      >
-        {activeCompanyId === '' && (
-          <div style={{ width: 5, height: 5, borderRadius: '50%', background: C.accent, boxShadow: `0 0 6px ${C.accent}99`, flexShrink: 0 }} />
-        )}
-        <span style={{ fontSize: 11, fontWeight: 500, color: ddText, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {primaryName}
-        </span>
-      </div>
-
-      {/* Additional profiles */}
-      {companyProfiles.map(p => (
-        <div
-          key={p.id}
-          onClick={() => selectCompany(p.id)}
-          onMouseEnter={e => { if (activeCompanyId !== p.id) e.currentTarget.style.background = ddHover; }}
-          onMouseLeave={e => { if (activeCompanyId !== p.id) e.currentTarget.style.background = 'transparent'; }}
-          style={itemStyle(activeCompanyId === p.id)}
-        >
-          {activeCompanyId === p.id && (
-            <div style={{ width: 5, height: 5, borderRadius: '50%', background: C.accent, boxShadow: `0 0 6px ${C.accent}99`, flexShrink: 0 }} />
-          )}
-          <span style={{ fontSize: 11, fontWeight: 500, color: ddText, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {p.name || 'Unnamed Profile'}
-          </span>
-        </div>
-      ))}
-
-      {/* Divider */}
-      <div style={{ height: 1, background: ddDivider, margin: '6px 0' }} />
-
       {/* Settings */}
       <div
         onClick={() => { navigate('/settings'); onClose(); }}
         onMouseEnter={e => { e.currentTarget.style.background = ddHover; }}
         onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
-        style={itemStyle(false)}
+        style={itemStyle()}
       >
         <svg width={12} height={12} viewBox="0 0 16 16" fill="none" stroke={ddIconMuted} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="8" cy="8" r="2.2"/>
@@ -224,13 +165,110 @@ function ProfileDropdown({ onClose }) {
         onClick={() => { signOut(); onClose(); }}
         onMouseEnter={e => { e.currentTarget.style.background = `${C.red}0F`; }}
         onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
-        style={itemStyle(false)}
+        style={itemStyle()}
       >
         <svg width={12} height={12} viewBox="0 0 16 16" fill="none" stroke={`${C.red}B3`} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
           <path d="M6 14H3a1 1 0 01-1-1V3a1 1 0 011-1h3"/><path d="M10 11l3-3-3-3"/><path d="M13 8H6"/>
         </svg>
         <span style={{ fontSize: 11, fontWeight: 400, color: `${C.red}CC` }}>Sign Out</span>
       </div>
+    </div>
+  );
+}
+
+/* ── Company Profile Dropdown — shows all profiles for selection ── */
+function CompanyDropdown({ onClose }) {
+  const C = useTheme();
+  const dk = C.isDark;
+  const ref = useRef(null);
+  const activeCompanyId = useUiStore(s => s.appSettings.activeCompanyId);
+  const updateSetting = useUiStore(s => s.updateSetting);
+  const masterData = useMasterDataStore(s => s.masterData);
+  const companyInfo = masterData?.companyInfo || {};
+  const companyProfiles = masterData?.companyProfiles || [];
+
+  const ddBg = dk
+    ? `linear-gradient(145deg, ${C.bg2}F2 0%, ${C.bg1}EB 100%)`
+    : 'linear-gradient(145deg, rgba(255,255,255,0.98) 0%, rgba(250,250,252,0.96) 100%)';
+  const ddBorder = dk ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
+  const ddShadow = dk
+    ? '0 8px 32px rgba(0,0,0,0.5), 0 0 1px rgba(255,255,255,0.1)'
+    : '0 8px 32px rgba(0,0,0,0.12), 0 0 1px rgba(0,0,0,0.06)';
+  const ddDivider = dk ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+  const ddHover = dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)';
+  const ddText = dk ? 'rgba(238,237,245,0.82)' : 'rgba(0,0,0,0.78)';
+  const ddTextDim = dk ? 'rgba(238,237,245,0.45)' : 'rgba(0,0,0,0.40)';
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (ref.current && !ref.current.contains(e.target)) onClose();
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [onClose]);
+
+  function select(id) { updateSetting('activeCompanyId', id); onClose(); }
+
+  const itemStyle = (isActive) => ({
+    display: 'flex', alignItems: 'center', gap: 8,
+    padding: '7px 12px', borderRadius: 6, cursor: 'pointer',
+    transition: 'background 0.15s',
+    background: isActive ? `${C.accent}18` : 'transparent',
+    border: 'none', width: '100%', textAlign: 'left',
+    fontFamily: "'DM Sans', sans-serif",
+  });
+
+  const renderItem = (id, name, logo, isActive) => (
+    <div
+      key={id}
+      onClick={() => select(id)}
+      onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = ddHover; }}
+      onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
+      style={itemStyle(isActive)}
+    >
+      {isActive && (
+        <div style={{ width: 5, height: 5, borderRadius: '50%', background: C.accent, boxShadow: `0 0 6px ${C.accent}99`, flexShrink: 0 }} />
+      )}
+      {logo ? (
+        <LogoPill src={logo} maxHeight={20} maxWidth={28} style={{ padding: 2, borderRadius: 4 }} />
+      ) : (
+        <svg width={14} height={14} viewBox="0 0 16 16" fill="none" stroke={isActive ? C.accent : (dk ? 'rgba(238,237,245,0.4)' : 'rgba(0,0,0,0.3)')} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M2 14V4a1 1 0 011-1h4a1 1 0 011 1v10"/><path d="M8 7h5a1 1 0 011 1v6"/><path d="M2 14h12"/>
+          <path d="M4.5 5.5h1M4.5 8h1M4.5 10.5h1M10 9.5h1M10 12h1"/>
+        </svg>
+      )}
+      <span style={{
+        fontSize: 11, fontWeight: isActive ? 600 : 500, color: ddText,
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+      }}>
+        {name}
+      </span>
+    </div>
+  );
+
+  return (
+    <div ref={ref} style={{
+      position: 'absolute', top: '100%', right: 0, marginTop: 8,
+      width: 220, padding: '8px 6px',
+      background: ddBg,
+      backdropFilter: 'blur(32px)', WebkitBackdropFilter: 'blur(32px)',
+      border: `1px solid ${ddBorder}`,
+      borderRadius: 12, boxShadow: ddShadow, zIndex: 200,
+      animation: 'fadeUp 0.2s cubic-bezier(0.16,1,0.3,1) both',
+    }}>
+      <div style={{
+        padding: '4px 12px 8px', fontSize: 9, fontWeight: 600,
+        letterSpacing: '0.12em', textTransform: 'uppercase',
+        color: ddTextDim, fontFamily: "'DM Sans', sans-serif",
+      }}>
+        Company Profile
+      </div>
+
+      {renderItem('__all__', 'All Companies', null, activeCompanyId === '__all__')}
+      {renderItem('', companyInfo.name || 'Primary Company', companyInfo.logo, activeCompanyId === '')}
+      {companyProfiles.map(p =>
+        renderItem(p.id, p.name || 'Unnamed Profile', p.logo, activeCompanyId === p.id)
+      )}
     </div>
   );
 }
@@ -255,6 +293,23 @@ export default function NovaHeader() {
   const isNova = false; // NOVA theme temporarily removed
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [companyMenuOpen, setCompanyMenuOpen] = useState(false);
+
+  // Company profile data
+  const activeCompanyId = useUiStore(s => s.appSettings.activeCompanyId);
+  const masterData = useMasterDataStore(s => s.masterData);
+  const companyInfo = masterData?.companyInfo || {};
+  const companyProfiles = masterData?.companyProfiles || [];
+  const activeCompanyName = activeCompanyId === '__all__'
+    ? 'All Companies'
+    : activeCompanyId
+      ? (companyProfiles.find(p => p.id === activeCompanyId)?.name || 'Company')
+      : (companyInfo.name || 'Primary');
+  const activeCompanyLogo = activeCompanyId === '__all__'
+    ? null
+    : activeCompanyId
+      ? companyProfiles.find(p => p.id === activeCompanyId)?.logo
+      : companyInfo.logo;
 
   const initials = user?.email ? user.email.substring(0, 2).toUpperCase() : 'MC';
 
@@ -312,7 +367,7 @@ export default function NovaHeader() {
     }}>
       {/* Left — Logo */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <NovaTerraLogo size={22} />
+        <NovaTerraLogo size={40} />
       </div>
 
       {/* Center — Navigation: active tab = Liquid Glass pill */}
@@ -504,6 +559,61 @@ export default function NovaHeader() {
             }}>{unreadCount > 9 ? '9+' : unreadCount}</div>
           )}
         </button>
+
+        {/* Company Profile Selector */}
+        <div style={{ position: 'relative' }}>
+          <button
+            data-interactive
+            onClick={() => setCompanyMenuOpen(v => !v)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 7,
+              padding: '4px 10px 4px 6px', borderRadius: 8,
+              background: companyMenuOpen ? `${accent}18` : ov(0.04, 0.04),
+              border: `1px solid ${companyMenuOpen ? `${accent}33` : ov(0.07, 0.06)}`,
+              cursor: 'pointer', color: companyMenuOpen ? accent : btnDim,
+              transition: 'all 0.18s ease',
+              fontFamily: "'DM Sans', sans-serif",
+              maxWidth: 180,
+            }}
+            onMouseEnter={e => {
+              if (!companyMenuOpen) {
+                e.currentTarget.style.color = btnHover;
+                e.currentTarget.style.background = ov(0.07, 0.06);
+                e.currentTarget.style.borderColor = ov(0.12, 0.10);
+              }
+            }}
+            onMouseLeave={e => {
+              if (!companyMenuOpen) {
+                e.currentTarget.style.color = btnDim;
+                e.currentTarget.style.background = ov(0.04, 0.04);
+                e.currentTarget.style.borderColor = ov(0.07, 0.06);
+              }
+            }}
+          >
+            {activeCompanyLogo ? (
+              <LogoPill src={activeCompanyLogo} maxHeight={20} maxWidth={28} style={{ padding: 2, borderRadius: 4 }} />
+            ) : (
+              <svg width={13} height={13} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 14V4a1 1 0 011-1h4a1 1 0 011 1v10"/><path d="M8 7h5a1 1 0 011 1v6"/><path d="M2 14h12"/>
+                <path d="M4.5 5.5h1M4.5 8h1M4.5 10.5h1M10 9.5h1M10 12h1"/>
+              </svg>
+            )}
+            <span style={{
+              fontSize: 10.5, fontWeight: 500, letterSpacing: '0.02em',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {activeCompanyName}
+            </span>
+            <svg width={8} height={8} viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.6 }}>
+              <path d="M2 3l2 2 2-2"/>
+            </svg>
+          </button>
+
+          {/* Company dropdown */}
+          {companyMenuOpen && (
+            <CompanyDropdown onClose={() => setCompanyMenuOpen(false)} />
+          )}
+        </div>
 
         {/* Theme Toggle — Light / Dark */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 1, padding: 2, marginLeft: 2, borderRadius: 7, background: ov(0.03, 0.03), border: `1px solid ${ov(0.04, 0.04)}` }}>
