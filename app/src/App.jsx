@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, lazy, Suspense } from "react";
-import { Routes, Route, Navigate, useParams, NavLink, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useParams, useLocation, useNavigate } from "react-router-dom";
 import { ThemeProvider, useTheme } from "@/hooks/useTheme";
 import { usePersistenceLoad, loadEstimate } from "@/hooks/usePersistence";
 import { useAutoSave } from "@/hooks/useAutoSave";
@@ -117,7 +117,6 @@ function EstimateLoader({ children }) {
 const PROJECT_TABS = [
   { key: "info", path: "info", icon: I.settings, label: "Project Info" },
   { key: "plans", path: "plans", icon: I.plans, label: "Discovery" },
-  { key: "estimate", path: "estimate", icon: I.estimate, label: "Estimate" },
   { key: "takeoffs", path: "takeoffs", icon: I.takeoff, label: "Takeoffs" },
   { key: "alternates", path: "alternates", icon: I.change, label: "Alternates" },
   { key: "sov", path: "sov", icon: I.dollar, label: "SOV" },
@@ -131,18 +130,34 @@ function ProjectTabBar() {
   const T = C.T;
   const dk = C.isDark;
   const location = useLocation();
+  const navigate = useNavigate();
   const activeId = useEstimatesStore(s => s.activeEstimateId);
   const setupComplete = useProjectStore(s => s.project.setupComplete);
   const project = useProjectStore(s => s.project);
   const getCompanyInfo = useMasterDataStore(s => s.getCompanyInfo);
   const companyInfo = getCompanyInfo(project.companyProfileId);
   const companyInitial = (companyInfo?.name || "?")[0].toUpperCase();
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  const menuRef = React.useRef(null);
+
+  // Close on outside click
+  React.useEffect(() => {
+    if (!menuOpen) return;
+    const close = e => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [menuOpen]);
 
   // Only show on /estimate/:id/* routes
   if (!activeId || !location.pathname.startsWith("/estimate/")) return null;
 
   // Hide tab bar during document-first onboarding
   if (setupComplete === false) return null;
+
+  // Determine active tab
+  const activeTab = PROJECT_TABS.find(t => location.pathname.includes(`/${t.path}`)) || PROJECT_TABS[0];
 
   return (
     <div
@@ -155,89 +170,170 @@ function ProjectTabBar() {
         minHeight: 40,
         background: C.bg,
         borderBottom: `1px solid ${C.border}`,
-        overflowX: "auto",
         fontFamily: "'DM Sans', sans-serif",
       }}
     >
       {/* Project indicator — company logo + project name */}
-      <div style={{
-        display: "flex", alignItems: "center", gap: 8,
-        paddingRight: 12, marginRight: 8,
-        borderRight: `1px solid ${C.border}`,
-        flexShrink: 0,
-      }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          paddingRight: 12,
+          marginRight: 8,
+          borderRight: `1px solid ${C.border}`,
+          flexShrink: 0,
+        }}
+      >
         {companyInfo?.logo ? (
-          <div style={{
-            display: "inline-flex", alignItems: "center", justifyContent: "center",
-            width: 26, height: 26, borderRadius: 6, flexShrink: 0,
-            background: dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.03)",
-            border: dk ? "1px solid rgba(255,255,255,0.10)" : "1px solid rgba(0,0,0,0.04)",
-            overflow: "hidden",
-          }}>
-            <img src={companyInfo.logo} alt="" style={{
-              maxHeight: 20, maxWidth: 20, objectFit: "contain",
-            }} />
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 26,
+              height: 26,
+              borderRadius: 6,
+              flexShrink: 0,
+              background: dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.03)",
+              border: dk ? "1px solid rgba(255,255,255,0.10)" : "1px solid rgba(0,0,0,0.04)",
+              overflow: "hidden",
+            }}
+          >
+            <img
+              src={companyInfo.logo}
+              alt=""
+              style={{
+                maxHeight: 20,
+                maxWidth: 20,
+                objectFit: "contain",
+              }}
+            />
           </div>
         ) : (
-          <div style={{
-            width: 26, height: 26, borderRadius: 6,
-            background: `${C.accent}18`,
-            border: `1px solid ${C.accent}30`,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 11, fontWeight: 700, color: C.accent,
-            flexShrink: 0,
-          }}>
+          <div
+            style={{
+              width: 26,
+              height: 26,
+              borderRadius: 6,
+              background: `${C.accent}18`,
+              border: `1px solid ${C.accent}30`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 11,
+              fontWeight: 700,
+              color: C.accent,
+              flexShrink: 0,
+            }}
+          >
             {companyInitial}
           </div>
         )}
-        <span style={{
-          fontSize: 11, fontWeight: 600, color: C.text,
-          maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-        }}>
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            color: C.text,
+            maxWidth: 160,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
           {project.name || "Untitled"}
         </span>
       </div>
 
-      {PROJECT_TABS.map(tab => (
-        <NavLink
-          key={tab.key}
-          to={`/estimate/${activeId}/${tab.path}`}
-          style={({ isActive }) => ({
+      {/* Collapsible menu button */}
+      <div ref={menuRef} style={{ position: "relative" }}>
+        <button
+          onClick={() => setMenuOpen(v => !v)}
+          style={{
             display: "flex",
             alignItems: "center",
             gap: 6,
-            padding: "6px 12px",
+            padding: "5px 10px",
             borderRadius: T.radius.sm,
             fontSize: T.fontSize.sm,
-            fontWeight: isActive ? T.fontWeight.bold : T.fontWeight.medium,
-            color: isActive ? C.accent : C.textMuted,
-            background: isActive ? C.accentBg : "transparent",
-            textDecoration: "none",
+            fontWeight: T.fontWeight.bold,
+            color: C.accent,
+            background: menuOpen ? C.accentBg : "transparent",
+            border: `1px solid ${menuOpen ? C.accent + "30" : "transparent"}`,
+            cursor: "pointer",
             whiteSpace: "nowrap",
             transition: T.transition.fast,
-            cursor: "pointer",
-            border: isActive ? `1px solid ${C.accent}30` : "1px solid transparent",
-          })}
-          onMouseEnter={e => {
-            const isActive = e.currentTarget.getAttribute("aria-current") === "page";
-            if (!isActive) {
-              e.currentTarget.style.background = C.bg2 || C.accentBg;
-              e.currentTarget.style.color = C.text;
-            }
+            fontFamily: "'DM Sans', sans-serif",
           }}
-          onMouseLeave={e => {
-            const isActive = e.currentTarget.getAttribute("aria-current") === "page";
-            if (!isActive) {
-              e.currentTarget.style.background = "transparent";
-              e.currentTarget.style.color = C.textMuted;
-            }
-          }}
+          onMouseEnter={e => { if (!menuOpen) e.currentTarget.style.background = C.bg2; }}
+          onMouseLeave={e => { if (!menuOpen) e.currentTarget.style.background = "transparent"; }}
         >
-          <Ic d={tab.icon} size={14} />
-          {tab.label}
-        </NavLink>
-      ))}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
+          <Ic d={activeTab.icon} size={13} />
+          {activeTab.label}
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: -2 }}>
+            <polyline points={menuOpen ? "18 15 12 9 6 15" : "6 9 12 15 18 9"} />
+          </svg>
+        </button>
+
+        {/* Dropdown */}
+        {menuOpen && (
+          <div
+            style={{
+              position: "absolute",
+              top: "calc(100% + 4px)",
+              left: 0,
+              minWidth: 180,
+              background: C.bg1,
+              border: `1px solid ${C.border}`,
+              borderRadius: 8,
+              boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
+              zIndex: 500,
+              padding: "4px 0",
+              animation: "fadeIn 0.12s ease-out",
+            }}
+          >
+            {PROJECT_TABS.map(tab => {
+              const isActive = tab.key === activeTab.key;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => {
+                    navigate(`/estimate/${activeId}/${tab.path}`);
+                    setMenuOpen(false);
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    width: "100%",
+                    padding: "8px 14px",
+                    border: "none",
+                    background: isActive ? C.accentBg : "transparent",
+                    color: isActive ? C.accent : C.text,
+                    fontSize: 12,
+                    fontWeight: isActive ? 700 : 500,
+                    fontFamily: "'DM Sans', sans-serif",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    transition: "background 0.1s",
+                    borderLeft: isActive ? `3px solid ${C.accent}` : "3px solid transparent",
+                  }}
+                  onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = C.bg2; }}
+                  onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = isActive ? C.accentBg : "transparent"; }}
+                >
+                  <Ic d={tab.icon} size={14} color={isActive ? C.accent : C.textMuted} />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -266,7 +362,7 @@ function AppContent() {
 
   return (
     <div
-      className="app-shell"
+      className={`app-shell${C.neroMode ? " nero-nemesis" : ""}`}
       style={{
         display: "flex",
         flexDirection: "column",
@@ -354,14 +450,8 @@ function AppContent() {
                     </EstimateLoader>
                   }
                 />
-                <Route
-                  path="/estimate/:id/estimate"
-                  element={
-                    <EstimateLoader>
-                      <EstimatePage />
-                    </EstimateLoader>
-                  }
-                />
+                {/* Redirect old /estimate route to /takeoffs (estimate panel is now embedded in takeoffs full-tier) */}
+                <Route path="/estimate/:id/estimate" element={<Navigate to="../takeoffs" replace />} />
                 <Route
                   path="/estimate/:id/alternates"
                   element={
