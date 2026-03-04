@@ -3619,6 +3619,88 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
   // ─── RENDER ─────────────────────────
   return (
     <div style={{ display: "flex", gap: 0, height: "calc(100vh - 120px)", position: "relative" }}>
+      {/* ── Fixed panel-mode button — cycles: closed → open → split → estimate ── */}
+      {(() => {
+        const modes = [
+          { id: "closed",   w: 0,   bars: 0, label: "Closed" },
+          { id: "standard", w: 550, bars: 2, label: "Takeoffs" },
+          { id: "full",     w: 900, bars: 3, label: "Split" },
+          { id: "estimate", w: 0,   bars: 4, label: "Estimate" },
+        ];
+        let curId;
+        if (tkPanelTier === "estimate") curId = "estimate";
+        else if (!tkPanelOpen) curId = "closed";
+        else if (tkPanelTier === "full") curId = "full";
+        else curId = "standard";
+        const idx = modes.findIndex(m => m.id === curId);
+        const current = modes[idx >= 0 ? idx : 0];
+        const next = modes[(idx + 1) % modes.length];
+        return (
+          <button
+            className="icon-btn"
+            title={`${current.label} → ${next.label}`}
+            onClick={() => {
+              if (next.id === "closed") {
+                setTkPanelOpen(false);
+                setTkPanelTier("standard");
+                sessionStorage.setItem("bldg-tkPanelTier", "standard");
+                sessionStorage.setItem("bldg-tkPanelWidth", "550");
+              } else if (next.id === "estimate") {
+                setTkPanelOpen(false);
+                setTkPanelTier("estimate");
+                sessionStorage.setItem("bldg-tkPanelTier", "estimate");
+                sessionStorage.setItem("bldg-tkPanelWidth", "0");
+              } else {
+                setTkPanelOpen(true);
+                setTkPanelWidth(next.w);
+                setTkPanelTier(next.id);
+                sessionStorage.setItem("bldg-tkPanelTier", next.id);
+                sessionStorage.setItem("bldg-tkPanelWidth", String(next.w));
+              }
+            }}
+            style={{
+              position: "absolute",
+              top: 8,
+              left: 8,
+              zIndex: 40,
+              width: 30,
+              height: 28,
+              border: `1px solid ${current.bars > 0 ? C.accent + "60" : C.border}`,
+              background: current.bars > 0 ? C.accent + "18" : C.bg2,
+              borderRadius: 5,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 1.5,
+              padding: 0,
+              boxShadow: `0 1px 4px ${C.isDark ? "rgba(0,0,0,0.5)" : "rgba(0,0,0,0.12)"}`,
+              transition: "all 0.15s",
+            }}
+          >
+            {current.bars === 0 ? (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="7" height="18" rx="1" />
+                <path d="M14 3h7M14 9h7M14 15h5" />
+              </svg>
+            ) : (
+              Array.from({ length: current.bars }).map((_, i) => (
+                <div key={i} style={{ width: 3, height: 10, borderRadius: 1, background: C.accent, transition: "background 0.15s" }} />
+              ))
+            )}
+            {takeoffs.length > 0 && curId === "closed" && (
+              <span style={{
+                position: "absolute", top: -4, right: -4, minWidth: 14, height: 14, borderRadius: 7,
+                background: C.accent, color: "#fff", fontSize: 8, fontWeight: 700,
+                display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px", lineHeight: 1,
+              }}>
+                {takeoffs.length}
+              </span>
+            )}
+          </button>
+        );
+      })()}
+
       {/* LEFT PANEL — Takeoffs drawer (overlay, hidden in estimate mode) */}
       {tkPanelOpen && tkPanelTier !== "estimate" && (
         <div
@@ -6111,155 +6193,6 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
         <div style={{ borderBottom: `1px solid ${C.border}` }}>
           {/* Toolbar: Drawing nav + zoom + scale + tools */}
           <div style={{ padding: "6px 10px", display: "flex", gap: 6, alignItems: "center", overflow: "hidden" }}>
-            {/* Panel toggle + mode selector */}
-            <button
-              className="icon-btn"
-              onClick={() => {
-                if (tkPanelTier === "estimate") {
-                  // Switch back to standard mode and open panel
-                  setTkPanelTier("standard");
-                  setTkPanelWidth(550);
-                  setTkPanelOpen(true);
-                  sessionStorage.setItem("bldg-tkPanelTier", "standard");
-                  sessionStorage.setItem("bldg-tkPanelWidth", "550");
-                } else {
-                  setTkPanelOpen(v => !v);
-                }
-              }}
-              onContextMenu={e => {
-                e.preventDefault();
-                const next = { auto: "open", open: "closed", closed: "auto" };
-                const nv = next[tkPanelMode];
-                setTkPanelMode(nv);
-                if (nv === "open") setTkPanelOpen(true);
-                else if (nv === "closed") setTkPanelOpen(false);
-                showToast(
-                  `Panel: ${nv === "auto" ? "Auto (hide when measuring)" : nv === "open" ? "Always open" : "Always closed"}`,
-                );
-              }}
-              title={`${tkPanelOpen ? "Hide" : "Show"} panel · Right-click: ${tkPanelMode === "auto" ? "Auto mode" : tkPanelMode === "open" ? "Always open" : "Always closed"}`}
-              style={{
-                width: 26,
-                height: 26,
-                border: `1px solid ${tkPanelOpen ? C.accent + "60" : C.border}`,
-                background: tkPanelOpen ? C.accent + "12" : C.bg2,
-                color: tkPanelOpen ? C.accent : C.textMuted,
-                borderRadius: 4,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                flexShrink: 0,
-                position: "relative",
-              }}
-            >
-              <svg
-                width="13"
-                height="13"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke={tkPanelOpen ? C.accent : C.textMuted}
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect x="3" y="3" width="7" height="18" rx="1" />
-                <path d="M14 3h7M14 9h7M14 15h5" />
-              </svg>
-              {takeoffs.length > 0 && !tkPanelOpen && (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: -4,
-                    right: -4,
-                    minWidth: 14,
-                    height: 14,
-                    borderRadius: 7,
-                    background: C.accent,
-                    color: "#fff",
-                    fontSize: 8,
-                    fontWeight: 700,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: "0 3px",
-                    lineHeight: 1,
-                  }}
-                >
-                  {takeoffs.length}
-                </span>
-              )}
-              {tkPanelMode !== "auto" && (
-                <span
-                  style={{
-                    position: "absolute",
-                    bottom: -3,
-                    right: -3,
-                    width: 8,
-                    height: 8,
-                    borderRadius: "50%",
-                    background: tkPanelMode === "open" ? C.green : C.orange,
-                    border: `1px solid ${C.bg1}`,
-                  }}
-                />
-              )}
-            </button>
-            {/* ── Panel mode cycle button (fixed position in canvas toolbar) ── */}
-            {(() => {
-              const tiers = [
-                { tier: "compact", w: 350, label: "Compact", bars: 1 },
-                { tier: "standard", w: 550, label: "Standard", bars: 2 },
-                { tier: "full", w: 900, label: "Split", bars: 3 },
-                { tier: "estimate", w: 0, label: "Estimate", bars: 4 },
-              ];
-              const idx = tiers.findIndex(t => t.tier === tkPanelTier);
-              const current = tiers[idx >= 0 ? idx : 0];
-              const next = tiers[(idx + 1) % tiers.length];
-              return (
-                <button
-                  title={`${current.label} → click for ${next.label}`}
-                  onClick={() => {
-                    if (next.tier === "estimate") {
-                      setTkPanelOpen(false);
-                    } else {
-                      setTkPanelOpen(true);
-                      setTkPanelWidth(next.w);
-                    }
-                    setTkPanelTier(next.tier);
-                    sessionStorage.setItem("bldg-tkPanelWidth", next.tier === "estimate" ? "0" : String(next.w));
-                    sessionStorage.setItem("bldg-tkPanelTier", next.tier);
-                  }}
-                  style={{
-                    width: 28,
-                    height: 26,
-                    border: `1px solid ${C.border}`,
-                    background: tkPanelTier === "estimate" ? C.accent + "20" : C.bg2,
-                    borderRadius: 4,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 1.5,
-                    padding: 0,
-                    flexShrink: 0,
-                    transition: "background 0.15s",
-                  }}
-                >
-                  {Array.from({ length: current.bars }).map((_, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        width: 3,
-                        height: 10,
-                        borderRadius: 1,
-                        background: C.accent,
-                        transition: "background 0.15s",
-                      }}
-                    />
-                  ))}
-                </button>
-              );
-            })()}
             {/* Drawing controls — hidden in estimate mode */}
             {tkPanelTier !== "estimate" && (<>
             <button
