@@ -3619,85 +3619,99 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
   // ─── RENDER ─────────────────────────
   return (
     <div style={{ display: "flex", gap: 0, height: "calc(100vh - 120px)", position: "relative" }}>
-      {/* ── Fixed panel-mode button — cycles: closed → open → split → estimate ── */}
-      {(() => {
+      {/* ── Floating controls — visible when panel is closed or in estimate mode ── */}
+      {!tkPanelOpen && (() => {
         const modes = [
           { id: "closed",   w: 0,   bars: 0, label: "Closed" },
           { id: "standard", w: 550, bars: 2, label: "Takeoffs" },
           { id: "full",     w: 900, bars: 3, label: "Split" },
           { id: "estimate", w: 0,   bars: 4, label: "Estimate" },
         ];
-        let curId;
-        if (tkPanelTier === "estimate") curId = "estimate";
-        else if (!tkPanelOpen) curId = "closed";
-        else if (tkPanelTier === "full") curId = "full";
-        else curId = "standard";
+        const curId = tkPanelTier === "estimate" ? "estimate" : "closed";
         const idx = modes.findIndex(m => m.id === curId);
         const current = modes[idx >= 0 ? idx : 0];
         const next = modes[(idx + 1) % modes.length];
         return (
-          <button
-            className="icon-btn"
-            title={`${current.label} → ${next.label}`}
-            onClick={() => {
-              if (next.id === "closed") {
-                setTkPanelOpen(false);
-                setTkPanelTier("standard");
-                sessionStorage.setItem("bldg-tkPanelTier", "standard");
-                sessionStorage.setItem("bldg-tkPanelWidth", "550");
-              } else if (next.id === "estimate") {
-                setTkPanelOpen(false);
-                setTkPanelTier("estimate");
-                sessionStorage.setItem("bldg-tkPanelTier", "estimate");
-                sessionStorage.setItem("bldg-tkPanelWidth", "0");
-              } else {
-                setTkPanelOpen(true);
-                setTkPanelWidth(next.w);
-                setTkPanelTier(next.id);
-                sessionStorage.setItem("bldg-tkPanelTier", next.id);
-                sessionStorage.setItem("bldg-tkPanelWidth", String(next.w));
-              }
-            }}
-            style={{
-              position: "absolute",
-              top: 8,
-              left: 8,
-              zIndex: 40,
-              width: 30,
-              height: 28,
-              border: `1px solid ${current.bars > 0 ? C.accent + "60" : C.border}`,
-              background: current.bars > 0 ? C.accent + "18" : C.bg2,
-              borderRadius: 5,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 1.5,
-              padding: 0,
-              boxShadow: `0 1px 4px ${C.isDark ? "rgba(0,0,0,0.5)" : "rgba(0,0,0,0.12)"}`,
-              transition: "all 0.15s",
-            }}
-          >
-            {current.bars === 0 ? (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="7" height="18" rx="1" />
-                <path d="M14 3h7M14 9h7M14 15h5" />
-              </svg>
-            ) : (
-              Array.from({ length: current.bars }).map((_, i) => (
-                <div key={i} style={{ width: 3, height: 10, borderRadius: 1, background: C.accent, transition: "background 0.15s" }} />
-              ))
+          <div style={{
+            position: "absolute", top: 8, left: 8, zIndex: 40,
+            display: "flex", gap: 4, alignItems: "center",
+            background: C.bg1, border: `1px solid ${C.border}`,
+            borderRadius: 6, padding: "3px 4px",
+            boxShadow: `0 2px 8px ${C.isDark ? "rgba(0,0,0,0.5)" : "rgba(0,0,0,0.12)"}`,
+          }}>
+            {/* Mode button */}
+            <button
+              className="icon-btn"
+              title={`${current.label} → ${next.label}`}
+              onClick={() => {
+                if (next.id === "closed") {
+                  setTkPanelOpen(false);
+                  setTkPanelTier("standard");
+                  sessionStorage.setItem("bldg-tkPanelTier", "standard");
+                  sessionStorage.setItem("bldg-tkPanelWidth", "550");
+                } else if (next.id === "estimate") {
+                  setTkPanelOpen(false);
+                  setTkPanelTier("estimate");
+                  sessionStorage.setItem("bldg-tkPanelTier", "estimate");
+                  sessionStorage.setItem("bldg-tkPanelWidth", "0");
+                } else {
+                  setTkPanelOpen(true);
+                  setTkPanelWidth(next.w);
+                  setTkPanelTier(next.id);
+                  sessionStorage.setItem("bldg-tkPanelTier", next.id);
+                  sessionStorage.setItem("bldg-tkPanelWidth", String(next.w));
+                }
+              }}
+              style={{
+                width: 28, height: 26,
+                border: `1px solid ${current.bars > 0 ? C.accent + "60" : C.border}`,
+                background: current.bars > 0 ? C.accent + "18" : C.bg2,
+                borderRadius: 4, cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                gap: 1.5, padding: 0, position: "relative",
+                transition: "all 0.15s",
+              }}
+            >
+              {current.bars === 0 ? (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="7" height="18" rx="1" />
+                  <path d="M14 3h7M14 9h7M14 15h5" />
+                </svg>
+              ) : (
+                Array.from({ length: current.bars }).map((_, i) => (
+                  <div key={i} style={{ width: 3, height: 10, borderRadius: 1, background: C.accent, transition: "background 0.15s" }} />
+                ))
+              )}
+              {takeoffs.length > 0 && curId === "closed" && (
+                <span style={{
+                  position: "absolute", top: -4, right: -4, minWidth: 14, height: 14, borderRadius: 7,
+                  background: C.accent, color: "#fff", fontSize: 8, fontWeight: 700,
+                  display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px", lineHeight: 1,
+                }}>
+                  {takeoffs.length}
+                </span>
+              )}
+            </button>
+            {/* NOVA orb (when panel closed) */}
+            {tkPanelTier !== "estimate" && selectedDrawing && (
+              <div style={{ position: "relative", flexShrink: 0 }}>
+                <NovaOrb size={26} onClick={() => setTkNovaPanelOpen(v => !v)} />
+                {tkPredictions?.predictions?.length > 0 && !tkNovaPanelOpen && (
+                  <span style={{
+                    position: "absolute", top: -2, right: -4,
+                    background: C.accent, color: "#fff", fontSize: 7, fontWeight: 800,
+                    padding: "1px 4px", borderRadius: 6, minWidth: 14, textAlign: "center", pointerEvents: "none",
+                  }}>
+                    {tkPredictions.predictions.filter(p => !tkPredAccepted.includes(p.id) && !tkPredRejected.includes(p.id)).length}
+                  </span>
+                )}
+              </div>
             )}
-            {takeoffs.length > 0 && curId === "closed" && (
-              <span style={{
-                position: "absolute", top: -4, right: -4, minWidth: 14, height: 14, borderRadius: 7,
-                background: C.accent, color: "#fff", fontSize: 8, fontWeight: 700,
-                display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px", lineHeight: 1,
-              }}>
-                {takeoffs.length}
-              </span>
-            )}
-          </button>
+            {/* Mode label */}
+            <span style={{ fontSize: 9, fontWeight: 600, color: C.textDim, padding: "0 2px", whiteSpace: "nowrap" }}>
+              {current.label}
+            </span>
+          </div>
         );
       })()}
 
@@ -3938,27 +3952,72 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                   )}
                 </button>
               )}
-              <button
-                className="icon-btn"
-                onClick={() => setTkPanelOpen(false)}
-                title="Collapse panel"
-                style={{
-                  width: 22,
-                  height: 22,
-                  border: "none",
-                  background: C.bg2,
-                  color: C.textDim,
-                  borderRadius: 3,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                }}
-              >
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M6 1L2 5l4 4" />
-                </svg>
-              </button>
+              {/* NOVA orb — in panel header */}
+              {selectedDrawing && (
+                <div style={{ position: "relative", flexShrink: 0 }}>
+                  <NovaOrb size={24} onClick={() => setTkNovaPanelOpen(v => !v)} />
+                  {tkPredictions?.predictions?.length > 0 && !tkNovaPanelOpen && (
+                    <span style={{
+                      position: "absolute", top: -2, right: -4,
+                      background: C.accent, color: "#fff", fontSize: 7, fontWeight: 800,
+                      padding: "1px 4px", borderRadius: 6, minWidth: 14, textAlign: "center", pointerEvents: "none",
+                    }}>
+                      {tkPredictions.predictions.filter(p => !tkPredAccepted.includes(p.id) && !tkPredRejected.includes(p.id)).length}
+                    </span>
+                  )}
+                </div>
+              )}
+              {/* Mode cycling button — replaces close arrow */}
+              {(() => {
+                const modes = [
+                  { id: "standard", w: 550, bars: 2, label: "Takeoffs" },
+                  { id: "full",     w: 900, bars: 3, label: "Split" },
+                  { id: "estimate", w: 0,   bars: 4, label: "Estimate" },
+                  { id: "closed",   w: 0,   bars: 0, label: "Close" },
+                ];
+                const curId = tkPanelTier === "full" ? "full" : "standard";
+                const idx = modes.findIndex(m => m.id === curId);
+                const current = modes[idx >= 0 ? idx : 0];
+                const next = modes[(idx + 1) % modes.length];
+                return (
+                  <button
+                    className="icon-btn"
+                    title={`${current.label} → ${next.label}`}
+                    onClick={() => {
+                      if (next.id === "closed") {
+                        setTkPanelOpen(false);
+                        setTkPanelTier("standard");
+                        sessionStorage.setItem("bldg-tkPanelTier", "standard");
+                        sessionStorage.setItem("bldg-tkPanelWidth", "550");
+                      } else if (next.id === "estimate") {
+                        setTkPanelOpen(false);
+                        setTkPanelTier("estimate");
+                        sessionStorage.setItem("bldg-tkPanelTier", "estimate");
+                        sessionStorage.setItem("bldg-tkPanelWidth", "0");
+                      } else {
+                        setTkPanelOpen(true);
+                        setTkPanelWidth(next.w);
+                        setTkPanelTier(next.id);
+                        sessionStorage.setItem("bldg-tkPanelTier", next.id);
+                        sessionStorage.setItem("bldg-tkPanelWidth", String(next.w));
+                      }
+                    }}
+                    style={{
+                      width: 26, height: 24,
+                      border: `1px solid ${C.accent}50`,
+                      background: C.accent + "12",
+                      borderRadius: 4, cursor: "pointer",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      gap: 1.5, padding: 0, flexShrink: 0,
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    {Array.from({ length: current.bars }).map((_, i) => (
+                      <div key={i} style={{ width: 3, height: 10, borderRadius: 1, background: C.accent, transition: "background 0.15s" }} />
+                    ))}
+                  </button>
+                );
+              })()}
             </div>
           </div>
 
@@ -6761,41 +6820,10 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                   );
                 })()}
             </div>
-            {/* Divider + Settings gear + NOVA orb toggle */}
+            {/* Divider + Settings gear (NOVA orb moved to panel header) */}
             {selectedDrawing && (
               <>
                 <div style={{ width: 1, height: 20, background: C.border, margin: "0 2px", flexShrink: 0 }} />
-                {/* NOVA Orb — always-present panel toggle */}
-                <div
-                  style={{ position: "relative", flexShrink: 0, display: "flex", alignItems: "center" }}
-                  title="Toggle NOVA"
-                >
-                  <NovaOrb size={30} onClick={() => setTkNovaPanelOpen(v => !v)} />
-                  {tkPredictions?.predictions?.length > 0 && !tkNovaPanelOpen && (
-                    <span
-                      style={{
-                        position: "absolute",
-                        top: -2,
-                        right: -4,
-                        background: C.accent,
-                        color: "#fff",
-                        fontSize: 7,
-                        fontWeight: 800,
-                        padding: "1px 4px",
-                        borderRadius: 6,
-                        minWidth: 14,
-                        textAlign: "center",
-                        pointerEvents: "none",
-                      }}
-                    >
-                      {
-                        tkPredictions.predictions.filter(
-                          p => !tkPredAccepted.includes(p.id) && !tkPredRejected.includes(p.id),
-                        ).length
-                      }
-                    </span>
-                  )}
-                </div>
                 {/* Settings gear popover (DPI + future settings) */}
                 <div ref={settingsBtnRef} style={{ position: "relative", flexShrink: 0 }}>
                   <button

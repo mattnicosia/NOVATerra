@@ -486,8 +486,8 @@ function SubdivisionGroup({
             <td style={{ ...tdStyle(C), textAlign: "center", color: C.textDim, fontSize: 9 }}>{rowIdx + 1}</td>
             <td style={{ ...tdStyle(C), fontSize: 10, color: C.textMuted, fontWeight: 600 }}>{item.code || "—"}</td>
             <td style={{ ...tdStyle(C), fontSize: 11, color: C.text, fontWeight: 500 }}>
-              <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 280 }} title={item.name}>
-                {item.name || "Untitled"}
+              <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 280 }} title={item.description}>
+                {item.description || "Untitled"}
               </div>
             </td>
             <td style={{ ...tdStyle(C), textAlign: "right", fontFamily: "'DM Sans',sans-serif", fontFeatureSettings: "'tnum'", fontSize: 10, fontWeight: 600 }}>
