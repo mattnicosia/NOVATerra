@@ -1,25 +1,45 @@
-import { create } from 'zustand';
-import { CODE_SYSTEMS } from '@/constants/codeSystems';
-import { today } from '@/utils/format';
+import { create } from "zustand";
+import { CODE_SYSTEMS } from "@/constants/codeSystems";
+import { today } from "@/utils/format";
 
 const blankProject = () => ({
-  name: "New Estimate", client: "", architect: "", engineer: "", estimator: "",
-  address: "", date: today(), bidDue: "", bidDueTime: "", walkthroughDate: "", walkthroughTime: "",
-  rfiDueDate: "", rfiDueTime: "", otherDueDate: "", otherDueLabel: "", description: "",
-  projectSF: "", jobType: "", bidType: "", bidDelivery: "", bidRequirements: {},
-  status: "Bidding", referredByType: "", referredByName: "",
+  name: "New Estimate",
+  client: "",
+  architect: "",
+  engineer: "",
+  estimator: "",
+  address: "",
+  date: today(),
+  bidDue: "",
+  bidDueTime: "",
+  walkthroughDate: "",
+  walkthroughTime: "",
+  rfiDueDate: "",
+  rfiDueTime: "",
+  otherDueDate: "",
+  otherDueLabel: "",
+  description: "",
+  projectSF: "",
+  jobType: "",
+  bidType: "",
+  bidDelivery: "",
+  bidRequirements: {},
+  status: "Bidding",
+  referredByType: "",
+  referredByName: "",
   laborType: "open_shop",
-  zipCode: "", locationMetroId: "",
+  zipCode: "",
+  locationMetroId: "",
   companyProfileId: "",
-  estimateNumber: "",       // unique internal estimate number (required)
-  projectNumber: "",        // project/job number from title block
+  estimateNumber: "", // unique internal estimate number (required)
+  projectNumber: "", // project/job number from title block
 
   // Building parameters
-  floorCount: "",           // number of stories (above grade)
-  basementCount: "",        // number of below-grade levels
-  floors: [],               // [{ label: "Floor 1", height: 12 }, ...] per-floor detail
-  roomCounts: {},           // { bathrooms: 0, kitchens: 0, offices: 0, ... }
-  buildingFootprintSF: "",  // per-floor footprint (projectSF / floorCount approx)
+  floorCount: "", // number of stories (above grade)
+  basementCount: "", // number of below-grade levels
+  floors: [], // [{ label: "Floor 1", height: 12 }, ...] per-floor detail
+  roomCounts: {}, // { bathrooms: 0, kitchens: 0, offices: 0, ... }
+  buildingFootprintSF: "", // per-floor footprint (projectSF / floorCount approx)
 
   // Auto-detection tracking: { fieldName: true } for fields auto-filled from title blocks
   autoDetected: {},
@@ -29,10 +49,10 @@ const blankProject = () => ({
   parameterConfidence: {},
 
   // Outcome tracking
-  outcomeMetadata: {},  // { status, contractAmount, lostReason, competitor, competitorAmount, awardDate, notes }
+  outcomeMetadata: {}, // { status, contractAmount, lostReason, competitor, competitorAmount, awardDate, notes }
 
   // Setup onboarding: false = new estimate, user must upload docs or skip first
-  setupComplete: true,  // default true so existing/loaded estimates skip onboarding
+  setupComplete: true, // default true so existing/loaded estimates skip onboarding
 });
 
 export const useProjectStore = create((set, get) => ({
@@ -45,108 +65,129 @@ export const useProjectStore = create((set, get) => ({
   // Hidden standard codes per system: { "csi-commercial": { divisions: ["05", "14"], subdivisions: ["03.200", "09.300"] } }
   hiddenCodes: {},
 
-  setProject: (v) => set({ project: v }),
-  setCodeSystem: (v) => set({ codeSystem: v }),
-  setCustomCodes: (v) => set({ customCodes: v }),
-  setHiddenCodes: (v) => set({ hiddenCodes: v }),
+  setProject: v => set({ project: v }),
+  setCodeSystem: v => set({ codeSystem: v }),
+  setCustomCodes: v => set({ customCodes: v }),
+  setHiddenCodes: v => set({ hiddenCodes: v }),
 
-  updateProject: (field, value) => set(s => ({
-    project: { ...s.project, [field]: value },
-  })),
+  updateProject: (field, value) =>
+    set(s => ({
+      project: { ...s.project, [field]: value },
+    })),
 
   resetProject: () => set({ project: blankProject(), codeSystem: "csi-commercial", customCodes: {}, hiddenCodes: {} }),
 
   // ── Custom code CRUD ──────────────────────────────────────────
-  addDivision: (divCode, divName) => set(s => {
-    const sys = s.codeSystem;
-    const prev = s.customCodes[sys] || {};
-    if (prev[divCode]) return s; // already exists
-    return { customCodes: { ...s.customCodes, [sys]: { ...prev, [divCode]: { name: divName, subs: {} } } } };
-  }),
+  addDivision: (divCode, divName) =>
+    set(s => {
+      const sys = s.codeSystem;
+      const prev = s.customCodes[sys] || {};
+      if (prev[divCode]) return s; // already exists
+      return { customCodes: { ...s.customCodes, [sys]: { ...prev, [divCode]: { name: divName, subs: {} } } } };
+    }),
 
-  renameDivision: (divCode, newName) => set(s => {
-    const sys = s.codeSystem;
-    const prev = s.customCodes[sys] || {};
-    if (!prev[divCode]) return s;
-    return { customCodes: { ...s.customCodes, [sys]: { ...prev, [divCode]: { ...prev[divCode], name: newName } } } };
-  }),
+  renameDivision: (divCode, newName) =>
+    set(s => {
+      const sys = s.codeSystem;
+      const prev = s.customCodes[sys] || {};
+      if (!prev[divCode]) return s;
+      return { customCodes: { ...s.customCodes, [sys]: { ...prev, [divCode]: { ...prev[divCode], name: newName } } } };
+    }),
 
-  removeDivision: (divCode) => set(s => {
-    const sys = s.codeSystem;
-    const prev = { ...(s.customCodes[sys] || {}) };
-    delete prev[divCode];
-    return { customCodes: { ...s.customCodes, [sys]: prev } };
-  }),
+  removeDivision: divCode =>
+    set(s => {
+      const sys = s.codeSystem;
+      const prev = { ...(s.customCodes[sys] || {}) };
+      delete prev[divCode];
+      return { customCodes: { ...s.customCodes, [sys]: prev } };
+    }),
 
-  addSubdivision: (divCode, subCode, subName) => set(s => {
-    const sys = s.codeSystem;
-    const prev = s.customCodes[sys] || {};
-    // Allow adding subs to standard divisions by creating a custom overlay
-    const baseSys = CODE_SYSTEMS[sys];
-    const baseCodes = baseSys ? baseSys.codes : {};
-    const merged = get().getActiveCodes();
-    if (!merged[divCode]) return s; // division doesn't exist at all
-    if (merged[divCode]?.subs?.[subCode]) return s; // sub already exists in merged
-    const existing = prev[divCode] || { name: baseCodes[divCode]?.name || merged[divCode].name, subs: {} };
-    return {
-      customCodes: { ...s.customCodes, [sys]: {
-        ...prev, [divCode]: { ...existing, subs: { ...existing.subs, [subCode]: subName } },
-      }},
-    };
-  }),
+  addSubdivision: (divCode, subCode, subName) =>
+    set(s => {
+      const sys = s.codeSystem;
+      const prev = s.customCodes[sys] || {};
+      // Allow adding subs to standard divisions by creating a custom overlay
+      const baseSys = CODE_SYSTEMS[sys];
+      const baseCodes = baseSys ? baseSys.codes : {};
+      const merged = get().getActiveCodes();
+      if (!merged[divCode]) return s; // division doesn't exist at all
+      if (merged[divCode]?.subs?.[subCode]) return s; // sub already exists in merged
+      const existing = prev[divCode] || { name: baseCodes[divCode]?.name || merged[divCode].name, subs: {} };
+      return {
+        customCodes: {
+          ...s.customCodes,
+          [sys]: {
+            ...prev,
+            [divCode]: { ...existing, subs: { ...existing.subs, [subCode]: subName } },
+          },
+        },
+      };
+    }),
 
-  renameSubdivision: (divCode, subCode, newName) => set(s => {
-    const sys = s.codeSystem;
-    const prev = s.customCodes[sys] || {};
-    const div = prev[divCode];
-    if (!div || !div.subs[subCode]) return s;
-    return {
-      customCodes: { ...s.customCodes, [sys]: {
-        ...prev, [divCode]: { ...div, subs: { ...div.subs, [subCode]: newName } },
-      }},
-    };
-  }),
+  renameSubdivision: (divCode, subCode, newName) =>
+    set(s => {
+      const sys = s.codeSystem;
+      const prev = s.customCodes[sys] || {};
+      const div = prev[divCode];
+      if (!div || !div.subs[subCode]) return s;
+      return {
+        customCodes: {
+          ...s.customCodes,
+          [sys]: {
+            ...prev,
+            [divCode]: { ...div, subs: { ...div.subs, [subCode]: newName } },
+          },
+        },
+      };
+    }),
 
-  removeSubdivision: (divCode, subCode) => set(s => {
-    const sys = s.codeSystem;
-    const prev = s.customCodes[sys] || {};
-    const div = prev[divCode];
-    if (!div) return s;
-    const nextSubs = { ...div.subs };
-    delete nextSubs[subCode];
-    return {
-      customCodes: { ...s.customCodes, [sys]: {
-        ...prev, [divCode]: { ...div, subs: nextSubs },
-      }},
-    };
-  }),
+  removeSubdivision: (divCode, subCode) =>
+    set(s => {
+      const sys = s.codeSystem;
+      const prev = s.customCodes[sys] || {};
+      const div = prev[divCode];
+      if (!div) return s;
+      const nextSubs = { ...div.subs };
+      delete nextSubs[subCode];
+      return {
+        customCodes: {
+          ...s.customCodes,
+          [sys]: {
+            ...prev,
+            [divCode]: { ...div, subs: nextSubs },
+          },
+        },
+      };
+    }),
 
   // ── Hide/show standard codes ─────────────────────────────────
-  toggleHideDivision: (divCode) => set(s => {
-    const sys = s.codeSystem;
-    const prev = s.hiddenCodes[sys] || { divisions: [], subdivisions: [] };
-    const divs = prev.divisions.includes(divCode)
-      ? prev.divisions.filter(d => d !== divCode)
-      : [...prev.divisions, divCode];
-    return { hiddenCodes: { ...s.hiddenCodes, [sys]: { ...prev, divisions: divs } } };
-  }),
+  toggleHideDivision: divCode =>
+    set(s => {
+      const sys = s.codeSystem;
+      const prev = s.hiddenCodes[sys] || { divisions: [], subdivisions: [] };
+      const divs = prev.divisions.includes(divCode)
+        ? prev.divisions.filter(d => d !== divCode)
+        : [...prev.divisions, divCode];
+      return { hiddenCodes: { ...s.hiddenCodes, [sys]: { ...prev, divisions: divs } } };
+    }),
 
-  toggleHideSubdivision: (subCode) => set(s => {
-    const sys = s.codeSystem;
-    const prev = s.hiddenCodes[sys] || { divisions: [], subdivisions: [] };
-    const subs = prev.subdivisions.includes(subCode)
-      ? prev.subdivisions.filter(sc => sc !== subCode)
-      : [...prev.subdivisions, subCode];
-    return { hiddenCodes: { ...s.hiddenCodes, [sys]: { ...prev, subdivisions: subs } } };
-  }),
+  toggleHideSubdivision: subCode =>
+    set(s => {
+      const sys = s.codeSystem;
+      const prev = s.hiddenCodes[sys] || { divisions: [], subdivisions: [] };
+      const subs = prev.subdivisions.includes(subCode)
+        ? prev.subdivisions.filter(sc => sc !== subCode)
+        : [...prev.subdivisions, subCode];
+      return { hiddenCodes: { ...s.hiddenCodes, [sys]: { ...prev, subdivisions: subs } } };
+    }),
 
-  isDivisionHidden: (divCode) => {
+  isDivisionHidden: divCode => {
     const sys = get().codeSystem;
     const hidden = get().hiddenCodes[sys] || { divisions: [], subdivisions: [] };
     return hidden.divisions.includes(divCode);
   },
 
-  isSubdivisionHidden: (subCode) => {
+  isSubdivisionHidden: subCode => {
     const sys = get().codeSystem;
     const hidden = get().hiddenCodes[sys] || { divisions: [], subdivisions: [] };
     return hidden.subdivisions.includes(subCode);
@@ -193,23 +234,24 @@ export const useProjectStore = create((set, get) => ({
     return Object.entries(codes).map(([k, v]) => `${k} - ${v.name}`);
   },
 
-  divFromCode: (code) => {
+  divFromCode: code => {
     if (!code) return "";
     const dc = code.split(".")[0];
     const codes = get().getActiveCodes();
     return codes[dc] ? `${dc} - ${codes[dc].name}` : dc;
   },
 
-  subFromCode: (code) => {
+  subFromCode: code => {
     if (!code) return "";
     const parts = code.split(".");
-    const dc = parts[0], sk = `${parts[0]}.${parts[1]}`;
+    const dc = parts[0],
+      sk = `${parts[0]}.${parts[1]}`;
     const codes = get().getActiveCodes();
     return codes[dc]?.subs?.[sk] || sk;
   },
 
   // Check if a division code belongs to custom codes (for delete/edit permissions)
-  isCustomDivision: (divCode) => {
+  isCustomDivision: divCode => {
     const sys = get().codeSystem;
     return !!(get().customCodes[sys] || {})[divCode];
   },
@@ -218,6 +260,6 @@ export const useProjectStore = create((set, get) => ({
   isCustomSubdivision: (divCode, subCode) => {
     const sys = get().codeSystem;
     const custom = get().customCodes[sys] || {};
-    return !!(custom[divCode]?.subs?.[subCode]);
+    return !!custom[divCode]?.subs?.[subCode];
   },
 }));

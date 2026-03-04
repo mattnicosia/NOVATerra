@@ -1,15 +1,15 @@
-import { useEffect, useRef } from 'react';
-import { storage } from '@/utils/storage';
-import { useAuthStore } from '@/stores/authStore';
-import { useUiStore } from '@/stores/uiStore';
-import { useEstimatesStore } from '@/stores/estimatesStore';
-import { useMasterDataStore } from '@/stores/masterDataStore';
-import { useDatabaseStore } from '@/stores/databaseStore';
-import { useCalendarStore } from '@/stores/calendarStore';
-import { resetAllStores } from '@/hooks/usePersistence';
-import * as cloudSync from '@/utils/cloudSync';
-import { idbKey } from '@/utils/idbKey';
-import { useOrgStore } from '@/stores/orgStore';
+import { useEffect, useRef } from "react";
+import { storage } from "@/utils/storage";
+import { useAuthStore } from "@/stores/authStore";
+import { useUiStore } from "@/stores/uiStore";
+import { useEstimatesStore } from "@/stores/estimatesStore";
+import { useMasterDataStore } from "@/stores/masterDataStore";
+import { useDatabaseStore } from "@/stores/databaseStore";
+import { useCalendarStore } from "@/stores/calendarStore";
+import { resetAllStores } from "@/hooks/usePersistence";
+import * as cloudSync from "@/utils/cloudSync";
+import { idbKey } from "@/utils/idbKey";
+import { useOrgStore } from "@/stores/orgStore";
 
 /**
  * Bidirectional cloud sync on every app startup.
@@ -36,71 +36,70 @@ export async function retryCloudSync() {
 }
 
 async function runCloudSync() {
-  console.log('[cloudSync] Starting bidirectional sync...');
-  useUiStore.getState().setCloudSyncStatus('syncing');
+  console.log("[cloudSync] Starting bidirectional sync...");
+  useUiStore.getState().setCloudSyncStatus("syncing");
 
-  // Guard: detect user switch without sign-out (e.g. session expired, different user signs in)
+  // User-switch detection now runs in usePersistenceLoad BEFORE data loads.
+  // This is a safety-net in case persistence didn't catch it.
   const currentUserId = useAuthStore.getState().user?.id;
   if (currentUserId) {
-    // bldg-last-user is intentionally NOT org-scoped — it tracks user identity
-    const lastUserRaw = await storage.get('bldg-last-user');
+    const lastUserRaw = await storage.get("bldg-last-user");
     const lastUserId = lastUserRaw?.value || null;
     if (lastUserId && lastUserId !== currentUserId) {
-      console.log('[cloudSync] User switch detected — clearing local data for clean pull');
+      console.log("[cloudSync] User switch detected (safety net) — clearing local data");
       resetAllStores();
       await storage.clearAll();
+      await storage.set("bldg-last-user", currentUserId);
     }
-    await storage.set('bldg-last-user', currentUserId);
   }
 
   let failures = 0;
   const trySync = async (label, fn) => {
-    try { await fn(); }
-    catch (err) {
+    try {
+      await fn();
+    } catch (err) {
       failures++;
       console.warn(`[cloudSync] ${label} failed:`, err.message || err);
     }
   };
 
-  await trySync('Master data', syncMasterData);
-  await trySync('Estimates', syncEstimates);
-  await trySync('Settings', syncSettings);
-  await trySync('Assemblies', syncAssemblies);
-  await trySync('Calendar', syncCalendar);
+  await trySync("Master data", syncMasterData);
+  await trySync("Estimates", syncEstimates);
+  await trySync("Settings", syncSettings);
+  await trySync("Assemblies", syncAssemblies);
+  await trySync("Calendar", syncCalendar);
 
   // CRITICAL: If a user-switch wipe occurred above, resetAllStores() set
   // persistenceLoaded = false. The sync just pulled fresh data from cloud,
   // so we must restore persistenceLoaded so auto-save and EstimateLoader work.
   if (!useUiStore.getState().persistenceLoaded) {
     useUiStore.getState().setPersistenceLoaded(true);
-    console.log('[cloudSync] Restored persistenceLoaded after user-switch recovery');
+    console.log("[cloudSync] Restored persistenceLoaded after user-switch recovery");
   }
 
   if (failures === 0) {
-    useUiStore.getState().setCloudSyncStatus('synced');
-    useUiStore.getState().setCloudSyncLastAt(
-      new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
-    );
-    console.log('[cloudSync] Bidirectional sync complete.');
+    useUiStore.getState().setCloudSyncStatus("synced");
+    useUiStore
+      .getState()
+      .setCloudSyncLastAt(new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }));
+    console.log("[cloudSync] Bidirectional sync complete.");
   } else if (failures < 5) {
     // Partial success — mark synced with warning logged
-    useUiStore.getState().setCloudSyncStatus('synced');
-    useUiStore.getState().setCloudSyncLastAt(
-      new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
-    );
+    useUiStore.getState().setCloudSyncStatus("synced");
+    useUiStore
+      .getState()
+      .setCloudSyncLastAt(new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }));
     console.warn(`[cloudSync] Completed with ${failures} partial failure(s).`);
   } else {
     // All 4 sub-syncs failed — mark error
-    console.error('[cloudSync] All sync operations failed.');
-    useUiStore.getState().setCloudSyncStatus('error');
+    console.error("[cloudSync] All sync operations failed.");
+    useUiStore.getState().setCloudSyncStatus("error");
   }
 
   // One-time background migration: re-push estimates with blobs so they
   // get uploaded to Supabase Storage. Estimates created before the blob
   // sync feature were pushed with blobs stripped and never uploaded.
-  runBlobMigration().catch(err =>
-    console.warn('[cloudSync] Blob migration failed:', err)
-  );
+  runBlobMigration().catch(err => console.warn("[cloudSync] Blob migration failed:", err));
 }
 
 export function useCloudSync() {
@@ -120,26 +119,29 @@ export function useCloudSync() {
 // ─── Master Data Sync ──────────────────────────────────────────────
 
 async function syncMasterData() {
-  const cloudResult = await cloudSync.pullDataWithMeta('master');
-  const localRaw = await storage.get(idbKey('bldg-master'));
+  const cloudResult = await cloudSync.pullDataWithMeta("master");
+  const localRaw = await storage.get(idbKey("bldg-master"));
   let localMaster = null;
-  try { localMaster = localRaw ? JSON.parse(localRaw.value) : null; }
-  catch { localMaster = null; } // Corrupted → treat as missing, cloud will restore
+  try {
+    localMaster = localRaw ? JSON.parse(localRaw.value) : null;
+  } catch {
+    localMaster = null;
+  } // Corrupted → treat as missing, cloud will restore
 
   if (!localMaster && !cloudResult) return; // nothing anywhere
 
   if (localMaster && !cloudResult) {
     // Local only → push to cloud
-    console.log('[cloudSync] Master: local only → pushing to cloud');
-    await cloudSync.pushData('master', localMaster);
+    console.log("[cloudSync] Master: local only → pushing to cloud");
+    await cloudSync.pushData("master", localMaster);
     return;
   }
 
   if (!localMaster && cloudResult) {
     // Cloud only → pull to local
-    console.log('[cloudSync] Master: cloud only → pulling to local');
+    console.log("[cloudSync] Master: cloud only → pulling to local");
     applyMasterData(cloudResult.data);
-    await storage.set(idbKey('bldg-master'), JSON.stringify(cloudResult.data));
+    await storage.set(idbKey("bldg-master"), JSON.stringify(cloudResult.data));
     return;
   }
 
@@ -149,11 +151,11 @@ async function syncMasterData() {
 
   // Apply merged data locally
   applyMasterData(merged);
-  await storage.set(idbKey('bldg-master'), JSON.stringify(merged));
+  await storage.set(idbKey("bldg-master"), JSON.stringify(merged));
 
   // Push merged data to cloud so the other device gets it
-  await cloudSync.pushData('master', merged);
-  console.log('[cloudSync] Master: merged and pushed');
+  await cloudSync.pushData("master", merged);
+  console.log("[cloudSync] Master: merged and pushed");
 }
 
 /**
@@ -176,7 +178,7 @@ function mergeMasterData(local, cloud) {
   merged.companyProfiles = Array.from(profileMap.values());
 
   // Merge contact categories — union by id
-  for (const cat of ['clients', 'architects', 'engineers', 'estimators', 'subcontractors']) {
+  for (const cat of ["clients", "architects", "engineers", "estimators", "subcontractors"]) {
     const localItems = local[cat] || [];
     const cloudItems = cloud[cat] || [];
     const itemMap = new Map();
@@ -212,23 +214,42 @@ function applyMasterData(data) {
 
 async function syncEstimates() {
   // Get local index
-  const idxRaw = await storage.get(idbKey('bldg-index'));
+  const idxRaw = await storage.get(idbKey("bldg-index"));
   let localIndex = [];
-  try { localIndex = idxRaw ? JSON.parse(idxRaw.value) : []; }
-  catch { localIndex = []; } // Corrupted → treat as empty
+  try {
+    localIndex = idxRaw ? JSON.parse(idxRaw.value) : [];
+  } catch {
+    localIndex = [];
+  } // Corrupted → treat as empty
   const localIndexMap = new Map(localIndex.map(e => [e.id, e]));
 
-  // Get locally-deleted IDs — these must NOT be pulled back from cloud
-  const deletedRaw = await storage.get(idbKey('bldg-deleted-ids'));
+  // Get locally-deleted IDs — merge IndexedDB + localStorage backup
+  const deletedRaw = await storage.get(idbKey("bldg-deleted-ids"));
   let deletedIds = [];
-  try { deletedIds = deletedRaw ? JSON.parse(deletedRaw.value) : []; }
-  catch { deletedIds = []; }
+  try {
+    deletedIds = deletedRaw ? JSON.parse(deletedRaw.value) : [];
+  } catch {
+    deletedIds = [];
+  }
+  // Merge localStorage backup (survives IndexedDB clears)
+  try {
+    const userId = useAuthStore.getState().user?.id;
+    const lsKey = `bldg-deleted-ids-${userId || "anon"}`;
+    const lsRaw = localStorage.getItem(lsKey);
+    if (lsRaw) {
+      const lsIds = JSON.parse(lsRaw);
+      for (const id of lsIds) {
+        if (!deletedIds.includes(id)) deletedIds.push(id);
+      }
+    }
+  } catch {
+    /* ignore */
+  }
   const deletedSet = new Set(deletedIds);
 
   // Get cloud index
-  const cloudIndexResult = await cloudSync.pullDataWithMeta('index');
-  const cloudIndex = (cloudIndexResult?.data && Array.isArray(cloudIndexResult.data))
-    ? cloudIndexResult.data : [];
+  const cloudIndexResult = await cloudSync.pullDataWithMeta("index");
+  const cloudIndex = cloudIndexResult?.data && Array.isArray(cloudIndexResult.data) ? cloudIndexResult.data : [];
   const cloudIndexMap = new Map(cloudIndex.map(e => [e.id, e]));
 
   // Get all cloud estimates with metadata
@@ -253,7 +274,15 @@ async function syncEstimates() {
   }
   // Update deleted IDs list (remove successfully deleted ones)
   if (cleanedDeletedIds.length !== deletedIds.length) {
-    await storage.set(idbKey('bldg-deleted-ids'), JSON.stringify(cleanedDeletedIds));
+    await storage.set(idbKey("bldg-deleted-ids"), JSON.stringify(cleanedDeletedIds));
+    // Also update localStorage backup
+    try {
+      const userId = useAuthStore.getState().user?.id;
+      const lsKey = `bldg-deleted-ids-${userId || "anon"}`;
+      localStorage.setItem(lsKey, JSON.stringify(cleanedDeletedIds));
+    } catch {
+      /* ignore */
+    }
   }
   // Rebuild deleted set from cleaned list (original deletedSet is stale after retry loop)
   const activeDeletedSet = new Set(cleanedDeletedIds);
@@ -284,8 +313,11 @@ async function syncEstimates() {
       const estRaw = await storage.get(idbKey(`bldg-est-${entry.id}`));
       if (estRaw) {
         let estData;
-        try { estData = JSON.parse(estRaw.value); }
-        catch { continue; } // Skip corrupted estimate
+        try {
+          estData = JSON.parse(estRaw.value);
+        } catch {
+          continue;
+        } // Skip corrupted estimate
         await cloudSync.pushEstimate(entry.id, estData);
       }
       changed = true;
@@ -295,10 +327,10 @@ async function syncEstimates() {
   if (changed) {
     // Update local index in store and IndexedDB
     useEstimatesStore.getState().setEstimatesIndex(localIndex);
-    await storage.set(idbKey('bldg-index'), JSON.stringify(localIndex));
+    await storage.set(idbKey("bldg-index"), JSON.stringify(localIndex));
 
     // Push merged index to cloud (excluding deleted)
-    await cloudSync.pushData('index', localIndex);
+    await cloudSync.pushData("index", localIndex);
     console.log(`[cloudSync] Estimates: synced, ${localIndex.length} total estimates`);
   }
 }
@@ -306,14 +338,17 @@ async function syncEstimates() {
 // ─── Settings Sync ─────────────────────────────────────────────────
 
 async function syncSettings() {
-  const cloudResult = await cloudSync.pullDataWithMeta('settings');
-  const localRaw = await storage.get(idbKey('bldg-settings'));
+  const cloudResult = await cloudSync.pullDataWithMeta("settings");
+  const localRaw = await storage.get(idbKey("bldg-settings"));
   let localSettings = null;
-  try { localSettings = localRaw ? JSON.parse(localRaw.value) : null; }
-  catch { localSettings = null; }
+  try {
+    localSettings = localRaw ? JSON.parse(localRaw.value) : null;
+  } catch {
+    localSettings = null;
+  }
 
   if (localSettings && !cloudResult) {
-    await cloudSync.pushData('settings', localSettings);
+    await cloudSync.pushData("settings", localSettings);
     return;
   }
 
@@ -322,35 +357,38 @@ async function syncSettings() {
       ...useUiStore.getState().appSettings,
       ...cloudResult.data,
     });
-    await storage.set(idbKey('bldg-settings'), JSON.stringify(cloudResult.data));
+    await storage.set(idbKey("bldg-settings"), JSON.stringify(cloudResult.data));
     return;
   }
 
   // Both exist — prefer local (settings are device-specific mostly),
   // but push local to cloud so other device gets apiKey etc.
   if (localSettings) {
-    await cloudSync.pushData('settings', localSettings);
+    await cloudSync.pushData("settings", localSettings);
   }
 }
 
 // ─── Assemblies Sync ───────────────────────────────────────────────
 
 async function syncAssemblies() {
-  const cloudResult = await cloudSync.pullDataWithMeta('assemblies');
-  const localRaw = await storage.get(idbKey('bldg-assemblies'));
+  const cloudResult = await cloudSync.pullDataWithMeta("assemblies");
+  const localRaw = await storage.get(idbKey("bldg-assemblies"));
   let localAsm = null;
-  try { localAsm = localRaw ? JSON.parse(localRaw.value) : null; }
-  catch { localAsm = null; }
+  try {
+    localAsm = localRaw ? JSON.parse(localRaw.value) : null;
+  } catch {
+    localAsm = null;
+  }
 
   if (localAsm && !cloudResult) {
-    await cloudSync.pushData('assemblies', localAsm);
+    await cloudSync.pushData("assemblies", localAsm);
     return;
   }
 
   if (!localAsm && cloudResult) {
     if (Array.isArray(cloudResult.data)) {
       useDatabaseStore.getState().setAssemblies(cloudResult.data);
-      await storage.set(idbKey('bldg-assemblies'), JSON.stringify(cloudResult.data));
+      await storage.set(idbKey("bldg-assemblies"), JSON.stringify(cloudResult.data));
     }
     return;
   }
@@ -362,31 +400,34 @@ async function syncAssemblies() {
     for (const a of localAsm) asmMap.set(a.id, a);
     const merged = Array.from(asmMap.values());
     useDatabaseStore.getState().setAssemblies(merged);
-    await storage.set(idbKey('bldg-assemblies'), JSON.stringify(merged));
-    await cloudSync.pushData('assemblies', merged);
+    await storage.set(idbKey("bldg-assemblies"), JSON.stringify(merged));
+    await cloudSync.pushData("assemblies", merged);
   } else if (localAsm) {
-    await cloudSync.pushData('assemblies', localAsm);
+    await cloudSync.pushData("assemblies", localAsm);
   }
 }
 
 // ─── Calendar Sync ────────────────────────────────────────────────
 
 async function syncCalendar() {
-  const cloudResult = await cloudSync.pullDataWithMeta('calendar');
-  const localRaw = await storage.get(idbKey('bldg-calendar'));
+  const cloudResult = await cloudSync.pullDataWithMeta("calendar");
+  const localRaw = await storage.get(idbKey("bldg-calendar"));
   let localTasks = null;
-  try { localTasks = localRaw ? JSON.parse(localRaw.value) : null; }
-  catch { localTasks = null; }
+  try {
+    localTasks = localRaw ? JSON.parse(localRaw.value) : null;
+  } catch {
+    localTasks = null;
+  }
 
   if (localTasks && !cloudResult) {
-    await cloudSync.pushData('calendar', localTasks);
+    await cloudSync.pushData("calendar", localTasks);
     return;
   }
 
   if (!localTasks && cloudResult) {
     if (Array.isArray(cloudResult.data)) {
       useCalendarStore.getState().setTasks(cloudResult.data);
-      await storage.set(idbKey('bldg-calendar'), JSON.stringify(cloudResult.data));
+      await storage.set(idbKey("bldg-calendar"), JSON.stringify(cloudResult.data));
     }
     return;
   }
@@ -398,10 +439,10 @@ async function syncCalendar() {
     for (const t of localTasks) taskMap.set(t.id, t); // local wins on conflict
     const merged = Array.from(taskMap.values());
     useCalendarStore.getState().setTasks(merged);
-    await storage.set(idbKey('bldg-calendar'), JSON.stringify(merged));
-    await cloudSync.pushData('calendar', merged);
+    await storage.set(idbKey("bldg-calendar"), JSON.stringify(merged));
+    await cloudSync.pushData("calendar", merged);
   } else if (localTasks) {
-    await cloudSync.pushData('calendar', localTasks);
+    await cloudSync.pushData("calendar", localTasks);
   }
 }
 
@@ -414,16 +455,26 @@ async function syncCalendar() {
 async function runBlobMigration() {
   // v2: previous migration used proxy upload which failed on files > 4.5MB (Vercel limit)
   // v2 uses signed-URL direct uploads — no size limit
-  const MIGRATION_KEY = 'blob_migration_v2';
-  if (localStorage.getItem(MIGRATION_KEY) === 'done') return;
+  const MIGRATION_KEY = "blob_migration_v2";
+  if (localStorage.getItem(MIGRATION_KEY) === "done") return;
 
-  const idxRaw = await storage.get(idbKey('bldg-index'));
-  if (!idxRaw) { localStorage.setItem(MIGRATION_KEY, 'done'); return; }
+  const idxRaw = await storage.get(idbKey("bldg-index"));
+  if (!idxRaw) {
+    localStorage.setItem(MIGRATION_KEY, "done");
+    return;
+  }
 
   let index;
-  try { index = JSON.parse(idxRaw.value); }
-  catch { localStorage.setItem(MIGRATION_KEY, 'done'); return; }
-  if (!index.length) { localStorage.setItem(MIGRATION_KEY, 'done'); return; }
+  try {
+    index = JSON.parse(idxRaw.value);
+  } catch {
+    localStorage.setItem(MIGRATION_KEY, "done");
+    return;
+  }
+  if (!index.length) {
+    localStorage.setItem(MIGRATION_KEY, "done");
+    return;
+  }
 
   console.log(`[cloudSync] Blob migration: checking ${index.length} estimates...`);
   let migrated = 0;
@@ -461,6 +512,6 @@ async function runBlobMigration() {
     }
   }
 
-  localStorage.setItem(MIGRATION_KEY, 'done');
+  localStorage.setItem(MIGRATION_KEY, "done");
   console.log(`[cloudSync] Blob migration complete. Re-pushed ${migrated} estimate(s).`);
 }

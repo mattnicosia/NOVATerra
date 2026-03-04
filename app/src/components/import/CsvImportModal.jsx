@@ -1,22 +1,22 @@
-import { useState, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useTheme } from '@/hooks/useTheme';
-import { useUiStore } from '@/stores/uiStore';
-import { useEstimatesStore } from '@/stores/estimatesStore';
-import { useItemsStore } from '@/stores/itemsStore';
-import { useProjectStore } from '@/stores/projectStore';
-import { loadEstimate } from '@/hooks/usePersistence';
-import { uid } from '@/utils/format';
-import { autoDirective } from '@/utils/directives';
-import { autoTradeFromCode } from '@/constants/tradeGroupings';
-import { parseCSV } from '@/utils/csvParser';
-import { parseXLSX } from '@/utils/xlsxParser';
-import { OMNI_FIELDS, suggestColumnMappings, heuristicMapping, applyMappings } from '@/utils/csvColumnMapper';
-import NovaOrb from '@/components/dashboard/NovaOrb';
-import Modal from '@/components/shared/Modal';
-import Ic from '@/components/shared/Ic';
-import { I } from '@/constants/icons';
-import { inp, bt } from '@/utils/styles';
+import { useState, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { useTheme } from "@/hooks/useTheme";
+import { useUiStore } from "@/stores/uiStore";
+import { useEstimatesStore } from "@/stores/estimatesStore";
+import { useItemsStore } from "@/stores/itemsStore";
+import { useProjectStore } from "@/stores/projectStore";
+import { loadEstimate } from "@/hooks/usePersistence";
+import { uid } from "@/utils/format";
+import { autoDirective } from "@/utils/directives";
+import { autoTradeFromCode } from "@/constants/tradeGroupings";
+import { parseCSV } from "@/utils/csvParser";
+import { parseXLSX } from "@/utils/xlsxParser";
+import { OMNI_FIELDS, suggestColumnMappings, heuristicMapping, applyMappings } from "@/utils/csvColumnMapper";
+import NovaOrb from "@/components/dashboard/NovaOrb";
+import Modal from "@/components/shared/Modal";
+import Ic from "@/components/shared/Ic";
+import { I } from "@/constants/icons";
+import { inp, bt } from "@/utils/styles";
 
 /**
  * CSV Import Modal — 3-step workflow:
@@ -61,21 +61,21 @@ export default function CsvImportModal({ onClose, mode }) {
    * Detect file encoding from BOM bytes and decode ArrayBuffer to string.
    * Handles UTF-16 LE/BE (common in Windows software like ProEst), UTF-8 with BOM, and plain UTF-8.
    */
-  const decodeFile = useCallback((buffer) => {
+  const decodeFile = useCallback(buffer => {
     const bytes = new Uint8Array(buffer);
 
     // Check for BOM (byte order mark)
-    if (bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xFE) {
+    if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
       // UTF-16 LE
-      return new TextDecoder('utf-16le').decode(buffer);
+      return new TextDecoder("utf-16le").decode(buffer);
     }
-    if (bytes.length >= 2 && bytes[0] === 0xFE && bytes[1] === 0xFF) {
+    if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
       // UTF-16 BE
-      return new TextDecoder('utf-16be').decode(buffer);
+      return new TextDecoder("utf-16be").decode(buffer);
     }
-    if (bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) {
+    if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
       // UTF-8 with BOM
-      return new TextDecoder('utf-8').decode(buffer);
+      return new TextDecoder("utf-8").decode(buffer);
     }
 
     // Heuristic: if file has lots of null bytes, it's likely UTF-16 without BOM
@@ -87,11 +87,11 @@ export default function CsvImportModal({ onClose, mode }) {
     }
     if (nullCount > checkLen * 0.2) {
       // Likely UTF-16 LE (most common on Windows)
-      return new TextDecoder('utf-16le').decode(buffer);
+      return new TextDecoder("utf-16le").decode(buffer);
     }
 
     // Default: UTF-8
-    return new TextDecoder('utf-8').decode(buffer);
+    return new TextDecoder("utf-8").decode(buffer);
   }, []);
 
   /**
@@ -101,65 +101,68 @@ export default function CsvImportModal({ onClose, mode }) {
    * - OLE2 magic bytes (\xD0\xCF\x11\xE0) for legacy .xls
    */
   const isExcelFile = useCallback((file, buffer) => {
-    const ext = file.name.toLowerCase().split('.').pop();
-    if (['xlsx', 'xls', 'xlsm', 'xlsb'].includes(ext)) return true;
+    const ext = file.name.toLowerCase().split(".").pop();
+    if (["xlsx", "xls", "xlsm", "xlsb"].includes(ext)) return true;
 
     // Check magic bytes
     const bytes = new Uint8Array(buffer, 0, 4);
     // ZIP (PK\x03\x04)
-    if (bytes[0] === 0x50 && bytes[1] === 0x4B && bytes[2] === 0x03 && bytes[3] === 0x04) return true;
+    if (bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04) return true;
     // OLE2 compound document (.xls)
-    if (bytes[0] === 0xD0 && bytes[1] === 0xCF && bytes[2] === 0x11 && bytes[3] === 0xE0) return true;
+    if (bytes[0] === 0xd0 && bytes[1] === 0xcf && bytes[2] === 0x11 && bytes[3] === 0xe0) return true;
 
     return false;
   }, []);
 
-  const handleFile = useCallback((file) => {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const buffer = e.target.result;
-      let parsed;
+  const handleFile = useCallback(
+    file => {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async e => {
+        const buffer = e.target.result;
+        let parsed;
 
-      if (isExcelFile(file, buffer)) {
-        // Excel file → use XLSX parser
-        parsed = parseXLSX(buffer);
-      } else {
-        // CSV/TSV → decode text and use CSV parser
-        const text = decodeFile(buffer);
-        parsed = parseCSV(text);
-      }
+        if (isExcelFile(file, buffer)) {
+          // Excel file → use XLSX parser
+          parsed = parseXLSX(buffer);
+        } else {
+          // CSV/TSV → decode text and use CSV parser
+          const text = decodeFile(buffer);
+          parsed = parseCSV(text);
+        }
 
-      if (!parsed.headers.length) {
-        useUiStore.getState().showToast("Could not parse file — no headers found", "error");
-        return;
-      }
-      setFileName(file.name);
-      setHeaders(parsed.headers);
-      setRows(parsed.rows);
-      setEstName(file.name.replace(/\.[^.]+$/, ""));
+        if (!parsed.headers.length) {
+          useUiStore.getState().showToast("Could not parse file — no headers found", "error");
+          return;
+        }
+        setFileName(file.name);
+        setHeaders(parsed.headers);
+        setRows(parsed.rows);
+        setEstName(file.name.replace(/\.[^.]+$/, ""));
 
-      // Auto-map columns
-      setStep("mapping");
-      setAiLoading(true);
-      try {
-        const suggested = await suggestColumnMappings(null, parsed.headers, parsed.rows.slice(0, 5));
-        setMappings(suggested);
-      } catch {
-        setMappings(heuristicMapping(parsed.headers));
-      } finally {
-        setAiLoading(false);
-      }
-    };
-    reader.readAsArrayBuffer(file);
-  }, [decodeFile, isExcelFile]);
+        // Auto-map columns
+        setStep("mapping");
+        setAiLoading(true);
+        try {
+          const suggested = await suggestColumnMappings(null, parsed.headers, parsed.rows.slice(0, 5));
+          setMappings(suggested);
+        } catch {
+          setMappings(heuristicMapping(parsed.headers));
+        } finally {
+          setAiLoading(false);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    },
+    [decodeFile, isExcelFile],
+  );
 
-  const onFileChange = (e) => {
+  const onFileChange = e => {
     handleFile(e.target.files?.[0]);
     if (fileRef.current) fileRef.current.value = "";
   };
 
-  const onDrop = (e) => {
+  const onDrop = e => {
     e.preventDefault();
     setIsDragging(false);
     handleFile(e.dataTransfer.files?.[0]);
@@ -209,7 +212,12 @@ export default function CsvImportModal({ onClose, mode }) {
         equipment: preset.equipment || 0,
         subcontractor: preset.subcontractor || 0,
         trade: preset.trade || autoTradeFromCode(preset.code) || "",
-        directive: autoDirective(preset.material || 0, preset.labor || 0, preset.equipment || 0, preset.subcontractor || 0),
+        directive: autoDirective(
+          preset.material || 0,
+          preset.labor || 0,
+          preset.equipment || 0,
+          preset.subcontractor || 0,
+        ),
         notes: preset.notes || "",
         drawingRef: "",
         variables: [],
@@ -221,7 +229,7 @@ export default function CsvImportModal({ onClose, mode }) {
         allowanceSubMarkup: "",
         locationLocked: false,
         subItems: [],
-        bidContext: mode === "new" ? "base" : (useUiStore.getState().activeGroupId || "base"),
+        bidContext: mode === "new" ? "base" : useUiStore.getState().activeGroupId || "base",
       }));
 
       if (mode === "new") {
@@ -243,7 +251,7 @@ export default function CsvImportModal({ onClose, mode }) {
         });
 
         onClose();
-        navigate(`/estimate/${id}/estimate`);
+        navigate(`/estimate/${id}/takeoffs`);
       } else {
         // Append mode
         const current = useItemsStore.getState().items;
@@ -251,10 +259,9 @@ export default function CsvImportModal({ onClose, mode }) {
         onClose();
       }
 
-      useUiStore.getState().showToast(
-        `Imported ${newItems.length} item${newItems.length !== 1 ? "s" : ""} from CSV`,
-        "success"
-      );
+      useUiStore
+        .getState()
+        .showToast(`Imported ${newItems.length} item${newItems.length !== 1 ? "s" : ""} from CSV`, "success");
     } catch (err) {
       console.error("[CsvImport] Import failed:", err);
       useUiStore.getState().showToast("Import failed: " + (err.message || "Unknown error"), "error");
@@ -269,17 +276,23 @@ export default function CsvImportModal({ onClose, mode }) {
     <Modal onClose={onClose} extraWide>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: T.space[3], marginBottom: T.space[5] }}>
-        <div style={{
-          width: 40, height: 40, borderRadius: T.radius.md,
-          background: C.accentBg, border: `1px solid ${C.borderAccent || C.border}`,
-          display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-        }}>
+        <div
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: T.radius.md,
+            background: C.accentBg,
+            border: `1px solid ${C.borderAccent || C.border}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
           <Ic d={I.upload} size={20} color={C.accent} />
         </div>
         <div>
-          <div style={{ fontSize: T.fontSize.lg, fontWeight: T.fontWeight.bold, color: C.text }}>
-            Import Estimate
-          </div>
+          <div style={{ fontSize: T.fontSize.lg, fontWeight: T.fontWeight.bold, color: C.text }}>Import Estimate</div>
           <div style={{ fontSize: T.fontSize.sm, color: C.textMuted }}>
             {mode === "new" ? "Create a new estimate from Excel or CSV" : "Add items from Excel or CSV"}
           </div>
@@ -290,7 +303,10 @@ export default function CsvImportModal({ onClose, mode }) {
       {step === "upload" && (
         <div>
           <div
-            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+            onDragOver={e => {
+              e.preventDefault();
+              setIsDragging(true);
+            }}
             onDragLeave={() => setIsDragging(false)}
             onDrop={onDrop}
             onClick={() => fileRef.current?.click()}
@@ -326,30 +342,50 @@ export default function CsvImportModal({ onClose, mode }) {
       {step === "mapping" && (
         <div>
           {/* File info bar */}
-          <div style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: `${T.space[2]}px ${T.space[3]}px`,
-            background: C.bg, borderRadius: T.radius.sm, marginBottom: T.space[4],
-            border: `1px solid ${C.border}`,
-          }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: `${T.space[2]}px ${T.space[3]}px`,
+              background: C.bg,
+              borderRadius: T.radius.sm,
+              marginBottom: T.space[4],
+              border: `1px solid ${C.border}`,
+            }}
+          >
             <span style={{ fontSize: T.fontSize.sm, color: C.textMuted }}>
               <strong style={{ color: C.text }}>{fileName}</strong> — {rows.length} rows, {headers.length} columns
             </span>
-            <button onClick={() => { setStep("upload"); setHeaders([]); setRows([]); setMappings({}); }}
-              style={{ ...bt(C, { background: "transparent", color: C.textMuted, padding: "4px 10px", fontSize: 11 }) }}>
+            <button
+              onClick={() => {
+                setStep("upload");
+                setHeaders([]);
+                setRows([]);
+                setMappings({});
+              }}
+              style={{ ...bt(C, { background: "transparent", color: C.textMuted, padding: "4px 10px", fontSize: 11 }) }}
+            >
               Change file
             </button>
           </div>
 
           {/* AI mapping badge */}
           {aiLoading && (
-            <div style={{
-              display: "flex", alignItems: "center", gap: T.space[2],
-              padding: `${T.space[2]}px ${T.space[3]}px`,
-              background: C.accentBg, borderRadius: T.radius.sm, marginBottom: T.space[3],
-              border: `1px solid ${C.borderAccent || C.border}`,
-              fontSize: T.fontSize.sm, color: C.accent,
-            }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: T.space[2],
+                padding: `${T.space[2]}px ${T.space[3]}px`,
+                background: C.accentBg,
+                borderRadius: T.radius.sm,
+                marginBottom: T.space[3],
+                border: `1px solid ${C.borderAccent || C.border}`,
+                fontSize: T.fontSize.sm,
+                color: C.accent,
+              }}
+            >
               <NovaOrb size={18} scheme="nova" /> NOVA is mapping your columns...
             </div>
           )}
@@ -366,22 +402,30 @@ export default function CsvImportModal({ onClose, mode }) {
               </thead>
               <tbody>
                 {headers.map((h, i) => {
-                  const samples = rows.slice(0, 3).map(r => (r[i] || "").trim()).filter(Boolean);
+                  const samples = rows
+                    .slice(0, 3)
+                    .map(r => (r[i] || "").trim())
+                    .filter(Boolean);
                   const mapped = mappings[h];
                   return (
                     <tr key={h + i} style={{ borderBottom: `1px solid ${C.border}` }}>
                       <td style={tdStyle(C, T)}>
-                        <span style={{ fontWeight: T.fontWeight.medium, color: mapped ? C.text : C.textDim }}>
-                          {h}
-                        </span>
+                        <span style={{ fontWeight: T.fontWeight.medium, color: mapped ? C.text : C.textDim }}>{h}</span>
                       </td>
-                      <td style={{ ...tdStyle(C, T), fontSize: T.fontSize.xs, color: C.textDim, fontFamily: "'DM Sans', sans-serif" }}>
+                      <td
+                        style={{
+                          ...tdStyle(C, T),
+                          fontSize: T.fontSize.xs,
+                          color: C.textDim,
+                          fontFamily: "'DM Sans', sans-serif",
+                        }}
+                      >
                         {samples.slice(0, 2).join(", ").slice(0, 40)}
                       </td>
                       <td style={tdStyle(C, T)}>
                         <select
                           value={mapped || ""}
-                          onChange={(e) => updateMapping(h, e.target.value)}
+                          onChange={e => updateMapping(h, e.target.value)}
                           style={{
                             ...inp(C),
                             padding: "4px 8px",
@@ -392,7 +436,9 @@ export default function CsvImportModal({ onClose, mode }) {
                         >
                           <option value="">— Skip —</option>
                           {OMNI_FIELDS.map(f => (
-                            <option key={f.key} value={f.key}>{f.label}</option>
+                            <option key={f.key} value={f.key}>
+                              {f.label}
+                            </option>
                           ))}
                         </select>
                       </td>
@@ -404,14 +450,18 @@ export default function CsvImportModal({ onClose, mode }) {
           </div>
 
           {/* Divide totals toggle */}
-          <div style={{
-            display: "flex", alignItems: "center", gap: T.space[2],
-            marginBottom: T.space[4],
-          }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: T.space[2],
+              marginBottom: T.space[4],
+            }}
+          >
             <input
               type="checkbox"
               checked={divideTotals}
-              onChange={(e) => setDivideTotals(e.target.checked)}
+              onChange={e => setDivideTotals(e.target.checked)}
               style={{ accentColor: C.accent }}
             />
             <span style={{ fontSize: T.fontSize.sm, color: C.textMuted }}>
@@ -427,8 +477,11 @@ export default function CsvImportModal({ onClose, mode }) {
                   <label style={labelStyle(C, T)}>Estimate Number *</label>
                   <input
                     value={estNumber}
-                    onChange={(e) => { setEstNumber(e.target.value); setEstNumError(""); }}
-                    style={{ ...inp(C), width: "100%", borderColor: estNumError ? (C.red || "#f44") : undefined }}
+                    onChange={e => {
+                      setEstNumber(e.target.value);
+                      setEstNumError("");
+                    }}
+                    style={{ ...inp(C), width: "100%", borderColor: estNumError ? C.red || "#f44" : undefined }}
                     placeholder="e.g. EST-2026-001"
                   />
                 </div>
@@ -436,7 +489,7 @@ export default function CsvImportModal({ onClose, mode }) {
                   <label style={labelStyle(C, T)}>Estimate Name</label>
                   <input
                     value={estName}
-                    onChange={(e) => setEstName(e.target.value)}
+                    onChange={e => setEstName(e.target.value)}
                     style={{ ...inp(C), width: "100%" }}
                     placeholder="e.g. ProEst Import"
                   />
@@ -445,43 +498,51 @@ export default function CsvImportModal({ onClose, mode }) {
                   <label style={labelStyle(C, T)}>Client</label>
                   <input
                     value={estClient}
-                    onChange={(e) => setEstClient(e.target.value)}
+                    onChange={e => setEstClient(e.target.value)}
                     style={{ ...inp(C), width: "100%" }}
                     placeholder="Optional"
                   />
                 </div>
               </div>
-              {estNumError && (
-                <div style={{ fontSize: 11, color: C.red || "#f44", marginTop: 4 }}>{estNumError}</div>
-              )}
+              {estNumError && <div style={{ fontSize: 11, color: C.red || "#f44", marginTop: 4 }}>{estNumError}</div>}
             </div>
           )}
 
           {/* Preview stats + import button */}
-          <div style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: `${T.space[3]}px 0`, borderTop: `1px solid ${C.border}`,
-          }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: `${T.space[3]}px 0`,
+              borderTop: `1px solid ${C.border}`,
+            }}
+          >
             <div style={{ fontSize: T.fontSize.sm, color: C.textMuted }}>
               <strong style={{ color: C.text }}>{previewItems.length}</strong> items ready
               {skipped > 0 && <span> · {skipped} rows skipped</span>}
               {mappedCount > 0 && <span> · {mappedCount} columns mapped</span>}
             </div>
             <div style={{ display: "flex", gap: T.space[2] }}>
-              <button onClick={onClose} style={bt(C, { background: "transparent", color: C.textMuted, padding: "7px 14px" })}>
+              <button
+                onClick={onClose}
+                style={bt(C, { background: "transparent", color: C.textMuted, padding: "7px 14px" })}
+              >
                 Cancel
               </button>
               <button
                 onClick={executeImport}
                 disabled={previewItems.length === 0 || importing}
                 style={bt(C, {
-                  background: previewItems.length > 0 ? (C.gradient || C.accent) : C.bg3,
+                  background: previewItems.length > 0 ? C.gradient || C.accent : C.bg3,
                   color: previewItems.length > 0 ? "#fff" : C.textDim,
                   padding: "7px 18px",
                   opacity: importing ? 0.6 : 1,
                 })}
               >
-                {importing ? "Importing..." : `Import ${previewItems.length} Item${previewItems.length !== 1 ? "s" : ""}`}
+                {importing
+                  ? "Importing..."
+                  : `Import ${previewItems.length} Item${previewItems.length !== 1 ? "s" : ""}`}
               </button>
             </div>
           </div>

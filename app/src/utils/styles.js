@@ -1,11 +1,43 @@
 // Style helper functions — Command Center design system
-import { T } from './designTokens';
+import { T } from "./designTokens";
+
+// ── Nero Nemesis: Dual Material System ──
+// Two distinct materials: Black Glass (floating surfaces) vs Matte Carbon (structural).
+// Glass surfaces: translucent, specular, deep shadows, NO carbon texture.
+// Carbon surfaces: opaque, textured, flat, NO glass treatment.
+
+// neroCarbon: Matte carbon fiber texture on structural surfaces (sidebar, header, toolbars)
+const neroCarbon = (C, bg) => `${C.carbonTexture || ""}, ${bg}`.replace(/^, /, "");
+
+// neroGlassStyle: Full 5-layer Apple glass stack from tier tokens (sm/md/lg/xl)
+// Layer 1: Shadow + edge (depth)
+// Layer 2: Material (blur + translucency)
+// Layer 3: Specular (inset highlights)
+// Layer 4: Content (rendered by React)
+// Layer 5: Illumination (hover glow — applied via CSS)
+const neroGlassStyle = (C, tier = "md") => {
+  const tokens = C.T || T;
+  const ng = tokens.neroGlass?.[tier] || tokens.neroGlass?.md || {};
+  const shadow = [ng.specular, ng.specularBottom, ng.innerDepth, ng.shadow, ng.edge].filter(Boolean).join(", ");
+  return {
+    background: ng.bg || "rgba(255,255,255,0.08)",
+    backdropFilter: ng.blur || "blur(16px) saturate(150%)",
+    WebkitBackdropFilter: ng.blur || "blur(16px) saturate(150%)",
+    borderRadius: T.radius.md,
+    border: `1px solid ${ng.border || "rgba(255,255,255,0.12)"}`,
+    boxShadow: shadow,
+    transition: tokens.neroGlass?.spring || "all 300ms cubic-bezier(0.4, 0, 0.2, 1)",
+  };
+};
+
+// Export for direct use in components
+export { neroGlassStyle, neroCarbon };
 
 export const inp = (C, overrides) => {
   const tokens = C.T || T;
   return {
-    background: C.isDark ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.45)',
-    border: `1px solid ${C.isDark ? (C.glassBorder || C.border) : (tokens.glass?.border || 'rgba(255,255,255,0.55)')}`,
+    background: C.neroMode ? "rgba(0,0,0,0.35)" : C.isDark ? "rgba(0,0,0,0.25)" : "rgba(255,255,255,0.45)",
+    border: `1px solid ${C.isDark ? C.glassBorder || C.border : tokens.glass?.border || "rgba(255,255,255,0.55)"}`,
     borderRadius: T.radius.sm,
     color: C.text,
     padding: "7px 14px",
@@ -16,17 +48,21 @@ export const inp = (C, overrides) => {
     outline: "none",
     transition: T.transition.fast,
     // Liquid Glass v2: recessed field with specular bottom-edge highlight
-    ...(!C.isDark && { boxShadow: 'inset 0 0.5px 2px rgba(20,30,80,0.06), 0 0 0 1px rgba(255,255,255,0.25), inset 0 -0.5px 0 rgba(255,255,255,0.80)' }),
+    ...(!C.isDark && {
+      boxShadow:
+        "inset 0 0.5px 2px rgba(20,30,80,0.06), 0 0 0 1px rgba(255,255,255,0.25), inset 0 -0.5px 0 rgba(255,255,255,0.80)",
+    }),
     ...overrides,
   };
 };
 
-export const nInp = (C, overrides) => inp(C, {
-  textAlign: "right",
-  fontFamily: "'DM Sans',sans-serif",
-  fontSize: T.fontSize.sm,
-  ...overrides,
-});
+export const nInp = (C, overrides) =>
+  inp(C, {
+    textAlign: "right",
+    fontFamily: "'DM Sans',sans-serif",
+    fontSize: T.fontSize.sm,
+    ...overrides,
+  });
 
 export const bt = (C, overrides) => ({
   border: "none",
@@ -45,7 +81,16 @@ export const bt = (C, overrides) => ({
 // Card surface — Liquid Glass card (both modes use translucent glass)
 export const card = (C, overrides) => {
   const tokens = C.T || T;
-  const glassBg = C.glassBg || (C.isDark ? 'rgba(15,15,30,0.38)' : 'rgba(255,255,255,0.32)');
+  const glassBg = C.glassBg || (C.isDark ? "rgba(15,15,30,0.38)" : "rgba(255,255,255,0.32)");
+
+  // ── NERO: Black Glass (md tier) — floating translucent, NO carbon texture ──
+  if (C.neroMode) {
+    return {
+      ...neroGlassStyle(C, "md"),
+      ...overrides,
+    };
+  }
+
   const shadow = [
     tokens.glass?.specular,
     tokens.glass?.specularBottom,
@@ -53,15 +98,20 @@ export const card = (C, overrides) => {
     tokens.shadow.sm,
     tokens.glass?.edge,
     tokens.glass?.refraction,
-  ].filter(Boolean).join(', ');
+  ]
+    .filter(Boolean)
+    .join(", ");
   return {
     background: C.isDark
       ? glassBg
-      : `${tokens.glass?.lens || ''}, linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 50%), ${glassBg}`.replace(/^, /, ''),
+      : `${tokens.glass?.lens || ""}, linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 50%), ${glassBg}`.replace(
+          /^, /,
+          "",
+        ),
     backdropFilter: tokens.glass.blur,
     WebkitBackdropFilter: tokens.glass.blur,
     borderRadius: T.radius.md,
-    border: `1px solid ${tokens.glass?.border || (C.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.55)')}`,
+    border: `1px solid ${tokens.glass?.border || (C.isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.55)")}`,
     boxShadow: shadow,
     ...overrides,
   };
@@ -70,6 +120,18 @@ export const card = (C, overrides) => {
 // Solid card — non-glass fallback (old card behavior)
 export const cardSolid = (C, overrides) => {
   const tokens = C.T || T;
+
+  // ── NERO: Matte Carbon — structural surface, NO glass treatment ──
+  if (C.neroMode) {
+    return {
+      background: neroCarbon(C, C.bg1),
+      borderRadius: T.radius.md,
+      border: `1px solid rgba(255,255,255,0.06)`,
+      boxShadow: `${tokens.shadow.sm}, 0 0 0 0.5px rgba(255,255,255,0.04)`,
+      ...overrides,
+    };
+  }
+
   return {
     background: C.bg1,
     borderRadius: T.radius.md,
@@ -82,6 +144,15 @@ export const cardSolid = (C, overrides) => {
 // Raised card — elevated shadow (large specular + depth)
 export const cardRaised = (C, overrides) => {
   const tokens = C.T || T;
+
+  // ── NERO: Black Glass (lg tier) — elevated floating surface ──
+  if (C.neroMode) {
+    return {
+      ...neroGlassStyle(C, "lg"),
+      ...overrides,
+    };
+  }
+
   const shadow = [
     tokens.glass?.specularLg,
     tokens.glass?.specularBottomLg,
@@ -89,7 +160,9 @@ export const cardRaised = (C, overrides) => {
     tokens.shadow.md,
     tokens.glass?.edge,
     tokens.glass?.refraction,
-  ].filter(Boolean).join(', ');
+  ]
+    .filter(Boolean)
+    .join(", ");
   return {
     ...card(C),
     boxShadow: shadow,
@@ -100,7 +173,17 @@ export const cardRaised = (C, overrides) => {
 // Glass card — large specular + elevated shadow + full depth
 export const cardGlass = (C, overrides) => {
   const tokens = C.T || T;
-  const glassBg = C.glassBg || (C.isDark ? 'rgba(15,15,30,0.38)' : 'rgba(255,255,255,0.32)');
+  const glassBg = C.glassBg || (C.isDark ? "rgba(15,15,30,0.38)" : "rgba(255,255,255,0.32)");
+
+  // ── NERO: Black Glass (lg tier) — max glass + SVG refraction ──
+  if (C.neroMode) {
+    return {
+      ...neroGlassStyle(C, "lg"),
+      // className 'glass-refract' activates SVG displacement filter via CSS
+      ...overrides,
+    };
+  }
+
   const shadow = [
     tokens.glass?.specularLg,
     tokens.glass?.specularBottomLg,
@@ -108,22 +191,27 @@ export const cardGlass = (C, overrides) => {
     tokens.shadow.md,
     tokens.glass?.edge,
     tokens.glass?.refraction,
-  ].filter(Boolean).join(', ');
+  ]
+    .filter(Boolean)
+    .join(", ");
   return {
     background: C.isDark
       ? glassBg
-      : `${tokens.glass?.lens || ''}, linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 50%), ${glassBg}`.replace(/^, /, ''),
+      : `${tokens.glass?.lens || ""}, linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 50%), ${glassBg}`.replace(
+          /^, /,
+          "",
+        ),
     backdropFilter: tokens.glass.blur,
     WebkitBackdropFilter: tokens.glass.blur,
     borderRadius: T.radius.md,
-    border: `1px solid ${tokens.glass?.border || (C.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.55)')}`,
+    border: `1px solid ${tokens.glass?.border || (C.isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.55)")}`,
     boxShadow: shadow,
     ...overrides,
   };
 };
 
 // Section label — uppercase micro text
-export const sectionLabel = (C) => ({
+export const sectionLabel = C => ({
   fontSize: T.fontSize.xs,
   fontWeight: T.fontWeight.bold,
   color: C.textDim,
@@ -137,7 +225,7 @@ export const mono = () => ({
 });
 
 // Page container — transparent so gradient shows through
-export const pageContainer = (C) => ({
+export const pageContainer = C => ({
   padding: T.space[8],
   minHeight: "100%",
 });
@@ -145,6 +233,28 @@ export const pageContainer = (C) => ({
 // Gradient accent button — Liquid Glass glow on light
 export const accentButton = (C, overrides) => {
   const tokens = C.T || T;
+
+  // ── NERO: Accent glow + sm-tier glass specular ──
+  if (C.neroMode) {
+    const ng = (C.T || T).neroGlass?.sm || {};
+    return {
+      ...bt(C),
+      background: C.gradient || C.accent,
+      color: "#fff",
+      padding: "8px 18px",
+      fontWeight: T.fontWeight.semibold,
+      borderRadius: T.radius.sm,
+      boxShadow: [
+        ng.specular || "inset 0 0.5px 0 rgba(255,255,255,0.15)",
+        `0 0 20px ${C.accent}40`,
+        `0 0 40px ${C.accent}18`,
+        ng.edge || "0 0 0 0.5px rgba(255,255,255,0.06)",
+      ].join(", "),
+      transition: (C.T || T).neroGlass?.spring || "all 300ms cubic-bezier(0.4, 0, 0.2, 1)",
+      ...overrides,
+    };
+  }
+
   return {
     ...bt(C),
     background: C.gradient || C.accent,
@@ -153,7 +263,7 @@ export const accentButton = (C, overrides) => {
     fontWeight: T.fontWeight.semibold,
     borderRadius: T.radius.sm,
     boxShadow: C.isDark
-      ? '0 0 12px rgba(0,212,255,0.15)'
+      ? "0 0 12px rgba(0,212,255,0.15)"
       : `inset 0 1px 0 rgba(255,255,255,0.25), 0 2px 8px ${C.accent}20, 0 0 0 0.5px ${C.accent}10`,
     ...overrides,
   };
@@ -200,21 +310,32 @@ export const colHeader = (C, overrides) => ({
 });
 
 // Table row — alternating, with active/selected states
-export const tableRow = (C, { isEven, isSelected, accentColor, overrides } = {}) => ({
-  display: "flex",
-  alignItems: "center",
-  padding: `${T.space[2]}px ${T.space[3]}px`,
-  borderBottom: `1px solid ${C.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)'}`,
-  background: isSelected
-    ? `${accentColor || C.accent}12`
-    : isEven === false
-      ? (C.isDark ? 'rgba(255,255,255,0.018)' : 'rgba(0,0,0,0.015)')
-      : "transparent",
-  borderLeft: isSelected ? `3px solid ${accentColor || C.accent}` : "3px solid transparent",
-  transition: "background 120ms ease-out",
-  cursor: "pointer",
-  ...overrides,
-});
+export const tableRow = (C, { isEven, isSelected, accentColor, overrides } = {}) => {
+  const base = {
+    display: "flex",
+    alignItems: "center",
+    padding: `${T.space[2]}px ${T.space[3]}px`,
+    borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.05)"}`,
+    background: isSelected
+      ? `${accentColor || C.accent}12`
+      : isEven === false
+        ? C.isDark
+          ? "rgba(255,255,255,0.018)"
+          : "rgba(0,0,0,0.015)"
+        : "transparent",
+    borderLeft: isSelected ? `3px solid ${accentColor || C.accent}` : "3px solid transparent",
+    transition: "background 120ms ease-out",
+    cursor: "pointer",
+    ...overrides,
+  };
+
+  // ── NERO: selected rows get accent glow on left border ──
+  if (C.neroMode && isSelected) {
+    base.boxShadow = `inset 3px 0 12px ${accentColor || C.accent}25`;
+  }
+
+  return base;
+};
 
 // Money display — bold when > 0, dim when 0
 export const moneyCell = (C, value, overrides) => ({
@@ -240,6 +361,6 @@ export const sectionHead = (C, overrides) => ({
   letterSpacing: T.tracking.caps,
   padding: `${T.space[2]}px 0`,
   marginBottom: T.space[2],
-  borderBottom: `1px solid ${C.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
+  borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`,
   ...overrides,
 });

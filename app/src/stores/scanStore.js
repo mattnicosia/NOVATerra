@@ -1,19 +1,19 @@
-import { create } from 'zustand';
-import { storage } from '@/utils/storage';
-import { useUiStore } from '@/stores/uiStore';
-import { idbKey } from '@/utils/idbKey';
+import { create } from "zustand";
+import { storage } from "@/utils/storage";
+import { useUiStore } from "@/stores/uiStore";
+import { idbKey } from "@/utils/idbKey";
 
 export const useScanStore = create((set, get) => ({
   // Scan results for the current estimate
-  scanResults: null,          // { schedules: [], rom: null, timestamp }
+  scanResults: null, // { schedules: [], rom: null, timestamp }
   scanProgress: { phase: null, current: 0, total: 0, message: "" },
   scanError: null,
 
   // Learning records — shared across estimates
-  learningRecords: [],        // [{ estimateId, romPrediction, actuals, calibration, timestamp }]
+  learningRecords: [], // [{ estimateId, romPrediction, actuals, calibration, timestamp }]
 
   // Parameter correction records — tracks user corrections to auto-detected values
-  parameterCorrections: [],   // [{ field, detected, corrected, buildingType, projectSF, timestamp }]
+  parameterCorrections: [], // [{ field, detected, corrected, buildingType, projectSF, timestamp }]
 
   // Abort controller for cancelling scans
   scanAbortController: null,
@@ -22,14 +22,21 @@ export const useScanStore = create((set, get) => ({
   scanResultsPending: false,
 
   // ── Actions ──
-  setScanResults: (results) => set({ scanResults: results }),
-  setScanResultsPending: (v) => set({ scanResultsPending: v }),
+  setScanResults: results => set({ scanResults: results }),
+  setScanResultsPending: v => set({ scanResultsPending: v }),
 
-  setScanProgress: (progress) => set({ scanProgress: progress }),
+  setScanProgress: progress => set({ scanProgress: progress }),
 
-  setScanError: (error) => set({ scanError: error }),
+  setScanError: error => set({ scanError: error }),
 
-  clearScan: () => set({ scanResults: null, scanProgress: { phase: null, current: 0, total: 0, message: "" }, scanError: null, scanAbortController: null, scanResultsPending: false }),
+  clearScan: () =>
+    set({
+      scanResults: null,
+      scanProgress: { phase: null, current: 0, total: 0, message: "" },
+      scanError: null,
+      scanAbortController: null,
+      scanResultsPending: false,
+    }),
 
   // Create abort controller for a new scan — returns the AbortSignal
   createAbortController: () => {
@@ -51,31 +58,31 @@ export const useScanStore = create((set, get) => ({
   },
 
   // ── Learning Records ──
-  addLearningRecord: async (record) => {
+  addLearningRecord: async record => {
     const records = [...get().learningRecords, { ...record, timestamp: Date.now() }];
     set({ learningRecords: records });
     // Persist learning data globally (shared across estimates)
     try {
-      const ok = await storage.set(idbKey('bldg-scan-learning'), JSON.stringify(records));
+      const ok = await storage.set(idbKey("bldg-scan-learning"), JSON.stringify(records));
       if (!ok) {
-        console.error('[scanStore] Failed to persist learning record');
+        console.error("[scanStore] Failed to persist learning record");
         useUiStore.getState().showToast("Calibration data save failed", "error");
       }
     } catch (err) {
-      console.error('[scanStore] Learning record persistence error:', err);
+      console.error("[scanStore] Learning record persistence error:", err);
       useUiStore.getState().showToast("Calibration data save failed", "error");
     }
   },
 
   loadLearningRecords: async () => {
     try {
-      const raw = await storage.get(idbKey('bldg-scan-learning'));
+      const raw = await storage.get(idbKey("bldg-scan-learning"));
       if (raw) {
         const records = JSON.parse(raw.value);
         set({ learningRecords: records });
       }
     } catch (err) {
-      console.warn('[scanStore] Failed to load learning records:', err);
+      console.warn("[scanStore] Failed to load learning records:", err);
     }
   },
 
@@ -99,7 +106,7 @@ export const useScanStore = create((set, get) => ({
     }
 
     const currentYear = new Date().getFullYear();
-    const divTotals = {};  // { div: { predicted: 0, actual: 0, count: 0 } }
+    const divTotals = {}; // { div: { predicted: 0, actual: 0, count: 0 } }
 
     records.forEach(rec => {
       if (!rec.romPrediction?.divisions || !rec.actuals?.divisions) return;
@@ -141,18 +148,21 @@ export const useScanStore = create((set, get) => ({
 
   addParameterCorrection: async ({ field, detected, corrected }) => {
     // Enrich with project context for better filtering later
-    let buildingType = '', projectSF = 0;
+    let buildingType = "",
+      projectSF = 0;
     try {
-      const { useProjectStore } = await import('@/stores/projectStore');
+      const { useProjectStore } = await import("@/stores/projectStore");
       const proj = useProjectStore.getState().project;
-      buildingType = proj.jobType || proj.buildingType || '';
+      buildingType = proj.jobType || proj.buildingType || "";
       projectSF = parseFloat(proj.projectSF) || 0;
-    } catch { /* non-critical */ }
+    } catch {
+      /* non-critical */
+    }
 
     const record = {
       field,
-      detected: typeof detected === 'number' ? detected : parseInt(detected) || 0,
-      corrected: typeof corrected === 'number' ? corrected : parseInt(corrected) || 0,
+      detected: typeof detected === "number" ? detected : parseInt(detected) || 0,
+      corrected: typeof corrected === "number" ? corrected : parseInt(corrected) || 0,
       buildingType,
       projectSF,
       timestamp: Date.now(),
@@ -163,28 +173,28 @@ export const useScanStore = create((set, get) => ({
 
     // Persist globally
     try {
-      await storage.set(idbKey('bldg-param-corrections'), JSON.stringify(corrections));
+      await storage.set(idbKey("bldg-param-corrections"), JSON.stringify(corrections));
     } catch (err) {
-      console.warn('[scanStore] Failed to persist parameter correction:', err);
+      console.warn("[scanStore] Failed to persist parameter correction:", err);
     }
   },
 
   loadParameterCorrections: async () => {
     try {
-      const raw = await storage.get(idbKey('bldg-param-corrections'));
+      const raw = await storage.get(idbKey("bldg-param-corrections"));
       if (raw) {
         const corrections = JSON.parse(raw.value);
         set({ parameterCorrections: corrections });
       }
     } catch (err) {
-      console.warn('[scanStore] Failed to load parameter corrections:', err);
+      console.warn("[scanStore] Failed to load parameter corrections:", err);
     }
   },
 
   // Compute correction factors from user correction history
   // Returns { "roomCounts.bathrooms": 1.15, "floorCount": 0.8, ... }
   // Multiplied against detected values to adjust for systematic detection errors
-  getParameterCorrectionFactors: (buildingType) => {
+  getParameterCorrectionFactors: buildingType => {
     let corrections = get().parameterCorrections;
     if (corrections.length === 0) return {};
 
@@ -202,7 +212,7 @@ export const useScanStore = create((set, get) => ({
 
       // Recency weighting: 20% decay per year
       const age = Math.max(0, (Date.now() - c.timestamp) / (365.25 * 24 * 60 * 60 * 1000));
-      const weight = Math.pow(0.80, age);
+      const weight = Math.pow(0.8, age);
 
       if (!fieldData[c.field]) fieldData[c.field] = [];
       fieldData[c.field].push({
@@ -217,7 +227,9 @@ export const useScanStore = create((set, get) => ({
       // Require at least 2 data points per field
       if (items.length < 2) return;
 
-      let weightedDetected = 0, weightedCorrected = 0, totalWeight = 0;
+      let weightedDetected = 0,
+        weightedCorrected = 0,
+        totalWeight = 0;
       items.forEach(({ detected, corrected, weight }) => {
         weightedDetected += detected * weight;
         weightedCorrected += corrected * weight;

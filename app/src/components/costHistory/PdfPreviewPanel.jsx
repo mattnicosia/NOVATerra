@@ -1,11 +1,11 @@
 // PdfPreviewPanel — renders all pages of a PDF from base64 string using PDF.js
 // Used in CostHistoryEntryForm to show the original PDF alongside extracted data
 
-import { useState, useEffect, useRef } from 'react';
-import { useTheme } from '@/hooks/useTheme';
-import { loadPdfJs } from '@/utils/pdf';
-import Ic from '@/components/shared/Ic';
-import { I } from '@/constants/icons';
+import { useState, useEffect, useRef } from "react";
+import { useTheme } from "@/hooks/useTheme";
+import { loadPdfJs } from "@/utils/pdf";
+import Ic from "@/components/shared/Ic";
+import { I } from "@/constants/icons";
 
 export default function PdfPreviewPanel({ base64 }) {
   const C = useTheme();
@@ -16,7 +16,10 @@ export default function PdfPreviewPanel({ base64 }) {
   const [totalPages, setTotalPages] = useState(0);
 
   useEffect(() => {
-    if (!base64) { setLoading(false); return; }
+    if (!base64) {
+      setLoading(false);
+      return;
+    }
 
     let cancelled = false;
 
@@ -65,22 +68,30 @@ export default function PdfPreviewPanel({ base64 }) {
     };
 
     renderAllPages();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [base64]);
 
   // No base64 available
   if (!base64) {
     return (
-      <div style={{
-        display: "flex", flexDirection: "column", alignItems: "center",
-        justifyContent: "center", height: "100%", color: C.textDim,
-        fontSize: 11, textAlign: "center", padding: 20,
-      }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          height: "100%",
+          color: C.textDim,
+          fontSize: 11,
+          textAlign: "center",
+          padding: 20,
+        }}
+      >
         <Ic d={I.plans} size={24} color={C.textMuted} sw={1.5} />
         <div style={{ marginTop: 8, fontWeight: 600, fontSize: 12 }}>PDF Preview Unavailable</div>
-        <div style={{ marginTop: 4, fontSize: 10, opacity: 0.7 }}>
-          Re-select the file to view the original PDF
-        </div>
+        <div style={{ marginTop: 4, fontSize: 10, opacity: 0.7 }}>Re-select the file to view the original PDF</div>
       </div>
     );
   }
@@ -89,11 +100,18 @@ export default function PdfPreviewPanel({ base64 }) {
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
       {/* Page count header */}
       {totalPages > 0 && (
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "center",
-          gap: 6, paddingBottom: 6, marginBottom: 6,
-          borderBottom: `1px solid ${C.border}`, flexShrink: 0,
-        }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+            paddingBottom: 6,
+            marginBottom: 6,
+            borderBottom: `1px solid ${C.border}`,
+            flexShrink: 0,
+          }}
+        >
           <span style={{ fontSize: 10, color: C.textDim }}>
             {pageDataUrls.length} / {totalPages} page{totalPages !== 1 ? "s" : ""}
             {loading ? " — rendering..." : ""}
@@ -102,24 +120,44 @@ export default function PdfPreviewPanel({ base64 }) {
       )}
 
       {/* Scrollable pages */}
-      <div style={{
-        flex: 1, overflow: "auto", minHeight: 0,
-        background: C.bg, borderRadius: 6, padding: 4,
-      }}>
+      <div
+        style={{
+          flex: 1,
+          overflow: "auto",
+          minHeight: 0,
+          background: C.bg,
+          borderRadius: 6,
+          padding: 4,
+        }}
+      >
         {loading && pageDataUrls.length === 0 && (
-          <div style={{
-            display: "flex", alignItems: "center", justifyContent: "center",
-            height: "100%", width: "100%", color: C.textDim, fontSize: 11,
-          }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "100%",
+              width: "100%",
+              color: C.textDim,
+              fontSize: 11,
+            }}
+          >
             Loading PDF...
           </div>
         )}
 
         {error && (
-          <div style={{
-            display: "flex", alignItems: "center", justifyContent: "center",
-            height: "100%", width: "100%", color: C.red, fontSize: 11,
-          }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "100%",
+              width: "100%",
+              color: C.red,
+              fontSize: 11,
+            }}
+          >
             {error}
           </div>
         )}
@@ -130,7 +168,9 @@ export default function PdfPreviewPanel({ base64 }) {
             src={url}
             alt={`Page ${i + 1}`}
             style={{
-              width: "100%", height: "auto", borderRadius: 4,
+              width: "100%",
+              height: "auto",
+              borderRadius: 4,
               marginBottom: i < pageDataUrls.length - 1 ? 8 : 0,
               boxShadow: `0 1px 3px ${C.textDim}20`,
             }}

@@ -15,9 +15,9 @@ export default function NovaTerraLogo({ size = 24, style }) {
       style={{
         height,
         width,
-        objectFit: 'contain',
-        display: 'block',
-        userSelect: 'none',
+        objectFit: "contain",
+        display: "block",
+        userSelect: "none",
         ...style,
       }}
     />

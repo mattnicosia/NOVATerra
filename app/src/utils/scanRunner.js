@@ -4,29 +4,49 @@
 // All state reads use getState() so this works outside React render context.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useUiStore } from '@/stores/uiStore';
-import { useDrawingsStore } from '@/stores/drawingsStore';
-import { useProjectStore } from '@/stores/projectStore';
-import { useItemsStore } from '@/stores/itemsStore';
-import { useSpecsStore } from '@/stores/specsStore';
-import { useScanStore } from '@/stores/scanStore';
-import { useNovaStore } from '@/stores/novaStore';
-import { callAnthropic, batchAI, optimizeImageForAI, imageBlock, buildProjectContext, runOCR, segmentedOCR } from '@/utils/ai';
-import { buildDetectionPrompt, buildParsePrompt, buildCountingPrompt, normalizeScheduleData, SCHEDULE_TYPES } from '@/utils/scheduleParsers';
-import { generateBaselineROM, generateScheduleLineItems, augmentROMWithAI, estimateProjectSF, extractBuildingParamsFromSchedules } from '@/utils/romEngine';
-import { runParameterDetection } from '@/utils/parameterDetectionEngine';
-import { extractDrawingNotes, buildNotesContext } from '@/utils/notesExtractor';
-import { renderPdfPage } from '@/utils/drawingUtils';
-import { saveEstimate } from '@/hooks/usePersistence';
+import { useUiStore } from "@/stores/uiStore";
+import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useProjectStore } from "@/stores/projectStore";
+import { useItemsStore } from "@/stores/itemsStore";
+import { useSpecsStore } from "@/stores/specsStore";
+import { useScanStore } from "@/stores/scanStore";
+import { useNovaStore } from "@/stores/novaStore";
+import {
+  callAnthropic,
+  batchAI,
+  optimizeImageForAI,
+  imageBlock,
+  buildProjectContext,
+  runOCR,
+  segmentedOCR,
+} from "@/utils/ai";
+import {
+  buildDetectionPrompt,
+  buildParsePrompt,
+  buildCountingPrompt,
+  normalizeScheduleData,
+  SCHEDULE_TYPES,
+} from "@/utils/scheduleParsers";
+import {
+  generateBaselineROM,
+  generateScheduleLineItems,
+  augmentROMWithAI,
+  estimateProjectSF,
+  extractBuildingParamsFromSchedules,
+} from "@/utils/romEngine";
+import { runParameterDetection } from "@/utils/parameterDetectionEngine";
+import { extractDrawingNotes, buildNotesContext } from "@/utils/notesExtractor";
+import { renderPdfPage } from "@/utils/drawingUtils";
+import { saveEstimate } from "@/hooks/usePersistence";
 
 /**
  * Extract balanced JSON from AI response text.
  * Finds the first [ or { and tracks bracket depth to find matching close.
  * Falls back to greedy regex if balanced extraction fails.
  */
-function extractJSON(text, type = 'array') {
-  const openChar = type === 'array' ? '[' : '{';
-  const closeChar = type === 'array' ? ']' : '}';
+function extractJSON(text, type = "array") {
+  const openChar = type === "array" ? "[" : "{";
+  const closeChar = type === "array" ? "]" : "}";
   const startIdx = text.indexOf(openChar);
   if (startIdx === -1) return null;
 
@@ -36,9 +56,18 @@ function extractJSON(text, type = 'array') {
 
   for (let i = startIdx; i < text.length; i++) {
     const ch = text[i];
-    if (escape) { escape = false; continue; }
-    if (ch === '\\') { escape = true; continue; }
-    if (ch === '"') { inString = !inString; continue; }
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (ch === "\\") {
+      escape = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
     if (inString) continue;
     if (ch === openChar) depth++;
     else if (ch === closeChar) {
@@ -67,8 +96,8 @@ function extractJSON(text, type = 'array') {
 export async function runFullScan({ onComplete, onError, signal } = {}) {
   const currentDrawings = useDrawingsStore.getState().drawings.filter(d => d.data);
   if (currentDrawings.length === 0) {
-    const msg = 'No drawings to scan. Upload documents first.';
-    useUiStore.getState().showToast(msg, 'error');
+    const msg = "No drawings to scan. Upload documents first.";
+    useUiStore.getState().showToast(msg, "error");
     onError?.(msg);
     return null;
   }
@@ -79,49 +108,82 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
   // Create abort controller if no external signal provided
   const abortSignal = signal || createAbortController();
   const checkAbort = () => {
-    if (abortSignal.aborted) throw new Error('__SCAN_STOPPED__');
+    if (abortSignal.aborted) throw new Error("__SCAN_STOPPED__");
   };
 
   clearScan();
   // Re-create controller after clearScan reset it
   if (!signal) useScanStore.getState().createAbortController();
 
-  useNovaStore.getState().startTask('scan', `Scanning ${currentDrawings.length} drawings...`);
-  setScanProgress({ phase: "detect", current: 0, total: currentDrawings.length, message: "NOVA scanning for schedules..." });
+  useNovaStore.getState().startTask("scan", `Scanning ${currentDrawings.length} drawings...`);
+  setScanProgress({
+    phase: "detect",
+    current: 0,
+    total: currentDrawings.length,
+    message: "NOVA scanning for schedules...",
+  });
 
   try {
     // ── Phase 1: Detect schedules ──
     checkAbort();
-    const detections = await batchAI(currentDrawings, async (d, idx) => {
-      checkAbort();
-      setScanProgress({ phase: "detect", current: idx + 1, total: currentDrawings.length, message: `Scanning sheet ${idx + 1}/${currentDrawings.length}...` });
-      let imgData;
-      const curCanvases = useDrawingsStore.getState().pdfCanvases;
-      if (d.type === "pdf") { imgData = curCanvases[d.id] || await renderPdfPage(d); } else { imgData = d.data; }
-      if (!imgData) return { sheetId: d.id, schedules: [] };
+    const detections = await batchAI(
+      currentDrawings,
+      async (d, idx) => {
+        checkAbort();
+        setScanProgress({
+          phase: "detect",
+          current: idx + 1,
+          total: currentDrawings.length,
+          message: `Scanning sheet ${idx + 1}/${currentDrawings.length}...`,
+        });
+        let imgData;
+        const curCanvases = useDrawingsStore.getState().pdfCanvases;
+        if (d.type === "pdf") {
+          imgData = curCanvases[d.id] || (await renderPdfPage(d));
+        } else {
+          imgData = d.data;
+        }
+        if (!imgData) return { sheetId: d.id, schedules: [] };
 
-      const optimized = await optimizeImageForAI(imgData, 2000);
-      let ocrText = '';
-      try {
-        const ocrResult = await segmentedOCR(optimized.base64, optimized.width, optimized.height);
-        ocrText = ocrResult.text || '';
-      } catch {
-        try { const fb = await runOCR(optimized.base64); ocrText = fb.text || ''; } catch { /* optional */ }
-      }
+        const optimized = await optimizeImageForAI(imgData, 2000);
+        let ocrText = "";
+        try {
+          const ocrResult = await segmentedOCR(optimized.base64, optimized.width, optimized.height);
+          ocrText = ocrResult.text || "";
+        } catch {
+          try {
+            const fb = await runOCR(optimized.base64);
+            ocrText = fb.text || "";
+          } catch {
+            /* optional */
+          }
+        }
 
-      const sheetLabel = d.sheetTitle || d.label || d.sheetNumber;
-      const prompt = buildDetectionPrompt(sheetLabel, ocrText);
-      const result = await callAnthropic({
-        max_tokens: 1000,
-        messages: [{ role: "user", content: [imageBlock(optimized.base64), { type: "text", text: prompt }] }],
-      });
+        const sheetLabel = d.sheetTitle || d.label || d.sheetNumber;
+        const prompt = buildDetectionPrompt(sheetLabel, ocrText);
+        const result = await callAnthropic({
+          max_tokens: 1000,
+          messages: [{ role: "user", content: [imageBlock(optimized.base64), { type: "text", text: prompt }] }],
+        });
 
-      try {
-        const parsed = extractJSON(result, 'array');
-        if (!parsed) return { sheetId: d.id, sheetLabel, schedules: [], ocrText };
-        return { sheetId: d.id, sheetLabel, imgBase64: optimized.base64, imgWidth: optimized.width, imgHeight: optimized.height, schedules: Array.isArray(parsed) ? parsed : [], ocrText };
-      } catch { return { sheetId: d.id, sheetLabel, schedules: [], ocrText }; }
-    }, 3);
+        try {
+          const parsed = extractJSON(result, "array");
+          if (!parsed) return { sheetId: d.id, sheetLabel, schedules: [], ocrText };
+          return {
+            sheetId: d.id,
+            sheetLabel,
+            imgBase64: optimized.base64,
+            imgWidth: optimized.width,
+            imgHeight: optimized.height,
+            schedules: Array.isArray(parsed) ? parsed : [],
+            ocrText,
+          };
+        } catch {
+          return { sheetId: d.id, sheetLabel, schedules: [], ocrText };
+        }
+      },
+      3,
+    );
 
     const schedulesToParse = [];
     detections.forEach(det => {
@@ -129,23 +191,45 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
       det.schedules.forEach(s => {
         if (s.type && s.type !== "unknown" && s.confidence !== "low") {
           if (s.rowCount != null && s.rowCount < 2) return;
-          schedulesToParse.push({ ...s, sheetId: det.sheetId, sheetLabel: det.sheetLabel, imgBase64: det.imgBase64, imgWidth: det.imgWidth, imgHeight: det.imgHeight, ocrText: det.ocrText });
+          schedulesToParse.push({
+            ...s,
+            sheetId: det.sheetId,
+            sheetLabel: det.sheetLabel,
+            imgBase64: det.imgBase64,
+            imgWidth: det.imgWidth,
+            imgHeight: det.imgHeight,
+            ocrText: det.ocrText,
+          });
         }
       });
     });
 
     // ── Phase 1.5: Extract drawing notes ──
     checkAbort();
-    useNovaStore.getState().updateProgress(25, 'Extracting drawing notes...');
+    useNovaStore.getState().updateProgress(25, "Extracting drawing notes...");
     setScanProgress({ phase: "notes", current: 0, total: detections.length, message: "Extracting drawing notes..." });
     const drawingNotesResults = await batchAI(
       detections.filter(d => !d.error && d.imgBase64),
       async (det, idx) => {
-        setScanProgress({ phase: "notes", current: idx + 1, total: detections.length, message: `Reading notes from sheet ${idx + 1}...` });
-        const result = await extractDrawingNotes({ imgBase64: det.imgBase64, ocrText: det.ocrText || '', sheetLabel: det.sheetLabel || `Sheet ${idx + 1}` });
-        try { useDrawingsStore.getState().updateDrawing(det.sheetId, 'extractedNotes', result); } catch { /* non-critical */ }
+        setScanProgress({
+          phase: "notes",
+          current: idx + 1,
+          total: detections.length,
+          message: `Reading notes from sheet ${idx + 1}...`,
+        });
+        const result = await extractDrawingNotes({
+          imgBase64: det.imgBase64,
+          ocrText: det.ocrText || "",
+          sheetLabel: det.sheetLabel || `Sheet ${idx + 1}`,
+        });
+        try {
+          useDrawingsStore.getState().updateDrawing(det.sheetId, "extractedNotes", result);
+        } catch {
+          /* non-critical */
+        }
         return { sheetLabel: det.sheetLabel, sheetId: det.sheetId, ...result };
-      }, 3
+      },
+      3,
     );
     const validNotesResults = drawingNotesResults.filter(r => !r.error);
     const notesContext = buildNotesContext(validNotesResults);
@@ -153,84 +237,137 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
     // ── Phase 2: Parse schedules (skip if none detected) ──
     checkAbort();
     let validSchedules = [];
+    let scheduleEvidence = null;
     if (schedulesToParse.length > 0) {
-      useNovaStore.getState().updateProgress(50, 'Parsing schedules...');
+      useNovaStore.getState().updateProgress(50, "Parsing schedules...");
       setScanProgress({ phase: "parse", current: 0, total: schedulesToParse.length, message: "Parsing schedules..." });
-      const parsedSchedules = await batchAI(schedulesToParse, async (sched, idx) => {
-        setScanProgress({ phase: "parse", current: idx + 1, total: schedulesToParse.length, message: `Parsing ${SCHEDULE_TYPES.find(t => t.id === sched.type)?.label || sched.type}...` });
-        let cropBase64 = sched.imgBase64;
-        if (sched.bbox && sched.imgBase64) {
+      const parsedSchedules = await batchAI(
+        schedulesToParse,
+        async (sched, idx) => {
+          setScanProgress({
+            phase: "parse",
+            current: idx + 1,
+            total: schedulesToParse.length,
+            message: `Parsing ${SCHEDULE_TYPES.find(t => t.id === sched.type)?.label || sched.type}...`,
+          });
+          let cropBase64 = sched.imgBase64;
+          if (sched.bbox && sched.imgBase64) {
+            try {
+              const [xPct, yPct, wPct, hPct] = sched.bbox;
+              const canvas = document.createElement("canvas");
+              const img = await new Promise((res, rej) => {
+                const i = new Image();
+                i.onload = () => res(i);
+                i.onerror = rej;
+                i.src = `data:image/jpeg;base64,${sched.imgBase64}`;
+              });
+              const sx = Math.round((img.width * xPct) / 100),
+                sy = Math.round((img.height * yPct) / 100);
+              const sw = Math.round((img.width * wPct) / 100),
+                sh = Math.round((img.height * hPct) / 100);
+              canvas.width = Math.min(sw * 2, 1800);
+              canvas.height = Math.min(sh * 2, 1800);
+              canvas.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+              cropBase64 = canvas.toDataURL("image/jpeg", 0.9).split(",")[1];
+            } catch {
+              /* use full image */
+            }
+          }
+          let cropOcrText = "";
           try {
-            const [xPct, yPct, wPct, hPct] = sched.bbox;
-            const canvas = document.createElement("canvas");
-            const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = `data:image/jpeg;base64,${sched.imgBase64}`; });
-            const sx = Math.round(img.width * xPct / 100), sy = Math.round(img.height * yPct / 100);
-            const sw = Math.round(img.width * wPct / 100), sh = Math.round(img.height * hPct / 100);
-            canvas.width = Math.min(sw * 2, 1800); canvas.height = Math.min(sh * 2, 1800);
-            canvas.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-            cropBase64 = canvas.toDataURL("image/jpeg", 0.9).split(",")[1];
-          } catch { /* use full image */ }
-        }
-        let cropOcrText = '';
-        try { const r = await runOCR(cropBase64); cropOcrText = r.text || ''; } catch { /* optional */ }
-        const parsePrompt = buildParsePrompt(sched.type, cropOcrText, notesContext);
-        if (!parsePrompt) return { ...sched, entries: [], error: "Unknown schedule type" };
-        const result = await callAnthropic({ max_tokens: 4000, messages: [{ role: "user", content: [imageBlock(cropBase64), { type: "text", text: parsePrompt }] }] });
-        try {
-          const parsed = extractJSON(result, 'array');
-          if (!parsed) return { ...sched, entries: [] };
-          return { ...sched, entries: normalizeScheduleData(sched.type, parsed) };
-        } catch { return { ...sched, entries: [] }; }
-      }, 3);
+            const r = await runOCR(cropBase64);
+            cropOcrText = r.text || "";
+          } catch {
+            /* optional */
+          }
+          const parsePrompt = buildParsePrompt(sched.type, cropOcrText, notesContext);
+          if (!parsePrompt) return { ...sched, entries: [], error: "Unknown schedule type" };
+          const result = await callAnthropic({
+            max_tokens: 4000,
+            messages: [{ role: "user", content: [imageBlock(cropBase64), { type: "text", text: parsePrompt }] }],
+          });
+          try {
+            const parsed = extractJSON(result, "array");
+            if (!parsed) return { ...sched, entries: [] };
+            return { ...sched, entries: normalizeScheduleData(sched.type, parsed) };
+          } catch {
+            return { ...sched, entries: [] };
+          }
+        },
+        3,
+      );
 
       validSchedules = parsedSchedules.filter(s => !s.error && s.entries?.length > 0);
 
       // ── Phase 2.3: Count items on floor plans ──
-      const countableTypes = new Set(["door", "window", "lighting-fixture", "plumbing-fixture", "equipment", "mechanical-equipment"]);
+      const countableTypes = new Set([
+        "door",
+        "window",
+        "lighting-fixture",
+        "plumbing-fixture",
+        "equipment",
+        "mechanical-equipment",
+      ]);
       const marksByType = {};
       for (const sched of validSchedules) {
         if (!countableTypes.has(sched.type)) continue;
-        const marks = sched.entries
-          .map(e => e.mark)
-          .filter(m => m != null && m !== "");
+        const marks = sched.entries.map(e => e.mark).filter(m => m != null && m !== "");
         if (marks.length > 0) marksByType[sched.type] = [...new Set(marks)];
       }
 
       if (Object.keys(marksByType).length > 0) {
-        useNovaStore.getState().updateProgress(52, 'Counting items on floor plans...');
+        useNovaStore.getState().updateProgress(52, "Counting items on floor plans...");
         setScanProgress({ phase: "count", current: 0, total: 0, message: "Counting items on floor plans..." });
 
         // Identify floor plan sheets
-        const floorPlanPattern = /floor.?plan|plan.?view|^A-?\d|^A\d{2,3}|first.floor|second.floor|third.floor|ground.floor|level.?\d|basement|lower.level|upper.level|mezzanine|penthouse|^L\d|reflected.ceiling|RCP|ceiling.plan/i;
+        const floorPlanPattern =
+          /floor.?plan|plan.?view|^A-?\d|^A\d{2,3}|first.floor|second.floor|third.floor|ground.floor|level.?\d|basement|lower.level|upper.level|mezzanine|penthouse|^L\d|reflected.ceiling|RCP|ceiling.plan/i;
         const sheetsWithSchedules = new Set(schedulesToParse.map(s => s.sheetId));
-        let floorPlanSheets = detections.filter(det =>
-          !det.error && det.imgBase64 &&
-          !sheetsWithSchedules.has(det.sheetId) &&
-          floorPlanPattern.test(det.sheetLabel || '')
+        let floorPlanSheets = detections.filter(
+          det =>
+            !det.error &&
+            det.imgBase64 &&
+            !sheetsWithSchedules.has(det.sheetId) &&
+            floorPlanPattern.test(det.sheetLabel || ""),
         );
         // Fallback: sheets with zero schedule detections
         if (floorPlanSheets.length === 0) {
-          floorPlanSheets = detections.filter(det =>
-            !det.error && det.imgBase64 &&
-            (!det.schedules || det.schedules.length === 0)
+          floorPlanSheets = detections.filter(
+            det => !det.error && det.imgBase64 && (!det.schedules || det.schedules.length === 0),
           );
         }
 
         if (floorPlanSheets.length > 0) {
-          setScanProgress({ phase: "count", current: 0, total: floorPlanSheets.length, message: `Counting items on ${floorPlanSheets.length} floor plans...` });
+          setScanProgress({
+            phase: "count",
+            current: 0,
+            total: floorPlanSheets.length,
+            message: `Counting items on ${floorPlanSheets.length} floor plans...`,
+          });
 
-          const countResults = await batchAI(floorPlanSheets, async (det, idx) => {
-            setScanProgress({ phase: "count", current: idx + 1, total: floorPlanSheets.length, message: `Counting marks on ${det.sheetLabel || `sheet ${idx + 1}`}...` });
-            const prompt = buildCountingPrompt(marksByType, det.ocrText);
-            const result = await callAnthropic({
-              max_tokens: 2000,
-              messages: [{ role: "user", content: [imageBlock(det.imgBase64), { type: "text", text: prompt }] }],
-            });
-            try {
-              const parsed = extractJSON(result, 'object');
-              return parsed || {};
-            } catch { return {}; }
-          }, 3);
+          const countResults = await batchAI(
+            floorPlanSheets,
+            async (det, idx) => {
+              setScanProgress({
+                phase: "count",
+                current: idx + 1,
+                total: floorPlanSheets.length,
+                message: `Counting marks on ${det.sheetLabel || `sheet ${idx + 1}`}...`,
+              });
+              const prompt = buildCountingPrompt(marksByType, det.ocrText);
+              const result = await callAnthropic({
+                max_tokens: 2000,
+                messages: [{ role: "user", content: [imageBlock(det.imgBase64), { type: "text", text: prompt }] }],
+              });
+              try {
+                const parsed = extractJSON(result, "object");
+                return parsed || {};
+              } catch {
+                return {};
+              }
+            },
+            3,
+          );
 
           // Aggregate counts across all floor plan sheets
           const totalCounts = {};
@@ -259,12 +396,11 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
             }
           }
 
-          console.log('[scanRunner] Phase 2.3: Floor plan counts:', JSON.stringify(totalCounts));
+          console.log("[scanRunner] Phase 2.3: Floor plan counts:", JSON.stringify(totalCounts));
         }
       }
 
       // ── Phase 2.5: Extract building params from schedules ──
-      let scheduleEvidence = null;
       try {
         scheduleEvidence = extractBuildingParamsFromSchedules(validSchedules);
         const currentProject = useProjectStore.getState().project;
@@ -273,23 +409,31 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
         const mergedRooms = { ...existingRooms };
         let roomsUpdated = false;
         Object.entries(scheduleEvidence.roomCounts).forEach(([k, v]) => {
-          if (v > (existingRooms[k] || 0)) { mergedRooms[k] = v; roomsUpdated = true; }
+          if (v > (existingRooms[k] || 0)) {
+            mergedRooms[k] = v;
+            roomsUpdated = true;
+          }
         });
         if (roomsUpdated) updates.roomCounts = mergedRooms;
         if (scheduleEvidence.floorCount > 0 && !currentProject.floorCount) {
           updates.floorCount = scheduleEvidence.floorCount;
-          updates.floors = Array.from({ length: scheduleEvidence.floorCount }, (_, i) => ({ label: `Floor ${i + 1}`, height: i === 0 ? 14 : 12 }));
+          updates.floors = Array.from({ length: scheduleEvidence.floorCount }, (_, i) => ({
+            label: `Floor ${i + 1}`,
+            height: i === 0 ? 14 : 12,
+          }));
         }
         if (Object.keys(updates).length > 0) {
           useProjectStore.getState().setProject({ ...useProjectStore.getState().project, ...updates });
         }
-      } catch { /* non-critical */ }
+      } catch {
+        /* non-critical */
+      }
     }
 
     // ── Phase 2.6: Multi-signal parameter detection engine ──
     checkAbort();
     try {
-      useNovaStore.getState().updateProgress(55, 'Running parameter detection engine...');
+      useNovaStore.getState().updateProgress(55, "Running parameter detection engine...");
       setScanProgress({ phase: "params", current: 0, total: 1, message: "Multi-signal parameter detection..." });
 
       const detectionResult = await runParameterDetection({
@@ -311,9 +455,9 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
         const mergedRooms = { ...existingRooms };
         let roomsUpdated = false;
         for (const [paramPath, value] of Object.entries(detectionResult.parameters)) {
-          if (paramPath.startsWith('roomCounts.')) {
-            const roomKey = paramPath.split('.')[1];
-            if (typeof value === 'number' && value > (mergedRooms[roomKey] || 0)) {
+          if (paramPath.startsWith("roomCounts.")) {
+            const roomKey = paramPath.split(".")[1];
+            if (typeof value === "number" && value > (mergedRooms[roomKey] || 0)) {
               mergedRooms[roomKey] = value;
               roomsUpdated = true;
             }
@@ -370,65 +514,115 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
       const evidenceCount = detectionResult?.evidence?.length || 0;
       console.log(`[scanRunner] Phase 2.6: ${paramCount} parameters from ${evidenceCount} evidence items`);
     } catch (err) {
-      console.warn('[scanRunner] Phase 2.6 (parameter detection) failed:', err.message);
+      console.warn("[scanRunner] Phase 2.6 (parameter detection) failed:", err.message);
       // Non-critical — existing schedule extraction from Phase 2.5 still works
     }
 
     // ── Phase 3: Generate ROM (always runs — produces estimates from drawings + notes even without schedules) ──
     checkAbort();
-    useNovaStore.getState().updateProgress(75, 'Generating ROM estimate...');
+    useNovaStore.getState().updateProgress(75, "Generating ROM estimate...");
     setScanProgress({ phase: "rom", current: 0, total: 1, message: "Generating ROM estimate..." });
     const proj = useProjectStore.getState().project;
     let effectiveSF = proj.projectSF;
     let sfEstimate = null;
     if (!effectiveSF || parseFloat(effectiveSF) === 0) {
       const pCtx = buildProjectContext({ project: proj, drawings: useDrawingsStore.getState().drawings });
-      sfEstimate = await estimateProjectSF({ drawings: useDrawingsStore.getState().drawings, schedules: validSchedules, projectContext: pCtx });
+      sfEstimate = await estimateProjectSF({
+        drawings: useDrawingsStore.getState().drawings,
+        schedules: validSchedules,
+        projectContext: pCtx,
+      });
       if (sfEstimate?.estimatedSF) effectiveSF = sfEstimate.estimatedSF;
     }
-    const calibrationFactors = useScanStore.getState().getCalibrationFactors(
-      proj.jobType, proj.workType || '', proj.laborType || ''
+    const calibrationFactors = useScanStore
+      .getState()
+      .getCalibrationFactors(proj.jobType, proj.workType || "", proj.laborType || "");
+    const buildingParams = {
+      floorCount: proj.floorCount,
+      basementCount: proj.basementCount,
+      roomCounts: proj.roomCounts || {},
+    };
+    const baseline = generateBaselineROM(
+      effectiveSF,
+      proj.jobType,
+      proj.workType || "",
+      calibrationFactors,
+      buildingParams,
     );
-    const buildingParams = { floorCount: proj.floorCount, basementCount: proj.basementCount, roomCounts: proj.roomCounts || {} };
-    const baseline = generateBaselineROM(effectiveSF, proj.jobType, proj.workType || '', calibrationFactors, buildingParams);
-    if (sfEstimate?.estimatedSF) { baseline.sfEstimated = true; baseline.sfEstimateDetails = sfEstimate; baseline.sfMissing = false; baseline.projectSF = sfEstimate.estimatedSF; }
+    if (sfEstimate?.estimatedSF) {
+      baseline.sfEstimated = true;
+      baseline.sfEstimateDetails = sfEstimate;
+      baseline.sfMissing = false;
+      baseline.projectSF = sfEstimate.estimatedSF;
+    }
     const scheduleLineItems = await generateScheduleLineItems(validSchedules);
 
     setScanProgress({ phase: "rom", current: 0, total: 1, message: "Refining ROM estimates..." });
-    const projectCtx = buildProjectContext({ project: { ...proj, projectSF: effectiveSF || proj.projectSF }, items: useItemsStore.getState().items, drawings: useDrawingsStore.getState().drawings, specs: useSpecsStore.getState().specs });
-    const augmentedROM = await augmentROMWithAI({ baseline, scheduleItems: scheduleLineItems, projectContext: projectCtx, notesContext });
+    const projectCtx = buildProjectContext({
+      project: { ...proj, projectSF: effectiveSF || proj.projectSF },
+      items: useItemsStore.getState().items,
+      drawings: useDrawingsStore.getState().drawings,
+      specs: useSpecsStore.getState().specs,
+    });
+    const augmentedROM = await augmentROMWithAI({
+      baseline,
+      scheduleItems: scheduleLineItems,
+      projectContext: projectCtx,
+      notesContext,
+    });
 
     const results = {
-      schedules: validSchedules.map(s => ({ type: s.type, title: s.title, sheetId: s.sheetId, sheetLabel: s.sheetLabel, confidence: s.confidence, entries: s.entries })),
-      rom: augmentedROM, lineItems: scheduleLineItems, drawingNotes: validNotesResults, notesContext, timestamp: Date.now(),
+      schedules: validSchedules.map(s => ({
+        type: s.type,
+        title: s.title,
+        sheetId: s.sheetId,
+        sheetLabel: s.sheetLabel,
+        confidence: s.confidence,
+        entries: s.entries,
+      })),
+      rom: augmentedROM,
+      lineItems: scheduleLineItems,
+      drawingNotes: validNotesResults,
+      notesContext,
+      timestamp: Date.now(),
     };
     setScanResults(results);
     setScanProgress({ phase: null, current: 0, total: 0, message: "" });
 
     // Persist scan results to IndexedDB immediately
     // (auto-save doesn't watch scanResults, so we must save explicitly)
-    try { await saveEstimate(); } catch (e) { console.warn('[scanRunner] Post-scan save failed:', e); }
+    try {
+      await saveEstimate();
+    } catch (e) {
+      console.warn("[scanRunner] Post-scan save failed:", e);
+    }
 
     const totalEntries = validSchedules.reduce((sum, s) => sum + s.entries.length, 0);
     const totalNotes = validNotesResults.reduce((s, r) => s + (r.notes?.length || 0), 0);
     const parts = [];
     if (totalEntries > 0) parts.push(`${totalEntries} items across ${validSchedules.length} schedules`);
     if (totalNotes > 0) parts.push(`${totalNotes} notes extracted`);
-    if (augmentedROM?.totals) parts.push(`ROM $${Math.round(augmentedROM.totals.low / 1000)}K–$${Math.round(augmentedROM.totals.high / 1000)}K`);
-    const scanMsg = parts.length > 0 ? `Scan complete: ${parts.join(' · ')}` : 'Scan complete: drawings analyzed';
+    if (augmentedROM?.totals)
+      parts.push(
+        `ROM $${Math.round(augmentedROM.totals.low / 1000)}K–$${Math.round(augmentedROM.totals.high / 1000)}K`,
+      );
+    const scanMsg = parts.length > 0 ? `Scan complete: ${parts.join(" · ")}` : "Scan complete: drawings analyzed";
     showToast(scanMsg);
     useNovaStore.getState().completeTask(scanMsg);
-    useNovaStore.getState().notify(scanMsg, 'success');
+    useNovaStore.getState().notify(scanMsg, "success");
 
     // Clear abort controller on success
-    try { useScanStore.setState({ scanAbortController: null }); } catch { /* ok */ }
+    try {
+      useScanStore.setState({ scanAbortController: null });
+    } catch {
+      /* ok */
+    }
 
     onComplete?.(results);
     return results;
-
   } catch (err) {
     // Handle user-initiated stop gracefully
-    if (err.message === '__SCAN_STOPPED__' || abortSignal.aborted) {
+    if (err.message === "__SCAN_STOPPED__" || abortSignal.aborted) {
       setScanProgress({ phase: null, current: 0, total: 0, message: "" });
       showToast("Scan stopped");
       useNovaStore.getState().completeTask("Scan stopped by user");
@@ -439,7 +633,7 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
     setScanProgress({ phase: null, current: 0, total: 0, message: "" });
     showToast(`Scan failed: ${err.message}`, "error");
     useNovaStore.getState().failTask(err.message);
-    useNovaStore.getState().notify(`Scan failed: ${err.message}`, 'warn');
+    useNovaStore.getState().notify(`Scan failed: ${err.message}`, "warn");
     onError?.(err.message);
     return null;
   }

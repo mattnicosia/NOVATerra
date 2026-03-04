@@ -1,66 +1,77 @@
 // Vercel Serverless Function — Send bid invite email via Resend
 // Sends HTML email with project info, scope, due date, and portal link CTA
 
-import { Resend } from 'resend';
-import { supabaseAdmin, verifyUser } from './lib/supabaseAdmin.js';
-import { cors } from './lib/cors.js';
+import { Resend } from "resend";
+import { supabaseAdmin, verifyUser } from "./lib/supabaseAdmin.js";
+import { cors } from "./lib/cors.js";
 
 export default async function handler(req, res) {
   if (cors(req, res)) return;
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
   const user = await verifyUser(req);
-  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  if (!user) return res.status(401).json({ error: "Unauthorized" });
 
   const { invitationId, packageId } = req.body || {};
   if (!invitationId || !packageId) {
-    return res.status(400).json({ error: 'Missing invitationId or packageId' });
+    return res.status(400).json({ error: "Missing invitationId or packageId" });
   }
 
   const apiKey = process.env.RESEND_API_KEY;
-  const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
+  const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : "http://localhost:3000";
 
   if (!apiKey) {
-    return res.status(500).json({ error: 'Email service not configured' });
+    return res.status(500).json({ error: "Email service not configured" });
   }
   if (!supabaseAdmin) {
-    return res.status(500).json({ error: 'Database not configured' });
+    return res.status(500).json({ error: "Database not configured" });
   }
 
   try {
     // Fetch invitation + package data
     const { data: inv, error: invErr } = await supabaseAdmin
-      .from('bid_invitations')
-      .select('*, bid_packages(*)')
-      .eq('id', invitationId)
-      .eq('user_id', user.id)
+      .from("bid_invitations")
+      .select("*, bid_packages(*)")
+      .eq("id", invitationId)
+      .eq("user_id", user.id)
       .single();
 
     if (invErr || !inv) {
-      return res.status(404).json({ error: 'Invitation not found' });
+      return res.status(404).json({ error: "Invitation not found" });
     }
 
     const pkg = inv.bid_packages;
     const portalUrl = `${appUrl}/portal/${inv.token}`;
     const dueStr = pkg.due_date
-      ? new Date(pkg.due_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
-      : 'No due date specified';
+      ? new Date(pkg.due_date + "T12:00:00").toLocaleDateString("en-US", {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        })
+      : "No due date specified";
 
     // Get GC company name from user metadata or fallback
     const gcCompany = user.user_metadata?.company || user.email;
 
     // Build scope list HTML
     const scopeItems = Array.isArray(pkg.scope_items) ? pkg.scope_items : [];
-    const scopeHtml = scopeItems.length > 0
-      ? `<ul style="margin:0;padding-left:20px;color:#CCCCCC;">${scopeItems.map(s =>
-          `<li style="margin-bottom:4px;">${escapeHtml(typeof s === 'string' ? s : s.description || s.name || '')}</li>`
-        ).join('')}</ul>`
-      : '<p style="color:#999;">See attached scope details</p>';
+    const scopeHtml =
+      scopeItems.length > 0
+        ? `<ul style="margin:0;padding-left:20px;color:#CCCCCC;">${scopeItems
+            .map(
+              s =>
+                `<li style="margin-bottom:4px;">${escapeHtml(typeof s === "string" ? s : s.description || s.name || "")}</li>`,
+            )
+            .join("")}</ul>`
+        : '<p style="color:#999;">See attached scope details</p>';
 
     const html = `
 <!DOCTYPE html>
@@ -91,10 +102,10 @@ export default async function handler(req, res) {
 
         <div style="color:#7C5CFC;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Scope</div>
         ${scopeHtml}
-        ${pkg.scope_sheet ? `<div style="margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);"><div style="color:#7C5CFC;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Scope Summary</div>${pkg.scope_sheet}</div>` : ''}
+        ${pkg.scope_sheet ? `<div style="margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);"><div style="color:#7C5CFC;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Scope Summary</div>${pkg.scope_sheet}</div>` : ""}
       </div>
 
-      ${pkg.cover_message ? `<div style="background:rgba(255,255,255,0.04);border-radius:8px;padding:16px;margin-bottom:20px;border-left:3px solid #7C5CFC;"><p style="color:#CCCCCC;font-size:14px;margin:0;line-height:1.6;">${escapeHtml(pkg.cover_message)}</p></div>` : ''}
+      ${pkg.cover_message ? `<div style="background:rgba(255,255,255,0.04);border-radius:8px;padding:16px;margin-bottom:20px;border-left:3px solid #7C5CFC;"><p style="color:#CCCCCC;font-size:14px;margin:0;line-height:1.6;">${escapeHtml(pkg.cover_message)}</p></div>` : ""}
 
       <a href="${portalUrl}" style="display:inline-block;background:linear-gradient(135deg,#7C5CFC,#BF5AF2);color:#FFFFFF;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;font-size:15px;text-align:center;width:100%;box-sizing:border-box;">
         View Details & Submit Proposal
@@ -115,32 +126,32 @@ export default async function handler(req, res) {
     });
 
     if (emailError) {
-      console.error('[send-bid-invite] Resend error:', emailError);
-      return res.status(502).json({ error: emailError.message || 'Failed to send email' });
+      console.error("[send-bid-invite] Resend error:", emailError);
+      return res.status(502).json({ error: emailError.message || "Failed to send email" });
     }
 
     // Update invitation status
     await supabaseAdmin
-      .from('bid_invitations')
+      .from("bid_invitations")
       .update({
-        status: 'sent',
+        status: "sent",
         resend_email_id: emailData.id,
         sent_at: new Date().toISOString(),
       })
-      .eq('id', invitationId);
+      .eq("id", invitationId);
 
     console.log(`[send-bid-invite] OK emailId=${emailData.id} to=${inv.sub_email}`);
-    return res.status(200).json({ status: 'ok', emailId: emailData.id });
+    return res.status(200).json({ status: "ok", emailId: emailData.id });
   } catch (err) {
-    console.error('[send-bid-invite] Error:', err);
-    return res.status(500).json({ error: err.message || 'Internal server error' });
+    console.error("[send-bid-invite] Error:", err);
+    return res.status(500).json({ error: err.message || "Internal server error" });
   }
 }
 
 function escapeHtml(str) {
-  return String(str || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+  return String(str || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }

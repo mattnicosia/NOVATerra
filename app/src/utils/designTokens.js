@@ -25,7 +25,7 @@ export const T = {
     md: 14,
     lg: 16,
     xl: 20,
-    '2xl': 28,
+    "2xl": 28,
   },
 
   // Font weights
@@ -71,36 +71,36 @@ export const T = {
 
   // Elevation shadows — boosted for dark surfaces
   shadow: {
-    none: 'none',
-    sm: '0 1px 3px rgba(0,0,0,0.24), 0 1px 2px rgba(0,0,0,0.18)',
-    md: '0 3px 12px rgba(0,0,0,0.30), 0 2px 4px rgba(0,0,0,0.22)',
-    lg: '0 8px 24px rgba(0,0,0,0.35), 0 4px 8px rgba(0,0,0,0.25)',
-    xl: '0 16px 48px rgba(0,0,0,0.45), 0 8px 16px rgba(0,0,0,0.30)',
-    glow: '0 0 20px rgba(0,212,255,0.15), 0 0 40px rgba(0,212,255,0.05)',
-    glowAccent: '0 0 12px rgba(0,212,255,0.20)',
-    glowPurple: '0 0 12px rgba(123,97,255,0.20)',
+    none: "none",
+    sm: "0 1px 3px rgba(0,0,0,0.24), 0 1px 2px rgba(0,0,0,0.18)",
+    md: "0 3px 12px rgba(0,0,0,0.30), 0 2px 4px rgba(0,0,0,0.22)",
+    lg: "0 8px 24px rgba(0,0,0,0.35), 0 4px 8px rgba(0,0,0,0.25)",
+    xl: "0 16px 48px rgba(0,0,0,0.45), 0 8px 16px rgba(0,0,0,0.30)",
+    glow: "0 0 20px rgba(0,212,255,0.15), 0 0 40px rgba(0,212,255,0.05)",
+    glowAccent: "0 0 12px rgba(0,212,255,0.20)",
+    glowPurple: "0 0 12px rgba(123,97,255,0.20)",
   },
 
   // Elevation shadows — Liquid Glass LIGHT: Apple-exact, barely-there depth
   // Apple clear look: widgets have virtually NO drop shadow — glass just floats.
   // Only modals/dropdowns get noticeable shadow.
   shadowLight: {
-    none: 'none',
-    sm: '0 1px 2px rgba(20,30,80,0.04), 0 2px 6px rgba(20,30,80,0.03)',
-    md: '0 2px 4px rgba(20,30,80,0.06), 0 4px 12px rgba(20,30,80,0.04)',
-    lg: '0 4px 8px rgba(20,30,80,0.08), 0 8px 24px rgba(20,30,80,0.06)',
-    xl: '0 8px 16px rgba(20,30,80,0.10), 0 16px 40px rgba(20,30,80,0.08)',
-    glow: '0 0 20px rgba(0,122,255,0.18), 0 0 40px rgba(0,122,255,0.08)',
-    glowAccent: '0 0 16px rgba(0,122,255,0.22)',
-    glowPurple: '0 0 16px rgba(123,97,255,0.22)',
+    none: "none",
+    sm: "0 1px 2px rgba(20,30,80,0.04), 0 2px 6px rgba(20,30,80,0.03)",
+    md: "0 2px 4px rgba(20,30,80,0.06), 0 4px 12px rgba(20,30,80,0.04)",
+    lg: "0 4px 8px rgba(20,30,80,0.08), 0 8px 24px rgba(20,30,80,0.06)",
+    xl: "0 8px 16px rgba(20,30,80,0.10), 0 16px 40px rgba(20,30,80,0.08)",
+    glow: "0 0 20px rgba(0,122,255,0.18), 0 0 40px rgba(0,122,255,0.08)",
+    glowAccent: "0 0 16px rgba(0,122,255,0.22)",
+    glowPurple: "0 0 16px rgba(123,97,255,0.22)",
   },
 
   // Transitions
   transition: {
-    fast: 'all 100ms ease-out',
-    base: 'all 150ms ease-out',
-    slow: 'all 250ms ease-out',
-    spring: 'all 300ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+    fast: "all 100ms ease-out",
+    base: "all 150ms ease-out",
+    slow: "all 250ms ease-out",
+    spring: "all 300ms cubic-bezier(0.34, 1.56, 0.64, 1)",
   },
 
   // Z-index scale
@@ -133,54 +133,113 @@ export const T = {
 
   // Component sizes (sm/md/lg)
   size: {
-    sm: { height: 28, padding: '4px 10px', fontSize: 11, iconSize: 12 },
-    md: { height: 34, padding: '7px 14px', fontSize: 13, iconSize: 14 },
-    lg: { height: 40, padding: '10px 20px', fontSize: 14, iconSize: 16 },
+    sm: { height: 28, padding: "4px 10px", fontSize: 11, iconSize: 12 },
+    md: { height: 34, padding: "7px 14px", fontSize: 13, iconSize: 14 },
+    lg: { height: 40, padding: "10px 20px", fontSize: 14, iconSize: 16 },
   },
 
   // Semantic typography presets — compose from existing scale values
   type: {
-    heading:    { fontSize: 20, fontWeight: 700, lineHeight: 1.2 },
+    heading: { fontSize: 20, fontWeight: 700, lineHeight: 1.2 },
     subheading: { fontSize: 14, fontWeight: 600, lineHeight: 1.3 },
-    body:       { fontSize: 13, fontWeight: 400, lineHeight: 1.5 },
-    caption:    { fontSize: 10, fontWeight: 400, lineHeight: 1.4 },
-    label:      { fontSize: 10, fontWeight: 600, lineHeight: 1.2, textTransform: 'uppercase', letterSpacing: 0.8 },
-    mono:       { fontSize: 12, fontWeight: 500, fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif" },
-    monoBig:    { fontSize: 14, fontWeight: 600, fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif" },
+    body: { fontSize: 13, fontWeight: 400, lineHeight: 1.5 },
+    caption: { fontSize: 10, fontWeight: 400, lineHeight: 1.4 },
+    label: { fontSize: 10, fontWeight: 600, lineHeight: 1.2, textTransform: "uppercase", letterSpacing: 0.8 },
+    mono: { fontSize: 12, fontWeight: 500, fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif" },
+    monoBig: { fontSize: 14, fontWeight: 600, fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif" },
   },
 
   // Liquid Glass DARK — Apple-exact: nearly invisible glass on dark wallpapers.
   // Apple macOS Tahoe 26: widgets are ghost-like, wallpaper bleeds through completely.
   // Specular is a thin whisper, not a bold stripe. No heavy inner glow.
   glass: {
-    blur: 'blur(24px) saturate(180%) brightness(1.08)',
-    blurLight: 'blur(16px) saturate(160%) brightness(1.04)',
-    blurHover: 'blur(28px) saturate(200%) brightness(1.10)',
-    bg: 'rgba(255,255,255,0.04)',
-    bgDark: 'rgba(10,10,22,0.40)',
-    border: 'rgba(255,255,255,0.10)',
-    borderHover: 'rgba(255,255,255,0.18)',
-    borderLight: 'rgba(255,255,255,0.05)',
+    blur: "blur(24px) saturate(180%) brightness(1.08)",
+    blurLight: "blur(16px) saturate(160%) brightness(1.04)",
+    blurHover: "blur(28px) saturate(200%) brightness(1.10)",
+    bg: "rgba(255,255,255,0.04)",
+    bgDark: "rgba(10,10,22,0.40)",
+    border: "rgba(255,255,255,0.10)",
+    borderHover: "rgba(255,255,255,0.18)",
+    borderLight: "rgba(255,255,255,0.05)",
     // Specular — thin, subtle top-edge highlight
-    specularSm: 'inset 0 0.5px 0 rgba(255,255,255,0.18)',
-    specular: 'inset 0 0.5px 0 rgba(255,255,255,0.22)',
-    specularLg: 'inset 0 1px 0 rgba(255,255,255,0.28)',
-    specularHover: 'inset 0 1px 0 rgba(255,255,255,0.35)',
+    specularSm: "inset 0 0.5px 0 rgba(255,255,255,0.18)",
+    specular: "inset 0 0.5px 0 rgba(255,255,255,0.22)",
+    specularLg: "inset 0 1px 0 rgba(255,255,255,0.28)",
+    specularHover: "inset 0 1px 0 rgba(255,255,255,0.35)",
     // Hairline edge — 0.5px, barely perceptible
-    edge: '0 0 0 0.5px rgba(255,255,255,0.06)',
-    edgeHover: '0 0 0 0.5px rgba(255,255,255,0.12)',
+    edge: "0 0 0 0.5px rgba(255,255,255,0.06)",
+    edgeHover: "0 0 0 0.5px rgba(255,255,255,0.12)",
     // Bottom-edge specular — light catching underside of glass
-    specularBottom: 'inset 0 -0.5px 0 rgba(255,255,255,0.06)',
-    specularBottomLg: 'inset 0 -1px 0 rgba(255,255,255,0.10)',
+    specularBottom: "inset 0 -0.5px 0 rgba(255,255,255,0.06)",
+    specularBottomLg: "inset 0 -1px 0 rgba(255,255,255,0.10)",
     // Inner depth shadow — gives glass thickness
-    innerDepth: 'inset 0 1px 3px rgba(0,0,0,0.08)',
-    innerDepthLg: 'inset 0 2px 6px rgba(0,0,0,0.12)',
+    innerDepth: "inset 0 1px 3px rgba(0,0,0,0.08)",
+    innerDepthLg: "inset 0 2px 6px rgba(0,0,0,0.12)",
     // Refraction glow — subtle light spread at glass edges
-    refraction: '0 0 6px rgba(255,255,255,0.03)',
-    refractionHover: '0 0 10px rgba(255,255,255,0.06)',
+    refraction: "0 0 6px rgba(255,255,255,0.03)",
+    refractionHover: "0 0 10px rgba(255,255,255,0.06)",
     // Lens gradient — brightness variance within glass (CSS string for overlay)
-    lens: 'linear-gradient(180deg, rgba(255,255,255,0.06) 0%, transparent 35%, transparent 75%, rgba(0,0,0,0.03) 100%)',
-    lensHover: 'linear-gradient(180deg, rgba(255,255,255,0.10) 0%, transparent 35%, transparent 75%, rgba(0,0,0,0.04) 100%)',
+    lens: "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, transparent 35%, transparent 75%, rgba(0,0,0,0.03) 100%)",
+    lensHover:
+      "linear-gradient(180deg, rgba(255,255,255,0.10) 0%, transparent 35%, transparent 75%, rgba(0,0,0,0.04) 100%)",
+  },
+
+  // ── NERO GLASS — "Black Glass From Another Planet" ──
+  // Apple Liquid Glass 5-layer stack adapted for void-black backgrounds.
+  // Size-dependent weight: small = thin/light, large = thick/deep.
+  // Used by neroGlassStyle() in styles.js for floating surfaces.
+  // Matte carbon surfaces do NOT use these tokens.
+  neroGlass: {
+    // ── TIER SM (buttons, badges, small controls) ──
+    sm: {
+      blur: "blur(8px) saturate(120%)",
+      bg: "rgba(255,255,255,0.06)",
+      border: "rgba(255,255,255,0.10)",
+      specular: "inset 0 0.5px 0 rgba(255,255,255,0.15)",
+      specularBottom: "inset 0 -0.5px 0 rgba(255,255,255,0.04)",
+      innerDepth: "inset 0 0 8px -3px rgba(255,255,255,0.08)",
+      shadow: "0 2px 8px rgba(0,0,0,0.40), 0 1px 3px rgba(0,0,0,0.30)",
+      edge: "0 0 0 0.5px rgba(255,255,255,0.06)",
+      hoverGlow: "inset 0 0 12px -4px rgba(255,255,255,0.15)",
+    },
+    // ── TIER MD (cards, KPIs, dropdowns) ──
+    md: {
+      blur: "blur(16px) saturate(150%)",
+      bg: "rgba(255,255,255,0.08)",
+      border: "rgba(255,255,255,0.12)",
+      specular: "inset 0 1px 0 rgba(255,255,255,0.20)",
+      specularBottom: "inset 0 -0.5px 0 rgba(255,255,255,0.06)",
+      innerDepth: "inset 0 0 16px -5px rgba(255,255,255,0.12)",
+      shadow: "0 4px 16px rgba(0,0,0,0.50), 0 2px 6px rgba(0,0,0,0.35)",
+      edge: "0 0 0 0.5px rgba(255,255,255,0.08)",
+      hoverGlow: "inset 0 0 20px -5px rgba(255,255,255,0.20)",
+    },
+    // ── TIER LG (modals, panels, large cards) ──
+    lg: {
+      blur: "blur(24px) saturate(160%)",
+      bg: "rgba(255,255,255,0.10)",
+      border: "rgba(255,255,255,0.14)",
+      specular: "inset 1px 1px 0 rgba(255,255,255,0.25)",
+      specularBottom: "inset 0 -1px 0 rgba(255,255,255,0.08)",
+      innerDepth: "inset 0 0 20px -5px rgba(255,255,255,0.18)",
+      shadow: "0 8px 32px rgba(0,0,0,0.55), 0 4px 12px rgba(0,0,0,0.40)",
+      edge: "0 0 0 0.5px rgba(255,255,255,0.10)",
+      hoverGlow: "inset 0 0 30px -6px rgba(255,255,255,0.25)",
+    },
+    // ── TIER XL (full-screen overlays) ──
+    xl: {
+      blur: "blur(32px) saturate(170%)",
+      bg: "rgba(255,255,255,0.12)",
+      border: "rgba(255,255,255,0.16)",
+      specular: "inset 1px 1px 0 rgba(255,255,255,0.30), inset 0 0 5px rgba(255,255,255,0.10)",
+      specularBottom: "inset 0 -1px 0 rgba(255,255,255,0.10)",
+      innerDepth: "inset 0 0 24px -5px rgba(255,255,255,0.22)",
+      shadow: "0 16px 48px rgba(0,0,0,0.60), 0 8px 20px rgba(0,0,0,0.45)",
+      edge: "0 0 0 0.5px rgba(255,255,255,0.12)",
+      hoverGlow: "inset 0 0 40px -8px rgba(255,255,255,0.30)",
+    },
+    // ── Shared spring transition curve ──
+    spring: "all 300ms cubic-bezier(0.4, 0, 0.2, 1)",
   },
 
   // Liquid Glass LIGHT — Apple-exact: "Clear Look" from macOS Tahoe 26.
@@ -194,36 +253,37 @@ export const T = {
   //
   // Apple: "Light is bent, shaped, and concentrated—not obscured."
   glassLight: {
-    blur: 'blur(24px) saturate(200%) brightness(1.08)',
-    blurLight: 'blur(16px) saturate(170%) brightness(1.04)',
-    blurHover: 'blur(28px) saturate(220%) brightness(1.10)',
+    blur: "blur(24px) saturate(200%) brightness(1.08)",
+    blurLight: "blur(16px) saturate(170%) brightness(1.04)",
+    blurHover: "blur(28px) saturate(220%) brightness(1.10)",
     // Nearly invisible — mesh COLOR bleeds through almost completely
-    bg: 'rgba(255,255,255,0.08)',
-    bgDark: 'rgba(255,255,255,0.18)',
+    bg: "rgba(255,255,255,0.08)",
+    bgDark: "rgba(255,255,255,0.18)",
     // Whisper-thin borders — barely perceptible luminous edge
-    border: 'rgba(255,255,255,0.25)',
-    borderHover: 'rgba(255,255,255,0.40)',
-    borderLight: 'rgba(255,255,255,0.12)',
+    border: "rgba(255,255,255,0.25)",
+    borderHover: "rgba(255,255,255,0.40)",
+    borderLight: "rgba(255,255,255,0.12)",
     // Specular — thin, restrained top-edge highlight (NOT full white)
-    specularSm: 'inset 0 0.5px 0 rgba(255,255,255,0.45)',
-    specular: 'inset 0 0.5px 0 rgba(255,255,255,0.55)',
-    specularLg: 'inset 0 1px 0 rgba(255,255,255,0.65)',
-    specularHover: 'inset 0 1px 0 rgba(255,255,255,0.75)',
+    specularSm: "inset 0 0.5px 0 rgba(255,255,255,0.45)",
+    specular: "inset 0 0.5px 0 rgba(255,255,255,0.55)",
+    specularLg: "inset 0 1px 0 rgba(255,255,255,0.65)",
+    specularHover: "inset 0 1px 0 rgba(255,255,255,0.75)",
     // Hairline edge — 0.5px, ghost-like
-    edge: '0 0 0 0.5px rgba(255,255,255,0.15)',
-    edgeHover: '0 0 0 0.5px rgba(255,255,255,0.30)',
+    edge: "0 0 0 0.5px rgba(255,255,255,0.15)",
+    edgeHover: "0 0 0 0.5px rgba(255,255,255,0.30)",
     // Bottom-edge specular — light catching underside of glass
-    specularBottom: 'inset 0 -0.5px 0 rgba(255,255,255,0.35)',
-    specularBottomLg: 'inset 0 -1px 0 rgba(255,255,255,0.50)',
+    specularBottom: "inset 0 -0.5px 0 rgba(255,255,255,0.35)",
+    specularBottomLg: "inset 0 -1px 0 rgba(255,255,255,0.50)",
     // Inner depth shadow — gives glass thickness
-    innerDepth: 'inset 0 1px 3px rgba(20,30,80,0.04)',
-    innerDepthLg: 'inset 0 2px 6px rgba(20,30,80,0.06)',
+    innerDepth: "inset 0 1px 3px rgba(20,30,80,0.04)",
+    innerDepthLg: "inset 0 2px 6px rgba(20,30,80,0.06)",
     // Refraction glow — subtle light spread at glass edges
-    refraction: '0 0 8px rgba(255,255,255,0.15)',
-    refractionHover: '0 0 14px rgba(255,255,255,0.25)',
+    refraction: "0 0 8px rgba(255,255,255,0.15)",
+    refractionHover: "0 0 14px rgba(255,255,255,0.25)",
     // Lens gradient — brightness variance within glass (CSS string for overlay)
-    lens: 'linear-gradient(180deg, rgba(255,255,255,0.20) 0%, rgba(255,255,255,0.05) 35%, transparent 75%, rgba(0,0,0,0.02) 100%)',
-    lensHover: 'linear-gradient(180deg, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.10) 35%, transparent 75%, rgba(0,0,0,0.03) 100%)',
+    lens: "linear-gradient(180deg, rgba(255,255,255,0.20) 0%, rgba(255,255,255,0.05) 35%, transparent 75%, rgba(0,0,0,0.02) 100%)",
+    lensHover:
+      "linear-gradient(180deg, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.10) 35%, transparent 75%, rgba(0,0,0,0.03) 100%)",
   },
 };
 
@@ -232,30 +292,30 @@ export function buildTokens(density = "comfortable") {
   if (density !== "compact") return T;
   return {
     ...T,
-    space: Object.fromEntries(
-      Object.entries(T.space).map(([k, v]) => [k, Math.round(v * 0.75)])
-    ),
-    fontSize: Object.fromEntries(
-      Object.entries(T.fontSize).map(([k, v]) => [k, Math.max(v - 1, 7)])
-    ),
+    space: Object.fromEntries(Object.entries(T.space).map(([k, v]) => [k, Math.round(v * 0.75)])),
+    fontSize: Object.fromEntries(Object.entries(T.fontSize).map(([k, v]) => [k, Math.max(v - 1, 7)])),
     lineHeight: {
       tight: 1.1,
       normal: 1.3,
       relaxed: 1.4,
     },
     size: {
-      sm: { height: 24, padding: '3px 8px', fontSize: 10, iconSize: 11 },
-      md: { height: 28, padding: '5px 10px', fontSize: 12, iconSize: 13 },
-      lg: { height: 34, padding: '8px 16px', fontSize: 13, iconSize: 14 },
+      sm: { height: 24, padding: "3px 8px", fontSize: 10, iconSize: 11 },
+      md: { height: 28, padding: "5px 10px", fontSize: 12, iconSize: 13 },
+      lg: { height: 34, padding: "8px 16px", fontSize: 13, iconSize: 14 },
     },
     type: {
-      heading:    { fontSize: 18, fontWeight: 700, lineHeight: 1.15 },
+      heading: { fontSize: 18, fontWeight: 700, lineHeight: 1.15 },
       subheading: { fontSize: 13, fontWeight: 600, lineHeight: 1.25 },
-      body:       { fontSize: 12, fontWeight: 400, lineHeight: 1.4 },
-      caption:    { fontSize: 9, fontWeight: 400, lineHeight: 1.3 },
-      label:      { fontSize: 9, fontWeight: 600, lineHeight: 1.2, textTransform: 'uppercase', letterSpacing: 0.8 },
-      mono:       { fontSize: 11, fontWeight: 500, fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif" },
-      monoBig:    { fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif" },
+      body: { fontSize: 12, fontWeight: 400, lineHeight: 1.4 },
+      caption: { fontSize: 9, fontWeight: 400, lineHeight: 1.3 },
+      label: { fontSize: 9, fontWeight: 600, lineHeight: 1.2, textTransform: "uppercase", letterSpacing: 0.8 },
+      mono: { fontSize: 11, fontWeight: 500, fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif" },
+      monoBig: {
+        fontSize: 13,
+        fontWeight: 600,
+        fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif",
+      },
     },
   };
 }

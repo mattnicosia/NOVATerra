@@ -20,7 +20,8 @@ export function processLogo(file) {
       img.onerror = () => reject(new Error("Failed to load image"));
       img.onload = () => {
         const MAX = 400;
-        let w = img.width, h = img.height;
+        let w = img.width,
+          h = img.height;
 
         if (w > MAX || h > MAX) {
           const scale = MAX / Math.max(w, h);
@@ -43,7 +44,10 @@ export function processLogo(file) {
           const data = imageData.data;
           // Sample every 4th pixel (stride 16 bytes) for performance
           for (let i = 3; i < data.length; i += 16) {
-            if (data[i] < 250) { hasTransparency = true; break; }
+            if (data[i] < 250) {
+              hasTransparency = true;
+              break;
+            }
           }
         }
 

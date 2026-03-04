@@ -1,18 +1,18 @@
-import { create } from 'zustand';
-import { supabase } from '@/utils/supabase';
-import { useAuthStore } from './authStore';
+import { create } from "zustand";
+import { supabase } from "@/utils/supabase";
+import { useAuthStore } from "./authStore";
 
 // API base URL — uses Vercel in dev, relative path in production
-const API_BASE = import.meta.env.DEV
-  ? "https://app-nova-42373ca7.vercel.app"
-  : "";
+const API_BASE = import.meta.env.DEV ? "https://app-nova-42373ca7.vercel.app" : "";
 
 const READ_IDS_KEY = "nova-inbox-read-ids";
 
 // Helper: get current session from authStore
 async function getSession() {
   if (!supabase) return null;
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   return session;
 }
 
@@ -34,18 +34,19 @@ export const useInboxStore = create((set, get) => ({
   },
 
   // Mark an RFP as read
-  markAsRead: (rfpId) => {
+  markAsRead: rfpId => {
     const current = get().readIds;
     if (current.includes(rfpId)) return;
     const updated = [...current, rfpId];
     set({ readIds: updated });
-    try { localStorage.setItem(READ_IDS_KEY, JSON.stringify(updated)); } catch {}
+    try {
+      localStorage.setItem(READ_IDS_KEY, JSON.stringify(updated));
+    } catch {}
     // Recalculate unread count
     const rfps = get().rfps;
     set({
-      unreadCount: rfps.filter(r =>
-        (r.status === "parsed" || r.status === "pending") && !updated.includes(r.id)
-      ).length,
+      unreadCount: rfps.filter(r => (r.status === "parsed" || r.status === "pending") && !updated.includes(r.id))
+        .length,
     });
   },
 
@@ -56,10 +57,9 @@ export const useInboxStore = create((set, get) => ({
 
     set({ loading: true, error: null });
     try {
-      const resp = await fetch(
-        `${API_BASE}/api/pending-rfps?status=pending,parsed,imported,dismissed,error`,
-        { headers: { Authorization: `Bearer ${session.access_token}` } },
-      );
+      const resp = await fetch(`${API_BASE}/api/pending-rfps?status=pending,parsed,imported,dismissed,error`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
       if (!resp.ok) throw new Error("Failed to fetch RFPs");
       const data = await resp.json();
       const rfps = data.rfps || [];
@@ -67,9 +67,8 @@ export const useInboxStore = create((set, get) => ({
       set({
         rfps,
         loading: false,
-        unreadCount: rfps.filter(r =>
-          (r.status === "parsed" || r.status === "pending") && !readIds.includes(r.id)
-        ).length,
+        unreadCount: rfps.filter(r => (r.status === "parsed" || r.status === "pending") && !readIds.includes(r.id))
+          .length,
       });
     } catch (err) {
       set({ error: err.message, loading: false });
@@ -81,21 +80,25 @@ export const useInboxStore = create((set, get) => ({
     if (!supabase) return () => {};
     const channel = supabase
       .channel("pending-rfps-changes")
-      .on("postgres_changes", {
-        event: "*",
-        schema: "public",
-        table: "pending_rfps",
-      }, () => {
-        // Re-fetch on any change
-        get().fetchRfps();
-      })
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "pending_rfps",
+        },
+        () => {
+          // Re-fetch on any change
+          get().fetchRfps();
+        },
+      )
       .subscribe();
 
     return () => supabase.removeChannel(channel);
   },
 
   // Import an RFP → returns estimate data for IndexedDB
-  importRfp: async (rfpId) => {
+  importRfp: async (rfpId, companyProfileId) => {
     const session = await getSession();
     if (!session) return null;
 
@@ -105,36 +108,33 @@ export const useInboxStore = create((set, get) => ({
         "Content-Type": "application/json",
         Authorization: `Bearer ${session.access_token}`,
       },
-      body: JSON.stringify({ rfpId }),
+      body: JSON.stringify({ rfpId, companyProfileId }),
     });
     if (!resp.ok) throw new Error("Failed to import RFP");
     return await resp.json();
   },
 
   // Dismiss an RFP
-  dismissRfp: async (rfpId) => {
+  dismissRfp: async rfpId => {
     if (!supabase) return;
     const session = await getSession();
     if (!session) return;
 
-    await supabase
-      .from("pending_rfps")
-      .update({ status: "dismissed" })
-      .eq("id", rfpId);
+    await supabase.from("pending_rfps").update({ status: "dismissed" }).eq("id", rfpId);
 
     const readIds = get().readIds;
-    const wasUnread = get().rfps.some(r =>
-      r.id === rfpId && (r.status === "parsed" || r.status === "pending") && !readIds.includes(r.id)
+    const wasUnread = get().rfps.some(
+      r => r.id === rfpId && (r.status === "parsed" || r.status === "pending") && !readIds.includes(r.id),
     );
 
     set(s => ({
-      rfps: s.rfps.map(r => r.id === rfpId ? { ...r, status: "dismissed" } : r),
+      rfps: s.rfps.map(r => (r.id === rfpId ? { ...r, status: "dismissed" } : r)),
       unreadCount: wasUnread ? s.unreadCount - 1 : s.unreadCount,
     }));
   },
 
   // Register a sender email address
-  registerSenderEmail: async (email) => {
+  registerSenderEmail: async email => {
     if (!supabase) return { error: "Not configured" };
     const session = await getSession();
     if (!session) return { error: "Not authenticated" };
@@ -152,7 +152,7 @@ export const useInboxStore = create((set, get) => ({
   },
 
   // Remove a sender email
-  removeSenderEmail: async (email) => {
+  removeSenderEmail: async email => {
     if (!supabase) return { error: "Not configured" };
     const session = await getSession();
     if (!session) return { error: "Not authenticated" };
@@ -172,10 +172,7 @@ export const useInboxStore = create((set, get) => ({
     const session = await getSession();
     if (!session) return [];
 
-    const { data, error } = await supabase
-      .from("user_email_mappings")
-      .select("email")
-      .eq("user_id", session.user.id);
+    const { data, error } = await supabase.from("user_email_mappings").select("email").eq("user_id", session.user.id);
     if (error) {
       console.error("[inbox] fetchSenderEmails failed:", error.message, error);
       return [];
@@ -184,13 +181,13 @@ export const useInboxStore = create((set, get) => ({
   },
 
   // Retry parsing an errored RFP
-  retryParse: async (rfpId) => {
+  retryParse: async rfpId => {
     const session = await getSession();
     if (!session) return { error: "Not authenticated" };
 
     // Optimistically set status to pending
     set(s => ({
-      rfps: s.rfps.map(r => r.id === rfpId ? { ...r, status: "pending", parse_error: null } : r),
+      rfps: s.rfps.map(r => (r.id === rfpId ? { ...r, status: "pending", parse_error: null } : r)),
     }));
 
     try {
@@ -207,24 +204,28 @@ export const useInboxStore = create((set, get) => ({
 
       // Update local state with result
       set(s => ({
-        rfps: s.rfps.map(r => r.id === rfpId ? {
-          ...r,
-          status: result.status,
-          parsed_data: result.projectName ? { ...r.parsed_data, projectName: result.projectName } : r.parsed_data,
-          parse_error: result.error || null,
-        } : r),
+        rfps: s.rfps.map(r =>
+          r.id === rfpId
+            ? {
+                ...r,
+                status: result.status,
+                parsed_data: result.projectName ? { ...r.parsed_data, projectName: result.projectName } : r.parsed_data,
+                parse_error: result.error || null,
+              }
+            : r,
+        ),
       }));
 
       return result;
     } catch (err) {
       // Revert to error status on failure
       set(s => ({
-        rfps: s.rfps.map(r => r.id === rfpId ? { ...r, status: "error" } : r),
+        rfps: s.rfps.map(r => (r.id === rfpId ? { ...r, status: "error" } : r)),
       }));
       return { error: err.message };
     }
   },
 
-  setFilter: (f) => set({ filter: f }),
-  setSelectedRfpId: (id) => set({ selectedRfpId: id }),
+  setFilter: f => set({ filter: f }),
+  setSelectedRfpId: id => set({ selectedRfpId: id }),
 }));

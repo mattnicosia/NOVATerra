@@ -54,7 +54,7 @@ let dbPromise = null;
 
 function getDB() {
   if (!dbPromise) {
-    dbPromise = openDB().then(async (db) => {
+    dbPromise = openDB().then(async db => {
       await migrateFromLocalStorage(db);
       return db;
     });
@@ -85,10 +85,7 @@ export const storage = {
       const db = await getDB();
       await new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_NAME, "readwrite");
-        tx.objectStore(STORE_NAME).put(
-          typeof value === "string" ? value : JSON.stringify(value),
-          key
-        );
+        tx.objectStore(STORE_NAME).put(typeof value === "string" ? value : JSON.stringify(value), key);
         tx.oncomplete = resolve;
         tx.onerror = () => reject(tx.error);
       });
@@ -131,6 +128,22 @@ export const storage = {
     }
   },
 
+  // Return all keys in the store (for migration purposes)
+  async keys() {
+    try {
+      const db = await getDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, "readonly");
+        const req = tx.objectStore(STORE_NAME).getAllKeys();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+      });
+    } catch (e) {
+      console.error("Storage keys error:", e);
+      return [];
+    }
+  },
+
   async getUsage() {
     try {
       if (navigator.storage?.estimate) {
@@ -138,6 +151,8 @@ export const storage = {
         return { usage, quota, pctUsed: Math.round((usage / quota) * 100) };
       }
       return null;
-    } catch { return null; }
+    } catch {
+      return null;
+    }
   },
 };

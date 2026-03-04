@@ -6,7 +6,7 @@
  * This is NOVATerra's moat — no competitor has the estimate context.
  */
 
-import { CSI } from '@/constants/csi';
+import { CSI } from "@/constants/csi";
 
 // ── CSI normalization ──────────────────────────────────────────
 // Estimate items use "09.260" format; proposals use "09" (2-digit).
@@ -19,7 +19,7 @@ export function normalizeCSI(code) {
   // Also handles "09 - Finishes" format from item.division
   const match = s.match(/^(\d{1,2})/);
   if (!match) return null;
-  return match[1].padStart(2, '0');
+  return match[1].padStart(2, "0");
 }
 
 function getDivisionName(divCode) {
@@ -39,32 +39,48 @@ function getItemTotal(item) {
 // Common exclusion phrases mapped to CSI divisions / keywords
 
 const EXCLUSION_KEYWORDS = [
-  { patterns: ['fire caulk', 'firestop', 'fire stop', 'fire-stop', 'fire seal'], divisions: ['07'], specPatterns: ['07.84', '07.8'] },
-  { patterns: ['blocking', 'wood blocking', 'plywood blocking'], divisions: ['06'], specPatterns: ['06.1'] },
-  { patterns: ['insulation', 'batt insulation', 'spray foam'], divisions: ['07'], specPatterns: ['07.2'] },
-  { patterns: ['paint', 'painting', 'primer', 'finish coat'], divisions: ['09'], specPatterns: ['09.9'] },
-  { patterns: ['demo', 'demolition', 'selective demo'], divisions: ['02'], specPatterns: ['02.4'] },
-  { patterns: ['permit', 'permits', 'building permit'], divisions: ['01'], specPatterns: ['01.4'] },
-  { patterns: ['bond', 'bonding', 'performance bond'], divisions: ['01'], specPatterns: ['01.2'] },
-  { patterns: ['clean', 'cleanup', 'final clean', 'rough clean'], divisions: ['01'], specPatterns: ['01.7'] },
-  { patterns: ['scaffold', 'scaffolding'], divisions: ['01'], specPatterns: ['01.5'] },
-  { patterns: ['concrete', 'slab', 'foundation', 'footing'], divisions: ['03'], specPatterns: ['03.'] },
-  { patterns: ['waterproof', 'waterproofing', 'dampproof'], divisions: ['07'], specPatterns: ['07.1'] },
-  { patterns: ['ceiling', 'acoustical ceiling', 'ACT', 'suspended ceiling'], divisions: ['09'], specPatterns: ['09.5'] },
-  { patterns: ['flooring', 'floor', 'carpet', 'tile', 'VCT', 'LVT'], divisions: ['09'], specPatterns: ['09.6', '09.3'] },
-  { patterns: ['door', 'hardware', 'door hardware', 'lockset'], divisions: ['08'], specPatterns: ['08.'] },
-  { patterns: ['glazing', 'glass', 'storefront', 'curtain wall'], divisions: ['08'], specPatterns: ['08.4', '08.8'] },
-  { patterns: ['roofing', 'roof', 'membrane', 'TPO', 'EPDM'], divisions: ['07'], specPatterns: ['07.5', '07.4'] },
-  { patterns: ['electric', 'electrical', 'wiring', 'conduit'], divisions: ['26'], specPatterns: ['26.'] },
-  { patterns: ['plumbing', 'piping', 'fixture', 'plumb'], divisions: ['22'], specPatterns: ['22.'] },
-  { patterns: ['hvac', 'mechanical', 'ductwork', 'duct'], divisions: ['23'], specPatterns: ['23.'] },
-  { patterns: ['sprinkler', 'fire suppression', 'fire protection'], divisions: ['21'], specPatterns: ['21.'] },
-  { patterns: ['drywall', 'gypsum', 'GWB', 'sheetrock'], divisions: ['09'], specPatterns: ['09.2'] },
-  { patterns: ['framing', 'metal stud', 'metal framing', 'stud'], divisions: ['09', '05'], specPatterns: ['09.1', '05.4'] },
-  { patterns: ['masonry', 'brick', 'block', 'CMU'], divisions: ['04'], specPatterns: ['04.'] },
-  { patterns: ['steel', 'structural steel', 'misc metals'], divisions: ['05'], specPatterns: ['05.'] },
-  { patterns: ['elevator', 'lift'], divisions: ['14'], specPatterns: ['14.'] },
-  { patterns: ['site work', 'earthwork', 'grading', 'excavation'], divisions: ['31'], specPatterns: ['31.'] },
+  {
+    patterns: ["fire caulk", "firestop", "fire stop", "fire-stop", "fire seal"],
+    divisions: ["07"],
+    specPatterns: ["07.84", "07.8"],
+  },
+  { patterns: ["blocking", "wood blocking", "plywood blocking"], divisions: ["06"], specPatterns: ["06.1"] },
+  { patterns: ["insulation", "batt insulation", "spray foam"], divisions: ["07"], specPatterns: ["07.2"] },
+  { patterns: ["paint", "painting", "primer", "finish coat"], divisions: ["09"], specPatterns: ["09.9"] },
+  { patterns: ["demo", "demolition", "selective demo"], divisions: ["02"], specPatterns: ["02.4"] },
+  { patterns: ["permit", "permits", "building permit"], divisions: ["01"], specPatterns: ["01.4"] },
+  { patterns: ["bond", "bonding", "performance bond"], divisions: ["01"], specPatterns: ["01.2"] },
+  { patterns: ["clean", "cleanup", "final clean", "rough clean"], divisions: ["01"], specPatterns: ["01.7"] },
+  { patterns: ["scaffold", "scaffolding"], divisions: ["01"], specPatterns: ["01.5"] },
+  { patterns: ["concrete", "slab", "foundation", "footing"], divisions: ["03"], specPatterns: ["03."] },
+  { patterns: ["waterproof", "waterproofing", "dampproof"], divisions: ["07"], specPatterns: ["07.1"] },
+  {
+    patterns: ["ceiling", "acoustical ceiling", "ACT", "suspended ceiling"],
+    divisions: ["09"],
+    specPatterns: ["09.5"],
+  },
+  {
+    patterns: ["flooring", "floor", "carpet", "tile", "VCT", "LVT"],
+    divisions: ["09"],
+    specPatterns: ["09.6", "09.3"],
+  },
+  { patterns: ["door", "hardware", "door hardware", "lockset"], divisions: ["08"], specPatterns: ["08."] },
+  { patterns: ["glazing", "glass", "storefront", "curtain wall"], divisions: ["08"], specPatterns: ["08.4", "08.8"] },
+  { patterns: ["roofing", "roof", "membrane", "TPO", "EPDM"], divisions: ["07"], specPatterns: ["07.5", "07.4"] },
+  { patterns: ["electric", "electrical", "wiring", "conduit"], divisions: ["26"], specPatterns: ["26."] },
+  { patterns: ["plumbing", "piping", "fixture", "plumb"], divisions: ["22"], specPatterns: ["22."] },
+  { patterns: ["hvac", "mechanical", "ductwork", "duct"], divisions: ["23"], specPatterns: ["23."] },
+  { patterns: ["sprinkler", "fire suppression", "fire protection"], divisions: ["21"], specPatterns: ["21."] },
+  { patterns: ["drywall", "gypsum", "GWB", "sheetrock"], divisions: ["09"], specPatterns: ["09.2"] },
+  {
+    patterns: ["framing", "metal stud", "metal framing", "stud"],
+    divisions: ["09", "05"],
+    specPatterns: ["09.1", "05.4"],
+  },
+  { patterns: ["masonry", "brick", "block", "CMU"], divisions: ["04"], specPatterns: ["04."] },
+  { patterns: ["steel", "structural steel", "misc metals"], divisions: ["05"], specPatterns: ["05."] },
+  { patterns: ["elevator", "lift"], divisions: ["14"], specPatterns: ["14."] },
+  { patterns: ["site work", "earthwork", "grading", "excavation"], divisions: ["31"], specPatterns: ["31."] },
 ];
 
 function findExclusionConflicts(exclusions, estimateByDivision) {
@@ -85,12 +101,10 @@ function findExclusionConflicts(exclusions, estimateByDivision) {
         // Narrow down to items matching by spec section or description keyword
         // (all items are already in the correct division bucket)
         const narrowed = divItems.filter(item => {
-          const specMatch = item.specSection && kw.specPatterns.some(sp =>
-            item.specSection.startsWith(sp) || item.specSection.includes(sp)
-          );
-          const descMatch = kw.patterns.some(p =>
-            (item.description || '').toLowerCase().includes(p)
-          );
+          const specMatch =
+            item.specSection &&
+            kw.specPatterns.some(sp => item.specSection.startsWith(sp) || item.specSection.includes(sp));
+          const descMatch = kw.patterns.some(p => (item.description || "").toLowerCase().includes(p));
           return specMatch || descMatch;
         });
 
@@ -130,21 +144,23 @@ function findExclusionConflicts(exclusions, estimateByDivision) {
 export function analyzeGaps(estimateItems, parsedProposal) {
   if (!estimateItems?.length || !parsedProposal) {
     return {
-      coverageScore: 0, totalExposure: 0,
-      matched: [], missingFromProposal: [], extraInProposal: [],
-      quantityMismatches: [], exclusionConflicts: [],
+      coverageScore: 0,
+      totalExposure: 0,
+      matched: [],
+      missingFromProposal: [],
+      extraInProposal: [],
+      quantityMismatches: [],
+      exclusionConflicts: [],
     };
   }
 
   // Filter to base bid items only (exclude alternates)
-  const baseItems = estimateItems.filter(i =>
-    !i.bidContext || i.bidContext === 'base'
-  );
+  const baseItems = estimateItems.filter(i => !i.bidContext || i.bidContext === "base");
 
   // Group estimate items by 2-digit division
   const estimateByDivision = {};
   for (const item of baseItems) {
-    const div = normalizeCSI(item.code) || normalizeCSI(item.division) || '00';
+    const div = normalizeCSI(item.code) || normalizeCSI(item.division) || "00";
     if (!estimateByDivision[div]) estimateByDivision[div] = [];
     estimateByDivision[div].push(item);
   }
@@ -207,7 +223,7 @@ export function analyzeGaps(estimateItems, parsedProposal) {
       for (const estItem of estItems) {
         const estQty = Number(estItem.quantity) || 0;
         if (estQty === 0) continue;
-        const estUnit = (estItem.unit || '').toLowerCase().replace(/\./g, '');
+        const estUnit = (estItem.unit || "").toLowerCase().replace(/\./g, "");
         if (!estUnit) continue;
 
         // Find the best proposal match: same unit, prefer description overlap
@@ -216,12 +232,12 @@ export function analyzeGaps(estimateItems, parsedProposal) {
         for (const propItem of propItems) {
           const propQty = Number(propItem.quantity) || 0;
           if (propQty === 0) continue;
-          const propUnit = (propItem.unit || '').toLowerCase().replace(/\./g, '');
+          const propUnit = (propItem.unit || "").toLowerCase().replace(/\./g, "");
           if (estUnit !== propUnit) continue;
 
           // Score by description word overlap
-          const estWords = new Set((estItem.description || '').toLowerCase().split(/\s+/));
-          const propWords = (propItem.description || '').toLowerCase().split(/\s+/);
+          const estWords = new Set((estItem.description || "").toLowerCase().split(/\s+/));
+          const propWords = (propItem.description || "").toLowerCase().split(/\s+/);
           const overlap = propWords.filter(w => estWords.has(w)).length;
           if (overlap > bestScore) {
             bestScore = overlap;
@@ -238,7 +254,9 @@ export function analyzeGaps(estimateItems, parsedProposal) {
               divisionName: getDivisionName(div),
               estimateItem: estItem.description,
               proposalItem: bestMatch.description,
-              estQty, propQty, unit: estItem.unit,
+              estQty,
+              propQty,
+              unit: estItem.unit,
               pctDiff,
             });
           }
@@ -267,16 +285,17 @@ export function analyzeGaps(estimateItems, parsedProposal) {
   const exclusionConflicts = findExclusionConflicts(exclusions, estimateByDivision);
 
   // Coverage score: % of estimate divisions (by $) covered by proposal
-  const totalEstimateValue = allEstimateDivisions.reduce((sum, div) =>
-    sum + estimateByDivision[div].reduce((s, i) => s + getItemTotal(i), 0), 0);
+  const totalEstimateValue = allEstimateDivisions.reduce(
+    (sum, div) => sum + estimateByDivision[div].reduce((s, i) => s + getItemTotal(i), 0),
+    0,
+  );
 
   const coveredValue = matched.reduce((sum, m) => sum + m.estimateTotal, 0);
-  const coverageScore = totalEstimateValue > 0
-    ? Math.round((coveredValue / totalEstimateValue) * 100)
-    : 0;
+  const coverageScore = totalEstimateValue > 0 ? Math.round((coveredValue / totalEstimateValue) * 100) : 0;
 
-  const totalExposure = missingFromProposal.reduce((sum, m) => sum + m.estimatedExposure, 0)
-    + exclusionConflicts.reduce((sum, c) => sum + c.estimatedExposure, 0);
+  const totalExposure =
+    missingFromProposal.reduce((sum, m) => sum + m.estimatedExposure, 0) +
+    exclusionConflicts.reduce((sum, c) => sum + c.estimatedExposure, 0);
 
   return {
     coverageScore,

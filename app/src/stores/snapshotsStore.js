@@ -1,7 +1,7 @@
-import { create } from 'zustand';
-import { storage } from '@/utils/storage';
-import { uid, nowStr } from '@/utils/format';
-import { idbKey } from '@/utils/idbKey';
+import { create } from "zustand";
+import { storage } from "@/utils/storage";
+import { uid, nowStr } from "@/utils/format";
+import { idbKey } from "@/utils/idbKey";
 
 const SNAPSHOTS_KEY_PREFIX = "bldg-snapshots-";
 
@@ -24,7 +24,7 @@ export const useSnapshotsStore = create((set, get) => ({
   snapshots: {},
 
   // ── Load ──────────────────────────────────────────────────
-  loadSnapshots: async (estimateId) => {
+  loadSnapshots: async estimateId => {
     try {
       const raw = await storage.get(idbKey(`${SNAPSHOTS_KEY_PREFIX}${estimateId}`));
       if (raw) {
@@ -39,16 +39,22 @@ export const useSnapshotsStore = create((set, get) => ({
   },
 
   // ── Save ──────────────────────────────────────────────────
-  _persist: async (estimateId) => {
+  _persist: async estimateId => {
     const list = get().snapshots[estimateId] || [];
-    await storage.set(
-      idbKey(`${SNAPSHOTS_KEY_PREFIX}${estimateId}`),
-      JSON.stringify(list)
-    );
+    await storage.set(idbKey(`${SNAPSHOTS_KEY_PREFIX}${estimateId}`), JSON.stringify(list));
   },
 
   // ── Capture a snapshot ────────────────────────────────────
-  captureSnapshot: (estimateId, items, totals, markup, markupOrder, customMarkups, project, { label, trigger } = {}) => {
+  captureSnapshot: (
+    estimateId,
+    items,
+    totals,
+    markup,
+    markupOrder,
+    customMarkups,
+    project,
+    { label, trigger } = {},
+  ) => {
     // Build division-level totals
     const divisionTotals = {};
     const tradeTotals = {};
@@ -57,7 +63,8 @@ export const useSnapshotsStore = create((set, get) => ({
       const div = it.division || "Unassigned";
       const trade = it.trade || "unassigned";
 
-      if (!divisionTotals[div]) divisionTotals[div] = { material: 0, labor: 0, equipment: 0, sub: 0, total: 0, count: 0 };
+      if (!divisionTotals[div])
+        divisionTotals[div] = { material: 0, labor: 0, equipment: 0, sub: 0, total: 0, count: 0 };
       const m = q * (parseFloat(it.material) || 0);
       const l = q * (parseFloat(it.labor) || 0);
       const e = q * (parseFloat(it.equipment) || 0);
@@ -122,7 +129,7 @@ export const useSnapshotsStore = create((set, get) => ({
       return {
         snapshots: {
           ...s.snapshots,
-          [estimateId]: prev.map(sn => sn.id === snapId ? { ...sn, label: newLabel } : sn),
+          [estimateId]: prev.map(sn => (sn.id === snapId ? { ...sn, label: newLabel } : sn)),
         },
       };
     });
@@ -130,7 +137,7 @@ export const useSnapshotsStore = create((set, get) => ({
   },
 
   // ── Get snapshots for an estimate ─────────────────────────
-  getSnapshots: (estimateId) => {
+  getSnapshots: estimateId => {
     return get().snapshots[estimateId] || [];
   },
 
@@ -146,15 +153,12 @@ export const useSnapshotsStore = create((set, get) => ({
       sub: snapB.sub - snapA.sub,
       markupTotal: snapB.markupTotal - snapA.markupTotal,
       itemCount: snapB.itemCount - snapA.itemCount,
-      grandTotalPct: snapA.grandTotal ? ((snapB.grandTotal - snapA.grandTotal) / snapA.grandTotal * 100) : 0,
-      directPct: snapA.direct ? ((snapB.direct - snapA.direct) / snapA.direct * 100) : 0,
+      grandTotalPct: snapA.grandTotal ? ((snapB.grandTotal - snapA.grandTotal) / snapA.grandTotal) * 100 : 0,
+      directPct: snapA.direct ? ((snapB.direct - snapA.direct) / snapA.direct) * 100 : 0,
     };
 
     // Division-level delta
-    const allDivs = new Set([
-      ...Object.keys(snapA.divisionTotals || {}),
-      ...Object.keys(snapB.divisionTotals || {}),
-    ]);
+    const allDivs = new Set([...Object.keys(snapA.divisionTotals || {}), ...Object.keys(snapB.divisionTotals || {})]);
     delta.divisions = {};
     allDivs.forEach(div => {
       const a = (snapA.divisionTotals || {})[div] || { total: 0 };
@@ -163,15 +167,12 @@ export const useSnapshotsStore = create((set, get) => ({
         totalDelta: b.total - a.total,
         totalA: a.total,
         totalB: b.total,
-        pct: a.total ? ((b.total - a.total) / a.total * 100) : (b.total ? 100 : 0),
+        pct: a.total ? ((b.total - a.total) / a.total) * 100 : b.total ? 100 : 0,
       };
     });
 
     // Trade-level delta
-    const allTrades = new Set([
-      ...Object.keys(snapA.tradeTotals || {}),
-      ...Object.keys(snapB.tradeTotals || {}),
-    ]);
+    const allTrades = new Set([...Object.keys(snapA.tradeTotals || {}), ...Object.keys(snapB.tradeTotals || {})]);
     delta.trades = {};
     allTrades.forEach(trade => {
       const a = (snapA.tradeTotals || {})[trade] || 0;
@@ -180,7 +181,7 @@ export const useSnapshotsStore = create((set, get) => ({
         totalDelta: b - a,
         totalA: a,
         totalB: b,
-        pct: a ? ((b - a) / a * 100) : (b ? 100 : 0),
+        pct: a ? ((b - a) / a) * 100 : b ? 100 : 0,
       };
     });
 
@@ -196,7 +197,8 @@ export const useSnapshotsStore = create((set, get) => ({
       const div = it.division || "Unassigned";
       const trade = it.trade || "unassigned";
 
-      if (!divisionTotals[div]) divisionTotals[div] = { material: 0, labor: 0, equipment: 0, sub: 0, total: 0, count: 0 };
+      if (!divisionTotals[div])
+        divisionTotals[div] = { material: 0, labor: 0, equipment: 0, sub: 0, total: 0, count: 0 };
       const m = q * (parseFloat(it.material) || 0);
       const l = q * (parseFloat(it.labor) || 0);
       const e = q * (parseFloat(it.equipment) || 0);

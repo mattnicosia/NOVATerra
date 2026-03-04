@@ -1,16 +1,16 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import path from 'path';
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import path from "path";
 
 export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      "@": path.resolve(__dirname, "./src"),
     },
   },
   test: {
-    environment: 'jsdom',
+    environment: "jsdom",
     globals: true,
     setupFiles: [],
   },
@@ -19,16 +19,16 @@ export default defineConfig({
       output: {
         manualChunks: {
           // Isolate heavy 3D libs into separate chunks — only loaded when Model tab opens
-          three: ['three', '@react-three/fiber', '@react-three/drei'],
-          ifc: ['web-ifc'],
+          three: ["three", "@react-three/fiber", "@react-three/drei"],
+          ifc: ["web-ifc"],
           // Split large constant data files out of the main bundle
-          'data-modules': ['./src/constants/modules.js'],
-          'data-seeds': ['./src/constants/seedAssemblies.js'],
-          'data-carbon': ['./src/constants/embodiedCarbonDb.js'],
-          'data-location': ['./src/constants/locationFactors.js'],
+          "data-modules": ["./src/constants/modules.js"],
+          "data-seeds": ["./src/constants/seedAssemblies.js"],
+          "data-carbon": ["./src/constants/embodiedCarbonDb.js"],
+          "data-location": ["./src/constants/locationFactors.js"],
           // Isolate Supabase + Recharts from main bundle
-          supabase: ['@supabase/supabase-js'],
-          charts: ['recharts'],
+          supabase: ["@supabase/supabase-js"],
+          charts: ["recharts"],
         },
       },
     },
@@ -39,8 +39,8 @@ export default defineConfig({
     proxy: {
       // Proxy /api/* to Vercel (production by default, or local via API_TARGET env var)
       // Usage: API_TARGET=http://localhost:3001 npm run dev  (for local function testing)
-      '/api': {
-        target: process.env.API_TARGET || 'https://app-nova-42373ca7.vercel.app',
+      "/api": {
+        target: process.env.API_TARGET || "https://app-nova-42373ca7.vercel.app",
         changeOrigin: true,
         secure: true,
       },

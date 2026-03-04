@@ -1,14 +1,14 @@
-import { create } from 'zustand';
-import { supabase } from '@/utils/supabase';
-import { storage } from '@/utils/storage';
-import { resetAllStores } from '@/hooks/usePersistence';
-import { useOrgStore } from '@/stores/orgStore';
+import { create } from "zustand";
+import { supabase } from "@/utils/supabase";
+import { storage } from "@/utils/storage";
+import { resetAllStores } from "@/hooks/usePersistence";
+import { useOrgStore } from "@/stores/orgStore";
 
 export const useAuthStore = create((set, get) => ({
   // State
   user: null,
   session: null,
-  loading: true,      // true while checking initial session
+  loading: true, // true while checking initial session
   authError: null,
   magicLinkSent: false,
   _initialized: false, // guard against double-init (React StrictMode)
@@ -25,7 +25,9 @@ export const useAuthStore = create((set, get) => ({
 
     try {
       // Check existing session
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (session?.user) {
         set({ user: session.user, session, loading: false });
         // Load org membership — awaited so orgReady is set before persistence loads
@@ -35,7 +37,7 @@ export const useAuthStore = create((set, get) => ({
         useOrgStore.setState({ orgReady: true });
       }
     } catch (err) {
-      console.error('[auth] Failed to get session:', err);
+      console.error("[auth] Failed to get session:", err);
       set({ loading: false });
       useOrgStore.setState({ orgReady: true });
     }
@@ -60,7 +62,7 @@ export const useAuthStore = create((set, get) => ({
   },
 
   // Sign in with Magic Link (email OTP)
-  signInWithMagicLink: async (email) => {
+  signInWithMagicLink: async email => {
     if (!supabase) return { error: "Supabase not configured" };
     set({ authError: null, magicLinkSent: false });
 
@@ -140,7 +142,7 @@ export const useAuthStore = create((set, get) => ({
   },
 
   // Reset password (sends email)
-  resetPassword: async (email) => {
+  resetPassword: async email => {
     if (!supabase) return { error: "Supabase not configured" };
     set({ authError: null });
     const { error } = await supabase.auth.resetPasswordForEmail(email, {

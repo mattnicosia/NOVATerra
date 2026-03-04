@@ -1,114 +1,124 @@
-import { create } from 'zustand';
-import { uid } from '@/utils/format';
+import { create } from "zustand";
+import { uid } from "@/utils/format";
 
 export const useBidPackagesStore = create((set, get) => ({
   // ── State ──
   bidPackages: [],
-  invitations: {},       // keyed by packageId → invitation[]
-  proposals: {},         // keyed by invitationId → proposal
-  scopeGapResults: {},   // keyed by invitationId → gap report cache
+  invitations: {}, // keyed by packageId → invitation[]
+  proposals: {}, // keyed by invitationId → proposal
+  scopeGapResults: {}, // keyed by invitationId → gap report cache
   activeBidPackageId: null,
 
   // ── Setters (for persistence hydration) ──
-  setBidPackages: (v) => set({ bidPackages: v }),
-  setInvitations: (v) => set({ invitations: v }),
-  setProposals: (v) => set({ proposals: v }),
-  setScopeGapResults: (v) => set({ scopeGapResults: v }),
-  setActiveBidPackageId: (v) => set({ activeBidPackageId: v }),
+  setBidPackages: v => set({ bidPackages: v }),
+  setInvitations: v => set({ invitations: v }),
+  setProposals: v => set({ proposals: v }),
+  setScopeGapResults: v => set({ scopeGapResults: v }),
+  setActiveBidPackageId: v => set({ activeBidPackageId: v }),
 
   // ── Bid Package CRUD ──
-  addBidPackage: (pkg) => set(s => ({
-    bidPackages: [...s.bidPackages, { id: uid(), status: 'draft', createdAt: new Date().toISOString(), ...pkg }],
-  })),
+  addBidPackage: pkg =>
+    set(s => ({
+      bidPackages: [...s.bidPackages, { id: uid(), status: "draft", createdAt: new Date().toISOString(), ...pkg }],
+    })),
 
-  updateBidPackage: (id, updates) => set(s => ({
-    bidPackages: s.bidPackages.map(p => p.id === id ? { ...p, ...updates } : p),
-  })),
+  updateBidPackage: (id, updates) =>
+    set(s => ({
+      bidPackages: s.bidPackages.map(p => (p.id === id ? { ...p, ...updates } : p)),
+    })),
 
-  removeBidPackage: (id) => set(s => {
-    // Clean up invitations, proposals, and scopeGapResults for this package
-    const pkgInvites = s.invitations[id] || [];
-    const newInvitations = { ...s.invitations };
-    delete newInvitations[id];
-    const newProposals = { ...s.proposals };
-    const newGapResults = { ...s.scopeGapResults };
-    for (const inv of pkgInvites) {
-      delete newProposals[inv.id];
-      delete newGapResults[inv.id];
-    }
-    return {
-      bidPackages: s.bidPackages.filter(p => p.id !== id),
-      invitations: newInvitations,
-      proposals: newProposals,
-      scopeGapResults: newGapResults,
-    };
-  }),
+  removeBidPackage: id =>
+    set(s => {
+      // Clean up invitations, proposals, and scopeGapResults for this package
+      const pkgInvites = s.invitations[id] || [];
+      const newInvitations = { ...s.invitations };
+      delete newInvitations[id];
+      const newProposals = { ...s.proposals };
+      const newGapResults = { ...s.scopeGapResults };
+      for (const inv of pkgInvites) {
+        delete newProposals[inv.id];
+        delete newGapResults[inv.id];
+      }
+      return {
+        bidPackages: s.bidPackages.filter(p => p.id !== id),
+        invitations: newInvitations,
+        proposals: newProposals,
+        scopeGapResults: newGapResults,
+      };
+    }),
 
   // ── Invitations ──
-  setPackageInvitations: (packageId, invites) => set(s => ({
-    invitations: { ...s.invitations, [packageId]: invites },
-  })),
+  setPackageInvitations: (packageId, invites) =>
+    set(s => ({
+      invitations: { ...s.invitations, [packageId]: invites },
+    })),
 
-  addInvitation: (packageId, invite) => set(s => ({
-    invitations: {
-      ...s.invitations,
-      [packageId]: [...(s.invitations[packageId] || []), { id: uid(), status: 'pending', ...invite }],
-    },
-  })),
+  addInvitation: (packageId, invite) =>
+    set(s => ({
+      invitations: {
+        ...s.invitations,
+        [packageId]: [...(s.invitations[packageId] || []), { id: uid(), status: "pending", ...invite }],
+      },
+    })),
 
-  updateInvitationStatus: (packageId, inviteId, status, extra = {}) => set(s => ({
-    invitations: {
-      ...s.invitations,
-      [packageId]: (s.invitations[packageId] || []).map(inv =>
-        inv.id === inviteId ? { ...inv, status, ...extra } : inv
-      ),
-    },
-  })),
+  updateInvitationStatus: (packageId, inviteId, status, extra = {}) =>
+    set(s => ({
+      invitations: {
+        ...s.invitations,
+        [packageId]: (s.invitations[packageId] || []).map(inv =>
+          inv.id === inviteId ? { ...inv, status, ...extra } : inv,
+        ),
+      },
+    })),
 
-  removeInvitation: (packageId, inviteId) => set(s => ({
-    invitations: {
-      ...s.invitations,
-      [packageId]: (s.invitations[packageId] || []).filter(inv => inv.id !== inviteId),
-    },
-  })),
+  removeInvitation: (packageId, inviteId) =>
+    set(s => ({
+      invitations: {
+        ...s.invitations,
+        [packageId]: (s.invitations[packageId] || []).filter(inv => inv.id !== inviteId),
+      },
+    })),
 
   // ── Proposals ──
-  addProposal: (invitationId, proposal) => set(s => ({
-    proposals: { ...s.proposals, [invitationId]: { id: uid(), parseStatus: 'pending', ...proposal } },
-  })),
+  addProposal: (invitationId, proposal) =>
+    set(s => ({
+      proposals: { ...s.proposals, [invitationId]: { id: uid(), parseStatus: "pending", ...proposal } },
+    })),
 
-  setScopeGapResult: (invitationId, result) => set(s => ({
-    scopeGapResults: { ...s.scopeGapResults, [invitationId]: result },
-  })),
+  setScopeGapResult: (invitationId, result) =>
+    set(s => ({
+      scopeGapResults: { ...s.scopeGapResults, [invitationId]: result },
+    })),
 
-  updateProposalParsedData: (invitationId, parsedData, parseStatus = 'parsed') => set(s => ({
-    proposals: {
-      ...s.proposals,
-      [invitationId]: s.proposals[invitationId]
-        ? { ...s.proposals[invitationId], parsedData, parseStatus }
-        : s.proposals[invitationId],
-    },
-  })),
+  updateProposalParsedData: (invitationId, parsedData, parseStatus = "parsed") =>
+    set(s => ({
+      proposals: {
+        ...s.proposals,
+        [invitationId]: s.proposals[invitationId]
+          ? { ...s.proposals[invitationId], parsedData, parseStatus }
+          : s.proposals[invitationId],
+      },
+    })),
 
   // ── Helpers ──
-  getPackageById: (id) => get().bidPackages.find(p => p.id === id),
+  getPackageById: id => get().bidPackages.find(p => p.id === id),
 
-  getPackageInvitations: (packageId) => get().invitations[packageId] || [],
+  getPackageInvitations: packageId => get().invitations[packageId] || [],
 
-  getInvitationProposal: (invitationId) => get().proposals[invitationId] || null,
+  getInvitationProposal: invitationId => get().proposals[invitationId] || null,
 
-  getPackageStats: (packageId) => {
+  getPackageStats: packageId => {
     const invites = get().invitations[packageId] || [];
     const total = invites.length;
-    const sent = invites.filter(i => i.status !== 'pending').length;
-    const opened = invites.filter(i => ['opened', 'downloaded', 'submitted', 'parsed'].includes(i.status)).length;
-    const submitted = invites.filter(i => ['submitted', 'parsed'].includes(i.status)).length;
-    const parsed = invites.filter(i => i.status === 'parsed').length;
+    const sent = invites.filter(i => i.status !== "pending").length;
+    const opened = invites.filter(i => ["opened", "downloaded", "submitted", "parsed"].includes(i.status)).length;
+    const submitted = invites.filter(i => ["submitted", "parsed"].includes(i.status)).length;
+    const parsed = invites.filter(i => i.status === "parsed").length;
     return { total, sent, opened, submitted, parsed };
   },
 
   // ── Generate leveling data from parsed proposals ──
-  generateLevelingData: (packageId) => {
+  generateLevelingData: packageId => {
     const invites = get().invitations[packageId] || [];
     const proposals = get().proposals;
     const linkedSubs = [];
@@ -125,10 +135,10 @@ export const useBidPackagesStore = create((set, get) => ({
       // Create linkedSub entry
       linkedSubs.push({
         id: subId,
-        name: inv.subCompany || inv.subContact || '',
+        name: inv.subCompany || inv.subContact || "",
         subKeys: [],
         totalBid: pd.totalBid || 0,
-        source: 'portal',
+        source: "portal",
       });
 
       // Map line items to bidCells by CSI code
@@ -138,7 +148,7 @@ export const useBidPackagesStore = create((set, get) => ({
             const cellKey = `${item.csiCode}::${subId}`;
             bidCells[cellKey] = {
               amount: item.amount || 0,
-              note: item.description || '',
+              note: item.description || "",
             };
             if (!linkedSubs[linkedSubs.length - 1].subKeys.includes(item.csiCode)) {
               linkedSubs[linkedSubs.length - 1].subKeys.push(item.csiCode);

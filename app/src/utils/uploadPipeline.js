@@ -3,20 +3,20 @@
 // Extracted from DocumentsPage so they can be used from the combined Discovery page.
 // All store access uses .getState() so these work as plain functions.
 // ═══════════════════════════════════════════════════════════════════════════════
-import { useDocumentsStore } from '@/stores/documentsStore';
-import { useDrawingsStore } from '@/stores/drawingsStore';
-import { useSpecsStore } from '@/stores/specsStore';
-import { useProjectStore } from '@/stores/projectStore';
-import { useEstimatesStore } from '@/stores/estimatesStore';
-import { useNovaStore } from '@/stores/novaStore';
-import { useModelStore } from '@/stores/modelStore';
-import { useUiStore } from '@/stores/uiStore';
-import { uid, nowStr } from '@/utils/format';
-import { callAnthropic, optimizeImageForAI, imageBlock } from '@/utils/ai';
-import { loadPdfJs } from '@/utils/pdf';
-import { arrayBufferToBase64, matchScaleKey, renderPdfPage, classifyFile, isDuplicateFile } from '@/utils/drawingUtils';
-import { detectBuildingOutline, outlineToFeet, computePolygonArea } from '@/utils/outlineDetector';
-import { runFullScan } from '@/utils/scanRunner';
+import { useDocumentsStore } from "@/stores/documentsStore";
+import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useSpecsStore } from "@/stores/specsStore";
+import { useProjectStore } from "@/stores/projectStore";
+import { useEstimatesStore } from "@/stores/estimatesStore";
+import { useNovaStore } from "@/stores/novaStore";
+import { useModelStore } from "@/stores/modelStore";
+import { useUiStore } from "@/stores/uiStore";
+import { uid, nowStr } from "@/utils/format";
+import { callAnthropic, optimizeImageForAI, imageBlock } from "@/utils/ai";
+import { loadPdfJs } from "@/utils/pdf";
+import { arrayBufferToBase64, matchScaleKey, renderPdfPage, classifyFile, isDuplicateFile } from "@/utils/drawingUtils";
+import { detectBuildingOutline, outlineToFeet, computePolygonArea } from "@/utils/outlineDetector";
+import { runFullScan } from "@/utils/scanRunner";
 
 // ─── Extract drawing pages from a file (PDF or image) ──────────────────────
 export async function extractDrawingPages(file) {
@@ -30,10 +30,17 @@ export async function extractDrawingPages(file) {
       r.readAsDataURL(file);
     });
     const d = {
-      id: uid(), label: file.name.replace(/\.[^.]+$/, ""),
-      sheetNumber: "", sheetTitle: "", revision: "0", type: "image",
-      data, fileName: file.name, uploadDate: nowStr(),
-      pdfPage: null, totalPdfPages: null,
+      id: uid(),
+      label: file.name.replace(/\.[^.]+$/, ""),
+      sheetNumber: "",
+      sheetTitle: "",
+      revision: "0",
+      type: "image",
+      data,
+      fileName: file.name,
+      uploadDate: nowStr(),
+      pdfPage: null,
+      totalPdfPages: null,
     };
     const cur = useDrawingsStore.getState().drawings;
     useDrawingsStore.getState().setDrawings([...cur, d]);
@@ -47,10 +54,17 @@ export async function extractDrawingPages(file) {
   const newDrawings = [];
   for (let p = 1; p <= pdf.numPages; p++) {
     newDrawings.push({
-      id: uid(), label: `${file.name.replace(/\.pdf$/i, "")}-Pg${p}`,
-      sheetNumber: "", sheetTitle: "", revision: "0", type: "pdf",
-      data: base64, fileName: file.name, uploadDate: nowStr(),
-      pdfPage: p, totalPdfPages: pdf.numPages,
+      id: uid(),
+      label: `${file.name.replace(/\.pdf$/i, "")}-Pg${p}`,
+      sheetNumber: "",
+      sheetTitle: "",
+      revision: "0",
+      type: "pdf",
+      data: base64,
+      fileName: file.name,
+      uploadDate: nowStr(),
+      pdfPage: p,
+      totalPdfPages: pdf.numPages,
     });
   }
   const cur = useDrawingsStore.getState().drawings;
@@ -71,20 +85,29 @@ export async function autoLabelDrawings(drawingIds) {
 
   useDrawingsStore.getState().setAiLabelLoading(true);
   useDrawingsStore.getState().setAutoLabelProgress({ current: 0, total: targets.length });
-  useNovaStore.getState().startTask('label', `Labeling ${targets.length} drawings...`);
+  useNovaStore.getState().startTask("label", `Labeling ${targets.length} drawings...`);
 
-  let count = 0, scaleCount = 0, failCount = 0, lastErr = '';
+  let count = 0,
+    scaleCount = 0,
+    failCount = 0,
+    lastErr = "";
   let metadataExtracted = false;
 
   for (let i = 0; i < targets.length; i++) {
     const d = targets[i];
     useDrawingsStore.getState().setAutoLabelProgress({ current: i + 1, total: targets.length });
-    useNovaStore.getState().updateProgress(Math.round((i + 1) / targets.length * 100), `Labeling sheet ${i + 1}/${targets.length}...`);
+    useNovaStore
+      .getState()
+      .updateProgress(Math.round(((i + 1) / targets.length) * 100), `Labeling sheet ${i + 1}/${targets.length}...`);
 
     try {
       let imgData;
       const curCanvases = useDrawingsStore.getState().pdfCanvases;
-      if (d.type === "pdf") { imgData = curCanvases[d.id] || await renderPdfPage(d); } else { imgData = d.data; }
+      if (d.type === "pdf") {
+        imgData = curCanvases[d.id] || (await renderPdfPage(d));
+      } else {
+        imgData = d.data;
+      }
       if (!imgData) continue;
 
       const isFirstSheet = i === 0 && !metadataExtracted;
@@ -95,10 +118,15 @@ export async function autoLabelDrawings(drawingIds) {
       const optimized = await optimizeImageForAI(imgData, 1200);
       const text = await callAnthropic({
         max_tokens: isFirstSheet ? 600 : 300,
-        messages: [{ role: "user", content: [
-          { type: "image", source: { type: "base64", media_type: "image/jpeg", data: optimized.base64 } },
-          { type: "text", text: labelPrompt }
-        ] }],
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "image", source: { type: "base64", media_type: "image/jpeg", data: optimized.base64 } },
+              { type: "text", text: labelPrompt },
+            ],
+          },
+        ],
       });
 
       failCount = 0;
@@ -106,8 +134,14 @@ export async function autoLabelDrawings(drawingIds) {
         const jsonMatch = text.match(/\{[\s\S]*\}/);
         if (!jsonMatch) throw new Error("No JSON");
         const parsed = JSON.parse(jsonMatch[0]);
-        if (parsed.number && !d.sheetNumber) { useDrawingsStore.getState().updateDrawing(d.id, "sheetNumber", parsed.number); count++; }
-        if (parsed.title && !d.sheetTitle) { useDrawingsStore.getState().updateDrawing(d.id, "sheetTitle", parsed.title); count++; }
+        if (parsed.number && !d.sheetNumber) {
+          useDrawingsStore.getState().updateDrawing(d.id, "sheetNumber", parsed.number);
+          count++;
+        }
+        if (parsed.title && !d.sheetTitle) {
+          useDrawingsStore.getState().updateDrawing(d.id, "sheetTitle", parsed.title);
+          count++;
+        }
         if (parsed.scale) {
           const scaleKey = matchScaleKey(parsed.scale);
           const latestScales = useDrawingsStore.getState().drawingScales;
@@ -129,22 +163,34 @@ export async function autoLabelDrawings(drawingIds) {
             let metaCount = 0;
 
             if (parsed.projectName && (!proj.name || proj.name === "New Estimate")) {
-              updates.name = parsed.projectName; detected.name = true; metaCount++;
+              updates.name = parsed.projectName;
+              detected.name = true;
+              metaCount++;
             }
             if (parsed.architect && !proj.architect) {
-              updates.architect = parsed.architect; detected.architect = true; metaCount++;
+              updates.architect = parsed.architect;
+              detected.architect = true;
+              metaCount++;
             }
             if (parsed.client && !proj.client) {
-              updates.client = parsed.client; detected.client = true; metaCount++;
+              updates.client = parsed.client;
+              detected.client = true;
+              metaCount++;
             }
             if (parsed.address && !proj.address) {
-              updates.address = parsed.address; detected.address = true; metaCount++;
+              updates.address = parsed.address;
+              detected.address = true;
+              metaCount++;
             }
             if (parsed.projectNumber && !proj.projectNumber) {
-              updates.projectNumber = parsed.projectNumber; detected.projectNumber = true; metaCount++;
+              updates.projectNumber = parsed.projectNumber;
+              detected.projectNumber = true;
+              metaCount++;
             }
             if (parsed.engineer && !proj.engineer) {
-              updates.engineer = parsed.engineer; detected.engineer = true; metaCount++;
+              updates.engineer = parsed.engineer;
+              detected.engineer = true;
+              metaCount++;
             }
 
             if (metaCount > 0) {
@@ -159,28 +205,34 @@ export async function autoLabelDrawings(drawingIds) {
                   if (updates.architect) indexUpdates.architect = updates.architect;
                   useEstimatesStore.getState().updateIndexEntry(estId, indexUpdates);
                 }
-              } catch { /* non-critical */ }
+              } catch {
+                /* non-critical */
+              }
             }
-          } catch { /* metadata extraction non-critical */ }
+          } catch {
+            /* metadata extraction non-critical */
+          }
         }
-      } catch { /* parse failed */ }
+      } catch {
+        /* parse failed */
+      }
     } catch (e) {
       failCount++;
-      lastErr = e.message || 'Unknown error';
+      lastErr = e.message || "Unknown error";
       if (failCount >= 3) break;
     }
   }
 
   if (failCount >= 3) {
     useNovaStore.getState().failTask(lastErr);
-    useNovaStore.getState().notify(`Labeling failed: ${lastErr}`, 'warn');
+    useNovaStore.getState().notify(`Labeling failed: ${lastErr}`, "warn");
   } else {
     const parts = [];
     if (count > 0) parts.push(`${count} labels`);
     if (scaleCount > 0) parts.push(`${scaleCount} scales`);
     const resultMsg = parts.length > 0 ? `Detected ${parts.join(" & ")}` : `Processed ${targets.length} sheets`;
     useNovaStore.getState().completeTask(resultMsg);
-    useNovaStore.getState().notify(resultMsg, 'success');
+    useNovaStore.getState().notify(resultMsg, "success");
   }
 
   // Post-label: infer building params from sheet titles
@@ -190,16 +242,24 @@ export async function autoLabelDrawings(drawingIds) {
 
     if (!proj.floorCount || parseInt(proj.floorCount) === 0) {
       const floorPlanTitles = [];
-      let hasBasement = false, hasLoft = false, hasMezzanine = false;
+      let hasBasement = false,
+        hasLoft = false,
+        hasMezzanine = false;
 
       labeledDrawings.forEach(d => {
         const title = (d.sheetTitle || "").toLowerCase();
-        const isPlan = /\bplan\b/i.test(title) || /\bfloor\b/i.test(title) || /\blevel\b/i.test(title) || /\blayout\b/i.test(title);
-        const isExcluded = /\b(elevation|section|detail|schedule|note|diagram|spec|roof\s*plan|site\s*plan|framing|foundation|reflected|ceiling)\b/i.test(title);
+        const isPlan =
+          /\bplan\b/i.test(title) || /\bfloor\b/i.test(title) || /\blevel\b/i.test(title) || /\blayout\b/i.test(title);
+        const isExcluded =
+          /\b(elevation|section|detail|schedule|note|diagram|spec|roof\s*plan|site\s*plan|framing|foundation|reflected|ceiling)\b/i.test(
+            title,
+          );
         if (!isPlan || isExcluded) return;
 
-        if (/\b(first|1st|ground|main)\s*(fl|floor|level|plan)\b/i.test(title)) floorPlanTitles.push({ floor: 1, title });
-        else if (/\b(second|2nd|upper)\s*(fl|floor|level|plan)\b/i.test(title)) floorPlanTitles.push({ floor: 2, title });
+        if (/\b(first|1st|ground|main)\s*(fl|floor|level|plan)\b/i.test(title))
+          floorPlanTitles.push({ floor: 1, title });
+        else if (/\b(second|2nd|upper)\s*(fl|floor|level|plan)\b/i.test(title))
+          floorPlanTitles.push({ floor: 2, title });
         else if (/\b(third|3rd)\s*(fl|floor|level|plan)\b/i.test(title)) floorPlanTitles.push({ floor: 3, title });
         else if (/\b(fourth|4th)\s*(fl|floor|level|plan)\b/i.test(title)) floorPlanTitles.push({ floor: 4, title });
         else if (/\b(fifth|5th)\s*(fl|floor|level|plan)\b/i.test(title)) floorPlanTitles.push({ floor: 5, title });
@@ -208,7 +268,8 @@ export async function autoLabelDrawings(drawingIds) {
           if (numMatch) floorPlanTitles.push({ floor: parseInt(numMatch[1]), title });
         }
 
-        if (/\b(basement|lower\s*level|sub\s*grade|below\s*grade)\b/i.test(title) && /\bplan\b/i.test(title)) hasBasement = true;
+        if (/\b(basement|lower\s*level|sub\s*grade|below\s*grade)\b/i.test(title) && /\bplan\b/i.test(title))
+          hasBasement = true;
         if (/\bloft\b/i.test(title)) hasLoft = true;
         if (/\bmezzanine\b/i.test(title)) hasMezzanine = true;
       });
@@ -243,7 +304,9 @@ export async function autoLabelDrawings(drawingIds) {
         });
       }
     }
-  } catch { /* inference non-critical */ }
+  } catch {
+    /* inference non-critical */
+  }
 
   useDrawingsStore.getState().setAiLabelLoading(false);
   useDrawingsStore.getState().setAutoLabelProgress(null);
@@ -255,7 +318,25 @@ export async function autoDetectOutlines() {
   const allDrawings = useDrawingsStore.getState().drawings;
   const existingOutlines = useModelStore.getState().outlines;
 
-  const floorPlanPatterns = [/floor\s*plan/i, /site\s*plan/i, /ground\s*floor/i, /first\s*floor/i, /second\s*floor/i, /third\s*floor/i, /main\s*level/i, /level\s*\d/i, /basement/i, /lower\s*level/i, /upper\s*level/i, /mezzanine/i, /penthouse/i, /^A-?\d/i, /^A\d{2,3}/i, /^L\d/i, /plan\s*view/i];
+  const floorPlanPatterns = [
+    /floor\s*plan/i,
+    /site\s*plan/i,
+    /ground\s*floor/i,
+    /first\s*floor/i,
+    /second\s*floor/i,
+    /third\s*floor/i,
+    /main\s*level/i,
+    /level\s*\d/i,
+    /basement/i,
+    /lower\s*level/i,
+    /upper\s*level/i,
+    /mezzanine/i,
+    /penthouse/i,
+    /^A-?\d/i,
+    /^A\d{2,3}/i,
+    /^L\d/i,
+    /plan\s*view/i,
+  ];
   let candidates = allDrawings.filter(d => {
     if (existingOutlines[d.id]) return false;
     if (!d.data) return false;
@@ -264,7 +345,16 @@ export async function autoDetectOutlines() {
   });
 
   if (candidates.length === 0) {
-    const excludePatterns = [/elevation/i, /section/i, /detail/i, /schedule/i, /legend/i, /diagram/i, /riser/i, /note/i];
+    const excludePatterns = [
+      /elevation/i,
+      /section/i,
+      /detail/i,
+      /schedule/i,
+      /legend/i,
+      /diagram/i,
+      /riser/i,
+      /note/i,
+    ];
     candidates = allDrawings.filter(d => {
       if (existingOutlines[d.id]) return false;
       if (!d.data) return false;
@@ -276,17 +366,19 @@ export async function autoDetectOutlines() {
   const targets = candidates.slice(0, 3);
   if (targets.length === 0) return 0;
 
-  useNovaStore.getState().startTask('outline', `Detecting building outlines (${targets.length} plans)...`);
+  useNovaStore.getState().startTask("outline", `Detecting building outlines (${targets.length} plans)...`);
   let detected = 0;
 
   for (let i = 0; i < targets.length; i++) {
     const d = targets[i];
-    useNovaStore.getState().updateProgress(Math.round((i + 1) / targets.length * 100), `Tracing outline ${i + 1}/${targets.length}...`);
+    useNovaStore
+      .getState()
+      .updateProgress(Math.round(((i + 1) / targets.length) * 100), `Tracing outline ${i + 1}/${targets.length}...`);
     try {
       const result = await detectBuildingOutline(d.id);
       if (result.polygon && result.polygon.length >= 3) {
         const feetPolygon = outlineToFeet(result.polygon, d.id);
-        useModelStore.getState().setOutline(d.id, feetPolygon, 'ai', result.polygon);
+        useModelStore.getState().setOutline(d.id, feetPolygon, "ai", result.polygon);
         detected++;
         const area = computePolygonArea(feetPolygon);
         if (area > 0 && detected === 1) {
@@ -306,9 +398,9 @@ export async function autoDetectOutlines() {
   }
 
   if (detected > 0) {
-    useNovaStore.getState().completeTask(`Detected ${detected} building outline${detected > 1 ? 's' : ''}`);
+    useNovaStore.getState().completeTask(`Detected ${detected} building outline${detected > 1 ? "s" : ""}`);
   } else {
-    useNovaStore.getState().completeTask('No outlines detected');
+    useNovaStore.getState().completeTask("No outlines detected");
   }
   return detected;
 }
@@ -327,10 +419,18 @@ export async function processSpecBook(file) {
 
   const text = await callAnthropic({
     max_tokens: 8000,
-    messages: [{ role: "user", content: [
-      { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64 } },
-      { type: "text", text: `You are a construction specification parser. Analyze this spec book and extract ALL CSI specification sections you can find.\n\nFor each section provide:\n- section: The CSI section number (format: "XX XX XX" e.g. "09 30 00")\n- title: Section title\n- summary: 1-2 sentence summary of key requirements, products, manufacturers\n- page: Approximate page number in the document\n\nCRITICAL: Respond with ONLY a JSON array. No markdown fences, no backticks, no explanation text. Just the raw JSON array.\n\nFocus on sections with actual specification content (Part 1/2/3), not the table of contents or front matter. Extract every section you find.` }
-    ] }],
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64 } },
+          {
+            type: "text",
+            text: `You are a construction specification parser. Analyze this spec book and extract ALL CSI specification sections you can find.\n\nFor each section provide:\n- section: The CSI section number (format: "XX XX XX" e.g. "09 30 00")\n- title: Section title\n- summary: 1-2 sentence summary of key requirements, products, manufacturers\n- page: Approximate page number in the document\n\nCRITICAL: Respond with ONLY a JSON array. No markdown fences, no backticks, no explanation text. Just the raw JSON array.\n\nFocus on sections with actual specification content (Part 1/2/3), not the table of contents or front matter. Extract every section you find.`,
+          },
+        ],
+      },
+    ],
   });
 
   try {
@@ -338,15 +438,21 @@ export async function processSpecBook(file) {
     const parsed = JSON.parse(clean);
     if (Array.isArray(parsed)) {
       const newSpecs = parsed.map(s => ({
-        id: uid(), section: s.section || "", title: s.title || "",
-        summary: s.summary || "", page: s.page || null,
-        requirements: [], allocated: false,
+        id: uid(),
+        section: s.section || "",
+        title: s.title || "",
+        summary: s.summary || "",
+        page: s.page || null,
+        requirements: [],
+        allocated: false,
       }));
       const curSpecs = useSpecsStore.getState().specs;
       useSpecsStore.getState().setSpecs([...curSpecs, ...newSpecs]);
       return newSpecs.length;
     }
-  } catch { /* parse failed */ }
+  } catch {
+    /* parse failed */
+  }
   return 0;
 }
 
@@ -370,10 +476,18 @@ export async function aiClassifyDocument(file) {
 
     const text = await callAnthropic({
       max_tokens: 100,
-      messages: [{ role: "user", content: [
-        { type: "image", source: { type: "base64", media_type: "image/jpeg", data: imgBase64 } },
-        { type: "text", text: `Classify this construction document page. Is it:\n1. "rfp" — a Request for Proposal, Invitation to Bid, bid package, notice to bidders, or instructions to bidders containing bid requirements\n2. "drawing" — a construction blueprint, plan, elevation, section, or detail drawing\n3. "specification" — a written specification document, project manual, or technical spec\n4. "general" — any other document type\n\nRespond with ONLY one word: rfp, drawing, specification, or general` }
-      ] }],
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", media_type: "image/jpeg", data: imgBase64 } },
+            {
+              type: "text",
+              text: `Classify this construction document page. Is it:\n1. "rfp" — a Request for Proposal, Invitation to Bid, bid package, notice to bidders, or instructions to bidders containing bid requirements\n2. "drawing" — a construction blueprint, plan, elevation, section, or detail drawing\n3. "specification" — a written specification document, project manual, or technical spec\n4. "general" — any other document type\n\nRespond with ONLY one word: rfp, drawing, specification, or general`,
+            },
+          ],
+        },
+      ],
     });
 
     const result = text.trim().toLowerCase();
@@ -402,14 +516,19 @@ export async function extractBidInfoFromDocument(file) {
   const base64 = data.split(",")[1];
   if (!base64 || base64.length < 100) return 0;
 
-  useNovaStore.getState().startTask('rfp', `Reading bid requirements from ${file.name}...`);
+  useNovaStore.getState().startTask("rfp", `Reading bid requirements from ${file.name}...`);
 
   try {
     const text = await callAnthropic({
       max_tokens: 2000,
-      messages: [{ role: "user", content: [
-        { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64 } },
-        { type: "text", text: `You are reading a construction bid document (RFP, ITB, or bid package). Extract ALL bid-relevant information you can find.
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64 } },
+            {
+              type: "text",
+              text: `You are reading a construction bid document (RFP, ITB, or bid package). Extract ALL bid-relevant information you can find.
 
 Return ONLY a JSON object with these fields (use null for any field you cannot find):
 {
@@ -433,8 +552,11 @@ Return ONLY a JSON object with these fields (use null for any field you cannot f
   "deliveryMethod": "GC, CM, Design-Build, or other"
 }
 
-CRITICAL: Respond with ONLY the JSON object. No markdown, no explanation.` }
-      ] }],
+CRITICAL: Respond with ONLY the JSON object. No markdown, no explanation.`,
+            },
+          ],
+        },
+      ],
     });
 
     const clean = text.replace(/```json|```/g, "").trim();
@@ -449,64 +571,99 @@ CRITICAL: Respond with ONLY the JSON object. No markdown, no explanation.` }
     let fieldCount = 0;
 
     if (parsed.projectName && (!proj.name || proj.name === "New Estimate")) {
-      updates.name = parsed.projectName; detected.name = true; fieldCount++;
+      updates.name = parsed.projectName;
+      detected.name = true;
+      fieldCount++;
     }
     if (parsed.projectNumber && !proj.projectNumber) {
-      updates.projectNumber = parsed.projectNumber; detected.projectNumber = true; fieldCount++;
+      updates.projectNumber = parsed.projectNumber;
+      detected.projectNumber = true;
+      fieldCount++;
     }
     if (parsed.client && !proj.client) {
-      updates.client = parsed.client; detected.client = true; fieldCount++;
+      updates.client = parsed.client;
+      detected.client = true;
+      fieldCount++;
     }
     if (parsed.architect && !proj.architect) {
-      updates.architect = parsed.architect; detected.architect = true; fieldCount++;
+      updates.architect = parsed.architect;
+      detected.architect = true;
+      fieldCount++;
     }
     if (parsed.engineer && !proj.engineer) {
-      updates.engineer = parsed.engineer; detected.engineer = true; fieldCount++;
+      updates.engineer = parsed.engineer;
+      detected.engineer = true;
+      fieldCount++;
     }
     if (parsed.address && !proj.address) {
-      updates.address = parsed.address; detected.address = true; fieldCount++;
+      updates.address = parsed.address;
+      detected.address = true;
+      fieldCount++;
       // Auto-extract zip
       const zipMatch = parsed.address.match(/\b(\d{5})(?:-\d{4})?\b/);
       if (zipMatch && (!proj.zipCode || proj.zipCode.length < 5)) {
-        updates.zipCode = zipMatch[1]; detected.zipCode = true;
+        updates.zipCode = zipMatch[1];
+        detected.zipCode = true;
       }
     }
     if (parsed.bidDue && !proj.bidDue) {
-      updates.bidDue = parsed.bidDue; detected.bidDue = true; fieldCount++;
+      updates.bidDue = parsed.bidDue;
+      detected.bidDue = true;
+      fieldCount++;
     }
     if (parsed.bidDueTime && !proj.bidDueTime) {
-      updates.bidDueTime = parsed.bidDueTime; detected.bidDueTime = true; fieldCount++;
+      updates.bidDueTime = parsed.bidDueTime;
+      detected.bidDueTime = true;
+      fieldCount++;
     }
     if (parsed.walkthroughDate && !proj.walkthroughDate) {
-      updates.walkthroughDate = parsed.walkthroughDate; detected.walkthroughDate = true; fieldCount++;
+      updates.walkthroughDate = parsed.walkthroughDate;
+      detected.walkthroughDate = true;
+      fieldCount++;
     }
     if (parsed.walkthroughTime && !proj.walkthroughTime) {
-      updates.walkthroughTime = parsed.walkthroughTime; detected.walkthroughTime = true; fieldCount++;
+      updates.walkthroughTime = parsed.walkthroughTime;
+      detected.walkthroughTime = true;
+      fieldCount++;
     }
     if (parsed.rfiDueDate && !proj.rfiDueDate) {
-      updates.rfiDueDate = parsed.rfiDueDate; detected.rfiDueDate = true; fieldCount++;
+      updates.rfiDueDate = parsed.rfiDueDate;
+      detected.rfiDueDate = true;
+      fieldCount++;
     }
     if (parsed.rfiDueTime && !proj.rfiDueTime) {
-      updates.rfiDueTime = parsed.rfiDueTime; detected.rfiDueTime = true; fieldCount++;
+      updates.rfiDueTime = parsed.rfiDueTime;
+      detected.rfiDueTime = true;
+      fieldCount++;
     }
     if (parsed.buildingType && parsed.buildingType !== "other" && !proj.buildingType) {
-      updates.buildingType = parsed.buildingType; detected.buildingType = true; fieldCount++;
+      updates.buildingType = parsed.buildingType;
+      detected.buildingType = true;
+      fieldCount++;
     }
     if (parsed.estimatedSF && !proj.projectSF) {
       const sf = parseInt(String(parsed.estimatedSF).replace(/[^0-9]/g, ""));
-      if (sf > 0) { updates.projectSF = sf; detected.projectSF = true; fieldCount++; }
+      if (sf > 0) {
+        updates.projectSF = sf;
+        detected.projectSF = true;
+        fieldCount++;
+      }
     }
     if (parsed.scopeSummary) {
-      updates.scopeSummary = parsed.scopeSummary; fieldCount++;
+      updates.scopeSummary = parsed.scopeSummary;
+      fieldCount++;
     }
     if (parsed.bondRequired != null) {
-      updates.bondRequired = parsed.bondRequired; fieldCount++;
+      updates.bondRequired = parsed.bondRequired;
+      fieldCount++;
     }
     if (parsed.prevailingWage != null) {
-      updates.prevailingWage = parsed.prevailingWage; fieldCount++;
+      updates.prevailingWage = parsed.prevailingWage;
+      fieldCount++;
     }
     if (parsed.deliveryMethod) {
-      updates.deliveryMethod = parsed.deliveryMethod; fieldCount++;
+      updates.deliveryMethod = parsed.deliveryMethod;
+      fieldCount++;
     }
 
     if (fieldCount > 0) {
@@ -523,15 +680,17 @@ CRITICAL: Respond with ONLY the JSON object. No markdown, no explanation.` }
           if (updates.architect) indexUpdates.architect = updates.architect;
           useEstimatesStore.getState().updateIndexEntry(estId, indexUpdates);
         }
-      } catch { /* non-critical */ }
+      } catch {
+        /* non-critical */
+      }
     }
 
     const msg = `Extracted ${fieldCount} fields from ${file.name}`;
     useNovaStore.getState().completeTask(msg);
-    useNovaStore.getState().notify(msg, 'success');
+    useNovaStore.getState().notify(msg, "success");
     return fieldCount;
   } catch (err) {
-    console.warn('[uploadPipeline] RFP extraction failed:', err.message);
+    console.warn("[uploadPipeline] RFP extraction failed:", err.message);
     useNovaStore.getState().failTask(err.message);
     return 0;
   }
@@ -565,20 +724,26 @@ export async function handleFileUpload(files, options = {}) {
 
     // AI classification for ambiguous PDFs
     const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-    if ((docType === "general") && isPdf) {
+    if (docType === "general" && isPdf) {
       try {
         const aiType = await Promise.race([
           aiClassifyDocument(file),
           new Promise(resolve => setTimeout(() => resolve("general"), 15000)),
         ]);
         if (aiType !== "general") docType = aiType;
-      } catch { /* classification non-critical */ }
+      } catch {
+        /* classification non-critical */
+      }
     }
 
-    const processingMsg = docType === "rfp" ? "Reading bid requirements..."
-      : docType === "drawing" ? "Extracting pages..."
-      : docType === "specification" ? "Parsing specifications..."
-      : "Stored";
+    const processingMsg =
+      docType === "rfp"
+        ? "Reading bid requirements..."
+        : docType === "drawing"
+          ? "Extracting pages..."
+          : docType === "specification"
+            ? "Parsing specifications..."
+            : "Stored";
 
     const doc = useDocumentsStore.getState().addDocument({
       filename: file.name,
@@ -591,13 +756,15 @@ export async function handleFileUpload(files, options = {}) {
 
     // Store general docs data immediately
     if (docType === "general") {
-      const data = await new Promise((res) => {
+      const data = await new Promise(res => {
         const r = new FileReader();
         r.onload = () => res(r.result);
         r.onerror = () => res(null);
         r.readAsDataURL(file);
       });
-      useDocumentsStore.getState().updateDocument(doc.id, { data, processingStatus: "complete", processingMessage: "Stored" });
+      useDocumentsStore
+        .getState()
+        .updateDocument(doc.id, { data, processingStatus: "complete", processingMessage: "Stored" });
     }
 
     classified[docType] = classified[docType] || [];
@@ -620,7 +787,8 @@ export async function handleFileUpload(files, options = {}) {
       showToast(`${file.name}: ${fieldCount} bid fields extracted`);
     } catch (err) {
       useDocumentsStore.getState().updateDocument(docId, {
-        processingStatus: "error", processingError: err.message,
+        processingStatus: "error",
+        processingError: err.message,
         processingMessage: "RFP extraction failed",
       });
     }
@@ -644,7 +812,8 @@ export async function handleFileUpload(files, options = {}) {
       showToast(`${file.name}: ${sectionCount} spec sections parsed`);
     } catch (err) {
       useDocumentsStore.getState().updateDocument(docId, {
-        processingStatus: "error", processingError: err.message,
+        processingStatus: "error",
+        processingError: err.message,
         processingMessage: "Parse failed",
       });
       showToast(`${file.name}: spec parse failed — ${err.message}`, "error");
@@ -678,7 +847,8 @@ export async function handleFileUpload(files, options = {}) {
       showToast(`${file.name}: ${drawingIds.length} sheets extracted`);
     } catch (err) {
       useDocumentsStore.getState().updateDocument(docId, {
-        processingStatus: "error", processingError: err.message,
+        processingStatus: "error",
+        processingError: err.message,
         processingMessage: "Extraction failed",
       });
       showToast(`${file.name}: extraction failed — ${err.message}`, "error");
@@ -695,7 +865,9 @@ export async function handleFileUpload(files, options = {}) {
     try {
       await autoLabelDrawings(allNewDrawingIds);
       for (const { docId } of drawingDocIds) {
-        useDocumentsStore.getState().updateDocument(docId, { processingMessage: "Labeled — scanning for schedules..." });
+        useDocumentsStore
+          .getState()
+          .updateDocument(docId, { processingMessage: "Labeled — scanning for schedules..." });
       }
 
       // If no bid info from RFP/specs, check title blocks (first drawing label extracted metadata)
@@ -721,7 +893,7 @@ export async function handleFileUpload(files, options = {}) {
         onComplete: () => {
           if (bidInfoExtracted) {
             // User was auto-advanced — mark results as pending review
-            import('@/stores/scanStore').then(m => {
+            import("@/stores/scanStore").then(m => {
               m.useScanStore.getState().setScanResultsPending(true);
             });
             showToast("NOVA scan complete — review schedule results in Plan Room");
@@ -731,9 +903,11 @@ export async function handleFileUpload(files, options = {}) {
       });
       for (const { docId, drawingIds } of drawingDocIds) {
         const count = drawingIds.length;
-        const sr = (await import('@/stores/scanStore')).useScanStore.getState().scanResults;
+        const sr = (await import("@/stores/scanStore")).useScanStore.getState().scanResults;
         const schedCount = sr?.schedules?.length || 0;
-        const romRange = sr?.rom?.totals ? `ROM $${Math.round(sr.rom.totals.low / 1000)}K–$${Math.round(sr.rom.totals.high / 1000)}K` : "";
+        const romRange = sr?.rom?.totals
+          ? `ROM $${Math.round(sr.rom.totals.low / 1000)}K–$${Math.round(sr.rom.totals.high / 1000)}K`
+          : "";
         useDocumentsStore.getState().updateDocument(docId, {
           processingStatus: "complete",
           processingMessage: `${count} sheets • ${schedCount} schedules${romRange ? ` • ${romRange}` : ""}`,
@@ -749,7 +923,11 @@ export async function handleFileUpload(files, options = {}) {
     }
 
     // Step 4c: Outline detection (non-blocking)
-    try { await autoDetectOutlines(); } catch { /* non-critical */ }
+    try {
+      await autoDetectOutlines();
+    } catch {
+      /* non-critical */
+    }
   }
 
   // Complete setup mode if still pending (fallback — no bid info found but files processed)

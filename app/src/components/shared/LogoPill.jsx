@@ -1,4 +1,4 @@
-import { useTheme } from '@/hooks/useTheme';
+import { useTheme } from "@/hooks/useTheme";
 
 /**
  * LogoPill — renders a logo image with theme-aware background treatment.
@@ -20,25 +20,27 @@ export default function LogoPill({ src, maxHeight = 28, maxWidth = 44, fallback,
   if (!src) return fallback || null;
 
   return (
-    <div style={{
-      display: 'inline-flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: dk ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.03)',
-      border: dk ? '1px solid rgba(255,255,255,0.10)' : '1px solid rgba(0,0,0,0.04)',
-      borderRadius: 6,
-      padding: 4,
-      flexShrink: 0,
-      ...style,
-    }}>
+    <div
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.03)",
+        border: dk ? "1px solid rgba(255,255,255,0.10)" : "1px solid rgba(0,0,0,0.04)",
+        borderRadius: 6,
+        padding: 4,
+        flexShrink: 0,
+        ...style,
+      }}
+    >
       <img
         src={src}
         alt=""
         style={{
           maxHeight,
           maxWidth,
-          objectFit: 'contain',
-          display: 'block',
+          objectFit: "contain",
+          display: "block",
         }}
       />
     </div>

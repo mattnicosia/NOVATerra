@@ -2,8 +2,8 @@
 // Authenticates users via Supabase JWT, forwards requests to Anthropic using server ANTHROPIC_API_KEY.
 // Eliminates the need for users to manage their own API keys.
 
-import { cors } from './lib/cors.js';
-import { verifyUser } from './lib/supabaseAdmin.js';
+import { cors } from "./lib/cors.js";
+import { verifyUser } from "./lib/supabaseAdmin.js";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const MAX_BODY_BYTES = 50 * 1024 * 1024; // 50 MB
@@ -12,14 +12,14 @@ const MAX_BODY_BYTES = 50 * 1024 * 1024; // 50 MB
 function readRawBody(req) {
   return new Promise((resolve, reject) => {
     // If Vercel already parsed the body, use it directly
-    if (req.body && typeof req.body === 'object') {
+    if (req.body && typeof req.body === "object") {
       resolve(req.body);
       return;
     }
 
     const chunks = [];
     let totalBytes = 0;
-    req.on('data', (chunk) => {
+    req.on("data", chunk => {
       totalBytes += chunk.length;
       if (totalBytes > MAX_BODY_BYTES) {
         reject(new Error(`Request body too large (>${MAX_BODY_BYTES / 1024 / 1024} MB)`));
@@ -28,15 +28,15 @@ function readRawBody(req) {
       }
       chunks.push(chunk);
     });
-    req.on('end', () => {
+    req.on("end", () => {
       try {
-        const raw = Buffer.concat(chunks).toString('utf-8');
+        const raw = Buffer.concat(chunks).toString("utf-8");
         resolve(JSON.parse(raw));
       } catch (err) {
-        reject(new Error('Invalid JSON body: ' + err.message));
+        reject(new Error("Invalid JSON body: " + err.message));
       }
     });
-    req.on('error', reject);
+    req.on("error", reject);
   });
 }
 
@@ -45,14 +45,19 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   // Authenticate user
-  const authHeader = req.headers.authorization || '';
+  const authHeader = req.headers.authorization || "";
   const user = await verifyUser(req);
   if (!user) {
     console.error("[ai-proxy] Auth failed. Header present:", !!authHeader, "Header prefix:", authHeader.slice(0, 15));
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const apiKey = (process.env.ANTHROPIC_API_KEY || '').replace(/\\n/g, '').replace(/\n/g, '').replace(/\r/g, '').replace(/"/g, '').trim();
+  const apiKey = (process.env.ANTHROPIC_API_KEY || "")
+    .replace(/\\n/g, "")
+    .replace(/\n/g, "")
+    .replace(/\r/g, "")
+    .replace(/"/g, "")
+    .trim();
   if (!apiKey) return res.status(500).json({ error: "AI service not configured" });
 
   // Parse body — handles both pre-parsed (small) and raw stream (large PDFs)
@@ -74,7 +79,9 @@ export default async function handler(req, res) {
   // Log request shape for debugging (no content — just structure)
   const contentTypes = messages[0]?.content?.map?.(c => c.type) || [];
   const bodySize = JSON.stringify(parsed).length;
-  console.log(`[ai-proxy] model=${model || "default"} content=[${contentTypes}] bodySize=${(bodySize / 1024 / 1024).toFixed(1)}MB`);
+  console.log(
+    `[ai-proxy] model=${model || "default"} content=[${contentTypes}] bodySize=${(bodySize / 1024 / 1024).toFixed(1)}MB`,
+  );
 
   const body = { model: model || "claude-sonnet-4-20250514", max_tokens: max_tokens || 1000, messages };
   if (system) body.system = system;
@@ -102,7 +109,7 @@ export default async function handler(req, res) {
       if (!anthropicResp.ok) {
         const errBody = await anthropicResp.json().catch(() => ({}));
         const msg = errBody?.error?.message || anthropicResp.statusText;
-        const clientStatus = (anthropicResp.status === 401 || anthropicResp.status === 403) ? 502 : anthropicResp.status;
+        const clientStatus = anthropicResp.status === 401 || anthropicResp.status === 403 ? 502 : anthropicResp.status;
         console.error(`[ai-proxy] Anthropic stream error ${anthropicResp.status}:`, msg);
         return res.status(clientStatus).json({ error: msg });
       }
@@ -136,7 +143,7 @@ export default async function handler(req, res) {
     if (!anthropicResp.ok) {
       const msg = data?.error?.message || anthropicResp.statusText || "Unknown error";
       const errType = data?.error?.type || "";
-      const clientStatus = (status === 401 || status === 403) ? 502 : status;
+      const clientStatus = status === 401 || status === 403 ? 502 : status;
       // Log ALL errors (not just 401/403) for debugging
       console.error(`[ai-proxy] Anthropic error ${status} ${errType}: ${msg}`);
       return res.status(clientStatus).json({ error: { message: msg, type: errType } });

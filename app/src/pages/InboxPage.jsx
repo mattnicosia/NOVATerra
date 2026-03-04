@@ -1,27 +1,25 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useTheme } from '@/hooks/useTheme';
-import { useInboxStore } from '@/stores/inboxStore';
-import { useAuthStore } from '@/stores/authStore';
-import { useEstimatesStore } from '@/stores/estimatesStore';
-import { useUiStore } from '@/stores/uiStore';
-import { supabase } from '@/utils/supabase';
-import { loadEstimate } from '@/hooks/usePersistence';
-import RfpCard from '@/components/inbox/RfpCard';
-import RfpDetailModal from '@/components/inbox/RfpDetailModal';
-import ImportConfirmModal from '@/components/inbox/ImportConfirmModal';
-import Ic from '@/components/shared/Ic';
-import { I } from '@/constants/icons';
-import { bt, pageContainer, card, sectionLabel } from '@/utils/styles';
-import { titleCase, uid, nowStr } from '@/utils/format';
-import { loadPdfJs } from '@/utils/pdf';
+import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { useTheme } from "@/hooks/useTheme";
+import { useInboxStore } from "@/stores/inboxStore";
+import { useAuthStore } from "@/stores/authStore";
+import { useEstimatesStore } from "@/stores/estimatesStore";
+import { useUiStore } from "@/stores/uiStore";
+import { supabase } from "@/utils/supabase";
+import { loadEstimate } from "@/hooks/usePersistence";
+import RfpCard from "@/components/inbox/RfpCard";
+import RfpDetailModal from "@/components/inbox/RfpDetailModal";
+import ImportConfirmModal from "@/components/inbox/ImportConfirmModal";
+import Ic from "@/components/shared/Ic";
+import { I } from "@/constants/icons";
+import { bt, pageContainer, card, sectionLabel } from "@/utils/styles";
+import { titleCase, uid, nowStr } from "@/utils/format";
+import { loadPdfJs } from "@/utils/pdf";
 
-const API_BASE = import.meta.env.DEV
-  ? "https://app-nova-42373ca7.vercel.app"
-  : "";
+const API_BASE = import.meta.env.DEV ? "https://app-nova-42373ca7.vercel.app" : "";
 
 // Convert ArrayBuffer to base64 (chunked to avoid stack overflow on large files)
-const arrayBufferToBase64 = (buffer) => {
+const arrayBufferToBase64 = buffer => {
   const bytes = new Uint8Array(buffer);
   let binary = "";
   const chunkSize = 8192;
@@ -50,12 +48,22 @@ export default function InboxPage() {
   const user = useAuthStore(s => s.user);
 
   const {
-    rfps, loading, error, filter, unreadCount, readIds,
-    fetchRfps, subscribeToRfps, setFilter,
-    dismissRfp, importRfp, retryParse,
-    loadReadIds, markAsRead,
+    rfps,
+    loading,
+    error,
+    filter,
+    readIds,
+    fetchRfps,
+    subscribeToRfps,
+    setFilter,
+    dismissRfp,
+    importRfp,
+    retryParse,
+    loadReadIds,
+    markAsRead,
     fetchSenderEmails,
   } = useInboxStore();
+  const activeCompanyId = useUiStore(s => s.appSettings.activeCompanyId);
 
   const [viewRfp, setViewRfp] = useState(null);
   const [importRfpData, setImportRfpData] = useState(null);
@@ -71,34 +79,56 @@ export default function InboxPage() {
     return unsub;
   }, []);
 
-  // Client-side filter — all data is always fetched, filter just controls the view
+  // Filter by company profile first, then by status tab
   const displayedRfps = useMemo(() => {
+    // Company profile filter (same logic as estimates)
+    const companyFiltered =
+      activeCompanyId === "__all__"
+        ? rfps
+        : rfps.filter(r => {
+            const cid = r.company_profile_id || "";
+            return cid === activeCompanyId || cid === "";
+          });
+
+    // Status tab filter
     if (filter === "unread") {
-      return rfps.filter(r =>
-        (r.status === "parsed" || r.status === "pending") && !readIds.includes(r.id)
-      );
+      return companyFiltered.filter(r => (r.status === "parsed" || r.status === "pending") && !readIds.includes(r.id));
     }
-    if (filter === "imported") return rfps.filter(r => r.status === "imported");
-    if (filter === "dismissed") return rfps.filter(r => r.status === "dismissed");
-    return rfps; // "all"
-  }, [rfps, filter, readIds]);
+    if (filter === "imported") return companyFiltered.filter(r => r.status === "imported");
+    if (filter === "dismissed") return companyFiltered.filter(r => r.status === "dismissed");
+    return companyFiltered; // "all"
+  }, [rfps, filter, readIds, activeCompanyId]);
+
+  // Profile-filtered unread count
+  const unreadCount = useMemo(() => {
+    const companyFiltered =
+      activeCompanyId === "__all__"
+        ? rfps
+        : rfps.filter(r => {
+            const cid = r.company_profile_id || "";
+            return cid === activeCompanyId || cid === "";
+          });
+    return companyFiltered.filter(r => (r.status === "parsed" || r.status === "pending") && !readIds.includes(r.id))
+      .length;
+  }, [rfps, readIds, activeCompanyId]);
 
   // Mark as read + open detail view
-  const handleView = (rfp) => {
+  const handleView = rfp => {
     markAsRead(rfp.id);
     setViewRfp(rfp);
   };
 
-  const handleImport = async (rfp) => {
+  const handleImport = async rfp => {
     setImportRfpData(rfp);
     setViewRfp(null);
   };
 
-  const handleImportConfirm = async (editedFields) => {
+  const handleImportConfirm = async editedFields => {
     if (!importRfpData) return;
     setImporting(true);
     try {
-      const result = await importRfp(importRfpData.id);
+      const profileId = activeCompanyId === "__all__" ? "" : activeCompanyId;
+      const result = await importRfp(importRfpData.id, profileId);
       if (!result) throw new Error("Import failed");
 
       // Override with user's edits (always apply modal values, fall back to API values)
@@ -128,8 +158,8 @@ export default function InboxPage() {
       }
 
       // Download PDF attachments and add as drawings for takeoffs
-      const pdfAttachments = (result.attachments || []).filter(att =>
-        att.contentType === "application/pdf" || att.filename?.toLowerCase().endsWith(".pdf")
+      const pdfAttachments = (result.attachments || []).filter(
+        att => att.contentType === "application/pdf" || att.filename?.toLowerCase().endsWith(".pdf"),
       );
       if (pdfAttachments.length > 0) {
         try {
@@ -142,7 +172,10 @@ export default function InboxPage() {
             try {
               const url = `${API_BASE}/api/attachment?path=${encodeURIComponent(att.downloadPath)}`;
               const resp = await fetch(url, { headers });
-              if (!resp.ok) { console.error(`PDF download failed: ${att.filename} (${resp.status})`); continue; }
+              if (!resp.ok) {
+                console.error(`PDF download failed: ${att.filename} (${resp.status})`);
+                continue;
+              }
 
               const buffer = await resp.arrayBuffer();
               const base64 = arrayBufferToBase64(buffer);
@@ -196,24 +229,43 @@ export default function InboxPage() {
     return (
       <div style={pageContainer(C)}>
         <div style={{ maxWidth: 520, margin: "60px auto", textAlign: "center" }}>
-          <div style={{
-            width: 64, height: 64, borderRadius: "50%", margin: "0 auto 20px",
-            background: `${C.accent}18`, display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
+          <div
+            style={{
+              width: 64,
+              height: 64,
+              borderRadius: "50%",
+              margin: "0 auto 20px",
+              background: `${C.accent}18`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
             <Ic d={I.inbox} size={28} color={C.accent} />
           </div>
-          <h2 style={{ color: C.text, fontWeight: T.fontWeight.bold, marginBottom: T.space[3] }}>
-            Email Inbox
-          </h2>
-          <p style={{ color: C.textMuted, fontSize: T.fontSize.sm, lineHeight: T.lineHeight.relaxed, marginBottom: T.space[5] }}>
-            Forward RFP emails to your dedicated address and AI will automatically parse bid information, extract contacts, and create draft estimates.
+          <h2 style={{ color: C.text, fontWeight: T.fontWeight.bold, marginBottom: T.space[3] }}>Email Inbox</h2>
+          <p
+            style={{
+              color: C.textMuted,
+              fontSize: T.fontSize.sm,
+              lineHeight: T.lineHeight.relaxed,
+              marginBottom: T.space[5],
+            }}
+          >
+            Forward RFP emails to your dedicated address and AI will automatically parse bid information, extract
+            contacts, and create draft estimates.
           </p>
-          <div style={{
-            ...card(C), padding: T.space[5], textAlign: "left",
-          }}>
+          <div
+            style={{
+              ...card(C),
+              padding: T.space[5],
+              textAlign: "left",
+            }}
+          >
             <div style={{ ...sectionLabel(C), marginBottom: T.space[3] }}>Setup Required</div>
             <p style={{ color: C.textMuted, fontSize: T.fontSize.sm, lineHeight: T.lineHeight.relaxed }}>
-              This feature requires Supabase configuration. Add your Supabase URL and anon key to the environment variables to enable the email inbox.
+              This feature requires Supabase configuration. Add your Supabase URL and anon key to the environment
+              variables to enable the email inbox.
             </p>
           </div>
         </div>
@@ -225,33 +277,45 @@ export default function InboxPage() {
     <div style={pageContainer(C)}>
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
         {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: T.space[5] }}>
+        <div
+          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: T.space[5] }}
+        >
           <div style={{ display: "flex", alignItems: "center", gap: T.space[3] }}>
             <Ic d={I.inbox} size={22} color={C.accent} />
             <h1 style={{ fontSize: T.fontSize.xl, fontWeight: T.fontWeight.bold, color: C.text, margin: 0 }}>
               RFP Inbox
             </h1>
             {unreadCount > 0 && (
-              <span style={{
-                fontSize: T.fontSize.xs, fontWeight: T.fontWeight.bold,
-                padding: "2px 8px", borderRadius: T.radius.full,
-                background: C.accent, color: "#fff",
-              }}>
+              <span
+                style={{
+                  fontSize: T.fontSize.xs,
+                  fontWeight: T.fontWeight.bold,
+                  padding: "2px 8px",
+                  borderRadius: T.radius.full,
+                  background: C.accent,
+                  color: "#fff",
+                }}
+              >
                 {unreadCount}
               </span>
             )}
           </div>
-          <div style={{ fontSize: T.fontSize.xs, color: C.textDim }}>
-            {user?.email}
-          </div>
+          <div style={{ fontSize: T.fontSize.xs, color: C.textDim }}>{user?.email}</div>
         </div>
 
         {/* Forwarding address info */}
-        <div style={{
-          ...card(C), padding: T.space[4], marginBottom: T.space[5],
-          background: `${C.accent}08`, border: `1px solid ${C.accent}20`,
-          display: "flex", alignItems: "center", gap: T.space[3],
-        }}>
+        <div
+          style={{
+            ...card(C),
+            padding: T.space[4],
+            marginBottom: T.space[5],
+            background: `${C.accent}08`,
+            border: `1px solid ${C.accent}20`,
+            display: "flex",
+            alignItems: "center",
+            gap: T.space[3],
+          }}
+        >
           <Ic d={I.inbox} size={16} color={C.accent} />
           <div style={{ flex: 1 }}>
             <span style={{ fontSize: T.fontSize.sm, color: C.textMuted }}>Forward RFP emails to: </span>
@@ -260,8 +324,17 @@ export default function InboxPage() {
             </span>
           </div>
           <button
-            style={bt(C, { padding: "4px 10px", fontSize: T.fontSize.xs, background: "transparent", color: C.textDim, border: `1px solid ${C.border}` })}
-            onClick={() => { navigator.clipboard.writeText("bids@novabuild.app"); showToast("Copied!"); }}
+            style={bt(C, {
+              padding: "4px 10px",
+              fontSize: T.fontSize.xs,
+              background: "transparent",
+              color: C.textDim,
+              border: `1px solid ${C.border}`,
+            })}
+            onClick={() => {
+              navigator.clipboard.writeText("bids@novabuild.app");
+              showToast("Copied!");
+            }}
           >
             Copy
           </button>
@@ -273,22 +346,31 @@ export default function InboxPage() {
             <button
               key={f.key}
               style={bt(C, {
-                padding: "6px 14px", fontSize: T.fontSize.sm,
+                padding: "6px 14px",
+                fontSize: T.fontSize.sm,
                 background: filter === f.key ? C.accentBg : "transparent",
                 color: filter === f.key ? C.accent : C.textMuted,
                 border: `1px solid ${filter === f.key ? C.accent + "40" : "transparent"}`,
-                display: "flex", alignItems: "center", gap: 6,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
               })}
               onClick={() => setFilter(f.key)}
             >
               {f.label}
               {f.key === "unread" && unreadCount > 0 && (
-                <span style={{
-                  fontSize: 10, fontWeight: T.fontWeight.bold,
-                  padding: "1px 6px", borderRadius: T.radius.full,
-                  background: C.accent, color: "#fff",
-                  minWidth: 16, textAlign: "center",
-                }}>
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: T.fontWeight.bold,
+                    padding: "1px 6px",
+                    borderRadius: T.radius.full,
+                    background: C.accent,
+                    color: "#fff",
+                    minWidth: 16,
+                    textAlign: "center",
+                  }}
+                >
                   {unreadCount}
                 </span>
               )}
@@ -298,24 +380,24 @@ export default function InboxPage() {
 
         {/* RFP list */}
         {loading ? (
-          <div style={{ textAlign: "center", padding: T.space[7], color: C.textDim }}>
-            Loading...
-          </div>
+          <div style={{ textAlign: "center", padding: T.space[7], color: C.textDim }}>Loading...</div>
         ) : error ? (
-          <div style={{ textAlign: "center", padding: T.space[7], color: C.red }}>
-            {error}
-          </div>
+          <div style={{ textAlign: "center", padding: T.space[7], color: C.red }}>{error}</div>
         ) : displayedRfps.length === 0 ? (
-          <div style={{
-            textAlign: "center", padding: T.space[7],
-            ...card(C), border: `2px dashed ${C.border}`,
-          }}>
+          <div
+            style={{
+              textAlign: "center",
+              padding: T.space[7],
+              ...card(C),
+              border: `2px dashed ${C.border}`,
+            }}
+          >
             <Ic d={I.inbox} size={32} color={C.textDim} />
             <div style={{ color: C.textMuted, marginTop: T.space[3], fontSize: T.fontSize.sm }}>
               {rfps.length === 0
-                ? (senderEmails.length === 0
+                ? senderEmails.length === 0
                   ? "Add an approved sender email in Settings, then forward an RFP to get started."
-                  : "No RFPs yet. Forward an email to bids@novabuild.app to get started.")
+                  : "No RFPs yet. Forward an email to bids@novabuild.app to get started."
                 : filter === "unread"
                   ? "All caught up! No unread emails."
                   : `No ${filter} emails.`}
@@ -326,13 +408,11 @@ export default function InboxPage() {
             <RfpCard
               key={rfp.id}
               rfp={rfp}
-              isUnread={
-                (rfp.status === "parsed" || rfp.status === "pending") && !readIds.includes(rfp.id)
-              }
+              isUnread={(rfp.status === "parsed" || rfp.status === "pending") && !readIds.includes(rfp.id)}
               onView={handleView}
               onImport={handleImport}
               onDismiss={dismissRfp}
-              onRetry={async (id) => {
+              onRetry={async id => {
                 const result = await retryParse(id);
                 if (result.success) {
                   showToast("Re-parsed successfully!");
@@ -347,13 +427,7 @@ export default function InboxPage() {
       </div>
 
       {/* Modals */}
-      {viewRfp && (
-        <RfpDetailModal
-          rfp={viewRfp}
-          onClose={() => setViewRfp(null)}
-          onImport={handleImport}
-        />
-      )}
+      {viewRfp && <RfpDetailModal rfp={viewRfp} onClose={() => setViewRfp(null)} onImport={handleImport} />}
       {importRfpData && (
         <ImportConfirmModal
           rfp={importRfpData}

@@ -7,10 +7,10 @@
  * All operations are fire-and-forget — cloud errors never block the UI.
  */
 
-import { supabase } from './supabase';
-import { useAuthStore } from '@/stores/authStore';
-import { useUiStore } from '@/stores/uiStore';
-import { useOrgStore } from '@/stores/orgStore';
+import { supabase } from "./supabase";
+import { useAuthStore } from "@/stores/authStore";
+import { useUiStore } from "@/stores/uiStore";
+import { useOrgStore } from "@/stores/orgStore";
 
 // ---------- helpers ----------
 
@@ -30,10 +30,12 @@ const isReady = () => {
 
 const markSynced = () => {
   useUiStore.getState().setCloudSyncStatus("synced");
-  useUiStore.getState().setCloudSyncLastAt(new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }));
+  useUiStore
+    .getState()
+    .setCloudSyncLastAt(new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }));
 };
 
-const markError = (msg) => {
+const markError = msg => {
   useUiStore.getState().setCloudSyncStatus("error");
   useUiStore.getState().setCloudSyncError(msg || "Connection failed");
 };
@@ -44,7 +46,7 @@ const markSyncing = () => {
 
 // ---------- Blob sync via Supabase client ----------
 
-const BLOB_BUCKET = 'blobs';
+const BLOB_BUCKET = "blobs";
 
 /**
  * Upload a blob directly to Supabase Storage via the JS client.
@@ -61,7 +63,7 @@ const uploadBlob = async (path, dataUrl) => {
     // Upload directly via Supabase client (handles CORS + auth)
     const { error } = await supabase.storage
       .from(BLOB_BUCKET)
-      .upload(path, blob, { upsert: true, contentType: blob.type || 'application/octet-stream' });
+      .upload(path, blob, { upsert: true, contentType: blob.type || "application/octet-stream" });
 
     if (error) throw error;
     return path;
@@ -75,18 +77,16 @@ const uploadBlob = async (path, dataUrl) => {
  * Download a blob from Supabase Storage via the JS client.
  * Returns base64 data URL or null.
  */
-const downloadBlob = async (storagePath) => {
+const downloadBlob = async storagePath => {
   if (!storagePath || !supabase) return null;
   try {
-    const { data, error } = await supabase.storage
-      .from(BLOB_BUCKET)
-      .download(storagePath);
+    const { data, error } = await supabase.storage.from(BLOB_BUCKET).download(storagePath);
 
     if (error) throw error;
     if (!data) return null;
 
     // Convert Blob to data URL
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result);
       reader.readAsDataURL(data);
@@ -108,31 +108,35 @@ const stripAndUploadBlobs = async (estimateId, data) => {
 
   // Upload + strip drawing data (only strip if upload succeeds)
   if (Array.isArray(clean.drawings)) {
-    clean.drawings = await Promise.all(clean.drawings.map(async (d) => {
-      if (!d.data) return d;
-      const path = `${userId}/${estimateId}/drawings/${d.id}`;
-      const storagePath = await uploadBlob(path, d.data);
-      if (storagePath) {
-        const { data: _blob, ...rest } = d;
-        return { ...rest, storagePath, _cloudBlobStripped: true };
-      }
-      // Upload failed — keep original data intact
-      return d;
-    }));
+    clean.drawings = await Promise.all(
+      clean.drawings.map(async d => {
+        if (!d.data) return d;
+        const path = `${userId}/${estimateId}/drawings/${d.id}`;
+        const storagePath = await uploadBlob(path, d.data);
+        if (storagePath) {
+          const { data: _blob, ...rest } = d;
+          return { ...rest, storagePath, _cloudBlobStripped: true };
+        }
+        // Upload failed — keep original data intact
+        return d;
+      }),
+    );
   }
 
   // Upload + strip document data (only strip if upload succeeds)
   if (Array.isArray(clean.documents)) {
-    clean.documents = await Promise.all(clean.documents.map(async (d) => {
-      if (!d.data) return d;
-      const path = `${userId}/${estimateId}/documents/${d.id}`;
-      const storagePath = await uploadBlob(path, d.data);
-      if (storagePath) {
-        const { data: _blob, ...rest } = d;
-        return { ...rest, storagePath, _cloudBlobStripped: true };
-      }
-      return d;
-    }));
+    clean.documents = await Promise.all(
+      clean.documents.map(async d => {
+        if (!d.data) return d;
+        const path = `${userId}/${estimateId}/documents/${d.id}`;
+        const storagePath = await uploadBlob(path, d.data);
+        if (storagePath) {
+          const { data: _blob, ...rest } = d;
+          return { ...rest, storagePath, _cloudBlobStripped: true };
+        }
+        return d;
+      }),
+    );
   }
 
   // Upload + strip spec PDF (only strip if upload succeeds)
@@ -153,31 +157,35 @@ const stripAndUploadBlobs = async (estimateId, data) => {
  * Hydrate stripped blobs — download from Supabase Storage and inject back.
  * Called when loading an estimate that has _cloudBlobStripped markers.
  */
-export const hydrateBlobs = async (data) => {
+export const hydrateBlobs = async data => {
   if (!data || !isReady()) return data;
   const hydrated = { ...data };
   let anyHydrated = false;
 
   // Download drawing blobs
   if (Array.isArray(hydrated.drawings)) {
-    hydrated.drawings = await Promise.all(hydrated.drawings.map(async (d) => {
-      if (!d._cloudBlobStripped || !d.storagePath || d.data) return d;
-      const dataUrl = await downloadBlob(d.storagePath);
-      if (!dataUrl) return d;
-      anyHydrated = true;
-      return { ...d, data: dataUrl };
-    }));
+    hydrated.drawings = await Promise.all(
+      hydrated.drawings.map(async d => {
+        if (!d._cloudBlobStripped || !d.storagePath || d.data) return d;
+        const dataUrl = await downloadBlob(d.storagePath);
+        if (!dataUrl) return d;
+        anyHydrated = true;
+        return { ...d, data: dataUrl };
+      }),
+    );
   }
 
   // Download document blobs
   if (Array.isArray(hydrated.documents)) {
-    hydrated.documents = await Promise.all(hydrated.documents.map(async (d) => {
-      if (!d._cloudBlobStripped || !d.storagePath || d.data) return d;
-      const dataUrl = await downloadBlob(d.storagePath);
-      if (!dataUrl) return d;
-      anyHydrated = true;
-      return { ...d, data: dataUrl };
-    }));
+    hydrated.documents = await Promise.all(
+      hydrated.documents.map(async d => {
+        if (!d._cloudBlobStripped || !d.storagePath || d.data) return d;
+        const dataUrl = await downloadBlob(d.storagePath);
+        if (!dataUrl) return d;
+        anyHydrated = true;
+        return { ...d, data: dataUrl };
+      }),
+    );
   }
 
   // Download spec PDF
@@ -196,7 +204,7 @@ export const hydrateBlobs = async (data) => {
  * Prepare master data for cloud push.
  * Logos are included so they sync across devices.
  */
-const stripMasterBlobs = (data) => {
+const stripMasterBlobs = data => {
   if (!data) return data;
   return data;
 };
@@ -251,16 +259,40 @@ export const pushData = async (key, data) => {
   markSyncing();
   try {
     await withRetry(`pushData("${key}")`, async () => {
-      const cleanData = key === 'master' ? stripMasterBlobs(data) : data;
+      const cleanData = key === "master" ? stripMasterBlobs(data) : data;
       // Settings are always user-scoped (never org-scoped)
-      const scope = key === 'settings' ? { org_id: null } : getScope();
-      const { error } = await supabase
-        .from('user_data')
-        .upsert(
-          { user_id: getUserId(), key, data: cleanData, updated_at: new Date().toISOString(), ...scope },
-          { onConflict: 'user_id,key,org_id' }
-        );
-      if (error) throw error;
+      const scope = key === "settings" ? { org_id: null } : getScope();
+      const userId = getUserId();
+      const row = { user_id: userId, key, data: cleanData, updated_at: new Date().toISOString(), ...scope };
+
+      if (scope.org_id) {
+        // Org mode: onConflict works fine
+        const { error } = await supabase.from("user_data").upsert(row, { onConflict: "user_id,key,org_id" });
+        if (error) throw error;
+      } else {
+        // Solo/settings mode: NULL org_id — onConflict doesn't match NULLs.
+        // Check if row exists, then update or insert.
+        const { data: existing } = await supabase
+          .from("user_data")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("key", key)
+          .is("org_id", null)
+          .maybeSingle();
+
+        if (existing) {
+          const { error } = await supabase
+            .from("user_data")
+            .update({ data: cleanData, updated_at: row.updated_at })
+            .eq("user_id", userId)
+            .eq("key", key)
+            .is("org_id", null);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from("user_data").insert(row);
+          if (error) throw error;
+        }
+      }
     });
     markSynced();
   } catch (err) {
@@ -279,13 +311,47 @@ export const pushEstimate = async (estimateId, data) => {
   try {
     await withRetry(`pushEstimate("${estimateId}")`, async () => {
       const cleanData = await stripAndUploadBlobs(estimateId, data);
-      const { error } = await supabase
-        .from('user_estimates')
-        .upsert(
-          { user_id: getUserId(), estimate_id: estimateId, data: cleanData, updated_at: new Date().toISOString(), deleted_at: null, ...getScope() },
-          { onConflict: 'user_id,estimate_id,org_id' }
-        );
-      if (error) throw error;
+      const userId = getUserId();
+      const scope = getScope();
+      const row = {
+        user_id: userId,
+        estimate_id: estimateId,
+        data: cleanData,
+        updated_at: new Date().toISOString(),
+        deleted_at: null,
+        ...scope,
+      };
+
+      if (scope.org_id) {
+        // Org mode: onConflict works fine (org_id is non-null)
+        const { error } = await supabase
+          .from("user_estimates")
+          .upsert(row, { onConflict: "user_id,estimate_id,org_id" });
+        if (error) throw error;
+      } else {
+        // Solo mode: NULL org_id — onConflict doesn't match NULLs in PostgreSQL.
+        // Check if row exists, then update or insert.
+        const { data: existing } = await supabase
+          .from("user_estimates")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("estimate_id", estimateId)
+          .is("org_id", null)
+          .maybeSingle();
+
+        if (existing) {
+          const { error } = await supabase
+            .from("user_estimates")
+            .update({ data: cleanData, updated_at: row.updated_at, deleted_at: null })
+            .eq("user_id", userId)
+            .eq("estimate_id", estimateId)
+            .is("org_id", null);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from("user_estimates").insert(row);
+          if (error) throw error;
+        }
+      }
     });
     markSynced();
   } catch (err) {
@@ -299,20 +365,23 @@ export const pushEstimate = async (estimateId, data) => {
  * The row stays in the DB but all pull queries filter it out.
  * This prevents resurrection even if the client's IndexedDB is wiped.
  */
-export const deleteEstimate = async (estimateId) => {
+export const deleteEstimate = async estimateId => {
   if (!isReady()) return;
   markSyncing();
   try {
     // Soft-delete: SET deleted_at instead of DELETE
     let query = supabase
-      .from('user_estimates')
+      .from("user_estimates")
       .update({ deleted_at: new Date().toISOString() })
-      .eq('estimate_id', estimateId)
-      .eq('user_id', getUserId());
+      .eq("estimate_id", estimateId)
+      .eq("user_id", getUserId());
 
     const scope = getScope();
     if (scope.org_id) {
-      query = query.eq('org_id', scope.org_id);
+      query = query.eq("org_id", scope.org_id);
+    } else {
+      // Solo mode: NULL org_id — must use .is() since NULL ≠ NULL in SQL
+      query = query.is("org_id", null);
     }
 
     const { error } = await query;
@@ -330,21 +399,17 @@ export const deleteEstimate = async (estimateId) => {
  * Pull a key-value pair from the user_data table.
  * Returns the data object or null if not found.
  */
-export const pullData = async (key) => {
+export const pullData = async key => {
   if (!isReady()) return null;
   try {
     // Settings are always user-scoped; other data uses org scope
-    const scope = key === 'settings' ? { org_id: null } : getScope();
-    let query = supabase
-      .from('user_data')
-      .select('data')
-      .eq('user_id', getUserId())
-      .eq('key', key);
+    const scope = key === "settings" ? { org_id: null } : getScope();
+    let query = supabase.from("user_data").select("data").eq("user_id", getUserId()).eq("key", key);
 
     if (scope.org_id) {
-      query = query.eq('org_id', scope.org_id);
+      query = query.eq("org_id", scope.org_id);
     } else {
-      query = query.is('org_id', null);
+      query = query.is("org_id", null);
     }
 
     const { data, error } = await query.maybeSingle();
@@ -360,20 +425,16 @@ export const pullData = async (key) => {
  * Pull a key-value pair AND its updated_at timestamp.
  * Returns { data, updated_at } or null if not found.
  */
-export const pullDataWithMeta = async (key) => {
+export const pullDataWithMeta = async key => {
   if (!isReady()) return null;
   try {
-    const scope = key === 'settings' ? { org_id: null } : getScope();
-    let query = supabase
-      .from('user_data')
-      .select('data, updated_at')
-      .eq('user_id', getUserId())
-      .eq('key', key);
+    const scope = key === "settings" ? { org_id: null } : getScope();
+    let query = supabase.from("user_data").select("data, updated_at").eq("user_id", getUserId()).eq("key", key);
 
     if (scope.org_id) {
-      query = query.eq('org_id', scope.org_id);
+      query = query.eq("org_id", scope.org_id);
     } else {
-      query = query.is('org_id', null);
+      query = query.is("org_id", null);
     }
 
     const { data, error } = await query.maybeSingle();
@@ -392,23 +453,20 @@ export const pullAllEstimatesWithMeta = async () => {
   if (!isReady()) return [];
   try {
     const scope = getScope();
-    let query = supabase
-      .from('user_estimates')
-      .select('estimate_id, data, updated_at, user_id')
-      .is('deleted_at', null); // Exclude soft-deleted estimates
+    let query = supabase.from("user_estimates").select("estimate_id, data, updated_at, user_id").is("deleted_at", null); // Exclude soft-deleted estimates
 
     if (scope.org_id) {
       // Org mode: pull all org estimates (RLS handles visibility)
-      query = query.eq('org_id', scope.org_id);
+      query = query.eq("org_id", scope.org_id);
     } else {
-      query = query.eq('user_id', getUserId()).is('org_id', null);
+      query = query.eq("user_id", getUserId()).is("org_id", null);
     }
 
     const { data, error } = await query;
     if (error) throw error;
     return data || [];
   } catch (err) {
-    console.warn('[cloudSync] pullAllEstimatesWithMeta() failed:', err.message || err);
+    console.warn("[cloudSync] pullAllEstimatesWithMeta() failed:", err.message || err);
     return [];
   }
 };
@@ -418,20 +476,16 @@ export const pullAllEstimatesWithMeta = async () => {
  * Returns the estimate data object or null if not found.
  * Note: drawings/documents will have _cloudBlobStripped markers (no binary data).
  */
-export const pullEstimate = async (estimateId) => {
+export const pullEstimate = async estimateId => {
   if (!isReady()) return null;
   try {
     const scope = getScope();
-    let query = supabase
-      .from('user_estimates')
-      .select('data')
-      .eq('estimate_id', estimateId)
-      .is('deleted_at', null); // Exclude soft-deleted
+    let query = supabase.from("user_estimates").select("data").eq("estimate_id", estimateId).is("deleted_at", null); // Exclude soft-deleted
 
     if (scope.org_id) {
-      query = query.eq('org_id', scope.org_id);
+      query = query.eq("org_id", scope.org_id);
     } else {
-      query = query.eq('user_id', getUserId()).is('org_id', null);
+      query = query.eq("user_id", getUserId()).is("org_id", null);
     }
 
     const { data, error } = await query.maybeSingle();
@@ -451,22 +505,19 @@ export const pullAllEstimates = async () => {
   if (!isReady()) return [];
   try {
     const scope = getScope();
-    let query = supabase
-      .from('user_estimates')
-      .select('estimate_id, data, user_id')
-      .is('deleted_at', null); // Exclude soft-deleted estimates
+    let query = supabase.from("user_estimates").select("estimate_id, data, user_id").is("deleted_at", null); // Exclude soft-deleted estimates
 
     if (scope.org_id) {
-      query = query.eq('org_id', scope.org_id);
+      query = query.eq("org_id", scope.org_id);
     } else {
-      query = query.eq('user_id', getUserId()).is('org_id', null);
+      query = query.eq("user_id", getUserId()).is("org_id", null);
     }
 
     const { data, error } = await query;
     if (error) throw error;
     return data || [];
   } catch (err) {
-    console.warn('[cloudSync] pullAllEstimates() failed:', err.message || err);
+    console.warn("[cloudSync] pullAllEstimates() failed:", err.message || err);
     return [];
   }
 };

@@ -1,10 +1,10 @@
 // Shared drawing utility functions — used by DocumentsPage and PlanRoomPage
-import { SCALE_PRESETS } from '@/constants/scales';
-import { loadPdfJs } from '@/utils/pdf';
-import { useDrawingsStore } from '@/stores/drawingsStore';
+import { SCALE_PRESETS } from "@/constants/scales";
+import { loadPdfJs } from "@/utils/pdf";
+import { useDrawingsStore } from "@/stores/drawingsStore";
 
 // Convert ArrayBuffer to base64
-export const arrayBufferToBase64 = (buffer) => {
+export const arrayBufferToBase64 = buffer => {
   const bytes = new Uint8Array(buffer);
   let binary = "";
   const chunkSize = 8192;
@@ -18,30 +18,78 @@ export const arrayBufferToBase64 = (buffer) => {
 // Map AI-detected scale text to our scale key
 export const SCALE_MAP = {
   // Architectural
-  '1/16"=1\'': "sixteenth", '1/16" = 1\'': "sixteenth", '1/16"=1\'-0"': "sixteenth", '1/16" = 1\'-0"': "sixteenth",
-  '1/8"=1\'': "eighth", '1/8" = 1\'': "eighth", '1/8"=1\'-0"': "eighth", '1/8" = 1\'-0"': "eighth",
-  '3/16"=1\'': "3/16", '3/16" = 1\'': "3/16", '3/16"=1\'-0"': "3/16", '3/16" = 1\'-0"': "3/16",
-  '1/4"=1\'': "quarter", '1/4" = 1\'': "quarter", '1/4"=1\'-0"': "quarter", '1/4" = 1\'-0"': "quarter",
-  '3/8"=1\'': "3/8", '3/8" = 1\'': "3/8", '3/8"=1\'-0"': "3/8", '3/8" = 1\'-0"': "3/8",
-  '1/2"=1\'': "half", '1/2" = 1\'': "half", '1/2"=1\'-0"': "half", '1/2" = 1\'-0"': "half",
-  '3/4"=1\'': "3/4", '3/4" = 1\'': "3/4", '3/4"=1\'-0"': "3/4", '3/4" = 1\'-0"': "3/4",
-  '1"=1\'': "full", '1" = 1\'': "full", '1"=1\'-0"': "full", '1" = 1\'-0"': "full",
-  '1-1/2"=1\'': "1-1/2", '1-1/2" = 1\'': "1-1/2", '1-1/2"=1\'-0"': "1-1/2", '1-1/2" = 1\'-0"': "1-1/2",
-  '3"=1\'': "3", '3" = 1\'': "3", '3"=1\'-0"': "3", '3" = 1\'-0"': "3",
+  "1/16\"=1'": "sixteenth",
+  "1/16\" = 1'": "sixteenth",
+  '1/16"=1\'-0"': "sixteenth",
+  '1/16" = 1\'-0"': "sixteenth",
+  "1/8\"=1'": "eighth",
+  "1/8\" = 1'": "eighth",
+  '1/8"=1\'-0"': "eighth",
+  '1/8" = 1\'-0"': "eighth",
+  "3/16\"=1'": "3/16",
+  "3/16\" = 1'": "3/16",
+  '3/16"=1\'-0"': "3/16",
+  '3/16" = 1\'-0"': "3/16",
+  "1/4\"=1'": "quarter",
+  "1/4\" = 1'": "quarter",
+  '1/4"=1\'-0"': "quarter",
+  '1/4" = 1\'-0"': "quarter",
+  "3/8\"=1'": "3/8",
+  "3/8\" = 1'": "3/8",
+  '3/8"=1\'-0"': "3/8",
+  '3/8" = 1\'-0"': "3/8",
+  "1/2\"=1'": "half",
+  "1/2\" = 1'": "half",
+  '1/2"=1\'-0"': "half",
+  '1/2" = 1\'-0"': "half",
+  "3/4\"=1'": "3/4",
+  "3/4\" = 1'": "3/4",
+  '3/4"=1\'-0"': "3/4",
+  '3/4" = 1\'-0"': "3/4",
+  "1\"=1'": "full",
+  "1\" = 1'": "full",
+  '1"=1\'-0"': "full",
+  '1" = 1\'-0"': "full",
+  "1-1/2\"=1'": "1-1/2",
+  "1-1/2\" = 1'": "1-1/2",
+  '1-1/2"=1\'-0"': "1-1/2",
+  '1-1/2" = 1\'-0"': "1-1/2",
+  "3\"=1'": "3",
+  "3\" = 1'": "3",
+  '3"=1\'-0"': "3",
+  '3" = 1\'-0"': "3",
   // Engineering
-  '1"=10\'': "eng10", '1" = 10\'': "eng10", '1"=20\'': "eng20", '1" = 20\'': "eng20",
-  '1"=30\'': "eng30", '1" = 30\'': "eng30", '1"=40\'': "eng40", '1" = 40\'': "eng40",
-  '1"=50\'': "eng50", '1" = 50\'': "eng50", '1"=60\'': "eng60", '1" = 60\'': "eng60",
-  '1"=100\'': "eng100", '1" = 100\'': "eng100",
+  "1\"=10'": "eng10",
+  "1\" = 10'": "eng10",
+  "1\"=20'": "eng20",
+  "1\" = 20'": "eng20",
+  "1\"=30'": "eng30",
+  "1\" = 30'": "eng30",
+  "1\"=40'": "eng40",
+  "1\" = 40'": "eng40",
+  "1\"=50'": "eng50",
+  "1\" = 50'": "eng50",
+  "1\"=60'": "eng60",
+  "1\" = 60'": "eng60",
+  "1\"=100'": "eng100",
+  "1\" = 100'": "eng100",
   // Metric
-  '1:50': "metric_1:50", '1:100': "metric_1:100", '1:200': "metric_1:200", '1:500': "metric_1:500",
+  "1:50": "metric_1:50",
+  "1:100": "metric_1:100",
+  "1:200": "metric_1:200",
+  "1:500": "metric_1:500",
 };
 
 export function matchScaleKey(scaleText) {
   if (!scaleText) return null;
   const s = scaleText.trim();
   if (SCALE_MAP[s]) return SCALE_MAP[s];
-  const norm = s.replace(/\u201c|\u201d/g, '"').replace(/\u2019/g, "'").replace(/\s*=\s*/g, "=").replace(/\s*-\s*/g, "-").trim();
+  const norm = s
+    .replace(/\u201c|\u201d/g, '"')
+    .replace(/\u2019/g, "'")
+    .replace(/\s*=\s*/g, "=")
+    .replace(/\s*-\s*/g, "-")
+    .trim();
   if (SCALE_MAP[norm]) return SCALE_MAP[norm];
   const spaced = norm.replace(/=/g, " = ");
   if (SCALE_MAP[spaced]) return SCALE_MAP[spaced];
@@ -97,40 +145,86 @@ export function classifyFile(filename, contentType, size) {
 
   // Drawing patterns — common construction drawing file naming
   const drawingPatterns = [
-    /drawings?/i, /plans?[.\s_-]/i, /sheets?/i,
+    /drawings?/i,
+    /plans?[.\s_-]/i,
+    /sheets?/i,
     // Standard discipline prefix patterns: A-100, S-200, M-001, E-100, P-100, L-001, C-001
-    /^[ASMEPL]-\d/i, /[_\s][ASMEPL]-?\d{2,}/i,
+    /^[ASMEPL]-\d/i,
+    /[_\s][ASMEPL]-?\d{2,}/i,
     // Discipline names
-    /architectural/i, /structural/i, /mechanical/i, /electrical/i, /plumbing/i,
-    /civil/i, /landscape/i, /fire\s*protection/i, /telecom/i,
+    /architectural/i,
+    /structural/i,
+    /mechanical/i,
+    /electrical/i,
+    /plumbing/i,
+    /civil/i,
+    /landscape/i,
+    /fire\s*protection/i,
+    /telecom/i,
     // Drawing types
-    /elevation/i, /detail/i, /section/i, /floor\s*plan/i, /reflected\s*ceiling/i,
-    /site\s*plan/i, /roof\s*plan/i, /foundation/i, /framing/i,
-    /demolition/i, /demo\s*plan/i, /grading/i, /utility/i,
-    /enlarged/i, /typical/i, /keynote/i, /schedule/i,
+    /elevation/i,
+    /detail/i,
+    /section/i,
+    /floor\s*plan/i,
+    /reflected\s*ceiling/i,
+    /site\s*plan/i,
+    /roof\s*plan/i,
+    /foundation/i,
+    /framing/i,
+    /demolition/i,
+    /demo\s*plan/i,
+    /grading/i,
+    /utility/i,
+    /enlarged/i,
+    /typical/i,
+    /keynote/i,
+    /schedule/i,
     // File naming conventions
-    /blueprint/i, /construction\s*doc/i, /CD[\s_-]?set/i,
-    /permit\s*set/i, /bid\s*set/i, /IFC[\s_-]?set/i,
-    /[_-]DWG/i, /[_-]PLN/i,
+    /blueprint/i,
+    /construction\s*doc/i,
+    /CD[\s_-]?set/i,
+    /permit\s*set/i,
+    /bid\s*set/i,
+    /IFC[\s_-]?set/i,
+    /[_-]DWG/i,
+    /[_-]PLN/i,
   ];
 
   // RFP / Invitation to Bid patterns — highest priority for bid info extraction
   const rfpPatterns = [
-    /rfp/i, /rfi/i, /invitation\s*(to|for)\s*bid/i, /ITB/i,
+    /rfp/i,
+    /rfi/i,
+    /invitation\s*(to|for)\s*bid/i,
+    /ITB/i,
     /request\s*(for|to)\s*(proposal|qualif|bid)/i,
-    /bid\s*package/i, /bid\s*invitation/i, /bid\s*notice/i,
-    /solicitation/i, /procurement/i,
-    /pre[\s-]*bid/i, /notice\s*to\s*(bidders?|contractors?)/i,
+    /bid\s*package/i,
+    /bid\s*invitation/i,
+    /bid\s*notice/i,
+    /solicitation/i,
+    /procurement/i,
+    /pre[\s-]*bid/i,
+    /notice\s*to\s*(bidders?|contractors?)/i,
     /instructions?\s*to\s*bidders?/i,
   ];
 
   // Spec patterns
   const specPatterns = [
-    /spec/i, /project\s*manual/i, /division/i, /csi/i,
-    /technical\s*spec/i, /bid\s*doc/i, /^0[0-9]\s/,
-    /addend/i, /general\s*conditions/i, /supplementary/i,
-    /^section\s*\d/i, /bid\s*form/i, /proposal\s*form/i,
-    /geotechnical/i, /soils?\s*report/i, /environmental/i,
+    /spec/i,
+    /project\s*manual/i,
+    /division/i,
+    /csi/i,
+    /technical\s*spec/i,
+    /bid\s*doc/i,
+    /^0[0-9]\s/,
+    /addend/i,
+    /general\s*conditions/i,
+    /supplementary/i,
+    /^section\s*\d/i,
+    /bid\s*form/i,
+    /proposal\s*form/i,
+    /geotechnical/i,
+    /soils?\s*report/i,
+    /environmental/i,
   ];
 
   // Images and CAD files → drawing

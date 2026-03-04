@@ -1,31 +1,31 @@
-import { create } from 'zustand';
-import { uid, today, nowStr } from '@/utils/format';
-import { storage } from '@/utils/storage';
-import { useUiStore } from '@/stores/uiStore';
-import { useProjectStore } from '@/stores/projectStore';
-import { useItemsStore } from '@/stores/itemsStore';
-import { useDrawingsStore } from '@/stores/drawingsStore';
-import { useTakeoffsStore } from '@/stores/takeoffsStore';
-import { useBidLevelingStore } from '@/stores/bidLevelingStore';
-import { useSpecsStore } from '@/stores/specsStore';
-import { useAlternatesStore } from '@/stores/alternatesStore';
-import { useDocumentsStore } from '@/stores/documentsStore';
-import { useModuleStore } from '@/stores/moduleStore';
-import { useScanStore } from '@/stores/scanStore';
-import { useDatabaseStore } from '@/stores/databaseStore';
-import { useMasterDataStore } from '@/stores/masterDataStore';
-import { useAuthStore } from '@/stores/authStore';
-import { useOrgStore } from '@/stores/orgStore';
-import * as cloudSync from '@/utils/cloudSync';
-import { idbKey } from '@/utils/idbKey';
+import { create } from "zustand";
+import { uid, today, nowStr } from "@/utils/format";
+import { storage } from "@/utils/storage";
+import { useUiStore } from "@/stores/uiStore";
+import { useProjectStore } from "@/stores/projectStore";
+import { useItemsStore } from "@/stores/itemsStore";
+import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useTakeoffsStore } from "@/stores/takeoffsStore";
+import { useBidLevelingStore } from "@/stores/bidLevelingStore";
+import { useSpecsStore } from "@/stores/specsStore";
+import { useAlternatesStore } from "@/stores/alternatesStore";
+import { useDocumentsStore } from "@/stores/documentsStore";
+import { useModuleStore } from "@/stores/moduleStore";
+import { useScanStore } from "@/stores/scanStore";
+import { useDatabaseStore } from "@/stores/databaseStore";
+import { useMasterDataStore } from "@/stores/masterDataStore";
+import { useAuthStore } from "@/stores/authStore";
+import { useOrgStore } from "@/stores/orgStore";
+import * as cloudSync from "@/utils/cloudSync";
+import { idbKey } from "@/utils/idbKey";
 
 export const useEstimatesStore = create((set, get) => ({
   estimatesIndex: [],
   activeEstimateId: null,
-  draftId: null,  // Non-null when estimate is a draft (not yet persisted to DB)
+  draftId: null, // Non-null when estimate is a draft (not yet persisted to DB)
 
-  setEstimatesIndex: (v) => set({ estimatesIndex: v }),
-  setActiveEstimateId: (v) => set({ activeEstimateId: v }),
+  setEstimatesIndex: v => set({ estimatesIndex: v }),
+  setActiveEstimateId: v => set({ activeEstimateId: v }),
   clearDraft: () => set({ draftId: null }),
 
   createEstimate: async (companyProfileId, estimateNumber) => {
@@ -36,12 +36,27 @@ export const useEstimatesStore = create((set, get) => ({
     // even if the user navigates away before auto-save fires.
     const { ownerId, orgId } = get()._getOwnership();
     const newEntry = {
-      id, name: "New Estimate", estimateNumber: estimateNumber || "",
-      client: "", status: "Bidding", bidDue: "", grandTotal: 0, elementCount: 0,
-      lastModified: nowStr(), estimator: "", jobType: "",
-      companyProfileId: companyProfileId || "", buildingType: "", workType: "",
-      architect: "", projectSF: 0, zipCode: "", divisionTotals: {},
-      outcomeMetadata: {}, ownerId, orgId,
+      id,
+      name: "New Estimate",
+      estimateNumber: estimateNumber || "",
+      client: "",
+      status: "Bidding",
+      bidDue: "",
+      grandTotal: 0,
+      elementCount: 0,
+      lastModified: nowStr(),
+      estimator: "",
+      jobType: "",
+      companyProfileId: companyProfileId || "",
+      buildingType: "",
+      workType: "",
+      architect: "",
+      projectSF: 0,
+      zipCode: "",
+      divisionTotals: {},
+      outcomeMetadata: {},
+      ownerId,
+      orgId,
     };
     set(s => ({
       activeEstimateId: id,
@@ -51,18 +66,39 @@ export const useEstimatesStore = create((set, get) => ({
     // Save blank estimate data to IndexedDB so loadEstimate can hydrate stores
     const data = {
       project: {
-        name: "New Estimate", client: "", architect: "", engineer: "", estimator: "",
+        name: "New Estimate",
+        client: "",
+        architect: "",
+        engineer: "",
+        estimator: "",
         estimateNumber: estimateNumber || "",
-        address: "", date: today(), bidDue: "", bidDueTime: "", walkthroughDate: "", walkthroughTime: "",
-        rfiDueDate: "", rfiDueTime: "", otherDueDate: "", otherDueLabel: "", description: "",
-        projectSF: "", jobType: "", buildingType: "", workType: "",
-        bidType: "", bidDelivery: "", bidRequirements: {},
-        status: "Bidding", referredByType: "", referredByName: "",
+        address: "",
+        date: today(),
+        bidDue: "",
+        bidDueTime: "",
+        walkthroughDate: "",
+        walkthroughTime: "",
+        rfiDueDate: "",
+        rfiDueTime: "",
+        otherDueDate: "",
+        otherDueLabel: "",
+        description: "",
+        projectSF: "",
+        jobType: "",
+        buildingType: "",
+        workType: "",
+        bidType: "",
+        bidDelivery: "",
+        bidRequirements: {},
+        status: "Bidding",
+        referredByType: "",
+        referredByName: "",
         outcomeMetadata: {},
         laborType: settings.defaultLaborType || "open_shop",
         companyProfileId: companyProfileId || "",
-        setupComplete: false,  // triggers document-first onboarding
-        ownerId, orgId,
+        setupComplete: false, // triggers document-first onboarding
+        ownerId,
+        orgId,
       },
       codeSystem: "csi-commercial",
       items: [],
@@ -112,7 +148,7 @@ export const useEstimatesStore = create((set, get) => ({
 
     // Cloud sync estimate data (non-blocking)
     cloudSync.pushEstimate(id, data).catch(() => {});
-    cloudSync.pushData('index', idx).catch(() => {});
+    cloudSync.pushData("index", idx).catch(() => {});
 
     return id;
   },
@@ -130,22 +166,49 @@ export const useEstimatesStore = create((set, get) => ({
   // Create a draft estimate in memory only — no IndexedDB or cloud persistence.
   // Hydrates all stores with blank defaults so the Project Info page can render.
   // The first Save on ProjectInfoPage will persist to IndexedDB.
-  initDraftEstimate: (companyProfileId) => {
+  initDraftEstimate: companyProfileId => {
     const id = uid();
     const settings = useUiStore.getState().appSettings;
 
     const blankProject = {
-      name: "", client: "", architect: "", engineer: "", estimator: "",
-      address: "", date: today(), bidDue: "", bidDueTime: "", walkthroughDate: "",
-      rfiDueDate: "", otherDueDate: "", otherDueLabel: "", description: "",
-      projectSF: "", jobType: "", buildingType: "", workType: "",
-      bidType: "", bidDelivery: "", bidRequirements: {},
-      status: "Bidding", referredByType: "", referredByName: "",
+      name: "",
+      client: "",
+      architect: "",
+      engineer: "",
+      estimator: "",
+      address: "",
+      date: today(),
+      bidDue: "",
+      bidDueTime: "",
+      walkthroughDate: "",
+      rfiDueDate: "",
+      otherDueDate: "",
+      otherDueLabel: "",
+      description: "",
+      projectSF: "",
+      jobType: "",
+      buildingType: "",
+      workType: "",
+      bidType: "",
+      bidDelivery: "",
+      bidRequirements: {},
+      status: "Bidding",
+      referredByType: "",
+      referredByName: "",
       outcomeMetadata: {},
       laborType: settings.defaultLaborType || "open_shop",
       companyProfileId: companyProfileId || "",
     };
-    const blankMarkup = { overhead: 10, profit: 10, contingency: 5, generalConditions: 0, insurance: 2, tax: 0, bond: 0, overheadAndProfit: 20 };
+    const blankMarkup = {
+      overhead: 10,
+      profit: 10,
+      contingency: 5,
+      generalConditions: 0,
+      insurance: 2,
+      tax: 0,
+      bond: 0,
+      overheadAndProfit: 20,
+    };
     const blankMarkupOrder = [
       { key: "overhead", label: "Overhead", compound: false, active: true },
       { key: "profit", label: "Profit", compound: false, active: true },
@@ -199,7 +262,7 @@ export const useEstimatesStore = create((set, get) => ({
     return id;
   },
 
-  deleteEstimate: async (id) => {
+  deleteEstimate: async id => {
     set(s => ({
       estimatesIndex: s.estimatesIndex.filter(e => e.id !== id),
       activeEstimateId: s.activeEstimateId === id ? null : s.activeEstimateId,
@@ -208,26 +271,30 @@ export const useEstimatesStore = create((set, get) => ({
     await storage.set(idbKey("bldg-index"), JSON.stringify(idx));
     await storage.delete(idbKey(`bldg-est-${id}`));
 
-    // Track deleted ID locally so cloud sync doesn't pull it back
+    // Track deleted ID locally so cloud sync doesn't pull it back.
+    // Store in BOTH IndexedDB and localStorage for resilience.
     try {
       const raw = await storage.get(idbKey("bldg-deleted-ids"));
       const deletedIds = raw ? JSON.parse(raw.value) : [];
       if (!deletedIds.includes(id)) deletedIds.push(id);
       await storage.set(idbKey("bldg-deleted-ids"), JSON.stringify(deletedIds));
+      // Backup to localStorage (survives IndexedDB clears)
+      const lsKey = `bldg-deleted-ids-${useAuthStore.getState().user?.id || "anon"}`;
+      localStorage.setItem(lsKey, JSON.stringify(deletedIds));
     } catch (err) {
-      console.error('[deleteEstimate] Failed to track deleted ID — estimate may resurrect from cloud:', err);
+      console.error("[deleteEstimate] Failed to track deleted ID — estimate may resurrect from cloud:", err);
     }
 
     // Cloud sync — await so deletion completes before user closes app
     try {
       await cloudSync.deleteEstimate(id);
-      await cloudSync.pushData('index', idx);
+      await cloudSync.pushData("index", idx);
     } catch (err) {
-      console.warn('[deleteEstimate] Cloud sync failed, will retry on next sync:', err.message);
+      console.warn("[deleteEstimate] Cloud sync failed, will retry on next sync:", err.message);
     }
   },
 
-  duplicateEstimate: async (id) => {
+  duplicateEstimate: async id => {
     const raw = await storage.get(idbKey(`bldg-est-${id}`));
     if (!raw) return;
     const data = JSON.parse(raw.value);
@@ -247,24 +314,27 @@ export const useEstimatesStore = create((set, get) => ({
 
     // Cloud sync (non-blocking)
     cloudSync.pushEstimate(newId, data).catch(() => {});
-    cloudSync.pushData('index', idx).catch(() => {});
+    cloudSync.pushData("index", idx).catch(() => {});
 
     return newId;
   },
 
   updateIndexEntry: (id, updates) => {
     set(s => ({
-      estimatesIndex: s.estimatesIndex.map(e => e.id === id ? { ...e, ...updates } : e),
+      estimatesIndex: s.estimatesIndex.map(e => (e.id === id ? { ...e, ...updates } : e)),
     }));
   },
 
   // Import a pre-built estimate from an RFP
-  importFromRfp: async (estimateData) => {
+  importFromRfp: async estimateData => {
     const id = uid();
     const data = { ...estimateData };
     const { ownerId, orgId } = get()._getOwnership();
     // Stamp ownership on project data
-    if (data.project) { data.project.ownerId = ownerId; data.project.orgId = orgId; }
+    if (data.project) {
+      data.project.ownerId = ownerId;
+      data.project.orgId = orgId;
+    }
     const est = {
       id,
       name: data.project?.name || "Imported RFP",
@@ -285,7 +355,8 @@ export const useEstimatesStore = create((set, get) => ({
       zipCode: data.project?.zipCode || "",
       divisionTotals: {},
       outcomeMetadata: data.project?.outcomeMetadata || {},
-      ownerId, orgId,
+      ownerId,
+      orgId,
     };
     const idx = [...get().estimatesIndex, est];
     set({ estimatesIndex: idx, activeEstimateId: id });
@@ -294,7 +365,7 @@ export const useEstimatesStore = create((set, get) => ({
 
     // Cloud sync (non-blocking)
     cloudSync.pushEstimate(id, data).catch(() => {});
-    cloudSync.pushData('index', idx).catch(() => {});
+    cloudSync.pushData("index", idx).catch(() => {});
 
     return id;
   },

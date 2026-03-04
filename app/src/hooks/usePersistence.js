@@ -1,29 +1,70 @@
-import { useEffect, useRef } from 'react';
-import { storage } from '@/utils/storage';
-import { useEstimatesStore } from '@/stores/estimatesStore';
-import { useProjectStore } from '@/stores/projectStore';
-import { useItemsStore, DEFAULT_MARKUP_ORDER } from '@/stores/itemsStore';
-import { useTakeoffsStore } from '@/stores/takeoffsStore';
-import { useDrawingsStore } from '@/stores/drawingsStore';
-import { useBidLevelingStore } from '@/stores/bidLevelingStore';
-import { useDatabaseStore } from '@/stores/databaseStore';
-import { useMasterDataStore } from '@/stores/masterDataStore';
-import { useAlternatesStore } from '@/stores/alternatesStore';
-import { useSpecsStore } from '@/stores/specsStore';
-import { useReportsStore } from '@/stores/reportsStore';
-import { useDocumentsStore } from '@/stores/documentsStore';
-import { useModuleStore, migrateModuleInstances } from '@/stores/moduleStore';
-import { useUiStore } from '@/stores/uiStore';
-import { useScanStore } from '@/stores/scanStore';
-import { useGroupsStore, DEFAULT_GROUPS } from '@/stores/groupsStore';
-import { useCalendarStore } from '@/stores/calendarStore';
-import { useBidPackagesStore } from '@/stores/bidPackagesStore';
-import * as cloudSync from '@/utils/cloudSync';
-import { loadAudioMeta } from '@/utils/novaAudioStorage';
-import { migrateIndexEntry, migrateProposal } from '@/utils/costHistoryMigration';
-import { idbKey } from '@/utils/idbKey';
-import { useAuthStore } from '@/stores/authStore';
-import { useOrgStore } from '@/stores/orgStore';
+import { useEffect, useRef } from "react";
+import { storage } from "@/utils/storage";
+import { useEstimatesStore } from "@/stores/estimatesStore";
+import { useProjectStore } from "@/stores/projectStore";
+import { useItemsStore, DEFAULT_MARKUP_ORDER } from "@/stores/itemsStore";
+import { useTakeoffsStore } from "@/stores/takeoffsStore";
+import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useBidLevelingStore } from "@/stores/bidLevelingStore";
+import { useDatabaseStore } from "@/stores/databaseStore";
+import { useMasterDataStore } from "@/stores/masterDataStore";
+import { useAlternatesStore } from "@/stores/alternatesStore";
+import { useSpecsStore } from "@/stores/specsStore";
+import { useReportsStore } from "@/stores/reportsStore";
+import { useDocumentsStore } from "@/stores/documentsStore";
+import { useModuleStore, migrateModuleInstances } from "@/stores/moduleStore";
+import { useUiStore } from "@/stores/uiStore";
+import { useScanStore } from "@/stores/scanStore";
+import { useGroupsStore, DEFAULT_GROUPS } from "@/stores/groupsStore";
+import { useCalendarStore } from "@/stores/calendarStore";
+import { useBidPackagesStore } from "@/stores/bidPackagesStore";
+import * as cloudSync from "@/utils/cloudSync";
+import { loadAudioMeta } from "@/utils/novaAudioStorage";
+import { migrateIndexEntry, migrateProposal } from "@/utils/costHistoryMigration";
+import { idbKey } from "@/utils/idbKey";
+import { useAuthStore } from "@/stores/authStore";
+import { useOrgStore } from "@/stores/orgStore";
+
+// One-time migration: rename bare `bldg-*` keys to `u-{userId}-bldg-*`
+// so different users on the same browser have isolated IndexedDB data.
+async function migrateIdbKeysForUser() {
+  const userId = useAuthStore.getState().user?.id;
+  const org = useOrgStore.getState().org;
+  if (!userId || org?.id) return; // Only needed in solo mode (org mode already prefixed)
+  const flag = `idb-user-ns-${userId}`;
+  if (localStorage.getItem(flag)) return; // Already migrated
+
+  try {
+    const allKeys = await storage.keys();
+    // Find bare bldg-* keys (not already prefixed with u- or org-)
+    const bareKeys = allKeys.filter(
+      k => typeof k === "string" && k.startsWith("bldg-") && k !== "bldg-settings", // settings stay unprefixed
+    );
+    if (bareKeys.length === 0) {
+      localStorage.setItem(flag, "1");
+      return;
+    }
+
+    console.log(`[migration] Renaming ${bareKeys.length} bare IDB keys to u-${userId.slice(0, 8)}-*`);
+    for (const oldKey of bareKeys) {
+      const newKey = `u-${userId}-${oldKey}`;
+      // Only migrate if new key doesn't already exist
+      const existing = await storage.get(newKey);
+      if (!existing) {
+        const old = await storage.get(oldKey);
+        if (old) {
+          await storage.set(newKey, old.value);
+        }
+      }
+      // Delete old bare key so other users don't see it
+      await storage.delete(oldKey);
+    }
+    console.log("[migration] IDB key namespacing complete");
+  } catch (err) {
+    console.warn("[migration] IDB key namespacing failed:", err);
+  }
+  localStorage.setItem(flag, "1");
+}
 
 // Reset all Zustand stores to defaults and clear localStorage flags.
 // Called on sign-out to prevent data leaking between users.
@@ -31,12 +72,32 @@ export function resetAllStores() {
   useEstimatesStore.getState().setEstimatesIndex([]);
   useEstimatesStore.setState({ activeEstimateId: null, draftId: null });
   useMasterDataStore.getState().setMasterData({
-    clients: [], architects: [], engineers: [], estimators: [], subcontractors: [],
-    historicalProposals: [], companyProfiles: [],
+    clients: [],
+    architects: [],
+    engineers: [],
+    estimators: [],
+    subcontractors: [],
+    historicalProposals: [],
+    companyProfiles: [],
     jobTypes: useMasterDataStore.getState().masterData.jobTypes, // keep defaults
     bidDeliveryTypes: useMasterDataStore.getState().masterData.bidDeliveryTypes,
     bidTypes: useMasterDataStore.getState().masterData.bidTypes,
-    companyInfo: { name: "", address: "", city: "", state: "", zip: "", phone: "", email: "", website: "", licenseNo: "", logo: null, brandColors: [], palettes: [], boilerplateExclusions: [], boilerplateNotes: [] },
+    companyInfo: {
+      name: "",
+      address: "",
+      city: "",
+      state: "",
+      zip: "",
+      phone: "",
+      email: "",
+      website: "",
+      licenseNo: "",
+      logo: null,
+      brandColors: [],
+      palettes: [],
+      boilerplateExclusions: [],
+      boilerplateNotes: [],
+    },
   });
   useMasterDataStore.setState({ pdfUploadQueue: [] });
   useCalendarStore.getState().setTasks([]);
@@ -45,10 +106,10 @@ export function resetAllStores() {
   useUiStore.setState({ aiChatMessages: [], aiChatInput: "" });
 
   // Clear localStorage flags that are user-session-scoped
-  localStorage.removeItem('blob_migration_v2');
-  localStorage.removeItem('nova_cmd_recents');
-  localStorage.removeItem('READ_IDS_KEY');
-  localStorage.removeItem('intelligence_cache');
+  localStorage.removeItem("blob_migration_v2");
+  localStorage.removeItem("nova_cmd_recents");
+  localStorage.removeItem("READ_IDS_KEY");
+  localStorage.removeItem("intelligence_cache");
 }
 
 // Load all persisted data on mount
@@ -62,6 +123,24 @@ export function usePersistenceLoad() {
     loaded.current = true;
 
     (async () => {
+      // ── User-switch detection: MUST run before loading any data ──
+      // If a different user signed in without the previous user signing out,
+      // clear all local stores and IndexedDB so the new user starts clean.
+      const currentUserId = useAuthStore.getState().user?.id;
+      if (currentUserId) {
+        const lastUserRaw = await storage.get("bldg-last-user");
+        const lastUserId = lastUserRaw?.value || null;
+        if (lastUserId && lastUserId !== currentUserId) {
+          console.log("[usePersistence] User switch detected BEFORE load — clearing stale data");
+          resetAllStores();
+          await storage.clearAll();
+        }
+        await storage.set("bldg-last-user", currentUserId);
+      }
+
+      // Migrate bare IDB keys to user-namespaced keys (one-time, solo mode only)
+      await migrateIdbKeysForUser();
+
       let localHasData = false;
       let hadCorruptedIndex = false;
       let hadCorruptedMaster = false;
@@ -71,15 +150,13 @@ export function usePersistenceLoad() {
       if (idxRaw) {
         try {
           // Defensive: validate value is a non-empty string before parsing
-          if (!idxRaw.value || typeof idxRaw.value !== 'string' || idxRaw.value.trim().length === 0) {
-            throw new Error('Empty or invalid index data in IndexedDB');
+          if (!idxRaw.value || typeof idxRaw.value !== "string" || idxRaw.value.trim().length === 0) {
+            throw new Error("Empty or invalid index data in IndexedDB");
           }
           const parsed = JSON.parse(idxRaw.value);
-          if (!Array.isArray(parsed)) throw new Error('Index data is not an array');
+          if (!Array.isArray(parsed)) throw new Error("Index data is not an array");
           // Migrate: ensure all index entries have companyProfileId
-          let migrated = parsed.map(e =>
-            e.companyProfileId === undefined ? { ...e, companyProfileId: "" } : e
-          );
+          let migrated = parsed.map(e => (e.companyProfileId === undefined ? { ...e, companyProfileId: "" } : e));
           // Migrate: two-axis taxonomy (buildingType, workType) + new fields
           migrated = migrated.map(migrateIndexEntry);
           useEstimatesStore.getState().setEstimatesIndex(migrated);
@@ -99,12 +176,12 @@ export function usePersistenceLoad() {
       if (masterRaw) {
         try {
           // Defensive: validate value is a non-empty string before parsing
-          if (!masterRaw.value || typeof masterRaw.value !== 'string' || masterRaw.value.trim().length === 0) {
-            throw new Error('Empty or invalid master data in IndexedDB');
+          if (!masterRaw.value || typeof masterRaw.value !== "string" || masterRaw.value.trim().length === 0) {
+            throw new Error("Empty or invalid master data in IndexedDB");
           }
           const master = JSON.parse(masterRaw.value);
-          if (typeof master !== 'object' || master === null || Array.isArray(master)) {
-            throw new Error('Master data is not a valid object');
+          if (typeof master !== "object" || master === null || Array.isArray(master)) {
+            throw new Error("Master data is not a valid object");
           }
           // Migrate: two-axis taxonomy for historical proposals
           if (Array.isArray(master.historicalProposals)) {
@@ -147,10 +224,7 @@ export function usePersistenceLoad() {
         const savedKeys = new Set(saved.map(m => m.key));
         const missing = DEFAULT_MARKUP_ORDER.filter(m => !savedKeys.has(m.key));
         // Pre-launch: entries missing `active` default to false (user picks their own)
-        const merged = [
-          ...saved.map(m => ({ ...m, active: m.active !== undefined ? m.active : false })),
-          ...missing,
-        ];
+        const merged = [...saved.map(m => ({ ...m, active: m.active !== undefined ? m.active : false })), ...missing];
         if (missing.length > 0 || saved.some(m => m.active === undefined)) {
           useUiStore.getState().updateSetting("defaultMarkupOrder", merged);
         }
@@ -197,20 +271,35 @@ export function usePersistenceLoad() {
       if (!localHasData) {
         let recoveredFromCloud = false;
         try {
-          // Load deleted IDs so we don't resurrect estimates the user previously deleted
-          const deletedRaw = await storage.get(idbKey('bldg-deleted-ids'));
+          // Load deleted IDs — merge IndexedDB + localStorage backup
+          const deletedRaw = await storage.get(idbKey("bldg-deleted-ids"));
           let deletedIds = [];
-          try { deletedIds = deletedRaw ? JSON.parse(deletedRaw.value) : []; }
-          catch { deletedIds = []; }
+          try {
+            deletedIds = deletedRaw ? JSON.parse(deletedRaw.value) : [];
+          } catch {
+            deletedIds = [];
+          }
+          // Merge localStorage backup (survives IndexedDB clears)
+          try {
+            const userId = useAuthStore.getState().user?.id;
+            const lsKey = `bldg-deleted-ids-${userId || "anon"}`;
+            const lsRaw = localStorage.getItem(lsKey);
+            if (lsRaw) {
+              const lsIds = JSON.parse(lsRaw);
+              for (const id of lsIds) {
+                if (!deletedIds.includes(id)) deletedIds.push(id);
+              }
+            }
+          } catch {
+            /* ignore */
+          }
           const deletedSet = new Set(deletedIds);
 
           // Pull estimates index
-          const cloudIndex = await cloudSync.pullData('index');
+          const cloudIndex = await cloudSync.pullData("index");
           if (cloudIndex && Array.isArray(cloudIndex) && cloudIndex.length > 0) {
             // Filter out locally-deleted estimates before restoring
-            const filteredIndex = deletedSet.size > 0
-              ? cloudIndex.filter(e => !deletedSet.has(e.id))
-              : cloudIndex;
+            const filteredIndex = deletedSet.size > 0 ? cloudIndex.filter(e => !deletedSet.has(e.id)) : cloudIndex;
             useEstimatesStore.getState().setEstimatesIndex(filteredIndex);
             await storage.set(idbKey("bldg-index"), JSON.stringify(filteredIndex));
             if (hadCorruptedIndex) recoveredFromCloud = true;
@@ -224,7 +313,7 @@ export function usePersistenceLoad() {
           }
 
           // Pull master data
-          const cloudMaster = await cloudSync.pullData('master');
+          const cloudMaster = await cloudSync.pullData("master");
           if (cloudMaster) {
             useMasterDataStore.getState().setMasterData({
               ...useMasterDataStore.getState().masterData,
@@ -235,7 +324,7 @@ export function usePersistenceLoad() {
           }
 
           // Pull settings
-          const cloudSettings = await cloudSync.pullData('settings');
+          const cloudSettings = await cloudSync.pullData("settings");
           if (cloudSettings) {
             useUiStore.getState().setAppSettings({
               ...useUiStore.getState().appSettings,
@@ -245,29 +334,32 @@ export function usePersistenceLoad() {
           }
 
           // Pull assemblies
-          const cloudAsm = await cloudSync.pullData('assemblies');
+          const cloudAsm = await cloudSync.pullData("assemblies");
           if (cloudAsm && Array.isArray(cloudAsm)) {
             useDatabaseStore.getState().setAssemblies(cloudAsm);
             await storage.set(idbKey("bldg-assemblies"), JSON.stringify(cloudAsm));
           }
         } catch (err) {
-          console.warn('[usePersistence] Cloud pull failed:', err);
+          console.warn("[usePersistence] Cloud pull failed:", err);
         }
 
         // Only show error toast if data was corrupted AND cloud recovery didn't help
         if ((hadCorruptedIndex || hadCorruptedMaster) && !recoveredFromCloud) {
-          const what = [
-            hadCorruptedIndex && 'estimates',
-            hadCorruptedMaster && 'company data',
-          ].filter(Boolean).join(' and ');
+          const what = [hadCorruptedIndex && "estimates", hadCorruptedMaster && "company data"]
+            .filter(Boolean)
+            .join(" and ");
           useUiStore.getState().showToast(`Failed to load ${what} — please check your connection`, "error");
         } else if (recoveredFromCloud) {
-          console.log('[usePersistence] Recovered corrupted local data from cloud successfully');
+          console.log("[usePersistence] Recovered corrupted local data from cloud successfully");
         }
       }
 
       // Load NOVA custom audio metadata
-      try { await loadAudioMeta(); } catch { /* audio not critical */ }
+      try {
+        await loadAudioMeta();
+      } catch {
+        /* audio not critical */
+      }
 
       // Signal that persistence load is complete — auto-save can now safely write
       useUiStore.getState().setPersistenceLoaded(true);
@@ -291,7 +383,7 @@ export async function loadEstimate(id) {
         raw = { value: JSON.stringify(cloudData) };
       }
     } catch (err) {
-      console.warn('[loadEstimate] Cloud pull failed:', err);
+      console.warn("[loadEstimate] Cloud pull failed:", err);
     }
   }
 
@@ -299,16 +391,19 @@ export async function loadEstimate(id) {
   if (raw) {
     try {
       const parsed = JSON.parse(raw.value);
-      const hasStrippedBlobs = (Array.isArray(parsed.drawings) && parsed.drawings.some(d => d._cloudBlobStripped && d.storagePath && !d.data))
-        || (Array.isArray(parsed.documents) && parsed.documents.some(d => d._cloudBlobStripped && d.storagePath && !d.data))
-        || (parsed._specPdfStripped && parsed._specPdfStoragePath && !parsed.specPdf);
+      const hasStrippedBlobs =
+        (Array.isArray(parsed.drawings) &&
+          parsed.drawings.some(d => d._cloudBlobStripped && d.storagePath && !d.data)) ||
+        (Array.isArray(parsed.documents) &&
+          parsed.documents.some(d => d._cloudBlobStripped && d.storagePath && !d.data)) ||
+        (parsed._specPdfStripped && parsed._specPdfStoragePath && !parsed.specPdf);
       if (hasStrippedBlobs) {
         const hydrated = await cloudSync.hydrateBlobs(parsed);
         await storage.set(idbKey(`bldg-est-${id}`), JSON.stringify(hydrated));
         raw = { value: JSON.stringify(hydrated) };
       }
     } catch (err) {
-      console.warn('[loadEstimate] Blob hydration failed:', err);
+      console.warn("[loadEstimate] Blob hydration failed:", err);
       useUiStore.getState().showToast("Some drawings may not have loaded — check cloud connection", "error");
     }
   }
@@ -318,13 +413,13 @@ export async function loadEstimate(id) {
   if (raw) {
     try {
       const parsed = JSON.parse(raw.value);
-      const drawingsMissing = Array.isArray(parsed.drawings) && parsed.drawings.length > 0
-        && parsed.drawings.some(d => !d.data);
-      const docsMissing = Array.isArray(parsed.documents) && parsed.documents.length > 0
-        && parsed.documents.some(d => !d.data);
+      const drawingsMissing =
+        Array.isArray(parsed.drawings) && parsed.drawings.length > 0 && parsed.drawings.some(d => !d.data);
+      const docsMissing =
+        Array.isArray(parsed.documents) && parsed.documents.length > 0 && parsed.documents.some(d => !d.data);
 
       if (drawingsMissing || docsMissing) {
-        console.log('[loadEstimate] Drawings/docs missing data, refreshing from cloud...');
+        console.log("[loadEstimate] Drawings/docs missing data, refreshing from cloud...");
         let cloudData = await cloudSync.pullEstimate(id);
         if (cloudData) {
           cloudData = await cloudSync.hydrateBlobs(cloudData);
@@ -357,7 +452,7 @@ export async function loadEstimate(id) {
         }
       }
     } catch (err) {
-      console.warn('[loadEstimate] Cloud blob refresh failed:', err);
+      console.warn("[loadEstimate] Cloud blob refresh failed:", err);
       useUiStore.getState().showToast("Some drawings may not have loaded — check cloud connection", "error");
     }
   }
@@ -375,7 +470,7 @@ export async function loadEstimate(id) {
     useProjectStore.getState().setCustomCodes(data.customCodes || {});
     // Migrate: ensure all items have bidContext
     const itemsWithContext = (data.items || []).map(i =>
-      i.bidContext !== undefined ? i : { ...i, bidContext: "base" }
+      i.bidContext !== undefined ? i : { ...i, bidContext: "base" },
     );
     useItemsStore.getState().setItems(itemsWithContext);
     const loadedMarkup = data.markup || useItemsStore.getState().markup;
@@ -395,10 +490,7 @@ export async function loadEstimate(id) {
       const missing = DEFAULT_MARKUP_ORDER.filter(m => !curKeys.has(m.key));
       // Existing estimate entries that lack `active` were active before this feature → default true
       // Newly added missing entries use the DEFAULT (false) so they don't surprise the user
-      const merged = [
-        ...cur.map(m => ({ ...m, active: m.active !== undefined ? m.active : true })),
-        ...missing,
-      ];
+      const merged = [...cur.map(m => ({ ...m, active: m.active !== undefined ? m.active : true })), ...missing];
       if (missing.length > 0 || cur.some(m => m.active === undefined)) {
         useItemsStore.getState().setMarkupOrder(merged);
       }
@@ -424,7 +516,7 @@ export async function loadEstimate(id) {
     });
     // Migrate: ensure all takeoffs have bidContext
     const takeoffsWithContext = migratedTakeoffs.map(t =>
-      t.bidContext !== undefined ? t : { ...t, bidContext: "base" }
+      t.bidContext !== undefined ? t : { ...t, bidContext: "base" },
     );
     useTakeoffsStore.getState().setTakeoffs(takeoffsWithContext);
     useTakeoffsStore.getState().setTkCalibrations(data.tkCalibrations || {});
@@ -447,9 +539,13 @@ export async function loadEstimate(id) {
       delete bInst["framing"];
     }
     useModuleStore.getState().setModuleInstances(bInst);
-    useModuleStore.getState().setActiveModule(
-      (data.activeModule || data.activeBuilder || "") === "framing" ? "walls" : (data.activeModule || data.activeBuilder || null)
-    );
+    useModuleStore
+      .getState()
+      .setActiveModule(
+        (data.activeModule || data.activeBuilder || "") === "framing"
+          ? "walls"
+          : data.activeModule || data.activeBuilder || null,
+      );
 
     // Restore scan results if present
     if (data.scanResults) {
@@ -489,7 +585,7 @@ export async function saveEstimate() {
     // Not a draft — verify it still exists in the index
     const existsLocally = useEstimatesStore.getState().estimatesIndex.some(e => e.id === id);
     if (!existsLocally) {
-      console.warn('[saveEstimate] Estimate no longer in index — skipping save for', id);
+      console.warn("[saveEstimate] Estimate no longer in index — skipping save for", id);
       return;
     }
   }
@@ -559,7 +655,13 @@ export async function saveEstimate() {
     otherDueLabel: data.project.otherDueLabel || "",
     grandTotal: totals.grand,
     elementCount: data.items.length,
-    lastModified: new Date().toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }),
+    lastModified: new Date().toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }),
     estimator: data.project.estimator,
     jobType: data.project.jobType,
     companyProfileId: data.project.companyProfileId || "",
@@ -578,10 +680,7 @@ export async function saveEstimate() {
   const existsInIndex = useEstimatesStore.getState().estimatesIndex.some(e => e.id === id);
   if (!existsInIndex) {
     const newEntry = { id, ...entryFields };
-    useEstimatesStore.getState().setEstimatesIndex([
-      ...useEstimatesStore.getState().estimatesIndex,
-      newEntry,
-    ]);
+    useEstimatesStore.getState().setEstimatesIndex([...useEstimatesStore.getState().estimatesIndex, newEntry]);
   } else {
     useEstimatesStore.getState().updateIndexEntry(id, entryFields);
   }
@@ -594,10 +693,10 @@ export async function saveEstimate() {
 
   // ─── Cloud Push (non-blocking) ───
   cloudSync.pushEstimate(id, data).catch(err => {
-    console.warn('[usePersistence] Cloud push failed for estimate:', err?.message);
+    console.warn("[usePersistence] Cloud push failed for estimate:", err?.message);
   });
-  cloudSync.pushData('index', idx).catch(err => {
-    console.warn('[usePersistence] Cloud push failed for index:', err?.message);
+  cloudSync.pushData("index", idx).catch(err => {
+    console.warn("[usePersistence] Cloud push failed for index:", err?.message);
   });
 }
 
@@ -610,8 +709,8 @@ export async function saveMasterData() {
   }
 
   // Cloud push (non-blocking)
-  cloudSync.pushData('master', master).catch(err => {
-    console.warn('[usePersistence] Cloud push failed for master:', err?.message);
+  cloudSync.pushData("master", master).catch(err => {
+    console.warn("[usePersistence] Cloud push failed for master:", err?.message);
   });
 }
 
@@ -620,31 +719,33 @@ export async function saveUploadQueue() {
   const queue = useMasterDataStore.getState().pdfUploadQueue;
   // Keep extractedData for "extracted" items (needed for review after refresh)
   // Strip it from other statuses to save space; filter out "saved" items entirely
-  const slim = queue.filter(q => q.status !== "saved").map(q => {
-    if (q.status === "extracted") return q; // keep extractedData for review
-    const { extractedData, ...rest } = q;
-    return rest;
-  });
-  await storage.set(idbKey('bldg-upload-queue'), JSON.stringify(slim));
+  const slim = queue
+    .filter(q => q.status !== "saved")
+    .map(q => {
+      if (q.status === "extracted") return q; // keep extractedData for review
+      const { extractedData, ...rest } = q;
+      return rest;
+    });
+  await storage.set(idbKey("bldg-upload-queue"), JSON.stringify(slim));
 }
 
 // Load PDF upload queue
 export async function loadUploadQueue() {
-  const raw = await storage.get(idbKey('bldg-upload-queue'));
+  const raw = await storage.get(idbKey("bldg-upload-queue"));
   if (raw?.value) {
     try {
       const queue = JSON.parse(raw.value);
       // Crash recovery: "extracting" items → reset to "queued" (file data lost)
-      const fixed = queue.map(q => q.status === 'extracting' ? { ...q, status: 'queued' } : q);
+      const fixed = queue.map(q => (q.status === "extracting" ? { ...q, status: "queued" } : q));
       useMasterDataStore.setState({ pdfUploadQueue: fixed });
     } catch {
-      console.warn('[usePersistence] Failed to parse upload queue');
+      console.warn("[usePersistence] Failed to parse upload queue");
     }
   }
 }
 
 // ── Per-item PDF base64 persistence (survives page refresh) ──
-const PDF_BASE64_PREFIX = 'bldg-pdf-b64-';
+const PDF_BASE64_PREFIX = "bldg-pdf-b64-";
 
 export async function savePdfBase64(queueId, base64) {
   if (!queueId || !base64) return;
@@ -675,8 +776,8 @@ export async function saveSettings() {
   }
 
   // Cloud push (non-blocking)
-  cloudSync.pushData('settings', settings).catch(err => {
-    console.warn('[usePersistence] Cloud push failed for settings:', err?.message);
+  cloudSync.pushData("settings", settings).catch(err => {
+    console.warn("[usePersistence] Cloud push failed for settings:", err?.message);
   });
 }
 
@@ -689,8 +790,8 @@ export async function saveAssemblies() {
   }
 
   // Cloud push (non-blocking)
-  cloudSync.pushData('assemblies', assemblies).catch(err => {
-    console.warn('[usePersistence] Cloud push failed for assemblies:', err?.message);
+  cloudSync.pushData("assemblies", assemblies).catch(err => {
+    console.warn("[usePersistence] Cloud push failed for assemblies:", err?.message);
   });
 }
 
@@ -703,7 +804,7 @@ export async function saveCalendar() {
   }
 
   // Cloud push (non-blocking)
-  cloudSync.pushData('calendar', tasks).catch(err => {
-    console.warn('[usePersistence] Cloud push failed for calendar:', err?.message);
+  cloudSync.pushData("calendar", tasks).catch(err => {
+    console.warn("[usePersistence] Cloud push failed for calendar:", err?.message);
   });
 }

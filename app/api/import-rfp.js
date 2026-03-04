@@ -1,5 +1,5 @@
-import { supabaseAdmin, verifyUser } from './lib/supabaseAdmin.js';
-import { cors } from './lib/cors.js';
+import { supabaseAdmin, verifyUser } from "./lib/supabaseAdmin.js";
+import { cors } from "./lib/cors.js";
 
 // Capitalize each word in a name (e.g. "john smith" → "John Smith")
 function titleCase(s) {
@@ -100,7 +100,7 @@ export default async function handler(req, res) {
   if (!user) return res.status(401).json({ error: "Unauthorized" });
 
   try {
-    const { rfpId } = req.body || {};
+    const { rfpId, companyProfileId } = req.body || {};
     if (!rfpId) return res.status(400).json({ error: "rfpId required" });
 
     // Fetch the RFP
@@ -126,11 +126,12 @@ export default async function handler(req, res) {
       downloadPath: att.storagePath,
     }));
 
-    // Mark RFP as imported
-    await supabaseAdmin
-      .from("pending_rfps")
-      .update({ status: "imported" })
-      .eq("id", rfpId);
+    // Mark RFP as imported + tag with company profile
+    const updateFields = { status: "imported" };
+    if (companyProfileId !== undefined) {
+      updateFields.company_profile_id = companyProfileId;
+    }
+    await supabaseAdmin.from("pending_rfps").update(updateFields).eq("id", rfpId);
 
     // Also return extracted contacts for auto-adding to master data (with title-cased names)
     const contacts = {

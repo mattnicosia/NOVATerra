@@ -1,5 +1,5 @@
-import { create } from 'zustand';
-import { MODULES } from '@/constants/modules';
+import { create } from "zustand";
+import { MODULES } from "@/constants/modules";
 
 // Simple unique ID generator (matches uid() from format.js)
 const _uid = () => Math.random().toString(36).slice(2, 10);
@@ -7,7 +7,9 @@ const _uid = () => Math.random().toString(36).slice(2, 10);
 // Get default specs for a category
 function getDefaultCatSpecs(cat) {
   const specs = {};
-  (cat.specs || []).forEach(s => { specs[s.id] = s.default; });
+  (cat.specs || []).forEach(s => {
+    specs[s.id] = s.default;
+  });
   return specs;
 }
 
@@ -18,17 +20,22 @@ function getDefaultSpecs(moduleId) {
   const specs = {};
   mod.categories.forEach(cat => {
     if (cat.multiInstance) return; // multi-instance specs live in categoryInstances
-    (cat.specs || []).forEach(s => { specs[s.id] = s.default; });
+    (cat.specs || []).forEach(s => {
+      specs[s.id] = s.default;
+    });
   });
   return specs;
 }
 
-// Build default expansion state — all categories expanded by default
+// Build default expansion state — all categories collapsed by default,
+// except derived-only categories (like Excavation) which start expanded
 function getDefaultExpanded(moduleId) {
   const mod = MODULES[moduleId];
   if (!mod) return {};
   const expanded = {};
-  mod.categories.forEach(cat => { expanded[cat.id] = false; });
+  mod.categories.forEach(cat => {
+    expanded[cat.id] = cat.type === "derived-only"; // Excavation etc. start expanded
+  });
   return expanded;
 }
 
@@ -39,13 +46,15 @@ function getDefaultCategoryInstances(moduleId) {
   const catInst = {};
   mod.categories.forEach(cat => {
     if (!cat.multiInstance) return;
-    catInst[cat.id] = [{
-      id: _uid(),
-      label: "Type A",
-      specs: getDefaultCatSpecs(cat),
-      itemTakeoffIds: {},
-      itemStatus: {},
-    }];
+    catInst[cat.id] = [
+      {
+        id: _uid(),
+        label: "Type A",
+        specs: getDefaultCatSpecs(cat),
+        itemTakeoffIds: {},
+        itemStatus: {},
+      },
+    ];
   });
   return catInst;
 }
@@ -65,197 +74,209 @@ export const useModuleStore = create((set, get) => ({
   activeModule: null,
   moduleInstances: {},
 
-  setActiveModule: (id) => set(s => {
-    // Ensure instance exists when activating
-    if (id && !s.moduleInstances[id]) {
+  setActiveModule: id =>
+    set(s => {
+      // Ensure instance exists when activating
+      if (id && !s.moduleInstances[id]) {
+        return {
+          activeModule: id,
+          moduleInstances: { ...s.moduleInstances, [id]: ensureInstance(s, id) },
+        };
+      }
+      return { activeModule: id };
+    }),
+
+  setModuleInstances: v => set({ moduleInstances: v }),
+
+  setSpec: (moduleId, specId, value) =>
+    set(s => {
+      const inst = ensureInstance(s, moduleId);
       return {
-        activeModule: id,
-        moduleInstances: { ...s.moduleInstances, [id]: ensureInstance(s, id) },
+        moduleInstances: {
+          ...s.moduleInstances,
+          [moduleId]: { ...inst, specs: { ...inst.specs, [specId]: value } },
+        },
       };
-    }
-    return { activeModule: id };
-  }),
+    }),
 
-  setModuleInstances: (v) => set({ moduleInstances: v }),
+  setItemStatus: (moduleId, itemId, status) =>
+    set(s => {
+      const inst = ensureInstance(s, moduleId);
+      return {
+        moduleInstances: {
+          ...s.moduleInstances,
+          [moduleId]: { ...inst, itemStatus: { ...inst.itemStatus, [itemId]: status } },
+        },
+      };
+    }),
 
-  setSpec: (moduleId, specId, value) => set(s => {
-    const inst = ensureInstance(s, moduleId);
-    return {
-      moduleInstances: {
-        ...s.moduleInstances,
-        [moduleId]: { ...inst, specs: { ...inst.specs, [specId]: value } },
-      },
-    };
-  }),
+  linkItemToTakeoff: (moduleId, itemId, takeoffId) =>
+    set(s => {
+      const inst = ensureInstance(s, moduleId);
+      return {
+        moduleInstances: {
+          ...s.moduleInstances,
+          [moduleId]: { ...inst, itemTakeoffIds: { ...inst.itemTakeoffIds, [itemId]: takeoffId } },
+        },
+      };
+    }),
 
-  setItemStatus: (moduleId, itemId, status) => set(s => {
-    const inst = ensureInstance(s, moduleId);
-    return {
-      moduleInstances: {
-        ...s.moduleInstances,
-        [moduleId]: { ...inst, itemStatus: { ...inst.itemStatus, [itemId]: status } },
-      },
-    };
-  }),
-
-  linkItemToTakeoff: (moduleId, itemId, takeoffId) => set(s => {
-    const inst = ensureInstance(s, moduleId);
-    return {
-      moduleInstances: {
-        ...s.moduleInstances,
-        [moduleId]: { ...inst, itemTakeoffIds: { ...inst.itemTakeoffIds, [itemId]: takeoffId } },
-      },
-    };
-  }),
-
-  toggleCategory: (moduleId, catId) => set(s => {
-    const inst = ensureInstance(s, moduleId);
-    const expanded = { ...inst.expandedCategories };
-    expanded[catId] = !expanded[catId];
-    return {
-      moduleInstances: {
-        ...s.moduleInstances,
-        [moduleId]: { ...inst, expandedCategories: expanded },
-      },
-    };
-  }),
+  toggleCategory: (moduleId, catId) =>
+    set(s => {
+      const inst = ensureInstance(s, moduleId);
+      const expanded = { ...inst.expandedCategories };
+      expanded[catId] = !expanded[catId];
+      return {
+        moduleInstances: {
+          ...s.moduleInstances,
+          [moduleId]: { ...inst, expandedCategories: expanded },
+        },
+      };
+    }),
 
   // ── Multi-instance category actions ──────────────────────────
 
-  addCategoryInstance: (moduleId, catId) => set(s => {
-    const inst = ensureInstance(s, moduleId);
-    const mod = MODULES[moduleId];
-    const cat = mod?.categories.find(c => c.id === catId);
-    if (!cat?.multiInstance) return {};
-    const existing = inst.categoryInstances?.[catId] || [];
-    const letter = String.fromCharCode(65 + existing.length); // A, B, C...
-    return {
+  addCategoryInstance: (moduleId, catId) =>
+    set(s => {
+      const inst = ensureInstance(s, moduleId);
+      const mod = MODULES[moduleId];
+      const cat = mod?.categories.find(c => c.id === catId);
+      if (!cat?.multiInstance) return {};
+      const existing = inst.categoryInstances?.[catId] || [];
+      const letter = String.fromCharCode(65 + existing.length); // A, B, C...
+      return {
+        moduleInstances: {
+          ...s.moduleInstances,
+          [moduleId]: {
+            ...inst,
+            categoryInstances: {
+              ...inst.categoryInstances,
+              [catId]: [
+                ...existing,
+                {
+                  id: _uid(),
+                  label: `Type ${letter}`,
+                  specs: getDefaultCatSpecs(cat),
+                  itemTakeoffIds: {},
+                  itemStatus: {},
+                },
+              ],
+            },
+          },
+        },
+      };
+    }),
+
+  removeCategoryInstance: (moduleId, catId, instanceId) =>
+    set(s => {
+      const inst = ensureInstance(s, moduleId);
+      const existing = inst.categoryInstances?.[catId] || [];
+      if (existing.length <= 1) return {}; // must keep at least one
+      return {
+        moduleInstances: {
+          ...s.moduleInstances,
+          [moduleId]: {
+            ...inst,
+            categoryInstances: {
+              ...inst.categoryInstances,
+              [catId]: existing.filter(ci => ci.id !== instanceId),
+            },
+          },
+        },
+      };
+    }),
+
+  renameCategoryInstance: (moduleId, catId, instanceId, label) =>
+    set(s => {
+      const inst = ensureInstance(s, moduleId);
+      const existing = inst.categoryInstances?.[catId] || [];
+      return {
+        moduleInstances: {
+          ...s.moduleInstances,
+          [moduleId]: {
+            ...inst,
+            categoryInstances: {
+              ...inst.categoryInstances,
+              [catId]: existing.map(ci => (ci.id === instanceId ? { ...ci, label } : ci)),
+            },
+          },
+        },
+      };
+    }),
+
+  setCatInstanceSpec: (moduleId, catId, instanceId, specId, value) =>
+    set(s => {
+      const inst = ensureInstance(s, moduleId);
+      const existing = inst.categoryInstances?.[catId] || [];
+      return {
+        moduleInstances: {
+          ...s.moduleInstances,
+          [moduleId]: {
+            ...inst,
+            categoryInstances: {
+              ...inst.categoryInstances,
+              [catId]: existing.map(ci =>
+                ci.id === instanceId ? { ...ci, specs: { ...ci.specs, [specId]: value } } : ci,
+              ),
+            },
+          },
+        },
+      };
+    }),
+
+  linkCatInstanceItem: (moduleId, catId, instanceId, itemId, takeoffId) =>
+    set(s => {
+      const inst = ensureInstance(s, moduleId);
+      const existing = inst.categoryInstances?.[catId] || [];
+      return {
+        moduleInstances: {
+          ...s.moduleInstances,
+          [moduleId]: {
+            ...inst,
+            categoryInstances: {
+              ...inst.categoryInstances,
+              [catId]: existing.map(ci =>
+                ci.id === instanceId ? { ...ci, itemTakeoffIds: { ...ci.itemTakeoffIds, [itemId]: takeoffId } } : ci,
+              ),
+            },
+          },
+        },
+      };
+    }),
+
+  setCatInstanceItemStatus: (moduleId, catId, instanceId, itemId, status) =>
+    set(s => {
+      const inst = ensureInstance(s, moduleId);
+      const existing = inst.categoryInstances?.[catId] || [];
+      return {
+        moduleInstances: {
+          ...s.moduleInstances,
+          [moduleId]: {
+            ...inst,
+            categoryInstances: {
+              ...inst.categoryInstances,
+              [catId]: existing.map(ci =>
+                ci.id === instanceId ? { ...ci, itemStatus: { ...ci.itemStatus, [itemId]: status } } : ci,
+              ),
+            },
+          },
+        },
+      };
+    }),
+
+  resetModule: moduleId =>
+    set(s => ({
       moduleInstances: {
         ...s.moduleInstances,
         [moduleId]: {
-          ...inst,
-          categoryInstances: {
-            ...inst.categoryInstances,
-            [catId]: [...existing, {
-              id: _uid(),
-              label: `Type ${letter}`,
-              specs: getDefaultCatSpecs(cat),
-              itemTakeoffIds: {},
-              itemStatus: {},
-            }],
-          },
+          specs: getDefaultSpecs(moduleId),
+          itemStatus: {},
+          itemTakeoffIds: {},
+          expandedCategories: getDefaultExpanded(moduleId),
+          categoryInstances: getDefaultCategoryInstances(moduleId),
         },
       },
-    };
-  }),
-
-  removeCategoryInstance: (moduleId, catId, instanceId) => set(s => {
-    const inst = ensureInstance(s, moduleId);
-    const existing = inst.categoryInstances?.[catId] || [];
-    if (existing.length <= 1) return {}; // must keep at least one
-    return {
-      moduleInstances: {
-        ...s.moduleInstances,
-        [moduleId]: {
-          ...inst,
-          categoryInstances: {
-            ...inst.categoryInstances,
-            [catId]: existing.filter(ci => ci.id !== instanceId),
-          },
-        },
-      },
-    };
-  }),
-
-  renameCategoryInstance: (moduleId, catId, instanceId, label) => set(s => {
-    const inst = ensureInstance(s, moduleId);
-    const existing = inst.categoryInstances?.[catId] || [];
-    return {
-      moduleInstances: {
-        ...s.moduleInstances,
-        [moduleId]: {
-          ...inst,
-          categoryInstances: {
-            ...inst.categoryInstances,
-            [catId]: existing.map(ci => ci.id === instanceId ? { ...ci, label } : ci),
-          },
-        },
-      },
-    };
-  }),
-
-  setCatInstanceSpec: (moduleId, catId, instanceId, specId, value) => set(s => {
-    const inst = ensureInstance(s, moduleId);
-    const existing = inst.categoryInstances?.[catId] || [];
-    return {
-      moduleInstances: {
-        ...s.moduleInstances,
-        [moduleId]: {
-          ...inst,
-          categoryInstances: {
-            ...inst.categoryInstances,
-            [catId]: existing.map(ci => ci.id === instanceId
-              ? { ...ci, specs: { ...ci.specs, [specId]: value } }
-              : ci
-            ),
-          },
-        },
-      },
-    };
-  }),
-
-  linkCatInstanceItem: (moduleId, catId, instanceId, itemId, takeoffId) => set(s => {
-    const inst = ensureInstance(s, moduleId);
-    const existing = inst.categoryInstances?.[catId] || [];
-    return {
-      moduleInstances: {
-        ...s.moduleInstances,
-        [moduleId]: {
-          ...inst,
-          categoryInstances: {
-            ...inst.categoryInstances,
-            [catId]: existing.map(ci => ci.id === instanceId
-              ? { ...ci, itemTakeoffIds: { ...ci.itemTakeoffIds, [itemId]: takeoffId } }
-              : ci
-            ),
-          },
-        },
-      },
-    };
-  }),
-
-  setCatInstanceItemStatus: (moduleId, catId, instanceId, itemId, status) => set(s => {
-    const inst = ensureInstance(s, moduleId);
-    const existing = inst.categoryInstances?.[catId] || [];
-    return {
-      moduleInstances: {
-        ...s.moduleInstances,
-        [moduleId]: {
-          ...inst,
-          categoryInstances: {
-            ...inst.categoryInstances,
-            [catId]: existing.map(ci => ci.id === instanceId
-              ? { ...ci, itemStatus: { ...ci.itemStatus, [itemId]: status } }
-              : ci
-            ),
-          },
-        },
-      },
-    };
-  }),
-
-  resetModule: (moduleId) => set(s => ({
-    moduleInstances: {
-      ...s.moduleInstances,
-      [moduleId]: {
-        specs: getDefaultSpecs(moduleId),
-        itemStatus: {},
-        itemTakeoffIds: {},
-        expandedCategories: getDefaultExpanded(moduleId),
-        categoryInstances: getDefaultCategoryInstances(moduleId),
-      },
-    },
-  })),
+    })),
 }));
 
 // Migration: convert old flat data to categoryInstances format
@@ -290,13 +311,15 @@ export function migrateModuleInstances(instances) {
         if (inst.itemStatus?.[item.id]) instanceItemStatus[item.id] = inst.itemStatus[item.id];
       });
 
-      categoryInstances[cat.id] = [{
-        id: _uid(),
-        label: "Type A",
-        specs: instanceSpecs,
-        itemTakeoffIds: instanceItemTakeoffIds,
-        itemStatus: instanceItemStatus,
-      }];
+      categoryInstances[cat.id] = [
+        {
+          id: _uid(),
+          label: "Type A",
+          specs: instanceSpecs,
+          itemTakeoffIds: instanceItemTakeoffIds,
+          itemStatus: instanceItemStatus,
+        },
+      ];
     });
 
     if (needsMigration) {
