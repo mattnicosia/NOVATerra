@@ -149,39 +149,39 @@ export const T = {
     monoBig: { fontSize: 14, fontWeight: 600, fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif" },
   },
 
-  // Liquid Glass DARK — Apple-exact: nearly invisible glass on dark wallpapers.
-  // Apple macOS Tahoe 26: widgets are ghost-like, wallpaper bleeds through completely.
-  // Specular is a thin whisper, not a bold stripe. No heavy inner glow.
+  // Liquid Glass DARK — Apple-inspired prominent surface layer.
+  // Surface tint raised to 12%+ so panels read as distinct surfaces, not transparent.
+  // Specular highlights bright enough to define glass edges. No brightness() amplification.
   glass: {
-    blur: "blur(24px) saturate(180%) brightness(1.08)",
-    blurLight: "blur(16px) saturate(160%) brightness(1.04)",
-    blurHover: "blur(28px) saturate(200%) brightness(1.10)",
-    bg: "rgba(255,255,255,0.04)",
-    bgDark: "rgba(10,10,22,0.40)",
-    border: "rgba(255,255,255,0.10)",
-    borderHover: "rgba(255,255,255,0.18)",
-    borderLight: "rgba(255,255,255,0.05)",
-    // Specular — thin, subtle top-edge highlight
-    specularSm: "inset 0 0.5px 0 rgba(255,255,255,0.18)",
-    specular: "inset 0 0.5px 0 rgba(255,255,255,0.22)",
-    specularLg: "inset 0 1px 0 rgba(255,255,255,0.28)",
-    specularHover: "inset 0 1px 0 rgba(255,255,255,0.35)",
-    // Hairline edge — 0.5px, barely perceptible
-    edge: "0 0 0 0.5px rgba(255,255,255,0.06)",
-    edgeHover: "0 0 0 0.5px rgba(255,255,255,0.12)",
-    // Bottom-edge specular — light catching underside of glass
-    specularBottom: "inset 0 -0.5px 0 rgba(255,255,255,0.06)",
-    specularBottomLg: "inset 0 -1px 0 rgba(255,255,255,0.10)",
-    // Inner depth shadow — gives glass thickness
-    innerDepth: "inset 0 1px 3px rgba(0,0,0,0.08)",
-    innerDepthLg: "inset 0 2px 6px rgba(0,0,0,0.12)",
+    blur: "blur(24px) saturate(180%)",
+    blurLight: "blur(16px) saturate(160%)",
+    blurHover: "blur(28px) saturate(200%)",
+    bg: "rgba(255,255,255,0.12)",
+    bgDark: "rgba(10,10,22,0.55)",
+    border: "rgba(255,255,255,0.16)",
+    borderHover: "rgba(255,255,255,0.25)",
+    borderLight: "rgba(255,255,255,0.08)",
+    // Specular — prominent top-edge highlight defining the glass surface
+    specularSm: "inset 0 0.5px 0 rgba(255,255,255,0.28)",
+    specular: "inset 0 1px 0 rgba(255,255,255,0.35)",
+    specularLg: "inset 0 1px 0 rgba(255,255,255,0.42)",
+    specularHover: "inset 0 1px 0 rgba(255,255,255,0.50)",
+    // Hairline edge — subtle but visible
+    edge: "0 0 0 0.5px rgba(255,255,255,0.10)",
+    edgeHover: "0 0 0 0.5px rgba(255,255,255,0.18)",
+    // Bottom-edge specular — grounding the glass surface
+    specularBottom: "inset 0 -0.5px 0 rgba(255,255,255,0.10)",
+    specularBottomLg: "inset 0 -1px 0 rgba(255,255,255,0.16)",
+    // Inner depth shadow — gives glass physical thickness
+    innerDepth: "inset 0 2px 6px rgba(0,0,0,0.12)",
+    innerDepthLg: "inset 0 3px 10px rgba(0,0,0,0.18)",
     // Refraction glow — subtle light spread at glass edges
-    refraction: "0 0 6px rgba(255,255,255,0.03)",
-    refractionHover: "0 0 10px rgba(255,255,255,0.06)",
+    refraction: "0 0 6px rgba(255,255,255,0.05)",
+    refractionHover: "0 0 10px rgba(255,255,255,0.08)",
     // Lens gradient — brightness variance within glass (CSS string for overlay)
-    lens: "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, transparent 35%, transparent 75%, rgba(0,0,0,0.03) 100%)",
+    lens: "linear-gradient(180deg, rgba(255,255,255,0.08) 0%, transparent 35%, transparent 75%, rgba(0,0,0,0.04) 100%)",
     lensHover:
-      "linear-gradient(180deg, rgba(255,255,255,0.10) 0%, transparent 35%, transparent 75%, rgba(0,0,0,0.04) 100%)",
+      "linear-gradient(180deg, rgba(255,255,255,0.12) 0%, transparent 35%, transparent 75%, rgba(0,0,0,0.06) 100%)",
   },
 
   // ── NERO GLASS — "Black Glass From Another Planet" ──
@@ -193,50 +193,50 @@ export const T = {
     // ── TIER SM (buttons, badges, small controls) ──
     sm: {
       blur: "blur(8px) saturate(120%)",
-      bg: "rgba(255,255,255,0.06)",
-      border: "rgba(255,255,255,0.10)",
-      specular: "inset 0 0.5px 0 rgba(255,255,255,0.15)",
-      specularBottom: "inset 0 -0.5px 0 rgba(255,255,255,0.04)",
-      innerDepth: "inset 0 0 8px -3px rgba(255,255,255,0.08)",
+      bg: "rgba(255,255,255,0.08)",
+      border: "rgba(255,255,255,0.14)",
+      specular: "inset 0 0.5px 0 rgba(255,255,255,0.20)",
+      specularBottom: "inset 0 -0.5px 0 rgba(255,255,255,0.06)",
+      innerDepth: "inset 0 0 8px -3px rgba(255,255,255,0.10)",
       shadow: "0 2px 8px rgba(0,0,0,0.40), 0 1px 3px rgba(0,0,0,0.30)",
-      edge: "0 0 0 0.5px rgba(255,255,255,0.06)",
-      hoverGlow: "inset 0 0 12px -4px rgba(255,255,255,0.15)",
+      edge: "0 0 0 0.5px rgba(255,255,255,0.08)",
+      hoverGlow: "inset 0 0 12px -4px rgba(255,255,255,0.18)",
     },
     // ── TIER MD (cards, KPIs, dropdowns) ──
     md: {
       blur: "blur(16px) saturate(150%)",
-      bg: "rgba(255,255,255,0.08)",
-      border: "rgba(255,255,255,0.12)",
-      specular: "inset 0 1px 0 rgba(255,255,255,0.20)",
-      specularBottom: "inset 0 -0.5px 0 rgba(255,255,255,0.06)",
-      innerDepth: "inset 0 0 16px -5px rgba(255,255,255,0.12)",
+      bg: "rgba(255,255,255,0.12)",
+      border: "rgba(255,255,255,0.18)",
+      specular: "inset 0 1px 0 rgba(255,255,255,0.28)",
+      specularBottom: "inset 0 -0.5px 0 rgba(255,255,255,0.10)",
+      innerDepth: "inset 0 0 16px -5px rgba(255,255,255,0.15)",
       shadow: "0 4px 16px rgba(0,0,0,0.50), 0 2px 6px rgba(0,0,0,0.35)",
-      edge: "0 0 0 0.5px rgba(255,255,255,0.08)",
-      hoverGlow: "inset 0 0 20px -5px rgba(255,255,255,0.20)",
+      edge: "0 0 0 0.5px rgba(255,255,255,0.12)",
+      hoverGlow: "inset 0 0 20px -5px rgba(255,255,255,0.24)",
     },
     // ── TIER LG (modals, panels, large cards) ──
     lg: {
       blur: "blur(24px) saturate(160%)",
-      bg: "rgba(255,255,255,0.10)",
-      border: "rgba(255,255,255,0.14)",
-      specular: "inset 1px 1px 0 rgba(255,255,255,0.25)",
-      specularBottom: "inset 0 -1px 0 rgba(255,255,255,0.08)",
-      innerDepth: "inset 0 0 20px -5px rgba(255,255,255,0.18)",
+      bg: "rgba(255,255,255,0.15)",
+      border: "rgba(255,255,255,0.20)",
+      specular: "inset 1px 1px 0 rgba(255,255,255,0.35)",
+      specularBottom: "inset 0 -1px 0 rgba(255,255,255,0.12)",
+      innerDepth: "inset 0 0 20px -5px rgba(255,255,255,0.22)",
       shadow: "0 8px 32px rgba(0,0,0,0.55), 0 4px 12px rgba(0,0,0,0.40)",
-      edge: "0 0 0 0.5px rgba(255,255,255,0.10)",
-      hoverGlow: "inset 0 0 30px -6px rgba(255,255,255,0.25)",
+      edge: "0 0 0 0.5px rgba(255,255,255,0.14)",
+      hoverGlow: "inset 0 0 30px -6px rgba(255,255,255,0.30)",
     },
     // ── TIER XL (full-screen overlays) ──
     xl: {
       blur: "blur(32px) saturate(170%)",
-      bg: "rgba(255,255,255,0.12)",
-      border: "rgba(255,255,255,0.16)",
-      specular: "inset 1px 1px 0 rgba(255,255,255,0.30), inset 0 0 5px rgba(255,255,255,0.10)",
-      specularBottom: "inset 0 -1px 0 rgba(255,255,255,0.10)",
-      innerDepth: "inset 0 0 24px -5px rgba(255,255,255,0.22)",
+      bg: "rgba(255,255,255,0.18)",
+      border: "rgba(255,255,255,0.22)",
+      specular: "inset 1px 1px 0 rgba(255,255,255,0.40), inset 0 0 5px rgba(255,255,255,0.14)",
+      specularBottom: "inset 0 -1px 0 rgba(255,255,255,0.14)",
+      innerDepth: "inset 0 0 24px -5px rgba(255,255,255,0.26)",
       shadow: "0 16px 48px rgba(0,0,0,0.60), 0 8px 20px rgba(0,0,0,0.45)",
-      edge: "0 0 0 0.5px rgba(255,255,255,0.12)",
-      hoverGlow: "inset 0 0 40px -8px rgba(255,255,255,0.30)",
+      edge: "0 0 0 0.5px rgba(255,255,255,0.16)",
+      hoverGlow: "inset 0 0 40px -8px rgba(255,255,255,0.35)",
     },
     // ── Shared spring transition curve ──
     spring: "all 300ms cubic-bezier(0.4, 0, 0.2, 1)",
@@ -253,12 +253,12 @@ export const T = {
   //
   // Apple: "Light is bent, shaped, and concentrated—not obscured."
   glassLight: {
-    blur: "blur(24px) saturate(200%) brightness(1.08)",
-    blurLight: "blur(16px) saturate(170%) brightness(1.04)",
-    blurHover: "blur(28px) saturate(220%) brightness(1.10)",
-    // Nearly invisible — mesh COLOR bleeds through almost completely
-    bg: "rgba(255,255,255,0.08)",
-    bgDark: "rgba(255,255,255,0.18)",
+    blur: "blur(24px) saturate(200%)",
+    blurLight: "blur(16px) saturate(170%)",
+    blurHover: "blur(28px) saturate(220%)",
+    // Raised surface tint — glass reads as a distinct layer, not invisible
+    bg: "rgba(255,255,255,0.15)",
+    bgDark: "rgba(255,255,255,0.25)",
     // Whisper-thin borders — barely perceptible luminous edge
     border: "rgba(255,255,255,0.25)",
     borderHover: "rgba(255,255,255,0.40)",

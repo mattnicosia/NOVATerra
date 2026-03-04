@@ -8,6 +8,7 @@ export const useBidPackagesStore = create((set, get) => ({
   proposals: {}, // keyed by invitationId → proposal
   scopeGapResults: {}, // keyed by invitationId → gap report cache
   activeBidPackageId: null,
+  bidPackagePresets: [],
 
   // ── Setters (for persistence hydration) ──
   setBidPackages: v => set({ bidPackages: v }),
@@ -15,6 +16,19 @@ export const useBidPackagesStore = create((set, get) => ({
   setProposals: v => set({ proposals: v }),
   setScopeGapResults: v => set({ scopeGapResults: v }),
   setActiveBidPackageId: v => set({ activeBidPackageId: v }),
+  setBidPackagePresets: v => set({ bidPackagePresets: v }),
+
+  // ── Bid Package Presets ──
+  addPreset: preset =>
+    set(s => ({
+      bidPackagePresets: [
+        ...s.bidPackagePresets,
+        { id: uid(), createdAt: new Date().toISOString(), ...preset },
+      ],
+    })),
+
+  removePreset: id =>
+    set(s => ({ bidPackagePresets: s.bidPackagePresets.filter(p => p.id !== id) })),
 
   // ── Bid Package CRUD ──
   addBidPackage: pkg =>
@@ -118,12 +132,28 @@ export const useBidPackagesStore = create((set, get) => ({
   },
 
   // ── Generate leveling data from parsed proposals ──
-  generateLevelingData: packageId => {
+  // Accepts estimate items array so we can map CSI codes → item IDs
+  generateLevelingData: (packageId, estimateItems) => {
     const invites = get().invitations[packageId] || [];
     const proposals = get().proposals;
     const linkedSubs = [];
     const bidCells = {};
     const bidTotals = {};
+    const subBidSubs = {};
+
+    // Build CSI → item lookup
+    const csiToItems = {};
+    (estimateItems || []).forEach(item => {
+      if (item.code) csiToItems[item.code] = item;
+    });
+
+    // Helper: get subdivision key (first 2 segments of code)
+    const getSubKey = code => {
+      if (!code) return null;
+      const parts = code.split(".");
+      if (parts.length >= 2) return `${parts[0]}.${parts[1]}`;
+      return `${parts[0]}.00`;
+    };
 
     for (const inv of invites) {
       const proposal = proposals[inv.id];
@@ -131,31 +161,41 @@ export const useBidPackagesStore = create((set, get) => ({
 
       const pd = proposal.parsedData;
       const subId = uid();
+      const subName = inv.subCompany || inv.subContact || "";
+      const matchedSubKeys = new Set();
 
-      // Create linkedSub entry
-      linkedSubs.push({
-        id: subId,
-        name: inv.subCompany || inv.subContact || "",
-        subKeys: [],
-        totalBid: pd.totalBid || 0,
-        source: "portal",
-      });
-
-      // Map line items to bidCells by CSI code
+      // Map line items to bidCells keyed by itemId_subId
       if (Array.isArray(pd.lineItems)) {
-        for (const item of pd.lineItems) {
-          if (item.csiCode) {
-            const cellKey = `${item.csiCode}::${subId}`;
+        for (const li of pd.lineItems) {
+          if (!li.csiCode) continue;
+          const matchedItem = csiToItems[li.csiCode];
+          if (matchedItem) {
+            // Exact CSI match → create cell
+            const cellKey = `${matchedItem.id}_${subId}`;
             bidCells[cellKey] = {
-              amount: item.amount || 0,
-              note: item.description || "",
+              status: "lumpsum",
+              value: String(li.amount || 0),
             };
-            if (!linkedSubs[linkedSubs.length - 1].subKeys.includes(item.csiCode)) {
-              linkedSubs[linkedSubs.length - 1].subKeys.push(item.csiCode);
-            }
+            const sk = getSubKey(matchedItem.code);
+            if (sk) matchedSubKeys.add(sk);
           }
         }
       }
+
+      // Register this sub in subBidSubs for each matched subdivision
+      for (const sk of matchedSubKeys) {
+        if (!subBidSubs[sk]) subBidSubs[sk] = [];
+        subBidSubs[sk].push({ id: subId, name: subName });
+      }
+
+      // Create linkedSub entry (for total-bid dropdown selection)
+      linkedSubs.push({
+        id: subId,
+        name: subName,
+        subKeys: Array.from(matchedSubKeys),
+        totalBid: pd.totalBid || 0,
+        source: "portal",
+      });
 
       // Set total bid
       if (pd.totalBid) {
@@ -163,6 +203,6 @@ export const useBidPackagesStore = create((set, get) => ({
       }
     }
 
-    return { linkedSubs, bidCells, bidTotals };
+    return { linkedSubs, bidCells, bidTotals, subBidSubs };
   },
 }));

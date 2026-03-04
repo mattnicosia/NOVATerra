@@ -8,6 +8,9 @@ import { useCloudSync } from "@/hooks/useCloudSync";
 import { useEmbeddingSync } from "@/hooks/useEmbeddingSync";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useAutoSnapshot } from "@/hooks/useAutoSnapshot";
+import useAutoResponseTimers from "@/hooks/useAutoResponseTimers";
+import AutoResponseBanner from "@/components/shared/AutoResponseBanner";
+import DraftApprovalPanel from "@/components/shared/DraftApprovalPanel";
 
 import { useAuthStore } from "@/stores/authStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
@@ -146,10 +149,10 @@ function TakeoffsHeaderControls({ C }) {
   const hasDrawings = drawings.length > 0;
 
   const modes = [
-    { id: "closed",   w: 0,   bars: 0, label: "Closed" },
+    { id: "closed", w: 0, bars: 0, label: "Closed" },
     { id: "standard", w: 550, bars: 2, label: "Takeoffs" },
-    { id: "full",     w: 900, bars: 3, label: "Split" },
-    { id: "estimate", w: 0,   bars: 4, label: "Estimate" },
+    { id: "full", w: 900, bars: 3, label: "Split" },
+    { id: "estimate", w: 0, bars: 4, label: "Estimate" },
   ];
   let curId;
   if (tkPanelTier === "estimate") curId = "estimate";
@@ -160,9 +163,9 @@ function TakeoffsHeaderControls({ C }) {
   const current = modes[idx >= 0 ? idx : 0];
   const next = modes[(idx + 1) % modes.length];
 
-  const pendingPredictions = tkPredictions?.predictions?.filter(
-    p => !tkPredAccepted.includes(p.id) && !tkPredRejected.includes(p.id)
-  ).length || 0;
+  const pendingPredictions =
+    tkPredictions?.predictions?.filter(p => !tkPredAccepted.includes(p.id) && !tkPredRejected.includes(p.id)).length ||
+    0;
 
   const cycleMode = () => {
     if (next.id === "closed") {
@@ -185,27 +188,47 @@ function TakeoffsHeaderControls({ C }) {
   };
 
   return (
-    <div style={{
-      display: "flex", alignItems: "center", gap: 5,
-      paddingRight: 8, marginRight: 4,
-      borderRight: `1px solid ${C.border}`,
-    }}>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 5,
+        paddingRight: 8,
+        marginRight: 4,
+        borderRight: `1px solid ${C.border}`,
+      }}
+    >
       {/* Mode cycling button */}
       <button
         title={`${current.label} → ${next.label}`}
         onClick={cycleMode}
         style={{
-          width: 28, height: 26,
+          width: 28,
+          height: 26,
           border: `1px solid ${current.bars > 0 ? C.accent + "50" : C.border}`,
           background: current.bars > 0 ? C.accent + "14" : "transparent",
-          borderRadius: 5, cursor: "pointer",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          gap: 1.5, padding: 0, position: "relative",
+          borderRadius: 5,
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 1.5,
+          padding: 0,
+          position: "relative",
           transition: "all 0.15s",
         }}
       >
         {current.bars === 0 ? (
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke={C.textMuted}
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <rect x="3" y="3" width="7" height="18" rx="1" />
             <path d="M14 3h7M14 9h7M14 15h5" />
           </svg>
@@ -215,11 +238,25 @@ function TakeoffsHeaderControls({ C }) {
           ))
         )}
         {takeoffs.length > 0 && curId === "closed" && (
-          <span style={{
-            position: "absolute", top: -4, right: -4, minWidth: 14, height: 14, borderRadius: 7,
-            background: C.accent, color: "#fff", fontSize: 8, fontWeight: 700,
-            display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px", lineHeight: 1,
-          }}>
+          <span
+            style={{
+              position: "absolute",
+              top: -4,
+              right: -4,
+              minWidth: 14,
+              height: 14,
+              borderRadius: 7,
+              background: C.accent,
+              color: "#fff",
+              fontSize: 8,
+              fontWeight: 700,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "0 3px",
+              lineHeight: 1,
+            }}
+          >
             {takeoffs.length}
           </span>
         )}
@@ -229,21 +266,37 @@ function TakeoffsHeaderControls({ C }) {
         <div style={{ position: "relative", flexShrink: 0 }}>
           <NovaOrb size={24} onClick={() => setTkNovaPanelOpen(v => !v)} />
           {pendingPredictions > 0 && !tkNovaPanelOpen && (
-            <span style={{
-              position: "absolute", top: -2, right: -4,
-              background: C.accent, color: "#fff", fontSize: 7, fontWeight: 800,
-              padding: "1px 4px", borderRadius: 6, minWidth: 14, textAlign: "center", pointerEvents: "none",
-            }}>
+            <span
+              style={{
+                position: "absolute",
+                top: -2,
+                right: -4,
+                background: C.accent,
+                color: "#fff",
+                fontSize: 7,
+                fontWeight: 800,
+                padding: "1px 4px",
+                borderRadius: 6,
+                minWidth: 14,
+                textAlign: "center",
+                pointerEvents: "none",
+              }}
+            >
               {pendingPredictions}
             </span>
           )}
         </div>
       )}
       {/* Mode label */}
-      <span style={{
-        fontSize: 9, fontWeight: 600, color: C.textDim,
-        letterSpacing: 0.3, whiteSpace: "nowrap",
-      }}>
+      <span
+        style={{
+          fontSize: 9,
+          fontWeight: 600,
+          color: C.textDim,
+          letterSpacing: 0.3,
+          whiteSpace: "nowrap",
+        }}
+      >
         {current.label}
       </span>
     </div>
@@ -370,9 +423,6 @@ function ProjectTabBar() {
         </span>
       </div>
 
-      {/* Takeoffs controls — mode button + NOVA (only on takeoffs page) */}
-      {activeTab.key === "takeoffs" && <TakeoffsHeaderControls C={C} />}
-
       {/* Collapsible menu button */}
       <div ref={menuRef} style={{ position: "relative" }}>
         <button
@@ -393,17 +443,40 @@ function ProjectTabBar() {
             transition: T.transition.fast,
             fontFamily: "'DM Sans', sans-serif",
           }}
-          onMouseEnter={e => { if (!menuOpen) e.currentTarget.style.background = C.bg2; }}
-          onMouseLeave={e => { if (!menuOpen) e.currentTarget.style.background = "transparent"; }}
+          onMouseEnter={e => {
+            if (!menuOpen) e.currentTarget.style.background = C.bg2;
+          }}
+          onMouseLeave={e => {
+            if (!menuOpen) e.currentTarget.style.background = "transparent";
+          }}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke={C.accent}
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <line x1="3" y1="6" x2="21" y2="6" />
             <line x1="3" y1="12" x2="21" y2="12" />
             <line x1="3" y1="18" x2="21" y2="18" />
           </svg>
           <Ic d={activeTab.icon} size={13} />
           {activeTab.label}
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: -2 }}>
+          <svg
+            width="10"
+            height="10"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke={C.textMuted}
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ marginLeft: -2 }}
+          >
             <polyline points={menuOpen ? "18 15 12 9 6 15" : "6 9 12 15 18 9"} />
           </svg>
         </button>
@@ -451,8 +524,12 @@ function ProjectTabBar() {
                     transition: "background 0.1s",
                     borderLeft: isActive ? `3px solid ${C.accent}` : "3px solid transparent",
                   }}
-                  onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = C.bg2; }}
-                  onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = isActive ? C.accentBg : "transparent"; }}
+                  onMouseEnter={e => {
+                    if (!isActive) e.currentTarget.style.background = C.bg2;
+                  }}
+                  onMouseLeave={e => {
+                    if (!isActive) e.currentTarget.style.background = isActive ? C.accentBg : "transparent";
+                  }}
                 >
                   <Ic d={tab.icon} size={14} color={isActive ? C.accent : C.textMuted} />
                   {tab.label}
@@ -463,17 +540,256 @@ function ProjectTabBar() {
         )}
       </div>
 
-      {/* Spacer + Theme cycle button (right side) */}
+      {/* Takeoffs controls — mode button + NOVA (after menu, only on takeoffs page) */}
+      {activeTab.key === "takeoffs" && <TakeoffsHeaderControls C={C} />}
+
       <div style={{ flex: 1 }} />
-      <ThemeCycleButton C={C} />
     </div>
   );
 }
 
-/* ── Theme cycle button — cycles through car palettes + originals ── */
+/* ── Floating theme picker — fixed bottom-right, always visible ── */
+function FloatingThemePicker() {
+  const C = useTheme();
+  const selectedPalette = useUiStore(s => s.appSettings.selectedPalette);
+  const updateSetting = useUiStore(s => s.updateSetting);
+  const [expanded, setExpanded] = useState(false);
+
+  const ALL_IDS = ["nova", "grey", "clarity", "matte", "nero", ...CAR_PALETTE_IDS];
+  const currentIdx = ALL_IDS.indexOf(selectedPalette);
+  const currentPalette = PALETTES.find(p => p.id === selectedPalette);
+  const currentName = currentPalette?.name || "Default";
+  const preview = currentPalette?.preview || [C.accent, C.textMuted, C.bg2];
+  const accentHex = C.accent || "#6366f1";
+
+  const cycle = (dir = 1) => {
+    const nextIdx = currentIdx === -1 ? 0 : (currentIdx + dir + ALL_IDS.length) % ALL_IDS.length;
+    updateSetting("selectedPalette", ALL_IDS[nextIdx]);
+  };
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        bottom: 20,
+        right: 20,
+        zIndex: 9999,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "flex-end",
+        gap: 8,
+        fontFamily: "'DM Sans', sans-serif",
+      }}
+    >
+      {/* Expanded palette grid */}
+      {expanded && (
+        <div
+          style={{
+            background: C.bg1,
+            border: `1px solid ${C.border}`,
+            borderRadius: 12,
+            padding: 12,
+            boxShadow: "0 12px 40px rgba(0,0,0,0.4)",
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: 6,
+            maxWidth: 280,
+            animation: "fadeIn 0.15s ease-out",
+          }}
+        >
+          {ALL_IDS.map(id => {
+            const p = PALETTES.find(pp => pp.id === id);
+            if (!p) return null;
+            const isActive = id === selectedPalette;
+            return (
+              <button
+                key={id}
+                onClick={() => {
+                  updateSetting("selectedPalette", id);
+                }}
+                title={p.name}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 4,
+                  padding: "8px 4px",
+                  border: isActive ? `2px solid ${accentHex}` : `1px solid ${C.border}`,
+                  borderRadius: 8,
+                  background: isActive ? accentHex + "18" : "transparent",
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
+              >
+                {/* Color swatches row */}
+                <div style={{ display: "flex", gap: 2 }}>
+                  {(p.preview || []).slice(0, 4).map((c, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        width: 12,
+                        height: 12,
+                        borderRadius: 3,
+                        background: c,
+                        border: "1px solid rgba(128,128,128,0.2)",
+                      }}
+                    />
+                  ))}
+                </div>
+                <span
+                  style={{
+                    fontSize: 8,
+                    fontWeight: isActive ? 700 : 500,
+                    color: isActive ? C.text : C.textMuted,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    maxWidth: 72,
+                  }}
+                >
+                  {p.name}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Main floating pill */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 0,
+          background: C.bg1,
+          border: `1px solid ${accentHex}40`,
+          borderRadius: 20,
+          boxShadow: `0 4px 20px rgba(0,0,0,0.3), 0 0 0 1px ${accentHex}20`,
+          overflow: "hidden",
+          height: 38,
+        }}
+      >
+        {/* Prev arrow */}
+        <button
+          onClick={() => cycle(-1)}
+          title="Previous theme"
+          style={{
+            width: 34,
+            height: 38,
+            border: "none",
+            background: "transparent",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "background 0.15s",
+          }}
+          onMouseEnter={e => (e.currentTarget.style.background = C.bg2)}
+          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+        >
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 10 10"
+            fill="none"
+            stroke={C.text}
+            strokeWidth="2"
+            strokeLinecap="round"
+          >
+            <path d="M6 1L2 5l4 4" />
+          </svg>
+        </button>
+
+        {/* Center — click to expand grid */}
+        <button
+          onClick={() => setExpanded(v => !v)}
+          title={expanded ? "Close palette picker" : "Open palette picker"}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "0 12px",
+            height: 38,
+            border: "none",
+            borderLeft: `1px solid ${C.border}`,
+            borderRight: `1px solid ${C.border}`,
+            background: "transparent",
+            cursor: "pointer",
+            transition: "background 0.15s",
+          }}
+          onMouseEnter={e => (e.currentTarget.style.background = C.bg2)}
+          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+        >
+          {/* Color dots */}
+          <div style={{ display: "flex", gap: 3 }}>
+            {preview.slice(0, 3).map((color, i) => (
+              <div
+                key={i}
+                style={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: "50%",
+                  background: color,
+                  border: "1px solid rgba(128,128,128,0.25)",
+                }}
+              />
+            ))}
+          </div>
+          <span
+            style={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: C.text,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {currentName}
+          </span>
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke={C.textMuted} strokeWidth="1.5">
+            <path d={expanded ? "M2 6l3-3 3 3" : "M2 4l3 3 3-3"} />
+          </svg>
+        </button>
+
+        {/* Next arrow */}
+        <button
+          onClick={() => cycle(1)}
+          title="Next theme"
+          style={{
+            width: 34,
+            height: 38,
+            border: "none",
+            background: "transparent",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "background 0.15s",
+          }}
+          onMouseEnter={e => (e.currentTarget.style.background = C.bg2)}
+          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+        >
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 10 10"
+            fill="none"
+            stroke={C.text}
+            strokeWidth="2"
+            strokeLinecap="round"
+          >
+            <path d="M4 1l4 4-4 4" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ── Theme cycle button (header version — kept for reference) ── */
 function ThemeCycleButton({ C }) {
   const selectedPalette = useUiStore(s => s.appSettings.selectedPalette);
   const updateSetting = useUiStore(s => s.updateSetting);
+  const [hovered, setHovered] = useState(false);
 
   // All available palettes: originals + car collection
   const ALL_IDS = ["nova", "grey", "clarity", "matte", "nero", ...CAR_PALETTE_IDS];
@@ -482,84 +798,170 @@ function ThemeCycleButton({ C }) {
   // Find current palette metadata
   const currentPalette = PALETTES.find(p => p.id === selectedPalette);
   const currentName = currentPalette?.name || "Theme";
-  const preview = currentPalette?.preview || [];
+  const preview = currentPalette?.preview || [C.accent, C.text, C.bg2];
 
   const cycle = (dir = 1) => {
-    const nextIdx = currentIdx === -1
-      ? 0
-      : (currentIdx + dir + ALL_IDS.length) % ALL_IDS.length;
+    const nextIdx = currentIdx === -1 ? 0 : (currentIdx + dir + ALL_IDS.length) % ALL_IDS.length;
     updateSetting("selectedPalette", ALL_IDS[nextIdx]);
   };
 
+  const accentHex = C.accent || "#6366f1";
+
   return (
-    <div style={{
-      display: "flex", alignItems: "center", gap: 6,
-      flexShrink: 0, marginRight: 4,
-    }}>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 2,
+        flexShrink: 0,
+        marginRight: 8,
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
       {/* Prev arrow */}
       <button
-        onClick={() => cycle(-1)}
+        onClick={e => {
+          e.stopPropagation();
+          cycle(-1);
+        }}
         title="Previous theme"
         style={{
-          width: 18, height: 18, border: "none", background: "transparent",
-          cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-          opacity: 0.4, transition: "opacity 0.15s",
+          width: 24,
+          height: 28,
+          border: "none",
+          background: hovered ? C.bg2 : "transparent",
+          borderRadius: "5px 0 0 5px",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          transition: "all 0.15s",
         }}
-        onMouseEnter={e => e.currentTarget.style.opacity = 1}
-        onMouseLeave={e => e.currentTarget.style.opacity = 0.4}
       >
-        <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke={C.textMuted} strokeWidth="2">
+        <svg
+          width="10"
+          height="10"
+          viewBox="0 0 10 10"
+          fill="none"
+          stroke={hovered ? C.text : C.textMuted}
+          strokeWidth="2"
+          strokeLinecap="round"
+        >
           <path d="M6 1L2 5l4 4" />
         </svg>
       </button>
 
-      {/* Preview swatches + name */}
+      {/* Preview swatches + name — main clickable area */}
       <button
         onClick={() => cycle(1)}
-        title={`${currentName} — click to cycle`}
+        title={`${currentName} — click to cycle themes`}
         style={{
-          display: "flex", alignItems: "center", gap: 5,
-          padding: "3px 8px 3px 4px",
-          border: `1px solid ${C.border}`,
-          borderRadius: 6, cursor: "pointer",
-          background: "transparent",
-          transition: "all 0.15s",
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "4px 12px",
+          border: `1px solid ${hovered ? accentHex + "60" : C.border}`,
+          borderRadius: 0,
+          cursor: "pointer",
+          background: hovered ? accentHex + "14" : C.bg1,
+          transition: "all 0.2s",
+          height: 28,
         }}
-        onMouseEnter={e => e.currentTarget.style.background = C.bg2}
-        onMouseLeave={e => e.currentTarget.style.background = "transparent"}
       >
-        {/* Color dots */}
-        <div style={{ display: "flex", gap: 2 }}>
-          {preview.slice(0, 3).map((color, i) => (
-            <div key={i} style={{
-              width: 8, height: 8, borderRadius: "50%",
-              background: color,
-              border: `0.5px solid rgba(128,128,128,0.3)`,
-            }} />
+        {/* Palette icon */}
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke={accentHex}
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <circle cx="10" cy="9" r="1.5" fill={preview[0] || accentHex} stroke="none" />
+          <circle cx="15" cy="9" r="1.5" fill={preview[1] || accentHex} stroke="none" />
+          <circle cx="8" cy="13" r="1.5" fill={preview[2] || accentHex} stroke="none" />
+          <circle cx="14" cy="14" r="1.5" fill={preview[0] || accentHex} stroke="none" />
+        </svg>
+
+        {/* Color preview strip */}
+        <div style={{ display: "flex", gap: 3 }}>
+          {preview.slice(0, 4).map((color, i) => (
+            <div
+              key={i}
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: 3,
+                background: color,
+                border: `1px solid rgba(128,128,128,0.25)`,
+              }}
+            />
           ))}
         </div>
-        <span style={{
-          fontSize: 9, fontWeight: 600, color: C.textMuted,
-          whiteSpace: "nowrap", fontFamily: "'DM Sans', sans-serif",
-          letterSpacing: 0.3,
-        }}>
+
+        {/* Palette name */}
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            color: hovered ? C.text : C.textSub,
+            whiteSpace: "nowrap",
+            fontFamily: "'DM Sans', sans-serif",
+            letterSpacing: 0.2,
+          }}
+        >
           {currentName}
+        </span>
+
+        {/* Count badge */}
+        <span
+          style={{
+            fontSize: 8,
+            fontWeight: 700,
+            color: accentHex,
+            background: accentHex + "18",
+            padding: "1px 5px",
+            borderRadius: 4,
+            letterSpacing: 0.3,
+          }}
+        >
+          {currentIdx + 1}/{ALL_IDS.length}
         </span>
       </button>
 
       {/* Next arrow */}
       <button
-        onClick={() => cycle(1)}
+        onClick={e => {
+          e.stopPropagation();
+          cycle(1);
+        }}
         title="Next theme"
         style={{
-          width: 18, height: 18, border: "none", background: "transparent",
-          cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-          opacity: 0.4, transition: "opacity 0.15s",
+          width: 24,
+          height: 28,
+          border: "none",
+          background: hovered ? C.bg2 : "transparent",
+          borderRadius: "0 5px 5px 0",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          transition: "all 0.15s",
         }}
-        onMouseEnter={e => e.currentTarget.style.opacity = 1}
-        onMouseLeave={e => e.currentTarget.style.opacity = 0.4}
       >
-        <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke={C.textMuted} strokeWidth="2">
+        <svg
+          width="10"
+          height="10"
+          viewBox="0 0 10 10"
+          fill="none"
+          stroke={hovered ? C.text : C.textMuted}
+          strokeWidth="2"
+          strokeLinecap="round"
+        >
           <path d="M4 1l4 4-4 4" />
         </svg>
       </button>
@@ -577,6 +979,9 @@ function AppContent() {
   useCloudSync();
   useEmbeddingSync();
   useKeyboardShortcuts();
+  useAutoResponseTimers();
+
+  const [showDraftPanel, setShowDraftPanel] = useState(false);
 
   // Sync body background to theme (covers areas outside app-shell + prevents flash)
   // Also toggle theme-light/theme-dark class for CSS hover state overrides
@@ -629,8 +1034,11 @@ function AppContent() {
           overflow: "hidden",
         }}
       >
-        <NovaHeader />
+        <NovaHeader onDraftPanelToggle={() => setShowDraftPanel(v => !v)} />
+        <AutoResponseBanner onReviewClick={() => setShowDraftPanel(true)} />
+        <DraftApprovalPanel open={showDraftPanel} onClose={() => setShowDraftPanel(false)} />
         <ProjectTabBar />
+        <FloatingThemePicker />
         <div
           className="app-viewport"
           style={{ flex: 1, position: "relative", overflow: isDashboard ? "hidden" : "auto", scrollBehavior: "smooth" }}

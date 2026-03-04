@@ -18,6 +18,7 @@ import { useScanStore } from "@/stores/scanStore";
 import { useGroupsStore, DEFAULT_GROUPS } from "@/stores/groupsStore";
 import { useCalendarStore } from "@/stores/calendarStore";
 import { useBidPackagesStore } from "@/stores/bidPackagesStore";
+import { useAutoResponseStore } from "@/stores/autoResponseStore";
 import * as cloudSync from "@/utils/cloudSync";
 import { loadAudioMeta } from "@/utils/novaAudioStorage";
 import { migrateIndexEntry, migrateProposal } from "@/utils/costHistoryMigration";
@@ -254,6 +255,47 @@ export function usePersistenceLoad() {
         } catch (err) {
           console.error("[usePersistence] Failed to parse calendar:", err);
           await storage.delete(idbKey("bldg-calendar"));
+        }
+      }
+
+      // Load auto-response config
+      const arConfigRaw = await storage.get(idbKey("bldg-auto-response-config"));
+      if (arConfigRaw?.value) {
+        try {
+          const config = JSON.parse(arConfigRaw.value);
+          if (config && typeof config === "object") {
+            // Merge with defaults so new triggers get default values
+            const current = useAutoResponseStore.getState().triggerConfig;
+            useAutoResponseStore.getState().setTriggerConfig({ ...current, ...config });
+          }
+        } catch (err) {
+          console.warn("[usePersistence] Failed to parse auto-response config:", err);
+        }
+      }
+
+      // Load auto-response drafts
+      const arDraftsRaw = await storage.get(idbKey("bldg-auto-response-drafts"));
+      if (arDraftsRaw?.value) {
+        try {
+          const drafts = JSON.parse(arDraftsRaw.value);
+          if (Array.isArray(drafts)) {
+            useAutoResponseStore.getState().setDrafts(drafts);
+          }
+        } catch (err) {
+          console.warn("[usePersistence] Failed to parse auto-response drafts:", err);
+        }
+      }
+
+      // Load bid package presets
+      const bpPresetsRaw = await storage.get(idbKey("bldg-bid-package-presets"));
+      if (bpPresetsRaw?.value) {
+        try {
+          const presets = JSON.parse(bpPresetsRaw.value);
+          if (Array.isArray(presets)) {
+            useBidPackagesStore.getState().setBidPackagePresets(presets);
+          }
+        } catch (err) {
+          console.warn("[usePersistence] Failed to parse bid package presets:", err);
         }
       }
 
@@ -807,4 +849,33 @@ export async function saveCalendar() {
   cloudSync.pushData("calendar", tasks).catch(err => {
     console.warn("[usePersistence] Cloud push failed for calendar:", err?.message);
   });
+}
+
+// Save bid package presets
+export async function saveBidPackagePresets() {
+  const presets = useBidPackagesStore.getState().bidPackagePresets;
+  const ok = await storage.set(idbKey("bldg-bid-package-presets"), JSON.stringify(presets));
+  if (!ok) {
+    console.error("[usePersistence] Failed to save bid package presets");
+  }
+}
+
+// Save auto-response trigger config
+export async function saveAutoResponseConfig() {
+  const config = useAutoResponseStore.getState().triggerConfig;
+  const ok = await storage.set(idbKey("bldg-auto-response-config"), JSON.stringify(config));
+  if (!ok) {
+    console.error("[usePersistence] Failed to save auto-response config");
+  }
+}
+
+// Save auto-response drafts queue
+export async function saveAutoResponseDrafts() {
+  const drafts = useAutoResponseStore.getState().drafts;
+  // Only persist pending + sent drafts (dismiss = discard)
+  const keep = drafts.filter(d => d.status !== "dismissed");
+  const ok = await storage.set(idbKey("bldg-auto-response-drafts"), JSON.stringify(keep));
+  if (!ok) {
+    console.error("[usePersistence] Failed to save auto-response drafts");
+  }
 }

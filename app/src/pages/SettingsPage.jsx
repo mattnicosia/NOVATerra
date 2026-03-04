@@ -20,6 +20,7 @@ import { processLogo } from "@/utils/imageUtils";
 import LogoPill from "@/components/shared/LogoPill";
 import NovaScriptEditor from "@/components/settings/NovaScriptEditor";
 import TeamPanel from "@/components/settings/TeamPanel";
+import AutoResponseSettings from "@/components/settings/AutoResponseSettings";
 
 export default function SettingsPage() {
   const C = useTheme();
@@ -891,6 +892,11 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
+        </Sec>
+
+        {/* Auto-Responses */}
+        <Sec title="Auto-Responses" icon={I.send}>
+          <AutoResponseSettings />
         </Sec>
 
         {/* Team / Organization */}

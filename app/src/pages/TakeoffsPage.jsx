@@ -3862,10 +3862,16 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                 onClick={() => setTkPanelOpen(false)}
                 title="Close panel"
                 style={{
-                  width: 22, height: 22,
-                  border: "none", background: C.bg2, color: C.textDim,
-                  borderRadius: 3, display: "flex", alignItems: "center",
-                  justifyContent: "center", cursor: "pointer",
+                  width: 22,
+                  height: 22,
+                  border: "none",
+                  background: C.bg2,
+                  color: C.textDim,
+                  borderRadius: 3,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
                 }}
               >
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -6096,7 +6102,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
           overflow: "hidden",
           display: "flex",
           flexDirection: "column",
-          marginLeft: tkPanelTier === "estimate" ? 0 : (tkPanelOpen ? tkPanelWidth : 0),
+          marginLeft: tkPanelTier === "estimate" ? 0 : tkPanelOpen ? tkPanelWidth : 0,
           transition: isDraggingPanel ? "none" : "margin-left 0.2s ease-out",
           position: "relative",
           zIndex: 35,
@@ -6107,587 +6113,324 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
           {/* Toolbar: Drawing nav + zoom + scale + tools */}
           <div style={{ padding: "6px 10px", display: "flex", gap: 6, alignItems: "center", overflow: "hidden" }}>
             {/* Drawing controls — hidden in estimate mode */}
-            {tkPanelTier !== "estimate" && (<>
-            <button
-              className="icon-btn"
-              title="Previous"
-              onClick={() => {
-                const idx = drawings.findIndex(d => d.id === selectedDrawingId);
-                if (idx > 0) {
-                  setSelectedDrawingId(drawings[idx - 1].id);
-                  if (drawings[idx - 1].type === "pdf" && drawings[idx - 1].data) renderPdfPage(drawings[idx - 1]);
-                }
-              }}
-              style={{
-                width: 24,
-                height: 24,
-                border: "none",
-                background: C.bg2,
-                color: C.textMuted,
-                borderRadius: 3,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                fontSize: 11,
-                flexShrink: 0,
-              }}
-            >
-              ◀
-            </button>
-            <div
-              ref={compactStripRef}
-              className="hide-scrollbar"
-              style={{ display: "flex", gap: 3, overflowX: "auto", flex: 1, minWidth: 0, padding: "2px 0" }}
-            >
-              {drawings.length === 0 ? (
-                <div style={{ fontSize: 10, color: C.textDim, padding: "4px 8px", fontStyle: "italic" }}>
-                  No drawings
-                </div>
-              ) : (
-                drawings.map(d => {
-                  const thumb = d.type === "pdf" ? pdfCanvases[d.id] : d.data;
-                  const isAct = selectedDrawingId === d.id;
-                  const hasMeas = takeoffs.some(to => (to.measurements || []).some(m => m.sheetId === d.id));
-                  const labelBg = isAct ? `${C.accent}D0` : hasMeas ? `${C.accent}90` : "rgba(0,0,0,0.65)";
-                  return (
-                    <div
-                      key={d.id}
-                      data-drawing-id={d.id}
-                      className="icon-btn"
-                      onClick={() => {
-                        setSelectedDrawingId(d.id);
-                        if (d.type === "pdf" && d.data) renderPdfPage(d);
-                      }}
-                      title={`${d.sheetNumber || d.pageNumber || "?"} — ${d.sheetTitle || d.label || ""}`}
-                      style={{
-                        width: 48,
-                        height: 32,
-                        flexShrink: 0,
-                        borderRadius: 4,
-                        overflow: "hidden",
-                        cursor: "pointer",
-                        position: "relative",
-                        border: isAct
-                          ? `2px solid ${C.accent}`
-                          : `1px solid ${C.isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.10)"}`,
-                        boxShadow: isAct ? `0 0 8px ${C.accent}30` : "none",
-                        background: C.bg2,
-                      }}
-                    >
-                      {thumb ? (
-                        <img
-                          src={thumb}
-                          style={{ width: "100%", height: "100%", objectFit: "cover", opacity: d.data ? 1 : 0.4 }}
-                        />
-                      ) : (
-                        <div
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: 7,
-                            color: C.textDim,
-                          }}
-                        >
-                          {d.sheetNumber || "?"}
-                        </div>
-                      )}
-                      <div
-                        style={{
-                          position: "absolute",
-                          bottom: 0,
-                          left: 0,
-                          right: 0,
-                          padding: "0 2px",
-                          background: labelBg,
-                          fontSize: 6,
-                          fontWeight: 700,
-                          color: "#fff",
-                          textAlign: "center",
-                          lineHeight: "12px",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
-                        {d.sheetNumber || d.pageNumber || "?"}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-            <button
-              className="icon-btn"
-              title="Next"
-              onClick={() => {
-                const idx = drawings.findIndex(d => d.id === selectedDrawingId);
-                if (idx < drawings.length - 1) {
-                  setSelectedDrawingId(drawings[idx + 1].id);
-                  if (drawings[idx + 1].type === "pdf" && drawings[idx + 1].data) renderPdfPage(drawings[idx + 1]);
-                }
-              }}
-              style={{
-                width: 24,
-                height: 24,
-                border: "none",
-                background: C.bg2,
-                color: C.textMuted,
-                borderRadius: 3,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                fontSize: 11,
-                flexShrink: 0,
-              }}
-            >
-              ▶
-            </button>
-            <div
-              style={{
-                display: "flex",
-                gap: 2,
-                alignItems: "center",
-                borderLeft: `1px solid ${C.border}`,
-                paddingLeft: 6,
-                flexShrink: 0,
-              }}
-            >
-              <button
-                onClick={() => setTkZoom(Math.max(25, tkZoom - 25))}
-                style={{
-                  width: 22,
-                  height: 22,
-                  border: "none",
-                  background: C.bg2,
-                  color: C.textMuted,
-                  borderRadius: 3,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  fontSize: 12,
-                }}
-              >
-                −
-              </button>
-              <span style={{ fontSize: 9, color: C.textDim, fontWeight: 600, width: 32, textAlign: "center" }}>
-                {tkZoom}%
-              </span>
-              <button
-                onClick={() => setTkZoom(Math.min(400, tkZoom + 25))}
-                style={{
-                  width: 22,
-                  height: 22,
-                  border: "none",
-                  background: C.bg2,
-                  color: C.textMuted,
-                  borderRadius: 3,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  fontSize: 12,
-                }}
-              >
-                +
-              </button>
-              <button
-                onClick={() => {
-                  setTkZoom(100);
-                  setTkPan({ x: 0, y: 0 });
-                }}
-                style={{
-                  padding: "2px 6px",
-                  border: "none",
-                  background: C.bg2,
-                  color: C.textDim,
-                  borderRadius: 3,
-                  cursor: "pointer",
-                  fontSize: 8,
-                  fontWeight: 600,
-                }}
-              >
-                Fit
-              </button>
-            </div>
-            {/* Scale dropdown */}
-            {selectedDrawing && (
+            {tkPanelTier !== "estimate" && (
               <>
-                <div style={{ width: 1, height: 20, background: C.border, margin: "0 2px" }} />
-                <span style={{ fontWeight: 600, color: C.textDim, fontSize: 9 }}>Scale:</span>
-                <select
-                  value={drawingScales[selectedDrawingId] || ""}
-                  onChange={e => {
-                    if (e.target.value === "custom") {
-                      setTkTool("calibrate");
-                      setTkActivePoints([]);
-                      setTkMeasureState("idle");
-                      setDrawingScales({ ...drawingScales, [selectedDrawingId]: "custom" });
-                    } else {
-                      setDrawingScales({ ...drawingScales, [selectedDrawingId]: e.target.value });
+                <button
+                  className="icon-btn"
+                  title="Previous"
+                  onClick={() => {
+                    const idx = drawings.findIndex(d => d.id === selectedDrawingId);
+                    if (idx > 0) {
+                      setSelectedDrawingId(drawings[idx - 1].id);
+                      if (drawings[idx - 1].type === "pdf" && drawings[idx - 1].data) renderPdfPage(drawings[idx - 1]);
                     }
                   }}
-                  style={inp(C, { width: 120, padding: "3px 6px", fontSize: 9 })}
+                  style={{
+                    width: 24,
+                    height: 24,
+                    border: "none",
+                    background: C.bg2,
+                    color: C.textMuted,
+                    borderRadius: 3,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    fontSize: 11,
+                    flexShrink: 0,
+                  }}
                 >
-                  <option value="">Not Set</option>
-                  <optgroup label="Architectural">
-                    <option value="full">1"=1' (Full)</option>
-                    <option value="half">1/2"=1'</option>
-                    <option value="3-8">3/8"=1'</option>
-                    <option value="quarter">1/4"=1'</option>
-                    <option value="3-16">3/16"=1'</option>
-                    <option value="eighth">1/8"=1'</option>
-                    <option value="3-32">3/32"=1'</option>
-                    <option value="sixteenth">1/16"=1'</option>
-                  </optgroup>
-                  <optgroup label="Engineering">
-                    <option value="eng10">1"=10'</option>
-                    <option value="eng20">1"=20'</option>
-                    <option value="eng30">1"=30'</option>
-                    <option value="eng40">1"=40'</option>
-                    <option value="eng50">1"=50'</option>
-                    <option value="eng100">1"=100'</option>
-                  </optgroup>
-                  <optgroup label="Metric">
-                    <option value="1:1">1:1</option>
-                    <option value="1:5">1:5</option>
-                    <option value="1:10">1:10</option>
-                    <option value="1:20">1:20</option>
-                    <option value="1:50">1:50</option>
-                    <option value="1:100">1:100</option>
-                    <option value="1:200">1:200</option>
-                    <option value="1:500">1:500</option>
-                  </optgroup>
-                  <optgroup label="─────────">
-                    <option value="custom">Custom (Calibrate)</option>
-                  </optgroup>
-                </select>
-                {drawingScales[selectedDrawingId] && drawingScales[selectedDrawingId] !== "custom" && (
-                  <span style={{ color: C.accent, fontWeight: 600, fontSize: 8 }}>✓</span>
-                )}
-                {drawingScales[selectedDrawingId] === "custom" && tkCalibrations[selectedDrawingId] && (
-                  <span style={{ color: C.green, fontWeight: 600, fontSize: 8 }}>✓ Cal</span>
-                )}
-                {!drawingScales[selectedDrawingId] && !tkCalibrations[selectedDrawingId] && (
-                  <span style={{ fontSize: 7, color: C.orange, fontWeight: 500 }} title="No scale set">
-                    ⚠ No scale
-                  </span>
-                )}
-              </>
-            )}
-            {/* Undo last point button — visible during active measurement */}
-            {tkActivePoints.length > 0 && (
-              <button
-                className="icon-btn"
-                onClick={() => setTkActivePoints(tkActivePoints.slice(0, -1))}
-                title="Undo last point (removes the most recent click)"
-                style={{
-                  width: 24,
-                  height: 24,
-                  border: `1px solid ${C.border}`,
-                  background: C.bg2,
-                  borderRadius: 4,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  flexShrink: 0,
-                }}
-              >
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke={C.textMuted}
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+                  ◀
+                </button>
+                <div
+                  ref={compactStripRef}
+                  className="hide-scrollbar"
+                  style={{ display: "flex", gap: 3, overflowX: "auto", flex: 1, minWidth: 0, padding: "2px 0" }}
                 >
-                  <path d="M1 4v6h6 M3.51 15a9 9 0 105.64-12.36L1 10" />
-                </svg>
-              </button>
-            )}
-            {/* Tools folder — iPhone-style expanding grid (snap angle lives inside) */}
-            <div ref={toolsBtnRef} style={{ position: "relative", flexShrink: 0 }}>
-              <button
-                className="icon-btn"
-                onClick={() => setToolsFolderOpen(v => !v)}
-                title="Tools"
-                style={{
-                  width: 24,
-                  height: 24,
-                  border: `1px solid ${toolsFolderOpen ? C.accent + "60" : C.border}`,
-                  background: toolsFolderOpen ? C.accent + "18" : C.bg2,
-                  borderRadius: 4,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                }}
-              >
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke={toolsFolderOpen ? C.accent : C.textMuted}
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" />
-                </svg>
-              </button>
-              {toolsFolderOpen &&
-                (() => {
-                  const r = toolsBtnRef.current?.getBoundingClientRect();
-                  const tools = [
-                    {
-                      id: "checkdim",
-                      label: "Check Dim",
-                      icon: (
-                        <svg
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke={C.text}
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M2 20h20 M2 20V4 M6 16V8 M10 16V6 M14 16v-4 M18 16V8" />
-                        </svg>
-                      ),
-                      desc: "Measure without creating a takeoff",
-                      soon: true,
-                    },
-                    {
-                      id: "angle",
-                      label: "Angle",
-                      icon: (
-                        <svg
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke={C.text}
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M21 19H5V5" />
-                          <path d="M5 19l14-14" />
-                        </svg>
-                      ),
-                      desc: "Measure angles between lines",
-                      soon: true,
-                    },
-                    {
-                      id: "compare",
-                      label: "Compare",
-                      icon: (
-                        <svg
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke={C.text}
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <rect x="2" y="3" width="8" height="8" rx="1" />
-                          <rect x="14" y="13" width="8" height="8" rx="1" />
-                          <path d="M7 11v2a2 2 0 002 2h2 M17 13v-2a2 2 0 00-2-2h-2" />
-                        </svg>
-                      ),
-                      desc: "Overlay drawings for revision comparison",
-                      soon: true,
-                    },
-                    {
-                      id: "screenshot",
-                      label: "Screenshot",
-                      icon: (
-                        <svg
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke={C.text}
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
-                          <circle cx="12" cy="13" r="4" />
-                        </svg>
-                      ),
-                      desc: "Export canvas view as image",
-                      soon: true,
-                    },
-                    {
-                      id: "labels",
-                      label: "Labels",
-                      icon: (
-                        <svg
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke={C.text}
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-                        </svg>
-                      ),
-                      desc: "Toggle measurement labels on canvas",
-                      soon: true,
-                    },
-                    {
-                      id: "snap",
-                      label: "Snap Angle",
-                      icon: (
-                        <svg
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke={snapAngleOn ? C.accent : C.text}
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
-                          <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-                          <line x1="12" y1="22.08" x2="12" y2="12" />
-                        </svg>
-                      ),
-                      desc: snapAngleOn ? "Snap is ON" : "Lock to 45° angles",
-                      active: snapAngleOn,
-                      action: () => {
-                        setSnapAngleOn(v => !v);
-                      },
-                    },
-                  ];
-                  return (
-                    <>
-                      <div
-                        onClick={() => setToolsFolderOpen(false)}
-                        style={{ position: "fixed", inset: 0, zIndex: 199 }}
-                      />
-                      <div
-                        style={{
-                          position: "fixed",
-                          top: (r?.bottom || 0) + 6,
-                          left: Math.max(8, (r?.left || 0) - 60),
-                          width: 200,
-                          background: C.bg1,
-                          border: `1px solid ${C.border}`,
-                          borderRadius: 10,
-                          boxShadow: "0 8px 32px rgba(0,0,0,0.35)",
-                          zIndex: 200,
-                          padding: 8,
-                          animation: "fadeIn 0.12s ease-out",
-                        }}
-                      >
+                  {drawings.length === 0 ? (
+                    <div style={{ fontSize: 10, color: C.textDim, padding: "4px 8px", fontStyle: "italic" }}>
+                      No drawings
+                    </div>
+                  ) : (
+                    drawings.map(d => {
+                      const thumb = d.type === "pdf" ? pdfCanvases[d.id] : d.data;
+                      const isAct = selectedDrawingId === d.id;
+                      const hasMeas = takeoffs.some(to => (to.measurements || []).some(m => m.sheetId === d.id));
+                      const labelBg = isAct ? `${C.accent}D0` : hasMeas ? `${C.accent}90` : "rgba(0,0,0,0.65)";
+                      return (
                         <div
+                          key={d.id}
+                          data-drawing-id={d.id}
+                          className="icon-btn"
+                          onClick={() => {
+                            setSelectedDrawingId(d.id);
+                            if (d.type === "pdf" && d.data) renderPdfPage(d);
+                          }}
+                          title={`${d.sheetNumber || d.pageNumber || "?"} — ${d.sheetTitle || d.label || ""}`}
                           style={{
-                            fontSize: 8,
-                            fontWeight: 700,
-                            color: C.textDim,
-                            textTransform: "uppercase",
-                            letterSpacing: 0.8,
-                            padding: "2px 4px 6px",
-                            borderBottom: `1px solid ${C.border}`,
+                            width: 48,
+                            height: 32,
+                            flexShrink: 0,
+                            borderRadius: 4,
+                            overflow: "hidden",
+                            cursor: "pointer",
+                            position: "relative",
+                            border: isAct
+                              ? `2px solid ${C.accent}`
+                              : `1px solid ${C.isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.10)"}`,
+                            boxShadow: isAct ? `0 0 8px ${C.accent}30` : "none",
+                            background: C.bg2,
                           }}
                         >
-                          Tools
-                        </div>
-                        <div
-                          style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, padding: "8px 0 4px" }}
-                        >
-                          {tools.map(t => (
-                            <button
-                              key={t.id}
-                              onClick={() => {
-                                if (t.action) {
-                                  t.action();
-                                  setToolsFolderOpen(false);
-                                } else if (!t.soon) {
-                                  setToolsFolderOpen(false);
-                                }
-                              }}
-                              title={t.desc}
+                          {thumb ? (
+                            <img
+                              src={thumb}
+                              style={{ width: "100%", height: "100%", objectFit: "cover", opacity: d.data ? 1 : 0.4 }}
+                            />
+                          ) : (
+                            <div
                               style={{
+                                width: "100%",
+                                height: "100%",
                                 display: "flex",
-                                flexDirection: "column",
                                 alignItems: "center",
-                                gap: 3,
-                                padding: "8px 4px",
-                                background: t.active ? C.accent + "15" : "transparent",
-                                border: t.active ? `1px solid ${C.accent}40` : "1px solid transparent",
-                                borderRadius: 8,
-                                cursor: t.soon && !t.action ? "default" : "pointer",
-                                opacity: t.soon && !t.action ? 0.45 : 1,
-                                transition: "all 0.12s",
+                                justifyContent: "center",
+                                fontSize: 7,
+                                color: C.textDim,
                               }}
                             >
-                              <div
-                                style={{
-                                  width: 28,
-                                  height: 28,
-                                  borderRadius: 8,
-                                  background: t.active ? C.accent + "20" : C.bg2,
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  border: `1px solid ${t.active ? C.accent + "30" : C.border}`,
-                                }}
-                              >
-                                {t.icon}
-                              </div>
-                              <span
-                                style={{
-                                  fontSize: 7,
-                                  fontWeight: 600,
-                                  color: t.active ? C.accent : C.textMuted,
-                                  lineHeight: 1.1,
-                                  textAlign: "center",
-                                }}
-                              >
-                                {t.label}
-                              </span>
-                            </button>
-                          ))}
+                              {d.sheetNumber || "?"}
+                            </div>
+                          )}
+                          <div
+                            style={{
+                              position: "absolute",
+                              bottom: 0,
+                              left: 0,
+                              right: 0,
+                              padding: "0 2px",
+                              background: labelBg,
+                              fontSize: 6,
+                              fontWeight: 700,
+                              color: "#fff",
+                              textAlign: "center",
+                              lineHeight: "12px",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                          >
+                            {d.sheetNumber || d.pageNumber || "?"}
+                          </div>
                         </div>
-                      </div>
-                    </>
-                  );
-                })()}
-            </div>
-            {/* Divider + Settings gear (NOVA orb moved to panel header) */}
-            {selectedDrawing && (
-              <>
-                <div style={{ width: 1, height: 20, background: C.border, margin: "0 2px", flexShrink: 0 }} />
-                {/* Settings gear popover (DPI + future settings) */}
-                <div ref={settingsBtnRef} style={{ position: "relative", flexShrink: 0 }}>
+                      );
+                    })
+                  )}
+                </div>
+                <button
+                  className="icon-btn"
+                  title="Next"
+                  onClick={() => {
+                    const idx = drawings.findIndex(d => d.id === selectedDrawingId);
+                    if (idx < drawings.length - 1) {
+                      setSelectedDrawingId(drawings[idx + 1].id);
+                      if (drawings[idx + 1].type === "pdf" && drawings[idx + 1].data) renderPdfPage(drawings[idx + 1]);
+                    }
+                  }}
+                  style={{
+                    width: 24,
+                    height: 24,
+                    border: "none",
+                    background: C.bg2,
+                    color: C.textMuted,
+                    borderRadius: 3,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    fontSize: 11,
+                    flexShrink: 0,
+                  }}
+                >
+                  ▶
+                </button>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 2,
+                    alignItems: "center",
+                    borderLeft: `1px solid ${C.border}`,
+                    paddingLeft: 6,
+                    flexShrink: 0,
+                  }}
+                >
                   <button
-                    onClick={() => setSettingsOpen(v => !v)}
-                    title="Drawing settings"
+                    onClick={() => setTkZoom(Math.max(25, tkZoom - 25))}
+                    style={{
+                      width: 22,
+                      height: 22,
+                      border: "none",
+                      background: C.bg2,
+                      color: C.textMuted,
+                      borderRadius: 3,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      fontSize: 12,
+                    }}
+                  >
+                    −
+                  </button>
+                  <span style={{ fontSize: 9, color: C.textDim, fontWeight: 600, width: 32, textAlign: "center" }}>
+                    {tkZoom}%
+                  </span>
+                  <button
+                    onClick={() => setTkZoom(Math.min(400, tkZoom + 25))}
+                    style={{
+                      width: 22,
+                      height: 22,
+                      border: "none",
+                      background: C.bg2,
+                      color: C.textMuted,
+                      borderRadius: 3,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      fontSize: 12,
+                    }}
+                  >
+                    +
+                  </button>
+                  <button
+                    onClick={() => {
+                      setTkZoom(100);
+                      setTkPan({ x: 0, y: 0 });
+                    }}
+                    style={{
+                      padding: "2px 6px",
+                      border: "none",
+                      background: C.bg2,
+                      color: C.textDim,
+                      borderRadius: 3,
+                      cursor: "pointer",
+                      fontSize: 8,
+                      fontWeight: 600,
+                    }}
+                  >
+                    Fit
+                  </button>
+                </div>
+                {/* Scale dropdown */}
+                {selectedDrawing && (
+                  <>
+                    <div style={{ width: 1, height: 20, background: C.border, margin: "0 2px" }} />
+                    <span style={{ fontWeight: 600, color: C.textDim, fontSize: 9 }}>Scale:</span>
+                    <select
+                      value={drawingScales[selectedDrawingId] || ""}
+                      onChange={e => {
+                        if (e.target.value === "custom") {
+                          setTkTool("calibrate");
+                          setTkActivePoints([]);
+                          setTkMeasureState("idle");
+                          setDrawingScales({ ...drawingScales, [selectedDrawingId]: "custom" });
+                        } else {
+                          setDrawingScales({ ...drawingScales, [selectedDrawingId]: e.target.value });
+                        }
+                      }}
+                      style={inp(C, { width: 120, padding: "3px 6px", fontSize: 9 })}
+                    >
+                      <option value="">Not Set</option>
+                      <optgroup label="Architectural">
+                        <option value="full">1"=1' (Full)</option>
+                        <option value="half">1/2"=1'</option>
+                        <option value="3-8">3/8"=1'</option>
+                        <option value="quarter">1/4"=1'</option>
+                        <option value="3-16">3/16"=1'</option>
+                        <option value="eighth">1/8"=1'</option>
+                        <option value="3-32">3/32"=1'</option>
+                        <option value="sixteenth">1/16"=1'</option>
+                      </optgroup>
+                      <optgroup label="Engineering">
+                        <option value="eng10">1"=10'</option>
+                        <option value="eng20">1"=20'</option>
+                        <option value="eng30">1"=30'</option>
+                        <option value="eng40">1"=40'</option>
+                        <option value="eng50">1"=50'</option>
+                        <option value="eng100">1"=100'</option>
+                      </optgroup>
+                      <optgroup label="Metric">
+                        <option value="1:1">1:1</option>
+                        <option value="1:5">1:5</option>
+                        <option value="1:10">1:10</option>
+                        <option value="1:20">1:20</option>
+                        <option value="1:50">1:50</option>
+                        <option value="1:100">1:100</option>
+                        <option value="1:200">1:200</option>
+                        <option value="1:500">1:500</option>
+                      </optgroup>
+                      <optgroup label="─────────">
+                        <option value="custom">Custom (Calibrate)</option>
+                      </optgroup>
+                    </select>
+                    {drawingScales[selectedDrawingId] && drawingScales[selectedDrawingId] !== "custom" && (
+                      <span style={{ color: C.accent, fontWeight: 600, fontSize: 8 }}>✓</span>
+                    )}
+                    {drawingScales[selectedDrawingId] === "custom" && tkCalibrations[selectedDrawingId] && (
+                      <span style={{ color: C.green, fontWeight: 600, fontSize: 8 }}>✓ Cal</span>
+                    )}
+                    {!drawingScales[selectedDrawingId] && !tkCalibrations[selectedDrawingId] && (
+                      <span style={{ fontSize: 7, color: C.orange, fontWeight: 500 }} title="No scale set">
+                        ⚠ No scale
+                      </span>
+                    )}
+                  </>
+                )}
+                {/* Undo last point button — visible during active measurement */}
+                {tkActivePoints.length > 0 && (
+                  <button
+                    className="icon-btn"
+                    onClick={() => setTkActivePoints(tkActivePoints.slice(0, -1))}
+                    title="Undo last point (removes the most recent click)"
                     style={{
                       width: 24,
                       height: 24,
-                      border: `1px solid ${settingsOpen ? C.accent + "60" : C.border}`,
-                      background: settingsOpen ? C.accent + "12" : C.bg2,
+                      border: `1px solid ${C.border}`,
+                      background: C.bg2,
+                      borderRadius: 4,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke={C.textMuted}
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M1 4v6h6 M3.51 15a9 9 0 105.64-12.36L1 10" />
+                    </svg>
+                  </button>
+                )}
+                {/* Tools folder — iPhone-style expanding grid (snap angle lives inside) */}
+                <div ref={toolsBtnRef} style={{ position: "relative", flexShrink: 0 }}>
+                  <button
+                    className="icon-btn"
+                    onClick={() => setToolsFolderOpen(v => !v)}
+                    title="Tools"
+                    style={{
+                      width: 24,
+                      height: 24,
+                      border: `1px solid ${toolsFolderOpen ? C.accent + "60" : C.border}`,
+                      background: toolsFolderOpen ? C.accent + "18" : C.bg2,
                       borderRadius: 4,
                       display: "flex",
                       alignItems: "center",
@@ -6695,85 +6438,355 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                       cursor: "pointer",
                     }}
                   >
-                    <Ic d={I.settings} size={11} color={settingsOpen ? C.accent : C.textMuted} />
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke={toolsFolderOpen ? C.accent : C.textMuted}
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" />
+                    </svg>
                   </button>
-                  {settingsOpen &&
+                  {toolsFolderOpen &&
                     (() => {
-                      const r = settingsBtnRef.current?.getBoundingClientRect();
+                      const r = toolsBtnRef.current?.getBoundingClientRect();
+                      const tools = [
+                        {
+                          id: "checkdim",
+                          label: "Check Dim",
+                          icon: (
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke={C.text}
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M2 20h20 M2 20V4 M6 16V8 M10 16V6 M14 16v-4 M18 16V8" />
+                            </svg>
+                          ),
+                          desc: "Measure without creating a takeoff",
+                          soon: true,
+                        },
+                        {
+                          id: "angle",
+                          label: "Angle",
+                          icon: (
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke={C.text}
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M21 19H5V5" />
+                              <path d="M5 19l14-14" />
+                            </svg>
+                          ),
+                          desc: "Measure angles between lines",
+                          soon: true,
+                        },
+                        {
+                          id: "compare",
+                          label: "Compare",
+                          icon: (
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke={C.text}
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <rect x="2" y="3" width="8" height="8" rx="1" />
+                              <rect x="14" y="13" width="8" height="8" rx="1" />
+                              <path d="M7 11v2a2 2 0 002 2h2 M17 13v-2a2 2 0 00-2-2h-2" />
+                            </svg>
+                          ),
+                          desc: "Overlay drawings for revision comparison",
+                          soon: true,
+                        },
+                        {
+                          id: "screenshot",
+                          label: "Screenshot",
+                          icon: (
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke={C.text}
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
+                              <circle cx="12" cy="13" r="4" />
+                            </svg>
+                          ),
+                          desc: "Export canvas view as image",
+                          soon: true,
+                        },
+                        {
+                          id: "labels",
+                          label: "Labels",
+                          icon: (
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke={C.text}
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                            </svg>
+                          ),
+                          desc: "Toggle measurement labels on canvas",
+                          soon: true,
+                        },
+                        {
+                          id: "snap",
+                          label: "Snap Angle",
+                          icon: (
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke={snapAngleOn ? C.accent : C.text}
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
+                              <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                              <line x1="12" y1="22.08" x2="12" y2="12" />
+                            </svg>
+                          ),
+                          desc: snapAngleOn ? "Snap is ON" : "Lock to 45° angles",
+                          active: snapAngleOn,
+                          action: () => {
+                            setSnapAngleOn(v => !v);
+                          },
+                        },
+                      ];
                       return (
-                        <div
-                          style={{
-                            position: "fixed",
-                            top: (r?.bottom || 0) + 4,
-                            right: Math.max(8, window.innerWidth - (r?.right || 0)),
-                            width: 200,
-                            background: C.bg1,
-                            border: `1px solid ${C.border}`,
-                            borderRadius: 8,
-                            boxShadow: T.shadow.lg,
-                            zIndex: T.z.dropdown,
-                            padding: 12,
-                            animation: "fadeIn 0.1s ease-out",
-                          }}
-                        >
+                        <>
+                          <div
+                            onClick={() => setToolsFolderOpen(false)}
+                            style={{ position: "fixed", inset: 0, zIndex: 199 }}
+                          />
                           <div
                             style={{
-                              fontSize: 10,
-                              fontWeight: 700,
-                              color: C.textDim,
-                              textTransform: "uppercase",
-                              letterSpacing: 0.8,
-                              marginBottom: 8,
+                              position: "fixed",
+                              top: (r?.bottom || 0) + 6,
+                              left: Math.max(8, (r?.left || 0) - 60),
+                              width: 200,
+                              background: C.bg1,
+                              border: `1px solid ${C.border}`,
+                              borderRadius: 10,
+                              boxShadow: "0 8px 32px rgba(0,0,0,0.35)",
+                              zIndex: 200,
+                              padding: 8,
+                              animation: "fadeIn 0.12s ease-out",
                             }}
                           >
-                            Drawing Settings
-                          </div>
-                          {selectedDrawing?.type === "image" &&
-                            drawingScales[selectedDrawingId] &&
-                            drawingScales[selectedDrawingId] !== "custom" && (
-                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <span style={{ fontSize: 10, color: C.text, fontWeight: 500 }}>DPI</span>
-                                <input
-                                  type="number"
-                                  value={drawingDpi[selectedDrawingId] || DEFAULT_IMAGE_DPI}
-                                  onChange={e =>
-                                    setDrawingDpi({
-                                      ...drawingDpi,
-                                      [selectedDrawingId]: parseInt(e.target.value) || 150,
-                                    })
-                                  }
-                                  style={{
-                                    flex: 1,
-                                    width: 60,
-                                    padding: "4px 6px",
-                                    fontSize: 10,
-                                    fontWeight: 600,
-                                    border: `1px solid ${C.border}`,
-                                    borderRadius: 4,
-                                    background: C.bg2,
-                                    color: C.text,
-                                    textAlign: "center",
-                                  }}
-                                  title="Image scan DPI"
-                                />
-                              </div>
-                            )}
-                          {!(
-                            selectedDrawing?.type === "image" &&
-                            drawingScales[selectedDrawingId] &&
-                            drawingScales[selectedDrawingId] !== "custom"
-                          ) && (
-                            <div style={{ fontSize: 10, color: C.textDim }}>
-                              No additional settings for this drawing type.
+                            <div
+                              style={{
+                                fontSize: 8,
+                                fontWeight: 700,
+                                color: C.textDim,
+                                textTransform: "uppercase",
+                                letterSpacing: 0.8,
+                                padding: "2px 4px 6px",
+                                borderBottom: `1px solid ${C.border}`,
+                              }}
+                            >
+                              Tools
                             </div>
-                          )}
-                        </div>
+                            <div
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns: "1fr 1fr 1fr",
+                                gap: 4,
+                                padding: "8px 0 4px",
+                              }}
+                            >
+                              {tools.map(t => (
+                                <button
+                                  key={t.id}
+                                  onClick={() => {
+                                    if (t.action) {
+                                      t.action();
+                                      setToolsFolderOpen(false);
+                                    } else if (!t.soon) {
+                                      setToolsFolderOpen(false);
+                                    }
+                                  }}
+                                  title={t.desc}
+                                  style={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    alignItems: "center",
+                                    gap: 3,
+                                    padding: "8px 4px",
+                                    background: t.active ? C.accent + "15" : "transparent",
+                                    border: t.active ? `1px solid ${C.accent}40` : "1px solid transparent",
+                                    borderRadius: 8,
+                                    cursor: t.soon && !t.action ? "default" : "pointer",
+                                    opacity: t.soon && !t.action ? 0.45 : 1,
+                                    transition: "all 0.12s",
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      width: 28,
+                                      height: 28,
+                                      borderRadius: 8,
+                                      background: t.active ? C.accent + "20" : C.bg2,
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      border: `1px solid ${t.active ? C.accent + "30" : C.border}`,
+                                    }}
+                                  >
+                                    {t.icon}
+                                  </div>
+                                  <span
+                                    style={{
+                                      fontSize: 7,
+                                      fontWeight: 600,
+                                      color: t.active ? C.accent : C.textMuted,
+                                      lineHeight: 1.1,
+                                      textAlign: "center",
+                                    }}
+                                  >
+                                    {t.label}
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </>
                       );
                     })()}
                 </div>
+                {/* Divider + Settings gear (NOVA orb moved to panel header) */}
+                {selectedDrawing && (
+                  <>
+                    <div style={{ width: 1, height: 20, background: C.border, margin: "0 2px", flexShrink: 0 }} />
+                    {/* Settings gear popover (DPI + future settings) */}
+                    <div ref={settingsBtnRef} style={{ position: "relative", flexShrink: 0 }}>
+                      <button
+                        onClick={() => setSettingsOpen(v => !v)}
+                        title="Drawing settings"
+                        style={{
+                          width: 24,
+                          height: 24,
+                          border: `1px solid ${settingsOpen ? C.accent + "60" : C.border}`,
+                          background: settingsOpen ? C.accent + "12" : C.bg2,
+                          borderRadius: 4,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <Ic d={I.settings} size={11} color={settingsOpen ? C.accent : C.textMuted} />
+                      </button>
+                      {settingsOpen &&
+                        (() => {
+                          const r = settingsBtnRef.current?.getBoundingClientRect();
+                          return (
+                            <div
+                              style={{
+                                position: "fixed",
+                                top: (r?.bottom || 0) + 4,
+                                right: Math.max(8, window.innerWidth - (r?.right || 0)),
+                                width: 200,
+                                background: C.bg1,
+                                border: `1px solid ${C.border}`,
+                                borderRadius: 8,
+                                boxShadow: T.shadow.lg,
+                                zIndex: T.z.dropdown,
+                                padding: 12,
+                                animation: "fadeIn 0.1s ease-out",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  fontSize: 10,
+                                  fontWeight: 700,
+                                  color: C.textDim,
+                                  textTransform: "uppercase",
+                                  letterSpacing: 0.8,
+                                  marginBottom: 8,
+                                }}
+                              >
+                                Drawing Settings
+                              </div>
+                              {selectedDrawing?.type === "image" &&
+                                drawingScales[selectedDrawingId] &&
+                                drawingScales[selectedDrawingId] !== "custom" && (
+                                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                    <span style={{ fontSize: 10, color: C.text, fontWeight: 500 }}>DPI</span>
+                                    <input
+                                      type="number"
+                                      value={drawingDpi[selectedDrawingId] || DEFAULT_IMAGE_DPI}
+                                      onChange={e =>
+                                        setDrawingDpi({
+                                          ...drawingDpi,
+                                          [selectedDrawingId]: parseInt(e.target.value) || 150,
+                                        })
+                                      }
+                                      style={{
+                                        flex: 1,
+                                        width: 60,
+                                        padding: "4px 6px",
+                                        fontSize: 10,
+                                        fontWeight: 600,
+                                        border: `1px solid ${C.border}`,
+                                        borderRadius: 4,
+                                        background: C.bg2,
+                                        color: C.text,
+                                        textAlign: "center",
+                                      }}
+                                      title="Image scan DPI"
+                                    />
+                                  </div>
+                                )}
+                              {!(
+                                selectedDrawing?.type === "image" &&
+                                drawingScales[selectedDrawingId] &&
+                                drawingScales[selectedDrawingId] !== "custom"
+                              ) && (
+                                <div style={{ fontSize: 10, color: C.textDim }}>
+                                  No additional settings for this drawing type.
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+                    </div>
+                  </>
+                )}
               </>
             )}
-            </>)}
           </div>
         </div>
 
@@ -6787,38 +6800,80 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
         )}
 
         {/* ── Unified Measurement HUD (hidden in estimate mode) ── */}
-        {tkPanelTier !== "estimate" && (() => {
-          // Determine HUD mode
-          const hudCalibrating = tkTool === "calibrate" && tkActivePoints.length === 2;
-          const hudAutoCount = !!tkAutoCount;
-          const hudMeasuring = selectedDrawing?.data && tkMeasureState !== "idle" && tkActiveTakeoffId;
-          const hudPredictions = tkPredictions && tkPredictions.predictions.length > 0;
-          const hudActive = hudCalibrating || hudAutoCount || hudMeasuring || hudPredictions;
-          if (!hudActive) return null;
+        {tkPanelTier !== "estimate" &&
+          (() => {
+            // Determine HUD mode
+            const hudCalibrating = tkTool === "calibrate" && tkActivePoints.length === 2;
+            const hudAutoCount = !!tkAutoCount;
+            const hudMeasuring = selectedDrawing?.data && tkMeasureState !== "idle" && tkActiveTakeoffId;
+            const hudPredictions = tkPredictions && tkPredictions.predictions.length > 0;
+            const hudActive = hudCalibrating || hudAutoCount || hudMeasuring || hudPredictions;
+            if (!hudActive) return null;
 
-          const activeTo = hudMeasuring ? takeoffs.find(t => t.id === tkActiveTakeoffId) : null;
-          const mQty = activeTo ? getMeasuredQty(activeTo) : 0;
-          const scaleSet = hasScale(selectedDrawingId);
-          const calUnit = getDisplayUnit(selectedDrawingId);
-          const toolLabel = tkTool === "count" ? "Count" : tkTool === "linear" ? "Linear" : "Area";
-          const predColor = activeTo?.color || "#8B5CF6";
+            const activeTo = hudMeasuring ? takeoffs.find(t => t.id === tkActiveTakeoffId) : null;
+            const mQty = activeTo ? getMeasuredQty(activeTo) : 0;
+            const scaleSet = hasScale(selectedDrawingId);
+            const calUnit = getDisplayUnit(selectedDrawingId);
+            const toolLabel = tkTool === "count" ? "Count" : tkTool === "linear" ? "Linear" : "Area";
+            const predColor = activeTo?.color || "#8B5CF6";
 
-          // Prediction helpers
-          const preds = hudPredictions ? tkPredictions.predictions : [];
-          const pending = preds.filter(p => !tkPredAccepted.includes(p.id) && !tkPredRejected.includes(p.id));
-          const accepted = preds.filter(p => tkPredAccepted.includes(p.id));
-          const rejected = preds.filter(p => tkPredRejected.includes(p.id));
-          const ctxConfidence = tkPredContext?.confidence || 0;
-          const confPct = Math.round(ctxConfidence * 100);
-          const isHighConf = ctxConfidence >= 0.75;
-          const isMedConf = ctxConfidence >= 0.5;
+            // Prediction helpers
+            const preds = hudPredictions ? tkPredictions.predictions : [];
+            const pending = preds.filter(p => !tkPredAccepted.includes(p.id) && !tkPredRejected.includes(p.id));
+            const accepted = preds.filter(p => tkPredAccepted.includes(p.id));
+            const rejected = preds.filter(p => tkPredRejected.includes(p.id));
+            const ctxConfidence = tkPredContext?.confidence || 0;
+            const confPct = Math.round(ctxConfidence * 100);
+            const isHighConf = ctxConfidence >= 0.75;
+            const isMedConf = ctxConfidence >= 0.5;
 
-          // One-click: accept all pending predictions and immediately create measurements
-          const handleAcceptAllAndConfirm = () => {
-            const toAdd = preds.filter(p => !tkPredRejected.includes(p.id));
-            if (tkActiveTakeoffId && toAdd.length > 0) {
-              toAdd.forEach(() => recordPredictionFeedback(tkPredictions?.tag, tkPredictions?.strategy, true));
-              toAdd.forEach(pred => {
+            // One-click: accept all pending predictions and immediately create measurements
+            const handleAcceptAllAndConfirm = () => {
+              const toAdd = preds.filter(p => !tkPredRejected.includes(p.id));
+              if (tkActiveTakeoffId && toAdd.length > 0) {
+                toAdd.forEach(() => recordPredictionFeedback(tkPredictions?.tag, tkPredictions?.strategy, true));
+                toAdd.forEach(pred => {
+                  if (pred.type === "count" || pred.type === "wall-tag") {
+                    addMeasurement(tkActiveTakeoffId, {
+                      type: "count",
+                      points: [pred.point],
+                      value: 1,
+                      sheetId: selectedDrawingId,
+                      color: activeTo?.color || "#5b8def",
+                      predicted: true,
+                      tag: tkPredictions.tag,
+                    });
+                  } else if (pred.type === "wall" && pred.points?.length >= 2) {
+                    addMeasurement(tkActiveTakeoffId, {
+                      type: "linear",
+                      points: pred.points,
+                      value: 0,
+                      sheetId: selectedDrawingId,
+                      color: activeTo?.color || "#5b8def",
+                      predicted: true,
+                      tag: tkPredictions.tag,
+                    });
+                  } else if (pred.type === "area" && pred.points?.length >= 3) {
+                    addMeasurement(tkActiveTakeoffId, {
+                      type: "area",
+                      points: pred.points,
+                      value: 0,
+                      sheetId: selectedDrawingId,
+                      color: activeTo?.color || "#5b8def",
+                      predicted: true,
+                      tag: pred.tag || tkPredictions.tag,
+                    });
+                  }
+                });
+                showToast(`Added ${toAdd.length} predicted measurements`);
+              }
+              clearPredictions();
+            };
+            // Individual accept: immediately add measurement for a single prediction
+            const handleAcceptOne = pred => {
+              acceptPrediction(pred.id);
+              recordPredictionFeedback(tkPredictions?.tag, tkPredictions?.strategy, true);
+              if (tkActiveTakeoffId) {
                 if (pred.type === "count" || pred.type === "wall-tag") {
                   addMeasurement(tkActiveTakeoffId, {
                     type: "count",
@@ -6850,1847 +6905,1855 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                     tag: pred.tag || tkPredictions.tag,
                   });
                 }
-              });
-              showToast(`Added ${toAdd.length} predicted measurements`);
-            }
-            clearPredictions();
-          };
-          // Individual accept: immediately add measurement for a single prediction
-          const handleAcceptOne = pred => {
-            acceptPrediction(pred.id);
-            recordPredictionFeedback(tkPredictions?.tag, tkPredictions?.strategy, true);
-            if (tkActiveTakeoffId) {
-              if (pred.type === "count" || pred.type === "wall-tag") {
-                addMeasurement(tkActiveTakeoffId, {
-                  type: "count",
-                  points: [pred.point],
-                  value: 1,
-                  sheetId: selectedDrawingId,
-                  color: activeTo?.color || "#5b8def",
-                  predicted: true,
-                  tag: tkPredictions.tag,
-                });
-              } else if (pred.type === "wall" && pred.points?.length >= 2) {
-                addMeasurement(tkActiveTakeoffId, {
-                  type: "linear",
-                  points: pred.points,
-                  value: 0,
-                  sheetId: selectedDrawingId,
-                  color: activeTo?.color || "#5b8def",
-                  predicted: true,
-                  tag: tkPredictions.tag,
-                });
-              } else if (pred.type === "area" && pred.points?.length >= 3) {
-                addMeasurement(tkActiveTakeoffId, {
-                  type: "area",
-                  points: pred.points,
-                  value: 0,
-                  sheetId: selectedDrawingId,
-                  color: activeTo?.color || "#5b8def",
-                  predicted: true,
-                  tag: pred.tag || tkPredictions.tag,
-                });
               }
-            }
-          };
-          const handleDismiss = () => clearPredictions();
+            };
+            const handleDismiss = () => clearPredictions();
 
-          return (
-            <div
-              style={{
-                height: 32,
-                padding: "0 12px",
-                borderBottom: `1px solid ${C.border}`,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                background: hudCalibrating
-                  ? "rgba(220,38,38,0.05)"
-                  : hudAutoCount
-                    ? "rgba(168,126,230,0.06)"
-                    : activeTo
-                      ? `${activeTo.color}08`
-                      : C.bg1,
-                transition: "background 0.2s ease",
-                flexShrink: 0,
-                animation: "fadeIn 0.15s ease-out",
-                position: "relative",
-              }}
-            >
-              {/* ─ Calibrating mode ─ */}
-              {hudCalibrating && (
-                <>
-                  <span style={{ fontSize: 13 }}>📐</span>
-                  <span style={{ fontSize: 10, fontWeight: 600, color: "#dc2626" }}>Set scale:</span>
-                  <input
-                    type="number"
-                    value={tkCalibInput.dist}
-                    onChange={e => setTkCalibInput({ ...tkCalibInput, dist: e.target.value })}
-                    placeholder="Distance..."
-                    autoFocus
-                    style={nInp(C, {
-                      width: 80,
-                      padding: "4px 6px",
-                      fontSize: 11,
-                      fontWeight: 600,
-                      border: "1px solid #dc2626",
-                    })}
-                  />
-                  <select
-                    value={tkCalibInput.unit}
-                    onChange={e => setTkCalibInput({ ...tkCalibInput, unit: e.target.value })}
-                    style={inp(C, { width: 50, padding: "4px 3px", fontSize: 9 })}
-                  >
-                    <option value="ft">ft</option>
-                    <option value="in">in</option>
-                    <option value="m">m</option>
-                    <option value="cm">cm</option>
-                  </select>
-                  <button
-                    className="accent-btn"
-                    onClick={finishCalibration}
-                    disabled={!nn(tkCalibInput.dist)}
-                    style={bt(C, {
-                      background: nn(tkCalibInput.dist) ? "#dc2626" : C.bg3,
-                      color: nn(tkCalibInput.dist) ? "#fff" : C.textDim,
-                      padding: "4px 12px",
-                      fontSize: 9,
-                    })}
-                  >
-                    ✓ Set
-                  </button>
-                  <button
-                    onClick={() => {
-                      setTkActivePoints([]);
-                      setTkTool("select");
-                    }}
-                    style={bt(C, {
-                      background: "transparent",
-                      border: `1px solid ${C.border}`,
-                      color: C.textDim,
-                      padding: "4px 8px",
-                      fontSize: 9,
-                    })}
-                  >
-                    ✕
-                  </button>
-                </>
-              )}
+            return (
+              <div
+                style={{
+                  height: 32,
+                  padding: "0 12px",
+                  borderBottom: `1px solid ${C.border}`,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  background: hudCalibrating
+                    ? "rgba(220,38,38,0.05)"
+                    : hudAutoCount
+                      ? "rgba(168,126,230,0.06)"
+                      : activeTo
+                        ? `${activeTo.color}08`
+                        : C.bg1,
+                  transition: "background 0.2s ease",
+                  flexShrink: 0,
+                  animation: "fadeIn 0.15s ease-out",
+                  position: "relative",
+                }}
+              >
+                {/* ─ Calibrating mode ─ */}
+                {hudCalibrating && (
+                  <>
+                    <span style={{ fontSize: 13 }}>📐</span>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: "#dc2626" }}>Set scale:</span>
+                    <input
+                      type="number"
+                      value={tkCalibInput.dist}
+                      onChange={e => setTkCalibInput({ ...tkCalibInput, dist: e.target.value })}
+                      placeholder="Distance..."
+                      autoFocus
+                      style={nInp(C, {
+                        width: 80,
+                        padding: "4px 6px",
+                        fontSize: 11,
+                        fontWeight: 600,
+                        border: "1px solid #dc2626",
+                      })}
+                    />
+                    <select
+                      value={tkCalibInput.unit}
+                      onChange={e => setTkCalibInput({ ...tkCalibInput, unit: e.target.value })}
+                      style={inp(C, { width: 50, padding: "4px 3px", fontSize: 9 })}
+                    >
+                      <option value="ft">ft</option>
+                      <option value="in">in</option>
+                      <option value="m">m</option>
+                      <option value="cm">cm</option>
+                    </select>
+                    <button
+                      className="accent-btn"
+                      onClick={finishCalibration}
+                      disabled={!nn(tkCalibInput.dist)}
+                      style={bt(C, {
+                        background: nn(tkCalibInput.dist) ? "#dc2626" : C.bg3,
+                        color: nn(tkCalibInput.dist) ? "#fff" : C.textDim,
+                        padding: "4px 12px",
+                        fontSize: 9,
+                      })}
+                    >
+                      ✓ Set
+                    </button>
+                    <button
+                      onClick={() => {
+                        setTkActivePoints([]);
+                        setTkTool("select");
+                      }}
+                      style={bt(C, {
+                        background: "transparent",
+                        border: `1px solid ${C.border}`,
+                        color: C.textDim,
+                        padding: "4px 8px",
+                        fontSize: 9,
+                      })}
+                    >
+                      ✕
+                    </button>
+                  </>
+                )}
 
-              {/* ─ Auto Count mode ─ */}
-              {!hudCalibrating && hudAutoCount && (
-                <>
-                  <span style={{ fontSize: 13 }}>🔢</span>
-                  <span style={{ fontSize: 10, fontWeight: 600, color: C.purple }}>Auto Count</span>
-                  {tkAutoCount.phase === "select" && (
-                    <span style={{ fontSize: 9, color: C.text }}>
-                      Click a <strong>sample symbol</strong> to count matches
-                    </span>
-                  )}
-                  {tkAutoCount.phase === "scanning" && (
-                    <span style={{ fontSize: 9, color: C.text, display: "flex", alignItems: "center", gap: 4 }}>
-                      <span style={{ display: "inline-block", animation: "spin 1s linear infinite", fontSize: 12 }}>
-                        ⟳
-                      </span>{" "}
-                      Scanning...
-                    </span>
-                  )}
-                  {tkAutoCount.phase === "done" && (
-                    <span style={{ fontSize: 9, color: C.green, fontWeight: 600 }}>
-                      Found {tkAutoCount.results?.length || 0} matches
-                    </span>
-                  )}
-                  <button
-                    onClick={() => setTkAutoCount(null)}
-                    style={bt(C, {
-                      marginLeft: "auto",
-                      background: "transparent",
-                      border: `1px solid ${C.border}`,
-                      color: C.textDim,
-                      padding: "3px 10px",
-                      fontSize: 8,
-                    })}
-                  >
-                    ✕
-                  </button>
-                </>
-              )}
-
-              {/* ─ Measuring mode (compact) ─ */}
-              {!hudCalibrating && !hudAutoCount && hudMeasuring && activeTo && (
-                <>
-                  <div
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: "50%",
-                      background: tkMeasureState === "measuring" ? activeTo.color : C.orange,
-                      animation: tkMeasureState === "measuring" ? "pulse 1.5s infinite" : "none",
-                    }}
-                  />
-                  <span
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 600,
-                      color: activeTo.color,
-                      maxWidth: 140,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {activeTo.description.substring(0, 30)}
-                  </span>
-                  <button
-                    onClick={stopMeasuring}
-                    title="Stop (Esc)"
-                    style={bt(C, {
-                      padding: "3px 10px",
-                      fontSize: 8,
-                      fontWeight: 600,
-                      borderRadius: 4,
-                      background: C.red,
-                      color: "#fff",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 3,
-                    })}
-                  >
-                    <svg width="8" height="8" viewBox="0 0 8 8" fill="#fff">
-                      <rect width="8" height="8" rx="1" />
-                    </svg>{" "}
-                    Stop
-                  </button>
-                  <div style={{ width: 1, height: 16, background: C.border }} />
-                  <span style={{ fontSize: 9, fontWeight: 600, color: C.text }}>{toolLabel}:</span>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>
-                    {tkTool === "count" ? (
-                      `${mQty ?? 0} EA`
-                    ) : !scaleSet ? (
-                      <span style={{ color: C.orange, fontSize: 9 }}>⚠ Set scale</span>
-                    ) : (
-                      `${mQty ?? 0} ${tkTool === "area" ? calUnit + "²" : calUnit}`
+                {/* ─ Auto Count mode ─ */}
+                {!hudCalibrating && hudAutoCount && (
+                  <>
+                    <span style={{ fontSize: 13 }}>🔢</span>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: C.purple }}>Auto Count</span>
+                    {tkAutoCount.phase === "select" && (
+                      <span style={{ fontSize: 9, color: C.text }}>
+                        Click a <strong>sample symbol</strong> to count matches
+                      </span>
                     )}
-                  </span>
-                  <span style={{ fontSize: 8, color: C.textDim }}>
-                    {tkMeasureState === "measuring" ? "click to measure" : "paused"}
-                  </span>
+                    {tkAutoCount.phase === "scanning" && (
+                      <span style={{ fontSize: 9, color: C.text, display: "flex", alignItems: "center", gap: 4 }}>
+                        <span style={{ display: "inline-block", animation: "spin 1s linear infinite", fontSize: 12 }}>
+                          ⟳
+                        </span>{" "}
+                        Scanning...
+                      </span>
+                    )}
+                    {tkAutoCount.phase === "done" && (
+                      <span style={{ fontSize: 9, color: C.green, fontWeight: 600 }}>
+                        Found {tkAutoCount.results?.length || 0} matches
+                      </span>
+                    )}
+                    <button
+                      onClick={() => setTkAutoCount(null)}
+                      style={bt(C, {
+                        marginLeft: "auto",
+                        background: "transparent",
+                        border: `1px solid ${C.border}`,
+                        color: C.textDim,
+                        padding: "3px 10px",
+                        fontSize: 8,
+                      })}
+                    >
+                      ✕
+                    </button>
+                  </>
+                )}
 
-                  {/* NOVA Vision — compact HUD badge toggles right panel */}
-                  {hudPredictions && pending.length > 0 && !tkPredRefining && (
+                {/* ─ Measuring mode (compact) ─ */}
+                {!hudCalibrating && !hudAutoCount && hudMeasuring && activeTo && (
+                  <>
+                    <div
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        background: tkMeasureState === "measuring" ? activeTo.color : C.orange,
+                        animation: tkMeasureState === "measuring" ? "pulse 1.5s infinite" : "none",
+                      }}
+                    />
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 600,
+                        color: activeTo.color,
+                        maxWidth: 140,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {activeTo.description.substring(0, 30)}
+                    </span>
+                    <button
+                      onClick={stopMeasuring}
+                      title="Stop (Esc)"
+                      style={bt(C, {
+                        padding: "3px 10px",
+                        fontSize: 8,
+                        fontWeight: 600,
+                        borderRadius: 4,
+                        background: C.red,
+                        color: "#fff",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 3,
+                      })}
+                    >
+                      <svg width="8" height="8" viewBox="0 0 8 8" fill="#fff">
+                        <rect width="8" height="8" rx="1" />
+                      </svg>{" "}
+                      Stop
+                    </button>
+                    <div style={{ width: 1, height: 16, background: C.border }} />
+                    <span style={{ fontSize: 9, fontWeight: 600, color: C.text }}>{toolLabel}:</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>
+                      {tkTool === "count" ? (
+                        `${mQty ?? 0} EA`
+                      ) : !scaleSet ? (
+                        <span style={{ color: C.orange, fontSize: 9 }}>⚠ Set scale</span>
+                      ) : (
+                        `${mQty ?? 0} ${tkTool === "area" ? calUnit + "²" : calUnit}`
+                      )}
+                    </span>
+                    <span style={{ fontSize: 8, color: C.textDim }}>
+                      {tkMeasureState === "measuring" ? "click to measure" : "paused"}
+                    </span>
+
+                    {/* NOVA Vision — compact HUD badge toggles right panel */}
+                    {hudPredictions && pending.length > 0 && !tkPredRefining && (
+                      <button
+                        onClick={() => setTkNovaPanelOpen(v => !v)}
+                        style={bt(C, {
+                          marginLeft: "auto",
+                          background: "linear-gradient(135deg, #6366F115, #8B5CF615)",
+                          color: "#8B5CF6",
+                          border: "1px solid #8B5CF630",
+                          padding: "2px 8px",
+                          fontSize: 8,
+                          fontWeight: 700,
+                          borderRadius: 3,
+                        })}
+                      >
+                        <span style={{ fontSize: 7, fontWeight: 800, letterSpacing: 0.5 }}>NOVA</span> {pending.length}{" "}
+                        {tkNovaPanelOpen ? "◂" : "▸"}
+                      </button>
+                    )}
+                    {hudPredictions && tkPredRefining && (
+                      <span
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 3,
+                          fontSize: 9,
+                          color: C.orange,
+                          marginLeft: "auto",
+                        }}
+                      >
+                        <span style={{ display: "inline-block", animation: "spin 1s linear infinite", fontSize: 10 }}>
+                          ⟳
+                        </span>{" "}
+                        Scanning
+                      </span>
+                    )}
+                  </>
+                )}
+
+                {/* ─ Predictions only (not measuring) — compact badge opens panel ─ */}
+                {!hudCalibrating && !hudAutoCount && !hudMeasuring && hudPredictions && (
+                  <>
+                    <div
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        background: tkPredRefining ? C.orange : pending.length > 0 ? "#8B5CF6" : C.green,
+                        boxShadow: `0 0 8px ${tkPredRefining ? C.orange : pending.length > 0 ? "#8B5CF6" : C.green}`,
+                        animation: tkPredRefining
+                          ? "spin 1s linear infinite"
+                          : pending.length > 0
+                            ? "pulse 1.5s infinite"
+                            : "none",
+                      }}
+                    />
+                    <span
+                      style={{
+                        fontSize: 8,
+                        fontWeight: 800,
+                        letterSpacing: 0.8,
+                        color: "#8B5CF6",
+                        background: "linear-gradient(135deg, #6366F115, #8B5CF615)",
+                        padding: "2px 6px",
+                        borderRadius: 3,
+                      }}
+                    >
+                      NOVA VISION
+                    </span>
+                    {tkPredRefining ? (
+                      <span style={{ fontSize: 10, color: C.orange, fontWeight: 600 }}>Scanning...</span>
+                    ) : (
+                      <>
+                        <span
+                          style={{
+                            padding: "2px 8px",
+                            borderRadius: 4,
+                            fontSize: 10,
+                            fontWeight: 700,
+                            background: `${predColor}20`,
+                            color: predColor,
+                            fontFamily: "'DM Sans',sans-serif",
+                            border: `1px solid ${predColor}30`,
+                          }}
+                        >
+                          {tkPredictions.tag || "—"}
+                        </span>
+                        <span style={{ fontSize: 10, color: C.text, fontWeight: 500 }}>
+                          {pending.length > 0 ? `${preds.length} found` : `${accepted.length} accepted`}
+                        </span>
+                      </>
+                    )}
+                    <div style={{ flex: 1 }} />
                     <button
                       onClick={() => setTkNovaPanelOpen(v => !v)}
                       style={bt(C, {
-                        marginLeft: "auto",
-                        background: "linear-gradient(135deg, #6366F115, #8B5CF615)",
-                        color: "#8B5CF6",
-                        border: "1px solid #8B5CF630",
+                        background: `${predColor}15`,
+                        color: predColor,
+                        border: `1px solid ${predColor}30`,
                         padding: "2px 8px",
                         fontSize: 8,
                         fontWeight: 700,
                         borderRadius: 3,
                       })}
                     >
-                      <span style={{ fontSize: 7, fontWeight: 800, letterSpacing: 0.5 }}>NOVA</span> {pending.length}{" "}
-                      {tkNovaPanelOpen ? "◂" : "▸"}
+                      {tkNovaPanelOpen ? "Hide Panel ◂" : `Review ${pending.length} ▸`}
                     </button>
-                  )}
-                  {hudPredictions && tkPredRefining && (
-                    <span
+                    <button
+                      onClick={handleDismiss}
+                      title="Dismiss"
                       style={{
+                        width: 22,
+                        height: 22,
+                        border: `1px solid ${C.border}`,
+                        borderRadius: 4,
+                        background: C.bg2,
+                        color: C.textDim,
+                        fontSize: 12,
+                        cursor: "pointer",
                         display: "flex",
                         alignItems: "center",
-                        gap: 3,
-                        fontSize: 9,
-                        color: C.orange,
-                        marginLeft: "auto",
+                        justifyContent: "center",
                       }}
                     >
-                      <span style={{ display: "inline-block", animation: "spin 1s linear infinite", fontSize: 10 }}>
-                        ⟳
-                      </span>{" "}
-                      Scanning
-                    </span>
-                  )}
-                </>
-              )}
-
-              {/* ─ Predictions only (not measuring) — compact badge opens panel ─ */}
-              {!hudCalibrating && !hudAutoCount && !hudMeasuring && hudPredictions && (
-                <>
-                  <div
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: "50%",
-                      background: tkPredRefining ? C.orange : pending.length > 0 ? "#8B5CF6" : C.green,
-                      boxShadow: `0 0 8px ${tkPredRefining ? C.orange : pending.length > 0 ? "#8B5CF6" : C.green}`,
-                      animation: tkPredRefining
-                        ? "spin 1s linear infinite"
-                        : pending.length > 0
-                          ? "pulse 1.5s infinite"
-                          : "none",
-                    }}
-                  />
-                  <span
-                    style={{
-                      fontSize: 8,
-                      fontWeight: 800,
-                      letterSpacing: 0.8,
-                      color: "#8B5CF6",
-                      background: "linear-gradient(135deg, #6366F115, #8B5CF615)",
-                      padding: "2px 6px",
-                      borderRadius: 3,
-                    }}
-                  >
-                    NOVA VISION
-                  </span>
-                  {tkPredRefining ? (
-                    <span style={{ fontSize: 10, color: C.orange, fontWeight: 600 }}>Scanning...</span>
-                  ) : (
-                    <>
-                      <span
-                        style={{
-                          padding: "2px 8px",
-                          borderRadius: 4,
-                          fontSize: 10,
-                          fontWeight: 700,
-                          background: `${predColor}20`,
-                          color: predColor,
-                          fontFamily: "'DM Sans',sans-serif",
-                          border: `1px solid ${predColor}30`,
-                        }}
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 10 10"
+                        fill="none"
+                        stroke={C.textDim}
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
                       >
-                        {tkPredictions.tag || "—"}
-                      </span>
-                      <span style={{ fontSize: 10, color: C.text, fontWeight: 500 }}>
-                        {pending.length > 0 ? `${preds.length} found` : `${accepted.length} accepted`}
-                      </span>
-                    </>
-                  )}
-                  <div style={{ flex: 1 }} />
-                  <button
-                    onClick={() => setTkNovaPanelOpen(v => !v)}
-                    style={bt(C, {
-                      background: `${predColor}15`,
-                      color: predColor,
-                      border: `1px solid ${predColor}30`,
-                      padding: "2px 8px",
-                      fontSize: 8,
-                      fontWeight: 700,
-                      borderRadius: 3,
-                    })}
-                  >
-                    {tkNovaPanelOpen ? "Hide Panel ◂" : `Review ${pending.length} ▸`}
-                  </button>
-                  <button
-                    onClick={handleDismiss}
-                    title="Dismiss"
-                    style={{
-                      width: 22,
-                      height: 22,
-                      border: `1px solid ${C.border}`,
-                      borderRadius: 4,
-                      background: C.bg2,
-                      color: C.textDim,
-                      fontSize: 12,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <svg
-                      width="10"
-                      height="10"
-                      viewBox="0 0 10 10"
-                      fill="none"
-                      stroke={C.textDim}
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                    >
-                      <path d="M2 2l6 6M8 2l-6 6" />
-                    </svg>
-                  </button>
-                </>
-              )}
-            </div>
-          );
-        })()}
+                        <path d="M2 2l6 6M8 2l-6 6" />
+                      </svg>
+                    </button>
+                  </>
+                )}
+              </div>
+            );
+          })()}
 
         {/* ── Drawing-only content (hidden in estimate mode) ── */}
-        {tkPanelTier !== "estimate" && (<>
-        {/* Scale-not-set banner */}
-        {selectedDrawingId &&
-          !hasScale(selectedDrawingId) &&
-          (tkMeasureState === "measuring" || tkMeasureState === "paused") && (
-            <div
-              style={{
-                padding: "6px 14px",
-                borderBottom: `1px solid ${C.border}`,
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                background: "#FEF3C7",
-                borderLeft: "3px solid #F59E0B",
-              }}
-            >
-              <span style={{ fontSize: 10, fontWeight: 600, color: "#92400E" }}>
-                ⚠ No scale set for this drawing. Measurements saved but quantities won't calculate until you set a
-                scale.
-              </span>
-              <select
-                value=""
-                onChange={e => {
-                  if (e.target.value === "custom") {
-                    setTkTool("calibrate");
-                    setTkActivePoints([]);
-                    setTkMeasureState("idle");
-                    setDrawingScales({ ...drawingScales, [selectedDrawingId]: "custom" });
-                  } else if (e.target.value) {
-                    setDrawingScales({ ...drawingScales, [selectedDrawingId]: e.target.value });
-                  }
-                }}
-                style={inp(C, {
-                  width: 110,
-                  padding: "3px 6px",
-                  fontSize: 9,
-                  fontWeight: 600,
-                  background: "#fff",
-                  border: "1px solid #F59E0B",
-                })}
-              >
-                <option value="">Set Scale ▼</option>
-                <option value="quarter">1/4"=1'</option>
-                <option value="eighth">1/8"=1'</option>
-                <option value="half">1/2"=1'</option>
-                <option value="3-8">3/8"=1'</option>
-                <option value="eng20">1"=20'</option>
-                <option value="eng50">1"=50'</option>
-                <option value="custom">Calibrate...</option>
-              </select>
-              <button
-                onClick={() => {
-                  setTkTool("calibrate");
-                  setTkActivePoints([]);
-                  setTkMeasureState("idle");
-                  setDrawingScales({ ...drawingScales, [selectedDrawingId]: "custom" });
-                }}
-                style={bt(C, {
-                  padding: "3px 10px",
-                  fontSize: 8,
-                  fontWeight: 700,
-                  borderRadius: 4,
-                  background: "#F59E0B",
-                  color: "#fff",
-                })}
-              >
-                📐 Calibrate
-              </button>
-            </div>
-          )}
-
-        {/* AI Drawing Analysis Results */}
-        {aiDrawingAnalysis && !aiDrawingAnalysis.loading && aiDrawingAnalysis.results.length > 0 && (
-          <div
-            style={{
-              borderBottom: `1px solid ${C.accent}30`,
-              background: `${C.accent}06`,
-              maxHeight: 200,
-              overflowY: "auto",
-            }}
-          >
-            <div
-              style={{
-                padding: "5px 10px",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                borderBottom: `1px solid ${C.accent}15`,
-              }}
-            >
-              <span style={{ fontSize: 10, fontWeight: 700, color: C.accent }}>
-                <Ic d={I.ai} size={10} color={C.accent} /> {aiDrawingAnalysis.results.length} Elements Detected
-              </span>
-              <div style={{ display: "flex", gap: 4 }}>
-                <button
-                  onClick={acceptAllDrawingItems}
-                  style={bt(C, {
-                    background: C.green,
-                    color: "#fff",
-                    padding: "2px 8px",
-                    fontSize: 8,
-                    fontWeight: 600,
-                  })}
-                >
-                  Add All
-                </button>
-                <button
-                  onClick={() => setAiDrawingAnalysis(null)}
-                  style={bt(C, {
-                    background: "transparent",
-                    border: `1px solid ${C.border}`,
-                    color: C.textDim,
-                    padding: "2px 6px",
-                    fontSize: 8,
-                  })}
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-            {aiDrawingAnalysis.results.map((item, i) => {
-              const isCount = item.type === "count";
-              const hasLocs = (item.locations || []).length > 0;
-              return (
+        {tkPanelTier !== "estimate" && (
+          <>
+            {/* Scale-not-set banner */}
+            {selectedDrawingId &&
+              !hasScale(selectedDrawingId) &&
+              (tkMeasureState === "measuring" || tkMeasureState === "paused") && (
                 <div
-                  key={i}
                   style={{
-                    padding: "3px 10px",
+                    padding: "6px 14px",
+                    borderBottom: `1px solid ${C.border}`,
                     display: "flex",
-                    gap: 6,
                     alignItems: "center",
-                    borderBottom: `1px solid ${C.bg2}`,
-                    fontSize: 10,
+                    gap: 10,
+                    background: "#FEF3C7",
+                    borderLeft: "3px solid #F59E0B",
                   }}
                 >
-                  <span
-                    style={{
-                      fontSize: 7,
-                      fontWeight: 700,
-                      padding: "1px 4px",
-                      borderRadius: 3,
-                      flexShrink: 0,
-                      background:
-                        item.type === "count"
-                          ? `${C.green}15`
-                          : item.type === "linear"
-                            ? `${C.blue}15`
-                            : `${C.purple}15`,
-                      color: item.type === "count" ? C.green : item.type === "linear" ? C.blue : C.purple,
-                    }}
-                  >
-                    {item.type?.toUpperCase()}
+                  <span style={{ fontSize: 10, fontWeight: 600, color: "#92400E" }}>
+                    ⚠ No scale set for this drawing. Measurements saved but quantities won't calculate until you set a
+                    scale.
                   </span>
-                  <span
-                    style={{
-                      flex: 1,
-                      color: C.text,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
+                  <select
+                    value=""
+                    onChange={e => {
+                      if (e.target.value === "custom") {
+                        setTkTool("calibrate");
+                        setTkActivePoints([]);
+                        setTkMeasureState("idle");
+                        setDrawingScales({ ...drawingScales, [selectedDrawingId]: "custom" });
+                      } else if (e.target.value) {
+                        setDrawingScales({ ...drawingScales, [selectedDrawingId]: e.target.value });
+                      }
                     }}
-                    title={item.notes || item.name}
-                  >
-                    {item.name}
-                  </span>
-                  {isCount ? (
-                    <span
-                      style={{
-                        fontFamily: "'DM Sans',sans-serif",
-                        fontSize: 9,
-                        color: C.accent,
-                        fontWeight: 600,
-                        flexShrink: 0,
-                      }}
-                    >
-                      {item.quantity || (item.locations || []).length} {item.unit}
-                    </span>
-                  ) : (
-                    <span style={{ fontSize: 8, color: C.orange, fontWeight: 500, flexShrink: 0, fontStyle: "italic" }}>
-                      needs measuring
-                    </span>
-                  )}
-                  <span
-                    style={{
-                      fontSize: 7,
-                      color: item.confidence === "high" ? C.green : item.confidence === "low" ? C.orange : C.textDim,
+                    style={inp(C, {
+                      width: 110,
+                      padding: "3px 6px",
+                      fontSize: 9,
                       fontWeight: 600,
-                      flexShrink: 0,
-                    }}
-                  >
-                    {item.confidence}
-                  </span>
-                  {hasLocs && (
-                    <span style={{ fontSize: 7, color: C.accent, flexShrink: 0 }} title="Located on drawing">
-                      📍
-                    </span>
-                  )}
-                  <button
-                    onClick={() => acceptDrawingItem(item)}
-                    title={isCount ? "Add to takeoffs" : "Add to takeoffs — measure for accurate qty"}
-                    style={bt(C, {
-                      background: `${C.green}15`,
-                      border: `1px solid ${C.green}30`,
-                      color: C.green,
-                      padding: "1px 6px",
-                      fontSize: 8,
-                      fontWeight: 600,
-                      flexShrink: 0,
+                      background: "#fff",
+                      border: "1px solid #F59E0B",
                     })}
                   >
-                    +
+                    <option value="">Set Scale ▼</option>
+                    <option value="quarter">1/4"=1'</option>
+                    <option value="eighth">1/8"=1'</option>
+                    <option value="half">1/2"=1'</option>
+                    <option value="3-8">3/8"=1'</option>
+                    <option value="eng20">1"=20'</option>
+                    <option value="eng50">1"=50'</option>
+                    <option value="custom">Calibrate...</option>
+                  </select>
+                  <button
+                    onClick={() => {
+                      setTkTool("calibrate");
+                      setTkActivePoints([]);
+                      setTkMeasureState("idle");
+                      setDrawingScales({ ...drawingScales, [selectedDrawingId]: "custom" });
+                    }}
+                    style={bt(C, {
+                      padding: "3px 10px",
+                      fontSize: 8,
+                      fontWeight: 700,
+                      borderRadius: 4,
+                      background: "#F59E0B",
+                      color: "#fff",
+                    })}
+                  >
+                    📐 Calibrate
                   </button>
                 </div>
-              );
-            })}
-          </div>
-        )}
+              )}
 
-        {/* AI Wall Schedule Preview Modal */}
-        {wallSchedule.results && wallSchedule.results.length > 0 && (
-          <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 9999,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "rgba(0,0,0,0.5)",
-            }}
-            onClick={e => {
-              if (e.target === e.currentTarget) setWallSchedule({ loading: false, results: null, error: null });
-            }}
-          >
-            <div
-              style={{
-                background: C.bg,
-                borderRadius: 12,
-                border: `1px solid ${C.border}`,
-                width: 580,
-                maxHeight: "80vh",
-                display: "flex",
-                flexDirection: "column",
-                boxShadow: "0 16px 48px rgba(0,0,0,0.3)",
-              }}
-              onClick={e => e.stopPropagation()}
-            >
-              {/* Modal Header */}
+            {/* AI Drawing Analysis Results */}
+            {aiDrawingAnalysis && !aiDrawingAnalysis.loading && aiDrawingAnalysis.results.length > 0 && (
               <div
                 style={{
-                  padding: "16px 20px",
-                  borderBottom: `1px solid ${C.border}`,
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
+                  borderBottom: `1px solid ${C.accent}30`,
+                  background: `${C.accent}06`,
+                  maxHeight: 200,
+                  overflowY: "auto",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <Ic d={I.ai} size={16} color={C.accent} />
-                  <span style={{ fontSize: 15, fontWeight: 700, color: C.text }}>Wall Types Detected</span>
-                  <span
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: C.accent,
-                      background: `${C.accent}15`,
-                      padding: "2px 8px",
-                      borderRadius: 10,
-                    }}
-                  >
-                    {wallSchedule.results.length} found
-                  </span>
-                </div>
-                <button
-                  onClick={() => setWallSchedule({ loading: false, results: null, error: null })}
+                <div
                   style={{
-                    width: 28,
-                    height: 28,
-                    border: "none",
-                    background: C.bg2,
-                    color: C.textDim,
-                    borderRadius: 6,
+                    padding: "5px 10px",
                     display: "flex",
+                    justifyContent: "space-between",
                     alignItems: "center",
-                    justifyContent: "center",
-                    cursor: "pointer",
-                    fontSize: 14,
+                    borderBottom: `1px solid ${C.accent}15`,
                   }}
                 >
-                  ✕
-                </button>
-              </div>
-              {/* Wall Types List */}
-              <div style={{ flex: 1, overflowY: "auto", padding: "8px 0" }}>
-                {wallSchedule.results.map((mapped, i) => {
-                  const wt = mapped.wallType;
-                  const specSummary = [];
-                  if (mapped.specs.Material) specSummary.push(mapped.specs.Material);
-                  if (mapped.specs.StudSize) specSummary.push(mapped.specs.StudSize);
-                  if (mapped.specs.MSStudSize) specSummary.push(mapped.specs.MSStudSize);
-                  if (mapped.specs.MSGauge) specSummary.push(mapped.specs.MSGauge);
-                  if (mapped.specs.CMUWidth) specSummary.push(`${mapped.specs.CMUWidth} CMU`);
-                  if (mapped.specs.ConcThickness) specSummary.push(`${mapped.specs.ConcThickness} Conc`);
-                  if (mapped.specs.PlanSpacing) specSummary.push(mapped.specs.PlanSpacing);
-                  if (mapped.specs.MSSpacing) specSummary.push(mapped.specs.MSSpacing);
-                  if (mapped.specs.WallHeight) specSummary.push(`${mapped.specs.WallHeight}' Ht`);
-                  const confColor = wt.confidence === "high" ? C.green : wt.confidence === "low" ? C.orange : C.textDim;
+                  <span style={{ fontSize: 10, fontWeight: 700, color: C.accent }}>
+                    <Ic d={I.ai} size={10} color={C.accent} /> {aiDrawingAnalysis.results.length} Elements Detected
+                  </span>
+                  <div style={{ display: "flex", gap: 4 }}>
+                    <button
+                      onClick={acceptAllDrawingItems}
+                      style={bt(C, {
+                        background: C.green,
+                        color: "#fff",
+                        padding: "2px 8px",
+                        fontSize: 8,
+                        fontWeight: 600,
+                      })}
+                    >
+                      Add All
+                    </button>
+                    <button
+                      onClick={() => setAiDrawingAnalysis(null)}
+                      style={bt(C, {
+                        background: "transparent",
+                        border: `1px solid ${C.border}`,
+                        color: C.textDim,
+                        padding: "2px 6px",
+                        fontSize: 8,
+                      })}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+                {aiDrawingAnalysis.results.map((item, i) => {
+                  const isCount = item.type === "count";
+                  const hasLocs = (item.locations || []).length > 0;
                   return (
                     <div
                       key={i}
                       style={{
-                        padding: "10px 20px",
-                        borderBottom: `1px solid ${C.bg2}`,
+                        padding: "3px 10px",
                         display: "flex",
-                        flexDirection: "column",
-                        gap: 4,
+                        gap: 6,
+                        alignItems: "center",
+                        borderBottom: `1px solid ${C.bg2}`,
+                        fontSize: 10,
                       }}
                     >
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: C.accent, minWidth: 60 }}>
-                          {mapped.label}
-                        </span>
-                        <span
-                          style={{
-                            fontSize: 8,
-                            fontWeight: 700,
-                            padding: "2px 6px",
-                            borderRadius: 3,
-                            background: wt.category === "exterior" ? `${C.orange}15` : `${C.blue}15`,
-                            color: wt.category === "exterior" ? C.orange : C.blue,
-                            textTransform: "uppercase",
-                          }}
-                        >
-                          {wt.category}
-                        </span>
-                        <span
-                          style={{
-                            flex: 1,
-                            fontSize: 10,
-                            color: C.textMuted,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {wt.description || ""}
-                        </span>
-                        <span style={{ fontSize: 8, fontWeight: 600, color: confColor }}>{wt.confidence}</span>
-                      </div>
-                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                        {specSummary.map((s, j) => (
-                          <span
-                            key={j}
-                            style={{
-                              fontSize: 9,
-                              padding: "1px 6px",
-                              borderRadius: 3,
-                              background: `${C.accent}10`,
-                              color: C.text,
-                              fontFamily: "'DM Sans',sans-serif",
-                            }}
-                          >
-                            {s}
-                          </span>
-                        ))}
-                      </div>
-                      {wt.finishes && (
-                        <div style={{ fontSize: 9, color: C.textDim }}>
-                          {wt.finishes.interior && <span>Int: {wt.finishes.interior} </span>}
-                          {wt.finishes.exterior && <span>Ext: {wt.finishes.exterior} </span>}
-                          {wt.finishes.insulation && <span>Insul: {wt.finishes.insulation}</span>}
-                        </div>
-                      )}
-                      {wt.notes && <div style={{ fontSize: 9, color: C.textDim, fontStyle: "italic" }}>{wt.notes}</div>}
-                      {mapped.warnings.length > 0 && (
-                        <div style={{ fontSize: 8, color: C.orange }}>⚠ {mapped.warnings.join(" | ")}</div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-              {/* Modal Footer */}
-              <div
-                style={{
-                  padding: "12px 20px",
-                  borderTop: `1px solid ${C.border}`,
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  gap: 8,
-                }}
-              >
-                <button
-                  onClick={() => setWallSchedule({ loading: false, results: null, error: null })}
-                  style={bt(C, {
-                    background: "transparent",
-                    border: `1px solid ${C.border}`,
-                    color: C.textDim,
-                    padding: "8px 16px",
-                    fontSize: 11,
-                    fontWeight: 600,
-                    borderRadius: 6,
-                  })}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => createWallInstances(wallSchedule.results)}
-                  style={bt(C, {
-                    background: C.accent,
-                    color: "#fff",
-                    padding: "8px 20px",
-                    fontSize: 11,
-                    fontWeight: 700,
-                    borderRadius: 6,
-                  })}
-                >
-                  Create All ({wallSchedule.results.length})
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* PDF Schedule Scan Results Modal */}
-        {pdfSchedules.results && pdfSchedules.results.length > 0 && (
-          <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 9999,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "rgba(0,0,0,0.5)",
-            }}
-            onClick={e => {
-              if (e.target === e.currentTarget) setPdfSchedules({ loading: false, results: null });
-            }}
-          >
-            <div
-              style={{
-                background: C.bg,
-                borderRadius: 12,
-                border: `1px solid ${C.border}`,
-                width: 640,
-                maxHeight: "80vh",
-                display: "flex",
-                flexDirection: "column",
-                boxShadow: "0 16px 48px rgba(0,0,0,0.3)",
-              }}
-              onClick={e => e.stopPropagation()}
-            >
-              {/* Modal Header */}
-              <div
-                style={{
-                  padding: "16px 20px",
-                  borderBottom: `1px solid ${C.border}`,
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="#10B981"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                  >
-                    <path d="M3 12h4l3-9 4 18 3-9h4" />
-                  </svg>
-                  <span style={{ fontSize: 15, fontWeight: 700, color: C.text }}>Schedules Detected</span>
-                  <span
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: "#10B981",
-                      background: "#10B98115",
-                      padding: "2px 8px",
-                      borderRadius: 10,
-                    }}
-                  >
-                    {pdfSchedules.results.length} schedule{pdfSchedules.results.length !== 1 ? "s" : ""}
-                  </span>
-                </div>
-                <button
-                  onClick={() => setPdfSchedules({ loading: false, results: null })}
-                  style={{
-                    width: 28,
-                    height: 28,
-                    border: "none",
-                    background: C.bg2,
-                    color: C.textDim,
-                    borderRadius: 6,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    cursor: "pointer",
-                    fontSize: 14,
-                  }}
-                >
-                  ✕
-                </button>
-              </div>
-              {/* Schedule List */}
-              <div style={{ flex: 1, overflowY: "auto", padding: "8px 0" }}>
-                {pdfSchedules.results.map((sched, i) => {
-                  const typeColors = {
-                    wall: C.accent,
-                    door: C.orange,
-                    window: C.blue,
-                    finish: C.purple || "#8B5CF6",
-                    fixture: C.green,
-                    equipment: C.textDim,
-                  };
-                  const typeColor = typeColors[sched.type] || C.textDim;
-                  return (
-                    <div key={i} style={{ borderBottom: `1px solid ${C.bg2}` }}>
-                      {/* Schedule header */}
-                      <div
+                      <span
                         style={{
-                          padding: "10px 20px",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          background: `${typeColor}08`,
+                          fontSize: 7,
+                          fontWeight: 700,
+                          padding: "1px 4px",
+                          borderRadius: 3,
+                          flexShrink: 0,
+                          background:
+                            item.type === "count"
+                              ? `${C.green}15`
+                              : item.type === "linear"
+                                ? `${C.blue}15`
+                                : `${C.purple}15`,
+                          color: item.type === "count" ? C.green : item.type === "linear" ? C.blue : C.purple,
                         }}
                       >
+                        {item.type?.toUpperCase()}
+                      </span>
+                      <span
+                        style={{
+                          flex: 1,
+                          color: C.text,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                        title={item.notes || item.name}
+                      >
+                        {item.name}
+                      </span>
+                      {isCount ? (
                         <span
                           style={{
-                            fontSize: 8,
-                            fontWeight: 700,
-                            padding: "2px 6px",
-                            borderRadius: 3,
-                            background: `${typeColor}15`,
-                            color: typeColor,
-                            textTransform: "uppercase",
-                          }}
-                        >
-                          {sched.type}
-                        </span>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{sched.title}</span>
-                        <span style={{ fontSize: 9, color: C.textDim }}>Sheet {sched.sheetNumber}</span>
-                        <span style={{ fontSize: 9, color: C.textDim, fontFamily: "'DM Sans',sans-serif" }}>
-                          {sched.itemCount} items
-                        </span>
-                      </div>
-                      {/* Schedule rows */}
-                      {sched.data.slice(0, 8).map((row, j) => (
-                        <div
-                          key={j}
-                          style={{
-                            padding: "6px 20px 6px 36px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                            fontSize: 10,
-                          }}
-                        >
-                          <span
-                            style={{
-                              fontWeight: 700,
-                              color: typeColor,
-                              minWidth: 40,
-                              fontFamily: "'DM Sans',sans-serif",
-                            }}
-                          >
-                            {row.typeLabel || row.mark || row.roomNo || "—"}
-                          </span>
-                          <span
-                            style={{
-                              flex: 1,
-                              color: C.text,
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {row.description || row.roomName || row.type || ""}
-                          </span>
-                          {row.material && (
-                            <span
-                              style={{
-                                fontSize: 8,
-                                padding: "1px 5px",
-                                borderRadius: 3,
-                                background: `${C.accent}10`,
-                                color: C.text,
-                              }}
-                            >
-                              {row.material}
-                            </span>
-                          )}
-                          {row.MSStudSize && (
-                            <span
-                              style={{
-                                fontSize: 8,
-                                padding: "1px 5px",
-                                borderRadius: 3,
-                                background: `${C.accent}10`,
-                                color: C.text,
-                                fontFamily: "'DM Sans',sans-serif",
-                              }}
-                            >
-                              {row.MSStudSize}
-                            </span>
-                          )}
-                          {row.MSGauge && (
-                            <span
-                              style={{
-                                fontSize: 8,
-                                padding: "1px 5px",
-                                borderRadius: 3,
-                                background: `${C.accent}10`,
-                                color: C.text,
-                                fontFamily: "'DM Sans',sans-serif",
-                              }}
-                            >
-                              {row.MSGauge}
-                            </span>
-                          )}
-                          {row.confidence && (
-                            <span
-                              style={{
-                                fontSize: 7,
-                                fontWeight: 600,
-                                color:
-                                  row.confidence === "high" ? C.green : row.confidence === "low" ? C.orange : C.textDim,
-                              }}
-                            >
-                              {row.confidence}
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                      {sched.data.length > 8 && (
-                        <div style={{ padding: "4px 36px", fontSize: 9, color: C.textDim }}>
-                          + {sched.data.length - 8} more...
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-              {/* Modal Footer */}
-              <div
-                style={{
-                  padding: "12px 20px",
-                  borderTop: `1px solid ${C.border}`,
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <span style={{ fontSize: 9, color: C.textDim }}>
-                  {pdfSchedules.results.reduce((s, sc) => s + sc.itemCount, 0)} total items across{" "}
-                  {pdfSchedules.results.length} schedule(s)
-                </span>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button
-                    onClick={() => setPdfSchedules({ loading: false, results: null })}
-                    style={bt(C, {
-                      background: "transparent",
-                      border: `1px solid ${C.border}`,
-                      color: C.textDim,
-                      padding: "8px 16px",
-                      fontSize: 11,
-                      fontWeight: 600,
-                      borderRadius: 6,
-                    })}
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Sheet info bar */}
-        {selectedDrawing && (
-          <div
-            style={{
-              padding: "3px 10px",
-              borderBottom: `1px solid ${C.border}`,
-              fontSize: 9,
-              color: C.textDim,
-              background: C.bg,
-            }}
-          >
-            {selectedDrawing.sheetNumber || selectedDrawing.pageNumber || "—"} |{" "}
-            {selectedDrawing.sheetTitle || selectedDrawing.label || "Untitled"} | Rev {selectedDrawing.revision || "0"}
-          </div>
-        )}
-
-        {/* Drawing display area */}
-        <div
-          ref={drawingContainerRef}
-          onMouseDown={handleDrawingMouseDown}
-          onContextMenu={e => e.preventDefault()}
-          style={{
-            flex: 1,
-            overflow: "hidden",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: C.isDark ? "#1a1d24" : "#e5e7eb",
-            position: "relative",
-            cursor: tkPanning.current ? "grabbing" : "default",
-          }}
-        >
-          {!selectedDrawing ? (
-            <div
-              style={{
-                color: C.textDim,
-                textAlign: "center",
-                padding: 40,
-                maxWidth: 400,
-                animation: "fadeIn 0.3s ease-out",
-              }}
-            >
-              {drawings.length === 0 ? (
-                <>
-                  {/* Workflow stepper empty state — confident & beautiful */}
-                  <div style={{ position: "relative", display: "inline-block", marginBottom: 20 }}>
-                    <div
-                      style={{
-                        position: "absolute",
-                        inset: -16,
-                        borderRadius: "50%",
-                        border: `1px solid ${C.accent}10`,
-                        animation: "breathe 4s ease-in-out infinite",
-                      }}
-                    />
-                    <div
-                      style={{
-                        position: "absolute",
-                        inset: -8,
-                        borderRadius: "50%",
-                        border: `1px solid ${C.accent}15`,
-                        animation: "breathe 4s ease-in-out infinite 0.4s",
-                      }}
-                    />
-                    <div
-                      style={{
-                        width: 56,
-                        height: 56,
-                        borderRadius: 16,
-                        background: `linear-gradient(135deg, ${C.accent}18, ${C.accent}06)`,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        boxShadow: `0 0 32px ${C.accent}15`,
-                        position: "relative",
-                      }}
-                    >
-                      <Ic d={I.plans} size={26} color={C.accent} sw={1.5} />
-                    </div>
-                  </div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: C.text, marginBottom: 6, letterSpacing: -0.3 }}>
-                    Start your takeoff
-                  </div>
-                  <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.5, marginBottom: 24 }}>
-                    Upload drawings in the <strong style={{ color: C.text }}>Discovery</strong> tab to begin.
-                  </div>
-                  <div
-                    style={{ textAlign: "left", display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}
-                  >
-                    {[
-                      {
-                        step: 1,
-                        label: "Upload drawings",
-                        desc: "Go to Discovery tab to add PDFs or images",
-                        icon: I.upload,
-                      },
-                      { step: 2, label: "Set scale", desc: "Calibrate or select a preset scale", icon: I.ruler },
-                      {
-                        step: 3,
-                        label: "Create takeoffs",
-                        desc: "Add items to measure from the left panel",
-                        icon: I.plus,
-                      },
-                      { step: 4, label: "Measure", desc: "Click on drawings to record quantities", icon: I.polygon },
-                    ].map(s => (
-                      <div key={s.step} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                        <div
-                          style={{
-                            width: 24,
-                            height: 24,
-                            borderRadius: 12,
-                            background: `${C.accent}15`,
+                            fontFamily: "'DM Sans',sans-serif",
+                            fontSize: 9,
                             color: C.accent,
-                            fontSize: 11,
-                            fontWeight: 700,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
+                            fontWeight: 600,
                             flexShrink: 0,
                           }}
                         >
-                          {s.step}
-                        </div>
-                        <div>
-                          <div style={{ fontWeight: 600, fontSize: 12, color: C.text }}>{s.label}</div>
-                          <div style={{ fontSize: 10, color: C.textDim, marginTop: 1 }}>{s.desc}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ display: "flex", gap: 12, justifyContent: "center", fontSize: 9, color: C.textDim }}>
-                    <span>
-                      <kbd
+                          {item.quantity || (item.locations || []).length} {item.unit}
+                        </span>
+                      ) : (
+                        <span
+                          style={{ fontSize: 8, color: C.orange, fontWeight: 500, flexShrink: 0, fontStyle: "italic" }}
+                        >
+                          needs measuring
+                        </span>
+                      )}
+                      <span
                         style={{
-                          padding: "1px 4px",
-                          borderRadius: 3,
-                          background: C.bg2,
-                          border: `1px solid ${C.border}`,
-                          fontSize: 9,
-                          fontFamily: "'DM Sans',sans-serif",
+                          fontSize: 7,
+                          color:
+                            item.confidence === "high" ? C.green : item.confidence === "low" ? C.orange : C.textDim,
+                          fontWeight: 600,
+                          flexShrink: 0,
                         }}
                       >
-                        ⌘K
-                      </kbd>{" "}
-                      Command palette
-                    </span>
-                    <span>
-                      <kbd
+                        {item.confidence}
+                      </span>
+                      {hasLocs && (
+                        <span style={{ fontSize: 7, color: C.accent, flexShrink: 0 }} title="Located on drawing">
+                          📍
+                        </span>
+                      )}
+                      <button
+                        onClick={() => acceptDrawingItem(item)}
+                        title={isCount ? "Add to takeoffs" : "Add to takeoffs — measure for accurate qty"}
+                        style={bt(C, {
+                          background: `${C.green}15`,
+                          border: `1px solid ${C.green}30`,
+                          color: C.green,
+                          padding: "1px 6px",
+                          fontSize: 8,
+                          fontWeight: 600,
+                          flexShrink: 0,
+                        })}
+                      >
+                        +
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* AI Wall Schedule Preview Modal */}
+            {wallSchedule.results && wallSchedule.results.length > 0 && (
+              <div
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  zIndex: 9999,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "rgba(0,0,0,0.5)",
+                }}
+                onClick={e => {
+                  if (e.target === e.currentTarget) setWallSchedule({ loading: false, results: null, error: null });
+                }}
+              >
+                <div
+                  style={{
+                    background: C.bg,
+                    borderRadius: 12,
+                    border: `1px solid ${C.border}`,
+                    width: 580,
+                    maxHeight: "80vh",
+                    display: "flex",
+                    flexDirection: "column",
+                    boxShadow: "0 16px 48px rgba(0,0,0,0.3)",
+                  }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  {/* Modal Header */}
+                  <div
+                    style={{
+                      padding: "16px 20px",
+                      borderBottom: `1px solid ${C.border}`,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <Ic d={I.ai} size={16} color={C.accent} />
+                      <span style={{ fontSize: 15, fontWeight: 700, color: C.text }}>Wall Types Detected</span>
+                      <span
                         style={{
-                          padding: "1px 4px",
-                          borderRadius: 3,
-                          background: C.bg2,
-                          border: `1px solid ${C.border}`,
-                          fontSize: 9,
-                          fontFamily: "'DM Sans',sans-serif",
+                          fontSize: 11,
+                          fontWeight: 600,
+                          color: C.accent,
+                          background: `${C.accent}15`,
+                          padding: "2px 8px",
+                          borderRadius: 10,
                         }}
                       >
-                        Esc
-                      </kbd>{" "}
-                      Stop measuring
-                    </span>
-                  </div>
-                </>
-              ) : (
-                <>
-                  {/* Select a drawing — confident with thumbnails */}
-                  <div style={{ position: "relative", display: "inline-block", marginBottom: 16 }}>
-                    <div
+                        {wallSchedule.results.length} found
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => setWallSchedule({ loading: false, results: null, error: null })}
                       style={{
-                        position: "absolute",
-                        inset: -8,
-                        borderRadius: "50%",
-                        border: `1px solid ${C.accent}10`,
-                        animation: "breathe 3s ease-in-out infinite",
-                      }}
-                    />
-                    <div
-                      style={{
-                        width: 48,
-                        height: 48,
-                        borderRadius: 14,
-                        background: `linear-gradient(135deg, ${C.accent}12, ${C.accent}06)`,
+                        width: 28,
+                        height: 28,
+                        border: "none",
+                        background: C.bg2,
+                        color: C.textDim,
+                        borderRadius: 6,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        position: "relative",
+                        cursor: "pointer",
+                        fontSize: 14,
                       }}
                     >
-                      <Ic d={I.plans} size={22} color={C.accent} sw={1.5} />
-                    </div>
+                      ✕
+                    </button>
                   </div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 4, letterSpacing: -0.2 }}>
-                    Choose a drawing
-                  </div>
-                  <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 6 }}>
-                    {drawings.length} drawing{drawings.length !== 1 ? "s" : ""} ready to measure
-                  </div>
-                  <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 12, marginBottom: 12 }}>
-                    {drawings
-                      .filter(d => d.data)
-                      .slice(0, 3)
-                      .map(d => {
-                        const thumb = d.type === "pdf" ? pdfCanvases[d.id] : d.data;
-                        return (
-                          <div
-                            key={d.id}
-                            onClick={() => {
-                              setSelectedDrawingId(d.id);
-                              if (d.type === "pdf" && d.data) renderPdfPage(d);
-                            }}
-                            style={{
-                              width: 80,
-                              height: 60,
-                              borderRadius: 6,
-                              overflow: "hidden",
-                              cursor: "pointer",
-                              background: C.bg2,
-                              border: `1px solid ${C.border}`,
-                              transition: "all 0.15s",
-                              position: "relative",
-                            }}
-                            onMouseEnter={e => (e.currentTarget.style.borderColor = C.accent)}
-                            onMouseLeave={e => (e.currentTarget.style.borderColor = C.border)}
-                          >
-                            {thumb ? (
-                              <img src={thumb} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                            ) : (
-                              <div
-                                style={{
-                                  width: "100%",
-                                  height: "100%",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  fontSize: 8,
-                                  color: C.textDim,
-                                }}
-                              >
-                                ...
-                              </div>
-                            )}
-                            <div
-                              style={{
-                                position: "absolute",
-                                bottom: 0,
-                                left: 0,
-                                right: 0,
-                                padding: "1px 3px",
-                                background: "rgba(0,0,0,0.7)",
-                                fontSize: 7,
-                                fontWeight: 600,
-                                color: "#fff",
-                                textAlign: "center",
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                              }}
-                            >
-                              {d.sheetNumber || d.pageNumber || "?"}
-                            </div>
-                          </div>
-                        );
-                      })}
-                  </div>
-                  <div style={{ fontSize: 10, color: C.textDim }}>Use ◀ ▶ arrows or click thumbnails above</div>
-                </>
-              )}
-            </div>
-          ) : !selectedDrawing.data ? (
-            <div style={{ color: C.orange, fontSize: 12, textAlign: "center", padding: 20 }}>
-              <Ic d={I.upload} size={24} color={C.orange} />
-              <br />
-              <span style={{ marginTop: 6, display: "block" }}>File needs re-upload</span>
-              <span style={{ fontSize: 10, color: C.textDim }}>
-                Drawing data is not stored between sessions.
-                <br />
-                Go to <strong>Discovery</strong> to re-attach the file.
-              </span>
-            </div>
-          ) : (
-            <div
-              ref={tkTransformRef}
-              style={{
-                transform: `translate(${tkPan.x}px,${tkPan.y}px) scale(${tkZoom / 100})`,
-                transformOrigin: "0 0",
-                position: "relative",
-              }}
-            >
-              {selectedDrawing.type === "image" ? (
-                <img
-                  ref={drawingImgRef}
-                  src={selectedDrawing.data}
-                  style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", display: "block" }}
-                  onLoad={e => {
-                    const w = e.target.naturalWidth,
-                      h = e.target.naturalHeight;
-                    if (canvasRef.current) {
-                      canvasRef.current.width = w;
-                      canvasRef.current.height = h;
-                    }
-                    if (cursorCanvasRef.current) {
-                      cursorCanvasRef.current.width = w;
-                      cursorCanvasRef.current.height = h;
-                    }
-                    if (predictionCanvasRef.current) {
-                      predictionCanvasRef.current.width = w;
-                      predictionCanvasRef.current.height = h;
-                    }
-                  }}
-                />
-              ) : pdfCanvases[selectedDrawing.id] ? (
-                <img
-                  ref={drawingImgRef}
-                  src={pdfCanvases[selectedDrawing.id]}
-                  style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", display: "block" }}
-                  onLoad={e => {
-                    const w = e.target.naturalWidth,
-                      h = e.target.naturalHeight;
-                    if (canvasRef.current) {
-                      canvasRef.current.width = w;
-                      canvasRef.current.height = h;
-                    }
-                    if (cursorCanvasRef.current) {
-                      cursorCanvasRef.current.width = w;
-                      cursorCanvasRef.current.height = h;
-                    }
-                    if (predictionCanvasRef.current) {
-                      predictionCanvasRef.current.width = w;
-                      predictionCanvasRef.current.height = h;
-                    }
-                  }}
-                />
-              ) : (
-                <div style={{ color: C.textDim, fontSize: 11 }}>Loading PDF page...</div>
-              )}
-              {/* Canvas overlay */}
-              <canvas
-                ref={canvasRef}
-                className="tk-canvas-cursor"
-                onClick={handleCanvasClick}
-                onMouseMove={e => {
-                  const rect = e.target.getBoundingClientRect();
-                  const sx = (canvasRef.current?.width || 1) / rect.width;
-                  const sy = (canvasRef.current?.height || 1) / rect.height;
-                  const pt = { x: (e.clientX - rect.left) * sx, y: (e.clientY - rect.top) * sy };
-
-                  // Idle/stopped: show pointer cursor when hovering over clickable measurements
-                  if (tkMeasureState !== "measuring" && tkMeasureState !== "paused") {
-                    const zs = Math.max(1, sx);
-                    const cr = Math.max(30, 30 * zs),
-                      lr = Math.max(12, 15 * zs);
-                    let hovering = false;
-                    for (const to of useTakeoffsStore.getState().takeoffs) {
-                      for (const m of to.measurements || []) {
-                        if (m.sheetId !== selectedDrawingId) continue;
-                        if (m.type === "count") {
-                          if (Math.sqrt((pt.x - m.points[0].x) ** 2 + (pt.y - m.points[0].y) ** 2) < cr)
-                            hovering = true;
-                        } else if (m.type === "linear" && m.points.length >= 2) {
-                          for (let i = 0; i < m.points.length - 1; i++) {
-                            const a = m.points[i],
-                              b = m.points[i + 1];
-                            const len = Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
-                            if (len < 1) continue;
-                            const t2 = Math.max(
-                              0,
-                              Math.min(1, ((pt.x - a.x) * (b.x - a.x) + (pt.y - a.y) * (b.y - a.y)) / (len * len)),
-                            );
-                            const proj = { x: a.x + t2 * (b.x - a.x), y: a.y + t2 * (b.y - a.y) };
-                            if (Math.sqrt((pt.x - proj.x) ** 2 + (pt.y - proj.y) ** 2) < lr) hovering = true;
-                          }
-                        } else if (m.type === "area" && m.points.length >= 3) {
-                          let inside = false;
-                          const pts2 = m.points;
-                          for (let i = 0, j = pts2.length - 1; i < pts2.length; j = i++) {
-                            const xi = pts2[i].x,
-                              yi = pts2[i].y,
-                              xj = pts2[j].x,
-                              yj = pts2[j].y;
-                            if (yi > pt.y !== yj > pt.y && pt.x < ((xj - xi) * (pt.y - yi)) / (yj - yi) + xi)
-                              inside = !inside;
-                          }
-                          if (inside) hovering = true;
-                        }
-                        if (hovering) break;
-                      }
-                      if (hovering) break;
-                    }
-                    // Idle — NovaCursor teal orb handles cursor display
-                    return;
-                  }
-
-                  // Measuring: update cursor position for live preview (RAF throttled)
-                  if (tkActivePoints.length === 0) return;
-                  let snapped = pt;
-                  if ((e.shiftKey || snapAngleOnRef.current) && tkActivePoints.length >= 1) {
-                    snapped = snapAngle(tkActivePoints[tkActivePoints.length - 1], pt);
-                  }
-                  shiftHeldRef.current = e.shiftKey || snapAngleOnRef.current;
-                  pendingCursorRef.current = snapped;
-                  if (!rafCursorRef.current) {
-                    rafCursorRef.current = requestAnimationFrame(() => {
-                      rafCursorRef.current = null;
-                      if (pendingCursorRef.current) setTkCursorPt(pendingCursorRef.current);
-                    });
-                  }
-                }}
-                onMouseLeave={() => setTkCursorPt(null)}
-                onMouseDown={e => {
-                  if (e.button === 2 || e.button === 1) handleDrawingMouseDown(e);
-                }}
-                onContextMenu={e => e.preventDefault()}
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  width: "100%",
-                  height: "100%",
-                  cursor: tkAutoCount?.phase === "select" ? "crosshair" : tkTool === "calibrate" ? "crosshair" : "none",
-                  pointerEvents: "auto",
-                }}
-              />
-              {/* Prediction ghost overlay canvas — animated ghost markers */}
-              <canvas
-                ref={predictionCanvasRef}
-                style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none" }}
-              />
-              {/* Cursor overlay canvas — lightweight layer for cursor-dependent rendering */}
-              <canvas
-                ref={cursorCanvasRef}
-                style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none" }}
-              />
-            </div>
-          )}
-
-          {/* Floating specs card — shows module specs during measuring */}
-          {tkMeasureState === "measuring" &&
-            tkActiveTakeoffId &&
-            (() => {
-              const to = takeoffs.find(t => t.id === tkActiveTakeoffId);
-              if (!to?.linkedItemId) return null;
-              // Find the module/category/instance that owns this takeoff
-              for (const modId of Object.keys(moduleInstances)) {
-                const inst = moduleInstances[modId];
-                const mod = MODULES[modId];
-                if (!mod || !inst) continue;
-                for (const cat of mod.categories) {
-                  if (!cat.multiInstance) continue;
-                  const catInstances = inst.categoryInstances?.[cat.id] || [];
-                  for (const ci of catInstances) {
-                    const linked = ci.itemTakeoffIds || {};
-                    if (Object.values(linked).includes(to.id)) {
-                      // Found it — render compact specs card
-                      const material = ci.specs?.Material || cat.specs?.find(s => s.id === "Material")?.default || "";
-                      const keySpecs = cat.specs
-                        .filter(
-                          s =>
-                            s.id !== "Material" &&
-                            (!s.condition ||
-                              (() => {
-                                const ctx = { ...ci.specs };
-                                cat.specs.forEach(ss => {
-                                  if (ctx[ss.id] === undefined) ctx[ss.id] = ss.default;
-                                });
-                                return evalCondition(s.condition, ctx);
-                              })()),
-                        )
-                        .slice(0, 4)
-                        .map(s => ({ label: s.label, value: ci.specs?.[s.id] || s.default, unit: s.unit }));
+                  {/* Wall Types List */}
+                  <div style={{ flex: 1, overflowY: "auto", padding: "8px 0" }}>
+                    {wallSchedule.results.map((mapped, i) => {
+                      const wt = mapped.wallType;
+                      const specSummary = [];
+                      if (mapped.specs.Material) specSummary.push(mapped.specs.Material);
+                      if (mapped.specs.StudSize) specSummary.push(mapped.specs.StudSize);
+                      if (mapped.specs.MSStudSize) specSummary.push(mapped.specs.MSStudSize);
+                      if (mapped.specs.MSGauge) specSummary.push(mapped.specs.MSGauge);
+                      if (mapped.specs.CMUWidth) specSummary.push(`${mapped.specs.CMUWidth} CMU`);
+                      if (mapped.specs.ConcThickness) specSummary.push(`${mapped.specs.ConcThickness} Conc`);
+                      if (mapped.specs.PlanSpacing) specSummary.push(mapped.specs.PlanSpacing);
+                      if (mapped.specs.MSSpacing) specSummary.push(mapped.specs.MSSpacing);
+                      if (mapped.specs.WallHeight) specSummary.push(`${mapped.specs.WallHeight}' Ht`);
+                      const confColor =
+                        wt.confidence === "high" ? C.green : wt.confidence === "low" ? C.orange : C.textDim;
                       return (
                         <div
+                          key={i}
                           style={{
-                            position: "absolute",
-                            top: 10,
-                            left: 10,
-                            zIndex: 30,
-                            width: 200,
-                            background: `${C.bg1}E8`,
-                            backdropFilter: "blur(8px)",
-                            border: `1px solid ${C.border}`,
-                            borderRadius: 8,
-                            boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
-                            padding: "8px 10px",
-                            pointerEvents: "auto",
-                            transition: "opacity 0.2s",
-                            fontSize: 9,
+                            padding: "10px 20px",
+                            borderBottom: `1px solid ${C.bg2}`,
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 4,
                           }}
                         >
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                            <div
-                              style={{ width: 8, height: 8, borderRadius: "50%", background: to.color || C.accent }}
-                            />
-                            <span
-                              style={{
-                                fontWeight: 700,
-                                color: C.text,
-                                fontSize: 10,
-                                flex: 1,
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              {ci.label || cat.name}
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: C.accent, minWidth: 60 }}>
+                              {mapped.label}
                             </span>
                             <span
                               style={{
                                 fontSize: 8,
-                                fontWeight: 600,
-                                color: "#fff",
-                                background: to.color || C.accent,
-                                padding: "1px 5px",
+                                fontWeight: 700,
+                                padding: "2px 6px",
                                 borderRadius: 3,
+                                background: wt.category === "exterior" ? `${C.orange}15` : `${C.blue}15`,
+                                color: wt.category === "exterior" ? C.orange : C.blue,
+                                textTransform: "uppercase",
                               }}
                             >
-                              {material}
+                              {wt.category}
                             </span>
-                          </div>
-                          {keySpecs.map((s, i) => (
-                            <div
-                              key={i}
+                            <span
                               style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                padding: "2px 0",
-                                borderTop: i === 0 ? `1px solid ${C.border}40` : "none",
+                                flex: 1,
+                                fontSize: 10,
+                                color: C.textMuted,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
                               }}
                             >
-                              <span style={{ color: C.textDim, fontSize: 8 }}>{s.label}</span>
-                              <span style={{ fontWeight: 600, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>
-                                {s.value}
-                                {s.unit ? ` ${s.unit}` : ""}
+                              {wt.description || ""}
+                            </span>
+                            <span style={{ fontSize: 8, fontWeight: 600, color: confColor }}>{wt.confidence}</span>
+                          </div>
+                          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                            {specSummary.map((s, j) => (
+                              <span
+                                key={j}
+                                style={{
+                                  fontSize: 9,
+                                  padding: "1px 6px",
+                                  borderRadius: 3,
+                                  background: `${C.accent}10`,
+                                  color: C.text,
+                                  fontFamily: "'DM Sans',sans-serif",
+                                }}
+                              >
+                                {s}
                               </span>
+                            ))}
+                          </div>
+                          {wt.finishes && (
+                            <div style={{ fontSize: 9, color: C.textDim }}>
+                              {wt.finishes.interior && <span>Int: {wt.finishes.interior} </span>}
+                              {wt.finishes.exterior && <span>Ext: {wt.finishes.exterior} </span>}
+                              {wt.finishes.insulation && <span>Insul: {wt.finishes.insulation}</span>}
                             </div>
-                          ))}
+                          )}
+                          {wt.notes && (
+                            <div style={{ fontSize: 9, color: C.textDim, fontStyle: "italic" }}>{wt.notes}</div>
+                          )}
+                          {mapped.warnings.length > 0 && (
+                            <div style={{ fontSize: 8, color: C.orange }}>⚠ {mapped.warnings.join(" | ")}</div>
+                          )}
                         </div>
                       );
-                    }
-                  }
-                }
-              }
-              return null;
-            })()}
-
-          {/* (Prediction approval strip moved to unified HUD above toolbar) */}
-
-          {/* Cross-sheet scan results bar */}
-          {crossSheetScan && crossSheetScan.results.length > 0 && (
-            <div
-              style={{
-                padding: "6px 14px",
-                borderTop: `1px solid ${C.blue}20`,
-                background: `${C.blue}06`,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                flexShrink: 0,
-                fontSize: 9,
-              }}
-            >
-              <svg
-                width="10"
-                height="10"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke={C.blue}
-                strokeWidth="2"
-                strokeLinecap="round"
-              >
-                <path d="M4 4h6v6H4z" />
-                <path d="M14 4h6v6h-6z" />
-                <path d="M4 14h6v6H4z" />
-                <path d="M14 14h6v6h-6z" />
-              </svg>
-              <span style={{ color: C.text, fontWeight: 600 }}>
-                "{crossSheetScan.tag}" found on {crossSheetScan.results.length} other sheet
-                {crossSheetScan.results.length !== 1 ? "s" : ""}:
-              </span>
-              <div style={{ display: "flex", gap: 4, flex: 1, overflow: "hidden" }}>
-                {crossSheetScan.results.map((r, i) => (
-                  <button
-                    key={i}
-                    onClick={() => {
-                      setSelectedDrawingId(r.drawingId);
-                      const d = drawings.find(d => d.id === r.drawingId);
-                      if (d?.type === "pdf" && d.data) renderPdfPage(d);
-                    }}
-                    style={bt(C, {
-                      padding: "2px 8px",
-                      fontSize: 8,
-                      fontWeight: 600,
-                      borderRadius: 3,
-                      cursor: "pointer",
-                      background: r.drawingId === selectedDrawingId ? `${C.blue}20` : C.bg2,
-                      color: r.drawingId === selectedDrawingId ? C.blue : C.text,
-                      border: `1px solid ${r.drawingId === selectedDrawingId ? C.blue + "40" : C.border}`,
                     })}
+                  </div>
+                  {/* Modal Footer */}
+                  <div
+                    style={{
+                      padding: "12px 20px",
+                      borderTop: `1px solid ${C.border}`,
+                      display: "flex",
+                      justifyContent: "flex-end",
+                      gap: 8,
+                    }}
                   >
-                    {r.sheetNumber} ({r.instanceCount})
-                  </button>
-                ))}
+                    <button
+                      onClick={() => setWallSchedule({ loading: false, results: null, error: null })}
+                      style={bt(C, {
+                        background: "transparent",
+                        border: `1px solid ${C.border}`,
+                        color: C.textDim,
+                        padding: "8px 16px",
+                        fontSize: 11,
+                        fontWeight: 600,
+                        borderRadius: 6,
+                      })}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => createWallInstances(wallSchedule.results)}
+                      style={bt(C, {
+                        background: C.accent,
+                        color: "#fff",
+                        padding: "8px 20px",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        borderRadius: 6,
+                      })}
+                    >
+                      Create All ({wallSchedule.results.length})
+                    </button>
+                  </div>
+                </div>
               </div>
-              <button
-                onClick={() => setCrossSheetScan(null)}
-                style={{ background: "none", border: "none", color: C.textDim, cursor: "pointer", fontSize: 10 }}
-              >
-                ✕
-              </button>
-            </div>
-          )}
+            )}
 
-          {/* Right-click context menu */}
-          {tkContextMenu && (
-            <>
-              <div onClick={() => setTkContextMenu(null)} style={{ position: "fixed", inset: 0, zIndex: 199 }} />
+            {/* PDF Schedule Scan Results Modal */}
+            {pdfSchedules.results && pdfSchedules.results.length > 0 && (
               <div
                 style={{
                   position: "fixed",
-                  left: tkContextMenu.x,
-                  top: tkContextMenu.y,
-                  zIndex: 200,
-                  background: C.bg1,
-                  border: `1px solid ${C.border}`,
-                  borderRadius: 6,
-                  boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
-                  minWidth: 160,
-                  overflow: "hidden",
-                  animation: "fadeIn 0.1s",
+                  inset: 0,
+                  zIndex: 9999,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "rgba(0,0,0,0.5)",
+                }}
+                onClick={e => {
+                  if (e.target === e.currentTarget) setPdfSchedules({ loading: false, results: null });
                 }}
               >
-                {tkActivePoints.length > 0 && (
-                  <div
-                    className="nav-item"
-                    onClick={() => {
-                      setTkActivePoints(tkActivePoints.slice(0, -1));
-                      setTkContextMenu(null);
-                    }}
-                    style={{
-                      padding: "7px 12px",
-                      fontSize: 10,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      color: C.text,
-                      borderBottom: `1px solid ${C.bg2}`,
-                    }}
-                  >
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke={C.textMuted}
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M1 4v6h6 M3.51 15a9 9 0 105.64-12.36L1 10" />
-                    </svg>
-                    Undo Last Point
-                  </div>
-                )}
-                {tkActivePoints.length >= 2 && tkTool === "linear" && (
-                  <div
-                    className="nav-item"
-                    onClick={() => {
-                      const to = takeoffs.find(t => t.id === tkActiveTakeoffId);
-                      if (to && tkActivePoints.length >= 2) {
-                        addMeasurement(tkActiveTakeoffId, {
-                          type: "linear",
-                          points: [...tkActivePoints],
-                          value: 0,
-                          sheetId: selectedDrawingId,
-                          color: to.color,
-                        });
-                      }
-                      pauseMeasuring();
-                      setTkContextMenu(null);
-                    }}
-                    style={{
-                      padding: "7px 12px",
-                      fontSize: 10,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      color: C.accent,
-                      borderBottom: `1px solid ${C.bg2}`,
-                    }}
-                  >
-                    <Ic d={I.check} size={12} color={C.accent} /> Finish Segment
-                  </div>
-                )}
-                {tkActivePoints.length >= 3 && tkTool === "area" && (
-                  <div
-                    className="nav-item"
-                    onClick={() => {
-                      const to = takeoffs.find(t => t.id === tkActiveTakeoffId);
-                      if (to && tkActivePoints.length >= 3) {
-                        addMeasurement(tkActiveTakeoffId, {
-                          type: "area",
-                          points: [...tkActivePoints],
-                          value: 0,
-                          sheetId: selectedDrawingId,
-                          color: to.color,
-                        });
-                      }
-                      pauseMeasuring();
-                      setTkContextMenu(null);
-                    }}
-                    style={{
-                      padding: "7px 12px",
-                      fontSize: 10,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      color: C.accent,
-                      borderBottom: `1px solid ${C.bg2}`,
-                    }}
-                  >
-                    <Ic d={I.check} size={12} color={C.accent} /> Close & Finish Area
-                  </div>
-                )}
                 <div
-                  className="nav-item"
-                  onClick={() => {
-                    setSnapAngleOn(v => !v);
-                    setTkContextMenu(null);
-                  }}
                   style={{
-                    padding: "7px 12px",
-                    fontSize: 10,
-                    cursor: "pointer",
+                    background: C.bg,
+                    borderRadius: 12,
+                    border: `1px solid ${C.border}`,
+                    width: 640,
+                    maxHeight: "80vh",
+                    display: "flex",
+                    flexDirection: "column",
+                    boxShadow: "0 16px 48px rgba(0,0,0,0.3)",
+                  }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  {/* Modal Header */}
+                  <div
+                    style={{
+                      padding: "16px 20px",
+                      borderBottom: `1px solid ${C.border}`,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#10B981"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                      >
+                        <path d="M3 12h4l3-9 4 18 3-9h4" />
+                      </svg>
+                      <span style={{ fontSize: 15, fontWeight: 700, color: C.text }}>Schedules Detected</span>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 600,
+                          color: "#10B981",
+                          background: "#10B98115",
+                          padding: "2px 8px",
+                          borderRadius: 10,
+                        }}
+                      >
+                        {pdfSchedules.results.length} schedule{pdfSchedules.results.length !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => setPdfSchedules({ loading: false, results: null })}
+                      style={{
+                        width: 28,
+                        height: 28,
+                        border: "none",
+                        background: C.bg2,
+                        color: C.textDim,
+                        borderRadius: 6,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: "pointer",
+                        fontSize: 14,
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  {/* Schedule List */}
+                  <div style={{ flex: 1, overflowY: "auto", padding: "8px 0" }}>
+                    {pdfSchedules.results.map((sched, i) => {
+                      const typeColors = {
+                        wall: C.accent,
+                        door: C.orange,
+                        window: C.blue,
+                        finish: C.purple || "#8B5CF6",
+                        fixture: C.green,
+                        equipment: C.textDim,
+                      };
+                      const typeColor = typeColors[sched.type] || C.textDim;
+                      return (
+                        <div key={i} style={{ borderBottom: `1px solid ${C.bg2}` }}>
+                          {/* Schedule header */}
+                          <div
+                            style={{
+                              padding: "10px 20px",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                              background: `${typeColor}08`,
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontSize: 8,
+                                fontWeight: 700,
+                                padding: "2px 6px",
+                                borderRadius: 3,
+                                background: `${typeColor}15`,
+                                color: typeColor,
+                                textTransform: "uppercase",
+                              }}
+                            >
+                              {sched.type}
+                            </span>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{sched.title}</span>
+                            <span style={{ fontSize: 9, color: C.textDim }}>Sheet {sched.sheetNumber}</span>
+                            <span style={{ fontSize: 9, color: C.textDim, fontFamily: "'DM Sans',sans-serif" }}>
+                              {sched.itemCount} items
+                            </span>
+                          </div>
+                          {/* Schedule rows */}
+                          {sched.data.slice(0, 8).map((row, j) => (
+                            <div
+                              key={j}
+                              style={{
+                                padding: "6px 20px 6px 36px",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                                fontSize: 10,
+                              }}
+                            >
+                              <span
+                                style={{
+                                  fontWeight: 700,
+                                  color: typeColor,
+                                  minWidth: 40,
+                                  fontFamily: "'DM Sans',sans-serif",
+                                }}
+                              >
+                                {row.typeLabel || row.mark || row.roomNo || "—"}
+                              </span>
+                              <span
+                                style={{
+                                  flex: 1,
+                                  color: C.text,
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {row.description || row.roomName || row.type || ""}
+                              </span>
+                              {row.material && (
+                                <span
+                                  style={{
+                                    fontSize: 8,
+                                    padding: "1px 5px",
+                                    borderRadius: 3,
+                                    background: `${C.accent}10`,
+                                    color: C.text,
+                                  }}
+                                >
+                                  {row.material}
+                                </span>
+                              )}
+                              {row.MSStudSize && (
+                                <span
+                                  style={{
+                                    fontSize: 8,
+                                    padding: "1px 5px",
+                                    borderRadius: 3,
+                                    background: `${C.accent}10`,
+                                    color: C.text,
+                                    fontFamily: "'DM Sans',sans-serif",
+                                  }}
+                                >
+                                  {row.MSStudSize}
+                                </span>
+                              )}
+                              {row.MSGauge && (
+                                <span
+                                  style={{
+                                    fontSize: 8,
+                                    padding: "1px 5px",
+                                    borderRadius: 3,
+                                    background: `${C.accent}10`,
+                                    color: C.text,
+                                    fontFamily: "'DM Sans',sans-serif",
+                                  }}
+                                >
+                                  {row.MSGauge}
+                                </span>
+                              )}
+                              {row.confidence && (
+                                <span
+                                  style={{
+                                    fontSize: 7,
+                                    fontWeight: 600,
+                                    color:
+                                      row.confidence === "high"
+                                        ? C.green
+                                        : row.confidence === "low"
+                                          ? C.orange
+                                          : C.textDim,
+                                  }}
+                                >
+                                  {row.confidence}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                          {sched.data.length > 8 && (
+                            <div style={{ padding: "4px 36px", fontSize: 9, color: C.textDim }}>
+                              + {sched.data.length - 8} more...
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* Modal Footer */}
+                  <div
+                    style={{
+                      padding: "12px 20px",
+                      borderTop: `1px solid ${C.border}`,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <span style={{ fontSize: 9, color: C.textDim }}>
+                      {pdfSchedules.results.reduce((s, sc) => s + sc.itemCount, 0)} total items across{" "}
+                      {pdfSchedules.results.length} schedule(s)
+                    </span>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button
+                        onClick={() => setPdfSchedules({ loading: false, results: null })}
+                        style={bt(C, {
+                          background: "transparent",
+                          border: `1px solid ${C.border}`,
+                          color: C.textDim,
+                          padding: "8px 16px",
+                          fontSize: 11,
+                          fontWeight: 600,
+                          borderRadius: 6,
+                        })}
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Sheet info bar */}
+            {selectedDrawing && (
+              <div
+                style={{
+                  padding: "3px 10px",
+                  borderBottom: `1px solid ${C.border}`,
+                  fontSize: 9,
+                  color: C.textDim,
+                  background: C.bg,
+                }}
+              >
+                {selectedDrawing.sheetNumber || selectedDrawing.pageNumber || "—"} |{" "}
+                {selectedDrawing.sheetTitle || selectedDrawing.label || "Untitled"} | Rev{" "}
+                {selectedDrawing.revision || "0"}
+              </div>
+            )}
+
+            {/* Drawing display area */}
+            <div
+              ref={drawingContainerRef}
+              onMouseDown={handleDrawingMouseDown}
+              onContextMenu={e => e.preventDefault()}
+              style={{
+                flex: 1,
+                overflow: "hidden",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: C.isDark ? "#1a1d24" : "#e5e7eb",
+                position: "relative",
+                cursor: tkPanning.current ? "grabbing" : "default",
+              }}
+            >
+              {!selectedDrawing ? (
+                <div
+                  style={{
+                    color: C.textDim,
+                    textAlign: "center",
+                    padding: 40,
+                    maxWidth: 400,
+                    animation: "fadeIn 0.3s ease-out",
+                  }}
+                >
+                  {drawings.length === 0 ? (
+                    <>
+                      {/* Workflow stepper empty state — confident & beautiful */}
+                      <div style={{ position: "relative", display: "inline-block", marginBottom: 20 }}>
+                        <div
+                          style={{
+                            position: "absolute",
+                            inset: -16,
+                            borderRadius: "50%",
+                            border: `1px solid ${C.accent}10`,
+                            animation: "breathe 4s ease-in-out infinite",
+                          }}
+                        />
+                        <div
+                          style={{
+                            position: "absolute",
+                            inset: -8,
+                            borderRadius: "50%",
+                            border: `1px solid ${C.accent}15`,
+                            animation: "breathe 4s ease-in-out infinite 0.4s",
+                          }}
+                        />
+                        <div
+                          style={{
+                            width: 56,
+                            height: 56,
+                            borderRadius: 16,
+                            background: `linear-gradient(135deg, ${C.accent}18, ${C.accent}06)`,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            boxShadow: `0 0 32px ${C.accent}15`,
+                            position: "relative",
+                          }}
+                        >
+                          <Ic d={I.plans} size={26} color={C.accent} sw={1.5} />
+                        </div>
+                      </div>
+                      <div
+                        style={{ fontSize: 18, fontWeight: 800, color: C.text, marginBottom: 6, letterSpacing: -0.3 }}
+                      >
+                        Start your takeoff
+                      </div>
+                      <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.5, marginBottom: 24 }}>
+                        Upload drawings in the <strong style={{ color: C.text }}>Discovery</strong> tab to begin.
+                      </div>
+                      <div
+                        style={{
+                          textAlign: "left",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 12,
+                          marginBottom: 20,
+                        }}
+                      >
+                        {[
+                          {
+                            step: 1,
+                            label: "Upload drawings",
+                            desc: "Go to Discovery tab to add PDFs or images",
+                            icon: I.upload,
+                          },
+                          { step: 2, label: "Set scale", desc: "Calibrate or select a preset scale", icon: I.ruler },
+                          {
+                            step: 3,
+                            label: "Create takeoffs",
+                            desc: "Add items to measure from the left panel",
+                            icon: I.plus,
+                          },
+                          {
+                            step: 4,
+                            label: "Measure",
+                            desc: "Click on drawings to record quantities",
+                            icon: I.polygon,
+                          },
+                        ].map(s => (
+                          <div key={s.step} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                            <div
+                              style={{
+                                width: 24,
+                                height: 24,
+                                borderRadius: 12,
+                                background: `${C.accent}15`,
+                                color: C.accent,
+                                fontSize: 11,
+                                fontWeight: 700,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                flexShrink: 0,
+                              }}
+                            >
+                              {s.step}
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 600, fontSize: 12, color: C.text }}>{s.label}</div>
+                              <div style={{ fontSize: 10, color: C.textDim, marginTop: 1 }}>{s.desc}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div
+                        style={{ display: "flex", gap: 12, justifyContent: "center", fontSize: 9, color: C.textDim }}
+                      >
+                        <span>
+                          <kbd
+                            style={{
+                              padding: "1px 4px",
+                              borderRadius: 3,
+                              background: C.bg2,
+                              border: `1px solid ${C.border}`,
+                              fontSize: 9,
+                              fontFamily: "'DM Sans',sans-serif",
+                            }}
+                          >
+                            ⌘K
+                          </kbd>{" "}
+                          Command palette
+                        </span>
+                        <span>
+                          <kbd
+                            style={{
+                              padding: "1px 4px",
+                              borderRadius: 3,
+                              background: C.bg2,
+                              border: `1px solid ${C.border}`,
+                              fontSize: 9,
+                              fontFamily: "'DM Sans',sans-serif",
+                            }}
+                          >
+                            Esc
+                          </kbd>{" "}
+                          Stop measuring
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* Select a drawing — confident with thumbnails */}
+                      <div style={{ position: "relative", display: "inline-block", marginBottom: 16 }}>
+                        <div
+                          style={{
+                            position: "absolute",
+                            inset: -8,
+                            borderRadius: "50%",
+                            border: `1px solid ${C.accent}10`,
+                            animation: "breathe 3s ease-in-out infinite",
+                          }}
+                        />
+                        <div
+                          style={{
+                            width: 48,
+                            height: 48,
+                            borderRadius: 14,
+                            background: `linear-gradient(135deg, ${C.accent}12, ${C.accent}06)`,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            position: "relative",
+                          }}
+                        >
+                          <Ic d={I.plans} size={22} color={C.accent} sw={1.5} />
+                        </div>
+                      </div>
+                      <div
+                        style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 4, letterSpacing: -0.2 }}
+                      >
+                        Choose a drawing
+                      </div>
+                      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 6 }}>
+                        {drawings.length} drawing{drawings.length !== 1 ? "s" : ""} ready to measure
+                      </div>
+                      <div
+                        style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 12, marginBottom: 12 }}
+                      >
+                        {drawings
+                          .filter(d => d.data)
+                          .slice(0, 3)
+                          .map(d => {
+                            const thumb = d.type === "pdf" ? pdfCanvases[d.id] : d.data;
+                            return (
+                              <div
+                                key={d.id}
+                                onClick={() => {
+                                  setSelectedDrawingId(d.id);
+                                  if (d.type === "pdf" && d.data) renderPdfPage(d);
+                                }}
+                                style={{
+                                  width: 80,
+                                  height: 60,
+                                  borderRadius: 6,
+                                  overflow: "hidden",
+                                  cursor: "pointer",
+                                  background: C.bg2,
+                                  border: `1px solid ${C.border}`,
+                                  transition: "all 0.15s",
+                                  position: "relative",
+                                }}
+                                onMouseEnter={e => (e.currentTarget.style.borderColor = C.accent)}
+                                onMouseLeave={e => (e.currentTarget.style.borderColor = C.border)}
+                              >
+                                {thumb ? (
+                                  <img src={thumb} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                ) : (
+                                  <div
+                                    style={{
+                                      width: "100%",
+                                      height: "100%",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      fontSize: 8,
+                                      color: C.textDim,
+                                    }}
+                                  >
+                                    ...
+                                  </div>
+                                )}
+                                <div
+                                  style={{
+                                    position: "absolute",
+                                    bottom: 0,
+                                    left: 0,
+                                    right: 0,
+                                    padding: "1px 3px",
+                                    background: "rgba(0,0,0,0.7)",
+                                    fontSize: 7,
+                                    fontWeight: 600,
+                                    color: "#fff",
+                                    textAlign: "center",
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                  }}
+                                >
+                                  {d.sheetNumber || d.pageNumber || "?"}
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                      <div style={{ fontSize: 10, color: C.textDim }}>Use ◀ ▶ arrows or click thumbnails above</div>
+                    </>
+                  )}
+                </div>
+              ) : !selectedDrawing.data ? (
+                <div style={{ color: C.orange, fontSize: 12, textAlign: "center", padding: 20 }}>
+                  <Ic d={I.upload} size={24} color={C.orange} />
+                  <br />
+                  <span style={{ marginTop: 6, display: "block" }}>File needs re-upload</span>
+                  <span style={{ fontSize: 10, color: C.textDim }}>
+                    Drawing data is not stored between sessions.
+                    <br />
+                    Go to <strong>Discovery</strong> to re-attach the file.
+                  </span>
+                </div>
+              ) : (
+                <div
+                  ref={tkTransformRef}
+                  style={{
+                    transform: `translate(${tkPan.x}px,${tkPan.y}px) scale(${tkZoom / 100})`,
+                    transformOrigin: "0 0",
+                    position: "relative",
+                  }}
+                >
+                  {selectedDrawing.type === "image" ? (
+                    <img
+                      ref={drawingImgRef}
+                      src={selectedDrawing.data}
+                      style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", display: "block" }}
+                      onLoad={e => {
+                        const w = e.target.naturalWidth,
+                          h = e.target.naturalHeight;
+                        if (canvasRef.current) {
+                          canvasRef.current.width = w;
+                          canvasRef.current.height = h;
+                        }
+                        if (cursorCanvasRef.current) {
+                          cursorCanvasRef.current.width = w;
+                          cursorCanvasRef.current.height = h;
+                        }
+                        if (predictionCanvasRef.current) {
+                          predictionCanvasRef.current.width = w;
+                          predictionCanvasRef.current.height = h;
+                        }
+                      }}
+                    />
+                  ) : pdfCanvases[selectedDrawing.id] ? (
+                    <img
+                      ref={drawingImgRef}
+                      src={pdfCanvases[selectedDrawing.id]}
+                      style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", display: "block" }}
+                      onLoad={e => {
+                        const w = e.target.naturalWidth,
+                          h = e.target.naturalHeight;
+                        if (canvasRef.current) {
+                          canvasRef.current.width = w;
+                          canvasRef.current.height = h;
+                        }
+                        if (cursorCanvasRef.current) {
+                          cursorCanvasRef.current.width = w;
+                          cursorCanvasRef.current.height = h;
+                        }
+                        if (predictionCanvasRef.current) {
+                          predictionCanvasRef.current.width = w;
+                          predictionCanvasRef.current.height = h;
+                        }
+                      }}
+                    />
+                  ) : (
+                    <div style={{ color: C.textDim, fontSize: 11 }}>Loading PDF page...</div>
+                  )}
+                  {/* Canvas overlay */}
+                  <canvas
+                    ref={canvasRef}
+                    className="tk-canvas-cursor"
+                    onClick={handleCanvasClick}
+                    onMouseMove={e => {
+                      const rect = e.target.getBoundingClientRect();
+                      const sx = (canvasRef.current?.width || 1) / rect.width;
+                      const sy = (canvasRef.current?.height || 1) / rect.height;
+                      const pt = { x: (e.clientX - rect.left) * sx, y: (e.clientY - rect.top) * sy };
+
+                      // Idle/stopped: show pointer cursor when hovering over clickable measurements
+                      if (tkMeasureState !== "measuring" && tkMeasureState !== "paused") {
+                        const zs = Math.max(1, sx);
+                        const cr = Math.max(30, 30 * zs),
+                          lr = Math.max(12, 15 * zs);
+                        let hovering = false;
+                        for (const to of useTakeoffsStore.getState().takeoffs) {
+                          for (const m of to.measurements || []) {
+                            if (m.sheetId !== selectedDrawingId) continue;
+                            if (m.type === "count") {
+                              if (Math.sqrt((pt.x - m.points[0].x) ** 2 + (pt.y - m.points[0].y) ** 2) < cr)
+                                hovering = true;
+                            } else if (m.type === "linear" && m.points.length >= 2) {
+                              for (let i = 0; i < m.points.length - 1; i++) {
+                                const a = m.points[i],
+                                  b = m.points[i + 1];
+                                const len = Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
+                                if (len < 1) continue;
+                                const t2 = Math.max(
+                                  0,
+                                  Math.min(1, ((pt.x - a.x) * (b.x - a.x) + (pt.y - a.y) * (b.y - a.y)) / (len * len)),
+                                );
+                                const proj = { x: a.x + t2 * (b.x - a.x), y: a.y + t2 * (b.y - a.y) };
+                                if (Math.sqrt((pt.x - proj.x) ** 2 + (pt.y - proj.y) ** 2) < lr) hovering = true;
+                              }
+                            } else if (m.type === "area" && m.points.length >= 3) {
+                              let inside = false;
+                              const pts2 = m.points;
+                              for (let i = 0, j = pts2.length - 1; i < pts2.length; j = i++) {
+                                const xi = pts2[i].x,
+                                  yi = pts2[i].y,
+                                  xj = pts2[j].x,
+                                  yj = pts2[j].y;
+                                if (yi > pt.y !== yj > pt.y && pt.x < ((xj - xi) * (pt.y - yi)) / (yj - yi) + xi)
+                                  inside = !inside;
+                              }
+                              if (inside) hovering = true;
+                            }
+                            if (hovering) break;
+                          }
+                          if (hovering) break;
+                        }
+                        // Idle — NovaCursor teal orb handles cursor display
+                        return;
+                      }
+
+                      // Measuring: update cursor position for live preview (RAF throttled)
+                      if (tkActivePoints.length === 0) return;
+                      let snapped = pt;
+                      if ((e.shiftKey || snapAngleOnRef.current) && tkActivePoints.length >= 1) {
+                        snapped = snapAngle(tkActivePoints[tkActivePoints.length - 1], pt);
+                      }
+                      shiftHeldRef.current = e.shiftKey || snapAngleOnRef.current;
+                      pendingCursorRef.current = snapped;
+                      if (!rafCursorRef.current) {
+                        rafCursorRef.current = requestAnimationFrame(() => {
+                          rafCursorRef.current = null;
+                          if (pendingCursorRef.current) setTkCursorPt(pendingCursorRef.current);
+                        });
+                      }
+                    }}
+                    onMouseLeave={() => setTkCursorPt(null)}
+                    onMouseDown={e => {
+                      if (e.button === 2 || e.button === 1) handleDrawingMouseDown(e);
+                    }}
+                    onContextMenu={e => e.preventDefault()}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      height: "100%",
+                      cursor:
+                        tkAutoCount?.phase === "select" ? "crosshair" : tkTool === "calibrate" ? "crosshair" : "none",
+                      pointerEvents: "auto",
+                    }}
+                  />
+                  {/* Prediction ghost overlay canvas — animated ghost markers */}
+                  <canvas
+                    ref={predictionCanvasRef}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      height: "100%",
+                      pointerEvents: "none",
+                    }}
+                  />
+                  {/* Cursor overlay canvas — lightweight layer for cursor-dependent rendering */}
+                  <canvas
+                    ref={cursorCanvasRef}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      height: "100%",
+                      pointerEvents: "none",
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Floating specs card — shows module specs during measuring */}
+              {tkMeasureState === "measuring" &&
+                tkActiveTakeoffId &&
+                (() => {
+                  const to = takeoffs.find(t => t.id === tkActiveTakeoffId);
+                  if (!to?.linkedItemId) return null;
+                  // Find the module/category/instance that owns this takeoff
+                  for (const modId of Object.keys(moduleInstances)) {
+                    const inst = moduleInstances[modId];
+                    const mod = MODULES[modId];
+                    if (!mod || !inst) continue;
+                    for (const cat of mod.categories) {
+                      if (!cat.multiInstance) continue;
+                      const catInstances = inst.categoryInstances?.[cat.id] || [];
+                      for (const ci of catInstances) {
+                        const linked = ci.itemTakeoffIds || {};
+                        if (Object.values(linked).includes(to.id)) {
+                          // Found it — render compact specs card
+                          const material =
+                            ci.specs?.Material || cat.specs?.find(s => s.id === "Material")?.default || "";
+                          const keySpecs = cat.specs
+                            .filter(
+                              s =>
+                                s.id !== "Material" &&
+                                (!s.condition ||
+                                  (() => {
+                                    const ctx = { ...ci.specs };
+                                    cat.specs.forEach(ss => {
+                                      if (ctx[ss.id] === undefined) ctx[ss.id] = ss.default;
+                                    });
+                                    return evalCondition(s.condition, ctx);
+                                  })()),
+                            )
+                            .slice(0, 4)
+                            .map(s => ({ label: s.label, value: ci.specs?.[s.id] || s.default, unit: s.unit }));
+                          return (
+                            <div
+                              style={{
+                                position: "absolute",
+                                top: 10,
+                                left: 10,
+                                zIndex: 30,
+                                width: 200,
+                                background: `${C.bg1}E8`,
+                                backdropFilter: "blur(8px)",
+                                border: `1px solid ${C.border}`,
+                                borderRadius: 8,
+                                boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
+                                padding: "8px 10px",
+                                pointerEvents: "auto",
+                                transition: "opacity 0.2s",
+                                fontSize: 9,
+                              }}
+                            >
+                              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                                <div
+                                  style={{ width: 8, height: 8, borderRadius: "50%", background: to.color || C.accent }}
+                                />
+                                <span
+                                  style={{
+                                    fontWeight: 700,
+                                    color: C.text,
+                                    fontSize: 10,
+                                    flex: 1,
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {ci.label || cat.name}
+                                </span>
+                                <span
+                                  style={{
+                                    fontSize: 8,
+                                    fontWeight: 600,
+                                    color: "#fff",
+                                    background: to.color || C.accent,
+                                    padding: "1px 5px",
+                                    borderRadius: 3,
+                                  }}
+                                >
+                                  {material}
+                                </span>
+                              </div>
+                              {keySpecs.map((s, i) => (
+                                <div
+                                  key={i}
+                                  style={{
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    padding: "2px 0",
+                                    borderTop: i === 0 ? `1px solid ${C.border}40` : "none",
+                                  }}
+                                >
+                                  <span style={{ color: C.textDim, fontSize: 8 }}>{s.label}</span>
+                                  <span style={{ fontWeight: 600, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>
+                                    {s.value}
+                                    {s.unit ? ` ${s.unit}` : ""}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        }
+                      }
+                    }
+                  }
+                  return null;
+                })()}
+
+              {/* (Prediction approval strip moved to unified HUD above toolbar) */}
+
+              {/* Cross-sheet scan results bar */}
+              {crossSheetScan && crossSheetScan.results.length > 0 && (
+                <div
+                  style={{
+                    padding: "6px 14px",
+                    borderTop: `1px solid ${C.blue}20`,
+                    background: `${C.blue}06`,
                     display: "flex",
                     alignItems: "center",
                     gap: 8,
-                    color: snapAngleOn ? C.accent : C.text,
-                    borderBottom: `1px solid ${C.bg2}`,
+                    flexShrink: 0,
+                    fontSize: 9,
                   }}
                 >
                   <svg
-                    width="12"
-                    height="12"
+                    width="10"
+                    height="10"
                     viewBox="0 0 24 24"
                     fill="none"
-                    stroke={snapAngleOn ? C.accent : C.textMuted}
+                    stroke={C.blue}
                     strokeWidth="2"
                     strokeLinecap="round"
-                    strokeLinejoin="round"
                   >
-                    <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
-                    <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-                    <line x1="12" y1="22.08" x2="12" y2="12" />
+                    <path d="M4 4h6v6H4z" />
+                    <path d="M14 4h6v6h-6z" />
+                    <path d="M4 14h6v6H4z" />
+                    <path d="M14 14h6v6h-6z" />
                   </svg>
-                  Snap Angle {snapAngleOn ? "✓ ON" : "OFF"}
+                  <span style={{ color: C.text, fontWeight: 600 }}>
+                    "{crossSheetScan.tag}" found on {crossSheetScan.results.length} other sheet
+                    {crossSheetScan.results.length !== 1 ? "s" : ""}:
+                  </span>
+                  <div style={{ display: "flex", gap: 4, flex: 1, overflow: "hidden" }}>
+                    {crossSheetScan.results.map((r, i) => (
+                      <button
+                        key={i}
+                        onClick={() => {
+                          setSelectedDrawingId(r.drawingId);
+                          const d = drawings.find(d => d.id === r.drawingId);
+                          if (d?.type === "pdf" && d.data) renderPdfPage(d);
+                        }}
+                        style={bt(C, {
+                          padding: "2px 8px",
+                          fontSize: 8,
+                          fontWeight: 600,
+                          borderRadius: 3,
+                          cursor: "pointer",
+                          background: r.drawingId === selectedDrawingId ? `${C.blue}20` : C.bg2,
+                          color: r.drawingId === selectedDrawingId ? C.blue : C.text,
+                          border: `1px solid ${r.drawingId === selectedDrawingId ? C.blue + "40" : C.border}`,
+                        })}
+                      >
+                        {r.sheetNumber} ({r.instanceCount})
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => setCrossSheetScan(null)}
+                    style={{ background: "none", border: "none", color: C.textDim, cursor: "pointer", fontSize: 10 }}
+                  >
+                    ✕
+                  </button>
                 </div>
-                <div
-                  className="nav-item"
-                  onClick={() => {
-                    stopMeasuring();
-                    setTkContextMenu(null);
-                  }}
-                  style={{
-                    padding: "8px 12px",
-                    fontSize: 10,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    color: C.red,
-                    borderTop: `1px solid ${C.border}`,
-                  }}
-                >
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill={C.red}>
-                    <rect width="10" height="10" rx="1.5" />
-                  </svg>
-                  Stop Measuring
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-        </>)}
+              )}
+
+              {/* Right-click context menu */}
+              {tkContextMenu && (
+                <>
+                  <div onClick={() => setTkContextMenu(null)} style={{ position: "fixed", inset: 0, zIndex: 199 }} />
+                  <div
+                    style={{
+                      position: "fixed",
+                      left: tkContextMenu.x,
+                      top: tkContextMenu.y,
+                      zIndex: 200,
+                      background: C.bg1,
+                      border: `1px solid ${C.border}`,
+                      borderRadius: 6,
+                      boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+                      minWidth: 160,
+                      overflow: "hidden",
+                      animation: "fadeIn 0.1s",
+                    }}
+                  >
+                    {tkActivePoints.length > 0 && (
+                      <div
+                        className="nav-item"
+                        onClick={() => {
+                          setTkActivePoints(tkActivePoints.slice(0, -1));
+                          setTkContextMenu(null);
+                        }}
+                        style={{
+                          padding: "7px 12px",
+                          fontSize: 10,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          color: C.text,
+                          borderBottom: `1px solid ${C.bg2}`,
+                        }}
+                      >
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke={C.textMuted}
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M1 4v6h6 M3.51 15a9 9 0 105.64-12.36L1 10" />
+                        </svg>
+                        Undo Last Point
+                      </div>
+                    )}
+                    {tkActivePoints.length >= 2 && tkTool === "linear" && (
+                      <div
+                        className="nav-item"
+                        onClick={() => {
+                          const to = takeoffs.find(t => t.id === tkActiveTakeoffId);
+                          if (to && tkActivePoints.length >= 2) {
+                            addMeasurement(tkActiveTakeoffId, {
+                              type: "linear",
+                              points: [...tkActivePoints],
+                              value: 0,
+                              sheetId: selectedDrawingId,
+                              color: to.color,
+                            });
+                          }
+                          pauseMeasuring();
+                          setTkContextMenu(null);
+                        }}
+                        style={{
+                          padding: "7px 12px",
+                          fontSize: 10,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          color: C.accent,
+                          borderBottom: `1px solid ${C.bg2}`,
+                        }}
+                      >
+                        <Ic d={I.check} size={12} color={C.accent} /> Finish Segment
+                      </div>
+                    )}
+                    {tkActivePoints.length >= 3 && tkTool === "area" && (
+                      <div
+                        className="nav-item"
+                        onClick={() => {
+                          const to = takeoffs.find(t => t.id === tkActiveTakeoffId);
+                          if (to && tkActivePoints.length >= 3) {
+                            addMeasurement(tkActiveTakeoffId, {
+                              type: "area",
+                              points: [...tkActivePoints],
+                              value: 0,
+                              sheetId: selectedDrawingId,
+                              color: to.color,
+                            });
+                          }
+                          pauseMeasuring();
+                          setTkContextMenu(null);
+                        }}
+                        style={{
+                          padding: "7px 12px",
+                          fontSize: 10,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          color: C.accent,
+                          borderBottom: `1px solid ${C.bg2}`,
+                        }}
+                      >
+                        <Ic d={I.check} size={12} color={C.accent} /> Close & Finish Area
+                      </div>
+                    )}
+                    <div
+                      className="nav-item"
+                      onClick={() => {
+                        setSnapAngleOn(v => !v);
+                        setTkContextMenu(null);
+                      }}
+                      style={{
+                        padding: "7px 12px",
+                        fontSize: 10,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        color: snapAngleOn ? C.accent : C.text,
+                        borderBottom: `1px solid ${C.bg2}`,
+                      }}
+                    >
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke={snapAngleOn ? C.accent : C.textMuted}
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                        <line x1="12" y1="22.08" x2="12" y2="12" />
+                      </svg>
+                      Snap Angle {snapAngleOn ? "✓ ON" : "OFF"}
+                    </div>
+                    <div
+                      className="nav-item"
+                      onClick={() => {
+                        stopMeasuring();
+                        setTkContextMenu(null);
+                      }}
+                      style={{
+                        padding: "8px 12px",
+                        fontSize: 10,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        color: C.red,
+                        borderTop: `1px solid ${C.border}`,
+                      }}
+                    >
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill={C.red}>
+                        <rect width="10" height="10" rx="1.5" />
+                      </svg>
+                      Stop Measuring
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
       {/* ═══ Unified NOVA Right Panel — Vision / Tools / Chat (hidden in estimate mode) ═══ */}
-      {tkPanelTier !== "estimate" && tkNovaPanelOpen &&
+      {tkPanelTier !== "estimate" &&
+        tkNovaPanelOpen &&
         (() => {
           const novaPreds = tkPredictions?.predictions || [];
           const novaPending = novaPreds.filter(p => !tkPredAccepted.includes(p.id) && !tkPredRejected.includes(p.id));

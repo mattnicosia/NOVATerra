@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useMasterDataStore } from "@/stores/masterDataStore";
@@ -34,6 +34,7 @@ export default function ContactsPage() {
   const [search, setSearch] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [dupWarning, setDupWarning] = useState(null);
+  const [showNewCompanyModal, setShowNewCompanyModal] = useState(false);
 
   const companyTag = activeCompanyId === "__all__" ? "" : activeCompanyId;
   const clients = getContactsForCompany("clients", activeCompanyId);
@@ -154,22 +155,7 @@ export default function ContactsPage() {
       addMasterItem("estimators", { name: "", initials: "", email: "" });
       return;
     }
-    const templates = {
-      clients: { company: "", contact: "", email: "", phone: "", address: "", notes: "", companyProfileId: companyTag },
-      architects: { company: "", contact: "", email: "", phone: "", companyProfileId: companyTag },
-      engineers: { company: "", contact: "", email: "", phone: "", companyProfileId: companyTag },
-      subcontractors: {
-        company: "",
-        trade: "",
-        contact: "",
-        email: "",
-        phone: "",
-        notes: "",
-        rating: "",
-        companyProfileId: companyTag,
-      },
-    };
-    addMasterItem(activeTab, templates[activeTab]);
+    setShowNewCompanyModal(true);
   };
 
   const handleDelete = id => {
@@ -544,7 +530,7 @@ export default function ContactsPage() {
             <>
               {[...grouped.entries()].map(([companyName, people], gIdx) => (
                 <CompanyGroup
-                  key={companyName + gIdx}
+                  key={people[0]?.id || `group-${gIdx}`}
                   companyName={companyName}
                   people={people}
                   tab={activeTab}
@@ -594,6 +580,22 @@ export default function ContactsPage() {
           People data saves automatically and persists across all estimates.
         </div>
       </div>
+
+      {/* New Company modal */}
+      {showNewCompanyModal && (
+        <NewCompanyModal
+          tab={activeTab}
+          companyTag={companyTag}
+          onSave={data => {
+            addMasterItem(activeTab, { ...data, companyProfileId: companyTag });
+            showToast(`${data.company} added`);
+            setShowNewCompanyModal(false);
+          }}
+          onClose={() => setShowNewCompanyModal(false)}
+          C={C}
+          T={T}
+        />
+      )}
 
       {/* Delete modal */}
       {deleteConfirm && (
@@ -707,8 +709,39 @@ function CompanyGroup({
   const personCount = people.length;
   const firstPerson = people[0];
 
+  // Local state for debounced company name editing
+  const [localName, setLocalName] = useState(isUnnamed ? "" : companyName);
+  const debounceRef = useRef(null);
+  const isLocalEdit = useRef(false);
+
+  // Sync prop → local when changed externally (not from our own typing)
+  useEffect(() => {
+    if (!isLocalEdit.current) {
+      setLocalName(isUnnamed ? "" : companyName);
+    }
+    isLocalEdit.current = false;
+  }, [companyName, isUnnamed]);
+
+  const handleCompanyNameChange = (e) => {
+    const newName = e.target.value;
+    isLocalEdit.current = true;
+    setLocalName(newName);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      people.forEach(p => handleFieldUpdate(tab, p.id, "company", newName));
+    }, 400);
+  };
+
+  const handleCompanyNameBlur = () => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    people.forEach(p => handleFieldUpdate(tab, p.id, "company", localName));
+  };
+
   // For the company header, use the first person's company field
-  const companyDisplayName = isUnnamed ? "New Company" : companyName;
+  const companyDisplayName = isUnnamed ? "New Company" : (localName || "New Company");
 
   // Fields specific to sub tab
   const isSub = tab === "subcontractors";
@@ -745,13 +778,11 @@ function CompanyGroup({
             {companyDisplayName.slice(0, 2).toUpperCase()}
           </div>
           <div>
-            {/* Editable company name — update all people in this group */}
+            {/* Editable company name — debounced to prevent re-render on every keystroke */}
             <input
-              value={isUnnamed ? "" : companyName}
-              onChange={e => {
-                const newName = e.target.value;
-                people.forEach(p => handleFieldUpdate(tab, p.id, "company", newName));
-              }}
+              value={localName}
+              onChange={handleCompanyNameChange}
+              onBlur={handleCompanyNameBlur}
               placeholder="Company Name"
               style={inp(C, {
                 padding: "3px 8px",
@@ -979,6 +1010,166 @@ function ContactAvatar({ initials, color, T }) {
       }}
     >
       {initials}
+    </div>
+  );
+}
+
+/* ── New Company Modal ── */
+function NewCompanyModal({ tab, companyTag, onSave, onClose, C, T }) {
+  const FIELD_MAP = {
+    subcontractors: ["company", "trade", "contact", "email", "phone", "notes"],
+    clients: ["company", "contact", "email", "phone", "address", "notes"],
+    architects: ["company", "contact", "email", "phone"],
+    engineers: ["company", "contact", "email", "phone"],
+  };
+  const LABELS = {
+    company: "Company Name *",
+    trade: "Trade / Specialty",
+    contact: "Contact Name",
+    email: "Email",
+    phone: "Phone",
+    address: "Address",
+    notes: "Notes",
+  };
+  const PLACEHOLDERS = {
+    company: "Acme Mechanical, Inc.",
+    trade: "HVAC, Plumbing, Electrical...",
+    contact: "John Smith",
+    email: "john@acme.com",
+    phone: "(555) 123-4567",
+    address: "123 Main St, City, ST 12345",
+    notes: "Additional notes...",
+  };
+  const TAB_LABELS = {
+    subcontractors: "Subcontractor",
+    clients: "Client",
+    architects: "Architect",
+    engineers: "Engineer",
+  };
+
+  const fields = FIELD_MAP[tab] || [];
+  const [form, setForm] = useState(
+    Object.fromEntries(fields.map(f => [f, ""])),
+  );
+  const update = (f, v) => setForm(prev => ({ ...prev, [f]: v }));
+  const canSave = (form.company || "").trim().length > 0;
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.65)",
+        backdropFilter: "blur(12px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 200,
+        animation: "fadeIn 0.2s ease-out",
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: C.bg1,
+          border: `1px solid ${C.border}`,
+          borderRadius: T.radius.lg,
+          padding: T.space[7],
+          width: 420,
+          maxHeight: "85vh",
+          overflowY: "auto",
+          boxShadow: T.shadow.xl,
+          animation: "modalEnter 0.3s cubic-bezier(0.16,1,0.3,1)",
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div
+          style={{
+            fontSize: T.fontSize.lg,
+            fontWeight: T.fontWeight.semibold,
+            color: C.text,
+            marginBottom: T.space[1],
+          }}
+        >
+          Add {TAB_LABELS[tab] || "Company"}
+        </div>
+        <div style={{ fontSize: T.fontSize.xs, color: C.textMuted, marginBottom: T.space[5] }}>
+          Fill in the details below. Company name is required.
+        </div>
+
+        {fields.map(f => (
+          <div key={f} style={{ marginBottom: T.space[3] }}>
+            <label
+              style={{
+                display: "block",
+                fontSize: 11,
+                fontWeight: 600,
+                color: C.textMuted,
+                marginBottom: 3,
+              }}
+            >
+              {LABELS[f]}
+            </label>
+            {f === "notes" ? (
+              <textarea
+                value={form[f] || ""}
+                onChange={e => update(f, e.target.value)}
+                placeholder={PLACEHOLDERS[f]}
+                rows={3}
+                style={inp(C, {
+                  padding: "8px 12px",
+                  fontSize: 13,
+                  width: "100%",
+                  resize: "vertical",
+                  boxSizing: "border-box",
+                })}
+              />
+            ) : (
+              <input
+                value={form[f] || ""}
+                onChange={e => update(f, e.target.value)}
+                placeholder={PLACEHOLDERS[f]}
+                autoFocus={f === "company"}
+                style={inp(C, {
+                  padding: "8px 12px",
+                  fontSize: 13,
+                  width: "100%",
+                  boxSizing: "border-box",
+                })}
+              />
+            )}
+          </div>
+        ))}
+
+        <div style={{ display: "flex", gap: T.space[2], justifyContent: "flex-end", marginTop: T.space[5] }}>
+          <button
+            onClick={onClose}
+            style={bt(C, {
+              background: C.bg2,
+              color: C.textMuted,
+              padding: `${T.space[2]}px ${T.space[5]}px`,
+              border: `1px solid ${C.border}`,
+              borderRadius: T.radius.sm,
+            })}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => canSave && onSave(form)}
+            disabled={!canSave}
+            style={bt(C, {
+              background: canSave ? C.accent : C.bg2,
+              color: canSave ? "#fff" : C.textDim,
+              padding: `${T.space[2]}px ${T.space[5]}px`,
+              borderRadius: T.radius.sm,
+              opacity: canSave ? 1 : 0.5,
+              cursor: canSave ? "pointer" : "not-allowed",
+            })}
+          >
+            Save
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

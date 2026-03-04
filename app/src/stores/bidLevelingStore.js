@@ -44,12 +44,21 @@ export const useBidLevelingStore = create((set, get) => ({
 
   // Import parsed proposals from bid management into leveling grid
   importParsedProposals: (levelingData) => set(s => {
-    const { linkedSubs: newSubs, bidCells: newCells, bidTotals: newTotals } = levelingData;
+    const { linkedSubs: newSubs, bidCells: newCells, bidTotals: newTotals, subBidSubs: newSubBidSubs } = levelingData;
+
+    // Merge subBidSubs — append new subs to each subdivision
+    const mergedSubBidSubs = { ...s.subBidSubs };
+    if (newSubBidSubs) {
+      for (const [sk, subs] of Object.entries(newSubBidSubs)) {
+        mergedSubBidSubs[sk] = [...(mergedSubBidSubs[sk] || []), ...subs];
+      }
+    }
 
     return {
       linkedSubs: [...s.linkedSubs, ...newSubs],
       bidCells: { ...s.bidCells, ...newCells },
       bidTotals: { ...s.bidTotals, ...newTotals },
+      subBidSubs: mergedSubBidSubs,
     };
   }),
 }));

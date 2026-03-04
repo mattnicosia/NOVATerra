@@ -8,6 +8,7 @@ import Modal from "@/components/shared/Modal";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { analyzeGaps } from "@/utils/scopeGapEngine";
+import { fireAutoResponse } from "@/utils/autoResponseEngine";
 
 const fmt = v =>
   new Intl.NumberFormat("en-US", {
@@ -97,6 +98,24 @@ export default function AwardBidModal({ bidPackage, onClose }) {
       // Update invitation statuses locally
       for (const inv of pkgInvites) {
         updateInvitationStatus(bidPackage.id, inv.id, inv.id === selectedId ? "awarded" : "not_awarded");
+      }
+
+      // ── Fire auto-response triggers for award results ──
+      const awardCtx = (inv, type) => ({
+        packageId: bidPackage.id,
+        invitationId: inv.id,
+        recipientEmail: inv.subEmail || "",
+        subCompany: inv.subCompany || inv.subContact || inv.name || "",
+        projectName: bidPackage.name || "",
+        bidAmount: inv.totalBid ? String(inv.totalBid) : "",
+      });
+      // Winner
+      fireAutoResponse("postAwardWinner", awardCtx(selected));
+      // Non-winners
+      for (const inv of pkgInvites) {
+        if (inv.id !== selectedId && ["submitted", "parsed"].includes(inv.status)) {
+          fireAutoResponse("postAwardLoser", awardCtx(inv));
+        }
       }
 
       showToast(`Awarded to ${selected?.name || "selected sub"}`, "success");

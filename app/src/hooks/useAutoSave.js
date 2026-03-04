@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { saveEstimate, saveMasterData, saveSettings, saveAssemblies, saveCalendar } from "./usePersistence";
+import { saveEstimate, saveMasterData, saveSettings, saveAssemblies, saveCalendar, saveBidPackagePresets, saveAutoResponseConfig, saveAutoResponseDrafts } from "./usePersistence";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { useItemsStore } from "@/stores/itemsStore";
@@ -14,6 +14,7 @@ import { useModuleStore } from "@/stores/moduleStore";
 import { useCalendarStore } from "@/stores/calendarStore";
 import { useGroupsStore } from "@/stores/groupsStore";
 import { useBidPackagesStore } from "@/stores/bidPackagesStore";
+import { useAutoResponseStore } from "@/stores/autoResponseStore";
 import { useUiStore } from "@/stores/uiStore";
 
 export function useAutoSave() {
@@ -23,6 +24,9 @@ export function useAutoSave() {
   const settingsTimer = useRef(null);
   const assemblyTimer = useRef(null);
   const calTimer = useRef(null);
+  const bpPresetsTimer = useRef(null);
+  const arConfigTimer = useRef(null);
+  const arDraftsTimer = useRef(null);
   const persistenceLoaded = useUiStore(s => s.persistenceLoaded);
 
   // ── Estimate core data (fast-changing) ─────────────────────
@@ -157,4 +161,49 @@ export function useAutoSave() {
       if (calTimer.current) clearTimeout(calTimer.current);
     };
   }, [persistenceLoaded, calendarTasks]);
+
+  // ── Bid package presets (debounced) ────────────────────
+  const bpPresets = useBidPackagesStore(s => s.bidPackagePresets);
+  useEffect(() => {
+    if (!persistenceLoaded) return;
+    if (bpPresetsTimer.current) clearTimeout(bpPresetsTimer.current);
+    bpPresetsTimer.current = setTimeout(() => {
+      saveBidPackagePresets().catch(err => {
+        console.error("[autoSave] Bid package presets save failed:", err);
+      });
+    }, 2000);
+    return () => {
+      if (bpPresetsTimer.current) clearTimeout(bpPresetsTimer.current);
+    };
+  }, [persistenceLoaded, bpPresets]);
+
+  // ── Auto-response config (debounced) ──────────────────
+  const arTriggerConfig = useAutoResponseStore(s => s.triggerConfig);
+  useEffect(() => {
+    if (!persistenceLoaded) return;
+    if (arConfigTimer.current) clearTimeout(arConfigTimer.current);
+    arConfigTimer.current = setTimeout(() => {
+      saveAutoResponseConfig().catch(err => {
+        console.error("[autoSave] Auto-response config save failed:", err);
+      });
+    }, 2000);
+    return () => {
+      if (arConfigTimer.current) clearTimeout(arConfigTimer.current);
+    };
+  }, [persistenceLoaded, arTriggerConfig]);
+
+  // ── Auto-response drafts (debounced) ──────────────────
+  const arDrafts = useAutoResponseStore(s => s.drafts);
+  useEffect(() => {
+    if (!persistenceLoaded) return;
+    if (arDraftsTimer.current) clearTimeout(arDraftsTimer.current);
+    arDraftsTimer.current = setTimeout(() => {
+      saveAutoResponseDrafts().catch(err => {
+        console.error("[autoSave] Auto-response drafts save failed:", err);
+      });
+    }, 1500);
+    return () => {
+      if (arDraftsTimer.current) clearTimeout(arDraftsTimer.current);
+    };
+  }, [persistenceLoaded, arDrafts]);
 }

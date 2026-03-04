@@ -1,15 +1,118 @@
-import { useMemo, useState, useRef, useEffect } from 'react';
-import { useTheme } from '@/hooks/useTheme';
-import { useItemsStore } from '@/stores/itemsStore';
-import { useBidLevelingStore } from '@/stores/bidLevelingStore';
-import { useProjectStore } from '@/stores/projectStore';
-import Ic from '@/components/shared/Ic';
-import { I } from '@/constants/icons';
-import { inp, nInp, bt } from '@/utils/styles';
-import { nn, fmt } from '@/utils/format';
+import { useMemo, useState, useRef, useEffect, useCallback } from "react";
+import { useTheme } from "@/hooks/useTheme";
+import { useItemsStore } from "@/stores/itemsStore";
+import { useBidLevelingStore } from "@/stores/bidLevelingStore";
+import { useBidPackagesStore } from "@/stores/bidPackagesStore";
+import { useProjectStore } from "@/stores/projectStore";
+import Ic from "@/components/shared/Ic";
+import { I } from "@/constants/icons";
+import { inp, nInp, bt } from "@/utils/styles";
+import { nn, fmt, pct } from "@/utils/format";
 
-/* ─── Inline-editable cell ─── */
-function BidCell({ value, status, onSave, highlight, C, T }) {
+/* ─── Cell status definitions ─── */
+const CELL_STATUSES = [
+  { key: "lumpsum", label: "Lump Sum", icon: I.dollar, shortLabel: "LS" },
+  { key: "unitrate", label: "Unit Rate", icon: I.hash, shortLabel: "UR" },
+  { key: "carried", label: "Carried", icon: I.layers, shortLabel: "CR" },
+  { key: "blank", label: "Clear", icon: I.x, shortLabel: "" },
+];
+
+/* ─── Context Menu — pricing method picker (right-click on cell) ─── */
+function CellContextMenu({ pos, item, currentStatus, getItemTotal, onSelect, onClose, C }) {
+  const ref = useRef(null);
+  const dk = C.isDark !== false;
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) onClose();
+    };
+    const t = setTimeout(() => document.addEventListener("mousedown", handler), 0);
+    return () => { clearTimeout(t); document.removeEventListener("mousedown", handler); };
+  }, [onClose]);
+
+  useEffect(() => {
+    const handler = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  // Bounds check to prevent right-edge overflow
+  const x = Math.min(pos.x, window.innerWidth - 180);
+  const y = Math.min(pos.y, window.innerHeight - 200);
+
+  return (
+    <div
+      ref={ref}
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        position: "fixed",
+        left: x,
+        top: y,
+        zIndex: 1000,
+        background: dk
+          ? "linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.04) 100%)"
+          : "linear-gradient(145deg, rgba(255,255,255,0.97) 0%, rgba(255,255,255,0.92) 100%)",
+        backdropFilter: "blur(40px) saturate(1.8)",
+        WebkitBackdropFilter: "blur(40px) saturate(1.8)",
+        border: `1px solid ${dk ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.10)"}`,
+        borderRadius: 10,
+        padding: "6px 4px",
+        boxShadow: dk
+          ? "0 12px 40px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08)"
+          : "0 4px 16px rgba(0,0,0,0.10), 0 12px 40px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,1)",
+        minWidth: 155,
+      }}
+    >
+      <div style={{
+        fontSize: 8, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase",
+        color: C.textDim, padding: "2px 8px 4px", fontFamily: "'DM Sans',sans-serif",
+      }}>
+        Pricing Method
+      </div>
+      {CELL_STATUSES.map(s => {
+        const isActive = s.key === currentStatus || (s.key === "lumpsum" && currentStatus === "amount");
+        const hoverBg = dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)";
+        return (
+          <button
+            key={s.key}
+            onClick={() => onSelect(s.key)}
+            style={{
+              display: "flex", alignItems: "center", gap: 8,
+              width: "100%", padding: "6px 8px", borderRadius: 7,
+              border: "none",
+              background: isActive ? `${C.accent}15` : "transparent",
+              cursor: "pointer", textAlign: "left",
+              fontSize: 11, fontWeight: isActive ? 700 : 500,
+              color: isActive ? C.accent : C.text,
+              fontFamily: "'DM Sans',sans-serif",
+              transition: "background 0.15s",
+            }}
+            onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = hoverBg; }}
+            onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = isActive ? `${C.accent}15` : "transparent"; }}
+          >
+            <Ic d={s.icon} size={13} color={isActive ? C.accent : C.textDim} sw={1.8} />
+            <span style={{ flex: 1 }}>{s.label}</span>
+            {/* Show quantity hint for unit rate */}
+            {s.key === "unitrate" && nn(item.quantity) > 0 && (
+              <span style={{ fontSize: 9, color: C.textDim }}>
+                ×{nn(item.quantity)} {item.unit || ""}
+              </span>
+            )}
+            {/* Show internal total hint for carried */}
+            {s.key === "carried" && (
+              <span style={{ fontSize: 9, color: C.textDim }}>
+                {fmt(getItemTotal(item))}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ─── Inline-editable cell with status differentiation ─── */
+function BidCell({ value, status, item, onSave, onContextMenu, getItemTotal, highlight, C, T }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const inputRef = useRef(null);
@@ -18,6 +121,13 @@ function BidCell({ value, status, onSave, highlight, C, T }) {
     if (editing && inputRef.current) inputRef.current.focus();
   }, [editing]);
 
+  const handleContextMenu = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onContextMenu(e);
+  };
+
+  // ── Editing mode (lumpsum or unitrate) ──
   if (editing) {
     return (
       <input
@@ -25,59 +135,238 @@ function BidCell({ value, status, onSave, highlight, C, T }) {
         type="number"
         value={draft}
         onChange={e => setDraft(e.target.value)}
-        onBlur={() => {
-          onSave(draft);
-          setEditing(false);
-        }}
+        onBlur={() => { onSave(draft); setEditing(false); }}
         onKeyDown={e => {
           if (e.key === "Enter") { onSave(draft); setEditing(false); }
           if (e.key === "Escape") setEditing(false);
         }}
+        onContextMenu={handleContextMenu}
         style={{
-          width: "100%",
-          padding: "2px 6px",
-          fontSize: 11,
-          fontWeight: 600,
-          fontFamily: "'DM Sans',sans-serif",
-          textAlign: "right",
-          border: `1.5px solid ${C.accent}`,
-          borderRadius: 3,
-          outline: "none",
-          background: C.bg,
-          color: C.text,
-          boxSizing: "border-box",
+          width: "100%", padding: "2px 6px", fontSize: 11, fontWeight: 600,
+          fontFamily: "'DM Sans',sans-serif", textAlign: "right",
+          border: `1.5px solid ${C.accent}`, borderRadius: 3, outline: "none",
+          background: C.bg, color: C.text, boxSizing: "border-box",
         }}
       />
     );
   }
 
-  const display = status === "blank" ? "" : fmt(nn(value));
-  const bg = highlight === "low" ? `${C.green}12` : highlight === "high" ? `${C.red || C.orange}12` : "transparent";
-  const color = highlight === "low" ? C.green : highlight === "high" ? (C.red || C.orange) : (status === "blank" ? C.textDim : C.text);
+  // ── Computed display value ──
+  const computedVal = (() => {
+    if (status === "blank") return 0;
+    if (status === "lumpsum" || status === "amount") return nn(value);
+    if (status === "unitrate") return nn(value) * nn(item.quantity);
+    if (status === "carried") return getItemTotal(item);
+    return 0;
+  })();
+
+  // ── Highlight colors (low/high among subs) ──
+  const bg = highlight === "low" ? `${C.green}12`
+    : highlight === "high" ? `${(C.red || C.orange)}12`
+    : "transparent";
+  const baseColor = highlight === "low" ? C.green
+    : highlight === "high" ? (C.red || C.orange)
+    : status === "blank" ? C.textDim
+    : status === "carried" ? C.accent
+    : C.text;
+
+  const handleClick = () => {
+    if (status === "carried") return; // Carried cells are auto-filled, not editable
+    setDraft(status === "blank" ? "" : String(value || ""));
+    setEditing(true);
+  };
+
+  const titleText =
+    status === "blank" ? "Right-click for pricing options"
+    : status === "unitrate" ? `Unit Rate: ${fmt(nn(value))}/${item.unit || "ea"} × ${nn(item.quantity)} = ${fmt(computedVal)}`
+    : status === "carried" ? `Carried from internal: ${fmt(computedVal)}`
+    : `Lump Sum: ${fmt(computedVal)}`;
 
   return (
     <div
-      onClick={() => { setDraft(status === "blank" ? "" : String(value || "")); setEditing(true); }}
-      title={status === "blank" ? "Click to enter bid" : `${status}: ${value}`}
+      onClick={handleClick}
+      onContextMenu={handleContextMenu}
+      title={titleText}
       style={{
-        padding: "2px 6px",
-        fontSize: 11,
+        padding: "2px 4px", fontSize: 11,
         fontWeight: status === "blank" ? 400 : 600,
-        fontFamily: "'DM Sans',sans-serif",
-        fontFeatureSettings: "'tnum'",
-        textAlign: "right",
-        cursor: "pointer",
+        fontFamily: "'DM Sans',sans-serif", fontFeatureSettings: "'tnum'",
+        textAlign: "right", cursor: status === "carried" ? "default" : "pointer",
         minHeight: 20,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "flex-end",
-        background: bg,
-        color,
-        borderRadius: 2,
+        display: "flex", alignItems: "center", justifyContent: "flex-end",
+        gap: 3,
+        background: bg, color: baseColor, borderRadius: 2,
         transition: "background 0.1s",
+        ...(status === "carried" ? { borderLeft: `2px solid ${C.accent}25` } : {}),
       }}
     >
-      {display || "—"}
+      {/* Status badge */}
+      {(status === "lumpsum" || status === "amount") && computedVal > 0 && (
+        <span style={{ fontSize: 7, fontWeight: 700, opacity: 0.4, letterSpacing: 0.5 }}>LS</span>
+      )}
+      {status === "unitrate" && computedVal > 0 && (
+        <span style={{ fontSize: 7, fontWeight: 700, opacity: 0.4, letterSpacing: 0.5 }}>UR</span>
+      )}
+      {status === "carried" && (
+        <Ic d={I.layers} size={8} color={C.accent} sw={2} />
+      )}
+
+      {/* Main value */}
+      {status === "blank" ? (
+        <span style={{ opacity: 0.35 }}>—</span>
+      ) : (
+        <span>{fmt(computedVal)}</span>
+      )}
+
+      {/* Unit rate breakdown */}
+      {status === "unitrate" && nn(value) > 0 && (
+        <span style={{ fontSize: 8, color: C.textDim, fontWeight: 500, whiteSpace: "nowrap" }}>
+          ({fmt(nn(value))}/{item.unit || "ea"})
+        </span>
+      )}
+    </div>
+  );
+}
+
+/* ─── Variance badge — % diff from internal ─── */
+function VarianceBadge({ subTotal, internalTotal, C, fontSize = 8 }) {
+  if (!internalTotal || internalTotal <= 0 || !subTotal || subTotal <= 0) return null;
+  const variance = ((subTotal - internalTotal) / internalTotal) * 100;
+  const color = variance <= 0 ? C.green : (C.red || C.orange);
+  const sign = variance > 0 ? "+" : "";
+  return (
+    <span style={{
+      fontSize, fontWeight: 600, color,
+      fontFamily: "'DM Sans',sans-serif", fontFeatureSettings: "'tnum'",
+    }}>
+      {sign}{pct(variance)}
+    </span>
+  );
+}
+
+/* ─── Import Proposals Popover ─── */
+function ImportProposalsPopover({ onClose, onImport, C }) {
+  const ref = useRef(null);
+  const dk = C.isDark !== false;
+  const bidPackages = useBidPackagesStore(s => s.bidPackages);
+  const invitations = useBidPackagesStore(s => s.invitations);
+  const proposals = useBidPackagesStore(s => s.proposals);
+  const linkedSubs = useBidLevelingStore(s => s.linkedSubs);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) onClose();
+    };
+    const t = setTimeout(() => document.addEventListener("mousedown", handler), 0);
+    return () => { clearTimeout(t); document.removeEventListener("mousedown", handler); };
+  }, [onClose]);
+
+  useEffect(() => {
+    const handler = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  // Count parsed proposals per package
+  const pkgStats = bidPackages.map(pkg => {
+    const invites = invitations[pkg.id] || [];
+    const parsedCount = invites.filter(inv => proposals[inv.id]?.parsedData).length;
+    // Check if already imported (by matching sub names)
+    const importedNames = new Set(linkedSubs.filter(ls => ls.source === "portal").map(ls => ls.name));
+    const alreadyImported = parsedCount > 0 && invites.every(inv => {
+      const p = proposals[inv.id];
+      if (!p?.parsedData) return true; // skip non-parsed
+      const name = inv.subCompany || inv.subContact || "";
+      return importedNames.has(name);
+    });
+    return { pkg, parsedCount, alreadyImported };
+  });
+
+  const hasAnyParsed = pkgStats.some(s => s.parsedCount > 0);
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        position: "absolute",
+        right: 0,
+        top: "100%",
+        marginTop: 6,
+        zIndex: 100,
+        background: dk
+          ? "linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.04) 100%)"
+          : "linear-gradient(145deg, rgba(255,255,255,0.97) 0%, rgba(255,255,255,0.92) 100%)",
+        backdropFilter: "blur(40px) saturate(1.8)",
+        WebkitBackdropFilter: "blur(40px) saturate(1.8)",
+        border: `1px solid ${dk ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.10)"}`,
+        borderRadius: 10,
+        padding: "10px 12px",
+        boxShadow: dk
+          ? "0 12px 40px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08)"
+          : "0 4px 16px rgba(0,0,0,0.10), 0 12px 40px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,1)",
+        minWidth: 220,
+      }}
+    >
+      <div style={{
+        fontSize: 10, fontWeight: 700, color: C.text, marginBottom: 8,
+        fontFamily: "'DM Sans',sans-serif",
+      }}>
+        Import Bid Proposals
+      </div>
+      {!hasAnyParsed && (
+        <div style={{ fontSize: 10, color: C.textDim, padding: "8px 0" }}>
+          No parsed proposals available. Parse proposals in Bid Packages first.
+        </div>
+      )}
+      {pkgStats.map(({ pkg, parsedCount, alreadyImported }) => {
+        if (parsedCount === 0) return null;
+        return (
+          <div
+            key={pkg.id}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "6px 8px",
+              borderRadius: 6,
+              background: alreadyImported ? `${C.green}08` : `${C.text}04`,
+              marginBottom: 4,
+            }}
+          >
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>
+                {pkg.name || "Unnamed Package"}
+              </div>
+              <div style={{ fontSize: 9, color: C.textDim }}>
+                {parsedCount} proposal{parsedCount !== 1 ? "s" : ""} parsed
+              </div>
+            </div>
+            {alreadyImported ? (
+              <span style={{
+                fontSize: 9, fontWeight: 600, color: C.green,
+                padding: "3px 8px", borderRadius: 4,
+              }}>
+                Imported
+              </span>
+            ) : (
+              <button
+                onClick={() => onImport(pkg.id)}
+                style={{
+                  padding: "4px 10px", fontSize: 10, fontWeight: 700,
+                  border: "none", borderRadius: 5,
+                  background: C.accent, color: "#fff",
+                  cursor: "pointer", fontFamily: "'DM Sans',sans-serif",
+                  transition: "opacity 0.15s",
+                }}
+                onMouseEnter={e => e.currentTarget.style.opacity = "0.85"}
+                onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+              >
+                Import
+              </button>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -103,11 +392,25 @@ export default function LevelingView() {
   const [addSubSk, setAddSubSk] = useState(null);
   const [newSubName, setNewSubName] = useState("");
   const newSubRef = useRef(null);
+  const [cellMenu, setCellMenu] = useState(null); // { x, y, itemId, subId, item }
+  const [showImportPopover, setShowImportPopover] = useState(false);
+
+  // ── Import handler: bridge bid packages → leveling grid ──
+  const handleImportProposals = useCallback((packageId) => {
+    const { generateLevelingData } = useBidPackagesStore.getState();
+    const { importParsedProposals } = useBidLevelingStore.getState();
+    const currentItems = useItemsStore.getState().items;
+    const levelingData = generateLevelingData(packageId, currentItems);
+    importParsedProposals(levelingData);
+    setShowImportPopover(false);
+  }, []);
 
   // Group items by subdivision
-  const getSubKey = (item) => {
+  const getSubKey = item => {
     const code = item.code || "";
-    const sk = code.includes(".") ? code.split(".").slice(0, 2).join(".") : (item.division || "Unassigned").split(" - ")[0] || "00";
+    const sk = code.includes(".")
+      ? code.split(".").slice(0, 2).join(".")
+      : (item.division || "Unassigned").split(" - ")[0] || "00";
     return sk.includes(".") ? sk : `${sk}.00`;
   };
 
@@ -126,12 +429,14 @@ export default function LevelingView() {
   const allSubs = useMemo(() => {
     const map = new Map();
     Object.entries(subBidSubs).forEach(([, subs]) => {
-      (subs || []).forEach(s => { if (!map.has(s.id)) map.set(s.id, s); });
+      (subs || []).forEach(s => {
+        if (!map.has(s.id)) map.set(s.id, s);
+      });
     });
     return Array.from(map.values());
   }, [subBidSubs]);
 
-  const getSubSubs = (sk) => subBidSubs[sk] || [];
+  const getSubSubs = sk => subBidSubs[sk] || [];
   const addSubBidSub = (sk, name) => {
     const current = useBidLevelingStore.getState().subBidSubs;
     const subs = [...(current[sk] || []), { id: `sub_${Date.now()}`, name: name || "" }];
@@ -139,7 +444,9 @@ export default function LevelingView() {
   };
   const updateSubBidSubName = (sk, subId, name) => {
     const current = useBidLevelingStore.getState().subBidSubs;
-    useBidLevelingStore.getState().setSubBidSubs({ ...current, [sk]: (current[sk] || []).map(s => s.id === subId ? { ...s, name } : s) });
+    useBidLevelingStore
+      .getState()
+      .setSubBidSubs({ ...current, [sk]: (current[sk] || []).map(s => (s.id === subId ? { ...s, name } : s)) });
   };
 
   const getCell = (itemId, subId) => bidCells[`${itemId}_${subId}`] || { status: "blank", value: "" };
@@ -151,11 +458,47 @@ export default function LevelingView() {
     return 0;
   };
 
-  const saveCell = (itemId, subId, value) => {
+  // ── Save with explicit status ──
+  const saveCellWithStatus = useCallback((itemId, subId, status, value) => {
+    const bc = useBidLevelingStore.getState().bidCells;
     const key = `${itemId}_${subId}`;
+    if (status === "blank") {
+      useBidLevelingStore.getState().setBidCells({ ...bc, [key]: { status: "blank", value: "" } });
+    } else if (status === "carried") {
+      useBidLevelingStore.getState().setBidCells({ ...bc, [key]: { status: "carried", value: "" } });
+    } else {
+      const numVal = nn(value);
+      useBidLevelingStore.getState().setBidCells({
+        ...bc,
+        [key]: numVal ? { status, value: String(numVal) } : { status: "blank", value: "" },
+      });
+    }
+  }, []);
+
+  // ── Save from inline edit — preserves existing status ──
+  const saveCell = useCallback((itemId, subId, value) => {
+    const bc = useBidLevelingStore.getState().bidCells;
+    const key = `${itemId}_${subId}`;
+    const existing = bc[key] || { status: "blank", value: "" };
+    // Preserve unitrate status if already set; otherwise default to lumpsum
+    const status = existing.status === "unitrate" ? "unitrate" : "lumpsum";
     const numVal = nn(value);
-    setBidCells({ ...bidCells, [key]: numVal ? { status: "amount", value: String(numVal) } : { status: "blank", value: "" } });
-  };
+    useBidLevelingStore.getState().setBidCells({
+      ...bc,
+      [key]: numVal ? { status, value: String(numVal) } : { status: "blank", value: "" },
+    });
+  }, []);
+
+  // ── Auto-carry: set all items in a subdivision to "carried" for a sub ──
+  const autoCarry = useCallback((sk, subId) => {
+    const bc = useBidLevelingStore.getState().bidCells;
+    const newCells = { ...bc };
+    const subItems = subdivisions.find(s => s.sk === sk)?.items || [];
+    subItems.forEach(item => {
+      newCells[`${item.id}_${subId}`] = { status: "carried", value: "" };
+    });
+    useBidLevelingStore.getState().setBidCells(newCells);
+  }, [subdivisions]);
 
   const getSkSubTotal = (sk, subId) => {
     const skItems = subdivisions.find(s => s.sk === sk)?.items || [];
@@ -172,11 +515,11 @@ export default function LevelingView() {
     return nn(bidTotals[subId]);
   };
 
-  const getBidSelection = (sk) => bidSelections[sk] || { source: "", customValue: "" };
+  const getBidSelection = sk => bidSelections[sk] || { source: "", customValue: "" };
   const setBidSelection = (sk, updates) => {
     setBidSelections({ ...bidSelections, [sk]: { ...getBidSelection(sk), ...updates } });
   };
-  const getSelectedBidValue = (sk) => {
+  const getSelectedBidValue = sk => {
     const sel = getBidSelection(sk);
     if (!sel.source) return 0;
     if (sel.source === "internal") return subdivisions.find(s => s.sk === sk)?.total || 0;
@@ -188,24 +531,32 @@ export default function LevelingView() {
     return getSkSubTotal(sk, sel.source);
   };
 
-  const getSubLabel = (sk) => {
+  const getSubLabel = sk => {
     const dc = sk.split(".")[0];
     const subName = activeCodes[dc]?.subs?.[sk] || "";
     return subKeyLabels[sk] || `${sk} ${subName}`;
   };
 
-  const totalBidValue = useMemo(() =>
-    subdivisions.reduce((sum, sub) => sum + getSelectedBidValue(sub.sk), 0),
-  [subdivisions, bidSelections, bidCells, bidTotals, subBidSubs, linkedSubs]);
+  const totalBidValue = useMemo(
+    () => subdivisions.reduce((sum, sub) => sum + getSelectedBidValue(sub.sk), 0),
+    [subdivisions, bidSelections, bidCells, bidTotals, subBidSubs, linkedSubs],
+  );
+
+  const internalGrandTotal = useMemo(
+    () => subdivisions.reduce((sum, s) => sum + s.total, 0),
+    [subdivisions],
+  );
 
   // Get highlight for a cell (lowest/highest among subs for a given item)
   const getHighlight = (item, subId, sk) => {
     const subs = getSubSubs(sk);
     if (subs.length < 2) return null;
-    const values = subs.map(s => {
-      const cell = getCell(item.id, s.id);
-      return { id: s.id, val: getCellComputedValue(item, cell), blank: cell.status === "blank" };
-    }).filter(v => !v.blank && v.val > 0);
+    const values = subs
+      .map(s => {
+        const cell = getCell(item.id, s.id);
+        return { id: s.id, val: getCellComputedValue(item, cell), blank: cell.status === "blank" };
+      })
+      .filter(v => !v.blank && v.val > 0);
     if (values.length < 2) return null;
     const min = Math.min(...values.map(v => v.val));
     const max = Math.max(...values.map(v => v.val));
@@ -222,37 +573,81 @@ export default function LevelingView() {
     if (addSubSk && newSubRef.current) newSubRef.current.focus();
   }, [addSubSk]);
 
-  const fixedCols = 5; // #, Code, Desc, Qty, Unit
-  const subColWidth = 110;
+  const subColWidth = 120;
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       {/* Summary bar */}
-      <div style={{
-        display: "flex", justifyContent: "space-between", alignItems: "center",
-        padding: "8px 16px", flexShrink: 0,
-        background: `${C.green}08`, borderBottom: `1px solid ${C.green}30`,
-      }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "8px 16px",
+          flexShrink: 0,
+          background: `${C.green}08`,
+          borderBottom: `1px solid ${C.green}30`,
+        }}
+      >
         <span style={{ fontSize: 12, fontWeight: 600, color: C.green }}>
           Bid Leveling — {subdivisions.length} subdivisions · {items.length} items
         </span>
-        <span style={{
-          fontSize: 18, fontWeight: 700, color: C.green,
-          fontFamily: "'DM Sans',sans-serif", fontFeatureSettings: "'tnum'",
-        }}>
-          {fmt(totalBidValue)}
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {/* Import Proposals Button */}
+          <div style={{ position: "relative" }}>
+            <button
+              onClick={() => setShowImportPopover(v => !v)}
+              style={{
+                display: "flex", alignItems: "center", gap: 4,
+                padding: "4px 10px", fontSize: 10, fontWeight: 600,
+                border: `1px solid ${C.accent}40`, borderRadius: 5,
+                background: showImportPopover ? `${C.accent}12` : "transparent",
+                color: C.accent, cursor: "pointer",
+                fontFamily: "'DM Sans',sans-serif",
+                transition: "background 0.15s",
+              }}
+              onMouseEnter={e => { if (!showImportPopover) e.currentTarget.style.background = `${C.accent}08`; }}
+              onMouseLeave={e => { if (!showImportPopover) e.currentTarget.style.background = "transparent"; }}
+            >
+              <Ic d={I.download} size={11} color={C.accent} sw={2} />
+              Import
+            </button>
+            {showImportPopover && (
+              <ImportProposalsPopover
+                onClose={() => setShowImportPopover(false)}
+                onImport={handleImportProposals}
+                C={C}
+              />
+            )}
+          </div>
+          <span style={{ fontSize: 10, color: C.textDim }}>
+            Internal: {fmt(internalGrandTotal)}
+          </span>
+          <span
+            style={{
+              fontSize: 18,
+              fontWeight: 700,
+              color: C.green,
+              fontFamily: "'DM Sans',sans-serif",
+              fontFeatureSettings: "'tnum'",
+            }}
+          >
+            {fmt(totalBidValue)}
+          </span>
+        </div>
       </div>
 
       {/* Spreadsheet grid */}
       <div style={{ flex: 1, overflow: "auto" }}>
-        <table style={{
-          width: "100%",
-          borderCollapse: "collapse",
-          fontSize: 11,
-          fontFamily: "'DM Sans',sans-serif",
-          tableLayout: "auto",
-        }}>
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            fontSize: 11,
+            fontFamily: "'DM Sans',sans-serif",
+            tableLayout: "auto",
+          }}
+        >
           <thead>
             <tr style={{ position: "sticky", top: 0, zIndex: 10, background: C.bg }}>
               <th style={{ ...thStyle(C), width: 30, textAlign: "center" }}>#</th>
@@ -260,22 +655,34 @@ export default function LevelingView() {
               <th style={{ ...thStyle(C), minWidth: 180 }}>Description</th>
               <th style={{ ...thStyle(C), width: 60, textAlign: "right" }}>Qty</th>
               <th style={{ ...thStyle(C), width: 40, textAlign: "center" }}>Unit</th>
-              <th style={{ ...thStyle(C), width: subColWidth, textAlign: "right", color: C.accent, borderLeft: `2px solid ${C.accent}30` }}>Internal</th>
+              <th
+                style={{
+                  ...thStyle(C),
+                  width: subColWidth,
+                  textAlign: "right",
+                  color: C.accent,
+                  borderLeft: `2px solid ${C.accent}30`,
+                }}
+              >
+                Internal
+              </th>
               {allSubs.map(sub => {
                 const sel = Object.entries(bidSelections).some(([, v]) => v.source === sub.id);
                 return (
-                  <th key={sub.id} style={{
-                    ...thStyle(C),
-                    width: subColWidth,
-                    textAlign: "right",
-                    borderLeft: sel ? `2px solid ${C.green}` : `1px solid ${C.border}`,
-                    color: sel ? C.green : C.text,
-                  }}>
+                  <th
+                    key={sub.id}
+                    style={{
+                      ...thStyle(C),
+                      width: subColWidth,
+                      textAlign: "right",
+                      borderLeft: sel ? `2px solid ${C.green}` : `1px solid ${C.border}`,
+                      color: sel ? C.green : C.text,
+                    }}
+                  >
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 1 }}>
                       <input
                         value={sub.name}
                         onChange={e => {
-                          // Find which sk this sub belongs to and update
                           Object.entries(subBidSubs).forEach(([sk, subs]) => {
                             if (subs.some(s => s.id === sub.id)) updateSubBidSubName(sk, sub.id, e.target.value);
                           });
@@ -298,9 +705,7 @@ export default function LevelingView() {
                   </th>
                 );
               })}
-              <th style={{ ...thStyle(C), width: 36 }}>
-                {/* Add sub button placeholder */}
-              </th>
+              <th style={{ ...thStyle(C), width: 36 }}>{/* Add sub button placeholder */}</th>
             </tr>
           </thead>
           <tbody>
@@ -325,6 +730,8 @@ export default function LevelingView() {
                   getCell={getCell}
                   getCellComputedValue={getCellComputedValue}
                   saveCell={saveCell}
+                  saveCellWithStatus={saveCellWithStatus}
+                  setCellMenu={setCellMenu}
                   getHighlight={getHighlight}
                   getItemTotal={getItemTotal}
                   getSubLabel={getSubLabel}
@@ -333,8 +740,12 @@ export default function LevelingView() {
                   setBidSelection={setBidSelection}
                   setBidTotals={setBidTotals}
                   bidTotals={bidTotals}
+                  autoCarry={autoCarry}
                   onToggle={() => setCollapsed(c => ({ ...c, [sub.sk]: !c[sub.sk] }))}
-                  onAddSub={() => { setAddSubSk(sub.sk); setNewSubName(""); }}
+                  onAddSub={() => {
+                    setAddSubSk(sub.sk);
+                    setNewSubName("");
+                  }}
                   addSubSk={addSubSk}
                   newSubName={newSubName}
                   setNewSubName={setNewSubName}
@@ -344,26 +755,125 @@ export default function LevelingView() {
                     setAddSubSk(null);
                     setNewSubName("");
                   }}
-                  onCancelAddSub={() => { setAddSubSk(null); setNewSubName(""); }}
+                  onCancelAddSub={() => {
+                    setAddSubSk(null);
+                    setNewSubName("");
+                  }}
                   skLinked={skLinked}
                   linkedSubs={linkedSubs}
                 />
               );
             })}
+
+            {/* ─── Grand Total Row ─── */}
+            <tr style={{
+              position: "sticky", bottom: 0, zIndex: 9,
+              background: C.bg,
+            }}>
+              <td colSpan={5} style={{
+                padding: "8px 10px", fontWeight: 800, fontSize: 13, color: C.green,
+                borderTop: `3px solid ${C.green}`,
+                fontFamily: "'DM Sans',sans-serif",
+              }}>
+                GRAND TOTAL
+              </td>
+              <td style={{
+                padding: "8px 8px", textAlign: "right", fontWeight: 800, fontSize: 13,
+                color: C.accent, borderLeft: `2px solid ${C.accent}30`,
+                borderTop: `3px solid ${C.green}`,
+                fontFamily: "'DM Sans',sans-serif", fontFeatureSettings: "'tnum'",
+              }}>
+                {fmt(internalGrandTotal)}
+              </td>
+              {allSubs.map(s => {
+                const subGrandTotal = subdivisions.reduce((sum, sub) => {
+                  const sks = getSubSubs(sub.sk);
+                  if (!sks.some(ss => ss.id === s.id)) return sum;
+                  return sum + getSkSubTotal(sub.sk, s.id);
+                }, 0);
+
+                return (
+                  <td key={s.id} style={{
+                    padding: "8px 8px", textAlign: "right", fontWeight: 800, fontSize: 13,
+                    color: C.text, borderLeft: `1px solid ${C.border}`,
+                    borderTop: `3px solid ${C.green}`,
+                    fontFamily: "'DM Sans',sans-serif", fontFeatureSettings: "'tnum'",
+                  }}>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 1 }}>
+                      <span>{fmt(subGrandTotal)}</span>
+                      <VarianceBadge subTotal={subGrandTotal} internalTotal={internalGrandTotal} C={C} fontSize={9} />
+                    </div>
+                  </td>
+                );
+              })}
+              <td style={{ borderTop: `3px solid ${C.green}` }} />
+            </tr>
           </tbody>
         </table>
       </div>
+
+      {/* ─── Cell Context Menu (rendered at root level) ─── */}
+      {cellMenu && (
+        <CellContextMenu
+          pos={{ x: cellMenu.x, y: cellMenu.y }}
+          item={cellMenu.item}
+          currentStatus={getCell(cellMenu.itemId, cellMenu.subId).status}
+          getItemTotal={getItemTotal}
+          onSelect={(newStatus) => {
+            if (newStatus === "blank") {
+              saveCellWithStatus(cellMenu.itemId, cellMenu.subId, "blank", "");
+            } else if (newStatus === "carried") {
+              saveCellWithStatus(cellMenu.itemId, cellMenu.subId, "carried", "");
+            } else {
+              // For lumpsum/unitrate, keep existing value but change status
+              const existing = getCell(cellMenu.itemId, cellMenu.subId);
+              saveCellWithStatus(cellMenu.itemId, cellMenu.subId, newStatus, existing.value);
+            }
+            setCellMenu(null);
+          }}
+          onClose={() => setCellMenu(null)}
+          C={C}
+        />
+      )}
     </div>
   );
 }
 
 /* ─── Subdivision group (header + items + subtotal) ─── */
 function SubdivisionGroup({
-  sub, subIdx, subs, allSubs, sel, isCollapsed, C, T, subColWidth,
-  getCell, getCellComputedValue, saveCell, getHighlight, getItemTotal, getSubLabel,
-  getSkSubTotal, getSelectedBidValue, setBidSelection, setBidTotals, bidTotals,
-  onToggle, onAddSub, addSubSk, newSubName, setNewSubName, newSubRef,
-  onConfirmAddSub, onCancelAddSub, skLinked, linkedSubs,
+  sub,
+  subIdx,
+  subs,
+  allSubs,
+  sel,
+  isCollapsed,
+  C,
+  T,
+  subColWidth,
+  getCell,
+  getCellComputedValue,
+  saveCell,
+  saveCellWithStatus,
+  setCellMenu,
+  getHighlight,
+  getItemTotal,
+  getSubLabel,
+  getSkSubTotal,
+  getSelectedBidValue,
+  setBidSelection,
+  setBidTotals,
+  bidTotals,
+  autoCarry,
+  onToggle,
+  onAddSub,
+  addSubSk,
+  newSubName,
+  setNewSubName,
+  newSubRef,
+  onConfirmAddSub,
+  onCancelAddSub,
+  skLinked,
+  linkedSubs,
 }) {
   const selVal = getSelectedBidValue(sub.sk);
   const totalCols = 6 + allSubs.length + 1; // fixed + internal + subs + add btn
@@ -390,22 +900,37 @@ function SubdivisionGroup({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-              style={{ transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)", transition: "transform 0.15s" }}>
+            <svg
+              width="10"
+              height="10"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke={C.textMuted}
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)", transition: "transform 0.15s" }}
+            >
               <polyline points="6 9 12 15 18 9" />
             </svg>
             {getSubLabel(sub.sk)}
-            <span style={{ fontSize: 9, color: C.textDim, fontWeight: 500 }}>
-              ({sub.items.length} items)
-            </span>
+            <span style={{ fontSize: 9, color: C.textDim, fontWeight: 500 }}>({sub.items.length} items)</span>
           </div>
         </td>
-        <td style={{
-          padding: "6px 8px", textAlign: "right", fontWeight: 700, fontSize: 11,
-          color: C.accent, borderBottom: `1px solid ${C.border}`, borderLeft: `2px solid ${C.accent}30`,
-          borderTop: subIdx > 0 ? `2px solid ${C.border}` : `1px solid ${C.border}`,
-          fontFamily: "'DM Sans',sans-serif", fontFeatureSettings: "'tnum'",
-        }}>
+        <td
+          style={{
+            padding: "6px 8px",
+            textAlign: "right",
+            fontWeight: 700,
+            fontSize: 11,
+            color: C.accent,
+            borderBottom: `1px solid ${C.border}`,
+            borderLeft: `2px solid ${C.accent}30`,
+            borderTop: subIdx > 0 ? `2px solid ${C.border}` : `1px solid ${C.border}`,
+            fontFamily: "'DM Sans',sans-serif",
+            fontFeatureSettings: "'tnum'",
+          }}
+        >
           {fmt(sub.total)}
         </td>
         {allSubs.map(s => {
@@ -413,31 +938,76 @@ function SubdivisionGroup({
           const subTotal = isSk ? getSkSubTotal(sub.sk, s.id) : 0;
           const isSelected = sel.source === s.id;
           return (
-            <td key={s.id} style={{
-              padding: "6px 8px", textAlign: "right", fontWeight: 700, fontSize: 11,
-              color: isSelected ? C.green : (isSk ? C.text : C.textDim),
-              borderBottom: `1px solid ${C.border}`,
-              borderLeft: isSelected ? `2px solid ${C.green}` : `1px solid ${C.border}`,
-              borderTop: subIdx > 0 ? `2px solid ${C.border}` : `1px solid ${C.border}`,
-              fontFamily: "'DM Sans',sans-serif", fontFeatureSettings: "'tnum'",
-              background: isSelected ? `${C.green}08` : undefined,
-            }}>
-              {isSk ? fmt(subTotal) : "—"}
+            <td
+              key={s.id}
+              style={{
+                padding: "6px 8px",
+                textAlign: "right",
+                fontWeight: 700,
+                fontSize: 11,
+                color: isSelected ? C.green : isSk ? C.text : C.textDim,
+                borderBottom: `1px solid ${C.border}`,
+                borderLeft: isSelected ? `2px solid ${C.green}` : `1px solid ${C.border}`,
+                borderTop: subIdx > 0 ? `2px solid ${C.border}` : `1px solid ${C.border}`,
+                fontFamily: "'DM Sans',sans-serif",
+                fontFeatureSettings: "'tnum'",
+                background: isSelected ? `${C.green}08` : undefined,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 1 }}>
+                  <span>{isSk ? fmt(subTotal) : "—"}</span>
+                  {isSk && <VarianceBadge subTotal={subTotal} internalTotal={sub.total} C={C} />}
+                </div>
+                {/* Auto-carry button */}
+                {isSk && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      autoCarry(sub.sk, s.id);
+                    }}
+                    title={`Auto-carry all ${sub.items.length} items from internal`}
+                    style={{
+                      display: "inline-flex", alignItems: "center", justifyContent: "center",
+                      width: 16, height: 16, borderRadius: 3, flexShrink: 0,
+                      border: `1px solid ${C.accent}25`, background: "transparent",
+                      cursor: "pointer", padding: 0,
+                      opacity: 0.45, transition: "opacity 0.15s",
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.opacity = "1"}
+                    onMouseLeave={e => e.currentTarget.style.opacity = "0.45"}
+                  >
+                    <Ic d={I.layers} size={8} color={C.accent} sw={2} />
+                  </button>
+                )}
+              </div>
             </td>
           );
         })}
-        <td style={{
-          padding: "6px 4px", textAlign: "center",
-          borderBottom: `1px solid ${C.border}`,
-          borderTop: subIdx > 0 ? `2px solid ${C.border}` : `1px solid ${C.border}`,
-        }}>
+        <td
+          style={{
+            padding: "6px 4px",
+            textAlign: "center",
+            borderBottom: `1px solid ${C.border}`,
+            borderTop: subIdx > 0 ? `2px solid ${C.border}` : `1px solid ${C.border}`,
+          }}
+        >
           <button
-            onClick={e => { e.stopPropagation(); onAddSub(); }}
+            onClick={e => {
+              e.stopPropagation();
+              onAddSub();
+            }}
             title="Add subcontractor to this trade"
             style={{
-              width: 22, height: 22, border: `1px solid ${C.border}`, borderRadius: 4,
-              background: "transparent", cursor: "pointer", display: "flex",
-              alignItems: "center", justifyContent: "center",
+              width: 22,
+              height: 22,
+              border: `1px solid ${C.border}`,
+              borderRadius: 4,
+              background: "transparent",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
             <Ic d={I.plus} size={10} color={C.accent} sw={2} />
@@ -448,7 +1018,10 @@ function SubdivisionGroup({
       {/* Add sub inline form */}
       {addSubSk === sub.sk && (
         <tr>
-          <td colSpan={totalCols} style={{ padding: "4px 10px", borderBottom: `1px solid ${C.border}`, background: `${C.accent}06` }}>
+          <td
+            colSpan={totalCols}
+            style={{ padding: "4px 10px", borderBottom: `1px solid ${C.border}`, background: `${C.accent}06` }}
+          >
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ fontSize: 10, fontWeight: 600, color: C.accent }}>New sub:</span>
               <input
@@ -461,17 +1034,45 @@ function SubdivisionGroup({
                 }}
                 placeholder="Subcontractor name..."
                 style={{
-                  flex: 1, maxWidth: 200, padding: "3px 8px", fontSize: 11,
-                  border: `1px solid ${C.accent}40`, borderRadius: 4, outline: "none",
-                  background: C.bg, color: C.text, fontFamily: "'DM Sans',sans-serif",
+                  flex: 1,
+                  maxWidth: 200,
+                  padding: "3px 8px",
+                  fontSize: 11,
+                  border: `1px solid ${C.accent}40`,
+                  borderRadius: 4,
+                  outline: "none",
+                  background: C.bg,
+                  color: C.text,
+                  fontFamily: "'DM Sans',sans-serif",
                 }}
               />
-              <button onClick={onConfirmAddSub}
-                style={{ padding: "3px 10px", fontSize: 10, fontWeight: 700, border: "none", borderRadius: 4, background: C.accent, color: "#fff", cursor: "pointer" }}>
+              <button
+                onClick={onConfirmAddSub}
+                style={{
+                  padding: "3px 10px",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  border: "none",
+                  borderRadius: 4,
+                  background: C.accent,
+                  color: "#fff",
+                  cursor: "pointer",
+                }}
+              >
                 Add
               </button>
-              <button onClick={onCancelAddSub}
-                style={{ padding: "3px 8px", fontSize: 10, border: `1px solid ${C.border}`, borderRadius: 4, background: "transparent", color: C.textDim, cursor: "pointer" }}>
+              <button
+                onClick={onCancelAddSub}
+                style={{
+                  padding: "3px 8px",
+                  fontSize: 10,
+                  border: `1px solid ${C.border}`,
+                  borderRadius: 4,
+                  background: "transparent",
+                  color: C.textDim,
+                  cursor: "pointer",
+                }}
+              >
                 Cancel
               </button>
             </div>
@@ -480,87 +1081,152 @@ function SubdivisionGroup({
       )}
 
       {/* ─── Item rows (hidden when collapsed) ─── */}
-      {!isCollapsed && sub.items.map((item, rowIdx) => {
-        return (
-          <tr key={item.id} style={{ background: rowIdx % 2 === 0 ? "transparent" : `${C.text}03` }}>
-            <td style={{ ...tdStyle(C), textAlign: "center", color: C.textDim, fontSize: 9 }}>{rowIdx + 1}</td>
-            <td style={{ ...tdStyle(C), fontSize: 10, color: C.textMuted, fontWeight: 600 }}>{item.code || "—"}</td>
-            <td style={{ ...tdStyle(C), fontSize: 11, color: C.text, fontWeight: 500 }}>
-              <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 280 }} title={item.description}>
-                {item.description || "Untitled"}
-              </div>
-            </td>
-            <td style={{ ...tdStyle(C), textAlign: "right", fontFamily: "'DM Sans',sans-serif", fontFeatureSettings: "'tnum'", fontSize: 10, fontWeight: 600 }}>
-              {nn(item.quantity) || "—"}
-            </td>
-            <td style={{ ...tdStyle(C), textAlign: "center", fontSize: 9, color: C.textDim }}>
-              {item.unit || "—"}
-            </td>
-            <td style={{ ...tdStyle(C), textAlign: "right", fontFamily: "'DM Sans',sans-serif", fontFeatureSettings: "'tnum'", color: C.accent, fontWeight: 600, borderLeft: `2px solid ${C.accent}30`, fontSize: 10 }}>
-              {fmt(getItemTotal ? getItemTotal(item) : 0)}
-            </td>
-            {allSubs.map(s => {
-              const isSk = subs.some(ss => ss.id === s.id);
-              if (!isSk) {
+      {!isCollapsed &&
+        sub.items.map((item, rowIdx) => {
+          return (
+            <tr key={item.id} style={{ background: rowIdx % 2 === 0 ? "transparent" : `${C.text}03` }}>
+              <td style={{ ...tdStyle(C), textAlign: "center", color: C.textDim, fontSize: 9 }}>{rowIdx + 1}</td>
+              <td style={{ ...tdStyle(C), fontSize: 10, color: C.textMuted, fontWeight: 600 }}>{item.code || "—"}</td>
+              <td style={{ ...tdStyle(C), fontSize: 11, color: C.text, fontWeight: 500 }}>
+                <div
+                  style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 280 }}
+                  title={item.description}
+                >
+                  {item.description || "Untitled"}
+                </div>
+              </td>
+              <td
+                style={{
+                  ...tdStyle(C),
+                  textAlign: "right",
+                  fontFamily: "'DM Sans',sans-serif",
+                  fontFeatureSettings: "'tnum'",
+                  fontSize: 10,
+                  fontWeight: 600,
+                }}
+              >
+                {nn(item.quantity) || "—"}
+              </td>
+              <td style={{ ...tdStyle(C), textAlign: "center", fontSize: 9, color: C.textDim }}>{item.unit || "—"}</td>
+              <td
+                style={{
+                  ...tdStyle(C),
+                  textAlign: "right",
+                  fontFamily: "'DM Sans',sans-serif",
+                  fontFeatureSettings: "'tnum'",
+                  color: C.accent,
+                  fontWeight: 600,
+                  borderLeft: `2px solid ${C.accent}30`,
+                  fontSize: 10,
+                }}
+              >
+                {fmt(getItemTotal ? getItemTotal(item) : 0)}
+              </td>
+              {allSubs.map(s => {
+                const isSk = subs.some(ss => ss.id === s.id);
+                if (!isSk) {
+                  return (
+                    <td
+                      key={s.id}
+                      style={{
+                        ...tdStyle(C),
+                        textAlign: "center",
+                        color: `${C.textDim}60`,
+                        fontSize: 9,
+                        borderLeft: `1px solid ${C.border}`,
+                      }}
+                    >
+                      ·
+                    </td>
+                  );
+                }
+                const cell = getCell(item.id, s.id);
+                const highlight = getHighlight(item, s.id, sub.sk);
+                const isSelected = sel.source === s.id;
                 return (
-                  <td key={s.id} style={{ ...tdStyle(C), textAlign: "center", color: `${C.textDim}60`, fontSize: 9, borderLeft: `1px solid ${C.border}` }}>
-                    ·
+                  <td
+                    key={s.id}
+                    style={{
+                      ...tdStyle(C),
+                      padding: "1px 2px",
+                      borderLeft: isSelected ? `2px solid ${C.green}` : `1px solid ${C.border}`,
+                      background: isSelected ? `${C.green}04` : undefined,
+                    }}
+                  >
+                    <BidCell
+                      value={cell.value}
+                      status={cell.status}
+                      item={item}
+                      onSave={val => saveCell(item.id, s.id, val)}
+                      onContextMenu={(e) => setCellMenu({
+                        x: e.clientX,
+                        y: e.clientY,
+                        itemId: item.id,
+                        subId: s.id,
+                        item,
+                      })}
+                      getItemTotal={getItemTotal}
+                      highlight={highlight}
+                      C={C}
+                      T={T}
+                    />
                   </td>
                 );
-              }
-              const cell = getCell(item.id, s.id);
-              const highlight = getHighlight(item, s.id, sub.sk);
-              const isSelected = sel.source === s.id;
-              return (
-                <td key={s.id} style={{
-                  ...tdStyle(C),
-                  padding: "1px 2px",
-                  borderLeft: isSelected ? `2px solid ${C.green}` : `1px solid ${C.border}`,
-                  background: isSelected ? `${C.green}04` : undefined,
-                }}>
-                  <BidCell
-                    value={cell.value}
-                    status={cell.status}
-                    onSave={val => saveCell(item.id, s.id, val)}
-                    highlight={highlight}
-                    C={C}
-                    T={T}
-                  />
-                </td>
-              );
-            })}
-            <td style={{ ...tdStyle(C), width: 36 }} />
-          </tr>
-        );
-      })}
+              })}
+              <td style={{ ...tdStyle(C), width: 36 }} />
+            </tr>
+          );
+        })}
 
       {/* ─── Selection / subtotal row ─── */}
       <tr style={{ background: sel.source ? `${C.green}08` : C.bg2 }}>
-        <td colSpan={5} style={{
-          padding: "5px 10px",
-          borderBottom: `2px solid ${sel.source ? C.green : C.border}`,
-          fontSize: 10, fontWeight: 700, color: sel.source ? C.green : C.textMuted,
-        }}>
+        <td
+          colSpan={5}
+          style={{
+            padding: "5px 10px",
+            borderBottom: `2px solid ${sel.source ? C.green : C.border}`,
+            fontSize: 10,
+            fontWeight: 700,
+            color: sel.source ? C.green : C.textMuted,
+          }}
+        >
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <Ic d={I.check} size={12} color={sel.source ? C.green : C.textDim} />
             <select
               value={sel.source}
-              onChange={e => { e.stopPropagation(); setBidSelection(sub.sk, { source: e.target.value }); }}
+              onChange={e => {
+                e.stopPropagation();
+                setBidSelection(sub.sk, { source: e.target.value });
+              }}
               onClick={e => e.stopPropagation()}
               style={{
-                padding: "3px 6px", fontSize: 10, fontWeight: 600,
+                padding: "3px 6px",
+                fontSize: 10,
+                fontWeight: 600,
                 border: `1px solid ${sel.source ? C.green + "60" : C.border}`,
-                borderRadius: 4, background: C.bg, color: sel.source ? C.green : C.textMuted,
-                cursor: "pointer", outline: "none", fontFamily: "'DM Sans',sans-serif",
+                borderRadius: 4,
+                background: C.bg,
+                color: sel.source ? C.green : C.textMuted,
+                cursor: "pointer",
+                outline: "none",
+                fontFamily: "'DM Sans',sans-serif",
               }}
             >
               <option value="">Select winner...</option>
               <option value="internal">Internal ({fmt(sub.total)})</option>
               {subs.map(s => {
                 const st = getSkSubTotal(sub.sk, s.id);
-                return <option key={s.id} value={s.id}>{s.name || "Unnamed"} ({st > 0 ? fmt(st) : "—"})</option>;
+                return (
+                  <option key={s.id} value={s.id}>
+                    {s.name || "Unnamed"} ({st > 0 ? fmt(st) : "—"})
+                  </option>
+                );
               })}
-              {skLinked.map(ls => <option key={ls.id} value={`linked_${ls.id}`}>{ls.name || "Linked"} ({fmt(nn(ls.totalBid))})</option>)}
+              {skLinked.map(ls => (
+                <option key={ls.id} value={`linked_${ls.id}`}>
+                  {ls.name || "Linked"} ({fmt(nn(ls.totalBid))})
+                </option>
+              ))}
               <option value="custom">Custom...</option>
             </select>
             {sel.source === "custom" && (
@@ -571,28 +1237,49 @@ function SubdivisionGroup({
                 onClick={e => e.stopPropagation()}
                 placeholder="$0"
                 style={{
-                  width: 80, padding: "3px 6px", fontSize: 11, fontWeight: 700,
-                  border: `1px solid ${C.green}`, borderRadius: 4, background: C.bg,
-                  color: C.green, textAlign: "right", outline: "none",
+                  width: 80,
+                  padding: "3px 6px",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  border: `1px solid ${C.green}`,
+                  borderRadius: 4,
+                  background: C.bg,
+                  color: C.green,
+                  textAlign: "right",
+                  outline: "none",
                   fontFamily: "'DM Sans',sans-serif",
                 }}
               />
             )}
             {sel.source && (
-              <span style={{ fontSize: 12, fontWeight: 700, color: C.green, fontFamily: "'DM Sans',sans-serif", fontFeatureSettings: "'tnum'" }}>
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: C.green,
+                  fontFamily: "'DM Sans',sans-serif",
+                  fontFeatureSettings: "'tnum'",
+                }}
+              >
                 → {fmt(selVal)}
               </span>
             )}
           </div>
         </td>
-        <td style={{
-          padding: "5px 8px", textAlign: "right", fontWeight: 700, fontSize: 11,
-          borderBottom: `2px solid ${sel.source ? C.green : C.border}`,
-          borderLeft: `2px solid ${C.accent}30`,
-          color: sel.source === "internal" ? C.green : C.accent,
-          fontFamily: "'DM Sans',sans-serif", fontFeatureSettings: "'tnum'",
-          background: sel.source === "internal" ? `${C.green}12` : undefined,
-        }}>
+        <td
+          style={{
+            padding: "5px 8px",
+            textAlign: "right",
+            fontWeight: 700,
+            fontSize: 11,
+            borderBottom: `2px solid ${sel.source ? C.green : C.border}`,
+            borderLeft: `2px solid ${C.accent}30`,
+            color: sel.source === "internal" ? C.green : C.accent,
+            fontFamily: "'DM Sans',sans-serif",
+            fontFeatureSettings: "'tnum'",
+            background: sel.source === "internal" ? `${C.green}12` : undefined,
+          }}
+        >
           {fmt(sub.total)}
         </td>
         {allSubs.map(s => {
@@ -600,15 +1287,25 @@ function SubdivisionGroup({
           const subTotal = isSk ? getSkSubTotal(sub.sk, s.id) : 0;
           const isSelected = sel.source === s.id;
           return (
-            <td key={s.id} style={{
-              padding: "5px 8px", textAlign: "right", fontWeight: 700, fontSize: 11,
-              borderBottom: `2px solid ${sel.source ? C.green : C.border}`,
-              borderLeft: isSelected ? `2px solid ${C.green}` : `1px solid ${C.border}`,
-              color: isSelected ? C.green : (isSk ? C.text : C.textDim),
-              fontFamily: "'DM Sans',sans-serif", fontFeatureSettings: "'tnum'",
-              background: isSelected ? `${C.green}12` : undefined,
-            }}>
-              {isSk ? fmt(subTotal) : "—"}
+            <td
+              key={s.id}
+              style={{
+                padding: "5px 8px",
+                textAlign: "right",
+                fontWeight: 700,
+                fontSize: 11,
+                borderBottom: `2px solid ${sel.source ? C.green : C.border}`,
+                borderLeft: isSelected ? `2px solid ${C.green}` : `1px solid ${C.border}`,
+                color: isSelected ? C.green : isSk ? C.text : C.textDim,
+                fontFamily: "'DM Sans',sans-serif",
+                fontFeatureSettings: "'tnum'",
+                background: isSelected ? `${C.green}12` : undefined,
+              }}
+            >
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 1 }}>
+                <span>{isSk ? fmt(subTotal) : "—"}</span>
+                {isSk && <VarianceBadge subTotal={subTotal} internalTotal={sub.total} C={C} />}
+              </div>
             </td>
           );
         })}

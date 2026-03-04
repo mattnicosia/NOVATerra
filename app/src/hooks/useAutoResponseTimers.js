@@ -1,0 +1,79 @@
+// Hook: fires deadline-based auto-response triggers (48h / 24h reminders)
+// Runs on an interval, checks all active bid packages for approaching due dates
+import { useEffect, useRef } from "react";
+import { useBidPackagesStore } from "@/stores/bidPackagesStore";
+import { useAutoResponseStore } from "@/stores/autoResponseStore";
+import { useProjectStore } from "@/stores/projectStore";
+import { fireAutoResponse } from "@/utils/autoResponseEngine";
+
+const CHECK_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
+
+export default function useAutoResponseTimers() {
+  const ranRef = useRef(false);
+
+  useEffect(() => {
+    const checkDeadlines = () => {
+      const { bidPackages, invitations } = useBidPackagesStore.getState();
+      const { hasDraft, triggerConfig } = useAutoResponseStore.getState();
+      const project = useProjectStore.getState().project;
+
+      if (!triggerConfig.bidDue48h?.enabled && !triggerConfig.bidDue24h?.enabled) return;
+
+      for (const pkg of bidPackages) {
+        if (!pkg.dueDate || pkg.status === "awarded" || pkg.status === "closed") continue;
+
+        const due = new Date(pkg.dueDate + "T17:00:00"); // 5pm on due date
+        const hoursLeft = (due - Date.now()) / 3600000;
+
+        // Skip if already past due or too far out
+        if (hoursLeft <= 0 || hoursLeft > 48) continue;
+
+        const pkgInvites = invitations[pkg.id] || [];
+        for (const inv of pkgInvites) {
+          // Only remind subs who haven't submitted yet
+          if (!["sent", "opened", "downloaded"].includes(inv.status)) continue;
+
+          const ctx = {
+            packageId: pkg.id,
+            invitationId: inv.id,
+            recipientEmail: inv.subEmail || "",
+            subCompany: inv.subCompany || inv.subContact || "",
+            projectName: pkg.name || project?.name || "",
+            dueDate: due.toLocaleDateString("en-US", {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+              year: "numeric",
+            }),
+          };
+
+          // 48h trigger
+          if (hoursLeft <= 48 && hoursLeft > 24 && !hasDraft("bidDue48h", inv.id)) {
+            fireAutoResponse("bidDue48h", ctx);
+          }
+
+          // 24h trigger
+          if (hoursLeft <= 24 && !hasDraft("bidDue24h", inv.id)) {
+            fireAutoResponse("bidDue24h", ctx);
+          }
+        }
+      }
+    };
+
+    // Run once on mount (with short delay so stores are hydrated)
+    const initTimer = setTimeout(() => {
+      if (!ranRef.current) {
+        ranRef.current = true;
+        checkDeadlines();
+      }
+    }, 5000);
+
+    // Set interval
+    const interval = setInterval(checkDeadlines, CHECK_INTERVAL_MS);
+
+    return () => {
+      clearTimeout(initTimer);
+      clearInterval(interval);
+    };
+  }, []);
+}

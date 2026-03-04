@@ -98,9 +98,9 @@ export function ThemeProvider({ children }) {
       // Dark Liquid Glass: Clarity dark base + dark glass tokens (with specular/lensing)
       const colors = {
         ...darkBase,
-        glassBg: "rgba(255,255,255,0.04)",
-        glassBorder: "rgba(255,255,255,0.10)",
-        glassBgDark: "rgba(10,10,22,0.40)",
+        glassBg: "rgba(255,255,255,0.12)",
+        glassBorder: "rgba(255,255,255,0.16)",
+        glassBgDark: "rgba(10,10,22,0.55)",
       };
       return { ...colors, T: tokens, isDark: true, panel: { ...colors, T: tokens, isDark: true } };
     }

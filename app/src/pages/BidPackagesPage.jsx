@@ -6,6 +6,7 @@ import { useBidPackagesStore } from "@/stores/bidPackagesStore";
 import { useItemsStore } from "@/stores/itemsStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useUiStore } from "@/stores/uiStore";
+import { fireAutoResponse } from "@/utils/autoResponseEngine";
 import BidPackagesPanel from "@/components/estimate/BidPackagesPanel";
 import CreateBidPackageModal from "@/components/estimate/CreateBidPackageModal";
 import ProposalDetailModal from "@/components/estimate/ProposalDetailModal";
@@ -45,6 +46,9 @@ export default function BidPackagesPage() {
           // Merge server data into local store
           if (Array.isArray(packages)) {
             for (const pkg of packages) {
+              // Get old invitations before overwriting (for status diff)
+              const oldInvites = useBidPackagesStore.getState().invitations[pkg.id] || [];
+
               const invites = (pkg.bid_invitations || []).map(inv => ({
                 id: inv.id,
                 subCompany: inv.sub_company,
@@ -59,6 +63,27 @@ export default function BidPackagesPage() {
                 token: inv.token,
               }));
               useBidPackagesStore.getState().setPackageInvitations(pkg.id, invites);
+
+              // ── Auto-response triggers: detect status transitions ──
+              const pj = useProjectStore.getState().project;
+              for (const newInv of invites) {
+                const oldInv = oldInvites.find(o => o.id === newInv.id);
+                const oldStatus = oldInv?.status;
+                const ctx = {
+                  packageId: pkg.id,
+                  invitationId: newInv.id,
+                  recipientEmail: newInv.subEmail || "",
+                  subCompany: newInv.subCompany || newInv.subContact || "",
+                  projectName: pkg.name || pj?.name || "",
+                  dueDate: pkg.due_date || "",
+                };
+                if (oldStatus !== "opened" && newInv.status === "opened") {
+                  fireAutoResponse("portalOpened", ctx);
+                }
+                if (oldStatus !== "submitted" && newInv.status === "submitted") {
+                  fireAutoResponse("proposalSubmitted", ctx);
+                }
+              }
             }
           }
         }

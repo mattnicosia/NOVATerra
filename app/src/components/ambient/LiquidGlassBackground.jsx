@@ -1,28 +1,25 @@
 import { useTheme } from "@/hooks/useTheme";
 
-/* ── LiquidGlassBackground — vivid animated mesh for BOTH light and dark modes ──
-   Apple WWDC25-219: glass "bends, shapes, and concentrates light" — this
-   requires vivid content BEHIND the glass in every mode.
-
-   Light mode: bold saturated blobs on chromatic blue-white base + terra green accent
-   Dark mode: same vivid blobs on deep dark base — colors pop even MORE
+/* ── LiquidGlassBackground — theme-aware ambient mesh ──
+   Four rendering paths:
+   1. Nero — pure black void (no mesh)
+   2. Texture mode — transparent (bgGradient handles all atmosphere)
+   3. Custom mesh (car themes) — reads C.mesh for per-theme atmosphere
+   4. Default mesh (original themes) — vivid 6-blob rainbow on dark/light base
 */
+
+// Convert float alpha (0.35) to 2-digit hex string ("59")
+function alphaHex(a) {
+  return Math.round(Math.min(1, Math.max(0, a)) * 255)
+    .toString(16)
+    .padStart(2, "0");
+}
+
 export default function LiquidGlassBackground() {
   const C = useTheme();
 
-  const accent = C.accent || "#007AFF";
-  const alt = C.accentAlt || "#5AC8FA";
-  const purple = C.purple || "#BF5AF2";
-  const cyan = C.cyan || "#64D2FF";
-  const green = C.green || "#30D158";
-
   // ── NERO NEMESIS: void atmosphere ──
-  // Kill the color party. Replace with near-total darkness and
-  // barely-perceptible ambient glow strips — like running lights
-  // on a Lamborghini Terzo Millennio in a dark garage.
   if (C.neroMode) {
-    // Pure void — just black. No colored glow.
-    // The carbon fiber texture on surfaces IS the atmosphere.
     return (
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, overflow: "hidden" }}>
         <div style={{ position: "absolute", inset: 0, background: "#000000" }} />
@@ -30,13 +27,76 @@ export default function LiquidGlassBackground() {
     );
   }
 
-  // Dark mode: blobs are MORE saturated (colors pop against dark) but base is deep
+  // ── TEXTURE MODE: bgGradient handles all atmosphere — no blobs ──
+  if (C.textureMode) {
+    return (
+      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, overflow: "hidden" }}>
+        <div style={{ position: "absolute", inset: 0 }} />
+      </div>
+    );
+  }
+
+  // ── CUSTOM MESH (car themes + any palette with mesh defined) ──
+  if (C.mesh) {
+    return (
+      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, overflow: "hidden" }}>
+        {/* Base gradient — the car's environment tone */}
+        <div style={{ position: "absolute", inset: 0, background: C.mesh.base }} />
+
+        {/* Blobs — large ambient color fields */}
+        {C.mesh.blobs.map((b, i) => (
+          <div
+            key={`b${i}`}
+            style={{
+              position: "absolute",
+              width: b.size,
+              height: b.size,
+              top: b.y,
+              left: b.x,
+              borderRadius: "50%",
+              background: `radial-gradient(circle, ${b.color}${alphaHex(b.alpha)} 0%, ${b.color}${alphaHex(b.alpha * 0.4)} 40%, transparent 65%)`,
+              filter: `blur(${b.blur}px)`,
+              animation: `meshFloat${(i % 5) + 1} ${25 + i * 4}s ease-in-out infinite${i % 2 ? " reverse" : ""}`,
+              willChange: "transform",
+            }}
+          />
+        ))}
+
+        {/* Caustics — concentrated light points */}
+        {C.mesh.caustics.map((c, i) => (
+          <div
+            key={`c${i}`}
+            style={{
+              position: "absolute",
+              width: c.size,
+              height: c.size,
+              top: c.y,
+              left: c.x,
+              borderRadius: "50%",
+              background: `radial-gradient(circle, ${c.color}${alphaHex(c.alpha)} 0%, transparent 55%)`,
+              filter: `blur(${c.blur}px)`,
+              animation: `meshFloat${((i + 2) % 5) + 1} ${18 + i * 3}s ease-in-out infinite reverse`,
+              willChange: "transform",
+            }}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  // ── DEFAULT MESH (original themes without custom mesh) ──
+  const accent = C.accent || "#007AFF";
+  const alt = C.accentAlt || "#5AC8FA";
+  const purple = C.purple || "#BF5AF2";
+  const cyan = C.cyan || "#64D2FF";
+  const green = C.green || "#30D158";
+
   const dk = C.isDark;
   const o = (lightVal, darkVal) => (dk ? darkVal : lightVal);
 
   return (
     <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, overflow: "hidden" }}>
-      {/* ── BASE — chromatic blue-white (light) or deep blue-black (dark) ── */}
+      {/* ── BASE ── */}
       <div
         style={{
           position: "absolute",
@@ -46,8 +106,6 @@ export default function LiquidGlassBackground() {
             : "linear-gradient(135deg, #dde4ff 0%, #d4e0ff 20%, #e2d8ff 40%, #d0f0e8 60%, #d4ecff 80%, #e4daff 100%)",
         }}
       />
-
-      {/* ── MAIN COLOR BLOBS ── */}
 
       {/* Large accent blob — top-left */}
       <div
@@ -160,9 +218,7 @@ export default function LiquidGlassBackground() {
         }}
       />
 
-      {/* ── CAUSTIC SPOTS — concentrated light ── */}
-
-      {/* Accent caustic — near header */}
+      {/* ── CAUSTIC SPOTS ── */}
       <div
         style={{
           position: "absolute",
@@ -180,7 +236,6 @@ export default function LiquidGlassBackground() {
         }}
       />
 
-      {/* Purple caustic — mid-right */}
       <div
         style={{
           position: "absolute",
@@ -198,7 +253,6 @@ export default function LiquidGlassBackground() {
         }}
       />
 
-      {/* Cyan caustic — lower center */}
       <div
         style={{
           position: "absolute",
@@ -216,7 +270,6 @@ export default function LiquidGlassBackground() {
         }}
       />
 
-      {/* Terra green caustic — mid-right */}
       <div
         style={{
           position: "absolute",
@@ -234,7 +287,7 @@ export default function LiquidGlassBackground() {
         }}
       />
 
-      {/* Warm-white specular spot (light mode only — would wash out dark) */}
+      {/* Warm-white specular spot (light mode only) */}
       {!dk && (
         <div
           style={{

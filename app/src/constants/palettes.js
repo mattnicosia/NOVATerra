@@ -188,9 +188,9 @@ export const PALETTES = [
       orange: "#F59E0B",
       cyan: "#64D2FF",
       sidebarBg: "rgba(6,6,12,0.96)",
-      glassBg: "rgba(18,16,28,0.75)",
+      glassBg: "rgba(18,16,28,0.78)",
       glassBorder: "rgba(255,255,255,0.06)",
-      glassBgDark: "rgba(8,8,16,0.75)",
+      glassBgDark: "rgba(8,8,16,0.78)",
       bgGradient: "#06060C",
       forceDark: true,
     },
@@ -307,9 +307,9 @@ export const PALETTES = [
       gradientSubtle: "linear-gradient(135deg, rgba(224,224,224,0.08), rgba(128,128,128,0.08))",
       gradientText: "linear-gradient(135deg, #E0E0E0, #808080)",
       sidebarBg: "rgba(10,10,10,0.90)",
-      glassBg: "rgba(20,20,20,0.55)",
+      glassBg: "rgba(20,20,20,0.68)",
       glassBorder: "rgba(255,255,255,0.08)",
-      glassBgDark: "rgba(10,10,10,0.75)",
+      glassBgDark: "rgba(10,10,10,0.80)",
       bgGradient: `radial-gradient(ellipse at 20% 20%, rgba(224,224,224,0.12) 0%, transparent 50%), radial-gradient(ellipse at 80% 20%, rgba(128,128,128,0.10) 0%, transparent 50%), radial-gradient(ellipse at 50% 80%, rgba(192,192,192,0.08) 0%, transparent 50%), #0A0A0A`,
       forceDark: false,
     },
@@ -431,9 +431,9 @@ export const PALETTES = [
       cyan: "#5AC8FA",
       yellow: "#FFD60A",
       sidebarBg: "rgba(28,28,30,0.96)",
-      glassBg: "rgba(44,44,46,0.72)",
+      glassBg: "rgba(44,44,46,0.78)",
       glassBorder: "rgba(255,255,255,0.06)",
-      glassBgDark: "rgba(28,28,30,0.80)",
+      glassBgDark: "rgba(28,28,30,0.85)",
       bgGradient: "#1C1C1E",
       forceDark: false,
     },
@@ -536,9 +536,9 @@ export const PALETTES = [
       cyan: "#64D2FF",
       yellow: "#FFD60A",
       sidebarBg: "rgba(0,0,0,0.96)",
-      glassBg: "rgba(10,10,10,0.65)",
+      glassBg: "rgba(10,10,10,0.75)",
       glassBorder: "rgba(255,255,255,0.04)",
-      glassBgDark: "rgba(0,0,0,0.85)",
+      glassBgDark: "rgba(0,0,0,0.90)",
       bgGradient: "#000000",
       forceDark: true,
     },
@@ -599,6 +599,7 @@ export const PALETTES = [
     overrides: {
       // ── NERO MODE FLAG — enables carbon/glass/glow in style helpers ──
       neroMode: true,
+      textureMode: true,
       // Foundation Blacks — VOID base, absolute darkness
       bg: "#000000", // VOID — true black
       bg1: "#06060E", // ABYSS — card surfaces (slight blue-violet cast)
@@ -644,6 +645,8 @@ export const PALETTES = [
         // Diagonal twill — gives the "woven" character
         "repeating-linear-gradient(45deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 8px)",
         "repeating-linear-gradient(-45deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 8px)",
+        // Violet NOVA core glow — deep, barely visible identity pulse
+        "radial-gradient(ellipse at 50% 60%, rgba(139,92,246,0.04) 0%, transparent 45%)",
         // Ambient floor glow — very dim, just enough to see surfaces aren't flat
         `radial-gradient(ellipse at 50% 100%, rgba(120,120,140,0.06) 0%, transparent 50%)`,
         "#000000",
@@ -749,38 +752,46 @@ export const PALETTES = [
     preview: ["#0A0B08", "#E8920A", "#1A1D14", "#2A2D22", "#F5F0E0"],
     variantLabels: ["Stealth"],
     overrides: {
-      bg: "#070805",     // dark olive void
-      bg1: "#0D0E0A",   // carbon surface with green cast
-      bg2: "#161812",    // raised olive-charcoal
-      bg3: "#20221A",    // elevated, visible green undertone
+      bg: "#070805", // dark olive void
+      bg1: "#0D0E0A", // carbon surface with green cast
+      bg2: "#161812", // raised olive-charcoal
+      bg3: "#20221A", // elevated, visible green undertone
       border: "rgba(232,146,10,0.10)",
       borderLight: "rgba(255,255,255,0.04)",
       borderAccent: "rgba(232,146,10,0.35)",
-      text: "#F0ECE0",   // warm parchment white (interior leather)
+      text: "#F0ECE0", // warm parchment white (interior leather)
       textMuted: "rgba(240,236,224,0.52)",
       textDim: "rgba(240,236,224,0.25)",
-      accent: "#E8920A",  // amber wheel glow
+      accent: "#E8920A", // amber wheel glow
       accentDim: "#C47A08",
-      accentBg: hR("#E8920A", 0.10),
+      accentBg: hR("#E8920A", 0.1),
       accentAlt: "#FFB740",
       gradient: "linear-gradient(135deg, #E8920A, #FFB740)",
       gradientSubtle: `linear-gradient(135deg, ${hR("#E8920A", 0.12)}, ${hR("#FFB740", 0.12)})`,
       gradientText: "linear-gradient(135deg, #E8920A, #FFB740)",
-      green: "#6ABF4B",   // military status green
-      red: "#E53935",     // hexagonal taillight
+      green: "#6ABF4B", // military status green
+      red: "#E53935", // hexagonal taillight
       blue: "#42A5F5",
       purple: "#AB47BC",
       orange: "#FFB300",
       cyan: "#26C6DA",
       yellow: "#FFD740",
       sidebarBg: "rgba(7,8,5,0.97)",
-      glassBg: "rgba(26,29,20,0.65)",
+      glassBg: "rgba(26,29,20,0.78)",
       glassBorder: "rgba(232,146,10,0.08)",
-      glassBgDark: "rgba(7,8,5,0.88)",
+      glassBgDark: "rgba(7,8,5,0.92)",
+      textureMode: true,
       bgGradient: [
-        "repeating-linear-gradient(0deg, rgba(232,146,10,0.03) 0 1px, transparent 1px 4px)",
-        "repeating-linear-gradient(90deg, rgba(232,146,10,0.03) 0 1px, transparent 1px 4px)",
-        `radial-gradient(ellipse at 50% 100%, ${hR("#E8920A", 0.06)} 0%, transparent 50%)`,
+        // Hex grid — Lamborghini's hexagonal design language
+        "repeating-linear-gradient(60deg, rgba(232,146,10,0.025) 0 1px, transparent 1px 6px)",
+        "repeating-linear-gradient(-60deg, rgba(232,146,10,0.025) 0 1px, transparent 1px 6px)",
+        "repeating-linear-gradient(0deg, rgba(232,146,10,0.02) 0 1px, transparent 1px 6px)",
+        // Amber headlight glow — concentrated upper-center (like DRL strip)
+        "radial-gradient(ellipse at 40% 8%, rgba(232,146,10,0.12) 0%, rgba(232,146,10,0.03) 25%, transparent 50%)",
+        // Secondary warm glow — lower right (tail light bleed)
+        "radial-gradient(ellipse at 75% 85%, rgba(232,146,10,0.06) 0%, transparent 40%)",
+        // Ambient floor glow
+        "radial-gradient(ellipse at 50% 100%, rgba(232,146,10,0.04) 0%, transparent 45%)",
         "#070805",
       ].join(", "),
       forceDark: true,
@@ -799,22 +810,22 @@ export const PALETTES = [
     preview: ["#0C0C0E", "#A6FF00", "#1A1A1E", "#2A2A30", "#F5F5F7"],
     variantLabels: ["Python"],
     overrides: {
-      bg: "#0A0A0C",     // clean dark, no color cast
-      bg1: "#111114",    // pure dark card
-      bg2: "#1A1A1E",    // raised surface
-      bg3: "#242428",    // hover state
+      bg: "#0A0A0C", // clean dark, no color cast
+      bg1: "#111114", // pure dark card
+      bg2: "#1A1A1E", // raised surface
+      bg3: "#242428", // hover state
       border: "rgba(166,255,0,0.08)",
       borderLight: "rgba(255,255,255,0.05)",
       borderAccent: "rgba(166,255,0,0.30)",
-      text: "#F5F5F7",   // crisp white
+      text: "#F5F5F7", // crisp white
       textMuted: "rgba(245,245,247,0.55)",
       textDim: "rgba(245,245,247,0.28)",
-      accent: "#A6FF00",  // Python Green
+      accent: "#A6FF00", // Python Green
       accentDim: "#7ACC00",
       accentBg: hR("#A6FF00", 0.08),
       accentAlt: "#CCFF66",
       gradient: "linear-gradient(135deg, #A6FF00, #CCFF66)",
-      gradientSubtle: `linear-gradient(135deg, ${hR("#A6FF00", 0.10)}, ${hR("#CCFF66", 0.10)})`,
+      gradientSubtle: `linear-gradient(135deg, ${hR("#A6FF00", 0.1)}, ${hR("#CCFF66", 0.1)})`,
       gradientText: "linear-gradient(135deg, #A6FF00, #CCFF66)",
       green: "#A6FF00",
       red: "#FF3B30",
@@ -824,9 +835,17 @@ export const PALETTES = [
       cyan: "#5AC8FA",
       yellow: "#FFD60A",
       sidebarBg: "rgba(10,10,12,0.97)",
-      glassBg: "rgba(26,26,30,0.65)",
+      glassBg: "rgba(26,26,30,0.78)",
       glassBorder: "rgba(166,255,0,0.06)",
-      glassBgDark: "rgba(10,10,12,0.88)",
+      glassBgDark: "rgba(10,10,12,0.92)",
+      mesh: {
+        base: "linear-gradient(135deg, #0C0C0E 0%, #0A0A10 40%, #080810 70%, #0C0C0E 100%)",
+        blobs: [
+          { color: "#A6FF00", x: "30%", y: "55%", size: "42vw", alpha: 0.35, blur: 50 },
+          { color: "#3388FF", x: "72%", y: "18%", size: "28vw", alpha: 0.1, blur: 60 },
+        ],
+        caustics: [{ color: "#A6FF00", x: "18%", y: "40%", size: "14vw", alpha: 0.4, blur: 22 }],
+      },
       bgGradient: `radial-gradient(ellipse at 50% 90%, ${hR("#A6FF00", 0.04)} 0%, transparent 50%), #0A0A0C`,
       forceDark: true,
     },
@@ -844,24 +863,24 @@ export const PALETTES = [
     preview: ["#060A18", "#C9A96E", "#0E1530", "#1A2448", "#F5F0E6"],
     variantLabels: ["Midnight"],
     overrides: {
-      bg: "#040814",     // midnight sapphire void
-      bg1: "#0A1024",    // deep blue card
-      bg2: "#101832",    // raised navy
-      bg3: "#182040",    // elevated sapphire
+      bg: "#040814", // midnight sapphire void
+      bg1: "#0A1024", // deep blue card
+      bg2: "#101832", // raised navy
+      bg3: "#182040", // elevated sapphire
       border: "rgba(201,169,110,0.10)",
       borderLight: "rgba(255,255,255,0.04)",
       borderAccent: "rgba(201,169,110,0.30)",
-      text: "#F5F0E6",   // cream leather
+      text: "#F5F0E6", // cream leather
       textMuted: "rgba(245,240,230,0.52)",
       textDim: "rgba(245,240,230,0.26)",
-      accent: "#C9A96E",  // champagne gold
+      accent: "#C9A96E", // champagne gold
       accentDim: "#A8894E",
       accentBg: hR("#C9A96E", 0.08),
       accentAlt: "#E0C88A",
       gradient: "linear-gradient(135deg, #C9A96E, #E0C88A)",
-      gradientSubtle: `linear-gradient(135deg, ${hR("#C9A96E", 0.10)}, ${hR("#E0C88A", 0.10)})`,
+      gradientSubtle: `linear-gradient(135deg, ${hR("#C9A96E", 0.1)}, ${hR("#E0C88A", 0.1)})`,
       gradientText: "linear-gradient(135deg, #C9A96E, #E0C88A)",
-      green: "#50C878",   // British racing green tint
+      green: "#50C878", // British racing green tint
       red: "#E8475A",
       blue: "#5B8DEF",
       purple: "#9B7ADA",
@@ -869,10 +888,18 @@ export const PALETTES = [
       cyan: "#62B8D4",
       yellow: "#E8D060",
       sidebarBg: "rgba(4,8,20,0.97)",
-      glassBg: "rgba(16,24,50,0.60)",
+      glassBg: "rgba(16,24,50,0.78)",
       glassBorder: "rgba(201,169,110,0.08)",
-      glassBgDark: "rgba(4,8,20,0.88)",
-      bgGradient: `radial-gradient(ellipse at 30% 20%, ${hR("#C9A96E", 0.04)} 0%, transparent 40%), radial-gradient(ellipse at 70% 80%, ${hR("#1A2448", 0.30)} 0%, transparent 50%), #040814`,
+      glassBgDark: "rgba(4,8,20,0.92)",
+      mesh: {
+        base: "linear-gradient(135deg, #060A18 0%, #0A1028 35%, #0E1430 60%, #060A18 100%)",
+        blobs: [
+          { color: "#1A2858", x: "40%", y: "35%", size: "55vw", alpha: 0.35, blur: 65 },
+          { color: "#C9A96E", x: "70%", y: "65%", size: "25vw", alpha: 0.14, blur: 55 },
+        ],
+        caustics: [{ color: "#C9A96E", x: "45%", y: "10%", size: "12vw", alpha: 0.25, blur: 28 }],
+      },
+      bgGradient: `radial-gradient(ellipse at 30% 20%, ${hR("#C9A96E", 0.04)} 0%, transparent 40%), radial-gradient(ellipse at 70% 80%, ${hR("#1A2448", 0.3)} 0%, transparent 50%), #040814`,
       forceDark: true,
     },
     variants: [null],
@@ -889,19 +916,19 @@ export const PALETTES = [
     preview: ["#0C0808", "#DC2626", "#1C1414", "#2C2020", "#F5EDED"],
     variantLabels: ["Rosso"],
     overrides: {
-      bg: "#0A0606",     // near-black with warm red undertone
-      bg1: "#120E0E",    // dark warm surface
-      bg2: "#1C1616",    // raised surface, slight warmth
-      bg3: "#262020",    // elevated, visible warmth
+      bg: "#0A0606", // near-black with warm red undertone
+      bg1: "#120E0E", // dark warm surface
+      bg2: "#1C1616", // raised surface, slight warmth
+      bg3: "#262020", // elevated, visible warmth
       border: "rgba(220,38,38,0.10)",
       borderLight: "rgba(255,255,255,0.04)",
       borderAccent: "rgba(220,38,38,0.35)",
-      text: "#F8F0F0",   // warm white
+      text: "#F8F0F0", // warm white
       textMuted: "rgba(248,240,240,0.55)",
       textDim: "rgba(248,240,240,0.28)",
-      accent: "#DC2626",  // Rosso Corsa
+      accent: "#DC2626", // Rosso Corsa
       accentDim: "#B91C1C",
-      accentBg: hR("#DC2626", 0.10),
+      accentBg: hR("#DC2626", 0.1),
       accentAlt: "#EF4444",
       gradient: "linear-gradient(135deg, #DC2626, #EF4444)",
       gradientSubtle: `linear-gradient(135deg, ${hR("#DC2626", 0.12)}, ${hR("#EF4444", 0.12)})`,
@@ -914,9 +941,17 @@ export const PALETTES = [
       cyan: "#06B6D4",
       yellow: "#FCD34D",
       sidebarBg: "rgba(10,6,6,0.97)",
-      glassBg: "rgba(28,22,22,0.65)",
+      glassBg: "rgba(28,22,22,0.78)",
       glassBorder: "rgba(220,38,38,0.06)",
-      glassBgDark: "rgba(10,6,6,0.88)",
+      glassBgDark: "rgba(10,6,6,0.92)",
+      mesh: {
+        base: "linear-gradient(135deg, #0C0808 0%, #120A0A 35%, #140C0C 55%, #0C0808 100%)",
+        blobs: [
+          { color: "#DC2626", x: "35%", y: "50%", size: "48vw", alpha: 0.32, blur: 55 },
+          { color: "#1A2040", x: "70%", y: "15%", size: "25vw", alpha: 0.08, blur: 60 },
+        ],
+        caustics: [{ color: "#DC2626", x: "42%", y: "38%", size: "15vw", alpha: 0.38, blur: 22 }],
+      },
       bgGradient: `radial-gradient(ellipse at 50% 100%, ${hR("#DC2626", 0.05)} 0%, transparent 50%), #0A0606`,
       forceDark: true,
     },
@@ -934,22 +969,22 @@ export const PALETTES = [
     preview: ["#0A0C10", "#FF6B00", "#141820", "#1E222C", "#FFF5EB"],
     variantLabels: ["Papaya"],
     overrides: {
-      bg: "#08090E",     // cool dark (British gray undertone)
-      bg1: "#0E1018",    // cool dark surface
-      bg2: "#161A22",    // raised cool gray
-      bg3: "#1E222C",    // elevated
+      bg: "#08090E", // cool dark (British gray undertone)
+      bg1: "#0E1018", // cool dark surface
+      bg2: "#161A22", // raised cool gray
+      bg3: "#1E222C", // elevated
       border: "rgba(255,107,0,0.08)",
       borderLight: "rgba(255,255,255,0.05)",
       borderAccent: "rgba(255,107,0,0.30)",
-      text: "#F5F5F8",   // cool white
+      text: "#F5F5F8", // cool white
       textMuted: "rgba(245,245,248,0.55)",
       textDim: "rgba(245,245,248,0.28)",
-      accent: "#FF6B00",  // Papaya Orange
+      accent: "#FF6B00", // Papaya Orange
       accentDim: "#CC5500",
       accentBg: hR("#FF6B00", 0.08),
       accentAlt: "#FF9640",
       gradient: "linear-gradient(135deg, #FF6B00, #FF9640)",
-      gradientSubtle: `linear-gradient(135deg, ${hR("#FF6B00", 0.10)}, ${hR("#FF9640", 0.10)})`,
+      gradientSubtle: `linear-gradient(135deg, ${hR("#FF6B00", 0.1)}, ${hR("#FF9640", 0.1)})`,
       gradientText: "linear-gradient(135deg, #FF6B00, #FF9640)",
       green: "#30D158",
       red: "#FF453A",
@@ -959,10 +994,23 @@ export const PALETTES = [
       cyan: "#5AC8FA",
       yellow: "#FFD60A",
       sidebarBg: "rgba(8,9,14,0.97)",
-      glassBg: "rgba(22,26,34,0.65)",
+      glassBg: "rgba(22,26,34,0.78)",
       glassBorder: "rgba(255,107,0,0.06)",
-      glassBgDark: "rgba(8,9,14,0.88)",
-      bgGradient: `radial-gradient(ellipse at 60% 90%, ${hR("#FF6B00", 0.04)} 0%, transparent 45%), #08090E`,
+      glassBgDark: "rgba(8,9,14,0.92)",
+      textureMode: true,
+      bgGradient: [
+        // Fine engineering grid — technical drawing precision
+        "repeating-linear-gradient(0deg, rgba(255,107,0,0.018) 0 1px, transparent 1px 8px)",
+        "repeating-linear-gradient(90deg, rgba(255,107,0,0.018) 0 1px, transparent 1px 8px)",
+        // Major grid lines — structural monocoque (every 40px)
+        "repeating-linear-gradient(0deg, rgba(255,107,0,0.03) 0 1px, transparent 1px 40px)",
+        "repeating-linear-gradient(90deg, rgba(255,107,0,0.03) 0 1px, transparent 1px 40px)",
+        // Papaya accent — dihedral door light catch (upper right)
+        "radial-gradient(ellipse at 70% 15%, rgba(255,107,0,0.10) 0%, rgba(255,107,0,0.02) 30%, transparent 50%)",
+        // Secondary papaya glow — lower center (under-body aero glow)
+        "radial-gradient(ellipse at 45% 90%, rgba(255,107,0,0.06) 0%, transparent 40%)",
+        "#08090E",
+      ].join(", "),
       forceDark: true,
     },
     variants: [null],
@@ -986,11 +1034,11 @@ export const PALETTES = [
       bg3: "#282838",
       border: "rgba(0,102,255,0.10)",
       borderLight: "rgba(255,255,255,0.04)",
-      borderAccent: hR("#0066FF", 0.20),
+      borderAccent: hR("#0066FF", 0.2),
       text: "#F0F0FA",
       textMuted: "rgba(240,240,250,0.55)",
       textDim: "rgba(240,240,250,0.28)",
-      accent: "#0066FF",  // BMW blue
+      accent: "#0066FF", // BMW blue
       accentDim: "#0052CC",
       accentBg: hR("#0066FF", 0.08),
       accentAlt: "#3388FF",
@@ -1005,10 +1053,20 @@ export const PALETTES = [
       cyan: "#5AC8FA",
       yellow: "#FFD60A",
       sidebarBg: "rgba(14,14,26,0.97)",
-      glassBg: "rgba(30,30,46,0.65)",
+      glassBg: "rgba(30,30,46,0.78)",
       glassBorder: "rgba(0,102,255,0.06)",
-      glassBgDark: "rgba(14,14,26,0.88)",
-      bgGradient: "#0E0E1A",
+      glassBgDark: "rgba(14,14,26,0.92)",
+      textureMode: true,
+      bgGradient: [
+        // E-Ink dot matrix — BMW digital soul pixels
+        "repeating-linear-gradient(0deg, rgba(0,102,255,0.015) 0 1px, transparent 1px 5px)",
+        "repeating-linear-gradient(90deg, rgba(0,102,255,0.015) 0 1px, transparent 1px 5px)",
+        // Shy-tech blue pulse — center glow (Digital Soul heartbeat)
+        "radial-gradient(ellipse at 50% 45%, rgba(0,102,255,0.08) 0%, transparent 40%)",
+        // Secondary blue whisper — upper left
+        "radial-gradient(ellipse at 15% 10%, rgba(51,136,255,0.04) 0%, transparent 35%)",
+        "#0E0E1A",
+      ].join(", "),
       forceDark: false,
     },
     variants: [
@@ -1029,7 +1087,16 @@ export const PALETTES = [
         border: "#D0D4E0",
         borderLight: "#E2E4EC",
         sidebarBg: "rgba(248,249,252,0.92)",
-        bgGradient: `radial-gradient(ellipse at 15% 10%, ${hR("#0066FF", 0.08)} 0%, transparent 50%), radial-gradient(ellipse at 85% 85%, ${hR("#3388FF", 0.06)} 0%, transparent 50%), #F8F9FC`,
+        bgGradient: [
+          // E-Ink dot matrix — ultra-subtle on white
+          "repeating-linear-gradient(0deg, rgba(0,102,255,0.012) 0 1px, transparent 1px 5px)",
+          "repeating-linear-gradient(90deg, rgba(0,102,255,0.012) 0 1px, transparent 1px 5px)",
+          // Crystal blue breathe — upper left
+          `radial-gradient(ellipse at 15% 10%, ${hR("#0066FF", 0.08)} 0%, transparent 50%)`,
+          // Second blue whisper — lower right
+          `radial-gradient(ellipse at 85% 85%, ${hR("#3388FF", 0.06)} 0%, transparent 50%)`,
+          "#F8F9FC",
+        ].join(", "),
       },
     ],
   },
@@ -1045,22 +1112,22 @@ export const PALETTES = [
     preview: ["#0A0C12", "#00D2BE", "#161A22", "#222830", "#F5F8FA"],
     variantLabels: ["Petronas"],
     overrides: {
-      bg: "#080A10",     // metallic dark (slight cool steel)
-      bg1: "#0E1118",    // steel surface
-      bg2: "#161A24",    // raised metallic
-      bg3: "#1E232E",    // elevated
+      bg: "#080A10", // metallic dark (slight cool steel)
+      bg1: "#0E1118", // steel surface
+      bg2: "#161A24", // raised metallic
+      bg3: "#1E232E", // elevated
       border: "rgba(0,210,190,0.08)",
       borderLight: "rgba(255,255,255,0.05)",
       borderAccent: "rgba(0,210,190,0.30)",
-      text: "#F0F4F8",   // cool bright white (telemetry screens)
+      text: "#F0F4F8", // cool bright white (telemetry screens)
       textMuted: "rgba(240,244,248,0.55)",
       textDim: "rgba(240,244,248,0.28)",
-      accent: "#00D2BE",  // Petronas teal
+      accent: "#00D2BE", // Petronas teal
       accentDim: "#00A896",
       accentBg: hR("#00D2BE", 0.08),
       accentAlt: "#40E8D8",
       gradient: "linear-gradient(135deg, #00D2BE, #40E8D8)",
-      gradientSubtle: `linear-gradient(135deg, ${hR("#00D2BE", 0.10)}, ${hR("#40E8D8", 0.10)})`,
+      gradientSubtle: `linear-gradient(135deg, ${hR("#00D2BE", 0.1)}, ${hR("#40E8D8", 0.1)})`,
       gradientText: "linear-gradient(135deg, #00D2BE, #40E8D8)",
       green: "#00E676",
       red: "#FF1744",
@@ -1070,9 +1137,17 @@ export const PALETTES = [
       cyan: "#00D2BE",
       yellow: "#FFD740",
       sidebarBg: "rgba(8,10,16,0.97)",
-      glassBg: "rgba(22,26,36,0.65)",
+      glassBg: "rgba(22,26,36,0.78)",
       glassBorder: "rgba(0,210,190,0.06)",
-      glassBgDark: "rgba(8,10,16,0.88)",
+      glassBgDark: "rgba(8,10,16,0.92)",
+      mesh: {
+        base: "linear-gradient(135deg, #0A0C12 0%, #101418 35%, #141820 60%, #0A0C12 100%)",
+        blobs: [
+          { color: "#00D2BE", x: "30%", y: "45%", size: "42vw", alpha: 0.32, blur: 52 },
+          { color: "#888E98", x: "68%", y: "25%", size: "28vw", alpha: 0.08, blur: 58 },
+        ],
+        caustics: [{ color: "#00D2BE", x: "35%", y: "62%", size: "14vw", alpha: 0.35, blur: 22 }],
+      },
       bgGradient: `radial-gradient(ellipse at 50% 95%, ${hR("#00D2BE", 0.04)} 0%, transparent 45%), #080A10`,
       forceDark: true,
     },
@@ -1090,22 +1165,22 @@ export const PALETTES = [
     preview: ["#0C0A08", "#B8860B", "#1A1614", "#2A2420", "#F5EDE0"],
     variantLabels: ["Titanium"],
     overrides: {
-      bg: "#0A0806",     // deep espresso void
-      bg1: "#121010",    // dark leather
-      bg2: "#1C1816",    // raised brown-black
-      bg3: "#262220",    // elevated warm surface
+      bg: "#0A0806", // deep espresso void
+      bg1: "#121010", // dark leather
+      bg2: "#1C1816", // raised brown-black
+      bg3: "#262220", // elevated warm surface
       border: "rgba(184,134,11,0.10)",
       borderLight: "rgba(255,255,255,0.04)",
       borderAccent: "rgba(184,134,11,0.30)",
-      text: "#F5EDE0",   // warm parchment (aged leather)
+      text: "#F5EDE0", // warm parchment (aged leather)
       textMuted: "rgba(245,237,224,0.52)",
       textDim: "rgba(245,237,224,0.25)",
-      accent: "#B8860B",  // titanium bronze
+      accent: "#B8860B", // titanium bronze
       accentDim: "#966D09",
       accentBg: hR("#B8860B", 0.08),
       accentAlt: "#D4A028",
       gradient: "linear-gradient(135deg, #B8860B, #D4A028)",
-      gradientSubtle: `linear-gradient(135deg, ${hR("#B8860B", 0.10)}, ${hR("#D4A028", 0.10)})`,
+      gradientSubtle: `linear-gradient(135deg, ${hR("#B8860B", 0.1)}, ${hR("#D4A028", 0.1)})`,
       gradientText: "linear-gradient(135deg, #B8860B, #D4A028)",
       green: "#6ABF4B",
       red: "#D44040",
@@ -1115,9 +1190,17 @@ export const PALETTES = [
       cyan: "#508090",
       yellow: "#D4B840",
       sidebarBg: "rgba(10,8,6,0.97)",
-      glassBg: "rgba(28,24,22,0.60)",
+      glassBg: "rgba(28,24,22,0.78)",
       glassBorder: "rgba(184,134,11,0.08)",
-      glassBgDark: "rgba(10,8,6,0.88)",
+      glassBgDark: "rgba(10,8,6,0.92)",
+      mesh: {
+        base: "linear-gradient(135deg, #0C0A08 0%, #141210 35%, #181510 60%, #0C0A08 100%)",
+        blobs: [
+          { color: "#B8860B", x: "40%", y: "40%", size: "40vw", alpha: 0.28, blur: 55 },
+          { color: "#8A6AB0", x: "10%", y: "60%", size: "25vw", alpha: 0.08, blur: 60 },
+        ],
+        caustics: [{ color: "#D4A028", x: "45%", y: "15%", size: "13vw", alpha: 0.25, blur: 25 }],
+      },
       bgGradient: `radial-gradient(ellipse at 40% 80%, ${hR("#B8860B", 0.04)} 0%, transparent 45%), #0A0806`,
       forceDark: true,
     },
@@ -1127,8 +1210,14 @@ export const PALETTES = [
 
 // Car palette IDs for cycling
 export const CAR_PALETTE_IDS = [
-  "car-terzo", "car-gt3rs", "car-spectre", "car-sf90",
-  "car-720s", "car-visiondee", "car-amgone", "car-huayra",
+  "car-terzo",
+  "car-gt3rs",
+  "car-spectre",
+  "car-sf90",
+  "car-720s",
+  "car-visiondee",
+  "car-amgone",
+  "car-huayra",
 ];
 
 // Chart colors

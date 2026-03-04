@@ -14,6 +14,7 @@ import { I } from "@/constants/icons";
 import { getTradeLabel, getTradeSortOrder, autoTradeFromCode, TRADE_GROUPINGS } from "@/constants/tradeGroupings";
 import { CSI } from "@/constants/csi";
 import { generateScopeSheet } from "@/utils/scopeSheetGenerator";
+import { callAnthropic } from "@/utils/ai";
 
 const STEPS = [
   { key: "scope", label: "Select Scope", icon: I.estimate },
@@ -32,10 +33,13 @@ export default function CreateBidPackageModal({ onClose }) {
   const items = useItemsStore(s => s.items);
   const drawings = useDrawingsStore(s => s.drawings);
   const subs = useMasterDataStore(s => s.masterData.subcontractors);
+  const addMasterItem = useMasterDataStore(s => s.addMasterItem);
   const estimateId = useEstimatesStore(s => s.activeEstimateId);
   const project = useProjectStore(s => s.project);
   const addBidPackage = useBidPackagesStore(s => s.addBidPackage);
   const setPackageInvitations = useBidPackagesStore(s => s.setPackageInvitations);
+  const presets = useBidPackagesStore(s => s.bidPackagePresets);
+  const addPreset = useBidPackagesStore(s => s.addPreset);
   const user = useAuthStore(s => s.user);
   const showToast = useUiStore(s => s.showToast);
 
@@ -43,13 +47,94 @@ export default function CreateBidPackageModal({ onClose }) {
   const [selectedItems, setSelectedItems] = useState([]);
   const [selectedDrawings, setSelectedDrawings] = useState(() => drawings.map(d => d.id));
   const [selectedSubs, setSelectedSubs] = useState([]);
-  const [packageName, setPackageName] = useState(project.name || "");
+  const [packageName, setPackageName] = useState("RFP - " + (project.name || ""));
   const [dueDate, setDueDate] = useState(project.bidDue || "");
   const [coverMessage, setCoverMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [subSearch, setSubSearch] = useState("");
   const [groupMode, setGroupMode] = useState("trade");
   const [autoSelectedSubs, setAutoSelectedSubs] = useState(false);
+  const [showAddSub, setShowAddSub] = useState(false);
+  const [newSub, setNewSub] = useState({ company: "", trade: "", contact: "", email: "", phone: "" });
+  const [showPresetPicker, setShowPresetPicker] = useState(false);
+  const [aiInfilling, setAiInfilling] = useState(false);
+
+  const handleLoadPreset = async (preset) => {
+    setShowPresetPicker(false);
+    // Apply scope filter — match trade keys to items
+    if (preset.scopeFilter?.selectedTradeKeys?.length > 0) {
+      const tradeKeys = new Set(preset.scopeFilter.selectedTradeKeys);
+      const matched = items
+        .filter(item => {
+          const trade = item.trade || autoTradeFromCode(item.code);
+          return trade && tradeKeys.has(trade);
+        })
+        .map(i => i.id);
+      if (matched.length > 0) setSelectedItems(matched);
+      if (preset.scopeFilter.groupMode) setGroupMode(preset.scopeFilter.groupMode);
+    }
+    // Apply drawing filter
+    if (preset.drawingFilter?.strategy === "all") {
+      setSelectedDrawings(drawings.map(d => d.id));
+    }
+    // Apply name template
+    if (preset.defaultNameTemplate) {
+      setPackageName(
+        preset.defaultNameTemplate
+          .replace(/\{\{projectName\}\}/g, project.name || "")
+          .replace(/\{\{dueDate\}\}/g, project.bidDue || ""),
+      );
+    }
+    // AI infill cover message
+    if (preset.coverMessageTemplate) {
+      setAiInfilling(true);
+      try {
+        const result = await callAnthropic({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 500,
+          system:
+            "You are NOVA, an AI assistant for a general contractor. Given a cover message template and project details, fill in the template with specific project information. Return ONLY the filled-in message text, no JSON wrapping.",
+          messages: [
+            {
+              role: "user",
+              content: `Template:\n${preset.coverMessageTemplate}\n\nProject Details:\n- Name: ${project.name}\n- Due Date: ${project.bidDue || "TBD"}\n- Job Type: ${project.jobType || "Commercial"}\n\nFill in the template with these project-specific details.`,
+            },
+          ],
+          temperature: 0.3,
+        });
+        const text = result?.content?.[0]?.text || preset.coverMessageTemplate;
+        setCoverMessage(text);
+      } catch {
+        // Fallback: basic substitution
+        setCoverMessage(
+          preset.coverMessageTemplate
+            .replace(/\{\{projectName\}\}/g, project.name || "")
+            .replace(/\{\{dueDate\}\}/g, project.bidDue || ""),
+        );
+      }
+      setAiInfilling(false);
+    }
+    showToast(`Template "${preset.name}" loaded`);
+  };
+
+  const handleSaveAsTemplate = () => {
+    const selectedTradeKeys = [];
+    const selectedSet = new Set(selectedItems);
+    for (const item of items) {
+      if (!selectedSet.has(item.id)) continue;
+      const trade = item.trade || autoTradeFromCode(item.code);
+      if (trade && !selectedTradeKeys.includes(trade)) selectedTradeKeys.push(trade);
+    }
+    addPreset({
+      name: packageName || "Untitled Template",
+      description: `${selectedItems.length} scope items, ${selectedDrawings.length} drawings`,
+      scopeFilter: { groupMode, selectedTradeKeys },
+      drawingFilter: { strategy: selectedDrawings.length === drawings.length ? "all" : "byType" },
+      coverMessageTemplate: coverMessage || "",
+      defaultNameTemplate: packageName.replace(project.name || "", "{{projectName}}"),
+    });
+    showToast("Saved as template for future use");
+  };
 
   // Derive selected trades/divisions from scope selection for auto-matching subs
   const selectedTrades = useMemo(() => {
@@ -320,6 +405,97 @@ export default function CreateBidPackageModal({ onClose }) {
         {/* Step 1: Select Scope */}
         {step === 0 && (
           <div>
+            {/* Template picker */}
+            {presets.length > 0 && !showPresetPicker && (
+              <button
+                onClick={() => setShowPresetPicker(true)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  width: "100%",
+                  padding: "8px 12px",
+                  marginBottom: 12,
+                  borderRadius: 8,
+                  background: `${C.accent}08`,
+                  border: `1px dashed ${C.accent}30`,
+                  color: C.accent,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "'DM Sans', sans-serif",
+                }}
+              >
+                <Ic d={I.copy || I.plans} size={12} color={C.accent} /> Use Template ({presets.length} saved)
+              </button>
+            )}
+            {showPresetPicker && (
+              <div
+                style={{
+                  marginBottom: 14,
+                  padding: 12,
+                  borderRadius: 10,
+                  background: `${C.accent}06`,
+                  border: `1px solid ${C.accent}20`,
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>Templates</span>
+                  <button
+                    onClick={() => setShowPresetPicker(false)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: C.textDim,
+                      fontSize: 10,
+                      cursor: "pointer",
+                      fontFamily: "'DM Sans', sans-serif",
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+                {presets.map(preset => (
+                  <div
+                    key={preset.id}
+                    onClick={() => handleLoadPreset(preset)}
+                    style={{
+                      padding: "8px 10px",
+                      borderRadius: 8,
+                      cursor: "pointer",
+                      background: "rgba(255,255,255,0.03)",
+                      border: `1px solid ${C.border}`,
+                      marginBottom: 4,
+                      transition: "all 150ms",
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.borderColor = C.accent + "40")}
+                    onMouseLeave={e => (e.currentTarget.style.borderColor = C.border)}
+                  >
+                    <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{preset.name}</div>
+                    <div style={{ fontSize: 10, color: C.textDim }}>{preset.description}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {aiInfilling && (
+              <div
+                style={{
+                  padding: "10px 14px",
+                  marginBottom: 12,
+                  borderRadius: 8,
+                  background: `${C.accent}10`,
+                  border: `1px solid ${C.accent}30`,
+                  fontSize: 11,
+                  color: C.accent,
+                  fontWeight: 500,
+                  textAlign: "center",
+                }}
+              >
+                NOVA is customizing your template...
+              </div>
+            )}
+
             <h3 style={{ color: C.text, fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Select Scope Items</h3>
             <p style={{ color: C.textMuted, fontSize: 13, margin: "0 0 12px" }}>
               Choose scope items to include in this bid package.
@@ -541,11 +717,126 @@ export default function CreateBidPackageModal({ onClose }) {
                 {filteredSubs.every(s => selectedSubs.includes(s.id)) ? "Deselect All" : "Select All"}
               </button>
             </div>
+
+            {/* Inline Add Sub */}
+            <div style={{ marginBottom: 12 }}>
+              {!showAddSub ? (
+                <button
+                  onClick={() => setShowAddSub(true)}
+                  style={{
+                    background: "none",
+                    border: `1px dashed ${C.border}`,
+                    color: C.accent,
+                    borderRadius: 8,
+                    padding: "8px 14px",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    width: "100%",
+                    fontFamily: "'DM Sans', sans-serif",
+                  }}
+                >
+                  + Add New Sub
+                </button>
+              ) : (
+                <div
+                  style={{
+                    padding: 12,
+                    borderRadius: 10,
+                    background: "rgba(255,255,255,0.04)",
+                    border: `1px solid ${C.accent}30`,
+                  }}
+                >
+                  <div style={{ fontSize: 12, fontWeight: 600, color: C.text, marginBottom: 8 }}>New Subcontractor</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    <input
+                      placeholder="Company *"
+                      value={newSub.company}
+                      onChange={e => setNewSub(p => ({ ...p, company: e.target.value }))}
+                      autoFocus
+                      style={inputStyle}
+                    />
+                    <input
+                      placeholder="Trade"
+                      value={newSub.trade}
+                      onChange={e => setNewSub(p => ({ ...p, trade: e.target.value }))}
+                      style={inputStyle}
+                    />
+                    <input
+                      placeholder="Contact Name"
+                      value={newSub.contact}
+                      onChange={e => setNewSub(p => ({ ...p, contact: e.target.value }))}
+                      style={inputStyle}
+                    />
+                    <input
+                      placeholder="Email"
+                      value={newSub.email}
+                      onChange={e => setNewSub(p => ({ ...p, email: e.target.value }))}
+                      style={inputStyle}
+                    />
+                    <input
+                      placeholder="Phone"
+                      value={newSub.phone}
+                      onChange={e => setNewSub(p => ({ ...p, phone: e.target.value }))}
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div style={{ display: "flex", gap: 6, marginTop: 8, justifyContent: "flex-end" }}>
+                    <button
+                      onClick={() => {
+                        setShowAddSub(false);
+                        setNewSub({ company: "", trade: "", contact: "", email: "", phone: "" });
+                      }}
+                      style={{
+                        background: "none",
+                        border: `1px solid ${C.border}`,
+                        color: C.textMuted,
+                        borderRadius: 6,
+                        padding: "5px 12px",
+                        fontSize: 11,
+                        cursor: "pointer",
+                        fontFamily: "'DM Sans', sans-serif",
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (!newSub.company.trim()) {
+                          showToast("Company name is required", "error");
+                          return;
+                        }
+                        addMasterItem("subcontractors", { ...newSub, notes: "", rating: "" });
+                        const updatedSubs = useMasterDataStore.getState().masterData.subcontractors;
+                        const created = updatedSubs[updatedSubs.length - 1];
+                        if (created) setSelectedSubs(prev => [...prev, created.id]);
+                        showToast(`${newSub.company} added and selected`);
+                        setNewSub({ company: "", trade: "", contact: "", email: "", phone: "" });
+                        setShowAddSub(false);
+                      }}
+                      disabled={!newSub.company.trim()}
+                      style={{
+                        background: newSub.company.trim() ? C.accent : C.bg2,
+                        color: newSub.company.trim() ? "#fff" : C.textDim,
+                        border: "none",
+                        borderRadius: 6,
+                        padding: "5px 14px",
+                        fontSize: 11,
+                        fontWeight: 600,
+                        cursor: newSub.company.trim() ? "pointer" : "not-allowed",
+                        fontFamily: "'DM Sans', sans-serif",
+                      }}
+                    >
+                      Add & Select
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {filteredSubs.length === 0 ? (
               <p style={{ color: C.textDim, fontSize: 13, textAlign: "center", padding: 40 }}>
-                {subs.length === 0
-                  ? "No subcontractors in contacts. Add subs in the Contacts page first."
-                  : "No matches found."}
+                {subs.length === 0 ? "No subcontractors yet." : "No matches found."}
               </p>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -598,7 +889,7 @@ export default function CreateBidPackageModal({ onClose }) {
               <input
                 value={packageName}
                 onChange={e => setPackageName(e.target.value)}
-                placeholder="e.g., MEP Bid Package"
+                placeholder="e.g., RFP - MEP Bid Package"
                 style={inputStyle}
               />
             </div>
@@ -687,6 +978,30 @@ export default function CreateBidPackageModal({ onClose }) {
               />
               {coverMessage && <ReviewRow label="Cover Message" value={coverMessage} />}
             </div>
+
+            {/* Save as Template */}
+            <button
+              onClick={handleSaveAsTemplate}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                marginTop: 16,
+                padding: "8px 14px",
+                background: "none",
+                border: `1px dashed ${C.border}`,
+                borderRadius: 8,
+                color: C.textMuted,
+                fontSize: 11,
+                fontWeight: 600,
+                cursor: "pointer",
+                fontFamily: "'DM Sans', sans-serif",
+                width: "100%",
+                justifyContent: "center",
+              }}
+            >
+              <Ic d={I.save || I.check} size={12} color={C.textDim} /> Save as Template
+            </button>
           </div>
         )}
       </div>

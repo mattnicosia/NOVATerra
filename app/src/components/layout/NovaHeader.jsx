@@ -10,6 +10,7 @@ import { useNovaStore } from "@/stores/novaStore";
 import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
 import NotificationCenter from "@/components/shared/NotificationCenter";
 import LogoPill from "@/components/shared/LogoPill";
+import { useAutoResponseStore } from "@/stores/autoResponseStore";
 
 /* ── Nav icon SVGs ── */
 const NAV_ICONS = {
@@ -484,7 +485,7 @@ function CompanyDropdown({ onClose }) {
 }
 
 /* ── NovaHeader ── */
-export default function NovaHeader() {
+export default function NovaHeader({ onDraftPanelToggle }) {
   const C = useTheme();
   const T = C.T;
   const dk = C.isDark;
@@ -506,6 +507,7 @@ export default function NovaHeader() {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [companyMenuOpen, setCompanyMenuOpen] = useState(false);
+  const draftPendingCount = useAutoResponseStore(s => s.getPendingCount());
 
   // Company profile data
   const activeCompanyId = useUiStore(s => s.appSettings.activeCompanyId);
@@ -917,6 +919,67 @@ export default function NovaHeader() {
             </div>
           )}
         </button>
+
+        {/* Auto-Response Drafts Badge */}
+        {draftPendingCount > 0 && (
+          <button
+            data-interactive
+            onClick={() => onDraftPanelToggle?.()}
+            title={`${draftPendingCount} auto-response draft${draftPendingCount !== 1 ? "s" : ""} pending`}
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 8,
+              position: "relative",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "transparent",
+              border: "1px solid transparent",
+              cursor: "pointer",
+              color: btnDim,
+              transition: "all 0.18s ease",
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.color = btnHover;
+              e.currentTarget.style.background = ov(0.05, 0.03);
+              e.currentTarget.style.borderColor = ov(0.07, 0.04);
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.color = btnDim;
+              e.currentTarget.style.background = "transparent";
+              e.currentTarget.style.borderColor = "transparent";
+            }}
+          >
+            <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+              <polyline points="22,6 12,13 2,6" />
+            </svg>
+            <div
+              style={{
+                position: "absolute",
+                top: 3,
+                right: 2,
+                minWidth: 14,
+                height: 14,
+                borderRadius: 7,
+                background: "linear-gradient(135deg, #7C5CFC, #BF5AF2)",
+                boxShadow: "0 0 6px rgba(124,92,252,0.7)",
+                border: `1.5px solid ${C.bg}`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 8,
+                fontWeight: 700,
+                color: "#fff",
+                padding: "0 3px",
+                fontFamily: "'DM Sans', sans-serif",
+              }}
+            >
+              {draftPendingCount > 9 ? "9+" : draftPendingCount}
+            </div>
+          </button>
+        )}
 
         {/* Company Profile Selector — hidden inside estimates (profile shown in sidebar) */}
         {!inEstimate && (
