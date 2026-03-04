@@ -6204,61 +6204,62 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                 />
               )}
             </button>
-            {/* ── 4-mode panel toggle (fixed position in canvas toolbar) ── */}
-            <div style={{ display: "flex", borderRadius: 4, overflow: "hidden", border: `1px solid ${C.border}`, flexShrink: 0 }}>
-              {[
-                { tier: "compact", w: 350, label: "Compact — takeoff list", bars: 1 },
-                { tier: "standard", w: 550, label: "Standard — list + groups", bars: 2 },
-                { tier: "full", w: 900, label: "Split — list + estimate + drawings", bars: 3 },
-                { tier: "estimate", w: 0, label: "Estimate — full estimate view", bars: 4 },
-              ].map(({ tier, w, label, bars }) => {
-                const active = tkPanelTier === tier;
-                return (
-                  <button
-                    key={tier}
-                    title={label}
-                    onClick={() => {
-                      if (tier === "estimate") {
-                        setTkPanelOpen(false);
-                      } else {
-                        setTkPanelOpen(true);
-                        setTkPanelWidth(w);
-                      }
-                      setTkPanelTier(tier);
-                      sessionStorage.setItem("bldg-tkPanelWidth", tier === "estimate" ? "0" : String(w));
-                      sessionStorage.setItem("bldg-tkPanelTier", tier);
-                    }}
-                    style={{
-                      width: 26,
-                      height: 22,
-                      border: "none",
-                      borderRight: tier !== "estimate" ? `1px solid ${C.border}` : "none",
-                      background: active ? C.accent + "20" : "transparent",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 1.5,
-                      padding: 0,
-                      transition: "background 0.15s",
-                    }}
-                  >
-                    {Array.from({ length: bars }).map((_, i) => (
-                      <div
-                        key={i}
-                        style={{
-                          width: 3,
-                          height: 10,
-                          borderRadius: 1,
-                          background: active ? C.accent : C.textMuted,
-                          transition: "background 0.15s",
-                        }}
-                      />
-                    ))}
-                  </button>
-                );
-              })}
-            </div>
+            {/* ── Panel mode cycle button (fixed position in canvas toolbar) ── */}
+            {(() => {
+              const tiers = [
+                { tier: "compact", w: 350, label: "Compact", bars: 1 },
+                { tier: "standard", w: 550, label: "Standard", bars: 2 },
+                { tier: "full", w: 900, label: "Split", bars: 3 },
+                { tier: "estimate", w: 0, label: "Estimate", bars: 4 },
+              ];
+              const idx = tiers.findIndex(t => t.tier === tkPanelTier);
+              const current = tiers[idx >= 0 ? idx : 0];
+              const next = tiers[(idx + 1) % tiers.length];
+              return (
+                <button
+                  title={`${current.label} → click for ${next.label}`}
+                  onClick={() => {
+                    if (next.tier === "estimate") {
+                      setTkPanelOpen(false);
+                    } else {
+                      setTkPanelOpen(true);
+                      setTkPanelWidth(next.w);
+                    }
+                    setTkPanelTier(next.tier);
+                    sessionStorage.setItem("bldg-tkPanelWidth", next.tier === "estimate" ? "0" : String(next.w));
+                    sessionStorage.setItem("bldg-tkPanelTier", next.tier);
+                  }}
+                  style={{
+                    width: 28,
+                    height: 26,
+                    border: `1px solid ${C.border}`,
+                    background: tkPanelTier === "estimate" ? C.accent + "20" : C.bg2,
+                    borderRadius: 4,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 1.5,
+                    padding: 0,
+                    flexShrink: 0,
+                    transition: "background 0.15s",
+                  }}
+                >
+                  {Array.from({ length: current.bars }).map((_, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        width: 3,
+                        height: 10,
+                        borderRadius: 1,
+                        background: C.accent,
+                        transition: "background 0.15s",
+                      }}
+                    />
+                  ))}
+                </button>
+              );
+            })()}
             {/* Drawing controls — hidden in estimate mode */}
             {tkPanelTier !== "estimate" && (<>
             <button
