@@ -14,6 +14,9 @@ import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { useUiStore } from "@/stores/uiStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
+import { useTakeoffsStore } from "@/stores/takeoffsStore";
+import { useDrawingsStore } from "@/stores/drawingsStore";
+import NovaOrb from "@/components/dashboard/NovaOrb";
 import NovaHeader from "@/components/layout/NovaHeader";
 import Toast from "@/components/layout/Toast";
 import PageTransition from "@/components/ambient/PageTransition";
@@ -124,6 +127,127 @@ const PROJECT_TABS = [
   { key: "reports", path: "reports", icon: I.report, label: "Reports" },
   { key: "insights", path: "insights", icon: I.insights, label: "Insights" },
 ];
+
+/* ── Takeoffs header controls: mode button + NOVA orb ── */
+function TakeoffsHeaderControls({ C }) {
+  const tkPanelOpen = useTakeoffsStore(s => s.tkPanelOpen);
+  const setTkPanelOpen = useTakeoffsStore(s => s.setTkPanelOpen);
+  const tkPanelTier = useTakeoffsStore(s => s.tkPanelTier);
+  const setTkPanelTier = useTakeoffsStore(s => s.setTkPanelTier);
+  const setTkPanelWidth = useTakeoffsStore(s => s.setTkPanelWidth);
+  const tkNovaPanelOpen = useTakeoffsStore(s => s.tkNovaPanelOpen);
+  const setTkNovaPanelOpen = useTakeoffsStore(s => s.setTkNovaPanelOpen);
+  const tkPredictions = useTakeoffsStore(s => s.tkPredictions);
+  const tkPredAccepted = useTakeoffsStore(s => s.tkPredAccepted);
+  const tkPredRejected = useTakeoffsStore(s => s.tkPredRejected);
+  const takeoffs = useTakeoffsStore(s => s.takeoffs);
+  const drawings = useDrawingsStore(s => s.drawings);
+  const hasDrawings = drawings.length > 0;
+
+  const modes = [
+    { id: "closed",   w: 0,   bars: 0, label: "Closed" },
+    { id: "standard", w: 550, bars: 2, label: "Takeoffs" },
+    { id: "full",     w: 900, bars: 3, label: "Split" },
+    { id: "estimate", w: 0,   bars: 4, label: "Estimate" },
+  ];
+  let curId;
+  if (tkPanelTier === "estimate") curId = "estimate";
+  else if (!tkPanelOpen) curId = "closed";
+  else if (tkPanelTier === "full") curId = "full";
+  else curId = "standard";
+  const idx = modes.findIndex(m => m.id === curId);
+  const current = modes[idx >= 0 ? idx : 0];
+  const next = modes[(idx + 1) % modes.length];
+
+  const pendingPredictions = tkPredictions?.predictions?.filter(
+    p => !tkPredAccepted.includes(p.id) && !tkPredRejected.includes(p.id)
+  ).length || 0;
+
+  const cycleMode = () => {
+    if (next.id === "closed") {
+      setTkPanelOpen(false);
+      setTkPanelTier("standard");
+      sessionStorage.setItem("bldg-tkPanelTier", "standard");
+      sessionStorage.setItem("bldg-tkPanelWidth", "550");
+    } else if (next.id === "estimate") {
+      setTkPanelOpen(false);
+      setTkPanelTier("estimate");
+      sessionStorage.setItem("bldg-tkPanelTier", "estimate");
+      sessionStorage.setItem("bldg-tkPanelWidth", "0");
+    } else {
+      setTkPanelOpen(true);
+      setTkPanelWidth(next.w);
+      setTkPanelTier(next.id);
+      sessionStorage.setItem("bldg-tkPanelTier", next.id);
+      sessionStorage.setItem("bldg-tkPanelWidth", String(next.w));
+    }
+  };
+
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 5,
+      paddingRight: 8, marginRight: 4,
+      borderRight: `1px solid ${C.border}`,
+    }}>
+      {/* Mode cycling button */}
+      <button
+        title={`${current.label} → ${next.label}`}
+        onClick={cycleMode}
+        style={{
+          width: 28, height: 26,
+          border: `1px solid ${current.bars > 0 ? C.accent + "50" : C.border}`,
+          background: current.bars > 0 ? C.accent + "14" : "transparent",
+          borderRadius: 5, cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          gap: 1.5, padding: 0, position: "relative",
+          transition: "all 0.15s",
+        }}
+      >
+        {current.bars === 0 ? (
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="7" height="18" rx="1" />
+            <path d="M14 3h7M14 9h7M14 15h5" />
+          </svg>
+        ) : (
+          Array.from({ length: current.bars }).map((_, i) => (
+            <div key={i} style={{ width: 3, height: 10, borderRadius: 1, background: C.accent }} />
+          ))
+        )}
+        {takeoffs.length > 0 && curId === "closed" && (
+          <span style={{
+            position: "absolute", top: -4, right: -4, minWidth: 14, height: 14, borderRadius: 7,
+            background: C.accent, color: "#fff", fontSize: 8, fontWeight: 700,
+            display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px", lineHeight: 1,
+          }}>
+            {takeoffs.length}
+          </span>
+        )}
+      </button>
+      {/* NOVA orb */}
+      {hasDrawings && tkPanelTier !== "estimate" && (
+        <div style={{ position: "relative", flexShrink: 0 }}>
+          <NovaOrb size={24} onClick={() => setTkNovaPanelOpen(v => !v)} />
+          {pendingPredictions > 0 && !tkNovaPanelOpen && (
+            <span style={{
+              position: "absolute", top: -2, right: -4,
+              background: C.accent, color: "#fff", fontSize: 7, fontWeight: 800,
+              padding: "1px 4px", borderRadius: 6, minWidth: 14, textAlign: "center", pointerEvents: "none",
+            }}>
+              {pendingPredictions}
+            </span>
+          )}
+        </div>
+      )}
+      {/* Mode label */}
+      <span style={{
+        fontSize: 9, fontWeight: 600, color: C.textDim,
+        letterSpacing: 0.3, whiteSpace: "nowrap",
+      }}>
+        {current.label}
+      </span>
+    </div>
+  );
+}
 
 function ProjectTabBar() {
   const C = useTheme();
@@ -244,6 +368,9 @@ function ProjectTabBar() {
           {project.name || "Untitled"}
         </span>
       </div>
+
+      {/* Takeoffs controls — mode button + NOVA (only on takeoffs page) */}
+      {activeTab.key === "takeoffs" && <TakeoffsHeaderControls C={C} />}
 
       {/* Collapsible menu button */}
       <div ref={menuRef} style={{ position: "relative" }}>
