@@ -17,6 +17,7 @@ import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useTakeoffsStore } from "@/stores/takeoffsStore";
 import { useDrawingsStore } from "@/stores/drawingsStore";
 import NovaOrb from "@/components/dashboard/NovaOrb";
+import { CAR_PALETTE_IDS, PALETTES } from "@/constants/palettes";
 import NovaHeader from "@/components/layout/NovaHeader";
 import Toast from "@/components/layout/Toast";
 import PageTransition from "@/components/ambient/PageTransition";
@@ -461,6 +462,107 @@ function ProjectTabBar() {
           </div>
         )}
       </div>
+
+      {/* Spacer + Theme cycle button (right side) */}
+      <div style={{ flex: 1 }} />
+      <ThemeCycleButton C={C} />
+    </div>
+  );
+}
+
+/* ── Theme cycle button — cycles through car palettes + originals ── */
+function ThemeCycleButton({ C }) {
+  const selectedPalette = useUiStore(s => s.appSettings.selectedPalette);
+  const updateSetting = useUiStore(s => s.updateSetting);
+
+  // All available palettes: originals + car collection
+  const ALL_IDS = ["nova", "grey", "clarity", "matte", "nero", ...CAR_PALETTE_IDS];
+  const currentIdx = ALL_IDS.indexOf(selectedPalette);
+
+  // Find current palette metadata
+  const currentPalette = PALETTES.find(p => p.id === selectedPalette);
+  const currentName = currentPalette?.name || "Theme";
+  const preview = currentPalette?.preview || [];
+
+  const cycle = (dir = 1) => {
+    const nextIdx = currentIdx === -1
+      ? 0
+      : (currentIdx + dir + ALL_IDS.length) % ALL_IDS.length;
+    updateSetting("selectedPalette", ALL_IDS[nextIdx]);
+  };
+
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 6,
+      flexShrink: 0, marginRight: 4,
+    }}>
+      {/* Prev arrow */}
+      <button
+        onClick={() => cycle(-1)}
+        title="Previous theme"
+        style={{
+          width: 18, height: 18, border: "none", background: "transparent",
+          cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+          opacity: 0.4, transition: "opacity 0.15s",
+        }}
+        onMouseEnter={e => e.currentTarget.style.opacity = 1}
+        onMouseLeave={e => e.currentTarget.style.opacity = 0.4}
+      >
+        <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke={C.textMuted} strokeWidth="2">
+          <path d="M6 1L2 5l4 4" />
+        </svg>
+      </button>
+
+      {/* Preview swatches + name */}
+      <button
+        onClick={() => cycle(1)}
+        title={`${currentName} — click to cycle`}
+        style={{
+          display: "flex", alignItems: "center", gap: 5,
+          padding: "3px 8px 3px 4px",
+          border: `1px solid ${C.border}`,
+          borderRadius: 6, cursor: "pointer",
+          background: "transparent",
+          transition: "all 0.15s",
+        }}
+        onMouseEnter={e => e.currentTarget.style.background = C.bg2}
+        onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+      >
+        {/* Color dots */}
+        <div style={{ display: "flex", gap: 2 }}>
+          {preview.slice(0, 3).map((color, i) => (
+            <div key={i} style={{
+              width: 8, height: 8, borderRadius: "50%",
+              background: color,
+              border: `0.5px solid rgba(128,128,128,0.3)`,
+            }} />
+          ))}
+        </div>
+        <span style={{
+          fontSize: 9, fontWeight: 600, color: C.textMuted,
+          whiteSpace: "nowrap", fontFamily: "'DM Sans', sans-serif",
+          letterSpacing: 0.3,
+        }}>
+          {currentName}
+        </span>
+      </button>
+
+      {/* Next arrow */}
+      <button
+        onClick={() => cycle(1)}
+        title="Next theme"
+        style={{
+          width: 18, height: 18, border: "none", background: "transparent",
+          cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+          opacity: 0.4, transition: "opacity 0.15s",
+        }}
+        onMouseEnter={e => e.currentTarget.style.opacity = 1}
+        onMouseLeave={e => e.currentTarget.style.opacity = 0.4}
+      >
+        <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke={C.textMuted} strokeWidth="2">
+          <path d="M4 1l4 4-4 4" />
+        </svg>
+      </button>
     </div>
   );
 }

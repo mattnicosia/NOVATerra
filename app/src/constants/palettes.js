@@ -730,6 +730,405 @@ export const PALETTES = [
       },
     ],
   },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  CAR COLLECTION — 8 automotive-inspired themes
+  //  Each palette is a complete design language extracted from the car's DNA:
+  //  body color → surfaces, interior → backgrounds, accent lighting → accent,
+  //  trim material → borders, gauge typography → type feel, geometry → radii
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // ━━━ 6. TERZO MILLENNIO — Lamborghini concept, angular stealth ━━━
+  // Matte olive-black faceted body, amber glowing wheel cores, hexagonal taillights.
+  // Every surface is a flat plane meeting at aggressive angles. Military precision.
+  // Carbon fiber + dark olive + amber emission = stealth fighter, not showroom.
+  {
+    id: "car-terzo",
+    name: "Terzo Millennio",
+    desc: "Lamborghini — angular stealth, amber glow",
+    preview: ["#0A0B08", "#E8920A", "#1A1D14", "#2A2D22", "#F5F0E0"],
+    variantLabels: ["Stealth"],
+    overrides: {
+      bg: "#070805",     // dark olive void
+      bg1: "#0D0E0A",   // carbon surface with green cast
+      bg2: "#161812",    // raised olive-charcoal
+      bg3: "#20221A",    // elevated, visible green undertone
+      border: "rgba(232,146,10,0.10)",
+      borderLight: "rgba(255,255,255,0.04)",
+      borderAccent: "rgba(232,146,10,0.35)",
+      text: "#F0ECE0",   // warm parchment white (interior leather)
+      textMuted: "rgba(240,236,224,0.52)",
+      textDim: "rgba(240,236,224,0.25)",
+      accent: "#E8920A",  // amber wheel glow
+      accentDim: "#C47A08",
+      accentBg: hR("#E8920A", 0.10),
+      accentAlt: "#FFB740",
+      gradient: "linear-gradient(135deg, #E8920A, #FFB740)",
+      gradientSubtle: `linear-gradient(135deg, ${hR("#E8920A", 0.12)}, ${hR("#FFB740", 0.12)})`,
+      gradientText: "linear-gradient(135deg, #E8920A, #FFB740)",
+      green: "#6ABF4B",   // military status green
+      red: "#E53935",     // hexagonal taillight
+      blue: "#42A5F5",
+      purple: "#AB47BC",
+      orange: "#FFB300",
+      cyan: "#26C6DA",
+      yellow: "#FFD740",
+      sidebarBg: "rgba(7,8,5,0.97)",
+      glassBg: "rgba(26,29,20,0.65)",
+      glassBorder: "rgba(232,146,10,0.08)",
+      glassBgDark: "rgba(7,8,5,0.88)",
+      bgGradient: [
+        "repeating-linear-gradient(0deg, rgba(232,146,10,0.03) 0 1px, transparent 1px 4px)",
+        "repeating-linear-gradient(90deg, rgba(232,146,10,0.03) 0 1px, transparent 1px 4px)",
+        `radial-gradient(ellipse at 50% 100%, ${hR("#E8920A", 0.06)} 0%, transparent 50%)`,
+        "#070805",
+      ].join(", "),
+      forceDark: true,
+    },
+    variants: [null],
+  },
+
+  // ━━━ 7. GT3 RS — Porsche 992, Python Green, surgical precision ━━━
+  // Acid green on dark gray. Functional aero. No decoration, only purpose.
+  // Every element exists for a reason. Swiss watch precision in a race car.
+  // Gauge cluster = monospace tabular, weight = medium-bold, tight tracking.
+  {
+    id: "car-gt3rs",
+    name: "GT3 RS",
+    desc: "Porsche — acid precision, Python Green",
+    preview: ["#0C0C0E", "#A6FF00", "#1A1A1E", "#2A2A30", "#F5F5F7"],
+    variantLabels: ["Python"],
+    overrides: {
+      bg: "#0A0A0C",     // clean dark, no color cast
+      bg1: "#111114",    // pure dark card
+      bg2: "#1A1A1E",    // raised surface
+      bg3: "#242428",    // hover state
+      border: "rgba(166,255,0,0.08)",
+      borderLight: "rgba(255,255,255,0.05)",
+      borderAccent: "rgba(166,255,0,0.30)",
+      text: "#F5F5F7",   // crisp white
+      textMuted: "rgba(245,245,247,0.55)",
+      textDim: "rgba(245,245,247,0.28)",
+      accent: "#A6FF00",  // Python Green
+      accentDim: "#7ACC00",
+      accentBg: hR("#A6FF00", 0.08),
+      accentAlt: "#CCFF66",
+      gradient: "linear-gradient(135deg, #A6FF00, #CCFF66)",
+      gradientSubtle: `linear-gradient(135deg, ${hR("#A6FF00", 0.10)}, ${hR("#CCFF66", 0.10)})`,
+      gradientText: "linear-gradient(135deg, #A6FF00, #CCFF66)",
+      green: "#A6FF00",
+      red: "#FF3B30",
+      blue: "#0A84FF",
+      purple: "#BF5AF2",
+      orange: "#FF9500",
+      cyan: "#5AC8FA",
+      yellow: "#FFD60A",
+      sidebarBg: "rgba(10,10,12,0.97)",
+      glassBg: "rgba(26,26,30,0.65)",
+      glassBorder: "rgba(166,255,0,0.06)",
+      glassBgDark: "rgba(10,10,12,0.88)",
+      bgGradient: `radial-gradient(ellipse at 50% 90%, ${hR("#A6FF00", 0.04)} 0%, transparent 50%), #0A0A0C`,
+      forceDark: true,
+    },
+    variants: [null],
+  },
+
+  // ━━━ 8. SPECTRE — Rolls-Royce, midnight sapphire + champagne ━━━
+  // Starlight headliner. Spirit of Ecstasy. Whisper-quiet luxury.
+  // Deep midnight blue surfaces, champagne gold accents, cream leather text.
+  // Generous spacing, soft edges, everything breathes. No urgency.
+  {
+    id: "car-spectre",
+    name: "Spectre",
+    desc: "Rolls-Royce — sapphire night, champagne gold",
+    preview: ["#060A18", "#C9A96E", "#0E1530", "#1A2448", "#F5F0E6"],
+    variantLabels: ["Midnight"],
+    overrides: {
+      bg: "#040814",     // midnight sapphire void
+      bg1: "#0A1024",    // deep blue card
+      bg2: "#101832",    // raised navy
+      bg3: "#182040",    // elevated sapphire
+      border: "rgba(201,169,110,0.10)",
+      borderLight: "rgba(255,255,255,0.04)",
+      borderAccent: "rgba(201,169,110,0.30)",
+      text: "#F5F0E6",   // cream leather
+      textMuted: "rgba(245,240,230,0.52)",
+      textDim: "rgba(245,240,230,0.26)",
+      accent: "#C9A96E",  // champagne gold
+      accentDim: "#A8894E",
+      accentBg: hR("#C9A96E", 0.08),
+      accentAlt: "#E0C88A",
+      gradient: "linear-gradient(135deg, #C9A96E, #E0C88A)",
+      gradientSubtle: `linear-gradient(135deg, ${hR("#C9A96E", 0.10)}, ${hR("#E0C88A", 0.10)})`,
+      gradientText: "linear-gradient(135deg, #C9A96E, #E0C88A)",
+      green: "#50C878",   // British racing green tint
+      red: "#E8475A",
+      blue: "#5B8DEF",
+      purple: "#9B7ADA",
+      orange: "#D4A040",
+      cyan: "#62B8D4",
+      yellow: "#E8D060",
+      sidebarBg: "rgba(4,8,20,0.97)",
+      glassBg: "rgba(16,24,50,0.60)",
+      glassBorder: "rgba(201,169,110,0.08)",
+      glassBgDark: "rgba(4,8,20,0.88)",
+      bgGradient: `radial-gradient(ellipse at 30% 20%, ${hR("#C9A96E", 0.04)} 0%, transparent 40%), radial-gradient(ellipse at 70% 80%, ${hR("#1A2448", 0.30)} 0%, transparent 50%), #040814`,
+      forceDark: true,
+    },
+    variants: [null],
+  },
+
+  // ━━━ 9. SF90 — Ferrari Stradale, Rosso Corsa passion ━━━
+  // Italian red intensity. Flowing curves. Prancing horse heritage.
+  // Warm dark surfaces with red undertone. Accent is LIVING red.
+  // Typography has flair — slightly wider tracking, confident weight.
+  {
+    id: "car-sf90",
+    name: "SF90 Stradale",
+    desc: "Ferrari — Rosso Corsa, Italian fire",
+    preview: ["#0C0808", "#DC2626", "#1C1414", "#2C2020", "#F5EDED"],
+    variantLabels: ["Rosso"],
+    overrides: {
+      bg: "#0A0606",     // near-black with warm red undertone
+      bg1: "#120E0E",    // dark warm surface
+      bg2: "#1C1616",    // raised surface, slight warmth
+      bg3: "#262020",    // elevated, visible warmth
+      border: "rgba(220,38,38,0.10)",
+      borderLight: "rgba(255,255,255,0.04)",
+      borderAccent: "rgba(220,38,38,0.35)",
+      text: "#F8F0F0",   // warm white
+      textMuted: "rgba(248,240,240,0.55)",
+      textDim: "rgba(248,240,240,0.28)",
+      accent: "#DC2626",  // Rosso Corsa
+      accentDim: "#B91C1C",
+      accentBg: hR("#DC2626", 0.10),
+      accentAlt: "#EF4444",
+      gradient: "linear-gradient(135deg, #DC2626, #EF4444)",
+      gradientSubtle: `linear-gradient(135deg, ${hR("#DC2626", 0.12)}, ${hR("#EF4444", 0.12)})`,
+      gradientText: "linear-gradient(135deg, #DC2626, #EF4444)",
+      green: "#22C55E",
+      red: "#DC2626",
+      blue: "#3B82F6",
+      purple: "#A855F7",
+      orange: "#F59E0B",
+      cyan: "#06B6D4",
+      yellow: "#FCD34D",
+      sidebarBg: "rgba(10,6,6,0.97)",
+      glassBg: "rgba(28,22,22,0.65)",
+      glassBorder: "rgba(220,38,38,0.06)",
+      glassBgDark: "rgba(10,6,6,0.88)",
+      bgGradient: `radial-gradient(ellipse at 50% 100%, ${hR("#DC2626", 0.05)} 0%, transparent 50%), #0A0606`,
+      forceDark: true,
+    },
+    variants: [null],
+  },
+
+  // ━━━ 10. 720S — McLaren, Papaya Orange, surgical British ━━━
+  // Heritage papaya orange on cool gray architecture. Teardrop cabin.
+  // British engineering: precise, cool, technical. Orange is controlled fire.
+  // Clean separation between surface layers, like the car's monocoque.
+  {
+    id: "car-720s",
+    name: "720S",
+    desc: "McLaren — Papaya Orange, British precision",
+    preview: ["#0A0C10", "#FF6B00", "#141820", "#1E222C", "#FFF5EB"],
+    variantLabels: ["Papaya"],
+    overrides: {
+      bg: "#08090E",     // cool dark (British gray undertone)
+      bg1: "#0E1018",    // cool dark surface
+      bg2: "#161A22",    // raised cool gray
+      bg3: "#1E222C",    // elevated
+      border: "rgba(255,107,0,0.08)",
+      borderLight: "rgba(255,255,255,0.05)",
+      borderAccent: "rgba(255,107,0,0.30)",
+      text: "#F5F5F8",   // cool white
+      textMuted: "rgba(245,245,248,0.55)",
+      textDim: "rgba(245,245,248,0.28)",
+      accent: "#FF6B00",  // Papaya Orange
+      accentDim: "#CC5500",
+      accentBg: hR("#FF6B00", 0.08),
+      accentAlt: "#FF9640",
+      gradient: "linear-gradient(135deg, #FF6B00, #FF9640)",
+      gradientSubtle: `linear-gradient(135deg, ${hR("#FF6B00", 0.10)}, ${hR("#FF9640", 0.10)})`,
+      gradientText: "linear-gradient(135deg, #FF6B00, #FF9640)",
+      green: "#30D158",
+      red: "#FF453A",
+      blue: "#0A84FF",
+      purple: "#BF5AF2",
+      orange: "#FF6B00",
+      cyan: "#5AC8FA",
+      yellow: "#FFD60A",
+      sidebarBg: "rgba(8,9,14,0.97)",
+      glassBg: "rgba(22,26,34,0.65)",
+      glassBorder: "rgba(255,107,0,0.06)",
+      glassBgDark: "rgba(8,9,14,0.88)",
+      bgGradient: `radial-gradient(ellipse at 60% 90%, ${hR("#FF6B00", 0.04)} 0%, transparent 45%), #08090E`,
+      forceDark: true,
+    },
+    variants: [null],
+  },
+
+  // ━━━ 11. i VISION DEE — BMW concept, white futuristic ━━━
+  // All-white body. E-Ink panels. Shy-tech. Digital Soul.
+  // Ultra-minimal LIGHT theme. Clean whites, whisper-thin borders.
+  // BMW blue accent. Maximum breathing room. Future is quiet.
+  {
+    id: "car-visiondee",
+    name: "i Vision Dee",
+    desc: "BMW — white futuristic, shy-tech minimal",
+    preview: ["#F8F9FC", "#0066FF", "#FFFFFF", "#E8EAF0", "#1A1A2E"],
+    variantLabels: ["Blanc", "Night"],
+    overrides: {
+      // Dark base (for panel)
+      bg: "#0E0E1A",
+      bg1: "#161624",
+      bg2: "#1E1E2E",
+      bg3: "#282838",
+      border: "rgba(0,102,255,0.10)",
+      borderLight: "rgba(255,255,255,0.04)",
+      borderAccent: hR("#0066FF", 0.20),
+      text: "#F0F0FA",
+      textMuted: "rgba(240,240,250,0.55)",
+      textDim: "rgba(240,240,250,0.28)",
+      accent: "#0066FF",  // BMW blue
+      accentDim: "#0052CC",
+      accentBg: hR("#0066FF", 0.08),
+      accentAlt: "#3388FF",
+      gradient: "linear-gradient(135deg, #0066FF, #3388FF)",
+      gradientSubtle: `linear-gradient(135deg, ${hR("#0066FF", 0.08)}, ${hR("#3388FF", 0.08)})`,
+      gradientText: "linear-gradient(135deg, #0066FF, #3388FF)",
+      green: "#30D158",
+      red: "#FF3B30",
+      blue: "#0066FF",
+      purple: "#AF52DE",
+      orange: "#FF9500",
+      cyan: "#5AC8FA",
+      yellow: "#FFD60A",
+      sidebarBg: "rgba(14,14,26,0.97)",
+      glassBg: "rgba(30,30,46,0.65)",
+      glassBorder: "rgba(0,102,255,0.06)",
+      glassBgDark: "rgba(14,14,26,0.88)",
+      bgGradient: "#0E0E1A",
+      forceDark: false,
+    },
+    variants: [
+      null, // 0 — Night (dark base)
+      {
+        // 1 — Blanc: all-white futuristic
+        bg: "#F8F9FC",
+        bg1: "#FFFFFF",
+        bg2: "#EFF0F6",
+        bg3: "#E5E7EF",
+        border: "#D0D4E0",
+        borderLight: "#E2E4EC",
+        borderAccent: hR("#0066FF", 0.15),
+        text: "#101028",
+        textMuted: "#6068A0",
+        textDim: "#A0A4C0",
+        ...LB,
+        border: "#D0D4E0",
+        borderLight: "#E2E4EC",
+        sidebarBg: "rgba(248,249,252,0.92)",
+        bgGradient: `radial-gradient(ellipse at 15% 10%, ${hR("#0066FF", 0.08)} 0%, transparent 50%), radial-gradient(ellipse at 85% 85%, ${hR("#3388FF", 0.06)} 0%, transparent 50%), #F8F9FC`,
+      },
+    ],
+  },
+
+  // ━━━ 12. AMG ONE — Mercedes F1-derived, Silver Arrow + Petronas teal ━━━
+  // Silver Arrows heritage. F1 telemetry data density. Petronas teal glow.
+  // Metallic silver-dark surfaces, technical precision, high information density.
+  // Accent comes from Petronas sponsorship cyan-teal.
+  {
+    id: "car-amgone",
+    name: "AMG ONE",
+    desc: "Mercedes — Silver Arrow, Petronas teal",
+    preview: ["#0A0C12", "#00D2BE", "#161A22", "#222830", "#F5F8FA"],
+    variantLabels: ["Petronas"],
+    overrides: {
+      bg: "#080A10",     // metallic dark (slight cool steel)
+      bg1: "#0E1118",    // steel surface
+      bg2: "#161A24",    // raised metallic
+      bg3: "#1E232E",    // elevated
+      border: "rgba(0,210,190,0.08)",
+      borderLight: "rgba(255,255,255,0.05)",
+      borderAccent: "rgba(0,210,190,0.30)",
+      text: "#F0F4F8",   // cool bright white (telemetry screens)
+      textMuted: "rgba(240,244,248,0.55)",
+      textDim: "rgba(240,244,248,0.28)",
+      accent: "#00D2BE",  // Petronas teal
+      accentDim: "#00A896",
+      accentBg: hR("#00D2BE", 0.08),
+      accentAlt: "#40E8D8",
+      gradient: "linear-gradient(135deg, #00D2BE, #40E8D8)",
+      gradientSubtle: `linear-gradient(135deg, ${hR("#00D2BE", 0.10)}, ${hR("#40E8D8", 0.10)})`,
+      gradientText: "linear-gradient(135deg, #00D2BE, #40E8D8)",
+      green: "#00E676",
+      red: "#FF1744",
+      blue: "#448AFF",
+      purple: "#B388FF",
+      orange: "#FFAB40",
+      cyan: "#00D2BE",
+      yellow: "#FFD740",
+      sidebarBg: "rgba(8,10,16,0.97)",
+      glassBg: "rgba(22,26,36,0.65)",
+      glassBorder: "rgba(0,210,190,0.06)",
+      glassBgDark: "rgba(8,10,16,0.88)",
+      bgGradient: `radial-gradient(ellipse at 50% 95%, ${hR("#00D2BE", 0.04)} 0%, transparent 45%), #080A10`,
+      forceDark: true,
+    },
+    variants: [null],
+  },
+
+  // ━━━ 13. HUAYRA — Pagani, artisanal titanium + bronze ━━━
+  // Hand-crafted. Exposed titanium bolts. Smoked glass. Analog gauges.
+  // Warm bronze/titanium accent on rich dark brown leather surfaces.
+  // Every detail is bespoke. Craftsmanship over technology.
+  {
+    id: "car-huayra",
+    name: "Huayra",
+    desc: "Pagani — artisanal titanium, analog warmth",
+    preview: ["#0C0A08", "#B8860B", "#1A1614", "#2A2420", "#F5EDE0"],
+    variantLabels: ["Titanium"],
+    overrides: {
+      bg: "#0A0806",     // deep espresso void
+      bg1: "#121010",    // dark leather
+      bg2: "#1C1816",    // raised brown-black
+      bg3: "#262220",    // elevated warm surface
+      border: "rgba(184,134,11,0.10)",
+      borderLight: "rgba(255,255,255,0.04)",
+      borderAccent: "rgba(184,134,11,0.30)",
+      text: "#F5EDE0",   // warm parchment (aged leather)
+      textMuted: "rgba(245,237,224,0.52)",
+      textDim: "rgba(245,237,224,0.25)",
+      accent: "#B8860B",  // titanium bronze
+      accentDim: "#966D09",
+      accentBg: hR("#B8860B", 0.08),
+      accentAlt: "#D4A028",
+      gradient: "linear-gradient(135deg, #B8860B, #D4A028)",
+      gradientSubtle: `linear-gradient(135deg, ${hR("#B8860B", 0.10)}, ${hR("#D4A028", 0.10)})`,
+      gradientText: "linear-gradient(135deg, #B8860B, #D4A028)",
+      green: "#6ABF4B",
+      red: "#D44040",
+      blue: "#5480B0",
+      purple: "#8A6AB0",
+      orange: "#D49030",
+      cyan: "#508090",
+      yellow: "#D4B840",
+      sidebarBg: "rgba(10,8,6,0.97)",
+      glassBg: "rgba(28,24,22,0.60)",
+      glassBorder: "rgba(184,134,11,0.08)",
+      glassBgDark: "rgba(10,8,6,0.88)",
+      bgGradient: `radial-gradient(ellipse at 40% 80%, ${hR("#B8860B", 0.04)} 0%, transparent 45%), #0A0806`,
+      forceDark: true,
+    },
+    variants: [null],
+  },
+];
+
+// Car palette IDs for cycling
+export const CAR_PALETTE_IDS = [
+  "car-terzo", "car-gt3rs", "car-spectre", "car-sf90",
+  "car-720s", "car-visiondee", "car-amgone", "car-huayra",
 ];
 
 // Chart colors
