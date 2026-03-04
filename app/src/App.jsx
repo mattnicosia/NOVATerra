@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, lazy, Suspense } from "react";
+import { useEffect, useState, useRef, useCallback, lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useParams, useLocation, useNavigate } from "react-router-dom";
 import { ThemeProvider, useTheme } from "@/hooks/useTheme";
 import { usePersistenceLoad, loadEstimate } from "@/hooks/usePersistence";
@@ -137,11 +137,11 @@ function ProjectTabBar() {
   const getCompanyInfo = useMasterDataStore(s => s.getCompanyInfo);
   const companyInfo = getCompanyInfo(project.companyProfileId);
   const companyInitial = (companyInfo?.name || "?")[0].toUpperCase();
-  const [menuOpen, setMenuOpen] = React.useState(false);
-  const menuRef = React.useRef(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
 
   // Close on outside click
-  React.useEffect(() => {
+  useEffect(() => {
     if (!menuOpen) return;
     const close = e => {
       if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
