@@ -119,3 +119,135 @@ export const autoTradeFromCode = (code) => {
 
   return "";
 };
+
+// ── Certification Types ──
+export const CERTIFICATION_TYPES = [
+  { key: "MBE",     label: "Minority Business Enterprise" },
+  { key: "WBE",     label: "Women's Business Enterprise" },
+  { key: "DBE",     label: "Disadvantaged Business Enterprise" },
+  { key: "SBE",     label: "Small Business Enterprise" },
+  { key: "HUBZone", label: "HUBZone" },
+  { key: "8a",      label: "8(a)" },
+  { key: "SDVOSB",  label: "Service-Disabled Veteran-Owned" },
+  { key: "VOSB",    label: "Veteran-Owned Small Business" },
+  { key: "LGBTBE",  label: "LGBT Business Enterprise" },
+];
+
+// ── Market Regions ──
+export const MARKET_REGIONS = [
+  "Northeast", "Mid-Atlantic", "Southeast", "Midwest",
+  "Southwest", "Mountain West", "Pacific Northwest", "West Coast",
+  "National",
+];
+
+// ── Trade Colors — for badge/pill coloring ──
+export const TRADE_COLORS = {
+  general:         "#6B7280",
+  demo:            "#EF4444",
+  sitework:        "#92400E",
+  concrete:        "#6B7280",
+  masonry:         "#B45309",
+  steel:           "#4B5563",
+  framing:         "#D97706",
+  finishCarp:      "#D97706",
+  insulation:      "#F59E0B",
+  roofing:         "#7C3AED",
+  doors:           "#8B5CF6",
+  windows:         "#3B82F6",
+  drywall:         "#9CA3AF",
+  tile:            "#10B981",
+  act:             "#6EE7B7",
+  flooring:        "#059669",
+  painting:        "#EC4899",
+  specialties:     "#8B5CF6",
+  elevator:        "#6366F1",
+  fireSuppression: "#DC2626",
+  plumbing:        "#0EA5E9",
+  hvac:            "#0284C7",
+  electrical:      "#F59E0B",
+};
+
+// ── Fuzzy match free-text trade to trade keys ──
+const FUZZY_ALIASES = {
+  "mechanical":      ["hvac", "plumbing"],
+  "mep":             ["hvac", "plumbing", "electrical"],
+  "glazing":         ["windows"],
+  "curtain wall":    ["windows"],
+  "storefront":      ["windows"],
+  "metal studs":     ["drywall"],
+  "metal framing":   ["drywall"],
+  "gypsum":          ["drywall"],
+  "gyp board":       ["drywall"],
+  "acoustical":      ["act"],
+  "ceiling":         ["act"],
+  "ceilings":        ["act"],
+  "millwork":        ["finishCarp"],
+  "casework":        ["finishCarp"],
+  "cabinetry":       ["finishCarp"],
+  "cabinets":        ["finishCarp"],
+  "carpentry":       ["framing"],
+  "wood framing":    ["framing"],
+  "waterproofing":   ["roofing"],
+  "fire sprinkler":  ["fireSuppression"],
+  "sprinkler":       ["fireSuppression"],
+  "fire alarm":      ["electrical"],
+  "low voltage":     ["electrical"],
+  "earthwork":       ["sitework"],
+  "excavation":      ["sitework"],
+  "paving":          ["sitework"],
+  "landscape":       ["sitework"],
+  "landscaping":     ["sitework"],
+  "structural":      ["steel"],
+  "iron":            ["steel"],
+  "misc metals":     ["steel"],
+  "ornamental":      ["steel"],
+  "block":           ["masonry"],
+  "brick":           ["masonry"],
+  "stone":           ["masonry"],
+  "terrazzo":        ["flooring"],
+  "carpet":          ["flooring"],
+  "vct":             ["flooring"],
+  "lvt":             ["flooring"],
+  "wood floor":      ["flooring"],
+  "epoxy":           ["flooring"],
+  "stucco":          ["painting"],
+  "coatings":        ["painting"],
+  "toilet partitions": ["specialties"],
+  "lockers":         ["specialties"],
+  "signage":         ["specialties"],
+  "abatement":       ["demo"],
+  "selective demo":  ["demo"],
+  "hardware":        ["doors"],
+  "overhead doors":  ["doors"],
+  "garage doors":    ["doors"],
+};
+
+export const fuzzyMatchTrade = (freeText) => {
+  if (!freeText) return [];
+  const lower = freeText.toLowerCase().trim();
+  if (!lower) return [];
+
+  const bundles = getActiveBundles();
+
+  // 1. Direct key match
+  const exact = bundles.find(t => t.key.toLowerCase() === lower);
+  if (exact) return [exact.key];
+
+  // 2. Label match (case-insensitive)
+  const labelMatch = bundles.find(t => t.label.toLowerCase() === lower);
+  if (labelMatch) return [labelMatch.key];
+
+  // 3. Alias lookup
+  for (const [alias, keys] of Object.entries(FUZZY_ALIASES)) {
+    if (lower === alias || lower.includes(alias) || alias.includes(lower)) return keys;
+  }
+
+  // 4. Partial label match (contains)
+  const partial = bundles.filter(t =>
+    t.label.toLowerCase().includes(lower) || lower.includes(t.label.toLowerCase())
+  );
+  if (partial.length > 0) return partial.map(t => t.key);
+
+  // 5. No match — return empty (user's free text doesn't map)
+  return [];
+};

@@ -4,10 +4,12 @@ import { useItemsStore } from "@/stores/itemsStore";
 import { useBidLevelingStore } from "@/stores/bidLevelingStore";
 import { useBidPackagesStore } from "@/stores/bidPackagesStore";
 import { useProjectStore } from "@/stores/projectStore";
+import { useMasterDataStore } from "@/stores/masterDataStore";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { inp, nInp, bt } from "@/utils/styles";
 import { nn, fmt, pct } from "@/utils/format";
+import { TRADE_MAP } from "@/constants/tradeGroupings";
 
 /* ─── Cell status definitions ─── */
 const CELL_STATUSES = [
@@ -23,15 +25,20 @@ function CellContextMenu({ pos, item, currentStatus, getItemTotal, onSelect, onC
   const dk = C.isDark !== false;
 
   useEffect(() => {
-    const handler = (e) => {
+    const handler = e => {
       if (ref.current && !ref.current.contains(e.target)) onClose();
     };
     const t = setTimeout(() => document.addEventListener("mousedown", handler), 0);
-    return () => { clearTimeout(t); document.removeEventListener("mousedown", handler); };
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener("mousedown", handler);
+    };
   }, [onClose]);
 
   useEffect(() => {
-    const handler = (e) => { if (e.key === "Escape") onClose(); };
+    const handler = e => {
+      if (e.key === "Escape") onClose();
+    };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [onClose]);
@@ -43,7 +50,7 @@ function CellContextMenu({ pos, item, currentStatus, getItemTotal, onSelect, onC
   return (
     <div
       ref={ref}
-      onClick={(e) => e.stopPropagation()}
+      onClick={e => e.stopPropagation()}
       style={{
         position: "fixed",
         left: x,
@@ -63,10 +70,17 @@ function CellContextMenu({ pos, item, currentStatus, getItemTotal, onSelect, onC
         minWidth: 155,
       }}
     >
-      <div style={{
-        fontSize: 8, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase",
-        color: C.textDim, padding: "2px 8px 4px", fontFamily: "'DM Sans',sans-serif",
-      }}>
+      <div
+        style={{
+          fontSize: 8,
+          fontWeight: 700,
+          letterSpacing: 1,
+          textTransform: "uppercase",
+          color: C.textDim,
+          padding: "2px 8px 4px",
+          fontFamily: "'DM Sans',sans-serif",
+        }}
+      >
         Pricing Method
       </div>
       {CELL_STATUSES.map(s => {
@@ -77,18 +91,28 @@ function CellContextMenu({ pos, item, currentStatus, getItemTotal, onSelect, onC
             key={s.key}
             onClick={() => onSelect(s.key)}
             style={{
-              display: "flex", alignItems: "center", gap: 8,
-              width: "100%", padding: "6px 8px", borderRadius: 7,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              width: "100%",
+              padding: "6px 8px",
+              borderRadius: 7,
               border: "none",
               background: isActive ? `${C.accent}15` : "transparent",
-              cursor: "pointer", textAlign: "left",
-              fontSize: 11, fontWeight: isActive ? 700 : 500,
+              cursor: "pointer",
+              textAlign: "left",
+              fontSize: 11,
+              fontWeight: isActive ? 700 : 500,
               color: isActive ? C.accent : C.text,
               fontFamily: "'DM Sans',sans-serif",
               transition: "background 0.15s",
             }}
-            onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = hoverBg; }}
-            onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = isActive ? `${C.accent}15` : "transparent"; }}
+            onMouseEnter={e => {
+              if (!isActive) e.currentTarget.style.background = hoverBg;
+            }}
+            onMouseLeave={e => {
+              if (!isActive) e.currentTarget.style.background = isActive ? `${C.accent}15` : "transparent";
+            }}
           >
             <Ic d={s.icon} size={13} color={isActive ? C.accent : C.textDim} sw={1.8} />
             <span style={{ flex: 1 }}>{s.label}</span>
@@ -99,14 +123,323 @@ function CellContextMenu({ pos, item, currentStatus, getItemTotal, onSelect, onC
               </span>
             )}
             {/* Show internal total hint for carried */}
-            {s.key === "carried" && (
-              <span style={{ fontSize: 9, color: C.textDim }}>
-                {fmt(getItemTotal(item))}
-              </span>
-            )}
+            {s.key === "carried" && <span style={{ fontSize: 9, color: C.textDim }}>{fmt(getItemTotal(item))}</span>}
           </button>
         );
       })}
+    </div>
+  );
+}
+
+/* ─── Sub Autocomplete — CRM-backed search with inline add ─── */
+function SubAutocomplete({ newSubName, setNewSubName, newSubRef, onSelect, onCancel, C }) {
+  const subs = useMasterDataStore(s => s.masterData.subcontractors) || [];
+  const addMasterItem = useMasterDataStore(s => s.addMasterItem);
+  const [showDropdown, setShowDropdown] = useState(true);
+  const [showNewForm, setShowNewForm] = useState(false);
+  const [newSub, setNewSub] = useState({ company: "", trades: [], contact: "", email: "", phone: "" });
+  const dropRef = useRef(null);
+
+  // Filter subs by search term
+  const filtered = useMemo(() => {
+    if (!newSubName.trim()) return subs.slice(0, 8);
+    const q = newSubName.toLowerCase();
+    return subs
+      .filter(
+        s =>
+          (s.company || "").toLowerCase().includes(q) ||
+          (s.trades || []).some(tk => tk.toLowerCase().includes(q) || (TRADE_MAP[tk]?.label || "").toLowerCase().includes(q)) ||
+          (s.contact || "").toLowerCase().includes(q),
+      )
+      .slice(0, 8);
+  }, [newSubName, subs]);
+
+  const handleSelectExisting = sub => {
+    onSelect(sub.company);
+    setShowDropdown(false);
+  };
+
+  const handleAddNewSub = () => {
+    if (!newSub.company.trim()) return;
+    addMasterItem("subcontractors", { ...newSub });
+    onSelect(newSub.company);
+    setShowNewForm(false);
+  };
+
+  if (showNewForm) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 10, fontWeight: 700, color: C.accent }}>New Subcontractor</span>
+          <span style={{ fontSize: 8, color: C.textDim }}>Added to your CRM</span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4 }}>
+          {[
+            { key: "company", label: "Company *", ph: "Company name" },
+            { key: "trade", label: "Trade", ph: "e.g., Electrical" },
+            { key: "contact", label: "Contact", ph: "Contact name" },
+            { key: "email", label: "Email", ph: "email@example.com" },
+            { key: "phone", label: "Phone", ph: "(555) 555-5555" },
+          ].map(f => (
+            <div key={f.key}>
+              <div style={{ fontSize: 8, fontWeight: 600, color: C.textDim, marginBottom: 2 }}>{f.label}</div>
+              <input
+                value={newSub[f.key]}
+                onChange={e => setNewSub(prev => ({ ...prev, [f.key]: e.target.value }))}
+                placeholder={f.ph}
+                autoFocus={f.key === "company"}
+                onKeyDown={e => {
+                  if (e.key === "Enter") handleAddNewSub();
+                  if (e.key === "Escape") {
+                    setShowNewForm(false);
+                    onCancel();
+                  }
+                }}
+                style={{
+                  width: "100%",
+                  padding: "4px 8px",
+                  fontSize: 11,
+                  border: `1px solid ${f.key === "company" ? C.accent + "60" : C.border}`,
+                  borderRadius: 4,
+                  outline: "none",
+                  background: C.bg,
+                  color: C.text,
+                  fontFamily: "'DM Sans',sans-serif",
+                  boxSizing: "border-box",
+                }}
+              />
+            </div>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 4 }}>
+          <button
+            onClick={handleAddNewSub}
+            disabled={!newSub.company.trim()}
+            style={{
+              padding: "4px 12px",
+              fontSize: 10,
+              fontWeight: 700,
+              border: "none",
+              borderRadius: 4,
+              background: C.accent,
+              color: "#fff",
+              cursor: newSub.company.trim() ? "pointer" : "not-allowed",
+              opacity: newSub.company.trim() ? 1 : 0.5,
+            }}
+          >
+            Add & Select
+          </button>
+          <button
+            onClick={() => {
+              setShowNewForm(false);
+              onCancel();
+            }}
+            style={{
+              padding: "4px 8px",
+              fontSize: 10,
+              border: `1px solid ${C.border}`,
+              borderRadius: 4,
+              background: "transparent",
+              color: C.textDim,
+              cursor: "pointer",
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ position: "relative" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{ fontSize: 10, fontWeight: 600, color: C.accent }}>Add sub:</span>
+        <input
+          ref={newSubRef}
+          value={newSubName}
+          onChange={e => {
+            setNewSubName(e.target.value);
+            setShowDropdown(true);
+          }}
+          onFocus={() => setShowDropdown(true)}
+          onKeyDown={e => {
+            if (e.key === "Enter" && newSubName.trim()) onSelect(newSubName);
+            if (e.key === "Escape") onCancel();
+          }}
+          placeholder="Search subcontractors..."
+          style={{
+            flex: 1,
+            maxWidth: 250,
+            padding: "3px 8px",
+            fontSize: 11,
+            border: `1px solid ${C.accent}40`,
+            borderRadius: 4,
+            outline: "none",
+            background: C.bg,
+            color: C.text,
+            fontFamily: "'DM Sans',sans-serif",
+          }}
+        />
+        <button
+          onClick={onCancel}
+          style={{
+            padding: "3px 8px",
+            fontSize: 10,
+            border: `1px solid ${C.border}`,
+            borderRadius: 4,
+            background: "transparent",
+            color: C.textDim,
+            cursor: "pointer",
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+      {showDropdown && (
+        <div
+          ref={dropRef}
+          style={{
+            position: "absolute",
+            top: "100%",
+            left: 60,
+            zIndex: 100,
+            marginTop: 2,
+            width: 280,
+            maxHeight: 240,
+            overflowY: "auto",
+            background: C.bg1,
+            border: `1px solid ${C.border}`,
+            borderRadius: 8,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
+            padding: 4,
+          }}
+        >
+          {filtered.length > 0 && (
+            <div
+              style={{
+                fontSize: 8,
+                fontWeight: 700,
+                color: C.textDim,
+                padding: "2px 8px 4px",
+                textTransform: "uppercase",
+                letterSpacing: 0.6,
+              }}
+            >
+              From Contacts
+            </div>
+          )}
+          {filtered.map(s => (
+            <div
+              key={s.id}
+              onClick={() => handleSelectExisting(s)}
+              style={{
+                padding: "5px 8px",
+                borderRadius: 5,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                transition: "background 0.1s",
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = C.accent + "12")}
+              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+            >
+              <div
+                style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: 6,
+                  background: `${C.accent}18`,
+                  border: `1px solid ${C.accent}25`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 9,
+                  fontWeight: 700,
+                  color: C.accent,
+                  flexShrink: 0,
+                }}
+              >
+                {(s.company || "?")[0].toUpperCase()}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: C.text,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {s.company || "Unnamed"}
+                </div>
+                <div
+                  style={{
+                    fontSize: 9,
+                    color: C.textDim,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {[(s.trades || []).map(tk => TRADE_MAP[tk]?.label || tk).join(", "), s.contact].filter(Boolean).join(" · ") || "No details"}
+                </div>
+              </div>
+            </div>
+          ))}
+          {filtered.length === 0 && newSubName.trim() && (
+            <div style={{ padding: "8px", fontSize: 10, color: C.textDim, textAlign: "center" }}>
+              No matching subcontractors
+            </div>
+          )}
+          {/* Add new sub option */}
+          <div
+            style={{
+              marginTop: 2,
+              padding: "6px 8px",
+              borderTop: `1px solid ${C.border}`,
+              borderRadius: "0 0 6px 6px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              transition: "background 0.1s",
+            }}
+            onClick={() => {
+              setShowNewForm(true);
+              setNewSub(prev => ({ ...prev, company: newSubName }));
+              setShowDropdown(false);
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = C.accent + "12")}
+            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+          >
+            <div
+              style={{
+                width: 24,
+                height: 24,
+                borderRadius: 6,
+                background: `${C.green || C.accent}15`,
+                border: `1px dashed ${C.green || C.accent}40`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 12,
+                fontWeight: 700,
+                color: C.green || C.accent,
+              }}
+            >
+              +
+            </div>
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 600, color: C.green || C.accent }}>Add New Subcontractor</div>
+              <div style={{ fontSize: 8, color: C.textDim }}>Create in CRM & add to leveling</div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -121,7 +454,7 @@ function BidCell({ value, status, item, onSave, onContextMenu, getItemTotal, hig
     if (editing && inputRef.current) inputRef.current.focus();
   }, [editing]);
 
-  const handleContextMenu = (e) => {
+  const handleContextMenu = e => {
     e.preventDefault();
     e.stopPropagation();
     onContextMenu(e);
@@ -135,17 +468,31 @@ function BidCell({ value, status, item, onSave, onContextMenu, getItemTotal, hig
         type="number"
         value={draft}
         onChange={e => setDraft(e.target.value)}
-        onBlur={() => { onSave(draft); setEditing(false); }}
+        onBlur={() => {
+          onSave(draft);
+          setEditing(false);
+        }}
         onKeyDown={e => {
-          if (e.key === "Enter") { onSave(draft); setEditing(false); }
+          if (e.key === "Enter") {
+            onSave(draft);
+            setEditing(false);
+          }
           if (e.key === "Escape") setEditing(false);
         }}
         onContextMenu={handleContextMenu}
         style={{
-          width: "100%", padding: "2px 6px", fontSize: 11, fontWeight: 600,
-          fontFamily: "'DM Sans',sans-serif", textAlign: "right",
-          border: `1.5px solid ${C.accent}`, borderRadius: 3, outline: "none",
-          background: C.bg, color: C.text, boxSizing: "border-box",
+          width: "100%",
+          padding: "2px 6px",
+          fontSize: 11,
+          fontWeight: 600,
+          fontFamily: "'DM Sans',sans-serif",
+          textAlign: "right",
+          border: `1.5px solid ${C.accent}`,
+          borderRadius: 3,
+          outline: "none",
+          background: C.bg,
+          color: C.text,
+          boxSizing: "border-box",
         }}
       />
     );
@@ -161,26 +508,38 @@ function BidCell({ value, status, item, onSave, onContextMenu, getItemTotal, hig
   })();
 
   // ── Highlight colors (low/high among subs) ──
-  const bg = highlight === "low" ? `${C.green}12`
-    : highlight === "high" ? `${(C.red || C.orange)}12`
-    : "transparent";
-  const baseColor = highlight === "low" ? C.green
-    : highlight === "high" ? (C.red || C.orange)
-    : status === "blank" ? C.textDim
-    : status === "carried" ? C.accent
-    : C.text;
+  const bg = highlight === "low" ? `${C.green}12` : highlight === "high" ? `${C.red || C.orange}12` : "transparent";
+  const baseColor =
+    highlight === "low"
+      ? C.green
+      : highlight === "high"
+        ? C.red || C.orange
+        : status === "blank"
+          ? C.textDim
+          : status === "carried"
+            ? C.accent
+            : C.text;
 
-  const handleClick = () => {
+  const handleClick = e => {
     if (status === "carried") return; // Carried cells are auto-filled, not editable
-    setDraft(status === "blank" ? "" : String(value || ""));
+    if (status === "blank") {
+      // Blank cells: show pricing method picker on regular click
+      e.preventDefault();
+      onContextMenu(e);
+      return;
+    }
+    setDraft(String(value || ""));
     setEditing(true);
   };
 
   const titleText =
-    status === "blank" ? "Right-click for pricing options"
-    : status === "unitrate" ? `Unit Rate: ${fmt(nn(value))}/${item.unit || "ea"} × ${nn(item.quantity)} = ${fmt(computedVal)}`
-    : status === "carried" ? `Carried from internal: ${fmt(computedVal)}`
-    : `Lump Sum: ${fmt(computedVal)}`;
+    status === "blank"
+      ? "Click to set pricing method"
+      : status === "unitrate"
+        ? `Unit Rate: ${fmt(nn(value))}/${item.unit || "ea"} × ${nn(item.quantity)} = ${fmt(computedVal)}`
+        : status === "carried"
+          ? `Carried from internal: ${fmt(computedVal)}`
+          : `Lump Sum: ${fmt(computedVal)}`;
 
   return (
     <div
@@ -188,14 +547,21 @@ function BidCell({ value, status, item, onSave, onContextMenu, getItemTotal, hig
       onContextMenu={handleContextMenu}
       title={titleText}
       style={{
-        padding: "2px 4px", fontSize: 11,
+        padding: "2px 4px",
+        fontSize: 11,
         fontWeight: status === "blank" ? 400 : 600,
-        fontFamily: "'DM Sans',sans-serif", fontFeatureSettings: "'tnum'",
-        textAlign: "right", cursor: status === "carried" ? "default" : "pointer",
+        fontFamily: "'DM Sans',sans-serif",
+        fontFeatureSettings: "'tnum'",
+        textAlign: "right",
+        cursor: status === "carried" ? "default" : "pointer",
         minHeight: 20,
-        display: "flex", alignItems: "center", justifyContent: "flex-end",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "flex-end",
         gap: 3,
-        background: bg, color: baseColor, borderRadius: 2,
+        background: bg,
+        color: baseColor,
+        borderRadius: 2,
         transition: "background 0.1s",
         ...(status === "carried" ? { borderLeft: `2px solid ${C.accent}25` } : {}),
       }}
@@ -207,16 +573,10 @@ function BidCell({ value, status, item, onSave, onContextMenu, getItemTotal, hig
       {status === "unitrate" && computedVal > 0 && (
         <span style={{ fontSize: 7, fontWeight: 700, opacity: 0.4, letterSpacing: 0.5 }}>UR</span>
       )}
-      {status === "carried" && (
-        <Ic d={I.layers} size={8} color={C.accent} sw={2} />
-      )}
+      {status === "carried" && <Ic d={I.layers} size={8} color={C.accent} sw={2} />}
 
       {/* Main value */}
-      {status === "blank" ? (
-        <span style={{ opacity: 0.35 }}>—</span>
-      ) : (
-        <span>{fmt(computedVal)}</span>
-      )}
+      {status === "blank" ? <span style={{ opacity: 0.35 }}>—</span> : <span>{fmt(computedVal)}</span>}
 
       {/* Unit rate breakdown */}
       {status === "unitrate" && nn(value) > 0 && (
@@ -232,14 +592,20 @@ function BidCell({ value, status, item, onSave, onContextMenu, getItemTotal, hig
 function VarianceBadge({ subTotal, internalTotal, C, fontSize = 8 }) {
   if (!internalTotal || internalTotal <= 0 || !subTotal || subTotal <= 0) return null;
   const variance = ((subTotal - internalTotal) / internalTotal) * 100;
-  const color = variance <= 0 ? C.green : (C.red || C.orange);
+  const color = variance <= 0 ? C.green : C.red || C.orange;
   const sign = variance > 0 ? "+" : "";
   return (
-    <span style={{
-      fontSize, fontWeight: 600, color,
-      fontFamily: "'DM Sans',sans-serif", fontFeatureSettings: "'tnum'",
-    }}>
-      {sign}{pct(variance)}
+    <span
+      style={{
+        fontSize,
+        fontWeight: 600,
+        color,
+        fontFamily: "'DM Sans',sans-serif",
+        fontFeatureSettings: "'tnum'",
+      }}
+    >
+      {sign}
+      {pct(variance)}
     </span>
   );
 }
@@ -254,15 +620,20 @@ function ImportProposalsPopover({ onClose, onImport, C }) {
   const linkedSubs = useBidLevelingStore(s => s.linkedSubs);
 
   useEffect(() => {
-    const handler = (e) => {
+    const handler = e => {
       if (ref.current && !ref.current.contains(e.target)) onClose();
     };
     const t = setTimeout(() => document.addEventListener("mousedown", handler), 0);
-    return () => { clearTimeout(t); document.removeEventListener("mousedown", handler); };
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener("mousedown", handler);
+    };
   }, [onClose]);
 
   useEffect(() => {
-    const handler = (e) => { if (e.key === "Escape") onClose(); };
+    const handler = e => {
+      if (e.key === "Escape") onClose();
+    };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [onClose]);
@@ -273,12 +644,14 @@ function ImportProposalsPopover({ onClose, onImport, C }) {
     const parsedCount = invites.filter(inv => proposals[inv.id]?.parsedData).length;
     // Check if already imported (by matching sub names)
     const importedNames = new Set(linkedSubs.filter(ls => ls.source === "portal").map(ls => ls.name));
-    const alreadyImported = parsedCount > 0 && invites.every(inv => {
-      const p = proposals[inv.id];
-      if (!p?.parsedData) return true; // skip non-parsed
-      const name = inv.subCompany || inv.subContact || "";
-      return importedNames.has(name);
-    });
+    const alreadyImported =
+      parsedCount > 0 &&
+      invites.every(inv => {
+        const p = proposals[inv.id];
+        if (!p?.parsedData) return true; // skip non-parsed
+        const name = inv.subCompany || inv.subContact || "";
+        return importedNames.has(name);
+      });
     return { pkg, parsedCount, alreadyImported };
   });
 
@@ -307,10 +680,15 @@ function ImportProposalsPopover({ onClose, onImport, C }) {
         minWidth: 220,
       }}
     >
-      <div style={{
-        fontSize: 10, fontWeight: 700, color: C.text, marginBottom: 8,
-        fontFamily: "'DM Sans',sans-serif",
-      }}>
+      <div
+        style={{
+          fontSize: 10,
+          fontWeight: 700,
+          color: C.text,
+          marginBottom: 8,
+          fontFamily: "'DM Sans',sans-serif",
+        }}
+      >
         Import Bid Proposals
       </div>
       {!hasAnyParsed && (
@@ -342,24 +720,34 @@ function ImportProposalsPopover({ onClose, onImport, C }) {
               </div>
             </div>
             {alreadyImported ? (
-              <span style={{
-                fontSize: 9, fontWeight: 600, color: C.green,
-                padding: "3px 8px", borderRadius: 4,
-              }}>
+              <span
+                style={{
+                  fontSize: 9,
+                  fontWeight: 600,
+                  color: C.green,
+                  padding: "3px 8px",
+                  borderRadius: 4,
+                }}
+              >
                 Imported
               </span>
             ) : (
               <button
                 onClick={() => onImport(pkg.id)}
                 style={{
-                  padding: "4px 10px", fontSize: 10, fontWeight: 700,
-                  border: "none", borderRadius: 5,
-                  background: C.accent, color: "#fff",
-                  cursor: "pointer", fontFamily: "'DM Sans',sans-serif",
+                  padding: "4px 10px",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  border: "none",
+                  borderRadius: 5,
+                  background: C.accent,
+                  color: "#fff",
+                  cursor: "pointer",
+                  fontFamily: "'DM Sans',sans-serif",
                   transition: "opacity 0.15s",
                 }}
-                onMouseEnter={e => e.currentTarget.style.opacity = "0.85"}
-                onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+                onMouseEnter={e => (e.currentTarget.style.opacity = "0.85")}
+                onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
               >
                 Import
               </button>
@@ -396,7 +784,7 @@ export default function LevelingView() {
   const [showImportPopover, setShowImportPopover] = useState(false);
 
   // ── Import handler: bridge bid packages → leveling grid ──
-  const handleImportProposals = useCallback((packageId) => {
+  const handleImportProposals = useCallback(packageId => {
     const { generateLevelingData } = useBidPackagesStore.getState();
     const { importParsedProposals } = useBidLevelingStore.getState();
     const currentItems = useItemsStore.getState().items;
@@ -490,15 +878,18 @@ export default function LevelingView() {
   }, []);
 
   // ── Auto-carry: set all items in a subdivision to "carried" for a sub ──
-  const autoCarry = useCallback((sk, subId) => {
-    const bc = useBidLevelingStore.getState().bidCells;
-    const newCells = { ...bc };
-    const subItems = subdivisions.find(s => s.sk === sk)?.items || [];
-    subItems.forEach(item => {
-      newCells[`${item.id}_${subId}`] = { status: "carried", value: "" };
-    });
-    useBidLevelingStore.getState().setBidCells(newCells);
-  }, [subdivisions]);
+  const autoCarry = useCallback(
+    (sk, subId) => {
+      const bc = useBidLevelingStore.getState().bidCells;
+      const newCells = { ...bc };
+      const subItems = subdivisions.find(s => s.sk === sk)?.items || [];
+      subItems.forEach(item => {
+        newCells[`${item.id}_${subId}`] = { status: "carried", value: "" };
+      });
+      useBidLevelingStore.getState().setBidCells(newCells);
+    },
+    [subdivisions],
+  );
 
   const getSkSubTotal = (sk, subId) => {
     const skItems = subdivisions.find(s => s.sk === sk)?.items || [];
@@ -542,10 +933,7 @@ export default function LevelingView() {
     [subdivisions, bidSelections, bidCells, bidTotals, subBidSubs, linkedSubs],
   );
 
-  const internalGrandTotal = useMemo(
-    () => subdivisions.reduce((sum, s) => sum + s.total, 0),
-    [subdivisions],
-  );
+  const internalGrandTotal = useMemo(() => subdivisions.reduce((sum, s) => sum + s.total, 0), [subdivisions]);
 
   // Get highlight for a cell (lowest/highest among subs for a given item)
   const getHighlight = (item, subId, sk) => {
@@ -598,16 +986,26 @@ export default function LevelingView() {
             <button
               onClick={() => setShowImportPopover(v => !v)}
               style={{
-                display: "flex", alignItems: "center", gap: 4,
-                padding: "4px 10px", fontSize: 10, fontWeight: 600,
-                border: `1px solid ${C.accent}40`, borderRadius: 5,
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                padding: "4px 10px",
+                fontSize: 10,
+                fontWeight: 600,
+                border: `1px solid ${C.accent}40`,
+                borderRadius: 5,
                 background: showImportPopover ? `${C.accent}12` : "transparent",
-                color: C.accent, cursor: "pointer",
+                color: C.accent,
+                cursor: "pointer",
                 fontFamily: "'DM Sans',sans-serif",
                 transition: "background 0.15s",
               }}
-              onMouseEnter={e => { if (!showImportPopover) e.currentTarget.style.background = `${C.accent}08`; }}
-              onMouseLeave={e => { if (!showImportPopover) e.currentTarget.style.background = "transparent"; }}
+              onMouseEnter={e => {
+                if (!showImportPopover) e.currentTarget.style.background = `${C.accent}08`;
+              }}
+              onMouseLeave={e => {
+                if (!showImportPopover) e.currentTarget.style.background = "transparent";
+              }}
             >
               <Ic d={I.download} size={11} color={C.accent} sw={2} />
               Import
@@ -620,9 +1018,7 @@ export default function LevelingView() {
               />
             )}
           </div>
-          <span style={{ fontSize: 10, color: C.textDim }}>
-            Internal: {fmt(internalGrandTotal)}
-          </span>
+          <span style={{ fontSize: 10, color: C.textDim }}>Internal: {fmt(internalGrandTotal)}</span>
           <span
             style={{
               fontSize: 18,
@@ -750,8 +1146,8 @@ export default function LevelingView() {
                   newSubName={newSubName}
                   setNewSubName={setNewSubName}
                   newSubRef={newSubRef}
-                  onConfirmAddSub={() => {
-                    addSubBidSub(sub.sk, newSubName);
+                  onConfirmAddSub={name => {
+                    addSubBidSub(sub.sk, name || newSubName);
                     setAddSubSk(null);
                     setNewSubName("");
                   }}
@@ -766,23 +1162,40 @@ export default function LevelingView() {
             })}
 
             {/* ─── Grand Total Row ─── */}
-            <tr style={{
-              position: "sticky", bottom: 0, zIndex: 9,
-              background: C.bg,
-            }}>
-              <td colSpan={5} style={{
-                padding: "8px 10px", fontWeight: 800, fontSize: 13, color: C.green,
-                borderTop: `3px solid ${C.green}`,
-                fontFamily: "'DM Sans',sans-serif",
-              }}>
+            <tr
+              style={{
+                position: "sticky",
+                bottom: 0,
+                zIndex: 9,
+                background: C.bg,
+              }}
+            >
+              <td
+                colSpan={5}
+                style={{
+                  padding: "8px 10px",
+                  fontWeight: 800,
+                  fontSize: 13,
+                  color: C.green,
+                  borderTop: `3px solid ${C.green}`,
+                  fontFamily: "'DM Sans',sans-serif",
+                }}
+              >
                 GRAND TOTAL
               </td>
-              <td style={{
-                padding: "8px 8px", textAlign: "right", fontWeight: 800, fontSize: 13,
-                color: C.accent, borderLeft: `2px solid ${C.accent}30`,
-                borderTop: `3px solid ${C.green}`,
-                fontFamily: "'DM Sans',sans-serif", fontFeatureSettings: "'tnum'",
-              }}>
+              <td
+                style={{
+                  padding: "8px 8px",
+                  textAlign: "right",
+                  fontWeight: 800,
+                  fontSize: 13,
+                  color: C.accent,
+                  borderLeft: `2px solid ${C.accent}30`,
+                  borderTop: `3px solid ${C.green}`,
+                  fontFamily: "'DM Sans',sans-serif",
+                  fontFeatureSettings: "'tnum'",
+                }}
+              >
                 {fmt(internalGrandTotal)}
               </td>
               {allSubs.map(s => {
@@ -793,12 +1206,20 @@ export default function LevelingView() {
                 }, 0);
 
                 return (
-                  <td key={s.id} style={{
-                    padding: "8px 8px", textAlign: "right", fontWeight: 800, fontSize: 13,
-                    color: C.text, borderLeft: `1px solid ${C.border}`,
-                    borderTop: `3px solid ${C.green}`,
-                    fontFamily: "'DM Sans',sans-serif", fontFeatureSettings: "'tnum'",
-                  }}>
+                  <td
+                    key={s.id}
+                    style={{
+                      padding: "8px 8px",
+                      textAlign: "right",
+                      fontWeight: 800,
+                      fontSize: 13,
+                      color: C.text,
+                      borderLeft: `1px solid ${C.border}`,
+                      borderTop: `3px solid ${C.green}`,
+                      fontFamily: "'DM Sans',sans-serif",
+                      fontFeatureSettings: "'tnum'",
+                    }}
+                  >
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 1 }}>
                       <span>{fmt(subGrandTotal)}</span>
                       <VarianceBadge subTotal={subGrandTotal} internalTotal={internalGrandTotal} C={C} fontSize={9} />
@@ -819,7 +1240,7 @@ export default function LevelingView() {
           item={cellMenu.item}
           currentStatus={getCell(cellMenu.itemId, cellMenu.subId).status}
           getItemTotal={getItemTotal}
-          onSelect={(newStatus) => {
+          onSelect={newStatus => {
             if (newStatus === "blank") {
               saveCellWithStatus(cellMenu.itemId, cellMenu.subId, "blank", "");
             } else if (newStatus === "carried") {
@@ -962,20 +1383,28 @@ function SubdivisionGroup({
                 {/* Auto-carry button */}
                 {isSk && (
                   <button
-                    onClick={(e) => {
+                    onClick={e => {
                       e.stopPropagation();
                       autoCarry(sub.sk, s.id);
                     }}
                     title={`Auto-carry all ${sub.items.length} items from internal`}
                     style={{
-                      display: "inline-flex", alignItems: "center", justifyContent: "center",
-                      width: 16, height: 16, borderRadius: 3, flexShrink: 0,
-                      border: `1px solid ${C.accent}25`, background: "transparent",
-                      cursor: "pointer", padding: 0,
-                      opacity: 0.45, transition: "opacity 0.15s",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 16,
+                      height: 16,
+                      borderRadius: 3,
+                      flexShrink: 0,
+                      border: `1px solid ${C.accent}25`,
+                      background: "transparent",
+                      cursor: "pointer",
+                      padding: 0,
+                      opacity: 0.45,
+                      transition: "opacity 0.15s",
                     }}
-                    onMouseEnter={e => e.currentTarget.style.opacity = "1"}
-                    onMouseLeave={e => e.currentTarget.style.opacity = "0.45"}
+                    onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
+                    onMouseLeave={e => (e.currentTarget.style.opacity = "0.45")}
                   >
                     <Ic d={I.layers} size={8} color={C.accent} sw={2} />
                   </button>
@@ -1015,67 +1444,23 @@ function SubdivisionGroup({
         </td>
       </tr>
 
-      {/* Add sub inline form */}
+      {/* Add sub inline form — CRM-backed autocomplete */}
       {addSubSk === sub.sk && (
         <tr>
           <td
             colSpan={totalCols}
             style={{ padding: "4px 10px", borderBottom: `1px solid ${C.border}`, background: `${C.accent}06` }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontSize: 10, fontWeight: 600, color: C.accent }}>New sub:</span>
-              <input
-                ref={newSubRef}
-                value={newSubName}
-                onChange={e => setNewSubName(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === "Enter") onConfirmAddSub();
-                  if (e.key === "Escape") onCancelAddSub();
-                }}
-                placeholder="Subcontractor name..."
-                style={{
-                  flex: 1,
-                  maxWidth: 200,
-                  padding: "3px 8px",
-                  fontSize: 11,
-                  border: `1px solid ${C.accent}40`,
-                  borderRadius: 4,
-                  outline: "none",
-                  background: C.bg,
-                  color: C.text,
-                  fontFamily: "'DM Sans',sans-serif",
-                }}
-              />
-              <button
-                onClick={onConfirmAddSub}
-                style={{
-                  padding: "3px 10px",
-                  fontSize: 10,
-                  fontWeight: 700,
-                  border: "none",
-                  borderRadius: 4,
-                  background: C.accent,
-                  color: "#fff",
-                  cursor: "pointer",
-                }}
-              >
-                Add
-              </button>
-              <button
-                onClick={onCancelAddSub}
-                style={{
-                  padding: "3px 8px",
-                  fontSize: 10,
-                  border: `1px solid ${C.border}`,
-                  borderRadius: 4,
-                  background: "transparent",
-                  color: C.textDim,
-                  cursor: "pointer",
-                }}
-              >
-                Cancel
-              </button>
-            </div>
+            <SubAutocomplete
+              newSubName={newSubName}
+              setNewSubName={setNewSubName}
+              newSubRef={newSubRef}
+              onSelect={name => {
+                onConfirmAddSub(name);
+              }}
+              onCancel={onCancelAddSub}
+              C={C}
+            />
           </td>
         </tr>
       )}
@@ -1158,13 +1543,15 @@ function SubdivisionGroup({
                       status={cell.status}
                       item={item}
                       onSave={val => saveCell(item.id, s.id, val)}
-                      onContextMenu={(e) => setCellMenu({
-                        x: e.clientX,
-                        y: e.clientY,
-                        itemId: item.id,
-                        subId: s.id,
-                        item,
-                      })}
+                      onContextMenu={e =>
+                        setCellMenu({
+                          x: e.clientX,
+                          y: e.clientY,
+                          itemId: item.id,
+                          subId: s.id,
+                          item,
+                        })
+                      }
                       getItemTotal={getItemTotal}
                       highlight={highlight}
                       C={C}

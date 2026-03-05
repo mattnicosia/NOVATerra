@@ -11,7 +11,8 @@ import { useUiStore } from "@/stores/uiStore";
 import Modal from "@/components/shared/Modal";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
-import { getTradeLabel, getTradeSortOrder, autoTradeFromCode, TRADE_GROUPINGS } from "@/constants/tradeGroupings";
+import { getTradeLabel, getTradeSortOrder, autoTradeFromCode, TRADE_GROUPINGS, TRADE_MAP, TRADE_COLORS } from "@/constants/tradeGroupings";
+import { TradeBadge } from "@/components/contacts/TradeMultiSelect";
 import { CSI } from "@/constants/csi";
 import { generateScopeSheet } from "@/utils/scopeSheetGenerator";
 import { callAnthropic } from "@/utils/ai";
@@ -55,11 +56,11 @@ export default function CreateBidPackageModal({ onClose }) {
   const [groupMode, setGroupMode] = useState("trade");
   const [autoSelectedSubs, setAutoSelectedSubs] = useState(false);
   const [showAddSub, setShowAddSub] = useState(false);
-  const [newSub, setNewSub] = useState({ company: "", trade: "", contact: "", email: "", phone: "" });
+  const [newSub, setNewSub] = useState({ company: "", trades: [], contact: "", email: "", phone: "" });
   const [showPresetPicker, setShowPresetPicker] = useState(false);
   const [aiInfilling, setAiInfilling] = useState(false);
 
-  const handleLoadPreset = async (preset) => {
+  const handleLoadPreset = async preset => {
     setShowPresetPicker(false);
     // Apply scope filter — match trade keys to items
     if (preset.scopeFilter?.selectedTradeKeys?.length > 0) {
@@ -192,10 +193,20 @@ export default function CreateBidPackageModal({ onClose }) {
     return subs.filter(
       s =>
         (s.company || "").toLowerCase().includes(q) ||
-        (s.trade || "").toLowerCase().includes(q) ||
+        (s.trades || []).some(tk => (TRADE_MAP[tk]?.label || tk).toLowerCase().includes(q)) ||
         (s.contact || "").toLowerCase().includes(q),
     );
   }, [subs, subSearch]);
+
+  // Auto-match subs by trades matching selected scope
+  const matchedSubIds = useMemo(() => {
+    if (selectedTrades.size === 0) return new Set();
+    return new Set(
+      subs
+        .filter(s => (s.trades || []).some(tk => selectedTrades.has(tk)))
+        .map(s => s.id)
+    );
+  }, [subs, selectedTrades]);
 
   const toggleItem = itemId => {
     setSelectedItems(prev => (prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]));
@@ -245,7 +256,10 @@ export default function CreateBidPackageModal({ onClose }) {
 
       const subsToInvite = subs
         .filter(s => selectedSubs.includes(s.id))
-        .map(s => ({ company: s.company, contact: s.contact, email: s.email, phone: s.phone, trade: s.trade }));
+        .map(s => ({
+          company: s.company, contact: s.contact, email: s.email, phone: s.phone,
+          trade: (s.trades || []).map(tk => TRADE_MAP[tk]?.label || tk).join(", ") || s._legacyTrade || "",
+        }));
 
       // Create package in store (local-first)
       const pkgId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -267,7 +281,7 @@ export default function CreateBidPackageModal({ onClose }) {
         subContact: sub.contact,
         subEmail: sub.email,
         subPhone: sub.phone,
-        subTrade: sub.trade,
+        subTrade: (sub.trades || []).map(tk => TRADE_MAP[tk]?.label || tk).join(", ") || sub._legacyTrade || "",
         status: "pending",
       }));
       setPackageInvitations(pkgId, localInvites);
@@ -439,7 +453,9 @@ export default function CreateBidPackageModal({ onClose }) {
                   border: `1px solid ${C.accent}20`,
                 }}
               >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <div
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}
+                >
                   <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>Templates</span>
                   <button
                     onClick={() => setShowPresetPicker(false)}
@@ -756,12 +772,14 @@ export default function CreateBidPackageModal({ onClose }) {
                       autoFocus
                       style={inputStyle}
                     />
-                    <input
-                      placeholder="Trade"
-                      value={newSub.trade}
-                      onChange={e => setNewSub(p => ({ ...p, trade: e.target.value }))}
-                      style={inputStyle}
-                    />
+                    <div style={{ display: "flex", alignItems: "center" }}>
+                      <TradeMultiSelect
+                        value={newSub.trades || []}
+                        onChange={trades => setNewSub(p => ({ ...p, trades }))}
+                        compact
+                        placeholder="Add trade..."
+                      />
+                    </div>
                     <input
                       placeholder="Contact Name"
                       value={newSub.contact}
@@ -785,7 +803,7 @@ export default function CreateBidPackageModal({ onClose }) {
                     <button
                       onClick={() => {
                         setShowAddSub(false);
-                        setNewSub({ company: "", trade: "", contact: "", email: "", phone: "" });
+                        setNewSub({ company: "", trades: [], contact: "", email: "", phone: "" });
                       }}
                       style={{
                         background: "none",
@@ -806,12 +824,17 @@ export default function CreateBidPackageModal({ onClose }) {
                           showToast("Company name is required", "error");
                           return;
                         }
-                        addMasterItem("subcontractors", { ...newSub, notes: "", rating: "" });
+                        addMasterItem("subcontractors", {
+                          ...newSub,
+                          notes: "", rating: "",
+                          markets: [], insuranceExpiry: "", bondingCapacity: "", emr: "",
+                          certifications: [], yearsInBusiness: "", licenseNo: "", website: "", address: "",
+                        });
                         const updatedSubs = useMasterDataStore.getState().masterData.subcontractors;
                         const created = updatedSubs[updatedSubs.length - 1];
                         if (created) setSelectedSubs(prev => [...prev, created.id]);
                         showToast(`${newSub.company} added and selected`);
-                        setNewSub({ company: "", trade: "", contact: "", email: "", phone: "" });
+                        setNewSub({ company: "", trades: [], contact: "", email: "", phone: "" });
                         setShowAddSub(false);
                       }}
                       disabled={!newSub.company.trim()}
@@ -834,6 +857,31 @@ export default function CreateBidPackageModal({ onClose }) {
               )}
             </div>
 
+            {/* Auto-select matching subs */}
+            {matchedSubIds.size > 0 && !autoSelectedSubs && (
+              <button
+                onClick={() => {
+                  setSelectedSubs(prev => [...new Set([...prev, ...matchedSubIds])]);
+                  setAutoSelectedSubs(true);
+                }}
+                style={{
+                  background: `${C.accent}10`,
+                  border: `1px solid ${C.accent}30`,
+                  color: C.accent,
+                  borderRadius: 8,
+                  padding: "8px 14px",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  width: "100%",
+                  marginBottom: 12,
+                  fontFamily: "'DM Sans', sans-serif",
+                }}
+              >
+                Auto-select {matchedSubIds.size} matching sub{matchedSubIds.size !== 1 ? "s" : ""} for selected scope
+              </button>
+            )}
+
             {filteredSubs.length === 0 ? (
               <p style={{ color: C.textDim, fontSize: 13, textAlign: "center", padding: 40 }}>
                 {subs.length === 0 ? "No subcontractors yet." : "No matches found."}
@@ -842,6 +890,7 @@ export default function CreateBidPackageModal({ onClose }) {
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 {filteredSubs.map(sub => {
                   const sel = selectedSubs.includes(sub.id);
+                  const isMatch = matchedSubIds.has(sub.id);
                   return (
                     <div
                       key={sub.id}
@@ -854,17 +903,33 @@ export default function CreateBidPackageModal({ onClose }) {
                         borderRadius: 8,
                         cursor: "pointer",
                         background: sel ? `${C.accent}10` : "rgba(255,255,255,0.03)",
-                        border: `1px solid ${sel ? C.accent + "40" : "transparent"}`,
+                        border: `1px solid ${sel ? C.accent + "40" : isMatch ? C.green + "30" : "transparent"}`,
                         transition: "all 150ms",
                       }}
                     >
                       <div style={checkboxStyle(sel)}>{sel && <Ic d={I.check} size={10} color="#fff" />}</div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ color: C.text, fontSize: 13, fontWeight: 500 }}>
-                          {sub.company || "Unknown Company"}
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ color: C.text, fontSize: 13, fontWeight: 500 }}>
+                            {sub.company || "Unknown Company"}
+                          </span>
+                          {isMatch && (
+                            <span style={{
+                              fontSize: 8, fontWeight: 700, color: C.green,
+                              background: `${C.green}15`, padding: "1px 5px", borderRadius: 4,
+                            }}>
+                              MATCH
+                            </span>
+                          )}
                         </div>
-                        <div style={{ color: C.textMuted, fontSize: 11 }}>
-                          {[sub.contact, sub.trade, sub.email].filter(Boolean).join(" · ")}
+                        <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2, flexWrap: "wrap" }}>
+                          {(sub.trades || []).slice(0, 3).map(tk => (
+                            <TradeBadge key={tk} tradeKey={tk} size="xs" />
+                          ))}
+                          {(sub.trades || []).length > 3 && (
+                            <span style={{ fontSize: 9, color: C.textDim }}>+{(sub.trades || []).length - 3}</span>
+                          )}
+                          {sub.contact && <span style={{ color: C.textDim, fontSize: 10 }}> · {sub.contact}</span>}
                         </div>
                       </div>
                     </div>
@@ -1057,19 +1122,9 @@ export default function CreateBidPackageModal({ onClose }) {
                     const next = step + 1;
                     // Auto-select subs by trade match when entering step 3
                     if (next === 2 && !autoSelectedSubs && selectedTrades.size > 0) {
-                      const TRADE_LABEL_MAP = {};
-                      for (const g of TRADE_GROUPINGS) {
-                        TRADE_LABEL_MAP[g.key] = g.label.toLowerCase();
-                      }
-                      const matched = subs.filter(s => {
-                        const subTrade = (s.trade || "").toLowerCase();
-                        if (!subTrade) return false;
-                        for (const t of selectedTrades) {
-                          const tradeLabel = TRADE_LABEL_MAP[t] || t;
-                          if (subTrade.includes(tradeLabel) || tradeLabel.includes(subTrade)) return true;
-                        }
-                        return false;
-                      });
+                      const matched = subs.filter(s =>
+                        (s.trades || []).some(tk => selectedTrades.has(tk))
+                      );
                       if (matched.length > 0) {
                         setSelectedSubs(prev => [...new Set([...prev, ...matched.map(s => s.id)])]);
                       }

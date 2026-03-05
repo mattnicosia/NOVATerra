@@ -1,5 +1,33 @@
 import { create } from 'zustand';
 import { uid } from '@/utils/format';
+import { fuzzyMatchTrade } from '@/constants/tradeGroupings';
+
+// ── One-time schema migration: trade (string) → trades (string[]) + prequal fields ──
+export function migrateSubcontractorSchema(masterData) {
+  if (!masterData?.subcontractors) return masterData;
+  let changed = false;
+  const migrated = masterData.subcontractors.map(sub => {
+    if (Array.isArray(sub.trades)) return sub; // already migrated
+    changed = true;
+    const trades = fuzzyMatchTrade(sub.trade || "");
+    return {
+      ...sub,
+      trades,
+      _legacyTrade: sub.trade || "",
+      markets: sub.markets || [],
+      insuranceExpiry: sub.insuranceExpiry || "",
+      bondingCapacity: sub.bondingCapacity || "",
+      emr: sub.emr || "",
+      certifications: sub.certifications || [],
+      yearsInBusiness: sub.yearsInBusiness || "",
+      licenseNo: sub.licenseNo || "",
+      website: sub.website || "",
+      address: sub.address || "",
+    };
+  });
+  if (!changed) return masterData;
+  return { ...masterData, subcontractors: migrated };
+}
 
 export const useMasterDataStore = create((set, get) => ({
   // ── PDF Upload Queue (persisted separately in bldg-upload-queue) ──

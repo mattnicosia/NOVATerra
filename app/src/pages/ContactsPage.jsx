@@ -2,12 +2,18 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useMasterDataStore } from "@/stores/masterDataStore";
+import { useBidPackagesStore } from "@/stores/bidPackagesStore";
 import { useUiStore } from "@/stores/uiStore";
 import Ic from "@/components/shared/Ic";
 import CompanySwitcher from "@/components/shared/CompanySwitcher";
 import EmptyState from "@/components/shared/EmptyState";
+import TradeMultiSelect, { TradeBadge } from "@/components/contacts/TradeMultiSelect";
 import { I } from "@/constants/icons";
 import { inp, bt, card, sectionLabel } from "@/utils/styles";
+import {
+  TRADE_GROUPINGS, TRADE_MAP, TRADE_COLORS,
+  CERTIFICATION_TYPES, MARKET_REGIONS,
+} from "@/constants/tradeGroupings";
 
 const TABS = [
   { key: "clients", label: "Clients", icon: I.folder },
@@ -35,6 +41,8 @@ export default function ContactsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [dupWarning, setDupWarning] = useState(null);
   const [showNewCompanyModal, setShowNewCompanyModal] = useState(false);
+  const [tradeFilter, setTradeFilter] = useState([]);
+  const [expandedSubId, setExpandedSubId] = useState(null);
 
   const companyTag = activeCompanyId === "__all__" ? "" : activeCompanyId;
   const clients = getContactsForCompany("clients", activeCompanyId);
@@ -82,16 +90,26 @@ export default function ContactsPage() {
     allItems.forEach(item => {
       // search filter
       if (q) {
-        const fields = ["company", "contact", "email", "trade", "phone", "name"];
+        const fields = ["company", "contact", "email", "phone", "name"];
         const match = fields.some(f => (item[f] || "").toLowerCase().includes(q));
-        if (!match) return;
+        // Also search trades array labels
+        const tradesMatch = (item.trades || []).some(tk => {
+          const label = TRADE_MAP[tk]?.label || tk;
+          return label.toLowerCase().includes(q) || tk.toLowerCase().includes(q);
+        });
+        if (!match && !tradesMatch) return;
+      }
+      // Trade filter (subs tab only)
+      if (activeTab === "subcontractors" && tradeFilter.length > 0) {
+        const itemTrades = item.trades || [];
+        if (!tradeFilter.some(tf => itemTrades.includes(tf))) return;
       }
       const key = (item.company || "").trim() || "__unnamed__";
       if (!map.has(key)) map.set(key, []);
       map.get(key).push(item);
     });
     return map;
-  }, [allItems, search, activeTab]);
+  }, [allItems, search, activeTab, tradeFilter]);
 
   // ── Filtered estimators (flat) ──
   const filteredEstimators = useMemo(() => {
@@ -136,12 +154,21 @@ export default function ContactsPage() {
       engineers: { company: companyName, contact: "", email: "", phone: "", companyProfileId: companyTag },
       subcontractors: {
         company: companyName,
-        trade: "",
+        trades: [],
         contact: "",
         email: "",
         phone: "",
         notes: "",
         rating: "",
+        markets: [],
+        insuranceExpiry: "",
+        bondingCapacity: "",
+        emr: "",
+        certifications: [],
+        yearsInBusiness: "",
+        licenseNo: "",
+        website: "",
+        address: "",
         companyProfileId: companyTag,
       },
     };
@@ -382,6 +409,78 @@ export default function ContactsPage() {
           </div>
         </div>
 
+        {/* Trade filter bar — only for subs tab */}
+        {activeTab === "subcontractors" && (() => {
+          const usedTrades = [...new Set(subcontractors.flatMap(s => s.trades || []))].sort(
+            (a, b) => (TRADE_MAP[a]?.sort || 99) - (TRADE_MAP[b]?.sort || 99)
+          );
+          if (usedTrades.length === 0) return null;
+          return (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                marginBottom: T.space[3],
+                flexWrap: "wrap",
+                padding: `0 ${T.space[1]}px`,
+              }}
+            >
+              <span style={{ fontSize: 10, color: C.textDim, fontWeight: 600, marginRight: 4 }}>
+                FILTER:
+              </span>
+              {usedTrades.map(tk => {
+                const active = tradeFilter.includes(tk);
+                const color = TRADE_COLORS[tk] || C.accent;
+                return (
+                  <button
+                    key={tk}
+                    onClick={() =>
+                      setTradeFilter(prev =>
+                        prev.includes(tk) ? prev.filter(k => k !== tk) : [...prev, tk]
+                      )
+                    }
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 3,
+                      padding: "2px 8px",
+                      borderRadius: T.radius.sm,
+                      background: active ? `${color}20` : "transparent",
+                      border: `1px solid ${active ? color + "50" : C.border}`,
+                      color: active ? color : C.textMuted,
+                      fontSize: 10,
+                      fontWeight: active ? 600 : 400,
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 6, height: 6, borderRadius: "50%",
+                        background: color, opacity: active ? 1 : 0.4,
+                      }}
+                    />
+                    {TRADE_MAP[tk]?.label || tk}
+                  </button>
+                );
+              })}
+              {tradeFilter.length > 0 && (
+                <button
+                  onClick={() => setTradeFilter([])}
+                  style={{
+                    background: "none", border: "none", cursor: "pointer",
+                    fontSize: 9, color: C.textDim, padding: "2px 6px",
+                    textDecoration: "underline",
+                  }}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          );
+        })()}
+
         {/* ── Content ── */}
         <div style={{ ...card(C), overflow: "hidden" }}>
           {activeTab === "estimators" ? (
@@ -545,6 +644,8 @@ export default function ContactsPage() {
                   getInitials={getInitials}
                   dupWarning={dupWarning}
                   isLast={gIdx === grouped.size - 1}
+                  expandedSubId={expandedSubId}
+                  onExpandSub={setExpandedSubId}
                 />
               ))}
               <div style={{ padding: `${T.space[3]}px ${T.space[4]}px` }}>
@@ -704,6 +805,8 @@ function CompanyGroup({
   getInitials,
   dupWarning,
   isLast,
+  expandedSubId,
+  onExpandSub,
 }) {
   const isUnnamed = companyName === "__unnamed__";
   const personCount = people.length;
@@ -722,7 +825,7 @@ function CompanyGroup({
     isLocalEdit.current = false;
   }, [companyName, isUnnamed]);
 
-  const handleCompanyNameChange = (e) => {
+  const handleCompanyNameChange = e => {
     const newName = e.target.value;
     isLocalEdit.current = true;
     setLocalName(newName);
@@ -741,7 +844,7 @@ function CompanyGroup({
   };
 
   // For the company header, use the first person's company field
-  const companyDisplayName = isUnnamed ? "New Company" : (localName || "New Company");
+  const companyDisplayName = isUnnamed ? "New Company" : localName || "New Company";
 
   // Fields specific to sub tab
   const isSub = tab === "subcontractors";
@@ -794,9 +897,19 @@ function CompanyGroup({
                 minWidth: 180,
               })}
             />
-            <div style={{ fontSize: 10, color: C.textDim, paddingLeft: 8 }}>
-              {personCount} {personCount === 1 ? "person" : "people"}
-              {isSub && firstPerson?.trade && <span> · {firstPerson.trade}</span>}
+            <div style={{ fontSize: 10, color: C.textDim, paddingLeft: 8, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <span>{personCount} {personCount === 1 ? "person" : "people"}</span>
+              {isSub && (() => {
+                const allTrades = [...new Set(people.flatMap(p => p.trades || []))];
+                if (allTrades.length === 0) return null;
+                return allTrades.slice(0, 4).map(tk => (
+                  <TradeBadge key={tk} tradeKey={tk} size="xs" />
+                ));
+              })()}
+              {isSub && (() => {
+                const allTrades = [...new Set(people.flatMap(p => p.trades || []))];
+                return allTrades.length > 4 ? <span style={{ fontSize: 9, color: C.textDim }}>+{allTrades.length - 4}</span> : null;
+              })()}
             </div>
           </div>
         </div>
@@ -821,23 +934,34 @@ function CompanyGroup({
         <div
           key={item.id}
           style={{
-            padding: `${T.space[2]}px ${T.space[4]}px ${T.space[2]}px ${T.space[4] + 44}px`,
             borderBottom: idx < people.length - 1 ? `1px solid ${C.border}40` : "none",
             animation: `staggerFadeRight 280ms cubic-bezier(0.16,1,0.3,1) ${idx * 30}ms both`,
           }}
         >
-          <PersonRow
-            tab={tab}
-            item={item}
-            accent={accent}
-            C={C}
-            T={T}
-            inputStyle={inputStyle}
-            handleFieldUpdate={handleFieldUpdate}
-            onDelete={() => onDeletePerson(item.id)}
-            getInitials={getInitials}
-          />
-          {dupWarning?.id === item.id && <DupBanner msg={dupWarning.msg} C={C} T={T} />}
+          <div style={{ padding: `${T.space[2]}px ${T.space[4]}px ${T.space[2]}px ${T.space[4] + 44}px` }}>
+            <PersonRow
+              tab={tab}
+              item={item}
+              accent={accent}
+              C={C}
+              T={T}
+              inputStyle={inputStyle}
+              handleFieldUpdate={handleFieldUpdate}
+              onDelete={() => onDeletePerson(item.id)}
+              getInitials={getInitials}
+              isExpanded={expandedSubId === item.id}
+              onExpand={tab === "subcontractors" ? () => onExpandSub?.(expandedSubId === item.id ? null : item.id) : undefined}
+            />
+            {dupWarning?.id === item.id && <DupBanner msg={dupWarning.msg} C={C} T={T} />}
+          </div>
+          {tab === "subcontractors" && expandedSubId === item.id && (
+            <SubDetailPanel
+              sub={item}
+              onUpdate={(field, value) => handleFieldUpdate("subcontractors", item.id, field, value)}
+              C={C}
+              T={T}
+            />
+          )}
         </div>
       ))}
     </div>
@@ -845,7 +969,7 @@ function CompanyGroup({
 }
 
 /* ── Person Row (indented under company) ── */
-function PersonRow({ tab, item, accent, C, T, inputStyle, handleFieldUpdate, onDelete, getInitials }) {
+function PersonRow({ tab, item, accent, C, T, inputStyle, handleFieldUpdate, onDelete, getInitials, isExpanded, onExpand }) {
   const avatar = <ContactAvatar initials={getInitials(item)} color={accent} T={T} />;
   const delBtn = (
     <button
@@ -856,6 +980,19 @@ function PersonRow({ tab, item, accent, C, T, inputStyle, handleFieldUpdate, onD
       <Ic d={I.trash} size={12} color={C.red} />
     </button>
   );
+  const expandBtn = onExpand ? (
+    <button
+      className="icon-btn"
+      onClick={onExpand}
+      style={{
+        background: "none", border: "none", cursor: "pointer", padding: 4, borderRadius: 4,
+        display: "flex", transform: isExpanded ? "rotate(180deg)" : "none",
+        transition: "transform 0.15s",
+      }}
+    >
+      <Ic d={I.chevronDown || "M6 9l6 6 6-6"} size={12} color={C.textDim} />
+    </button>
+  ) : null;
 
   if (tab === "clients") {
     return (
@@ -922,17 +1059,17 @@ function PersonRow({ tab, item, accent, C, T, inputStyle, handleFieldUpdate, onD
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "32px .6fr 1fr 1.2fr .8fr .4fr 36px",
-          gap: 8,
+          gridTemplateColumns: "32px minmax(90px, .9fr) 1fr 1.2fr .7fr .3fr 28px 36px",
+          gap: 6,
           alignItems: "center",
         }}
       >
         {avatar}
-        <input
-          value={item.trade || ""}
-          onChange={e => handleFieldUpdate("subcontractors", item.id, "trade", e.target.value)}
-          placeholder="Trade"
-          style={inputStyle}
+        <TradeMultiSelect
+          value={item.trades || []}
+          onChange={trades => handleFieldUpdate("subcontractors", item.id, "trades", trades)}
+          compact
+          placeholder="Add trade..."
         />
         <input
           value={item.contact || ""}
@@ -958,6 +1095,7 @@ function PersonRow({ tab, item, accent, C, T, inputStyle, handleFieldUpdate, onD
           C={C}
           T={T}
         />
+        {expandBtn}
         {delBtn}
       </div>
     );
@@ -1017,14 +1155,14 @@ function ContactAvatar({ initials, color, T }) {
 /* ── New Company Modal ── */
 function NewCompanyModal({ tab, companyTag, onSave, onClose, C, T }) {
   const FIELD_MAP = {
-    subcontractors: ["company", "trade", "contact", "email", "phone", "notes"],
+    subcontractors: ["company", "trades", "contact", "email", "phone", "notes"],
     clients: ["company", "contact", "email", "phone", "address", "notes"],
     architects: ["company", "contact", "email", "phone"],
     engineers: ["company", "contact", "email", "phone"],
   };
   const LABELS = {
     company: "Company Name *",
-    trade: "Trade / Specialty",
+    trades: "Trades / Specialties",
     contact: "Contact Name",
     email: "Email",
     phone: "Phone",
@@ -1033,7 +1171,6 @@ function NewCompanyModal({ tab, companyTag, onSave, onClose, C, T }) {
   };
   const PLACEHOLDERS = {
     company: "Acme Mechanical, Inc.",
-    trade: "HVAC, Plumbing, Electrical...",
     contact: "John Smith",
     email: "john@acme.com",
     phone: "(555) 123-4567",
@@ -1048,11 +1185,29 @@ function NewCompanyModal({ tab, companyTag, onSave, onClose, C, T }) {
   };
 
   const fields = FIELD_MAP[tab] || [];
-  const [form, setForm] = useState(
-    Object.fromEntries(fields.map(f => [f, ""])),
-  );
+  const isSub = tab === "subcontractors";
+  const [form, setForm] = useState(() => {
+    const base = Object.fromEntries(fields.filter(f => f !== "trades").map(f => [f, ""]));
+    if (isSub) {
+      base.trades = [];
+      base.markets = [];
+      base.insuranceExpiry = "";
+      base.bondingCapacity = "";
+      base.emr = "";
+      base.certifications = [];
+      base.yearsInBusiness = "";
+      base.licenseNo = "";
+      base.website = "";
+      base.address = "";
+    }
+    return base;
+  });
+  const [showPrequal, setShowPrequal] = useState(false);
   const update = (f, v) => setForm(prev => ({ ...prev, [f]: v }));
   const canSave = (form.company || "").trim().length > 0;
+
+  const labelSt = { display: "block", fontSize: 11, fontWeight: 600, color: C.textMuted, marginBottom: 3 };
+  const fieldInp = inp(C, { padding: "8px 12px", fontSize: 13, width: "100%", boxSizing: "border-box" });
 
   return (
     <div
@@ -1075,7 +1230,7 @@ function NewCompanyModal({ tab, companyTag, onSave, onClose, C, T }) {
           border: `1px solid ${C.border}`,
           borderRadius: T.radius.lg,
           padding: T.space[7],
-          width: 420,
+          width: isSub ? 480 : 420,
           maxHeight: "85vh",
           overflowY: "auto",
           boxShadow: T.shadow.xl,
@@ -1099,30 +1254,19 @@ function NewCompanyModal({ tab, companyTag, onSave, onClose, C, T }) {
 
         {fields.map(f => (
           <div key={f} style={{ marginBottom: T.space[3] }}>
-            <label
-              style={{
-                display: "block",
-                fontSize: 11,
-                fontWeight: 600,
-                color: C.textMuted,
-                marginBottom: 3,
-              }}
-            >
-              {LABELS[f]}
-            </label>
-            {f === "notes" ? (
+            <label style={labelSt}>{LABELS[f]}</label>
+            {f === "trades" ? (
+              <TradeMultiSelect
+                value={form.trades || []}
+                onChange={trades => update("trades", trades)}
+              />
+            ) : f === "notes" ? (
               <textarea
                 value={form[f] || ""}
                 onChange={e => update(f, e.target.value)}
                 placeholder={PLACEHOLDERS[f]}
                 rows={3}
-                style={inp(C, {
-                  padding: "8px 12px",
-                  fontSize: 13,
-                  width: "100%",
-                  resize: "vertical",
-                  boxSizing: "border-box",
-                })}
+                style={inp(C, { padding: "8px 12px", fontSize: 13, width: "100%", resize: "vertical", boxSizing: "border-box" })}
               />
             ) : (
               <input
@@ -1130,16 +1274,127 @@ function NewCompanyModal({ tab, companyTag, onSave, onClose, C, T }) {
                 onChange={e => update(f, e.target.value)}
                 placeholder={PLACEHOLDERS[f]}
                 autoFocus={f === "company"}
-                style={inp(C, {
-                  padding: "8px 12px",
-                  fontSize: 13,
-                  width: "100%",
-                  boxSizing: "border-box",
-                })}
+                style={fieldInp}
               />
             )}
           </div>
         ))}
+
+        {/* Collapsible prequalification section — subs only */}
+        {isSub && (
+          <div style={{ marginBottom: T.space[3] }}>
+            <button
+              onClick={() => setShowPrequal(!showPrequal)}
+              style={{
+                ...bt(C),
+                background: "transparent",
+                border: `1px dashed ${C.border}`,
+                color: C.textMuted,
+                padding: "6px 14px",
+                borderRadius: T.radius.sm,
+                width: "100%",
+                justifyContent: "center",
+                fontSize: 11,
+              }}
+            >
+              <Ic d={showPrequal ? I.chevronDown || "M6 9l6 6 6-6" : I.plus} size={10} color={C.textDim} />
+              {showPrequal ? "Hide" : "Show"} Prequalification Details
+            </button>
+            {showPrequal && (
+              <div style={{ marginTop: T.space[3], animation: "fadeIn 0.15s ease-out" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: T.space[2], marginBottom: T.space[2] }}>
+                  <div>
+                    <label style={labelSt}>Insurance Expiry</label>
+                    <input type="date" value={form.insuranceExpiry || ""} onChange={e => update("insuranceExpiry", e.target.value)} style={fieldInp} />
+                  </div>
+                  <div>
+                    <label style={labelSt}>Bonding Capacity</label>
+                    <input value={form.bondingCapacity || ""} onChange={e => update("bondingCapacity", e.target.value)} placeholder="$5,000,000" style={fieldInp} />
+                  </div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: T.space[2], marginBottom: T.space[2] }}>
+                  <div>
+                    <label style={labelSt}>EMR</label>
+                    <input value={form.emr || ""} onChange={e => update("emr", e.target.value)} placeholder="0.85" style={fieldInp} />
+                  </div>
+                  <div>
+                    <label style={labelSt}>Years in Business</label>
+                    <input value={form.yearsInBusiness || ""} onChange={e => update("yearsInBusiness", e.target.value)} placeholder="15" style={fieldInp} />
+                  </div>
+                  <div>
+                    <label style={labelSt}>License No.</label>
+                    <input value={form.licenseNo || ""} onChange={e => update("licenseNo", e.target.value)} placeholder="License #" style={fieldInp} />
+                  </div>
+                </div>
+                <div style={{ marginBottom: T.space[2] }}>
+                  <label style={labelSt}>Website</label>
+                  <input value={form.website || ""} onChange={e => update("website", e.target.value)} placeholder="www.example.com" style={fieldInp} />
+                </div>
+                <div style={{ marginBottom: T.space[2] }}>
+                  <label style={labelSt}>Address</label>
+                  <input value={form.address || ""} onChange={e => update("address", e.target.value)} placeholder="123 Main St, City, ST 12345" style={fieldInp} />
+                </div>
+                <div style={{ marginBottom: T.space[2] }}>
+                  <label style={labelSt}>Certifications</label>
+                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                    {CERTIFICATION_TYPES.map(ct => {
+                      const active = (form.certifications || []).includes(ct.key);
+                      return (
+                        <button
+                          key={ct.key}
+                          onClick={() => {
+                            const next = active
+                              ? (form.certifications || []).filter(k => k !== ct.key)
+                              : [...(form.certifications || []), ct.key];
+                            update("certifications", next);
+                          }}
+                          title={ct.label}
+                          style={{
+                            padding: "2px 7px", borderRadius: T.radius.sm, fontSize: 10, fontWeight: 600,
+                            cursor: "pointer",
+                            background: active ? `${C.accent}15` : "transparent",
+                            border: `1px solid ${active ? C.accent + "40" : C.border}`,
+                            color: active ? C.accent : C.textDim,
+                          }}
+                        >
+                          {ct.key}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div>
+                  <label style={labelSt}>Markets Served</label>
+                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                    {MARKET_REGIONS.map(mr => {
+                      const active = (form.markets || []).includes(mr);
+                      return (
+                        <button
+                          key={mr}
+                          onClick={() => {
+                            const next = active
+                              ? (form.markets || []).filter(m => m !== mr)
+                              : [...(form.markets || []), mr];
+                            update("markets", next);
+                          }}
+                          style={{
+                            padding: "2px 7px", borderRadius: T.radius.sm, fontSize: 10, fontWeight: 500,
+                            cursor: "pointer",
+                            background: active ? `${C.green}12` : "transparent",
+                            border: `1px solid ${active ? C.green + "35" : C.border}`,
+                            color: active ? C.green : C.textDim,
+                          }}
+                        >
+                          {mr}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div style={{ display: "flex", gap: T.space[2], justifyContent: "flex-end", marginTop: T.space[5] }}>
           <button
@@ -1169,6 +1424,230 @@ function NewCompanyModal({ tab, companyTag, onSave, onClose, C, T }) {
             Save
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── SubDetailPanel — expandable prequalification + performance ── */
+function SubDetailPanel({ sub, onUpdate, C, T }) {
+  const bidPackages = useBidPackagesStore(s => s.bidPackages);
+  const invitations = useBidPackagesStore(s => s.invitations);
+  const proposals = useBidPackagesStore(s => s.proposals);
+
+  // Compute performance from bid packages data
+  const perf = useMemo(() => {
+    let sent = 0, responded = 0, won = 0;
+    const coLower = (sub.company || "").toLowerCase();
+    for (const pkg of bidPackages) {
+      const pkgInvs = invitations[pkg.id] || [];
+      for (const inv of pkgInvs) {
+        const invCo = (inv.subCompany || inv.sub_company || "").toLowerCase();
+        if (invCo === coLower) {
+          sent++;
+          if (inv.status === "submitted" || inv.status === "parsed" || inv.status === "awarded" || inv.status === "not_awarded") responded++;
+          if (inv.status === "awarded") won++;
+        }
+      }
+    }
+    return {
+      sent,
+      responded,
+      responseRate: sent > 0 ? Math.round((responded / sent) * 100) : 0,
+      won,
+      winRate: responded > 0 ? Math.round((won / responded) * 100) : 0,
+    };
+  }, [bidPackages, invitations, sub.company]);
+
+  const labelSt = {
+    display: "block", fontSize: 9, fontWeight: 600, color: C.textDim,
+    textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3,
+  };
+  const fieldInp = inp(C, { padding: "5px 8px", fontSize: 11, width: "100%", boxSizing: "border-box" });
+
+  return (
+    <div
+      style={{
+        padding: `${T.space[3]}px ${T.space[4]}px ${T.space[3]}px ${T.space[4] + 44}px`,
+        background: C.isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)",
+        borderTop: `1px solid ${C.border}40`,
+        animation: "fadeIn 0.2s ease-out",
+      }}
+    >
+      {/* Performance metrics */}
+      {perf.sent > 0 && (
+        <div style={{ display: "flex", gap: T.space[3], marginBottom: T.space[3] }}>
+          {[
+            { label: "Invitations", value: perf.sent, color: C.accent },
+            { label: "Responses", value: `${perf.responded} (${perf.responseRate}%)`, color: C.green },
+            { label: "Won", value: `${perf.won}${perf.responded > 0 ? ` (${perf.winRate}%)` : ""}`, color: C.purple },
+          ].map(stat => (
+            <div
+              key={stat.label}
+              style={{
+                padding: "6px 12px",
+                borderRadius: T.radius.sm,
+                background: `${stat.color}08`,
+                border: `1px solid ${stat.color}15`,
+                flex: 1,
+                textAlign: "center",
+              }}
+            >
+              <div style={{ fontSize: 14, fontWeight: 700, color: stat.color }}>{stat.value}</div>
+              <div style={{ fontSize: 9, color: C.textDim, fontWeight: 500 }}>{stat.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Prequalification fields */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: T.space[2], marginBottom: T.space[2] }}>
+        <div>
+          <label style={labelSt}>Insurance Expiry</label>
+          <input
+            type="date"
+            value={sub.insuranceExpiry || ""}
+            onChange={e => onUpdate("insuranceExpiry", e.target.value)}
+            style={fieldInp}
+          />
+        </div>
+        <div>
+          <label style={labelSt}>Bonding Capacity</label>
+          <input
+            value={sub.bondingCapacity || ""}
+            onChange={e => onUpdate("bondingCapacity", e.target.value)}
+            placeholder="$5,000,000"
+            style={fieldInp}
+          />
+        </div>
+        <div>
+          <label style={labelSt}>EMR</label>
+          <input
+            value={sub.emr || ""}
+            onChange={e => onUpdate("emr", e.target.value)}
+            placeholder="0.85"
+            style={fieldInp}
+          />
+        </div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: T.space[2], marginBottom: T.space[2] }}>
+        <div>
+          <label style={labelSt}>Years in Business</label>
+          <input
+            value={sub.yearsInBusiness || ""}
+            onChange={e => onUpdate("yearsInBusiness", e.target.value)}
+            placeholder="15"
+            style={fieldInp}
+          />
+        </div>
+        <div>
+          <label style={labelSt}>License No.</label>
+          <input
+            value={sub.licenseNo || ""}
+            onChange={e => onUpdate("licenseNo", e.target.value)}
+            placeholder="License #"
+            style={fieldInp}
+          />
+        </div>
+        <div>
+          <label style={labelSt}>Website</label>
+          <input
+            value={sub.website || ""}
+            onChange={e => onUpdate("website", e.target.value)}
+            placeholder="www.example.com"
+            style={fieldInp}
+          />
+        </div>
+      </div>
+      <div style={{ marginBottom: T.space[2] }}>
+        <label style={labelSt}>Address</label>
+        <input
+          value={sub.address || ""}
+          onChange={e => onUpdate("address", e.target.value)}
+          placeholder="123 Main St, City, ST 12345"
+          style={fieldInp}
+        />
+      </div>
+
+      {/* Certifications */}
+      <div style={{ marginBottom: T.space[2] }}>
+        <label style={labelSt}>Certifications</label>
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          {CERTIFICATION_TYPES.map(ct => {
+            const active = (sub.certifications || []).includes(ct.key);
+            return (
+              <button
+                key={ct.key}
+                onClick={() => {
+                  const next = active
+                    ? (sub.certifications || []).filter(k => k !== ct.key)
+                    : [...(sub.certifications || []), ct.key];
+                  onUpdate("certifications", next);
+                }}
+                title={ct.label}
+                style={{
+                  padding: "2px 7px",
+                  borderRadius: T.radius.sm,
+                  fontSize: 9,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  background: active ? `${C.accent}15` : "transparent",
+                  border: `1px solid ${active ? C.accent + "40" : C.border}`,
+                  color: active ? C.accent : C.textDim,
+                  transition: "all 0.15s",
+                }}
+              >
+                {ct.key}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Markets */}
+      <div style={{ marginBottom: T.space[1] }}>
+        <label style={labelSt}>Markets Served</label>
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          {MARKET_REGIONS.map(mr => {
+            const active = (sub.markets || []).includes(mr);
+            return (
+              <button
+                key={mr}
+                onClick={() => {
+                  const next = active
+                    ? (sub.markets || []).filter(m => m !== mr)
+                    : [...(sub.markets || []), mr];
+                  onUpdate("markets", next);
+                }}
+                style={{
+                  padding: "2px 7px",
+                  borderRadius: T.radius.sm,
+                  fontSize: 9,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  background: active ? `${C.green}12` : "transparent",
+                  border: `1px solid ${active ? C.green + "35" : C.border}`,
+                  color: active ? C.green : C.textDim,
+                  transition: "all 0.15s",
+                }}
+              >
+                {mr}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Notes */}
+      <div style={{ marginTop: T.space[2] }}>
+        <label style={labelSt}>Notes</label>
+        <textarea
+          value={sub.notes || ""}
+          onChange={e => onUpdate("notes", e.target.value)}
+          placeholder="Internal notes about this subcontractor..."
+          rows={2}
+          style={inp(C, { padding: "5px 8px", fontSize: 11, width: "100%", boxSizing: "border-box", resize: "vertical" })}
+        />
       </div>
     </div>
   );

@@ -293,12 +293,13 @@ IMPORTANT: Return ONLY valid JSON array. No markdown, no explanation. Example:
 
     // Auto-add new sub to contacts and close
     if (subName && !subAlreadyExists) {
-      const tradeLabel = TRADE_OPTIONS.find(t => t.key === trade)?.label || trade || "";
       addMasterItem("subcontractors", {
         company: subName,
-        trade: tradeLabel,
+        trades: trade ? [trade] : [],
         contact: "", email: "", phone: "", notes: "Imported from sub proposal",
         rating: "",
+        markets: [], insuranceExpiry: "", bondingCapacity: "", emr: "",
+        certifications: [], yearsInBusiness: "", licenseNo: "", website: "", address: "",
         companyProfileId: (activeCompanyId === "__all__" ? "" : activeCompanyId) || "",
       });
       showToast(`Imported ${count} item${count !== 1 ? "s" : ""} — "${subName}" added to People`);

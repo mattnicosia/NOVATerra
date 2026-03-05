@@ -7,7 +7,7 @@ import { useTakeoffsStore } from "@/stores/takeoffsStore";
 import { useDrawingsStore } from "@/stores/drawingsStore";
 import { useBidLevelingStore } from "@/stores/bidLevelingStore";
 import { useDatabaseStore } from "@/stores/databaseStore";
-import { useMasterDataStore } from "@/stores/masterDataStore";
+import { useMasterDataStore, migrateSubcontractorSchema } from "@/stores/masterDataStore";
 import { useAlternatesStore } from "@/stores/alternatesStore";
 import { useSpecsStore } from "@/stores/specsStore";
 import { useReportsStore } from "@/stores/reportsStore";
@@ -25,6 +25,7 @@ import { migrateIndexEntry, migrateProposal } from "@/utils/costHistoryMigration
 import { idbKey } from "@/utils/idbKey";
 import { useAuthStore } from "@/stores/authStore";
 import { useOrgStore } from "@/stores/orgStore";
+import { drainPendingSessions } from "@/hooks/useActivityTracker";
 
 // One-time migration: rename bare `bldg-*` keys to `u-{userId}-bldg-*`
 // so different users on the same browser have isolated IndexedDB data.
@@ -191,6 +192,12 @@ export function usePersistenceLoad() {
             if (master.historicalProposals.some((p, i) => p !== before[i])) {
               await storage.set(idbKey("bldg-master"), JSON.stringify(master));
             }
+          }
+          // Migrate: subcontractor trade (string) → trades (string[]) + prequal fields
+          const migratedMaster = migrateSubcontractorSchema(master);
+          if (migratedMaster !== master) {
+            Object.assign(master, migratedMaster);
+            await storage.set(idbKey("bldg-master"), JSON.stringify(master));
           }
           useMasterDataStore.getState().setMasterData({
             ...useMasterDataStore.getState().masterData,
@@ -670,6 +677,32 @@ export async function saveEstimate() {
     bidScopeGapResults: useBidPackagesStore.getState().scopeGapResults,
   };
 
+  // ── Merge activity timer data ──
+  // Load existing timer sessions from the saved estimate blob, then append any new
+  // pending sessions that were collected since the last save.
+  try {
+    const existingRaw = await storage.get(idbKey(`bldg-est-${id}`));
+    if (existingRaw) {
+      const existing = JSON.parse(existingRaw.value);
+      data.timerSessions = existing.timerSessions || [];
+      data.timerTotalMs = existing.timerTotalMs || 0;
+    } else {
+      data.timerSessions = [];
+      data.timerTotalMs = 0;
+    }
+  } catch {
+    data.timerSessions = [];
+    data.timerTotalMs = 0;
+  }
+
+  // Drain any pending sessions collected by useActivityTracker
+  const pendingSessions = drainPendingSessions(id);
+  if (pendingSessions.length > 0) {
+    data.timerSessions = [...data.timerSessions, ...pendingSessions];
+    // Recalculate total from all sessions
+    data.timerTotalMs = data.timerSessions.reduce((sum, s) => sum + (s.durationMs || 0), 0);
+  }
+
   const estOk = await storage.set(idbKey(`bldg-est-${id}`), JSON.stringify(data));
   if (!estOk) {
     useUiStore.getState().showToast("Save failed — check storage space", "error");
@@ -714,6 +747,7 @@ export async function saveEstimate() {
     zipCode: data.project.zipCode || "",
     divisionTotals,
     outcomeMetadata: data.project.outcomeMetadata || {},
+    timerTotalMs: data.timerTotalMs || 0,
     ownerId: data.project.ownerId || useAuthStore.getState().user?.id || null,
     orgId: data.project.orgId || useOrgStore.getState().org?.id || null,
   };
@@ -765,7 +799,7 @@ export async function saveUploadQueue() {
     .filter(q => q.status !== "saved")
     .map(q => {
       if (q.status === "extracted") return q; // keep extractedData for review
-      const { extractedData, ...rest } = q;
+      const { extractedData: _extractedData, ...rest } = q;
       return rest;
     });
   await storage.set(idbKey("bldg-upload-queue"), JSON.stringify(slim));
