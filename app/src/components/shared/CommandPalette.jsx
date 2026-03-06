@@ -5,6 +5,8 @@ import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useUiStore } from "@/stores/uiStore";
 import { loadEstimate } from "@/hooks/usePersistence";
+import { motion, AnimatePresence } from "framer-motion";
+import { backdropVariants, backdropTransition, paletteVariants, paletteTransition } from "@/utils/motion";
 import NewEstimateModal from "@/components/shared/NewEstimateModal";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
@@ -213,7 +215,12 @@ export default function CommandPalette() {
   let lastCategory = "";
 
   return (
-    <div
+    <motion.div
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      variants={backdropVariants}
+      transition={backdropTransition}
       onClick={e => {
         if (e.target === e.currentTarget) close();
       }}
@@ -228,10 +235,11 @@ export default function CommandPalette() {
         alignItems: "flex-start",
         justifyContent: "center",
         paddingTop: "15vh",
-        animation: "backdropFadeIn 0.15s ease both",
       }}
     >
-      <div
+      <motion.div
+        variants={paletteVariants}
+        transition={paletteTransition}
         style={{
           width: 540,
           maxHeight: "60vh",
@@ -244,7 +252,6 @@ export default function CommandPalette() {
           overflow: "hidden",
           display: "flex",
           flexDirection: "column",
-          animation: "modalEnter 0.2s cubic-bezier(0.16,1,0.3,1) both",
           fontFamily: T.font.display,
         }}
       >
@@ -456,7 +463,7 @@ export default function CommandPalette() {
             <span>&#9166; select</span>
           </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

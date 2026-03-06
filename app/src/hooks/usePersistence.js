@@ -144,12 +144,22 @@ export function usePersistenceLoad() {
       // Migrate bare IDB keys to user-namespaced keys (one-time, solo mode only)
       await migrateIdbKeysForUser();
 
+      // ── Startup Diagnostics ──
+      const _orgState = useOrgStore.getState();
+      const _activeKey = idbKey("bldg-index");
+      console.log(`[usePersistence] ── BOOT DIAGNOSTIC ──`);
+      console.log(`  userId: ${currentUserId || "(none)"}`);
+      console.log(`  orgId: ${_orgState.org?.id || "(none)"} | orgReady: ${_orgState.orgReady}`);
+      console.log(`  IDB key for index: "${_activeKey}"`);
+      console.log(`  localStorage mirror exists: ${!!localStorage.getItem(`bldg-index-mirror-${currentUserId}`)}`);
+
       let localHasData = false;
       let hadCorruptedIndex = false;
       let hadCorruptedMaster = false;
 
       // Load estimates index
       const idxRaw = await storage.get(idbKey("bldg-index"));
+      console.log(`[usePersistence]   IDB index raw: ${idxRaw ? `${String(idxRaw.value).length} chars` : "NULL (not found)"}`);
       if (idxRaw) {
         try {
           // Defensive: validate value is a non-empty string before parsing
@@ -158,6 +168,7 @@ export function usePersistenceLoad() {
           }
           const parsed = JSON.parse(idxRaw.value);
           if (!Array.isArray(parsed)) throw new Error("Index data is not an array");
+          console.log(`[usePersistence]   Loaded ${parsed.length} estimates from IDB`);
           // Migrate: ensure all index entries have companyProfileId
           let migrated = parsed.map(e => (e.companyProfileId === undefined ? { ...e, companyProfileId: "" } : e));
           // Migrate: two-axis taxonomy (buildingType, workType) + new fields
@@ -434,6 +445,95 @@ export function usePersistenceLoad() {
       } catch {
         /* audio not critical */
       }
+
+      // ─── RECOVERY GUARD: Last-resort fallback if index is still empty ───
+      // Catches namespace mismatches, IDB eviction, and silent failures.
+      // Tries: (1) all possible IDB key namespaces, (2) localStorage mirror, (3) cloud pull.
+      const finalIndex = useEstimatesStore.getState().estimatesIndex;
+      if (finalIndex.length === 0 && currentUserId) {
+        console.warn("[usePersistence] RECOVERY GUARD: estimates index is EMPTY after load — attempting fallback recovery");
+
+        // 1. Try reading from all possible IDB key namespaces
+        const orgId = useOrgStore.getState().org?.id;
+        const possibleKeys = [
+          `u-${currentUserId}-bldg-index`,
+          orgId ? `org-${orgId}-bldg-index` : null,
+          "bldg-index", // bare key (pre-migration)
+        ].filter(Boolean);
+        const activeKey = idbKey("bldg-index");
+        console.log(`[usePersistence] Active IDB key: "${activeKey}" — scanning fallback keys:`, possibleKeys);
+
+        let recovered = null;
+        for (const key of possibleKeys) {
+          if (key === activeKey) continue; // already tried this
+          try {
+            const raw = await storage.get(key);
+            if (raw?.value) {
+              const parsed = JSON.parse(raw.value);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                console.log(`[usePersistence] RECOVERED ${parsed.length} estimates from fallback key "${key}"`);
+                recovered = parsed;
+                // Copy to correct namespace so future loads work
+                await storage.set(activeKey, raw.value);
+                break;
+              }
+            }
+          } catch (err) {
+            console.warn(`[usePersistence] Fallback key "${key}" failed:`, err);
+          }
+        }
+
+        // 2. Try localStorage mirror
+        if (!recovered) {
+          try {
+            const lsMirror = localStorage.getItem(`bldg-index-mirror-${currentUserId}`);
+            if (lsMirror) {
+              const parsed = JSON.parse(lsMirror);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                console.log(`[usePersistence] RECOVERED ${parsed.length} estimates from localStorage mirror`);
+                recovered = parsed;
+                await storage.set(activeKey, lsMirror);
+              }
+            }
+          } catch (err) {
+            console.warn("[usePersistence] localStorage mirror recovery failed:", err);
+          }
+        }
+
+        // 3. Try cloud pull (last resort)
+        if (!recovered) {
+          try {
+            const cloudIndex = await cloudSync.pullData("index");
+            if (cloudIndex && Array.isArray(cloudIndex) && cloudIndex.length > 0) {
+              console.log(`[usePersistence] RECOVERED ${cloudIndex.length} estimates from cloud`);
+              recovered = cloudIndex;
+              await storage.set(activeKey, JSON.stringify(cloudIndex));
+              // Also pull estimate data
+              const cloudEstimates = await cloudSync.pullAllEstimates();
+              for (const ce of cloudEstimates) {
+                await storage.set(idbKey(`bldg-est-${ce.estimate_id}`), JSON.stringify(ce.data));
+              }
+            }
+          } catch (err) {
+            console.warn("[usePersistence] Cloud pull recovery failed:", err);
+          }
+        }
+
+        if (recovered) {
+          useEstimatesStore.getState().setEstimatesIndex(recovered);
+          useUiStore.getState().showToast(`Recovered ${recovered.length} estimate(s)`, "success");
+        } else {
+          console.warn("[usePersistence] RECOVERY GUARD: all fallbacks exhausted — no estimates found");
+        }
+      }
+
+      // Mirror index to localStorage as resilient backup (survives IDB eviction)
+      try {
+        const idxToMirror = useEstimatesStore.getState().estimatesIndex;
+        if (idxToMirror.length > 0 && currentUserId) {
+          localStorage.setItem(`bldg-index-mirror-${currentUserId}`, JSON.stringify(idxToMirror));
+        }
+      } catch { /* localStorage quota exceeded or unavailable */ }
 
       // Signal that persistence load is complete — auto-save can now safely write
       useUiStore.getState().setPersistenceLoaded(true);
@@ -800,10 +900,19 @@ export async function saveEstimate() {
   }
 
   const idx = useEstimatesStore.getState().estimatesIndex;
-  const idxOk = await storage.set(idbKey("bldg-index"), JSON.stringify(idx));
+  const idxJson = JSON.stringify(idx);
+  const idxOk = await storage.set(idbKey("bldg-index"), idxJson);
   if (!idxOk) {
     console.error("[usePersistence] Failed to save estimates index");
   }
+
+  // Mirror index to localStorage — resilient backup that survives IDB eviction
+  try {
+    const userId = useAuthStore.getState().user?.id;
+    if (userId && idx.length > 0) {
+      localStorage.setItem(`bldg-index-mirror-${userId}`, idxJson);
+    }
+  } catch { /* localStorage quota exceeded or unavailable */ }
 
   // ─── Cloud Push (non-blocking) ───
   cloudSync.pushEstimate(id, data).catch(err => {

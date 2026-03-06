@@ -45,8 +45,12 @@ export default function Header() {
           : `linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 50%), ${C.glassBg || "rgba(255,255,255,0.32)"}`,
         backdropFilter: T.glass.blur,
         WebkitBackdropFilter: T.glass.blur,
-        borderBottom: `1px solid ${T.glass.border || (C.isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.55)")}`,
-        boxShadow: [T.glass.specular, T.shadow.sm, T.glass.edge].filter(Boolean).join(", "),
+        borderBottom: `1px solid ${C.isDark
+          ? (T.glass.border || "rgba(255,255,255,0.12)")
+          : (C.glassBorder || C.border || "rgba(0,0,0,0.08)")}`,
+        boxShadow: C.isDark
+          ? [T.glass.specular, T.shadow.sm, T.glass.edge].filter(Boolean).join(", ")
+          : "inset 0 -1px 0 rgba(255,255,255,0.5), 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.03)",
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",

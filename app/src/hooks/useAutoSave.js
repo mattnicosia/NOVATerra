@@ -8,6 +8,7 @@ import {
   saveBidPackagePresets,
   saveAutoResponseConfig,
   saveAutoResponseDrafts,
+  saveSubdivisionConfig,
 } from "./usePersistence";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useProjectStore } from "@/stores/projectStore";
@@ -24,6 +25,7 @@ import { useCalendarStore } from "@/stores/calendarStore";
 import { useGroupsStore } from "@/stores/groupsStore";
 import { useBidPackagesStore } from "@/stores/bidPackagesStore";
 import { useAutoResponseStore } from "@/stores/autoResponseStore";
+import { useSubdivisionStore } from "@/stores/subdivisionStore";
 import { useUiStore } from "@/stores/uiStore";
 
 export function useAutoSave() {
@@ -36,6 +38,7 @@ export function useAutoSave() {
   const bpPresetsTimer = useRef(null);
   const arConfigTimer = useRef(null);
   const arDraftsTimer = useRef(null);
+  const subConfigTimer = useRef(null);
   const persistenceLoaded = useUiStore(s => s.persistenceLoaded);
 
   // ── Estimate core data (fast-changing) ─────────────────────
@@ -215,4 +218,21 @@ export function useAutoSave() {
       if (arDraftsTimer.current) clearTimeout(arDraftsTimer.current);
     };
   }, [persistenceLoaded, arDrafts]);
+
+  // ── Subdivision config (engine config + calibration + overrides) ──
+  const subEngineConfig = useSubdivisionStore(s => s.engineConfig);
+  const subCalibration = useSubdivisionStore(s => s.calibrationFactors);
+  const subUserOverrides = useSubdivisionStore(s => s.userOverrides);
+  useEffect(() => {
+    if (!persistenceLoaded) return;
+    if (subConfigTimer.current) clearTimeout(subConfigTimer.current);
+    subConfigTimer.current = setTimeout(() => {
+      saveSubdivisionConfig().catch(err => {
+        console.error("[autoSave] Subdivision config save failed:", err);
+      });
+    }, 2000);
+    return () => {
+      if (subConfigTimer.current) clearTimeout(subConfigTimer.current);
+    };
+  }, [persistenceLoaded, subEngineConfig, subCalibration, subUserOverrides]);
 }

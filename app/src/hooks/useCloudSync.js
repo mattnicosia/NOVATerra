@@ -373,7 +373,14 @@ async function syncEstimates() {
   if (changed) {
     // Update local index in store and IndexedDB
     useEstimatesStore.getState().setEstimatesIndex(localIndex);
-    await storage.set(idbKey("bldg-index"), JSON.stringify(localIndex));
+    const idxJson = JSON.stringify(localIndex);
+    await storage.set(idbKey("bldg-index"), idxJson);
+
+    // Mirror index to localStorage — resilient backup
+    try {
+      const userId = useAuthStore.getState().user?.id;
+      if (userId) localStorage.setItem(`bldg-index-mirror-${userId}`, idxJson);
+    } catch { /* quota exceeded */ }
 
     // Push merged index to cloud (excluding deleted)
     await cloudSync.pushData("index", localIndex);

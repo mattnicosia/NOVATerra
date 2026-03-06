@@ -17,7 +17,9 @@ export const T = {
     10: 64,
   },
 
-  // Type scale (7 sizes)
+  // Type scale — 10 sizes with clear contrast between steps
+  // UI sizes: xs/sm/base/md (tight cluster for interface text)
+  // Display sizes: lg/xl/2xl/3xl/4xl/5xl (dramatic jumps for headlines)
   fontSize: {
     xs: 10,
     sm: 11,
@@ -26,6 +28,9 @@ export const T = {
     lg: 16,
     xl: 20,
     "2xl": 28,
+    "3xl": 36,
+    "4xl": 48,
+    "5xl": 60,
   },
 
   // Font weights
@@ -144,9 +149,29 @@ export const T = {
     subheading: { fontSize: 14, fontWeight: 600, lineHeight: 1.3 },
     body: { fontSize: 13, fontWeight: 400, lineHeight: 1.5 },
     caption: { fontSize: 10, fontWeight: 400, lineHeight: 1.4 },
-    label: { fontSize: 10, fontWeight: 600, lineHeight: 1.2, textTransform: "uppercase", letterSpacing: 0.8 },
+    label: { fontSize: 10, fontWeight: 600, lineHeight: 1.2, textTransform: "uppercase", letterSpacing: 1.5 },
     mono: { fontSize: 12, fontWeight: 500, fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif" },
     monoBig: { fontSize: 14, fontWeight: 600, fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif" },
+    // Numeric readout — large tabular numbers (Output VST "XY CONTROL 70 / 30" style)
+    numeric: { fontSize: 28, fontWeight: 700, letterSpacing: -0.5, fontVariantNumeric: "tabular-nums", lineHeight: 1.0 },
+    numericSm: { fontSize: 20, fontWeight: 700, letterSpacing: -0.3, fontVariantNumeric: "tabular-nums", lineHeight: 1.0 },
+    // Display presets — Outfit for geometric precision at large sizes
+    display: { fontSize: 48, fontWeight: 600, lineHeight: 1.05, letterSpacing: -1.5, fontFamily: "'Outfit', 'DM Sans', sans-serif" },
+    displaySm: { fontSize: 36, fontWeight: 600, lineHeight: 1.1, letterSpacing: -1.0, fontFamily: "'Outfit', 'DM Sans', sans-serif" },
+    displayLg: { fontSize: 60, fontWeight: 700, lineHeight: 1.0, letterSpacing: -2.0, fontFamily: "'Outfit', 'DM Sans', sans-serif" },
+    hero: { fontSize: 56, fontWeight: 300, lineHeight: 1.05, letterSpacing: -1.5, fontFamily: "'Outfit', 'DM Sans', sans-serif" },
+  },
+
+  // ── Accent Glow — Output VST-inspired luminous halos ──
+  // Used on interactive elements: buttons (hover), inputs (focus),
+  // cards (hover), active indicators (persistent).
+  // Values are templates — accent color injected at theme build time.
+  // Callers use C.T.glow.md etc. (populated in useTheme with real accent hex).
+  glow: {
+    sm: "0 0 12px rgba(139,92,246,0.20)",
+    md: "0 0 20px rgba(139,92,246,0.30)",
+    lg: "0 0 30px rgba(139,92,246,0.40), 0 0 60px rgba(139,92,246,0.15)",
+    ring: "0 0 0 1px rgba(139,92,246,0.45), 0 0 15px rgba(139,92,246,0.25)",
   },
 
   // Liquid Glass DARK — Apple-inspired prominent surface layer.
@@ -309,13 +334,15 @@ export function buildTokens(density = "comfortable") {
       subheading: { fontSize: 13, fontWeight: 600, lineHeight: 1.25 },
       body: { fontSize: 12, fontWeight: 400, lineHeight: 1.4 },
       caption: { fontSize: 9, fontWeight: 400, lineHeight: 1.3 },
-      label: { fontSize: 9, fontWeight: 600, lineHeight: 1.2, textTransform: "uppercase", letterSpacing: 0.8 },
+      label: { fontSize: 9, fontWeight: 600, lineHeight: 1.2, textTransform: "uppercase", letterSpacing: 1.2 },
       mono: { fontSize: 11, fontWeight: 500, fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif" },
       monoBig: {
         fontSize: 13,
         fontWeight: 600,
         fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif",
       },
+      numeric: { fontSize: 24, fontWeight: 700, letterSpacing: -0.5, fontVariantNumeric: "tabular-nums", lineHeight: 1.0 },
+      numericSm: { fontSize: 18, fontWeight: 700, letterSpacing: -0.3, fontVariantNumeric: "tabular-nums", lineHeight: 1.0 },
     },
   };
 }

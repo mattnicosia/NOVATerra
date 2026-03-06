@@ -1,4 +1,72 @@
 export const SEED_ELEMENTS = [
+  // ── 01 General Requirements ──────────────────────────────────
+  { id:"s905", code:"01.310", name:"Superintendent", unit:"WK", material:0, labor:2119, equipment:0, trade:"general" },
+  { id:"s906", code:"01.310", name:"Project Manager", unit:"WK", material:0, labor:2119, equipment:0, trade:"general" },
+  { id:"s907", code:"01.310", name:"Senior Project Manager", unit:"WK", material:0, labor:2839, equipment:0, trade:"general" },
+  { id:"s908", code:"01.310", name:"Assistant Project Manager", unit:"WK", material:0, labor:1483, equipment:0, trade:"general" },
+  { id:"s909", code:"01.310", name:"Assistant Superintendent", unit:"WK", material:0, labor:1356, equipment:0, trade:"general" },
+  { id:"s910", code:"01.740", name:"Final Cleaning", unit:"SF", material:0.07, labor:0.30, equipment:0.02, trade:"general" },
+  { id:"s911", code:"01.500", name:"Temporary Toilet, Standard (Monthly Rental)", unit:"MO", material:171, labor:0, equipment:0, trade:"general" },
+  { id:"s912", code:"01.500", name:"Construction Dumpster, 30 CY (Per Pull)", unit:"EA", material:810, labor:0, equipment:0, trade:"general" },
+  { id:"s913", code:"01.0050.0371", name:"Project Manager I (Per Day)", unit:"DY", material:0, labor:391, equipment:0, trade:"general" },
+  { id:"s914", code:"01.0050.0381", name:"Truck Expenses (.003% of Revenue)", unit:"LS", material:0, labor:0, equipment:0, trade:"general" },
+  { id:"s915", code:"01.0050.0393", name:"Estimator (Per Hour)", unit:"HR", material:0, labor:127, equipment:0, trade:"general" },
+  { id:"s916", code:"01.0050.0394", name:"Assistant Estimator (Per Hour)", unit:"HR", material:0, labor:72, equipment:0, trade:"general" },
+  { id:"s917", code:"01.0050.0404", name:"Fire Extinguishers (General Requirements)", unit:"EA", material:0, labor:0, equipment:0, subcontractor:179, trade:"general" },
+  { id:"s918", code:"01.0050.0414", name:"Trash Chute", unit:"LF", material:0, labor:0, equipment:0, subcontractor:134, trade:"general" },
+  { id:"s919", code:"01.0050.0424", name:"Buggy/Cart", unit:"EA", material:0, labor:0, equipment:0, trade:"general" },
+  { id:"s920", code:"01.0050.0434", name:"General Requirement Item", unit:"EA", material:0, labor:0, equipment:0, trade:"general" },
+  { id:"s921", code:"01.0050.0444", name:"Lift Rental", unit:"MO", material:0, labor:0, equipment:0, trade:"general" },
+  { id:"s922", code:"01.0050.0454", name:"Gas (Per Week)", unit:"WK", material:463, labor:0, equipment:0, trade:"general" },
+
+  // ── 01.5000 Temporary Facilities & Controls ──────────────────
+  { id:"s923", code:"01.5000.1000", name:"Drop Pole For Electric Service 200 Amps", unit:"EA", material:0, labor:0, equipment:0, subcontractor:563, trade:"general" },
+  { id:"s924", code:"01.5000.1010", name:"Flaggers And Spotters", unit:"DY", material:0, labor:275, equipment:0, trade:"general" },
+  { id:"s925", code:"01.5000.1020", name:"Job Sign With Breakaway Poles 30\" x 30\"", unit:"EA", material:139, labor:0, equipment:0, trade:"general" },
+  { id:"s926", code:"01.5000.1030", name:"Temporary Phone Service", unit:"MO", material:0, labor:0, equipment:0, subcontractor:112, trade:"general" },
+  { id:"s927", code:"01.5000.1040", name:"Temporary Job Site Trailer", unit:"MO", material:0, labor:0, equipment:0, subcontractor:446, trade:"general" },
+  { id:"s928", code:"01.5000.1050", name:"Temporary Chain Link Fence Double Gates", unit:"EA", material:0, labor:0, equipment:0, subcontractor:214, trade:"general" },
+  { id:"s929", code:"01.5000.1060", name:"Temporary Chain Link Fence", unit:"MO", material:0, labor:0, equipment:0, subcontractor:670, trade:"general" },
+  { id:"s930", code:"01.5000.1070", name:"Temporary Construction Signs", unit:"EA", material:23, labor:0, equipment:0, trade:"general" },
+  { id:"s931", code:"01.5000.1080", name:"Temporary Electricity", unit:"MO", material:0, labor:0, equipment:0, subcontractor:223, trade:"general" },
+  { id:"s932", code:"01.5000.1150", name:"Temporary Pavement Parking", unit:"LF", material:0.25, labor:0, equipment:0, trade:"general" },
+  { id:"s933", code:"01.5000.1180", name:"Temporary Water", unit:"MO", material:0, labor:0, equipment:0, subcontractor:201, trade:"general" },
+  { id:"s934", code:"01.5000.1190", name:"8' Temporary Construction Fencing (6 Month Rental)", unit:"LF", material:0, labor:0, equipment:0, subcontractor:8, trade:"general" },
+  { id:"s935", code:"01.5000.1200", name:"Site Security (Camera Trailer, Monthly Rental)", unit:"MO", material:0, labor:0, equipment:0, subcontractor:2232, trade:"general" },
+  { id:"s936", code:"01.5000.1210", name:"Temporary Construction Lighting (LED String, 100' Installed)", unit:"EA", material:324, labor:0, equipment:0, trade:"general" },
+  { id:"s937", code:"01.5000.1220", name:"Progress Cleaning (Weekly)", unit:"SF", material:0, labor:0.10, equipment:0, trade:"general" },
+  { id:"s938", code:"01.5000.1230", name:"Winter Protection / Cold Weather Enclosure", unit:"SF", material:0, labor:0, equipment:0, subcontractor:2.90, trade:"general" },
+  { id:"s939", code:"01.5000.1240", name:"Fire Watch (Per Day)", unit:"DY", material:0, labor:339, equipment:0, trade:"general" },
+  { id:"s940", code:"01.5123.0010", name:"Temporary Heating, Cooling & Ventilation", unit:"EA", material:0, labor:0, equipment:0, trade:"general" },
+  { id:"s941", code:"01.5133.0010", name:"Temporary Water (Allowance)", unit:"EA", material:0, labor:0, equipment:0, trade:"general" },
+
+  // ── 01.5400 Construction Aids ────────────────────────────────
+  { id:"s942", code:"01.5400.0000", name:"Scaffolding", unit:"EA", material:0, labor:0, equipment:0, trade:"general" },
+  { id:"s943", code:"01.5400.1050", name:"Temporary Scaffolding And Platforms", unit:"SF", material:0, labor:0, equipment:0, subcontractor:4.46, trade:"general" },
+  { id:"s944", code:"01.5400.1060", name:"Temporary Swing Staging", unit:"LS", material:0, labor:0, equipment:0, trade:"general" },
+  { id:"s945", code:"01.5400.1070", name:"Sidewalk Shed 3-Month Rental (14'-20' High x 12' Wide)", unit:"LF", material:0, labor:0, equipment:0, subcontractor:580, trade:"general" },
+  { id:"s946", code:"01.5400.1080", name:"Sidewalk Shed Engineering and Permits", unit:"LS", material:0, labor:0, equipment:0, subcontractor:2679, trade:"general" },
+  { id:"s947", code:"01.5400.1090", name:"Sidewalk Shed (16' High) 3-Month Rental", unit:"LF", material:0, labor:0, equipment:0, subcontractor:362, trade:"general" },
+  { id:"s948", code:"01.5400.1100", name:"Pipe Scaffold (62' High) 3-Month Rental", unit:"SF", material:0, labor:0, equipment:0, subcontractor:8.48, trade:"general" },
+  { id:"s949", code:"01.5400.1110", name:"Fire-Retardant Roof Protection (2\" Rigid + 2x10 Plank + 3/4\" Plywood)", unit:"SF", material:0, labor:0, equipment:0, subcontractor:19.64, trade:"general" },
+  { id:"s950", code:"01.5400.1120", name:"Suspended Scaffolding (Plan View)", unit:"MO", material:0, labor:0, equipment:0, trade:"general" },
+
+  // ── 01.5426 Mast Climbers ───────────────────────────────────
+  { id:"s951", code:"01.5426.0010", name:"Mast Climber Rental", unit:"MO", material:0, labor:0, equipment:0, subcontractor:8929, trade:"general" },
+  { id:"s952", code:"01.5426.0020", name:"Mast Climber Delivery, Setup & Removal", unit:"EA", material:0, labor:0, equipment:0, subcontractor:10714, trade:"general" },
+  { id:"s953", code:"01.5426.0030", name:"Mast Climber Anchors and Bracing", unit:"EA", material:0, labor:0, equipment:0, subcontractor:6696, trade:"general" },
+
+  // ── 01.5600 Temporary Barriers & Enclosures ─────────────────
+  { id:"s954", code:"01.5600.1170", name:"10' Temporary Construction Fence + 12 x 12 Viewer", unit:"LF", material:0, labor:0, equipment:0, subcontractor:134, trade:"general" },
+  { id:"s955", code:"01.5600.1180", name:"6' Chainlink Temporary Panel Fencing (3 Month Rental)", unit:"LF", material:0, labor:0, equipment:0, subcontractor:4.24, trade:"general" },
+  { id:"s956", code:"01.5600.1190", name:"F/I Temporary Guardrails, Posts, Base Plates and Toe Boards", unit:"LF", material:0, labor:0, equipment:0, subcontractor:17.86, trade:"general" },
+  { id:"s957", code:"01.5600.1200", name:"F/I Safety Nets", unit:"SF", material:0, labor:0, equipment:0, subcontractor:2.68, trade:"general" },
+  { id:"s958", code:"01.5626.0010", name:"Temporary Fall Protection", unit:"EA", material:0, labor:0, equipment:0, trade:"general" },
+  { id:"s959", code:"01.5626.0020", name:"F/I Clamp-Style Parapet Guardrails", unit:"LF", material:0, labor:0, equipment:0, subcontractor:22.32, trade:"general" },
+
+  // ── 01.5723 Temporary Pest Control ──────────────────────────
+  { id:"s960", code:"01.5723.0010", name:"Rodent Pest Control (Monthly Inspections)", unit:"MO", material:0, labor:0, equipment:0, subcontractor:1161, trade:"general" },
+
   // ── 03 Concrete ───────────────────────────────────────────────
   { id:"s001", code:"03.110", name:"Formwork, Wall (up to 8')", unit:"SFCA", material:3.50, labor:8.75, equipment:0.85, trade:"concrete" },
   { id:"s002", code:"03.110", name:"Formwork, Footing", unit:"SFCA", material:2.80, labor:7.50, equipment:0.60, trade:"concrete" },

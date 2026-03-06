@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useTheme } from '@/hooks/useTheme';
 import { useWidgetStore } from '@/stores/widgetStore';
 import { WIDGET_REGISTRY } from '@/constants/widgetRegistry';
+import { motion } from 'framer-motion';
+import { widgetHover, widgetTap } from '@/utils/motion';
 import WidgetActionMenu from './WidgetActionMenu';
 
 /* ────────────────────────────────────────────────────────
@@ -33,28 +35,37 @@ export default function WidgetWrapper({ id, widgetType, editMode, movingWidgetId
   const isActive = showEditChrome || showMoveChrome;
 
   // Apple Liquid Glass — specular + hairline edge ONLY (no drop shadow on widgets)
+  // Light mode: white speculars invisible on light bg — use dark-adapted shadows
   const glassShadow = isActive
     ? `0 0 0 1px ${C.accent}1A, 0 4px 16px rgba(0,0,0,0.10)`
-    : hovered
-      ? [T.glass.specularHover, T.glass.edgeHover].join(', ')
-      : [T.glass.specular, T.glass.edge].join(', ');
+    : dk
+      ? (hovered
+        ? [T.glass.specularHover, T.glass.edgeHover].join(', ')
+        : [T.glass.specular, T.glass.edge].join(', '))
+      : (hovered
+        ? 'inset 0 1px 0 rgba(255,255,255,0.7), 0 2px 8px rgba(0,0,0,0.08), 0 6px 20px rgba(0,0,0,0.04)'
+        : 'inset 0 1px 0 rgba(255,255,255,0.6), 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.03)');
 
   return (
-    <div
+    <motion.div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      whileHover={!isActive ? widgetHover : undefined}
+      whileTap={!isActive ? widgetTap : undefined}
       style={{
         height: '100%',
         borderRadius: T.radius.lg,
-        // Apple Liquid Glass — ghost-like: background bleeds through almost completely
+        // Apple Liquid Glass — ghost-like on dark; palette-defined glass on light
         background: isActive
           ? (dk ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.85)')
-          : (dk ? T.glass.bg : 'rgba(255,255,255,0.08)'),
+          : (dk ? T.glass.bg : (C.glassBg || 'rgba(255,255,255,0.32)')),
         backdropFilter: isActive ? undefined : (hovered ? T.glass.blurHover : T.glass.blur),
         WebkitBackdropFilter: isActive ? undefined : (hovered ? T.glass.blurHover : T.glass.blur),
-        border: `0.5px solid ${isActive
+        border: `${dk ? '0.5' : '1'}px solid ${isActive
           ? `${C.accent}4D`
-          : (hovered ? T.glass.borderHover : T.glass.border)
+          : dk
+            ? (hovered ? T.glass.borderHover : T.glass.border)
+            : (C.glassBorder || C.border || 'rgba(0,0,0,0.08)')
         }`,
         boxShadow: glassShadow,
         display: 'flex',
@@ -258,6 +269,6 @@ export default function WidgetWrapper({ id, widgetType, editMode, movingWidgetId
       }}>
         {children}
       </div>
-    </div>
+    </motion.div>
   );
 }

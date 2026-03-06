@@ -629,6 +629,7 @@ input[type="number"] {
 }
 .nav-item:hover {
   background: rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.06);
 }
 .nav-item:active {
   transform: scale(0.98);
@@ -764,10 +765,16 @@ select:focus {
     0 0 12px rgba(0, 212, 255, 0.06);
 }
 
-/* Keyboard focus indicator for accessibility */
+/* Keyboard focus indicator — accent-aware glow ring (Output VST-inspired) */
 *:focus-visible {
-  outline: 2px solid rgba(0, 212, 255, 0.4);
+  outline: 2px solid var(--accent-color, #8B5CF6);
   outline-offset: 2px;
+}
+
+/* ── Selection color — accent tinted ── */
+::selection {
+  background: var(--accent-selection, rgba(139, 92, 246, 0.3));
+  color: white;
 }
 
 /* ── Button base ── */
@@ -1365,8 +1372,13 @@ button:disabled {
     0 0 14px rgba(0, 122, 255, 0.06);
 }
 .theme-light *:focus-visible {
-  outline: 2px solid rgba(0, 122, 255, 0.35);
+  outline: 2px solid var(--accent-color, #007AFF);
   outline-offset: 2px;
+}
+
+.theme-light ::selection {
+  background: var(--accent-selection, rgba(0, 122, 255, 0.2));
+  color: #1D1D1F;
 }
 
 /* ── Inputs — Liquid Glass recessed field ── */
@@ -1594,7 +1606,7 @@ button:disabled {
     0 0 14px rgba(0, 212, 255, 0.08);
 }
 .theme-dark *:focus-visible {
-  outline: 2px solid rgba(0, 212, 255, 0.35);
+  outline: 2px solid var(--accent-color, #8B5CF6);
   outline-offset: 2px;
 }
 
@@ -1782,13 +1794,15 @@ button:disabled {
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
 }
 .nero-nemesis *:focus-visible {
-  outline: 1px solid rgba(255, 255, 255, 0.18);
+  outline: 1px solid var(--accent-color, #8B5CF6);
   outline-offset: 2px;
+  box-shadow: 0 0 12px var(--accent-glow, rgba(139, 92, 246, 0.25));
 }
 
 /* ── Nav / icon hover — subtle ── */
 .nero-nemesis .nav-item:hover {
   background: rgba(255, 255, 255, 0.04) !important;
+  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.08) !important;
 }
 .nero-nemesis .icon-btn:hover {
   background: rgba(255, 255, 255, 0.06) !important;
@@ -1909,7 +1923,7 @@ button:disabled {
 
 /* ── Selection color ── */
 .nero-nemesis ::selection {
-  background: rgba(139, 92, 246, 0.3);
+  background: var(--accent-selection, rgba(139, 92, 246, 0.3));
   color: #f5f5fa;
 }
 

@@ -251,8 +251,8 @@ export default function NovaDashboardPage() {
               backdropFilter: "blur(32px) saturate(1.6)",
               WebkitBackdropFilter: "blur(32px) saturate(1.6)",
               boxShadow: dk
-                ? "0 4px 20px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)"
-                : "0 2px 8px rgba(0,0,0,0.10), 0 8px 32px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,1)",
+                ? `0 4px 20px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08), 0 0 12px ${C.accent}20`
+                : `0 2px 8px rgba(0,0,0,0.10), 0 8px 32px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,1), 0 0 12px ${C.accent}15`,
               color: showFab ? C.accent : C.textMuted,
               display: "flex",
               alignItems: "center",
@@ -266,16 +266,16 @@ export default function NovaDashboardPage() {
               e.currentTarget.style.borderColor = `${C.accent}4D`;
               e.currentTarget.style.color = C.accent;
               e.currentTarget.style.boxShadow = dk
-                ? `0 4px 24px rgba(0,0,0,0.5), 0 0 0 1px ${C.accent}26, inset 0 1px 0 rgba(255,255,255,0.08)`
-                : `0 4px 16px rgba(0,0,0,0.12), 0 0 0 1px ${C.accent}26, inset 0 1px 0 rgba(255,255,255,1)`;
+                ? `0 4px 24px rgba(0,0,0,0.5), 0 0 0 1px ${C.accent}26, inset 0 1px 0 rgba(255,255,255,0.08), 0 0 30px ${C.accent}40`
+                : `0 4px 16px rgba(0,0,0,0.12), 0 0 0 1px ${C.accent}26, inset 0 1px 0 rgba(255,255,255,1), 0 0 20px ${C.accent}30`;
             }}
             onMouseLeave={e => {
               if (!showFab) {
                 e.currentTarget.style.borderColor = dk ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.12)";
                 e.currentTarget.style.color = C.textMuted;
                 e.currentTarget.style.boxShadow = dk
-                  ? "0 4px 20px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)"
-                  : "0 2px 8px rgba(0,0,0,0.10), 0 8px 32px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,1)";
+                  ? `0 4px 20px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08), 0 0 12px ${C.accent}20`
+                  : `0 2px 8px rgba(0,0,0,0.10), 0 8px 32px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,1), 0 0 12px ${C.accent}15`;
               }
             }}
           >

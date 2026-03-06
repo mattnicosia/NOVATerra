@@ -26,9 +26,10 @@ export default defineConfig({
           "data-seeds": ["./src/constants/seedAssemblies.js"],
           "data-carbon": ["./src/constants/embodiedCarbonDb.js"],
           "data-location": ["./src/constants/locationFactors.js"],
-          // Isolate Supabase + Recharts from main bundle
+          // Isolate Supabase + Recharts + Framer Motion from main bundle
           supabase: ["@supabase/supabase-js"],
           charts: ["recharts"],
+          "framer-motion": ["framer-motion"],
         },
       },
     },

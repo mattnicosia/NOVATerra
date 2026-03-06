@@ -859,10 +859,11 @@ export default function LevelingView() {
     } else if (status === "carried") {
       useBidLevelingStore.getState().setBidCells({ ...bc, [key]: { status: "carried", value: "" } });
     } else {
+      // Preserve the requested status even with empty value — user will fill it in via inline edit
       const numVal = nn(value);
       useBidLevelingStore.getState().setBidCells({
         ...bc,
-        [key]: numVal ? { status, value: String(numVal) } : { status: "blank", value: "" },
+        [key]: { status, value: numVal ? String(numVal) : "" },
       });
     }
   }, []);

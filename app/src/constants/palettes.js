@@ -1,3 +1,5 @@
+import { TOPO_TEXTURE, DOT_TEXTURE, DOT_SPARSE_TEXTURE } from "./textures";
+
 // Default color scheme — NOVA galaxy: deep indigo with purple/blue accents
 // Matches the NovaOrb renderer's color palette (violet → blue → white core)
 export const C_DEFAULT = {
@@ -193,6 +195,7 @@ export const PALETTES = [
       glassBgDark: "rgba(8,8,16,0.78)",
       bgGradient: "#06060C",
       forceDark: true,
+      bgTexture: TOPO_TEXTURE,
     },
     variants: [
       null, // 0 — Nebula (default)
@@ -319,6 +322,7 @@ export const PALETTES = [
       glassBgDark: "rgba(28,28,30,0.85)",
       bgGradient: "#1C1C1E",
       forceDark: false,
+      bgTexture: DOT_TEXTURE,
     },
     variants: [
       null, // 0 — Graphite (dark base, system forces light for main)
@@ -456,50 +460,6 @@ export const PALETTES = [
         yellow: "#FFD60A",
       },
     ],
-  },
-
-  // ━━━ 4. CLEAN DARK — Flat solid dark, zero glass/blobs/swirls ━━━
-  {
-    id: "clean-dark",
-    name: "Dark",
-    desc: "Clean dark — matte black + deep greys, no glass effects",
-    preview: ["#0A0A0A", "#64748B", "#141414", "#1C1C1C", "#262626"],
-    variantLabels: ["Dark"],
-    overrides: {
-      bg: "#0A0A0A",
-      bg1: "#141414",
-      bg2: "#1C1C1C",
-      bg3: "#262626",
-      border: "rgba(255,255,255,0.08)",
-      borderLight: "rgba(255,255,255,0.04)",
-      borderAccent: "rgba(100,116,139,0.25)",
-      text: "#E8E8ED",
-      textMuted: "rgba(232,232,237,0.55)",
-      textDim: "rgba(232,232,237,0.28)",
-      accent: "#64748B",
-      accentDim: "#475569",
-      accentBg: "rgba(100,116,139,0.08)",
-      accentAlt: "#94A3B8",
-      gradient: "linear-gradient(135deg, #64748B, #94A3B8)",
-      gradientSubtle: `linear-gradient(135deg, ${hR("#64748B", 0.1)}, ${hR("#94A3B8", 0.1)})`,
-      gradientText: "linear-gradient(135deg, #64748B, #94A3B8)",
-      green: "#4ADE80",
-      red: "#F87171",
-      blue: "#60A5FA",
-      purple: "#A78BFA",
-      orange: "#FB923C",
-      cyan: "#67E8F9",
-      yellow: "#FACC15",
-      sidebarBg: "#0A0A0A",
-      glassBg: "#141414",
-      glassBorder: "rgba(255,255,255,0.08)",
-      glassBgDark: "#0A0A0A",
-      bgGradient: "#0A0A0A",
-      forceDark: true,
-      textureMode: true,
-      noGlass: true,
-    },
-    variants: [null],
   },
 
   // ━━━ 5. NERO NEMESIS — Lamborghini Terzo Millennio, blacked out ━━━
@@ -716,59 +676,6 @@ export const PALETTES = [
     variants: [null],
   },
 
-  // ━━━ 7. GT3 RS — Porsche 992, Python Green, surgical precision ━━━
-  // Acid green on dark gray. Functional aero. No decoration, only purpose.
-  // Every element exists for a reason. Swiss watch precision in a race car.
-  // Gauge cluster = monospace tabular, weight = medium-bold, tight tracking.
-  {
-    id: "car-gt3rs",
-    name: "GT3 RS",
-    desc: "Porsche — acid precision, Python Green",
-    preview: ["#0C0C0E", "#A6FF00", "#1A1A1E", "#2A2A30", "#F5F5F7"],
-    variantLabels: ["Python"],
-    overrides: {
-      bg: "#0A0A0C", // clean dark, no color cast
-      bg1: "#111114", // pure dark card
-      bg2: "#1A1A1E", // raised surface
-      bg3: "#242428", // hover state
-      border: "rgba(166,255,0,0.08)",
-      borderLight: "rgba(255,255,255,0.05)",
-      borderAccent: "rgba(166,255,0,0.30)",
-      text: "#F5F5F7", // crisp white
-      textMuted: "rgba(245,245,247,0.55)",
-      textDim: "rgba(245,245,247,0.28)",
-      accent: "#A6FF00", // Python Green
-      accentDim: "#7ACC00",
-      accentBg: hR("#A6FF00", 0.08),
-      accentAlt: "#CCFF66",
-      gradient: "linear-gradient(135deg, #A6FF00, #CCFF66)",
-      gradientSubtle: `linear-gradient(135deg, ${hR("#A6FF00", 0.1)}, ${hR("#CCFF66", 0.1)})`,
-      gradientText: "linear-gradient(135deg, #A6FF00, #CCFF66)",
-      green: "#A6FF00",
-      red: "#FF3B30",
-      blue: "#0A84FF",
-      purple: "#BF5AF2",
-      orange: "#FF9500",
-      cyan: "#5AC8FA",
-      yellow: "#FFD60A",
-      sidebarBg: "rgba(10,10,12,0.97)",
-      glassBg: "rgba(26,26,30,0.78)",
-      glassBorder: "rgba(166,255,0,0.06)",
-      glassBgDark: "rgba(10,10,12,0.92)",
-      mesh: {
-        base: "linear-gradient(135deg, #0C0C0E 0%, #0A0A10 40%, #080810 70%, #0C0C0E 100%)",
-        blobs: [
-          { color: "#A6FF00", x: "30%", y: "55%", size: "42vw", alpha: 0.35, blur: 50 },
-          { color: "#3388FF", x: "72%", y: "18%", size: "28vw", alpha: 0.1, blur: 60 },
-        ],
-        caustics: [{ color: "#A6FF00", x: "18%", y: "40%", size: "14vw", alpha: 0.4, blur: 22 }],
-      },
-      bgGradient: `radial-gradient(ellipse at 50% 90%, ${hR("#A6FF00", 0.04)} 0%, transparent 50%), #0A0A0C`,
-      forceDark: true,
-    },
-    variants: [null],
-  },
-
   // ━━━ 720S — McLaren, Papaya Orange, surgical British ━━━
   // Heritage papaya orange on cool gray architecture. Teardrop cabin.
   // British engineering: precise, cool, technical. Orange is controlled fire.
@@ -964,10 +871,115 @@ export const PALETTES = [
     },
     variants: [null],
   },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  PREMIUM LIGHT COLLECTION — 6 material-driven light themes
+  //  Each is a distinct surface material, not a color swap.
+  //  Texture differentiation: grid, grain, weave, woodgrain, swept, crystalline.
+  //  Every color is hand-tuned. Nothing procedural. Nothing AI-generic.
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // ━━━ BLUEPRINT — Architectural Drawing Sheet ━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // Warm ivory stock. Engineering blue ink. Visible grid ruling.
+  // The surface IS the blueprint — thin blue lines every 8px on cream paper.
+  // Functional, precise, architectural. Feels like unrolling a 30x42 sheet.
+  {
+    id: "blueprint",
+    name: "Blueprint",
+    desc: "Architectural drawing — engineering blue on ivory stock",
+    preview: ["#F4F1E8", "#2962FF", "#FFFFFF", "#DED9C8", "#1C2340"],
+    variantLabels: ["Drawing"],
+    overrides: {
+      // Dark panel: deep navy (like blueprint negative)
+      bg: "#0C1224",
+      bg1: "#121A30",
+      bg2: "#1A223C",
+      bg3: "#222C4A",
+      border: "rgba(41,98,255,0.12)",
+      borderLight: "rgba(255,255,255,0.05)",
+      borderAccent: hR("#2962FF", 0.25),
+      text: "#E8EAF0",
+      textMuted: "rgba(232,234,240,0.55)",
+      textDim: "rgba(232,234,240,0.28)",
+      accent: "#2962FF",
+      accentDim: "#1548D4",
+      accentBg: hR("#2962FF", 0.08),
+      accentAlt: "#448AFF",
+      gradient: "linear-gradient(135deg, #2962FF, #448AFF)",
+      gradientSubtle: `linear-gradient(135deg, ${hR("#2962FF", 0.1)}, ${hR("#448AFF", 0.1)})`,
+      gradientText: "linear-gradient(135deg, #2962FF, #448AFF)",
+      green: "#00C853",
+      red: "#FF1744",
+      blue: "#2979FF",
+      purple: "#AA00FF",
+      orange: "#FF9100",
+      cyan: "#00B8D4",
+      yellow: "#FFD600",
+      sidebarBg: "rgba(12,18,36,0.97)",
+      glassBg: "rgba(26,34,60,0.78)",
+      glassBorder: "rgba(41,98,255,0.08)",
+      glassBgDark: "rgba(12,18,36,0.92)",
+      bgGradient: "#0C1224",
+      forceDark: false,
+      textureMode: true,
+    },
+    variants: [
+      null,
+      {
+        // Drawing: ivory stock with engineering grid
+        bg: "#F4F1E8",
+        bg1: "#FFFEFB",
+        bg2: "#EBE8DE",
+        bg3: "#E2DED2",
+        border: "#C8C2B0",
+        borderLight: "#D8D4C6",
+        borderAccent: hR("#2962FF", 0.14),
+        text: "#1C2340",
+        textMuted: "#5A6278",
+        textDim: "#9298AC",
+        accent: "#2962FF",
+        accentDim: "#1548D4",
+        accentBg: hR("#2962FF", 0.06),
+        accentAlt: "#448AFF",
+        gradient: "linear-gradient(135deg, #2962FF, #448AFF)",
+        gradientSubtle: `linear-gradient(135deg, ${hR("#2962FF", 0.06)}, ${hR("#448AFF", 0.06)})`,
+        gradientText: "linear-gradient(135deg, #2962FF, #448AFF)",
+        ...LB,
+        green: "#2E7D32",
+        red: "#C62828",
+        blue: "#1565C0",
+        purple: "#6A1B9A",
+        orange: "#E65100",
+        cyan: "#00838F",
+        yellow: "#F9A825",
+        border: "#C8C2B0",
+        borderLight: "#D8D4C6",
+        glassBg: "rgba(255,254,251,0.85)",
+        glassBorder: "#C8C2B0",
+        glassBgDark: "rgba(255,254,251,0.92)",
+        sidebarBg: "rgba(244,241,232,0.97)",
+        bgGradient: [
+          // Engineering grid — visible blue ruling on ivory
+          "repeating-linear-gradient(0deg, rgba(41,98,255,0.04) 0 1px, transparent 1px 8px)",
+          "repeating-linear-gradient(90deg, rgba(41,98,255,0.04) 0 1px, transparent 1px 8px)",
+          // Major grid lines — heavier, every 40px (section breaks)
+          "repeating-linear-gradient(0deg, rgba(41,98,255,0.07) 0 1px, transparent 1px 40px)",
+          "repeating-linear-gradient(90deg, rgba(41,98,255,0.07) 0 1px, transparent 1px 40px)",
+          // Warm paper glow — slight yellowing from center
+          "radial-gradient(ellipse at 50% 50%, rgba(255,248,225,0.30) 0%, transparent 70%)",
+          "#F4F1E8",
+        ].join(", "),
+      },
+    ],
+  },
+
 ];
 
 // Car palette IDs for cycling
-export const CAR_PALETTE_IDS = ["car-terzo", "car-gt3rs", "car-720s", "car-visiondee", "car-amgone"];
+export const CAR_PALETTE_IDS = ["car-terzo", "car-720s", "car-visiondee", "car-amgone"];
+
+// Premium light palette IDs
+export const LIGHT_PALETTE_IDS = ["blueprint"];
 
 // Chart colors
 export const PIE_COLORS = [

@@ -21,12 +21,14 @@ import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useTakeoffsStore } from "@/stores/takeoffsStore";
 import { useDrawingsStore } from "@/stores/drawingsStore";
 import NovaOrb from "@/components/dashboard/NovaOrb";
-import { CAR_PALETTE_IDS, PALETTES } from "@/constants/palettes";
+import { CAR_PALETTE_IDS, LIGHT_PALETTE_IDS, PALETTES } from "@/constants/palettes";
+import { NOISE_GRAIN } from "@/constants/textures";
 import NovaHeader from "@/components/layout/NovaHeader";
 import Toast from "@/components/layout/Toast";
 import PageTransition from "@/components/ambient/PageTransition";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
 import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
+import { AnimatePresence } from "framer-motion";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import LoginPage from "@/pages/LoginPage";
@@ -564,7 +566,7 @@ function FloatingThemePicker() {
   const updateSetting = useUiStore(s => s.updateSetting);
   const [expanded, setExpanded] = useState(false);
 
-  const ALL_IDS = ["nova", "clarity", "clean-light", "clean-dark", "nero", ...CAR_PALETTE_IDS];
+  const ALL_IDS = ["nova", "clarity", "clean-light", "nero", ...CAR_PALETTE_IDS, ...LIGHT_PALETTE_IDS];
   const currentIdx = ALL_IDS.indexOf(selectedPalette);
   const currentPalette = PALETTES.find(p => p.id === selectedPalette);
   const currentName = currentPalette?.name || "Default";
@@ -802,7 +804,7 @@ function ThemeCycleButton({ C }) {
   const [hovered, setHovered] = useState(false);
 
   // All available palettes: originals + car collection
-  const ALL_IDS = ["nova", "clarity", "clean-light", "clean-dark", "nero", ...CAR_PALETTE_IDS];
+  const ALL_IDS = ["nova", "clarity", "clean-light", "nero", ...CAR_PALETTE_IDS, ...LIGHT_PALETTE_IDS];
   const currentIdx = ALL_IDS.indexOf(selectedPalette);
 
   // Find current palette metadata
@@ -993,6 +995,8 @@ function AppContent() {
   useActivityTracker();
 
   const [showDraftPanel, setShowDraftPanel] = useState(false);
+  const cmdPaletteOpen = useCommandPaletteStore(s => s.open);
+  const aiChatOpen = useUiStore(s => s.aiChatOpen);
 
   // Sync body background to theme (covers areas outside app-shell + prevents flash)
   // Also toggle theme-light/theme-dark class for CSS hover state overrides
@@ -1001,11 +1005,19 @@ function AppContent() {
   useEffect(() => {
     document.documentElement.style.setProperty("--app-bg", C.bg);
     document.documentElement.style.setProperty("--app-text", C.text);
+    // Accent CSS vars — used by focus-visible glow, selection, scrollbar tinting
+    const accentHex = (C.accent || "#8B5CF6").replace("#", "");
+    const ar = parseInt(accentHex.substring(0, 2), 16);
+    const ag = parseInt(accentHex.substring(2, 4), 16);
+    const ab = parseInt(accentHex.substring(4, 6), 16);
+    document.documentElement.style.setProperty("--accent-color", C.accent || "#8B5CF6");
+    document.documentElement.style.setProperty("--accent-glow", `rgba(${ar},${ag},${ab},0.25)`);
+    document.documentElement.style.setProperty("--accent-selection", `rgba(${ar},${ag},${ab},0.30)`);
     document.documentElement.classList.toggle("theme-light", !C.isDark);
     document.documentElement.classList.toggle("theme-dark", C.isDark);
     document.documentElement.classList.toggle("density-compact", density === "compact");
     document.title = "NOVATerra";
-  }, [C.bg, C.text, C.isDark, C.noGlass, selectedPalette, density]);
+  }, [C.bg, C.text, C.isDark, C.noGlass, C.accent, selectedPalette, density]);
 
   return (
     <div
@@ -1015,10 +1027,26 @@ function AppContent() {
         flexDirection: "column",
         height: "100vh",
         overflow: "hidden",
-        background: C.bgGradient || C.bg,
+        background: C.bgTexture
+          ? `${C.bgTexture}, ${C.bgGradient || C.bg}`
+          : (C.bgGradient || C.bg),
         position: "relative",
       }}
     >
+      {/* Noise grain texture overlay — subtle film grain across all themes */}
+      {!C.noGlass && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundImage: NOISE_GRAIN,
+            opacity: 0.4,
+            pointerEvents: "none",
+            zIndex: 11,
+            mixBlendMode: "overlay",
+          }}
+        />
+      )}
       {/* Liquid Glass mesh background — vivid animated color field for BOTH modes */}
       <Suspense fallback={null}>
         <LiquidGlassBackground />
@@ -1167,12 +1195,20 @@ function AppContent() {
         </div>
       </div>
       <Toast />
-      <Suspense fallback={null}>
-        <AIChatPanel />
-      </Suspense>
-      <Suspense fallback={null}>
-        <CommandPalette />
-      </Suspense>
+      <AnimatePresence>
+        {aiChatOpen && (
+          <Suspense fallback={null}>
+            <AIChatPanel />
+          </Suspense>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {cmdPaletteOpen && (
+          <Suspense fallback={null}>
+            <CommandPalette />
+          </Suspense>
+        )}
+      </AnimatePresence>
       <Suspense fallback={null}>
         <NovaCursor />
       </Suspense>

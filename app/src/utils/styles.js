@@ -37,7 +37,7 @@ export const inp = (C, overrides) => {
   const tokens = C.T || T;
   return {
     background: C.neroMode ? "rgba(0,0,0,0.35)" : C.isDark ? "rgba(0,0,0,0.25)" : "rgba(255,255,255,0.45)",
-    border: `1px solid ${C.isDark ? C.glassBorder || C.border : tokens.glass?.border || "rgba(255,255,255,0.55)"}`,
+    border: `1px solid ${C.isDark ? C.glassBorder || C.border : C.glassBorder || C.border || "rgba(0,0,0,0.12)"}`,
     borderRadius: T.radius.sm,
     color: C.text,
     padding: "7px 14px",
@@ -74,7 +74,15 @@ export const bt = (C, overrides) => ({
   display: "flex",
   alignItems: "center",
   gap: T.space[2],
-  transition: T.transition.fast,
+  transition: "all 100ms ease-out, box-shadow 200ms ease-out",
+  ...overrides,
+});
+
+// Button with accent glow on hover — Output VST knob ring style
+// Usage: style={{ ...btGlow(C) }} with onMouseEnter/Leave or CSS :hover
+export const btGlow = (C, overrides) => ({
+  ...bt(C),
+  boxShadow: (C.T || T).glow?.sm || "none",
   ...overrides,
 });
 
@@ -97,16 +105,23 @@ export const card = (C, overrides) => {
     };
   }
 
-  const shadow = [
-    tokens.glass?.specular,
-    tokens.glass?.specularBottom,
-    tokens.glass?.innerDepth,
-    tokens.shadow.sm,
-    tokens.glass?.edge,
-    tokens.glass?.refraction,
-  ]
-    .filter(Boolean)
-    .join(", ");
+  // Light mode: white specular highlights are invisible on white/light cards.
+  // Use palette-defined borders + visible dark shadows for depth instead.
+  const shadow = C.isDark
+    ? [
+        tokens.glass?.specular,
+        tokens.glass?.specularBottom,
+        tokens.glass?.innerDepth,
+        tokens.shadow.sm,
+        tokens.glass?.edge,
+        tokens.glass?.refraction,
+      ].filter(Boolean).join(", ")
+    : [
+        "inset 0 1px 0 rgba(255,255,255,0.65)",
+        "inset 0 -0.5px 0 rgba(0,0,0,0.04)",
+        "0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.05)",
+      ].join(", ");
+
   return {
     background: C.isDark
       ? glassBg
@@ -117,7 +132,9 @@ export const card = (C, overrides) => {
     backdropFilter: tokens.glass.blur,
     WebkitBackdropFilter: tokens.glass.blur,
     borderRadius: T.radius.md,
-    border: `1px solid ${tokens.glass?.border || (C.isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.55)")}`,
+    border: `1px solid ${C.isDark
+      ? (tokens.glass?.border || "rgba(255,255,255,0.12)")
+      : (C.glassBorder || C.border || "rgba(0,0,0,0.08)")}`,
     boxShadow: shadow,
     ...overrides,
   };
@@ -168,16 +185,21 @@ export const cardRaised = (C, overrides) => {
     };
   }
 
-  const shadow = [
-    tokens.glass?.specularLg,
-    tokens.glass?.specularBottomLg,
-    tokens.glass?.innerDepthLg,
-    tokens.shadow.md,
-    tokens.glass?.edge,
-    tokens.glass?.refraction,
-  ]
-    .filter(Boolean)
-    .join(", ");
+  const shadow = C.isDark
+    ? [
+        tokens.glass?.specularLg,
+        tokens.glass?.specularBottomLg,
+        tokens.glass?.innerDepthLg,
+        tokens.shadow.md,
+        tokens.glass?.edge,
+        tokens.glass?.refraction,
+      ].filter(Boolean).join(", ")
+    : [
+        "inset 0 1px 0 rgba(255,255,255,0.7)",
+        "inset 0 -0.5px 0 rgba(0,0,0,0.05)",
+        "0 2px 6px rgba(0,0,0,0.10), 0 6px 20px rgba(0,0,0,0.06)",
+      ].join(", ");
+
   return {
     ...card(C),
     boxShadow: shadow,
@@ -209,16 +231,21 @@ export const cardGlass = (C, overrides) => {
     };
   }
 
-  const shadow = [
-    tokens.glass?.specularLg,
-    tokens.glass?.specularBottomLg,
-    tokens.glass?.innerDepthLg,
-    tokens.shadow.md,
-    tokens.glass?.edge,
-    tokens.glass?.refraction,
-  ]
-    .filter(Boolean)
-    .join(", ");
+  const shadow = C.isDark
+    ? [
+        tokens.glass?.specularLg,
+        tokens.glass?.specularBottomLg,
+        tokens.glass?.innerDepthLg,
+        tokens.shadow.md,
+        tokens.glass?.edge,
+        tokens.glass?.refraction,
+      ].filter(Boolean).join(", ")
+    : [
+        "inset 0 1px 0 rgba(255,255,255,0.7)",
+        "inset 0 -0.5px 0 rgba(0,0,0,0.05)",
+        "0 2px 6px rgba(0,0,0,0.10), 0 8px 24px rgba(0,0,0,0.06)",
+      ].join(", ");
+
   return {
     background: C.isDark
       ? glassBg
@@ -229,11 +256,20 @@ export const cardGlass = (C, overrides) => {
     backdropFilter: tokens.glass.blur,
     WebkitBackdropFilter: tokens.glass.blur,
     borderRadius: T.radius.md,
-    border: `1px solid ${tokens.glass?.border || (C.isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.55)")}`,
+    border: `1px solid ${C.isDark
+      ? (tokens.glass?.border || "rgba(255,255,255,0.12)")
+      : (C.glassBorder || C.border || "rgba(0,0,0,0.08)")}`,
     boxShadow: shadow,
     ...overrides,
   };
 };
+
+// Card with accent glow on hover — subtle luminous lift
+export const cardGlow = (C, overrides) => ({
+  ...card(C),
+  transition: "box-shadow 200ms ease-out, background 200ms ease-out",
+  ...overrides,
+});
 
 // Section label — uppercase micro text
 export const sectionLabel = C => ({

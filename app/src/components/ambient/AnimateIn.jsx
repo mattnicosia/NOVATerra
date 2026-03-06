@@ -1,6 +1,5 @@
-// AnimateIn — Orchestrated mount animation wrapper
-// Wraps children with cascading entrance animations.
-// Each direct child gets an increasing delay for a stagger effect.
+// AnimateIn — Orchestrated mount animation wrapper (Framer Motion)
+// Drop-in replacement: same props API, framer-motion internals.
 //
 // Usage:
 //   <AnimateIn stagger={60}>
@@ -11,104 +10,105 @@
 //
 // Props:
 //   stagger   — ms between each child (default 50)
-//   duration  — animation duration per child (default 400)
-//   delay     — initial delay before first child (default 0)
-//   animation — keyframe name (default 'staggerFadeUp')
+//   duration  — animation duration per child in ms (default 400)
+//   delay     — initial delay before first child in ms (default 0)
+//   animation — (ignored, kept for API compat)
 //   once      — only animate on first mount (default true)
 //   className — optional wrapper class
 //   style     — optional wrapper style
 //   tag       — wrapper element type (default 'div')
-import { Children, cloneElement, isValidElement, useMemo, useRef, useState, useEffect } from 'react';
+import { Children, isValidElement, useMemo } from "react";
+import { motion } from "framer-motion";
+import { staggerChild, staggerChildTransition, useMotionSafe } from "@/utils/motion";
 
 export default function AnimateIn({
   children,
   stagger = 50,
   duration = 400,
   delay = 0,
-  animation = 'staggerFadeUp',
+  animation, // ignored — kept for API compat
   once = true,
   className,
   style,
-  tag: Tag = 'div',
+  tag: Tag = "div",
 }) {
-  const [mounted, setMounted] = useState(false);
-  const hasAnimatedRef = useRef(false);
+  const motionSafe = useMotionSafe();
+  const childArray = useMemo(
+    () => Children.toArray(children).filter(isValidElement),
+    [children],
+  );
 
-  useEffect(() => {
-    if (once && hasAnimatedRef.current) return;
-    setMounted(true);
-    hasAnimatedRef.current = true;
-  }, [once]);
+  const container = {
+    animate: {
+      transition: {
+        delayChildren: delay / 1000,
+        staggerChildren: stagger / 1000,
+      },
+    },
+  };
 
-  const childArray = useMemo(() => {
-    return Children.toArray(children).filter(isValidElement);
-  }, [children]);
+  const item = {
+    initial: motionSafe ? staggerChild.initial : {},
+    animate: staggerChild.animate,
+  };
+
+  const itemTransition = motionSafe
+    ? { ...staggerChildTransition, duration: duration / 1000 }
+    : { duration: 0 };
 
   return (
-    <Tag className={className} style={style}>
-      {childArray.map((child, i) => {
-        const childDelay = delay + i * stagger;
-        const animStyle = mounted ? {
-          animation: `${animation} ${duration}ms cubic-bezier(0.16, 1, 0.3, 1) ${childDelay}ms both`,
-        } : {
-          opacity: 0,
-        };
-
-        return (
-          <div key={child.key ?? i} style={animStyle}>
-            {child}
-          </div>
-        );
-      })}
-    </Tag>
+    <motion.div
+      className={className}
+      style={style}
+      variants={container}
+      initial="initial"
+      animate="animate"
+    >
+      {childArray.map((child, i) => (
+        <motion.div
+          key={child.key ?? i}
+          variants={item}
+          transition={itemTransition}
+        >
+          {child}
+        </motion.div>
+      ))}
+    </motion.div>
   );
 }
 
-// Variant: AnimateList — for dynamic lists where items can be added
-// Each new item gets the entrance animation regardless of list position
+// Variant: AnimateList — for dynamic lists where items can be added/removed
 export function AnimateList({
   children,
   duration = 350,
-  animation = 'staggerFadeUp',
+  animation, // ignored
   className,
   style,
-  tag: Tag = 'div',
+  tag: Tag = "div",
 }) {
-  const prevKeysRef = useRef(new Set());
-
-  const childArray = useMemo(() => {
-    return Children.toArray(children).filter(isValidElement);
-  }, [children]);
-
-  const currentKeys = new Set(childArray.map((c, i) => c.key ?? i));
-
-  // Determine which keys are new (not seen before)
-  const newKeys = new Set();
-  currentKeys.forEach(k => {
-    if (!prevKeysRef.current.has(k)) newKeys.add(k);
-  });
-
-  // Update ref for next render
-  useEffect(() => {
-    prevKeysRef.current = currentKeys;
-  });
+  const motionSafe = useMotionSafe();
+  const childArray = useMemo(
+    () => Children.toArray(children).filter(isValidElement),
+    [children],
+  );
 
   return (
     <Tag className={className} style={style}>
-      {childArray.map((child, i) => {
-        const key = child.key ?? i;
-        const isNew = newKeys.has(key);
-
-        const animStyle = isNew ? {
-          animation: `${animation} ${duration}ms cubic-bezier(0.16, 1, 0.3, 1) both`,
-        } : {};
-
-        return (
-          <div key={key} style={animStyle}>
-            {child}
-          </div>
-        );
-      })}
+      {childArray.map((child, i) => (
+        <motion.div
+          key={child.key ?? i}
+          initial={motionSafe ? staggerChild.initial : false}
+          animate={staggerChild.animate}
+          transition={
+            motionSafe
+              ? { ...staggerChildTransition, duration: duration / 1000 }
+              : { duration: 0 }
+          }
+          layout
+        >
+          {child}
+        </motion.div>
+      ))}
     </Tag>
   );
 }

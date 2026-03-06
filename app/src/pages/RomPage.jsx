@@ -1,18 +1,16 @@
-// RomPage — /rom page with inline signup gate + ROM funnel
-// Requires account creation to use. Wraps in ThemeProvider for dark aesthetic.
+// RomPage — /rom  •  Jony Ive redesign: typography-led, negative space, structural gray
+// Two fields, one button, nothing else. The result is the cathedral.
 
 import { useState, useRef } from "react";
-import { ThemeProvider } from "@/hooks/useTheme";
-import { useTheme } from "@/hooks/useTheme";
+import { ThemeProvider, useTheme } from "@/hooks/useTheme";
 import { T } from "@/utils/designTokens";
 import { useAuthStore } from "@/stores/authStore";
 import { useRomStore } from "@/stores/romStore";
 import { generateBaselineROM } from "@/utils/romEngine";
-import { inp, accentButton, card, sectionLabel } from "@/utils/styles";
+import { inp, accentButton } from "@/utils/styles";
 import RomResult from "@/components/rom/RomResult";
 import RomUpsell from "@/components/rom/RomUpsell";
 
-/* ── Building type options ── */
 const BUILDING_TYPES = [
   { value: "commercial-office", label: "Commercial Office" },
   { value: "retail", label: "Retail" },
@@ -29,7 +27,22 @@ const BUILDING_TYPES = [
   { value: "parking", label: "Parking" },
 ];
 
-/* ── Inline signup form (email + password — Elon's rule: 2 fields, 1 button) ── */
+/* ── Shared styles ── */
+const display = (size = 48) => ({
+  fontFamily: "'Outfit', 'DM Sans', sans-serif",
+  fontWeight: 300,
+  fontSize: size,
+  letterSpacing: size > 32 ? -1.5 : -0.5,
+  lineHeight: 1.05,
+});
+
+const ui = {
+  fontFamily: "'DM Sans', sans-serif",
+};
+
+/* ════════════════════════════════════════════════════════════════
+   SIGNUP — Two fields, one button. Nothing else.
+   ════════════════════════════════════════════════════════════════ */
 function RomSignup() {
   const C = useTheme();
   const signUp = useAuthStore(s => s.signUpWithPassword);
@@ -39,235 +52,113 @@ function RomSignup() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState("signup"); // signup | login
+  const [mode, setMode] = useState("signup");
   const [confirmEmail, setConfirmEmail] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
     setConfirmEmail(false);
-    if (!email.trim() || !password) {
-      setError("Email and password are required");
-      return;
-    }
+    if (!email.trim() || !password) { setError("Email and password are required"); return; }
     setLoading(true);
     try {
       if (mode === "signup") {
         const result = await signUp(email.trim(), password);
         if (result?.confirmEmail) {
-          // Supabase requires email confirmation — show message
           setConfirmEmail(true);
         } else if (result?.error) {
           const errMsg = typeof result.error === "string" ? result.error : result.error.message || "Signup failed";
-          // If "already registered", switch to login automatically
           if (errMsg.toLowerCase().includes("already")) {
             const loginResult = await signIn(email.trim(), password);
-            if (loginResult?.error) {
-              const loginErr =
-                typeof loginResult.error === "string" ? loginResult.error : loginResult.error.message || "Login failed";
-              setError(loginErr);
-            }
-          } else {
-            setError(errMsg);
-          }
+            if (loginResult?.error) setError(typeof loginResult.error === "string" ? loginResult.error : loginResult.error.message || "Login failed");
+          } else setError(errMsg);
         }
       } else {
         const result = await signIn(email.trim(), password);
-        if (result?.error) {
-          const errMsg = typeof result.error === "string" ? result.error : result.error.message || "Login failed";
-          setError(errMsg);
-        }
+        if (result?.error) setError(typeof result.error === "string" ? result.error : result.error.message || "Login failed");
       }
-    } catch (err) {
-      setError(err.message || "Something went wrong");
-    }
+    } catch (err) { setError(err.message || "Something went wrong"); }
     setLoading(false);
   }
 
-  const labelStyle = {
-    ...sectionLabel(C),
-    display: "block",
-    marginBottom: 6,
-    fontSize: 11,
+  const inputStyle = {
+    width: "100%", boxSizing: "border-box",
+    padding: "14px 16px", fontSize: 15, ...ui,
+    background: "rgba(255,255,255,0.06)",
+    border: "1px solid rgba(255,255,255,0.10)",
+    borderRadius: 12, color: "#EEEDF5",
+    outline: "none", transition: "border 0.15s",
   };
 
   return (
-    <div style={{ width: "100%", maxWidth: 480 }}>
-      <div style={card(C, { padding: T.space[7] })}>
-        {/* Header */}
-        <div style={{ marginBottom: T.space[6], textAlign: "center" }}>
-          <h2
-            style={{
-              fontSize: T.fontSize["2xl"],
-              fontWeight: T.fontWeight.bold,
-              color: C.text,
-              fontFamily: "'DM Sans',sans-serif",
-              margin: 0,
-              marginBottom: T.space[2],
-            }}
-          >
-            Free ROM Estimate
-          </h2>
-          <p
-            style={{
-              fontSize: T.fontSize.md,
-              color: C.textMuted,
-              fontFamily: "'DM Sans',sans-serif",
-              margin: 0,
-              lineHeight: T.lineHeight.relaxed,
-            }}
-          >
-            Get a division-level Rough Order of Magnitude in seconds.
-            <br />
-            Create a free account to get started.
-          </p>
+    <div style={{ width: "100%", maxWidth: 420 }}>
+      <form onSubmit={handleSubmit}>
+        <div style={{ marginBottom: 16 }}>
+          <input
+            type="email" placeholder="Email" value={email}
+            onChange={e => setEmail(e.target.value)}
+            style={inputStyle} autoComplete="email"
+            onFocus={e => e.target.style.borderColor = "rgba(139,92,246,0.5)"}
+            onBlur={e => e.target.style.borderColor = "rgba(255,255,255,0.10)"}
+          />
+        </div>
+        <div style={{ marginBottom: 24 }}>
+          <input
+            type="password"
+            placeholder={mode === "signup" ? "Create a password" : "Password"}
+            value={password} onChange={e => setPassword(e.target.value)}
+            style={inputStyle}
+            autoComplete={mode === "signup" ? "new-password" : "current-password"}
+            onFocus={e => e.target.style.borderColor = "rgba(139,92,246,0.5)"}
+            onBlur={e => e.target.style.borderColor = "rgba(255,255,255,0.10)"}
+          />
         </div>
 
-        <form onSubmit={handleSubmit}>
-          {/* Email */}
-          <div style={{ marginBottom: T.space[4] }}>
-            <label style={labelStyle}>Email</label>
-            <input
-              type="email"
-              placeholder="you@company.com"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              style={inp(C)}
-              autoComplete="email"
-            />
-          </div>
+        {error && (
+          <div style={{ color: "#FB7185", fontSize: 13, marginBottom: 16, textAlign: "center", ...ui }}>{error}</div>
+        )}
 
-          {/* Password */}
-          <div style={{ marginBottom: T.space[5] }}>
-            <label style={labelStyle}>Password</label>
-            <input
-              type="password"
-              placeholder={mode === "signup" ? "Create a password" : "Your password"}
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              style={inp(C)}
-              autoComplete={mode === "signup" ? "new-password" : "current-password"}
-            />
-          </div>
-
-          {/* Error */}
-          {error && (
-            <div
-              style={{
-                color: C.red || "#FB7185",
-                fontSize: 12,
-                marginBottom: T.space[4],
-                fontFamily: "'DM Sans',sans-serif",
-                textAlign: "center",
-              }}
-            >
-              {error}
+        {confirmEmail && (
+          <div style={{
+            background: "rgba(56,189,248,0.06)", border: "1px solid rgba(56,189,248,0.15)",
+            borderRadius: 12, padding: "16px 20px", marginBottom: 16, textAlign: "center",
+          }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#38BDF8", marginBottom: 4, ...ui }}>Check your email</div>
+            <div style={{ fontSize: 12, color: "rgba(238,237,245,0.5)", lineHeight: 1.5, ...ui }}>
+              Confirmation link sent to <strong style={{ color: "#EEEDF5" }}>{email}</strong>.
             </div>
-          )}
-
-          {/* Email confirmation notice */}
-          {confirmEmail && (
-            <div
-              style={{
-                background: "rgba(56,189,248,0.08)",
-                border: "1px solid rgba(56,189,248,0.25)",
-                borderRadius: T.radius.lg,
-                padding: `${T.space[4]}px ${T.space[5]}px`,
-                marginBottom: T.space[4],
-                textAlign: "center",
-              }}
-            >
-              <div style={{ fontSize: 14, fontWeight: T.fontWeight.semibold, color: "#38BDF8", marginBottom: 4 }}>
-                Check your email
-              </div>
-              <div style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.5 }}>
-                We sent a confirmation link to <strong style={{ color: C.text }}>{email}</strong>.
-                <br />
-                Click the link, then come back here and sign in.
-              </div>
-              <div
-                onClick={() => {
-                  setConfirmEmail(false);
-                  setMode("login");
-                }}
-                style={{
-                  fontSize: 12,
-                  color: C.accent,
-                  cursor: "pointer",
-                  marginTop: 8,
-                  fontWeight: T.fontWeight.medium,
-                }}
-              >
-                Ready to sign in
-              </div>
+            <div onClick={() => { setConfirmEmail(false); setMode("login"); }}
+              style={{ fontSize: 12, color: "rgba(139,92,246,0.8)", cursor: "pointer", marginTop: 8, ...ui }}>
+              Ready to sign in
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={loading}
-            style={accentButton(C, {
-              width: "100%",
-              justifyContent: "center",
-              padding: "13px 24px",
-              fontSize: T.fontSize.lg,
-              fontWeight: T.fontWeight.bold,
-              opacity: loading ? 0.6 : 1,
-              cursor: loading ? "wait" : "pointer",
-            })}
-          >
-            {loading ? "One moment..." : mode === "signup" ? "Create Account & Generate ROM" : "Sign In & Generate ROM"}
-          </button>
-        </form>
+        <button type="submit" disabled={loading} style={{
+          width: "100%", padding: "15px 24px", borderRadius: 12, border: "none",
+          background: "rgba(139,92,246,1)", color: "#fff", cursor: loading ? "wait" : "pointer",
+          fontSize: 15, fontWeight: 600, ...ui, opacity: loading ? 0.6 : 1,
+          transition: "all 0.15s",
+        }}>
+          {loading ? "One moment..." : mode === "signup" ? "Get Your ROM" : "Sign In"}
+        </button>
+      </form>
 
-        {/* Toggle signup/login */}
-        <div
-          style={{
-            textAlign: "center",
-            marginTop: T.space[5],
-            fontSize: T.fontSize.sm,
-            color: C.textMuted,
-            fontFamily: "'DM Sans',sans-serif",
-          }}
-        >
-          {mode === "signup" ? "Already have an account? " : "Don't have an account? "}
-          <span
-            onClick={() => {
-              setMode(mode === "signup" ? "login" : "signup");
-              setError("");
-            }}
-            style={{
-              color: C.accent,
-              cursor: "pointer",
-              fontWeight: T.fontWeight.medium,
-            }}
-          >
-            {mode === "signup" ? "Sign in" : "Create one"}
-          </span>
-        </div>
-
-        {/* Powered by */}
-        <div
-          style={{
-            textAlign: "center",
-            marginTop: T.space[5],
-            fontSize: T.fontSize.xs,
-            color: C.textDim,
-            fontFamily: "'DM Sans',sans-serif",
-            letterSpacing: 0.5,
-          }}
-        >
-          Powered by NOVA
-        </div>
+      <div style={{ textAlign: "center", marginTop: 20, fontSize: 13, color: "rgba(238,237,245,0.35)", ...ui }}>
+        {mode === "signup" ? "Already have an account? " : "New here? "}
+        <span onClick={() => { setMode(mode === "signup" ? "login" : "signup"); setError(""); }}
+          style={{ color: "rgba(139,92,246,0.8)", cursor: "pointer" }}>
+          {mode === "signup" ? "Sign in" : "Create account"}
+        </span>
       </div>
     </div>
   );
 }
 
-/* ── ROM Tool (shown after auth) ── */
+/* ════════════════════════════════════════════════════════════════
+   ROM TOOL — Two inputs, one button. The form disappears; the result stays.
+   ════════════════════════════════════════════════════════════════ */
 function RomTool({ onGenerate }) {
-  const C = useTheme();
   const user = useAuthStore(s => s.user);
   const [buildingType, setBuildingType] = useState("commercial-office");
   const [projectSF, setProjectSF] = useState("");
@@ -275,119 +166,62 @@ function RomTool({ onGenerate }) {
 
   function handleSubmit(e) {
     e.preventDefault();
-    if (!projectSF || parseFloat(projectSF) <= 0) {
-      setError("Square footage must be greater than 0");
-      return;
-    }
+    if (!projectSF || parseFloat(projectSF) <= 0) { setError("Enter square footage"); return; }
     setError("");
     onGenerate(user?.email || "", buildingType, parseFloat(projectSF));
   }
 
-  const labelStyle = {
-    ...sectionLabel(C),
-    display: "block",
-    marginBottom: 6,
-    fontSize: 11,
+  const inputStyle = {
+    width: "100%", boxSizing: "border-box",
+    padding: "14px 16px", fontSize: 15, ...ui,
+    background: "rgba(255,255,255,0.06)",
+    border: "1px solid rgba(255,255,255,0.10)",
+    borderRadius: 12, color: "#EEEDF5",
+    outline: "none", transition: "border 0.15s",
   };
 
   return (
-    <form onSubmit={handleSubmit} style={{ width: "100%", maxWidth: 480 }}>
-      <div style={card(C, { padding: T.space[7] })}>
-        {/* Header */}
-        <div style={{ marginBottom: T.space[6], textAlign: "center" }}>
-          <h2
-            style={{
-              fontSize: T.fontSize["2xl"],
-              fontWeight: T.fontWeight.bold,
-              color: C.text,
-              fontFamily: "'DM Sans',sans-serif",
-              margin: 0,
-              marginBottom: T.space[2],
-            }}
-          >
-            Generate a ROM
-          </h2>
-          <p
-            style={{
-              fontSize: T.fontSize.sm,
-              color: C.textDim,
-              fontFamily: "'DM Sans',sans-serif",
-              margin: 0,
-            }}
-          >
-            Signed in as <span style={{ color: C.textMuted }}>{user?.email}</span>
-          </p>
-        </div>
+    <form onSubmit={handleSubmit} style={{ width: "100%", maxWidth: 420 }}>
+      <div style={{ marginBottom: 16 }}>
+        <select value={buildingType} onChange={e => setBuildingType(e.target.value)}
+          style={{
+            ...inputStyle, cursor: "pointer",
+            appearance: "none", WebkitAppearance: "none",
+            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23666' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")`,
+            backgroundRepeat: "no-repeat", backgroundPosition: "right 16px center", paddingRight: 40,
+          }}>
+          {BUILDING_TYPES.map(bt => <option key={bt.value} value={bt.value}>{bt.label}</option>)}
+        </select>
+      </div>
 
-        {/* Building Type */}
-        <div style={{ marginBottom: T.space[5] }}>
-          <label style={labelStyle}>Building Type</label>
-          <select
-            value={buildingType}
-            onChange={e => setBuildingType(e.target.value)}
-            style={inp(C, {
-              cursor: "pointer",
-              appearance: "none",
-              WebkitAppearance: "none",
-              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")`,
-              backgroundRepeat: "no-repeat",
-              backgroundPosition: "right 12px center",
-              paddingRight: 32,
-            })}
-          >
-            {BUILDING_TYPES.map(bt => (
-              <option key={bt.value} value={bt.value}>
-                {bt.label}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div style={{ marginBottom: 24 }}>
+        <input type="number" placeholder="Square footage" min="1"
+          value={projectSF} onChange={e => setProjectSF(e.target.value)}
+          style={inputStyle}
+          onFocus={e => e.target.style.borderColor = "rgba(139,92,246,0.5)"}
+          onBlur={e => e.target.style.borderColor = "rgba(255,255,255,0.10)"}
+        />
+        {error && <div style={{ color: "#FB7185", fontSize: 12, marginTop: 6, ...ui }}>{error}</div>}
+      </div>
 
-        {/* Project SF */}
-        <div style={{ marginBottom: T.space[5] }}>
-          <label style={labelStyle}>Project Square Footage</label>
-          <input
-            type="number"
-            placeholder="e.g. 50000"
-            min="1"
-            value={projectSF}
-            onChange={e => setProjectSF(e.target.value)}
-            style={inp(C)}
-          />
-          {error && (
-            <div
-              style={{
-                color: C.red || "#FB7185",
-                fontSize: 11,
-                marginTop: 4,
-                fontFamily: "'DM Sans',sans-serif",
-              }}
-            >
-              {error}
-            </div>
-          )}
-        </div>
+      <button type="submit" style={{
+        width: "100%", padding: "15px 24px", borderRadius: 12, border: "none",
+        background: "rgba(139,92,246,1)", color: "#fff", cursor: "pointer",
+        fontSize: 15, fontWeight: 600, ...ui, transition: "all 0.15s",
+      }}>
+        Generate ROM
+      </button>
 
-        {/* Submit */}
-        <button
-          type="submit"
-          style={accentButton(C, {
-            width: "100%",
-            justifyContent: "center",
-            padding: "12px 24px",
-            fontSize: T.fontSize.lg,
-            fontWeight: T.fontWeight.bold,
-            marginTop: T.space[2],
-          })}
-        >
-          Generate ROM
-        </button>
+      <div style={{ textAlign: "center", marginTop: 14, fontSize: 12, color: "rgba(238,237,245,0.25)", ...ui }}>
+        {user?.email}
       </div>
     </form>
   );
 }
 
-/* ── Page Composition ── */
+/* ════════════════════════════════════════════════════════════════
+   PAGE — Hero typography. Negative space. Gray does the work.
+   ════════════════════════════════════════════════════════════════ */
 function RomPageInner() {
   const resultRef = useRef(null);
   const user = useAuthStore(s => s.user);
@@ -406,134 +240,128 @@ function RomPageInner() {
     setBuildingType(buildingType);
     setProjectSF(String(projectSF));
     setLeadCaptured(true);
-
     const result = generateBaselineROM(projectSF, buildingType);
     setRomResult(result);
-
-    setTimeout(() => {
-      resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 100);
+    setTimeout(() => { resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, 100);
   }
 
-  // Show a simple loading state while auth initializes
   if (loading) {
     return (
-      <div
-        style={{
-          minHeight: "100vh",
-          background: "#06060C",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontFamily: "'DM Sans',sans-serif",
-          color: "rgba(238,237,245,0.3)",
-          fontSize: 14,
-        }}
-      >
+      <div style={{
+        position: "fixed", inset: 0, background: "#06060C",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        color: "rgba(238,237,245,0.2)", fontSize: 14, ...ui,
+      }}>
         Loading...
       </div>
     );
   }
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "linear-gradient(180deg, #06060C 0%, #0C0B14 30%, #12101C 70%, #06060C 100%)",
-        fontFamily: "'DM Sans',sans-serif",
-        overflowY: "auto",
-        overflowX: "hidden",
-      }}
-    >
-      {/* ── Header ── */}
-      <header
-        style={{
-          padding: `${T.space[5]}px ${T.space[6]}px`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexDirection: "column",
-          gap: 4,
-          borderBottom: "1px solid rgba(255,255,255,0.06)",
-        }}
-      >
-        <div
-          style={{
-            fontSize: 22,
-            fontWeight: T.fontWeight.bold,
-            color: "#EEEDF5",
-            fontFamily: "'DM Sans',sans-serif",
-            letterSpacing: -0.5,
-          }}
-        >
-          NOVATerra
-        </div>
-        <div
-          style={{
-            fontSize: T.fontSize.xs,
-            color: "rgba(238,237,245,0.4)",
-            fontFamily: "'DM Sans',sans-serif",
-            textTransform: "uppercase",
-            letterSpacing: T.tracking.caps,
-          }}
-        >
-          Free ROM Tool
-        </div>
-      </header>
+    <div style={{
+      position: "fixed", inset: 0,
+      background: "#06060C",
+      overflowY: "auto", overflowX: "hidden",
+      WebkitOverflowScrolling: "touch",
+    }}>
+      {/* Atmospheric gradient — subtle, not competing */}
+      <div style={{
+        position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0,
+        background: "radial-gradient(ellipse 80% 50% at 50% 0%, rgba(139,92,246,0.06) 0%, transparent 60%)",
+      }} />
 
-      {/* ── Content ── */}
-      <main
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          padding: `${T.space[8]}px ${T.space[5]}px`,
-          gap: T.space[7],
-          maxWidth: 900,
-          margin: "0 auto",
-        }}
-      >
-        {/* Gate: signup or ROM tool */}
-        {!user ? <RomSignup /> : <RomTool onGenerate={handleGenerate} />}
-
-        {/* Result + Upsell — shown after ROM is generated */}
-        {romResult && (
-          <div
-            ref={resultRef}
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: T.space[7],
-              width: "100%",
-            }}
-          >
-            <RomResult rom={romResult} email={email} />
-            <RomUpsell />
+      {/* Content layer */}
+      <div style={{ position: "relative", zIndex: 1 }}>
+        {/* ── Header — minimal ── */}
+        <header style={{
+          padding: "20px 32px",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+        }}>
+          <div style={{ ...display(18), fontWeight: 500, color: "rgba(238,237,245,0.5)", letterSpacing: -0.3 }}>
+            NOVATerra
           </div>
-        )}
-      </main>
+          <div style={{
+            fontSize: 10, color: "rgba(238,237,245,0.2)", ...ui,
+            textTransform: "uppercase", letterSpacing: 2,
+          }}>
+            Powered by NOVA
+          </div>
+        </header>
 
-      {/* ── Footer ── */}
-      <footer
-        style={{
-          padding: `${T.space[6]}px ${T.space[5]}px`,
+        {/* ── Hero section ── */}
+        <section style={{
+          display: "flex", flexDirection: "column", alignItems: "center",
+          padding: romResult ? "48px 24px 32px" : "100px 24px 48px",
           textAlign: "center",
-          borderTop: "1px solid rgba(255,255,255,0.04)",
-          marginTop: T.space[8],
-        }}
-      >
-        <div
-          style={{
-            fontSize: T.fontSize.xs,
-            color: "rgba(238,237,245,0.25)",
-            fontFamily: "'DM Sans',sans-serif",
-            letterSpacing: 0.3,
-          }}
-        >
-          BLDG Estimating &middot; Powered by NOVA
-        </div>
-      </footer>
+          transition: "padding 0.5s ease",
+        }}>
+          {/* Display headline — Outfit, light weight, massive */}
+          <h1 style={{
+            ...display(romResult ? 36 : 52),
+            color: "#EEEDF5",
+            margin: 0, marginBottom: romResult ? 8 : 12,
+            transition: "font-size 0.5s ease",
+          }}>
+            {romResult ? "Your Estimate" : "Know your number."}
+          </h1>
+
+          {!romResult && (
+            <p style={{
+              fontSize: 16, fontWeight: 400, ...ui,
+              color: "rgba(238,237,245,0.35)",
+              margin: 0, marginBottom: 48,
+              maxWidth: 380, lineHeight: 1.6,
+            }}>
+              Division-level ROM in seconds.
+              <br />
+              Free. No credit card.
+            </p>
+          )}
+
+          {/* Gate: signup or ROM tool */}
+          {!romResult && (!user ? <RomSignup /> : <RomTool onGenerate={handleGenerate} />)}
+        </section>
+
+        {/* ── Result ── */}
+        {romResult && (
+          <section ref={resultRef} style={{
+            display: "flex", flexDirection: "column", alignItems: "center",
+            padding: "0 24px 64px",
+            maxWidth: 900, margin: "0 auto",
+          }}>
+            <RomResult rom={romResult} email={email} />
+
+            {/* Regenerate / new estimate */}
+            <div style={{ marginTop: 32, display: "flex", gap: 16, alignItems: "center" }}>
+              <button onClick={() => { setRomResult(null); }} style={{
+                padding: "10px 24px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)",
+                background: "transparent", color: "rgba(238,237,245,0.5)",
+                cursor: "pointer", fontSize: 13, fontWeight: 500, ...ui,
+                transition: "all 0.15s",
+              }}>
+                New Estimate
+              </button>
+            </div>
+
+            <div style={{ marginTop: 48 }}>
+              <RomUpsell />
+            </div>
+          </section>
+        )}
+
+        {/* ── Footer ── */}
+        <footer style={{
+          padding: "32px 24px", textAlign: "center",
+          borderTop: "1px solid rgba(255,255,255,0.03)",
+        }}>
+          <div style={{
+            fontSize: 11, color: "rgba(238,237,245,0.15)",
+            ...ui, letterSpacing: 0.5,
+          }}>
+            BLDG Estimating
+          </div>
+        </footer>
+      </div>
     </div>
   );
 }

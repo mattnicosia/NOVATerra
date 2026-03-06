@@ -5,6 +5,8 @@ import { useInboxStore } from "@/stores/inboxStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useOrgStore } from "@/stores/orgStore";
 import { supabase } from "@/utils/supabase";
+import { motion } from "framer-motion";
+import { indicatorTransition } from "@/utils/motion";
 import Ic from "@/components/shared/Ic";
 import NovaTerraLogo from "@/components/shared/NovaTerraLogo";
 import { I } from "@/constants/icons";
@@ -54,8 +56,8 @@ export default function Sidebar() {
     position: "relative",
   });
 
-  // Gradient glow indicator for active links — animated entrance
-  const activeIndicator = {
+  // Active link indicator styles (animated via Framer Motion layoutId)
+  const activeIndicatorStyle = {
     position: "absolute",
     left: 0,
     top: 4,
@@ -63,8 +65,7 @@ export default function Sidebar() {
     width: 3,
     background: P.gradient || `linear-gradient(180deg, ${P.accent}, ${P.accentAlt || P.accent})`,
     borderRadius: "0 3px 3px 0",
-    boxShadow: `0 0 10px ${P.accent}50`,
-    animation: "sidebarIndicator 250ms cubic-bezier(0.16, 1, 0.3, 1) both",
+    boxShadow: `0 0 8px ${P.accent}60, 0 0 20px ${P.accent}30, 0 0 40px ${P.accent}15`,
   };
 
   // Cloud sync status (computed from hooks at top level)
@@ -94,7 +95,10 @@ export default function Sidebar() {
         minWidth: w,
         height: "100vh",
         background: C.neroMode ? `${C.carbonTexture || ""}, ${P.bg}`.replace(/^, /, "") : P.bg,
-        borderRight: `1px solid ${C.neroMode ? "rgba(255,255,255,0.06)" : P.border}`,
+        borderRight: "none",
+        boxShadow: C.neroMode
+          ? "inset -1px 0 0 rgba(255,255,255,0.06), inset -6px 0 16px rgba(0,0,0,0.3), 2px 0 8px rgba(0,0,0,0.15)"
+          : `inset -1px 0 0 ${P.border}, inset -4px 0 12px rgba(0,0,0,0.15), 2px 0 8px rgba(0,0,0,0.1)`,
         display: "flex",
         flexDirection: "column",
         transition: T.transition.slow,
@@ -168,7 +172,13 @@ export default function Sidebar() {
           >
             {({ isActive }) => (
               <>
-                {isActive && <div style={activeIndicator} />}
+                {isActive && (
+                  <motion.div
+                    layoutId="sidebar-indicator"
+                    style={activeIndicatorStyle}
+                    transition={indicatorTransition}
+                  />
+                )}
                 <div
                   style={{
                     position: "relative",

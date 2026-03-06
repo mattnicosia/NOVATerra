@@ -12,6 +12,21 @@ const ThemeContext = createContext({ ...C_DEFAULT, T, isDark: false });
 // browser to reject the ENTIRE box-shadow property.
 // Border values also use "" so they fall through to component-level fallbacks
 // (which should use C.border — an opaque value for clean themes).
+// Build accent glow tokens from hex color — Output VST-inspired luminous halos
+// Called per-palette at theme build time so glow matches the active accent color.
+const buildGlow = accent => {
+  const h = (accent || "#8B5CF6").replace("#", "");
+  const r = parseInt(h.substring(0, 2), 16);
+  const g = parseInt(h.substring(2, 4), 16);
+  const b = parseInt(h.substring(4, 6), 16);
+  return {
+    sm: `0 0 12px rgba(${r},${g},${b},0.20)`,
+    md: `0 0 20px rgba(${r},${g},${b},0.30)`,
+    lg: `0 0 30px rgba(${r},${g},${b},0.40), 0 0 60px rgba(${r},${g},${b},0.15)`,
+    ring: `0 0 0 1px rgba(${r},${g},${b},0.45), 0 0 15px rgba(${r},${g},${b},0.25)`,
+  };
+};
+
 const flatGlass = {
   blur: "none",
   blurLight: "none",
@@ -98,9 +113,10 @@ export function ThemeProvider({ children }) {
 
       // noGlass: replace glass tokens with flat versions (zero blur/specular)
       const isNoGlass = !!colors.noGlass;
+      const accentGlow = buildGlow(colors.accent);
       const resolvedTokens = isNoGlass
-        ? { ...finalTokens, glass: flatGlass, glassLight: flatGlass, neroGlass: undefined }
-        : finalTokens;
+        ? { ...finalTokens, glass: flatGlass, glassLight: flatGlass, neroGlass: undefined, glow: accentGlow }
+        : { ...finalTokens, glow: accentGlow };
 
       return { ...colors, T: resolvedTokens, isDark: true, panel: { ...colors, T: resolvedTokens, isDark: true } };
     }
@@ -122,14 +138,19 @@ export function ThemeProvider({ children }) {
 
       // noGlass: replace glass tokens with flat versions for both panel and main
       const isNoGlass = !!darkBase.noGlass;
-      const panelTokens = isNoGlass ? { ...tokens, glass: flatGlass, neroGlass: undefined } : tokens;
+      const panelGlow = buildGlow(darkBase.accent);
+      const mainGlow = buildGlow(mainColors.accent || darkBase.accent);
+      const panelTokens = isNoGlass
+        ? { ...tokens, glass: flatGlass, neroGlass: undefined, glow: panelGlow }
+        : { ...tokens, glow: panelGlow };
       const panel = { ...darkBase, T: panelTokens, isDark: true };
       const lightT = isNoGlass
-        ? { ...tokens, shadow: tokens.shadowLight || tokens.shadow, glass: flatGlass, glassLight: flatGlass }
+        ? { ...tokens, shadow: tokens.shadowLight || tokens.shadow, glass: flatGlass, glassLight: flatGlass, glow: mainGlow }
         : {
             ...tokens,
             shadow: tokens.shadowLight || tokens.shadow,
             glass: tokens.glassLight || tokens.glass,
+            glow: mainGlow,
           };
       return { ...mainColors, T: lightT, isDark: false, panel };
     }
@@ -147,7 +168,9 @@ export function ThemeProvider({ children }) {
         glassBorder: "rgba(255,255,255,0.16)",
         glassBgDark: "rgba(10,10,22,0.55)",
       };
-      return { ...colors, T: tokens, isDark: true, panel: { ...colors, T: tokens, isDark: true } };
+      const darkGlow = buildGlow(colors.accent);
+      const darkTokens = { ...tokens, glow: darkGlow };
+      return { ...colors, T: darkTokens, isDark: true, panel: { ...colors, T: darkTokens, isDark: true } };
     }
 
     // Light Liquid Glass: Clarity Clean (variant 1) + light glass/shadow tokens
@@ -155,13 +178,16 @@ export function ThemeProvider({ children }) {
     const mainColors = { ...darkBase, ...lightVariant };
 
     // Panel uses dark base
-    const panel = { ...darkBase, T: tokens, isDark: true };
+    const panelGlowLegacy = buildGlow(darkBase.accent);
+    const panel = { ...darkBase, T: { ...tokens, glow: panelGlowLegacy }, isDark: true };
 
     // Swap to light glass/shadow tokens
+    const mainGlowLegacy = buildGlow(mainColors.accent || darkBase.accent);
     const lightT = {
       ...tokens,
       shadow: tokens.shadowLight || tokens.shadow,
       glass: tokens.glassLight || tokens.glass,
+      glow: mainGlowLegacy,
     };
 
     return { ...mainColors, T: lightT, isDark: false, panel };

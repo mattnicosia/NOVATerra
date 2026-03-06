@@ -55,24 +55,161 @@ const markSyncing = () => {
 
 const BLOB_BUCKET = "blobs";
 
+// Minimum valid image/blob size — anything smaller is likely a corrupted
+// error message stored by the CDN (e.g., "URI_TOO_LONG").
+const MIN_VALID_BLOB_BYTES = 200;
+
 /**
- * Upload a blob directly to Supabase Storage via the JS client.
- * Uses the authenticated user's session — no server proxy needed.
- * Returns storagePath on success, null on failure.
+ * Convert a data URL to a Blob. Uses fetch() with a manual fallback for
+ * very large data URLs that might exceed browser fetch limits.
+ */
+const dataUrlToBlob = async (dataUrl) => {
+  try {
+    const resp = await fetch(dataUrl);
+    const blob = await resp.blob();
+    // Sanity: fetch(dataUrl) should return the decoded binary, not an error page
+    if (blob.size < MIN_VALID_BLOB_BYTES && dataUrl.length > 1000) {
+      throw new Error("fetch(dataUrl) returned suspiciously small blob");
+    }
+    return blob;
+  } catch {
+    // Manual fallback: decode base64 directly (slower but no size limits)
+    const commaIdx = dataUrl.indexOf(",");
+    if (commaIdx < 0) return null;
+    const meta = dataUrl.substring(0, commaIdx);
+    const base64 = dataUrl.substring(commaIdx + 1);
+    const mime = meta.match(/:(.*?);/)?.[1] || "application/octet-stream";
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type: mime });
+  }
+};
+
+/**
+ * Compress an image data URL via Canvas to reduce upload size.
+ * Scales images > maxDim px on longest side and converts to JPEG.
+ * Non-image data URLs are returned unchanged.
+ */
+const compressImage = (dataUrl, maxDim = 4096, quality = 0.82) => {
+  if (!dataUrl?.startsWith("data:image/")) return Promise.resolve(dataUrl);
+
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const { width, height } = img;
+
+      // Skip compression for small images (< 2MB base64)
+      if (width <= maxDim && height <= maxDim && dataUrl.length < 2_000_000) {
+        resolve(dataUrl);
+        return;
+      }
+
+      // Scale down if oversized
+      let newW = width, newH = height;
+      if (width > maxDim || height > maxDim) {
+        const scale = maxDim / Math.max(width, height);
+        newW = Math.round(width * scale);
+        newH = Math.round(height * scale);
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = newW;
+      canvas.height = newH;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, newW, newH);
+
+      try {
+        const compressed = canvas.toDataURL("image/jpeg", quality);
+        const saved = dataUrl.length - compressed.length;
+        if (saved > 0) {
+          console.log(
+            `[cloudSync] Compressed image: ${(dataUrl.length / 1024 / 1024).toFixed(1)}MB → ${(compressed.length / 1024 / 1024).toFixed(1)}MB (${newW}x${newH})`,
+          );
+          resolve(compressed);
+        } else {
+          resolve(dataUrl); // compression didn't help
+        }
+      } catch {
+        resolve(dataUrl);
+      }
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+};
+
+/**
+ * Upload a blob to Supabase Storage with compression + verification.
+ *
+ * SAFETY: After upload, verifies stored file size via signed-URL HEAD request.
+ * If the stored file is too small (< MIN_VALID_BLOB_BYTES), the upload is
+ * treated as failed and the corrupted file is cleaned up. This prevents the
+ * silent-corruption bug where Supabase CDN stores a ~40-byte error message
+ * ("URI_TOO_LONG") instead of the actual image, causing permanent data loss
+ * when the stripped estimate is later recovered from cloud.
+ *
+ * Returns storagePath on verified success, null on failure.
  */
 const uploadBlob = async (path, dataUrl) => {
   if (!dataUrl || !supabase) return null;
   try {
-    // Convert data URL to Blob
-    const dataResp = await fetch(dataUrl);
-    const blob = await dataResp.blob();
+    // 1. Compress large images before upload
+    const compressed = await compressImage(dataUrl);
 
-    // Upload directly via Supabase client (handles CORS + auth)
+    // 2. Convert to Blob
+    const blob = await dataUrlToBlob(compressed);
+    if (!blob || blob.size < MIN_VALID_BLOB_BYTES) {
+      console.warn(`[cloudSync] Blob conversion produced invalid result (${blob?.size || 0} bytes)`);
+      return null;
+    }
+
+    const sizeMB = (blob.size / (1024 * 1024)).toFixed(2);
+    console.log(`[cloudSync] Uploading blob "${path}" (${sizeMB} MB)...`);
+
+    // 3. Upload to Supabase Storage
     const { error } = await supabase.storage
       .from(BLOB_BUCKET)
       .upload(path, blob, { upsert: true, contentType: blob.type || "application/octet-stream" });
 
     if (error) throw error;
+
+    // 4. VERIFY: check stored file is real, not a CDN error page
+    let verified = false;
+    try {
+      const { data: signedData } = await supabase.storage.from(BLOB_BUCKET).createSignedUrl(path, 60);
+      if (signedData?.signedUrl) {
+        const headResp = await fetch(signedData.signedUrl, { method: "HEAD" });
+        const contentLength = parseInt(headResp.headers.get("content-length") || "0", 10);
+        if (contentLength >= MIN_VALID_BLOB_BYTES) {
+          verified = true;
+          console.log(`[cloudSync] Upload verified: "${path}" — ${contentLength} bytes stored`);
+        } else {
+          console.warn(
+            `[cloudSync] Upload verification FAILED: "${path}" — stored ${contentLength} bytes, expected ~${blob.size}`,
+          );
+        }
+      }
+    } catch (verifyErr) {
+      console.warn(`[cloudSync] Upload verification check error:`, verifyErr.message);
+      // If verification itself errors, fall back to download check
+      try {
+        const { data: dlCheck } = await supabase.storage.from(BLOB_BUCKET).download(path);
+        if (dlCheck && dlCheck.size >= MIN_VALID_BLOB_BYTES) {
+          verified = true;
+          console.log(`[cloudSync] Upload verified via download: "${path}" — ${dlCheck.size} bytes`);
+        }
+      } catch {
+        // Can't verify at all — treat as failed to be safe
+      }
+    }
+
+    if (!verified) {
+      console.warn(`[cloudSync] Cleaning up corrupted upload: "${path}"`);
+      await supabase.storage.from(BLOB_BUCKET).remove([path]).catch(() => {});
+      return null;
+    }
+
     return path;
   } catch (err) {
     console.warn(`[cloudSync] uploadBlob("${path}") failed:`, err.message);
@@ -83,6 +220,9 @@ const uploadBlob = async (path, dataUrl) => {
 /**
  * Download a blob from Supabase Storage via the JS client.
  * Returns base64 data URL or null.
+ *
+ * SAFETY: Validates downloaded blob size — rejects files smaller than
+ * MIN_VALID_BLOB_BYTES (likely corrupted CDN error pages).
  */
 const downloadBlob = async storagePath => {
   if (!storagePath || !supabase) return null;
@@ -91,6 +231,14 @@ const downloadBlob = async storagePath => {
 
     if (error) throw error;
     if (!data) return null;
+
+    // Reject corrupted blobs (CDN error pages are ~40 bytes)
+    if (data.size < MIN_VALID_BLOB_BYTES) {
+      console.warn(
+        `[cloudSync] Downloaded blob "${storagePath}" is only ${data.size} bytes — likely corrupted, skipping`,
+      );
+      return null;
+    }
 
     // Convert Blob to data URL
     return new Promise(resolve => {
@@ -107,46 +255,69 @@ const downloadBlob = async storagePath => {
 /**
  * Strip base64 blobs from estimate data AND upload them to Supabase Storage.
  * Metadata is preserved with storagePath for later hydration.
+ *
+ * SAFETY: Only strips blob data when uploadBlob returns a verified storagePath.
+ * If upload fails or verification fails, original data is kept inline so the
+ * estimate in the DB still has the drawing data (even if it makes the row larger).
  */
 const stripAndUploadBlobs = async (estimateId, data) => {
   if (!data) return data;
   const userId = getUserId();
   const clean = { ...data };
 
-  // Upload + strip drawing data (only strip if upload succeeds)
+  // Upload + strip drawing data (only strip if upload is VERIFIED)
   if (Array.isArray(clean.drawings)) {
+    let uploaded = 0, kept = 0, skipped = 0;
     clean.drawings = await Promise.all(
       clean.drawings.map(async d => {
         if (!d.data) return d;
+        // Skip re-uploading if blob is already verified in Storage
+        if (d.storagePath && d._cloudBlobStripped) {
+          skipped++;
+          const { data: _blob, ...rest } = d;
+          return rest; // strip inline blob — already in Storage
+        }
         const path = `${userId}/${estimateId}/drawings/${d.id}`;
         const storagePath = await uploadBlob(path, d.data);
         if (storagePath) {
+          uploaded++;
           const { data: _blob, ...rest } = d;
           return { ...rest, storagePath, _cloudBlobStripped: true };
         }
-        // Upload failed — keep original data intact
+        // Upload failed — keep original data inline (safe fallback)
+        kept++;
+        console.warn(`[cloudSync] Drawing "${d.id}" upload failed — keeping ${(d.data.length / 1024).toFixed(0)}KB inline`);
         return d;
       }),
     );
+    if (uploaded + kept + skipped > 0) {
+      console.log(`[cloudSync] Drawings: ${uploaded} uploaded, ${skipped} already in Storage, ${kept} kept inline`);
+    }
   }
 
-  // Upload + strip document data (only strip if upload succeeds)
+  // Upload + strip document data (only strip if upload is VERIFIED)
   if (Array.isArray(clean.documents)) {
     clean.documents = await Promise.all(
       clean.documents.map(async d => {
         if (!d.data) return d;
+        // Skip re-uploading if blob is already verified in Storage
+        if (d.storagePath && d._cloudBlobStripped) {
+          const { data: _blob, ...rest } = d;
+          return rest; // strip inline blob — already in Storage
+        }
         const path = `${userId}/${estimateId}/documents/${d.id}`;
         const storagePath = await uploadBlob(path, d.data);
         if (storagePath) {
           const { data: _blob, ...rest } = d;
           return { ...rest, storagePath, _cloudBlobStripped: true };
         }
+        console.warn(`[cloudSync] Document "${d.id}" upload failed — keeping inline`);
         return d;
       }),
     );
   }
 
-  // Upload + strip spec PDF (only strip if upload succeeds)
+  // Upload + strip spec PDF (only strip if upload is VERIFIED)
   if (clean.specPdf) {
     const path = `${userId}/${estimateId}/specPdf`;
     const storagePath = await uploadBlob(path, clean.specPdf);
@@ -154,6 +325,8 @@ const stripAndUploadBlobs = async (estimateId, data) => {
       clean.specPdf = null;
       clean._specPdfStripped = true;
       clean._specPdfStoragePath = storagePath;
+    } else {
+      console.warn(`[cloudSync] specPdf upload failed — keeping inline`);
     }
   }
 
@@ -163,11 +336,15 @@ const stripAndUploadBlobs = async (estimateId, data) => {
 /**
  * Hydrate stripped blobs — download from Supabase Storage and inject back.
  * Called when loading an estimate that has _cloudBlobStripped markers.
+ *
+ * SAFETY: downloadBlob now rejects files < MIN_VALID_BLOB_BYTES, so
+ * corrupted CDN error files won't be injected as drawing data.
  */
 export const hydrateBlobs = async data => {
   if (!data || !isReady()) return data;
   const hydrated = { ...data };
-  let anyHydrated = false;
+  let hydrated_count = 0;
+  let failed_count = 0;
 
   // Download drawing blobs
   if (Array.isArray(hydrated.drawings)) {
@@ -175,8 +352,14 @@ export const hydrateBlobs = async data => {
       hydrated.drawings.map(async d => {
         if (!d._cloudBlobStripped || !d.storagePath || d.data) return d;
         const dataUrl = await downloadBlob(d.storagePath);
-        if (!dataUrl) return d;
-        anyHydrated = true;
+        if (!dataUrl) {
+          failed_count++;
+          console.warn(`[cloudSync] Failed to hydrate drawing "${d.id}" from "${d.storagePath}" — clearing stripped flag for re-upload`);
+          // Clear stripped flag so next save can re-push if local blob exists
+          const { _cloudBlobStripped: _, storagePath: __, ...clean } = d;
+          return clean;
+        }
+        hydrated_count++;
         return { ...d, data: dataUrl };
       }),
     );
@@ -188,8 +371,12 @@ export const hydrateBlobs = async data => {
       hydrated.documents.map(async d => {
         if (!d._cloudBlobStripped || !d.storagePath || d.data) return d;
         const dataUrl = await downloadBlob(d.storagePath);
-        if (!dataUrl) return d;
-        anyHydrated = true;
+        if (!dataUrl) {
+          failed_count++;
+          const { _cloudBlobStripped: _, storagePath: __, ...clean } = d;
+          return clean;
+        }
+        hydrated_count++;
         return { ...d, data: dataUrl };
       }),
     );
@@ -200,8 +387,17 @@ export const hydrateBlobs = async data => {
     const dataUrl = await downloadBlob(hydrated._specPdfStoragePath);
     if (dataUrl) {
       hydrated.specPdf = dataUrl;
-      anyHydrated = true;
+      hydrated_count++;
+    } else {
+      failed_count++;
+      // Clear stripped flag so specPdf can be re-pushed if available locally
+      delete hydrated._specPdfStripped;
+      delete hydrated._specPdfStoragePath;
     }
+  }
+
+  if (hydrated_count + failed_count > 0) {
+    console.log(`[cloudSync] Blob hydration: ${hydrated_count} restored, ${failed_count} failed`);
   }
 
   return hydrated;

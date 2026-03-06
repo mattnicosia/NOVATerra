@@ -18,6 +18,9 @@ import { useAuthStore } from "@/stores/authStore";
 import { useOrgStore } from "@/stores/orgStore";
 import * as cloudSync from "@/utils/cloudSync";
 import { idbKey } from "@/utils/idbKey";
+import { TEMPLATE_MAP, resolveTemplateItems } from "@/constants/seedTemplates";
+import { autoDirective } from "@/utils/directives";
+import { autoTradeFromCode } from "@/constants/tradeGroupings";
 
 export const useEstimatesStore = create((set, get) => ({
   estimatesIndex: [],
@@ -28,28 +31,67 @@ export const useEstimatesStore = create((set, get) => ({
   setActiveEstimateId: v => set({ activeEstimateId: v }),
   clearDraft: () => set({ draftId: null }),
 
-  createEstimate: async (companyProfileId, estimateNumber) => {
+  createEstimate: async (companyProfileId, estimateNumber, templateId) => {
     const id = uid();
     const settings = useUiStore.getState().appSettings;
+
+    // Resolve template (if provided)
+    const template = templateId ? TEMPLATE_MAP.get(templateId) : null;
+    const templateProject = template?.project || {};
+    const templateMarkup = template?.markup || null;
+
+    // Build pre-populated items from template
+    let templateItems = [];
+    if (template) {
+      const presets = resolveTemplateItems(template);
+      templateItems = presets.map(p => ({
+        id: uid(),
+        code: p.code || "",
+        description: p.name || "",
+        division: "",
+        quantity: p.quantity ?? 0,
+        unit: p.unit || "EA",
+        material: p.material || 0,
+        labor: p.labor || 0,
+        equipment: p.equipment || 0,
+        subcontractor: p.subcontractor || 0,
+        trade: p.trade || autoTradeFromCode(p.code) || "",
+        directive: autoDirective(p.material || 0, p.labor || 0, p.equipment || 0, p.subcontractor || 0),
+        notes: "",
+        drawingRef: "",
+        variables: [],
+        formula: "",
+        specSection: "",
+        specText: "",
+        specVariantLabel: "",
+        allowanceOf: "",
+        allowanceSubMarkup: "",
+        locationLocked: false,
+        subItems: [],
+        bidContext: "base",
+      }));
+    }
+
+    const estimateName = template ? template.name : "New Estimate";
 
     // Add to index immediately so the estimate is visible on the dashboard
     // even if the user navigates away before auto-save fires.
     const { ownerId, orgId } = get()._getOwnership();
     const newEntry = {
       id,
-      name: "New Estimate",
+      name: estimateName,
       estimateNumber: estimateNumber || "",
       client: "",
       status: "Bidding",
       bidDue: "",
       grandTotal: 0,
-      elementCount: 0,
+      elementCount: templateItems.length,
       lastModified: nowStr(),
       estimator: "",
       jobType: "",
       companyProfileId: companyProfileId || "",
-      buildingType: "",
-      workType: "",
+      buildingType: templateProject.buildingType || "",
+      workType: templateProject.workType || "",
       architect: "",
       projectSF: 0,
       zipCode: "",
@@ -57,16 +99,22 @@ export const useEstimatesStore = create((set, get) => ({
       outcomeMetadata: {},
       ownerId,
       orgId,
+      templateId: templateId || null,
     };
     set(s => ({
       activeEstimateId: id,
       estimatesIndex: [...s.estimatesIndex, newEntry],
     }));
 
-    // Save blank estimate data to IndexedDB so loadEstimate can hydrate stores
+    // Build markup from template or use defaults
+    const finalMarkup = templateMarkup
+      ? { ...templateMarkup }
+      : { overhead: 10, profit: 10, contingency: 5, generalConditions: 0, insurance: 2, tax: 0, bond: 0 };
+
+    // Save estimate data to IndexedDB so loadEstimate can hydrate stores
     const data = {
       project: {
-        name: "New Estimate",
+        name: estimateName,
         client: "",
         architect: "",
         engineer: "",
@@ -82,11 +130,11 @@ export const useEstimatesStore = create((set, get) => ({
         rfiDueTime: "",
         otherDueDate: "",
         otherDueLabel: "",
-        description: "",
+        description: template ? `Created from "${template.name}" template` : "",
         projectSF: "",
         jobType: "",
-        buildingType: "",
-        workType: "",
+        buildingType: templateProject.buildingType || "",
+        workType: templateProject.workType || "",
         bidType: "",
         bidDelivery: "",
         bidRequirements: {},
@@ -101,8 +149,8 @@ export const useEstimatesStore = create((set, get) => ({
         orgId,
       },
       codeSystem: "csi-commercial",
-      items: [],
-      markup: { overhead: 10, profit: 10, contingency: 5, generalConditions: 0, insurance: 2, tax: 0, bond: 0 },
+      items: templateItems,
+      markup: finalMarkup,
       markupOrder: [
         { key: "overhead", label: "Overhead", compound: false },
         { key: "profit", label: "Profit", compound: false },
@@ -144,7 +192,14 @@ export const useEstimatesStore = create((set, get) => ({
 
     // Persist index immediately so the estimate survives a page reload
     const idx = get().estimatesIndex;
-    storage.set(idbKey("bldg-index"), JSON.stringify(idx)).catch(() => {});
+    const idxJson = JSON.stringify(idx);
+    storage.set(idbKey("bldg-index"), idxJson).catch(() => {});
+
+    // Mirror index to localStorage — resilient backup
+    try {
+      const uid = useAuthStore.getState().user?.id;
+      if (uid) localStorage.setItem(`bldg-index-mirror-${uid}`, idxJson);
+    } catch { /* quota exceeded */ }
 
     // Cloud sync estimate data (non-blocking)
     cloudSync.pushEstimate(id, data).catch(() => {});
@@ -268,8 +323,15 @@ export const useEstimatesStore = create((set, get) => ({
       activeEstimateId: s.activeEstimateId === id ? null : s.activeEstimateId,
     }));
     const idx = get().estimatesIndex; // read after atomic set
-    await storage.set(idbKey("bldg-index"), JSON.stringify(idx));
+    const idxJson = JSON.stringify(idx);
+    await storage.set(idbKey("bldg-index"), idxJson);
     await storage.delete(idbKey(`bldg-est-${id}`));
+
+    // Mirror index to localStorage — resilient backup that survives IDB eviction
+    try {
+      const uid = useAuthStore.getState().user?.id;
+      if (uid) localStorage.setItem(`bldg-index-mirror-${uid}`, idxJson);
+    } catch { /* quota exceeded */ }
 
     // Track deleted ID locally so cloud sync doesn't pull it back.
     // Store in BOTH IndexedDB and localStorage for resilience.
@@ -310,7 +372,14 @@ export const useEstimatesStore = create((set, get) => ({
     const newEntry = { ...src, id: newId, name: data.project.name, lastModified: nowStr(), ownerId, orgId };
     set(s => ({ estimatesIndex: [...s.estimatesIndex, newEntry] }));
     const idx = get().estimatesIndex; // read after atomic set
-    await storage.set(idbKey("bldg-index"), JSON.stringify(idx));
+    const idxJson = JSON.stringify(idx);
+    await storage.set(idbKey("bldg-index"), idxJson);
+
+    // Mirror index to localStorage — resilient backup
+    try {
+      const uid = useAuthStore.getState().user?.id;
+      if (uid) localStorage.setItem(`bldg-index-mirror-${uid}`, idxJson);
+    } catch { /* quota exceeded */ }
 
     // Cloud sync (non-blocking)
     cloudSync.pushEstimate(newId, data).catch(() => {});
@@ -360,8 +429,15 @@ export const useEstimatesStore = create((set, get) => ({
     };
     const idx = [...get().estimatesIndex, est];
     set({ estimatesIndex: idx, activeEstimateId: id });
-    await storage.set(idbKey("bldg-index"), JSON.stringify(idx));
+    const idxJson = JSON.stringify(idx);
+    await storage.set(idbKey("bldg-index"), idxJson);
     await storage.set(idbKey(`bldg-est-${id}`), JSON.stringify(data));
+
+    // Mirror index to localStorage — resilient backup
+    try {
+      const uid = useAuthStore.getState().user?.id;
+      if (uid) localStorage.setItem(`bldg-index-mirror-${uid}`, idxJson);
+    } catch { /* quota exceeded */ }
 
     // Cloud sync (non-blocking)
     cloudSync.pushEstimate(id, data).catch(() => {});

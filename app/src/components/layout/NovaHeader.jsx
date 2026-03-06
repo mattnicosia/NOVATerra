@@ -567,13 +567,13 @@ export default function NovaHeader({ onDraftPanelToggle }) {
       )
     : dk
       ? `linear-gradient(180deg, rgba(15,15,30,0.40) 0%, rgba(15,15,30,0.20) 100%)`
-      : `linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.06) 100%)`;
+      : `linear-gradient(180deg, ${C.glassBg || 'rgba(255,255,255,0.32)'} 0%, ${C.glassBg || 'rgba(255,255,255,0.32)'} 100%)`;
   const hShadow = isNero
     ? ["inset 0 -1px 0 rgba(255,255,255,0.06)", "0 1px 12px rgba(0,0,0,0.40)"].join(", ")
-    : [T.glass.specularLg, T.glass.edge, dk ? "0 1px 12px rgba(0,0,0,0.15)" : "0 1px 8px rgba(20,30,80,0.03)"].join(
-        ", ",
-      );
-  const hBorderB = isNero ? "rgba(255,255,255,0.06)" : T.glass.borderLight;
+    : dk
+      ? [T.glass.specularLg, T.glass.edge, "0 1px 12px rgba(0,0,0,0.15)"].join(", ")
+      : "inset 0 -1px 0 rgba(255,255,255,0.5), 0 1px 4px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.03)";
+  const hBorderB = isNero ? "rgba(255,255,255,0.06)" : (dk ? T.glass.borderLight : (C.glassBorder || C.border || 'rgba(0,0,0,0.08)'));
 
   // Overlays — white-alpha on dark, black-alpha on light
   const ov = (darkA, lightA) => (dk ? `rgba(255,255,255,${darkA})` : `rgba(0,0,0,${lightA})`);

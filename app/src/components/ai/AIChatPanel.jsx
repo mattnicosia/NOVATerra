@@ -8,6 +8,8 @@ import { useSpecsStore } from '@/stores/specsStore';
 import { useDrawingsStore } from '@/stores/drawingsStore';
 import { callAnthropic, buildProjectContext } from '@/utils/ai';
 import { NOVA_TOOLS, executeNovaTool } from '@/utils/novaTools';
+import { motion } from 'framer-motion';
+import { slidePanelVariants, slidePanelTransition } from '@/utils/motion';
 import Ic from '@/components/shared/Ic';
 import { I } from '@/constants/icons';
 import NovaOrb from '@/components/dashboard/NovaOrb';
@@ -217,13 +219,21 @@ export default function AIChatPanel() {
   const panelWidth = 420;
 
   return (
-    <div className="no-print" style={{
-      position: "fixed", top: 0, right: 0, bottom: 0, width: panelWidth,
-      background: P.bg, borderLeft: `1px solid ${P.border}`,
-      display: "flex", flexDirection: "column", zIndex: 1000,
-      boxShadow: `-4px 0 24px rgba(0,0,0,0.3)`,
-      fontFamily: "'DM Sans', -apple-system, sans-serif",
-    }}>
+    <motion.div
+      className="no-print"
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      variants={slidePanelVariants}
+      transition={slidePanelTransition}
+      style={{
+        position: "fixed", top: 0, right: 0, bottom: 0, width: panelWidth,
+        background: P.bg, borderLeft: `1px solid ${P.border}`,
+        display: "flex", flexDirection: "column", zIndex: 1000,
+        boxShadow: `-4px 0 24px rgba(0,0,0,0.3)`,
+        fontFamily: "'DM Sans', -apple-system, sans-serif",
+      }}
+    >
       {/* Header — hero portal */}
       <div style={{
         borderBottom: `1px solid ${P.border}`,
@@ -385,7 +395,7 @@ export default function AIChatPanel() {
           50% { opacity: 1; transform: scale(1.2); }
         }
       `}</style>
-    </div>
+    </motion.div>
   );
 }
 
