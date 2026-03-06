@@ -317,6 +317,18 @@ export function usePersistenceLoad() {
         } catch (err) {
           console.warn("[usePersistence] Failed to parse subdivision config:", err);
         }
+      } else {
+        // Cloud pull fallback — same pattern as masterData
+        try {
+          const cloudSubConfig = await cloudSync.pullData("subdivisionConfig");
+          if (cloudSubConfig) {
+            if (cloudSubConfig.engineConfig) useSubdivisionStore.getState().updateEngineConfig(cloudSubConfig.engineConfig);
+            if (cloudSubConfig.calibrationFactors) useSubdivisionStore.getState().setCalibrationFactors(cloudSubConfig.calibrationFactors);
+            await storage.set(idbKey("bldg-subdivision-config"), JSON.stringify(cloudSubConfig));
+          }
+        } catch (err) {
+          console.warn("[usePersistence] Cloud pull for subdivision config failed:", err);
+        }
       }
 
       // Load proposal templates
@@ -923,10 +935,13 @@ export async function saveBidPackagePresets() {
 // Save subdivision engine config (global — persists across estimates)
 export async function saveSubdivisionConfig() {
   const { engineConfig, calibrationFactors } = useSubdivisionStore.getState();
-  const ok = await storage.set(idbKey("bldg-subdivision-config"), JSON.stringify({ engineConfig, calibrationFactors }));
+  const data = { engineConfig, calibrationFactors };
+  const ok = await storage.set(idbKey("bldg-subdivision-config"), JSON.stringify(data));
   if (!ok) {
     console.error("[usePersistence] Failed to save subdivision config");
   }
+  // Cloud sync (non-blocking, same pattern as saveMasterData)
+  cloudSync.pushData("subdivisionConfig", data).catch(() => {});
 }
 
 // Save auto-response trigger config

@@ -55,12 +55,17 @@ export default function RomResult({ rom, email }) {
   const [generatingSubdivisions, setGeneratingSubdivisions] = useState(false);
   const [genProgress, setGenProgress] = useState({ current: 0, total: 0, divCode: '' });
 
+  const [editingSub, setEditingSub] = useState(null);
+  const [editingValue, setEditingValue] = useState("");
+
   // Subdivision store
   const subdivisionData = useSubdivisionStore(s => s.subdivisionData);
   const setSubdivisionData = useSubdivisionStore(s => s.setSubdivisionData);
   const userOverrides = useSubdivisionStore(s => s.userOverrides);
+  const setUserOverride = useSubdivisionStore(s => s.setUserOverride);
   const llmRefinements = useSubdivisionStore(s => s.llmRefinements);
   const setLlmRefinements = useSubdivisionStore(s => s.setLlmRefinements);
+  const validateLlmRefinement = useSubdivisionStore(s => s.validateLlmRefinement);
   const engineConfig = useSubdivisionStore(s => s.engineConfig);
   const calibrationFactors = useSubdivisionStore(s => s.calibrationFactors);
 
@@ -348,22 +353,86 @@ export default function RomResult({ rom, email }) {
                       {fmt(div.total.mid)}
                     </td>
                   </tr>
-                  {expandedDivs.has(divNum) && subdivisionData[divNum] && subdivisionData[divNum].map((sub, si) => (
+                  {expandedDivs.has(divNum) && subdivisionData[divNum] && subdivisionData[divNum].map((sub, si) => {
+                    const isLlm = sub.source === "llm";
+                    const isUser = sub.confidence === "user" || !!userOverrides[sub.code];
+                    const llmData = llmRefinements[sub.code];
+                    const isValidated = llmData?.validated;
+                    const subSource = isUser ? "User" : isLlm ? (isValidated ? "LLM \u2713" : "LLM") : "Baseline";
+                    const sourceColor = isUser ? "#22C55E" : isLlm ? "#8B5CF6" : "#6B7280";
+                    const sourceBg = isUser ? "rgba(34,197,94,0.12)" : isLlm ? "rgba(139,92,246,0.12)" : "rgba(107,114,128,0.12)";
+                    const isEditingThis = editingSub === `${divNum}-${sub.code}`;
+                    const divMidPerSF = div.perSF?.mid || 0;
+
+                    return (
                     <tr key={`${divNum}-${sub.code}`} style={{
-                      background: C.isDark ? "rgba(139,92,246,0.04)" : "rgba(139,92,246,0.02)",
+                      background: isEditingThis ? (C.isDark ? "rgba(139,92,246,0.08)" : "rgba(139,92,246,0.04)") : (C.isDark ? "rgba(139,92,246,0.04)" : "rgba(139,92,246,0.02)"),
                     }}>
                       <td style={{ ...cellBase, paddingLeft: 36, color: C.textDim, fontSize: T.fontSize.xs }}>
                         <ConfidenceDot confidence={sub.confidence} C={C} />
                         {sub.code}
+                        {/* Validate checkmark for LLM rows */}
+                        {isLlm && !isUser && (
+                          <button
+                            onClick={() => validateLlmRefinement(sub.code)}
+                            title={isValidated ? "Validated" : "Validate this estimate"}
+                            style={{
+                              marginLeft: 4, padding: 0, border: "none", background: "none",
+                              cursor: isValidated ? "default" : "pointer", fontSize: 11,
+                              color: isValidated ? "#22C55E" : C.textDim,
+                              opacity: isValidated ? 1 : 0.6,
+                            }}
+                          >
+                            {isValidated ? "\u2714" : "\u2610"}
+                          </button>
+                        )}
                       </td>
                       <td style={{ ...cellBase, color: C.textMuted, fontSize: T.fontSize.xs }}>
-                        {sub.label}
+                        <span style={{ marginRight: 6 }}>{sub.label}</span>
+                        <span style={{ fontSize: 8, fontWeight: 600, padding: "1px 5px", borderRadius: 3, background: sourceBg, color: sourceColor, verticalAlign: "middle" }}>
+                          {subSource}
+                        </span>
                       </td>
                       <td style={{ ...cellBase, ...rightAlign, color: C.textDim, fontSize: T.fontSize.xs, fontFeatureSettings: "'tnum'" }}>
                         {sub.perSF ? fmtSF(sub.perSF.low) : "\u2014"}
                       </td>
-                      <td style={{ ...cellBase, ...rightAlign, color: C.textMuted, fontSize: T.fontSize.xs, fontFeatureSettings: "'tnum'" }}>
-                        {sub.perSF ? fmtSF(sub.perSF.mid) : "\u2014"}
+                      <td
+                        style={{ ...cellBase, ...rightAlign, color: C.textMuted, fontSize: T.fontSize.xs, fontFeatureSettings: "'tnum'", cursor: "pointer" }}
+                        onClick={() => {
+                          if (!isEditingThis && sub.perSF) {
+                            setEditingSub(`${divNum}-${sub.code}`);
+                            setEditingValue(sub.perSF.mid.toFixed(2));
+                          }
+                        }}
+                      >
+                        {isEditingThis ? (
+                          <input
+                            type="number"
+                            autoFocus
+                            value={editingValue}
+                            onChange={e => setEditingValue(e.target.value)}
+                            onBlur={() => {
+                              const val = parseFloat(editingValue);
+                              if (!isNaN(val) && val > 0 && divMidPerSF > 0) {
+                                setUserOverride(sub.code, { pctOfDiv: val / divMidPerSF });
+                              }
+                              setEditingSub(null); setEditingValue("");
+                            }}
+                            onKeyDown={e => {
+                              if (e.key === "Enter") e.target.blur();
+                              if (e.key === "Escape") { setEditingSub(null); setEditingValue(""); }
+                            }}
+                            style={{
+                              width: 60, padding: "2px 4px", fontSize: 11, fontFamily: "'DM Sans',sans-serif",
+                              background: C.bg1, color: C.text, border: `1px solid ${C.accent}`, borderRadius: 4,
+                              textAlign: "right", outline: "none",
+                            }}
+                          />
+                        ) : (
+                          <span style={{ borderBottom: sub.perSF ? `1px dashed ${C.isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.12)"}` : "none" }}>
+                            {sub.perSF ? fmtSF(sub.perSF.mid) : "\u2014"}
+                          </span>
+                        )}
                       </td>
                       <td style={{ ...cellBase, ...rightAlign, color: C.textDim, fontSize: T.fontSize.xs, fontFeatureSettings: "'tnum'" }}>
                         {sub.perSF ? fmtSF(sub.perSF.high) : "\u2014"}
@@ -372,7 +441,8 @@ export default function RomResult({ rom, email }) {
                         {sub.total ? fmt(sub.total.mid) : "\u2014"}
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </React.Fragment>
               ))}
               {/* Totals row */}
