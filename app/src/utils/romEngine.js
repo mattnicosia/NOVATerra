@@ -5,6 +5,9 @@ import { SEED_ELEMENTS } from '@/constants/seedAssemblies';
 import { callAnthropic, buildProjectContext } from '@/utils/ai';
 import { searchSimilar } from '@/utils/vectorSearch';
 import { getWorkTypeMultiplier } from '@/constants/constructionTypes';
+import { SUBDIVISION_BENCHMARKS, DEFAULT_SUBDIVISIONS } from '@/constants/subdivisionBenchmarks';
+import { computeSubdivisionBreakdown } from '@/utils/confidenceEngine';
+import { generateAllSubdivisions } from '@/utils/subdivisionAI';
 
 // ─── Division Benchmarks ($/SF by job type) ───────────────────────────
 // Low = budget/value, Mid = typical, High = premium/complex
@@ -1018,4 +1021,81 @@ export function computeCalibration(romPrediction, actuals) {
     }
   });
   return calibration;
+}
+
+// ─── Subdivision-Level ROM Generation ────────────────────────────────
+// Takes a baseline ROM and enriches it with subdivision-level detail
+// using the confidence-weighted engine (baseline benchmarks + user + LLM).
+export async function generateSubdivisionROM({
+  baselineRom,
+  buildingType,
+  userOverrides,
+  llmRefinements,
+  calibrationFactors,
+  engineConfig,
+  generateLlm = false,
+  seedElements,
+  signal,
+  onProgress,
+}) {
+  if (!baselineRom?.divisions) return baselineRom;
+
+  const bt = buildingType || baselineRom.buildingType || baselineRom.jobType || 'commercial-office';
+  const benchmarkSubs = SUBDIVISION_BENCHMARKS[bt] || {};
+  const subdivisions = {};
+
+  // Step 1: If LLM generation requested, generate subdivisions via AI
+  let llmData = llmRefinements || {};
+  if (generateLlm) {
+    try {
+      const generated = await generateAllSubdivisions({
+        romResult: baselineRom,
+        buildingType: bt,
+        seedElements: seedElements || SEED_ELEMENTS,
+        signal,
+        onProgress,
+      });
+      // Merge generated data into llmData
+      Object.entries(generated).forEach(([divCode, subs]) => {
+        subs.forEach(sub => {
+          llmData[sub.code] = {
+            pctOfDiv: sub.pctOfDiv,
+            reasoning: `LLM-generated for ${bt}`,
+            generatedAt: sub.generatedAt,
+            validated: false,
+          };
+        });
+      });
+    } catch (err) {
+      if (err.name === 'AbortError') throw err;
+      console.warn('[romEngine] LLM subdivision generation failed:', err.message);
+    }
+  }
+
+  // Step 2: For each division, compute subdivision breakdowns
+  Object.entries(baselineRom.divisions).forEach(([divCode, divData]) => {
+    const baselineSubs = benchmarkSubs[divCode] || DEFAULT_SUBDIVISIONS[divCode];
+    if (!baselineSubs || !baselineSubs.length) return;
+
+    const result = computeSubdivisionBreakdown({
+      divisionCode: divCode,
+      divisionData: divData,
+      baselineSubdivisions: baselineSubs,
+      userOverrides: userOverrides || {},
+      llmRefinements: llmData,
+      calibrationFactors: calibrationFactors || {},
+      engineConfig,
+    });
+
+    if (result.length > 0) {
+      subdivisions[divCode] = result;
+    }
+  });
+
+  return {
+    ...baselineRom,
+    subdivisions,
+    subdivisionGenerated: true,
+    subdivisionBuildingType: bt,
+  };
 }

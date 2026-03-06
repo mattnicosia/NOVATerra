@@ -1,15 +1,14 @@
-import { useState } from 'react';
-import { useTheme } from '@/hooks/useTheme';
-import Modal from '@/components/shared/Modal';
-import AttachmentPreview from './AttachmentPreview';
-import Ic from '@/components/shared/Ic';
-import { I } from '@/constants/icons';
-import { bt } from '@/utils/styles';
-import { getProviderInfo } from '@/utils/cloudProviders';
+import { useState, useCallback } from "react";
+import { useTheme } from "@/hooks/useTheme";
+import Modal from "@/components/shared/Modal";
+import AttachmentPreview from "./AttachmentPreview";
+import Ic from "@/components/shared/Ic";
+import { I } from "@/constants/icons";
+import { bt } from "@/utils/styles";
+import { getProviderInfo } from "@/utils/cloudProviders";
+import { supabase } from "@/utils/supabase";
 
-const API_BASE = import.meta.env.DEV
-  ? "https://app-nova-42373ca7.vercel.app"
-  : "";
+const API_BASE = import.meta.env.DEV ? "https://app-nova-42373ca7.vercel.app" : "";
 
 function isPreviewable(att) {
   const isPdf = att.contentType === "application/pdf" || att.filename?.toLowerCase().endsWith(".pdf");
@@ -22,12 +21,19 @@ function Field({ label, value, C }) {
   const T = C.T;
   return (
     <div style={{ marginBottom: T.space[3] }}>
-      <div style={{ fontSize: T.fontSize.xs, color: C.textDim, fontWeight: T.fontWeight.semibold, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 }}>
+      <div
+        style={{
+          fontSize: T.fontSize.xs,
+          color: C.textDim,
+          fontWeight: T.fontWeight.semibold,
+          textTransform: "uppercase",
+          letterSpacing: "0.05em",
+          marginBottom: 2,
+        }}
+      >
         {label}
       </div>
-      <div style={{ fontSize: T.fontSize.sm, color: C.text }}>
-        {value}
-      </div>
+      <div style={{ fontSize: T.fontSize.sm, color: C.text }}>{value}</div>
     </div>
   );
 }
@@ -37,7 +43,16 @@ function ContactBlock({ label, contact, C }) {
   const T = C.T;
   return (
     <div style={{ marginBottom: T.space[3] }}>
-      <div style={{ fontSize: T.fontSize.xs, color: C.textDim, fontWeight: T.fontWeight.semibold, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 }}>
+      <div
+        style={{
+          fontSize: T.fontSize.xs,
+          color: C.textDim,
+          fontWeight: T.fontWeight.semibold,
+          textTransform: "uppercase",
+          letterSpacing: "0.05em",
+          marginBottom: 2,
+        }}
+      >
         {label}
       </div>
       <div style={{ fontSize: T.fontSize.sm, color: C.text }}>
@@ -58,18 +73,62 @@ export default function RfpDetailModal({ rfp, onClose, onImport }) {
   const planLinks = pd.planLinks || [];
   const br = pd.bidRequirements || {};
   const [previewAttachment, setPreviewAttachment] = useState(null);
+  const [downloading, setDownloading] = useState(null); // attachment id being downloaded
 
   const bidReqs = Object.entries(br)
     .filter(([k, v]) => v && k !== "other")
     .map(([k]) => k.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase()))
     .join(", ");
 
+  // Download an attachment via the API and trigger browser save
+  const handleDownload = useCallback(
+    async att => {
+      if (downloading) return;
+      setDownloading(att.id);
+      try {
+        const session = supabase ? (await supabase.auth.getSession()).data.session : null;
+        const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+        const url = `${API_BASE}/api/attachment?path=${encodeURIComponent(att.storagePath)}`;
+        const resp = await fetch(url, { headers });
+        if (!resp.ok) throw new Error(`Download failed (${resp.status})`);
+        const blob = await resp.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = att.filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+      } catch (err) {
+        console.error("Attachment download error:", err);
+      } finally {
+        setDownloading(null);
+      }
+    },
+    [downloading],
+  );
+
   return (
     <Modal onClose={onClose} wide>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: T.space[5] }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          marginBottom: T.space[5],
+        }}
+      >
         <div>
-          <div style={{ fontSize: T.fontSize.lg, fontWeight: T.fontWeight.bold, color: C.text, marginBottom: T.space[1] }}>
+          <div
+            style={{
+              fontSize: T.fontSize.lg,
+              fontWeight: T.fontWeight.bold,
+              color: C.text,
+              marginBottom: T.space[1],
+            }}
+          >
             {pd.projectName || rfp.subject || "RFP Details"}
           </div>
           <div style={{ fontSize: T.fontSize.sm, color: C.textMuted }}>
@@ -85,17 +144,31 @@ export default function RfpDetailModal({ rfp, onClose, onImport }) {
       <div style={{ display: "flex", gap: T.space[5] }}>
         {/* Left: Parsed data */}
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.semibold, color: C.accent, marginBottom: T.space[3], textTransform: "uppercase", letterSpacing: "0.05em" }}>
+          <div
+            style={{
+              fontSize: T.fontSize.sm,
+              fontWeight: T.fontWeight.semibold,
+              color: C.accent,
+              marginBottom: T.space[3],
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+            }}
+          >
             Extracted Information
           </div>
 
           {pd.confidence != null && (
-            <div style={{
-              padding: "6px 10px", borderRadius: T.radius.sm, marginBottom: T.space[4],
-              background: pd.confidence > 0.7 ? `${C.green}18` : pd.confidence > 0.4 ? "#f59e0b18" : `${C.red}18`,
-              border: `1px solid ${pd.confidence > 0.7 ? C.green : pd.confidence > 0.4 ? "#f59e0b" : C.red}30`,
-              fontSize: T.fontSize.xs, color: pd.confidence > 0.7 ? C.green : pd.confidence > 0.4 ? "#f59e0b" : C.red,
-            }}>
+            <div
+              style={{
+                padding: "6px 10px",
+                borderRadius: T.radius.sm,
+                marginBottom: T.space[4],
+                background: pd.confidence > 0.7 ? `${C.green}18` : pd.confidence > 0.4 ? "#f59e0b18" : `${C.red}18`,
+                border: `1px solid ${pd.confidence > 0.7 ? C.green : pd.confidence > 0.4 ? "#f59e0b" : C.red}30`,
+                fontSize: T.fontSize.xs,
+                color: pd.confidence > 0.7 ? C.green : pd.confidence > 0.4 ? "#f59e0b" : C.red,
+              }}
+            >
               AI Confidence: {Math.round(pd.confidence * 100)}%
             </div>
           )}
@@ -108,7 +181,11 @@ export default function RfpDetailModal({ rfp, onClose, onImport }) {
           <Field label="Description" value={pd.description} C={C} />
 
           <div style={{ display: "flex", gap: T.space[4] }}>
-            <Field label="Bid Due" value={pd.bidDue ? `${pd.bidDue}${pd.bidDueTime ? ` at ${pd.bidDueTime}` : ""}` : null} C={C} />
+            <Field
+              label="Bid Due"
+              value={pd.bidDue ? `${pd.bidDue}${pd.bidDueTime ? ` at ${pd.bidDueTime}` : ""}` : null}
+              C={C}
+            />
             <Field label="Walkthrough" value={pd.walkthroughDate} C={C} />
             <Field label="RFI Due" value={pd.rfiDueDate} C={C} />
           </div>
@@ -123,24 +200,45 @@ export default function RfpDetailModal({ rfp, onClose, onImport }) {
 
           {pd.scopeNotes && pd.scopeNotes.length > 0 && (
             <div style={{ marginBottom: T.space[3] }}>
-              <div style={{ fontSize: T.fontSize.xs, color: C.textDim, fontWeight: T.fontWeight.semibold, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 }}>
+              <div
+                style={{
+                  fontSize: T.fontSize.xs,
+                  color: C.textDim,
+                  fontWeight: T.fontWeight.semibold,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  marginBottom: 2,
+                }}
+              >
                 Scope Notes
               </div>
               <ul style={{ margin: 0, paddingLeft: 16, fontSize: T.fontSize.sm, color: C.text }}>
-                {pd.scopeNotes.map((n, i) => <li key={i} style={{ marginBottom: 2 }}>{n}</li>)}
+                {pd.scopeNotes.map((n, i) => (
+                  <li key={i} style={{ marginBottom: 2 }}>
+                    {n}
+                  </li>
+                ))}
               </ul>
             </div>
           )}
         </div>
 
-        {/* Right: Attachments + email or preview */}
-        <div style={{ flex: 1 }}>
+        {/* Right: Attachments + Downloads + Plan Links + Email Body + Preview */}
+        <div style={{ flex: 1, maxHeight: "72vh", overflowY: "auto" }}>
           {/* Attachments — clickable for preview */}
           {attachments.length > 0 && (
             <div style={{ marginBottom: T.space[4] }}>
-              <div style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.semibold, color: C.accent, marginBottom: T.space[3], textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                Attachments ({attachments.length})
-                {attachments.some(a => isPreviewable(a)) ? " — Click to preview" : ""}
+              <div
+                style={{
+                  fontSize: T.fontSize.sm,
+                  fontWeight: T.fontWeight.semibold,
+                  color: C.accent,
+                  marginBottom: T.space[3],
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                Attachments ({attachments.length}){attachments.some(a => isPreviewable(a)) ? " — Click to preview" : ""}
               </div>
               {attachments.map(att => {
                 const canPreview = isPreviewable(att);
@@ -148,24 +246,70 @@ export default function RfpDetailModal({ rfp, onClose, onImport }) {
                 return (
                   <div
                     key={att.id}
-                    onClick={() => canPreview && setPreviewAttachment(isActive ? null : att)}
                     style={{
-                      display: "flex", alignItems: "center", gap: T.space[2],
-                      padding: "6px 10px", borderRadius: T.radius.sm,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: T.space[2],
+                      padding: "6px 10px",
+                      borderRadius: T.radius.sm,
                       background: isActive ? `${C.accent}20` : C.bg,
                       border: `1px solid ${isActive ? C.accent + "40" : C.border}`,
                       marginBottom: T.space[2],
-                      cursor: canPreview ? "pointer" : "default",
                       transition: T.transition.fast,
                     }}
                   >
-                    <Ic d={canPreview ? I.eye : I.plans} size={14} color={C.accent} />
-                    <span style={{ flex: 1, fontSize: T.fontSize.sm, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {att.filename}
-                    </span>
-                    <span style={{ fontSize: T.fontSize.xs, color: C.textDim }}>
-                      {att.size > 1048576 ? `${(att.size / 1048576).toFixed(1)} MB` : `${Math.round(att.size / 1024)} KB`}
-                    </span>
+                    <div
+                      onClick={() => canPreview && setPreviewAttachment(isActive ? null : att)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: T.space[2],
+                        flex: 1,
+                        cursor: canPreview ? "pointer" : "default",
+                        minWidth: 0,
+                      }}
+                    >
+                      <Ic d={canPreview ? I.eye : I.plans} size={14} color={C.accent} />
+                      <span
+                        style={{
+                          flex: 1,
+                          fontSize: T.fontSize.sm,
+                          color: C.text,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {att.filename}
+                      </span>
+                      <span style={{ fontSize: T.fontSize.xs, color: C.textDim, flexShrink: 0 }}>
+                        {att.size > 1048576
+                          ? `${(att.size / 1048576).toFixed(1)} MB`
+                          : `${Math.round(att.size / 1024)} KB`}
+                      </span>
+                    </div>
+                    {/* Download button */}
+                    {att.storagePath && (
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          handleDownload(att);
+                        }}
+                        title={`Download ${att.filename}`}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: downloading === att.id ? "wait" : "pointer",
+                          padding: 4,
+                          opacity: downloading === att.id ? 0.5 : 0.7,
+                          flexShrink: 0,
+                          display: "flex",
+                          alignItems: "center",
+                        }}
+                      >
+                        <Ic d={I.download} size={14} color={C.textMuted} />
+                      </button>
+                    )}
                   </div>
                 );
               })}
@@ -175,7 +319,16 @@ export default function RfpDetailModal({ rfp, onClose, onImport }) {
           {/* Plan links — cloud storage URLs */}
           {planLinks.length > 0 && (
             <div style={{ marginBottom: T.space[4] }}>
-              <div style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.semibold, color: C.accent, marginBottom: T.space[3], textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              <div
+                style={{
+                  fontSize: T.fontSize.sm,
+                  fontWeight: T.fontWeight.semibold,
+                  color: C.accent,
+                  marginBottom: T.space[3],
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
                 Plan Links ({planLinks.length})
               </div>
               {planLinks.map((link, i) => {
@@ -185,24 +338,43 @@ export default function RfpDetailModal({ rfp, onClose, onImport }) {
                     key={i}
                     onClick={() => window.open(link.url, "_blank", "noopener,noreferrer")}
                     style={{
-                      display: "flex", alignItems: "center", gap: T.space[2],
-                      padding: "6px 10px", borderRadius: T.radius.sm,
-                      background: C.bg, border: `1px solid ${C.border}`,
-                      marginBottom: T.space[2], cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: T.space[2],
+                      padding: "6px 10px",
+                      borderRadius: T.radius.sm,
+                      background: C.bg,
+                      border: `1px solid ${C.border}`,
+                      marginBottom: T.space[2],
+                      cursor: "pointer",
                       transition: T.transition.fast,
                     }}
-                    onMouseOver={e => e.currentTarget.style.borderColor = C.accent + "40"}
-                    onMouseOut={e => e.currentTarget.style.borderColor = C.border}
+                    onMouseOver={e => (e.currentTarget.style.borderColor = C.accent + "40")}
+                    onMouseOut={e => (e.currentTarget.style.borderColor = C.border)}
                   >
                     <Ic d={I.externalLink} size={14} color={C.accent} />
-                    <span style={{ flex: 1, fontSize: T.fontSize.sm, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <span
+                      style={{
+                        flex: 1,
+                        fontSize: T.fontSize.sm,
+                        color: C.text,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
                       {link.label || provider.label}
                     </span>
-                    <span style={{
-                      fontSize: T.fontSize.xs, color: C.textDim,
-                      padding: "1px 6px", borderRadius: T.radius.sm,
-                      background: C.accentBg, flexShrink: 0,
-                    }}>
+                    <span
+                      style={{
+                        fontSize: T.fontSize.xs,
+                        color: C.textDim,
+                        padding: "1px 6px",
+                        borderRadius: T.radius.sm,
+                        background: C.accentBg,
+                        flexShrink: 0,
+                      }}
+                    >
                       {provider.label}
                     </span>
                   </div>
@@ -211,42 +383,102 @@ export default function RfpDetailModal({ rfp, onClose, onImport }) {
             </div>
           )}
 
-          {/* Show preview or original email */}
-          {previewAttachment ? (
-            <div style={{ display: "flex", flexDirection: "column", maxHeight: 400 }}>
-              <AttachmentPreview
-                attachment={previewAttachment}
-                apiBase={API_BASE}
-                onClose={() => setPreviewAttachment(null)}
-              />
+          {/* Original Email — always visible */}
+          <div style={{ marginBottom: T.space[4] }}>
+            <div
+              style={{
+                fontSize: T.fontSize.sm,
+                fontWeight: T.fontWeight.semibold,
+                color: C.accent,
+                marginBottom: T.space[3],
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+              }}
+            >
+              Original Email
             </div>
-          ) : (
-            <>
-              <div style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.semibold, color: C.accent, marginBottom: T.space[3], textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                Original Email
-              </div>
-              <div style={{
-                padding: T.space[4], borderRadius: T.radius.sm,
-                background: C.bg, border: `1px solid ${C.border}`,
-                fontSize: T.fontSize.sm, color: C.textMuted,
-                maxHeight: 300, overflowY: "auto",
-                whiteSpace: "pre-wrap", wordBreak: "break-word",
+            <div
+              style={{
+                padding: T.space[4],
+                borderRadius: T.radius.sm,
+                background: C.bg,
+                border: `1px solid ${C.border}`,
+                fontSize: T.fontSize.sm,
+                color: C.textMuted,
+                maxHeight: 300,
+                overflowY: "auto",
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
                 lineHeight: T.lineHeight.relaxed,
-              }}>
-                {rfp.raw_text || "(email text not available)"}
+              }}
+            >
+              {rfp.raw_text || "(email text not available)"}
+            </div>
+          </div>
+
+          {/* Attachment preview — shows BELOW email body when an attachment is selected */}
+          {previewAttachment && (
+            <div style={{ marginBottom: T.space[4] }}>
+              <div
+                style={{
+                  fontSize: T.fontSize.sm,
+                  fontWeight: T.fontWeight.semibold,
+                  color: C.accent,
+                  marginBottom: T.space[3],
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                Preview: {previewAttachment.filename}
               </div>
-            </>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  maxHeight: 400,
+                  border: `1px solid ${C.border}`,
+                  borderRadius: T.radius.sm,
+                  overflow: "hidden",
+                }}
+              >
+                <AttachmentPreview
+                  attachment={previewAttachment}
+                  apiBase={API_BASE}
+                  onClose={() => setPreviewAttachment(null)}
+                />
+              </div>
+            </div>
           )}
         </div>
       </div>
 
       {/* Actions */}
       {(rfp.status === "parsed" || rfp.status === "pending") && (
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: T.space[3], marginTop: T.space[5], borderTop: `1px solid ${C.border}`, paddingTop: T.space[4] }}>
-          <button style={bt(C, { padding: "8px 20px", background: "transparent", color: C.textMuted, border: `1px solid ${C.border}` })} onClick={onClose}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: T.space[3],
+            marginTop: T.space[5],
+            borderTop: `1px solid ${C.border}`,
+            paddingTop: T.space[4],
+          }}
+        >
+          <button
+            style={bt(C, {
+              padding: "8px 20px",
+              background: "transparent",
+              color: C.textMuted,
+              border: `1px solid ${C.border}`,
+            })}
+            onClick={onClose}
+          >
             Cancel
           </button>
-          <button style={bt(C, { padding: "8px 20px", background: C.accent, color: "#fff" })} onClick={() => onImport(rfp)}>
+          <button
+            style={bt(C, { padding: "8px 20px", background: C.accent, color: "#fff" })}
+            onClick={() => onImport(rfp)}
+          >
             <Ic d={I.download} size={14} color="#fff" />
             Import as Estimate
           </button>

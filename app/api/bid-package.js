@@ -32,6 +32,7 @@ export default async function handler(req, res) {
 
     try {
       // Insert bid package
+      // NOTE: estimate_id column must be TEXT (not UUID) — local IDs are short random strings
       const { data: pkg, error: pkgError } = await supabaseAdmin
         .from("bid_packages")
         .insert({

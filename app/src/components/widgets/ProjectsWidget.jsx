@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import NewEstimateModal from "@/components/shared/NewEstimateModal";
+import EmptyState from "@/components/shared/EmptyState";
+import { I } from "@/constants/icons";
 
 /* ────────────────────────────────────────────────────────
    ProjectsWidget — projects list + create estimate CTA
@@ -416,12 +418,14 @@ export default function ProjectsWidget() {
             );
           })
         ) : (
-          <div style={{ padding: "20px 12px", textAlign: "center" }}>
-            <div style={{ fontSize: 11, fontWeight: 500, color: C.textMuted, fontFamily: font }}>No estimates yet</div>
-            <div style={{ fontSize: 9.5, fontWeight: 400, color: C.textDim, fontFamily: font, marginTop: 4 }}>
-              Create your first estimate below
-            </div>
-          </div>
+          <EmptyState
+            icon={I.folder}
+            title="Create Your First Estimate"
+            subtitle="Start a new project to begin estimating with NOVATerra."
+            action={() => setShowNewEstimateModal(true)}
+            actionLabel="New Estimate"
+            actionIcon={I.plus}
+          />
         )}
       </div>
 

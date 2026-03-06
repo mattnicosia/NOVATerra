@@ -11,10 +11,10 @@ export default function DraftApprovalPanel({ open, onClose }) {
   const C = useTheme();
   const dk = C.isDark !== false;
   const ref = useRef(null);
-  const pendingDrafts = useAutoResponseStore((s) => s.getPendingDrafts());
-  const updateDraft = useAutoResponseStore((s) => s.updateDraft);
-  const dismissDraft = useAutoResponseStore((s) => s.dismissDraft);
-  const showToast = useUiStore((s) => s.showToast);
+  const pendingDrafts = useAutoResponseStore(s => s.getPendingDrafts());
+  const updateDraft = useAutoResponseStore(s => s.updateDraft);
+  const dismissDraft = useAutoResponseStore(s => s.dismissDraft);
+  const showToast = useUiStore(s => s.showToast);
 
   const [editingId, setEditingId] = useState(null);
   const [editSubject, setEditSubject] = useState("");
@@ -26,7 +26,7 @@ export default function DraftApprovalPanel({ open, onClose }) {
   // Outside click handler
   useEffect(() => {
     if (!open) return;
-    const handler = (e) => {
+    const handler = e => {
       if (ref.current && !ref.current.contains(e.target)) onClose();
     };
     const t = setTimeout(() => document.addEventListener("mousedown", handler), 0);
@@ -39,7 +39,7 @@ export default function DraftApprovalPanel({ open, onClose }) {
   // Escape key
   useEffect(() => {
     if (!open) return;
-    const handler = (e) => {
+    const handler = e => {
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", handler);
@@ -48,7 +48,7 @@ export default function DraftApprovalPanel({ open, onClose }) {
 
   if (!open) return null;
 
-  const handleApprove = async (draft) => {
+  const handleApprove = async draft => {
     setSendingId(draft.id);
     try {
       await sendAutoResponse(draft);
@@ -71,7 +71,7 @@ export default function DraftApprovalPanel({ open, onClose }) {
     showToast(`${pendingDrafts.length} response(s) sent`, "success");
   };
 
-  const startEdit = (draft) => {
+  const startEdit = draft => {
     setEditingId(draft.id);
     setEditSubject(draft.subject);
     setEditBody(draft.body);
@@ -86,7 +86,7 @@ export default function DraftApprovalPanel({ open, onClose }) {
 
   const cancelEdit = () => setEditingId(null);
 
-  const handleSuggestAlts = async (draft) => {
+  const handleSuggestAlts = async draft => {
     setLoadingAlts(draft.id);
     try {
       const alts = await generateAlternatives(draft);
@@ -183,13 +183,11 @@ export default function DraftApprovalPanel({ open, onClose }) {
 
       {/* Empty state */}
       {pendingDrafts.length === 0 && (
-        <div style={{ padding: "20px 0", textAlign: "center", color: C.textDim, fontSize: 11 }}>
-          No pending drafts
-        </div>
+        <div style={{ padding: "20px 0", textAlign: "center", color: C.textDim, fontSize: 11 }}>No pending drafts</div>
       )}
 
       {/* Draft cards */}
-      {pendingDrafts.map((draft) => {
+      {pendingDrafts.map(draft => {
         const meta = TRIGGER_TYPES[draft.triggerType] || { label: draft.triggerType, color: "#8E8E93" };
         const isEditing = editingId === draft.id;
         const isSending = sendingId === draft.id;
@@ -221,7 +219,16 @@ export default function DraftApprovalPanel({ open, onClose }) {
               >
                 {meta.label}
               </span>
-              <span style={{ fontSize: 10, color: C.textDim, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <span
+                style={{
+                  fontSize: 10,
+                  color: C.textDim,
+                  flex: 1,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
                 {draft.recipientName || draft.recipientEmail}
               </span>
             </div>
@@ -236,7 +243,7 @@ export default function DraftApprovalPanel({ open, onClose }) {
               <div>
                 <input
                   value={editSubject}
-                  onChange={(e) => setEditSubject(e.target.value)}
+                  onChange={e => setEditSubject(e.target.value)}
                   style={{
                     width: "100%",
                     padding: "4px 8px",
@@ -254,7 +261,7 @@ export default function DraftApprovalPanel({ open, onClose }) {
                 />
                 <textarea
                   value={editBody}
-                  onChange={(e) => setEditBody(e.target.value)}
+                  onChange={e => setEditBody(e.target.value)}
                   rows={5}
                   style={{
                     width: "100%",

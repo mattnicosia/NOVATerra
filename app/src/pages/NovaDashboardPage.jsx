@@ -1,8 +1,14 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useWidgetLayoutSync } from "@/hooks/useWidgetLayoutSync";
 import { useWidgetStore } from "@/stores/widgetStore";
+import { useEstimatesStore } from "@/stores/estimatesStore";
+import { useProjectStore } from "@/stores/projectStore";
+import { useItemsStore } from "@/stores/itemsStore";
+import { useUiStore } from "@/stores/uiStore";
 import { useDashboardData } from "@/hooks/useDashboardData";
+import { loadEstimate } from "@/hooks/usePersistence";
 import { WIDGET_REGISTRY } from "@/constants/widgetRegistry";
 import WidgetGrid from "@/components/widgets/WidgetGrid";
 import WidgetPickerModal from "@/components/widgets/WidgetPickerModal";
@@ -20,6 +26,74 @@ export default function NovaDashboardPage() {
   const C = useTheme();
   const T = C.T;
   const dk = C.isDark;
+  const navigate = useNavigate();
+  const createEstimate = useEstimatesStore(s => s.createEstimate);
+  const activeCompanyId = useUiStore(s => s.appSettings.activeCompanyId);
+
+  // ── ROM Prefill: auto-create estimate from /rom upsell CTA ──
+  const romHandled = useRef(false);
+  useEffect(() => {
+    if (romHandled.current) return;
+    let prefill;
+    try {
+      const raw = localStorage.getItem("rom_prefill");
+      if (!raw) return;
+      prefill = JSON.parse(raw);
+      localStorage.removeItem("rom_prefill");
+    } catch {
+      return;
+    }
+    if (!prefill?.buildingType) return;
+    romHandled.current = true;
+
+    const label = (prefill.buildingType || "")
+      .split("-")
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+    const sf = prefill.projectSF || "";
+    const estNum = `ROM-${Date.now().toString(36).toUpperCase()}`;
+
+    (async () => {
+      try {
+        const cid = activeCompanyId === "__all__" ? "" : activeCompanyId;
+        const id = await createEstimate(cid, estNum);
+        await loadEstimate(id);
+        const up = useProjectStore.getState().updateProject;
+        up("name", `${label} ROM — ${Number(sf).toLocaleString()} SF`);
+        up("buildingType", prefill.buildingType);
+        up("projectSF", sf);
+        up("setupComplete", true);
+
+        // ── Inject ROM divisions as line items ──
+        const romDivisions = prefill.romResult?.divisions;
+        if (romDivisions) {
+          const addEl = useItemsStore.getState().addElement;
+          Object.entries(romDivisions).forEach(([divCode, divData]) => {
+            const midTotal = divData?.total?.mid;
+            if (!midTotal || midTotal <= 0) return;
+            addEl(
+              `${divCode} - ${divData.label}`,
+              {
+                code: `${divCode}.00`,
+                name: `${divData.label} — ROM Allowance`,
+                quantity: 1,
+                unit: "LS",
+                material: 0,
+                labor: 0,
+                equipment: 0,
+                subcontractor: midTotal,
+              },
+              "base",
+            );
+          });
+        }
+
+        navigate(`/estimate/${id}/reports`);
+      } catch (err) {
+        console.error("[ROM Prefill] Failed:", err);
+      }
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sync widget layouts with persistence
   useWidgetLayoutSync();

@@ -11,6 +11,7 @@ import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
 import NotificationCenter from "@/components/shared/NotificationCenter";
 import LogoPill from "@/components/shared/LogoPill";
 import { useAutoResponseStore } from "@/stores/autoResponseStore";
+import { useOrgStore, selectIsManager } from "@/stores/orgStore";
 
 /* ── Nav icon SVGs ── */
 const NAV_ICONS = {
@@ -127,6 +128,21 @@ const NAV_ICONS = {
       <path d="M14 2v10" />
     </svg>
   ),
+  business: (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M2 14V6l6-4 6 4v8" />
+      <rect x="5.5" y="9" width="5" height="5" rx="0.5" />
+      <path d="M8 9v5" />
+      <path d="M5.5 11.5h5" />
+    </svg>
+  ),
 };
 
 const NAV_ITEMS = [
@@ -135,6 +151,7 @@ const NAV_ITEMS = [
   { key: "inbox", path: "/inbox", icon: NAV_ICONS.inbox, label: "Inbox", badge: true },
   { key: "core", path: "/core", icon: NAV_ICONS.core, label: "Core" },
   { key: "intelligence", path: "/intelligence", icon: NAV_ICONS.intelligence, label: "Intel" },
+  { key: "business", path: "/business", icon: NAV_ICONS.business, label: "Business", managerOnly: true },
   { key: "people", path: "/contacts", icon: NAV_ICONS.people, label: "People" },
   { key: "settings", path: "/settings", icon: NAV_ICONS.settings, label: "Settings" },
 ];
@@ -503,6 +520,8 @@ export default function NovaHeader({ onDraftPanelToggle }) {
   const selectedPalette = useUiStore(s => s.appSettings.selectedPalette);
   const updateSetting = useUiStore(s => s.updateSetting);
   const activeTheme = selectedPalette === "nero" ? "nero" : selectedPalette === "dark" ? "dark" : "light";
+  const isManager = useOrgStore(selectIsManager);
+  const hasOrg = useOrgStore(s => !!s.org);
   const isNova = false; // NOVA theme temporarily removed
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -527,7 +546,14 @@ export default function NovaHeader({ onDraftPanelToggle }) {
         ? companyProfiles.find(p => p.id === activeCompanyId)?.logo
         : companyInfo.logo;
 
-  const initials = user?.email ? user.email.substring(0, 2).toUpperCase() : "MC";
+  const initials = (() => {
+    const name = user?.user_metadata?.full_name || user?.user_metadata?.name || "";
+    if (name) {
+      const parts = name.trim().split(/\s+/);
+      return (parts[0]?.[0] || "") + (parts[parts.length - 1]?.[0] || "");
+    }
+    return user?.email ? user.email.substring(0, 2).toUpperCase() : "MC";
+  })();
 
   /* ── Header-specific derived colors ── */
 
@@ -600,7 +626,7 @@ export default function NovaHeader({ onDraftPanelToggle }) {
 
       {/* Center — Navigation: active tab = Liquid Glass pill */}
       <nav style={{ display: "flex", alignItems: "center", gap: 2 }}>
-        {NAV_ITEMS.map(item => (
+        {NAV_ITEMS.filter(item => !item.managerOnly || isManager || !hasOrg).map(item => (
           <NavLink
             key={item.key}
             to={item.path}
@@ -623,7 +649,7 @@ export default function NovaHeader({ onDraftPanelToggle }) {
               border: `0.5px solid ${
                 isActive ? (dk ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.30)") : "transparent"
               }`,
-              boxShadow: isActive ? [T.glass.specularSm, T.glass.edge].join(", ") : "none",
+              boxShadow: isActive ? [T.glass.specularSm, T.glass.edge].filter(Boolean).join(", ") || "none" : "none",
               backdropFilter: isActive
                 ? dk
                   ? "blur(12px) saturate(150%)"
@@ -951,7 +977,16 @@ export default function NovaHeader({ onDraftPanelToggle }) {
               e.currentTarget.style.borderColor = "transparent";
             }}
           >
-            <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width={15}
+              height={15}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
               <polyline points="22,6 12,13 2,6" />
             </svg>

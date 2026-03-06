@@ -28,12 +28,12 @@ export const useAutoResponseStore = create((set, get) => ({
   drafts: [],
 
   // ── Setters for persistence hydration ──
-  setTriggerConfig: (v) => set({ triggerConfig: v }),
-  setDrafts: (v) => set({ drafts: v }),
+  setTriggerConfig: v => set({ triggerConfig: v }),
+  setDrafts: v => set({ drafts: v }),
 
   // ── Trigger config actions ──
   updateTrigger: (type, updates) =>
-    set((s) => ({
+    set(s => ({
       triggerConfig: {
         ...s.triggerConfig,
         [type]: { ...(s.triggerConfig[type] || {}), ...updates },
@@ -41,8 +41,8 @@ export const useAutoResponseStore = create((set, get) => ({
     })),
 
   // ── Draft queue actions ──
-  addDraft: (draft) =>
-    set((s) => ({
+  addDraft: draft =>
+    set(s => ({
       drafts: [
         ...s.drafts,
         {
@@ -55,38 +55,37 @@ export const useAutoResponseStore = create((set, get) => ({
     })),
 
   updateDraft: (id, updates) =>
-    set((s) => ({
-      drafts: s.drafts.map((d) => (d.id === id ? { ...d, ...updates } : d)),
+    set(s => ({
+      drafts: s.drafts.map(d => (d.id === id ? { ...d, ...updates } : d)),
     })),
 
-  approveDraft: (id) =>
-    set((s) => ({
-      drafts: s.drafts.map((d) => (d.id === id ? { ...d, status: "approved" } : d)),
+  approveDraft: id =>
+    set(s => ({
+      drafts: s.drafts.map(d => (d.id === id ? { ...d, status: "approved" } : d)),
     })),
 
-  dismissDraft: (id) =>
-    set((s) => ({
-      drafts: s.drafts.map((d) => (d.id === id ? { ...d, status: "dismissed" } : d)),
+  dismissDraft: id =>
+    set(s => ({
+      drafts: s.drafts.map(d => (d.id === id ? { ...d, status: "dismissed" } : d)),
     })),
 
   markSent: (id, emailId) =>
-    set((s) => ({
-      drafts: s.drafts.map((d) =>
+    set(s => ({
+      drafts: s.drafts.map(d =>
         d.id === id ? { ...d, status: "sent", sentAt: new Date().toISOString(), emailId } : d,
       ),
     })),
 
-  removeDraft: (id) =>
-    set((s) => ({ drafts: s.drafts.filter((d) => d.id !== id) })),
+  removeDraft: id => set(s => ({ drafts: s.drafts.filter(d => d.id !== id) })),
 
   // ── Derived helpers ──
-  getPendingDrafts: () => get().drafts.filter((d) => d.status === "pending"),
-  getPendingCount: () => get().drafts.filter((d) => d.status === "pending").length,
+  getPendingDrafts: () => get().drafts.filter(d => d.status === "pending"),
+  getPendingCount: () => get().drafts.filter(d => d.status === "pending").length,
 
   // ── Duplicate guard ──
   hasDraft: (triggerType, invitationId) =>
     get().drafts.some(
-      (d) =>
+      d =>
         d.triggerType === triggerType &&
         d.invitationId === invitationId &&
         (d.status === "pending" || d.status === "sent"),

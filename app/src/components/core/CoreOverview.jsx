@@ -9,6 +9,7 @@ import { useDrawingsStore } from '@/stores/drawingsStore';
 import { useUiStore } from '@/stores/uiStore';
 import { useCoreStore } from '@/stores/coreStore';
 import NovaIntelligenceMeter from '@/components/core/NovaIntelligenceMeter';
+import ConfidenceEngineAdmin from '@/components/core/ConfidenceEngineAdmin';
 import CsvImportModal from '@/components/import/CsvImportModal';
 import Ic from '@/components/shared/Ic';
 import { I } from '@/constants/icons';
@@ -256,6 +257,9 @@ export default function CoreOverview() {
           </button>
         </div>
       )}
+
+      {/* ── Admin: Subdivision Engine Config (matt@ only) ── */}
+      <ConfidenceEngineAdmin />
 
       {/* Modals */}
       {showCsvModal && <CsvImportModal onClose={() => setShowCsvModal(false)} />}

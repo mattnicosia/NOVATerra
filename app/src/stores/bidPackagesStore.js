@@ -21,14 +21,10 @@ export const useBidPackagesStore = create((set, get) => ({
   // ── Bid Package Presets ──
   addPreset: preset =>
     set(s => ({
-      bidPackagePresets: [
-        ...s.bidPackagePresets,
-        { id: uid(), createdAt: new Date().toISOString(), ...preset },
-      ],
+      bidPackagePresets: [...s.bidPackagePresets, { id: uid(), createdAt: new Date().toISOString(), ...preset }],
     })),
 
-  removePreset: id =>
-    set(s => ({ bidPackagePresets: s.bidPackagePresets.filter(p => p.id !== id) })),
+  removePreset: id => set(s => ({ bidPackagePresets: s.bidPackagePresets.filter(p => p.id !== id) })),
 
   // ── Bid Package CRUD ──
   addBidPackage: pkg =>

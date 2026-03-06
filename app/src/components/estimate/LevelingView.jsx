@@ -148,7 +148,9 @@ function SubAutocomplete({ newSubName, setNewSubName, newSubRef, onSelect, onCan
       .filter(
         s =>
           (s.company || "").toLowerCase().includes(q) ||
-          (s.trades || []).some(tk => tk.toLowerCase().includes(q) || (TRADE_MAP[tk]?.label || "").toLowerCase().includes(q)) ||
+          (s.trades || []).some(
+            tk => tk.toLowerCase().includes(q) || (TRADE_MAP[tk]?.label || "").toLowerCase().includes(q),
+          ) ||
           (s.contact || "").toLowerCase().includes(q),
       )
       .slice(0, 8);
@@ -385,7 +387,9 @@ function SubAutocomplete({ newSubName, setNewSubName, newSubRef, onSelect, onCan
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {[(s.trades || []).map(tk => TRADE_MAP[tk]?.label || tk).join(", "), s.contact].filter(Boolean).join(" · ") || "No details"}
+                  {[(s.trades || []).map(tk => TRADE_MAP[tk]?.label || tk).join(", "), s.contact]
+                    .filter(Boolean)
+                    .join(" · ") || "No details"}
                 </div>
               </div>
             </div>

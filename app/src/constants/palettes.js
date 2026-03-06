@@ -281,124 +281,7 @@ export const PALETTES = [
     ],
   },
 
-  // ━━━ 2. GREYSCALE — Pure monochrome minimal ━━━
-  {
-    id: "grey",
-    name: "Greyscale",
-    desc: "Pure monochrome minimal",
-    preview: ["#0A0A0A", "#404040", "#808080", "#C0C0C0", "#F0F0F0"],
-    variantLabels: ["Charcoal", "Midnight", "Silver", "Paper", "Fog"],
-    overrides: {
-      bg: "#0A0A0A",
-      bg1: "#141414",
-      bg2: "#1E1E1E",
-      bg3: "#282828",
-      border: "rgba(255,255,255,0.08)",
-      borderLight: "rgba(255,255,255,0.04)",
-      borderAccent: "rgba(224,224,224,0.12)",
-      text: "#F0F0F0",
-      textMuted: "#8A8A8A",
-      textDim: "#505050",
-      accent: "#E0E0E0",
-      accentDim: "#C0C0C0",
-      accentBg: "rgba(224,224,224,0.06)",
-      accentAlt: "#808080",
-      gradient: "linear-gradient(135deg, #E0E0E0, #808080)",
-      gradientSubtle: "linear-gradient(135deg, rgba(224,224,224,0.08), rgba(128,128,128,0.08))",
-      gradientText: "linear-gradient(135deg, #E0E0E0, #808080)",
-      sidebarBg: "rgba(10,10,10,0.90)",
-      glassBg: "rgba(20,20,20,0.68)",
-      glassBorder: "rgba(255,255,255,0.08)",
-      glassBgDark: "rgba(10,10,10,0.80)",
-      bgGradient: `radial-gradient(ellipse at 20% 20%, rgba(224,224,224,0.12) 0%, transparent 50%), radial-gradient(ellipse at 80% 20%, rgba(128,128,128,0.10) 0%, transparent 50%), radial-gradient(ellipse at 50% 80%, rgba(192,192,192,0.08) 0%, transparent 50%), #0A0A0A`,
-      forceDark: false,
-    },
-    variants: [
-      null, // 0 — Charcoal
-      {
-        // 1 — Midnight
-        bg: "#000000",
-        bg1: "#0A0A0A",
-        bg2: "#141414",
-        bg3: "#1E1E1E",
-        accent: "#808080",
-        accentDim: "#606060",
-        accentBg: "rgba(128,128,128,0.06)",
-        accentAlt: "#C0C0C0",
-        gradient: "linear-gradient(135deg, #808080, #C0C0C0)",
-        gradientSubtle: "linear-gradient(135deg, rgba(128,128,128,0.08), rgba(192,192,192,0.08))",
-        gradientText: "linear-gradient(135deg, #808080, #C0C0C0)",
-        text: "#E0E0E0",
-        sidebarBg: "rgba(0,0,0,0.92)",
-      },
-      {
-        // 2 — Silver
-        bg: "#0E0E0E",
-        bg1: "#181818",
-        bg2: "#222222",
-        bg3: "#2E2E2E",
-        accent: "#C0C0C0",
-        accentDim: "#A0A0A0",
-        accentBg: "rgba(192,192,192,0.06)",
-        accentAlt: "#E0E0E0",
-        gradient: "linear-gradient(135deg, #C0C0C0, #E0E0E0)",
-        gradientSubtle: "linear-gradient(135deg, rgba(192,192,192,0.08), rgba(224,224,224,0.08))",
-        gradientText: "linear-gradient(135deg, #C0C0C0, #E0E0E0)",
-      },
-      {
-        // 3 — Paper
-        bg: "#F5F5F5",
-        bg1: "#FFFFFF",
-        bg2: "#EEEEEE",
-        bg3: "#E0E0E0",
-        border: "#D0D0D0",
-        borderLight: "#E0E0E0",
-        borderAccent: "rgba(64,64,64,0.12)",
-        text: "#1A1A1A",
-        textMuted: "#606060",
-        textDim: "#A0A0A0",
-        accent: "#404040",
-        accentDim: "#2A2A2A",
-        accentBg: "rgba(64,64,64,0.06)",
-        accentAlt: "#808080",
-        gradient: "linear-gradient(135deg, #404040, #808080)",
-        gradientSubtle: "linear-gradient(135deg, rgba(64,64,64,0.06), rgba(128,128,128,0.06))",
-        gradientText: "linear-gradient(135deg, #404040, #808080)",
-        ...LB,
-        border: "#D0D0D0",
-        borderLight: "#E0E0E0",
-        sidebarBg: "rgba(245,245,245,0.85)",
-        bgGradient: `radial-gradient(ellipse at 12% 12%, rgba(64,64,64,0.11) 0%, transparent 45%), radial-gradient(ellipse at 88% 22%, rgba(128,128,128,0.09) 0%, transparent 45%), radial-gradient(ellipse at 50% 72%, rgba(80,80,80,0.07) 0%, transparent 50%), #F5F5F5`,
-      },
-      {
-        // 4 — Fog
-        bg: "#F2F2F2",
-        bg1: "#FAFAFA",
-        bg2: "#EAEAEA",
-        bg3: "#DCDCDC",
-        border: "#CACACA",
-        borderLight: "#DCDCDC",
-        borderAccent: "rgba(128,128,128,0.12)",
-        text: "#1A1A1A",
-        textMuted: "#606060",
-        textDim: "#A0A0A0",
-        accent: "#808080",
-        accentDim: "#606060",
-        accentBg: "rgba(128,128,128,0.06)",
-        accentAlt: "#404040",
-        gradient: "linear-gradient(135deg, #808080, #404040)",
-        gradientSubtle: "linear-gradient(135deg, rgba(128,128,128,0.06), rgba(64,64,64,0.06))",
-        gradientText: "linear-gradient(135deg, #808080, #404040)",
-        ...LB,
-        border: "#CACACA",
-        borderLight: "#DCDCDC",
-        sidebarBg: "rgba(242,242,242,0.88)",
-        bgGradient: `radial-gradient(ellipse at 12% 12%, rgba(128,128,128,0.11) 0%, transparent 45%), radial-gradient(ellipse at 88% 22%, rgba(64,64,64,0.09) 0%, transparent 45%), radial-gradient(ellipse at 50% 68%, rgba(100,100,100,0.07) 0%, transparent 50%), #F2F2F2`,
-      },
-    ],
-  },
-
-  // ━━━ 3. CLARITY — Apple-grade clean light ━━━
+  // ━━━ 2. CLARITY — Apple-grade clean light ━━━
   {
     id: "clarity",
     name: "Clarity",
@@ -503,86 +386,120 @@ export const PALETTES = [
     ],
   },
 
-  // ━━━ 4. MATTE — True matte black, refined finish ━━━
+  // ━━━ 3. CLEAN LIGHT — Flat solid light, zero glass/blobs/swirls ━━━
   {
-    id: "matte",
-    name: "Matte",
-    desc: "True black — refined matte finish",
-    preview: ["#000000", "#0A84FF", "#141414", "#F5F5F7", "#1C1C1C"],
-    variantLabels: ["Black", "Void", "Ember", "Frost"],
+    id: "clean-light",
+    name: "Light",
+    desc: "Clean light — flat solid surfaces, no glass effects",
+    preview: ["#F5F5F7", "#007AFF", "#FFFFFF", "#E5E5EA", "#1C1C1E"],
+    variantLabels: ["Light"],
     overrides: {
-      bg: "#000000",
-      bg1: "#0A0A0A",
-      bg2: "#141414",
-      bg3: "#1C1C1C",
-      border: "rgba(255,255,255,0.06)",
-      borderLight: "rgba(255,255,255,0.03)",
-      borderAccent: hR("#0A84FF", 0.12),
+      // Dark base (for side panel / dark regions)
+      bg: "#1C1C1E",
+      bg1: "#2C2C2E",
+      bg2: "#3A3A3C",
+      bg3: "#48484A",
+      border: "rgba(255,255,255,0.08)",
+      borderLight: "rgba(255,255,255,0.04)",
+      borderAccent: hR("#007AFF", 0.15),
       text: "#F5F5F7",
-      textMuted: "rgba(245,245,247,0.50)",
-      textDim: "rgba(245,245,247,0.25)",
-      accent: "#0A84FF",
-      accentDim: "#0066CC",
-      accentBg: hR("#0A84FF", 0.06),
-      accentAlt: "#64D2FF",
-      gradient: "linear-gradient(135deg, #0A84FF, #64D2FF)",
-      gradientSubtle: `linear-gradient(135deg, ${hR("#0A84FF", 0.08)}, ${hR("#64D2FF", 0.08)})`,
-      gradientText: "linear-gradient(135deg, #0A84FF, #64D2FF)",
+      textMuted: "rgba(245,245,247,0.55)",
+      textDim: "rgba(245,245,247,0.30)",
+      accent: "#007AFF",
+      accentDim: "#0055D4",
+      accentBg: hR("#007AFF", 0.08),
+      accentAlt: "#5AC8FA",
+      gradient: "linear-gradient(135deg, #007AFF, #5AC8FA)",
+      gradientSubtle: `linear-gradient(135deg, ${hR("#007AFF", 0.1)}, ${hR("#5AC8FA", 0.1)})`,
+      gradientText: "linear-gradient(135deg, #007AFF, #5AC8FA)",
       green: "#30D158",
       red: "#FF453A",
       blue: "#0A84FF",
       purple: "#BF5AF2",
       orange: "#FF9F0A",
-      cyan: "#64D2FF",
+      cyan: "#5AC8FA",
       yellow: "#FFD60A",
-      sidebarBg: "rgba(0,0,0,0.96)",
-      glassBg: "rgba(10,10,10,0.75)",
-      glassBorder: "rgba(255,255,255,0.04)",
-      glassBgDark: "rgba(0,0,0,0.90)",
-      bgGradient: "#000000",
-      forceDark: true,
+      sidebarBg: "rgba(28,28,30,0.96)",
+      glassBg: "#2C2C2E",
+      glassBorder: "rgba(255,255,255,0.08)",
+      glassBgDark: "#1C1C1E",
+      bgGradient: "#1C1C1E",
+      forceDark: false,
+      textureMode: true,
+      noGlass: true,
     },
     variants: [
-      null, // 0 — Black (true matte default)
+      null, // 0 — base dark (panel)
       {
-        // 1 — Void: ultra-minimal gray accent
-        accent: "#86868B",
-        accentDim: "#636366",
-        accentBg: hR("#86868B", 0.06),
-        accentAlt: "#AEAEB2",
-        borderAccent: hR("#86868B", 0.1),
-        gradient: "linear-gradient(135deg, #86868B, #AEAEB2)",
-        gradientSubtle: `linear-gradient(135deg, ${hR("#86868B", 0.08)}, ${hR("#AEAEB2", 0.08)})`,
-        gradientText: "linear-gradient(135deg, #86868B, #AEAEB2)",
-      },
-      {
-        // 2 — Ember: warm amber accent
-        bg: "#050403",
-        bg1: "#0E0D0A",
-        bg2: "#181610",
-        bg3: "#211F18",
-        accent: "#FF9F0A",
-        accentDim: "#CC7F08",
-        accentBg: hR("#FF9F0A", 0.06),
-        accentAlt: "#FFD60A",
-        borderAccent: hR("#FF9F0A", 0.1),
-        gradient: "linear-gradient(135deg, #FF9F0A, #FFD60A)",
-        gradientSubtle: `linear-gradient(135deg, ${hR("#FF9F0A", 0.08)}, ${hR("#FFD60A", 0.08)})`,
-        gradientText: "linear-gradient(135deg, #FF9F0A, #FFD60A)",
-        sidebarBg: "rgba(5,4,3,0.96)",
-      },
-      {
-        // 3 — Frost: ice-white accent
-        accent: "#E5E5EA",
-        accentDim: "#C7C7CC",
-        accentBg: hR("#E5E5EA", 0.06),
-        accentAlt: "#8E8E93",
-        borderAccent: hR("#E5E5EA", 0.08),
-        gradient: "linear-gradient(135deg, #E5E5EA, #8E8E93)",
-        gradientSubtle: `linear-gradient(135deg, ${hR("#E5E5EA", 0.06)}, ${hR("#8E8E93", 0.06)})`,
-        gradientText: "linear-gradient(135deg, #E5E5EA, #8E8E93)",
+        // 1 — Light: clean flat white surfaces — zero glass, zero blur
+        bg: "#F5F5F7",
+        bg1: "#FFFFFF",
+        bg2: "#EAEAEF",
+        bg3: "#E0E0E5",
+        border: "#D1D1D6",
+        borderLight: "#E5E5EA",
+        borderAccent: hR("#007AFF", 0.15),
+        text: "#1D1D1F",
+        textMuted: "#8E8E93",
+        textDim: "#AEAEB2",
+        glassBg: "#FFFFFF",
+        glassBorder: "#D1D1D6",
+        glassBgDark: "#FFFFFF",
+        sidebarBg: "#F5F5F7",
+        bgGradient: "#F5F5F7",
+        green: "#30D158",
+        red: "#FF3B30",
+        blue: "#0A84FF",
+        purple: "#BF5AF2",
+        orange: "#FF9500",
+        cyan: "#64D2FF",
+        yellow: "#FFD60A",
       },
     ],
+  },
+
+  // ━━━ 4. CLEAN DARK — Flat solid dark, zero glass/blobs/swirls ━━━
+  {
+    id: "clean-dark",
+    name: "Dark",
+    desc: "Clean dark — matte black + deep greys, no glass effects",
+    preview: ["#0A0A0A", "#64748B", "#141414", "#1C1C1C", "#262626"],
+    variantLabels: ["Dark"],
+    overrides: {
+      bg: "#0A0A0A",
+      bg1: "#141414",
+      bg2: "#1C1C1C",
+      bg3: "#262626",
+      border: "rgba(255,255,255,0.08)",
+      borderLight: "rgba(255,255,255,0.04)",
+      borderAccent: "rgba(100,116,139,0.25)",
+      text: "#E8E8ED",
+      textMuted: "rgba(232,232,237,0.55)",
+      textDim: "rgba(232,232,237,0.28)",
+      accent: "#64748B",
+      accentDim: "#475569",
+      accentBg: "rgba(100,116,139,0.08)",
+      accentAlt: "#94A3B8",
+      gradient: "linear-gradient(135deg, #64748B, #94A3B8)",
+      gradientSubtle: `linear-gradient(135deg, ${hR("#64748B", 0.1)}, ${hR("#94A3B8", 0.1)})`,
+      gradientText: "linear-gradient(135deg, #64748B, #94A3B8)",
+      green: "#4ADE80",
+      red: "#F87171",
+      blue: "#60A5FA",
+      purple: "#A78BFA",
+      orange: "#FB923C",
+      cyan: "#67E8F9",
+      yellow: "#FACC15",
+      sidebarBg: "#0A0A0A",
+      glassBg: "#141414",
+      glassBorder: "rgba(255,255,255,0.08)",
+      glassBgDark: "#0A0A0A",
+      bgGradient: "#0A0A0A",
+      forceDark: true,
+      textureMode: true,
+      noGlass: true,
+    },
+    variants: [null],
   },
 
   // ━━━ 5. NERO NEMESIS — Lamborghini Terzo Millennio, blacked out ━━━
@@ -852,113 +769,7 @@ export const PALETTES = [
     variants: [null],
   },
 
-  // ━━━ 8. SPECTRE — Rolls-Royce, midnight sapphire + champagne ━━━
-  // Starlight headliner. Spirit of Ecstasy. Whisper-quiet luxury.
-  // Deep midnight blue surfaces, champagne gold accents, cream leather text.
-  // Generous spacing, soft edges, everything breathes. No urgency.
-  {
-    id: "car-spectre",
-    name: "Spectre",
-    desc: "Rolls-Royce — sapphire night, champagne gold",
-    preview: ["#060A18", "#C9A96E", "#0E1530", "#1A2448", "#F5F0E6"],
-    variantLabels: ["Midnight"],
-    overrides: {
-      bg: "#040814", // midnight sapphire void
-      bg1: "#0A1024", // deep blue card
-      bg2: "#101832", // raised navy
-      bg3: "#182040", // elevated sapphire
-      border: "rgba(201,169,110,0.10)",
-      borderLight: "rgba(255,255,255,0.04)",
-      borderAccent: "rgba(201,169,110,0.30)",
-      text: "#F5F0E6", // cream leather
-      textMuted: "rgba(245,240,230,0.52)",
-      textDim: "rgba(245,240,230,0.26)",
-      accent: "#C9A96E", // champagne gold
-      accentDim: "#A8894E",
-      accentBg: hR("#C9A96E", 0.08),
-      accentAlt: "#E0C88A",
-      gradient: "linear-gradient(135deg, #C9A96E, #E0C88A)",
-      gradientSubtle: `linear-gradient(135deg, ${hR("#C9A96E", 0.1)}, ${hR("#E0C88A", 0.1)})`,
-      gradientText: "linear-gradient(135deg, #C9A96E, #E0C88A)",
-      green: "#50C878", // British racing green tint
-      red: "#E8475A",
-      blue: "#5B8DEF",
-      purple: "#9B7ADA",
-      orange: "#D4A040",
-      cyan: "#62B8D4",
-      yellow: "#E8D060",
-      sidebarBg: "rgba(4,8,20,0.97)",
-      glassBg: "rgba(16,24,50,0.78)",
-      glassBorder: "rgba(201,169,110,0.08)",
-      glassBgDark: "rgba(4,8,20,0.92)",
-      mesh: {
-        base: "linear-gradient(135deg, #060A18 0%, #0A1028 35%, #0E1430 60%, #060A18 100%)",
-        blobs: [
-          { color: "#1A2858", x: "40%", y: "35%", size: "55vw", alpha: 0.35, blur: 65 },
-          { color: "#C9A96E", x: "70%", y: "65%", size: "25vw", alpha: 0.14, blur: 55 },
-        ],
-        caustics: [{ color: "#C9A96E", x: "45%", y: "10%", size: "12vw", alpha: 0.25, blur: 28 }],
-      },
-      bgGradient: `radial-gradient(ellipse at 30% 20%, ${hR("#C9A96E", 0.04)} 0%, transparent 40%), radial-gradient(ellipse at 70% 80%, ${hR("#1A2448", 0.3)} 0%, transparent 50%), #040814`,
-      forceDark: true,
-    },
-    variants: [null],
-  },
-
-  // ━━━ 9. SF90 — Ferrari Stradale, Rosso Corsa passion ━━━
-  // Italian red intensity. Flowing curves. Prancing horse heritage.
-  // Warm dark surfaces with red undertone. Accent is LIVING red.
-  // Typography has flair — slightly wider tracking, confident weight.
-  {
-    id: "car-sf90",
-    name: "SF90 Stradale",
-    desc: "Ferrari — Rosso Corsa, Italian fire",
-    preview: ["#0C0808", "#DC2626", "#1C1414", "#2C2020", "#F5EDED"],
-    variantLabels: ["Rosso"],
-    overrides: {
-      bg: "#0A0606", // near-black with warm red undertone
-      bg1: "#120E0E", // dark warm surface
-      bg2: "#1C1616", // raised surface, slight warmth
-      bg3: "#262020", // elevated, visible warmth
-      border: "rgba(220,38,38,0.10)",
-      borderLight: "rgba(255,255,255,0.04)",
-      borderAccent: "rgba(220,38,38,0.35)",
-      text: "#F8F0F0", // warm white
-      textMuted: "rgba(248,240,240,0.55)",
-      textDim: "rgba(248,240,240,0.28)",
-      accent: "#DC2626", // Rosso Corsa
-      accentDim: "#B91C1C",
-      accentBg: hR("#DC2626", 0.1),
-      accentAlt: "#EF4444",
-      gradient: "linear-gradient(135deg, #DC2626, #EF4444)",
-      gradientSubtle: `linear-gradient(135deg, ${hR("#DC2626", 0.12)}, ${hR("#EF4444", 0.12)})`,
-      gradientText: "linear-gradient(135deg, #DC2626, #EF4444)",
-      green: "#22C55E",
-      red: "#DC2626",
-      blue: "#3B82F6",
-      purple: "#A855F7",
-      orange: "#F59E0B",
-      cyan: "#06B6D4",
-      yellow: "#FCD34D",
-      sidebarBg: "rgba(10,6,6,0.97)",
-      glassBg: "rgba(28,22,22,0.78)",
-      glassBorder: "rgba(220,38,38,0.06)",
-      glassBgDark: "rgba(10,6,6,0.92)",
-      mesh: {
-        base: "linear-gradient(135deg, #0C0808 0%, #120A0A 35%, #140C0C 55%, #0C0808 100%)",
-        blobs: [
-          { color: "#DC2626", x: "35%", y: "50%", size: "48vw", alpha: 0.32, blur: 55 },
-          { color: "#1A2040", x: "70%", y: "15%", size: "25vw", alpha: 0.08, blur: 60 },
-        ],
-        caustics: [{ color: "#DC2626", x: "42%", y: "38%", size: "15vw", alpha: 0.38, blur: 22 }],
-      },
-      bgGradient: `radial-gradient(ellipse at 50% 100%, ${hR("#DC2626", 0.05)} 0%, transparent 50%), #0A0606`,
-      forceDark: true,
-    },
-    variants: [null],
-  },
-
-  // ━━━ 10. 720S — McLaren, Papaya Orange, surgical British ━━━
+  // ━━━ 720S — McLaren, Papaya Orange, surgical British ━━━
   // Heritage papaya orange on cool gray architecture. Teardrop cabin.
   // British engineering: precise, cool, technical. Orange is controlled fire.
   // Clean separation between surface layers, like the car's monocoque.
@@ -1153,72 +964,10 @@ export const PALETTES = [
     },
     variants: [null],
   },
-
-  // ━━━ 13. HUAYRA — Pagani, artisanal titanium + bronze ━━━
-  // Hand-crafted. Exposed titanium bolts. Smoked glass. Analog gauges.
-  // Warm bronze/titanium accent on rich dark brown leather surfaces.
-  // Every detail is bespoke. Craftsmanship over technology.
-  {
-    id: "car-huayra",
-    name: "Huayra",
-    desc: "Pagani — artisanal titanium, analog warmth",
-    preview: ["#0C0A08", "#B8860B", "#1A1614", "#2A2420", "#F5EDE0"],
-    variantLabels: ["Titanium"],
-    overrides: {
-      bg: "#0A0806", // deep espresso void
-      bg1: "#121010", // dark leather
-      bg2: "#1C1816", // raised brown-black
-      bg3: "#262220", // elevated warm surface
-      border: "rgba(184,134,11,0.10)",
-      borderLight: "rgba(255,255,255,0.04)",
-      borderAccent: "rgba(184,134,11,0.30)",
-      text: "#F5EDE0", // warm parchment (aged leather)
-      textMuted: "rgba(245,237,224,0.52)",
-      textDim: "rgba(245,237,224,0.25)",
-      accent: "#B8860B", // titanium bronze
-      accentDim: "#966D09",
-      accentBg: hR("#B8860B", 0.08),
-      accentAlt: "#D4A028",
-      gradient: "linear-gradient(135deg, #B8860B, #D4A028)",
-      gradientSubtle: `linear-gradient(135deg, ${hR("#B8860B", 0.1)}, ${hR("#D4A028", 0.1)})`,
-      gradientText: "linear-gradient(135deg, #B8860B, #D4A028)",
-      green: "#6ABF4B",
-      red: "#D44040",
-      blue: "#5480B0",
-      purple: "#8A6AB0",
-      orange: "#D49030",
-      cyan: "#508090",
-      yellow: "#D4B840",
-      sidebarBg: "rgba(10,8,6,0.97)",
-      glassBg: "rgba(28,24,22,0.78)",
-      glassBorder: "rgba(184,134,11,0.08)",
-      glassBgDark: "rgba(10,8,6,0.92)",
-      mesh: {
-        base: "linear-gradient(135deg, #0C0A08 0%, #141210 35%, #181510 60%, #0C0A08 100%)",
-        blobs: [
-          { color: "#B8860B", x: "40%", y: "40%", size: "40vw", alpha: 0.28, blur: 55 },
-          { color: "#8A6AB0", x: "10%", y: "60%", size: "25vw", alpha: 0.08, blur: 60 },
-        ],
-        caustics: [{ color: "#D4A028", x: "45%", y: "15%", size: "13vw", alpha: 0.25, blur: 25 }],
-      },
-      bgGradient: `radial-gradient(ellipse at 40% 80%, ${hR("#B8860B", 0.04)} 0%, transparent 45%), #0A0806`,
-      forceDark: true,
-    },
-    variants: [null],
-  },
 ];
 
 // Car palette IDs for cycling
-export const CAR_PALETTE_IDS = [
-  "car-terzo",
-  "car-gt3rs",
-  "car-spectre",
-  "car-sf90",
-  "car-720s",
-  "car-visiondee",
-  "car-amgone",
-  "car-huayra",
-];
+export const CAR_PALETTE_IDS = ["car-terzo", "car-gt3rs", "car-720s", "car-visiondee", "car-amgone"];
 
 // Chart colors
 export const PIE_COLORS = [

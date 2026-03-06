@@ -11,7 +11,14 @@ import { useUiStore } from "@/stores/uiStore";
 import Modal from "@/components/shared/Modal";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
-import { getTradeLabel, getTradeSortOrder, autoTradeFromCode, TRADE_GROUPINGS, TRADE_MAP, TRADE_COLORS } from "@/constants/tradeGroupings";
+import {
+  getTradeLabel,
+  getTradeSortOrder,
+  autoTradeFromCode,
+  TRADE_GROUPINGS,
+  TRADE_MAP,
+  TRADE_COLORS,
+} from "@/constants/tradeGroupings";
 import { TradeBadge } from "@/components/contacts/TradeMultiSelect";
 import { CSI } from "@/constants/csi";
 import { generateScopeSheet } from "@/utils/scopeSheetGenerator";
@@ -201,11 +208,7 @@ export default function CreateBidPackageModal({ onClose }) {
   // Auto-match subs by trades matching selected scope
   const matchedSubIds = useMemo(() => {
     if (selectedTrades.size === 0) return new Set();
-    return new Set(
-      subs
-        .filter(s => (s.trades || []).some(tk => selectedTrades.has(tk)))
-        .map(s => s.id)
-    );
+    return new Set(subs.filter(s => (s.trades || []).some(tk => selectedTrades.has(tk))).map(s => s.id));
   }, [subs, selectedTrades]);
 
   const toggleItem = itemId => {
@@ -257,7 +260,10 @@ export default function CreateBidPackageModal({ onClose }) {
       const subsToInvite = subs
         .filter(s => selectedSubs.includes(s.id))
         .map(s => ({
-          company: s.company, contact: s.contact, email: s.email, phone: s.phone,
+          company: s.company,
+          contact: s.contact,
+          email: s.email,
+          phone: s.phone,
           trade: (s.trades || []).map(tk => TRADE_MAP[tk]?.label || tk).join(", ") || s._legacyTrade || "",
         }));
 
@@ -826,9 +832,17 @@ export default function CreateBidPackageModal({ onClose }) {
                         }
                         addMasterItem("subcontractors", {
                           ...newSub,
-                          notes: "", rating: "",
-                          markets: [], insuranceExpiry: "", bondingCapacity: "", emr: "",
-                          certifications: [], yearsInBusiness: "", licenseNo: "", website: "", address: "",
+                          notes: "",
+                          rating: "",
+                          markets: [],
+                          insuranceExpiry: "",
+                          bondingCapacity: "",
+                          emr: "",
+                          certifications: [],
+                          yearsInBusiness: "",
+                          licenseNo: "",
+                          website: "",
+                          address: "",
                         });
                         const updatedSubs = useMasterDataStore.getState().masterData.subcontractors;
                         const created = updatedSubs[updatedSubs.length - 1];
@@ -914,10 +928,16 @@ export default function CreateBidPackageModal({ onClose }) {
                             {sub.company || "Unknown Company"}
                           </span>
                           {isMatch && (
-                            <span style={{
-                              fontSize: 8, fontWeight: 700, color: C.green,
-                              background: `${C.green}15`, padding: "1px 5px", borderRadius: 4,
-                            }}>
+                            <span
+                              style={{
+                                fontSize: 8,
+                                fontWeight: 700,
+                                color: C.green,
+                                background: `${C.green}15`,
+                                padding: "1px 5px",
+                                borderRadius: 4,
+                              }}
+                            >
                               MATCH
                             </span>
                           )}
@@ -1122,9 +1142,7 @@ export default function CreateBidPackageModal({ onClose }) {
                     const next = step + 1;
                     // Auto-select subs by trade match when entering step 3
                     if (next === 2 && !autoSelectedSubs && selectedTrades.size > 0) {
-                      const matched = subs.filter(s =>
-                        (s.trades || []).some(tk => selectedTrades.has(tk))
-                      );
+                      const matched = subs.filter(s => (s.trades || []).some(tk => selectedTrades.has(tk)));
                       if (matched.length > 0) {
                         setSelectedSubs(prev => [...new Set([...prev, ...matched.map(s => s.id)])]);
                       }

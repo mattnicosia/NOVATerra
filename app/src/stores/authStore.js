@@ -13,6 +13,23 @@ export const useAuthStore = create((set, get) => ({
   magicLinkSent: false,
   _initialized: false, // guard against double-init (React StrictMode)
 
+  // ── BLDG Talent: app-level role ──
+  // 'novaterra' = existing estimating user (default)
+  // 'candidate' = BLDG Talent assessment taker
+  // 'bt_admin'  = BLDG Talent recruiter admin
+  appRole: "novaterra",
+
+  // Fetch app role from bt_user_roles table (graceful fallback if table doesn't exist)
+  fetchAppRole: async userId => {
+    if (!supabase || !userId) return;
+    try {
+      const { data } = await supabase.from("bt_user_roles").select("role").eq("user_id", userId).single();
+      if (data?.role) set({ appRole: data.role });
+    } catch {
+      // Table doesn't exist yet or no row for this user — stay novaterra
+    }
+  },
+
   // Initialize auth — call once on app mount
   init: async () => {
     if (get()._initialized) return;
@@ -32,6 +49,8 @@ export const useAuthStore = create((set, get) => ({
         set({ user: session.user, session, loading: false });
         // Load org membership — awaited so orgReady is set before persistence loads
         await useOrgStore.getState().fetchOrg();
+        // Load app role (BLDG Talent) in background — non-blocking
+        get().fetchAppRole(session.user.id);
       } else {
         set({ loading: false });
         useOrgStore.setState({ orgReady: true });
@@ -52,8 +71,10 @@ export const useAuthStore = create((set, get) => ({
         set({ user: session.user, session, loading: false, magicLinkSent: false, authError: null });
         // Load org membership in background
         useOrgStore.getState().fetchOrg();
+        // Load app role (BLDG Talent) in background
+        get().fetchAppRole(session.user.id);
       } else if (event === "SIGNED_OUT") {
-        set({ user: null, session: null, magicLinkSent: false });
+        set({ user: null, session: null, magicLinkSent: false, appRole: "novaterra" });
         useOrgStore.getState().reset();
       } else if (event === "TOKEN_REFRESHED" && session) {
         set({ session });
@@ -97,6 +118,8 @@ export const useAuthStore = create((set, get) => ({
     set({ user: data.user, session: data.session });
     // Load org membership (onAuthStateChange may also fire, but dedup guard handles it)
     useOrgStore.getState().fetchOrg();
+    // Load app role (BLDG Talent)
+    get().fetchAppRole(data.user.id);
     return { success: true };
   },
 
@@ -128,17 +151,42 @@ export const useAuthStore = create((set, get) => ({
     set({ user: data.user, session: data.session });
     // Load org membership for newly signed-up user (may have pre-accepted invite)
     useOrgStore.getState().fetchOrg();
+    // Load app role (BLDG Talent)
+    get().fetchAppRole(data.user.id);
     return { success: true };
   },
 
-  // Sign out — clear all local data to prevent leaking to next user
+  // Sign out — push data to cloud FIRST, then clear local to prevent leaking to next user
   signOut: async () => {
     if (!supabase) return;
+
+    // ── Safety: push current data to cloud before wiping local ──
+    try {
+      const { useUiStore } = await import("@/stores/uiStore");
+      const { useEstimatesStore } = await import("@/stores/estimatesStore");
+      const { saveEstimate, saveMasterData } = await import("@/hooks/usePersistence");
+      const cloudSync = await import("@/utils/cloudSync");
+
+      const activeId = useEstimatesStore.getState().activeEstimateId;
+      if (activeId) {
+        console.log("[signOut] Saving active estimate before sign-out...");
+        await saveEstimate();
+      }
+      console.log("[signOut] Pushing data to cloud before clearing local...");
+      await saveMasterData();
+      // Give cloud sync a moment to complete
+      await new Promise(r => setTimeout(r, 500));
+    } catch (err) {
+      console.warn("[signOut] Pre-sign-out sync failed:", err.message);
+      // Continue with sign-out even if sync fails — data is still in cloud
+      // from the last successful auto-save
+    }
+
     await supabase.auth.signOut();
     resetAllStores();
     useOrgStore.getState().reset();
     await storage.clearAll();
-    set({ user: null, session: null, authError: null, magicLinkSent: false });
+    set({ user: null, session: null, authError: null, magicLinkSent: false, appRole: "novaterra" });
   },
 
   // Reset password (sends email)

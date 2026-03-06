@@ -16,19 +16,19 @@ const TRIGGER_ORDER = [
 export default function AutoResponseSettings() {
   const C = useTheme();
   const dk = C.isDark !== false;
-  const triggerConfig = useAutoResponseStore((s) => s.triggerConfig);
-  const updateTrigger = useAutoResponseStore((s) => s.updateTrigger);
-  const drafts = useAutoResponseStore((s) => s.drafts);
+  const triggerConfig = useAutoResponseStore(s => s.triggerConfig);
+  const updateTrigger = useAutoResponseStore(s => s.updateTrigger);
+  const drafts = useAutoResponseStore(s => s.drafts);
 
-  const sentCount = drafts.filter((d) => d.status === "sent").length;
-  const pendingCount = drafts.filter((d) => d.status === "pending").length;
+  const sentCount = drafts.filter(d => d.status === "sent").length;
+  const pendingCount = drafts.filter(d => d.status === "pending").length;
 
   return (
     <div style={{ fontFamily: "'DM Sans', sans-serif" }}>
       {/* Description */}
       <p style={{ fontSize: 12, color: C.textDim, margin: "0 0 16px", lineHeight: 1.5 }}>
-        NOVA automatically drafts email responses when subcontractors interact with your bid packages.
-        All drafts are queued for your review before sending.
+        NOVA automatically drafts email responses when subcontractors interact with your bid packages. All drafts are
+        queued for your review before sending.
       </p>
 
       {/* Stats row */}
@@ -47,7 +47,9 @@ export default function AutoResponseSettings() {
           <div style={{ fontSize: 18, fontWeight: 700, color: C.green, fontFeatureSettings: "'tnum'" }}>
             {sentCount}
           </div>
-          <div style={{ fontSize: 9, color: C.textDim, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+          <div
+            style={{ fontSize: 9, color: C.textDim, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}
+          >
             Sent
           </div>
         </div>
@@ -55,7 +57,9 @@ export default function AutoResponseSettings() {
           <div style={{ fontSize: 18, fontWeight: 700, color: C.accent, fontFeatureSettings: "'tnum'" }}>
             {pendingCount}
           </div>
-          <div style={{ fontSize: 9, color: C.textDim, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+          <div
+            style={{ fontSize: 9, color: C.textDim, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}
+          >
             Pending
           </div>
         </div>
@@ -81,10 +85,11 @@ export default function AutoResponseSettings() {
                 alignItems: "center",
                 justifyContent: "space-between",
                 padding: "10px 14px",
-                borderBottom: idx < TRIGGER_ORDER.length - 1 ? `1px solid ${dk ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"}` : "none",
-                background: config.enabled
-                  ? dk ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.01)"
-                  : "transparent",
+                borderBottom:
+                  idx < TRIGGER_ORDER.length - 1
+                    ? `1px solid ${dk ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"}`
+                    : "none",
+                background: config.enabled ? (dk ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.01)") : "transparent",
               }}
             >
               <div style={{ flex: 1 }}>
@@ -100,9 +105,7 @@ export default function AutoResponseSettings() {
                   />
                   <span style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{meta.label}</span>
                 </div>
-                <div style={{ fontSize: 10, color: C.textDim, marginTop: 2, paddingLeft: 12 }}>
-                  {meta.description}
-                </div>
+                <div style={{ fontSize: 10, color: C.textDim, marginTop: 2, paddingLeft: 12 }}>{meta.description}</div>
               </div>
 
               {/* Toggle switch */}
@@ -115,7 +118,9 @@ export default function AutoResponseSettings() {
                   border: "none",
                   background: config.enabled
                     ? "linear-gradient(135deg, #7C5CFC, #BF5AF2)"
-                    : dk ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.12)",
+                    : dk
+                      ? "rgba(255,255,255,0.10)"
+                      : "rgba(0,0,0,0.12)",
                   cursor: "pointer",
                   position: "relative",
                   transition: "background 0.2s",
@@ -143,8 +148,8 @@ export default function AutoResponseSettings() {
 
       {/* Note */}
       <p style={{ fontSize: 10, color: C.textDim, margin: "12px 0 0", lineHeight: 1.5 }}>
-        Auto-responses are AI-drafted and always queued for your review before sending.
-        A notification banner appears when drafts are ready.
+        Auto-responses are AI-drafted and always queued for your review before sending. A notification banner appears
+        when drafts are ready.
       </p>
     </div>
   );

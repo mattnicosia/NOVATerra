@@ -8,7 +8,7 @@ import { I } from "@/constants/icons";
 
 export default function AutoResponseBanner({ onReviewClick }) {
   const C = useTheme();
-  const pendingCount = useAutoResponseStore((s) => s.getPendingCount());
+  const pendingCount = useAutoResponseStore(s => s.getPendingCount());
   const [snoozed, setSnoozed] = useState(false);
 
   if (pendingCount === 0 || snoozed) return null;
@@ -66,8 +66,8 @@ export default function AutoResponseBanner({ onReviewClick }) {
             fontFamily: "'DM Sans', sans-serif",
             transition: "opacity 0.15s",
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.85")}
-          onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+          onMouseEnter={e => (e.currentTarget.style.opacity = "0.85")}
+          onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
         >
           Review All
         </button>
@@ -88,8 +88,8 @@ export default function AutoResponseBanner({ onReviewClick }) {
             opacity: 0.5,
             transition: "opacity 0.15s",
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-          onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.5")}
+          onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
+          onMouseLeave={e => (e.currentTarget.style.opacity = "0.5")}
         >
           <Ic d={I.x} size={10} color={C.textDim} sw={2} />
         </button>

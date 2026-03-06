@@ -6,6 +6,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { useDatabaseStore } from '@/stores/databaseStore';
 import { useMasterDataStore } from '@/stores/masterDataStore';
 import { useDrawingsStore } from '@/stores/drawingsStore';
+import { useSubdivisionStore } from '@/stores/subdivisionStore';
 import Ic from '@/components/shared/Ic';
 import { I } from '@/constants/icons';
 
@@ -88,6 +89,9 @@ export default function CoreSources() {
   const proposals = useMasterDataStore(s => s.masterData.historicalProposals || []);
   const drawings = useDrawingsStore(s => s.drawings);
 
+  // Subdivision engine stats
+  const subdivisionStats = useSubdivisionStore(s => s.getStats)();
+
   const stats = useMemo(() => {
     const userElements = elements.filter(e => !e.id?.startsWith('s'));
     const seedElements = elements.filter(e => e.id?.startsWith('s'));
@@ -153,6 +157,15 @@ export default function CoreSources() {
           count={stats.totalNotes}
           description={`Extracted from ${stats.drawingsWithNotes} drawing sheet${stats.drawingsWithNotes !== 1 ? 's' : ''}. Notes are auto-embedded when you extract them in Plan Room.`}
           status={stats.drawingsWithNotes > 0 ? "active" : "pending"}
+          C={C} T={T}
+        />
+        <SourceCard
+          icon="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z M7.5 4.21l4.5 2.6 4.5-2.6 M7.5 19.79V14.6L3 12 M21 12l-4.5 2.6v5.19 M3.27 6.96L12 12.01l8.73-5.05 M12 22.08V12"
+          iconColor="#7C3AED"
+          title="Subdivision Engine"
+          count={subdivisionStats.totalSubs}
+          description={`AI-generated subdivision allocations with confidence weighting. ${subdivisionStats.validatedLlm} validated, ${subdivisionStats.userOverrideCount} user overrides, ${subdivisionStats.calibratedCount} calibrated.`}
+          status={subdivisionStats.totalSubs > 0 ? "active" : "pending"}
           C={C} T={T}
         />
       </div>

@@ -89,7 +89,9 @@ export default function KPI({ label, value, sub, icon, color, accent }) {
         T.glass.specular,
         accent ? `${T.shadow.md}, 0 0 24px ${C.accent}${C.isDark ? "20" : "30"}` : T.shadow.sm,
         T.glass.edge,
-      ].join(", ");
+      ]
+        .filter(Boolean)
+        .join(", ");
 
   return (
     <div

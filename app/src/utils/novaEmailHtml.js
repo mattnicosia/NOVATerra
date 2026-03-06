@@ -23,7 +23,9 @@ export function buildNovaEmailHtml({ heading, body, ctaUrl, ctaLabel, footerNote
   // Convert plain text body into HTML paragraphs
   const bodyHtml = escapeHtml(body)
     .split(/\n\n+/)
-    .map((p) => `<p style="color:#CCCCCC;font-size:15px;margin:0 0 12px;line-height:1.6;">${p.replace(/\n/g, "<br>")}</p>`)
+    .map(
+      p => `<p style="color:#CCCCCC;font-size:15px;margin:0 0 12px;line-height:1.6;">${p.replace(/\n/g, "<br>")}</p>`,
+    )
     .join("");
 
   const ctaBlock = ctaUrl

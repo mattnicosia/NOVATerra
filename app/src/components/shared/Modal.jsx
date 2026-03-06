@@ -16,7 +16,9 @@ export default function Modal({ children, onClose, wide, extraWide, width: custo
         T.shadow.xl,
         C.isDark ? "0 0 80px rgba(0,0,0,0.40)" : "0 0 80px rgba(20,30,80,0.18)",
         T.glass.edge,
-      ].join(", ");
+      ]
+        .filter(Boolean)
+        .join(", ");
 
   return (
     <div

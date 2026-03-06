@@ -8,11 +8,12 @@ import Pill from "@/components/shared/Pill";
 import NovaTerraLogo from "@/components/shared/NovaTerraLogo";
 import { I } from "@/constants/icons";
 import { fmt } from "@/utils/format";
+import ActivityTimerPill from "@/components/shared/ActivityTimerPill";
 
 const estimateNav = [
   { key: "info", path: "info", icon: I.settings, label: "Project Info" },
   { key: "plans", path: "plans", icon: I.plans, label: "Discovery" },
-  { key: "takeoffs", path: "takeoffs", icon: I.takeoff, label: "Takeoffs" },
+  { key: "takeoffs", path: "takeoffs", icon: I.takeoff, label: "Estimate" },
   { key: "alternates", path: "alternates", icon: I.change, label: "Alternates" },
   { key: "sov", path: "sov", icon: I.dollar, label: "SOV" },
   { key: "reports", path: "reports", icon: I.report, label: "Reports" },
@@ -45,7 +46,7 @@ export default function Header() {
         backdropFilter: T.glass.blur,
         WebkitBackdropFilter: T.glass.blur,
         borderBottom: `1px solid ${T.glass.border || (C.isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.55)")}`,
-        boxShadow: [T.glass.specular, T.shadow.sm, T.glass.edge].join(", "),
+        boxShadow: [T.glass.specular, T.shadow.sm, T.glass.edge].filter(Boolean).join(", "),
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
@@ -124,6 +125,7 @@ export default function Header() {
               animation: "staggerFadeRight 0.4s cubic-bezier(0.16,1,0.3,1) 0.1s both",
             }}
           >
+            <ActivityTimerPill />
             <Pill label="Items" value={items.length} />
             <Pill label="Total" value={fmt(getTotals().grand)} accent />
           </div>

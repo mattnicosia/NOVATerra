@@ -1,5 +1,14 @@
 import { useEffect, useRef } from "react";
-import { saveEstimate, saveMasterData, saveSettings, saveAssemblies, saveCalendar, saveBidPackagePresets, saveAutoResponseConfig, saveAutoResponseDrafts } from "./usePersistence";
+import {
+  saveEstimate,
+  saveMasterData,
+  saveSettings,
+  saveAssemblies,
+  saveCalendar,
+  saveBidPackagePresets,
+  saveAutoResponseConfig,
+  saveAutoResponseDrafts,
+} from "./usePersistence";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { useItemsStore } from "@/stores/itemsStore";

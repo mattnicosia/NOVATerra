@@ -16,10 +16,17 @@ import { useOrgStore } from "@/stores/orgStore";
 
 const getUserId = () => useAuthStore.getState().user?.id;
 
-// Returns { org_id } for org mode or { org_id: null } for solo mode
+// Returns { org_id } for org mode or null for solo mode.
+// Solo mode: do NOT reference org_id at all (column may not exist yet).
 const getScope = () => {
   const org = useOrgStore.getState().org;
-  return org ? { org_id: org.id } : { org_id: null };
+  return org ? { org_id: org.id } : null;
+};
+
+// Apply org scope to a query — noop in solo mode
+const applyScope = (query, scope) => {
+  if (scope) return query.eq("org_id", scope.org_id);
+  return query; // solo mode: no org_id filter (just user_id)
 };
 
 const isReady = () => {
@@ -261,23 +268,22 @@ export const pushData = async (key, data) => {
     await withRetry(`pushData("${key}")`, async () => {
       const cleanData = key === "master" ? stripMasterBlobs(data) : data;
       // Settings are always user-scoped (never org-scoped)
-      const scope = key === "settings" ? { org_id: null } : getScope();
+      const scope = key === "settings" ? null : getScope();
       const userId = getUserId();
-      const row = { user_id: userId, key, data: cleanData, updated_at: new Date().toISOString(), ...scope };
+      const row = { user_id: userId, key, data: cleanData, updated_at: new Date().toISOString(), ...(scope || {}) };
 
-      if (scope.org_id) {
+      if (scope?.org_id) {
         // Org mode: onConflict works fine
         const { error } = await supabase.from("user_data").upsert(row, { onConflict: "user_id,key,org_id" });
         if (error) throw error;
       } else {
-        // Solo/settings mode: NULL org_id — onConflict doesn't match NULLs.
+        // Solo/settings mode: no org_id column needed.
         // Check if row exists, then update or insert.
         const { data: existing } = await supabase
           .from("user_data")
           .select("id")
           .eq("user_id", userId)
           .eq("key", key)
-          .is("org_id", null)
           .maybeSingle();
 
         if (existing) {
@@ -285,8 +291,7 @@ export const pushData = async (key, data) => {
             .from("user_data")
             .update({ data: cleanData, updated_at: row.updated_at })
             .eq("user_id", userId)
-            .eq("key", key)
-            .is("org_id", null);
+            .eq("key", key);
           if (error) throw error;
         } else {
           const { error } = await supabase.from("user_data").insert(row);
@@ -319,24 +324,22 @@ export const pushEstimate = async (estimateId, data) => {
         data: cleanData,
         updated_at: new Date().toISOString(),
         deleted_at: null,
-        ...scope,
+        ...(scope || {}),
       };
 
-      if (scope.org_id) {
+      if (scope?.org_id) {
         // Org mode: onConflict works fine (org_id is non-null)
         const { error } = await supabase
           .from("user_estimates")
           .upsert(row, { onConflict: "user_id,estimate_id,org_id" });
         if (error) throw error;
       } else {
-        // Solo mode: NULL org_id — onConflict doesn't match NULLs in PostgreSQL.
-        // Check if row exists, then update or insert.
+        // Solo mode: no org_id column needed.
         const { data: existing } = await supabase
           .from("user_estimates")
           .select("id")
           .eq("user_id", userId)
           .eq("estimate_id", estimateId)
-          .is("org_id", null)
           .maybeSingle();
 
         if (existing) {
@@ -344,8 +347,7 @@ export const pushEstimate = async (estimateId, data) => {
             .from("user_estimates")
             .update({ data: cleanData, updated_at: row.updated_at, deleted_at: null })
             .eq("user_id", userId)
-            .eq("estimate_id", estimateId)
-            .is("org_id", null);
+            .eq("estimate_id", estimateId);
           if (error) throw error;
         } else {
           const { error } = await supabase.from("user_estimates").insert(row);
@@ -377,12 +379,7 @@ export const deleteEstimate = async estimateId => {
       .eq("user_id", getUserId());
 
     const scope = getScope();
-    if (scope.org_id) {
-      query = query.eq("org_id", scope.org_id);
-    } else {
-      // Solo mode: NULL org_id — must use .is() since NULL ≠ NULL in SQL
-      query = query.is("org_id", null);
-    }
+    query = applyScope(query, scope);
 
     const { error } = await query;
     if (error) throw error;
@@ -402,15 +399,9 @@ export const deleteEstimate = async estimateId => {
 export const pullData = async key => {
   if (!isReady()) return null;
   try {
-    // Settings are always user-scoped; other data uses org scope
-    const scope = key === "settings" ? { org_id: null } : getScope();
+    const scope = key === "settings" ? null : getScope();
     let query = supabase.from("user_data").select("data").eq("user_id", getUserId()).eq("key", key);
-
-    if (scope.org_id) {
-      query = query.eq("org_id", scope.org_id);
-    } else {
-      query = query.is("org_id", null);
-    }
+    query = applyScope(query, scope);
 
     const { data, error } = await query.maybeSingle();
     if (error) throw error;
@@ -428,14 +419,9 @@ export const pullData = async key => {
 export const pullDataWithMeta = async key => {
   if (!isReady()) return null;
   try {
-    const scope = key === "settings" ? { org_id: null } : getScope();
+    const scope = key === "settings" ? null : getScope();
     let query = supabase.from("user_data").select("data, updated_at").eq("user_id", getUserId()).eq("key", key);
-
-    if (scope.org_id) {
-      query = query.eq("org_id", scope.org_id);
-    } else {
-      query = query.is("org_id", null);
-    }
+    query = applyScope(query, scope);
 
     const { data, error } = await query.maybeSingle();
     if (error) throw error;
@@ -453,13 +439,12 @@ export const pullAllEstimatesWithMeta = async () => {
   if (!isReady()) return [];
   try {
     const scope = getScope();
-    let query = supabase.from("user_estimates").select("estimate_id, data, updated_at, user_id").is("deleted_at", null); // Exclude soft-deleted estimates
+    let query = supabase.from("user_estimates").select("estimate_id, data, updated_at, user_id").is("deleted_at", null);
 
-    if (scope.org_id) {
-      // Org mode: pull all org estimates (RLS handles visibility)
+    if (scope?.org_id) {
       query = query.eq("org_id", scope.org_id);
     } else {
-      query = query.eq("user_id", getUserId()).is("org_id", null);
+      query = query.eq("user_id", getUserId());
     }
 
     const { data, error } = await query;
@@ -480,12 +465,12 @@ export const pullEstimate = async estimateId => {
   if (!isReady()) return null;
   try {
     const scope = getScope();
-    let query = supabase.from("user_estimates").select("data").eq("estimate_id", estimateId).is("deleted_at", null); // Exclude soft-deleted
+    let query = supabase.from("user_estimates").select("data").eq("estimate_id", estimateId).is("deleted_at", null);
 
-    if (scope.org_id) {
+    if (scope?.org_id) {
       query = query.eq("org_id", scope.org_id);
     } else {
-      query = query.eq("user_id", getUserId()).is("org_id", null);
+      query = query.eq("user_id", getUserId());
     }
 
     const { data, error } = await query.maybeSingle();
@@ -505,12 +490,12 @@ export const pullAllEstimates = async () => {
   if (!isReady()) return [];
   try {
     const scope = getScope();
-    let query = supabase.from("user_estimates").select("estimate_id, data, user_id").is("deleted_at", null); // Exclude soft-deleted estimates
+    let query = supabase.from("user_estimates").select("estimate_id, data, user_id").is("deleted_at", null);
 
-    if (scope.org_id) {
+    if (scope?.org_id) {
       query = query.eq("org_id", scope.org_id);
     } else {
-      query = query.eq("user_id", getUserId()).is("org_id", null);
+      query = query.eq("user_id", getUserId());
     }
 
     const { data, error } = await query;

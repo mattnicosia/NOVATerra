@@ -37,7 +37,10 @@ export function TradeBadge({ tradeKey, onRemove, size = "sm" }) {
       {trade.label}
       {onRemove && (
         <span
-          onClick={e => { e.stopPropagation(); onRemove(tradeKey); }}
+          onClick={e => {
+            e.stopPropagation();
+            onRemove(tradeKey);
+          }}
           style={{ cursor: "pointer", opacity: 0.7, display: "flex", alignItems: "center" }}
         >
           <Ic d={I.x} size={isXs ? 8 : 9} color={color} sw={2.5} />
@@ -56,12 +59,7 @@ export function TradeBadge({ tradeKey, onRemove, size = "sm" }) {
      compact    boolean    If true, uses inline badge layout (for grid rows)
      placeholder string
    ──────────────────────────────────────────────────────── */
-export default function TradeMultiSelect({
-  value = [],
-  onChange,
-  compact = false,
-  placeholder = "Add trade...",
-}) {
+export default function TradeMultiSelect({ value = [], onChange, compact = false, placeholder = "Add trade..." }) {
   const C = useTheme();
   const T = C.T;
   const [open, setOpen] = useState(false);
@@ -79,9 +77,7 @@ export default function TradeMultiSelect({
   }, [open]);
 
   const toggle = key => {
-    const next = value.includes(key)
-      ? value.filter(k => k !== key)
-      : [...value, key];
+    const next = value.includes(key) ? value.filter(k => k !== key) : [...value, key];
     onChange(next);
   };
 
@@ -195,8 +191,12 @@ export default function TradeMultiSelect({
                   background: checked ? `${color}08` : "transparent",
                   transition: "background 0.1s",
                 }}
-                onMouseOver={e => { if (!checked) e.currentTarget.style.background = C.bg2; }}
-                onMouseOut={e => { if (!checked) e.currentTarget.style.background = "transparent"; }}
+                onMouseOver={e => {
+                  if (!checked) e.currentTarget.style.background = C.bg2;
+                }}
+                onMouseOut={e => {
+                  if (!checked) e.currentTarget.style.background = "transparent";
+                }}
               >
                 {/* Checkbox */}
                 <div
@@ -238,9 +238,7 @@ export default function TradeMultiSelect({
                 </span>
                 {/* CSI hint */}
                 {t.divisions.length > 0 && (
-                  <span style={{ fontSize: 9, color: C.textDim, flexShrink: 0 }}>
-                    Div {t.divisions.join(", ")}
-                  </span>
+                  <span style={{ fontSize: 9, color: C.textDim, flexShrink: 0 }}>Div {t.divisions.join(", ")}</span>
                 )}
               </div>
             );

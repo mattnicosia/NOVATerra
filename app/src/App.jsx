@@ -9,6 +9,7 @@ import { useEmbeddingSync } from "@/hooks/useEmbeddingSync";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useAutoSnapshot } from "@/hooks/useAutoSnapshot";
 import useAutoResponseTimers from "@/hooks/useAutoResponseTimers";
+import { useActivityTracker } from "@/hooks/useActivityTracker";
 import AutoResponseBanner from "@/components/shared/AutoResponseBanner";
 import DraftApprovalPanel from "@/components/shared/DraftApprovalPanel";
 
@@ -62,8 +63,16 @@ const InsightsPage = lazy(() => import("@/pages/InsightsPage"));
 const ProjectsPage = lazy(() => import("@/pages/ProjectsPage"));
 const CorePage = lazy(() => import("@/pages/CorePage"));
 const BidPackagesPage = lazy(() => import("@/pages/BidPackagesPage"));
+const BusinessDashboardPage = lazy(() => import("@/pages/BusinessDashboardPage"));
 const PortalPage = lazy(() => import("@/pages/PortalPage"));
 const SubDashboardPage = lazy(() => import("@/pages/SubDashboardPage"));
+
+// BLDG Talent + ROM pages (lazy-loaded, role-gated — existing users never download these)
+const RomPage = lazy(() => import("@/pages/RomPage"));
+const BTRegisterPage = lazy(() => import("@/pages/talent/BTRegisterPage"));
+const BTLoginPage = lazy(() => import("@/pages/talent/BTLoginPage"));
+const CandidateLayout = lazy(() => import("@/components/talent/layout/CandidateLayout"));
+const BTAdminLayout = lazy(() => import("@/components/talent/layout/BTAdminLayout"));
 
 // Admin pages (lazy-loaded, only accessed by admin users)
 const AdminLayout = lazy(() => import("@/pages/admin/AdminLayout"));
@@ -124,7 +133,7 @@ function EstimateLoader({ children }) {
 const PROJECT_TABS = [
   { key: "info", path: "info", icon: I.settings, label: "Project Info" },
   { key: "plans", path: "plans", icon: I.plans, label: "Discovery" },
-  { key: "takeoffs", path: "takeoffs", icon: I.takeoff, label: "Takeoffs" },
+  { key: "takeoffs", path: "takeoffs", icon: I.takeoff, label: "Estimate" },
   { key: "alternates", path: "alternates", icon: I.change, label: "Alternates" },
   { key: "sov", path: "sov", icon: I.dollar, label: "SOV" },
   { key: "bids", path: "bids", icon: I.bid, label: "Bids" },
@@ -150,7 +159,7 @@ function TakeoffsHeaderControls({ C }) {
 
   const modes = [
     { id: "closed", w: 0, bars: 0, label: "Closed" },
-    { id: "standard", w: 550, bars: 2, label: "Takeoffs" },
+    { id: "standard", w: 550, bars: 2, label: "Estimate" },
     { id: "full", w: 900, bars: 3, label: "Split" },
     { id: "estimate", w: 0, bars: 4, label: "Estimate" },
   ];
@@ -555,7 +564,7 @@ function FloatingThemePicker() {
   const updateSetting = useUiStore(s => s.updateSetting);
   const [expanded, setExpanded] = useState(false);
 
-  const ALL_IDS = ["nova", "grey", "clarity", "matte", "nero", ...CAR_PALETTE_IDS];
+  const ALL_IDS = ["nova", "clarity", "clean-light", "clean-dark", "nero", ...CAR_PALETTE_IDS];
   const currentIdx = ALL_IDS.indexOf(selectedPalette);
   const currentPalette = PALETTES.find(p => p.id === selectedPalette);
   const currentName = currentPalette?.name || "Default";
@@ -572,11 +581,12 @@ function FloatingThemePicker() {
       style={{
         position: "fixed",
         bottom: 20,
-        right: 20,
+        left: "50%",
+        transform: "translateX(-50%)",
         zIndex: 9999,
         display: "flex",
         flexDirection: "column",
-        alignItems: "flex-end",
+        alignItems: "center",
         gap: 8,
         fontFamily: "'DM Sans', sans-serif",
       }}
@@ -792,7 +802,7 @@ function ThemeCycleButton({ C }) {
   const [hovered, setHovered] = useState(false);
 
   // All available palettes: originals + car collection
-  const ALL_IDS = ["nova", "grey", "clarity", "matte", "nero", ...CAR_PALETTE_IDS];
+  const ALL_IDS = ["nova", "clarity", "clean-light", "clean-dark", "nero", ...CAR_PALETTE_IDS];
   const currentIdx = ALL_IDS.indexOf(selectedPalette);
 
   // Find current palette metadata
@@ -980,19 +990,22 @@ function AppContent() {
   useEmbeddingSync();
   useKeyboardShortcuts();
   useAutoResponseTimers();
+  useActivityTracker();
 
   const [showDraftPanel, setShowDraftPanel] = useState(false);
 
   // Sync body background to theme (covers areas outside app-shell + prevents flash)
   // Also toggle theme-light/theme-dark class for CSS hover state overrides
   const density = useUiStore(s => s.appSettings?.density || "comfortable");
+  const selectedPalette = useUiStore(s => s.appSettings.selectedPalette);
   useEffect(() => {
     document.documentElement.style.setProperty("--app-bg", C.bg);
     document.documentElement.style.setProperty("--app-text", C.text);
     document.documentElement.classList.toggle("theme-light", !C.isDark);
     document.documentElement.classList.toggle("theme-dark", C.isDark);
     document.documentElement.classList.toggle("density-compact", density === "compact");
-  }, [C.bg, C.text, C.isDark, density]);
+    document.title = "NOVATerra";
+  }, [C.bg, C.text, C.isDark, C.noGlass, selectedPalette, density]);
 
   return (
     <div
@@ -1044,7 +1057,7 @@ function AppContent() {
           style={{ flex: 1, position: "relative", overflow: isDashboard ? "hidden" : "auto", scrollBehavior: "smooth" }}
         >
           <PageTransition>
-            <Suspense fallback={null}>
+            <Suspense fallback={<RouteLoading />}>
               <Routes>
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="/database" element={<Navigate to="/core?tab=database" replace />} />
@@ -1129,6 +1142,8 @@ function AppContent() {
                     </EstimateLoader>
                   }
                 />
+                {/* Business dashboard — owner/manager portal */}
+                <Route path="/business" element={<BusinessDashboardPage />} />
                 {/* Admin portal — protected by email whitelist */}
                 <Route
                   path="/admin"
@@ -1213,6 +1228,86 @@ function AuthLoading() {
   );
 }
 
+// ── Route loading spinner — shown while lazy page chunks load ──
+function RouteLoading() {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <div
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: "50%",
+          border: "3px solid rgba(124,92,252,0.15)",
+          borderTopColor: "#7C5CFC",
+          animation: "spin 0.8s linear infinite",
+        }}
+      />
+    </div>
+  );
+}
+
+// ── Mobile guard — displayed on screens < 1024px ──
+function MobileGuard() {
+  const C = useTheme();
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        background: C.bg,
+        padding: 32,
+        textAlign: "center",
+        fontFamily: "'DM Sans', sans-serif",
+        zIndex: 99999,
+      }}
+    >
+      <div style={{ fontSize: 48, marginBottom: 16 }}>🖥️</div>
+      <h1
+        style={{
+          fontSize: 22,
+          fontWeight: 700,
+          color: C.text,
+          marginBottom: 8,
+        }}
+      >
+        Desktop Required
+      </h1>
+      <p
+        style={{
+          fontSize: 15,
+          color: C.textDim || "rgba(160,140,200,0.6)",
+          maxWidth: 360,
+          lineHeight: 1.6,
+        }}
+      >
+        NOVATerra is a professional estimating platform built for desktop workflows. Please open this app on a screen at
+        least 1024px wide for the best experience.
+      </p>
+      <p
+        style={{
+          fontSize: 13,
+          color: C.textDim || "rgba(160,140,200,0.4)",
+          marginTop: 24,
+        }}
+      >
+        Mobile support is coming soon.
+      </p>
+    </div>
+  );
+}
+
 // Helper: reveal AppContent underneath an intro overlay
 function revealApp() {
   const el = document.getElementById("app-reveal");
@@ -1226,6 +1321,7 @@ export default function App() {
   const user = useAuthStore(s => s.user);
   const loading = useAuthStore(s => s.loading);
   const init = useAuthStore(s => s.init);
+  const appRole = useAuthStore(s => s.appRole);
 
   // Onboarding: first sign-in only (persisted in localStorage)
   const [onboardingComplete, setOnboardingComplete] = useState(
@@ -1275,6 +1371,15 @@ export default function App() {
   // Show loading spinner while checking session
   if (loading) return <AuthLoading />;
 
+  // ── Mobile guard — NOVATerra requires a desktop viewport ──
+  if (typeof window !== "undefined" && window.innerWidth < 1024) {
+    return (
+      <ThemeProvider>
+        <MobileGuard />
+      </ThemeProvider>
+    );
+  }
+
   // Public portal — bypasses auth gate entirely (subs don't need accounts)
   if (window.location.pathname.startsWith("/portal/")) {
     return (
@@ -1293,6 +1398,31 @@ export default function App() {
     );
   }
 
+  // Free ROM tool — public, no auth required (lead capture funnel)
+  if (window.location.pathname.startsWith("/rom")) {
+    return (
+      <Suspense fallback={<AuthLoading />}>
+        <RomPage />
+      </Suspense>
+    );
+  }
+
+  // BLDG Talent — public registration/login pages
+  if (window.location.pathname.startsWith("/talent/register")) {
+    return (
+      <Suspense fallback={<AuthLoading />}>
+        <BTRegisterPage />
+      </Suspense>
+    );
+  }
+  if (window.location.pathname.startsWith("/talent/login")) {
+    return (
+      <Suspense fallback={<AuthLoading />}>
+        <BTLoginPage />
+      </Suspense>
+    );
+  }
+
   // Not logged in → show login page
   if (!user)
     return (
@@ -1301,18 +1431,42 @@ export default function App() {
       </ThemeProvider>
     );
 
-  /* ── Onboarding gates temporarily disabled — users go straight to dashboard ──
-  // Gate 1: First-time cinematic onboarding
-  if (!onboardingComplete) { ... }
-  // Gate 2: Guided workspace tour
-  if (!tourComplete) { ... }
-  // Gate 3: Progressive setup
-  if (!setupComplete) { ... }
-  // Gate 4: Returning user splash
-  if (!splashComplete) { ... }
+  /* ── Onboarding gates disabled — login/signup is the entry point ──
+  // Gate 1: OnboardingSequence (cinematic first-time)
+  // Gate 2: GuidedTour (workspace walkthrough)
+  // Gate 3: ProgressiveSetup (company info)
+  // Gate 4: NovaSignInSplash (returning user greeting)
+  // Re-enable later via Alt+Shift+N reset or by uncommenting.
   ── end disabled gates ── */
 
-  // Normal app — straight to dashboard
+  // ── BLDG Talent: role-based routing ──
+  // Candidates see assessment layout, bt_admins see recruiter portal
+  // Default (novaterra) users see the normal app — completely unchanged
+  if (appRole === "candidate") {
+    return (
+      <ThemeProvider>
+        <ErrorBoundary>
+          <Suspense fallback={<RouteLoading />}>
+            <CandidateLayout />
+          </Suspense>
+        </ErrorBoundary>
+      </ThemeProvider>
+    );
+  }
+
+  if (appRole === "bt_admin") {
+    return (
+      <ThemeProvider>
+        <ErrorBoundary>
+          <Suspense fallback={<RouteLoading />}>
+            <BTAdminLayout />
+          </Suspense>
+        </ErrorBoundary>
+      </ThemeProvider>
+    );
+  }
+
+  // Normal NOVATerra app — straight to dashboard (existing users see zero changes)
   return (
     <ThemeProvider>
       <ErrorBoundary>
@@ -1321,4 +1475,3 @@ export default function App() {
     </ThemeProvider>
   );
 }
-// test

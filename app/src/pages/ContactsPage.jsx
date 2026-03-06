@@ -11,8 +11,11 @@ import TradeMultiSelect, { TradeBadge } from "@/components/contacts/TradeMultiSe
 import { I } from "@/constants/icons";
 import { inp, bt, card, sectionLabel } from "@/utils/styles";
 import {
-  TRADE_GROUPINGS, TRADE_MAP, TRADE_COLORS,
-  CERTIFICATION_TYPES, MARKET_REGIONS,
+  TRADE_GROUPINGS,
+  TRADE_MAP,
+  TRADE_COLORS,
+  CERTIFICATION_TYPES,
+  MARKET_REGIONS,
 } from "@/constants/tradeGroupings";
 
 const TABS = [
@@ -410,76 +413,80 @@ export default function ContactsPage() {
         </div>
 
         {/* Trade filter bar — only for subs tab */}
-        {activeTab === "subcontractors" && (() => {
-          const usedTrades = [...new Set(subcontractors.flatMap(s => s.trades || []))].sort(
-            (a, b) => (TRADE_MAP[a]?.sort || 99) - (TRADE_MAP[b]?.sort || 99)
-          );
-          if (usedTrades.length === 0) return null;
-          return (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-                marginBottom: T.space[3],
-                flexWrap: "wrap",
-                padding: `0 ${T.space[1]}px`,
-              }}
-            >
-              <span style={{ fontSize: 10, color: C.textDim, fontWeight: 600, marginRight: 4 }}>
-                FILTER:
-              </span>
-              {usedTrades.map(tk => {
-                const active = tradeFilter.includes(tk);
-                const color = TRADE_COLORS[tk] || C.accent;
-                return (
+        {activeTab === "subcontractors" &&
+          (() => {
+            const usedTrades = [...new Set(subcontractors.flatMap(s => s.trades || []))].sort(
+              (a, b) => (TRADE_MAP[a]?.sort || 99) - (TRADE_MAP[b]?.sort || 99),
+            );
+            if (usedTrades.length === 0) return null;
+            return (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  marginBottom: T.space[3],
+                  flexWrap: "wrap",
+                  padding: `0 ${T.space[1]}px`,
+                }}
+              >
+                <span style={{ fontSize: 10, color: C.textDim, fontWeight: 600, marginRight: 4 }}>FILTER:</span>
+                {usedTrades.map(tk => {
+                  const active = tradeFilter.includes(tk);
+                  const color = TRADE_COLORS[tk] || C.accent;
+                  return (
+                    <button
+                      key={tk}
+                      onClick={() =>
+                        setTradeFilter(prev => (prev.includes(tk) ? prev.filter(k => k !== tk) : [...prev, tk]))
+                      }
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 3,
+                        padding: "2px 8px",
+                        borderRadius: T.radius.sm,
+                        background: active ? `${color}20` : "transparent",
+                        border: `1px solid ${active ? color + "50" : C.border}`,
+                        color: active ? color : C.textMuted,
+                        fontSize: 10,
+                        fontWeight: active ? 600 : 400,
+                        cursor: "pointer",
+                        transition: "all 0.15s",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: "50%",
+                          background: color,
+                          opacity: active ? 1 : 0.4,
+                        }}
+                      />
+                      {TRADE_MAP[tk]?.label || tk}
+                    </button>
+                  );
+                })}
+                {tradeFilter.length > 0 && (
                   <button
-                    key={tk}
-                    onClick={() =>
-                      setTradeFilter(prev =>
-                        prev.includes(tk) ? prev.filter(k => k !== tk) : [...prev, tk]
-                      )
-                    }
+                    onClick={() => setTradeFilter([])}
                     style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 3,
-                      padding: "2px 8px",
-                      borderRadius: T.radius.sm,
-                      background: active ? `${color}20` : "transparent",
-                      border: `1px solid ${active ? color + "50" : C.border}`,
-                      color: active ? color : C.textMuted,
-                      fontSize: 10,
-                      fontWeight: active ? 600 : 400,
+                      background: "none",
+                      border: "none",
                       cursor: "pointer",
-                      transition: "all 0.15s",
+                      fontSize: 9,
+                      color: C.textDim,
+                      padding: "2px 6px",
+                      textDecoration: "underline",
                     }}
                   >
-                    <div
-                      style={{
-                        width: 6, height: 6, borderRadius: "50%",
-                        background: color, opacity: active ? 1 : 0.4,
-                      }}
-                    />
-                    {TRADE_MAP[tk]?.label || tk}
+                    Clear
                   </button>
-                );
-              })}
-              {tradeFilter.length > 0 && (
-                <button
-                  onClick={() => setTradeFilter([])}
-                  style={{
-                    background: "none", border: "none", cursor: "pointer",
-                    fontSize: 9, color: C.textDim, padding: "2px 6px",
-                    textDecoration: "underline",
-                  }}
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-          );
-        })()}
+                )}
+              </div>
+            );
+          })()}
 
         {/* ── Content ── */}
         <div style={{ ...card(C), overflow: "hidden" }}>
@@ -897,19 +904,33 @@ function CompanyGroup({
                 minWidth: 180,
               })}
             />
-            <div style={{ fontSize: 10, color: C.textDim, paddingLeft: 8, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-              <span>{personCount} {personCount === 1 ? "person" : "people"}</span>
-              {isSub && (() => {
-                const allTrades = [...new Set(people.flatMap(p => p.trades || []))];
-                if (allTrades.length === 0) return null;
-                return allTrades.slice(0, 4).map(tk => (
-                  <TradeBadge key={tk} tradeKey={tk} size="xs" />
-                ));
-              })()}
-              {isSub && (() => {
-                const allTrades = [...new Set(people.flatMap(p => p.trades || []))];
-                return allTrades.length > 4 ? <span style={{ fontSize: 9, color: C.textDim }}>+{allTrades.length - 4}</span> : null;
-              })()}
+            <div
+              style={{
+                fontSize: 10,
+                color: C.textDim,
+                paddingLeft: 8,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                flexWrap: "wrap",
+              }}
+            >
+              <span>
+                {personCount} {personCount === 1 ? "person" : "people"}
+              </span>
+              {isSub &&
+                (() => {
+                  const allTrades = [...new Set(people.flatMap(p => p.trades || []))];
+                  if (allTrades.length === 0) return null;
+                  return allTrades.slice(0, 4).map(tk => <TradeBadge key={tk} tradeKey={tk} size="xs" />);
+                })()}
+              {isSub &&
+                (() => {
+                  const allTrades = [...new Set(people.flatMap(p => p.trades || []))];
+                  return allTrades.length > 4 ? (
+                    <span style={{ fontSize: 9, color: C.textDim }}>+{allTrades.length - 4}</span>
+                  ) : null;
+                })()}
             </div>
           </div>
         </div>
@@ -950,7 +971,9 @@ function CompanyGroup({
               onDelete={() => onDeletePerson(item.id)}
               getInitials={getInitials}
               isExpanded={expandedSubId === item.id}
-              onExpand={tab === "subcontractors" ? () => onExpandSub?.(expandedSubId === item.id ? null : item.id) : undefined}
+              onExpand={
+                tab === "subcontractors" ? () => onExpandSub?.(expandedSubId === item.id ? null : item.id) : undefined
+              }
             />
             {dupWarning?.id === item.id && <DupBanner msg={dupWarning.msg} C={C} T={T} />}
           </div>
@@ -969,7 +992,19 @@ function CompanyGroup({
 }
 
 /* ── Person Row (indented under company) ── */
-function PersonRow({ tab, item, accent, C, T, inputStyle, handleFieldUpdate, onDelete, getInitials, isExpanded, onExpand }) {
+function PersonRow({
+  tab,
+  item,
+  accent,
+  C,
+  T,
+  inputStyle,
+  handleFieldUpdate,
+  onDelete,
+  getInitials,
+  isExpanded,
+  onExpand,
+}) {
   const avatar = <ContactAvatar initials={getInitials(item)} color={accent} T={T} />;
   const delBtn = (
     <button
@@ -985,8 +1020,13 @@ function PersonRow({ tab, item, accent, C, T, inputStyle, handleFieldUpdate, onD
       className="icon-btn"
       onClick={onExpand}
       style={{
-        background: "none", border: "none", cursor: "pointer", padding: 4, borderRadius: 4,
-        display: "flex", transform: isExpanded ? "rotate(180deg)" : "none",
+        background: "none",
+        border: "none",
+        cursor: "pointer",
+        padding: 4,
+        borderRadius: 4,
+        display: "flex",
+        transform: isExpanded ? "rotate(180deg)" : "none",
         transition: "transform 0.15s",
       }}
     >
@@ -1256,17 +1296,20 @@ function NewCompanyModal({ tab, companyTag, onSave, onClose, C, T }) {
           <div key={f} style={{ marginBottom: T.space[3] }}>
             <label style={labelSt}>{LABELS[f]}</label>
             {f === "trades" ? (
-              <TradeMultiSelect
-                value={form.trades || []}
-                onChange={trades => update("trades", trades)}
-              />
+              <TradeMultiSelect value={form.trades || []} onChange={trades => update("trades", trades)} />
             ) : f === "notes" ? (
               <textarea
                 value={form[f] || ""}
                 onChange={e => update(f, e.target.value)}
                 placeholder={PLACEHOLDERS[f]}
                 rows={3}
-                style={inp(C, { padding: "8px 12px", fontSize: 13, width: "100%", resize: "vertical", boxSizing: "border-box" })}
+                style={inp(C, {
+                  padding: "8px 12px",
+                  fontSize: 13,
+                  width: "100%",
+                  resize: "vertical",
+                  boxSizing: "border-box",
+                })}
               />
             ) : (
               <input
@@ -1302,37 +1345,81 @@ function NewCompanyModal({ tab, companyTag, onSave, onClose, C, T }) {
             </button>
             {showPrequal && (
               <div style={{ marginTop: T.space[3], animation: "fadeIn 0.15s ease-out" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: T.space[2], marginBottom: T.space[2] }}>
+                <div
+                  style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: T.space[2], marginBottom: T.space[2] }}
+                >
                   <div>
                     <label style={labelSt}>Insurance Expiry</label>
-                    <input type="date" value={form.insuranceExpiry || ""} onChange={e => update("insuranceExpiry", e.target.value)} style={fieldInp} />
+                    <input
+                      type="date"
+                      value={form.insuranceExpiry || ""}
+                      onChange={e => update("insuranceExpiry", e.target.value)}
+                      style={fieldInp}
+                    />
                   </div>
                   <div>
                     <label style={labelSt}>Bonding Capacity</label>
-                    <input value={form.bondingCapacity || ""} onChange={e => update("bondingCapacity", e.target.value)} placeholder="$5,000,000" style={fieldInp} />
+                    <input
+                      value={form.bondingCapacity || ""}
+                      onChange={e => update("bondingCapacity", e.target.value)}
+                      placeholder="$5,000,000"
+                      style={fieldInp}
+                    />
                   </div>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: T.space[2], marginBottom: T.space[2] }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr 1fr",
+                    gap: T.space[2],
+                    marginBottom: T.space[2],
+                  }}
+                >
                   <div>
                     <label style={labelSt}>EMR</label>
-                    <input value={form.emr || ""} onChange={e => update("emr", e.target.value)} placeholder="0.85" style={fieldInp} />
+                    <input
+                      value={form.emr || ""}
+                      onChange={e => update("emr", e.target.value)}
+                      placeholder="0.85"
+                      style={fieldInp}
+                    />
                   </div>
                   <div>
                     <label style={labelSt}>Years in Business</label>
-                    <input value={form.yearsInBusiness || ""} onChange={e => update("yearsInBusiness", e.target.value)} placeholder="15" style={fieldInp} />
+                    <input
+                      value={form.yearsInBusiness || ""}
+                      onChange={e => update("yearsInBusiness", e.target.value)}
+                      placeholder="15"
+                      style={fieldInp}
+                    />
                   </div>
                   <div>
                     <label style={labelSt}>License No.</label>
-                    <input value={form.licenseNo || ""} onChange={e => update("licenseNo", e.target.value)} placeholder="License #" style={fieldInp} />
+                    <input
+                      value={form.licenseNo || ""}
+                      onChange={e => update("licenseNo", e.target.value)}
+                      placeholder="License #"
+                      style={fieldInp}
+                    />
                   </div>
                 </div>
                 <div style={{ marginBottom: T.space[2] }}>
                   <label style={labelSt}>Website</label>
-                  <input value={form.website || ""} onChange={e => update("website", e.target.value)} placeholder="www.example.com" style={fieldInp} />
+                  <input
+                    value={form.website || ""}
+                    onChange={e => update("website", e.target.value)}
+                    placeholder="www.example.com"
+                    style={fieldInp}
+                  />
                 </div>
                 <div style={{ marginBottom: T.space[2] }}>
                   <label style={labelSt}>Address</label>
-                  <input value={form.address || ""} onChange={e => update("address", e.target.value)} placeholder="123 Main St, City, ST 12345" style={fieldInp} />
+                  <input
+                    value={form.address || ""}
+                    onChange={e => update("address", e.target.value)}
+                    placeholder="123 Main St, City, ST 12345"
+                    style={fieldInp}
+                  />
                 </div>
                 <div style={{ marginBottom: T.space[2] }}>
                   <label style={labelSt}>Certifications</label>
@@ -1350,7 +1437,10 @@ function NewCompanyModal({ tab, companyTag, onSave, onClose, C, T }) {
                           }}
                           title={ct.label}
                           style={{
-                            padding: "2px 7px", borderRadius: T.radius.sm, fontSize: 10, fontWeight: 600,
+                            padding: "2px 7px",
+                            borderRadius: T.radius.sm,
+                            fontSize: 10,
+                            fontWeight: 600,
                             cursor: "pointer",
                             background: active ? `${C.accent}15` : "transparent",
                             border: `1px solid ${active ? C.accent + "40" : C.border}`,
@@ -1378,7 +1468,10 @@ function NewCompanyModal({ tab, companyTag, onSave, onClose, C, T }) {
                             update("markets", next);
                           }}
                           style={{
-                            padding: "2px 7px", borderRadius: T.radius.sm, fontSize: 10, fontWeight: 500,
+                            padding: "2px 7px",
+                            borderRadius: T.radius.sm,
+                            fontSize: 10,
+                            fontWeight: 500,
                             cursor: "pointer",
                             background: active ? `${C.green}12` : "transparent",
                             border: `1px solid ${active ? C.green + "35" : C.border}`,
@@ -1437,7 +1530,9 @@ function SubDetailPanel({ sub, onUpdate, C, T }) {
 
   // Compute performance from bid packages data
   const perf = useMemo(() => {
-    let sent = 0, responded = 0, won = 0;
+    let sent = 0,
+      responded = 0,
+      won = 0;
     const coLower = (sub.company || "").toLowerCase();
     for (const pkg of bidPackages) {
       const pkgInvs = invitations[pkg.id] || [];
@@ -1445,7 +1540,13 @@ function SubDetailPanel({ sub, onUpdate, C, T }) {
         const invCo = (inv.subCompany || inv.sub_company || "").toLowerCase();
         if (invCo === coLower) {
           sent++;
-          if (inv.status === "submitted" || inv.status === "parsed" || inv.status === "awarded" || inv.status === "not_awarded") responded++;
+          if (
+            inv.status === "submitted" ||
+            inv.status === "parsed" ||
+            inv.status === "awarded" ||
+            inv.status === "not_awarded"
+          )
+            responded++;
           if (inv.status === "awarded") won++;
         }
       }
@@ -1460,8 +1561,13 @@ function SubDetailPanel({ sub, onUpdate, C, T }) {
   }, [bidPackages, invitations, sub.company]);
 
   const labelSt = {
-    display: "block", fontSize: 9, fontWeight: 600, color: C.textDim,
-    textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3,
+    display: "block",
+    fontSize: 9,
+    fontWeight: 600,
+    color: C.textDim,
+    textTransform: "uppercase",
+    letterSpacing: "0.05em",
+    marginBottom: 3,
   };
   const fieldInp = inp(C, { padding: "5px 8px", fontSize: 11, width: "100%", boxSizing: "border-box" });
 
@@ -1614,9 +1720,7 @@ function SubDetailPanel({ sub, onUpdate, C, T }) {
               <button
                 key={mr}
                 onClick={() => {
-                  const next = active
-                    ? (sub.markets || []).filter(m => m !== mr)
-                    : [...(sub.markets || []), mr];
+                  const next = active ? (sub.markets || []).filter(m => m !== mr) : [...(sub.markets || []), mr];
                   onUpdate("markets", next);
                 }}
                 style={{
@@ -1646,7 +1750,13 @@ function SubDetailPanel({ sub, onUpdate, C, T }) {
           onChange={e => onUpdate("notes", e.target.value)}
           placeholder="Internal notes about this subcontractor..."
           rows={2}
-          style={inp(C, { padding: "5px 8px", fontSize: 11, width: "100%", boxSizing: "border-box", resize: "vertical" })}
+          style={inp(C, {
+            padding: "5px 8px",
+            fontSize: 11,
+            width: "100%",
+            boxSizing: "border-box",
+            resize: "vertical",
+          })}
         />
       </div>
     </div>

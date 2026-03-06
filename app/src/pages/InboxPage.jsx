@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useInboxStore } from "@/stores/inboxStore";
@@ -13,7 +13,7 @@ import ImportConfirmModal from "@/components/inbox/ImportConfirmModal";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { bt, pageContainer, card, sectionLabel } from "@/utils/styles";
-import { titleCase, uid, nowStr } from "@/utils/format";
+import { titleCase, uid } from "@/utils/format";
 import { loadPdfJs } from "@/utils/pdf";
 
 const API_BASE = import.meta.env.DEV ? "https://app-nova-42373ca7.vercel.app" : "";
@@ -70,6 +70,11 @@ export default function InboxPage() {
   const [importing, setImporting] = useState(false);
   const [senderEmails, setSenderEmails] = useState([]);
 
+  // Progress tracking for ImportConfirmModal
+  const [progressSteps, setProgressSteps] = useState([]);
+  const [importComplete, setImportComplete] = useState(false);
+  const [createdEstimateId, setCreatedEstimateId] = useState(null);
+
   // Fetch RFPs + subscribe (user is already authenticated at this point)
   useEffect(() => {
     loadReadIds();
@@ -78,6 +83,21 @@ export default function InboxPage() {
     const unsub = subscribeToRfps();
     return unsub;
   }, []);
+
+  // Expose navigate for ImportConfirmModal CTA
+  useEffect(() => {
+    window.__importNav = path => {
+      setImportRfpData(null);
+      setImporting(false);
+      setProgressSteps([]);
+      setImportComplete(false);
+      setCreatedEstimateId(null);
+      navigate(path);
+    };
+    return () => {
+      delete window.__importNav;
+    };
+  }, [navigate]);
 
   // Filter by company profile first, then by status tab
   const displayedRfps = useMemo(() => {
@@ -121,18 +141,48 @@ export default function InboxPage() {
   const handleImport = async rfp => {
     setImportRfpData(rfp);
     setViewRfp(null);
+    // Reset processing state
+    setProgressSteps([]);
+    setImportComplete(false);
+    setCreatedEstimateId(null);
   };
 
-  const handleImportConfirm = async editedFields => {
+  // Helper to update progress steps
+  const setStep = useCallback((steps, index, status, label) => {
+    const updated = [...steps];
+    if (label) updated[index] = { ...updated[index], label, status };
+    else updated[index] = { ...updated[index], status };
+    setProgressSteps(updated);
+    return updated;
+  }, []);
+
+  const handleImportConfirm = async ({ fields: editedFields, destination, profileId: selectedProfileId }) => {
     if (!importRfpData) return;
     setImporting(true);
+
+    // Build initial progress steps
+    const pdfAtts = (importRfpData.attachments || []).filter(
+      a => a.contentType === "application/pdf" || a.filename?.toLowerCase().endsWith(".pdf"),
+    );
+    const hasPdfs = pdfAtts.length > 0;
+
+    let steps = [
+      { label: "Creating estimate...", status: "active" },
+      ...(hasPdfs
+        ? [{ label: `Processing ${pdfAtts.length} PDF${pdfAtts.length > 1 ? "s" : ""}...`, status: "pending" }]
+        : []),
+      { label: "Finalizing...", status: "pending" },
+    ];
+    setProgressSteps(steps);
+
     try {
-      const profileId = activeCompanyId === "__all__" ? "" : activeCompanyId;
+      // Use the profile selected in the modal (falls back to active profile)
+      const profileId =
+        selectedProfileId != null ? selectedProfileId : activeCompanyId === "__all__" ? "" : activeCompanyId;
       const result = await importRfp(importRfpData.id, profileId);
       if (!result) throw new Error("Import failed");
 
       // Override with user's edits (always apply modal values, fall back to API values)
-      // Apply title case to name fields for consistent capitalization
       const data = result.estimateData;
       data.project.name = titleCase(editedFields.projectName || data.project.name);
       data.project.client = titleCase(editedFields.client || data.project.client);
@@ -142,6 +192,9 @@ export default function InboxPage() {
       data.project.bidDue = editedFields.bidDue || data.project.bidDue;
       data.project.bidDueTime = editedFields.bidDueTime || data.project.bidDueTime;
       data.project.description = editedFields.description || data.project.description;
+
+      // Mark step 1 done
+      steps = setStep(steps, 0, "done", "Estimate created");
 
       // Include documents from attachments
       if (result.attachments && result.attachments.length > 0) {
@@ -158,17 +211,18 @@ export default function InboxPage() {
       }
 
       // Download PDF attachments and add as drawings for takeoffs
-      const pdfAttachments = (result.attachments || []).filter(
-        att => att.contentType === "application/pdf" || att.filename?.toLowerCase().endsWith(".pdf"),
-      );
-      if (pdfAttachments.length > 0) {
+      if (hasPdfs) {
+        const pdfStepIdx = 1;
+        steps = setStep(steps, pdfStepIdx, "active");
+
         try {
           const session = supabase ? (await supabase.auth.getSession()).data.session : null;
           const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
           await loadPdfJs();
 
           const drawings = [];
-          for (const att of pdfAttachments) {
+          let totalPages = 0;
+          for (const att of pdfAtts) {
             try {
               const url = `${API_BASE}/api/attachment?path=${encodeURIComponent(att.downloadPath)}`;
               const resp = await fetch(url, { headers });
@@ -196,6 +250,15 @@ export default function InboxPage() {
                   totalPdfPages: pdf.numPages,
                 });
               }
+              totalPages += pdf.numPages;
+
+              // Update step label with progress
+              steps = setStep(
+                steps,
+                pdfStepIdx,
+                "active",
+                `Processing PDFs... ${att.filename} (${pdf.numPages} pages)`,
+              );
               console.log(`[import] ${att.filename}: ${pdf.numPages} pages added as drawings`);
             } catch (err) {
               console.error(`Failed to load PDF as drawing: ${att.filename}`, err);
@@ -204,23 +267,39 @@ export default function InboxPage() {
           if (drawings.length > 0) {
             data.drawings = drawings;
           }
+          steps = setStep(
+            steps,
+            pdfStepIdx,
+            "done",
+            `${pdfAtts.length} PDF${pdfAtts.length > 1 ? "s" : ""} processed (${totalPages} pages)`,
+          );
         } catch (err) {
           console.error("PDF drawing import error:", err);
+          steps = setStep(steps, pdfStepIdx, "done", "PDF processing complete (with some errors)");
         }
       }
+
+      // Finalize step
+      const finalIdx = steps.length - 1;
+      steps = setStep(steps, finalIdx, "active", "Saving estimate...");
 
       // Create estimate in IndexedDB
       const estId = await importFromRfp(data);
       // Load the saved estimate into all stores so project data is available immediately
       await loadEstimate(estId);
-      showToast("RFP imported as estimate!");
-      setImportRfpData(null);
+
+      steps = setStep(steps, finalIdx, "done", "Complete!");
+      setCreatedEstimateId(estId);
+      setImportComplete(true);
       setImporting(false);
+      showToast("RFP imported as estimate!");
       fetchRfps();
-      navigate(`/estimate/${estId}/documents`);
     } catch (err) {
       showToast("Failed to import: " + err.message);
       setImporting(false);
+      setImportRfpData(null);
+      setProgressSteps([]);
+      setImportComplete(false);
     }
   };
 
@@ -431,9 +510,17 @@ export default function InboxPage() {
       {importRfpData && (
         <ImportConfirmModal
           rfp={importRfpData}
-          onClose={() => setImportRfpData(null)}
+          onClose={() => {
+            setImportRfpData(null);
+            setProgressSteps([]);
+            setImportComplete(false);
+            setCreatedEstimateId(null);
+          }}
           onConfirm={handleImportConfirm}
           loading={importing}
+          progressSteps={progressSteps}
+          importComplete={importComplete}
+          createdEstimateId={createdEstimateId}
         />
       )}
     </div>

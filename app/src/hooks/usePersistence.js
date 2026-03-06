@@ -19,6 +19,7 @@ import { useGroupsStore, DEFAULT_GROUPS } from "@/stores/groupsStore";
 import { useCalendarStore } from "@/stores/calendarStore";
 import { useBidPackagesStore } from "@/stores/bidPackagesStore";
 import { useAutoResponseStore } from "@/stores/autoResponseStore";
+import { useSubdivisionStore } from "@/stores/subdivisionStore";
 import * as cloudSync from "@/utils/cloudSync";
 import { loadAudioMeta } from "@/utils/novaAudioStorage";
 import { migrateIndexEntry, migrateProposal } from "@/utils/costHistoryMigration";
@@ -303,6 +304,18 @@ export function usePersistenceLoad() {
           }
         } catch (err) {
           console.warn("[usePersistence] Failed to parse bid package presets:", err);
+        }
+      }
+
+      // Load subdivision engine config (global)
+      const subConfigRaw = await storage.get(idbKey("bldg-subdivision-config"));
+      if (subConfigRaw?.value) {
+        try {
+          const subConfig = JSON.parse(subConfigRaw.value);
+          if (subConfig.engineConfig) useSubdivisionStore.getState().updateEngineConfig(subConfig.engineConfig);
+          if (subConfig.calibrationFactors) useSubdivisionStore.getState().setCalibrationFactors(subConfig.calibrationFactors);
+        } catch (err) {
+          console.warn("[usePersistence] Failed to parse subdivision config:", err);
         }
       }
 
@@ -615,6 +628,16 @@ export async function loadEstimate(id) {
     // Load database elements with master/override merge + migration
     useDatabaseStore.getState().loadUserElements(data.elements || []);
 
+    // Load subdivision data for this estimate
+    if (data.subdivisionData) useSubdivisionStore.getState().setSubdivisionData(data.subdivisionData);
+    else useSubdivisionStore.getState().clearSubdivisionData();
+    if (data.subdivisionOverrides) {
+      Object.entries(data.subdivisionOverrides).forEach(([code, override]) => {
+        useSubdivisionStore.getState().setUserOverride(code, override);
+      });
+    }
+    if (data.subdivisionLlm) useSubdivisionStore.getState().setLlmRefinements(data.subdivisionLlm);
+
     useEstimatesStore.getState().setActiveEstimateId(id);
     return true;
   } catch (e) {
@@ -669,6 +692,9 @@ export async function saveEstimate() {
     moduleInstances: useModuleStore.getState().moduleInstances,
     activeModule: useModuleStore.getState().activeModule,
     elements: useDatabaseStore.getState().getUserElements(),
+    subdivisionData: useSubdivisionStore.getState().subdivisionData,
+    subdivisionOverrides: useSubdivisionStore.getState().userOverrides,
+    subdivisionLlm: useSubdivisionStore.getState().llmRefinements,
     scanResults: useScanStore.getState().scanResults,
     groups: useGroupsStore.getState().groups,
     bidPackages: useBidPackagesStore.getState().bidPackages,
@@ -891,6 +917,15 @@ export async function saveBidPackagePresets() {
   const ok = await storage.set(idbKey("bldg-bid-package-presets"), JSON.stringify(presets));
   if (!ok) {
     console.error("[usePersistence] Failed to save bid package presets");
+  }
+}
+
+// Save subdivision engine config (global — persists across estimates)
+export async function saveSubdivisionConfig() {
+  const { engineConfig, calibrationFactors } = useSubdivisionStore.getState();
+  const ok = await storage.set(idbKey("bldg-subdivision-config"), JSON.stringify({ engineConfig, calibrationFactors }));
+  if (!ok) {
+    console.error("[usePersistence] Failed to save subdivision config");
   }
 }
 

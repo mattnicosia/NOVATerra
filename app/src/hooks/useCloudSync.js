@@ -112,8 +112,54 @@ export function useCloudSync() {
     if (ran.current) return;
     if (!persistenceLoaded || !user || !orgReady) return; // Wait for org fetch
     ran.current = true;
-    runCloudSync();
+
+    // Startup health check: verify Supabase connection before sync
+    (async () => {
+      try {
+        const { supabase } = await import("@/utils/supabase");
+        if (!supabase) {
+          console.error("[cloudSync] Supabase client is null — env vars missing or malformed");
+          useUiStore.getState().setCloudSyncStatus("error");
+          useUiStore.getState().setCloudSyncError("Supabase not configured");
+          return;
+        }
+        // Quick health check — verify auth session is valid
+        const { data, error } = await supabase.auth.getSession();
+        if (error || !data?.session) {
+          console.warn("[cloudSync] Health check: no valid session —", error?.message || "session expired");
+          useUiStore.getState().setCloudSyncStatus("error");
+          useUiStore.getState().setCloudSyncError("Session expired — please refresh");
+          return;
+        }
+        console.log("[cloudSync] Health check passed ✓");
+      } catch (err) {
+        console.error("[cloudSync] Health check failed:", err.message);
+        useUiStore.getState().setCloudSyncStatus("error");
+        useUiStore.getState().setCloudSyncError(err.message);
+        return;
+      }
+      await runCloudSync();
+    })();
   }, [persistenceLoaded, user, orgReady]);
+
+  // ── beforeunload guard: warn if cloud sync hasn't completed ──
+  useEffect(() => {
+    const handler = e => {
+      const status = useUiStore.getState().cloudSyncStatus;
+      if (status === "syncing") {
+        e.preventDefault();
+        e.returnValue = "Your data is still syncing to the cloud. Are you sure you want to leave?";
+        return e.returnValue;
+      }
+      if (status === "error") {
+        e.preventDefault();
+        e.returnValue = "Cloud sync failed — your latest changes may not be backed up. Are you sure you want to leave?";
+        return e.returnValue;
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, []);
 }
 
 // ─── Master Data Sync ──────────────────────────────────────────────

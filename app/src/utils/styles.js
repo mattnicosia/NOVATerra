@@ -81,6 +81,12 @@ export const bt = (C, overrides) => ({
 // Card surface — Liquid Glass card (both modes use translucent glass)
 export const card = (C, overrides) => {
   const tokens = C.T || T;
+
+  // ── NO GLASS: Solid opaque card — zero blur, zero transparency ──
+  if (C.noGlass) {
+    return cardSolid(C, overrides);
+  }
+
   const glassBg = C.glassBg || (C.isDark ? "rgba(15,15,30,0.38)" : "rgba(255,255,255,0.32)");
 
   // ── NERO: Black Glass (md tier) — floating translucent, NO carbon texture ──
@@ -145,6 +151,15 @@ export const cardSolid = (C, overrides) => {
 export const cardRaised = (C, overrides) => {
   const tokens = C.T || T;
 
+  // ── NO GLASS: Solid raised card ──
+  if (C.noGlass) {
+    return {
+      ...cardSolid(C),
+      boxShadow: tokens.shadow.md,
+      ...overrides,
+    };
+  }
+
   // ── NERO: Black Glass (lg tier) — elevated floating surface ──
   if (C.neroMode) {
     return {
@@ -173,6 +188,16 @@ export const cardRaised = (C, overrides) => {
 // Glass card — large specular + elevated shadow + full depth
 export const cardGlass = (C, overrides) => {
   const tokens = C.T || T;
+
+  // ── NO GLASS: Solid card with medium shadow ──
+  if (C.noGlass) {
+    return {
+      ...cardSolid(C),
+      boxShadow: tokens.shadow.md,
+      ...overrides,
+    };
+  }
+
   const glassBg = C.glassBg || (C.isDark ? "rgba(15,15,30,0.38)" : "rgba(255,255,255,0.32)");
 
   // ── NERO: Black Glass (lg tier) — max glass + SVG refraction ──

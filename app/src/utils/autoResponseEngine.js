@@ -6,64 +6,64 @@ import { callAnthropic } from "@/utils/ai";
 const TRIGGER_PROMPTS = {
   portalOpened: {
     system:
-      "You are NOVA, an AI assistant for a general contractor. Write a brief, professional welcome email to a subcontractor who just opened their bid invitation portal. Be warm but concise (3-5 sentences). Mention the project name, due date, and encourage them to review the scope and submit their proposal. Output JSON: { \"subject\": \"...\", \"body\": \"...\" } where body is plain text.",
-    buildContext: (ctx) =>
+      'You are NOVA, an AI assistant for a general contractor. Write a brief, professional welcome email to a subcontractor who just opened their bid invitation portal. Be warm but concise (3-5 sentences). Mention the project name, due date, and encourage them to review the scope and submit their proposal. Output JSON: { "subject": "...", "body": "..." } where body is plain text.',
+    buildContext: ctx =>
       `Project: ${ctx.projectName}\nSubcontractor: ${ctx.subCompany}\nDue Date: ${ctx.dueDate}\nGC Company: ${ctx.gcCompany || "Our firm"}`,
   },
   proposalSubmitted: {
     system:
-      "You are NOVA, an AI assistant for a general contractor. Write a brief acknowledgment email (3-5 sentences) to a sub who just submitted their bid proposal. Thank them, confirm receipt, mention the project name, and let them know the team will review and follow up. Output JSON: { \"subject\": \"...\", \"body\": \"...\" }.",
-    buildContext: (ctx) =>
+      'You are NOVA, an AI assistant for a general contractor. Write a brief acknowledgment email (3-5 sentences) to a sub who just submitted their bid proposal. Thank them, confirm receipt, mention the project name, and let them know the team will review and follow up. Output JSON: { "subject": "...", "body": "..." }.',
+    buildContext: ctx =>
       `Project: ${ctx.projectName}\nSubcontractor: ${ctx.subCompany}\nBid Amount: ${ctx.bidAmount || "not disclosed"}\nGC Company: ${ctx.gcCompany || "Our firm"}`,
   },
   bidDue48h: {
     system:
-      "You are NOVA, an AI assistant for a general contractor. Write a friendly deadline reminder email (3-4 sentences) for a sub who hasn't submitted yet — bids are due in about 48 hours. Mention the project, due date, and encourage submission. Professional and helpful, not pushy. Output JSON: { \"subject\": \"...\", \"body\": \"...\" }.",
-    buildContext: (ctx) =>
+      'You are NOVA, an AI assistant for a general contractor. Write a friendly deadline reminder email (3-4 sentences) for a sub who hasn\'t submitted yet — bids are due in about 48 hours. Mention the project, due date, and encourage submission. Professional and helpful, not pushy. Output JSON: { "subject": "...", "body": "..." }.',
+    buildContext: ctx =>
       `Project: ${ctx.projectName}\nSubcontractor: ${ctx.subCompany}\nDue Date: ${ctx.dueDate}\nStatus: Has not yet submitted`,
   },
   bidDue24h: {
     system:
-      "You are NOVA, an AI assistant for a general contractor. Write a final deadline reminder email (3-4 sentences) — bids are due in about 24 hours. Slightly more urgent than a general reminder but still professional. Mention the exact due date. Output JSON: { \"subject\": \"...\", \"body\": \"...\" }.",
-    buildContext: (ctx) =>
+      'You are NOVA, an AI assistant for a general contractor. Write a final deadline reminder email (3-4 sentences) — bids are due in about 24 hours. Slightly more urgent than a general reminder but still professional. Mention the exact due date. Output JSON: { "subject": "...", "body": "..." }.',
+    buildContext: ctx =>
       `Project: ${ctx.projectName}\nSubcontractor: ${ctx.subCompany}\nDue Date: ${ctx.dueDate}\nStatus: Final reminder — has not yet submitted`,
   },
   postAwardWinner: {
     system:
-      "You are NOVA, an AI assistant for a general contractor. Write a congratulatory award email (4-6 sentences). The sub was selected for this project. Mention next steps: contract preparation, scheduling coordination, submittal requirements. Output JSON: { \"subject\": \"...\", \"body\": \"...\" }.",
-    buildContext: (ctx) =>
+      'You are NOVA, an AI assistant for a general contractor. Write a congratulatory award email (4-6 sentences). The sub was selected for this project. Mention next steps: contract preparation, scheduling coordination, submittal requirements. Output JSON: { "subject": "...", "body": "..." }.',
+    buildContext: ctx =>
       `Project: ${ctx.projectName}\nSubcontractor: ${ctx.subCompany}\nGC Company: ${ctx.gcCompany || "Our firm"}\nBid Amount: ${ctx.bidAmount || "N/A"}`,
   },
   postAwardLoser: {
     system:
-      "You are NOVA, an AI assistant for a general contractor. Write a professional regret notification (4-5 sentences) with constructive tone. Thank them for their proposal, let them know they were not selected this time, express appreciation, and encourage future participation. Do NOT mention the winning sub or their price. Output JSON: { \"subject\": \"...\", \"body\": \"...\" }.",
-    buildContext: (ctx) =>
+      'You are NOVA, an AI assistant for a general contractor. Write a professional regret notification (4-5 sentences) with constructive tone. Thank them for their proposal, let them know they were not selected this time, express appreciation, and encourage future participation. Do NOT mention the winning sub or their price. Output JSON: { "subject": "...", "body": "..." }.',
+    buildContext: ctx =>
       `Project: ${ctx.projectName}\nSubcontractor: ${ctx.subCompany}\nTheir Bid: ${ctx.bidAmount || "N/A"}`,
   },
 };
 
 /* ─── Default subject fallbacks (used if AI fails) ─── */
 const DEFAULT_SUBJECTS = {
-  portalOpened: (ctx) => `Welcome — ${ctx.projectName} Bid Invitation`,
-  proposalSubmitted: (ctx) => `Proposal Received — ${ctx.projectName}`,
-  bidDue48h: (ctx) => `Reminder: ${ctx.projectName} — Bids Due in 48 Hours`,
-  bidDue24h: (ctx) => `Final Reminder: ${ctx.projectName} — Bids Due Tomorrow`,
-  postAwardWinner: (ctx) => `Award Notice: ${ctx.projectName}`,
-  postAwardLoser: (ctx) => `Bid Result: ${ctx.projectName}`,
+  portalOpened: ctx => `Welcome — ${ctx.projectName} Bid Invitation`,
+  proposalSubmitted: ctx => `Proposal Received — ${ctx.projectName}`,
+  bidDue48h: ctx => `Reminder: ${ctx.projectName} — Bids Due in 48 Hours`,
+  bidDue24h: ctx => `Final Reminder: ${ctx.projectName} — Bids Due Tomorrow`,
+  postAwardWinner: ctx => `Award Notice: ${ctx.projectName}`,
+  postAwardLoser: ctx => `Bid Result: ${ctx.projectName}`,
 };
 
 const DEFAULT_BODIES = {
-  portalOpened: (ctx) =>
+  portalOpened: ctx =>
     `Thank you for reviewing the bid invitation for ${ctx.projectName}. Please take time to review the scope and drawings. Bids are due ${ctx.dueDate || "soon"}. We look forward to receiving your proposal.`,
-  proposalSubmitted: (ctx) =>
+  proposalSubmitted: ctx =>
     `Thank you for submitting your proposal for ${ctx.projectName}. We have received your bid and our team will review it shortly. We will follow up with next steps.`,
-  bidDue48h: (ctx) =>
+  bidDue48h: ctx =>
     `This is a friendly reminder that bids for ${ctx.projectName} are due ${ctx.dueDate || "in approximately 48 hours"}. If you haven't had a chance to submit yet, please do so at your earliest convenience.`,
-  bidDue24h: (ctx) =>
+  bidDue24h: ctx =>
     `Final reminder — bids for ${ctx.projectName} are due ${ctx.dueDate || "tomorrow"}. Please submit your proposal as soon as possible to ensure it is considered.`,
-  postAwardWinner: (ctx) =>
+  postAwardWinner: ctx =>
     `Congratulations! We are pleased to inform you that ${ctx.subCompany} has been selected for ${ctx.projectName}. Our team will be in touch shortly regarding contract preparation and next steps.`,
-  postAwardLoser: (ctx) =>
+  postAwardLoser: ctx =>
     `Thank you for submitting your proposal for ${ctx.projectName}. After careful review, we have decided to move forward with another firm for this project. We appreciate your time and effort, and we look forward to working with you on future opportunities.`,
 };
 
@@ -113,7 +113,8 @@ export async function fireAutoResponse(triggerType, context) {
   }
 
   // 4. Fallback to defaults if AI failed
-  if (!subject) subject = DEFAULT_SUBJECTS[triggerType]?.(context) || `Auto-Response: ${context.projectName || "Project"}`;
+  if (!subject)
+    subject = DEFAULT_SUBJECTS[triggerType]?.(context) || `Auto-Response: ${context.projectName || "Project"}`;
   if (!body) body = DEFAULT_BODIES[triggerType]?.(context) || "Thank you for your engagement with this project.";
 
   // 5. Add draft to queue

@@ -48,138 +48,19 @@ import NotesPanel from "@/components/estimate/NotesPanel";
 import NovaOrb from "@/components/dashboard/NovaOrb";
 import { MessageBubble, ActionCards, QUICK_ACTIONS } from "@/components/ai/AIChatPanel";
 import { NOVA_TOOLS, executeNovaTool } from "@/utils/novaTools";
+import TakeoffNOVAPanel from "@/components/takeoffs/TakeoffNOVAPanel";
+import {
+  TO_COLORS,
+  _novaCache,
+  _novaCacheEvict,
+  NOVA_SYSTEM_PROMPT,
+  buildNovaUserMsg,
+  parseNovaResponse,
+  parsePartialJsonArray,
+  loadPdfJs,
+} from "@/utils/takeoffHelpers";
 
-const TO_COLORS = ["#E53E3E", "#38A169", "#3182CE", "#DD6B20", "#805AD5", "#D53F8C", "#2B6CB0", "#C53030"];
-
-// ─── NOVA Prefetch + Session Cache ──────────────────────────────────────
-const _novaCache = new Map(); // key (lowercase trimmed) → { result | error, timestamp }
-
-function _novaCacheEvict() {
-  if (_novaCache.size <= 10) return;
-  let oldest = null,
-    oldestKey = null;
-  _novaCache.forEach((v, k) => {
-    if (!oldest || v.timestamp < oldest) {
-      oldest = v.timestamp;
-      oldestKey = k;
-    }
-  });
-  if (oldestKey) _novaCache.delete(oldestKey);
-}
-
-const NOVA_SYSTEM_PROMPT = `You are a construction cost estimator. Given an item description, return a JSON object with CSI code, description, unit, and unit pricing.
-
-Determine if the item is a SINGLE item or MULTI-PART scope item:
-- SINGLE: Items with a single unit rate (e.g., "fire extinguisher cabinet", "black metal siding", "carpet tile")
-- MULTI: Items that are typically composed of multiple sub-components (e.g., "drywall partition" = studs + GWB + taping + insulation)
-
-Return ONLY valid JSON (no markdown fences, no explanation):
-
-For SINGLE items:
-{ "type": "single", "code": "07.46.23", "description": "Black Metal Siding - 24ga Standing Seam", "unit": "SF", "division": "07 - Thermal & Moisture Protection", "material": 8.50, "labor": 4.25, "equipment": 0.50, "subcontractor": 0 }
-
-For MULTI-PART items:
-{ "type": "multi", "groupName": "Drywall Partition", "items": [
-  { "code": "09.22.16", "description": "Metal Studs 3-5/8\\" 25ga", "unit": "SF", "division": "09 - Finishes", "material": 1.85, "labor": 2.10, "equipment": 0, "subcontractor": 0 },
-  { "code": "09.29.10", "description": "5/8\\" Type X GWB Both Sides", "unit": "SF", "division": "09 - Finishes", "material": 1.20, "labor": 1.50, "equipment": 0, "subcontractor": 0 }
-]}
-
-Rules:
-- Use standard CSI MasterFormat codes (XX.XX.XX format)
-- Include division name as "XX - Name"
-- Be specific in descriptions
-- Base pricing on current US market UNIT rates (cost per unit)
-- Set subcontractor > 0 for trades typically subbed out (electrical, plumbing, HVAC, fire protection)
-- For multi-part, include 2-6 component items
-- Return ONLY the JSON object, nothing else`;
-
-function buildNovaUserMsg(inputText, project) {
-  const contextLines = [
-    project.name && project.name !== "New Estimate" && `Project: ${project.name}`,
-    project.client && `Client: ${project.client}`,
-    project.buildingType && `Building Type: ${project.buildingType}`,
-    project.workType && `Work Type: ${project.workType}`,
-    project.projectSF && `Project SF: ${nn(project.projectSF).toLocaleString()}`,
-    project.floorCount && `Floors: ${project.floorCount}`,
-    project.jobType && `Job Type: ${project.jobType}`,
-    project.address && `Location: ${project.address}`,
-    project.zipCode && `Zip: ${project.zipCode}`,
-  ].filter(Boolean);
-  return inputText.trim() + (contextLines.length > 0 ? "\n\nProject context:\n" + contextLines.join("\n") : "");
-}
-
-function parseNovaResponse(text) {
-  const clean = text.replace(/```json\n?|```/g, "").trim();
-  const parsed = JSON.parse(clean);
-  if (parsed.type === "single" && parsed.code && parsed.description) return { result: parsed };
-  if (parsed.type === "multi" && Array.isArray(parsed.items) && parsed.items.length > 0) return { result: parsed };
-  return { error: "NOVA couldn't identify this item" };
-}
-
-// Parse complete JSON objects from a partial/streaming JSON array string
-function parsePartialJsonArray(text) {
-  const clean = text.replace(/```json|```/g, "").trim();
-  const objects = [];
-  let depth = 0,
-    inString = false,
-    escape = false,
-    objStart = -1;
-  for (let i = 0; i < clean.length; i++) {
-    const ch = clean[i];
-    if (escape) {
-      escape = false;
-      continue;
-    }
-    if (ch === "\\") {
-      escape = true;
-      continue;
-    }
-    if (ch === '"') {
-      inString = !inString;
-      continue;
-    }
-    if (inString) continue;
-    if (ch === "{") {
-      if (depth === 0) objStart = i;
-      depth++;
-    }
-    if (ch === "}") {
-      depth--;
-      if (depth === 0 && objStart >= 0) {
-        try {
-          objects.push(JSON.parse(clean.slice(objStart, i + 1)));
-        } catch {
-          /* incomplete */
-        }
-        objStart = -1;
-      }
-    }
-  }
-  return objects;
-}
-
-// Load pdf.js from CDN
-const loadPdfJs = () =>
-  new Promise((resolve, reject) => {
-    if (window.pdfjsLib) {
-      resolve();
-      return;
-    }
-    const s = document.createElement("script");
-    s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
-    s.onload = () => {
-      try {
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
-          "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-        resolve();
-      } catch (e) {
-        reject(e);
-      }
-    };
-    s.onerror = () => reject(new Error("Failed to load PDF.js"));
-    document.head.appendChild(s);
-    setTimeout(() => reject(new Error("PDF.js timeout")), 15000);
-  });
+// ─── Utilities imported from @/utils/takeoffHelpers ──────────────────
 
 export default function TakeoffsPage() {
   const C = useTheme();
@@ -423,8 +304,6 @@ export default function TakeoffsPage() {
   const [estSelectedItemId, setEstSelectedItemId] = useState(null);
 
   // Toolbar dropdowns
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const settingsBtnRef = useRef(null);
   const [toolsFolderOpen, setToolsFolderOpen] = useState(false);
   const toolsBtnRef = useRef(null);
 
@@ -442,28 +321,21 @@ export default function TakeoffsPage() {
   // Cross-sheet scan results
   const [crossSheetScan, setCrossSheetScan] = useState(null); // { tag, results: [{drawingId, sheetNumber, instanceCount}], scanning }
 
-  // NOVA Chat — inline state (reuses uiStore for persistence)
-  const novaChatMessages = useUiStore(s => s.aiChatMessages);
-  const setNovaChatMessages = useUiStore(s => s.setAiChatMessages);
-  const [novaChatInput, setNovaChatInput] = useState("");
-  const [novaChatLoading, setNovaChatLoading] = useState(false);
-  const novaChatScrollRef = useRef(null);
-  const novaChatInputRef = useRef(null);
+  // NOVA Chat state now managed internally by TakeoffNOVAPanel
 
   // + button mini-menu state
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const plusMenuRef = useRef(null);
 
-  // Close AI menu / settings popover on outside click
+  // Close plus menu on outside click
   useEffect(() => {
-    if (!settingsOpen && !plusMenuOpen) return;
+    if (!plusMenuOpen) return;
     const handler = e => {
-      if (settingsOpen && settingsBtnRef.current && !settingsBtnRef.current.contains(e.target)) setSettingsOpen(false);
       if (plusMenuOpen && plusMenuRef.current && !plusMenuRef.current.contains(e.target)) setPlusMenuOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [settingsOpen, plusMenuOpen]);
+  }, [plusMenuOpen]);
 
   // Cmd+K: open Takeoff Command Palette (capture phase to intercept global)
   useEffect(() => {
@@ -3690,7 +3562,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                   gap: 4,
                 }}
               >
-                <Ic d={I.ruler} size={10} color={!showNotesPanel ? "#fff" : C.textDim} /> Takeoffs
+                <Ic d={I.ruler} size={10} color={!showNotesPanel ? "#fff" : C.textDim} /> Estimate
               </button>
               <button
                 onClick={() => setShowNotesPanel(true)}
@@ -6115,6 +5987,271 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
             {/* Drawing controls — hidden in estimate mode */}
             {tkPanelTier !== "estimate" && (
               <>
+                {/* Tools folder */}
+                <div ref={toolsBtnRef} style={{ position: "relative", flexShrink: 0 }}>
+                  <button
+                    className="icon-btn"
+                    onClick={() => setToolsFolderOpen(v => !v)}
+                    title="Tools"
+                    style={{
+                      width: 24,
+                      height: 24,
+                      border: `1px solid ${toolsFolderOpen ? C.accent + "60" : C.border}`,
+                      background: toolsFolderOpen ? C.accent + "18" : C.bg2,
+                      borderRadius: 4,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke={toolsFolderOpen ? C.accent : C.textMuted}
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" />
+                    </svg>
+                  </button>
+                  {toolsFolderOpen &&
+                    (() => {
+                      const r = toolsBtnRef.current?.getBoundingClientRect();
+                      const tools = [
+                        {
+                          id: "checkdim",
+                          label: "Check Dim",
+                          icon: (
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke={C.text}
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M2 20h20 M2 20V4 M6 16V8 M10 16V6 M14 16v-4 M18 16V8" />
+                            </svg>
+                          ),
+                          desc: "Measure without creating a takeoff",
+                          soon: true,
+                        },
+                        {
+                          id: "angle",
+                          label: "Angle",
+                          icon: (
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke={C.text}
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M21 19H5V5" />
+                              <path d="M5 19l14-14" />
+                            </svg>
+                          ),
+                          desc: "Measure angles between lines",
+                          soon: true,
+                        },
+                        {
+                          id: "compare",
+                          label: "Compare",
+                          icon: (
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke={C.text}
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <rect x="2" y="3" width="8" height="8" rx="1" />
+                              <rect x="14" y="13" width="8" height="8" rx="1" />
+                              <path d="M7 11v2a2 2 0 002 2h2 M17 13v-2a2 2 0 00-2-2h-2" />
+                            </svg>
+                          ),
+                          desc: "Overlay drawings for revision comparison",
+                          soon: true,
+                        },
+                        {
+                          id: "screenshot",
+                          label: "Screenshot",
+                          icon: (
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke={C.text}
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
+                              <circle cx="12" cy="13" r="4" />
+                            </svg>
+                          ),
+                          desc: "Export canvas view as image",
+                          soon: true,
+                        },
+                        {
+                          id: "labels",
+                          label: "Labels",
+                          icon: (
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke={C.text}
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                            </svg>
+                          ),
+                          desc: "Toggle measurement labels on canvas",
+                          soon: true,
+                        },
+                        {
+                          id: "snap",
+                          label: "Snap Angle",
+                          icon: (
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke={snapAngleOn ? C.accent : C.text}
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
+                              <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                              <line x1="12" y1="22.08" x2="12" y2="12" />
+                            </svg>
+                          ),
+                          desc: snapAngleOn ? "Snap is ON" : "Lock to 45° angles",
+                          active: snapAngleOn,
+                          action: () => setSnapAngleOn(v => !v),
+                        },
+                      ];
+                      return (
+                        <>
+                          <div
+                            onClick={() => setToolsFolderOpen(false)}
+                            style={{ position: "fixed", inset: 0, zIndex: 199 }}
+                          />
+                          <div
+                            style={{
+                              position: "fixed",
+                              top: (r?.bottom || 0) + 6,
+                              left: Math.max(8, r?.left || 0),
+                              width: 200,
+                              background: C.bg1,
+                              border: `1px solid ${C.border}`,
+                              borderRadius: 10,
+                              boxShadow: "0 8px 32px rgba(0,0,0,0.35)",
+                              zIndex: 200,
+                              padding: 8,
+                              animation: "fadeIn 0.12s ease-out",
+                            }}
+                          >
+                            <div
+                              style={{
+                                fontSize: 8,
+                                fontWeight: 700,
+                                color: C.textDim,
+                                textTransform: "uppercase",
+                                letterSpacing: 0.8,
+                                padding: "2px 4px 6px",
+                                borderBottom: `1px solid ${C.border}`,
+                              }}
+                            >
+                              Tools
+                            </div>
+                            <div
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns: "1fr 1fr 1fr",
+                                gap: 4,
+                                padding: "8px 0 4px",
+                              }}
+                            >
+                              {tools.map(t => (
+                                <button
+                                  key={t.id}
+                                  onClick={() => {
+                                    if (t.action) {
+                                      t.action();
+                                      setToolsFolderOpen(false);
+                                    } else if (!t.soon) {
+                                      setToolsFolderOpen(false);
+                                    }
+                                  }}
+                                  title={t.desc}
+                                  style={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    alignItems: "center",
+                                    gap: 3,
+                                    padding: "8px 4px",
+                                    background: t.active ? C.accent + "15" : "transparent",
+                                    border: t.active ? `1px solid ${C.accent}40` : "1px solid transparent",
+                                    borderRadius: 8,
+                                    cursor: t.soon && !t.action ? "default" : "pointer",
+                                    opacity: t.soon && !t.action ? 0.45 : 1,
+                                    transition: "all 0.12s",
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      width: 28,
+                                      height: 28,
+                                      borderRadius: 8,
+                                      background: t.active ? C.accent + "20" : C.bg2,
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      border: `1px solid ${t.active ? C.accent + "30" : C.border}`,
+                                    }}
+                                  >
+                                    {t.icon}
+                                  </div>
+                                  <span
+                                    style={{
+                                      fontSize: 7,
+                                      fontWeight: 600,
+                                      color: t.active ? C.accent : C.textMuted,
+                                      lineHeight: 1.1,
+                                      textAlign: "center",
+                                    }}
+                                  >
+                                    {t.label}
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </>
+                      );
+                    })()}
+                </div>
+                <div style={{ width: 1, height: 20, background: C.border, margin: "0 2px", flexShrink: 0 }} />
                 <button
                   className="icon-btn"
                   title="Previous"
@@ -6420,371 +6557,8 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                     </svg>
                   </button>
                 )}
-                {/* Tools folder — iPhone-style expanding grid (snap angle lives inside) */}
-                <div ref={toolsBtnRef} style={{ position: "relative", flexShrink: 0 }}>
-                  <button
-                    className="icon-btn"
-                    onClick={() => setToolsFolderOpen(v => !v)}
-                    title="Tools"
-                    style={{
-                      width: 24,
-                      height: 24,
-                      border: `1px solid ${toolsFolderOpen ? C.accent + "60" : C.border}`,
-                      background: toolsFolderOpen ? C.accent + "18" : C.bg2,
-                      borderRadius: 4,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke={toolsFolderOpen ? C.accent : C.textMuted}
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" />
-                    </svg>
-                  </button>
-                  {toolsFolderOpen &&
-                    (() => {
-                      const r = toolsBtnRef.current?.getBoundingClientRect();
-                      const tools = [
-                        {
-                          id: "checkdim",
-                          label: "Check Dim",
-                          icon: (
-                            <svg
-                              width="14"
-                              height="14"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke={C.text}
-                              strokeWidth="1.8"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <path d="M2 20h20 M2 20V4 M6 16V8 M10 16V6 M14 16v-4 M18 16V8" />
-                            </svg>
-                          ),
-                          desc: "Measure without creating a takeoff",
-                          soon: true,
-                        },
-                        {
-                          id: "angle",
-                          label: "Angle",
-                          icon: (
-                            <svg
-                              width="14"
-                              height="14"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke={C.text}
-                              strokeWidth="1.8"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <path d="M21 19H5V5" />
-                              <path d="M5 19l14-14" />
-                            </svg>
-                          ),
-                          desc: "Measure angles between lines",
-                          soon: true,
-                        },
-                        {
-                          id: "compare",
-                          label: "Compare",
-                          icon: (
-                            <svg
-                              width="14"
-                              height="14"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke={C.text}
-                              strokeWidth="1.8"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <rect x="2" y="3" width="8" height="8" rx="1" />
-                              <rect x="14" y="13" width="8" height="8" rx="1" />
-                              <path d="M7 11v2a2 2 0 002 2h2 M17 13v-2a2 2 0 00-2-2h-2" />
-                            </svg>
-                          ),
-                          desc: "Overlay drawings for revision comparison",
-                          soon: true,
-                        },
-                        {
-                          id: "screenshot",
-                          label: "Screenshot",
-                          icon: (
-                            <svg
-                              width="14"
-                              height="14"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke={C.text}
-                              strokeWidth="1.8"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
-                              <circle cx="12" cy="13" r="4" />
-                            </svg>
-                          ),
-                          desc: "Export canvas view as image",
-                          soon: true,
-                        },
-                        {
-                          id: "labels",
-                          label: "Labels",
-                          icon: (
-                            <svg
-                              width="14"
-                              height="14"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke={C.text}
-                              strokeWidth="1.8"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-                            </svg>
-                          ),
-                          desc: "Toggle measurement labels on canvas",
-                          soon: true,
-                        },
-                        {
-                          id: "snap",
-                          label: "Snap Angle",
-                          icon: (
-                            <svg
-                              width="14"
-                              height="14"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke={snapAngleOn ? C.accent : C.text}
-                              strokeWidth="1.8"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
-                              <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-                              <line x1="12" y1="22.08" x2="12" y2="12" />
-                            </svg>
-                          ),
-                          desc: snapAngleOn ? "Snap is ON" : "Lock to 45° angles",
-                          active: snapAngleOn,
-                          action: () => {
-                            setSnapAngleOn(v => !v);
-                          },
-                        },
-                      ];
-                      return (
-                        <>
-                          <div
-                            onClick={() => setToolsFolderOpen(false)}
-                            style={{ position: "fixed", inset: 0, zIndex: 199 }}
-                          />
-                          <div
-                            style={{
-                              position: "fixed",
-                              top: (r?.bottom || 0) + 6,
-                              left: Math.max(8, (r?.left || 0) - 60),
-                              width: 200,
-                              background: C.bg1,
-                              border: `1px solid ${C.border}`,
-                              borderRadius: 10,
-                              boxShadow: "0 8px 32px rgba(0,0,0,0.35)",
-                              zIndex: 200,
-                              padding: 8,
-                              animation: "fadeIn 0.12s ease-out",
-                            }}
-                          >
-                            <div
-                              style={{
-                                fontSize: 8,
-                                fontWeight: 700,
-                                color: C.textDim,
-                                textTransform: "uppercase",
-                                letterSpacing: 0.8,
-                                padding: "2px 4px 6px",
-                                borderBottom: `1px solid ${C.border}`,
-                              }}
-                            >
-                              Tools
-                            </div>
-                            <div
-                              style={{
-                                display: "grid",
-                                gridTemplateColumns: "1fr 1fr 1fr",
-                                gap: 4,
-                                padding: "8px 0 4px",
-                              }}
-                            >
-                              {tools.map(t => (
-                                <button
-                                  key={t.id}
-                                  onClick={() => {
-                                    if (t.action) {
-                                      t.action();
-                                      setToolsFolderOpen(false);
-                                    } else if (!t.soon) {
-                                      setToolsFolderOpen(false);
-                                    }
-                                  }}
-                                  title={t.desc}
-                                  style={{
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    alignItems: "center",
-                                    gap: 3,
-                                    padding: "8px 4px",
-                                    background: t.active ? C.accent + "15" : "transparent",
-                                    border: t.active ? `1px solid ${C.accent}40` : "1px solid transparent",
-                                    borderRadius: 8,
-                                    cursor: t.soon && !t.action ? "default" : "pointer",
-                                    opacity: t.soon && !t.action ? 0.45 : 1,
-                                    transition: "all 0.12s",
-                                  }}
-                                >
-                                  <div
-                                    style={{
-                                      width: 28,
-                                      height: 28,
-                                      borderRadius: 8,
-                                      background: t.active ? C.accent + "20" : C.bg2,
-                                      display: "flex",
-                                      alignItems: "center",
-                                      justifyContent: "center",
-                                      border: `1px solid ${t.active ? C.accent + "30" : C.border}`,
-                                    }}
-                                  >
-                                    {t.icon}
-                                  </div>
-                                  <span
-                                    style={{
-                                      fontSize: 7,
-                                      fontWeight: 600,
-                                      color: t.active ? C.accent : C.textMuted,
-                                      lineHeight: 1.1,
-                                      textAlign: "center",
-                                    }}
-                                  >
-                                    {t.label}
-                                  </span>
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        </>
-                      );
-                    })()}
-                </div>
-                {/* Divider + Settings gear (NOVA orb moved to panel header) */}
-                {selectedDrawing && (
-                  <>
-                    <div style={{ width: 1, height: 20, background: C.border, margin: "0 2px", flexShrink: 0 }} />
-                    {/* Settings gear popover (DPI + future settings) */}
-                    <div ref={settingsBtnRef} style={{ position: "relative", flexShrink: 0 }}>
-                      <button
-                        onClick={() => setSettingsOpen(v => !v)}
-                        title="Drawing settings"
-                        style={{
-                          width: 24,
-                          height: 24,
-                          border: `1px solid ${settingsOpen ? C.accent + "60" : C.border}`,
-                          background: settingsOpen ? C.accent + "12" : C.bg2,
-                          borderRadius: 4,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          cursor: "pointer",
-                        }}
-                      >
-                        <Ic d={I.settings} size={11} color={settingsOpen ? C.accent : C.textMuted} />
-                      </button>
-                      {settingsOpen &&
-                        (() => {
-                          const r = settingsBtnRef.current?.getBoundingClientRect();
-                          return (
-                            <div
-                              style={{
-                                position: "fixed",
-                                top: (r?.bottom || 0) + 4,
-                                right: Math.max(8, window.innerWidth - (r?.right || 0)),
-                                width: 200,
-                                background: C.bg1,
-                                border: `1px solid ${C.border}`,
-                                borderRadius: 8,
-                                boxShadow: T.shadow.lg,
-                                zIndex: T.z.dropdown,
-                                padding: 12,
-                                animation: "fadeIn 0.1s ease-out",
-                              }}
-                            >
-                              <div
-                                style={{
-                                  fontSize: 10,
-                                  fontWeight: 700,
-                                  color: C.textDim,
-                                  textTransform: "uppercase",
-                                  letterSpacing: 0.8,
-                                  marginBottom: 8,
-                                }}
-                              >
-                                Drawing Settings
-                              </div>
-                              {selectedDrawing?.type === "image" &&
-                                drawingScales[selectedDrawingId] &&
-                                drawingScales[selectedDrawingId] !== "custom" && (
-                                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                    <span style={{ fontSize: 10, color: C.text, fontWeight: 500 }}>DPI</span>
-                                    <input
-                                      type="number"
-                                      value={drawingDpi[selectedDrawingId] || DEFAULT_IMAGE_DPI}
-                                      onChange={e =>
-                                        setDrawingDpi({
-                                          ...drawingDpi,
-                                          [selectedDrawingId]: parseInt(e.target.value) || 150,
-                                        })
-                                      }
-                                      style={{
-                                        flex: 1,
-                                        width: 60,
-                                        padding: "4px 6px",
-                                        fontSize: 10,
-                                        fontWeight: 600,
-                                        border: `1px solid ${C.border}`,
-                                        borderRadius: 4,
-                                        background: C.bg2,
-                                        color: C.text,
-                                        textAlign: "center",
-                                      }}
-                                      title="Image scan DPI"
-                                    />
-                                  </div>
-                                )}
-                              {!(
-                                selectedDrawing?.type === "image" &&
-                                drawingScales[selectedDrawingId] &&
-                                drawingScales[selectedDrawingId] !== "custom"
-                              ) && (
-                                <div style={{ fontSize: 10, color: C.textDim }}>
-                                  No additional settings for this drawing type.
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })()}
-                    </div>
-                  </>
-                )}
+                {/* Tools folder moved to left side of toolbar */}
+                {/* Settings gear removed */}
               </>
             )}
           </div>
@@ -8752,804 +8526,16 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
       </div>
 
       {/* ═══ Unified NOVA Right Panel — Vision / Tools / Chat (hidden in estimate mode) ═══ */}
-      {tkPanelTier !== "estimate" &&
-        tkNovaPanelOpen &&
-        (() => {
-          const novaPreds = tkPredictions?.predictions || [];
-          const novaPending = novaPreds.filter(p => !tkPredAccepted.includes(p.id) && !tkPredRejected.includes(p.id));
-          const novaAccepted = novaPreds.filter(p => tkPredAccepted.includes(p.id));
-          const novaActiveTo = takeoffs.find(t => t.id === tkActiveTakeoffId);
-          const novaPredColor = novaActiveTo?.color || "#8B5CF6";
-          const novaAvgConf =
-            novaPreds.length > 0
-              ? Math.round((novaPreds.reduce((s, p) => s + (p.confidence || 0), 0) / novaPreds.length) * 100)
-              : 0;
-
-          const novaAcceptOne = pred => {
-            acceptPrediction(pred.id);
-            recordPredictionFeedback(tkPredictions?.tag, tkPredictions?.strategy, true);
-            if (tkActiveTakeoffId) {
-              if (pred.type === "count" || pred.type === "wall-tag") {
-                addMeasurement(tkActiveTakeoffId, {
-                  type: "count",
-                  points: [pred.point],
-                  value: 1,
-                  sheetId: selectedDrawingId,
-                  color: novaActiveTo?.color || "#5b8def",
-                  predicted: true,
-                  tag: tkPredictions.tag,
-                });
-              } else if (pred.type === "wall" && pred.points?.length >= 2) {
-                addMeasurement(tkActiveTakeoffId, {
-                  type: "linear",
-                  points: pred.points,
-                  value: 0,
-                  sheetId: selectedDrawingId,
-                  color: novaActiveTo?.color || "#5b8def",
-                  predicted: true,
-                  tag: tkPredictions.tag,
-                });
-              } else if (pred.type === "area" && pred.points?.length >= 3) {
-                addMeasurement(tkActiveTakeoffId, {
-                  type: "area",
-                  points: pred.points,
-                  value: 0,
-                  sheetId: selectedDrawingId,
-                  color: novaActiveTo?.color || "#5b8def",
-                  predicted: true,
-                  tag: pred.tag || tkPredictions.tag,
-                });
-              }
-            }
-          };
-          const novaAcceptAll = () => {
-            const toAdd = novaPreds.filter(p => !tkPredRejected.includes(p.id) && !tkPredAccepted.includes(p.id));
-            if (tkActiveTakeoffId && toAdd.length > 0) {
-              toAdd.forEach(() => recordPredictionFeedback(tkPredictions?.tag, tkPredictions?.strategy, true));
-              toAdd.forEach(pred => {
-                if (pred.type === "count" || pred.type === "wall-tag")
-                  addMeasurement(tkActiveTakeoffId, {
-                    type: "count",
-                    points: [pred.point],
-                    value: 1,
-                    sheetId: selectedDrawingId,
-                    color: novaActiveTo?.color || "#5b8def",
-                    predicted: true,
-                    tag: tkPredictions.tag,
-                  });
-                else if (pred.type === "wall" && pred.points?.length >= 2)
-                  addMeasurement(tkActiveTakeoffId, {
-                    type: "linear",
-                    points: pred.points,
-                    value: 0,
-                    sheetId: selectedDrawingId,
-                    color: novaActiveTo?.color || "#5b8def",
-                    predicted: true,
-                    tag: tkPredictions.tag,
-                  });
-                else if (pred.type === "area" && pred.points?.length >= 3)
-                  addMeasurement(tkActiveTakeoffId, {
-                    type: "area",
-                    points: pred.points,
-                    value: 0,
-                    sheetId: selectedDrawingId,
-                    color: novaActiveTo?.color || "#5b8def",
-                    predicted: true,
-                    tag: pred.tag || tkPredictions.tag,
-                  });
-              });
-              showToast(`Added ${toAdd.length} predicted measurements`);
-            }
-            clearPredictions();
-          };
-          const novaRejectAll = () => {
-            novaPending.forEach(p => {
-              rejectPrediction(p.id);
-              recordPredictionFeedback(tkPredictions?.tag, tkPredictions?.strategy, false);
-            });
-          };
-
-          // NOVA Chat handler
-          const handleNovaChat = async text => {
-            const msg = (text || novaChatInput).trim();
-            if (!msg || novaChatLoading) return;
-            const userMsg = { role: "user", text: msg };
-            const updated = [...novaChatMessages, userMsg];
-            setNovaChatMessages(updated);
-            setNovaChatInput("");
-            setNovaChatLoading(true);
-            try {
-              const ctx = buildProjectContext({
-                project,
-                items: useItemsStore.getState().items,
-                takeoffs,
-                specs: useSpecsStore.getState().specs,
-                drawings,
-              });
-              const apiMsgs = updated.map((m, i) => {
-                if (m.actions) return { role: "assistant", content: m.text || "Done." };
-                if (i === 0 && m.role === "user")
-                  return { role: "user", content: `[Project Context]\n${ctx}\n\n[Question]\n${m.text}` };
-                return { role: m.role, content: m.text };
-              });
-              const CHAT_SYS = `You are NOVA, an expert construction estimating AI. Be concise and direct. Reference CSI codes when relevant. You have tools to modify the estimate.`;
-              const resp = await callAnthropic({
-                system: CHAT_SYS,
-                max_tokens: 2000,
-                messages: apiMsgs,
-                tools: NOVA_TOOLS,
-              });
-              if (typeof resp === "string") {
-                setNovaChatMessages([...updated, { role: "assistant", text: resp }]);
-              } else if (resp?.content) {
-                const textParts = [];
-                const toolCalls = [];
-                for (const b of resp.content) {
-                  if (b.type === "text") textParts.push(b.text);
-                  else if (b.type === "tool_use") toolCalls.push(b);
-                }
-                const toolResults = toolCalls.map(tc => {
-                  try {
-                    return { tool_use_id: tc.id, ...executeNovaTool(tc.name, tc.input) };
-                  } catch (err) {
-                    return { tool_use_id: tc.id, success: false, message: err.message };
-                  }
-                });
-                const actionMsg = { role: "assistant", text: textParts.join("\n") || "", actions: toolResults };
-                setNovaChatMessages([...updated, actionMsg]);
-              }
-            } catch (err) {
-              setNovaChatMessages([...updated, { role: "assistant", text: `⚠️ ${err.message}` }]);
-            } finally {
-              setNovaChatLoading(false);
-            }
-          };
-
-          return (
-            <div
-              style={{
-                width: 340,
-                flexShrink: 0,
-                display: "flex",
-                flexDirection: "column",
-                background: C.bg1,
-                borderLeft: `1px solid ${C.border}`,
-                backdropFilter: T.glass.blur,
-                WebkitBackdropFilter: T.glass.blur,
-                animation: "slideIn 0.2s ease-out",
-                boxShadow: "-4px 0 24px rgba(0,0,0,0.15)",
-              }}
-            >
-              {/* ── NOVA Header — Orb + Title ── */}
-              <div
-                style={{
-                  padding: "14px 16px 10px",
-                  borderBottom: `1px solid ${C.border}`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  background: `linear-gradient(135deg, ${C.accent}06, ${C.purple || C.accent}04)`,
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div
-                    style={{
-                      width: 36,
-                      height: 36,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      overflow: "visible",
-                    }}
-                  >
-                    <div style={{ transform: "scale(0.22)", transformOrigin: "center" }}>
-                      <NovaOrb />
-                    </div>
-                  </div>
-                  <div>
-                    <div
-                      style={{
-                        fontSize: 14,
-                        fontWeight: 800,
-                        letterSpacing: 0.5,
-                        color: C.text,
-                        fontFamily: T.font.display,
-                      }}
-                    >
-                      NOVA
-                    </div>
-                    <div style={{ fontSize: 9, color: C.textDim, fontWeight: 500 }}>Powered by AI</div>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setTkNovaPanelOpen(false)}
-                  style={{
-                    width: 24,
-                    height: 24,
-                    border: `1px solid ${C.border}`,
-                    borderRadius: 6,
-                    background: C.bg2,
-                    color: C.textDim,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <svg
-                    width="10"
-                    height="10"
-                    viewBox="0 0 10 10"
-                    fill="none"
-                    stroke={C.textDim}
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                  >
-                    <path d="M2 2l6 6M8 2l-6 6" />
-                  </svg>
-                </button>
-              </div>
-
-              {/* ═══ Unified Scrollable Content ═══ */}
-              <div ref={novaChatScrollRef} style={{ flex: 1, overflowY: "auto" }}>
-                {/* ── Predictions Section (when active) ── */}
-                {novaPreds.length > 0 && (
-                  <>
-                    <div
-                      style={{
-                        padding: "10px 16px",
-                        borderBottom: `1px solid ${C.border}`,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                        background: C.bg,
-                      }}
-                    >
-                      <span
-                        style={{
-                          padding: "3px 10px",
-                          borderRadius: 5,
-                          fontSize: 11,
-                          fontWeight: 700,
-                          background: `${novaPredColor}15`,
-                          color: novaPredColor,
-                          border: `1px solid ${novaPredColor}25`,
-                          fontFamily: T.font.mono,
-                        }}
-                      >
-                        {tkPredictions?.tag || "—"}
-                      </span>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>
-                          {novaPending.length > 0 ? `${novaPending.length} found` : `${novaAccepted.length} accepted`}
-                        </div>
-                        <div style={{ fontSize: 9, color: C.textDim }}>avg {novaAvgConf}% confidence</div>
-                      </div>
-                    </div>
-                    {novaPending.length > 0 && (
-                      <div
-                        style={{ padding: "8px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", gap: 8 }}
-                      >
-                        <button
-                          onClick={novaAcceptAll}
-                          style={bt(C, {
-                            flex: 1,
-                            background: C.green,
-                            color: "#fff",
-                            padding: "7px 0",
-                            fontSize: 11,
-                            fontWeight: 700,
-                            borderRadius: 6,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            gap: 5,
-                          })}
-                        >
-                          <Ic d={I.check} size={11} color="#fff" sw={2.5} /> Accept All ({novaPending.length})
-                        </button>
-                        <button
-                          onClick={novaRejectAll}
-                          style={bt(C, {
-                            flex: 1,
-                            background: "transparent",
-                            border: `1px solid ${C.border}`,
-                            color: C.textDim,
-                            padding: "7px 0",
-                            fontSize: 11,
-                            fontWeight: 600,
-                            borderRadius: 6,
-                          })}
-                        >
-                          Reject All
-                        </button>
-                      </div>
-                    )}
-                    <div style={{ padding: "4px 0" }}>
-                      {novaPreds.map(pred => {
-                        const isAccepted = tkPredAccepted.includes(pred.id);
-                        const isRejected = tkPredRejected.includes(pred.id);
-                        const isPending = !isAccepted && !isRejected;
-                        const predConf = Math.round((pred.confidence || 0) * 100);
-                        const confColor = predConf >= 80 ? C.green : predConf >= 50 ? C.blue : C.orange;
-                        return (
-                          <div
-                            key={pred.id}
-                            style={{
-                              margin: "2px 8px",
-                              padding: "8px 12px",
-                              borderRadius: 8,
-                              background: isAccepted ? `${C.green}08` : isRejected ? `${C.red}05` : C.bg,
-                              border: `1px solid ${isAccepted ? C.green + "20" : isRejected ? C.red + "15" : C.border}`,
-                              opacity: isRejected ? 0.5 : 1,
-                              transition: T.transition.fast,
-                            }}
-                          >
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                              <div
-                                style={{
-                                  width: 6,
-                                  height: 6,
-                                  borderRadius: "50%",
-                                  flexShrink: 0,
-                                  background: isAccepted ? C.green : isRejected ? C.red : novaPredColor,
-                                }}
-                              />
-                              <span
-                                style={{
-                                  fontSize: 11,
-                                  fontWeight: 600,
-                                  color: C.text,
-                                  flex: 1,
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                {pred.tag || pred.type || "Prediction"}
-                              </span>
-                              {isAccepted && (
-                                <span style={{ fontSize: 8, fontWeight: 700, color: C.green }}>Added</span>
-                              )}
-                              {isRejected && (
-                                <span style={{ fontSize: 8, fontWeight: 700, color: C.red }}>Dismissed</span>
-                              )}
-                            </div>
-                            <div
-                              style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: isPending ? 8 : 0 }}
-                            >
-                              <div style={{ flex: 1, height: 3, borderRadius: 2, background: C.bg3 }}>
-                                <div
-                                  style={{
-                                    width: `${predConf}%`,
-                                    height: "100%",
-                                    borderRadius: 2,
-                                    background: confColor,
-                                    transition: "width 0.3s ease",
-                                  }}
-                                />
-                              </div>
-                              <span
-                                style={{
-                                  fontSize: 9,
-                                  fontWeight: 700,
-                                  color: confColor,
-                                  fontFamily: T.font.mono,
-                                  minWidth: 28,
-                                  textAlign: "right",
-                                }}
-                              >
-                                {predConf}%
-                              </span>
-                            </div>
-                            {isPending && (
-                              <div style={{ display: "flex", gap: 6 }}>
-                                <button
-                                  onClick={() => novaAcceptOne(pred)}
-                                  style={bt(C, {
-                                    flex: 1,
-                                    padding: "4px 0",
-                                    fontSize: 10,
-                                    fontWeight: 600,
-                                    borderRadius: 5,
-                                    background: `${C.green}15`,
-                                    color: C.green,
-                                    border: `1px solid ${C.green}25`,
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    gap: 4,
-                                  })}
-                                >
-                                  <Ic d={I.check} size={9} color={C.green} sw={2.5} /> Accept
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    rejectPrediction(pred.id);
-                                    recordPredictionFeedback(tkPredictions?.tag, tkPredictions?.strategy, false);
-                                  }}
-                                  style={bt(C, {
-                                    flex: 1,
-                                    padding: "4px 0",
-                                    fontSize: 10,
-                                    fontWeight: 600,
-                                    borderRadius: 5,
-                                    background: "transparent",
-                                    color: C.textDim,
-                                    border: `1px solid ${C.border}`,
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    gap: 4,
-                                  })}
-                                >
-                                  <svg
-                                    width="8"
-                                    height="8"
-                                    viewBox="0 0 10 10"
-                                    fill="none"
-                                    stroke={C.textDim}
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                  >
-                                    <path d="M2 2l6 6M8 2l-6 6" />
-                                  </svg>{" "}
-                                  Reject
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                    {drawings.filter(d => d.data && d.type === "pdf").length > 1 && (
-                      <div style={{ padding: "8px 16px", borderTop: `1px solid ${C.border}` }}>
-                        {crossSheetScan?.scanning ? (
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              gap: 6,
-                              padding: "6px 0",
-                              fontSize: 10,
-                              color: C.blue,
-                            }}
-                          >
-                            <span
-                              style={{
-                                display: "inline-block",
-                                width: 10,
-                                height: 10,
-                                border: "2px solid #3B82F640",
-                                borderTop: "2px solid #3B82F6",
-                                borderRadius: "50%",
-                                animation: "spin 0.8s linear infinite",
-                              }}
-                            />{" "}
-                            Scanning other sheets...
-                          </div>
-                        ) : (
-                          <button
-                            onClick={async () => {
-                              setCrossSheetScan({ tag: tkPredictions.tag, results: [], scanning: true });
-                              try {
-                                const pdfDrawings = drawings.filter(
-                                  d => d.data && d.type === "pdf" && d.id !== selectedDrawingId,
-                                );
-                                const results = await scanAllSheets(
-                                  pdfDrawings,
-                                  tkPredictions.tag,
-                                  tkTool === "count" ? "count" : "linear",
-                                );
-                                setCrossSheetScan({ tag: tkPredictions.tag, results, scanning: false });
-                                const total = results.reduce((s, r) => s + r.instanceCount, 0);
-                                if (total > 0)
-                                  showToast(`Found "${tkPredictions.tag}" on ${results.length} other sheet(s)`);
-                                else showToast(`Not found on other sheets`);
-                              } catch (err) {
-                                setCrossSheetScan(null);
-                              }
-                            }}
-                            style={bt(C, {
-                              width: "100%",
-                              padding: "8px 0",
-                              fontSize: 10,
-                              fontWeight: 600,
-                              borderRadius: 6,
-                              background: `${C.blue}10`,
-                              color: C.blue,
-                              border: `1px solid ${C.blue}20`,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              gap: 6,
-                            })}
-                          >
-                            <svg
-                              width="11"
-                              height="11"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke={C.blue}
-                              strokeWidth="2.5"
-                              strokeLinecap="round"
-                            >
-                              <path d="M4 4h6v6H4z" />
-                              <path d="M14 4h6v6h-6z" />
-                              <path d="M4 14h6v6H4z" />
-                              <path d="M14 14h6v6h-6z" />
-                            </svg>{" "}
-                            Scan All Pages
-                          </button>
-                        )}
-                      </div>
-                    )}
-                    {tkPredRefining && (
-                      <div
-                        style={{
-                          padding: "8px 16px",
-                          borderTop: `1px solid ${C.border}`,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: 6,
-                          background: `${C.orange}06`,
-                          fontSize: 10,
-                          color: C.orange,
-                          fontWeight: 600,
-                        }}
-                      >
-                        <span style={{ display: "inline-block", animation: "spin 1s linear infinite", fontSize: 12 }}>
-                          ⟳
-                        </span>{" "}
-                        Refining...
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {/* ── NOVA Features ── */}
-                <div style={{ padding: 12 }}>
-                  {[
-                    {
-                      label: "NOVA Vision",
-                      desc:
-                        novaPreds.length > 0
-                          ? `${novaPending.length} predictions pending`
-                          : !tkActiveTakeoffId
-                            ? "Select a takeoff to start"
-                            : tkMeasureState === "idle"
-                              ? "Start measuring — NOVA predicts matches"
-                              : "Measure near a tag to generate predictions",
-                      icon: I.ai,
-                      action: null,
-                      color: C.accent,
-                      status: novaPreds.length > 0 ? "active" : "info",
-                    },
-                    {
-                      label: "Auto-Detect",
-                      desc: "Scan drawing for all measurable elements",
-                      icon: I.ai,
-                      loading: aiDrawingAnalysis?.loading,
-                      hasResults: aiDrawingAnalysis?.results?.length > 0,
-                      resultLabel: aiDrawingAnalysis?.results ? `${aiDrawingAnalysis.results.length} found` : null,
-                      action: () => runDrawingAnalysis(),
-                      color: C.accent,
-                    },
-                    {
-                      label: "Scan Schedules",
-                      desc: "Find schedules in PDFs",
-                      icon: I.insights,
-                      loading: pdfSchedules.loading,
-                      hasResults: pdfSchedules.results?.length > 0,
-                      resultLabel: pdfSchedules.results ? `${pdfSchedules.results.length} schedules` : null,
-                      action: () => runPdfScheduleScan(),
-                      color: "#10B981",
-                    },
-                  ].map(item => (
-                    <button
-                      key={item.label}
-                      onClick={item.action}
-                      disabled={item.loading || !item.action}
-                      style={{
-                        width: "100%",
-                        padding: "10px 12px",
-                        background: item.status === "active" ? `${item.color}06` : C.bg,
-                        border: `1px solid ${item.status === "active" ? item.color + "25" : C.border}`,
-                        borderRadius: 8,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                        cursor: item.action ? (item.loading ? "wait" : "pointer") : "default",
-                        textAlign: "left",
-                        transition: "all 0.15s",
-                        marginBottom: 6,
-                        opacity: item.action ? 1 : 0.8,
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: 8,
-                          background: `${item.color}12`,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          flexShrink: 0,
-                        }}
-                      >
-                        {item.loading ? (
-                          <span
-                            style={{
-                              display: "inline-block",
-                              width: 12,
-                              height: 12,
-                              border: `2px solid ${item.color}30`,
-                              borderTop: `2px solid ${item.color}`,
-                              borderRadius: "50%",
-                              animation: "spin 0.8s linear infinite",
-                            }}
-                          />
-                        ) : (
-                          <Ic d={item.icon} size={14} color={item.color} />
-                        )}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{item.label}</div>
-                        <div style={{ fontSize: 9, color: C.textDim, marginTop: 2 }}>{item.desc}</div>
-                      </div>
-                      {item.hasResults && item.resultLabel && (
-                        <span
-                          style={{
-                            fontSize: 8,
-                            fontWeight: 700,
-                            color: item.color,
-                            background: `${item.color}15`,
-                            padding: "2px 6px",
-                            borderRadius: 10,
-                            flexShrink: 0,
-                          }}
-                        >
-                          {item.resultLabel}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-
-                {/* ── Chat Section ── */}
-                <div style={{ padding: "0 12px 12px", borderTop: `1px solid ${C.border}` }}>
-                  {novaChatMessages.length === 0 && !novaChatLoading && (
-                    <div style={{ padding: "12px 0 4px" }}>
-                      <div style={{ textAlign: "center", marginBottom: 10 }}>
-                        <div style={{ fontSize: 11, fontWeight: 600, color: C.text, marginBottom: 2 }}>
-                          Chat with NOVA
-                        </div>
-                        <div style={{ fontSize: 9, color: C.textDim }}>Ask about scope, pricing, or specs</div>
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                        {QUICK_ACTIONS.slice(0, 3).map((qa, i) => (
-                          <button
-                            key={i}
-                            onClick={() => handleNovaChat(qa.label)}
-                            style={{
-                              background: `${C.accent}06`,
-                              border: `1px solid ${C.accent}15`,
-                              borderRadius: 6,
-                              padding: "7px 10px",
-                              cursor: "pointer",
-                              textAlign: "left",
-                              fontSize: 10,
-                              color: C.text,
-                              fontWeight: 500,
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 6,
-                              transition: "all 0.15s",
-                            }}
-                          >
-                            <span style={{ fontSize: 11 }}>{qa.icon}</span> {qa.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {novaChatMessages.map((msg, i) => (
-                    <div key={i} style={{ paddingTop: i === 0 ? 8 : 0 }}>
-                      <MessageBubble msg={msg} C={C} />
-                      {msg.actions && <ActionCards actions={msg.actions} C={C} />}
-                    </div>
-                  ))}
-                  {novaChatLoading && (
-                    <div style={{ display: "flex", gap: 4, padding: "8px 0", alignItems: "center" }}>
-                      {[0, 1, 2].map(n => (
-                        <div
-                          key={n}
-                          style={{
-                            width: 5,
-                            height: 5,
-                            borderRadius: 3,
-                            background: C.accent,
-                            opacity: 0.4,
-                            animation: `novaPulse 1.2s ${n * 0.2}s infinite`,
-                          }}
-                        />
-                      ))}
-                      <span style={{ fontSize: 10, color: C.textMuted, marginLeft: 4 }}>Thinking...</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* ── Chat Input (pinned at bottom) ── */}
-              <div style={{ padding: "8px 12px 12px", borderTop: `1px solid ${C.border}`, flexShrink: 0 }}>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 6,
-                    alignItems: "flex-end",
-                    background: C.bg,
-                    borderRadius: 8,
-                    border: `1px solid ${C.border}`,
-                    padding: "6px 10px",
-                  }}
-                >
-                  <textarea
-                    ref={novaChatInputRef}
-                    value={novaChatInput}
-                    onChange={e => setNovaChatInput(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        handleNovaChat();
-                      }
-                    }}
-                    placeholder="Ask NOVA..."
-                    rows={1}
-                    style={{
-                      flex: 1,
-                      border: "none",
-                      outline: "none",
-                      resize: "none",
-                      background: "transparent",
-                      color: C.text,
-                      fontSize: 12,
-                      fontFamily: "inherit",
-                      lineHeight: 1.4,
-                      maxHeight: 80,
-                      padding: 0,
-                    }}
-                    onInput={e => {
-                      e.target.style.height = "auto";
-                      e.target.style.height = Math.min(e.target.scrollHeight, 80) + "px";
-                    }}
-                  />
-                  <button
-                    onClick={() => handleNovaChat()}
-                    disabled={!novaChatInput.trim() || novaChatLoading}
-                    style={{
-                      width: 26,
-                      height: 26,
-                      borderRadius: 6,
-                      border: "none",
-                      background: novaChatInput.trim() && !novaChatLoading ? C.accent : `${C.text}10`,
-                      color: novaChatInput.trim() && !novaChatLoading ? "#fff" : C.textDim,
-                      cursor: novaChatInput.trim() && !novaChatLoading ? "pointer" : "default",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <Ic d={I.send} size={12} color={novaChatInput.trim() && !novaChatLoading ? "#fff" : C.textDim} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
+      {tkPanelTier !== "estimate" && tkNovaPanelOpen && (
+        <TakeoffNOVAPanel
+          aiDrawingAnalysis={aiDrawingAnalysis}
+          pdfSchedules={pdfSchedules}
+          runDrawingAnalysis={runDrawingAnalysis}
+          runPdfScheduleScan={runPdfScheduleScan}
+          crossSheetScan={crossSheetScan}
+          setCrossSheetScan={setCrossSheetScan}
+        />
+      )}
 
       {/* Takeoff Command Palette (Cmd+K) */}
       <TakeoffCommandPalette
