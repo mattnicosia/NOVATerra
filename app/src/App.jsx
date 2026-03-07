@@ -1027,9 +1027,7 @@ function AppContent() {
         flexDirection: "column",
         height: "100vh",
         overflow: "hidden",
-        background: C.bgTexture
-          ? `${C.bgTexture}, ${C.bgGradient || C.bg}`
-          : (C.bgGradient || C.bg),
+        background: C.bgTexture ? `${C.bgTexture}, ${C.bgGradient || C.bg}` : C.bgGradient || C.bg,
         position: "relative",
       }}
     >
@@ -1430,6 +1428,16 @@ export default function App() {
     return (
       <Suspense fallback={<AuthLoading />}>
         <SubDashboardPage />
+      </Suspense>
+    );
+  }
+
+  // Sphere test page — dev only
+  if (window.location.pathname.startsWith("/sphere-test")) {
+    const SphereTestPage = lazy(() => import("@/pages/SphereTestPage"));
+    return (
+      <Suspense fallback={<AuthLoading />}>
+        <SphereTestPage />
       </Suspense>
     );
   }
