@@ -135,7 +135,7 @@ export const novacoreFragmentShader = /* glsl */ `
   void main() {
     // ── Palette interpolation with transition boost ─────────
     float transitionFactor = 1.0 - abs(uMorph * 2.0 - 1.0);
-    float ampBoost = 1.0 + transitionFactor * 0.5;
+    float ampBoost = 1.0 + transitionFactor * 0.30;
 
     vec3 palA = mix(uNovaPalA, uCorePalA, uMorph);
     vec3 palB = mix(uNovaPalB, uCorePalB, uMorph) * ampBoost;
@@ -179,7 +179,7 @@ export const novacoreFragmentShader = /* glsl */ `
     // This is the minimum glow — even where flow patterns are at
     // their darkest, this color shines through. Light sources
     // don't have unlit patches.
-    vec3 novaBaseGlow = vec3(0.25, 0.18, 0.52);   // luminous deep violet
+    vec3 novaBaseGlow = vec3(0.10, 0.10, 0.36);   // reduced — let palette colors dominate
     vec3 coreBaseGlow = vec3(0.08, 0.04, 0.01);   // dim ember
     vec3 baseGlow = mix(novaBaseGlow, coreBaseGlow, uMorph);
 
@@ -208,34 +208,38 @@ export const novacoreFragmentShader = /* glsl */ `
     noiseFlowColor += noiseFlowColor * flowBoundary * mix(0.02, 0.50, uMorph);
 
     // === Position-based smooth gradient (used at low morph) ===
-    // Hemisphere-scale hue variation — like how real light sources glow
+    // Multi-hue light source: different sphere regions = genuinely different colors
     vec3 localDir = normalize(vPosition);
     float posAngle = (atan(localDir.z, localDir.x) + 3.14159) / 6.28318;
     float posElev = localDir.y * 0.5 + 0.5;
-    // Slow time rotation so the gradient drifts gracefully
-    // pattern * 0.30 adds just enough organic flow to feel alive
-    float smoothT = posAngle * 0.42 + posElev * 0.28 + pattern * 0.30 + uTime * 0.02;
+    // Position gradient — pure geometry at NOVA (smooth light), noise at CORE (volcanic)
+    float patternInT = pattern * mix(0.03, 0.22, uMorph);  // nearly zero at NOVA
+    // Wide position span (~1.3 of palette cycle) → covers full B channel cycle
+    float smoothT = posAngle * 0.80 + posElev * 0.50 + patternInT + uTime * 0.025;
     vec3 smoothFlowColor = max(iqPalette(smoothT, palA, palB, palC, palDShifted), vec3(0.0));
-    // Second sample at phase offset for richer hue variation
-    vec3 smoothFlow2 = max(iqPalette(smoothT + 0.35, palA, palB, palC, palDShifted + vec3(0.12, 0.08, 0.05)), vec3(0.0));
-    smoothFlowColor = mix(smoothFlowColor, smoothFlow2, posElev * 0.4 + 0.3);
+    // Subtle oscillation — enriches, doesn't homogenize
+    float hueOsc = sin(posAngle * 3.6 + posElev * 2.8 + uTime * 0.12) * 0.08;
+    vec3 oscColor = max(iqPalette(smoothT + 0.32 + hueOsc, palA, palB, palC, palDShifted + vec3(0.03, 0.06, 0.02)), vec3(0.0));
+    smoothFlowColor = mix(smoothFlowColor, oscColor, 0.22);
 
     // === Blend: NOVA=smooth position-based, CORE=noisy flow-based ===
     vec3 flowColor = mix(smoothFlowColor, noiseFlowColor, uMorph);
 
     // Brightness modulation
-    float baseFloor = mix(0.78, 0.12, uMorph);
-    float patternBright = pow(pattern, mix(0.3, 2.2, uMorph));
+    float baseFloor = mix(0.76, 0.12, uMorph);
+    float patternBright = pow(pattern, mix(0.08, 2.2, uMorph));  // NOVA: nearly flat brightness
     float flowBright = baseFloor + (1.0 - baseFloor) * smoothstep(0.10, 0.95, patternBright);
 
-    // Luminance equalization for remaining noise contribution
+    // Luminance equalization — OFF for NOVA, light for CORE
+    // BaseFloor prevents dark patches. EQ kills hue variety.
     float flowLuma = dot(flowColor, vec3(0.299, 0.587, 0.114));
-    float targetLuma = mix(0.42, flowLuma, uMorph);
+    float eqStrength = 1.0;  // fully natural — let palette hues shine
+    float targetLuma = mix(0.40, flowLuma, eqStrength);
     flowColor = flowColor * (targetLuma / max(flowLuma, 0.03));
     flowColor = clamp(flowColor, vec3(0.0), vec3(1.5));
 
-    // Color contribution
-    float colorScale = 0.82;
+    // Color contribution — strong palette expression for visible hue zones
+    float colorScale = 0.95;
     vec3 flowLight = flowColor * flowBright * colorScale;
 
     // ── 3. CENTER WHITE HOT-SPOT ─────────────────────────────
@@ -244,7 +248,7 @@ export const novacoreFragmentShader = /* glsl */ `
     float centerGlow = pow(centerFactor, centerPow);
 
     vec3 centerWhite = mix(
-      vec3(0.82, 0.84, 1.0),   // cool blue-white for NOVA
+      vec3(0.78, 0.85, 1.0),   // cool blue-white for NOVA (less R)
       vec3(1.0, 0.90, 0.72),   // warm amber-white for CORE
       uMorph
     );
@@ -259,14 +263,24 @@ export const novacoreFragmentShader = /* glsl */ `
     float flowFade = 1.0 - centerGlow * 0.45;
     vec3 baseColor = baseGlow + flowLight * flowFade + centerLight;
 
-    // Bridge — smooth gradient from center white into color field
-    float bridgeGlow = pow(centerFactor, mix(4.0, 3.0, uMorph)) * (1.0 - centerGlow);
-    vec3 bridgeColor = mix(
-      vec3(0.10, 0.08, 0.22),  // NOVA: violet bridge
-      vec3(0.16, 0.10, 0.03),  // CORE: amber bridge
+    // Bridge — 2-layer gradient from center white → cool blue → rich color
+    // Inner bridge: cool tinted glow (closer to center)
+    float bridgeInner = pow(centerFactor, mix(5.0, 3.5, uMorph)) * (1.0 - centerGlow);
+    vec3 innerBridgeColor = mix(
+      vec3(0.14, 0.18, 0.48),  // NOVA: cool blue-lavender (no warm R)
+      vec3(0.28, 0.18, 0.06),  // CORE: pale amber
       uMorph
     );
-    baseColor += bridgeColor * bridgeGlow * 0.18;
+    baseColor += innerBridgeColor * bridgeInner * 0.28;
+
+    // Outer bridge: richer tint (further from center)
+    float bridgeOuter = pow(centerFactor, mix(2.8, 2.2, uMorph)) * (1.0 - pow(centerFactor, mix(5.0, 3.5, uMorph)));
+    vec3 outerBridgeColor = mix(
+      vec3(0.08, 0.10, 0.32),  // NOVA: cool deeper blue (no warm R)
+      vec3(0.18, 0.10, 0.02),  // CORE: deeper amber
+      uMorph
+    );
+    baseColor += outerBridgeColor * bridgeOuter * 0.15;
 
     // ── 5. DISPLACEMENT modulation ──────────────────────────
     // NOVA: light source — displacement barely affects brightness
@@ -277,7 +291,7 @@ export const novacoreFragmentShader = /* glsl */ `
     float morphLate = smoothstep(0.5, 1.0, uMorph);
 
     float dispMod = mix(
-      mix(0.90, 1.0, pow(dispFactor, 0.25)),    // NOVA: 0.90 floor, very gentle
+      mix(0.95, 1.0, pow(dispFactor, 0.25)),    // NOVA: 0.95 floor, nearly invisible
       mix(0.05, 1.2, pow(dispFactor, 1.5)),      // CORE: 0.05 floor, deep cracks
       morphLate
     );
@@ -298,31 +312,36 @@ export const novacoreFragmentShader = /* glsl */ `
         float distFromCenter = length(marchPos);
         if (distFromCenter > uSize * 0.92) continue;
 
-        vec3 warpSample = domainWarpLight(marchPos * 0.9, uTime);
+        // NOVA: low freq → broad smooth glow. CORE: high freq → bubbly detail
+        float volFreq = mix(0.45, 0.9, uMorph);
+        vec3 warpSample = domainWarpLight(marchPos * volFreq, uTime);
         float density = warpSample.x * 0.5 + 0.5;
         float depthRatio = 1.0 - (distFromCenter / uSize);
         depthRatio = pow(depthRatio, mix(1.2, 0.7, uMorph));
         density *= depthRatio;
 
-        float threshold = mix(0.22, 0.18, uMorph);
+        float threshold = mix(0.20, 0.16, uMorph);  // NOVA: higher threshold → smoother
         if (density < threshold) continue;
 
         float remapped = (density - threshold) / (1.0 - threshold);
-        float volT = mix(remapped * 0.6 + depthRatio * 0.3, remapped * 0.12, uMorph);
+        // NOVA: depth-driven color (smooth), CORE: density-driven (textured)
+        float volT = depthRatio * mix(0.65, 0.3, uMorph) + remapped * mix(0.15, 0.6, uMorph);
         vec3 volColor = iqPalette(volT, palA, palB, palC, palDShifted);
         volColor = max(volColor, vec3(0.0));
-        volColor *= 1.0 + depthRatio * mix(1.2, 2.8, uMorph);
+        volColor *= 1.0 + depthRatio * mix(1.5, 2.8, uMorph);
 
-        // White-hot inner core
-        float coreHeat = smoothstep(0.5, 0.8, depthRatio * remapped);
-        volColor += vec3(1.0, 0.92, 0.75) * coreHeat * mix(0.3, 0.6, uMorph);
+        // White-hot inner core — subtle at NOVA, intense at CORE
+        float coreHeat = smoothstep(0.45, 0.75, depthRatio * remapped);
+        vec3 heatTint = mix(vec3(0.75, 0.80, 1.0), vec3(1.0, 0.92, 0.75), uMorph);
+        volColor += heatTint * coreHeat * mix(0.30, 0.6, uMorph);
 
-        float sampleAlpha = remapped * depthRatio * mix(0.10, 0.08, uMorph);
+        float sampleAlpha = remapped * depthRatio * mix(0.08, 0.09, uMorph);
         volAccum += vec4(volColor * sampleAlpha, sampleAlpha) * (1.0 - volAccum.a);
       }
 
-      float surfOp = smoothstep(0.0, 0.4, dispFactor) * 0.35;
-      baseColor += volAccum.rgb * (1.0 - surfOp) * mix(0.7, 0.9, uMorph);
+      float surfOp = smoothstep(0.0, 0.4, dispFactor) * 0.30;
+      // NOVA: barely-there depth hint (0.10). CORE: strong volcanic interior (0.95)
+      baseColor += volAccum.rgb * (1.0 - surfOp) * mix(0.10, 0.95, uMorph);
     }
 
     // ── 7. HDR peaks — NOVA: nearly invisible. CORE: explosive ──
@@ -361,18 +380,23 @@ export const novacoreFragmentShader = /* glsl */ `
     // Gamma — CORE gets contrast boost, NOVA stays linear (smooth glow)
     baseColor = pow(max(baseColor, vec3(0.0)), vec3(mix(1.0, 1.35, morphLate)));
 
-    // Saturation boost — richer violet for NOVA, fiery for CORE
-    float satBoost = mix(1.35, 1.40, uMorph) + transitionFactor * 0.28;
+    // Saturation boost — richer hues for NOVA, fiery for CORE
+    float satBoost = mix(1.32, 1.40, uMorph) + transitionFactor * 0.28;
     float luma = dot(baseColor, vec3(0.299, 0.587, 0.114));
     baseColor = max(mix(vec3(luma), baseColor, satBoost), vec3(0.0));
 
     // Transition color injection
     vec3 transitionTint = mix(
-      vec3(0.06, 0.03, 0.16),
+      vec3(0.04, 0.04, 0.16),  // cooler transition tint
       vec3(0.16, 0.10, 0.03),
       uMorph
     );
     baseColor += transitionTint * transitionFactor * 0.10 * (1.0 - centerGlow);
+
+    // Soft tone compression — prevents display clipping color-shift
+    // NOVA: more compression (smooth glow). CORE: allow HDR peaks.
+    float toneCompress = mix(0.20, 0.06, uMorph);
+    baseColor = baseColor / (1.0 + baseColor * toneCompress);
 
     float alpha = mix(0.96, 0.99, uMorph) + pow(vFresnel, 3.0) * 0.03;
     gl_FragColor = vec4(baseColor, clamp(alpha, 0.0, 1.0));

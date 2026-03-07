@@ -15,12 +15,13 @@ import { atmosphereFragmentShader } from "./shaders/atmosphere.frag";
 // palette(t) = a + b * cos(2π(c*t + d))
 // Tuned for deep → bright → deep color cycling
 
-// NOVA: violet-indigo-cyan spectrum — luminous, always glowing
+// NOVA: cyan → deep blue → violet → lavender — wide diversity, R+B phased
+// Wider amps for more visible hue zones. R+B peak together (max R/B ≈ 0.50)
 const NOVA_PAL = {
-  a: new THREE.Vector3(0.18, 0.14, 0.40), // luminous violet base — light source, never dark
-  b: new THREE.Vector3(0.28, 0.30, 0.45), // moderate amplitude — hue variation without black holes
-  c: new THREE.Vector3(0.8, 1.0, 0.7), // slower cycling for smoother gradients
-  d: new THREE.Vector3(0.35, 0.25, 0.55), // phase: puts violet/blue in the bright zone
+  a: new THREE.Vector3(0.16, 0.17, 0.54), // strong blue base (B always present)
+  b: new THREE.Vector3(0.16, 0.28, 0.24), // wider amps: R for violet, G for cyan, B swings
+  c: new THREE.Vector3(1.0, 0.85, 0.70), // freq separation for organic drift
+  d: new THREE.Vector3(0.50, 0.20, 0.50), // R+B SAME phase → peak together!
 };
 
 // CORE: amber-gold-white spectrum — deep darks with blazing hot peaks
@@ -95,7 +96,7 @@ const NovacoreSphere = forwardRef(function NovacoreSphere(
       uIntensity: { value: intensity },
       uPulse: { value: 0.0 },
       uExhale: { value: 0.0 },
-      uNovaGlow: { value: new THREE.Vector3(0.4, 0.2, 0.85) },
+      uNovaGlow: { value: new THREE.Vector3(0.25, 0.28, 0.90) },
       uCoreGlow: { value: new THREE.Vector3(0.95, 0.6, 0.12) },
     }),
     [],
@@ -199,8 +200,8 @@ const NovacoreSphere = forwardRef(function NovacoreSphere(
         />
       </mesh>
 
-      {/* Atmosphere glow — wider ethereal halo */}
-      <mesh scale={[1.25, 1.25, 1.25]}>
+      {/* Atmosphere glow — ethereal halo */}
+      <mesh scale={[1.28, 1.28, 1.28]}>
         <icosahedronGeometry args={[size, 5]} />
         <shaderMaterial
           ref={atmosphereMatRef}

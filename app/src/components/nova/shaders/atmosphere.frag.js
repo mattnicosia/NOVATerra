@@ -30,20 +30,28 @@ export const atmosphereFragmentShader = /* glsl */ `
     float turbFresnel = fresnel + edgeTurb * fresnel;
     turbFresnel = clamp(turbFresnel, 0.0, 1.0);
 
-    // v9: Wider ethereal glow — extends further from sphere edge
-    float rimTight = pow(turbFresnel, 4.0);    // narrow bright edge accent
-    float rimMedium = pow(turbFresnel, 2.0);   // wider soft glow (was 2.8)
+    // v10: Ethereal multi-layer glow
+    float rimTight = pow(turbFresnel, 3.5);    // bright accent (slightly wider)
+    float rimMedium = pow(turbFresnel, 1.6);   // wide soft halo
+    float rimOuter = pow(turbFresnel, 1.1);    // wide faint outer glow
 
-    // Color
-    float hueShift = sin(uTime * 0.15) * 0.06;
-    vec3 novaShifted = uNovaGlow + vec3(hueShift * 0.2, -hueShift * 0.1, hueShift * 0.3);
+    // Multi-hue glow — shifts toward CYAN/BLUE only (never pink)
+    float hueShift = sin(uTime * 0.15) * 0.05;
+    float rimHue = sin(angle1 * 2.0 + uTime * 0.3) * 0.06;
+    // rimHue SUBTRACTS from R, ADDS to G+B → cyan shifts, no pink
+    vec3 novaShifted = uNovaGlow + vec3(-rimHue * 0.3 + hueShift * 0.1, rimHue * 0.4 + hueShift * 0.1, rimHue * 0.3 + hueShift * 0.2);
     vec3 coreShifted = uCoreGlow + vec3(hueShift * 0.15, hueShift * 0.1, -hueShift * 0.08);
     vec3 glowColor = mix(novaShifted, coreShifted, uMorph);
 
-    // Inner ring color for multi-hue
-    vec3 innerNova = vec3(0.20, 0.50, 0.90);
+    // Inner ring — brighter, more saturated accent
+    vec3 innerNova = vec3(0.25, 0.50, 0.95);
     vec3 innerCore = vec3(1.0, 0.70, 0.20);
     vec3 innerColor = mix(innerNova, innerCore, uMorph);
+
+    // Outer halo — softer, wider color
+    vec3 outerNova = vec3(0.12, 0.08, 0.35);
+    vec3 outerCore = vec3(0.30, 0.15, 0.02);
+    vec3 outerColor = mix(outerNova, outerCore, uMorph);
 
     // Gentle breathing
     float breathe = 0.88 + 0.12 * sin(uTime * 0.6 + 1.0);
@@ -51,20 +59,23 @@ export const atmosphereFragmentShader = /* glsl */ `
     // Pulse/exhale boost
     float boost = 1.0 + uPulse * 0.5 + uExhale * 0.3;
 
-    // v9: Vivid rim — brighter and more colorful
-    vec3 rimResult = innerColor * rimTight * mix(0.90, 0.70, uMorph) * breathe
-                   + glowColor * rimMedium * mix(0.45, 0.28, uMorph);
+    // 3-layer rim: tight accent + medium glow + outer halo
+    vec3 rimResult = innerColor * rimTight * mix(0.95, 0.70, uMorph) * breathe
+                   + glowColor * rimMedium * mix(0.50, 0.30, uMorph)
+                   + outerColor * rimOuter * mix(0.12, 0.05, uMorph);
     rimResult *= uIntensity * boost;
 
     // Subtle organic flicker
-    float flicker = 0.92 + 0.08 * sin(uTime * 6.0 + angle1 * 12.0);
+    float flicker = 0.93 + 0.07 * sin(uTime * 5.0 + angle1 * 10.0);
     rimResult *= flicker;
 
-    // Alpha — visible rim but no center wash
-    float glowAmount = rimTight * mix(0.90, 0.70, uMorph) + rimMedium * mix(0.25, 0.15, uMorph);
+    // Alpha — 3-layer with wider reach
+    float glowAmount = rimTight * mix(0.95, 0.70, uMorph)
+                     + rimMedium * mix(0.30, 0.18, uMorph)
+                     + rimOuter * mix(0.06, 0.02, uMorph);
     glowAmount *= uIntensity * boost * flicker;
-    float alpha = clamp(glowAmount * mix(0.65, 0.50, uMorph), 0.0, mix(0.70, 0.55, uMorph));
+    float alpha = clamp(glowAmount * mix(0.68, 0.52, uMorph), 0.0, mix(0.72, 0.58, uMorph));
 
-    gl_FragColor = vec4(rimResult * mix(1.5, 1.15, uMorph), alpha);
+    gl_FragColor = vec4(rimResult * mix(1.3, 1.2, uMorph), alpha);
   }
 `;
