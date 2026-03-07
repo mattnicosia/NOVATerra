@@ -1,18 +1,18 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { useTheme } from '@/hooks/useTheme';
-import { useUiStore } from '@/stores/uiStore';
-import { useProjectStore } from '@/stores/projectStore';
-import { useItemsStore } from '@/stores/itemsStore';
-import { useTakeoffsStore } from '@/stores/takeoffsStore';
-import { useSpecsStore } from '@/stores/specsStore';
-import { useDrawingsStore } from '@/stores/drawingsStore';
-import { callAnthropic, buildProjectContext } from '@/utils/ai';
-import { NOVA_TOOLS, executeNovaTool } from '@/utils/novaTools';
-import { motion } from 'framer-motion';
-import { slidePanelVariants, slidePanelTransition } from '@/utils/motion';
-import Ic from '@/components/shared/Ic';
-import { I } from '@/constants/icons';
-import NovaOrb from '@/components/dashboard/NovaOrb';
+import { useState, useRef, useEffect, useCallback } from "react";
+import { useTheme } from "@/hooks/useTheme";
+import { useUiStore } from "@/stores/uiStore";
+import { useProjectStore } from "@/stores/projectStore";
+import { useItemsStore } from "@/stores/itemsStore";
+import { useTakeoffsStore } from "@/stores/takeoffsStore";
+import { useSpecsStore } from "@/stores/specsStore";
+import { useDrawingsStore } from "@/stores/drawingsStore";
+import { callAnthropic, buildProjectContext } from "@/utils/ai";
+import { NOVA_TOOLS, executeNovaTool } from "@/utils/novaTools";
+import { motion } from "framer-motion";
+import { slidePanelVariants, slidePanelTransition } from "@/utils/motion";
+import Ic from "@/components/shared/Ic";
+import { I } from "@/constants/icons";
+import NovaOrb from "@/components/dashboard/NovaOrb";
 
 const SYSTEM_PROMPT = `You are NOVA, an expert construction estimating AI assistant embedded inside NOVATerra. You have deep knowledge of:
 - CSI MasterFormat divisions and specification sections
@@ -25,11 +25,11 @@ const SYSTEM_PROMPT = `You are NOVA, an expert construction estimating AI assist
 You have access to the user's full project context including their estimate items (with IDs), takeoff measurements, specification sections, and drawing sheet list. Use this context to give specific, actionable answers.
 
 You also have tools to MODIFY the estimate directly:
-- update_line_items: Change prices, quantities, units, or descriptions on existing items. Reference items by their [id:xxx] shown in context.
-- add_line_items: Add new scope items with CSI codes, descriptions, quantities, units, and pricing.
+- update_line_items: Change ANY field on existing items — CSI codes, descriptions, divisions, trades, prices, quantities, units, notes, drawing refs, spec sections, bid context. Reference items by their [id:xxx] shown in context.
+- add_line_items: Add new scope items with full detail — codes, descriptions, divisions, trades, quantities, units, pricing, notes, drawing refs, specs, bid context.
 - remove_line_items: Remove items by ID (always confirm with user first).
 
-When the user asks you to update pricing, add items, or make changes, use the appropriate tool. Explain what you're doing before or after using a tool.
+IMPORTANT: When the user asks you to modify items, ALWAYS use the appropriate tool. Never just describe changes — execute them. If the user says "change the code" or "assign to division" or "update the trade", use update_line_items with the correct fields. You can update multiple items in a single tool call.
 
 Formatting rules:
 - Be concise and direct — estimators are busy on bid day
@@ -96,119 +96,118 @@ export default function AIChatPanel() {
     }
   }, [open, pendingMsg]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleSend = useCallback(async (text) => {
-    const msg = (text || input).trim();
-    if (!msg || loading) return;
-    const userMsg = { role: "user", text: msg };
-    const updatedMessages = [...messages, userMsg];
-    setMessages(updatedMessages);
-    setInput("");
-    setLoading(true);
+  const handleSend = useCallback(
+    async text => {
+      const msg = (text || input).trim();
+      if (!msg || loading) return;
+      const userMsg = { role: "user", text: msg };
+      const updatedMessages = [...messages, userMsg];
+      setMessages(updatedMessages);
+      setInput("");
+      setLoading(true);
 
-    // Build project context (includes item IDs for tool use)
-    const context = buildProjectContext({ project, items, takeoffs, specs, drawings });
+      // Build project context (includes item IDs for tool use)
+      const context = buildProjectContext({ project, items, takeoffs, specs, drawings });
 
-    // Build API messages — include context in first user message
-    const apiMessages = updatedMessages.map((m, i) => {
-      // Skip action cards in API messages
-      if (m.actions) {
-        return { role: "assistant", content: m.text || "Done." };
-      }
-      if (i === 0 && m.role === "user") {
-        return { role: "user", content: `[Project Context]\n${context}\n\n[Question]\n${m.text}` };
-      }
-      if (m.role === "user" && i > 0 && i % 6 === 0) {
-        return { role: "user", content: `[Updated Context]\n${context}\n\n${m.text}` };
-      }
-      return { role: m.role, content: m.text };
-    });
-
-    try {
-      // Use non-streaming call with tool support
-      const response = await callAnthropic({
-        system: SYSTEM_PROMPT,
-        max_tokens: 2000,
-        messages: apiMessages,
-        tools: NOVA_TOOLS,
+      // Build API messages — include context in first user message
+      const apiMessages = updatedMessages.map((m, i) => {
+        // Skip action cards in API messages
+        if (m.actions) {
+          return { role: "assistant", content: m.text || "Done." };
+        }
+        if (i === 0 && m.role === "user") {
+          return { role: "user", content: `[Project Context]\n${context}\n\n[Question]\n${m.text}` };
+        }
+        if (m.role === "user" && i > 0 && i % 6 === 0) {
+          return { role: "user", content: `[Updated Context]\n${context}\n\n${m.text}` };
+        }
+        return { role: m.role, content: m.text };
       });
 
-      // Handle response — could be plain text or tool use
-      if (typeof response === "string") {
-        // Simple text response
-        setMessages([...updatedMessages, { role: "assistant", text: response }]);
-      } else if (response?.content) {
-        // Tool use response — process content blocks
-        const textParts = [];
-        const toolCalls = [];
+      try {
+        // Use non-streaming call with tool support
+        const response = await callAnthropic({
+          system: SYSTEM_PROMPT,
+          max_tokens: 2000,
+          messages: apiMessages,
+          tools: NOVA_TOOLS,
+        });
 
-        for (const block of response.content) {
-          if (block.type === "text") {
-            textParts.push(block.text);
-          } else if (block.type === "tool_use") {
-            toolCalls.push(block);
-          }
-        }
+        // Handle response — could be plain text or tool use
+        if (typeof response === "string") {
+          // Simple text response
+          setMessages([...updatedMessages, { role: "assistant", text: response }]);
+        } else if (response?.content) {
+          // Tool use response — process content blocks
+          const textParts = [];
+          const toolCalls = [];
 
-        // Execute tool calls
-        const toolResults = [];
-        for (const tc of toolCalls) {
-          try {
-            const result = executeNovaTool(tc.name, tc.input);
-            toolResults.push({ tool_use_id: tc.id, ...result });
-          } catch (err) {
-            toolResults.push({ tool_use_id: tc.id, success: false, message: err.message });
-          }
-        }
-
-        // Build the action card message
-        const actionMsg = {
-          role: "assistant",
-          text: textParts.join("\n") || "",
-          actions: toolResults,
-        };
-
-        // If there were tool calls, send results back to get a follow-up response
-        if (toolCalls.length > 0) {
-          const toolResultMessages = toolCalls.map((tc, idx) => ({
-            role: "user",
-            content: [
-              {
-                type: "tool_result",
-                tool_use_id: tc.id,
-                content: JSON.stringify(toolResults[idx]),
-              },
-            ],
-          }));
-
-          // Continue conversation with tool results
-          try {
-            const followUp = await callAnthropic({
-              system: SYSTEM_PROMPT,
-              max_tokens: 1000,
-              messages: [
-                ...apiMessages,
-                { role: "assistant", content: response.content },
-                ...toolResultMessages,
-              ],
-            });
-
-            const followUpText = typeof followUp === "string" ? followUp : "";
-            if (followUpText) {
-              actionMsg.text = (actionMsg.text ? actionMsg.text + "\n\n" : "") + followUpText;
+          for (const block of response.content) {
+            if (block.type === "text") {
+              textParts.push(block.text);
+            } else if (block.type === "tool_use") {
+              toolCalls.push(block);
             }
-          } catch {
-            // Follow-up failed — that's ok, we still show the action result
           }
-        }
 
-        setMessages([...updatedMessages, actionMsg]);
+          // Execute tool calls
+          const toolResults = [];
+          for (const tc of toolCalls) {
+            try {
+              const result = executeNovaTool(tc.name, tc.input);
+              toolResults.push({ tool_use_id: tc.id, ...result });
+            } catch (err) {
+              toolResults.push({ tool_use_id: tc.id, success: false, message: err.message });
+            }
+          }
+
+          // Build the action card message
+          const actionMsg = {
+            role: "assistant",
+            text: textParts.join("\n") || "",
+            actions: toolResults,
+          };
+
+          // If there were tool calls, send results back to get a follow-up response
+          if (toolCalls.length > 0) {
+            const toolResultMessages = toolCalls.map((tc, idx) => ({
+              role: "user",
+              content: [
+                {
+                  type: "tool_result",
+                  tool_use_id: tc.id,
+                  content: JSON.stringify(toolResults[idx]),
+                },
+              ],
+            }));
+
+            // Continue conversation with tool results
+            try {
+              const followUp = await callAnthropic({
+                system: SYSTEM_PROMPT,
+                max_tokens: 1000,
+                messages: [...apiMessages, { role: "assistant", content: response.content }, ...toolResultMessages],
+              });
+
+              const followUpText = typeof followUp === "string" ? followUp : "";
+              if (followUpText) {
+                actionMsg.text = (actionMsg.text ? actionMsg.text + "\n\n" : "") + followUpText;
+              }
+            } catch {
+              // Follow-up failed — that's ok, we still show the action result
+            }
+          }
+
+          setMessages([...updatedMessages, actionMsg]);
+        }
+      } catch (err) {
+        setMessages([...updatedMessages, { role: "assistant", text: `⚠️ ${err.message}` }]);
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      setMessages([...updatedMessages, { role: "assistant", text: `⚠️ ${err.message}` }]);
-    } finally {
-      setLoading(false);
-    }
-  }, [input, loading, messages, project, items, takeoffs, specs, drawings, setMessages]);
+    },
+    [input, loading, messages, project, items, takeoffs, specs, drawings, setMessages],
+  );
 
   const handleClear = () => {
     setMessages([]);
@@ -227,46 +226,94 @@ export default function AIChatPanel() {
       variants={slidePanelVariants}
       transition={slidePanelTransition}
       style={{
-        position: "fixed", top: 0, right: 0, bottom: 0, width: panelWidth,
-        background: P.bg, borderLeft: `1px solid ${P.border}`,
-        display: "flex", flexDirection: "column", zIndex: 1000,
+        position: "fixed",
+        top: 0,
+        right: 0,
+        bottom: 0,
+        width: panelWidth,
+        background: P.bg,
+        borderLeft: `1px solid ${P.border}`,
+        display: "flex",
+        flexDirection: "column",
+        zIndex: 1000,
         boxShadow: `-4px 0 24px rgba(0,0,0,0.3)`,
         fontFamily: "'DM Sans', -apple-system, sans-serif",
       }}
     >
       {/* Header — hero portal */}
-      <div style={{
-        borderBottom: `1px solid ${P.border}`,
-        background: `${P.accent}08`,
-        position: "relative", overflow: "hidden",
-      }}>
+      <div
+        style={{
+          borderBottom: `1px solid ${P.border}`,
+          background: `${P.accent}08`,
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
         {/* Close / Clear buttons — top right */}
-        <div style={{
-          position: "absolute", top: 12, right: 12, display: "flex", gap: 4, zIndex: 2,
-        }}>
+        <div
+          style={{
+            position: "absolute",
+            top: 12,
+            right: 12,
+            display: "flex",
+            gap: 4,
+            zIndex: 2,
+          }}
+        >
           {messages.length > 0 && (
-            <button onClick={handleClear} title="Clear conversation"
-              style={{ background: "none", border: "none", cursor: "pointer", padding: 6, borderRadius: 6, display: "flex", color: P.textMuted }}>
+            <button
+              onClick={handleClear}
+              title="Clear conversation"
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                padding: 6,
+                borderRadius: 6,
+                display: "flex",
+                color: P.textMuted,
+              }}
+            >
               <Ic d={I.trash} size={14} color={P.textMuted} />
             </button>
           )}
-          <button onClick={() => setOpen(false)} title="Close"
-            style={{ background: "none", border: "none", cursor: "pointer", padding: 6, borderRadius: 6, display: "flex", color: P.textMuted }}>
+          <button
+            onClick={() => setOpen(false)}
+            title="Close"
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: 6,
+              borderRadius: 6,
+              display: "flex",
+              color: P.textMuted,
+            }}
+          >
             <Ic d={I.x} size={16} color={P.textMuted} />
           </button>
         </div>
 
         {/* Hero portal + text */}
-        <div style={{
-          display: "flex", flexDirection: "column", alignItems: "center",
-          padding: "24px 20px 20px",
-        }}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            padding: "24px 20px 20px",
+          }}
+        >
           {/* Nova Orb — scaled to ~100px */}
-          <div style={{
-            width: 100, height: 100,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            overflow: "visible",
-          }}>
+          <div
+            style={{
+              width: 100,
+              height: 100,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              overflow: "visible",
+            }}
+          >
             <div style={{ transform: "scale(0.6)", transformOrigin: "center" }}>
               <NovaOrb />
             </div>
@@ -287,25 +334,39 @@ export default function AIChatPanel() {
         {messages.length === 0 && !loading && (
           <div style={{ padding: "12px 0" }}>
             <div style={{ textAlign: "center", marginBottom: 16 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: P.text, marginBottom: 4 }}>
-                How can I help?
-              </div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: P.text, marginBottom: 4 }}>How can I help?</div>
               <div style={{ fontSize: 12, color: P.textDim, lineHeight: 1.5, maxWidth: 300, margin: "0 auto" }}>
                 Ask me about scope, quantities, specs, pricing — or ask me to update your estimate directly.
               </div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {QUICK_ACTIONS.map((qa, i) => (
-                <button key={i} onClick={() => handleSend(qa.label)}
+                <button
+                  key={i}
+                  onClick={() => handleSend(qa.label)}
                   style={{
-                    background: `${P.accent}08`, border: `1px solid ${P.accent}20`,
-                    borderRadius: 8, padding: "10px 14px", cursor: "pointer",
-                    textAlign: "left", fontSize: 12, color: P.text, fontWeight: 500,
-                    display: "flex", alignItems: "center", gap: 8,
+                    background: `${P.accent}08`,
+                    border: `1px solid ${P.accent}20`,
+                    borderRadius: 8,
+                    padding: "10px 14px",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    fontSize: 12,
+                    color: P.text,
+                    fontWeight: 500,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
                     transition: "all 0.15s",
                   }}
-                  onMouseEnter={e => { e.target.style.background = `${P.accent}15`; e.target.style.borderColor = `${P.accent}40`; }}
-                  onMouseLeave={e => { e.target.style.background = `${P.accent}08`; e.target.style.borderColor = `${P.accent}20`; }}
+                  onMouseEnter={e => {
+                    e.target.style.background = `${P.accent}15`;
+                    e.target.style.borderColor = `${P.accent}40`;
+                  }}
+                  onMouseLeave={e => {
+                    e.target.style.background = `${P.accent}08`;
+                    e.target.style.borderColor = `${P.accent}20`;
+                  }}
                 >
                   <span style={{ fontSize: 14 }}>{qa.icon}</span>
                   {qa.label}
@@ -325,19 +386,33 @@ export default function AIChatPanel() {
         {/* Loading indicator */}
         {loading && (
           <div style={{ display: "flex", gap: 6, padding: "12px 0", alignItems: "center" }}>
-            <div style={{
-              width: 28, height: 28, borderRadius: 7,
-              background: `linear-gradient(135deg, ${P.accent}, ${P.accentAlt || P.accent})`,
-              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-            }}>
+            <div
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 7,
+                background: `linear-gradient(135deg, ${P.accent}, ${P.accentAlt || P.accent})`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
               <Ic d={I.ai} size={12} color="#fff" />
             </div>
             <div style={{ display: "flex", gap: 4, padding: "0 8px", alignItems: "center" }}>
               {[0, 1, 2].map(n => (
-                <div key={n} style={{
-                  width: 6, height: 6, borderRadius: 3, background: P.accent,
-                  opacity: 0.4, animation: `novaPulse 1.2s ${n * 0.2}s infinite`,
-                }} />
+                <div
+                  key={n}
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: 3,
+                    background: P.accent,
+                    opacity: 0.4,
+                    animation: `novaPulse 1.2s ${n * 0.2}s infinite`,
+                  }}
+                />
               ))}
               <span style={{ fontSize: 11, color: P.textMuted, marginLeft: 6 }}>Thinking...</span>
             </div>
@@ -347,38 +422,63 @@ export default function AIChatPanel() {
 
       {/* Input */}
       <div style={{ padding: "12px 16px 16px", borderTop: `1px solid ${P.border}` }}>
-        <div style={{
-          display: "flex", gap: 8, alignItems: "flex-end",
-          background: P.bg1 || P.bg, borderRadius: 10,
-          border: `1px solid ${P.border}`, padding: "8px 12px",
-        }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            alignItems: "flex-end",
+            background: P.bg1 || P.bg,
+            borderRadius: 10,
+            border: `1px solid ${P.border}`,
+            padding: "8px 12px",
+          }}
+        >
           <textarea
             ref={inputRef}
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => {
-              if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
             }}
             placeholder="Ask about your project..."
             rows={1}
             style={{
-              flex: 1, border: "none", outline: "none", resize: "none",
-              background: "transparent", color: P.text, fontSize: 13,
-              fontFamily: "inherit", lineHeight: 1.5, maxHeight: 120,
+              flex: 1,
+              border: "none",
+              outline: "none",
+              resize: "none",
+              background: "transparent",
+              color: P.text,
+              fontSize: 13,
+              fontFamily: "inherit",
+              lineHeight: 1.5,
+              maxHeight: 120,
               padding: 0,
             }}
-            onInput={e => { e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px"; }}
+            onInput={e => {
+              e.target.style.height = "auto";
+              e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
+            }}
           />
           <button
             onClick={() => handleSend()}
             disabled={!input.trim() || loading}
             style={{
-              width: 32, height: 32, borderRadius: 8, border: "none",
+              width: 32,
+              height: 32,
+              borderRadius: 8,
+              border: "none",
               background: input.trim() && !loading ? P.accent : `${P.text}10`,
               color: input.trim() && !loading ? "#fff" : P.textDim,
               cursor: input.trim() && !loading ? "pointer" : "default",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              flexShrink: 0, transition: "all 0.15s",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              transition: "all 0.15s",
             }}
           >
             <Ic d={I.send} size={14} color={input.trim() && !loading ? "#fff" : P.textDim} />
@@ -403,8 +503,9 @@ export default function AIChatPanel() {
 export function ActionCards({ actions, C }) {
   if (!actions || actions.length === 0) return null;
 
-  const isCostField = (f) => ["material", "labor", "equipment", "subcontractor"].includes(f);
-  const fmtCost = (v) => `$${Number(v || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const isCostField = f => ["material", "labor", "equipment", "subcontractor"].includes(f);
+  const fmtCost = v =>
+    `$${Number(v || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
     <div style={{ margin: "4px 0 12px 38px", animation: "novaSlideIn 0.25s ease-out" }}>
@@ -429,18 +530,27 @@ export function ActionCards({ actions, C }) {
         }
 
         return (
-          <div key={i} style={{
-            padding: "10px 12px",
-            borderRadius: 8,
-            background: action.success ? "rgba(52,199,89,0.08)" : "rgba(255,69,58,0.08)",
-            border: `1px solid ${action.success ? "rgba(52,199,89,0.25)" : "rgba(255,69,58,0.25)"}`,
-            marginBottom: 6,
-          }}>
-            <div style={{
-              fontSize: 11, fontWeight: 700,
-              color: action.success ? "#34C759" : "#FF453A",
-              marginBottom: 4, display: "flex", alignItems: "center", gap: 6,
-            }}>
+          <div
+            key={i}
+            style={{
+              padding: "10px 12px",
+              borderRadius: 8,
+              background: action.success ? "rgba(52,199,89,0.08)" : "rgba(255,69,58,0.08)",
+              border: `1px solid ${action.success ? "rgba(52,199,89,0.25)" : "rgba(255,69,58,0.25)"}`,
+              marginBottom: 6,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: action.success ? "#34C759" : "#FF453A",
+                marginBottom: 4,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
               <Ic d={action.success ? I.check : I.x} size={12} color={action.success ? "#34C759" : "#FF453A"} />
               {action.message}
             </div>
@@ -451,7 +561,8 @@ export function ActionCards({ actions, C }) {
                     <span style={{ fontWeight: 600, color: C.text }}>{r.description}</span>
                     {Object.entries(r.after).map(([field, val]) => (
                       <span key={field} style={{ marginLeft: 6 }}>
-                        {field}: <span style={{ textDecoration: "line-through", opacity: 0.5 }}>
+                        {field}:{" "}
+                        <span style={{ textDecoration: "line-through", opacity: 0.5 }}>
                           {isCostField(field) ? fmtCost(r.before[field]) : r.before[field]}
                         </span>
                         {" → "}
@@ -478,25 +589,29 @@ export function ActionCards({ actions, C }) {
                 {r.status === "removed" && (
                   <div>
                     <span style={{ color: "#FF453A" }}>−</span>{" "}
-                    <span style={{ fontWeight: 600, color: C.text, textDecoration: "line-through", opacity: 0.5 }}>{r.description}</span>
+                    <span style={{ fontWeight: 600, color: C.text, textDecoration: "line-through", opacity: 0.5 }}>
+                      {r.description}
+                    </span>
                   </div>
                 )}
-                {r.status === "skipped" && (
-                  <div style={{ opacity: 0.5, fontStyle: "italic" }}>{r.message}</div>
-                )}
-                {r.status === "not_found" && (
-                  <div style={{ color: "#FF453A" }}>Item not found: {r.item_id}</div>
-                )}
+                {r.status === "skipped" && <div style={{ opacity: 0.5, fontStyle: "italic" }}>{r.message}</div>}
+                {r.status === "not_found" && <div style={{ color: "#FF453A" }}>Item not found: {r.item_id}</div>}
               </div>
             ))}
             {/* Cost impact summary for updates */}
             {costDelta !== 0 && (
-              <div style={{
-                marginTop: 6, paddingTop: 6, borderTop: "1px solid rgba(255,255,255,0.06)",
-                fontSize: 10, fontWeight: 700,
-                color: costDelta > 0 ? "#FF9F0A" : "#34C759",
-              }}>
-                Unit cost impact: {costDelta > 0 ? "+" : ""}{fmtCost(costDelta)}/unit
+              <div
+                style={{
+                  marginTop: 6,
+                  paddingTop: 6,
+                  borderTop: "1px solid rgba(255,255,255,0.06)",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: costDelta > 0 ? "#FF9F0A" : "#34C759",
+                }}
+              >
+                Unit cost impact: {costDelta > 0 ? "+" : ""}
+                {fmtCost(costDelta)}/unit
               </div>
             )}
           </div>
@@ -511,13 +626,23 @@ export function MessageBubble({ msg, C, streaming }) {
   const isUser = msg.role === "user";
 
   // Simple markdown-lite rendering
-  const renderText = (text) => {
+  const renderText = text => {
     if (!text) return null;
     const lines = text.split("\n");
     return lines.map((line, i) => {
       // Headers
-      if (line.startsWith("### ")) return <div key={i} style={{ fontSize: 13, fontWeight: 700, color: C.text, marginTop: 8, marginBottom: 2 }}>{line.slice(4)}</div>;
-      if (line.startsWith("## ")) return <div key={i} style={{ fontSize: 14, fontWeight: 700, color: C.text, marginTop: 10, marginBottom: 2 }}>{line.slice(3)}</div>;
+      if (line.startsWith("### "))
+        return (
+          <div key={i} style={{ fontSize: 13, fontWeight: 700, color: C.text, marginTop: 8, marginBottom: 2 }}>
+            {line.slice(4)}
+          </div>
+        );
+      if (line.startsWith("## "))
+        return (
+          <div key={i} style={{ fontSize: 14, fontWeight: 700, color: C.text, marginTop: 10, marginBottom: 2 }}>
+            {line.slice(3)}
+          </div>
+        );
       // Bullet points
       if (line.startsWith("- ") || line.startsWith("• ")) {
         return (
@@ -532,7 +657,9 @@ export function MessageBubble({ msg, C, streaming }) {
       if (numMatch) {
         return (
           <div key={i} style={{ display: "flex", gap: 6, marginTop: 2 }}>
-            <span style={{ color: C.accent, fontWeight: 600, flexShrink: 0, minWidth: 16, textAlign: "right" }}>{numMatch[1]}.</span>
+            <span style={{ color: C.accent, fontWeight: 600, flexShrink: 0, minWidth: 16, textAlign: "right" }}>
+              {numMatch[1]}.
+            </span>
             <span>{renderInline(numMatch[2], C)}</span>
           </div>
         );
@@ -540,40 +667,66 @@ export function MessageBubble({ msg, C, streaming }) {
       // Empty lines
       if (!line.trim()) return <div key={i} style={{ height: 6 }} />;
       // Normal text
-      return <div key={i} style={{ marginTop: 1 }}>{renderInline(line, C)}</div>;
+      return (
+        <div key={i} style={{ marginTop: 1 }}>
+          {renderInline(line, C)}
+        </div>
+      );
     });
   };
 
   return (
-    <div style={{
-      display: "flex", gap: 8, marginBottom: 12,
-      flexDirection: isUser ? "row-reverse" : "row",
-      alignItems: "flex-start",
-    }}>
+    <div
+      style={{
+        display: "flex",
+        gap: 8,
+        marginBottom: 12,
+        flexDirection: isUser ? "row-reverse" : "row",
+        alignItems: "flex-start",
+      }}
+    >
       {!isUser && (
-        <div style={{
-          width: 30, height: 30, flexShrink: 0, marginTop: 2,
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}>
+        <div
+          style={{
+            width: 30,
+            height: 30,
+            flexShrink: 0,
+            marginTop: 2,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
           <NovaOrb size={30} scheme="nova" />
         </div>
       )}
-      <div style={{
-        maxWidth: "85%", padding: "10px 14px", borderRadius: 12,
-        background: isUser ? C.accent : `${C.text}06`,
-        color: isUser ? "#fff" : C.text,
-        fontSize: 12.5, lineHeight: 1.6,
-        borderBottomRightRadius: isUser ? 4 : 12,
-        borderBottomLeftRadius: isUser ? 12 : 4,
-      }}>
+      <div
+        style={{
+          maxWidth: "85%",
+          padding: "10px 14px",
+          borderRadius: 12,
+          background: isUser ? C.accent : `${C.text}06`,
+          color: isUser ? "#fff" : C.text,
+          fontSize: 12.5,
+          lineHeight: 1.6,
+          borderBottomRightRadius: isUser ? 4 : 12,
+          borderBottomLeftRadius: isUser ? 12 : 4,
+        }}
+      >
         {isUser ? msg.text : renderText(msg.text)}
         {streaming && (
-          <span style={{
-            display: "inline-block", width: 4, height: 14,
-            background: C.accent, borderRadius: 1, marginLeft: 2,
-            animation: "novaPulse 0.8s infinite",
-            verticalAlign: "text-bottom",
-          }} />
+          <span
+            style={{
+              display: "inline-block",
+              width: 4,
+              height: 14,
+              background: C.accent,
+              borderRadius: 1,
+              marginLeft: 2,
+              animation: "novaPulse 0.8s infinite",
+              verticalAlign: "text-bottom",
+            }}
+          />
         )}
       </div>
     </div>
@@ -600,7 +753,9 @@ function renderInline(text, C) {
       boldMatch && { idx: boldMatch.index, len: boldMatch[0].length, inner: boldMatch[1], type: "bold" },
       codeMatch && { idx: codeMatch.index, len: codeMatch[0].length, inner: codeMatch[1], type: "code" },
       italicMatch && { idx: italicMatch.index, len: italicMatch[0].length, inner: italicMatch[1], type: "italic" },
-    ].filter(Boolean).sort((a, b) => a.idx - b.idx);
+    ]
+      .filter(Boolean)
+      .sort((a, b) => a.idx - b.idx);
 
     if (matches.length === 0) {
       parts.push(remaining);
@@ -611,12 +766,27 @@ function renderInline(text, C) {
     if (m.idx > 0) parts.push(remaining.slice(0, m.idx));
 
     if (m.type === "bold") {
-      parts.push(<strong key={key++} style={{ fontWeight: 700 }}>{m.inner}</strong>);
+      parts.push(
+        <strong key={key++} style={{ fontWeight: 700 }}>
+          {m.inner}
+        </strong>,
+      );
     } else if (m.type === "code") {
-      parts.push(<code key={key++} style={{
-        background: `${C.accent}12`, padding: "1px 5px", borderRadius: 4,
-        fontSize: "0.92em", fontFamily: "'DM Sans', sans-serif", color: C.accent,
-      }}>{m.inner}</code>);
+      parts.push(
+        <code
+          key={key++}
+          style={{
+            background: `${C.accent}12`,
+            padding: "1px 5px",
+            borderRadius: 4,
+            fontSize: "0.92em",
+            fontFamily: "'DM Sans', sans-serif",
+            color: C.accent,
+          }}
+        >
+          {m.inner}
+        </code>,
+      );
     } else if (m.type === "italic") {
       parts.push(<em key={key++}>{m.inner}</em>);
     }

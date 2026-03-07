@@ -26,7 +26,7 @@ const getScope = () => {
 // Apply org scope to a query — noop in solo mode
 const applyScope = (query, scope) => {
   if (scope) return query.eq("org_id", scope.org_id);
-  return query; // solo mode: no org_id filter (just user_id)
+  return query.is("org_id", null); // solo mode: explicitly filter NULL org_id
 };
 
 const isReady = () => {
@@ -63,7 +63,7 @@ const MIN_VALID_BLOB_BYTES = 200;
  * Convert a data URL to a Blob. Uses fetch() with a manual fallback for
  * very large data URLs that might exceed browser fetch limits.
  */
-const dataUrlToBlob = async (dataUrl) => {
+const dataUrlToBlob = async dataUrl => {
   try {
     const resp = await fetch(dataUrl);
     const blob = await resp.blob();
@@ -106,7 +106,8 @@ const compressImage = (dataUrl, maxDim = 4096, quality = 0.82) => {
       }
 
       // Scale down if oversized
-      let newW = width, newH = height;
+      let newW = width,
+        newH = height;
       if (width > maxDim || height > maxDim) {
         const scale = maxDim / Math.max(width, height);
         newW = Math.round(width * scale);
@@ -206,7 +207,10 @@ const uploadBlob = async (path, dataUrl) => {
 
     if (!verified) {
       console.warn(`[cloudSync] Cleaning up corrupted upload: "${path}"`);
-      await supabase.storage.from(BLOB_BUCKET).remove([path]).catch(() => {});
+      await supabase.storage
+        .from(BLOB_BUCKET)
+        .remove([path])
+        .catch(() => {});
       return null;
     }
 
@@ -267,7 +271,9 @@ const stripAndUploadBlobs = async (estimateId, data) => {
 
   // Upload + strip drawing data (only strip if upload is VERIFIED)
   if (Array.isArray(clean.drawings)) {
-    let uploaded = 0, kept = 0, skipped = 0;
+    let uploaded = 0,
+      kept = 0,
+      skipped = 0;
     clean.drawings = await Promise.all(
       clean.drawings.map(async d => {
         if (!d.data) return d;
@@ -286,7 +292,9 @@ const stripAndUploadBlobs = async (estimateId, data) => {
         }
         // Upload failed — keep original data inline (safe fallback)
         kept++;
-        console.warn(`[cloudSync] Drawing "${d.id}" upload failed — keeping ${(d.data.length / 1024).toFixed(0)}KB inline`);
+        console.warn(
+          `[cloudSync] Drawing "${d.id}" upload failed — keeping ${(d.data.length / 1024).toFixed(0)}KB inline`,
+        );
         return d;
       }),
     );
@@ -354,7 +362,9 @@ export const hydrateBlobs = async data => {
         const dataUrl = await downloadBlob(d.storagePath);
         if (!dataUrl) {
           failed_count++;
-          console.warn(`[cloudSync] Failed to hydrate drawing "${d.id}" from "${d.storagePath}" — clearing stripped flag for re-upload`);
+          console.warn(
+            `[cloudSync] Failed to hydrate drawing "${d.id}" from "${d.storagePath}" — clearing stripped flag for re-upload`,
+          );
           // Clear stripped flag so next save can re-push if local blob exists
           const { _cloudBlobStripped: _, storagePath: __, ...clean } = d;
           return clean;
@@ -473,13 +483,14 @@ export const pushData = async (key, data) => {
         const { error } = await supabase.from("user_data").upsert(row, { onConflict: "user_id,key,org_id" });
         if (error) throw error;
       } else {
-        // Solo/settings mode: no org_id column needed.
-        // Check if row exists, then update or insert.
+        // Solo/settings mode: explicitly filter org_id IS NULL to avoid
+        // collisions with org-mode rows for the same user+key.
         const { data: existing } = await supabase
           .from("user_data")
           .select("id")
           .eq("user_id", userId)
           .eq("key", key)
+          .is("org_id", null)
           .maybeSingle();
 
         if (existing) {
@@ -487,7 +498,8 @@ export const pushData = async (key, data) => {
             .from("user_data")
             .update({ data: cleanData, updated_at: row.updated_at })
             .eq("user_id", userId)
-            .eq("key", key);
+            .eq("key", key)
+            .is("org_id", null);
           if (error) throw error;
         } else {
           const { error } = await supabase.from("user_data").insert(row);
@@ -530,12 +542,13 @@ export const pushEstimate = async (estimateId, data) => {
           .upsert(row, { onConflict: "user_id,estimate_id,org_id" });
         if (error) throw error;
       } else {
-        // Solo mode: no org_id column needed.
+        // Solo mode: explicitly filter org_id IS NULL to avoid collisions with org-mode rows.
         const { data: existing } = await supabase
           .from("user_estimates")
           .select("id")
           .eq("user_id", userId)
           .eq("estimate_id", estimateId)
+          .is("org_id", null)
           .maybeSingle();
 
         if (existing) {
@@ -543,7 +556,8 @@ export const pushEstimate = async (estimateId, data) => {
             .from("user_estimates")
             .update({ data: cleanData, updated_at: row.updated_at, deleted_at: null })
             .eq("user_id", userId)
-            .eq("estimate_id", estimateId);
+            .eq("estimate_id", estimateId)
+            .is("org_id", null);
           if (error) throw error;
         } else {
           const { error } = await supabase.from("user_estimates").insert(row);

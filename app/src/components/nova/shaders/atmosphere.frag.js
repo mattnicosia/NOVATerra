@@ -43,8 +43,8 @@ export const atmosphereFragmentShader = /* glsl */ `
     vec3 coreShifted = uCoreGlow + vec3(hueShift * 0.15, hueShift * 0.1, -hueShift * 0.08);
     vec3 glowColor = mix(novaShifted, coreShifted, uMorph);
 
-    // Inner ring — brighter, more saturated accent
-    vec3 innerNova = vec3(0.25, 0.50, 0.95);
+    // Inner ring — brighter, more saturated accent (v10.5: drop R → no pink rim)
+    vec3 innerNova = vec3(0.08, 0.45, 0.98);
     vec3 innerCore = vec3(1.0, 0.70, 0.20);
     vec3 innerColor = mix(innerNova, innerCore, uMorph);
 

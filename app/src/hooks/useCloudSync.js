@@ -380,7 +380,9 @@ async function syncEstimates() {
     try {
       const userId = useAuthStore.getState().user?.id;
       if (userId) localStorage.setItem(`bldg-index-mirror-${userId}`, idxJson);
-    } catch { /* quota exceeded */ }
+    } catch {
+      /* quota exceeded */
+    }
 
     // Push merged index to cloud (excluding deleted)
     await cloudSync.pushData("index", localIndex);

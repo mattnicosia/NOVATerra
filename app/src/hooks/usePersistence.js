@@ -159,7 +159,9 @@ export function usePersistenceLoad() {
 
       // Load estimates index
       const idxRaw = await storage.get(idbKey("bldg-index"));
-      console.log(`[usePersistence]   IDB index raw: ${idxRaw ? `${String(idxRaw.value).length} chars` : "NULL (not found)"}`);
+      console.log(
+        `[usePersistence]   IDB index raw: ${idxRaw ? `${String(idxRaw.value).length} chars` : "NULL (not found)"}`,
+      );
       if (idxRaw) {
         try {
           // Defensive: validate value is a non-empty string before parsing
@@ -223,10 +225,13 @@ export function usePersistenceLoad() {
         }
       }
 
-      // Load app settings (always user-scoped — idbKey("bldg-settings") returns unprefixed)
+      // Load app settings (user-scoped via idbKey)
       const settingsRaw = await storage.get(idbKey("bldg-settings"));
       if (settingsRaw) {
         try {
+          if (!settingsRaw.value || typeof settingsRaw.value !== "string" || settingsRaw.value.trim().length === 0) {
+            throw new Error("Empty or invalid settings value");
+          }
           const settings = JSON.parse(settingsRaw.value);
           useUiStore.getState().setAppSettings({
             ...useUiStore.getState().appSettings,
@@ -258,6 +263,9 @@ export function usePersistenceLoad() {
       const asmRaw = await storage.get(idbKey("bldg-assemblies"));
       if (asmRaw) {
         try {
+          if (!asmRaw.value || typeof asmRaw.value !== "string" || asmRaw.value.trim().length === 0) {
+            throw new Error("Empty or invalid assemblies value");
+          }
           useDatabaseStore.getState().setAssemblies(JSON.parse(asmRaw.value));
         } catch (err) {
           console.error("[usePersistence] Failed to parse assemblies:", err);
@@ -324,7 +332,8 @@ export function usePersistenceLoad() {
         try {
           const subConfig = JSON.parse(subConfigRaw.value);
           if (subConfig.engineConfig) useSubdivisionStore.getState().updateEngineConfig(subConfig.engineConfig);
-          if (subConfig.calibrationFactors) useSubdivisionStore.getState().setCalibrationFactors(subConfig.calibrationFactors);
+          if (subConfig.calibrationFactors)
+            useSubdivisionStore.getState().setCalibrationFactors(subConfig.calibrationFactors);
         } catch (err) {
           console.warn("[usePersistence] Failed to parse subdivision config:", err);
         }
@@ -333,8 +342,10 @@ export function usePersistenceLoad() {
         try {
           const cloudSubConfig = await cloudSync.pullData("subdivisionConfig");
           if (cloudSubConfig) {
-            if (cloudSubConfig.engineConfig) useSubdivisionStore.getState().updateEngineConfig(cloudSubConfig.engineConfig);
-            if (cloudSubConfig.calibrationFactors) useSubdivisionStore.getState().setCalibrationFactors(cloudSubConfig.calibrationFactors);
+            if (cloudSubConfig.engineConfig)
+              useSubdivisionStore.getState().updateEngineConfig(cloudSubConfig.engineConfig);
+            if (cloudSubConfig.calibrationFactors)
+              useSubdivisionStore.getState().setCalibrationFactors(cloudSubConfig.calibrationFactors);
             await storage.set(idbKey("bldg-subdivision-config"), JSON.stringify(cloudSubConfig));
           }
         } catch (err) {
@@ -449,9 +460,33 @@ export function usePersistenceLoad() {
       // ─── RECOVERY GUARD: Last-resort fallback if index is still empty ───
       // Catches namespace mismatches, IDB eviction, and silent failures.
       // Tries: (1) all possible IDB key namespaces, (2) localStorage mirror, (3) cloud pull.
+      // IMPORTANT: All recovery paths filter against deleted IDs to prevent zombie resurrection.
       const finalIndex = useEstimatesStore.getState().estimatesIndex;
       if (finalIndex.length === 0 && currentUserId) {
-        console.warn("[usePersistence] RECOVERY GUARD: estimates index is EMPTY after load — attempting fallback recovery");
+        console.warn(
+          "[usePersistence] RECOVERY GUARD: estimates index is EMPTY after load — attempting fallback recovery",
+        );
+
+        // Build deleted-IDs set from all available sources (IDB + localStorage)
+        let recoveryDeletedIds = [];
+        try {
+          const delRaw = await storage.get(idbKey("bldg-deleted-ids"));
+          if (delRaw?.value) recoveryDeletedIds = JSON.parse(delRaw.value);
+        } catch {
+          /* ignore */
+        }
+        try {
+          const lsKey = `bldg-deleted-ids-${currentUserId}`;
+          const lsRaw = localStorage.getItem(lsKey);
+          if (lsRaw) {
+            for (const id of JSON.parse(lsRaw)) {
+              if (!recoveryDeletedIds.includes(id)) recoveryDeletedIds.push(id);
+            }
+          }
+        } catch {
+          /* ignore */
+        }
+        const recoveryDeletedSet = new Set(recoveryDeletedIds);
 
         // 1. Try reading from all possible IDB key namespaces
         const orgId = useOrgStore.getState().org?.id;
@@ -471,11 +506,17 @@ export function usePersistenceLoad() {
             if (raw?.value) {
               const parsed = JSON.parse(raw.value);
               if (Array.isArray(parsed) && parsed.length > 0) {
-                console.log(`[usePersistence] RECOVERED ${parsed.length} estimates from fallback key "${key}"`);
-                recovered = parsed;
-                // Copy to correct namespace so future loads work
-                await storage.set(activeKey, raw.value);
-                break;
+                // Filter out deleted estimates before recovering
+                const filtered =
+                  recoveryDeletedSet.size > 0 ? parsed.filter(e => !recoveryDeletedSet.has(e.id)) : parsed;
+                if (filtered.length > 0) {
+                  console.log(
+                    `[usePersistence] RECOVERED ${filtered.length} estimates from fallback key "${key}" (${parsed.length - filtered.length} deleted filtered)`,
+                  );
+                  recovered = filtered;
+                  await storage.set(activeKey, JSON.stringify(filtered));
+                  break;
+                }
               }
             }
           } catch (err) {
@@ -490,9 +531,15 @@ export function usePersistenceLoad() {
             if (lsMirror) {
               const parsed = JSON.parse(lsMirror);
               if (Array.isArray(parsed) && parsed.length > 0) {
-                console.log(`[usePersistence] RECOVERED ${parsed.length} estimates from localStorage mirror`);
-                recovered = parsed;
-                await storage.set(activeKey, lsMirror);
+                const filtered =
+                  recoveryDeletedSet.size > 0 ? parsed.filter(e => !recoveryDeletedSet.has(e.id)) : parsed;
+                if (filtered.length > 0) {
+                  console.log(
+                    `[usePersistence] RECOVERED ${filtered.length} estimates from localStorage mirror (${parsed.length - filtered.length} deleted filtered)`,
+                  );
+                  recovered = filtered;
+                  await storage.set(activeKey, JSON.stringify(filtered));
+                }
               }
             }
           } catch (err) {
@@ -505,13 +552,20 @@ export function usePersistenceLoad() {
           try {
             const cloudIndex = await cloudSync.pullData("index");
             if (cloudIndex && Array.isArray(cloudIndex) && cloudIndex.length > 0) {
-              console.log(`[usePersistence] RECOVERED ${cloudIndex.length} estimates from cloud`);
-              recovered = cloudIndex;
-              await storage.set(activeKey, JSON.stringify(cloudIndex));
-              // Also pull estimate data
-              const cloudEstimates = await cloudSync.pullAllEstimates();
-              for (const ce of cloudEstimates) {
-                await storage.set(idbKey(`bldg-est-${ce.estimate_id}`), JSON.stringify(ce.data));
+              const filtered =
+                recoveryDeletedSet.size > 0 ? cloudIndex.filter(e => !recoveryDeletedSet.has(e.id)) : cloudIndex;
+              if (filtered.length > 0) {
+                console.log(
+                  `[usePersistence] RECOVERED ${filtered.length} estimates from cloud (${cloudIndex.length - filtered.length} deleted filtered)`,
+                );
+                recovered = filtered;
+                await storage.set(activeKey, JSON.stringify(filtered));
+                // Also pull estimate data (skip deleted)
+                const cloudEstimates = await cloudSync.pullAllEstimates();
+                for (const ce of cloudEstimates) {
+                  if (recoveryDeletedSet.has(ce.estimate_id)) continue;
+                  await storage.set(idbKey(`bldg-est-${ce.estimate_id}`), JSON.stringify(ce.data));
+                }
               }
             }
           } catch (err) {
@@ -533,7 +587,9 @@ export function usePersistenceLoad() {
         if (idxToMirror.length > 0 && currentUserId) {
           localStorage.setItem(`bldg-index-mirror-${currentUserId}`, JSON.stringify(idxToMirror));
         }
-      } catch { /* localStorage quota exceeded or unavailable */ }
+      } catch {
+        /* localStorage quota exceeded or unavailable */
+      }
 
       // Signal that persistence load is complete — auto-save can now safely write
       useUiStore.getState().setPersistenceLoaded(true);
@@ -912,7 +968,9 @@ export async function saveEstimate() {
     if (userId && idx.length > 0) {
       localStorage.setItem(`bldg-index-mirror-${userId}`, idxJson);
     }
-  } catch { /* localStorage quota exceeded or unavailable */ }
+  } catch {
+    /* localStorage quota exceeded or unavailable */
+  }
 
   // ─── Cloud Push (non-blocking) ───
   cloudSync.pushEstimate(id, data).catch(err => {

@@ -23,10 +23,15 @@ export const useAuthStore = create((set, get) => ({
   fetchAppRole: async userId => {
     if (!supabase || !userId) return;
     try {
-      const { data } = await supabase.from("bt_user_roles").select("role").eq("user_id", userId).single();
+      const { data, error } = await supabase.from("bt_user_roles").select("role").eq("user_id", userId).maybeSingle();
+      // 42P01 = table doesn't exist yet — expected during early development
+      if (error && error.code !== "42P01") {
+        console.warn("[authStore] fetchAppRole error:", error.message);
+      }
       if (data?.role) set({ appRole: data.role });
-    } catch {
-      // Table doesn't exist yet or no row for this user — stay novaterra
+    } catch (err) {
+      // Network failure or unexpected error — log but stay novaterra
+      console.warn("[authStore] fetchAppRole failed:", err.message || err);
     }
   },
 
@@ -49,8 +54,8 @@ export const useAuthStore = create((set, get) => ({
         set({ user: session.user, session, loading: false });
         // Load org membership — awaited so orgReady is set before persistence loads
         await useOrgStore.getState().fetchOrg();
-        // Load app role (BLDG Talent) in background — non-blocking
-        get().fetchAppRole(session.user.id);
+        // Load app role (BLDG Talent) — awaited so role-gated routing is correct on first render
+        await get().fetchAppRole(session.user.id);
       } else {
         set({ loading: false });
         useOrgStore.setState({ orgReady: true });

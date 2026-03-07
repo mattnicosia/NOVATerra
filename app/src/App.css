@@ -767,7 +767,7 @@ select:focus {
 
 /* Keyboard focus indicator — accent-aware glow ring (Output VST-inspired) */
 *:focus-visible {
-  outline: 2px solid var(--accent-color, #8B5CF6);
+  outline: 2px solid var(--accent-color, #8b5cf6);
   outline-offset: 2px;
 }
 
@@ -1372,13 +1372,13 @@ button:disabled {
     0 0 14px rgba(0, 122, 255, 0.06);
 }
 .theme-light *:focus-visible {
-  outline: 2px solid var(--accent-color, #007AFF);
+  outline: 2px solid var(--accent-color, #007aff);
   outline-offset: 2px;
 }
 
 .theme-light ::selection {
   background: var(--accent-selection, rgba(0, 122, 255, 0.2));
-  color: #1D1D1F;
+  color: #1d1d1f;
 }
 
 /* ── Inputs — Liquid Glass recessed field ── */
@@ -1606,7 +1606,7 @@ button:disabled {
     0 0 14px rgba(0, 212, 255, 0.08);
 }
 .theme-dark *:focus-visible {
-  outline: 2px solid var(--accent-color, #8B5CF6);
+  outline: 2px solid var(--accent-color, #8b5cf6);
   outline-offset: 2px;
 }
 
@@ -1794,7 +1794,7 @@ button:disabled {
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
 }
 .nero-nemesis *:focus-visible {
-  outline: 1px solid var(--accent-color, #8B5CF6);
+  outline: 1px solid var(--accent-color, #8b5cf6);
   outline-offset: 2px;
   box-shadow: 0 0 12px var(--accent-glow, rgba(139, 92, 246, 0.25));
 }

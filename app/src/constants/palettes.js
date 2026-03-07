@@ -972,7 +972,6 @@ export const PALETTES = [
       },
     ],
   },
-
 ];
 
 // Car palette IDs for cycling

@@ -59,7 +59,10 @@ function RomSignup() {
     e.preventDefault();
     setError("");
     setConfirmEmail(false);
-    if (!email.trim() || !password) { setError("Email and password are required"); return; }
+    if (!email.trim() || !password) {
+      setError("Email and password are required");
+      return;
+    }
     setLoading(true);
     try {
       if (mode === "signup") {
@@ -70,24 +73,35 @@ function RomSignup() {
           const errMsg = typeof result.error === "string" ? result.error : result.error.message || "Signup failed";
           if (errMsg.toLowerCase().includes("already")) {
             const loginResult = await signIn(email.trim(), password);
-            if (loginResult?.error) setError(typeof loginResult.error === "string" ? loginResult.error : loginResult.error.message || "Login failed");
+            if (loginResult?.error)
+              setError(
+                typeof loginResult.error === "string" ? loginResult.error : loginResult.error.message || "Login failed",
+              );
           } else setError(errMsg);
         }
       } else {
         const result = await signIn(email.trim(), password);
-        if (result?.error) setError(typeof result.error === "string" ? result.error : result.error.message || "Login failed");
+        if (result?.error)
+          setError(typeof result.error === "string" ? result.error : result.error.message || "Login failed");
       }
-    } catch (err) { setError(err.message || "Something went wrong"); }
+    } catch (err) {
+      setError(err.message || "Something went wrong");
+    }
     setLoading(false);
   }
 
   const inputStyle = {
-    width: "100%", boxSizing: "border-box",
-    padding: "14px 16px", fontSize: 15, ...ui,
+    width: "100%",
+    boxSizing: "border-box",
+    padding: "14px 16px",
+    fontSize: 15,
+    ...ui,
     background: "rgba(255,255,255,0.06)",
     border: "1px solid rgba(255,255,255,0.10)",
-    borderRadius: 12, color: "#EEEDF5",
-    outline: "none", transition: "border 0.15s",
+    borderRadius: 12,
+    color: "#EEEDF5",
+    outline: "none",
+    transition: "border 0.15s",
   };
 
   return (
@@ -95,22 +109,26 @@ function RomSignup() {
       <form onSubmit={handleSubmit}>
         <div style={{ marginBottom: 16 }}>
           <input
-            type="email" placeholder="Email" value={email}
+            type="email"
+            placeholder="Email"
+            value={email}
             onChange={e => setEmail(e.target.value)}
-            style={inputStyle} autoComplete="email"
-            onFocus={e => e.target.style.borderColor = "rgba(139,92,246,0.5)"}
-            onBlur={e => e.target.style.borderColor = "rgba(255,255,255,0.10)"}
+            style={inputStyle}
+            autoComplete="email"
+            onFocus={e => (e.target.style.borderColor = "rgba(139,92,246,0.5)")}
+            onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,0.10)")}
           />
         </div>
         <div style={{ marginBottom: 24 }}>
           <input
             type="password"
             placeholder={mode === "signup" ? "Create a password" : "Password"}
-            value={password} onChange={e => setPassword(e.target.value)}
+            value={password}
+            onChange={e => setPassword(e.target.value)}
             style={inputStyle}
             autoComplete={mode === "signup" ? "new-password" : "current-password"}
-            onFocus={e => e.target.style.borderColor = "rgba(139,92,246,0.5)"}
-            onBlur={e => e.target.style.borderColor = "rgba(255,255,255,0.10)"}
+            onFocus={e => (e.target.style.borderColor = "rgba(139,92,246,0.5)")}
+            onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,0.10)")}
           />
         </div>
 
@@ -119,35 +137,65 @@ function RomSignup() {
         )}
 
         {confirmEmail && (
-          <div style={{
-            background: "rgba(56,189,248,0.06)", border: "1px solid rgba(56,189,248,0.15)",
-            borderRadius: 12, padding: "16px 20px", marginBottom: 16, textAlign: "center",
-          }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#38BDF8", marginBottom: 4, ...ui }}>Check your email</div>
+          <div
+            style={{
+              background: "rgba(56,189,248,0.06)",
+              border: "1px solid rgba(56,189,248,0.15)",
+              borderRadius: 12,
+              padding: "16px 20px",
+              marginBottom: 16,
+              textAlign: "center",
+            }}
+          >
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#38BDF8", marginBottom: 4, ...ui }}>
+              Check your email
+            </div>
             <div style={{ fontSize: 12, color: "rgba(238,237,245,0.5)", lineHeight: 1.5, ...ui }}>
               Confirmation link sent to <strong style={{ color: "#EEEDF5" }}>{email}</strong>.
             </div>
-            <div onClick={() => { setConfirmEmail(false); setMode("login"); }}
-              style={{ fontSize: 12, color: "rgba(139,92,246,0.8)", cursor: "pointer", marginTop: 8, ...ui }}>
+            <div
+              onClick={() => {
+                setConfirmEmail(false);
+                setMode("login");
+              }}
+              style={{ fontSize: 12, color: "rgba(139,92,246,0.8)", cursor: "pointer", marginTop: 8, ...ui }}
+            >
               Ready to sign in
             </div>
           </div>
         )}
 
-        <button type="submit" disabled={loading} style={{
-          width: "100%", padding: "15px 24px", borderRadius: 12, border: "none",
-          background: "rgba(139,92,246,1)", color: "#fff", cursor: loading ? "wait" : "pointer",
-          fontSize: 15, fontWeight: 600, ...ui, opacity: loading ? 0.6 : 1,
-          transition: "all 0.15s",
-        }}>
+        <button
+          type="submit"
+          disabled={loading}
+          style={{
+            width: "100%",
+            padding: "15px 24px",
+            borderRadius: 12,
+            border: "none",
+            background: "rgba(139,92,246,1)",
+            color: "#fff",
+            cursor: loading ? "wait" : "pointer",
+            fontSize: 15,
+            fontWeight: 600,
+            ...ui,
+            opacity: loading ? 0.6 : 1,
+            transition: "all 0.15s",
+          }}
+        >
           {loading ? "One moment..." : mode === "signup" ? "Get Your ROM" : "Sign In"}
         </button>
       </form>
 
       <div style={{ textAlign: "center", marginTop: 20, fontSize: 13, color: "rgba(238,237,245,0.35)", ...ui }}>
         {mode === "signup" ? "Already have an account? " : "New here? "}
-        <span onClick={() => { setMode(mode === "signup" ? "login" : "signup"); setError(""); }}
-          style={{ color: "rgba(139,92,246,0.8)", cursor: "pointer" }}>
+        <span
+          onClick={() => {
+            setMode(mode === "signup" ? "login" : "signup");
+            setError("");
+          }}
+          style={{ color: "rgba(139,92,246,0.8)", cursor: "pointer" }}
+        >
           {mode === "signup" ? "Sign in" : "Create account"}
         </span>
       </div>
@@ -166,49 +214,83 @@ function RomTool({ onGenerate }) {
 
   function handleSubmit(e) {
     e.preventDefault();
-    if (!projectSF || parseFloat(projectSF) <= 0) { setError("Enter square footage"); return; }
+    if (!projectSF || parseFloat(projectSF) <= 0) {
+      setError("Enter square footage");
+      return;
+    }
     setError("");
     onGenerate(user?.email || "", buildingType, parseFloat(projectSF));
   }
 
   const inputStyle = {
-    width: "100%", boxSizing: "border-box",
-    padding: "14px 16px", fontSize: 15, ...ui,
+    width: "100%",
+    boxSizing: "border-box",
+    padding: "14px 16px",
+    fontSize: 15,
+    ...ui,
     background: "rgba(255,255,255,0.06)",
     border: "1px solid rgba(255,255,255,0.10)",
-    borderRadius: 12, color: "#EEEDF5",
-    outline: "none", transition: "border 0.15s",
+    borderRadius: 12,
+    color: "#EEEDF5",
+    outline: "none",
+    transition: "border 0.15s",
   };
 
   return (
     <form onSubmit={handleSubmit} style={{ width: "100%", maxWidth: 420 }}>
       <div style={{ marginBottom: 16 }}>
-        <select value={buildingType} onChange={e => setBuildingType(e.target.value)}
+        <select
+          value={buildingType}
+          onChange={e => setBuildingType(e.target.value)}
           style={{
-            ...inputStyle, cursor: "pointer",
-            appearance: "none", WebkitAppearance: "none",
+            ...inputStyle,
+            cursor: "pointer",
+            appearance: "none",
+            WebkitAppearance: "none",
             backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23666' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")`,
-            backgroundRepeat: "no-repeat", backgroundPosition: "right 16px center", paddingRight: 40,
-          }}>
-          {BUILDING_TYPES.map(bt => <option key={bt.value} value={bt.value}>{bt.label}</option>)}
+            backgroundRepeat: "no-repeat",
+            backgroundPosition: "right 16px center",
+            paddingRight: 40,
+          }}
+        >
+          {BUILDING_TYPES.map(bt => (
+            <option key={bt.value} value={bt.value}>
+              {bt.label}
+            </option>
+          ))}
         </select>
       </div>
 
       <div style={{ marginBottom: 24 }}>
-        <input type="number" placeholder="Square footage" min="1"
-          value={projectSF} onChange={e => setProjectSF(e.target.value)}
+        <input
+          type="number"
+          placeholder="Square footage"
+          min="1"
+          value={projectSF}
+          onChange={e => setProjectSF(e.target.value)}
           style={inputStyle}
-          onFocus={e => e.target.style.borderColor = "rgba(139,92,246,0.5)"}
-          onBlur={e => e.target.style.borderColor = "rgba(255,255,255,0.10)"}
+          onFocus={e => (e.target.style.borderColor = "rgba(139,92,246,0.5)")}
+          onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,0.10)")}
         />
         {error && <div style={{ color: "#FB7185", fontSize: 12, marginTop: 6, ...ui }}>{error}</div>}
       </div>
 
-      <button type="submit" style={{
-        width: "100%", padding: "15px 24px", borderRadius: 12, border: "none",
-        background: "rgba(139,92,246,1)", color: "#fff", cursor: "pointer",
-        fontSize: 15, fontWeight: 600, ...ui, transition: "all 0.15s",
-      }}>
+      <button
+        type="submit"
+        style={{
+          width: "100%",
+          padding: "15px 24px",
+          borderRadius: 12,
+          border: "none",
+          background: "rgba(139,92,246,1)",
+          color: "#fff",
+          cursor: "pointer",
+          fontSize: 15,
+          fontWeight: 600,
+          ...ui,
+          transition: "all 0.15s",
+        }}
+      >
         Generate ROM
       </button>
 
@@ -242,76 +324,117 @@ function RomPageInner() {
     setLeadCaptured(true);
     const result = generateBaselineROM(projectSF, buildingType);
     setRomResult(result);
-    setTimeout(() => { resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, 100);
+    setTimeout(() => {
+      resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
   }
 
   if (loading) {
     return (
-      <div style={{
-        position: "fixed", inset: 0, background: "#06060C",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        color: "rgba(238,237,245,0.2)", fontSize: 14, ...ui,
-      }}>
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "#06060C",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "rgba(238,237,245,0.2)",
+          fontSize: 14,
+          ...ui,
+        }}
+      >
         Loading...
       </div>
     );
   }
 
   return (
-    <div style={{
-      position: "fixed", inset: 0,
-      background: "#06060C",
-      overflowY: "auto", overflowX: "hidden",
-      WebkitOverflowScrolling: "touch",
-    }}>
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "#06060C",
+        overflowY: "auto",
+        overflowX: "hidden",
+        WebkitOverflowScrolling: "touch",
+      }}
+    >
       {/* Atmospheric gradient — subtle, not competing */}
-      <div style={{
-        position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0,
-        background: "radial-gradient(ellipse 80% 50% at 50% 0%, rgba(139,92,246,0.06) 0%, transparent 60%)",
-      }} />
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          pointerEvents: "none",
+          zIndex: 0,
+          background: "radial-gradient(ellipse 80% 50% at 50% 0%, rgba(139,92,246,0.06) 0%, transparent 60%)",
+        }}
+      />
 
       {/* Content layer */}
       <div style={{ position: "relative", zIndex: 1 }}>
         {/* ── Header — minimal ── */}
-        <header style={{
-          padding: "20px 32px",
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-        }}>
+        <header
+          style={{
+            padding: "20px 32px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
           <div style={{ ...display(18), fontWeight: 500, color: "rgba(238,237,245,0.5)", letterSpacing: -0.3 }}>
             NOVATerra
           </div>
-          <div style={{
-            fontSize: 10, color: "rgba(238,237,245,0.2)", ...ui,
-            textTransform: "uppercase", letterSpacing: 2,
-          }}>
+          <div
+            style={{
+              fontSize: 10,
+              color: "rgba(238,237,245,0.2)",
+              ...ui,
+              textTransform: "uppercase",
+              letterSpacing: 2,
+            }}
+          >
             Powered by NOVA
           </div>
         </header>
 
         {/* ── Hero section ── */}
-        <section style={{
-          display: "flex", flexDirection: "column", alignItems: "center",
-          padding: romResult ? "48px 24px 32px" : "100px 24px 48px",
-          textAlign: "center",
-          transition: "padding 0.5s ease",
-        }}>
+        <section
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            padding: romResult ? "48px 24px 32px" : "100px 24px 48px",
+            textAlign: "center",
+            transition: "padding 0.5s ease",
+          }}
+        >
           {/* Display headline — Outfit, light weight, massive */}
-          <h1 style={{
-            ...display(romResult ? 36 : 52),
-            color: "#EEEDF5",
-            margin: 0, marginBottom: romResult ? 8 : 12,
-            transition: "font-size 0.5s ease",
-          }}>
+          <h1
+            style={{
+              ...display(romResult ? 36 : 52),
+              color: "#EEEDF5",
+              margin: 0,
+              marginBottom: romResult ? 8 : 12,
+              transition: "font-size 0.5s ease",
+            }}
+          >
             {romResult ? "Your Estimate" : "Know your number."}
           </h1>
 
           {!romResult && (
-            <p style={{
-              fontSize: 16, fontWeight: 400, ...ui,
-              color: "rgba(238,237,245,0.35)",
-              margin: 0, marginBottom: 48,
-              maxWidth: 380, lineHeight: 1.6,
-            }}>
+            <p
+              style={{
+                fontSize: 16,
+                fontWeight: 400,
+                ...ui,
+                color: "rgba(238,237,245,0.35)",
+                margin: 0,
+                marginBottom: 48,
+                maxWidth: 380,
+                lineHeight: 1.6,
+              }}
+            >
               Division-level ROM in seconds.
               <br />
               Free. No credit card.
@@ -324,21 +447,38 @@ function RomPageInner() {
 
         {/* ── Result ── */}
         {romResult && (
-          <section ref={resultRef} style={{
-            display: "flex", flexDirection: "column", alignItems: "center",
-            padding: "0 24px 64px",
-            maxWidth: 900, margin: "0 auto",
-          }}>
+          <section
+            ref={resultRef}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              padding: "0 24px 64px",
+              maxWidth: 900,
+              margin: "0 auto",
+            }}
+          >
             <RomResult rom={romResult} email={email} />
 
             {/* Regenerate / new estimate */}
             <div style={{ marginTop: 32, display: "flex", gap: 16, alignItems: "center" }}>
-              <button onClick={() => { setRomResult(null); }} style={{
-                padding: "10px 24px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)",
-                background: "transparent", color: "rgba(238,237,245,0.5)",
-                cursor: "pointer", fontSize: 13, fontWeight: 500, ...ui,
-                transition: "all 0.15s",
-              }}>
+              <button
+                onClick={() => {
+                  setRomResult(null);
+                }}
+                style={{
+                  padding: "10px 24px",
+                  borderRadius: 10,
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  background: "transparent",
+                  color: "rgba(238,237,245,0.5)",
+                  cursor: "pointer",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  ...ui,
+                  transition: "all 0.15s",
+                }}
+              >
                 New Estimate
               </button>
             </div>
@@ -350,14 +490,21 @@ function RomPageInner() {
         )}
 
         {/* ── Footer ── */}
-        <footer style={{
-          padding: "32px 24px", textAlign: "center",
-          borderTop: "1px solid rgba(255,255,255,0.03)",
-        }}>
-          <div style={{
-            fontSize: 11, color: "rgba(238,237,245,0.15)",
-            ...ui, letterSpacing: 0.5,
-          }}>
+        <footer
+          style={{
+            padding: "32px 24px",
+            textAlign: "center",
+            borderTop: "1px solid rgba(255,255,255,0.03)",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 11,
+              color: "rgba(238,237,245,0.15)",
+              ...ui,
+              letterSpacing: 0.5,
+            }}
+          >
             BLDG Estimating
           </div>
         </footer>

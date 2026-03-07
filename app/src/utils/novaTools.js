@@ -1,17 +1,18 @@
 // NOVA Tool Definitions & Executor
 // Enables NOVA AI to modify the estimate via Anthropic tool use API
 
-import { useItemsStore } from '@/stores/itemsStore';
-import { useProjectStore } from '@/stores/projectStore';
-import { autoTradeFromCode } from '@/constants/tradeGroupings';
-import { nn } from '@/utils/format';
+import { useItemsStore } from "@/stores/itemsStore";
+import { useProjectStore } from "@/stores/projectStore";
+import { autoTradeFromCode } from "@/constants/tradeGroupings";
+import { nn } from "@/utils/format";
 
 // ── Tool Definitions (Anthropic tool use schema) ──────────────────────
 
 export const NOVA_TOOLS = [
   {
     name: "update_line_items",
-    description: "Update one or more existing line items in the estimate. Use this when the user asks to change prices, quantities, units, descriptions, or other cost fields on items. You must reference items by their ID (shown in project context as [id:xxx]).",
+    description:
+      "Update one or more existing line items in the estimate. Use this when the user asks to change ANY field on items — prices, quantities, units, descriptions, CSI codes, divisions, trades, notes, spec references, drawing references, bid context, or any other property. You must reference items by their ID (shown in project context as [id:xxx]).",
     input_schema: {
       type: "object",
       properties: {
@@ -22,13 +23,24 @@ export const NOVA_TOOLS = [
             type: "object",
             properties: {
               item_id: { type: "string", description: "The item ID to update (from project context)" },
+              code: { type: "string", description: "CSI code (e.g., '03.300', '08.110')" },
               description: { type: "string", description: "New description text" },
+              division: { type: "string", description: "Division label (e.g., '03 - Concrete', '08 - Openings')" },
+              trade: { type: "string", description: "Trade assignment (e.g., 'Concrete', 'Electrical')" },
               material: { type: "number", description: "New material unit cost" },
               labor: { type: "number", description: "New labor unit cost" },
               equipment: { type: "number", description: "New equipment unit cost" },
               subcontractor: { type: "number", description: "New subcontractor unit cost" },
               quantity: { type: "number", description: "New quantity" },
-              unit: { type: "string", description: "New unit of measure (EA, SF, LF, etc.)" },
+              unit: { type: "string", description: "New unit of measure (EA, SF, LF, CY, etc.)" },
+              notes: { type: "string", description: "Item notes" },
+              drawingRef: { type: "string", description: "Drawing sheet reference" },
+              specSection: { type: "string", description: "Specification section reference" },
+              specText: { type: "string", description: "Specification text" },
+              bidContext: {
+                type: "string",
+                description: "Bid context: 'base', 'alternate', 'unit-price', 'allowance'",
+              },
             },
             required: ["item_id"],
           },
@@ -39,7 +51,8 @@ export const NOVA_TOOLS = [
   },
   {
     name: "add_line_items",
-    description: "Add new line items to the estimate. Use when the user asks to add scope items, pricing, or new line items. Include as much detail as possible: code, description, division, quantity, unit, and cost fields.",
+    description:
+      "Add new line items to the estimate. Use when the user asks to add scope items, pricing, or new line items. Include as much detail as possible: code, description, division, quantity, unit, trade, and cost fields.",
     input_schema: {
       type: "object",
       properties: {
@@ -52,12 +65,20 @@ export const NOVA_TOOLS = [
               code: { type: "string", description: "CSI code (e.g., '08.110', '03.300')" },
               description: { type: "string", description: "Item description" },
               division: { type: "string", description: "Division label (e.g., '08 - Openings')" },
+              trade: { type: "string", description: "Trade assignment (e.g., 'Concrete', 'Electrical')" },
               quantity: { type: "number", description: "Quantity (default 1)" },
               unit: { type: "string", description: "Unit of measure (EA, SF, LF, CY, etc.)" },
               material: { type: "number", description: "Material unit cost" },
               labor: { type: "number", description: "Labor unit cost" },
               equipment: { type: "number", description: "Equipment unit cost" },
               subcontractor: { type: "number", description: "Subcontractor unit cost" },
+              notes: { type: "string", description: "Item notes" },
+              drawingRef: { type: "string", description: "Drawing sheet reference" },
+              specSection: { type: "string", description: "Specification section reference" },
+              bidContext: {
+                type: "string",
+                description: "Bid context: 'base', 'alternate', 'unit-price', 'allowance'",
+              },
             },
             required: ["description"],
           },
@@ -68,7 +89,8 @@ export const NOVA_TOOLS = [
   },
   {
     name: "remove_line_items",
-    description: "Remove line items from the estimate by ID. Use when the user explicitly asks to delete or remove specific items. Always confirm with the user before removing items.",
+    description:
+      "Remove line items from the estimate by ID. Use when the user explicitly asks to delete or remove specific items. Always confirm with the user before removing items.",
     input_schema: {
       type: "object",
       properties: {
@@ -119,7 +141,19 @@ export function executeNovaTool(toolName, toolInput) {
         const changes = {};
         const before = {};
         const costFields = ["material", "labor", "equipment", "subcontractor"];
-        const allFields = ["description", ...costFields, "quantity", "unit"];
+        const stringFields = [
+          "code",
+          "description",
+          "division",
+          "trade",
+          "unit",
+          "notes",
+          "drawingRef",
+          "specSection",
+          "specText",
+          "bidContext",
+        ];
+        const allFields = [...stringFields, ...costFields, "quantity"];
 
         for (const f of allFields) {
           if (upd[f] === undefined) continue;
@@ -128,6 +162,14 @@ export function executeNovaTool(toolName, toolInput) {
           if (costFields.includes(f)) val = clampCost(val);
           // Validate quantity — clamp negatives to 0
           if (f === "quantity") val = clampQty(val);
+          // Auto-derive trade from code when code changes and trade isn't explicitly set
+          if (f === "code" && !upd.trade) {
+            const derivedTrade = autoTradeFromCode(val);
+            if (derivedTrade && derivedTrade !== item.trade) {
+              before.trade = item.trade;
+              changes.trade = derivedTrade;
+            }
+          }
           // Only record if actually different
           if (val !== item[f]) {
             before[f] = item[f];
@@ -172,17 +214,24 @@ export function executeNovaTool(toolName, toolInput) {
         }
 
         const division = ni.division || divFromCode(ni.code) || "";
-        store.addElement(division, {
-          code: ni.code || "",
-          name: ni.description,
-          unit: ni.unit || "EA",
-          material: clampCost(ni.material),
-          labor: clampCost(ni.labor),
-          equipment: clampCost(ni.equipment),
-          subcontractor: clampCost(ni.subcontractor),
-          quantity: clampQty(ni.quantity) || 1,
-          trade: autoTradeFromCode(ni.code) || "",
-        });
+        store.addElement(
+          division,
+          {
+            code: ni.code || "",
+            name: ni.description,
+            unit: ni.unit || "EA",
+            material: clampCost(ni.material),
+            labor: clampCost(ni.labor),
+            equipment: clampCost(ni.equipment),
+            subcontractor: clampCost(ni.subcontractor),
+            quantity: clampQty(ni.quantity) || 1,
+            trade: ni.trade || autoTradeFromCode(ni.code) || "",
+            notes: ni.notes || "",
+            drawingRef: ni.drawingRef || "",
+            specSection: ni.specSection || "",
+          },
+          ni.bidContext || "base",
+        );
 
         results.push({
           status: "added",

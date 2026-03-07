@@ -153,13 +153,49 @@ export const T = {
     mono: { fontSize: 12, fontWeight: 500, fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif" },
     monoBig: { fontSize: 14, fontWeight: 600, fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif" },
     // Numeric readout — large tabular numbers (Output VST "XY CONTROL 70 / 30" style)
-    numeric: { fontSize: 28, fontWeight: 700, letterSpacing: -0.5, fontVariantNumeric: "tabular-nums", lineHeight: 1.0 },
-    numericSm: { fontSize: 20, fontWeight: 700, letterSpacing: -0.3, fontVariantNumeric: "tabular-nums", lineHeight: 1.0 },
+    numeric: {
+      fontSize: 28,
+      fontWeight: 700,
+      letterSpacing: -0.5,
+      fontVariantNumeric: "tabular-nums",
+      lineHeight: 1.0,
+    },
+    numericSm: {
+      fontSize: 20,
+      fontWeight: 700,
+      letterSpacing: -0.3,
+      fontVariantNumeric: "tabular-nums",
+      lineHeight: 1.0,
+    },
     // Display presets — Outfit for geometric precision at large sizes
-    display: { fontSize: 48, fontWeight: 600, lineHeight: 1.05, letterSpacing: -1.5, fontFamily: "'Outfit', 'DM Sans', sans-serif" },
-    displaySm: { fontSize: 36, fontWeight: 600, lineHeight: 1.1, letterSpacing: -1.0, fontFamily: "'Outfit', 'DM Sans', sans-serif" },
-    displayLg: { fontSize: 60, fontWeight: 700, lineHeight: 1.0, letterSpacing: -2.0, fontFamily: "'Outfit', 'DM Sans', sans-serif" },
-    hero: { fontSize: 56, fontWeight: 300, lineHeight: 1.05, letterSpacing: -1.5, fontFamily: "'Outfit', 'DM Sans', sans-serif" },
+    display: {
+      fontSize: 48,
+      fontWeight: 600,
+      lineHeight: 1.05,
+      letterSpacing: -1.5,
+      fontFamily: "'Outfit', 'DM Sans', sans-serif",
+    },
+    displaySm: {
+      fontSize: 36,
+      fontWeight: 600,
+      lineHeight: 1.1,
+      letterSpacing: -1.0,
+      fontFamily: "'Outfit', 'DM Sans', sans-serif",
+    },
+    displayLg: {
+      fontSize: 60,
+      fontWeight: 700,
+      lineHeight: 1.0,
+      letterSpacing: -2.0,
+      fontFamily: "'Outfit', 'DM Sans', sans-serif",
+    },
+    hero: {
+      fontSize: 56,
+      fontWeight: 300,
+      lineHeight: 1.05,
+      letterSpacing: -1.5,
+      fontFamily: "'Outfit', 'DM Sans', sans-serif",
+    },
   },
 
   // ── Accent Glow — Output VST-inspired luminous halos ──
@@ -341,8 +377,20 @@ export function buildTokens(density = "comfortable") {
         fontWeight: 600,
         fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif",
       },
-      numeric: { fontSize: 24, fontWeight: 700, letterSpacing: -0.5, fontVariantNumeric: "tabular-nums", lineHeight: 1.0 },
-      numericSm: { fontSize: 18, fontWeight: 700, letterSpacing: -0.3, fontVariantNumeric: "tabular-nums", lineHeight: 1.0 },
+      numeric: {
+        fontSize: 24,
+        fontWeight: 700,
+        letterSpacing: -0.5,
+        fontVariantNumeric: "tabular-nums",
+        lineHeight: 1.0,
+      },
+      numericSm: {
+        fontSize: 18,
+        fontWeight: 700,
+        letterSpacing: -0.3,
+        fontVariantNumeric: "tabular-nums",
+        lineHeight: 1.0,
+      },
     },
   };
 }

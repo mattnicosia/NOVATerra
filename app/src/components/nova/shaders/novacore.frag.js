@@ -1,7 +1,7 @@
-// NOVACORE fragment shader v10 — LIGHT SOURCE paradigm
-// The sphere IS a light source — it glows everywhere.
-// Color varies by HUE, not by darkness. No dark holes.
-// NOVA: luminous violet plasma. CORE: amber fusion reactor.
+// NOVACORE fragment shader v11 — CELESTIAL BODY
+// NOVA: a star in space — perfectly smooth, hemisphere-scale color,
+// no visible texture, no noise patterns, luminous and volumetric.
+// CORE: amber fusion reactor — volcanic, turbulent, textured.
 
 export const novacoreFragmentShader = /* glsl */ `
   precision highp float;
@@ -111,8 +111,8 @@ export const novacoreFragmentShader = /* glsl */ `
     float qz = fbmAdaptive(p + vec3(2.1, 7.3, 4.2) + time * speed * 0.5);
     vec3 q = vec3(qx, qy, qz);
 
-    // NOVA: low warp = broad smooth gradients. CORE: high warp = volcanic.
-    float warpStr = mix(1.2, 4.0, uMorph);
+    // NOVA: near-zero warp = ultra-broad gradients. CORE: high warp = volcanic.
+    float warpStr = mix(0.3, 4.0, uMorph);
     float rx = fbmAdaptive(p + warpStr * q + vec3(1.7, 9.2, 4.1) + time * speed * 0.4);
     float ry = fbmAdaptive(p + warpStr * q + vec3(8.3, 2.8, 7.4) + time * speed * 0.35);
     float rz = fbmAdaptive(p + warpStr * q + vec3(3.9, 6.1, 1.2) + time * speed * 0.45);
@@ -127,25 +127,36 @@ export const novacoreFragmentShader = /* glsl */ `
     float qx = fbm2(p + vec3(0.0) + time * speed * 0.8);
     float qy = fbm2(p + vec3(5.2, 1.3, 2.8) + time * speed * 0.65);
     vec2 q = vec2(qx, qy);
-    float warpStr = mix(2.0, 3.5, uMorph);
+    float warpStr = mix(0.5, 3.5, uMorph);
     float pattern = fbm2(p + warpStr * vec3(q, 0.0) + time * speed * 0.25);
     return vec3(pattern, length(q), 0.0);
   }
 
   void main() {
-    // ── Palette interpolation with transition boost ─────────
+    // ── Palette interpolation ──────────────────────────────────
     float transitionFactor = 1.0 - abs(uMorph * 2.0 - 1.0);
-    float ampBoost = 1.0 + transitionFactor * 0.30;
 
     vec3 palA = mix(uNovaPalA, uCorePalA, uMorph);
-    vec3 palB = mix(uNovaPalB, uCorePalB, uMorph) * ampBoost;
+    vec3 palB = mix(uNovaPalB, uCorePalB, uMorph);
     vec3 palC = mix(uNovaPalC, uCorePalC, uMorph);
     vec3 palD = mix(uNovaPalD, uCorePalD, uMorph);
 
+    // ── Transition magenta guard ─────────────────────────────────
+    // Mid-transition: NOVA blue + CORE amber interpolation creates
+    // R-dominant peaks → magenta flash. Suppress R, boost B floor.
+    palB.x *= (1.0 - transitionFactor * 0.50);  // halve R amp at mid-transition
+    palA.z += transitionFactor * 0.10;           // raise B floor → always some blue
+    palB.y *= (1.0 + transitionFactor * 0.25);   // boost G for teal transition tint
+
+    // ── Color breathing — hue zones pulse wider/narrower ──────────
+    // Slow palette amplitude oscillation → living, shifting saturation
+    float colorBreathe = 0.92 + 0.08 * sin(uTime * 0.22);
+    palB *= colorBreathe;
+
     // ── Domain warp ──────────────────────────────────────────
-    // NOVA: lower frequency = broader, smoother flow patterns (light source)
+    // NOVA: ultra-low frequency = hemisphere-scale gradients (celestial body)
     // CORE: higher frequency = tighter volcanic detail
-    float warpFreq = mix(1.1, 1.6, uMorph);
+    float warpFreq = mix(0.35, 1.6, uMorph);
     vec3 warpResult = domainWarp(vPosition * warpFreq, uTime);
     float pattern = warpResult.x * 0.5 + 0.5;
     float qMag = warpResult.y;
@@ -179,8 +190,8 @@ export const novacoreFragmentShader = /* glsl */ `
     // This is the minimum glow — even where flow patterns are at
     // their darkest, this color shines through. Light sources
     // don't have unlit patches.
-    vec3 novaBaseGlow = vec3(0.10, 0.10, 0.36);   // reduced — let palette colors dominate
-    vec3 coreBaseGlow = vec3(0.08, 0.04, 0.01);   // dim ember
+    vec3 novaBaseGlow = vec3(0.06, 0.05, 0.20);   // v10.5: subtle base lift — keeps deep indigo luminous
+    vec3 coreBaseGlow = vec3(0.06, 0.03, 0.01);   // dim ember
     vec3 baseGlow = mix(novaBaseGlow, coreBaseGlow, uMorph);
 
     // Transition: inject teal to avoid gray blending
@@ -212,55 +223,122 @@ export const novacoreFragmentShader = /* glsl */ `
     vec3 localDir = normalize(vPosition);
     float posAngle = (atan(localDir.z, localDir.x) + 3.14159) / 6.28318;
     float posElev = localDir.y * 0.5 + 0.5;
-    // Position gradient — pure geometry at NOVA (smooth light), noise at CORE (volcanic)
-    float patternInT = pattern * mix(0.03, 0.22, uMorph);  // nearly zero at NOVA
-    // Wide position span (~1.3 of palette cycle) → covers full B channel cycle
-    float smoothT = posAngle * 0.80 + posElev * 0.50 + patternInT + uTime * 0.025;
+
+    // ── Organic color flow ──────────────────────────────────────
+    // World-space angles drift independently as sphere rotates —
+    // colors flow THROUGH the sphere like aurora on plasma.
+    // Blend local (locked to geometry) + world (flowing) for organic movement.
+    vec3 wDir = normalize(vWorldPosition);
+    float worldAngle = (atan(wDir.z, wDir.x) + 3.14159) / 6.28318;
+    float worldElev = wDir.y * 0.5 + 0.5;
+
+    // NOVA: 55% world-space flow → visible drift. CORE: 0% (noise drives everything)
+    float flowBlend = (1.0 - uMorph) * 0.55;
+    float flowAngle = mix(posAngle, worldAngle, flowBlend);
+    float flowElev = mix(posElev, worldElev, flowBlend * 0.7);
+
+    // 2-layer organic noise drift — NOVA: ultra-low freq (broad zones), CORE: tighter
+    float driftNoise1 = fbm2(wDir * mix(0.5, 1.5, uMorph) + uTime * vec3(0.038, 0.028, 0.048));
+    float driftNoise2 = fbm2(wDir * mix(0.7, 2.2, uMorph) + uTime * vec3(-0.025, 0.042, -0.018) + vec3(3.7, 1.2, 5.8));
+    float organicDrift = (driftNoise1 * 0.14 + driftNoise2 * 0.08) * (1.0 - uMorph);
+
+    // ── Streaming flow — broad directional color sweep ──────────
+    // Very low-freq noise creates 1-2 visible color bands across sphere
+    // Time drift gives directional movement → coherent streaming (Hodgin)
+    float streamNoise = snoise(wDir * 0.5 + uTime * vec3(0.05, 0.018, 0.04));
+    float curlStream = streamNoise * mix(0.10, 0.0, uMorph);
+
+    // Position gradient — geometry at NOVA (smooth light), noise at CORE (volcanic)
+    float patternInT = pattern * mix(0.01, 0.22, uMorph);  // v11: virtually zero at NOVA
+    // Wide position span + organic drift + streaming + displacement→hue
+    float dispHue = vDisplacement * mix(0.25, 0.04, uMorph);  // peaks = different hue (Patricio)
+
+    // v11.1: Multi-order spherical harmonics — no atan() wrap seam (IQ)
+    // 4 harmonics at diminishing amplitude break bilateral symmetry.
+    // Higher orders add subtle complexity without reading as noise.
+    // Models stellar surface convection zones (CMB-style distribution).
+    float angRad = flowAngle * 6.28318;
+    float elevRad = flowElev * 3.14159;
+    float novaAngBasis = sin(angRad) * 0.12
+                       + cos(angRad) * 0.08
+                       + sin(angRad * 2.0 + 1.3) * 0.05
+                       + cos(angRad * 3.0 + 0.7) * 0.03;
+    float novaElevBasis = sin(elevRad) * 0.15
+                        + cos(elevRad * 2.0 + 0.9) * 0.06;
+    float coreAngBasis = flowAngle * 0.80;
+    float coreElevBasis = flowElev * 0.50;
+    float angContrib = mix(novaAngBasis, coreAngBasis, uMorph);
+    float elevContrib = mix(novaElevBasis, coreElevBasis, uMorph);
+    // v11.1: Geological drift — ultra-slow T offset (Hodgin)
+    // 2-3 minute cycle. You never see it moving, but look away and look back
+    // and the entire sphere's palette position has shifted. "Living, not looping."
+    float geologicalDrift = sin(uTime * 0.008) * 0.04
+                          + sin(uTime * 0.013 + 2.1) * 0.025;
+    geologicalDrift *= (1.0 - uMorph);  // NOVA only
+
+    float smoothT = 0.5 + angContrib + elevContrib + patternInT + uTime * 0.025 + organicDrift + curlStream + dispHue + geologicalDrift;
     vec3 smoothFlowColor = max(iqPalette(smoothT, palA, palB, palC, palDShifted), vec3(0.0));
-    // Subtle oscillation — enriches, doesn't homogenize
-    float hueOsc = sin(posAngle * 3.6 + posElev * 2.8 + uTime * 0.12) * 0.08;
+    // v11: Oscillation KILLED at NOVA (creates visible bands = "swirly lines").
+    // CORE: enriches hue variety at fine scale.
+    float oscAmount = uMorph * uMorph;  // morph² — zero at NOVA, full at CORE
+    float hueOsc = sin(flowAngle * 3.6 + flowElev * 2.8 + uTime * 0.12) * 0.08 * oscAmount;
     vec3 oscColor = max(iqPalette(smoothT + 0.32 + hueOsc, palA, palB, palC, palDShifted + vec3(0.03, 0.06, 0.02)), vec3(0.0));
-    smoothFlowColor = mix(smoothFlowColor, oscColor, 0.22);
+    smoothFlowColor = mix(smoothFlowColor, oscColor, 0.22 * oscAmount);
 
     // === Blend: NOVA=smooth position-based, CORE=noisy flow-based ===
     vec3 flowColor = mix(smoothFlowColor, noiseFlowColor, uMorph);
 
     // Brightness modulation
-    float baseFloor = mix(0.76, 0.12, uMorph);
-    float patternBright = pow(pattern, mix(0.08, 2.2, uMorph));  // NOVA: nearly flat brightness
+    float baseFloor = mix(0.65, 0.12, uMorph);  // v10.5: more brightness variation for NOVA
+    float patternBright = pow(pattern, mix(0.15, 2.2, uMorph));  // NOVA: slightly more depth
     float flowBright = baseFloor + (1.0 - baseFloor) * smoothstep(0.10, 0.95, patternBright);
 
-    // Luminance equalization — OFF for NOVA, light for CORE
-    // BaseFloor prevents dark patches. EQ kills hue variety.
-    float flowLuma = dot(flowColor, vec3(0.299, 0.587, 0.114));
-    float eqStrength = 1.0;  // fully natural — let palette hues shine
-    float targetLuma = mix(0.40, flowLuma, eqStrength);
-    flowColor = flowColor * (targetLuma / max(flowLuma, 0.03));
+    // Clamp flow color
     flowColor = clamp(flowColor, vec3(0.0), vec3(1.5));
 
-    // Color contribution — strong palette expression for visible hue zones
-    float colorScale = 0.95;
+    // ── Spatial saturation hierarchy — quiet zones + singing zones ──
+    // Quiet zones: desaturated (calm monochrome blue). Singing: vivid multi-hue.
+    // Light source stays BRIGHT everywhere — only COLOR RICHNESS varies (Anadol)
+    float focusNoise = fbm2(wDir * mix(0.3, 0.8, uMorph) + uTime * vec3(0.015, 0.012, 0.018));
+    // v11.1: Wider saturation contrast (Anadol) — quiet zones genuinely hushed,
+    // singing zones intensely chromatic. With only 1-2 zones visible, needs more gap.
+    float focusSat = 0.62 + 0.38 * (focusNoise * 0.5 + 0.5);  // 0.62 to 1.0
+    focusSat = mix(focusSat, 1.0, uMorph * uMorph);  // CORE: full saturation
+    float flowLuma = dot(flowColor, vec3(0.299, 0.587, 0.114));
+    flowColor = mix(vec3(flowLuma), flowColor, focusSat);
+
+    // v10.5: Palette IS the light — strong expression, no competition
+    float colorScale = 1.10;
     vec3 flowLight = flowColor * flowBright * colorScale;
 
-    // ── 3. CENTER WHITE HOT-SPOT ─────────────────────────────
-    // NOVA: tight concentrated white core. CORE: broader glow.
-    float centerPow = mix(12.0, 5.0, uMorph) + transitionFactor * 2.0;
+    // ── 3. CENTER GLOW — palette-tinted, not white override ────
+    // v10.4: Tighter, dimmer center → palette colors own more of the sphere
+    // NOVA: concentrated palette-tinted core. CORE: broader hot glow.
+    float centerPow = mix(16.0, 6.0, uMorph) + transitionFactor * 2.0;
     float centerGlow = pow(centerFactor, centerPow);
 
     vec3 centerWhite = mix(
-      vec3(0.78, 0.85, 1.0),   // cool blue-white for NOVA (less R)
+      vec3(0.78, 0.85, 1.0),   // cool blue-white for NOVA
       vec3(1.0, 0.90, 0.72),   // warm amber-white for CORE
       uMorph
     );
-    vec3 centerPalette = max(iqPalette(0.78, palA, palB, palC, palDShifted), vec3(0.0));
-    vec3 centerColor = centerWhite + centerPalette * 0.18;
-    float centerBrightness = mix(0.80, 1.05, uMorph) * breathe;
+    vec3 centerPalette = max(iqPalette(0.78 + organicDrift * 0.5, palA, palB, palC, palDShifted), vec3(0.0));
+    // v10.5: NOVA: NO white center — pure palette glow. CORE: blazing white-hot.
+    vec3 centerColor = mix(
+      centerPalette * 0.90 + centerWhite * 0.10,   // NOVA: almost entirely palette
+      centerWhite + centerPalette * 0.18,            // CORE: blazing white-hot
+      uMorph
+    );
+    // v11.1: Stellar limb darkening (Patricio) — center brighter, edges deeper.
+    // Not white — palette-tinted luminous lift. Creates 3D depth at any size.
+    float centerBrightness = mix(0.38, 0.95, uMorph) * breathe;
     vec3 centerLight = centerColor * centerGlow * centerBrightness;
 
     // ── 4. COMPOSE — additive light layers ──────────────────
     // base luminous glow + flow colored light + center white
-    // Center slightly dims flow (white dominates at center)
-    float flowFade = 1.0 - centerGlow * 0.45;
+    // NOVA: flow barely dimmed at center (palette owns everything)
+    // CORE: center white overrides flow more
+    float flowFade = 1.0 - centerGlow * mix(0.15, 0.40, uMorph);
     vec3 baseColor = baseGlow + flowLight * flowFade + centerLight;
 
     // Bridge — 2-layer gradient from center white → cool blue → rich color
@@ -271,7 +349,7 @@ export const novacoreFragmentShader = /* glsl */ `
       vec3(0.28, 0.18, 0.06),  // CORE: pale amber
       uMorph
     );
-    baseColor += innerBridgeColor * bridgeInner * 0.28;
+    baseColor += innerBridgeColor * bridgeInner * 0.10;  // v10.5: cut flat light
 
     // Outer bridge: richer tint (further from center)
     float bridgeOuter = pow(centerFactor, mix(2.8, 2.2, uMorph)) * (1.0 - pow(centerFactor, mix(5.0, 3.5, uMorph)));
@@ -280,7 +358,7 @@ export const novacoreFragmentShader = /* glsl */ `
       vec3(0.18, 0.10, 0.02),  // CORE: deeper amber
       uMorph
     );
-    baseColor += outerBridgeColor * bridgeOuter * 0.15;
+    baseColor += outerBridgeColor * bridgeOuter * 0.05;  // v10.5: minimal
 
     // ── 5. DISPLACEMENT modulation ──────────────────────────
     // NOVA: light source — displacement barely affects brightness
@@ -299,12 +377,14 @@ export const novacoreFragmentShader = /* glsl */ `
     float dispBlend = smoothstep(0.3, 0.8, centerGlow);
     baseColor *= mix(dispMod, 1.0, dispBlend);
 
-    // ── 6. Volumetric raymarching (Tier 2) ────────────────────
+    // ── 6. Volumetric raymarching (Tier 2, all morph) ──────────
+    // v11: Enabled at NOVA for subtle depth — celestial bodies have visible depth
     if (uTier >= 1.5) {
       vec3 rayOrigin = vLocalPos;
       vec3 rayDir = normalize(vViewDir);
       vec4 volAccum = vec4(0.0);
-      float stepSize = uSize * 0.065;
+      // NOVA: wider steps = broader, smoother interior glow. CORE: tighter = detailed.
+      float stepSize = uSize * mix(0.12, 0.065, uMorph);
 
       for (int i = 0; i < 24; i++) {
         if (volAccum.a > 0.88) break;
@@ -312,8 +392,8 @@ export const novacoreFragmentShader = /* glsl */ `
         float distFromCenter = length(marchPos);
         if (distFromCenter > uSize * 0.92) continue;
 
-        // NOVA: low freq → broad smooth glow. CORE: high freq → bubbly detail
-        float volFreq = mix(0.45, 0.9, uMorph);
+        // v11: NOVA: ultra-low freq → broad smooth depth glow. CORE: bubbly detail
+        float volFreq = mix(0.25, 0.9, uMorph);
         vec3 warpSample = domainWarpLight(marchPos * volFreq, uTime);
         float density = warpSample.x * 0.5 + 0.5;
         float depthRatio = 1.0 - (distFromCenter / uSize);
@@ -340,8 +420,8 @@ export const novacoreFragmentShader = /* glsl */ `
       }
 
       float surfOp = smoothstep(0.0, 0.4, dispFactor) * 0.30;
-      // NOVA: barely-there depth hint (0.10). CORE: strong volcanic interior (0.95)
-      baseColor += volAccum.rgb * (1.0 - surfOp) * mix(0.10, 0.95, uMorph);
+      // v11.1: NOVA: real depth glow (0.35) (Anadol). CORE: strong volcanic interior (0.95)
+      baseColor += volAccum.rgb * (1.0 - surfOp) * mix(0.35, 0.95, uMorph);
     }
 
     // ── 7. HDR peaks — NOVA: nearly invisible. CORE: explosive ──
@@ -380,8 +460,8 @@ export const novacoreFragmentShader = /* glsl */ `
     // Gamma — CORE gets contrast boost, NOVA stays linear (smooth glow)
     baseColor = pow(max(baseColor, vec3(0.0)), vec3(mix(1.0, 1.35, morphLate)));
 
-    // Saturation boost — richer hues for NOVA, fiery for CORE
-    float satBoost = mix(1.32, 1.40, uMorph) + transitionFactor * 0.28;
+    // v10.5: Moderate boost — vivid but not single-channel dominant
+    float satBoost = mix(1.38, 1.40, uMorph) + transitionFactor * 0.28;
     float luma = dot(baseColor, vec3(0.299, 0.587, 0.114));
     baseColor = max(mix(vec3(luma), baseColor, satBoost), vec3(0.0));
 
@@ -393,9 +473,9 @@ export const novacoreFragmentShader = /* glsl */ `
     );
     baseColor += transitionTint * transitionFactor * 0.10 * (1.0 - centerGlow);
 
-    // Soft tone compression — prevents display clipping color-shift
-    // NOVA: more compression (smooth glow). CORE: allow HDR peaks.
-    float toneCompress = mix(0.20, 0.06, uMorph);
+    // v10.5: Lighter compression — let palette range express fully
+    // NOVA: mild compression. CORE: minimal (allow HDR peaks).
+    float toneCompress = mix(0.10, 0.04, uMorph);
     baseColor = baseColor / (1.0 + baseColor * toneCompress);
 
     float alpha = mix(0.96, 0.99, uMorph) + pow(vFresnel, 3.0) * 0.03;

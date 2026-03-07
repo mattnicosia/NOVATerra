@@ -197,9 +197,11 @@ export const useEstimatesStore = create((set, get) => ({
 
     // Mirror index to localStorage — resilient backup
     try {
-      const uid = useAuthStore.getState().user?.id;
-      if (uid) localStorage.setItem(`bldg-index-mirror-${uid}`, idxJson);
-    } catch { /* quota exceeded */ }
+      const authUserId = useAuthStore.getState().user?.id;
+      if (authUserId) localStorage.setItem(`bldg-index-mirror-${authUserId}`, idxJson);
+    } catch {
+      /* quota exceeded */
+    }
 
     // Cloud sync estimate data (non-blocking)
     cloudSync.pushEstimate(id, data).catch(() => {});
@@ -329,9 +331,11 @@ export const useEstimatesStore = create((set, get) => ({
 
     // Mirror index to localStorage — resilient backup that survives IDB eviction
     try {
-      const uid = useAuthStore.getState().user?.id;
-      if (uid) localStorage.setItem(`bldg-index-mirror-${uid}`, idxJson);
-    } catch { /* quota exceeded */ }
+      const authUserId = useAuthStore.getState().user?.id;
+      if (authUserId) localStorage.setItem(`bldg-index-mirror-${authUserId}`, idxJson);
+    } catch {
+      /* quota exceeded */
+    }
 
     // Track deleted ID locally so cloud sync doesn't pull it back.
     // Store in BOTH IndexedDB and localStorage for resilience.
@@ -377,9 +381,11 @@ export const useEstimatesStore = create((set, get) => ({
 
     // Mirror index to localStorage — resilient backup
     try {
-      const uid = useAuthStore.getState().user?.id;
-      if (uid) localStorage.setItem(`bldg-index-mirror-${uid}`, idxJson);
-    } catch { /* quota exceeded */ }
+      const authUserId = useAuthStore.getState().user?.id;
+      if (authUserId) localStorage.setItem(`bldg-index-mirror-${authUserId}`, idxJson);
+    } catch {
+      /* quota exceeded */
+    }
 
     // Cloud sync (non-blocking)
     cloudSync.pushEstimate(newId, data).catch(() => {});
@@ -435,9 +441,11 @@ export const useEstimatesStore = create((set, get) => ({
 
     // Mirror index to localStorage — resilient backup
     try {
-      const uid = useAuthStore.getState().user?.id;
-      if (uid) localStorage.setItem(`bldg-index-mirror-${uid}`, idxJson);
-    } catch { /* quota exceeded */ }
+      const authUserId = useAuthStore.getState().user?.id;
+      if (authUserId) localStorage.setItem(`bldg-index-mirror-${authUserId}`, idxJson);
+    } catch {
+      /* quota exceeded */
+    }
 
     // Cloud sync (non-blocking)
     cloudSync.pushEstimate(id, data).catch(() => {});

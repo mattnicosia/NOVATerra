@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NOVATerra — Design Mood Boards v2</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --nova: #8B5CF6;
+    --core: #FF9500;
+    --core-hot: #FFAD33;
+    --core-super: #FFD080;
+    --attention: #EF4444;
+    --converge-l: #8B5CF6;
+    --converge-r: #FF9500;
+  }
+
+  body { font-family: 'DM Sans', sans-serif; background: #06060C; color: #EEEDF5; overflow-x: hidden; }
+
+  /* ── SVG texture defs (hidden) ── */
+  .svg-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+  /* ── Tab switcher ── */
+  .tab-bar {
+    position: sticky; top: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: center;
+    gap: 4px; padding: 16px 24px;
+    background: rgba(6,6,12,0.95); backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .tab-bar h1 { font-family: 'Outfit', sans-serif; font-weight: 300; font-size: 18px; letter-spacing: -0.5px; color: rgba(238,237,245,0.4); margin-right: 32px; }
+  .tab-btn { padding: 8px 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: transparent; color: rgba(238,237,245,0.5); font-family: 'DM Sans'; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+  .tab-btn:hover { border-color: rgba(255,255,255,0.15); color: rgba(238,237,245,0.8); }
+  .tab-btn.active-workshop { background: #FAFAF7; color: #1A1A1A; border-color: #E8E6E1; }
+  .tab-btn.active-nova { background: rgba(139,92,246,0.15); color: var(--nova); border-color: rgba(139,92,246,0.3); }
+  .tab-btn.active-terzo { background: rgba(255,149,0,0.15); color: var(--core); border-color: rgba(255,149,0,0.3); }
+
+  .theme-section { display: none; min-height: 100vh; padding: 48px 0; }
+  .theme-section.active { display: block; }
+  .board { max-width: 1100px; margin: 0 auto; padding: 0 32px; }
+  .mb-64 { margin-bottom: 64px; }
+  .mb-48 { margin-bottom: 48px; }
+
+  .theme-title { font-family: 'Outfit', sans-serif; font-weight: 300; font-size: 56px; letter-spacing: -2px; margin-bottom: 8px; line-height: 1.05; }
+  .theme-subtitle { font-size: 16px; font-weight: 400; line-height: 1.6; margin-bottom: 56px; max-width: 520px; }
+  .section-label { font-size: 10px; font-weight: 600; letter-spacing: 2.5px; text-transform: uppercase; margin-bottom: 20px; }
+
+  /* ══════════════════════════════════════════════════════════════
+     TEXTURES
+     ══════════════════════════════════════════════════════════════ */
+
+  /* Paper / linen texture for Workshop */
+  .tex-paper {
+    position: relative;
+  }
+  .tex-paper::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='5' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)' opacity='0.025'/%3E%3C/svg%3E");
+    opacity: 0.8;
+  }
+
+  /* Grain overlay for NOVA */
+  .tex-grain {
+    position: relative;
+  }
+  .tex-grain::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+    opacity: 0.6;
+  }
+
+  /* Carbon fiber texture for Terzo */
+  .tex-carbon {
+    position: relative;
+  }
+  .tex-carbon::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+    background:
+      repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 2px,
+        rgba(255,149,0,0.015) 2px,
+        rgba(255,149,0,0.015) 4px
+      ),
+      repeating-linear-gradient(
+        -45deg,
+        transparent,
+        transparent 2px,
+        rgba(255,149,0,0.01) 2px,
+        rgba(255,149,0,0.01) 4px
+      );
+  }
+
+  /* Brushed metal texture for Workshop surfaces */
+  .tex-brushed {
+    position: relative;
+  }
+  .tex-brushed::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+    background: repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 1px,
+      rgba(0,0,0,0.008) 1px,
+      rgba(0,0,0,0.008) 2px
+    );
+  }
+
+  /* Dot grid pattern */
+  .tex-dotgrid {
+    position: relative;
+  }
+  .tex-dotgrid::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+    background-image: radial-gradient(circle, rgba(255,149,0,0.08) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+
+  /* Energy mesh — radial lines like Terzo wheel */
+  .tex-energymesh {
+    position: relative; overflow: hidden;
+  }
+  .tex-energymesh::before {
+    content: ''; position: absolute; inset: -50%; pointer-events: none;
+    background: repeating-conic-gradient(
+      from 0deg,
+      transparent 0deg,
+      transparent 4.5deg,
+      rgba(255,149,0,0.02) 4.5deg,
+      rgba(255,149,0,0.02) 5deg
+    );
+    border-radius: 50%;
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     WORKSHOP — Light, Textured Paper
+     ══════════════════════════════════════════════════════════════ */
+  .theme-workshop { background: #FAFAF7; color: #1A1A1A; }
+
+  .w-card {
+    background: #FFFFFF; border: 1px solid #E8E6E1; border-radius: 14px;
+    position: relative; overflow: hidden;
+  }
+  .w-card-inner { position: relative; z-index: 1; }
+
+  /* Texture samples */
+  .tex-sample {
+    height: 120px; border-radius: 12px; display: flex; align-items: center;
+    justify-content: center; font-size: 12px; font-weight: 600;
+    letter-spacing: 1px; text-transform: uppercase;
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     NOVA — Deep Void, Glass Intelligence
+     ══════════════════════════════════════════════════════════════ */
+  .theme-nova { background: #06060C; color: #EEEDF5; }
+
+  .n-card {
+    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px; position: relative; overflow: hidden;
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     TERZO — Carbon Fiber, Solar Fusion
+     ══════════════════════════════════════════════════════════════ */
+  .theme-terzo {
+    background: #08080A; color: #F2F0EA;
+    position: relative;
+  }
+  .theme-terzo > .board { position: relative; z-index: 1; }
+
+  .t-card {
+    background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 14px; position: relative; overflow: hidden;
+  }
+
+  /* Terzo atmospheric gradient */
+  .terzo-atmo {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 50% 0%, rgba(255,149,0,0.04) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 50% at 80% 80%, rgba(255,149,0,0.02) 0%, transparent 50%);
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     ESTIMATE COMPOSITION (shared structure)
+     ══════════════════════════════════════════════════════════════ */
+  .comp-header { padding: 24px 28px 12px; display: flex; align-items: center; justify-content: space-between; }
+  .comp-project { font-family: 'Outfit', sans-serif; font-weight: 500; font-size: 20px; letter-spacing: -0.5px; }
+  .comp-meta { font-size: 12px; }
+
+  .kpi-strip { display: flex; gap: 10px; padding: 12px 28px 24px; }
+  .kpi-item { flex: 1; padding: 18px 20px; border-radius: 12px; position: relative; overflow: hidden; }
+  .kpi-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 8px; }
+  .kpi-value { font-family: 'Outfit', sans-serif; font-size: 28px; font-weight: 500; letter-spacing: -1px; }
+  .kpi-sub { font-size: 11px; margin-top: 4px; }
+
+  .convergence-line { height: 2px; background: linear-gradient(90deg, var(--converge-l), var(--converge-r)); margin: 0 28px; }
+
+  .comp-table { padding: 0 28px 16px; }
+  .comp-table table { width: 100%; border-collapse: collapse; }
+  .comp-table th { text-align: left; font-size: 10px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; padding: 14px 16px; }
+  .comp-table td { padding: 14px 16px; font-size: 14px; }
+  .div-num { font-size: 13px; }
+  .div-name { font-weight: 500; }
+  .cost-val { font-family: 'Outfit', sans-serif; font-weight: 500; letter-spacing: -0.5px; text-align: right; }
+
+  /* ══════════════════════════════════════════════════════════════
+     TEXTURE GALLERY
+     ══════════════════════════════════════════════════════════════ */
+  .tex-gallery { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .tex-gallery-item { border-radius: 14px; overflow: hidden; position: relative; }
+  .tex-gallery-label {
+    position: absolute; bottom: 12px; left: 12px;
+    font-size: 11px; font-weight: 600; letter-spacing: 1px;
+    text-transform: uppercase; padding: 4px 10px;
+    border-radius: 6px;
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     PALETTE (improved)
+     ══════════════════════════════════════════════════════════════ */
+  .palette { display: flex; gap: 12px; flex-wrap: wrap; }
+  .swatch { width: 120px; border-radius: 12px; overflow: hidden; }
+  .swatch-color { height: 72px; position: relative; }
+  .swatch-label { padding: 10px 12px; font-size: 11px; font-weight: 500; }
+  .swatch-hex { font-size: 10px; font-weight: 400; opacity: 0.5; margin-top: 2px; }
+
+  /* ══════════════════════════════════════════════════════════════
+     SOLAR GLOW DEMO
+     ══════════════════════════════════════════════════════════════ */
+  .solar-demo {
+    display: flex; align-items: center; justify-content: center;
+    height: 200px; border-radius: 16px; position: relative; overflow: hidden;
+  }
+  .solar-number {
+    font-family: 'Outfit', sans-serif; font-weight: 600; font-size: 64px; letter-spacing: -2px;
+    color: var(--core);
+    text-shadow:
+      0 0 20px rgba(255,149,0,0.4),
+      0 0 60px rgba(255,149,0,0.2),
+      0 0 120px rgba(255,149,0,0.1);
+  }
+  .solar-halo {
+    position: absolute; width: 300px; height: 300px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,149,0,0.08) 0%, rgba(255,149,0,0.02) 40%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .board-footer { margin-top: 80px; padding: 32px 0; font-size: 11px; text-align: center; letter-spacing: 0.5px; }
+</style>
+</head>
+<body>
+
+<div class="tab-bar">
+  <h1>NOVATerra</h1>
+  <button class="tab-btn active-workshop" onclick="show('workshop')" id="btn-workshop">Workshop</button>
+  <button class="tab-btn" onclick="show('nova')" id="btn-nova">NOVA</button>
+  <button class="tab-btn" onclick="show('terzo')" id="btn-terzo">Terzo</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     WORKSHOP v2 — Warm Paper, Brushed Surfaces
+     ═══════════════════════════════════════════════════════════════ -->
+<section class="theme-section theme-workshop active" id="section-workshop">
+<div class="board">
+  <div class="mb-64" style="padding-top:16px">
+    <div class="theme-title" style="color:#1A1A1A">Workshop</div>
+    <div class="theme-subtitle" style="color:#6B6B6B">
+      Warm paper. Linen texture. Brushed metal surfaces.<br>
+      Where an estimator lives for ten hours. The architect's light table.
+    </div>
+  </div>
+
+  <!-- Texture gallery -->
+  <div class="mb-64">
+    <div class="section-label" style="color:#9B9890">Material Textures</div>
+    <div class="tex-gallery">
+      <div class="tex-gallery-item tex-paper" style="height:160px;background:#FAFAF7;border:1px solid #E8E6E1">
+        <div class="tex-gallery-label" style="background:rgba(0,0,0,0.05);color:#6B6B6B">Paper / Linen</div>
+      </div>
+      <div class="tex-gallery-item tex-brushed" style="height:160px;background:#FFFFFF;border:1px solid #E8E6E1">
+        <div class="tex-gallery-label" style="background:rgba(0,0,0,0.05);color:#6B6B6B">Brushed Metal</div>
+      </div>
+      <div class="tex-gallery-item" style="height:160px;background:linear-gradient(180deg,#FFFFFF 0%,#F5F3EE 100%);border:1px solid #E8E6E1;position:relative">
+        <div style="position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 31px,rgba(0,0,0,0.03) 31px,rgba(0,0,0,0.03) 32px);border-radius:inherit"></div>
+        <div class="tex-gallery-label" style="background:rgba(0,0,0,0.05);color:#6B6B6B;position:relative;z-index:1">Blueprint Grid</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Color palette -->
+  <div class="mb-64">
+    <div class="section-label" style="color:#9B9890">Color Palette</div>
+    <div class="palette">
+      <div class="swatch" style="border:1px solid #E8E6E1">
+        <div class="swatch-color tex-paper" style="background:#FAFAF7"></div>
+        <div class="swatch-label" style="background:#fff;color:#1A1A1A">Background<div class="swatch-hex">#FAFAF7</div></div>
+      </div>
+      <div class="swatch" style="border:1px solid #E8E6E1">
+        <div class="swatch-color tex-brushed" style="background:#FFFFFF"></div>
+        <div class="swatch-label" style="background:#fff;color:#1A1A1A">Surface<div class="swatch-hex">#FFFFFF</div></div>
+      </div>
+      <div class="swatch" style="border:1px solid #E8E6E1">
+        <div class="swatch-color" style="background:#1A1A1A"></div>
+        <div class="swatch-label" style="background:#fff;color:#1A1A1A">Text<div class="swatch-hex">#1A1A1A</div></div>
+      </div>
+      <div class="swatch" style="border:1px solid #E8E6E1">
+        <div class="swatch-color" style="background:var(--nova)"></div>
+        <div class="swatch-label" style="background:#fff;color:#1A1A1A">NOVA<div class="swatch-hex">#8B5CF6</div></div>
+      </div>
+      <div class="swatch" style="border:1px solid #E8E6E1">
+        <div class="swatch-color" style="background:var(--core)"></div>
+        <div class="swatch-label" style="background:#fff;color:#1A1A1A">CORE<div class="swatch-hex">#FF9500</div></div>
+      </div>
+      <div class="swatch" style="border:1px solid #E8E6E1">
+        <div class="swatch-color" style="background:var(--attention)"></div>
+        <div class="swatch-label" style="background:#fff;color:#1A1A1A">Attention<div class="swatch-hex">#EF4444</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Solar orange demo -->
+  <div class="mb-64">
+    <div class="section-label" style="color:#9B9890">CORE — Solar Orange on Paper</div>
+    <div class="solar-demo tex-paper" style="background:#FAFAF7;border:1px solid #E8E6E1">
+      <div class="solar-number" style="text-shadow:0 0 30px rgba(255,149,0,0.25),0 0 80px rgba(255,149,0,0.08)">$7,250,000</div>
+    </div>
+    <div style="font-size:12px;color:#9B9890;margin-top:12px">Solar orange (#FF9500) on warm paper — the sun amplified. Radiates without burning.</div>
+  </div>
+
+  <!-- Estimate composition -->
+  <div class="mb-64">
+    <div class="section-label" style="color:#9B9890">Estimate Composition</div>
+    <div class="w-card tex-paper">
+      <div class="w-card-inner">
+        <div class="comp-header">
+          <div>
+            <div class="comp-project" style="color:#1A1A1A">Riverside Medical Center</div>
+            <div class="comp-meta" style="color:#9B9890">Healthcare · 50,000 SF · Pearl River, NY</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:10px;height:10px;border-radius:50%;background:var(--core);box-shadow:0 0 8px rgba(255,149,0,0.4)"></div>
+            <span style="font-size:12px;color:var(--core);font-weight:600">Calibrated</span>
+          </div>
+        </div>
+        <div class="kpi-strip">
+          <div class="kpi-item tex-brushed" style="background:linear-gradient(135deg,#FFF9F0,#FFF5E6);border:1px solid rgba(255,149,0,0.15)">
+            <div class="kpi-label" style="color:#9B9890">Total Cost</div>
+            <div class="kpi-value" style="color:var(--core)">$7,250,000</div>
+            <div class="kpi-sub" style="color:#9B9890">Mid Range</div>
+          </div>
+          <div class="kpi-item" style="background:#F8F7F3;border:1px solid #E8E6E1">
+            <div class="kpi-label" style="color:#9B9890">$/SF</div>
+            <div class="kpi-value" style="color:var(--core)">$145.00</div>
+            <div class="kpi-sub" style="color:#9B9890">National Avg</div>
+          </div>
+          <div class="kpi-item" style="background:#F8F7F3;border:1px solid #E8E6E1">
+            <div class="kpi-label" style="color:#9B9890">Confidence</div>
+            <div class="kpi-value" style="color:#1A1A1A">High</div>
+            <div class="kpi-sub" style="color:#9B9890">3 calibrations</div>
+          </div>
+          <div class="kpi-item" style="background:#FEF2F2;border:1px solid rgba(239,68,68,0.15)">
+            <div class="kpi-label" style="color:#9B9890">Variance</div>
+            <div class="kpi-value" style="color:var(--attention)">+4.2%</div>
+            <div class="kpi-sub" style="color:#9B9890">Over budget</div>
+          </div>
+        </div>
+        <div class="convergence-line"></div>
+        <div class="comp-table">
+          <table>
+            <tr><th style="color:#9B9890;border-bottom:1px solid #E8E6E1">Div</th><th style="color:#9B9890;border-bottom:1px solid #E8E6E1">Division</th><th style="text-align:right;color:#9B9890;border-bottom:1px solid #E8E6E1">$/SF</th><th style="text-align:right;color:#9B9890;border-bottom:1px solid #E8E6E1">Total</th></tr>
+            <tr style="border-bottom:1px solid #F0EEE9"><td class="div-num" style="color:#9B9890">01</td><td class="div-name" style="color:#1A1A1A">General Requirements</td><td class="cost-val" style="color:var(--core)">$6.00</td><td class="cost-val" style="color:#1A1A1A">$300,000</td></tr>
+            <tr style="background:rgba(255,149,0,0.04);box-shadow:inset 3px 0 0 var(--core);border-bottom:1px solid #F0EEE9"><td class="div-num" style="color:#9B9890">03</td><td class="div-name" style="color:#1A1A1A">Concrete</td><td class="cost-val" style="color:var(--core)">$14.00</td><td class="cost-val" style="color:#1A1A1A">$700,000</td></tr>
+            <tr style="border-bottom:1px solid #F0EEE9"><td class="div-num" style="color:#9B9890">05</td><td class="div-name" style="color:#1A1A1A">Metals</td><td class="cost-val" style="color:var(--core)">$12.00</td><td class="cost-val" style="color:#1A1A1A">$600,000</td></tr>
+            <tr style="background:rgba(239,68,68,0.04);box-shadow:inset 3px 0 0 var(--attention);border-bottom:1px solid #F0EEE9"><td class="div-num" style="color:#9B9890">09</td><td class="div-name" style="color:#1A1A1A">Finishes</td><td class="cost-val" style="color:var(--attention)">$15.00</td><td class="cost-val" style="color:var(--attention)">$750,000</td></tr>
+            <tr style="border-bottom:1px solid #F0EEE9"><td class="div-num" style="color:#9B9890">23</td><td class="div-name" style="color:#1A1A1A">HVAC</td><td class="cost-val" style="color:var(--core)">$15.00</td><td class="cost-val" style="color:#1A1A1A">$750,000</td></tr>
+            <tr><td class="div-num" style="color:#9B9890">26</td><td class="div-name" style="color:#1A1A1A">Electrical</td><td class="cost-val" style="color:var(--core)">$12.00</td><td class="cost-val" style="color:#1A1A1A">$600,000</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="board-footer" style="color:#C8C5BC;border-top:1px solid #E8E6E1">NOVATerra · Workshop Theme v2</div>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     NOVA v2 — Deep Void, Better Contrast, Grain Texture
+     ═══════════════════════════════════════════════════════════════ -->
+<section class="theme-section theme-nova" id="section-nova">
+<div class="board">
+  <div class="mb-64" style="padding-top:16px">
+    <div class="theme-title" style="color:#EEEDF5">NOVA</div>
+    <div class="theme-subtitle" style="color:rgba(238,237,245,0.6)">
+      Deep void with grain texture. Purple intelligence, glass on AI only.<br>
+      Higher contrast — no text gets lost in the dark.
+    </div>
+  </div>
+
+  <!-- Texture gallery -->
+  <div class="mb-64">
+    <div class="section-label" style="color:rgba(238,237,245,0.3)">Material Textures</div>
+    <div class="tex-gallery">
+      <div class="tex-gallery-item tex-grain" style="height:160px;background:#06060C;border:1px solid rgba(255,255,255,0.06)">
+        <div class="tex-gallery-label" style="background:rgba(255,255,255,0.06);color:rgba(238,237,245,0.7)">Film Grain</div>
+      </div>
+      <div class="tex-gallery-item" style="height:160px;background:rgba(139,92,246,0.06);border:1px solid rgba(139,92,246,0.12);position:relative;backdrop-filter:blur(20px)">
+        <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(139,92,246,0.08),rgba(139,92,246,0.02));border-radius:inherit"></div>
+        <div class="tex-gallery-label" style="background:rgba(139,92,246,0.15);color:var(--nova);position:relative;z-index:1">NOVA Glass</div>
+      </div>
+      <div class="tex-gallery-item" style="height:160px;background:#0A0A12;border:1px solid rgba(255,255,255,0.06);position:relative;overflow:hidden">
+        <div style="position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,rgba(139,92,246,0.06) 0%,transparent 70%)"></div>
+        <div class="tex-gallery-label" style="background:rgba(255,255,255,0.06);color:rgba(238,237,245,0.7);position:relative;z-index:1">Void Gradient</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Color palette -->
+  <div class="mb-64">
+    <div class="section-label" style="color:rgba(238,237,245,0.3)">Color Palette</div>
+    <div class="palette">
+      <div class="swatch" style="border:1px solid rgba(255,255,255,0.06)">
+        <div class="swatch-color tex-grain" style="background:#06060C"></div>
+        <div class="swatch-label" style="background:rgba(255,255,255,0.03);color:#EEEDF5">Background<div class="swatch-hex">#06060C + grain</div></div>
+      </div>
+      <div class="swatch" style="border:1px solid rgba(255,255,255,0.06)">
+        <div class="swatch-color" style="background:#12121A"></div>
+        <div class="swatch-label" style="background:rgba(255,255,255,0.03);color:#EEEDF5">Surface<div class="swatch-hex">#12121A</div></div>
+      </div>
+      <div class="swatch" style="border:1px solid rgba(255,255,255,0.06)">
+        <div class="swatch-color" style="background:#EEEDF5"></div>
+        <div class="swatch-label" style="background:rgba(255,255,255,0.03);color:#EEEDF5">Text<div class="swatch-hex">#EEEDF5</div></div>
+      </div>
+      <div class="swatch" style="border:1px solid rgba(255,255,255,0.06)">
+        <div class="swatch-color" style="background:rgba(238,237,245,0.6);"></div>
+        <div class="swatch-label" style="background:rgba(255,255,255,0.03);color:#EEEDF5">Secondary<div class="swatch-hex">text/60%</div></div>
+      </div>
+      <div class="swatch" style="border:1px solid rgba(255,255,255,0.06)">
+        <div class="swatch-color" style="background:var(--nova)"></div>
+        <div class="swatch-label" style="background:rgba(255,255,255,0.03);color:#EEEDF5">NOVA<div class="swatch-hex">#8B5CF6</div></div>
+      </div>
+      <div class="swatch" style="border:1px solid rgba(255,255,255,0.06)">
+        <div class="swatch-color" style="background:var(--core)"></div>
+        <div class="swatch-label" style="background:rgba(255,255,255,0.03);color:#EEEDF5">CORE<div class="swatch-hex">#FF9500</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Solar orange on dark -->
+  <div class="mb-64">
+    <div class="section-label" style="color:rgba(238,237,245,0.3)">CORE — Solar Orange in the Void</div>
+    <div class="solar-demo tex-grain" style="background:#06060C;border:1px solid rgba(255,255,255,0.06)">
+      <div class="solar-halo"></div>
+      <div class="solar-number">$7,250,000</div>
+    </div>
+    <div style="font-size:12px;color:rgba(238,237,245,0.35);margin-top:12px">Solar orange radiates against the void. Text-shadow creates a genuine glow — the number is a light source.</div>
+  </div>
+
+  <!-- Estimate composition -->
+  <div class="mb-64">
+    <div class="section-label" style="color:rgba(238,237,245,0.3)">Estimate Composition</div>
+    <div class="n-card tex-grain">
+      <div style="position:relative;z-index:1">
+        <div class="comp-header">
+          <div>
+            <div class="comp-project" style="color:#EEEDF5">Riverside Medical Center</div>
+            <div class="comp-meta" style="color:rgba(238,237,245,0.5)">Healthcare · 50,000 SF · Pearl River, NY</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:10px;height:10px;border-radius:50%;background:var(--core);box-shadow:0 0 12px rgba(255,149,0,0.5)"></div>
+            <span style="font-size:12px;color:var(--core);font-weight:600">Calibrated</span>
+          </div>
+        </div>
+        <div class="kpi-strip">
+          <div class="kpi-item" style="background:#12121A;border:1px solid rgba(255,149,0,0.12)">
+            <div class="kpi-label" style="color:rgba(238,237,245,0.5)">Total Cost</div>
+            <div class="kpi-value" style="color:var(--core);text-shadow:0 0 24px rgba(255,149,0,0.3)">$7,250,000</div>
+            <div class="kpi-sub" style="color:rgba(238,237,245,0.4)">Mid Range</div>
+          </div>
+          <div class="kpi-item" style="background:#12121A;border:1px solid rgba(255,255,255,0.06)">
+            <div class="kpi-label" style="color:rgba(238,237,245,0.5)">$/SF</div>
+            <div class="kpi-value" style="color:var(--core)">$145.00</div>
+            <div class="kpi-sub" style="color:rgba(238,237,245,0.4)">National Avg</div>
+          </div>
+          <div class="kpi-item" style="background:#12121A;border:1px solid rgba(255,255,255,0.06)">
+            <div class="kpi-label" style="color:rgba(238,237,245,0.5)">Confidence</div>
+            <div class="kpi-value" style="color:#EEEDF5">High</div>
+            <div class="kpi-sub" style="color:rgba(238,237,245,0.4)">3 calibrations</div>
+          </div>
+          <div class="kpi-item" style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15)">
+            <div class="kpi-label" style="color:rgba(238,237,245,0.5)">Variance</div>
+            <div class="kpi-value" style="color:#F87171">+4.2%</div>
+            <div class="kpi-sub" style="color:rgba(238,237,245,0.4)">Over budget</div>
+          </div>
+        </div>
+        <div class="convergence-line"></div>
+        <div class="comp-table">
+          <table>
+            <tr><th style="color:rgba(238,237,245,0.4);border-bottom:1px solid rgba(255,255,255,0.06)">Div</th><th style="color:rgba(238,237,245,0.4);border-bottom:1px solid rgba(255,255,255,0.06)">Division</th><th style="text-align:right;color:rgba(238,237,245,0.4);border-bottom:1px solid rgba(255,255,255,0.06)">$/SF</th><th style="text-align:right;color:rgba(238,237,245,0.4);border-bottom:1px solid rgba(255,255,255,0.06)">Total</th></tr>
+            <tr><td class="div-num" style="color:rgba(238,237,245,0.4)">01</td><td class="div-name" style="color:#EEEDF5">General Requirements</td><td class="cost-val" style="color:var(--core)">$6.00</td><td class="cost-val" style="color:rgba(238,237,245,0.8)">$300,000</td></tr>
+            <tr style="background:rgba(255,149,0,0.04);box-shadow:inset 3px 0 0 var(--core)"><td class="div-num" style="color:rgba(238,237,245,0.4)">03</td><td class="div-name" style="color:#EEEDF5">Concrete</td><td class="cost-val" style="color:var(--core)">$14.00</td><td class="cost-val" style="color:rgba(238,237,245,0.8)">$700,000</td></tr>
+            <tr><td class="div-num" style="color:rgba(238,237,245,0.4)">05</td><td class="div-name" style="color:#EEEDF5">Metals</td><td class="cost-val" style="color:var(--core)">$12.00</td><td class="cost-val" style="color:rgba(238,237,245,0.8)">$600,000</td></tr>
+            <tr style="background:rgba(239,68,68,0.05);box-shadow:inset 3px 0 0 var(--attention)"><td class="div-num" style="color:rgba(238,237,245,0.4)">09</td><td class="div-name" style="color:#EEEDF5">Finishes</td><td class="cost-val" style="color:#F87171">$15.00</td><td class="cost-val" style="color:#F87171">$750,000</td></tr>
+            <tr><td class="div-num" style="color:rgba(238,237,245,0.4)">23</td><td class="div-name" style="color:#EEEDF5">HVAC</td><td class="cost-val" style="color:var(--core)">$15.00</td><td class="cost-val" style="color:rgba(238,237,245,0.8)">$750,000</td></tr>
+            <tr><td class="div-num" style="color:rgba(238,237,245,0.4)">26</td><td class="div-name" style="color:#EEEDF5">Electrical</td><td class="cost-val" style="color:var(--core)">$12.00</td><td class="cost-val" style="color:rgba(238,237,245,0.8)">$600,000</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="board-footer" style="color:rgba(238,237,245,0.2);border-top:1px solid rgba(255,255,255,0.06)">NOVATerra · NOVA Theme v2</div>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     TERZO v2 — Carbon Fiber, Solar Fusion, Energy Mesh
+     ═══════════════════════════════════════════════════════════════ -->
+<section class="theme-section theme-terzo" id="section-terzo">
+<div class="terzo-atmo"></div>
+<div class="board">
+  <div class="mb-64" style="padding-top:16px">
+    <div class="theme-title" style="color:#F2F0EA">Terzo</div>
+    <div class="theme-subtitle" style="color:rgba(242,240,234,0.6)">
+      Carbon fiber weave. Energy mesh. Solar fusion at the data points.<br>
+      Not NOVA with a tint — a different material entirely.
+    </div>
+  </div>
+
+  <!-- Texture gallery -->
+  <div class="mb-64">
+    <div class="section-label" style="color:rgba(255,149,0,0.5)">Material Textures</div>
+    <div class="tex-gallery">
+      <div class="tex-gallery-item tex-carbon" style="height:160px;background:#0C0C0A;border:1px solid rgba(255,255,255,0.05)">
+        <div class="tex-gallery-label" style="background:rgba(255,149,0,0.1);color:var(--core);position:relative;z-index:1">Carbon Fiber Weave</div>
+      </div>
+      <div class="tex-gallery-item tex-dotgrid" style="height:160px;background:#0A0A08;border:1px solid rgba(255,255,255,0.05)">
+        <div class="tex-gallery-label" style="background:rgba(255,149,0,0.1);color:var(--core);position:relative;z-index:1">Energy Dot Grid</div>
+      </div>
+      <div class="tex-gallery-item tex-energymesh" style="height:160px;background:#08080A;border:1px solid rgba(255,255,255,0.05)">
+        <div class="tex-gallery-label" style="background:rgba(255,149,0,0.1);color:var(--core);position:relative;z-index:1">Wheel Energy Mesh</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Color palette -->
+  <div class="mb-64">
+    <div class="section-label" style="color:rgba(255,149,0,0.5)">Color Palette</div>
+    <div class="palette">
+      <div class="swatch" style="border:1px solid rgba(255,255,255,0.05)">
+        <div class="swatch-color tex-carbon" style="background:#08080A"></div>
+        <div class="swatch-label" style="background:rgba(255,255,255,0.03);color:#F2F0EA">Background<div class="swatch-hex">#08080A + carbon</div></div>
+      </div>
+      <div class="swatch" style="border:1px solid rgba(255,255,255,0.05)">
+        <div class="swatch-color tex-dotgrid" style="background:#111110"></div>
+        <div class="swatch-label" style="background:rgba(255,255,255,0.03);color:#F2F0EA">Surface<div class="swatch-hex">#111110 + dots</div></div>
+      </div>
+      <div class="swatch" style="border:1px solid rgba(255,255,255,0.05)">
+        <div class="swatch-color" style="background:#F2F0EA"></div>
+        <div class="swatch-label" style="background:rgba(255,255,255,0.03);color:#F2F0EA">Text<div class="swatch-hex">#F2F0EA</div></div>
+      </div>
+      <div class="swatch" style="border:1px solid rgba(255,255,255,0.05)">
+        <div class="swatch-color" style="background:rgba(242,240,234,0.6)"></div>
+        <div class="swatch-label" style="background:rgba(255,255,255,0.03);color:#F2F0EA">Secondary<div class="swatch-hex">text/60%</div></div>
+      </div>
+      <div class="swatch" style="border:1px solid rgba(255,255,255,0.05)">
+        <div class="swatch-color" style="background:var(--core);box-shadow:0 0 20px rgba(255,149,0,0.3)"></div>
+        <div class="swatch-label" style="background:rgba(255,255,255,0.03);color:#F2F0EA">CORE<div class="swatch-hex">#FF9500 ☀️</div></div>
+      </div>
+      <div class="swatch" style="border:1px solid rgba(255,255,255,0.05)">
+        <div class="swatch-color" style="background:var(--attention)"></div>
+        <div class="swatch-label" style="background:rgba(255,255,255,0.03);color:#F2F0EA">Attention<div class="swatch-hex">#EF4444</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Solar FUSION demo — this should blow your mind -->
+  <div class="mb-64">
+    <div class="section-label" style="color:rgba(255,149,0,0.5)">CORE — Solar Fusion in Carbon</div>
+    <div class="solar-demo tex-carbon" style="background:#08080A;border:1px solid rgba(255,149,0,0.1);position:relative;overflow:hidden">
+      <div class="solar-halo" style="background:radial-gradient(circle,rgba(255,149,0,0.12) 0%,rgba(255,149,0,0.04) 35%,rgba(255,100,0,0.01) 60%,transparent 80%)"></div>
+      <div style="position:absolute;inset:0;background:repeating-conic-gradient(from 0deg,transparent 0deg,transparent 4.5deg,rgba(255,149,0,0.015) 4.5deg,rgba(255,149,0,0.015) 5deg);border-radius:50%;opacity:0.8"></div>
+      <div class="solar-number" style="position:relative;z-index:1;text-shadow:0 0 30px rgba(255,149,0,0.5),0 0 80px rgba(255,149,0,0.25),0 0 160px rgba(255,100,0,0.1)">$7,250,000</div>
+    </div>
+    <div style="font-size:12px;color:rgba(242,240,234,0.35);margin-top:12px">Carbon fiber weave + energy mesh + solar glow. The number IS the fusion reactor. It radiates heat into the surrounding surface.</div>
+  </div>
+
+  <!-- Estimate composition -->
+  <div class="mb-64">
+    <div class="section-label" style="color:rgba(255,149,0,0.5)">Estimate Composition</div>
+    <div class="t-card tex-carbon" style="border-color:rgba(255,255,255,0.04)">
+      <div style="position:relative;z-index:1">
+        <div class="comp-header">
+          <div>
+            <div class="comp-project" style="color:#F2F0EA">Riverside Medical Center</div>
+            <div class="comp-meta" style="color:rgba(242,240,234,0.5)">Healthcare · 50,000 SF · Pearl River, NY</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:10px;height:10px;border-radius:50%;background:var(--core);box-shadow:0 0 16px rgba(255,149,0,0.6)"></div>
+            <span style="font-size:12px;color:var(--core);font-weight:600">Calibrated</span>
+          </div>
+        </div>
+        <div class="kpi-strip">
+          <div class="kpi-item tex-dotgrid" style="background:#111110;border:1px solid rgba(255,149,0,0.15)">
+            <div class="kpi-label" style="color:rgba(242,240,234,0.5)">Total Cost</div>
+            <div class="kpi-value" style="color:var(--core);text-shadow:0 0 24px rgba(255,149,0,0.4)">$7,250,000</div>
+            <div class="kpi-sub" style="color:rgba(242,240,234,0.4)">Mid Range</div>
+          </div>
+          <div class="kpi-item" style="background:#111110;border:1px solid rgba(255,255,255,0.05)">
+            <div class="kpi-label" style="color:rgba(242,240,234,0.5)">$/SF</div>
+            <div class="kpi-value" style="color:var(--core)">$145.00</div>
+            <div class="kpi-sub" style="color:rgba(242,240,234,0.4)">National Avg</div>
+          </div>
+          <div class="kpi-item" style="background:#111110;border:1px solid rgba(255,255,255,0.05)">
+            <div class="kpi-label" style="color:rgba(242,240,234,0.5)">Confidence</div>
+            <div class="kpi-value" style="color:#F2F0EA">High</div>
+            <div class="kpi-sub" style="color:rgba(242,240,234,0.4)">3 calibrations</div>
+          </div>
+          <div class="kpi-item" style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15)">
+            <div class="kpi-label" style="color:rgba(242,240,234,0.5)">Variance</div>
+            <div class="kpi-value" style="color:#F87171">+4.2%</div>
+            <div class="kpi-sub" style="color:rgba(242,240,234,0.4)">Over budget</div>
+          </div>
+        </div>
+        <div class="convergence-line"></div>
+        <div class="comp-table">
+          <table>
+            <tr><th style="color:rgba(242,240,234,0.4);border-bottom:1px solid rgba(255,255,255,0.05)">Div</th><th style="color:rgba(242,240,234,0.4);border-bottom:1px solid rgba(255,255,255,0.05)">Division</th><th style="text-align:right;color:rgba(242,240,234,0.4);border-bottom:1px solid rgba(255,255,255,0.05)">$/SF</th><th style="text-align:right;color:rgba(242,240,234,0.4);border-bottom:1px solid rgba(255,255,255,0.05)">Total</th></tr>
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.03)"><td class="div-num" style="color:rgba(242,240,234,0.4)">01</td><td class="div-name" style="color:#F2F0EA">General Requirements</td><td class="cost-val" style="color:var(--core)">$6.00</td><td class="cost-val" style="color:rgba(242,240,234,0.8)">$300,000</td></tr>
+            <tr style="background:rgba(255,149,0,0.05);box-shadow:inset 3px 0 0 var(--core);border-bottom:1px solid rgba(255,255,255,0.03)"><td class="div-num" style="color:rgba(242,240,234,0.4)">03</td><td class="div-name" style="color:#F2F0EA">Concrete</td><td class="cost-val" style="color:var(--core-hot)">$14.00</td><td class="cost-val" style="color:rgba(242,240,234,0.8)">$700,000</td></tr>
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.03)"><td class="div-num" style="color:rgba(242,240,234,0.4)">05</td><td class="div-name" style="color:#F2F0EA">Metals</td><td class="cost-val" style="color:var(--core)">$12.00</td><td class="cost-val" style="color:rgba(242,240,234,0.8)">$600,000</td></tr>
+            <tr style="background:rgba(239,68,68,0.05);box-shadow:inset 3px 0 0 var(--attention);border-bottom:1px solid rgba(255,255,255,0.03)"><td class="div-num" style="color:rgba(242,240,234,0.4)">09</td><td class="div-name" style="color:#F2F0EA">Finishes</td><td class="cost-val" style="color:#F87171">$15.00</td><td class="cost-val" style="color:#F87171">$750,000</td></tr>
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.03)"><td class="div-num" style="color:rgba(242,240,234,0.4)">23</td><td class="div-name" style="color:#F2F0EA">HVAC</td><td class="cost-val" style="color:var(--core)">$15.00</td><td class="cost-val" style="color:rgba(242,240,234,0.8)">$750,000</td></tr>
+            <tr><td class="div-num" style="color:rgba(242,240,234,0.4)">26</td><td class="div-name" style="color:#F2F0EA">Electrical</td><td class="cost-val" style="color:var(--core)">$12.00</td><td class="cost-val" style="color:rgba(242,240,234,0.8)">$600,000</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confidence temperature -->
+  <div class="mb-64">
+    <div class="section-label" style="color:rgba(255,149,0,0.5)">Confidence Temperature Scale</div>
+    <div style="display:flex;gap:48px;align-items:flex-start">
+      <div>
+        <div style="display:flex;gap:4px;align-items:flex-end;height:50px">
+          <div style="width:24px;height:12px;border-radius:3px 3px 0 0;background:rgba(255,149,0,0.12)"></div>
+          <div style="width:24px;height:20px;border-radius:3px 3px 0 0;background:rgba(255,149,0,0.25)"></div>
+          <div style="width:24px;height:28px;border-radius:3px 3px 0 0;background:rgba(255,149,0,0.45)"></div>
+          <div style="width:24px;height:36px;border-radius:3px 3px 0 0;background:var(--core)"></div>
+          <div style="width:24px;height:44px;border-radius:3px 3px 0 0;background:var(--core-hot)"></div>
+          <div style="width:24px;height:50px;border-radius:3px 3px 0 0;background:var(--core-super);box-shadow:0 0 16px rgba(255,149,0,0.5),0 0 40px rgba(255,149,0,0.2)"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:rgba(242,240,234,0.35);margin-top:8px;width:160px"><span>Cold</span><span>Baked 🔥</span></div>
+      </div>
+      <div style="font-size:13px;line-height:1.7;color:rgba(242,240,234,0.5);max-width:500px">
+        The hottest bar glows like the Terzo's wheels at full power. <strong style="color:var(--core)">"Is your number baked?"</strong> The answer is visible before you read a word.
+      </div>
+    </div>
+  </div>
+
+  <div class="board-footer" style="color:rgba(242,240,234,0.2);border-top:1px solid rgba(255,255,255,0.04)">NOVATerra · Terzo Theme v2</div>
+</div>
+</section>
+
+<script>
+function show(t) {
+  document.querySelectorAll('.theme-section').forEach(s => s.classList.remove('active'));
+  document.getElementById('section-' + t).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b => b.className = 'tab-btn');
+  document.getElementById('btn-' + t).classList.add('active-' + t);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>

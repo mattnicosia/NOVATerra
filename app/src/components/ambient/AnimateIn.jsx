@@ -33,10 +33,7 @@ export default function AnimateIn({
   tag: Tag = "div",
 }) {
   const motionSafe = useMotionSafe();
-  const childArray = useMemo(
-    () => Children.toArray(children).filter(isValidElement),
-    [children],
-  );
+  const childArray = useMemo(() => Children.toArray(children).filter(isValidElement), [children]);
 
   const container = {
     animate: {
@@ -52,24 +49,12 @@ export default function AnimateIn({
     animate: staggerChild.animate,
   };
 
-  const itemTransition = motionSafe
-    ? { ...staggerChildTransition, duration: duration / 1000 }
-    : { duration: 0 };
+  const itemTransition = motionSafe ? { ...staggerChildTransition, duration: duration / 1000 } : { duration: 0 };
 
   return (
-    <motion.div
-      className={className}
-      style={style}
-      variants={container}
-      initial="initial"
-      animate="animate"
-    >
+    <motion.div className={className} style={style} variants={container} initial="initial" animate="animate">
       {childArray.map((child, i) => (
-        <motion.div
-          key={child.key ?? i}
-          variants={item}
-          transition={itemTransition}
-        >
+        <motion.div key={child.key ?? i} variants={item} transition={itemTransition}>
           {child}
         </motion.div>
       ))}
@@ -87,10 +72,7 @@ export function AnimateList({
   tag: Tag = "div",
 }) {
   const motionSafe = useMotionSafe();
-  const childArray = useMemo(
-    () => Children.toArray(children).filter(isValidElement),
-    [children],
-  );
+  const childArray = useMemo(() => Children.toArray(children).filter(isValidElement), [children]);
 
   return (
     <Tag className={className} style={style}>
@@ -99,11 +81,7 @@ export function AnimateList({
           key={child.key ?? i}
           initial={motionSafe ? staggerChild.initial : false}
           animate={staggerChild.animate}
-          transition={
-            motionSafe
-              ? { ...staggerChildTransition, duration: duration / 1000 }
-              : { duration: 0 }
-          }
+          transition={motionSafe ? { ...staggerChildTransition, duration: duration / 1000 } : { duration: 0 }}
           layout
         >
           {child}

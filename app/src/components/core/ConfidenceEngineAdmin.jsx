@@ -1,11 +1,11 @@
 // ConfidenceEngineAdmin — Admin-only panel for subdivision engine weight tuning
 // Only visible to matt@bldgestimating.com
 
-import { useState } from 'react';
-import { useTheme } from '@/hooks/useTheme';
-import { useAuthStore } from '@/stores/authStore';
-import { useSubdivisionStore } from '@/stores/subdivisionStore';
-import { DEFAULT_ENGINE_CONFIG } from '@/utils/confidenceEngine';
+import { useState } from "react";
+import { useTheme } from "@/hooks/useTheme";
+import { useAuthStore } from "@/stores/authStore";
+import { useSubdivisionStore } from "@/stores/subdivisionStore";
+import { DEFAULT_ENGINE_CONFIG } from "@/utils/confidenceEngine";
 
 function SliderRow({ label, value, onChange, min = 0, max = 1, step = 0.01, C, T, suffix = "%" }) {
   const display = suffix === "%" ? (value * 100).toFixed(0) + "%" : value;
@@ -13,14 +13,24 @@ function SliderRow({ label, value, onChange, min = 0, max = 1, step = 0.01, C, T
     <div style={{ display: "flex", alignItems: "center", gap: 12, minHeight: 32 }}>
       <span style={{ width: 120, fontSize: 12, fontWeight: 500, color: C.textMuted, flexShrink: 0 }}>{label}</span>
       <input
-        type="range" min={min} max={max} step={step} value={value}
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
         onChange={e => onChange(parseFloat(e.target.value))}
         style={{ flex: 1, accentColor: C.accent, cursor: "pointer" }}
       />
-      <span style={{
-        width: 48, fontSize: 12, fontWeight: 600, color: C.text,
-        fontFamily: "'DM Sans', monospace", textAlign: "right",
-      }}>
+      <span
+        style={{
+          width: 48,
+          fontSize: 12,
+          fontWeight: 600,
+          color: C.text,
+          fontFamily: "'DM Sans', monospace",
+          textAlign: "right",
+        }}
+      >
         {display}
       </span>
     </div>
@@ -32,7 +42,7 @@ function StatItem({ label, value, C }) {
     <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
       <span style={{ fontSize: 11.5, color: C.textMuted }}>{label}</span>
       <span style={{ fontSize: 12, fontWeight: 600, color: C.text, fontFamily: "'DM Sans', monospace" }}>
-        {typeof value === 'number' ? value.toLocaleString() : value}
+        {typeof value === "number" ? value.toLocaleString() : value}
       </span>
     </div>
   );
@@ -43,20 +53,19 @@ export default function ConfidenceEngineAdmin() {
   const T = C.T;
 
   const user = useAuthStore(s => s.user);
-  const isAdmin = user?.email === 'matt@bldgestimating.com';
-  if (!isAdmin) return null;
-
   const engineConfig = useSubdivisionStore(s => s.engineConfig);
   const updateWeights = useSubdivisionStore(s => s.updateWeights);
   const updateEngineConfig = useSubdivisionStore(s => s.updateEngineConfig);
   const resetEngineConfig = useSubdivisionStore(s => s.resetEngineConfig);
   const stats = useSubdivisionStore(s => s.getStats)();
-
   const [open, setOpen] = useState(false);
+
+  const isAdmin = user?.email === "matt@bldgestimating.com";
+  if (!isAdmin) return null;
 
   // When one weight changes, redistribute the difference proportionally among the other two
   const handleWeightChange = (key, newVal) => {
-    const keys = ['baselineWeight', 'userHistoricalWeight', 'llmWeight'];
+    const keys = ["baselineWeight", "userHistoricalWeight", "llmWeight"];
     const others = keys.filter(k => k !== key);
     const oldVal = engineConfig[key];
     const diff = newVal - oldVal;
@@ -73,50 +82,76 @@ export default function ConfidenceEngineAdmin() {
     } else {
       // Edge case: split remainder equally
       const remainder = (1 - newVal) / others.length;
-      others.forEach(k => { newWeights[k] = Math.max(0, remainder); });
+      others.forEach(k => {
+        newWeights[k] = Math.max(0, remainder);
+      });
     }
 
     // Normalize to exactly 1.0
     const total = keys.reduce((s, k) => s + newWeights[k], 0);
     if (total > 0) {
-      keys.forEach(k => { newWeights[k] = newWeights[k] / total; });
+      keys.forEach(k => {
+        newWeights[k] = newWeights[k] / total;
+      });
     }
 
     updateWeights(newWeights.baselineWeight, newWeights.userHistoricalWeight, newWeights.llmWeight);
   };
 
   return (
-    <div style={{
-      padding: "18px 20px", borderRadius: T.radius.md,
-      background: C.bg2, border: `1px solid ${C.border}`,
-    }}>
+    <div
+      style={{
+        padding: "18px 20px",
+        borderRadius: T.radius.md,
+        background: C.bg2,
+        border: `1px solid ${C.border}`,
+      }}
+    >
       {/* Collapsible header */}
       <div
         onClick={() => setOpen(!open)}
         style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          cursor: "pointer", userSelect: "none",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          cursor: "pointer",
+          userSelect: "none",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{
-            fontSize: 13, fontWeight: 600, color: C.text,
-            fontFamily: "'DM Sans', sans-serif",
-          }}>
+          <span
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              color: C.text,
+              fontFamily: "'DM Sans', sans-serif",
+            }}
+          >
             Subdivision Engine Config
           </span>
-          <span style={{
-            fontSize: 9, fontWeight: 600, color: C.accent,
-            background: `${C.accent}18`, padding: "2px 7px",
-            borderRadius: 4, letterSpacing: "0.04em", textTransform: "uppercase",
-          }}>
+          <span
+            style={{
+              fontSize: 9,
+              fontWeight: 600,
+              color: C.accent,
+              background: `${C.accent}18`,
+              padding: "2px 7px",
+              borderRadius: 4,
+              letterSpacing: "0.04em",
+              textTransform: "uppercase",
+            }}
+          >
             admin
           </span>
         </div>
-        <span style={{
-          fontSize: 14, color: C.textMuted, transition: "transform 0.2s",
-          transform: open ? "rotate(180deg)" : "rotate(0deg)",
-        }}>
+        <span
+          style={{
+            fontSize: 14,
+            color: C.textMuted,
+            transition: "transform 0.2s",
+            transform: open ? "rotate(180deg)" : "rotate(0deg)",
+          }}
+        >
           ▾
         </span>
       </div>
@@ -125,67 +160,146 @@ export default function ConfidenceEngineAdmin() {
         <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 18 }}>
           {/* Weight sliders */}
           <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, marginBottom: 8, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: C.textMuted,
+                marginBottom: 8,
+                letterSpacing: "0.04em",
+                textTransform: "uppercase",
+              }}
+            >
               Source Weights
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <SliderRow label="Baseline" value={engineConfig.baselineWeight}
-                onChange={v => handleWeightChange('baselineWeight', v)} C={C} T={T} />
-              <SliderRow label="User Historical" value={engineConfig.userHistoricalWeight}
-                onChange={v => handleWeightChange('userHistoricalWeight', v)} C={C} T={T} />
-              <SliderRow label="LLM" value={engineConfig.llmWeight}
-                onChange={v => handleWeightChange('llmWeight', v)} C={C} T={T} />
+              <SliderRow
+                label="Baseline"
+                value={engineConfig.baselineWeight}
+                onChange={v => handleWeightChange("baselineWeight", v)}
+                C={C}
+                T={T}
+              />
+              <SliderRow
+                label="User Historical"
+                value={engineConfig.userHistoricalWeight}
+                onChange={v => handleWeightChange("userHistoricalWeight", v)}
+                C={C}
+                T={T}
+              />
+              <SliderRow
+                label="LLM"
+                value={engineConfig.llmWeight}
+                onChange={v => handleWeightChange("llmWeight", v)}
+                C={C}
+                T={T}
+              />
             </div>
           </div>
 
           {/* Engine parameters */}
           <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, marginBottom: 8, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: C.textMuted,
+                marginBottom: 8,
+                letterSpacing: "0.04em",
+                textTransform: "uppercase",
+              }}
+            >
               Parameters
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12, minHeight: 32 }}>
-                <span style={{ width: 120, fontSize: 12, fontWeight: 500, color: C.textMuted, flexShrink: 0 }}>Auto-shift</span>
+                <span style={{ width: 120, fontSize: 12, fontWeight: 500, color: C.textMuted, flexShrink: 0 }}>
+                  Auto-shift
+                </span>
                 <div
                   onClick={() => updateEngineConfig({ autoShift: !engineConfig.autoShift })}
                   style={{
-                    width: 36, height: 20, borderRadius: 10, cursor: "pointer",
+                    width: 36,
+                    height: 20,
+                    borderRadius: 10,
+                    cursor: "pointer",
                     background: engineConfig.autoShift ? C.accent : C.border,
-                    position: "relative", transition: "background 0.2s",
+                    position: "relative",
+                    transition: "background 0.2s",
                   }}
                 >
-                  <div style={{
-                    width: 16, height: 16, borderRadius: 8, background: "#fff",
-                    position: "absolute", top: 2,
-                    left: engineConfig.autoShift ? 18 : 2,
-                    transition: "left 0.2s",
-                  }} />
+                  <div
+                    style={{
+                      width: 16,
+                      height: 16,
+                      borderRadius: 8,
+                      background: "#fff",
+                      position: "absolute",
+                      top: 2,
+                      left: engineConfig.autoShift ? 18 : 2,
+                      transition: "left 0.2s",
+                    }}
+                  />
                 </div>
-                <span style={{ fontSize: 12, color: C.textMuted }}>
-                  {engineConfig.autoShift ? "On" : "Off"}
-                </span>
+                <span style={{ fontSize: 12, color: C.textMuted }}>{engineConfig.autoShift ? "On" : "Off"}</span>
               </div>
-              <SliderRow label="Min User Samples" value={engineConfig.minUserSamples}
+              <SliderRow
+                label="Min User Samples"
+                value={engineConfig.minUserSamples}
                 onChange={v => updateEngineConfig({ minUserSamples: Math.round(v) })}
-                min={1} max={20} step={1} C={C} T={T} suffix="" />
-              <SliderRow label="Max User Weight" value={engineConfig.maxUserWeight}
+                min={1}
+                max={20}
+                step={1}
+                C={C}
+                T={T}
+                suffix=""
+              />
+              <SliderRow
+                label="Max User Weight"
+                value={engineConfig.maxUserWeight}
                 onChange={v => updateEngineConfig({ maxUserWeight: v })}
-                min={0} max={1} step={0.05} C={C} T={T} />
-              <SliderRow label="LLM Temperature" value={engineConfig.llmTemperature}
+                min={0}
+                max={1}
+                step={0.05}
+                C={C}
+                T={T}
+              />
+              <SliderRow
+                label="LLM Temperature"
+                value={engineConfig.llmTemperature}
                 onChange={v => updateEngineConfig({ llmTemperature: v })}
-                min={0} max={2} step={0.05} C={C} T={T} suffix="" />
+                min={0}
+                max={2}
+                step={0.05}
+                C={C}
+                T={T}
+                suffix=""
+              />
             </div>
           </div>
 
           {/* Stats */}
           <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, marginBottom: 8, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: C.textMuted,
+                marginBottom: 8,
+                letterSpacing: "0.04em",
+                textTransform: "uppercase",
+              }}
+            >
               Engine Stats
             </div>
-            <div style={{
-              padding: "10px 14px", borderRadius: T.radius.sm,
-              background: C.bg, border: `1px solid ${C.border}`,
-            }}>
+            <div
+              style={{
+                padding: "10px 14px",
+                borderRadius: T.radius.sm,
+                background: C.bg,
+                border: `1px solid ${C.border}`,
+              }}
+            >
               <StatItem label="Total subdivisions" value={stats.totalSubs} C={C} />
               <StatItem label="Validated LLM" value={stats.validatedLlm} C={C} />
               <StatItem label="User overrides" value={stats.userOverrideCount} C={C} />
@@ -198,14 +312,25 @@ export default function ConfidenceEngineAdmin() {
             <button
               onClick={resetEngineConfig}
               style={{
-                padding: "6px 14px", fontSize: 11, fontWeight: 600,
-                borderRadius: T.radius.sm, border: `1px solid ${C.border}`,
-                background: "transparent", color: C.textMuted,
-                cursor: "pointer", letterSpacing: "0.02em",
+                padding: "6px 14px",
+                fontSize: 11,
+                fontWeight: 600,
+                borderRadius: T.radius.sm,
+                border: `1px solid ${C.border}`,
+                background: "transparent",
+                color: C.textMuted,
+                cursor: "pointer",
+                letterSpacing: "0.02em",
                 transition: "all 0.15s",
               }}
-              onMouseEnter={e => { e.target.style.borderColor = "#e74c3c"; e.target.style.color = "#e74c3c"; }}
-              onMouseLeave={e => { e.target.style.borderColor = C.border; e.target.style.color = C.textMuted; }}
+              onMouseEnter={e => {
+                e.target.style.borderColor = "#e74c3c";
+                e.target.style.color = "#e74c3c";
+              }}
+              onMouseLeave={e => {
+                e.target.style.borderColor = C.border;
+                e.target.style.color = C.textMuted;
+              }}
             >
               Reset to Defaults
             </button>

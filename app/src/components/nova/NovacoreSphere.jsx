@@ -16,18 +16,24 @@ import { atmosphereFragmentShader } from "./shaders/atmosphere.frag";
 // Tuned for deep → bright → deep color cycling
 
 // NOVA: cyan → deep blue → violet → lavender — wide diversity, R+B phased
-// Wider amps for more visible hue zones. R+B peak together (max R/B ≈ 0.50)
+// Wider amps for VISIBLE hue zones. R+B peak together → lavender (not pink)
+// Max R/B ≈ 0.46 (always reads as violet, never pink)
+// v10.5: True violet-blue — R capped so it NEVER reads as pink
+// (IQ: "R/B must stay < 0.40 after satBoost for true violet")
+// R range: 0.06–0.26. At R peak with B≈0.70: R/B=0.37 → VIOLET, not magenta.
+// B range: 0.26–0.82 (always dominant). G range: 0–0.18 (faint accent only).
 const NOVA_PAL = {
-  a: new THREE.Vector3(0.16, 0.17, 0.54), // strong blue base (B always present)
-  b: new THREE.Vector3(0.16, 0.28, 0.24), // wider amps: R for violet, G for cyan, B swings
-  c: new THREE.Vector3(1.0, 0.85, 0.70), // freq separation for organic drift
-  d: new THREE.Vector3(0.50, 0.20, 0.50), // R+B SAME phase → peak together!
+  a: new THREE.Vector3(0.16, 0.06, 0.54), // moderate R base → violet tint everywhere
+  b: new THREE.Vector3(0.10, 0.12, 0.28), // R TINY swing → violet↔blue gradient, never pink
+  c: new THREE.Vector3(1.0, 0.85, 0.70),  // standard IQ frequency separation
+  d: new THREE.Vector3(0.50, 0.78, 0.50), // R+B sync, G phase-shifted off center
 };
 
 // CORE: amber-gold-white spectrum — deep darks with blazing hot peaks
+// b.z near-zero → no blue swing → eliminates purple at low-R palette values
 const CORE_PAL = {
   a: new THREE.Vector3(0.05, 0.02, 0.01), // near-black base (darker foundation)
-  b: new THREE.Vector3(0.85, 0.55, 0.18), // wide amplitude → extreme contrast
+  b: new THREE.Vector3(0.85, 0.55, 0.04), // R+G wide, B near-zero → pure amber, no purple
   c: new THREE.Vector3(1.0, 0.8, 0.55), // offset cycles → gold-to-white shifts
   d: new THREE.Vector3(0.0, 0.1, 0.22), // amber → gold → white-hot peaks
 };
@@ -96,7 +102,7 @@ const NovacoreSphere = forwardRef(function NovacoreSphere(
       uIntensity: { value: intensity },
       uPulse: { value: 0.0 },
       uExhale: { value: 0.0 },
-      uNovaGlow: { value: new THREE.Vector3(0.25, 0.28, 0.90) },
+      uNovaGlow: { value: new THREE.Vector3(0.10, 0.28, 0.95) }, // v10.5: drop R → pure blue, no pink rim
       uCoreGlow: { value: new THREE.Vector3(0.95, 0.6, 0.12) },
     }),
     [],
@@ -171,12 +177,14 @@ const NovacoreSphere = forwardRef(function NovacoreSphere(
       au.uExhale.value = s.exhale;
     }
 
-    // ── Rotation ──────────────────────────────────────────────
+    // ── Rotation — organic wobble, not mechanical ──────────────
     if (groupRef.current) {
-      // v8: Slower rotation — graceful, not chaotic
-      const rotSpeed = lerp(0.025, 0.06, s.morph);
-      groupRef.current.rotation.y += rotSpeed * delta;
-      groupRef.current.rotation.x = Math.sin(elapsedTime * 0.08) * 0.05;
+      // Base speed + 2-freq wobble → living rotation (Hodgin)
+      const baseRot = lerp(0.025, 0.06, s.morph);
+      const rotWobble = 1.0 + 0.25 * Math.sin(elapsedTime * 0.15) + 0.10 * Math.sin(elapsedTime * 0.37);
+      groupRef.current.rotation.y += baseRot * rotWobble * delta;
+      // Multi-frequency tilt — subtle breathing axis
+      groupRef.current.rotation.x = Math.sin(elapsedTime * 0.08) * 0.06 + Math.sin(elapsedTime * 0.13) * 0.03;
     }
   });
 

@@ -1,13 +1,13 @@
 // ROM Engine — Rough Order of Magnitude cost estimation
 // Generates division-level $/SF ranges and schedule-derived line items
 
-import { SEED_ELEMENTS } from '@/constants/seedAssemblies';
-import { callAnthropic, buildProjectContext } from '@/utils/ai';
-import { searchSimilar } from '@/utils/vectorSearch';
-import { getWorkTypeMultiplier } from '@/constants/constructionTypes';
-import { SUBDIVISION_BENCHMARKS, DEFAULT_SUBDIVISIONS } from '@/constants/subdivisionBenchmarks';
-import { computeSubdivisionBreakdown } from '@/utils/confidenceEngine';
-import { generateAllSubdivisions } from '@/utils/subdivisionAI';
+import { SEED_ELEMENTS } from "@/constants/seedAssemblies";
+import { callAnthropic, buildProjectContext } from "@/utils/ai";
+import { searchSimilar } from "@/utils/vectorSearch";
+import { getWorkTypeMultiplier } from "@/constants/constructionTypes";
+import { SUBDIVISION_BENCHMARKS, DEFAULT_SUBDIVISIONS } from "@/constants/subdivisionBenchmarks";
+import { computeSubdivisionBreakdown } from "@/utils/confidenceEngine";
+import { generateAllSubdivisions } from "@/utils/subdivisionAI";
 
 // ─── Division Benchmarks ($/SF by job type) ───────────────────────────
 // Low = budget/value, Mid = typical, High = premium/complex
@@ -22,19 +22,19 @@ const BENCHMARKS = {
     "07": { label: "Thermal & Moisture", low: 4, mid: 8, high: 14 },
     "08": { label: "Openings", low: 5, mid: 10, high: 18 },
     "09": { label: "Finishes", low: 8, mid: 15, high: 25 },
-    "10": { label: "Specialties", low: 1, mid: 3, high: 6 },
-    "14": { label: "Conveying", low: 0, mid: 4, high: 12 },
-    "21": { label: "Fire Suppression", low: 2, mid: 4, high: 7 },
-    "22": { label: "Plumbing", low: 4, mid: 8, high: 15 },
-    "23": { label: "HVAC", low: 8, mid: 15, high: 25 },
-    "26": { label: "Electrical", low: 6, mid: 12, high: 20 },
-    "27": { label: "Communications", low: 1, mid: 3, high: 6 },
-    "28": { label: "Electronic Safety", low: 1, mid: 3, high: 5 },
-    "31": { label: "Earthwork", low: 2, mid: 5, high: 10 },
-    "32": { label: "Exterior Improvements", low: 1, mid: 4, high: 8 },
-    "33": { label: "Utilities", low: 1, mid: 3, high: 6 },
+    10: { label: "Specialties", low: 1, mid: 3, high: 6 },
+    14: { label: "Conveying", low: 0, mid: 4, high: 12 },
+    21: { label: "Fire Suppression", low: 2, mid: 4, high: 7 },
+    22: { label: "Plumbing", low: 4, mid: 8, high: 15 },
+    23: { label: "HVAC", low: 8, mid: 15, high: 25 },
+    26: { label: "Electrical", low: 6, mid: 12, high: 20 },
+    27: { label: "Communications", low: 1, mid: 3, high: 6 },
+    28: { label: "Electronic Safety", low: 1, mid: 3, high: 5 },
+    31: { label: "Earthwork", low: 2, mid: 5, high: 10 },
+    32: { label: "Exterior Improvements", low: 1, mid: 4, high: 8 },
+    33: { label: "Utilities", low: 1, mid: 3, high: 6 },
   },
-  "retail": {
+  retail: {
     "01": { label: "General Requirements", low: 2, mid: 5, high: 8 },
     "02": { label: "Existing Conditions/Demo", low: 0, mid: 2, high: 6 },
     "03": { label: "Concrete", low: 5, mid: 10, high: 18 },
@@ -43,23 +43,23 @@ const BENCHMARKS = {
     "07": { label: "Thermal & Moisture", low: 3, mid: 6, high: 12 },
     "08": { label: "Openings", low: 6, mid: 12, high: 22 },
     "09": { label: "Finishes", low: 6, mid: 12, high: 22 },
-    "22": { label: "Plumbing", low: 2, mid: 5, high: 10 },
-    "23": { label: "HVAC", low: 6, mid: 12, high: 20 },
-    "26": { label: "Electrical", low: 5, mid: 10, high: 18 },
+    22: { label: "Plumbing", low: 2, mid: 5, high: 10 },
+    23: { label: "HVAC", low: 6, mid: 12, high: 20 },
+    26: { label: "Electrical", low: 5, mid: 10, high: 18 },
   },
-  "healthcare": {
+  healthcare: {
     "01": { label: "General Requirements", low: 5, mid: 10, high: 18 },
     "03": { label: "Concrete", low: 10, mid: 18, high: 30 },
     "05": { label: "Metals", low: 8, mid: 15, high: 25 },
     "07": { label: "Thermal & Moisture", low: 5, mid: 10, high: 18 },
     "08": { label: "Openings", low: 8, mid: 14, high: 22 },
     "09": { label: "Finishes", low: 12, mid: 22, high: 35 },
-    "22": { label: "Plumbing", low: 8, mid: 15, high: 25 },
-    "23": { label: "HVAC", low: 15, mid: 25, high: 40 },
-    "26": { label: "Electrical", low: 10, mid: 18, high: 30 },
-    "28": { label: "Electronic Safety", low: 3, mid: 6, high: 10 },
+    22: { label: "Plumbing", low: 8, mid: 15, high: 25 },
+    23: { label: "HVAC", low: 15, mid: 25, high: 40 },
+    26: { label: "Electrical", low: 10, mid: 18, high: 30 },
+    28: { label: "Electronic Safety", low: 3, mid: 6, high: 10 },
   },
-  "education": {
+  education: {
     "01": { label: "General Requirements", low: 3, mid: 6, high: 10 },
     "03": { label: "Concrete", low: 6, mid: 12, high: 20 },
     "04": { label: "Masonry", low: 3, mid: 8, high: 14 },
@@ -67,21 +67,21 @@ const BENCHMARKS = {
     "07": { label: "Thermal & Moisture", low: 3, mid: 7, high: 12 },
     "08": { label: "Openings", low: 5, mid: 10, high: 16 },
     "09": { label: "Finishes", low: 8, mid: 14, high: 22 },
-    "22": { label: "Plumbing", low: 4, mid: 8, high: 14 },
-    "23": { label: "HVAC", low: 8, mid: 14, high: 22 },
-    "26": { label: "Electrical", low: 6, mid: 12, high: 18 },
+    22: { label: "Plumbing", low: 4, mid: 8, high: 14 },
+    23: { label: "HVAC", low: 8, mid: 14, high: 22 },
+    26: { label: "Electrical", low: 6, mid: 12, high: 18 },
   },
-  "industrial": {
+  industrial: {
     "01": { label: "General Requirements", low: 2, mid: 4, high: 8 },
     "03": { label: "Concrete", low: 8, mid: 15, high: 25 },
     "05": { label: "Metals", low: 10, mid: 18, high: 30 },
     "07": { label: "Thermal & Moisture", low: 3, mid: 6, high: 12 },
     "08": { label: "Openings", low: 3, mid: 6, high: 12 },
     "09": { label: "Finishes", low: 2, mid: 5, high: 10 },
-    "22": { label: "Plumbing", low: 2, mid: 5, high: 10 },
-    "23": { label: "HVAC", low: 4, mid: 8, high: 15 },
-    "26": { label: "Electrical", low: 5, mid: 10, high: 18 },
-    "31": { label: "Earthwork", low: 3, mid: 8, high: 15 },
+    22: { label: "Plumbing", low: 2, mid: 5, high: 10 },
+    23: { label: "HVAC", low: 4, mid: 8, high: 15 },
+    26: { label: "Electrical", low: 5, mid: 10, high: 18 },
+    31: { label: "Earthwork", low: 3, mid: 8, high: 15 },
   },
   "residential-multi": {
     "01": { label: "General Requirements", low: 2, mid: 5, high: 8 },
@@ -91,11 +91,11 @@ const BENCHMARKS = {
     "07": { label: "Thermal & Moisture", low: 3, mid: 7, high: 12 },
     "08": { label: "Openings", low: 5, mid: 10, high: 16 },
     "09": { label: "Finishes", low: 8, mid: 14, high: 22 },
-    "22": { label: "Plumbing", low: 5, mid: 10, high: 18 },
-    "23": { label: "HVAC", low: 5, mid: 10, high: 18 },
-    "26": { label: "Electrical", low: 5, mid: 10, high: 16 },
+    22: { label: "Plumbing", low: 5, mid: 10, high: 18 },
+    23: { label: "HVAC", low: 5, mid: 10, high: 18 },
+    26: { label: "Electrical", low: 5, mid: 10, high: 16 },
   },
-  "hospitality": {
+  hospitality: {
     "01": { label: "General Requirements", low: 4, mid: 8, high: 14 },
     "02": { label: "Existing Conditions/Demo", low: 1, mid: 3, high: 8 },
     "03": { label: "Concrete", low: 8, mid: 14, high: 22 },
@@ -105,13 +105,13 @@ const BENCHMARKS = {
     "07": { label: "Thermal & Moisture", low: 4, mid: 8, high: 14 },
     "08": { label: "Openings", low: 6, mid: 12, high: 20 },
     "09": { label: "Finishes", low: 12, mid: 20, high: 32 },
-    "10": { label: "Specialties", low: 2, mid: 5, high: 10 },
-    "14": { label: "Conveying", low: 2, mid: 6, high: 14 },
-    "21": { label: "Fire Suppression", low: 3, mid: 5, high: 8 },
-    "22": { label: "Plumbing", low: 6, mid: 12, high: 20 },
-    "23": { label: "HVAC", low: 10, mid: 18, high: 28 },
-    "26": { label: "Electrical", low: 8, mid: 14, high: 22 },
-    "27": { label: "Communications", low: 2, mid: 4, high: 8 },
+    10: { label: "Specialties", low: 2, mid: 5, high: 10 },
+    14: { label: "Conveying", low: 2, mid: 6, high: 14 },
+    21: { label: "Fire Suppression", low: 3, mid: 5, high: 8 },
+    22: { label: "Plumbing", low: 6, mid: 12, high: 20 },
+    23: { label: "HVAC", low: 10, mid: 18, high: 28 },
+    26: { label: "Electrical", low: 8, mid: 14, high: 22 },
+    27: { label: "Communications", low: 2, mid: 4, high: 8 },
   },
   "residential-single": {
     "01": { label: "General Requirements", low: 2, mid: 4, high: 7 },
@@ -121,10 +121,10 @@ const BENCHMARKS = {
     "07": { label: "Thermal & Moisture", low: 3, mid: 6, high: 10 },
     "08": { label: "Openings", low: 5, mid: 10, high: 18 },
     "09": { label: "Finishes", low: 8, mid: 15, high: 28 },
-    "22": { label: "Plumbing", low: 5, mid: 10, high: 18 },
-    "23": { label: "HVAC", low: 5, mid: 10, high: 16 },
-    "26": { label: "Electrical", low: 4, mid: 8, high: 14 },
-    "31": { label: "Earthwork", low: 2, mid: 5, high: 10 },
+    22: { label: "Plumbing", low: 5, mid: 10, high: 18 },
+    23: { label: "HVAC", low: 5, mid: 10, high: 16 },
+    26: { label: "Electrical", low: 4, mid: 8, high: 14 },
+    31: { label: "Earthwork", low: 2, mid: 5, high: 10 },
   },
   "mixed-use": {
     "01": { label: "General Requirements", low: 3, mid: 7, high: 12 },
@@ -136,15 +136,15 @@ const BENCHMARKS = {
     "07": { label: "Thermal & Moisture", low: 4, mid: 8, high: 14 },
     "08": { label: "Openings", low: 6, mid: 11, high: 18 },
     "09": { label: "Finishes", low: 8, mid: 14, high: 24 },
-    "10": { label: "Specialties", low: 1, mid: 3, high: 6 },
-    "14": { label: "Conveying", low: 1, mid: 5, high: 12 },
-    "21": { label: "Fire Suppression", low: 2, mid: 4, high: 7 },
-    "22": { label: "Plumbing", low: 5, mid: 10, high: 18 },
-    "23": { label: "HVAC", low: 8, mid: 14, high: 22 },
-    "26": { label: "Electrical", low: 6, mid: 12, high: 20 },
-    "31": { label: "Earthwork", low: 2, mid: 5, high: 10 },
+    10: { label: "Specialties", low: 1, mid: 3, high: 6 },
+    14: { label: "Conveying", low: 1, mid: 5, high: 12 },
+    21: { label: "Fire Suppression", low: 2, mid: 4, high: 7 },
+    22: { label: "Plumbing", low: 5, mid: 10, high: 18 },
+    23: { label: "HVAC", low: 8, mid: 14, high: 22 },
+    26: { label: "Electrical", low: 6, mid: 12, high: 20 },
+    31: { label: "Earthwork", low: 2, mid: 5, high: 10 },
   },
-  "government": {
+  government: {
     "01": { label: "General Requirements", low: 4, mid: 8, high: 14 },
     "02": { label: "Existing Conditions/Demo", low: 1, mid: 3, high: 8 },
     "03": { label: "Concrete", low: 8, mid: 14, high: 22 },
@@ -154,14 +154,14 @@ const BENCHMARKS = {
     "07": { label: "Thermal & Moisture", low: 4, mid: 8, high: 14 },
     "08": { label: "Openings", low: 5, mid: 10, high: 18 },
     "09": { label: "Finishes", low: 8, mid: 14, high: 22 },
-    "10": { label: "Specialties", low: 1, mid: 3, high: 6 },
-    "21": { label: "Fire Suppression", low: 2, mid: 4, high: 7 },
-    "22": { label: "Plumbing", low: 4, mid: 8, high: 14 },
-    "23": { label: "HVAC", low: 8, mid: 14, high: 22 },
-    "26": { label: "Electrical", low: 7, mid: 13, high: 20 },
-    "28": { label: "Electronic Safety", low: 2, mid: 5, high: 10 },
+    10: { label: "Specialties", low: 1, mid: 3, high: 6 },
+    21: { label: "Fire Suppression", low: 2, mid: 4, high: 7 },
+    22: { label: "Plumbing", low: 4, mid: 8, high: 14 },
+    23: { label: "HVAC", low: 8, mid: 14, high: 22 },
+    26: { label: "Electrical", low: 7, mid: 13, high: 20 },
+    28: { label: "Electronic Safety", low: 2, mid: 5, high: 10 },
   },
-  "religious": {
+  religious: {
     "01": { label: "General Requirements", low: 3, mid: 6, high: 10 },
     "03": { label: "Concrete", low: 6, mid: 10, high: 16 },
     "04": { label: "Masonry", low: 4, mid: 8, high: 15 },
@@ -170,13 +170,13 @@ const BENCHMARKS = {
     "07": { label: "Thermal & Moisture", low: 3, mid: 7, high: 12 },
     "08": { label: "Openings", low: 6, mid: 12, high: 22 },
     "09": { label: "Finishes", low: 10, mid: 18, high: 30 },
-    "10": { label: "Specialties", low: 2, mid: 4, high: 8 },
-    "22": { label: "Plumbing", low: 3, mid: 6, high: 10 },
-    "23": { label: "HVAC", low: 6, mid: 12, high: 20 },
-    "26": { label: "Electrical", low: 5, mid: 10, high: 18 },
-    "27": { label: "Communications", low: 2, mid: 4, high: 8 },
+    10: { label: "Specialties", low: 2, mid: 4, high: 8 },
+    22: { label: "Plumbing", low: 3, mid: 6, high: 10 },
+    23: { label: "HVAC", low: 6, mid: 12, high: 20 },
+    26: { label: "Electrical", low: 5, mid: 10, high: 18 },
+    27: { label: "Communications", low: 2, mid: 4, high: 8 },
   },
-  "restaurant": {
+  restaurant: {
     "01": { label: "General Requirements", low: 3, mid: 6, high: 10 },
     "02": { label: "Existing Conditions/Demo", low: 1, mid: 3, high: 8 },
     "03": { label: "Concrete", low: 5, mid: 10, high: 18 },
@@ -185,25 +185,25 @@ const BENCHMARKS = {
     "07": { label: "Thermal & Moisture", low: 3, mid: 6, high: 12 },
     "08": { label: "Openings", low: 5, mid: 10, high: 18 },
     "09": { label: "Finishes", low: 8, mid: 16, high: 28 },
-    "11": { label: "Equipment", low: 15, mid: 30, high: 50 },
-    "22": { label: "Plumbing", low: 10, mid: 18, high: 30 },
-    "23": { label: "HVAC", low: 12, mid: 20, high: 35 },
-    "26": { label: "Electrical", low: 6, mid: 12, high: 20 },
-    "21": { label: "Fire Suppression", low: 3, mid: 5, high: 8 },
+    11: { label: "Equipment", low: 15, mid: 30, high: 50 },
+    22: { label: "Plumbing", low: 10, mid: 18, high: 30 },
+    23: { label: "HVAC", low: 12, mid: 20, high: 35 },
+    26: { label: "Electrical", low: 6, mid: 12, high: 20 },
+    21: { label: "Fire Suppression", low: 3, mid: 5, high: 8 },
   },
-  "parking": {
+  parking: {
     "01": { label: "General Requirements", low: 1, mid: 3, high: 6 },
     "02": { label: "Existing Conditions/Demo", low: 0, mid: 2, high: 5 },
     "03": { label: "Concrete", low: 15, mid: 25, high: 40 },
     "05": { label: "Metals", low: 8, mid: 14, high: 22 },
     "07": { label: "Thermal & Moisture", low: 2, mid: 4, high: 8 },
     "09": { label: "Finishes", low: 1, mid: 2, high: 4 },
-    "14": { label: "Conveying", low: 0, mid: 2, high: 6 },
-    "22": { label: "Plumbing", low: 0, mid: 1, high: 3 },
-    "26": { label: "Electrical", low: 3, mid: 6, high: 12 },
-    "28": { label: "Electronic Safety", low: 1, mid: 3, high: 6 },
-    "31": { label: "Earthwork", low: 2, mid: 5, high: 10 },
-    "32": { label: "Exterior Improvements", low: 1, mid: 3, high: 6 },
+    14: { label: "Conveying", low: 0, mid: 2, high: 6 },
+    22: { label: "Plumbing", low: 0, mid: 1, high: 3 },
+    26: { label: "Electrical", low: 3, mid: 6, high: 12 },
+    28: { label: "Electronic Safety", low: 1, mid: 3, high: 6 },
+    31: { label: "Earthwork", low: 2, mid: 5, high: 10 },
+    32: { label: "Exterior Improvements", low: 1, mid: 3, high: 6 },
   },
 };
 
@@ -246,9 +246,9 @@ export function getBuildingParamMultipliers(buildingParams = {}) {
   // ── Basement impacts ──
   if (basements > 0) {
     mults["02"] = (mults["02"] || 1) + basements * 0.15; // Demo/excavation: +15% per basement
-    mults["03"] = (mults["03"] || 1) + basements * 0.10; // Concrete: +10% (foundations, retaining)
+    mults["03"] = (mults["03"] || 1) + basements * 0.1; // Concrete: +10% (foundations, retaining)
     mults["07"] = (mults["07"] || 1) + basements * 0.08; // Waterproofing: +8%
-    mults["31"] = (mults["31"] || 1) + basements * 0.20; // Earthwork: +20% per basement
+    mults["31"] = (mults["31"] || 1) + basements * 0.2; // Earthwork: +20% per basement
   }
 
   // ── Room count impacts ──
@@ -261,7 +261,7 @@ export function getBuildingParamMultipliers(buildingParams = {}) {
   // Kitchen count → equipment + plumbing + electrical
   const kitchens = parseInt(rooms.kitchens) || 0;
   if (kitchens > 0) {
-    mults["11"] = (mults["11"] || 1) + kitchens * 0.10; // Equipment: +10% per kitchen
+    mults["11"] = (mults["11"] || 1) + kitchens * 0.1; // Equipment: +10% per kitchen
     mults["22"] = (mults["22"] || 1) + kitchens * 0.05; // Plumbing: +5% per kitchen
   }
 
@@ -300,7 +300,7 @@ export function getBuildingParamMultipliers(buildingParams = {}) {
 export function generateBaselineROM(projectSF, buildingTypeOrJobType, workTypeOrCalib, maybeCalib, buildingParams) {
   // Detect old 3-arg signature vs new 4-arg
   let buildingType, workType, calibrationFactors;
-  if (typeof workTypeOrCalib === 'string') {
+  if (typeof workTypeOrCalib === "string") {
     // New signature: (sf, buildingType, workType, calibrationFactors)
     buildingType = buildingTypeOrJobType;
     workType = workTypeOrCalib;
@@ -318,7 +318,9 @@ export function generateBaselineROM(projectSF, buildingTypeOrJobType, workTypeOr
   const bpMults = getBuildingParamMultipliers(buildingParams || {});
 
   const divisions = {};
-  let totalLow = 0, totalMid = 0, totalHigh = 0;
+  let totalLow = 0,
+    totalMid = 0,
+    totalHigh = 0;
 
   Object.entries(benchmarks).forEach(([div, range]) => {
     // Apply calibration factor + work type multiplier + building param multiplier
@@ -330,7 +332,10 @@ export function generateBaselineROM(projectSF, buildingTypeOrJobType, workTypeOr
     divisions[div] = {
       label: range.label,
       perSF: { low: Math.round(low * 100) / 100, mid: Math.round(mid * 100) / 100, high: Math.round(high * 100) / 100 },
-      total: sf > 0 ? { low: Math.round(sf * low), mid: Math.round(sf * mid), high: Math.round(sf * high) } : { low: 0, mid: 0, high: 0 },
+      total:
+        sf > 0
+          ? { low: Math.round(sf * low), mid: Math.round(sf * mid), high: Math.round(sf * high) }
+          : { low: 0, mid: 0, high: 0 },
     };
 
     totalLow += sf * low;
@@ -362,18 +367,22 @@ export function generateBaselineROM(projectSF, buildingTypeOrJobType, workTypeOr
 // When project SF is unknown, ask AI to estimate it from drawings + schedules
 export async function estimateProjectSF({ drawings, schedules, projectContext }) {
   try {
-    const drawingSummary = drawings.map(d =>
-      `${d.sheetNumber || d.label || "Sheet"}: ${d.sheetTitle || "Untitled"}`
-    ).join("\n");
+    const drawingSummary = drawings
+      .map(d => `${d.sheetNumber || d.label || "Sheet"}: ${d.sheetTitle || "Untitled"}`)
+      .join("\n");
 
-    const scheduleSummary = schedules.map(s =>
-      `${s.type}: ${s.entries?.length || 0} entries (from ${s.sheetLabel || "sheet"})`
-    ).join("\n");
+    const scheduleSummary = schedules
+      .map(s => `${s.type}: ${s.entries?.length || 0} entries (from ${s.sheetLabel || "sheet"})`)
+      .join("\n");
 
     const result = await callAnthropic({
       max_tokens: 500,
-      system: "You are a senior construction estimator. Based on drawing sheets and schedule data, estimate the approximate building square footage.",
-      messages: [{ role: "user", content: `I need to estimate the total building square footage for a project. I don't have it entered yet.
+      system:
+        "You are a senior construction estimator. Based on drawing sheets and schedule data, estimate the approximate building square footage.",
+      messages: [
+        {
+          role: "user",
+          content: `I need to estimate the total building square footage for a project. I don't have it entered yet.
 
 Drawing sheets:
 ${drawingSummary || "(no drawings)"}
@@ -385,7 +394,9 @@ ${projectContext || ""}
 
 Based on the drawing types, number of sheets, and schedule complexity, estimate the approximate total building gross square footage.
 
-Return ONLY a JSON object: {"estimatedSF": <number>, "confidence": "high"|"medium"|"low", "reasoning": "<brief explanation>"}` }],
+Return ONLY a JSON object: {"estimatedSF": <number>, "confidence": "high"|"medium"|"low", "reasoning": "<brief explanation>"}`,
+        },
+      ],
     });
 
     const jsonMatch = result.match(/\{[\s\S]*\}/);
@@ -422,7 +433,9 @@ export function extractBuildingParamsFromSchedules(schedules) {
   function inferRoomFromFinishes(entry) {
     const floor = (entry.floor || "").toLowerCase();
     const walls = [entry.north_wall, entry.south_wall, entry.east_wall, entry.west_wall, entry.walls]
-      .filter(Boolean).join(" ").toLowerCase();
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
     const ceiling = (entry.ceiling || "").toLowerCase();
     const notes = (entry.notes || "").toLowerCase();
 
@@ -513,15 +526,17 @@ export function extractBuildingParamsFromSchedules(schedules) {
           if (inferred === "bathroom") roomCounts.bathrooms = (roomCounts.bathrooms || 0) + 1;
           else if (inferred === "kitchen") roomCounts.kitchens = (roomCounts.kitchens || 0) + 1;
           else if (inferred === "garage") roomCounts.parkingSpaces = (roomCounts.parkingSpaces || 0) + 1;
-          else if (inferred === "utility" || inferred === "laundry") roomCounts.storageRooms = (roomCounts.storageRooms || 0) + 1;
+          else if (inferred === "utility" || inferred === "laundry")
+            roomCounts.storageRooms = (roomCounts.storageRooms || 0) + 1;
         }
 
         // Detect floor from room name — require explicit floor indicators
         // Pattern 1: ordinal REQUIRED before floor/level (e.g., "1st Floor Hall", "2nd Fl Bath")
         // Pattern 2: "floor"/"level" before number (e.g., "Floor 2", "Level 3")
         // This prevents room numbers (e.g., "Room 105") from false-matching near "floor" text
-        const floorMatch = room.match(/\b(\d+)(?:st|nd|rd|th)\s*(?:fl(?:oor)?|level)\b/i)
-          || room.match(/\b(?:fl(?:oor)?|level)\s*#?(\d+)\b/i);
+        const floorMatch =
+          room.match(/\b(\d+)(?:st|nd|rd|th)\s*(?:fl(?:oor)?|level)\b/i) ||
+          room.match(/\b(?:fl(?:oor)?|level)\s*#?(\d+)\b/i);
         if (floorMatch) detectedFloors.add(parseInt(floorMatch[1]));
       }
     }
@@ -549,7 +564,9 @@ export function extractBuildingParamsFromSchedules(schedules) {
 
     // Equipment schedule → kitchen detection
     if (type === "equipment") {
-      const kitchenEquip = entries.filter(e => /oven|range|fryer|dishwasher|hood|refrigerator|freezer|mixer/i.test(e.description || ""));
+      const kitchenEquip = entries.filter(e =>
+        /oven|range|fryer|dishwasher|hood|refrigerator|freezer|mixer/i.test(e.description || ""),
+      );
       if (kitchenEquip.length > 0) {
         roomCounts.kitchens = Math.max(roomCounts.kitchens || 0, 1);
       }
@@ -580,10 +597,13 @@ export async function generateScheduleLineItems(schedules) {
             const seedMatch = await findSeedByVector(["metal stud", "wall"], entry.studs);
             lineItems.push({
               code: "05.400",
-              description: `Wall Type ${entry.typeLabel}: ${entry.material || "Metal Stud"} ${entry.studs || ""} @ ${entry.height || ""}' — ${entry.insulation || ""}`.trim(),
+              description:
+                `Wall Type ${entry.typeLabel}: ${entry.material || "Metal Stud"} ${entry.studs || ""} @ ${entry.height || ""}' — ${entry.insulation || ""}`.trim(),
               unit: "SF",
               seedId: seedMatch?.id,
-              m: seedMatch?.material || 0, l: seedMatch?.labor || 0, e: seedMatch?.equipment || 0,
+              m: seedMatch?.material || 0,
+              l: seedMatch?.labor || 0,
+              e: seedMatch?.equipment || 0,
               qty: 0, // to be determined from takeoffs
               source: { type, sheetId, entry: entry.typeLabel },
               confidence: seedMatch ? "high" : "low",
@@ -594,7 +614,9 @@ export async function generateScheduleLineItems(schedules) {
               code: "09.250",
               description: `Drywall — ${entry.typeLabel}: ${entry.drywall}`,
               unit: "SF",
-              m: 0, l: 0, e: 0,
+              m: 0,
+              l: 0,
+              e: 0,
               qty: 0,
               source: { type, sheetId, entry: entry.typeLabel },
               confidence: "medium",
@@ -605,7 +627,9 @@ export async function generateScheduleLineItems(schedules) {
               code: "07.210",
               description: `Insulation — ${entry.typeLabel}: ${entry.insulation}`,
               unit: "SF",
-              m: 0, l: 0, e: 0,
+              m: 0,
+              l: 0,
+              e: 0,
               qty: 0,
               source: { type, sheetId, entry: entry.typeLabel },
               confidence: "medium",
@@ -619,13 +643,21 @@ export async function generateScheduleLineItems(schedules) {
           if (!entry.mark && !entry.type) continue;
           const seedMatch = await findSeedByVector(["door", entry.material, entry.type]);
           const doorQty = parseInt(entry.quantity) || 1;
-          const doorQtySource = entry.quantity != null && parseInt(entry.quantity) > 0 ? (entry._counted ? "floor-plan" : "schedule") : "default";
+          const doorQtySource =
+            entry.quantity != null && parseInt(entry.quantity) > 0
+              ? entry._counted
+                ? "floor-plan"
+                : "schedule"
+              : "default";
           lineItems.push({
             code: "08.110",
-            description: `Door ${entry.mark || ""}: ${entry.width || ""}x${entry.height || ""} ${entry.material || ""} ${entry.type || ""}${entry.fire_rating && entry.fire_rating !== "None" ? ` (${entry.fire_rating} rated)` : ""}`.trim(),
+            description:
+              `Door ${entry.mark || ""}: ${entry.width || ""}x${entry.height || ""} ${entry.material || ""} ${entry.type || ""}${entry.fire_rating && entry.fire_rating !== "None" ? ` (${entry.fire_rating} rated)` : ""}`.trim(),
             unit: "EA",
             seedId: seedMatch?.id,
-            m: seedMatch?.material || 0, l: seedMatch?.labor || 0, e: seedMatch?.equipment || 0,
+            m: seedMatch?.material || 0,
+            l: seedMatch?.labor || 0,
+            e: seedMatch?.equipment || 0,
             qty: doorQty,
             qtySource: doorQtySource,
             source: { type, sheetId, entry: entry.mark },
@@ -637,7 +669,9 @@ export async function generateScheduleLineItems(schedules) {
               code: "08.110",
               description: `Door Frame ${entry.mark || ""}: ${entry.frame} frame`,
               unit: "EA",
-              m: 0, l: 0, e: 0,
+              m: 0,
+              l: 0,
+              e: 0,
               qty: doorQty,
               qtySource: doorQtySource,
               source: { type, sheetId, entry: entry.mark },
@@ -650,7 +684,9 @@ export async function generateScheduleLineItems(schedules) {
               code: "08.710",
               description: `Hardware ${entry.mark || ""}: ${entry.hardware}`,
               unit: "EA",
-              m: 0, l: 0, e: 0,
+              m: 0,
+              l: 0,
+              e: 0,
               qty: doorQty,
               qtySource: doorQtySource,
               source: { type, sheetId, entry: entry.mark },
@@ -666,12 +702,20 @@ export async function generateScheduleLineItems(schedules) {
           const seedMatch = await findSeedByVector(["window", entry.frame, entry.type]);
           lineItems.push({
             code: "08.510",
-            description: `Window ${entry.mark || ""}: ${entry.width || ""}x${entry.height || ""} ${entry.frame || ""} ${entry.type || ""} ${entry.glazing || ""}`.trim(),
+            description:
+              `Window ${entry.mark || ""}: ${entry.width || ""}x${entry.height || ""} ${entry.frame || ""} ${entry.type || ""} ${entry.glazing || ""}`.trim(),
             unit: "EA",
             seedId: seedMatch?.id,
-            m: seedMatch?.material || 0, l: seedMatch?.labor || 0, e: seedMatch?.equipment || 0,
+            m: seedMatch?.material || 0,
+            l: seedMatch?.labor || 0,
+            e: seedMatch?.equipment || 0,
             qty: parseInt(entry.quantity) || 1,
-            qtySource: entry.quantity != null && parseInt(entry.quantity) > 0 ? (entry._counted ? "floor-plan" : "schedule") : "default",
+            qtySource:
+              entry.quantity != null && parseInt(entry.quantity) > 0
+                ? entry._counted
+                  ? "floor-plan"
+                  : "schedule"
+                : "default",
             source: { type, sheetId, entry: entry.mark },
             confidence: seedMatch ? "high" : "medium",
           });
@@ -688,7 +732,8 @@ export async function generateScheduleLineItems(schedules) {
             let floorCode = "09.600"; // generic flooring
             if (floorLower.includes("carpet")) floorCode = "09.680";
             else if (floorLower.includes("vct") || floorLower.includes("vinyl")) floorCode = "09.650";
-            else if (floorLower.includes("ceramic") || floorLower.includes("porcelain") || floorLower.includes("tile")) floorCode = "09.310";
+            else if (floorLower.includes("ceramic") || floorLower.includes("porcelain") || floorLower.includes("tile"))
+              floorCode = "09.310";
             else if (floorLower.includes("terrazzo")) floorCode = "09.340";
             else if (floorLower.includes("epoxy") || floorLower.includes("resinous")) floorCode = "09.670";
             else if (floorLower.includes("wood") || floorLower.includes("hardwood")) floorCode = "09.640";
@@ -698,7 +743,10 @@ export async function generateScheduleLineItems(schedules) {
               code: floorCode,
               description: `Flooring — ${entry.room}: ${entry.floor}`,
               unit: "SF",
-              m: 0, l: 0, e: 0, qty: 0,
+              m: 0,
+              l: 0,
+              e: 0,
+              qty: 0,
               source: { type, sheetId, entry: entry.room },
               confidence: "medium",
             });
@@ -715,7 +763,10 @@ export async function generateScheduleLineItems(schedules) {
               code: baseCode,
               description: `Base — ${entry.room}: ${entry.base}`,
               unit: "LF",
-              m: 0, l: 0, e: 0, qty: 0,
+              m: 0,
+              l: 0,
+              e: 0,
+              qty: 0,
               source: { type, sheetId, entry: entry.room },
               confidence: "medium",
             });
@@ -731,13 +782,27 @@ export async function generateScheduleLineItems(schedules) {
               const wallLower = val.toLowerCase();
               let wallCode = "09.910"; // default: painting
               let wallUnit = "SF";
-              if (wallLower.includes("paint") || wallLower.includes("gwb") || wallLower.includes("gypsum") || wallLower.includes("drywall") || wallLower.includes("level")) {
+              if (
+                wallLower.includes("paint") ||
+                wallLower.includes("gwb") ||
+                wallLower.includes("gypsum") ||
+                wallLower.includes("drywall") ||
+                wallLower.includes("level")
+              ) {
                 wallCode = "09.910"; // painting
-              } else if (wallLower.includes("ceramic") || wallLower.includes("porcelain") || wallLower.includes("tile")) {
+              } else if (
+                wallLower.includes("ceramic") ||
+                wallLower.includes("porcelain") ||
+                wallLower.includes("tile")
+              ) {
                 wallCode = "09.310"; // ceramic tile
               } else if (wallLower.includes("frp") || wallLower.includes("fiber")) {
                 wallCode = "09.770"; // FRP panels
-              } else if (wallLower.includes("vinyl") || wallLower.includes("wallcovering") || wallLower.includes("wall covering")) {
+              } else if (
+                wallLower.includes("vinyl") ||
+                wallLower.includes("wallcovering") ||
+                wallLower.includes("wall covering")
+              ) {
                 wallCode = "09.720"; // wall coverings
               } else if (wallLower.includes("cmu") || wallLower.includes("block") || wallLower.includes("masonry")) {
                 wallCode = "04.200"; // masonry
@@ -750,7 +815,10 @@ export async function generateScheduleLineItems(schedules) {
                 code: wallCode,
                 description: `Wall Finish — ${entry.room}: ${val}`,
                 unit: wallUnit,
-                m: 0, l: 0, e: 0, qty: 0,
+                m: 0,
+                l: 0,
+                e: 0,
+                qty: 0,
                 source: { type, sheetId, entry: entry.room },
                 confidence: "medium",
               });
@@ -761,9 +829,19 @@ export async function generateScheduleLineItems(schedules) {
           if (entry.ceiling && !isNone(entry.ceiling) && entry.ceiling.toLowerCase() !== "exposed") {
             const ceilLower = entry.ceiling.toLowerCase();
             let ceilCode = "09.510"; // default: acoustical ceiling
-            if (ceilLower.includes("act") || ceilLower.includes("acoustic") || ceilLower.includes("armstrong") || ceilLower.includes("2x")) {
+            if (
+              ceilLower.includes("act") ||
+              ceilLower.includes("acoustic") ||
+              ceilLower.includes("armstrong") ||
+              ceilLower.includes("2x")
+            ) {
               ceilCode = "09.510"; // ACT
-            } else if (ceilLower.includes("gwb") || ceilLower.includes("gypsum") || ceilLower.includes("drywall") || ceilLower.includes("paint")) {
+            } else if (
+              ceilLower.includes("gwb") ||
+              ceilLower.includes("gypsum") ||
+              ceilLower.includes("drywall") ||
+              ceilLower.includes("paint")
+            ) {
               ceilCode = "09.250"; // GWB ceiling
             } else if (ceilLower.includes("metal") || ceilLower.includes("linear")) {
               ceilCode = "09.540"; // specialty ceiling
@@ -774,7 +852,10 @@ export async function generateScheduleLineItems(schedules) {
               code: ceilCode,
               description: `Ceiling — ${entry.room}: ${entry.ceiling}`,
               unit: "SF",
-              m: 0, l: 0, e: 0, qty: 0,
+              m: 0,
+              l: 0,
+              e: 0,
+              qty: 0,
               source: { type, sheetId, entry: entry.room },
               confidence: "medium",
             });
@@ -788,12 +869,20 @@ export async function generateScheduleLineItems(schedules) {
           const seedMatch = await findSeedByVector(["plumbing", entry.fixture_type]);
           lineItems.push({
             code: "22.400",
-            description: `${entry.fixture_type || "Plumbing Fixture"} ${entry.mark || ""}${entry.manufacturer ? ` (${entry.manufacturer})` : ""}${entry.model ? ` ${entry.model}` : ""}`.trim(),
+            description:
+              `${entry.fixture_type || "Plumbing Fixture"} ${entry.mark || ""}${entry.manufacturer ? ` (${entry.manufacturer})` : ""}${entry.model ? ` ${entry.model}` : ""}`.trim(),
             unit: "EA",
             seedId: seedMatch?.id,
-            m: seedMatch?.material || 0, l: seedMatch?.labor || 0, e: seedMatch?.equipment || 0,
+            m: seedMatch?.material || 0,
+            l: seedMatch?.labor || 0,
+            e: seedMatch?.equipment || 0,
             qty: parseInt(entry.quantity) || 1,
-            qtySource: entry.quantity != null && parseInt(entry.quantity) > 0 ? (entry._counted ? "floor-plan" : "schedule") : "default",
+            qtySource:
+              entry.quantity != null && parseInt(entry.quantity) > 0
+                ? entry._counted
+                  ? "floor-plan"
+                  : "schedule"
+                : "default",
             source: { type, sheetId, entry: entry.mark },
             confidence: seedMatch ? "high" : "medium",
           });
@@ -805,10 +894,19 @@ export async function generateScheduleLineItems(schedules) {
           if (!entry.mark && !entry.description) continue;
           lineItems.push({
             code: "11.400",
-            description: `Equipment ${entry.mark || ""}: ${entry.description || ""}${entry.size ? ` (${entry.size})` : ""}`.trim(),
+            description:
+              `Equipment ${entry.mark || ""}: ${entry.description || ""}${entry.size ? ` (${entry.size})` : ""}`.trim(),
             unit: "EA",
-            m: 0, l: 0, e: 0, qty: parseInt(entry.quantity) || 1,
-            qtySource: entry.quantity != null && parseInt(entry.quantity) > 0 ? (entry._counted ? "floor-plan" : "schedule") : "default",
+            m: 0,
+            l: 0,
+            e: 0,
+            qty: parseInt(entry.quantity) || 1,
+            qtySource:
+              entry.quantity != null && parseInt(entry.quantity) > 0
+                ? entry._counted
+                  ? "floor-plan"
+                  : "schedule"
+                : "default",
             source: { type, sheetId, entry: entry.mark },
             confidence: "low",
           });
@@ -820,10 +918,19 @@ export async function generateScheduleLineItems(schedules) {
           if (!entry.mark && !entry.description) continue;
           lineItems.push({
             code: "26.510",
-            description: `Lighting ${entry.mark || ""}: ${entry.description || ""}${entry.lamp_type ? ` (${entry.lamp_type})` : ""}${entry.wattage ? ` ${entry.wattage}W` : ""}`.trim(),
+            description:
+              `Lighting ${entry.mark || ""}: ${entry.description || ""}${entry.lamp_type ? ` (${entry.lamp_type})` : ""}${entry.wattage ? ` ${entry.wattage}W` : ""}`.trim(),
             unit: "EA",
-            m: 0, l: 0, e: 0, qty: parseInt(entry.quantity) || 0,
-            qtySource: entry.quantity != null && parseInt(entry.quantity) > 0 ? (entry._counted ? "floor-plan" : "schedule") : "default",
+            m: 0,
+            l: 0,
+            e: 0,
+            qty: parseInt(entry.quantity) || 0,
+            qtySource:
+              entry.quantity != null && parseInt(entry.quantity) > 0
+                ? entry._counted
+                  ? "floor-plan"
+                  : "schedule"
+                : "default",
             source: { type, sheetId, entry: entry.mark },
             confidence: "medium",
           });
@@ -835,10 +942,19 @@ export async function generateScheduleLineItems(schedules) {
           if (!entry.mark && !entry.description) continue;
           lineItems.push({
             code: "23.300",
-            description: `Mech Equip ${entry.mark || ""}: ${entry.description || ""}${entry.capacity_tons_cfm ? ` (${entry.capacity_tons_cfm})` : ""}${entry.voltage ? `, ${entry.voltage}` : ""}`.trim(),
+            description:
+              `Mech Equip ${entry.mark || ""}: ${entry.description || ""}${entry.capacity_tons_cfm ? ` (${entry.capacity_tons_cfm})` : ""}${entry.voltage ? `, ${entry.voltage}` : ""}`.trim(),
             unit: "EA",
-            m: 0, l: 0, e: 0, qty: parseInt(entry.quantity) || 1,
-            qtySource: entry.quantity != null && parseInt(entry.quantity) > 0 ? (entry._counted ? "floor-plan" : "schedule") : "default",
+            m: 0,
+            l: 0,
+            e: 0,
+            qty: parseInt(entry.quantity) || 1,
+            qtySource:
+              entry.quantity != null && parseInt(entry.quantity) > 0
+                ? entry._counted
+                  ? "floor-plan"
+                  : "schedule"
+                : "default",
             source: { type, sheetId, entry: entry.mark },
             confidence: "low",
           });
@@ -850,9 +966,13 @@ export async function generateScheduleLineItems(schedules) {
           if (!entry.material_type) continue;
           lineItems.push({
             code: "09.900",
-            description: `${entry.material_type}: ${entry.manufacturer || ""} ${entry.product || ""} — ${entry.color || ""} ${entry.application_area ? `(${entry.application_area})` : ""}`.trim(),
+            description:
+              `${entry.material_type}: ${entry.manufacturer || ""} ${entry.product || ""} — ${entry.color || ""} ${entry.application_area ? `(${entry.application_area})` : ""}`.trim(),
             unit: "SF",
-            m: 0, l: 0, e: 0, qty: 0,
+            m: 0,
+            l: 0,
+            e: 0,
+            qty: 0,
             source: { type, sheetId, entry: entry.material_type },
             confidence: "low",
           });
@@ -862,7 +982,9 @@ export async function generateScheduleLineItems(schedules) {
   }
 
   // Add scheduleType for section-level grouping in import UI
-  lineItems.forEach(li => { if (li.source?.type) li.scheduleType = li.source.type; });
+  lineItems.forEach(li => {
+    if (li.source?.type) li.scheduleType = li.source.type;
+  });
 
   return lineItems;
 }
@@ -874,7 +996,7 @@ async function findSeedByVector(keywords, sizeHint) {
   const query = keywords.filter(Boolean).join(" ") + (sizeHint ? ` ${sizeHint}` : "");
   try {
     const { results } = await searchSimilar(query, {
-      kinds: ['seed_element'],
+      kinds: ["seed_element"],
       limit: 1,
       threshold: 0.35,
     });
@@ -913,11 +1035,16 @@ function findSeedByKeywords(keywords, sizeHint) {
       if (name.includes(term)) score += 2;
       // Partial word match
       const words = term.split(/\s+/);
-      words.forEach(w => { if (w.length > 2 && name.includes(w)) score += 1; });
+      words.forEach(w => {
+        if (w.length > 2 && name.includes(w)) score += 1;
+      });
     });
     // Size hint bonus
     if (sizeHint && name.includes(sizeHint.toLowerCase())) score += 3;
-    if (score > bestScore) { bestScore = score; best = seed; }
+    if (score > bestScore) {
+      bestScore = score;
+      best = seed;
+    }
   });
 
   return bestScore >= 2 ? best : null;
@@ -926,19 +1053,24 @@ function findSeedByKeywords(keywords, sizeHint) {
 // ─── AI-Augmented ROM ─────────────────────────────────────────────────
 // Single AI call to refine ROM based on parsed schedules + project context
 export async function augmentROMWithAI({ baseline, scheduleItems, projectContext, notesContext }) {
-  const scheduleSummary = scheduleItems.map(li =>
-    `${li.code} ${li.description} (${li.unit}${li.qty ? `, qty: ${li.qty}` : ""})`
-  ).join("\n");
+  const scheduleSummary = scheduleItems
+    .map(li => `${li.code} ${li.description} (${li.unit}${li.qty ? `, qty: ${li.qty}` : ""})`)
+    .join("\n");
 
-  const divisionSummary = Object.entries(baseline.divisions).map(([div, data]) =>
-    `Div ${div} ${data.label}: $${data.perSF.low}-$${data.perSF.high}/SF (mid: $${data.perSF.mid})`
-  ).join("\n");
+  const divisionSummary = Object.entries(baseline.divisions)
+    .map(
+      ([div, data]) => `Div ${div} ${data.label}: $${data.perSF.low}-$${data.perSF.high}/SF (mid: $${data.perSF.mid})`,
+    )
+    .join("\n");
 
   try {
     const result = await callAnthropic({
       max_tokens: 3000,
       system: `You are a senior construction cost estimator. You're reviewing a ROM (Rough Order of Magnitude) estimate for a ${baseline.projectSF} SF ${baseline.jobType} project. Adjust the baseline $/SF ranges based on the detected schedule details. Be practical — schedules reveal actual scope complexity.`,
-      messages: [{ role: "user", content: `Here is the baseline ROM by division:
+      messages: [
+        {
+          role: "user",
+          content: `Here is the baseline ROM by division:
 ${divisionSummary}
 
 Detected schedule line items:
@@ -956,7 +1088,9 @@ Return ONLY a JSON object with:
   "notes": "<overall assessment in 1-2 sentences>"
 }
 
-Only include divisions that need adjustment. Use the 2-digit division code (e.g., "08", "09", "23").` }],
+Only include divisions that need adjustment. Use the 2-digit division code (e.g., "08", "09", "23").`,
+        },
+      ],
     });
 
     try {
@@ -986,7 +1120,9 @@ Only include divisions that need adjustment. Use the 2-digit division code (e.g.
         });
 
         // Recalculate totals
-        let totalLow = 0, totalMid = 0, totalHigh = 0;
+        let totalLow = 0,
+          totalMid = 0,
+          totalHigh = 0;
         Object.values(adjusted.divisions).forEach(d => {
           totalLow += d.total.low;
           totalMid += d.total.mid;
@@ -1040,7 +1176,7 @@ export async function generateSubdivisionROM({
 }) {
   if (!baselineRom?.divisions) return baselineRom;
 
-  const bt = buildingType || baselineRom.buildingType || baselineRom.jobType || 'commercial-office';
+  const bt = buildingType || baselineRom.buildingType || baselineRom.jobType || "commercial-office";
   const benchmarkSubs = SUBDIVISION_BENCHMARKS[bt] || {};
   const subdivisions = {};
 
@@ -1067,8 +1203,8 @@ export async function generateSubdivisionROM({
         });
       });
     } catch (err) {
-      if (err.name === 'AbortError') throw err;
-      console.warn('[romEngine] LLM subdivision generation failed:', err.message);
+      if (err.name === "AbortError") throw err;
+      console.warn("[romEngine] LLM subdivision generation failed:", err.message);
     }
   }
 

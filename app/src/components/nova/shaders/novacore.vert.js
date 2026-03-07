@@ -1,5 +1,6 @@
-// NOVACORE vertex shader v3 — dramatic displacement + fluid topology
-// v3: Higher amplitude, faster animation, multi-layer turbulence
+// NOVACORE vertex shader v11 — celestial body topology
+// NOVA: perfectly smooth sphere (near-zero displacement)
+// CORE: dramatic volcanic displacement + fluid topology
 
 export const novacoreVertexShader = /* glsl */ `
   uniform float uTime;
@@ -79,10 +80,10 @@ export const novacoreVertexShader = /* glsl */ `
     vNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
     vPosition = position;
 
-    // ── v10: Light sources are SMOOTH — minimal displacement ──────
+    // ── v11: NOVA = perfect sphere, CORE = volcanic surface ──────
     float speed = mix(0.12, 0.30, uMorph);
-    // NOVA: barely displaced (smooth glowing orb), CORE: more volcanic
-    float amplitude = mix(0.025, 0.18, uMorph);
+    // NOVA: ZERO displacement — perfect sphere. CORE: volcanic topology.
+    float amplitude = mix(0.0, 0.18, uMorph);
     amplitude += uPulse * 0.08;
     float exhaleScale = 1.0 + uExhale * 0.15;
 
@@ -95,8 +96,8 @@ export const novacoreVertexShader = /* glsl */ `
     float qy = fbm4(noisePos + vec3(5.2, 1.3, 2.8) + vec3(t * 0.55));
     vec2 q = vec2(qx, qy);
 
-    // Lower warp strength — organic flow, not turbulence
-    float warp = mix(2.5, 3.8, uMorph);
+    // NOVA: near-zero warp on displacement (perfect sphere). CORE: volcanic.
+    float warp = mix(0.3, 3.8, uMorph);
     float displacement = fbm4(noisePos + warp * vec3(q, 0.0) + vec3(t * 0.3)) * amplitude;
 
     // CORE: gentle extra turbulence (not chaotic)

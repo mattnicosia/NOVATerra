@@ -145,7 +145,13 @@ export function ThemeProvider({ children }) {
         : { ...tokens, glow: panelGlow };
       const panel = { ...darkBase, T: panelTokens, isDark: true };
       const lightT = isNoGlass
-        ? { ...tokens, shadow: tokens.shadowLight || tokens.shadow, glass: flatGlass, glassLight: flatGlass, glow: mainGlow }
+        ? {
+            ...tokens,
+            shadow: tokens.shadowLight || tokens.shadow,
+            glass: flatGlass,
+            glassLight: flatGlass,
+            glow: mainGlow,
+          }
         : {
             ...tokens,
             shadow: tokens.shadowLight || tokens.shadow,

@@ -115,7 +115,9 @@ export const card = (C, overrides) => {
         tokens.shadow.sm,
         tokens.glass?.edge,
         tokens.glass?.refraction,
-      ].filter(Boolean).join(", ")
+      ]
+        .filter(Boolean)
+        .join(", ")
     : [
         "inset 0 1px 0 rgba(255,255,255,0.65)",
         "inset 0 -0.5px 0 rgba(0,0,0,0.04)",
@@ -132,9 +134,9 @@ export const card = (C, overrides) => {
     backdropFilter: tokens.glass.blur,
     WebkitBackdropFilter: tokens.glass.blur,
     borderRadius: T.radius.md,
-    border: `1px solid ${C.isDark
-      ? (tokens.glass?.border || "rgba(255,255,255,0.12)")
-      : (C.glassBorder || C.border || "rgba(0,0,0,0.08)")}`,
+    border: `1px solid ${
+      C.isDark ? tokens.glass?.border || "rgba(255,255,255,0.12)" : C.glassBorder || C.border || "rgba(0,0,0,0.08)"
+    }`,
     boxShadow: shadow,
     ...overrides,
   };
@@ -193,7 +195,9 @@ export const cardRaised = (C, overrides) => {
         tokens.shadow.md,
         tokens.glass?.edge,
         tokens.glass?.refraction,
-      ].filter(Boolean).join(", ")
+      ]
+        .filter(Boolean)
+        .join(", ")
     : [
         "inset 0 1px 0 rgba(255,255,255,0.7)",
         "inset 0 -0.5px 0 rgba(0,0,0,0.05)",
@@ -239,7 +243,9 @@ export const cardGlass = (C, overrides) => {
         tokens.shadow.md,
         tokens.glass?.edge,
         tokens.glass?.refraction,
-      ].filter(Boolean).join(", ")
+      ]
+        .filter(Boolean)
+        .join(", ")
     : [
         "inset 0 1px 0 rgba(255,255,255,0.7)",
         "inset 0 -0.5px 0 rgba(0,0,0,0.05)",
@@ -256,9 +262,9 @@ export const cardGlass = (C, overrides) => {
     backdropFilter: tokens.glass.blur,
     WebkitBackdropFilter: tokens.glass.blur,
     borderRadius: T.radius.md,
-    border: `1px solid ${C.isDark
-      ? (tokens.glass?.border || "rgba(255,255,255,0.12)")
-      : (C.glassBorder || C.border || "rgba(0,0,0,0.08)")}`,
+    border: `1px solid ${
+      C.isDark ? tokens.glass?.border || "rgba(255,255,255,0.12)" : C.glassBorder || C.border || "rgba(0,0,0,0.08)"
+    }`,
     boxShadow: shadow,
     ...overrides,
   };

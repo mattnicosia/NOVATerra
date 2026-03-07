@@ -1,12 +1,12 @@
 // RomResult — Full ROM result display with division breakdown table
 // Features: Low/Mid/High range selector, editable markups, subdivision drill-down
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { T } from "@/utils/designTokens";
 import { card, sectionLabel, colHeader } from "@/utils/styles";
-import { useSubdivisionStore } from '@/stores/subdivisionStore';
-import { generateSubdivisionROM } from '@/utils/romEngine';
-import { CONFIDENCE_TIERS, getConfidenceTier } from '@/utils/confidenceEngine';
+import { useSubdivisionStore } from "@/stores/subdivisionStore";
+import { generateSubdivisionROM } from "@/utils/romEngine";
+import { CONFIDENCE_TIERS, getConfidenceTier } from "@/utils/confidenceEngine";
 
 const BUILDING_TYPE_LABELS = {
   "commercial-office": "Commercial Office",
@@ -33,7 +33,13 @@ const DEFAULT_MARKUPS = [
 const DEFAULT_SOFT_COSTS = [
   { id: 1, label: "A/E Design Fees", pct: 8, enabled: false, note: "Architectural & engineering design" },
   { id: 2, label: "Permits & Fees", pct: 2, enabled: false, note: "Building permits, plan review, impact fees" },
-  { id: 3, label: "Testing & Inspections", pct: 1.5, enabled: false, note: "Geotech, special inspections, materials testing" },
+  {
+    id: 3,
+    label: "Testing & Inspections",
+    pct: 1.5,
+    enabled: false,
+    note: "Geotech, special inspections, materials testing",
+  },
   { id: 4, label: "Project Management", pct: 3, enabled: false, note: "Owner's rep, PM fees" },
   { id: 5, label: "Legal & Accounting", pct: 0.5, enabled: false, note: "Contract review, project accounting" },
   { id: 6, label: "Builder's Risk Insurance", pct: 0.75, enabled: false, note: "Construction period insurance" },
@@ -57,10 +63,18 @@ function fmtNum(n) {
 function ConfidenceDot({ confidence, C }) {
   const tier = getConfidenceTier(confidence);
   return (
-    <span title={tier.label} style={{
-      display: "inline-block", width: 7, height: 7, borderRadius: "50%",
-      background: tier.color, marginRight: 6, verticalAlign: "middle",
-    }} />
+    <span
+      title={tier.label}
+      style={{
+        display: "inline-block",
+        width: 7,
+        height: 7,
+        borderRadius: "50%",
+        background: tier.color,
+        marginRight: 6,
+        verticalAlign: "middle",
+      }}
+    />
   );
 }
 
@@ -70,7 +84,7 @@ export default function RomResult({ rom, email }) {
   const [selectedRange, setSelectedRange] = useState("mid");
   const [expandedDivs, setExpandedDivs] = useState(new Set());
   const [generatingSubdivisions, setGeneratingSubdivisions] = useState(false);
-  const [genProgress, setGenProgress] = useState({ current: 0, total: 0, divCode: '' });
+  const [genProgress, setGenProgress] = useState({ current: 0, total: 0, divCode: "" });
 
   const [editingSub, setEditingSub] = useState(null);
   const [editingValue, setEditingValue] = useState("");
@@ -96,6 +110,44 @@ export default function RomResult({ rom, email }) {
   const validateLlmRefinement = useSubdivisionStore(s => s.validateLlmRefinement);
   const engineConfig = useSubdivisionStore(s => s.engineConfig);
   const calibrationFactors = useSubdivisionStore(s => s.calibrationFactors);
+
+  const toggleDiv = useCallback(divCode => {
+    setExpandedDivs(prev => {
+      const next = new Set(prev);
+      if (next.has(divCode)) next.delete(divCode);
+      else next.add(divCode);
+      return next;
+    });
+  }, []);
+
+  const handleGenerateSubdivisions = useCallback(async () => {
+    if (!rom || generatingSubdivisions) return;
+    setGeneratingSubdivisions(true);
+    try {
+      const result = await generateSubdivisionROM({
+        baselineRom: rom,
+        buildingType: rom.buildingType || rom.jobType,
+        userOverrides,
+        llmRefinements,
+        calibrationFactors,
+        engineConfig,
+        generateLlm: true,
+        onProgress: (divCode, idx, total) => {
+          setGenProgress({ current: idx + 1, total, divCode });
+        },
+      });
+      if (result?.subdivisions) {
+        setSubdivisionData(result.subdivisions);
+        setLlmRefinements(result.subdivisions);
+        setExpandedDivs(new Set(Object.keys(result.subdivisions)));
+      }
+    } catch (err) {
+      console.error("[RomResult] Subdivision generation failed:", err);
+    } finally {
+      setGeneratingSubdivisions(false);
+      setGenProgress({ current: 0, total: 0, divCode: "" });
+    }
+  }, [rom, generatingSubdivisions, userOverrides, llmRefinements, calibrationFactors, engineConfig]);
 
   if (!rom) return null;
 
@@ -164,47 +216,9 @@ export default function RomResult({ rom, email }) {
   const rangeOptions = ["low", "mid", "high"];
   const rangeLabels = { low: "Low", mid: "Mid", high: "High" };
 
-  const toggleDiv = useCallback((divCode) => {
-    setExpandedDivs(prev => {
-      const next = new Set(prev);
-      if (next.has(divCode)) next.delete(divCode);
-      else next.add(divCode);
-      return next;
-    });
-  }, []);
-
-  const handleGenerateSubdivisions = useCallback(async () => {
-    if (!rom || generatingSubdivisions) return;
-    setGeneratingSubdivisions(true);
-    try {
-      const result = await generateSubdivisionROM({
-        baselineRom: rom,
-        buildingType: rom.buildingType || rom.jobType,
-        userOverrides,
-        llmRefinements,
-        calibrationFactors,
-        engineConfig,
-        generateLlm: true,
-        onProgress: (divCode, idx, total) => {
-          setGenProgress({ current: idx + 1, total, divCode });
-        },
-      });
-      if (result?.subdivisions) {
-        setSubdivisionData(result.subdivisions);
-        setLlmRefinements(result.subdivisions);
-        setExpandedDivs(new Set(Object.keys(result.subdivisions)));
-      }
-    } catch (err) {
-      console.error('[RomResult] Subdivision generation failed:', err);
-    } finally {
-      setGeneratingSubdivisions(false);
-      setGenProgress({ current: 0, total: 0, divCode: '' });
-    }
-  }, [rom, generatingSubdivisions, userOverrides, llmRefinements, calibrationFactors, engineConfig]);
-
   // Markup handlers
   const updateMarkup = (id, field, value) => {
-    setMarkups(prev => prev.map(m => m.id === id ? { ...m, [field]: value } : m));
+    setMarkups(prev => prev.map(m => (m.id === id ? { ...m, [field]: value } : m)));
   };
   const addMarkup = () => {
     const nextId = Math.max(0, ...markups.map(m => m.id)) + 1;
@@ -212,7 +226,7 @@ export default function RomResult({ rom, email }) {
     setEditingMarkup({ id: nextId, field: "label" });
     setEditingMarkupValue("New Markup");
   };
-  const removeMarkup = (id) => {
+  const removeMarkup = id => {
     setMarkups(prev => prev.filter(m => m.id !== id));
   };
   const commitMarkupEdit = () => {
@@ -230,7 +244,7 @@ export default function RomResult({ rom, email }) {
 
   // Soft cost handlers
   const updateSoftCost = (id, field, value) => {
-    setSoftCosts(prev => prev.map(sc => sc.id === id ? { ...sc, [field]: value } : sc));
+    setSoftCosts(prev => prev.map(sc => (sc.id === id ? { ...sc, [field]: value } : sc)));
   };
   const addSoftCost = () => {
     const nextId = Math.max(0, ...softCosts.map(sc => sc.id)) + 1;
@@ -239,7 +253,7 @@ export default function RomResult({ rom, email }) {
     setEditingSoftCostValue("New Soft Cost");
     setSoftCostsExpanded(true);
   };
-  const removeSoftCost = (id) => {
+  const removeSoftCost = id => {
     setSoftCosts(prev => prev.filter(sc => sc.id !== id));
   };
   const commitSoftCostEdit = () => {
@@ -254,14 +268,13 @@ export default function RomResult({ rom, email }) {
     setEditingSoftCost(null);
     setEditingSoftCostValue("");
   };
-  const toggleAllSoftCosts = (enabled) => {
+  const toggleAllSoftCosts = enabled => {
     setSoftCosts(prev => prev.map(sc => ({ ...sc, enabled })));
   };
 
   // Column highlight for selected range
-  const colHighlight = (range) => range === selectedRange
-    ? { color: C.accent, fontWeight: T.fontWeight.bold }
-    : { color: C.textMuted };
+  const colHighlight = range =>
+    range === selectedRange ? { color: C.accent, fontWeight: T.fontWeight.bold } : { color: C.textMuted };
 
   return (
     <div style={{ width: "100%", maxWidth: 800 }}>
@@ -291,23 +304,36 @@ export default function RomResult({ rom, email }) {
       <div style={card(C, { padding: T.space[6], marginBottom: T.space[5] })}>
         {/* Range selector */}
         <div style={{ display: "flex", justifyContent: "center", marginBottom: T.space[5] }}>
-          <div style={{
-            display: "inline-flex", borderRadius: 10,
-            background: C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
-            padding: 3, gap: 2,
-          }}>
+          <div
+            style={{
+              display: "inline-flex",
+              borderRadius: 10,
+              background: C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+              padding: 3,
+              gap: 2,
+            }}
+          >
             {rangeOptions.map(r => (
               <button
                 key={r}
                 onClick={() => setSelectedRange(r)}
                 style={{
-                  padding: "7px 22px", borderRadius: 8, border: "none",
-                  fontSize: T.fontSize.sm, fontWeight: T.fontWeight.semibold,
-                  fontFamily: "'DM Sans',sans-serif", cursor: "pointer",
+                  padding: "7px 22px",
+                  borderRadius: 8,
+                  border: "none",
+                  fontSize: T.fontSize.sm,
+                  fontWeight: T.fontWeight.semibold,
+                  fontFamily: "'DM Sans',sans-serif",
+                  cursor: "pointer",
                   transition: "all 0.15s",
-                  background: r === selectedRange
-                    ? (r === "mid" ? `linear-gradient(135deg, ${C.accent}, #7C3AED)` : C.isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)")
-                    : "transparent",
+                  background:
+                    r === selectedRange
+                      ? r === "mid"
+                        ? `linear-gradient(135deg, ${C.accent}, #7C3AED)`
+                        : C.isDark
+                          ? "rgba(255,255,255,0.12)"
+                          : "rgba(0,0,0,0.08)"
+                      : "transparent",
                   color: r === selectedRange ? "#fff" : C.textMuted,
                 }}
               >
@@ -338,28 +364,56 @@ export default function RomResult({ rom, email }) {
             {fmt(hasSoftCosts ? totalProjectCost[selectedRange] : grandTotals[selectedRange])}
           </div>
           <div style={{ ...dimText, fontSize: T.fontSize.sm, marginTop: 6 }}>
-            {fmtSF(hasSoftCosts ? totalProjectPerSF[selectedRange] : grandPerSF[selectedRange])}/SF &middot; {rangeLabels[selectedRange]} Range
+            {fmtSF(hasSoftCosts ? totalProjectPerSF[selectedRange] : grandPerSF[selectedRange])}/SF &middot;{" "}
+            {rangeLabels[selectedRange]} Range
             {totalMarkupPct > 0 && <span> &middot; incl. {totalMarkupPct.toFixed(1)}% markups</span>}
             {hasSoftCosts && <span> &middot; {totalSoftCostPct.toFixed(1)}% soft costs</span>}
           </div>
         </div>
 
         {/* All three ranges — compact */}
-        <div style={{
-          display: "flex", gap: T.space[4], justifyContent: "center", flexWrap: "wrap",
-          paddingTop: T.space[4],
-          borderTop: `1px solid ${C.isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)"}`,
-        }}>
+        <div
+          style={{
+            display: "flex",
+            gap: T.space[4],
+            justifyContent: "center",
+            flexWrap: "wrap",
+            paddingTop: T.space[4],
+            borderTop: `1px solid ${C.isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)"}`,
+          }}
+        >
           {rangeOptions.map(r => (
-            <div key={r} onClick={() => setSelectedRange(r)} style={{
-              textAlign: "center", cursor: "pointer", padding: "6px 16px", borderRadius: 8,
-              background: r === selectedRange ? (C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.02)") : "transparent",
-              transition: "background 0.15s",
-            }}>
-              <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 1, color: r === selectedRange ? C.accent : C.textDim, marginBottom: 2 }}>
+            <div
+              key={r}
+              onClick={() => setSelectedRange(r)}
+              style={{
+                textAlign: "center",
+                cursor: "pointer",
+                padding: "6px 16px",
+                borderRadius: 8,
+                background:
+                  r === selectedRange ? (C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.02)") : "transparent",
+                transition: "background 0.15s",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 10,
+                  textTransform: "uppercase",
+                  letterSpacing: 1,
+                  color: r === selectedRange ? C.accent : C.textDim,
+                  marginBottom: 2,
+                }}
+              >
                 {rangeLabels[r]}
               </div>
-              <div style={{ fontSize: T.fontSize.md, fontWeight: r === selectedRange ? T.fontWeight.bold : T.fontWeight.medium, color: r === selectedRange ? C.text : C.textMuted }}>
+              <div
+                style={{
+                  fontSize: T.fontSize.md,
+                  fontWeight: r === selectedRange ? T.fontWeight.bold : T.fontWeight.medium,
+                  color: r === selectedRange ? C.text : C.textMuted,
+                }}
+              >
                 {fmt(totals[r])}
               </div>
               <div style={{ fontSize: 10, color: C.textDim }}>{fmtSF(totalPerSF[r])}/SF</div>
@@ -374,18 +428,24 @@ export default function RomResult({ rom, email }) {
           onClick={handleGenerateSubdivisions}
           disabled={generatingSubdivisions}
           style={{
-            display: "flex", alignItems: "center", gap: 6,
-            padding: "8px 16px", borderRadius: 8,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "8px 16px",
+            borderRadius: 8,
             background: generatingSubdivisions ? C.bg2 : `linear-gradient(135deg, #8B5CF6, #7C3AED)`,
             border: generatingSubdivisions ? `1px solid ${C.border}` : "none",
             cursor: generatingSubdivisions ? "default" : "pointer",
             color: generatingSubdivisions ? C.textMuted : "#fff",
-            fontSize: 12, fontWeight: 600,
+            fontSize: 12,
+            fontWeight: 600,
             transition: "all 0.15s",
           }}
         >
           {generatingSubdivisions ? (
-            <>Generating... ({genProgress.current}/{genProgress.total})</>
+            <>
+              Generating... ({genProgress.current}/{genProgress.total})
+            </>
           ) : (
             <>Generate Subdivisions</>
           )}
@@ -415,9 +475,15 @@ export default function RomResult({ rom, email }) {
               <tr>
                 <th style={headerCell}>Div #</th>
                 <th style={{ ...headerCell, width: "30%" }}>Division Name</th>
-                <th style={{ ...headerCell, ...rightAlign, ...(selectedRange === "low" ? { color: C.accent } : {}) }}>$/SF (Low)</th>
-                <th style={{ ...headerCell, ...rightAlign, ...(selectedRange === "mid" ? { color: C.accent } : {}) }}>$/SF (Mid)</th>
-                <th style={{ ...headerCell, ...rightAlign, ...(selectedRange === "high" ? { color: C.accent } : {}) }}>$/SF (High)</th>
+                <th style={{ ...headerCell, ...rightAlign, ...(selectedRange === "low" ? { color: C.accent } : {}) }}>
+                  $/SF (Low)
+                </th>
+                <th style={{ ...headerCell, ...rightAlign, ...(selectedRange === "mid" ? { color: C.accent } : {}) }}>
+                  $/SF (Mid)
+                </th>
+                <th style={{ ...headerCell, ...rightAlign, ...(selectedRange === "high" ? { color: C.accent } : {}) }}>
+                  $/SF (High)
+                </th>
                 <th style={{ ...headerCell, ...rightAlign }}>Total ({rangeLabels[selectedRange]})</th>
               </tr>
             </thead>
@@ -427,13 +493,25 @@ export default function RomResult({ rom, email }) {
                   <tr
                     onClick={() => toggleDiv(divNum)}
                     style={{
-                      background: i % 2 === 0 ? "transparent" : C.isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)",
+                      background:
+                        i % 2 === 0 ? "transparent" : C.isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)",
                       cursor: "pointer",
                       transition: "background 0.1s",
                     }}
                   >
                     <td style={{ ...cellBase, color: C.textMuted, fontWeight: T.fontWeight.medium }}>
-                      <span style={{ display: "inline-block", width: 14, fontSize: 10, color: C.textDim, transition: "transform 0.15s", transform: expandedDivs.has(divNum) ? "rotate(90deg)" : "none" }}>&#9656;</span>
+                      <span
+                        style={{
+                          display: "inline-block",
+                          width: 14,
+                          fontSize: 10,
+                          color: C.textDim,
+                          transition: "transform 0.15s",
+                          transform: expandedDivs.has(divNum) ? "rotate(90deg)" : "none",
+                        }}
+                      >
+                        &#9656;
+                      </span>
                       {divNum}
                     </td>
                     <td style={{ ...cellBase, color: C.text, fontWeight: T.fontWeight.medium }}>{div.label}</td>
@@ -458,95 +536,172 @@ export default function RomResult({ rom, email }) {
                       {fmt(div.total[selectedRange])}
                     </td>
                   </tr>
-                  {expandedDivs.has(divNum) && subdivisionData[divNum] && subdivisionData[divNum].map((sub, si) => {
-                    const isLlm = sub.source === "llm";
-                    const isUser = sub.confidence === "user" || !!userOverrides[sub.code];
-                    const llmData = llmRefinements[sub.code];
-                    const isValidated = llmData?.validated;
-                    const subSource = isUser ? "User" : isLlm ? (isValidated ? "LLM \u2713" : "LLM") : "Baseline";
-                    const sourceColor = isUser ? "#22C55E" : isLlm ? "#8B5CF6" : "#6B7280";
-                    const sourceBg = isUser ? "rgba(34,197,94,0.12)" : isLlm ? "rgba(139,92,246,0.12)" : "rgba(107,114,128,0.12)";
-                    const isEditingThis = editingSub === `${divNum}-${sub.code}`;
-                    const divMidPerSF = div.perSF?.mid || 0;
+                  {expandedDivs.has(divNum) &&
+                    subdivisionData[divNum] &&
+                    subdivisionData[divNum].map((sub, si) => {
+                      const isLlm = sub.source === "llm";
+                      const isUser = sub.confidence === "user" || !!userOverrides[sub.code];
+                      const llmData = llmRefinements[sub.code];
+                      const isValidated = llmData?.validated;
+                      const subSource = isUser ? "User" : isLlm ? (isValidated ? "LLM \u2713" : "LLM") : "Baseline";
+                      const sourceColor = isUser ? "#22C55E" : isLlm ? "#8B5CF6" : "#6B7280";
+                      const sourceBg = isUser
+                        ? "rgba(34,197,94,0.12)"
+                        : isLlm
+                          ? "rgba(139,92,246,0.12)"
+                          : "rgba(107,114,128,0.12)";
+                      const isEditingThis = editingSub === `${divNum}-${sub.code}`;
+                      const divMidPerSF = div.perSF?.mid || 0;
 
-                    return (
-                    <tr key={`${divNum}-${sub.code}`} style={{
-                      background: isEditingThis ? (C.isDark ? "rgba(139,92,246,0.08)" : "rgba(139,92,246,0.04)") : (C.isDark ? "rgba(139,92,246,0.04)" : "rgba(139,92,246,0.02)"),
-                    }}>
-                      <td style={{ ...cellBase, paddingLeft: 36, color: C.textDim, fontSize: T.fontSize.xs }}>
-                        <ConfidenceDot confidence={sub.confidence} C={C} />
-                        {sub.code}
-                        {isLlm && !isUser && (
-                          <button
-                            onClick={() => validateLlmRefinement(sub.code)}
-                            title={isValidated ? "Validated" : "Validate this estimate"}
+                      return (
+                        <tr
+                          key={`${divNum}-${sub.code}`}
+                          style={{
+                            background: isEditingThis
+                              ? C.isDark
+                                ? "rgba(139,92,246,0.08)"
+                                : "rgba(139,92,246,0.04)"
+                              : C.isDark
+                                ? "rgba(139,92,246,0.04)"
+                                : "rgba(139,92,246,0.02)",
+                          }}
+                        >
+                          <td style={{ ...cellBase, paddingLeft: 36, color: C.textDim, fontSize: T.fontSize.xs }}>
+                            <ConfidenceDot confidence={sub.confidence} C={C} />
+                            {sub.code}
+                            {isLlm && !isUser && (
+                              <button
+                                onClick={() => validateLlmRefinement(sub.code)}
+                                title={isValidated ? "Validated" : "Validate this estimate"}
+                                style={{
+                                  marginLeft: 4,
+                                  padding: 0,
+                                  border: "none",
+                                  background: "none",
+                                  cursor: isValidated ? "default" : "pointer",
+                                  fontSize: 11,
+                                  color: isValidated ? "#22C55E" : C.textDim,
+                                  opacity: isValidated ? 1 : 0.6,
+                                }}
+                              >
+                                {isValidated ? "\u2714" : "\u2610"}
+                              </button>
+                            )}
+                          </td>
+                          <td style={{ ...cellBase, color: C.textMuted, fontSize: T.fontSize.xs }}>
+                            <span style={{ marginRight: 6 }}>{sub.label}</span>
+                            <span
+                              style={{
+                                fontSize: 8,
+                                fontWeight: 600,
+                                padding: "1px 5px",
+                                borderRadius: 3,
+                                background: sourceBg,
+                                color: sourceColor,
+                                verticalAlign: "middle",
+                              }}
+                            >
+                              {subSource}
+                            </span>
+                          </td>
+                          <td
                             style={{
-                              marginLeft: 4, padding: 0, border: "none", background: "none",
-                              cursor: isValidated ? "default" : "pointer", fontSize: 11,
-                              color: isValidated ? "#22C55E" : C.textDim,
-                              opacity: isValidated ? 1 : 0.6,
+                              ...cellBase,
+                              ...rightAlign,
+                              ...colHighlight("low"),
+                              fontSize: T.fontSize.xs,
+                              fontFeatureSettings: "'tnum'",
                             }}
                           >
-                            {isValidated ? "\u2714" : "\u2610"}
-                          </button>
-                        )}
-                      </td>
-                      <td style={{ ...cellBase, color: C.textMuted, fontSize: T.fontSize.xs }}>
-                        <span style={{ marginRight: 6 }}>{sub.label}</span>
-                        <span style={{ fontSize: 8, fontWeight: 600, padding: "1px 5px", borderRadius: 3, background: sourceBg, color: sourceColor, verticalAlign: "middle" }}>
-                          {subSource}
-                        </span>
-                      </td>
-                      <td style={{ ...cellBase, ...rightAlign, ...colHighlight("low"), fontSize: T.fontSize.xs, fontFeatureSettings: "'tnum'" }}>
-                        {sub.perSF ? fmtSF(sub.perSF.low) : "\u2014"}
-                      </td>
-                      <td
-                        style={{ ...cellBase, ...rightAlign, ...colHighlight("mid"), fontSize: T.fontSize.xs, fontFeatureSettings: "'tnum'", cursor: "pointer" }}
-                        onClick={() => {
-                          if (!isEditingThis && sub.perSF) {
-                            setEditingSub(`${divNum}-${sub.code}`);
-                            setEditingValue(sub.perSF.mid.toFixed(2));
-                          }
-                        }}
-                      >
-                        {isEditingThis ? (
-                          <input
-                            type="number"
-                            autoFocus
-                            value={editingValue}
-                            onChange={e => setEditingValue(e.target.value)}
-                            onBlur={() => {
-                              const val = parseFloat(editingValue);
-                              if (!isNaN(val) && val > 0 && divMidPerSF > 0) {
-                                setUserOverride(sub.code, { pctOfDiv: val / divMidPerSF });
-                              }
-                              setEditingSub(null); setEditingValue("");
-                            }}
-                            onKeyDown={e => {
-                              if (e.key === "Enter") e.target.blur();
-                              if (e.key === "Escape") { setEditingSub(null); setEditingValue(""); }
-                            }}
+                            {sub.perSF ? fmtSF(sub.perSF.low) : "\u2014"}
+                          </td>
+                          <td
                             style={{
-                              width: 60, padding: "2px 4px", fontSize: 11, fontFamily: "'DM Sans',sans-serif",
-                              background: C.bg1, color: C.text, border: `1px solid ${C.accent}`, borderRadius: 4,
-                              textAlign: "right", outline: "none",
+                              ...cellBase,
+                              ...rightAlign,
+                              ...colHighlight("mid"),
+                              fontSize: T.fontSize.xs,
+                              fontFeatureSettings: "'tnum'",
+                              cursor: "pointer",
                             }}
-                          />
-                        ) : (
-                          <span style={{ borderBottom: sub.perSF ? `1px dashed ${C.isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.12)"}` : "none" }}>
-                            {sub.perSF ? fmtSF(sub.perSF.mid) : "\u2014"}
-                          </span>
-                        )}
-                      </td>
-                      <td style={{ ...cellBase, ...rightAlign, ...colHighlight("high"), fontSize: T.fontSize.xs, fontFeatureSettings: "'tnum'" }}>
-                        {sub.perSF ? fmtSF(sub.perSF.high) : "\u2014"}
-                      </td>
-                      <td style={{ ...cellBase, ...rightAlign, color: C.textMuted, fontSize: T.fontSize.xs, fontFeatureSettings: "'tnum'" }}>
-                        {sub.total ? fmt(sub.total[selectedRange] || sub.total.mid) : "\u2014"}
-                      </td>
-                    </tr>
-                    );
-                  })}
+                            onClick={() => {
+                              if (!isEditingThis && sub.perSF) {
+                                setEditingSub(`${divNum}-${sub.code}`);
+                                setEditingValue(sub.perSF.mid.toFixed(2));
+                              }
+                            }}
+                          >
+                            {isEditingThis ? (
+                              <input
+                                type="number"
+                                autoFocus
+                                value={editingValue}
+                                onChange={e => setEditingValue(e.target.value)}
+                                onBlur={() => {
+                                  const val = parseFloat(editingValue);
+                                  if (!isNaN(val) && val > 0 && divMidPerSF > 0) {
+                                    setUserOverride(sub.code, { pctOfDiv: val / divMidPerSF });
+                                  }
+                                  setEditingSub(null);
+                                  setEditingValue("");
+                                }}
+                                onKeyDown={e => {
+                                  if (e.key === "Enter") e.target.blur();
+                                  if (e.key === "Escape") {
+                                    setEditingSub(null);
+                                    setEditingValue("");
+                                  }
+                                }}
+                                style={{
+                                  width: 60,
+                                  padding: "2px 4px",
+                                  fontSize: 11,
+                                  fontFamily: "'DM Sans',sans-serif",
+                                  background: C.bg1,
+                                  color: C.text,
+                                  border: `1px solid ${C.accent}`,
+                                  borderRadius: 4,
+                                  textAlign: "right",
+                                  outline: "none",
+                                }}
+                              />
+                            ) : (
+                              <span
+                                style={{
+                                  borderBottom: sub.perSF
+                                    ? `1px dashed ${C.isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.12)"}`
+                                    : "none",
+                                }}
+                              >
+                                {sub.perSF ? fmtSF(sub.perSF.mid) : "\u2014"}
+                              </span>
+                            )}
+                          </td>
+                          <td
+                            style={{
+                              ...cellBase,
+                              ...rightAlign,
+                              ...colHighlight("high"),
+                              fontSize: T.fontSize.xs,
+                              fontFeatureSettings: "'tnum'",
+                            }}
+                          >
+                            {sub.perSF ? fmtSF(sub.perSF.high) : "\u2014"}
+                          </td>
+                          <td
+                            style={{
+                              ...cellBase,
+                              ...rightAlign,
+                              color: C.textMuted,
+                              fontSize: T.fontSize.xs,
+                              fontFeatureSettings: "'tnum'",
+                            }}
+                          >
+                            {sub.total ? fmt(sub.total[selectedRange] || sub.total.mid) : "\u2014"}
+                          </td>
+                        </tr>
+                      );
+                    })}
                 </React.Fragment>
               ))}
 
@@ -558,19 +713,50 @@ export default function RomResult({ rom, email }) {
                 }}
               >
                 <td style={{ ...cellBase, fontWeight: T.fontWeight.bold, color: C.text }} />
-                <td style={{ ...cellBase, fontWeight: T.fontWeight.bold, color: C.text }}>
-                  Subtotal (Construction)
-                </td>
-                <td style={{ ...cellBase, ...rightAlign, fontWeight: T.fontWeight.bold, ...colHighlight("low"), fontFeatureSettings: "'tnum'" }}>
+                <td style={{ ...cellBase, fontWeight: T.fontWeight.bold, color: C.text }}>Subtotal (Construction)</td>
+                <td
+                  style={{
+                    ...cellBase,
+                    ...rightAlign,
+                    fontWeight: T.fontWeight.bold,
+                    ...colHighlight("low"),
+                    fontFeatureSettings: "'tnum'",
+                  }}
+                >
                   {fmtSF(totalPerSF.low)}
                 </td>
-                <td style={{ ...cellBase, ...rightAlign, fontWeight: T.fontWeight.bold, ...colHighlight("mid"), fontFeatureSettings: "'tnum'" }}>
+                <td
+                  style={{
+                    ...cellBase,
+                    ...rightAlign,
+                    fontWeight: T.fontWeight.bold,
+                    ...colHighlight("mid"),
+                    fontFeatureSettings: "'tnum'",
+                  }}
+                >
                   {fmtSF(totalPerSF.mid)}
                 </td>
-                <td style={{ ...cellBase, ...rightAlign, fontWeight: T.fontWeight.bold, ...colHighlight("high"), fontFeatureSettings: "'tnum'" }}>
+                <td
+                  style={{
+                    ...cellBase,
+                    ...rightAlign,
+                    fontWeight: T.fontWeight.bold,
+                    ...colHighlight("high"),
+                    fontFeatureSettings: "'tnum'",
+                  }}
+                >
                   {fmtSF(totalPerSF.high)}
                 </td>
-                <td style={{ ...cellBase, ...rightAlign, fontWeight: T.fontWeight.bold, color: C.text, fontSize: T.fontSize.md, fontFeatureSettings: "'tnum'" }}>
+                <td
+                  style={{
+                    ...cellBase,
+                    ...rightAlign,
+                    fontWeight: T.fontWeight.bold,
+                    color: C.text,
+                    fontSize: T.fontSize.md,
+                    fontFeatureSettings: "'tnum'",
+                  }}
+                >
                   {fmt(totals[selectedRange])}
                 </td>
               </tr>
@@ -583,21 +769,44 @@ export default function RomResult({ rom, email }) {
 
                 return (
                   <tr key={m.id} style={{ background: C.isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.01)" }}>
-                    <td style={{ ...cellBase, color: C.textDim, borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"}` }}>
+                    <td
+                      style={{
+                        ...cellBase,
+                        color: C.textDim,
+                        borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"}`,
+                      }}
+                    >
                       <button
                         onClick={() => updateMarkup(m.id, "enabled", !m.enabled)}
                         title={m.enabled ? "Disable" : "Enable"}
                         style={{
-                          width: 16, height: 16, borderRadius: 4, border: `1px solid ${m.enabled ? C.accent : C.textDim}`,
-                          background: m.enabled ? C.accent : "transparent", cursor: "pointer",
-                          display: "inline-flex", alignItems: "center", justifyContent: "center",
-                          fontSize: 10, color: "#fff", lineHeight: 1, padding: 0,
+                          width: 16,
+                          height: 16,
+                          borderRadius: 4,
+                          border: `1px solid ${m.enabled ? C.accent : C.textDim}`,
+                          background: m.enabled ? C.accent : "transparent",
+                          cursor: "pointer",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 10,
+                          color: "#fff",
+                          lineHeight: 1,
+                          padding: 0,
                         }}
                       >
                         {m.enabled ? "\u2713" : ""}
                       </button>
                     </td>
-                    <td style={{ ...cellBase, color: m.enabled ? C.textMuted : C.textDim, fontSize: T.fontSize.sm, borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"}`, textDecoration: m.enabled ? "none" : "line-through" }}>
+                    <td
+                      style={{
+                        ...cellBase,
+                        color: m.enabled ? C.textMuted : C.textDim,
+                        fontSize: T.fontSize.sm,
+                        borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"}`,
+                        textDecoration: m.enabled ? "none" : "line-through",
+                      }}
+                    >
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         {isEditLabel ? (
                           <input
@@ -605,16 +814,35 @@ export default function RomResult({ rom, email }) {
                             value={editingMarkupValue}
                             onChange={e => setEditingMarkupValue(e.target.value)}
                             onBlur={commitMarkupEdit}
-                            onKeyDown={e => { if (e.key === "Enter") e.target.blur(); if (e.key === "Escape") { setEditingMarkup(null); setEditingMarkupValue(""); } }}
+                            onKeyDown={e => {
+                              if (e.key === "Enter") e.target.blur();
+                              if (e.key === "Escape") {
+                                setEditingMarkup(null);
+                                setEditingMarkupValue("");
+                              }
+                            }}
                             style={{
-                              flex: 1, padding: "2px 4px", fontSize: 12, fontFamily: "'DM Sans',sans-serif",
-                              background: C.bg1, color: C.text, border: `1px solid ${C.accent}`, borderRadius: 4, outline: "none",
+                              flex: 1,
+                              padding: "2px 4px",
+                              fontSize: 12,
+                              fontFamily: "'DM Sans',sans-serif",
+                              background: C.bg1,
+                              color: C.text,
+                              border: `1px solid ${C.accent}`,
+                              borderRadius: 4,
+                              outline: "none",
                             }}
                           />
                         ) : (
                           <span
-                            onClick={() => { setEditingMarkup({ id: m.id, field: "label" }); setEditingMarkupValue(m.label); }}
-                            style={{ cursor: "pointer", borderBottom: `1px dashed ${C.isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)"}` }}
+                            onClick={() => {
+                              setEditingMarkup({ id: m.id, field: "label" });
+                              setEditingMarkupValue(m.label);
+                            }}
+                            style={{
+                              cursor: "pointer",
+                              borderBottom: `1px dashed ${C.isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)"}`,
+                            }}
                           >
                             {m.label}
                           </span>
@@ -622,13 +850,31 @@ export default function RomResult({ rom, email }) {
                         <button
                           onClick={() => removeMarkup(m.id)}
                           title="Remove markup"
-                          style={{ background: "none", border: "none", cursor: "pointer", color: C.textDim, fontSize: 12, padding: 0, opacity: 0.5 }}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            cursor: "pointer",
+                            color: C.textDim,
+                            fontSize: 12,
+                            padding: 0,
+                            opacity: 0.5,
+                          }}
                         >
                           &times;
                         </button>
                       </div>
                     </td>
-                    <td colSpan={3} style={{ ...cellBase, textAlign: "center", color: m.enabled ? C.textMuted : C.textDim, fontSize: T.fontSize.sm, fontFeatureSettings: "'tnum'", borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"}` }}>
+                    <td
+                      colSpan={3}
+                      style={{
+                        ...cellBase,
+                        textAlign: "center",
+                        color: m.enabled ? C.textMuted : C.textDim,
+                        fontSize: T.fontSize.sm,
+                        fontFeatureSettings: "'tnum'",
+                        borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"}`,
+                      }}
+                    >
                       {isEditPct ? (
                         <input
                           type="number"
@@ -636,23 +882,52 @@ export default function RomResult({ rom, email }) {
                           value={editingMarkupValue}
                           onChange={e => setEditingMarkupValue(e.target.value)}
                           onBlur={commitMarkupEdit}
-                          onKeyDown={e => { if (e.key === "Enter") e.target.blur(); if (e.key === "Escape") { setEditingMarkup(null); setEditingMarkupValue(""); } }}
+                          onKeyDown={e => {
+                            if (e.key === "Enter") e.target.blur();
+                            if (e.key === "Escape") {
+                              setEditingMarkup(null);
+                              setEditingMarkupValue("");
+                            }
+                          }}
                           style={{
-                            width: 50, padding: "2px 4px", fontSize: 12, fontFamily: "'DM Sans',sans-serif",
-                            background: C.bg1, color: C.text, border: `1px solid ${C.accent}`, borderRadius: 4,
-                            textAlign: "center", outline: "none",
+                            width: 50,
+                            padding: "2px 4px",
+                            fontSize: 12,
+                            fontFamily: "'DM Sans',sans-serif",
+                            background: C.bg1,
+                            color: C.text,
+                            border: `1px solid ${C.accent}`,
+                            borderRadius: 4,
+                            textAlign: "center",
+                            outline: "none",
                           }}
                         />
                       ) : (
                         <span
-                          onClick={() => { setEditingMarkup({ id: m.id, field: "pct" }); setEditingMarkupValue(String(m.pct)); }}
-                          style={{ cursor: "pointer", borderBottom: `1px dashed ${C.isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)"}` }}
+                          onClick={() => {
+                            setEditingMarkup({ id: m.id, field: "pct" });
+                            setEditingMarkupValue(String(m.pct));
+                          }}
+                          style={{
+                            cursor: "pointer",
+                            borderBottom: `1px dashed ${C.isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)"}`,
+                          }}
                         >
                           {m.pct}%
                         </span>
                       )}
                     </td>
-                    <td style={{ ...cellBase, ...rightAlign, color: m.enabled ? C.text : C.textDim, fontWeight: T.fontWeight.medium, fontFeatureSettings: "'tnum'", fontSize: T.fontSize.sm, borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"}` }}>
+                    <td
+                      style={{
+                        ...cellBase,
+                        ...rightAlign,
+                        color: m.enabled ? C.text : C.textDim,
+                        fontWeight: T.fontWeight.medium,
+                        fontFeatureSettings: "'tnum'",
+                        fontSize: T.fontSize.sm,
+                        borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"}`,
+                      }}
+                    >
                       {m.enabled ? fmt(markupAmt) : "\u2014"}
                     </td>
                   </tr>
@@ -666,9 +941,14 @@ export default function RomResult({ rom, email }) {
                   <button
                     onClick={addMarkup}
                     style={{
-                      background: "none", border: "none", cursor: "pointer",
-                      color: C.accent, fontSize: 11, fontWeight: 600,
-                      fontFamily: "'DM Sans',sans-serif", padding: 0,
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      color: C.accent,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      fontFamily: "'DM Sans',sans-serif",
+                      padding: 0,
                     }}
                   >
                     + Add Markup
@@ -685,16 +965,51 @@ export default function RomResult({ rom, email }) {
                 }}
               >
                 <td style={{ ...cellBase, fontWeight: T.fontWeight.bold, color: C.text, borderBottom: "none" }} />
-                <td style={{ ...cellBase, fontWeight: T.fontWeight.bold, color: C.text, borderBottom: "none", fontSize: T.fontSize.md }}>
+                <td
+                  style={{
+                    ...cellBase,
+                    fontWeight: T.fontWeight.bold,
+                    color: C.text,
+                    borderBottom: "none",
+                    fontSize: T.fontSize.md,
+                  }}
+                >
                   Grand Total
                 </td>
-                <td style={{ ...cellBase, ...rightAlign, fontWeight: T.fontWeight.bold, ...colHighlight("low"), borderBottom: "none", fontFeatureSettings: "'tnum'" }}>
+                <td
+                  style={{
+                    ...cellBase,
+                    ...rightAlign,
+                    fontWeight: T.fontWeight.bold,
+                    ...colHighlight("low"),
+                    borderBottom: "none",
+                    fontFeatureSettings: "'tnum'",
+                  }}
+                >
                   {fmtSF(grandPerSF.low)}
                 </td>
-                <td style={{ ...cellBase, ...rightAlign, fontWeight: T.fontWeight.bold, ...colHighlight("mid"), borderBottom: "none", fontFeatureSettings: "'tnum'" }}>
+                <td
+                  style={{
+                    ...cellBase,
+                    ...rightAlign,
+                    fontWeight: T.fontWeight.bold,
+                    ...colHighlight("mid"),
+                    borderBottom: "none",
+                    fontFeatureSettings: "'tnum'",
+                  }}
+                >
                   {fmtSF(grandPerSF.mid)}
                 </td>
-                <td style={{ ...cellBase, ...rightAlign, fontWeight: T.fontWeight.bold, ...colHighlight("high"), borderBottom: "none", fontFeatureSettings: "'tnum'" }}>
+                <td
+                  style={{
+                    ...cellBase,
+                    ...rightAlign,
+                    fontWeight: T.fontWeight.bold,
+                    ...colHighlight("high"),
+                    borderBottom: "none",
+                    fontFeatureSettings: "'tnum'",
+                  }}
+                >
                   {fmtSF(grandPerSF.high)}
                 </td>
                 <td
@@ -726,25 +1041,41 @@ export default function RomResult({ rom, email }) {
           onClick={() => setSoftCostsExpanded(!softCostsExpanded)}
           style={{
             padding: `${T.space[4]}px ${T.space[5]}px`,
-            borderBottom: softCostsExpanded ? `1px solid ${C.isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)"}` : "none",
-            display: "flex", alignItems: "center", justifyContent: "space-between",
+            borderBottom: softCostsExpanded
+              ? `1px solid ${C.isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)"}`
+              : "none",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
             cursor: "pointer",
             transition: "background 0.15s",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{
-              display: "inline-block", fontSize: 10, color: C.textDim,
-              transition: "transform 0.15s", transform: softCostsExpanded ? "rotate(90deg)" : "none",
-            }}>&#9656;</span>
+            <span
+              style={{
+                display: "inline-block",
+                fontSize: 10,
+                color: C.textDim,
+                transition: "transform 0.15s",
+                transform: softCostsExpanded ? "rotate(90deg)" : "none",
+              }}
+            >
+              &#9656;
+            </span>
             <div style={{ ...sectionLabel(C), margin: 0 }}>Soft Costs</div>
             {hasSoftCosts && (
-              <span style={{
-                fontSize: 10, fontWeight: 600, fontFamily: "'DM Sans',sans-serif",
-                padding: "2px 8px", borderRadius: 10,
-                background: C.isDark ? "rgba(255,149,0,0.12)" : "rgba(255,149,0,0.08)",
-                color: "#FF9500",
-              }}>
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  fontFamily: "'DM Sans',sans-serif",
+                  padding: "2px 8px",
+                  borderRadius: 10,
+                  background: C.isDark ? "rgba(255,149,0,0.12)" : "rgba(255,149,0,0.08)",
+                  color: "#FF9500",
+                }}
+              >
                 {totalSoftCostPct.toFixed(1)}% &middot; {fmt(softCostTotals[selectedRange])}
               </span>
             )}
@@ -756,13 +1087,25 @@ export default function RomResult({ rom, email }) {
               </span>
             )}
             <button
-              onClick={(e) => { e.stopPropagation(); toggleAllSoftCosts(!hasSoftCosts); setSoftCostsExpanded(true); }}
+              onClick={e => {
+                e.stopPropagation();
+                toggleAllSoftCosts(!hasSoftCosts);
+                setSoftCostsExpanded(true);
+              }}
               style={{
-                padding: "4px 12px", borderRadius: 6, fontSize: 10, fontWeight: 600,
-                fontFamily: "'DM Sans',sans-serif", cursor: "pointer",
+                padding: "4px 12px",
+                borderRadius: 6,
+                fontSize: 10,
+                fontWeight: 600,
+                fontFamily: "'DM Sans',sans-serif",
+                cursor: "pointer",
                 background: hasSoftCosts
-                  ? (C.isDark ? "rgba(255,149,0,0.12)" : "rgba(255,149,0,0.08)")
-                  : (C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)"),
+                  ? C.isDark
+                    ? "rgba(255,149,0,0.12)"
+                    : "rgba(255,149,0,0.08)"
+                  : C.isDark
+                    ? "rgba(255,255,255,0.06)"
+                    : "rgba(0,0,0,0.04)",
                 border: `1px solid ${hasSoftCosts ? "rgba(255,149,0,0.25)" : C.border}`,
                 color: hasSoftCosts ? "#FF9500" : C.textMuted,
                 transition: "all 0.15s",
@@ -776,7 +1119,9 @@ export default function RomResult({ rom, email }) {
         {/* Soft cost rows */}
         {softCostsExpanded && (
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'DM Sans',sans-serif", minWidth: 500 }}>
+            <table
+              style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'DM Sans',sans-serif", minWidth: 500 }}
+            >
               <thead>
                 <tr>
                   <th style={{ ...headerCell, width: 40 }} />
@@ -795,28 +1140,44 @@ export default function RomResult({ rom, email }) {
 
                   return (
                     <tr key={sc.id} style={{ background: C.isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.01)" }}>
-                      <td style={{ ...cellBase, borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"}` }}>
+                      <td
+                        style={{
+                          ...cellBase,
+                          borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"}`,
+                        }}
+                      >
                         <button
                           onClick={() => updateSoftCost(sc.id, "enabled", !sc.enabled)}
                           title={sc.enabled ? "Disable" : "Enable"}
                           style={{
-                            width: 16, height: 16, borderRadius: 4,
+                            width: 16,
+                            height: 16,
+                            borderRadius: 4,
                             border: `1px solid ${sc.enabled ? "#FF9500" : C.textDim}`,
-                            background: sc.enabled ? "#FF9500" : "transparent", cursor: "pointer",
-                            display: "inline-flex", alignItems: "center", justifyContent: "center",
-                            fontSize: 10, color: "#fff", lineHeight: 1, padding: 0,
+                            background: sc.enabled ? "#FF9500" : "transparent",
+                            cursor: "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: 10,
+                            color: "#fff",
+                            lineHeight: 1,
+                            padding: 0,
                           }}
                         >
                           {sc.enabled ? "\u2713" : ""}
                         </button>
                       </td>
-                      <td style={{
-                        ...cellBase, color: sc.enabled ? C.text : C.textDim,
-                        fontSize: T.fontSize.sm,
-                        borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"}`,
-                        textDecoration: sc.enabled ? "none" : "line-through",
-                        opacity: sc.enabled ? 1 : 0.6,
-                      }}>
+                      <td
+                        style={{
+                          ...cellBase,
+                          color: sc.enabled ? C.text : C.textDim,
+                          fontSize: T.fontSize.sm,
+                          borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"}`,
+                          textDecoration: sc.enabled ? "none" : "line-through",
+                          opacity: sc.enabled ? 1 : 0.6,
+                        }}
+                      >
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           {isEditLabel ? (
                             <input
@@ -824,16 +1185,35 @@ export default function RomResult({ rom, email }) {
                               value={editingSoftCostValue}
                               onChange={e => setEditingSoftCostValue(e.target.value)}
                               onBlur={commitSoftCostEdit}
-                              onKeyDown={e => { if (e.key === "Enter") e.target.blur(); if (e.key === "Escape") { setEditingSoftCost(null); setEditingSoftCostValue(""); } }}
+                              onKeyDown={e => {
+                                if (e.key === "Enter") e.target.blur();
+                                if (e.key === "Escape") {
+                                  setEditingSoftCost(null);
+                                  setEditingSoftCostValue("");
+                                }
+                              }}
                               style={{
-                                flex: 1, padding: "2px 4px", fontSize: 12, fontFamily: "'DM Sans',sans-serif",
-                                background: C.bg1, color: C.text, border: `1px solid #FF9500`, borderRadius: 4, outline: "none",
+                                flex: 1,
+                                padding: "2px 4px",
+                                fontSize: 12,
+                                fontFamily: "'DM Sans',sans-serif",
+                                background: C.bg1,
+                                color: C.text,
+                                border: `1px solid #FF9500`,
+                                borderRadius: 4,
+                                outline: "none",
                               }}
                             />
                           ) : (
                             <span
-                              onClick={() => { setEditingSoftCost({ id: sc.id, field: "label" }); setEditingSoftCostValue(sc.label); }}
-                              style={{ cursor: "pointer", borderBottom: `1px dashed ${C.isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)"}` }}
+                              onClick={() => {
+                                setEditingSoftCost({ id: sc.id, field: "label" });
+                                setEditingSoftCostValue(sc.label);
+                              }}
+                              style={{
+                                cursor: "pointer",
+                                borderBottom: `1px dashed ${C.isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)"}`,
+                              }}
                             >
                               {sc.label}
                             </span>
@@ -841,19 +1221,31 @@ export default function RomResult({ rom, email }) {
                           <button
                             onClick={() => removeSoftCost(sc.id)}
                             title="Remove"
-                            style={{ background: "none", border: "none", cursor: "pointer", color: C.textDim, fontSize: 12, padding: 0, opacity: 0.5 }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              color: C.textDim,
+                              fontSize: 12,
+                              padding: 0,
+                              opacity: 0.5,
+                            }}
                           >
                             &times;
                           </button>
                         </div>
                         {sc.note && <div style={{ fontSize: 9, color: C.textDim, marginTop: 2 }}>{sc.note}</div>}
                       </td>
-                      <td style={{
-                        ...cellBase, textAlign: "center",
-                        color: sc.enabled ? C.text : C.textDim,
-                        fontSize: T.fontSize.sm, fontFeatureSettings: "'tnum'",
-                        borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"}`,
-                      }}>
+                      <td
+                        style={{
+                          ...cellBase,
+                          textAlign: "center",
+                          color: sc.enabled ? C.text : C.textDim,
+                          fontSize: T.fontSize.sm,
+                          fontFeatureSettings: "'tnum'",
+                          borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"}`,
+                        }}
+                      >
                         {isEditPct ? (
                           <input
                             type="number"
@@ -861,37 +1253,64 @@ export default function RomResult({ rom, email }) {
                             value={editingSoftCostValue}
                             onChange={e => setEditingSoftCostValue(e.target.value)}
                             onBlur={commitSoftCostEdit}
-                            onKeyDown={e => { if (e.key === "Enter") e.target.blur(); if (e.key === "Escape") { setEditingSoftCost(null); setEditingSoftCostValue(""); } }}
+                            onKeyDown={e => {
+                              if (e.key === "Enter") e.target.blur();
+                              if (e.key === "Escape") {
+                                setEditingSoftCost(null);
+                                setEditingSoftCostValue("");
+                              }
+                            }}
                             style={{
-                              width: 50, padding: "2px 4px", fontSize: 12, fontFamily: "'DM Sans',sans-serif",
-                              background: C.bg1, color: C.text, border: `1px solid #FF9500`, borderRadius: 4,
-                              textAlign: "center", outline: "none",
+                              width: 50,
+                              padding: "2px 4px",
+                              fontSize: 12,
+                              fontFamily: "'DM Sans',sans-serif",
+                              background: C.bg1,
+                              color: C.text,
+                              border: `1px solid #FF9500`,
+                              borderRadius: 4,
+                              textAlign: "center",
+                              outline: "none",
                             }}
                           />
                         ) : (
                           <span
-                            onClick={() => { setEditingSoftCost({ id: sc.id, field: "pct" }); setEditingSoftCostValue(String(sc.pct)); }}
-                            style={{ cursor: "pointer", borderBottom: `1px dashed ${C.isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)"}` }}
+                            onClick={() => {
+                              setEditingSoftCost({ id: sc.id, field: "pct" });
+                              setEditingSoftCostValue(String(sc.pct));
+                            }}
+                            style={{
+                              cursor: "pointer",
+                              borderBottom: `1px dashed ${C.isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)"}`,
+                            }}
                           >
                             {sc.pct}%
                           </span>
                         )}
                       </td>
-                      <td style={{
-                        ...cellBase, ...rightAlign,
-                        color: sc.enabled ? C.textMuted : C.textDim,
-                        fontFeatureSettings: "'tnum'", fontSize: T.fontSize.sm,
-                        borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"}`,
-                      }}>
+                      <td
+                        style={{
+                          ...cellBase,
+                          ...rightAlign,
+                          color: sc.enabled ? C.textMuted : C.textDim,
+                          fontFeatureSettings: "'tnum'",
+                          fontSize: T.fontSize.sm,
+                          borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"}`,
+                        }}
+                      >
                         {sc.enabled ? fmtSF(scPerSF) : "\u2014"}
                       </td>
-                      <td style={{
-                        ...cellBase, ...rightAlign,
-                        color: sc.enabled ? C.text : C.textDim,
-                        fontWeight: T.fontWeight.medium, fontFeatureSettings: "'tnum'",
-                        fontSize: T.fontSize.sm,
-                        borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"}`,
-                      }}>
+                      <td
+                        style={{
+                          ...cellBase,
+                          ...rightAlign,
+                          color: sc.enabled ? C.text : C.textDim,
+                          fontWeight: T.fontWeight.medium,
+                          fontFeatureSettings: "'tnum'",
+                          fontSize: T.fontSize.sm,
+                          borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"}`,
+                        }}
+                      >
                         {sc.enabled ? fmt(scAmt) : "\u2014"}
                       </td>
                     </tr>
@@ -905,9 +1324,14 @@ export default function RomResult({ rom, email }) {
                     <button
                       onClick={addSoftCost}
                       style={{
-                        background: "none", border: "none", cursor: "pointer",
-                        color: "#FF9500", fontSize: 11, fontWeight: 600,
-                        fontFamily: "'DM Sans',sans-serif", padding: 0,
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        color: "#FF9500",
+                        fontSize: 11,
+                        fontWeight: 600,
+                        fontFamily: "'DM Sans',sans-serif",
+                        padding: 0,
                       }}
                     >
                       + Add Soft Cost
@@ -918,21 +1342,50 @@ export default function RomResult({ rom, email }) {
 
                 {/* Soft cost subtotal */}
                 {hasSoftCosts && (
-                  <tr style={{
-                    borderTop: `1px solid ${C.isDark ? "rgba(255,149,0,0.2)" : "rgba(255,149,0,0.15)"}`,
-                    background: C.isDark ? "rgba(255,149,0,0.06)" : "rgba(255,149,0,0.03)",
-                  }}>
+                  <tr
+                    style={{
+                      borderTop: `1px solid ${C.isDark ? "rgba(255,149,0,0.2)" : "rgba(255,149,0,0.15)"}`,
+                      background: C.isDark ? "rgba(255,149,0,0.06)" : "rgba(255,149,0,0.03)",
+                    }}
+                  >
                     <td style={{ ...cellBase, borderBottom: "none" }} />
                     <td style={{ ...cellBase, fontWeight: T.fontWeight.bold, color: C.text, borderBottom: "none" }}>
                       Soft Cost Subtotal
                     </td>
-                    <td style={{ ...cellBase, textAlign: "center", fontWeight: T.fontWeight.bold, color: "#FF9500", borderBottom: "none", fontFeatureSettings: "'tnum'" }}>
+                    <td
+                      style={{
+                        ...cellBase,
+                        textAlign: "center",
+                        fontWeight: T.fontWeight.bold,
+                        color: "#FF9500",
+                        borderBottom: "none",
+                        fontFeatureSettings: "'tnum'",
+                      }}
+                    >
                       {totalSoftCostPct.toFixed(1)}%
                     </td>
-                    <td style={{ ...cellBase, ...rightAlign, fontWeight: T.fontWeight.bold, color: "#FF9500", borderBottom: "none", fontFeatureSettings: "'tnum'" }}>
+                    <td
+                      style={{
+                        ...cellBase,
+                        ...rightAlign,
+                        fontWeight: T.fontWeight.bold,
+                        color: "#FF9500",
+                        borderBottom: "none",
+                        fontFeatureSettings: "'tnum'",
+                      }}
+                    >
                       {fmtSF(projectSF > 0 ? softCostTotals[selectedRange] / projectSF : 0)}
                     </td>
-                    <td style={{ ...cellBase, ...rightAlign, fontWeight: T.fontWeight.bold, color: "#FF9500", borderBottom: "none", fontFeatureSettings: "'tnum'" }}>
+                    <td
+                      style={{
+                        ...cellBase,
+                        ...rightAlign,
+                        fontWeight: T.fontWeight.bold,
+                        color: "#FF9500",
+                        borderBottom: "none",
+                        fontFeatureSettings: "'tnum'",
+                      }}
+                    >
                       {fmt(softCostTotals[selectedRange])}
                     </td>
                   </tr>
@@ -940,24 +1393,50 @@ export default function RomResult({ rom, email }) {
 
                 {/* Total Project Cost (hard + soft) */}
                 {hasSoftCosts && (
-                  <tr style={{
-                    borderTop: `2px solid ${C.accent}40`,
-                    background: C.isDark ? "rgba(139,92,246,0.06)" : "rgba(139,92,246,0.03)",
-                  }}>
+                  <tr
+                    style={{
+                      borderTop: `2px solid ${C.accent}40`,
+                      background: C.isDark ? "rgba(139,92,246,0.06)" : "rgba(139,92,246,0.03)",
+                    }}
+                  >
                     <td style={{ ...cellBase, borderBottom: "none" }} />
-                    <td style={{ ...cellBase, fontWeight: T.fontWeight.bold, color: C.text, borderBottom: "none", fontSize: T.fontSize.md }}>
+                    <td
+                      style={{
+                        ...cellBase,
+                        fontWeight: T.fontWeight.bold,
+                        color: C.text,
+                        borderBottom: "none",
+                        fontSize: T.fontSize.md,
+                      }}
+                    >
                       Total Project Cost
                     </td>
                     <td style={{ ...cellBase, borderBottom: "none" }} />
-                    <td style={{ ...cellBase, ...rightAlign, fontWeight: T.fontWeight.bold, borderBottom: "none", fontFeatureSettings: "'tnum'" }}>
+                    <td
+                      style={{
+                        ...cellBase,
+                        ...rightAlign,
+                        fontWeight: T.fontWeight.bold,
+                        borderBottom: "none",
+                        fontFeatureSettings: "'tnum'",
+                      }}
+                    >
                       {fmtSF(totalProjectPerSF[selectedRange])}
                     </td>
-                    <td style={{
-                      ...cellBase, ...rightAlign, fontWeight: T.fontWeight.bold, borderBottom: "none",
-                      fontSize: T.fontSize.lg, fontFeatureSettings: "'tnum'",
-                      background: C.gradient || C.accent,
-                      WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
-                    }}>
+                    <td
+                      style={{
+                        ...cellBase,
+                        ...rightAlign,
+                        fontWeight: T.fontWeight.bold,
+                        borderBottom: "none",
+                        fontSize: T.fontSize.lg,
+                        fontFeatureSettings: "'tnum'",
+                        background: C.gradient || C.accent,
+                        WebkitBackgroundClip: "text",
+                        WebkitTextFillColor: "transparent",
+                        backgroundClip: "text",
+                      }}
+                    >
                       {fmt(totalProjectCost[selectedRange])}
                     </td>
                   </tr>

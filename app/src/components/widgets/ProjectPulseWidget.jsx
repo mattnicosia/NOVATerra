@@ -52,15 +52,18 @@ export default function ProjectPulseWidget() {
   const { sortedEstimates, benchmarks } = useDashboardData();
 
   // Status → color mapping
-  const colorMap = useMemo(() => ({
-    Won: C.green,
-    Bidding: C.blue,
-    Submitted: C.blue,
-    "On Hold": C.orange,
-    Lost: C.textDim,
-    Cancelled: C.textDim,
-    default: C.accent,
-  }), [C]);
+  const colorMap = useMemo(
+    () => ({
+      Won: C.green,
+      Bidding: C.blue,
+      Submitted: C.blue,
+      "On Hold": C.orange,
+      Lost: C.textDim,
+      Cancelled: C.textDim,
+      default: C.accent,
+    }),
+    [C],
+  );
 
   // Initialize / update particles from estimates
   useEffect(() => {
@@ -114,17 +117,20 @@ export default function ProjectPulseWidget() {
       const rect = canvas.getBoundingClientRect();
       const w = rect.width;
       const h = rect.height;
-      if (w < 10 || h < 10) { animRef.current = requestAnimationFrame(draw); return; }
+      if (w < 10 || h < 10) {
+        animRef.current = requestAnimationFrame(draw);
+        return;
+      }
       canvas.width = w * dpr;
       canvas.height = h * dpr;
       ctx.scale(dpr, dpr);
 
       const midX = w / 2;
       const midY = h / 2;
-      const radius = Math.min(w, h) * 0.40;
+      const radius = Math.min(w, h) * 0.4;
       const particles = particlesRef.current;
       const { r: ar, g: ag, b: ab } = hexRgb(C.accent);
-      const accentRgba = (a) => `rgba(${ar},${ag},${ab},${a})`;
+      const accentRgba = a => `rgba(${ar},${ag},${ab},${a})`;
 
       // ── Clear ──
       ctx.clearRect(0, 0, w, h);
@@ -132,7 +138,7 @@ export default function ProjectPulseWidget() {
       // ── Outer ring with glow ──
       ctx.beginPath();
       ctx.arc(midX, midY, radius, 0, Math.PI * 2);
-      ctx.strokeStyle = accentRgba(0.10);
+      ctx.strokeStyle = accentRgba(0.1);
       ctx.lineWidth = 1;
       ctx.stroke();
 
@@ -216,8 +222,8 @@ export default function ProjectPulseWidget() {
 
       // ── Center glow ──
       const coreGrd = ctx.createRadialGradient(midX, midY, 0, midX, midY, 45);
-      coreGrd.addColorStop(0, accentRgba(0.40));
-      coreGrd.addColorStop(0.4, accentRgba(0.10));
+      coreGrd.addColorStop(0, accentRgba(0.4));
+      coreGrd.addColorStop(0.4, accentRgba(0.1));
       coreGrd.addColorStop(1, accentRgba(0.0));
       ctx.beginPath();
       ctx.arc(midX, midY, 45, 0, Math.PI * 2);
@@ -269,7 +275,9 @@ export default function ProjectPulseWidget() {
     };
 
     animRef.current = requestAnimationFrame(draw);
-    return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
+    return () => {
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+    };
   }, [C, T, benchmarks, sortedEstimates.length]);
 
   // Mouse handlers
@@ -277,13 +285,33 @@ export default function ProjectPulseWidget() {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (rect) mouseRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
   }, []);
-  const onLeave = useCallback(() => { mouseRef.current = { x: -1, y: -1 }; }, []);
+  const onLeave = useCallback(() => {
+    mouseRef.current = { x: -1, y: -1 };
+  }, []);
 
   // Empty state
   if (!sortedEstimates.length) {
     return (
-      <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 8 }}>
-        <div style={{ fontSize: T.type.label?.fontSize || 10, fontWeight: 600, color: C.textDim, textTransform: "uppercase", letterSpacing: 1.5 }}>
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexDirection: "column",
+          gap: 8,
+        }}
+      >
+        <div
+          style={{
+            fontSize: T.type.label?.fontSize || 10,
+            fontWeight: 600,
+            color: C.textDim,
+            textTransform: "uppercase",
+            letterSpacing: 1.5,
+          }}
+        >
           PROJECT PULSE
         </div>
         <div style={{ fontSize: T.fontSize.sm, color: C.textMuted }}>

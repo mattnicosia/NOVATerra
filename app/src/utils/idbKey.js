@@ -3,14 +3,21 @@ import { useAuthStore } from "@/stores/authStore";
 
 // Key prefix for user+org scoped data in IndexedDB.
 // Solo mode: 'u-{userId}-{key}'. Org mode: 'org-{orgId}-{key}'.
-// Settings are always unprefixed (user-level, shared across modes).
+// Settings are user-scoped (same as solo mode) so different users on the
+// same browser get isolated preferences, but org vs solo doesn't split them.
 // This ensures different users on the same browser have isolated IndexedDB data.
 
 let _lastNs = null; // track last namespace for diagnostic logging
 
 export function idbKey(key) {
   const org = useOrgStore.getState().org;
-  if (key === "bldg-settings") return key;
+  const userId = useAuthStore.getState().user?.id;
+
+  // Settings are always user-scoped (not org-scoped) so they persist across org switches
+  if (key === "bldg-settings") {
+    return userId ? `u-${userId}-${key}` : key;
+  }
+
   if (org?.id) {
     const ns = `org-${org.id}`;
     if (key === "bldg-index" && _lastNs !== ns) {
@@ -21,7 +28,6 @@ export function idbKey(key) {
   }
 
   // Solo mode: namespace by user_id to prevent cross-user data leakage
-  const userId = useAuthStore.getState().user?.id;
   if (userId) {
     const ns = `u-${userId}`;
     if (key === "bldg-index" && _lastNs !== ns) {
@@ -31,9 +37,9 @@ export function idbKey(key) {
     return `${ns}-${key}`;
   }
 
-  if (key === "bldg-index" && _lastNs !== "bare") {
-    console.warn(`[idbKey] Namespace → BARE (no auth, no org!) — data may land in wrong bucket`);
-    _lastNs = "bare";
-  }
-  return key;
+  // Auth not ready — refuse to return a bare key for data operations
+  // to prevent cross-user data leakage. Only allow non-critical sentinel keys.
+  if (key === "bldg-last-user") return key; // global sentinel, intentionally unscoped
+  console.warn(`[idbKey] Namespace → BARE (no auth, no org!) — returning prefixed key to prevent leakage`);
+  return `_pending-auth-${key}`;
 }

@@ -2,9 +2,9 @@
 // Generates percentage-based breakdowns within CSI divisions using Claude.
 // Outputs %s, not $s — dollar amounts derived from BENCHMARKS x percentage.
 
-import { callAnthropic } from '@/utils/ai';
-import { CSI } from '@/constants/csi';
-import { SEED_ELEMENTS } from '@/constants/seedAssemblies';
+import { callAnthropic } from "@/utils/ai";
+import { CSI } from "@/constants/csi";
+import { SEED_ELEMENTS } from "@/constants/seedAssemblies";
 
 // ─── CONSTANTS ───────────────────────────────────────────────────
 
@@ -31,7 +31,7 @@ const TEMPERATURE = 0.3;
  * @returns {Array|null} — Parsed subdivision array or null on failure
  */
 export function parseSubdivisionResponse(text) {
-  if (!text || typeof text !== 'string') return null;
+  if (!text || typeof text !== "string") return null;
 
   try {
     // Strip markdown code fences if present (```json ... ``` or ``` ... ```)
@@ -49,10 +49,10 @@ export function parseSubdivisionResponse(text) {
 
     // Validate each item has required fields
     const valid = parsed.filter(item => {
-      if (!item || typeof item !== 'object') return false;
-      if (typeof item.code !== 'string' || !item.code.trim()) return false;
-      if (typeof item.label !== 'string' || !item.label.trim()) return false;
-      if (typeof item.pctOfDiv !== 'number' || item.pctOfDiv <= 0) return false;
+      if (!item || typeof item !== "object") return false;
+      if (typeof item.code !== "string" || !item.code.trim()) return false;
+      if (typeof item.label !== "string" || !item.label.trim()) return false;
+      if (typeof item.pctOfDiv !== "number" || item.pctOfDiv <= 0) return false;
       return true;
     });
 
@@ -75,14 +75,14 @@ export function parseSubdivisionResponse(text) {
       // Find the largest allocation and absorb the drift
       const largestIdx = normalized.reduce(
         (maxIdx, item, idx) => (item.pctOfDiv > normalized[maxIdx].pctOfDiv ? idx : maxIdx),
-        0
+        0,
       );
       normalized[largestIdx].pctOfDiv = Math.round((normalized[largestIdx].pctOfDiv + drift) * 10000) / 10000;
     }
 
     return normalized;
   } catch (err) {
-    console.warn('[SubdivisionAI] Failed to parse LLM response:', err.message);
+    console.warn("[SubdivisionAI] Failed to parse LLM response:", err.message);
     return null;
   }
 }
@@ -125,15 +125,16 @@ export async function generateSubdivisionBreakdown({
     const validSubs = Object.entries(csiDiv.subs).map(([code, label]) => `${code}: ${label}`);
 
     // Filter seed elements to this division for grounding context
-    const seedItems = (existingSeedItems || SEED_ELEMENTS.filter(
-      el => el.code && el.code.startsWith(divisionCode + '.')
-    )).slice(0, 20); // Cap at 20 to keep prompt compact
+    const seedItems = (
+      existingSeedItems || SEED_ELEMENTS.filter(el => el.code && el.code.startsWith(divisionCode + "."))
+    ).slice(0, 20); // Cap at 20 to keep prompt compact
 
-    const seedContext = seedItems.length > 0
-      ? `\nSeed assembly items in this division (for reference):\n${seedItems.map(
-          s => `  - ${s.code} ${s.name} (${s.unit})`
-        ).join('\n')}`
-      : '';
+    const seedContext =
+      seedItems.length > 0
+        ? `\nSeed assembly items in this division (for reference):\n${seedItems
+            .map(s => `  - ${s.code} ${s.name} (${s.unit})`)
+            .join("\n")}`
+        : "";
 
     // Build the user message
     const divTotal = divisionPerSF * projectSF;
@@ -143,7 +144,7 @@ Division $/SF: $${divisionPerSF.toFixed(2)}/SF (total: $${divTotal.toLocaleStrin
 Project size: ${projectSF.toLocaleString()} SF
 
 Valid CSI subdivision codes for this division:
-${validSubs.map(s => `  - ${s}`).join('\n')}
+${validSubs.map(s => `  - ${s}`).join("\n")}
 ${seedContext}
 
 Distribute the division cost across its subdivisions as percentage allocations. Return ONLY a JSON array.`;
@@ -151,14 +152,14 @@ Distribute the division cost across its subdivisions as percentage allocations. 
     // Call LLM
     const response = await callAnthropic({
       max_tokens: MAX_TOKENS,
-      messages: [{ role: 'user', content: userMessage }],
+      messages: [{ role: "user", content: userMessage }],
       system: SUBDIVISION_SYSTEM_PROMPT,
       temperature: TEMPERATURE,
       signal,
     });
 
     // Parse the response (callAnthropic returns string for text responses)
-    const parsed = parseSubdivisionResponse(typeof response === 'string' ? response : '');
+    const parsed = parseSubdivisionResponse(typeof response === "string" ? response : "");
     if (!parsed) {
       console.warn(`[SubdivisionAI] Failed to parse response for Div ${divisionCode}`);
       return null;
@@ -168,14 +169,14 @@ Distribute the division cost across its subdivisions as percentage allocations. 
     const generatedAt = new Date().toISOString();
     const result = parsed.map(item => ({
       ...item,
-      source: 'llm',
+      source: "llm",
       generatedAt,
     }));
 
     console.log(`[SubdivisionAI] Generated ${result.length} subdivisions for Div ${divisionCode}`);
     return result;
   } catch (err) {
-    if (err.name === 'AbortError') throw err; // Propagate cancellation
+    if (err.name === "AbortError") throw err; // Propagate cancellation
     console.error(`[SubdivisionAI] Error generating subdivisions for Div ${divisionCode}:`, err.message);
     return null;
   }
@@ -196,15 +197,9 @@ Distribute the division cost across its subdivisions as percentage allocations. 
  * @param {Function} [params.onProgress] — Progress callback: (divCode, divIndex, totalDivisions) => void
  * @returns {Object} — Map of { [divCode]: subdivisionArray }
  */
-export async function generateAllSubdivisions({
-  romResult,
-  buildingType,
-  seedElements,
-  signal,
-  onProgress,
-}) {
+export async function generateAllSubdivisions({ romResult, buildingType, seedElements, signal, onProgress }) {
   if (!romResult?.divisions) {
-    console.warn('[SubdivisionAI] No divisions in ROM result');
+    console.warn("[SubdivisionAI] No divisions in ROM result");
     return {};
   }
 
@@ -218,7 +213,7 @@ export async function generateAllSubdivisions({
   for (let i = 0; i < divEntries.length; i++) {
     // Check for cancellation between divisions
     if (signal?.aborted) {
-      console.log('[SubdivisionAI] Aborted — returning partial results');
+      console.log("[SubdivisionAI] Aborted — returning partial results");
       break;
     }
 
@@ -226,7 +221,7 @@ export async function generateAllSubdivisions({
 
     // Skip divisions with no cost data
     // perSF is an object { low, mid, high } from ROM engine
-    const midPerSF = typeof divData?.perSF === 'object' ? divData.perSF.mid : (divData?.perSF || 0);
+    const midPerSF = typeof divData?.perSF === "object" ? divData.perSF.mid : divData?.perSF || 0;
     if (!divData || midPerSF <= 0) {
       console.log(`[SubdivisionAI] Skipping Div ${divCode} — no cost data`);
       if (onProgress) onProgress(divCode, i, totalDivisions);
@@ -234,9 +229,7 @@ export async function generateAllSubdivisions({
     }
 
     // Filter seed elements for this division
-    const divSeedItems = allSeeds.filter(
-      el => el.code && el.code.startsWith(divCode + '.')
-    );
+    const divSeedItems = allSeeds.filter(el => el.code && el.code.startsWith(divCode + "."));
 
     try {
       const subdivisions = await generateSubdivisionBreakdown({
@@ -253,8 +246,8 @@ export async function generateAllSubdivisions({
         results[divCode] = subdivisions;
       }
     } catch (err) {
-      if (err.name === 'AbortError') {
-        console.log('[SubdivisionAI] Aborted during division generation');
+      if (err.name === "AbortError") {
+        console.log("[SubdivisionAI] Aborted during division generation");
         break;
       }
       // Log warning and continue — partial results are acceptable
@@ -268,7 +261,7 @@ export async function generateAllSubdivisions({
   const generatedCount = Object.keys(results).length;
   const totalSubs = Object.values(results).reduce((sum, arr) => sum + arr.length, 0);
   console.log(
-    `[SubdivisionAI] Batch complete: ${generatedCount}/${totalDivisions} divisions, ${totalSubs} total subdivisions`
+    `[SubdivisionAI] Batch complete: ${generatedCount}/${totalDivisions} divisions, ${totalSubs} total subdivisions`,
   );
 
   return results;

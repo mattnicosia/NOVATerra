@@ -81,7 +81,9 @@ export default function Modal({ children, onClose, wide, extraWide, width: custo
               maxHeight: "88vh",
               overflowY: "auto",
               boxShadow: modalShadow,
-              transition: isNero ? T.neroGlass?.spring || "all 300ms cubic-bezier(0.4, 0, 0.2, 1)" : "width 200ms ease-out",
+              transition: isNero
+                ? T.neroGlass?.spring || "all 300ms cubic-bezier(0.4, 0, 0.2, 1)"
+                : "width 200ms ease-out",
             }}
             onClick={e => e.stopPropagation()}
           >

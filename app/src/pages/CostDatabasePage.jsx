@@ -1,28 +1,28 @@
-import { useState, useMemo, useEffect } from 'react';
-import { useTheme } from '@/hooks/useTheme';
-import { useProjectStore } from '@/stores/projectStore';
-import { useDatabaseStore } from '@/stores/databaseStore';
-import { useItemsStore } from '@/stores/itemsStore';
-import { useUiStore } from '@/stores/uiStore';
-import { CODE_SYSTEMS } from '@/constants/codeSystems';
-import { TRADE_GROUPINGS, TRADE_MAP, getTradeLabel } from '@/constants/tradeGroupings';
-import { UNITS } from '@/constants/units';
-import { useMasterDataStore } from '@/stores/masterDataStore';
-import Ic from '@/components/shared/Ic';
-import { I } from '@/constants/icons';
-import { inp, nInp, bt } from '@/utils/styles';
-import { nn, fmt2, uid, titleCase } from '@/utils/format';
-import { autoDirective } from '@/utils/directives';
-import AssemblyCard from '@/components/shared/AssemblyCard';
-import AIAssemblyGenerator from '@/components/shared/AIAssemblyGenerator';
-import CodeManager from '@/components/shared/CodeManager';
-import SubProposalModal from '@/components/database/SubProposalModal';
-import EmptyState from '@/components/shared/EmptyState';
-import { useSubdivisionStore } from '@/stores/subdivisionStore';
-import { SUBDIVISION_BENCHMARKS, DEFAULT_SUBDIVISIONS } from '@/constants/subdivisionBenchmarks';
-import { getConfidenceTier } from '@/utils/confidenceEngine';
-import { generateSubdivisionBreakdown, generateAllSubdivisions } from '@/utils/subdivisionAI';
-import { CSI } from '@/constants/csi';
+import { useState, useMemo, useEffect } from "react";
+import { useTheme } from "@/hooks/useTheme";
+import { useProjectStore } from "@/stores/projectStore";
+import { useDatabaseStore } from "@/stores/databaseStore";
+import { useItemsStore } from "@/stores/itemsStore";
+import { useUiStore } from "@/stores/uiStore";
+import { CODE_SYSTEMS } from "@/constants/codeSystems";
+import { TRADE_GROUPINGS, TRADE_MAP, getTradeLabel } from "@/constants/tradeGroupings";
+import { UNITS } from "@/constants/units";
+import { useMasterDataStore } from "@/stores/masterDataStore";
+import Ic from "@/components/shared/Ic";
+import { I } from "@/constants/icons";
+import { inp, nInp, bt } from "@/utils/styles";
+import { nn, fmt2, uid, titleCase } from "@/utils/format";
+import { autoDirective } from "@/utils/directives";
+import AssemblyCard from "@/components/shared/AssemblyCard";
+import AIAssemblyGenerator from "@/components/shared/AIAssemblyGenerator";
+import CodeManager from "@/components/shared/CodeManager";
+import SubProposalModal from "@/components/database/SubProposalModal";
+import EmptyState from "@/components/shared/EmptyState";
+import { useSubdivisionStore } from "@/stores/subdivisionStore";
+import { SUBDIVISION_BENCHMARKS, DEFAULT_SUBDIVISIONS } from "@/constants/subdivisionBenchmarks";
+import { getConfidenceTier } from "@/utils/confidenceEngine";
+import { generateSubdivisionBreakdown, generateAllSubdivisions } from "@/utils/subdivisionAI";
+import { CSI } from "@/constants/csi";
 
 const BUILDING_TYPE_OPTIONS = [
   { key: "commercial-office", label: "Commercial Office" },
@@ -58,7 +58,7 @@ function SubdivisionsTab({ C, T }) {
   const benchmarkSubs = SUBDIVISION_BENCHMARKS[selectedBuildingType] || {};
   const divCodes = Object.keys(benchmarkSubs).sort();
 
-  const toggleDiv = (dc) => {
+  const toggleDiv = dc => {
     setExpandedDivs(prev => {
       const next = new Set(prev);
       if (next.has(dc)) next.delete(dc);
@@ -68,7 +68,7 @@ function SubdivisionsTab({ C, T }) {
   };
 
   // Inline edit: commit override
-  const commitEdit = (subCode) => {
+  const commitEdit = subCode => {
     const val = parseFloat(editingValue);
     if (!isNaN(val) && val > 0 && val <= 100) {
       setUserOverride(subCode, { pctOfDiv: val / 100 });
@@ -78,7 +78,7 @@ function SubdivisionsTab({ C, T }) {
   };
 
   // Generate subdivisions for a single division
-  const handleGenerateDiv = async (dc) => {
+  const handleGenerateDiv = async dc => {
     if (generatingDiv || generatingAll) return;
     setGeneratingDiv(dc);
     try {
@@ -97,7 +97,7 @@ function SubdivisionsTab({ C, T }) {
         });
       }
     } catch (err) {
-      console.error('[SubdivisionsTab] Generate failed:', err);
+      console.error("[SubdivisionsTab] Generate failed:", err);
     } finally {
       setGeneratingDiv(null);
     }
@@ -137,15 +137,20 @@ function SubdivisionsTab({ C, T }) {
   };
 
   // Get source info for a subdivision
-  const getSubSource = (sub) => {
+  const getSubSource = sub => {
     const override = userOverrides[sub.code];
     if (override) return { pct: override.pctOfDiv, source: "user", tier: getConfidenceTier("user") };
     const llm = llmRefinements[sub.code];
-    if (llm) return { pct: llm.pctOfDiv, source: llm.validated ? "llm-validated" : "llm", tier: getConfidenceTier(llm.validated ? "medium" : "low") };
+    if (llm)
+      return {
+        pct: llm.pctOfDiv,
+        source: llm.validated ? "llm-validated" : "llm",
+        tier: getConfidenceTier(llm.validated ? "medium" : "low"),
+      };
     return { pct: sub.pctOfDiv, source: "baseline", tier: getConfidenceTier("baseline") };
   };
 
-  const sourceBadge = (source) => {
+  const sourceBadge = source => {
     const map = {
       user: { bg: "rgba(34,197,94,0.12)", color: "#22C55E", label: "User" },
       llm: { bg: "rgba(139,92,246,0.12)", color: "#8B5CF6", label: "LLM" },
@@ -153,40 +158,87 @@ function SubdivisionsTab({ C, T }) {
       baseline: { bg: "rgba(107,114,128,0.12)", color: "#6B7280", label: "Baseline" },
     };
     const s = map[source] || map.baseline;
-    return <span style={{ fontSize: 8, fontWeight: 600, padding: "2px 6px", borderRadius: 4, background: s.bg, color: s.color }}>{s.label}</span>;
+    return (
+      <span
+        style={{ fontSize: 8, fontWeight: 600, padding: "2px 6px", borderRadius: 4, background: s.bg, color: s.color }}
+      >
+        {s.label}
+      </span>
+    );
   };
 
   return (
-    <div style={{ flex: 1, background: C.bg1, borderRadius: 8, border: `1px solid ${C.border}`, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div
+      style={{
+        flex: 1,
+        background: C.bg1,
+        borderRadius: 8,
+        border: `1px solid ${C.border}`,
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+      }}
+    >
       {/* Toolbar */}
-      <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+      <div
+        style={{
+          padding: "10px 14px",
+          borderBottom: `1px solid ${C.border}`,
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          flexWrap: "wrap",
+        }}
+      >
         <span style={{ fontSize: 11, color: C.textMuted, whiteSpace: "nowrap" }}>Building Type:</span>
         <select
           value={selectedBuildingType}
-          onChange={e => { setSelectedBuildingType(e.target.value); setExpandedDivs(new Set()); }}
-          style={{ fontSize: 12, padding: "5px 8px", background: C.bg2, color: C.text, border: `1px solid ${C.border}`, borderRadius: 6, cursor: "pointer" }}
+          onChange={e => {
+            setSelectedBuildingType(e.target.value);
+            setExpandedDivs(new Set());
+          }}
+          style={{
+            fontSize: 12,
+            padding: "5px 8px",
+            background: C.bg2,
+            color: C.text,
+            border: `1px solid ${C.border}`,
+            borderRadius: 6,
+            cursor: "pointer",
+          }}
         >
           {BUILDING_TYPE_OPTIONS.map(bt => (
-            <option key={bt.key} value={bt.key}>{bt.label}</option>
+            <option key={bt.key} value={bt.key}>
+              {bt.label}
+            </option>
           ))}
         </select>
         <button
           onClick={handleGenerateAll}
           disabled={generatingAll || !!generatingDiv}
           style={{
-            display: "flex", alignItems: "center", gap: 6,
-            padding: "5px 14px", borderRadius: 6,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "5px 14px",
+            borderRadius: 6,
             background: generatingAll ? "rgba(139,92,246,0.15)" : "linear-gradient(135deg, #8B5CF6, #7C3AED)",
-            border: "none", cursor: generatingAll ? "default" : "pointer",
-            color: "#fff", fontSize: 11, fontWeight: 600, opacity: generatingAll ? 0.7 : 1,
+            border: "none",
+            cursor: generatingAll ? "default" : "pointer",
+            color: "#fff",
+            fontSize: 11,
+            fontWeight: 600,
+            opacity: generatingAll ? 0.7 : 1,
           }}
         >
-          <Ic d={I.sparkle || "M12 2l1.09 3.26L16 6l-2.91.74L12 10l-1.09-3.26L8 6l2.91-.74L12 2z"} size={12} color="#fff" />
+          <Ic
+            d={I.sparkle || "M12 2l1.09 3.26L16 6l-2.91.74L12 10l-1.09-3.26L8 6l2.91-.74L12 2z"}
+            size={12}
+            color="#fff"
+          />
           {generatingAll ? `Generating... (${genProgress.current}/${genProgress.total})` : "Generate All with NOVA"}
         </button>
-        <span style={{ fontSize: 10, color: C.textDim, marginLeft: "auto" }}>
-          {divCodes.length} divisions
-        </span>
+        <span style={{ fontSize: 10, color: C.textDim, marginLeft: "auto" }}>{divCodes.length} divisions</span>
       </div>
 
       {/* Division Accordion */}
@@ -200,18 +252,43 @@ function SubdivisionsTab({ C, T }) {
               {/* Division header */}
               <div
                 style={{
-                  display: "flex", alignItems: "center", gap: 8,
-                  padding: "10px 14px", cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "10px 14px",
+                  cursor: "pointer",
                   background: idx % 2 === 0 ? "transparent" : C.isDark ? "rgba(255,255,255,0.015)" : "rgba(0,0,0,0.01)",
                   borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"}`,
                 }}
               >
-                <div onClick={() => toggleDiv(dc)} style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, cursor: "pointer" }}>
-                  <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke={isExpanded ? C.accent : C.textDim} strokeWidth="1.5"
-                    style={{ transform: isExpanded ? "rotate(90deg)" : "rotate(0)", transition: "transform 200ms", flexShrink: 0 }}>
+                <div
+                  onClick={() => toggleDiv(dc)}
+                  style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, cursor: "pointer" }}
+                >
+                  <svg
+                    width="8"
+                    height="8"
+                    viewBox="0 0 8 8"
+                    fill="none"
+                    stroke={isExpanded ? C.accent : C.textDim}
+                    strokeWidth="1.5"
+                    style={{
+                      transform: isExpanded ? "rotate(90deg)" : "rotate(0)",
+                      transition: "transform 200ms",
+                      flexShrink: 0,
+                    }}
+                  >
                     <path d="M2 0.5l3.5 3.5L2 7.5" />
                   </svg>
-                  <span style={{ fontSize: 10, fontFamily: "'DM Sans',sans-serif", color: C.textDim, fontWeight: 600, width: 28 }}>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontFamily: "'DM Sans',sans-serif",
+                      color: C.textDim,
+                      fontWeight: 600,
+                      width: 28,
+                    }}
+                  >
                     {dc}
                   </span>
                   <span style={{ fontSize: 12, fontWeight: 600, color: C.text, flex: 1 }}>
@@ -219,23 +296,46 @@ function SubdivisionsTab({ C, T }) {
                   </span>
                 </div>
                 <button
-                  onClick={(e) => { e.stopPropagation(); handleGenerateDiv(dc); }}
+                  onClick={e => {
+                    e.stopPropagation();
+                    handleGenerateDiv(dc);
+                  }}
                   disabled={!!generatingDiv || generatingAll}
                   style={{
-                    display: "flex", alignItems: "center", gap: 4,
-                    padding: "3px 10px", borderRadius: 5,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                    padding: "3px 10px",
+                    borderRadius: 5,
                     background: isDivGenerating ? "rgba(139,92,246,0.15)" : "rgba(139,92,246,0.08)",
                     border: `1px solid rgba(139,92,246,${isDivGenerating ? "0.3" : "0.15"})`,
-                    cursor: (!!generatingDiv || generatingAll) ? "default" : "pointer",
-                    color: "#8B5CF6", fontSize: 9, fontWeight: 600,
+                    cursor: !!generatingDiv || generatingAll ? "default" : "pointer",
+                    color: "#8B5CF6",
+                    fontSize: 9,
+                    fontWeight: 600,
                     opacity: (!!generatingDiv || generatingAll) && !isDivGenerating ? 0.4 : 1,
-                    transition: "all 0.15s", flexShrink: 0,
+                    transition: "all 0.15s",
+                    flexShrink: 0,
                   }}
                 >
                   {isDivGenerating ? (
-                    <span style={{ display: "inline-block", width: 10, height: 10, border: "2px solid rgba(139,92,246,0.3)", borderTop: "2px solid #8B5CF6", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+                    <span
+                      style={{
+                        display: "inline-block",
+                        width: 10,
+                        height: 10,
+                        border: "2px solid rgba(139,92,246,0.3)",
+                        borderTop: "2px solid #8B5CF6",
+                        borderRadius: "50%",
+                        animation: "spin 0.8s linear infinite",
+                      }}
+                    />
                   ) : (
-                    <Ic d={I.sparkle || "M12 2l1.09 3.26L16 6l-2.91.74L12 10l-1.09-3.26L8 6l2.91-.74L12 2z"} size={9} color="#8B5CF6" />
+                    <Ic
+                      d={I.sparkle || "M12 2l1.09 3.26L16 6l-2.91.74L12 10l-1.09-3.26L8 6l2.91-.74L12 2z"}
+                      size={9}
+                      color="#8B5CF6"
+                    />
                   )}
                   {isDivGenerating ? "Generating..." : "NOVA"}
                 </button>
@@ -246,9 +346,27 @@ function SubdivisionsTab({ C, T }) {
 
               {/* Subdivision rows */}
               {isExpanded && subs.length > 0 && (
-                <div style={{ background: C.isDark ? "rgba(139,92,246,0.03)" : "rgba(139,92,246,0.015)", borderBottom: `1px solid ${C.border}` }}>
+                <div
+                  style={{
+                    background: C.isDark ? "rgba(139,92,246,0.03)" : "rgba(139,92,246,0.015)",
+                    borderBottom: `1px solid ${C.border}`,
+                  }}
+                >
                   {/* Sub-header */}
-                  <div style={{ display: "grid", gridTemplateColumns: "100px 1fr 80px 80px 24px", gap: 4, padding: "4px 14px 4px 44px", fontSize: 8, fontWeight: 600, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.6, borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"}` }}>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "100px 1fr 80px 80px 24px",
+                      gap: 4,
+                      padding: "4px 14px 4px 44px",
+                      fontSize: 8,
+                      fontWeight: 600,
+                      color: C.textDim,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.6,
+                      borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"}`,
+                    }}
+                  >
                     <div>Code</div>
                     <div>Subdivision</div>
                     <div style={{ textAlign: "right" }}>% of Div</div>
@@ -260,22 +378,59 @@ function SubdivisionsTab({ C, T }) {
                     const isEditing = editingSub === sub.code;
                     const hasOverride = !!userOverrides[sub.code];
                     return (
-                      <div key={sub.code} style={{
-                        display: "grid", gridTemplateColumns: "100px 1fr 80px 80px 24px", gap: 4,
-                        padding: "6px 14px 6px 44px", fontSize: 11,
-                        borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)"}`,
-                        alignItems: "center",
-                        background: isEditing ? (C.isDark ? "rgba(139,92,246,0.08)" : "rgba(139,92,246,0.04)") : "transparent",
-                      }}>
+                      <div
+                        key={sub.code}
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "100px 1fr 80px 80px 24px",
+                          gap: 4,
+                          padding: "6px 14px 6px 44px",
+                          fontSize: 11,
+                          borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)"}`,
+                          alignItems: "center",
+                          background: isEditing
+                            ? C.isDark
+                              ? "rgba(139,92,246,0.08)"
+                              : "rgba(139,92,246,0.04)"
+                            : "transparent",
+                        }}
+                      >
                         <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: C.purple }}>
-                          <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: tier.color, marginRight: 6, verticalAlign: "middle" }} />
+                          <span
+                            style={{
+                              display: "inline-block",
+                              width: 7,
+                              height: 7,
+                              borderRadius: "50%",
+                              background: tier.color,
+                              marginRight: 6,
+                              verticalAlign: "middle",
+                            }}
+                          />
                           {sub.code}
                         </div>
-                        <div style={{ color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sub.label}</div>
+                        <div
+                          style={{ color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                        >
+                          {sub.label}
+                        </div>
                         {/* % of Div — click to edit */}
                         <div
-                          style={{ textAlign: "right", fontFamily: "'DM Sans',sans-serif", fontSize: 11, color: C.text, fontWeight: 500, cursor: "pointer", position: "relative" }}
-                          onClick={() => { if (!isEditing) { setEditingSub(sub.code); setEditingValue((pct * 100).toFixed(1)); } }}
+                          style={{
+                            textAlign: "right",
+                            fontFamily: "'DM Sans',sans-serif",
+                            fontSize: 11,
+                            color: C.text,
+                            fontWeight: 500,
+                            cursor: "pointer",
+                            position: "relative",
+                          }}
+                          onClick={() => {
+                            if (!isEditing) {
+                              setEditingSub(sub.code);
+                              setEditingValue((pct * 100).toFixed(1));
+                            }
+                          }}
                         >
                           {isEditing ? (
                             <input
@@ -284,22 +439,37 @@ function SubdivisionsTab({ C, T }) {
                               value={editingValue}
                               onChange={e => setEditingValue(e.target.value)}
                               onBlur={() => commitEdit(sub.code)}
-                              onKeyDown={e => { if (e.key === "Enter") commitEdit(sub.code); if (e.key === "Escape") { setEditingSub(null); setEditingValue(""); } }}
+                              onKeyDown={e => {
+                                if (e.key === "Enter") commitEdit(sub.code);
+                                if (e.key === "Escape") {
+                                  setEditingSub(null);
+                                  setEditingValue("");
+                                }
+                              }}
                               style={{
-                                width: 54, padding: "2px 4px", fontSize: 11, fontFamily: "'DM Sans',sans-serif",
-                                background: C.bg1, color: C.text, border: `1px solid ${C.accent}`, borderRadius: 4,
-                                textAlign: "right", outline: "none",
+                                width: 54,
+                                padding: "2px 4px",
+                                fontSize: 11,
+                                fontFamily: "'DM Sans',sans-serif",
+                                background: C.bg1,
+                                color: C.text,
+                                border: `1px solid ${C.accent}`,
+                                borderRadius: 4,
+                                textAlign: "right",
+                                outline: "none",
                               }}
                             />
                           ) : (
-                            <span style={{ borderBottom: `1px dashed ${C.isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.12)"}` }}>
+                            <span
+                              style={{
+                                borderBottom: `1px dashed ${C.isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.12)"}`,
+                              }}
+                            >
                               {(pct * 100).toFixed(1)}%
                             </span>
                           )}
                         </div>
-                        <div style={{ textAlign: "center" }}>
-                          {sourceBadge(source)}
-                        </div>
+                        <div style={{ textAlign: "center" }}>{sourceBadge(source)}</div>
                         {/* Remove override button */}
                         <div style={{ textAlign: "center" }}>
                           {hasOverride && (
@@ -307,9 +477,19 @@ function SubdivisionsTab({ C, T }) {
                               onClick={() => removeUserOverride(sub.code)}
                               title="Remove override"
                               style={{
-                                width: 16, height: 16, padding: 0, border: "none", borderRadius: 4,
-                                background: "rgba(239,68,68,0.1)", color: "#EF4444",
-                                cursor: "pointer", fontSize: 10, lineHeight: "16px", display: "flex", alignItems: "center", justifyContent: "center",
+                                width: 16,
+                                height: 16,
+                                padding: 0,
+                                border: "none",
+                                borderRadius: 4,
+                                background: "rgba(239,68,68,0.1)",
+                                color: "#EF4444",
+                                cursor: "pointer",
+                                fontSize: 10,
+                                lineHeight: "16px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
                               }}
                             >
                               &times;
@@ -327,9 +507,17 @@ function SubdivisionsTab({ C, T }) {
       </div>
 
       {/* Footer */}
-      <div style={{ padding: "8px 14px", borderTop: `1px solid ${C.border}`, fontSize: 9, color: C.textDim, lineHeight: 1.6 }}>
-        Click any <strong>% value</strong> to override. <strong>NOVA</strong> generates AI-refined allocations per division.
-        Baseline (60%) + User overrides (30%) + LLM (10%) blended via confidence engine.
+      <div
+        style={{
+          padding: "8px 14px",
+          borderTop: `1px solid ${C.border}`,
+          fontSize: 9,
+          color: C.textDim,
+          lineHeight: 1.6,
+        }}
+      >
+        Click any <strong>% value</strong> to override. <strong>NOVA</strong> generates AI-refined allocations per
+        division. Baseline (60%) + User overrides (30%) + LLM (10%) blended via confidence engine.
       </div>
 
       {/* Spinner keyframes */}
@@ -428,23 +616,25 @@ export default function CostDatabasePage({ embedded = false }) {
     let list = elements;
     if (dbSearch) {
       const q = dbSearch.toLowerCase();
-      list = list.filter(el =>
-        (el.name || "").toLowerCase().includes(q) ||
-        (el.code || "").toLowerCase().includes(q)
-      );
+      list = list.filter(el => (el.name || "").toLowerCase().includes(q) || (el.code || "").toLowerCase().includes(q));
     } else if (dbSelectedSub) {
       list = list.filter(el => el.code && el.code.startsWith(dbSelectedSub));
     }
     return list;
   }, [elements, dbSearch, dbSelectedSub]);
 
-  const addFromDB = (el) => {
+  const addFromDB = el => {
     const dc = el.code ? el.code.split(".")[0] : "";
     const divName = activeCodes[dc]?.name || "";
     addElement(`${dc} - ${divName}`, {
-      code: el.code, name: titleCase(el.name), unit: el.unit,
-      material: el.material, labor: el.labor, equipment: el.equipment,
-      subcontractor: el.subcontractor, trade: el.trade,
+      code: el.code,
+      name: titleCase(el.name),
+      unit: el.unit,
+      material: el.material,
+      labor: el.labor,
+      equipment: el.equipment,
+      subcontractor: el.subcontractor,
+      trade: el.trade,
     });
     showToast(`Added "${titleCase(el.name)}" to estimate`);
   };
@@ -455,9 +645,7 @@ export default function CostDatabasePage({ embedded = false }) {
   };
   const updateBundle = (key, field, value) => {
     initCustomBundles();
-    const bundles = (customBundles || TRADE_GROUPINGS).map(b =>
-      b.key === key ? { ...b, [field]: value } : b
-    );
+    const bundles = (customBundles || TRADE_GROUPINGS).map(b => (b.key === key ? { ...b, [field]: value } : b));
     setCustomBundles(bundles);
   };
   const addBundle = () => {
@@ -468,7 +656,7 @@ export default function CostDatabasePage({ embedded = false }) {
     setCustomBundles([...next, { key: newKey, label: "New Trade Bundle", sort: maxSort + 1, divisions: [] }]);
     setEditingBundleKey(newKey);
   };
-  const removeBundle = (key) => {
+  const removeBundle = key => {
     initCustomBundles();
     const next = (customBundles || TRADE_GROUPINGS).filter(b => b.key !== key);
     setCustomBundles(next);
@@ -499,40 +687,78 @@ export default function CostDatabasePage({ embedded = false }) {
 
   return (
     <div style={{ padding: embedded ? 0 : T.space[7], minHeight: "100%" }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 0, ...(embedded ? { flex: 1, minHeight: 0 } : { height: "calc(100vh - 160px)" }) }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 0,
+          ...(embedded ? { flex: 1, minHeight: 0 } : { height: "calc(100vh - 160px)" }),
+        }}
+      >
         {/* Code System Selector */}
         <div style={{ display: "flex", gap: 8, marginBottom: 8, padding: "0 2px", alignItems: "stretch" }}>
           {Object.values(CODE_SYSTEMS).map((sys, si) => {
             const active = codeSystem === sys.id;
             return (
-              <button key={sys.id} className={active ? "card-hover" : "ghost-btn"}
+              <button
+                key={sys.id}
+                className={active ? "card-hover" : "ghost-btn"}
                 onClick={() => {
-                  if (!active && elements.length > 0 && !confirm(`Switch to ${sys.name}? Your existing database items will remain but codes may not match the new system.`)) return;
+                  if (
+                    !active &&
+                    elements.length > 0 &&
+                    !confirm(
+                      `Switch to ${sys.name}? Your existing database items will remain but codes may not match the new system.`,
+                    )
+                  )
+                    return;
                   setCodeSystem(sys.id);
                 }}
                 style={{
-                  flex: 1, padding: "10px 14px",
+                  flex: 1,
+                  padding: "10px 14px",
                   background: active ? C.accentBg : C.bg,
                   border: `2px solid ${active ? C.accent : C.border}`,
-                  borderRadius: 8, display: "flex", alignItems: "center", gap: 10,
+                  borderRadius: 8,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
                   cursor: "pointer",
                   animation: `staggerFadeUp 400ms cubic-bezier(0.16,1,0.3,1) ${si * 60}ms both`,
-                }}>
+                }}
+              >
                 <span style={{ fontSize: 20 }}>{sys.icon}</span>
                 <div style={{ textAlign: "left" }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: active ? C.accent : C.text }}>{sys.name}</div>
                   <div style={{ fontSize: 9, color: C.textDim, lineHeight: 1.3 }}>{sys.desc}</div>
                 </div>
-                {active && <div style={{ marginLeft: "auto", width: 8, height: 8, borderRadius: 4, background: C.accent, boxShadow: `0 0 8px ${C.accent}60` }} />}
+                {active && (
+                  <div
+                    style={{
+                      marginLeft: "auto",
+                      width: 8,
+                      height: 8,
+                      borderRadius: 4,
+                      background: C.accent,
+                      boxShadow: `0 0 8px ${C.accent}60`,
+                    }}
+                  />
+                )}
               </button>
             );
           })}
           <button
             onClick={() => setCodeManagerOpen(true)}
             style={bt(C, {
-              background: C.bg, border: `2px solid ${C.border}`, borderRadius: 8,
-              padding: "10px 16px", color: C.text, flexDirection: "column",
-              justifyContent: "center", gap: 4, minWidth: 100,
+              background: C.bg,
+              border: `2px solid ${C.border}`,
+              borderRadius: 8,
+              padding: "10px 16px",
+              color: C.text,
+              flexDirection: "column",
+              justifyContent: "center",
+              gap: 4,
+              minWidth: 100,
             })}
           >
             <Ic d={I.settings} size={16} color={C.accent} />
@@ -548,12 +774,16 @@ export default function CostDatabasePage({ embedded = false }) {
               { key: "assemblies", label: `Assemblies (${assemblies.length})`, icon: I.assembly },
               { key: "bundles", label: `Trade Bundles (${activeBundles.length})`, icon: I.bundle },
               { key: "subdivisions", label: "Subdivisions", icon: I.layers },
-            ].map((tab) => {
+            ].map(tab => {
               const active = dbActiveTab === tab.key;
               return (
-                <button key={tab.key} onClick={() => setDbActiveTab(tab.key)}
+                <button
+                  key={tab.key}
+                  onClick={() => setDbActiveTab(tab.key)}
                   style={bt(C, {
-                    padding: "8px 20px", fontSize: 12, fontWeight: 600,
+                    padding: "8px 20px",
+                    fontSize: 12,
+                    fontWeight: 600,
                     background: active ? C.accent : "transparent",
                     color: active ? "#fff" : C.textMuted,
                     border: "none",
@@ -561,9 +791,9 @@ export default function CostDatabasePage({ embedded = false }) {
                     cursor: "pointer",
                     transition: "all 200ms ease-out",
                     boxShadow: active ? `0 2px 8px ${C.accent}30` : "none",
-                  })}>
-                  {tab.icon && <Ic d={tab.icon} size={14} color={active ? "#fff" : C.textMuted} />}
-                  {" "}{tab.label}
+                  })}
+                >
+                  {tab.icon && <Ic d={tab.icon} size={14} color={active ? "#fff" : C.textMuted} />} {tab.label}
                 </button>
               );
             })}
@@ -571,358 +801,1070 @@ export default function CostDatabasePage({ embedded = false }) {
         </div>
 
         {/* Items Tab */}
-        {dbActiveTab === "items" && <div style={{ display: "flex", gap: 0, flex: 1, minHeight: 0 }}>
-          {/* LEFT: Division Tree */}
-          <div style={{ width: 280, minWidth: 280, background: C.bg, borderRadius: `${T.radius.md}px 0 0 ${T.radius.md}px`, border: `1px solid ${C.border}`, borderRight: "none", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-            <div style={{ padding: "10px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: 9, fontWeight: 600, color: C.textDim, textTransform: "uppercase", letterSpacing: 1 }}>{(CODE_SYSTEMS[codeSystem] || CODE_SYSTEMS["csi-commercial"]).name}</span>
-              <span style={{ fontSize: 9, color: C.textDim }}>{Object.keys(activeCodes).length} divisions</span>
-            </div>
-            <div style={{ flex: 1, overflowY: "auto", padding: 4 }}>
-              <div className="nav-item" onClick={() => { setDbSelectedSub(null); setDbSearch(""); }}
-                style={{ padding: "6px 10px", borderRadius: 4, fontSize: 11, fontWeight: 600, color: !dbSelectedSub && !dbSearch ? C.accent : C.textMuted, background: !dbSelectedSub && !dbSearch ? C.accentBg : "transparent", marginBottom: 2 }}>
-                All Items ({elements.length})
+        {dbActiveTab === "items" && (
+          <div style={{ display: "flex", gap: 0, flex: 1, minHeight: 0 }}>
+            {/* LEFT: Division Tree */}
+            <div
+              style={{
+                width: 280,
+                minWidth: 280,
+                background: C.bg,
+                borderRadius: `${T.radius.md}px 0 0 ${T.radius.md}px`,
+                border: `1px solid ${C.border}`,
+                borderRight: "none",
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  padding: "10px 12px",
+                  borderBottom: `1px solid ${C.border}`,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 9,
+                    fontWeight: 600,
+                    color: C.textDim,
+                    textTransform: "uppercase",
+                    letterSpacing: 1,
+                  }}
+                >
+                  {(CODE_SYSTEMS[codeSystem] || CODE_SYSTEMS["csi-commercial"]).name}
+                </span>
+                <span style={{ fontSize: 9, color: C.textDim }}>{Object.keys(activeCodes).length} divisions</span>
               </div>
-              {Object.entries(dbTree).sort(([a], [b]) => a.localeCompare(b)).map(([dc, div], dIdx) => (
-                <div key={dc} style={{ animation: `staggerFadeRight 280ms cubic-bezier(0.16,1,0.3,1) ${200 + dIdx * 18}ms both` }}>
-                  <div className="nav-item" onClick={() => toggleDbDiv(dc)}
-                    style={{ padding: "6px 10px", borderRadius: 4, display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 600, color: div.count > 0 ? C.text : C.textMuted }}>
-                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke={div.count > 0 ? C.accent : C.textDim} strokeWidth="1.5" style={{ transform: dbExpandedDivs.has(dc) ? "rotate(90deg)" : "rotate(0)", transition: "transform 200ms cubic-bezier(0.16,1,0.3,1)", flexShrink: 0 }}><path d="M2 0.5l3.5 3.5L2 7.5" /></svg>
-                    <Ic d={I.folder} size={12} color={div.count > 0 ? C.accent : C.textDim} />
-                    <span style={{ color: div.count > 0 ? C.accent : C.textDim, fontFamily: "'DM Sans',sans-serif", fontSize: 10, minWidth: 18 }}>{dc}</span>
-                    <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{div.name}</span>
-                    {div.count > 0 && <span style={{ fontSize: 9, color: C.accent, fontWeight: 600, background: `${C.accent}12`, padding: "1px 5px", borderRadius: 6 }}>{div.count}</span>}
-                  </div>
-                  {dbExpandedDivs.has(dc) && <>
-                    {Object.entries(div.subs).sort(([a], [b]) => a.localeCompare(b)).map(([subKey, sub], sIdx) => {
-                      const isActive = dbSelectedSub === subKey;
-                      const hasItems = sub.count > 0;
-                      return (
-                        <div key={subKey} className="nav-item" onClick={() => { setDbSelectedSub(subKey); setDbSearch(""); }}
-                          style={{
-                            padding: "5px 10px 5px 34px", borderRadius: 4, fontSize: 10,
-                            color: isActive ? C.accent : hasItems ? C.text : C.textDim,
-                            background: isActive ? C.accentBg : "transparent",
-                            fontWeight: isActive ? 600 : hasItems ? 500 : 400,
-                            display: "flex", gap: 6, alignItems: "center",
-                            opacity: isActive || hasItems ? 1 : 0.7,
-                            animation: `staggerFadeRight 220ms cubic-bezier(0.16,1,0.3,1) ${sIdx * 25}ms both`,
-                            borderLeft: isActive ? `2px solid ${C.accent}` : "2px solid transparent",
-                            transition: "border-color 200ms ease-out, background 150ms ease-out",
-                          }}>
-                          <span style={{ fontFamily: "'DM Sans',sans-serif", color: isActive ? C.accent : hasItems ? C.textMuted : C.textDim, fontSize: 9 }}>{subKey}</span>
-                          <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sub.name}</span>
-                          {hasItems && <span style={{ fontSize: 9, color: C.accent, fontWeight: 600, background: `${C.accent}10`, padding: "0 4px", borderRadius: 4 }}>{sub.count}</span>}
-                        </div>
-                      );
-                    })}
-                    {/* Add subdivision */}
-                    {addSubForDiv === dc ? (
-                      <div style={{ display: "flex", gap: 4, alignItems: "center", padding: "4px 10px 4px 34px" }}>
-                        <input placeholder={`${dc}.`} value={newSubCode} onChange={e => setNewSubCode(e.target.value)} autoFocus
-                          style={inp(C, { width: 56, fontSize: 9, fontFamily: "'DM Sans',sans-serif", textAlign: "center", padding: "2px 3px" })} />
-                        <input placeholder="Name..." value={newSubName} onChange={e => setNewSubName(e.target.value)}
-                          onKeyDown={e => {
-                            if (e.key === "Enter") {
-                              const code = newSubCode.trim();
-                              const name = newSubName.trim();
-                              if (code && name) {
-                                const fullCode = code.includes(".") ? code : `${dc}.${code}`;
-                                addSubdivision(dc, fullCode, name);
-                                setNewSubCode(""); setNewSubName(""); setAddSubForDiv(null);
-                                showToast(`Added subdivision ${fullCode}`);
-                              }
-                            }
-                            if (e.key === "Escape") setAddSubForDiv(null);
-                          }}
-                          style={inp(C, { flex: 1, fontSize: 9, padding: "2px 4px" })} />
-                        <button onClick={() => {
-                          const code = newSubCode.trim();
-                          const name = newSubName.trim();
-                          if (code && name) {
-                            const fullCode = code.includes(".") ? code : `${dc}.${code}`;
-                            addSubdivision(dc, fullCode, name);
-                            setNewSubCode(""); setNewSubName(""); setAddSubForDiv(null);
-                            showToast(`Added subdivision ${fullCode}`);
-                          }
-                        }} style={bt(C, { background: C.accent, color: "#fff", padding: "2px 6px", fontSize: 8 })}>Add</button>
-                        <button onClick={() => setAddSubForDiv(null)} style={bt(C, { background: "transparent", border: `1px solid ${C.border}`, color: C.textDim, padding: "2px 5px", fontSize: 8 })}>✕</button>
-                      </div>
-                    ) : (
-                      <div className="nav-item" onClick={() => { setAddSubForDiv(dc); setNewSubCode(""); setNewSubName(""); }}
-                        style={{ padding: "4px 10px 4px 34px", borderRadius: 4, fontSize: 9, color: C.accent, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, opacity: 0.6 }}>
-                        <Ic d={I.plus} size={9} color={C.accent} sw={2} /> Add subdivision...
-                      </div>
-                    )}
-                  </>}
+              <div style={{ flex: 1, overflowY: "auto", padding: 4 }}>
+                <div
+                  className="nav-item"
+                  onClick={() => {
+                    setDbSelectedSub(null);
+                    setDbSearch("");
+                  }}
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: 4,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: !dbSelectedSub && !dbSearch ? C.accent : C.textMuted,
+                    background: !dbSelectedSub && !dbSearch ? C.accentBg : "transparent",
+                    marginBottom: 2,
+                  }}
+                >
+                  All Items ({elements.length})
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* RIGHT: Items list */}
-          <div style={{ flex: 1, background: C.bg1, borderRadius: `0 ${T.radius.md}px ${T.radius.md}px 0`, border: `1px solid ${C.border}`, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-            <div style={{ padding: "8px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ position: "relative", flex: 1, maxWidth: 300 }}>
-                <input placeholder="Search items..." value={dbSearch} onChange={e => { setDbSearch(e.target.value); if (e.target.value) setDbSelectedSub(null); }} style={inp(C, { paddingLeft: 28, fontSize: 12 })} />
-                <div style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)" }}><Ic d={I.search} size={12} color={C.textDim} /></div>
-              </div>
-              {dbSelectedSub && <span style={{ fontSize: 11, color: C.accent, fontWeight: 600 }}>{dbSelectedSub} — {activeCodes[dbSelectedSub.split(".")[0]]?.subs?.[dbSelectedSub] || ""}</span>}
-              <button className="accent-btn" onClick={() => {
-                const sub = dbSelectedSub || "";
-                // Auto-generate next code: find max item number under this subdivision
-                let code = sub;
-                if (sub) {
-                  const existing = elements.filter(el => el.code && el.code.startsWith(sub + "."));
-                  const nums = existing.map(el => {
-                    const tail = el.code.slice(sub.length + 1);
-                    return parseInt(tail, 10);
-                  }).filter(n => !isNaN(n));
-                  const next = nums.length > 0 ? Math.max(...nums) + 10 : 10;
-                  code = `${sub}.${String(next).padStart(2, "0")}`;
-                }
-                // Resolve current user name: project estimator or first estimator in master data
-                const userName = project?.estimator || (estimators.length > 0 ? estimators[0].name : "");
-                useDatabaseStore.getState().addElement({
-                  code, name: "", unit: "EA", material: 0, labor: 0, equipment: 0, subcontractor: 0,
-                  directive: "", addedBy: userName, addedDate: new Date().toLocaleDateString(),
-                  specVariants: [], specText: "",
-                });
-                showToast("New scope item created");
-              }} style={bt(C, { background: C.accent, color: "#fff", padding: "5px 12px", fontSize: 10 })}>
-                <Ic d={I.plus} size={11} color="#fff" sw={2.5} /> Create Scope Item
-              </button>
-              <button className="accent-btn" onClick={() => setSubProposalOpen(true)}
-                style={bt(C, {
-                  background: `linear-gradient(135deg, ${C.accent}, ${C.purple})`,
-                  color: "#fff", padding: "5px 12px", fontSize: 10, border: "none",
-                  boxShadow: `0 1px 6px ${C.accent}30`,
-                })}>
-                <Ic d={I.upload} size={11} color="#fff" /> Import Sub Proposal
-              </button>
-              {elements.length > 0 && (
-                <button className="ghost-btn" onClick={() => { if (confirm("Clear ALL scope items from database? This cannot be undone.")) setElements([]); }}
-                  style={bt(C, { background: "transparent", border: `1px solid ${C.red}`, color: C.red, padding: "5px 10px", fontSize: 9 })}>Clear All</button>
-              )}
-              <span style={{ fontSize: 10, color: C.textDim }}>{dbVisibleElements.length} items</span>
-            </div>
-
-            {/* Column headers */}
-            <div style={{ display: "grid", gridTemplateColumns: gridCols, padding: "8px 14px", borderBottom: `1px solid ${C.border}`, fontSize: 9, fontWeight: 600, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.8 }}>
-              <div>Code</div><div>Dir</div><div>Item</div><div>Bundle</div><div style={{ textAlign: "right" }}>Unit</div><div style={{ textAlign: "right" }}>Matl</div><div style={{ textAlign: "right" }}>Labor</div><div style={{ textAlign: "right" }}>Equip</div><div style={{ textAlign: "right" }}>Sub</div><div style={{ textAlign: "right" }}>Added By</div><div></div>
-            </div>
-
-            {/* Move bar */}
-            {movingId && (() => {
-              const movingEl = elements.find(e => e.id === movingId);
-              if (!movingEl) return null;
-              const canConfirm = moveCode && moveCode !== movingEl.code;
-              // Build filtered subdivision chips
-              const chips = Object.entries(activeCodes).flatMap(([dc, div]) =>
-                Object.entries(div.subs || {})
-                  .filter(([sk]) => !moveCode || sk.startsWith(moveCode.split(".")[0]))
-                  .slice(0, 12)
-                  .map(([sk, name]) => ({ sk, name }))
-              ).slice(0, 10);
-              return (
-                <div style={{
-                  padding: "8px 14px", background: C.accentBg, borderBottom: `2px solid ${C.accent}`,
-                  display: "flex", alignItems: "center", gap: 10, fontSize: 11, flexShrink: 0,
-                }}>
-                  <Ic d={I.move} size={14} color={C.accent} />
-                  <span style={{ fontWeight: 600, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 200 }}>
-                    Move "{movingEl.name}"
-                  </span>
-                  <span style={{ color: C.textDim, fontSize: 10, flexShrink: 0 }}>to:</span>
-                  <input
-                    value={moveCode} onChange={e => setMoveCode(e.target.value)}
-                    placeholder="e.g. 05.210" autoFocus
-                    style={inp(C, { width: 110, fontFamily: "'DM Sans',sans-serif", fontSize: 11, padding: "4px 8px" })}
-                    onKeyDown={e => { if (e.key === "Enter" && canConfirm) { updateElement(movingId, "code", moveCode); showToast(`Moved to ${moveCode}`); setMovingId(null); setMoveCode(""); } if (e.key === "Escape") { setMovingId(null); setMoveCode(""); } }}
-                  />
-                  <div style={{ display: "flex", gap: 3, flex: 1, overflow: "hidden", flexWrap: "wrap" }}>
-                    {chips.map(({ sk, name }) => (
-                      <button key={sk} onClick={() => setMoveCode(sk)}
+                {Object.entries(dbTree)
+                  .sort(([a], [b]) => a.localeCompare(b))
+                  .map(([dc, div], dIdx) => (
+                    <div
+                      key={dc}
+                      style={{
+                        animation: `staggerFadeRight 280ms cubic-bezier(0.16,1,0.3,1) ${200 + dIdx * 18}ms both`,
+                      }}
+                    >
+                      <div
+                        className="nav-item"
+                        onClick={() => toggleDbDiv(dc)}
                         style={{
-                          padding: "2px 7px", fontSize: 8, fontWeight: 600,
-                          background: moveCode === sk ? C.accent : C.bg,
-                          color: moveCode === sk ? "#fff" : C.textMuted,
-                          border: `1px solid ${moveCode === sk ? C.accent : C.border}`,
-                          borderRadius: 4, cursor: "pointer", whiteSpace: "nowrap",
-                        }}>
-                        {sk}
-                      </button>
-                    ))}
-                  </div>
-                  <button onClick={() => { if (canConfirm) { updateElement(movingId, "code", moveCode); showToast(`Moved "${movingEl.name}" to ${moveCode}`); } setMovingId(null); setMoveCode(""); }}
-                    disabled={!canConfirm}
-                    style={bt(C, { background: canConfirm ? C.accent : C.bg3, color: canConfirm ? "#fff" : C.textDim, padding: "4px 12px", fontSize: 10, fontWeight: 600, flexShrink: 0 })}>
-                    <Ic d={I.check} size={10} color={canConfirm ? "#fff" : C.textDim} sw={2.5} /> Move
-                  </button>
-                  <button onClick={() => { setMovingId(null); setMoveCode(""); }}
-                    style={bt(C, { background: "transparent", border: `1px solid ${C.border}`, color: C.textDim, padding: "4px 10px", fontSize: 10, flexShrink: 0 })}>
-                    Cancel
-                  </button>
-                </div>
-              );
-            })()}
+                          padding: "6px 10px",
+                          borderRadius: 4,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          fontSize: 11,
+                          fontWeight: 600,
+                          color: div.count > 0 ? C.text : C.textMuted,
+                        }}
+                      >
+                        <svg
+                          width="8"
+                          height="8"
+                          viewBox="0 0 8 8"
+                          fill="none"
+                          stroke={div.count > 0 ? C.accent : C.textDim}
+                          strokeWidth="1.5"
+                          style={{
+                            transform: dbExpandedDivs.has(dc) ? "rotate(90deg)" : "rotate(0)",
+                            transition: "transform 200ms cubic-bezier(0.16,1,0.3,1)",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <path d="M2 0.5l3.5 3.5L2 7.5" />
+                        </svg>
+                        <Ic d={I.folder} size={12} color={div.count > 0 ? C.accent : C.textDim} />
+                        <span
+                          style={{
+                            color: div.count > 0 ? C.accent : C.textDim,
+                            fontFamily: "'DM Sans',sans-serif",
+                            fontSize: 10,
+                            minWidth: 18,
+                          }}
+                        >
+                          {dc}
+                        </span>
+                        <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {div.name}
+                        </span>
+                        {div.count > 0 && (
+                          <span
+                            style={{
+                              fontSize: 9,
+                              color: C.accent,
+                              fontWeight: 600,
+                              background: `${C.accent}12`,
+                              padding: "1px 5px",
+                              borderRadius: 6,
+                            }}
+                          >
+                            {div.count}
+                          </span>
+                        )}
+                      </div>
+                      {dbExpandedDivs.has(dc) && (
+                        <>
+                          {Object.entries(div.subs)
+                            .sort(([a], [b]) => a.localeCompare(b))
+                            .map(([subKey, sub], sIdx) => {
+                              const isActive = dbSelectedSub === subKey;
+                              const hasItems = sub.count > 0;
+                              return (
+                                <div
+                                  key={subKey}
+                                  className="nav-item"
+                                  onClick={() => {
+                                    setDbSelectedSub(subKey);
+                                    setDbSearch("");
+                                  }}
+                                  style={{
+                                    padding: "5px 10px 5px 34px",
+                                    borderRadius: 4,
+                                    fontSize: 10,
+                                    color: isActive ? C.accent : hasItems ? C.text : C.textDim,
+                                    background: isActive ? C.accentBg : "transparent",
+                                    fontWeight: isActive ? 600 : hasItems ? 500 : 400,
+                                    display: "flex",
+                                    gap: 6,
+                                    alignItems: "center",
+                                    opacity: isActive || hasItems ? 1 : 0.7,
+                                    animation: `staggerFadeRight 220ms cubic-bezier(0.16,1,0.3,1) ${sIdx * 25}ms both`,
+                                    borderLeft: isActive ? `2px solid ${C.accent}` : "2px solid transparent",
+                                    transition: "border-color 200ms ease-out, background 150ms ease-out",
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      fontFamily: "'DM Sans',sans-serif",
+                                      color: isActive ? C.accent : hasItems ? C.textMuted : C.textDim,
+                                      fontSize: 9,
+                                    }}
+                                  >
+                                    {subKey}
+                                  </span>
+                                  <span
+                                    style={{
+                                      flex: 1,
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap",
+                                    }}
+                                  >
+                                    {sub.name}
+                                  </span>
+                                  {hasItems && (
+                                    <span
+                                      style={{
+                                        fontSize: 9,
+                                        color: C.accent,
+                                        fontWeight: 600,
+                                        background: `${C.accent}10`,
+                                        padding: "0 4px",
+                                        borderRadius: 4,
+                                      }}
+                                    >
+                                      {sub.count}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          {/* Add subdivision */}
+                          {addSubForDiv === dc ? (
+                            <div
+                              style={{ display: "flex", gap: 4, alignItems: "center", padding: "4px 10px 4px 34px" }}
+                            >
+                              <input
+                                placeholder={`${dc}.`}
+                                value={newSubCode}
+                                onChange={e => setNewSubCode(e.target.value)}
+                                autoFocus
+                                style={inp(C, {
+                                  width: 56,
+                                  fontSize: 9,
+                                  fontFamily: "'DM Sans',sans-serif",
+                                  textAlign: "center",
+                                  padding: "2px 3px",
+                                })}
+                              />
+                              <input
+                                placeholder="Name..."
+                                value={newSubName}
+                                onChange={e => setNewSubName(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === "Enter") {
+                                    const code = newSubCode.trim();
+                                    const name = newSubName.trim();
+                                    if (code && name) {
+                                      const fullCode = code.includes(".") ? code : `${dc}.${code}`;
+                                      addSubdivision(dc, fullCode, name);
+                                      setNewSubCode("");
+                                      setNewSubName("");
+                                      setAddSubForDiv(null);
+                                      showToast(`Added subdivision ${fullCode}`);
+                                    }
+                                  }
+                                  if (e.key === "Escape") setAddSubForDiv(null);
+                                }}
+                                style={inp(C, { flex: 1, fontSize: 9, padding: "2px 4px" })}
+                              />
+                              <button
+                                onClick={() => {
+                                  const code = newSubCode.trim();
+                                  const name = newSubName.trim();
+                                  if (code && name) {
+                                    const fullCode = code.includes(".") ? code : `${dc}.${code}`;
+                                    addSubdivision(dc, fullCode, name);
+                                    setNewSubCode("");
+                                    setNewSubName("");
+                                    setAddSubForDiv(null);
+                                    showToast(`Added subdivision ${fullCode}`);
+                                  }
+                                }}
+                                style={bt(C, { background: C.accent, color: "#fff", padding: "2px 6px", fontSize: 8 })}
+                              >
+                                Add
+                              </button>
+                              <button
+                                onClick={() => setAddSubForDiv(null)}
+                                style={bt(C, {
+                                  background: "transparent",
+                                  border: `1px solid ${C.border}`,
+                                  color: C.textDim,
+                                  padding: "2px 5px",
+                                  fontSize: 8,
+                                })}
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ) : (
+                            <div
+                              className="nav-item"
+                              onClick={() => {
+                                setAddSubForDiv(dc);
+                                setNewSubCode("");
+                                setNewSubName("");
+                              }}
+                              style={{
+                                padding: "4px 10px 4px 34px",
+                                borderRadius: 4,
+                                fontSize: 9,
+                                color: C.accent,
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 4,
+                                opacity: 0.6,
+                              }}
+                            >
+                              <Ic d={I.plus} size={9} color={C.accent} sw={2} /> Add subdivision...
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            </div>
 
-            {/* Items list */}
-            <div style={{ flex: 1, overflowY: "auto" }}>
-              {dbVisibleElements.sort((a, b) => (a.code || "").localeCompare(b.code || "")).map((el, idx) => {
-                const dirColor = el.directive === "F/O" ? C.blue : el.directive === "I/O" ? C.orange : el.directive === "F/I" ? C.green : C.textDim;
-                const isEditing = editingId === el.id;
-                const tradeLabel = el.trade ? (bundleMap[el.trade]?.label || el.trade) : "";
-                const editField = (field, value) => {
-                  updateElement(el.id, field, value);
-                  // Only auto-calculate directive if it hasn't been manually overridden
-                  if (["material", "labor", "equipment", "subcontractor"].includes(field) && !el.directiveOverride) {
-                    const m = field === "material" ? nn(value) : nn(el.material);
-                    const l = field === "labor" ? nn(value) : nn(el.labor);
-                    const e = field === "equipment" ? nn(value) : nn(el.equipment);
-                    const s = field === "subcontractor" ? nn(value) : nn(el.subcontractor);
-                    updateElement(el.id, "directive", autoDirective(m, l, e, s));
-                  }
-                };
-                return (
-                  <div key={el.id} className="db-row"
-                    style={{
-                      display: "grid", gridTemplateColumns: gridCols,
-                      padding: isEditing ? "5px 14px" : "7px 14px",
-                      borderBottom: `1px solid ${C.bg}`, alignItems: "center",
-                      background: isEditing ? C.accentBg : idx % 2 === 1 ? C.bg2 + '40' : 'transparent',
-                      animation: idx < 40 ? `staggerFadeRight 280ms cubic-bezier(0.16,1,0.3,1) ${idx * 25}ms both` : undefined,
-                    }}>
-                    {isEditing ? (<>
-                      <input value={el.code} onChange={e => editField("code", e.target.value)}
-                        style={inp(C, { fontFamily: "'DM Sans',sans-serif", fontSize: 10, padding: "3px 4px", textAlign: "center" })} />
-                      <select value={el.directive || ""} onChange={e => { updateElement(el.id, "directive", e.target.value); updateElement(el.id, "directiveOverride", !!e.target.value); }}
-                        style={inp(C, { fontSize: 8, padding: "2px 1px", textAlign: "center", fontWeight: 700, color: dirColor })}>
-                        <option value="">Auto</option>
-                        <option value="F/I">F/I</option>
-                        <option value="F/O">F/O</option>
-                        <option value="I/O">I/O</option>
-                      </select>
-                      <input value={el.name} onChange={e => editField("name", e.target.value)} autoFocus
-                        style={inp(C, { fontSize: 11, padding: "3px 6px" })} />
-                      <select value={el.trade || ""} onChange={e => updateElement(el.id, "trade", e.target.value)}
-                        style={inp(C, { fontSize: 9, padding: "3px 4px" })}>
-                        <option value="">— None —</option>
-                        {activeBundles.map(b => <option key={b.key} value={b.key}>{b.label}</option>)}
-                      </select>
-                      <select value={el.unit} onChange={e => editField("unit", e.target.value)}
-                        style={inp(C, { fontSize: 10, padding: "3px 4px", textAlign: "center", width: "100%" })}>
-                        {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                      </select>
-                      <input type="number" value={el.material} onChange={e => editField("material", e.target.value)}
-                        style={nInp(C, { fontSize: 10, padding: "3px 4px", color: C.green })} />
-                      <input type="number" value={el.labor} onChange={e => editField("labor", e.target.value)}
-                        style={nInp(C, { fontSize: 10, padding: "3px 4px", color: C.blue })} />
-                      <input type="number" value={el.equipment} onChange={e => editField("equipment", e.target.value)}
-                        style={nInp(C, { fontSize: 10, padding: "3px 4px", color: C.orange })} />
-                      <input type="number" value={el.subcontractor || 0} onChange={e => editField("subcontractor", e.target.value)}
-                        style={nInp(C, { fontSize: 10, padding: "3px 4px", color: C.red })} />
-                      <div />
-                      <div style={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
-                        <button className="icon-btn" title="Done" onClick={() => setEditingId(null)}
-                          style={{ width: 22, height: 22, border: "none", background: "transparent", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-                          <Ic d={I.check} size={12} color={C.green} sw={2.5} />
-                        </button>
-                      </div>
-                    </>) : (<>
-                      <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: C.purple, fontWeight: 600, cursor: "pointer" }} onClick={() => addFromDB(el)}>{el.code}</div>
-                      <select value={el.directive || ""} onChange={e => { updateElement(el.id, "directive", e.target.value); updateElement(el.id, "directiveOverride", !!e.target.value); }}
-                        title={el.directiveOverride ? "Manual override (click to change)" : "Auto-calculated"}
-                        style={{ fontSize: 8, fontWeight: 700, color: dirColor, textAlign: "center", background: "transparent", border: "none", cursor: "pointer", padding: "1px 0", appearance: "none", WebkitAppearance: "none", width: "100%", textDecoration: el.directiveOverride ? "underline" : "none" }}>
-                        <option value="">—</option>
-                        <option value="F/I">F/I</option>
-                        <option value="F/O">F/O</option>
-                        <option value="I/O">I/O</option>
-                      </select>
-                      <div style={{ fontSize: 12, color: C.text, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer" }} onClick={() => addFromDB(el)}>
-                        {titleCase(el.name)}
-                        {(el.specVariants || []).length > 0 && <span style={{ marginLeft: 4, fontSize: 7, fontWeight: 700, color: C.purple, background: `${C.purple}12`, padding: "1px 4px", borderRadius: 3, verticalAlign: "middle" }}>{(el.specVariants || []).length} var</span>}
-                      </div>
-                      <div style={{ overflow: "hidden" }}>
-                        {tradeLabel && (
-                          <span style={{ fontSize: 8, fontWeight: 600, color: C.accent, background: C.accentBg, padding: "2px 6px", borderRadius: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "inline-block", maxWidth: "100%" }}>{tradeLabel}</span>
-                        )}
-                      </div>
-                      <div style={{ textAlign: "right", fontSize: 10, color: C.textMuted }}>/{el.unit}</div>
-                      <div style={{ textAlign: "right", fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: C.green }}>{fmt2(el.material)}</div>
-                      <div style={{ textAlign: "right", fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: C.blue }}>{fmt2(el.labor)}</div>
-                      <div style={{ textAlign: "right", fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: C.orange }}>{fmt2(el.equipment)}</div>
-                      <div style={{ textAlign: "right", fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: C.red }}>{nn(el.subcontractor) > 0 ? fmt2(el.subcontractor) : "—"}</div>
-                      <div style={{ textAlign: "right", fontSize: 8, color: C.textDim, lineHeight: 1.3 }}><div>{el.addedBy || "—"}</div><div>{el.addedDate || ""}</div></div>
-                      <div style={{ position: "relative", display: "flex", justifyContent: "flex-end" }}>
-                        <button className="icon-btn" title="Actions"
-                          onClick={(e) => { e.stopPropagation(); setMenuOpenId(menuOpenId === el.id ? null : el.id); }}
-                          style={{ width: 22, height: 22, border: "none", background: menuOpenId === el.id ? C.accentBg : "transparent", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", opacity: 0.7 }}>
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill={C.textDim}><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
-                        </button>
-                        {menuOpenId === el.id && (
-                          <div onClick={e => e.stopPropagation()} style={{
-                            position: "absolute", right: 0, top: 24, zIndex: 100,
-                            background: C.glassBgDark || C.bg, border: `1px solid ${C.glassBorder || C.border}`, borderRadius: 8,
-                            backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
-                            boxShadow: "0 8px 24px rgba(0,0,0,0.25), 0 0 12px rgba(0,0,0,0.10)", minWidth: 160, padding: "4px 0",
-                            animation: "staggerFadeUp 200ms cubic-bezier(0.16,1,0.3,1) both",
-                          }}>
-                            <button onMouseDown={(e) => { e.stopPropagation(); duplicateElement(el.id); setMenuOpenId(null); showToast(`Copied "${el.name}"`); }}
-                              style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "7px 14px", fontSize: 11, fontWeight: 500, background: "transparent", border: "none", color: C.text, cursor: "pointer", textAlign: "left" }}>
-                              <Ic d={I.copy} size={12} color={C.textMuted} /> Copy Item
-                            </button>
-                            <button onMouseDown={(e) => { e.stopPropagation(); setMovingId(el.id); setMoveCode(el.code); setMenuOpenId(null); }}
-                              style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "7px 14px", fontSize: 11, fontWeight: 500, background: "transparent", border: "none", color: C.text, cursor: "pointer", textAlign: "left" }}>
-                              <Ic d={I.move} size={12} color={C.textMuted} /> Move to Code...
-                            </button>
-                            <div style={{ height: 1, background: C.border, margin: "4px 0" }} />
-                            <button onMouseDown={(e) => { e.stopPropagation(); setEditingId(el.id); setMovingId(null); setMenuOpenId(null); }}
-                              style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "7px 14px", fontSize: 11, fontWeight: 500, background: "transparent", border: "none", color: C.text, cursor: "pointer", textAlign: "left" }}>
-                              <Ic d={I.edit} size={12} color={C.textMuted} /> Edit
-                            </button>
-                            <button onMouseDown={(e) => { e.stopPropagation(); if (confirm(`Delete "${el.name}"?`)) removeElement(el.id); setMenuOpenId(null); }}
-                              style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "7px 14px", fontSize: 11, fontWeight: 500, background: "transparent", border: "none", color: C.red, cursor: "pointer", textAlign: "left" }}>
-                              <Ic d={I.trash} size={12} color={C.red} /> Delete
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </>)}
+            {/* RIGHT: Items list */}
+            <div
+              style={{
+                flex: 1,
+                background: C.bg1,
+                borderRadius: `0 ${T.radius.md}px ${T.radius.md}px 0`,
+                border: `1px solid ${C.border}`,
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  padding: "8px 14px",
+                  borderBottom: `1px solid ${C.border}`,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <div style={{ position: "relative", flex: 1, maxWidth: 300 }}>
+                  <input
+                    placeholder="Search items..."
+                    value={dbSearch}
+                    onChange={e => {
+                      setDbSearch(e.target.value);
+                      if (e.target.value) setDbSelectedSub(null);
+                    }}
+                    style={inp(C, { paddingLeft: 28, fontSize: 12 })}
+                  />
+                  <div style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)" }}>
+                    <Ic d={I.search} size={12} color={C.textDim} />
                   </div>
-                );
-              })}
-              {dbVisibleElements.length === 0 && (
-                <EmptyState
-                  icon={I.database}
-                  title={`No items${dbSelectedSub ? ` in ${dbSelectedSub}` : ""}`}
-                  subtitle={dbSearch ? `No results for "${dbSearch}"` : 'Click "Create Scope Item" to add one.'}
-                />
-              )}
+                </div>
+                {dbSelectedSub && (
+                  <span style={{ fontSize: 11, color: C.accent, fontWeight: 600 }}>
+                    {dbSelectedSub} — {activeCodes[dbSelectedSub.split(".")[0]]?.subs?.[dbSelectedSub] || ""}
+                  </span>
+                )}
+                <button
+                  className="accent-btn"
+                  onClick={() => {
+                    const sub = dbSelectedSub || "";
+                    // Auto-generate next code: find max item number under this subdivision
+                    let code = sub;
+                    if (sub) {
+                      const existing = elements.filter(el => el.code && el.code.startsWith(sub + "."));
+                      const nums = existing
+                        .map(el => {
+                          const tail = el.code.slice(sub.length + 1);
+                          return parseInt(tail, 10);
+                        })
+                        .filter(n => !isNaN(n));
+                      const next = nums.length > 0 ? Math.max(...nums) + 10 : 10;
+                      code = `${sub}.${String(next).padStart(2, "0")}`;
+                    }
+                    // Resolve current user name: project estimator or first estimator in master data
+                    const userName = project?.estimator || (estimators.length > 0 ? estimators[0].name : "");
+                    useDatabaseStore.getState().addElement({
+                      code,
+                      name: "",
+                      unit: "EA",
+                      material: 0,
+                      labor: 0,
+                      equipment: 0,
+                      subcontractor: 0,
+                      directive: "",
+                      addedBy: userName,
+                      addedDate: new Date().toLocaleDateString(),
+                      specVariants: [],
+                      specText: "",
+                    });
+                    showToast("New scope item created");
+                  }}
+                  style={bt(C, { background: C.accent, color: "#fff", padding: "5px 12px", fontSize: 10 })}
+                >
+                  <Ic d={I.plus} size={11} color="#fff" sw={2.5} /> Create Scope Item
+                </button>
+                <button
+                  className="accent-btn"
+                  onClick={() => setSubProposalOpen(true)}
+                  style={bt(C, {
+                    background: `linear-gradient(135deg, ${C.accent}, ${C.purple})`,
+                    color: "#fff",
+                    padding: "5px 12px",
+                    fontSize: 10,
+                    border: "none",
+                    boxShadow: `0 1px 6px ${C.accent}30`,
+                  })}
+                >
+                  <Ic d={I.upload} size={11} color="#fff" /> Import Sub Proposal
+                </button>
+                {elements.length > 0 && (
+                  <button
+                    className="ghost-btn"
+                    onClick={() => {
+                      if (confirm("Clear ALL scope items from database? This cannot be undone.")) setElements([]);
+                    }}
+                    style={bt(C, {
+                      background: "transparent",
+                      border: `1px solid ${C.red}`,
+                      color: C.red,
+                      padding: "5px 10px",
+                      fontSize: 9,
+                    })}
+                  >
+                    Clear All
+                  </button>
+                )}
+                <span style={{ fontSize: 10, color: C.textDim }}>{dbVisibleElements.length} items</span>
+              </div>
+
+              {/* Column headers */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: gridCols,
+                  padding: "8px 14px",
+                  borderBottom: `1px solid ${C.border}`,
+                  fontSize: 9,
+                  fontWeight: 600,
+                  color: C.textDim,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.8,
+                }}
+              >
+                <div>Code</div>
+                <div>Dir</div>
+                <div>Item</div>
+                <div>Bundle</div>
+                <div style={{ textAlign: "right" }}>Unit</div>
+                <div style={{ textAlign: "right" }}>Matl</div>
+                <div style={{ textAlign: "right" }}>Labor</div>
+                <div style={{ textAlign: "right" }}>Equip</div>
+                <div style={{ textAlign: "right" }}>Sub</div>
+                <div style={{ textAlign: "right" }}>Added By</div>
+                <div></div>
+              </div>
+
+              {/* Move bar */}
+              {movingId &&
+                (() => {
+                  const movingEl = elements.find(e => e.id === movingId);
+                  if (!movingEl) return null;
+                  const canConfirm = moveCode && moveCode !== movingEl.code;
+                  // Build filtered subdivision chips
+                  const chips = Object.entries(activeCodes)
+                    .flatMap(([dc, div]) =>
+                      Object.entries(div.subs || {})
+                        .filter(([sk]) => !moveCode || sk.startsWith(moveCode.split(".")[0]))
+                        .slice(0, 12)
+                        .map(([sk, name]) => ({ sk, name })),
+                    )
+                    .slice(0, 10);
+                  return (
+                    <div
+                      style={{
+                        padding: "8px 14px",
+                        background: C.accentBg,
+                        borderBottom: `2px solid ${C.accent}`,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        fontSize: 11,
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Ic d={I.move} size={14} color={C.accent} />
+                      <span
+                        style={{
+                          fontWeight: 600,
+                          color: C.text,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          maxWidth: 200,
+                        }}
+                      >
+                        Move "{movingEl.name}"
+                      </span>
+                      <span style={{ color: C.textDim, fontSize: 10, flexShrink: 0 }}>to:</span>
+                      <input
+                        value={moveCode}
+                        onChange={e => setMoveCode(e.target.value)}
+                        placeholder="e.g. 05.210"
+                        autoFocus
+                        style={inp(C, {
+                          width: 110,
+                          fontFamily: "'DM Sans',sans-serif",
+                          fontSize: 11,
+                          padding: "4px 8px",
+                        })}
+                        onKeyDown={e => {
+                          if (e.key === "Enter" && canConfirm) {
+                            updateElement(movingId, "code", moveCode);
+                            showToast(`Moved to ${moveCode}`);
+                            setMovingId(null);
+                            setMoveCode("");
+                          }
+                          if (e.key === "Escape") {
+                            setMovingId(null);
+                            setMoveCode("");
+                          }
+                        }}
+                      />
+                      <div style={{ display: "flex", gap: 3, flex: 1, overflow: "hidden", flexWrap: "wrap" }}>
+                        {chips.map(({ sk, name }) => (
+                          <button
+                            key={sk}
+                            onClick={() => setMoveCode(sk)}
+                            style={{
+                              padding: "2px 7px",
+                              fontSize: 8,
+                              fontWeight: 600,
+                              background: moveCode === sk ? C.accent : C.bg,
+                              color: moveCode === sk ? "#fff" : C.textMuted,
+                              border: `1px solid ${moveCode === sk ? C.accent : C.border}`,
+                              borderRadius: 4,
+                              cursor: "pointer",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {sk}
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (canConfirm) {
+                            updateElement(movingId, "code", moveCode);
+                            showToast(`Moved "${movingEl.name}" to ${moveCode}`);
+                          }
+                          setMovingId(null);
+                          setMoveCode("");
+                        }}
+                        disabled={!canConfirm}
+                        style={bt(C, {
+                          background: canConfirm ? C.accent : C.bg3,
+                          color: canConfirm ? "#fff" : C.textDim,
+                          padding: "4px 12px",
+                          fontSize: 10,
+                          fontWeight: 600,
+                          flexShrink: 0,
+                        })}
+                      >
+                        <Ic d={I.check} size={10} color={canConfirm ? "#fff" : C.textDim} sw={2.5} /> Move
+                      </button>
+                      <button
+                        onClick={() => {
+                          setMovingId(null);
+                          setMoveCode("");
+                        }}
+                        style={bt(C, {
+                          background: "transparent",
+                          border: `1px solid ${C.border}`,
+                          color: C.textDim,
+                          padding: "4px 10px",
+                          fontSize: 10,
+                          flexShrink: 0,
+                        })}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  );
+                })()}
+
+              {/* Items list */}
+              <div style={{ flex: 1, overflowY: "auto" }}>
+                {dbVisibleElements
+                  .sort((a, b) => (a.code || "").localeCompare(b.code || ""))
+                  .map((el, idx) => {
+                    const dirColor =
+                      el.directive === "F/O"
+                        ? C.blue
+                        : el.directive === "I/O"
+                          ? C.orange
+                          : el.directive === "F/I"
+                            ? C.green
+                            : C.textDim;
+                    const isEditing = editingId === el.id;
+                    const tradeLabel = el.trade ? bundleMap[el.trade]?.label || el.trade : "";
+                    const editField = (field, value) => {
+                      updateElement(el.id, field, value);
+                      // Only auto-calculate directive if it hasn't been manually overridden
+                      if (
+                        ["material", "labor", "equipment", "subcontractor"].includes(field) &&
+                        !el.directiveOverride
+                      ) {
+                        const m = field === "material" ? nn(value) : nn(el.material);
+                        const l = field === "labor" ? nn(value) : nn(el.labor);
+                        const e = field === "equipment" ? nn(value) : nn(el.equipment);
+                        const s = field === "subcontractor" ? nn(value) : nn(el.subcontractor);
+                        updateElement(el.id, "directive", autoDirective(m, l, e, s));
+                      }
+                    };
+                    return (
+                      <div
+                        key={el.id}
+                        className="db-row"
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: gridCols,
+                          padding: isEditing ? "5px 14px" : "7px 14px",
+                          borderBottom: `1px solid ${C.bg}`,
+                          alignItems: "center",
+                          background: isEditing ? C.accentBg : idx % 2 === 1 ? C.bg2 + "40" : "transparent",
+                          animation:
+                            idx < 40
+                              ? `staggerFadeRight 280ms cubic-bezier(0.16,1,0.3,1) ${idx * 25}ms both`
+                              : undefined,
+                        }}
+                      >
+                        {isEditing ? (
+                          <>
+                            <input
+                              value={el.code}
+                              onChange={e => editField("code", e.target.value)}
+                              style={inp(C, {
+                                fontFamily: "'DM Sans',sans-serif",
+                                fontSize: 10,
+                                padding: "3px 4px",
+                                textAlign: "center",
+                              })}
+                            />
+                            <select
+                              value={el.directive || ""}
+                              onChange={e => {
+                                updateElement(el.id, "directive", e.target.value);
+                                updateElement(el.id, "directiveOverride", !!e.target.value);
+                              }}
+                              style={inp(C, {
+                                fontSize: 8,
+                                padding: "2px 1px",
+                                textAlign: "center",
+                                fontWeight: 700,
+                                color: dirColor,
+                              })}
+                            >
+                              <option value="">Auto</option>
+                              <option value="F/I">F/I</option>
+                              <option value="F/O">F/O</option>
+                              <option value="I/O">I/O</option>
+                            </select>
+                            <input
+                              value={el.name}
+                              onChange={e => editField("name", e.target.value)}
+                              autoFocus
+                              style={inp(C, { fontSize: 11, padding: "3px 6px" })}
+                            />
+                            <select
+                              value={el.trade || ""}
+                              onChange={e => updateElement(el.id, "trade", e.target.value)}
+                              style={inp(C, { fontSize: 9, padding: "3px 4px" })}
+                            >
+                              <option value="">— None —</option>
+                              {activeBundles.map(b => (
+                                <option key={b.key} value={b.key}>
+                                  {b.label}
+                                </option>
+                              ))}
+                            </select>
+                            <select
+                              value={el.unit}
+                              onChange={e => editField("unit", e.target.value)}
+                              style={inp(C, { fontSize: 10, padding: "3px 4px", textAlign: "center", width: "100%" })}
+                            >
+                              {UNITS.map(u => (
+                                <option key={u} value={u}>
+                                  {u}
+                                </option>
+                              ))}
+                            </select>
+                            <input
+                              type="number"
+                              value={el.material}
+                              onChange={e => editField("material", e.target.value)}
+                              style={nInp(C, { fontSize: 10, padding: "3px 4px", color: C.green })}
+                            />
+                            <input
+                              type="number"
+                              value={el.labor}
+                              onChange={e => editField("labor", e.target.value)}
+                              style={nInp(C, { fontSize: 10, padding: "3px 4px", color: C.blue })}
+                            />
+                            <input
+                              type="number"
+                              value={el.equipment}
+                              onChange={e => editField("equipment", e.target.value)}
+                              style={nInp(C, { fontSize: 10, padding: "3px 4px", color: C.orange })}
+                            />
+                            <input
+                              type="number"
+                              value={el.subcontractor || 0}
+                              onChange={e => editField("subcontractor", e.target.value)}
+                              style={nInp(C, { fontSize: 10, padding: "3px 4px", color: C.red })}
+                            />
+                            <div />
+                            <div style={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
+                              <button
+                                className="icon-btn"
+                                title="Done"
+                                onClick={() => setEditingId(null)}
+                                style={{
+                                  width: 22,
+                                  height: 22,
+                                  border: "none",
+                                  background: "transparent",
+                                  borderRadius: 4,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                <Ic d={I.check} size={12} color={C.green} sw={2.5} />
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div
+                              style={{
+                                fontFamily: "'DM Sans',sans-serif",
+                                fontSize: 10,
+                                color: C.purple,
+                                fontWeight: 600,
+                                cursor: "pointer",
+                              }}
+                              onClick={() => addFromDB(el)}
+                            >
+                              {el.code}
+                            </div>
+                            <select
+                              value={el.directive || ""}
+                              onChange={e => {
+                                updateElement(el.id, "directive", e.target.value);
+                                updateElement(el.id, "directiveOverride", !!e.target.value);
+                              }}
+                              title={el.directiveOverride ? "Manual override (click to change)" : "Auto-calculated"}
+                              style={{
+                                fontSize: 8,
+                                fontWeight: 700,
+                                color: dirColor,
+                                textAlign: "center",
+                                background: "transparent",
+                                border: "none",
+                                cursor: "pointer",
+                                padding: "1px 0",
+                                appearance: "none",
+                                WebkitAppearance: "none",
+                                width: "100%",
+                                textDecoration: el.directiveOverride ? "underline" : "none",
+                              }}
+                            >
+                              <option value="">—</option>
+                              <option value="F/I">F/I</option>
+                              <option value="F/O">F/O</option>
+                              <option value="I/O">I/O</option>
+                            </select>
+                            <div
+                              style={{
+                                fontSize: 12,
+                                color: C.text,
+                                fontWeight: 500,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                                cursor: "pointer",
+                              }}
+                              onClick={() => addFromDB(el)}
+                            >
+                              {titleCase(el.name)}
+                              {(el.specVariants || []).length > 0 && (
+                                <span
+                                  style={{
+                                    marginLeft: 4,
+                                    fontSize: 7,
+                                    fontWeight: 700,
+                                    color: C.purple,
+                                    background: `${C.purple}12`,
+                                    padding: "1px 4px",
+                                    borderRadius: 3,
+                                    verticalAlign: "middle",
+                                  }}
+                                >
+                                  {(el.specVariants || []).length} var
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ overflow: "hidden" }}>
+                              {tradeLabel && (
+                                <span
+                                  style={{
+                                    fontSize: 8,
+                                    fontWeight: 600,
+                                    color: C.accent,
+                                    background: C.accentBg,
+                                    padding: "2px 6px",
+                                    borderRadius: 3,
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    display: "inline-block",
+                                    maxWidth: "100%",
+                                  }}
+                                >
+                                  {tradeLabel}
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ textAlign: "right", fontSize: 10, color: C.textMuted }}>/{el.unit}</div>
+                            <div
+                              style={{
+                                textAlign: "right",
+                                fontFamily: "'DM Sans',sans-serif",
+                                fontSize: 10,
+                                color: C.green,
+                              }}
+                            >
+                              {fmt2(el.material)}
+                            </div>
+                            <div
+                              style={{
+                                textAlign: "right",
+                                fontFamily: "'DM Sans',sans-serif",
+                                fontSize: 10,
+                                color: C.blue,
+                              }}
+                            >
+                              {fmt2(el.labor)}
+                            </div>
+                            <div
+                              style={{
+                                textAlign: "right",
+                                fontFamily: "'DM Sans',sans-serif",
+                                fontSize: 10,
+                                color: C.orange,
+                              }}
+                            >
+                              {fmt2(el.equipment)}
+                            </div>
+                            <div
+                              style={{
+                                textAlign: "right",
+                                fontFamily: "'DM Sans',sans-serif",
+                                fontSize: 10,
+                                color: C.red,
+                              }}
+                            >
+                              {nn(el.subcontractor) > 0 ? fmt2(el.subcontractor) : "—"}
+                            </div>
+                            <div style={{ textAlign: "right", fontSize: 8, color: C.textDim, lineHeight: 1.3 }}>
+                              <div>{el.addedBy || "—"}</div>
+                              <div>{el.addedDate || ""}</div>
+                            </div>
+                            <div style={{ position: "relative", display: "flex", justifyContent: "flex-end" }}>
+                              <button
+                                className="icon-btn"
+                                title="Actions"
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  setMenuOpenId(menuOpenId === el.id ? null : el.id);
+                                }}
+                                style={{
+                                  width: 22,
+                                  height: 22,
+                                  border: "none",
+                                  background: menuOpenId === el.id ? C.accentBg : "transparent",
+                                  borderRadius: 4,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  cursor: "pointer",
+                                  opacity: 0.7,
+                                }}
+                              >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill={C.textDim}>
+                                  <circle cx="12" cy="5" r="2" />
+                                  <circle cx="12" cy="12" r="2" />
+                                  <circle cx="12" cy="19" r="2" />
+                                </svg>
+                              </button>
+                              {menuOpenId === el.id && (
+                                <div
+                                  onClick={e => e.stopPropagation()}
+                                  style={{
+                                    position: "absolute",
+                                    right: 0,
+                                    top: 24,
+                                    zIndex: 100,
+                                    background: C.glassBgDark || C.bg,
+                                    border: `1px solid ${C.glassBorder || C.border}`,
+                                    borderRadius: 8,
+                                    backdropFilter: "blur(16px)",
+                                    WebkitBackdropFilter: "blur(16px)",
+                                    boxShadow: "0 8px 24px rgba(0,0,0,0.25), 0 0 12px rgba(0,0,0,0.10)",
+                                    minWidth: 160,
+                                    padding: "4px 0",
+                                    animation: "staggerFadeUp 200ms cubic-bezier(0.16,1,0.3,1) both",
+                                  }}
+                                >
+                                  <button
+                                    onMouseDown={e => {
+                                      e.stopPropagation();
+                                      duplicateElement(el.id);
+                                      setMenuOpenId(null);
+                                      showToast(`Copied "${el.name}"`);
+                                    }}
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 8,
+                                      width: "100%",
+                                      padding: "7px 14px",
+                                      fontSize: 11,
+                                      fontWeight: 500,
+                                      background: "transparent",
+                                      border: "none",
+                                      color: C.text,
+                                      cursor: "pointer",
+                                      textAlign: "left",
+                                    }}
+                                  >
+                                    <Ic d={I.copy} size={12} color={C.textMuted} /> Copy Item
+                                  </button>
+                                  <button
+                                    onMouseDown={e => {
+                                      e.stopPropagation();
+                                      setMovingId(el.id);
+                                      setMoveCode(el.code);
+                                      setMenuOpenId(null);
+                                    }}
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 8,
+                                      width: "100%",
+                                      padding: "7px 14px",
+                                      fontSize: 11,
+                                      fontWeight: 500,
+                                      background: "transparent",
+                                      border: "none",
+                                      color: C.text,
+                                      cursor: "pointer",
+                                      textAlign: "left",
+                                    }}
+                                  >
+                                    <Ic d={I.move} size={12} color={C.textMuted} /> Move to Code...
+                                  </button>
+                                  <div style={{ height: 1, background: C.border, margin: "4px 0" }} />
+                                  <button
+                                    onMouseDown={e => {
+                                      e.stopPropagation();
+                                      setEditingId(el.id);
+                                      setMovingId(null);
+                                      setMenuOpenId(null);
+                                    }}
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 8,
+                                      width: "100%",
+                                      padding: "7px 14px",
+                                      fontSize: 11,
+                                      fontWeight: 500,
+                                      background: "transparent",
+                                      border: "none",
+                                      color: C.text,
+                                      cursor: "pointer",
+                                      textAlign: "left",
+                                    }}
+                                  >
+                                    <Ic d={I.edit} size={12} color={C.textMuted} /> Edit
+                                  </button>
+                                  <button
+                                    onMouseDown={e => {
+                                      e.stopPropagation();
+                                      if (confirm(`Delete "${el.name}"?`)) removeElement(el.id);
+                                      setMenuOpenId(null);
+                                    }}
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 8,
+                                      width: "100%",
+                                      padding: "7px 14px",
+                                      fontSize: 11,
+                                      fontWeight: 500,
+                                      background: "transparent",
+                                      border: "none",
+                                      color: C.red,
+                                      cursor: "pointer",
+                                      textAlign: "left",
+                                    }}
+                                  >
+                                    <Ic d={I.trash} size={12} color={C.red} /> Delete
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                {dbVisibleElements.length === 0 && (
+                  <EmptyState
+                    icon={I.database}
+                    title={`No items${dbSelectedSub ? ` in ${dbSelectedSub}` : ""}`}
+                    subtitle={dbSearch ? `No results for "${dbSearch}"` : 'Click "Create Scope Item" to add one.'}
+                  />
+                )}
+              </div>
             </div>
           </div>
-        </div>}
+        )}
 
         {/* Assemblies Tab */}
         {dbActiveTab === "assemblies" && (
-          <div style={{ flex: 1, background: C.bg1, borderRadius: 8, border: `1px solid ${C.border}`, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-            <div style={{ padding: "8px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 8 }}>
+          <div
+            style={{
+              flex: 1,
+              background: C.bg1,
+              borderRadius: 8,
+              border: `1px solid ${C.border}`,
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                padding: "8px 14px",
+                borderBottom: `1px solid ${C.border}`,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
               <div style={{ position: "relative", flex: 1, maxWidth: 300 }}>
-                <input placeholder="Search assemblies..." value={dbAssemblySearch} onChange={e => setDbAssemblySearch(e.target.value)}
-                  style={inp(C, { paddingLeft: 28, fontSize: 12 })} />
-                <div style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)" }}><Ic d={I.search} size={12} color={C.textDim} /></div>
+                <input
+                  placeholder="Search assemblies..."
+                  value={dbAssemblySearch}
+                  onChange={e => setDbAssemblySearch(e.target.value)}
+                  style={inp(C, { paddingLeft: 28, fontSize: 12 })}
+                />
+                <div style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)" }}>
+                  <Ic d={I.search} size={12} color={C.textDim} />
+                </div>
               </div>
-              <button className="accent-btn" onClick={() => setAiAssemblyOpen(true)} style={bt(C, {
-                background: `linear-gradient(135deg, ${C.accent}, ${C.accentAlt || C.purple})`,
-                color: "#fff", padding: "5px 14px", fontSize: 10, border: "none",
-                boxShadow: `0 1px 6px ${C.accent}30`,
-              })}>
+              <button
+                className="accent-btn"
+                onClick={() => setAiAssemblyOpen(true)}
+                style={bt(C, {
+                  background: `linear-gradient(135deg, ${C.accent}, ${C.accentAlt || C.purple})`,
+                  color: "#fff",
+                  padding: "5px 14px",
+                  fontSize: 10,
+                  border: "none",
+                  boxShadow: `0 1px 6px ${C.accent}30`,
+                })}
+              >
                 <Ic d={I.ai} size={12} color="#fff" /> AI Generate
               </button>
-              <button className="accent-btn" onClick={() => {
-                addAssembly({ code: "", name: "New Assembly", description: "", elements: [] });
-                showToast("New assembly created");
-              }} style={bt(C, { background: C.accent, color: "#fff", padding: "5px 12px", fontSize: 10 })}>
+              <button
+                className="accent-btn"
+                onClick={() => {
+                  addAssembly({ code: "", name: "New Assembly", description: "", elements: [] });
+                  showToast("New assembly created");
+                }}
+                style={bt(C, { background: C.accent, color: "#fff", padding: "5px 12px", fontSize: 10 })}
+              >
                 <Ic d={I.plus} size={11} color="#fff" sw={2.5} /> Create Assembly
               </button>
               <span style={{ fontSize: 10, color: C.textDim }}>{assemblies.length} assemblies</span>
@@ -932,9 +1874,24 @@ export default function CostDatabasePage({ embedded = false }) {
                 .filter(asm => {
                   if (!dbAssemblySearch) return true;
                   const q = dbAssemblySearch.toLowerCase();
-                  return (asm.name || "").toLowerCase().includes(q) || (asm.code || "").toLowerCase().includes(q) || (asm.description || "").toLowerCase().includes(q);
+                  return (
+                    (asm.name || "").toLowerCase().includes(q) ||
+                    (asm.code || "").toLowerCase().includes(q) ||
+                    (asm.description || "").toLowerCase().includes(q)
+                  );
                 })
-                .map(asm => <AssemblyCard key={asm.id} asm={asm} onDelete={(id) => { if (confirm(`Delete assembly "${asm.name}"?`)) { removeAssembly(id); showToast("Assembly deleted"); } }} />)}
+                .map(asm => (
+                  <AssemblyCard
+                    key={asm.id}
+                    asm={asm}
+                    onDelete={id => {
+                      if (confirm(`Delete assembly "${asm.name}"?`)) {
+                        removeAssembly(id);
+                        showToast("Assembly deleted");
+                      }
+                    }}
+                  />
+                ))}
               {assemblies.length === 0 && (
                 <EmptyState
                   icon={I.assembly}
@@ -951,22 +1908,66 @@ export default function CostDatabasePage({ embedded = false }) {
 
         {/* Trade Bundles Tab */}
         {dbActiveTab === "bundles" && (
-          <div style={{ flex: 1, background: C.bg1, borderRadius: 8, border: `1px solid ${C.border}`, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <div
+            style={{
+              flex: 1,
+              background: C.bg1,
+              borderRadius: 8,
+              border: `1px solid ${C.border}`,
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+            }}
+          >
             {/* Toolbar */}
-            <div style={{ padding: "8px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 8 }}>
+            <div
+              style={{
+                padding: "8px 14px",
+                borderBottom: `1px solid ${C.border}`,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
               <div style={{ flex: 1 }}>
                 <span style={{ fontSize: 11, color: C.textMuted }}>
                   Trade bundles group CSI divisions into how you present estimates to owners.
-                  {customBundles && <span style={{ marginLeft: 8, fontSize: 9, fontWeight: 700, color: C.orange, background: "rgba(224,135,58,0.12)", padding: "2px 6px", borderRadius: 3 }}>CUSTOMIZED</span>}
+                  {customBundles && (
+                    <span
+                      style={{
+                        marginLeft: 8,
+                        fontSize: 9,
+                        fontWeight: 700,
+                        color: C.orange,
+                        background: "rgba(224,135,58,0.12)",
+                        padding: "2px 6px",
+                        borderRadius: 3,
+                      }}
+                    >
+                      CUSTOMIZED
+                    </span>
+                  )}
                 </span>
               </div>
-              <button className="accent-btn" onClick={addBundle}
-                style={bt(C, { background: C.accent, color: "#fff", padding: "5px 12px", fontSize: 10 })}>
+              <button
+                className="accent-btn"
+                onClick={addBundle}
+                style={bt(C, { background: C.accent, color: "#fff", padding: "5px 12px", fontSize: 10 })}
+              >
                 <Ic d={I.plus} size={11} color="#fff" sw={2.5} /> Add Bundle
               </button>
               {customBundles && (
-                <button className="ghost-btn" onClick={resetBundles}
-                  style={bt(C, { background: "transparent", border: `1px solid ${C.border}`, color: C.textMuted, padding: "5px 10px", fontSize: 9 })}>
+                <button
+                  className="ghost-btn"
+                  onClick={resetBundles}
+                  style={bt(C, {
+                    background: "transparent",
+                    border: `1px solid ${C.border}`,
+                    color: C.textMuted,
+                    padding: "5px 10px",
+                    fontSize: 9,
+                  })}
+                >
                   <Ic d={I.refresh} size={10} color={C.textMuted} /> Reset to Defaults
                 </button>
               )}
@@ -974,7 +1975,20 @@ export default function CostDatabasePage({ embedded = false }) {
             </div>
 
             {/* Column headers */}
-            <div style={{ display: "grid", gridTemplateColumns: "40px 2fr 100px 60px 52px", gap: 4, padding: "8px 14px", borderBottom: `1px solid ${C.border}`, fontSize: 9, fontWeight: 600, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.8 }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "40px 2fr 100px 60px 52px",
+                gap: 4,
+                padding: "8px 14px",
+                borderBottom: `1px solid ${C.border}`,
+                fontSize: 9,
+                fontWeight: 600,
+                color: C.textDim,
+                textTransform: "uppercase",
+                letterSpacing: 0.8,
+              }}
+            >
               <div style={{ textAlign: "center" }}>Order</div>
               <div>Bundle Label</div>
               <div>CSI Divisions</div>
@@ -984,106 +1998,355 @@ export default function CostDatabasePage({ embedded = false }) {
 
             {/* Bundle rows */}
             <div style={{ flex: 1, overflowY: "auto" }}>
-              {[...activeBundles].sort((a, b) => a.sort - b.sort).map((bundle, idx) => {
-                const isEditing = editingBundleKey === bundle.key;
-                const count = bundleItemCounts[bundle.key] || 0;
-                const isExpanded = expandedBundleKey === bundle.key;
-                const items = bundleItems[bundle.key] || [];
-                return (
-                  <div key={bundle.key} style={{ animation: idx < 30 ? `staggerFadeRight 280ms cubic-bezier(0.16,1,0.3,1) ${idx * 30}ms both` : undefined }}>
+              {[...activeBundles]
+                .sort((a, b) => a.sort - b.sort)
+                .map((bundle, idx) => {
+                  const isEditing = editingBundleKey === bundle.key;
+                  const count = bundleItemCounts[bundle.key] || 0;
+                  const isExpanded = expandedBundleKey === bundle.key;
+                  const items = bundleItems[bundle.key] || [];
+                  return (
                     <div
-                      style={{ display: "grid", gridTemplateColumns: "40px 2fr 100px 60px 52px", gap: 4, padding: "8px 14px", borderBottom: `1px solid ${C.bg}`, alignItems: "center", background: isEditing ? C.accentBg : isExpanded ? C.accentBg : idx % 2 === 1 ? C.bg2 + '40' : 'transparent', cursor: isEditing ? "default" : "pointer" }}
-                      onClick={() => { if (!isEditing && count > 0) setExpandedBundleKey(isExpanded ? null : bundle.key); }}
+                      key={bundle.key}
+                      style={{
+                        animation:
+                          idx < 30 ? `staggerFadeRight 280ms cubic-bezier(0.16,1,0.3,1) ${idx * 30}ms both` : undefined,
+                      }}
                     >
-                      {isEditing ? (<>
-                        <input type="number" value={bundle.sort} onChange={e => updateBundle(bundle.key, "sort", parseInt(e.target.value) || 0)}
-                          onClick={e => e.stopPropagation()}
-                          style={nInp(C, { fontSize: 10, padding: "3px 4px", textAlign: "center", width: "100%" })} />
-                        <input value={bundle.label} onChange={e => updateBundle(bundle.key, "label", e.target.value)} autoFocus
-                          onClick={e => e.stopPropagation()}
-                          style={inp(C, { fontSize: 12, padding: "4px 8px", fontWeight: 600 })} />
-                        <input value={(bundle.divisions || []).join(", ")} onChange={e => updateBundle(bundle.key, "divisions", e.target.value.split(",").map(s => s.trim()).filter(Boolean))}
-                          placeholder="01, 02..."
-                          onClick={e => e.stopPropagation()}
-                          style={inp(C, { fontSize: 10, padding: "3px 6px", fontFamily: "'DM Sans',sans-serif" })} />
-                        <div style={{ textAlign: "center", fontSize: 10, color: C.textDim }}>{count}</div>
-                        <div style={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
-                          <button className="icon-btn" title="Done" onClick={(e) => { e.stopPropagation(); setEditingBundleKey(null); }}
-                            style={{ width: 22, height: 22, border: "none", background: "transparent", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-                            <Ic d={I.check} size={12} color={C.green} sw={2.5} />
-                          </button>
-                        </div>
-                      </>) : (<>
-                        <div style={{ textAlign: "center", fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: C.textDim }}>{bundle.sort}</div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          {count > 0 && (
-                            <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke={isExpanded ? C.accent : C.textDim} strokeWidth="1.5" style={{ transform: isExpanded ? "rotate(90deg)" : "rotate(0)", transition: "transform 200ms cubic-bezier(0.16,1,0.3,1), stroke 200ms ease-out", flexShrink: 0 }}><path d="M2 0.5l3.5 3.5L2 7.5" /></svg>
-                          )}
-                          <span style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{bundle.label}</span>
-                        </div>
-                        <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, color: C.textMuted }}>
-                          {(bundle.divisions || []).length > 0 ? bundle.divisions.join(", ") : <span style={{ fontStyle: "italic", color: C.textDim }}>sub-based</span>}
-                        </div>
-                        <div style={{ textAlign: "center", fontSize: 10, color: count > 0 ? C.accent : C.textDim, fontWeight: count > 0 ? 600 : 400 }}>{count}</div>
-                        <div style={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
-                          <button className="icon-btn" title="Edit" onClick={(e) => { e.stopPropagation(); initCustomBundles(); setEditingBundleKey(bundle.key); }}
-                            style={{ width: 22, height: 22, border: "none", background: "transparent", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", opacity: 0.6 }}>
-                            <Ic d={I.edit} size={11} color={C.textDim} />
-                          </button>
-                          <button className="icon-btn" title="Delete" onClick={(e) => { e.stopPropagation(); if (confirm(`Delete bundle "${bundle.label}"?`)) { initCustomBundles(); removeBundle(bundle.key); } }}
-                            style={{ width: 22, height: 22, border: "none", background: "transparent", color: C.red, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", opacity: 0.6 }}>
-                            <Ic d={I.trash} size={11} />
-                          </button>
-                        </div>
-                      </>)}
-                    </div>
-                    {/* Expanded items list */}
-                    {isExpanded && !isEditing && items.length > 0 && (
-                      <div style={{ background: C.bg, borderBottom: `1px solid ${C.border}` }}>
-                        {/* Item sub-header */}
-                        <div style={{ display: "grid", gridTemplateColumns: "80px 1.5fr 60px 62px 62px 62px 62px 100px", gap: 4, padding: "4px 14px 4px 54px", fontSize: 8, fontWeight: 600, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.6, borderBottom: `1px solid ${C.border}` }}>
-                          <div>Code</div><div>Name</div><div style={{ textAlign: "right" }}>Unit</div><div style={{ textAlign: "right" }}>Matl</div><div style={{ textAlign: "right" }}>Labor</div><div style={{ textAlign: "right" }}>Equip</div><div style={{ textAlign: "right" }}>Sub</div><div style={{ textAlign: "right" }}>Bundle</div>
-                        </div>
-                        {items.sort((a, b) => (a.code || "").localeCompare(b.code || "")).map((el, i) => (
-                          <div key={el.id} style={{ display: "grid", gridTemplateColumns: "80px 1.5fr 60px 62px 62px 62px 62px 100px", gap: 4, padding: "4px 14px 4px 54px", fontSize: 11, borderBottom: `1px solid ${C.borderLight || C.border}`, alignItems: "center" }}>
-                            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, color: C.purple }}>{el.code || "—"}</div>
-                            <div style={{ color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{titleCase(el.name) || "Unnamed"}</div>
-                            <div style={{ textAlign: "right", fontSize: 10, color: C.textMuted }}>/{el.unit}</div>
-                            <div style={{ textAlign: "right", fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: C.green }}>{fmt2(el.material)}</div>
-                            <div style={{ textAlign: "right", fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: C.blue }}>{fmt2(el.labor)}</div>
-                            <div style={{ textAlign: "right", fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: C.orange }}>{fmt2(el.equipment)}</div>
-                            <div style={{ textAlign: "right", fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: C.red }}>{nn(el.subcontractor) > 0 ? fmt2(el.subcontractor) : "—"}</div>
-                            <div style={{ textAlign: "right" }}>
-                              <select value={el.trade || ""} onChange={e => updateElement(el.id, "trade", e.target.value)}
-                                style={{ fontSize: 9, padding: "2px 4px", background: C.bg2, color: C.text, border: `1px solid ${C.border}`, borderRadius: 3, cursor: "pointer", maxWidth: "100%" }}>
-                                <option value="">— None —</option>
-                                {activeBundles.map(b => <option key={b.key} value={b.key}>{b.label}</option>)}
-                              </select>
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "40px 2fr 100px 60px 52px",
+                          gap: 4,
+                          padding: "8px 14px",
+                          borderBottom: `1px solid ${C.bg}`,
+                          alignItems: "center",
+                          background: isEditing
+                            ? C.accentBg
+                            : isExpanded
+                              ? C.accentBg
+                              : idx % 2 === 1
+                                ? C.bg2 + "40"
+                                : "transparent",
+                          cursor: isEditing ? "default" : "pointer",
+                        }}
+                        onClick={() => {
+                          if (!isEditing && count > 0) setExpandedBundleKey(isExpanded ? null : bundle.key);
+                        }}
+                      >
+                        {isEditing ? (
+                          <>
+                            <input
+                              type="number"
+                              value={bundle.sort}
+                              onChange={e => updateBundle(bundle.key, "sort", parseInt(e.target.value) || 0)}
+                              onClick={e => e.stopPropagation()}
+                              style={nInp(C, { fontSize: 10, padding: "3px 4px", textAlign: "center", width: "100%" })}
+                            />
+                            <input
+                              value={bundle.label}
+                              onChange={e => updateBundle(bundle.key, "label", e.target.value)}
+                              autoFocus
+                              onClick={e => e.stopPropagation()}
+                              style={inp(C, { fontSize: 12, padding: "4px 8px", fontWeight: 600 })}
+                            />
+                            <input
+                              value={(bundle.divisions || []).join(", ")}
+                              onChange={e =>
+                                updateBundle(
+                                  bundle.key,
+                                  "divisions",
+                                  e.target.value
+                                    .split(",")
+                                    .map(s => s.trim())
+                                    .filter(Boolean),
+                                )
+                              }
+                              placeholder="01, 02..."
+                              onClick={e => e.stopPropagation()}
+                              style={inp(C, { fontSize: 10, padding: "3px 6px", fontFamily: "'DM Sans',sans-serif" })}
+                            />
+                            <div style={{ textAlign: "center", fontSize: 10, color: C.textDim }}>{count}</div>
+                            <div style={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
+                              <button
+                                className="icon-btn"
+                                title="Done"
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  setEditingBundleKey(null);
+                                }}
+                                style={{
+                                  width: 22,
+                                  height: 22,
+                                  border: "none",
+                                  background: "transparent",
+                                  borderRadius: 4,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                <Ic d={I.check} size={12} color={C.green} sw={2.5} />
+                              </button>
                             </div>
-                          </div>
-                        ))}
-                        <div style={{ padding: "4px 14px 4px 54px", fontSize: 9, color: C.textDim, fontStyle: "italic" }}>
-                          {items.length} item{items.length !== 1 ? "s" : ""} in this bundle
-                        </div>
+                          </>
+                        ) : (
+                          <>
+                            <div
+                              style={{
+                                textAlign: "center",
+                                fontFamily: "'DM Sans',sans-serif",
+                                fontSize: 10,
+                                color: C.textDim,
+                              }}
+                            >
+                              {bundle.sort}
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              {count > 0 && (
+                                <svg
+                                  width="8"
+                                  height="8"
+                                  viewBox="0 0 8 8"
+                                  fill="none"
+                                  stroke={isExpanded ? C.accent : C.textDim}
+                                  strokeWidth="1.5"
+                                  style={{
+                                    transform: isExpanded ? "rotate(90deg)" : "rotate(0)",
+                                    transition: "transform 200ms cubic-bezier(0.16,1,0.3,1), stroke 200ms ease-out",
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  <path d="M2 0.5l3.5 3.5L2 7.5" />
+                                </svg>
+                              )}
+                              <span style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{bundle.label}</span>
+                            </div>
+                            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, color: C.textMuted }}>
+                              {(bundle.divisions || []).length > 0 ? (
+                                bundle.divisions.join(", ")
+                              ) : (
+                                <span style={{ fontStyle: "italic", color: C.textDim }}>sub-based</span>
+                              )}
+                            </div>
+                            <div
+                              style={{
+                                textAlign: "center",
+                                fontSize: 10,
+                                color: count > 0 ? C.accent : C.textDim,
+                                fontWeight: count > 0 ? 600 : 400,
+                              }}
+                            >
+                              {count}
+                            </div>
+                            <div style={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
+                              <button
+                                className="icon-btn"
+                                title="Edit"
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  initCustomBundles();
+                                  setEditingBundleKey(bundle.key);
+                                }}
+                                style={{
+                                  width: 22,
+                                  height: 22,
+                                  border: "none",
+                                  background: "transparent",
+                                  borderRadius: 4,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  cursor: "pointer",
+                                  opacity: 0.6,
+                                }}
+                              >
+                                <Ic d={I.edit} size={11} color={C.textDim} />
+                              </button>
+                              <button
+                                className="icon-btn"
+                                title="Delete"
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  if (confirm(`Delete bundle "${bundle.label}"?`)) {
+                                    initCustomBundles();
+                                    removeBundle(bundle.key);
+                                  }
+                                }}
+                                style={{
+                                  width: 22,
+                                  height: 22,
+                                  border: "none",
+                                  background: "transparent",
+                                  color: C.red,
+                                  borderRadius: 4,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  cursor: "pointer",
+                                  opacity: 0.6,
+                                }}
+                              >
+                                <Ic d={I.trash} size={11} />
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+                      {/* Expanded items list */}
+                      {isExpanded && !isEditing && items.length > 0 && (
+                        <div style={{ background: C.bg, borderBottom: `1px solid ${C.border}` }}>
+                          {/* Item sub-header */}
+                          <div
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns: "80px 1.5fr 60px 62px 62px 62px 62px 100px",
+                              gap: 4,
+                              padding: "4px 14px 4px 54px",
+                              fontSize: 8,
+                              fontWeight: 600,
+                              color: C.textDim,
+                              textTransform: "uppercase",
+                              letterSpacing: 0.6,
+                              borderBottom: `1px solid ${C.border}`,
+                            }}
+                          >
+                            <div>Code</div>
+                            <div>Name</div>
+                            <div style={{ textAlign: "right" }}>Unit</div>
+                            <div style={{ textAlign: "right" }}>Matl</div>
+                            <div style={{ textAlign: "right" }}>Labor</div>
+                            <div style={{ textAlign: "right" }}>Equip</div>
+                            <div style={{ textAlign: "right" }}>Sub</div>
+                            <div style={{ textAlign: "right" }}>Bundle</div>
+                          </div>
+                          {items
+                            .sort((a, b) => (a.code || "").localeCompare(b.code || ""))
+                            .map((el, i) => (
+                              <div
+                                key={el.id}
+                                style={{
+                                  display: "grid",
+                                  gridTemplateColumns: "80px 1.5fr 60px 62px 62px 62px 62px 100px",
+                                  gap: 4,
+                                  padding: "4px 14px 4px 54px",
+                                  fontSize: 11,
+                                  borderBottom: `1px solid ${C.borderLight || C.border}`,
+                                  alignItems: "center",
+                                }}
+                              >
+                                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, color: C.purple }}>
+                                  {el.code || "—"}
+                                </div>
+                                <div
+                                  style={{
+                                    color: C.text,
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {titleCase(el.name) || "Unnamed"}
+                                </div>
+                                <div style={{ textAlign: "right", fontSize: 10, color: C.textMuted }}>/{el.unit}</div>
+                                <div
+                                  style={{
+                                    textAlign: "right",
+                                    fontFamily: "'DM Sans',sans-serif",
+                                    fontSize: 10,
+                                    color: C.green,
+                                  }}
+                                >
+                                  {fmt2(el.material)}
+                                </div>
+                                <div
+                                  style={{
+                                    textAlign: "right",
+                                    fontFamily: "'DM Sans',sans-serif",
+                                    fontSize: 10,
+                                    color: C.blue,
+                                  }}
+                                >
+                                  {fmt2(el.labor)}
+                                </div>
+                                <div
+                                  style={{
+                                    textAlign: "right",
+                                    fontFamily: "'DM Sans',sans-serif",
+                                    fontSize: 10,
+                                    color: C.orange,
+                                  }}
+                                >
+                                  {fmt2(el.equipment)}
+                                </div>
+                                <div
+                                  style={{
+                                    textAlign: "right",
+                                    fontFamily: "'DM Sans',sans-serif",
+                                    fontSize: 10,
+                                    color: C.red,
+                                  }}
+                                >
+                                  {nn(el.subcontractor) > 0 ? fmt2(el.subcontractor) : "—"}
+                                </div>
+                                <div style={{ textAlign: "right" }}>
+                                  <select
+                                    value={el.trade || ""}
+                                    onChange={e => updateElement(el.id, "trade", e.target.value)}
+                                    style={{
+                                      fontSize: 9,
+                                      padding: "2px 4px",
+                                      background: C.bg2,
+                                      color: C.text,
+                                      border: `1px solid ${C.border}`,
+                                      borderRadius: 3,
+                                      cursor: "pointer",
+                                      maxWidth: "100%",
+                                    }}
+                                  >
+                                    <option value="">— None —</option>
+                                    {activeBundles.map(b => (
+                                      <option key={b.key} value={b.key}>
+                                        {b.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
+                            ))}
+                          <div
+                            style={{ padding: "4px 14px 4px 54px", fontSize: 9, color: C.textDim, fontStyle: "italic" }}
+                          >
+                            {items.length} item{items.length !== 1 ? "s" : ""} in this bundle
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
             </div>
 
             {/* Footer hint */}
-            <div style={{ padding: "8px 14px", borderTop: `1px solid ${C.border}`, fontSize: 9, color: C.textDim, lineHeight: 1.6 }}>
-              <strong>Order</strong> controls sort order in reports and SOV.{" "}
-              <strong>CSI Divisions</strong> auto-assigns items by code (leave empty for bundles assigned by subdivision, e.g. Div 06–09 splits).{" "}
-              Items assigned to a deleted bundle will show as "Unassigned" in reports.
+            <div
+              style={{
+                padding: "8px 14px",
+                borderTop: `1px solid ${C.border}`,
+                fontSize: 9,
+                color: C.textDim,
+                lineHeight: 1.6,
+              }}
+            >
+              <strong>Order</strong> controls sort order in reports and SOV. <strong>CSI Divisions</strong> auto-assigns
+              items by code (leave empty for bundles assigned by subdivision, e.g. Div 06–09 splits). Items assigned to
+              a deleted bundle will show as "Unassigned" in reports.
             </div>
           </div>
         )}
       </div>
 
-        {/* Subdivisions Tab */}
-        {dbActiveTab === "subdivisions" && <SubdivisionsTab C={C} T={T} />}
+      {/* Subdivisions Tab */}
+      {dbActiveTab === "subdivisions" && <SubdivisionsTab C={C} T={T} />}
 
       {/* Code Manager Modal */}
       {codeManagerOpen && <CodeManager onClose={() => setCodeManagerOpen(false)} />}

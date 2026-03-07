@@ -31,13 +31,12 @@ export const useSubdivisionStore = create((set, get) => ({
   generationError: null,
 
   // ── Actions: Subdivision Data ──
-  setSubdivisionData: (data) => set({ subdivisionData: data }),
-  clearSubdivisionData: () =>
-    set({ subdivisionData: {}, llmRefinements: {} }),
+  setSubdivisionData: data => set({ subdivisionData: data }),
+  clearSubdivisionData: () => set({ subdivisionData: {}, llmRefinements: {} }),
 
   // ── Actions: User Overrides ──
   setUserOverride: (subCode, override) =>
-    set((s) => ({
+    set(s => ({
       userOverrides: {
         ...s.userOverrides,
         [subCode]: {
@@ -48,18 +47,18 @@ export const useSubdivisionStore = create((set, get) => ({
       },
     })),
 
-  removeUserOverride: (subCode) =>
-    set((s) => {
+  removeUserOverride: subCode =>
+    set(s => {
       const next = { ...s.userOverrides };
       delete next[subCode];
       return { userOverrides: next };
     }),
 
   // ── Actions: LLM Refinements ──
-  setLlmRefinements: (refinements) => set({ llmRefinements: refinements }),
+  setLlmRefinements: refinements => set({ llmRefinements: refinements }),
 
   setLlmRefinement: (subCode, data) =>
-    set((s) => ({
+    set(s => ({
       llmRefinements: {
         ...s.llmRefinements,
         [subCode]: {
@@ -71,8 +70,8 @@ export const useSubdivisionStore = create((set, get) => ({
       },
     })),
 
-  validateLlmRefinement: (subCode) =>
-    set((s) => ({
+  validateLlmRefinement: subCode =>
+    set(s => ({
       llmRefinements: {
         ...s.llmRefinements,
         [subCode]: {
@@ -84,27 +83,26 @@ export const useSubdivisionStore = create((set, get) => ({
     })),
 
   // ── Actions: Engine Config (admin only) ──
-  updateEngineConfig: (partial) =>
-    set((s) => ({
+  updateEngineConfig: partial =>
+    set(s => ({
       engineConfig: { ...s.engineConfig, ...partial },
     })),
 
-  updateWeights: (weights) =>
-    set((s) => ({
+  updateWeights: weights =>
+    set(s => ({
       engineConfig: {
         ...s.engineConfig,
         weights: { ...s.engineConfig.weights, ...weights },
       },
     })),
 
-  resetEngineConfig: () =>
-    set({ engineConfig: { ...DEFAULT_ENGINE_CONFIG } }),
+  resetEngineConfig: () => set({ engineConfig: { ...DEFAULT_ENGINE_CONFIG } }),
 
   // ── Actions: Calibration ──
-  setCalibrationFactors: (factors) => set({ calibrationFactors: factors }),
+  setCalibrationFactors: factors => set({ calibrationFactors: factors }),
 
   updateCalibration: (subCode, factor) =>
-    set((s) => ({
+    set(s => ({
       calibrationFactors: {
         ...s.calibrationFactors,
         [subCode]: {
@@ -115,19 +113,17 @@ export const useSubdivisionStore = create((set, get) => ({
     })),
 
   // ── Actions: Generation State ──
-  setGenerating: (v) => set({ generating: v }),
-  setGeneratingDivision: (v) => set({ generatingDivision: v }),
-  setGenerationProgress: (v) => set({ generationProgress: v }),
-  setGenerationError: (v) => set({ generationError: v }),
+  setGenerating: v => set({ generating: v }),
+  setGeneratingDivision: v => set({ generatingDivision: v }),
+  setGenerationProgress: v => set({ generationProgress: v }),
+  setGenerationError: v => set({ generationError: v }),
 
   // ── Computed: Stats ──
   getStats: () => {
     const s = get();
     const allSubs = Object.values(s.subdivisionData).flat();
     const totalSubs = allSubs.length;
-    const validatedLlm = Object.values(s.llmRefinements).filter(
-      (r) => r.validated,
-    ).length;
+    const validatedLlm = Object.values(s.llmRefinements).filter(r => r.validated).length;
     const userOverrideCount = Object.keys(s.userOverrides).length;
     const calibratedCount = Object.keys(s.calibrationFactors).length;
     return {
