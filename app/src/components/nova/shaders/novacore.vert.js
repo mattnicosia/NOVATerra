@@ -1,21 +1,21 @@
-// NOVACORE vertex shader v2 — domain-warped displacement + volumetric ray setup
-// Drives organic surface deformation via domain-warped FBM
+// NOVACORE vertex shader v3 — dramatic displacement + fluid topology
+// v3: Higher amplitude, faster animation, multi-layer turbulence
 
 export const novacoreVertexShader = /* glsl */ `
   uniform float uTime;
-  uniform float uMorph;       // 0.0 = NOVA (smooth), 1.0 = CORE (turbulent)
-  uniform float uPulse;       // 0.0–1.0 pulse intensity
-  uniform float uExhale;      // 0.0–1.0 exhale expansion
-  uniform float uNoiseScale;  // base noise frequency
-  uniform float uSize;        // sphere radius for raymarching bounds
+  uniform float uMorph;
+  uniform float uPulse;
+  uniform float uExhale;
+  uniform float uNoiseScale;
+  uniform float uSize;
 
   varying vec3 vNormal;
   varying vec3 vPosition;
   varying vec3 vWorldPosition;
   varying float vDisplacement;
   varying float vFresnel;
-  varying vec3 vViewDir;       // view direction in local space (for raymarching)
-  varying vec3 vLocalPos;      // displaced local position (ray origin)
+  varying vec3 vViewDir;
+  varying vec3 vLocalPos;
 
   // ── Simplex 3D noise ──────────────────────────────────────────────
   vec4 permute(vec4 x) { return mod(((x * 34.0) + 1.0) * x, 289.0); }
@@ -65,7 +65,7 @@ export const novacoreVertexShader = /* glsl */ `
   }
 
   // ── FBM ─────────────────────────────────────────────────────────
-  float fbm3(vec3 p) {
+  float fbm4(vec3 p) {
     float v = 0.0, a = 0.5, f = 1.0;
     for (int i = 0; i < 4; i++) {
       v += a * snoise(p * f);
@@ -79,30 +79,33 @@ export const novacoreVertexShader = /* glsl */ `
     vNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
     vPosition = position;
 
-    // ── Morph-driven parameters ────────────────────────────────
-    float speed = mix(0.12, 0.35, uMorph);
-    float amplitude = mix(0.08, 0.20, uMorph);
-    amplitude += uPulse * 0.10;
+    // ── v10: Light sources are SMOOTH — minimal displacement ──────
+    float speed = mix(0.12, 0.30, uMorph);
+    // NOVA: barely displaced (smooth glowing orb), CORE: more volcanic
+    float amplitude = mix(0.025, 0.18, uMorph);
+    amplitude += uPulse * 0.08;
     float exhaleScale = 1.0 + uExhale * 0.15;
 
-    // ── Domain-warped displacement ─────────────────────────────
-    // Single-layer warp for vertex (cheaper than fragment's 2-layer)
+    // ── Domain-warped displacement ───────────────────────────────
     vec3 noisePos = position * uNoiseScale;
     float t = uTime * speed;
 
-    float qx = fbm3(noisePos + vec3(0.0, 0.0, 0.0) + vec3(t * 0.7));
-    float qy = fbm3(noisePos + vec3(5.2, 1.3, 2.8) + vec3(t * 0.5));
+    // Warp layer q
+    float qx = fbm4(noisePos + vec3(0.0) + vec3(t * 0.7));
+    float qy = fbm4(noisePos + vec3(5.2, 1.3, 2.8) + vec3(t * 0.55));
     vec2 q = vec2(qx, qy);
 
-    float warp = mix(2.5, 4.5, uMorph);
-    float displacement = fbm3(noisePos + warp * vec3(q, 0.0) + vec3(t * 0.3)) * amplitude;
+    // Lower warp strength — organic flow, not turbulence
+    float warp = mix(2.5, 3.8, uMorph);
+    float displacement = fbm4(noisePos + warp * vec3(q, 0.0) + vec3(t * 0.3)) * amplitude;
 
-    // CORE turbulence layer
-    displacement += snoise(position * uNoiseScale * 2.5 + vec3(t * 0.8, t * 0.4, t * 0.6)) * 0.05 * uMorph;
+    // CORE: gentle extra turbulence (not chaotic)
+    float turb1 = snoise(position * uNoiseScale * 2.0 + vec3(t * 0.6, t * 0.3, t * 0.4));
+    displacement += turb1 * 0.04 * uMorph;
 
     vDisplacement = displacement;
 
-    // ── Apply displacement ─────────────────────────────────────
+    // ── Apply displacement ───────────────────────────────────────
     vec3 displaced = position + normal * displacement;
     displaced *= exhaleScale;
     vLocalPos = displaced;
@@ -111,14 +114,13 @@ export const novacoreVertexShader = /* glsl */ `
     vWorldPosition = worldPos.xyz;
 
     // ── View direction in local space (for fragment raymarching) ──
-    // Transform camera position to local space (once per vertex, not per fragment)
     vec3 camLocal = (inverse(modelMatrix) * vec4(cameraPosition, 1.0)).xyz;
     vViewDir = normalize(displaced - camLocal);
 
-    // ── Fresnel ────────────────────────────────────────────────
+    // ── Fresnel ──────────────────────────────────────────────────
     vec3 viewDir = normalize(cameraPosition - worldPos.xyz);
     vFresnel = 1.0 - max(dot(viewDir, vNormal), 0.0);
-    vFresnel = pow(vFresnel, mix(2.8, 1.8, uMorph));
+    vFresnel = pow(vFresnel, mix(2.5, 1.6, uMorph));
 
     gl_Position = projectionMatrix * viewMatrix * worldPos;
   }

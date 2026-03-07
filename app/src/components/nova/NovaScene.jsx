@@ -10,27 +10,25 @@ import { getGpuTier } from "./gpuDetect";
 
 // ── Post-processing — HDR selective bloom ───────────────────────────
 function Effects({ morphValue = 0 }) {
-  // Higher threshold = only HDR values (>1.0) bloom
-  // Shader outputs HDR hot spots for selective glow
-  // CORE: moderate bloom — gamma curve creates dark surface, bloom catches veins/spots
-  const bloomIntensity = 0.7 + morphValue * 0.15;
-  const bloomThreshold = 0.85 - morphValue * 0.02;
+  // v8: Higher threshold — only HDR peaks bloom, not the whole surface
+  const bloomIntensity = 0.8 + morphValue * 0.35;
+  const bloomThreshold = 0.88 - morphValue * 0.06;
 
   return (
     <EffectComposer multisampling={0}>
       <Bloom
         intensity={bloomIntensity}
         luminanceThreshold={bloomThreshold}
-        luminanceSmoothing={0.15}
+        luminanceSmoothing={0.08}
         mipmapBlur
         radius={0.85}
-        levels={5}
+        levels={7}
       />
       <ChromaticAberration
         blendFunction={BlendFunction.NORMAL}
-        offset={[0.0008 + morphValue * 0.0005, 0.0006 + morphValue * 0.0004]}
+        offset={[0.0012 + morphValue * 0.0008, 0.001 + morphValue * 0.0006]}
         radialModulation
-        modulationOffset={0.2}
+        modulationOffset={0.12}
       />
     </EffectComposer>
   );

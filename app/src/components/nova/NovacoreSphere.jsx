@@ -15,20 +15,20 @@ import { atmosphereFragmentShader } from "./shaders/atmosphere.frag";
 // palette(t) = a + b * cos(2π(c*t + d))
 // Tuned for deep → bright → deep color cycling
 
-// NOVA: deep violet-indigo-cyan spectrum (dark base, selective bright accents)
+// NOVA: violet-indigo-cyan spectrum — luminous, always glowing
 const NOVA_PAL = {
-  a: new THREE.Vector3(0.12, 0.06, 0.22),  // very dark violet base
-  b: new THREE.Vector3(0.38, 0.30, 0.55),  // wide contrast for highlights
-  c: new THREE.Vector3(1.0, 1.0, 1.0),     // one full cycle
-  d: new THREE.Vector3(0.00, 0.15, 0.38),  // phase: red early, blue late → violet-cyan
+  a: new THREE.Vector3(0.18, 0.14, 0.40), // luminous violet base — light source, never dark
+  b: new THREE.Vector3(0.28, 0.30, 0.45), // moderate amplitude — hue variation without black holes
+  c: new THREE.Vector3(0.8, 1.0, 0.7), // slower cycling for smoother gradients
+  d: new THREE.Vector3(0.35, 0.25, 0.55), // phase: puts violet/blue in the bright zone
 };
 
-// CORE: deep amber-gold spectrum (near-black base, blazing hot highlights)
+// CORE: amber-gold-white spectrum — deep darks with blazing hot peaks
 const CORE_PAL = {
-  a: new THREE.Vector3(0.08, 0.04, 0.01),  // near-black base — true dark
-  b: new THREE.Vector3(0.65, 0.45, 0.18),  // very wide contrast for hot spots
-  c: new THREE.Vector3(1.0, 0.8, 0.6),     // slower blue cycle → warmer
-  d: new THREE.Vector3(0.00, 0.10, 0.20),  // amber → gold → hot white peaks
+  a: new THREE.Vector3(0.05, 0.02, 0.01), // near-black base (darker foundation)
+  b: new THREE.Vector3(0.85, 0.55, 0.18), // wide amplitude → extreme contrast
+  c: new THREE.Vector3(1.0, 0.8, 0.55), // offset cycles → gold-to-white shifts
+  d: new THREE.Vector3(0.0, 0.1, 0.22), // amber → gold → white-hot peaks
 };
 
 // ── Status → morph target mapping ──────────────────────────────────
@@ -40,16 +40,14 @@ const STATUS_MORPH = {
   affirm: 0.1,
 };
 
-function lerp(a, b, t) { return a + (b - a) * t; }
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
 
-const NovacoreSphere = forwardRef(function NovacoreSphere({
-  morphTarget = null,
-  intensity = 0.7,
-  size = 1.6,
-  segments = 128,
-  gpuTier = 2,
-  onClick,
-}, ref) {
+const NovacoreSphere = forwardRef(function NovacoreSphere(
+  { morphTarget = null, intensity = 0.7, size = 1.6, segments = 128, gpuTier = 2, onClick },
+  ref,
+) {
   const groupRef = useRef();
   const materialRef = useRef();
   const atmosphereMatRef = useRef();
@@ -64,46 +62,62 @@ const NovacoreSphere = forwardRef(function NovacoreSphere({
   });
 
   // ── Main sphere uniforms ──────────────────────────────────────
-  const uniforms = useMemo(() => ({
-    uTime:       { value: 0.0 },
-    uMorph:      { value: 0.0 },
-    uPulse:      { value: 0.0 },
-    uExhale:     { value: 0.0 },
-    uIntensity:  { value: intensity },
-    uVoice:      { value: 0.0 },
-    uNoiseScale: { value: 1.8 },
-    uSize:       { value: size },
-    uTier:       { value: gpuTier },
-    // IQ palette: NOVA
-    uNovaPalA: { value: NOVA_PAL.a },
-    uNovaPalB: { value: NOVA_PAL.b },
-    uNovaPalC: { value: NOVA_PAL.c },
-    uNovaPalD: { value: NOVA_PAL.d },
-    // IQ palette: CORE
-    uCorePalA: { value: CORE_PAL.a },
-    uCorePalB: { value: CORE_PAL.b },
-    uCorePalC: { value: CORE_PAL.c },
-    uCorePalD: { value: CORE_PAL.d },
-  }), []);
+  const uniforms = useMemo(
+    () => ({
+      uTime: { value: 0.0 },
+      uMorph: { value: 0.0 },
+      uPulse: { value: 0.0 },
+      uExhale: { value: 0.0 },
+      uIntensity: { value: intensity },
+      uVoice: { value: 0.0 },
+      uNoiseScale: { value: 1.8 },
+      uSize: { value: size },
+      uTier: { value: gpuTier },
+      // IQ palette: NOVA
+      uNovaPalA: { value: NOVA_PAL.a },
+      uNovaPalB: { value: NOVA_PAL.b },
+      uNovaPalC: { value: NOVA_PAL.c },
+      uNovaPalD: { value: NOVA_PAL.d },
+      // IQ palette: CORE
+      uCorePalA: { value: CORE_PAL.a },
+      uCorePalB: { value: CORE_PAL.b },
+      uCorePalC: { value: CORE_PAL.c },
+      uCorePalD: { value: CORE_PAL.d },
+    }),
+    [],
+  );
 
   // ── Atmosphere uniforms ───────────────────────────────────────
-  const atmosphereUniforms = useMemo(() => ({
-    uTime:      { value: 0.0 },
-    uMorph:     { value: 0.0 },
-    uIntensity: { value: intensity },
-    uPulse:     { value: 0.0 },
-    uExhale:    { value: 0.0 },
-    uNovaGlow:  { value: new THREE.Vector3(0.40, 0.20, 0.85) },
-    uCoreGlow:  { value: new THREE.Vector3(0.95, 0.60, 0.12) },
-  }), []);
+  const atmosphereUniforms = useMemo(
+    () => ({
+      uTime: { value: 0.0 },
+      uMorph: { value: 0.0 },
+      uIntensity: { value: intensity },
+      uPulse: { value: 0.0 },
+      uExhale: { value: 0.0 },
+      uNovaGlow: { value: new THREE.Vector3(0.4, 0.2, 0.85) },
+      uCoreGlow: { value: new THREE.Vector3(0.95, 0.6, 0.12) },
+    }),
+    [],
+  );
 
   // ── Imperative API ────────────────────────────────────────────
   useImperativeHandle(ref, () => ({
-    exhale: () => { stateRef.current.exhale = 1.0; },
-    pulse: () => { stateRef.current.pulse = 1.0; },
-    setMorph: (v) => { stateRef.current.morphTarget = Math.max(0, Math.min(1, v)); },
-    setIntensity: (v) => { stateRef.current.intensity = Math.max(0.2, Math.min(1.0, v)); },
-    setVoice: (v) => { stateRef.current.voice = v; },
+    exhale: () => {
+      stateRef.current.exhale = 1.0;
+    },
+    pulse: () => {
+      stateRef.current.pulse = 1.0;
+    },
+    setMorph: v => {
+      stateRef.current.morphTarget = Math.max(0, Math.min(1, v));
+    },
+    setIntensity: v => {
+      stateRef.current.intensity = Math.max(0.2, Math.min(1.0, v));
+    },
+    setVoice: v => {
+      stateRef.current.voice = v;
+    },
     getMorph: () => stateRef.current.morph,
   }));
 
@@ -158,13 +172,15 @@ const NovacoreSphere = forwardRef(function NovacoreSphere({
 
     // ── Rotation ──────────────────────────────────────────────
     if (groupRef.current) {
-      const rotSpeed = lerp(0.04, 0.12, s.morph);
+      // v8: Slower rotation — graceful, not chaotic
+      const rotSpeed = lerp(0.025, 0.06, s.morph);
       groupRef.current.rotation.y += rotSpeed * delta;
-      groupRef.current.rotation.x = Math.sin(elapsedTime * 0.15) * 0.08;
+      groupRef.current.rotation.x = Math.sin(elapsedTime * 0.08) * 0.05;
     }
   });
 
-  const geoDetail = segments > 64 ? 5 : 4;
+  // v3: Higher detail — 6 for Tier 2 (20480 tris), 5 for Tier 1 (5120 tris)
+  const geoDetail = segments > 64 ? 6 : 5;
 
   return (
     <group ref={groupRef} onClick={onClick}>
@@ -177,15 +193,15 @@ const NovacoreSphere = forwardRef(function NovacoreSphere({
           fragmentShader={novacoreFragmentShader}
           uniforms={uniforms}
           transparent
-          depthWrite={false}
+          depthWrite={true}
           side={THREE.FrontSide}
           toneMapped={false}
         />
       </mesh>
 
-      {/* Atmosphere glow — outer energy halo */}
-      <mesh scale={[1.18, 1.18, 1.18]}>
-        <icosahedronGeometry args={[size, 3]} />
+      {/* Atmosphere glow — wider ethereal halo */}
+      <mesh scale={[1.25, 1.25, 1.25]}>
+        <icosahedronGeometry args={[size, 5]} />
         <shaderMaterial
           ref={atmosphereMatRef}
           vertexShader={atmosphereVertexShader}
