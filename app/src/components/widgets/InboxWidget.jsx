@@ -44,14 +44,11 @@ export default function InboxWidget() {
     fetchRfps();
   }, []);
 
-  // Filter by status, then by company profile (same logic as estimates)
+  // Filter by status, then by company profile — exact match
   const pendingRfps = useMemo(() => {
     const pending = rfps.filter(r => r.status === "parsed" || r.status === "pending");
     if (activeCompanyId === "__all__") return pending;
-    return pending.filter(r => {
-      const cid = r.company_profile_id || "";
-      return cid === activeCompanyId || cid === "";
-    });
+    return pending.filter(r => (r.company_profile_id || "") === (activeCompanyId || ""));
   }, [rfps, activeCompanyId]);
 
   // Profile-filtered unread count

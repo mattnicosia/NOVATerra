@@ -3,11 +3,16 @@ import { useNavigate } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useUiStore } from "@/stores/uiStore";
+import { useAuthStore } from "@/stores/authStore";
+import { useOrgStore } from "@/stores/orgStore";
 import { loadEstimate } from "@/hooks/usePersistence";
+import { supabase } from "@/utils/supabase";
 import Ic from "@/components/shared/Ic";
 import EmptyState from "@/components/shared/EmptyState";
 import CompanySwitcher from "@/components/shared/CompanySwitcher";
 import NewEstimateModal from "@/components/shared/NewEstimateModal";
+import CompletionSummary from "@/components/shared/CompletionSummary";
+import OutcomeFeedbackModal from "@/components/shared/OutcomeFeedbackModal";
 import { I } from "@/constants/icons";
 import { inp, bt, card, statusBadge, moneyCell } from "@/utils/styles";
 import { fmt } from "@/utils/format";
@@ -127,8 +132,35 @@ function StatusDropdown({ currentStatus, onSelect, onClose, C, T }) {
   );
 }
 
+/* ── Presence Dots (shared helper) ── */
+function PresenceDots({ viewers, C }) {
+  if (!viewers?.length) return null;
+  return (
+    <div style={{ display: "flex", alignItems: "center", marginLeft: 4 }}>
+      {viewers.slice(0, 4).map((v, i) => (
+        <div
+          key={i}
+          title={v.userName}
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: "50%",
+            background: v.userColor || "#60A5FA",
+            border: `1.5px solid ${C.bg1}`,
+            marginLeft: i > 0 ? -3 : 0,
+            flexShrink: 0,
+          }}
+        />
+      ))}
+      {viewers.length > 4 && (
+        <span style={{ fontSize: 8, color: C.textDim, marginLeft: 2 }}>+{viewers.length - 4}</span>
+      )}
+    </div>
+  );
+}
+
 /* ── Kanban Card ── */
-function KanbanCard({ est, C, T, navigate, onStatusChange, onDuplicate, onDelete }) {
+function KanbanCard({ est, C, T, navigate, onStatusChange, onDuplicate, onDelete, viewers }) {
   const sc = STATUS_COLORS[est.status] || STATUS_COLORS.Draft;
   return (
     <div
@@ -167,6 +199,7 @@ function KanbanCard({ est, C, T, navigate, onStatusChange, onDuplicate, onDelete
         >
           {est.name || "Untitled"}
         </div>
+        <PresenceDots viewers={viewers} C={C} />
         {est.status === "Won" && (
           <span
             style={{
@@ -225,6 +258,8 @@ export default function ProjectsPage() {
   const updateIndexEntry = useEstimatesStore(s => s.updateIndexEntry);
   const showToast = useUiStore(s => s.showToast);
   const activeCompanyId = useUiStore(s => s.appSettings.activeCompanyId);
+  const orgId = useOrgStore(s => s.org?.id);
+  const userId = useAuthStore(s => s.user?.id);
 
   const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
@@ -234,20 +269,47 @@ export default function ProjectsPage() {
   const [viewMode, setViewMode] = useState("table"); // table | board
   const [dueThisWeek, setDueThisWeek] = useState(false);
   const [statusDropdownId, setStatusDropdownId] = useState(null);
+  const [scope, setScope] = useState("mine"); // "mine" | "team" (org mode only)
+  const [presenceMap, setPresenceMap] = useState({}); // { estimateId: [{ user_name, user_color }] }
+  const [completionEst, setCompletionEst] = useState(null); // For CompletionSummary modal
+  const [outcomeEst, setOutcomeEst] = useState(null); // { estimate, status } for OutcomeFeedbackModal
 
-  // Filter by company
+  // Fetch presence dots for all estimates (org mode only)
+  useEffect(() => {
+    if (!orgId || !supabase) return;
+    const fiveMinAgo = new Date(Date.now() - 5 * 60_000).toISOString();
+    supabase
+      .from("estimate_presence")
+      .select("estimate_id, user_name, user_color")
+      .eq("org_id", orgId)
+      .gte("last_seen", fiveMinAgo)
+      .then(({ data }) => {
+        const map = {};
+        for (const row of data || []) {
+          if (!map[row.estimate_id]) map[row.estimate_id] = [];
+          map[row.estimate_id].push({ userName: row.user_name, userColor: row.user_color });
+        }
+        setPresenceMap(map);
+      });
+  }, [orgId]);
+
+  // Filter by company — "__all__" shows everything, otherwise exact match
   const companyFiltered = useMemo(() => {
-    if (!activeCompanyId || activeCompanyId === "__all__") return estimatesIndex;
-    return estimatesIndex.filter(
-      e => (e.companyProfileId || "") === activeCompanyId || (!e.companyProfileId && !activeCompanyId),
-    );
+    if (activeCompanyId === "__all__") return estimatesIndex;
+    return estimatesIndex.filter(e => (e.companyProfileId || "") === (activeCompanyId || ""));
   }, [estimatesIndex, activeCompanyId]);
+
+  // Filter by scope — "mine" shows only assigned (org mode), "team" shows all
+  const scopeFiltered = useMemo(() => {
+    if (!orgId || scope === "team") return companyFiltered;
+    return companyFiltered.filter(e => !e.assignedTo?.length || e.assignedTo.includes(userId));
+  }, [companyFiltered, scope, orgId, userId]);
 
   // Filter by status tab
   const tabFiltered = useMemo(() => {
-    if (activeTab === "all") return companyFiltered;
-    return companyFiltered.filter(e => (e.status || "Draft") === activeTab);
-  }, [companyFiltered, activeTab]);
+    if (activeTab === "all") return scopeFiltered;
+    return scopeFiltered.filter(e => (e.status || "Draft") === activeTab);
+  }, [scopeFiltered, activeTab]);
 
   // Due this week filter
   const weekFiltered = useMemo(() => {
@@ -305,12 +367,12 @@ export default function ProjectsPage() {
   }, [searchFiltered, sortBy, sortDir]);
 
   const tabCounts = useMemo(() => {
-    const counts = { all: companyFiltered.length };
+    const counts = { all: scopeFiltered.length };
     STATUS_TABS.forEach(t => {
-      if (t.key !== "all") counts[t.key] = companyFiltered.filter(e => (e.status || "Draft") === t.key).length;
+      if (t.key !== "all") counts[t.key] = scopeFiltered.filter(e => (e.status || "Draft") === t.key).length;
     });
     return counts;
-  }, [companyFiltered]);
+  }, [scopeFiltered]);
 
   // Kanban: group by status
   const kanbanColumns = useMemo(() => {
@@ -327,8 +389,8 @@ export default function ProjectsPage() {
   }, [searchFiltered]);
 
   const dueThisWeekCount = useMemo(() => {
-    return companyFiltered.filter(e => isDueThisWeek(e.bidDue)).length;
-  }, [companyFiltered]);
+    return scopeFiltered.filter(e => isDueThisWeek(e.bidDue)).length;
+  }, [scopeFiltered]);
 
   const [showNewModal, setShowNewModal] = useState(false);
 
@@ -350,17 +412,28 @@ export default function ProjectsPage() {
 
   const handleDelete = async () => {
     if (!deleteConfirm) return;
-    await deleteEstimate(deleteConfirm);
+    const id = deleteConfirm;
+    setDeleteConfirm(null); // close modal immediately
+    await deleteEstimate(id);
     showToast("Estimate deleted");
-    setDeleteConfirm(null);
   };
 
   const handleStatusChange = useCallback(
     (estId, newStatus) => {
       updateIndexEntry(estId, { status: newStatus });
       showToast(`Status → ${newStatus}`);
+
+      // Engagement: trigger modals on status change
+      const est = estimatesIndex.find(e => e.id === estId);
+      if (!est) return;
+
+      if (newStatus === "Submitted") {
+        setCompletionEst(est);
+      } else if (newStatus === "Won" || newStatus === "Lost") {
+        setOutcomeEst({ estimate: est, status: newStatus });
+      }
     },
-    [updateIndexEntry, showToast],
+    [updateIndexEntry, showToast, estimatesIndex],
   );
 
   const toggleSort = key => {
@@ -403,6 +476,31 @@ export default function ProjectsPage() {
           </div>
           <div style={{ display: "flex", gap: T.space[2], alignItems: "center" }}>
             <CompanySwitcher />
+            {orgId && (
+              <div style={{ display: "flex", background: C.bg2, borderRadius: 6, padding: 2 }}>
+                {[
+                  { key: "mine", label: "Mine" },
+                  { key: "team", label: "Team" },
+                ].map(s => (
+                  <button
+                    key={s.key}
+                    onClick={() => setScope(s.key)}
+                    style={{
+                      padding: "4px 12px",
+                      fontSize: 11,
+                      fontWeight: scope === s.key ? 600 : 400,
+                      color: scope === s.key ? C.text : C.textMuted,
+                      background: scope === s.key ? C.accent + "20" : "transparent",
+                      border: "none",
+                      borderRadius: 4,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            )}
             <button
               onClick={handleNewEstimate}
               className="accent-btn"
@@ -747,6 +845,7 @@ export default function ProjectsPage() {
                               #{est.estimateNumber}
                             </span>
                           )}
+                          <PresenceDots viewers={presenceMap[est.id]} C={C} />
                         </div>
                         {(est.jobType || est.estimator) && (
                           <div
@@ -986,6 +1085,7 @@ export default function ProjectsPage() {
                           onStatusChange={handleStatusChange}
                           onDuplicate={handleDuplicate}
                           onDelete={setDeleteConfirm}
+                          viewers={presenceMap[est.id]}
                         />
                       ))}
                     </div>
@@ -1089,6 +1189,19 @@ export default function ProjectsPage() {
           companyProfileId={activeCompanyId === "__all__" ? "" : activeCompanyId}
           onCreated={handleNewCreated}
           onClose={() => setShowNewModal(false)}
+        />
+      )}
+      {completionEst && <CompletionSummary estimate={completionEst} onClose={() => setCompletionEst(null)} />}
+      {outcomeEst && (
+        <OutcomeFeedbackModal
+          estimate={outcomeEst.estimate}
+          status={outcomeEst.status}
+          onSave={outcome => {
+            updateIndexEntry(outcomeEst.estimate.id, { outcomeMetadata: outcome });
+            showToast("Outcome saved");
+            setOutcomeEst(null);
+          }}
+          onSkip={() => setOutcomeEst(null)}
         />
       )}
     </div>

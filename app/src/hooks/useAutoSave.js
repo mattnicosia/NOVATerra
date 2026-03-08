@@ -11,6 +11,8 @@ import {
   saveSubdivisionConfig,
 } from "./usePersistence";
 import { useEstimatesStore } from "@/stores/estimatesStore";
+import { useOrgStore } from "@/stores/orgStore";
+import { useCollaborationStore } from "@/stores/collaborationStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { useItemsStore } from "@/stores/itemsStore";
 import { useTakeoffsStore } from "@/stores/takeoffsStore";
@@ -62,11 +64,15 @@ export function useAutoSave() {
     if (!persistenceLoaded || !activeId) return;
     // Skip auto-save for draft estimates (not yet persisted — user must click Save first)
     if (draftId && activeId === draftId) return;
+    // Skip auto-save in org mode if not the lock holder
+    if (useOrgStore.getState().org?.id && !useCollaborationStore.getState().isLockHolder) return;
     if (estTimer.current) clearTimeout(estTimer.current);
     estTimer.current = setTimeout(() => {
       // Guard: verify estimate wasn't deleted during debounce window
       const currentId = useEstimatesStore.getState().activeEstimateId;
       if (!currentId) return;
+      // Re-check lock status at save time (may have changed during debounce)
+      if (useOrgStore.getState().org?.id && !useCollaborationStore.getState().isLockHolder) return;
       saveEstimate().catch(err => {
         console.error("[autoSave] Estimate save failed:", err);
         useUiStore.getState().showToast("Auto-save failed — retrying...", "error");

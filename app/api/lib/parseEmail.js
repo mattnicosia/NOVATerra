@@ -4,7 +4,14 @@
  * Returns a JSON object matching the project schema fields.
  */
 export async function parseRfpEmail({ subject, senderEmail, senderName, text, html }) {
-  const emailBody = text || (html ? html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() : "");
+  const emailBody =
+    text ||
+    (html
+      ? html
+          .replace(/<[^>]*>/g, " ")
+          .replace(/\s+/g, " ")
+          .trim()
+      : "");
 
   if (!emailBody || emailBody.length < 20) {
     return { error: "Email body too short to parse", confidence: 0 };
@@ -27,6 +34,8 @@ IMPORTANT RULES:
 - For bidType use one of: "Hard Bid", "Negotiated", "Design-Build", "CM at Risk", "GMP" — or null if unclear.
 - For bidDelivery use one of: "Email", "Sealed & Delivered", "Both", "Online Portal" — or null if unclear.
 - Extract all cloud storage or file sharing links (Dropbox, Google Drive, Box, OneDrive, SharePoint, WeTransfer, etc.) found in the email body. For "label", use any descriptive text near the link (e.g. "Construction Plans", "Bid Documents"). If no label is discernible, use null. For "provider", identify the service from the URL domain.
+- Look for "Bid List", "Plan Holders", "Invited Bidders", "Distribution List", "Bidder's List" sections in the email. If found, extract the company names and any associated contact info as bidList entries.
+- Detect if this email is an addendum or revision to a previous bid invitation. Look for "Addendum", "Addendum #N", "Add.", "Revised", "Updated Plans", "Supplement", "Bulletin", "Amended" in the subject line or body. Set isAddendum to true if detected, and extract the addendum number if present. If the email references a parent project name (e.g. "Addendum #2 for Acme Office Tower"), extract that as parentProjectName.
 
 Respond with ONLY a valid JSON object (no markdown fences, no explanation):
 
@@ -58,6 +67,10 @@ Respond with ONLY a valid JSON object (no markdown fences, no explanation):
   "scopeNotes": [string],
   "additionalDates": [{ "label": string, "date": "YYYY-MM-DD" }],
   "planLinks": [{ "url": string, "provider": "dropbox"|"google_drive"|"box"|"onedrive"|"sharepoint"|"wetransfer"|"other", "label": string|null }],
+  "bidList": [{ "company": string, "contact": string|null, "email": string|null, "phone": string|null }],
+  "isAddendum": boolean,
+  "addendumNumber": number | null,
+  "parentProjectName": string | null,
   "confidence": number
 }`;
 
@@ -69,7 +82,12 @@ ${emailBody.slice(0, 8000)}
 ---`;
 
   try {
-    const apiKey = (process.env.ANTHROPIC_API_KEY || '').replace(/\\n/g, '').replace(/\n/g, '').replace(/\r/g, '').replace(/"/g, '').trim();
+    const apiKey = (process.env.ANTHROPIC_API_KEY || "")
+      .replace(/\\n/g, "")
+      .replace(/\n/g, "")
+      .replace(/\r/g, "")
+      .replace(/"/g, "")
+      .trim();
     if (!apiKey) {
       return { error: "ANTHROPIC_API_KEY not configured", confidence: 0 };
     }
@@ -83,7 +101,7 @@ ${emailBody.slice(0, 8000)}
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
-        max_tokens: 2000,
+        max_tokens: 3000,
         system: systemPrompt,
         messages: [{ role: "user", content: userMessage }],
       }),

@@ -5,6 +5,8 @@ import { useProjectStore } from "@/stores/projectStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useUiStore } from "@/stores/uiStore";
+import { useOrgStore, selectIsManager } from "@/stores/orgStore";
+import { useEstimatorStats } from "@/hooks/useEstimatorStats";
 import { saveEstimate } from "@/hooks/usePersistence";
 import { CODE_SYSTEMS } from "@/constants/codeSystems";
 import { BUILDING_TYPES, WORK_TYPES, LOST_REASONS } from "@/constants/constructionTypes";
@@ -18,9 +20,14 @@ import { uid } from "@/utils/format";
 import { resolveLocationFactors, getAllLocations } from "@/constants/locationFactors";
 
 /* ── Completion calculator ── */
-const ESSENTIAL_FIELDS = ["name", "client", "status", "bidDue", "buildingType", "projectSF", "zipCode"];
 const ALL_FIELDS = [
-  ...ESSENTIAL_FIELDS,
+  "name",
+  "client",
+  "status",
+  "bidDue",
+  "buildingType",
+  "projectSF",
+  "zipCode",
   "architect",
   "engineer",
   "estimator",
@@ -33,13 +40,12 @@ const ALL_FIELDS = [
   "referredByType",
 ];
 
-function calcCompletion(project, mode) {
-  const fields = mode === "essentials" ? ESSENTIAL_FIELDS : ALL_FIELDS;
+function calcCompletion(project) {
   let filled = 0;
-  fields.forEach(f => {
+  ALL_FIELDS.forEach(f => {
     if (project[f] && String(project[f]).trim()) filled++;
   });
-  return Math.round((filled / fields.length) * 100);
+  return Math.round((filled / ALL_FIELDS.length) * 100);
 }
 
 /* ── Completion Ring (SVG) ── */
@@ -209,6 +215,12 @@ export default function ProjectInfoPage() {
   const showToast = useUiStore(s => s.showToast);
   const appSettings = useUiStore(s => s.appSettings);
 
+  const org = useOrgStore(s => s.org);
+  const orgMembers = useOrgStore(s => s.members);
+  const isManager = useOrgStore(selectIsManager);
+  const assignEstimate = useEstimatesStore(s => s.assignEstimate);
+  const estimatorStats = useEstimatorStats(project.estimator);
+
   const projCompany = project.companyProfileId || "";
   const projectClients = getContactsForCompany("clients", projCompany);
   const projectArchitects = getContactsForCompany("architects", projCompany);
@@ -216,10 +228,8 @@ export default function ProjectInfoPage() {
 
   const [quickAddModal, setQuickAddModal] = useState(null);
   const [quickAddValue, setQuickAddValue] = useState("");
-  const [detailMode, setDetailMode] = useState("essentials"); // essentials | all
-  const showAll = detailMode === "all";
 
-  const completion = useMemo(() => calcCompletion(project, detailMode), [project, detailMode]);
+  const completion = useMemo(() => calcCompletion(project), [project]);
 
   const handleSave = async () => {
     if (!activeEstimateId) return;
@@ -282,12 +292,59 @@ export default function ProjectInfoPage() {
     setQuickAddValue("");
   };
 
-  const autoTag = field =>
-    project.autoDetected?.[field] ? (
-      <span style={{ fontSize: 8, color: C.green, fontWeight: 600, animation: "fadeIn 0.3s ease" }}>
-        ✦ Auto-detected
-      </span>
-    ) : null;
+  // Check if a value already exists in a masterData contact list
+  const isInContacts = (category, companyName) => {
+    if (!companyName) return true; // nothing to save
+    const list = masterData[category] || [];
+    return list.some(c => (c.company || "").toLowerCase() === companyName.toLowerCase());
+  };
+
+  const handleSaveToContacts = (category, field, label) => {
+    const value = project[field];
+    if (!value || isInContacts(category, value)) return;
+    addMasterItem(category, { company: value, contact: "", email: "", phone: "", companyProfileId: projCompany });
+    showToast(`${value} added to ${label}s`);
+  };
+
+  const autoTag = (field, category, label) => {
+    const detected = project.autoDetected?.[field];
+    const value = project[field];
+    const needsSave = category && value && !isInContacts(category, value);
+
+    if (!detected && !needsSave) return null;
+
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+        {detected && (
+          <span style={{ fontSize: 8, color: C.green, fontWeight: 600, animation: "fadeIn 0.3s ease" }}>
+            ✦ Auto-detected
+          </span>
+        )}
+        {needsSave && (
+          <button
+            onClick={e => {
+              e.preventDefault();
+              handleSaveToContacts(category, field, label);
+            }}
+            style={{
+              fontSize: 8,
+              fontWeight: 600,
+              color: C.accent,
+              background: `${C.accent}12`,
+              border: `1px solid ${C.accent}30`,
+              borderRadius: 3,
+              padding: "1px 6px",
+              cursor: "pointer",
+              lineHeight: "14px",
+              animation: "fadeIn 0.3s ease",
+            }}
+          >
+            + Save to {label}s
+          </button>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div style={{ padding: T.space[7], minHeight: "100%", animation: "fadeIn 0.2s ease-out" }}>
@@ -316,37 +373,8 @@ export default function ProjectInfoPage() {
               </p>
             </div>
           </div>
-          <div
-            style={{
-              display: "flex",
-              background: C.bg2,
-              borderRadius: 8,
-              padding: 3,
-              border: `1px solid ${C.border}`,
-            }}
-          >
-            {[
-              { key: "essentials", label: "Essentials" },
-              { key: "all", label: "All Fields" },
-            ].map(tab => (
-              <button
-                key={tab.key}
-                onClick={() => setDetailMode(tab.key)}
-                style={{
-                  ...bt(C),
-                  padding: "6px 14px",
-                  fontSize: 11,
-                  borderRadius: 6,
-                  background: detailMode === tab.key ? `${C.accent}18` : "transparent",
-                  color: detailMode === tab.key ? C.accent : C.textMuted,
-                  border: detailMode === tab.key ? `1px solid ${C.accent}30` : "1px solid transparent",
-                  fontWeight: detailMode === tab.key ? 600 : 400,
-                }}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          {/* placeholder for alignment */}
+          <div />
         </div>
 
         {/* ── Project Details ── */}
@@ -382,6 +410,10 @@ export default function ProjectInfoPage() {
                 style={inp(C)}
               >
                 <option value="">— Select Client —</option>
+                {/* Show auto-detected value if not yet in contacts */}
+                {project.client && !isInContacts("clients", project.client) && (
+                  <option value={project.client}>{project.client}</option>
+                )}
                 {projectClients.map(c => (
                   <option key={c.id} value={c.company}>
                     {c.company}
@@ -389,7 +421,7 @@ export default function ProjectInfoPage() {
                 ))}
                 <option value="__new__">+ Create New Client...</option>
               </select>
-              {autoTag("client")}
+              {autoTag("client", "clients", "Client")}
             </Fld>
             <Fld label="Status">
               <select value={project.status || "Active"} onChange={e => up("status", e.target.value)} style={inp(C)}>
@@ -444,154 +476,282 @@ export default function ProjectInfoPage() {
                 })()}
             </Fld>
 
-            {/* ── Extended fields (shown in "All Fields" mode) ── */}
-            {showAll && (
-              <>
-                <Fld label="Architect">
-                  <select
-                    value={project.architect || ""}
-                    onChange={e => {
-                      if (e.target.value === "__new__") {
-                        setQuickAddModal({ category: "architects", field: "architect", label: "Architect" });
-                        setQuickAddValue("");
-                      } else up("architect", e.target.value);
-                    }}
-                    style={inp(C)}
-                  >
-                    <option value="">— Select Architect —</option>
-                    {projectArchitects.map(a => (
-                      <option key={a.id} value={a.company}>
-                        {a.company}
-                      </option>
-                    ))}
-                    <option value="__new__">+ Create New Architect...</option>
-                  </select>
-                  {autoTag("architect")}
-                </Fld>
-                <Fld label="Engineer">
-                  <select
-                    value={project.engineer || ""}
-                    onChange={e => {
-                      if (e.target.value === "__new__") {
-                        setQuickAddModal({ category: "engineers", field: "engineer", label: "Engineer" });
-                        setQuickAddValue("");
-                      } else up("engineer", e.target.value);
-                    }}
-                    style={inp(C)}
-                  >
-                    <option value="">— Select Engineer —</option>
-                    {projectEngineers.map(eng => (
-                      <option key={eng.id} value={eng.company}>
-                        {eng.company}
-                      </option>
-                    ))}
-                    <option value="__new__">+ Create New Engineer...</option>
-                  </select>
-                  {autoTag("engineer")}
-                </Fld>
-                <Fld label="Estimator">
-                  <select
-                    value={project.estimator}
-                    onChange={e => {
-                      if (e.target.value === "__new__") {
-                        setQuickAddModal({ category: "estimators", field: "estimator", label: "Estimator" });
-                        setQuickAddValue("");
-                      } else up("estimator", e.target.value);
-                    }}
-                    style={inp(C)}
-                  >
-                    <option value="">— Select Estimator —</option>
-                    {masterData.estimators.map(est => (
-                      <option key={est.id} value={est.name}>
-                        {est.name}
-                      </option>
-                    ))}
-                    <option value="__new__">+ Create New Estimator...</option>
-                  </select>
-                </Fld>
-                <Fld label="Company Profile">
-                  <select
-                    value={project.companyProfileId || ""}
-                    onChange={e => up("companyProfileId", e.target.value)}
-                    style={inp(C)}
-                  >
-                    <option value="">{masterData.companyInfo?.name || "Primary Profile"} (Default)</option>
-                    {(masterData.companyProfiles || []).map(p => (
-                      <option key={p.id} value={p.id}>
-                        {p.name || "Unnamed Profile"}
-                      </option>
-                    ))}
-                  </select>
-                  <div style={{ fontSize: 9, color: C.textDim, marginTop: 2 }}>
-                    Branding for proposals, bid forms, and reports
-                  </div>
-                </Fld>
-                <Fld label="Address">
-                  <input value={project.address} onChange={e => up("address", e.target.value)} style={inp(C)} />
-                  {autoTag("address")}
-                </Fld>
-                <Fld label="Project Number">
-                  <input
-                    value={project.projectNumber || ""}
-                    onChange={e => up("projectNumber", e.target.value)}
-                    placeholder="e.g. 2024-0156"
-                    style={inp(C)}
-                  />
-                  {autoTag("projectNumber")}
-                </Fld>
-                <Fld label="Work Type">
-                  <select value={project.workType || ""} onChange={e => up("workType", e.target.value)} style={inp(C)}>
-                    <option value="">— Select Work Type —</option>
-                    {WORK_TYPES.map(w => (
-                      <option key={w.key} value={w.key}>
-                        {w.label}
-                      </option>
-                    ))}
-                  </select>
-                </Fld>
-                <Fld label="Labor Type">
-                  <select
-                    value={project.laborType || "open_shop"}
-                    onChange={e => up("laborType", e.target.value)}
-                    style={inp(C)}
-                  >
-                    {(appSettings.laborTypes || []).map(lt => (
-                      <option key={lt.key} value={lt.key}>
-                        {lt.label} ({lt.multiplier}x)
-                      </option>
-                    ))}
-                  </select>
-                </Fld>
-                <Fld label="Location Override">
-                  <select
-                    value={project.locationMetroId || ""}
-                    onChange={e => up("locationMetroId", e.target.value)}
-                    style={inp(C)}
-                  >
-                    <option value="">Auto-detect from zip</option>
-                    {getAllLocations()
-                      .filter(m => m.id)
-                      .map(m => (
-                        <option key={m.id} value={m.id}>
-                          {m.label}
-                        </option>
-                      ))}
-                  </select>
-                </Fld>
-                <Fld label="Cost Code System">
-                  <select value={codeSystem} onChange={e => setCodeSystem(e.target.value)} style={inp(C)}>
-                    {Object.values(CODE_SYSTEMS).map(sys => (
-                      <option key={sys.id} value={sys.id}>
-                        {sys.icon} {sys.name}
-                      </option>
-                    ))}
-                  </select>
-                  <div style={{ fontSize: 9, color: C.textDim, marginTop: 2 }}>
-                    {(CODE_SYSTEMS[codeSystem] || {}).desc}
-                  </div>
-                </Fld>
-              </>
+            {/* ── Extended fields ── */}
+            <Fld label="Architect">
+              <select
+                value={project.architect || ""}
+                onChange={e => {
+                  if (e.target.value === "__new__") {
+                    setQuickAddModal({ category: "architects", field: "architect", label: "Architect" });
+                    setQuickAddValue("");
+                  } else up("architect", e.target.value);
+                }}
+                style={inp(C)}
+              >
+                <option value="">— Select Architect —</option>
+                {/* Show auto-detected value if not yet in contacts */}
+                {project.architect && !isInContacts("architects", project.architect) && (
+                  <option value={project.architect}>{project.architect}</option>
+                )}
+                {projectArchitects.map(a => (
+                  <option key={a.id} value={a.company}>
+                    {a.company}
+                  </option>
+                ))}
+                <option value="__new__">+ Create New Architect...</option>
+              </select>
+              {autoTag("architect", "architects", "Architect")}
+            </Fld>
+            <Fld label="Engineer">
+              <select
+                value={project.engineer || ""}
+                onChange={e => {
+                  if (e.target.value === "__new__") {
+                    setQuickAddModal({ category: "engineers", field: "engineer", label: "Engineer" });
+                    setQuickAddValue("");
+                  } else up("engineer", e.target.value);
+                }}
+                style={inp(C)}
+              >
+                <option value="">— Select Engineer —</option>
+                {/* Show auto-detected value if not yet in contacts */}
+                {project.engineer && !isInContacts("engineers", project.engineer) && (
+                  <option value={project.engineer}>{project.engineer}</option>
+                )}
+                {projectEngineers.map(eng => (
+                  <option key={eng.id} value={eng.company}>
+                    {eng.company}
+                  </option>
+                ))}
+                <option value="__new__">+ Create New Engineer...</option>
+              </select>
+              {autoTag("engineer", "engineers", "Engineer")}
+            </Fld>
+            <Fld label="Estimator">
+              <select
+                value={project.estimator}
+                onChange={e => {
+                  if (e.target.value === "__new__") {
+                    setQuickAddModal({ category: "estimators", field: "estimator", label: "Estimator" });
+                    setQuickAddValue("");
+                  } else up("estimator", e.target.value);
+                }}
+                style={inp(C)}
+              >
+                <option value="">— Select Estimator —</option>
+                {masterData.estimators.map(est => (
+                  <option key={est.id} value={est.name}>
+                    {est.name}
+                  </option>
+                ))}
+                <option value="__new__">+ Create New Estimator...</option>
+              </select>
+              {project.estimator && (estimatorStats.winRate != null || estimatorStats.accuracy != null) && (
+                <div style={{ fontSize: 9, color: C.textDim, marginTop: 3, display: "flex", gap: 6 }}>
+                  {estimatorStats.winRate != null && (
+                    <span style={{ color: estimatorStats.winRate >= 40 ? C.green : C.textDim }}>
+                      Win rate: {estimatorStats.winRate}%
+                    </span>
+                  )}
+                  {estimatorStats.winRate != null && estimatorStats.accuracy != null && (
+                    <span style={{ opacity: 0.4 }}>·</span>
+                  )}
+                  {estimatorStats.accuracy != null && (
+                    <span style={{ color: estimatorStats.accuracy <= 10 ? C.green : "#F59E0B" }}>
+                      Accuracy: ±{estimatorStats.accuracy}%
+                    </span>
+                  )}
+                  {estimatorStats.totalHours > 0 && (
+                    <>
+                      <span style={{ opacity: 0.4 }}>·</span>
+                      <span>{estimatorStats.totalHours}h logged</span>
+                    </>
+                  )}
+                </div>
+              )}
+            </Fld>
+            {/* Assigned To (org mode only) */}
+            {org && (
+              <Fld label="Assigned To">
+                <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center", minHeight: 32 }}>
+                  {(() => {
+                    const idx = useEstimatesStore.getState().estimatesIndex.find(e => e.id === activeEstimateId);
+                    const assignedIds = idx?.assignedTo || [];
+                    const assigned = orgMembers.filter(m => assignedIds.includes(m.user_id));
+                    return (
+                      <>
+                        {assigned.length > 0 ? (
+                          assigned.map(m => (
+                            <div
+                              key={m.id}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 4,
+                                padding: "3px 8px 3px 4px",
+                                background: `${m.color || "#6366F1"}18`,
+                                border: `1px solid ${m.color || "#6366F1"}30`,
+                                borderRadius: 12,
+                                fontSize: 10,
+                                color: C.text,
+                              }}
+                            >
+                              <div
+                                style={{
+                                  width: 16,
+                                  height: 16,
+                                  borderRadius: "50%",
+                                  background: m.color || "#6366F1",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  fontSize: 8,
+                                  fontWeight: 700,
+                                  color: "#fff",
+                                }}
+                              >
+                                {(m.display_name || "?")[0].toUpperCase()}
+                              </div>
+                              {m.display_name || "Unnamed"}
+                              {isManager && (
+                                <button
+                                  onClick={() => {
+                                    const next = assignedIds.filter(id => id !== m.user_id);
+                                    assignEstimate(activeEstimateId, next);
+                                  }}
+                                  style={{
+                                    background: "none",
+                                    border: "none",
+                                    cursor: "pointer",
+                                    padding: 0,
+                                    marginLeft: 2,
+                                    lineHeight: 1,
+                                  }}
+                                >
+                                  <Ic d={I.close} size={8} color={C.textDim} />
+                                </button>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <span style={{ fontSize: 10, color: C.textDim }}>Unassigned</span>
+                        )}
+                        {isManager && (
+                          <select
+                            value=""
+                            onChange={e => {
+                              if (!e.target.value) return;
+                              const next = [...new Set([...assignedIds, e.target.value])];
+                              assignEstimate(activeEstimateId, next);
+                            }}
+                            style={{
+                              ...inp(C),
+                              width: 28,
+                              height: 28,
+                              padding: 0,
+                              fontSize: 14,
+                              textAlign: "center",
+                              cursor: "pointer",
+                              borderRadius: "50%",
+                              flexShrink: 0,
+                            }}
+                            title="Assign team member"
+                          >
+                            <option value="">+</option>
+                            {orgMembers
+                              .filter(m => !assignedIds.includes(m.user_id))
+                              .map(m => (
+                                <option key={m.id} value={m.user_id}>
+                                  {m.display_name || "Unnamed"}
+                                </option>
+                              ))}
+                          </select>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              </Fld>
             )}
+            <Fld label="Company Profile">
+              <select
+                value={project.companyProfileId || ""}
+                onChange={e => up("companyProfileId", e.target.value)}
+                style={inp(C)}
+              >
+                <option value="">{masterData.companyInfo?.name || "Primary Profile"} (Default)</option>
+                {(masterData.companyProfiles || []).map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.name || "Unnamed Profile"}
+                  </option>
+                ))}
+              </select>
+              <div style={{ fontSize: 9, color: C.textDim, marginTop: 2 }}>
+                Branding for proposals, bid forms, and reports
+              </div>
+            </Fld>
+            <Fld label="Address">
+              <input value={project.address} onChange={e => up("address", e.target.value)} style={inp(C)} />
+              {autoTag("address")}
+            </Fld>
+            <Fld label="Project Number">
+              <input
+                value={project.projectNumber || ""}
+                onChange={e => up("projectNumber", e.target.value)}
+                placeholder="e.g. 2024-0156"
+                style={inp(C)}
+              />
+              {autoTag("projectNumber")}
+            </Fld>
+            <Fld label="Work Type">
+              <select value={project.workType || ""} onChange={e => up("workType", e.target.value)} style={inp(C)}>
+                <option value="">— Select Work Type —</option>
+                {WORK_TYPES.map(w => (
+                  <option key={w.key} value={w.key}>
+                    {w.label}
+                  </option>
+                ))}
+              </select>
+            </Fld>
+            <Fld label="Labor Type">
+              <select
+                value={project.laborType || "open_shop"}
+                onChange={e => up("laborType", e.target.value)}
+                style={inp(C)}
+              >
+                {(appSettings.laborTypes || []).map(lt => (
+                  <option key={lt.key} value={lt.key}>
+                    {lt.label} ({lt.multiplier}x)
+                  </option>
+                ))}
+              </select>
+            </Fld>
+            <Fld label="Location Override">
+              <select
+                value={project.locationMetroId || ""}
+                onChange={e => up("locationMetroId", e.target.value)}
+                style={inp(C)}
+              >
+                <option value="">Auto-detect from zip</option>
+                {getAllLocations()
+                  .filter(m => m.id)
+                  .map(m => (
+                    <option key={m.id} value={m.id}>
+                      {m.label}
+                    </option>
+                  ))}
+              </select>
+            </Fld>
+            <Fld label="Cost Code System">
+              <select value={codeSystem} onChange={e => setCodeSystem(e.target.value)} style={inp(C)}>
+                {Object.values(CODE_SYSTEMS).map(sys => (
+                  <option key={sys.id} value={sys.id}>
+                    {sys.icon} {sys.name}
+                  </option>
+                ))}
+              </select>
+              <div style={{ fontSize: 9, color: C.textDim, marginTop: 2 }}>{(CODE_SYSTEMS[codeSystem] || {}).desc}</div>
+            </Fld>
           </div>
         </Sec>
 
@@ -688,48 +848,46 @@ export default function ProjectInfoPage() {
           </Sec>
         )}
 
-        {/* Referred By — only in "all" mode */}
-        {showAll && (
-          <Sec title="Referred By" icon={SECTION_ICONS["Referred By"]}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
-              <Fld label="Referral Source">
-                <select
-                  value={project.referredByType || ""}
-                  onChange={e => up("referredByType", e.target.value)}
-                  style={inp(C)}
-                >
-                  <option value="">— Select Source —</option>
-                  <option value="client">Existing Client</option>
-                  <option value="architect">Architect</option>
-                  <option value="engineer">Engineer</option>
-                  <option value="realtor">Realtor</option>
-                  <option value="website">Website / Online</option>
-                  <option value="social">Social Media</option>
-                  <option value="repeat">Repeat Client</option>
-                  <option value="planroom">Plan Room / Bid Board</option>
-                  <option value="word">Word of Mouth</option>
-                  <option value="other">Other</option>
-                </select>
-              </Fld>
-              <Fld label="Referred By (Name)">
-                <input
-                  value={project.referredByName || ""}
-                  onChange={e => up("referredByName", e.target.value)}
-                  placeholder="Person or company name"
-                  style={inp(C)}
-                />
-              </Fld>
-              <Fld label="Referral Notes">
-                <input
-                  value={project.referredByNotes || ""}
-                  onChange={e => up("referredByNotes", e.target.value)}
-                  placeholder="How did they find us, context..."
-                  style={inp(C)}
-                />
-              </Fld>
-            </div>
-          </Sec>
-        )}
+        {/* Referred By */}
+        <Sec title="Referred By" icon={SECTION_ICONS["Referred By"]}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
+            <Fld label="Referral Source">
+              <select
+                value={project.referredByType || ""}
+                onChange={e => up("referredByType", e.target.value)}
+                style={inp(C)}
+              >
+                <option value="">— Select Source —</option>
+                <option value="client">Existing Client</option>
+                <option value="architect">Architect</option>
+                <option value="engineer">Engineer</option>
+                <option value="realtor">Realtor</option>
+                <option value="website">Website / Online</option>
+                <option value="social">Social Media</option>
+                <option value="repeat">Repeat Client</option>
+                <option value="planroom">Plan Room / Bid Board</option>
+                <option value="word">Word of Mouth</option>
+                <option value="other">Other</option>
+              </select>
+            </Fld>
+            <Fld label="Referred By (Name)">
+              <input
+                value={project.referredByName || ""}
+                onChange={e => up("referredByName", e.target.value)}
+                placeholder="Person or company name"
+                style={inp(C)}
+              />
+            </Fld>
+            <Fld label="Referral Notes">
+              <input
+                value={project.referredByNotes || ""}
+                onChange={e => up("referredByNotes", e.target.value)}
+                placeholder="How did they find us, context..."
+                style={inp(C)}
+              />
+            </Fld>
+          </div>
+        </Sec>
 
         {/* Bid Schedule */}
         <Sec title="Bid Schedule" icon={SECTION_ICONS["Bid Schedule"]}>
@@ -784,156 +942,152 @@ export default function ProjectInfoPage() {
                 style={inp(C)}
               />
             </Fld>
-            {showAll && (
-              <Fld label={project.otherDueLabel || "Other Due Date"}>
-                <input
-                  type="date"
-                  value={project.otherDueDate || ""}
-                  onChange={e => up("otherDueDate", e.target.value)}
-                  style={inp(C)}
-                />
-                <input
-                  value={project.otherDueLabel || ""}
-                  onChange={e => up("otherDueLabel", e.target.value)}
-                  placeholder="Label this date..."
-                  style={inp(C, { marginTop: 4, fontSize: 10, padding: "4px 8px" })}
-                />
-              </Fld>
-            )}
+            <Fld label={project.otherDueLabel || "Other Due Date"}>
+              <input
+                type="date"
+                value={project.otherDueDate || ""}
+                onChange={e => up("otherDueDate", e.target.value)}
+                style={inp(C)}
+              />
+              <input
+                value={project.otherDueLabel || ""}
+                onChange={e => up("otherDueLabel", e.target.value)}
+                placeholder="Label this date..."
+                style={inp(C, { marginTop: 4, fontSize: 10, padding: "4px 8px" })}
+              />
+            </Fld>
           </div>
         </Sec>
 
-        {/* Bid Requirements — only in "all" mode */}
-        {showAll && (
-          <Sec title="Bid Requirements" icon={SECTION_ICONS["Bid Requirements"]}>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))",
-                gap: 12,
-                marginBottom: 12,
-              }}
-            >
-              <Fld label="Bid Type">
-                <div style={{ display: "flex", gap: 4 }}>
-                  <select
-                    value={project.bidType || ""}
-                    onChange={e => up("bidType", e.target.value)}
-                    style={inp(C, { flex: 1 })}
-                  >
-                    <option value="">— Select Type —</option>
-                    {(masterData.bidTypes || []).map(t => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    className="ghost-btn"
-                    title="Add new bid type"
-                    onClick={() => {
-                      setQuickAddModal({ category: "bidType", field: "bidType", label: "Bid Type" });
-                      setQuickAddValue("");
-                    }}
-                    style={bt(C, {
-                      background: C.bg2,
-                      border: `1px solid ${C.border}`,
-                      color: C.accent,
-                      padding: "4px 8px",
-                      flexShrink: 0,
-                    })}
-                  >
-                    <Ic d={I.plus} size={12} color={C.accent} />
-                  </button>
-                </div>
-              </Fld>
-              <Fld label="Bid Delivery Method">
-                <div style={{ display: "flex", gap: 4 }}>
-                  <select
-                    value={project.bidDelivery || ""}
-                    onChange={e => up("bidDelivery", e.target.value)}
-                    style={inp(C, { flex: 1 })}
-                  >
-                    <option value="">— Select Method —</option>
-                    {(masterData.bidDeliveryTypes || []).map(t => (
-                      <option key={t} value={t.toLowerCase()}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    className="ghost-btn"
-                    title="Add new delivery method"
-                    onClick={() => {
-                      setQuickAddModal({ category: "deliveryType", field: "bidDelivery", label: "Delivery Method" });
-                      setQuickAddValue("");
-                    }}
-                    style={bt(C, {
-                      background: C.bg2,
-                      border: `1px solid ${C.border}`,
-                      color: C.accent,
-                      padding: "4px 8px",
-                      flexShrink: 0,
-                    })}
-                  >
-                    <Ic d={I.plus} size={12} color={C.accent} />
-                  </button>
-                </div>
-              </Fld>
-            </div>
-            <div
-              style={{
-                fontSize: 10,
-                fontWeight: 600,
-                color: C.textDim,
-                textTransform: "uppercase",
-                letterSpacing: 0.8,
-                marginBottom: 6,
-              }}
-            >
-              Required Attachments
-            </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {[
-                { k: "schedule", l: "Schedule" },
-                { k: "marketing", l: "Marketing / Quals" },
-                { k: "financials", l: "Financial Statements" },
-                { k: "bonds", l: "Bid Bond / P&P Bond" },
-                { k: "insurance", l: "Insurance Certs" },
-                { k: "references", l: "References" },
-                { k: "safetyPlan", l: "Safety Plan" },
-              ].map(r => {
-                const on = project.bidRequirements?.[r.k];
-                return (
-                  <button
-                    key={r.k}
-                    onClick={() => up("bidRequirements", { ...project.bidRequirements, [r.k]: !on })}
-                    style={bt(C, {
-                      padding: "5px 12px",
-                      fontSize: 11,
-                      borderRadius: 5,
-                      background: on ? "rgba(76,175,125,0.12)" : "transparent",
-                      border: `1px solid ${on ? C.green : C.border}`,
-                      color: on ? C.green : C.textMuted,
-                      fontWeight: on ? 600 : 400,
-                    })}
-                  >
-                    {on ? "✓ " : ""}
-                    {r.l}
-                  </button>
-                );
-              })}
-            </div>
-            <Fld label="Other Requirements" style={{ marginTop: 8 }}>
-              <input
-                value={project.bidRequirements?.other || ""}
-                onChange={e => up("bidRequirements", { ...project.bidRequirements, other: e.target.value })}
-                placeholder="e.g. LEED documentation, MBE/WBE cert..."
-                style={inp(C, { fontSize: 11 })}
-              />
+        {/* Bid Requirements */}
+        <Sec title="Bid Requirements" icon={SECTION_ICONS["Bid Requirements"]}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))",
+              gap: 12,
+              marginBottom: 12,
+            }}
+          >
+            <Fld label="Bid Type">
+              <div style={{ display: "flex", gap: 4 }}>
+                <select
+                  value={project.bidType || ""}
+                  onChange={e => up("bidType", e.target.value)}
+                  style={inp(C, { flex: 1 })}
+                >
+                  <option value="">— Select Type —</option>
+                  {(masterData.bidTypes || []).map(t => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="ghost-btn"
+                  title="Add new bid type"
+                  onClick={() => {
+                    setQuickAddModal({ category: "bidType", field: "bidType", label: "Bid Type" });
+                    setQuickAddValue("");
+                  }}
+                  style={bt(C, {
+                    background: C.bg2,
+                    border: `1px solid ${C.border}`,
+                    color: C.accent,
+                    padding: "4px 8px",
+                    flexShrink: 0,
+                  })}
+                >
+                  <Ic d={I.plus} size={12} color={C.accent} />
+                </button>
+              </div>
             </Fld>
-          </Sec>
-        )}
+            <Fld label="Bid Delivery Method">
+              <div style={{ display: "flex", gap: 4 }}>
+                <select
+                  value={project.bidDelivery || ""}
+                  onChange={e => up("bidDelivery", e.target.value)}
+                  style={inp(C, { flex: 1 })}
+                >
+                  <option value="">— Select Method —</option>
+                  {(masterData.bidDeliveryTypes || []).map(t => (
+                    <option key={t} value={t.toLowerCase()}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="ghost-btn"
+                  title="Add new delivery method"
+                  onClick={() => {
+                    setQuickAddModal({ category: "deliveryType", field: "bidDelivery", label: "Delivery Method" });
+                    setQuickAddValue("");
+                  }}
+                  style={bt(C, {
+                    background: C.bg2,
+                    border: `1px solid ${C.border}`,
+                    color: C.accent,
+                    padding: "4px 8px",
+                    flexShrink: 0,
+                  })}
+                >
+                  <Ic d={I.plus} size={12} color={C.accent} />
+                </button>
+              </div>
+            </Fld>
+          </div>
+          <div
+            style={{
+              fontSize: 10,
+              fontWeight: 600,
+              color: C.textDim,
+              textTransform: "uppercase",
+              letterSpacing: 0.8,
+              marginBottom: 6,
+            }}
+          >
+            Required Attachments
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {[
+              { k: "schedule", l: "Schedule" },
+              { k: "marketing", l: "Marketing / Quals" },
+              { k: "financials", l: "Financial Statements" },
+              { k: "bonds", l: "Bid Bond / P&P Bond" },
+              { k: "insurance", l: "Insurance Certs" },
+              { k: "references", l: "References" },
+              { k: "safetyPlan", l: "Safety Plan" },
+            ].map(r => {
+              const on = project.bidRequirements?.[r.k];
+              return (
+                <button
+                  key={r.k}
+                  onClick={() => up("bidRequirements", { ...project.bidRequirements, [r.k]: !on })}
+                  style={bt(C, {
+                    padding: "5px 12px",
+                    fontSize: 11,
+                    borderRadius: 5,
+                    background: on ? "rgba(76,175,125,0.12)" : "transparent",
+                    border: `1px solid ${on ? C.green : C.border}`,
+                    color: on ? C.green : C.textMuted,
+                    fontWeight: on ? 600 : 400,
+                  })}
+                >
+                  {on ? "✓ " : ""}
+                  {r.l}
+                </button>
+              );
+            })}
+          </div>
+          <Fld label="Other Requirements" style={{ marginTop: 8 }}>
+            <input
+              value={project.bidRequirements?.other || ""}
+              onChange={e => up("bidRequirements", { ...project.bidRequirements, other: e.target.value })}
+              placeholder="e.g. LEED documentation, MBE/WBE cert..."
+              style={inp(C, { fontSize: 11 })}
+            />
+          </Fld>
+        </Sec>
 
         {/* Description */}
         <Fld label="Project Description" style={{ marginTop: 4 }}>

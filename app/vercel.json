@@ -89,6 +89,12 @@
     },
     "api/admin/embeddings.js": {
       "maxDuration": 15
+    },
+    "api/fetch-cloud-files.js": {
+      "maxDuration": 60
+    },
+    "api/cleanup-cloud-files.js": {
+      "maxDuration": 15
     }
   },
   "rewrites": [

@@ -107,9 +107,7 @@ export default function CoreOverview() {
     const filteredProposals =
       activeCompanyId === "__all__"
         ? proposals
-        : !activeCompanyId
-          ? proposals.filter(p => !p.companyProfileId)
-          : proposals.filter(p => p.companyProfileId === activeCompanyId);
+        : proposals.filter(p => (p.companyProfileId || "") === (activeCompanyId || ""));
 
     // User-created elements (not seeds)
     const userElements = elements.filter(e => !e.id?.startsWith("s"));

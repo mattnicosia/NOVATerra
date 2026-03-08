@@ -99,6 +99,7 @@ export const useEstimatesStore = create((set, get) => ({
       outcomeMetadata: {},
       ownerId,
       orgId,
+      assignedTo: ownerId ? [ownerId] : [],
       templateId: templateId || null,
     };
     set(s => ({
@@ -398,6 +399,13 @@ export const useEstimatesStore = create((set, get) => ({
     set(s => ({
       estimatesIndex: s.estimatesIndex.map(e => (e.id === id ? { ...e, ...updates } : e)),
     }));
+  },
+
+  assignEstimate: (estimateId, userIds) => {
+    set(s => ({
+      estimatesIndex: s.estimatesIndex.map(e => (e.id === estimateId ? { ...e, assignedTo: userIds } : e)),
+    }));
+    // Cloud push happens via auto-save index sync
   },
 
   // Import a pre-built estimate from an RFP

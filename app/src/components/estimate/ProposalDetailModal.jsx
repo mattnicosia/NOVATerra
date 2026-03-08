@@ -229,9 +229,9 @@ export default function ProposalDetailModal({ proposal, onClose, estimateItems, 
                   </Section>
                 )}
                 {exclusions.length > 0 && (
-                  <Section title="Exclusions" count={exclusions.length} color="#FF453A">
+                  <Section title="Exclusions" count={exclusions.length} color={C.purple}>
                     {exclusions.map((item, i) => (
-                      <BulletItem key={i} text={item} color="#FF453A" />
+                      <BulletItem key={i} text={item} color={C.purple} />
                     ))}
                   </Section>
                 )}

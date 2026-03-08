@@ -10,23 +10,25 @@ import { getGpuTier } from "./gpuDetect";
 
 // ── Post-processing — HDR selective bloom ───────────────────────────
 function Effects({ morphValue = 0 }) {
-  // v8: Higher threshold — only HDR peaks bloom, not the whole surface
-  const bloomIntensity = 0.8 + morphValue * 0.35;
-  const bloomThreshold = 0.88 - morphValue * 0.06;
+  // v11.5: Lower threshold + higher intensity → visible bloom halo from star core.
+  // NOVA: threshold 0.72 catches the HDR center glow, creating visible stellar bloom.
+  // CORE: threshold drops further for volcanic eruption bloom.
+  const bloomIntensity = 1.2 + morphValue * 0.4;
+  const bloomThreshold = 0.72 - morphValue * 0.08;
 
   return (
-    <EffectComposer multisampling={0}>
+    <EffectComposer multisampling={4}>
       <Bloom
         intensity={bloomIntensity}
         luminanceThreshold={bloomThreshold}
-        luminanceSmoothing={0.08}
+        luminanceSmoothing={0.1}
         mipmapBlur
-        radius={0.85}
+        radius={0.88}
         levels={7}
       />
       <ChromaticAberration
         blendFunction={BlendFunction.NORMAL}
-        offset={[0.0012 + morphValue * 0.0008, 0.001 + morphValue * 0.0006]}
+        offset={[0.0003 + morphValue * 0.0017, 0.0002 + morphValue * 0.0014]}
         radialModulation
         modulationOffset={0.12}
       />

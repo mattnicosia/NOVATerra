@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import NewEstimateModal from "@/components/shared/NewEstimateModal";
@@ -429,15 +430,17 @@ export default function ProjectsWidget() {
         )}
       </div>
 
-      {menuState && (
-        <ProjectMenu
-          x={menuState.x}
-          y={menuState.y}
-          onOpen={() => onOpenProject?.(menuState.id)}
-          onDelete={() => setConfirmDelete({ id: menuState.id, name: menuState.name })}
-          onClose={() => setMenuState(null)}
-        />
-      )}
+      {menuState &&
+        createPortal(
+          <ProjectMenu
+            x={menuState.x}
+            y={menuState.y}
+            onOpen={() => onOpenProject?.(menuState.id)}
+            onDelete={() => setConfirmDelete({ id: menuState.id, name: menuState.name })}
+            onClose={() => setMenuState(null)}
+          />,
+          document.body,
+        )}
       {confirmDelete && (
         <ConfirmDelete
           name={confirmDelete.name}

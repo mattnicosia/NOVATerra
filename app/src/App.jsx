@@ -20,6 +20,9 @@ import { useUiStore } from "@/stores/uiStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useTakeoffsStore } from "@/stores/takeoffsStore";
 import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useOrgStore } from "@/stores/orgStore";
+import { useCollaborationStore } from "@/stores/collaborationStore";
+import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 import NovaOrb from "@/components/dashboard/NovaOrb";
 import { CAR_PALETTE_IDS, LIGHT_PALETTE_IDS, PALETTES } from "@/constants/palettes";
 import { NOISE_GRAIN } from "@/constants/textures";
@@ -103,6 +106,10 @@ function EstimateLoader({ children }) {
   const activeId = useEstimatesStore(s => s.activeEstimateId);
   const persistenceLoaded = useUiStore(s => s.persistenceLoaded);
   const [loading, setLoading] = useState(false);
+  const orgId = useOrgStore(s => s.org?.id);
+  const isLockHolder = useCollaborationStore(s => s.isLockHolder);
+  const currentLock = useCollaborationStore(s => s.currentLock);
+  const isReadOnly = !!orgId && !isLockHolder && !!currentLock;
 
   // Auto-snapshot: track estimate changes over time
   useAutoSnapshot(activeId);
@@ -112,6 +119,20 @@ function EstimateLoader({ children }) {
     setLoading(true);
     loadEstimate(id).finally(() => setLoading(false));
   }, [id, activeId, persistenceLoaded]);
+
+  // Collaboration: acquire lock + join presence when estimate loads
+  useEffect(() => {
+    if (!orgId || !activeId) return;
+    const collab = useCollaborationStore.getState();
+    collab.acquireLock(activeId);
+    collab.joinEstimate(activeId);
+    collab.subscribeLockChanges(activeId);
+    collab.subscribePresence(activeId);
+
+    return () => {
+      collab.cleanup();
+    };
+  }, [orgId, activeId]);
 
   if (loading || !persistenceLoaded || (!activeId && id)) {
     return (
@@ -129,6 +150,17 @@ function EstimateLoader({ children }) {
       </div>
     );
   }
+
+  // In org mode with someone else holding the lock → read-only overlay
+  if (isReadOnly) {
+    return (
+      <div style={{ position: "relative", flex: 1, display: "flex", flexDirection: "column" }}>
+        <ReadOnlyBanner />
+        <div style={{ flex: 1, pointerEvents: "none", opacity: 0.85 }}>{children}</div>
+      </div>
+    );
+  }
+
   return children;
 }
 

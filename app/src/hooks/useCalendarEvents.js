@@ -20,10 +20,7 @@ export function useCalendarEvents(year, month) {
     const filtered =
       activeCompanyId === "__all__"
         ? estimatesIndex
-        : estimatesIndex.filter(e => {
-            const cid = e.companyProfileId || "";
-            return cid === activeCompanyId || cid === "";
-          });
+        : estimatesIndex.filter(e => (e.companyProfileId || "") === (activeCompanyId || ""));
 
     // ── Estimate date fields ──────────────────────────────
     for (const est of filtered) {

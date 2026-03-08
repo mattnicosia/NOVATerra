@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useOrgStore, TEAM_COLORS, selectIsManager } from "@/stores/orgStore";
 import { useAuthStore } from "@/stores/authStore";
+import { useAllEstimatorStats } from "@/hooks/useEstimatorStats";
 import Sec from "@/components/shared/Sec";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
@@ -25,6 +26,7 @@ export default function TeamPanel() {
   const revokeInvitation = useOrgStore(s => s.revokeInvitation);
 
   const isManager = useOrgStore(selectIsManager);
+  const allStats = useAllEstimatorStats();
 
   const [orgName, setOrgName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
@@ -223,65 +225,213 @@ export default function TeamPanel() {
             Members ({members.length})
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            {members.map(m => (
-              <div
-                key={m.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "8px 10px",
-                  borderRadius: 8,
-                  background: ov(0.02),
-                }}
-              >
+            {members.map(m => {
+              const mStats = allStats[m.display_name] || {};
+              return (
                 <div
+                  key={m.id}
                   style={{
-                    width: 24,
-                    height: 24,
-                    borderRadius: "50%",
-                    flexShrink: 0,
-                    background: m.color || "#6366F1",
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 10,
-                    fontWeight: 700,
-                    color: "#fff",
+                    gap: 10,
+                    padding: "8px 10px",
+                    borderRadius: 8,
+                    background: ov(0.02),
                   }}
                 >
-                  {(m.display_name || "?")[0].toUpperCase()}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
                   <div
                     style={{
-                      fontSize: 11,
-                      fontWeight: 500,
-                      color: C.text,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
+                      width: 24,
+                      height: 24,
+                      borderRadius: "50%",
+                      flexShrink: 0,
+                      background: m.color || "#6366F1",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 10,
+                      fontWeight: 700,
+                      color: "#fff",
                     }}
                   >
-                    {m.display_name || "Unnamed"}
+                    {(m.display_name || "?")[0].toUpperCase()}
                   </div>
-                  <div style={{ fontSize: 9, color: C.textDim }}>{m.role}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 500,
+                        color: C.text,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {m.display_name || "Unnamed"}
+                    </div>
+                    <div style={{ fontSize: 9, color: C.textDim, display: "flex", gap: 8, marginTop: 1 }}>
+                      <span>{m.role}</span>
+                      {mStats.totalEstimates > 0 && (
+                        <>
+                          <span style={{ opacity: 0.4 }}>·</span>
+                          <span>{mStats.totalEstimates} estimate{mStats.totalEstimates !== 1 ? "s" : ""}</span>
+                          {mStats.winRate != null && (
+                            <>
+                              <span style={{ opacity: 0.4 }}>·</span>
+                              <span style={{ color: mStats.winRate >= 40 ? C.green : C.textDim }}>
+                                {mStats.winRate}% win
+                              </span>
+                            </>
+                          )}
+                          {mStats.accuracy != null && (
+                            <>
+                              <span style={{ opacity: 0.4 }}>·</span>
+                              <span style={{ color: mStats.accuracy <= 10 ? C.green : "#F59E0B" }}>
+                                ±{mStats.accuracy}% accuracy
+                              </span>
+                            </>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  {/* Hide remove for self and for the owner */}
+                  {m.user_id !== user?.id && m.role !== "owner" && (
+                    <button
+                      onClick={() => handleRemoveMember(m)}
+                      style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}
+                      aria-label={`Remove ${m.display_name || "member"}`}
+                    >
+                      <Ic d={I.close} size={10} color={C.red} />
+                    </button>
+                  )}
                 </div>
-                {/* Hide remove for self and for the owner */}
-                {m.user_id !== user?.id && m.role !== "owner" && (
-                  <button
-                    onClick={() => handleRemoveMember(m)}
-                    style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}
-                    aria-label={`Remove ${m.display_name || "member"}`}
-                  >
-                    <Ic d={I.close} size={10} color={C.red} />
-                  </button>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
+
+      {/* Division Expertise Heat Map (managers only) */}
+      {isManager && members.length > 0 && (() => {
+        // Gather all divisions across all estimators
+        const estimatorNames = members.map(m => m.display_name).filter(Boolean);
+        const allDivs = new Set();
+        for (const name of estimatorNames) {
+          const s = allStats[name];
+          if (s?.divisions) Object.keys(s.divisions).forEach(d => allDivs.add(d));
+        }
+        const divList = [...allDivs].sort();
+        if (divList.length === 0) return null;
+
+        const heatColor = (count, won) => {
+          if (!count) return "transparent";
+          const base = won > 0 ? "52,211,153" : "96,165,250"; // green if won, blue otherwise
+          const alpha = count >= 5 ? 0.5 : count >= 3 ? 0.35 : 0.18;
+          return `rgba(${base},${alpha})`;
+        };
+
+        return (
+          <div style={{ marginBottom: 20 }}>
+            <div
+              style={{
+                fontSize: 9,
+                fontWeight: 600,
+                color: C.textDim,
+                textTransform: "uppercase",
+                letterSpacing: "0.1em",
+                marginBottom: 8,
+              }}
+            >
+              Division Expertise
+            </div>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 9 }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: "left", padding: "4px 6px", color: C.textDim, fontWeight: 500 }} />
+                    {divList.map(d => (
+                      <th
+                        key={d}
+                        style={{
+                          padding: "4px 3px",
+                          color: C.textDim,
+                          fontWeight: 500,
+                          textAlign: "center",
+                          whiteSpace: "nowrap",
+                          maxWidth: 40,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                        title={d}
+                      >
+                        {d.length > 5 ? d.slice(0, 5) : d}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {estimatorNames.map(name => {
+                    const s = allStats[name];
+                    if (!s) return null;
+                    return (
+                      <tr key={name}>
+                        <td
+                          style={{
+                            padding: "3px 6px",
+                            color: C.text,
+                            fontWeight: 500,
+                            whiteSpace: "nowrap",
+                            maxWidth: 100,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {name}
+                        </td>
+                        {divList.map(d => {
+                          const dd = s.divisions?.[d];
+                          return (
+                            <td
+                              key={d}
+                              title={dd ? `${dd.count} est, ${dd.wonCount} won` : "—"}
+                              style={{
+                                padding: "3px 3px",
+                                textAlign: "center",
+                                background: heatColor(dd?.count, dd?.wonCount),
+                                borderRadius: 3,
+                                color: dd?.count ? C.text : "transparent",
+                                fontWeight: 600,
+                                minWidth: 28,
+                              }}
+                            >
+                              {dd?.count || ""}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ fontSize: 8, color: C.textDim, marginTop: 6, display: "flex", gap: 12 }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: "rgba(52,211,153,0.5)", display: "inline-block" }} />
+                5+ with wins
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: "rgba(96,165,250,0.35)", display: "inline-block" }} />
+                3-4
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: "rgba(96,165,250,0.18)", display: "inline-block" }} />
+                1-2
+              </span>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Pending Invitations */}
       {isManager && invitations.length > 0 && (

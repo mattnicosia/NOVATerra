@@ -1,12 +1,12 @@
-import React, { Suspense, useMemo, useCallback, useEffect, useRef } from 'react';
-import { ResponsiveGridLayout, useContainerWidth } from 'react-grid-layout';
-import 'react-grid-layout/css/styles.css';
-import 'react-resizable/css/styles.css';
-import { useTheme } from '@/hooks/useTheme';
-import { useWidgetStore } from '@/stores/widgetStore';
-import { WIDGET_REGISTRY } from '@/constants/widgetRegistry';
-import { WIDGET_COMPONENTS } from './widgetComponentMap';
-import WidgetWrapper from './WidgetWrapper';
+import React, { Suspense, useMemo, useCallback, useEffect, useRef } from "react";
+import { ResponsiveGridLayout, useContainerWidth } from "react-grid-layout";
+import "react-grid-layout/css/styles.css";
+import "react-resizable/css/styles.css";
+import { useTheme } from "@/hooks/useTheme";
+import { useWidgetStore } from "@/stores/widgetStore";
+import { WIDGET_REGISTRY } from "@/constants/widgetRegistry";
+import { WIDGET_COMPONENTS } from "./widgetComponentMap";
+import WidgetWrapper from "./WidgetWrapper";
 
 /* ────────────────────────────────────────────────────────
    WidgetGrid — responsive widget grid powered by react-grid-layout
@@ -21,7 +21,7 @@ let cssInjected = false;
 function injectOverrides() {
   if (cssInjected) return;
   cssInjected = true;
-  const s = document.createElement('style');
+  const s = document.createElement("style");
   s.textContent = `
     .react-grid-placeholder {
       background: rgba(255,255,255,0.06) !important;
@@ -114,16 +114,27 @@ function injectOverrides() {
       box-shadow: 0 20px 48px rgba(0,0,0,0.35), 0 0 0 0.5px rgba(255,255,255,0.15) !important;
       border-radius: 20px;
     }
+    .react-grid-item.widget-menu-open {
+      z-index: 50 !important;
+    }
   `;
   document.head.appendChild(s);
 }
 
 function WidgetSkeleton() {
   return (
-    <div style={{
-      height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      color: 'rgba(238,237,245,0.28)', fontSize: 10,
-    }}>Loading...</div>
+    <div
+      style={{
+        height: "100%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: "rgba(238,237,245,0.28)",
+        fontSize: 10,
+      }}
+    >
+      Loading...
+    </div>
   );
 }
 
@@ -135,22 +146,25 @@ export default function WidgetGrid({ onConfigure, onReplace }) {
   const clearMovingWidget = useWidgetStore(s => s.clearMovingWidget);
   const clearActiveMenu = useWidgetStore(s => s.clearActiveMenu);
   const setLayouts = useWidgetStore(s => s.setLayouts);
+  const activeMenuId = useWidgetStore(s => s.activeMenuId);
   const layoutsRef = useRef(layouts);
   layoutsRef.current = layouts;
   const { containerRef, width } = useContainerWidth();
 
-  useEffect(() => { injectOverrides(); }, []);
+  useEffect(() => {
+    injectOverrides();
+  }, []);
 
   // Exit move mode on outside click
   useEffect(() => {
     if (!movingWidgetId) return;
-    const handler = (e) => {
-      if (!e.target.closest('.react-grid-item')) {
+    const handler = e => {
+      if (!e.target.closest(".react-grid-item")) {
         clearMovingWidget();
       }
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, [movingWidgetId, clearMovingWidget]);
 
   // Close action menu on scroll
@@ -158,8 +172,8 @@ export default function WidgetGrid({ onConfigure, onReplace }) {
     const el = containerRef.current?.parentElement;
     if (!el) return;
     const handler = () => clearActiveMenu();
-    el.addEventListener('scroll', handler, { passive: true });
-    return () => el.removeEventListener('scroll', handler);
+    el.addEventListener("scroll", handler, { passive: true });
+    return () => el.removeEventListener("scroll", handler);
   }, [clearActiveMenu]);
 
   // Build RGL-compatible layouts (strip custom fields, add constraints)
@@ -171,13 +185,17 @@ export default function WidgetGrid({ onConfigure, onReplace }) {
         const reg = WIDGET_REGISTRY[item.widgetType] || {};
         return {
           i: item.i,
-          x: item.x, y: item.y,
-          w: item.w, h: item.h,
-          minW: reg.minW, minH: reg.minH,
-          maxW: reg.maxW, maxH: reg.maxH,
+          x: item.x,
+          y: item.y,
+          w: item.w,
+          h: item.h,
+          minW: reg.minW,
+          minH: reg.minH,
+          maxW: reg.maxW,
+          maxH: reg.maxH,
           isDraggable: true,
           isResizable: true,
-          resizeHandles: ['se', 's', 'e'],
+          resizeHandles: ["se", "s", "e"],
         };
       });
     }
@@ -186,35 +204,43 @@ export default function WidgetGrid({ onConfigure, onReplace }) {
 
   // Compact position fingerprint — only compare what matters (i, x, y, w, h)
   function posKey(items) {
-    return items.map(item => `${item.i}:${item.x},${item.y},${item.w},${item.h}`).sort().join('|');
+    return items
+      .map(item => `${item.i}:${item.x},${item.y},${item.w},${item.h}`)
+      .sort()
+      .join("|");
   }
 
   // Merge RGL position changes back into our layout items (preserve widgetType, config)
   // Uses layoutsRef to avoid re-creating this callback when layouts change (prevents RGL feedback loop)
-  const handleLayoutChange = useCallback((currentLayout, allLayouts) => {
-    const curLayouts = layoutsRef.current;
-    const newLayouts = {};
-    for (const [bp, rglItems] of Object.entries(allLayouts)) {
-      const existingItems = curLayouts[bp] || curLayouts.lg || [];
-      newLayouts[bp] = rglItems.map(rglItem => {
-        const existing = existingItems.find(e => e.i === rglItem.i);
-        return {
-          i: rglItem.i,
-          x: rglItem.x, y: rglItem.y,
-          w: rglItem.w, h: rglItem.h,
-          widgetType: existing?.widgetType || 'unknown',
-          config: existing?.config || {},
-        };
-      });
-    }
+  const handleLayoutChange = useCallback(
+    (currentLayout, allLayouts) => {
+      const curLayouts = layoutsRef.current;
+      const newLayouts = {};
+      for (const [bp, rglItems] of Object.entries(allLayouts)) {
+        const existingItems = curLayouts[bp] || curLayouts.lg || [];
+        newLayouts[bp] = rglItems.map(rglItem => {
+          const existing = existingItems.find(e => e.i === rglItem.i);
+          return {
+            i: rglItem.i,
+            x: rglItem.x,
+            y: rglItem.y,
+            w: rglItem.w,
+            h: rglItem.h,
+            widgetType: existing?.widgetType || "unknown",
+            config: existing?.config || {},
+          };
+        });
+      }
 
-    // Only update if positions actually changed
-    const curLg = curLayouts.lg || [];
-    const newLg = newLayouts.lg || [];
-    if (posKey(newLg) !== posKey(curLg)) {
-      setLayouts(newLayouts);
-    }
-  }, [setLayouts]);
+      // Only update if positions actually changed
+      const curLg = curLayouts.lg || [];
+      const newLg = newLayouts.lg || [];
+      if (posKey(newLg) !== posKey(curLg)) {
+        setLayouts(newLayouts);
+      }
+    },
+    [setLayouts],
+  );
 
   const currentItems = layouts.lg || [];
 
@@ -230,7 +256,7 @@ export default function WidgetGrid({ onConfigure, onReplace }) {
           onLayoutChange={handleLayoutChange}
           isDraggable={true}
           isResizable={true}
-          resizeHandles={['se', 's', 'e']}
+          resizeHandles={["se", "s", "e"]}
           draggableHandle=".widget-drag-handle"
           compactType="vertical"
           margin={[16, 16]}
@@ -241,7 +267,7 @@ export default function WidgetGrid({ onConfigure, onReplace }) {
             const Component = WIDGET_COMPONENTS[item.widgetType];
             if (!Component) return null;
             return (
-              <div key={item.i}>
+              <div key={item.i} className={activeMenuId === item.i ? "widget-menu-open" : undefined}>
                 <WidgetWrapper
                   id={item.i}
                   widgetType={item.widgetType}

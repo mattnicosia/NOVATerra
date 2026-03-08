@@ -140,6 +140,42 @@ export default function RfpDetailModal({ rfp, onClose, onImport }) {
         </button>
       </div>
 
+      {/* Addendum banner */}
+      {rfp.type === "addendum" && (
+        <div
+          style={{
+            padding: T.space[3],
+            borderRadius: T.radius.sm,
+            background: C.isDark ? "rgba(255,149,0,0.08)" : "rgba(255,149,0,0.05)",
+            border: `1px solid ${C.isDark ? "rgba(255,149,0,0.20)" : "rgba(255,149,0,0.15)"}`,
+            marginBottom: T.space[4],
+            display: "flex",
+            alignItems: "center",
+            gap: T.space[2],
+          }}
+        >
+          <div
+            style={{
+              fontSize: 10,
+              fontWeight: T.fontWeight.bold,
+              padding: "2px 8px",
+              borderRadius: T.radius.full,
+              background: "#FF950020",
+              color: "#FF9500",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              flexShrink: 0,
+            }}
+          >
+            Addendum #{rfp.addendum_number || "?"}
+          </div>
+          <span style={{ fontSize: T.fontSize.sm, color: C.textMuted }}>
+            This is an addendum to an existing project.
+            {rfp.match_confidence && ` (${Math.round(rfp.match_confidence * 100)}% match confidence)`}
+          </span>
+        </div>
+      )}
+
       {/* Two-column layout */}
       <div style={{ display: "flex", gap: T.space[5] }}>
         {/* Left: Parsed data */}
@@ -157,21 +193,25 @@ export default function RfpDetailModal({ rfp, onClose, onImport }) {
             Extracted Information
           </div>
 
-          {pd.confidence != null && (
-            <div
-              style={{
-                padding: "6px 10px",
-                borderRadius: T.radius.sm,
-                marginBottom: T.space[4],
-                background: pd.confidence > 0.7 ? `${C.green}18` : pd.confidence > 0.4 ? "#f59e0b18" : `${C.red}18`,
-                border: `1px solid ${pd.confidence > 0.7 ? C.green : pd.confidence > 0.4 ? "#f59e0b" : C.red}30`,
-                fontSize: T.fontSize.xs,
-                color: pd.confidence > 0.7 ? C.green : pd.confidence > 0.4 ? "#f59e0b" : C.red,
-              }}
-            >
-              AI Confidence: {Math.round(pd.confidence * 100)}%
-            </div>
-          )}
+          {pd.confidence != null &&
+            (() => {
+              const conf = pd.confidence > 1 ? pd.confidence / 10 : pd.confidence;
+              return (
+                <div
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: T.radius.sm,
+                    marginBottom: T.space[4],
+                    background: conf > 0.7 ? `${C.green}18` : conf > 0.4 ? "#f59e0b18" : `${C.red}18`,
+                    border: `1px solid ${conf > 0.7 ? C.green : conf > 0.4 ? "#f59e0b" : C.red}30`,
+                    fontSize: T.fontSize.xs,
+                    color: conf > 0.7 ? C.green : conf > 0.4 ? "#f59e0b" : C.red,
+                  }}
+                >
+                  AI Confidence: {Math.round(conf * 100)}%
+                </div>
+              );
+            })()}
 
           <Field label="Project Name" value={pd.projectName} C={C} />
           <Field label="Address" value={pd.address} C={C} />
@@ -377,6 +417,24 @@ export default function RfpDetailModal({ rfp, onClose, onImport }) {
                     >
                       {provider.label}
                     </span>
+                    {provider.canAutoDownload && (
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: T.fontWeight.bold,
+                          color: C.green,
+                          padding: "1px 5px",
+                          borderRadius: T.radius.sm,
+                          background: `${C.green}15`,
+                          border: `1px solid ${C.green}30`,
+                          flexShrink: 0,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.04em",
+                        }}
+                      >
+                        Auto
+                      </span>
+                    )}
                   </div>
                 );
               })}
@@ -453,17 +511,34 @@ export default function RfpDetailModal({ rfp, onClose, onImport }) {
       </div>
 
       {/* Actions */}
-      {(rfp.status === "parsed" || rfp.status === "pending") && (
+      {(rfp.status === "parsed" ||
+        rfp.status === "pending" ||
+        rfp.status === "imported" ||
+        rfp.status === "dismissed") && (
         <div
           style={{
             display: "flex",
             justifyContent: "flex-end",
+            alignItems: "center",
             gap: T.space[3],
             marginTop: T.space[5],
             borderTop: `1px solid ${C.border}`,
             paddingTop: T.space[4],
           }}
         >
+          {(rfp.status === "imported" || rfp.status === "dismissed") && (
+            <span
+              style={{
+                fontSize: T.fontSize.xs,
+                color: C.textMuted,
+                marginRight: "auto",
+              }}
+            >
+              {rfp.status === "imported"
+                ? "Previously imported — re-importing creates a new estimate"
+                : "Previously dismissed — importing creates a new estimate"}
+            </span>
+          )}
           <button
             style={bt(C, {
               padding: "8px 20px",
@@ -480,7 +555,7 @@ export default function RfpDetailModal({ rfp, onClose, onImport }) {
             onClick={() => onImport(rfp)}
           >
             <Ic d={I.download} size={14} color="#fff" />
-            Import as Estimate
+            {rfp.status === "imported" ? "Re-Import as Estimate" : "Import as Estimate"}
           </button>
         </div>
       )}

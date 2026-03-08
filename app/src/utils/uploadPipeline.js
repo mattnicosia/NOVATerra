@@ -92,6 +92,7 @@ export async function autoLabelDrawings(drawingIds) {
     failCount = 0,
     lastErr = "";
   let metadataExtracted = false;
+  let metadataComplete = false; // true once architect + projectName found
 
   for (let i = 0; i < targets.length; i++) {
     const d = targets[i];
@@ -110,14 +111,15 @@ export async function autoLabelDrawings(drawingIds) {
       }
       if (!imgData) continue;
 
-      const isFirstSheet = i === 0 && !metadataExtracted;
-      const labelPrompt = isFirstSheet
-        ? `This is a construction blueprint/drawing. Look at the title block (usually bottom-right corner) and anywhere on the drawing for scale information.\n\nFind and return:\n1. Sheet number — usually formatted like A-100, A-100.00, S-201, M-001, E-100, L-001, etc.\n2. Sheet title — the drawing name like "FIRST FLOOR PLAN", "FOUNDATION PLAN", etc.\n3. Scale — the drawing scale, written exactly as shown on the drawing (e.g. 1/4" = 1'-0", 1/8" = 1'-0", 1" = 20', 1:100, etc.). Look in the title block, scale bar, or near individual plan views. If multiple scales are shown, use the primary/plan scale (usually the largest view).\n\nALSO extract project-level information from the title block:\n4. Project name — the full project name\n5. Architect — the architect or design firm name\n6. Client/Owner — the client or owner name\n7. Address — the project street address, city, state\n8. Project number — the project number or job number\n9. Engineer — the structural or MEP engineer firm name\n\nReturn ONLY a JSON object like: {"number":"A-100.00","title":"FIRST FLOOR PLAN","scale":"1/4\\" = 1'-0\\"","projectName":"RIVERSIDE APARTMENTS","architect":"Smith & Associates Architects","client":"ABC Development Corp","address":"123 Main St, Portland, OR 97201","projectNumber":"2024-0156","engineer":"XYZ Engineering"}\nIf you can't read a field, use null for that field.`
+      // Extract metadata from first 3 sheets until we have architect + projectName
+      const needsMetadata = !metadataComplete && i < 3;
+      const labelPrompt = needsMetadata
+        ? `This is a construction blueprint/drawing. Carefully examine the ENTIRE drawing, especially:\n- The TITLE BLOCK (bottom-right corner) — this contains the architect/design firm name, project name, sheet info\n- The COVER SHEET info (if this is a cover/title page) — look for a project directory listing consultants\n- Any STAMPS, SEALS, or LOGOS — architect firms typically have their logo/name prominently displayed\n\nThe architect/design firm is usually the MOST PROMINENT firm name in the title block. It often includes words like "Architects", "Architecture", "Design", "Planning", "A/E", "Associates", or "Group". Their name, address, and license number typically appear together. Do NOT confuse the architect with the structural engineer, MEP engineer, or owner/client.\n\nOn cover sheets, look for a "Project Directory", "Project Team", or "Consultants" section that lists Architect, Structural Engineer, MEP Engineer, etc.\n\nFind and return:\n1. Sheet number — formatted like A-100, A-100.00, S-201, M-001, E-100, L-001, etc.\n2. Sheet title — e.g. "FIRST FLOOR PLAN", "COVER SHEET", etc.\n3. Scale — exactly as shown (e.g. 1/4" = 1'-0"). Use the primary/plan scale if multiple shown.\n4. Project name — the full project name\n5. Architect — the architect or design firm name (the PRIMARY design firm, not engineers)\n6. Client/Owner — the client or building owner name\n7. Address — the project street address, city, state\n8. Project number — the project/job number\n9. Engineer — the structural or MEP engineer firm name\n\nReturn ONLY a JSON object like: {"number":"A-100.00","title":"FIRST FLOOR PLAN","scale":"1/4\\" = 1'-0\\"","projectName":"RIVERSIDE APARTMENTS","architect":"Smith & Associates Architects","client":"ABC Development Corp","address":"123 Main St, Portland, OR 97201","projectNumber":"2024-0156","engineer":"XYZ Engineering"}\nIf you can't read a field, use null for that field.`
         : `This is a construction blueprint/drawing. Look at the title block (usually bottom-right corner) and anywhere on the drawing for scale information.\n\nFind and return:\n1. Sheet number — usually formatted like A-100, A-100.00, S-201, M-001, E-100, L-001, etc.\n2. Sheet title — the drawing name like "FIRST FLOOR PLAN", "FOUNDATION PLAN", etc.\n3. Scale — the drawing scale, written exactly as shown on the drawing (e.g. 1/4" = 1'-0", 1/8" = 1'-0", 1" = 20', 1:100, etc.). Look in the title block, scale bar, or near individual plan views. If multiple scales are shown, use the primary/plan scale (usually the largest view).\n\nReturn ONLY a JSON object like: {"number":"A-100.00","title":"FIRST FLOOR PLAN","scale":"1/4\\" = 1'-0\\""}\nIf you can't read a field, use null for that field.`;
 
-      const optimized = await optimizeImageForAI(imgData, 1200);
+      const optimized = await optimizeImageForAI(imgData, needsMetadata ? 1600 : 1200);
       const text = await callAnthropic({
-        max_tokens: isFirstSheet ? 600 : 300,
+        max_tokens: needsMetadata ? 600 : 300,
         messages: [
           {
             role: "user",
@@ -153,8 +155,8 @@ export async function autoLabelDrawings(drawingIds) {
           }
         }
 
-        // Extract project metadata from first sheet's title block
-        if (isFirstSheet) {
+        // Extract project metadata from title block (tries up to 3 sheets)
+        if (needsMetadata) {
           metadataExtracted = true;
           try {
             const proj = useProjectStore.getState().project;
@@ -208,6 +210,12 @@ export async function autoLabelDrawings(drawingIds) {
               } catch {
                 /* non-critical */
               }
+            }
+
+            // Stop retrying once we have the key fields
+            const latestProj = useProjectStore.getState().project;
+            if (latestProj.architect && latestProj.address && latestProj.name && latestProj.name !== "New Estimate") {
+              metadataComplete = true;
             }
           } catch {
             /* metadata extraction non-critical */

@@ -75,9 +75,11 @@ export const useInboxStore = create((set, get) => ({
     }
   },
 
-  // Subscribe to realtime updates
+  // Subscribe to realtime updates (with auto-reconnect on channel error)
   subscribeToRfps: () => {
     if (!supabase) return () => {};
+
+    let reconnectTimeout = null;
     const channel = supabase
       .channel("pending-rfps-changes")
       .on(
@@ -92,9 +94,22 @@ export const useInboxStore = create((set, get) => ({
           get().fetchRfps();
         },
       )
-      .subscribe();
+      .subscribe(status => {
+        if (status === "CHANNEL_ERROR") {
+          console.warn("[inbox] Realtime channel error — reconnecting in 5s");
+          reconnectTimeout = setTimeout(() => {
+            try {
+              supabase.removeChannel(channel);
+            } catch {}
+            get().subscribeToRfps();
+          }, 5000);
+        }
+      });
 
-    return () => supabase.removeChannel(channel);
+    return () => {
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      supabase.removeChannel(channel);
+    };
   },
 
   // Import an RFP → returns estimate data for IndexedDB

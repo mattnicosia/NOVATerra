@@ -8,6 +8,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { useUiStore } from "@/stores/uiStore";
 import { fireAutoResponse } from "@/utils/autoResponseEngine";
 import BidPackagesPanel from "@/components/estimate/BidPackagesPanel";
+import BidLevelingGrid from "@/components/estimate/BidLevelingGrid";
 import CreateBidPackageModal from "@/components/estimate/CreateBidPackageModal";
 import ProposalDetailModal from "@/components/estimate/ProposalDetailModal";
 import ProposalComparisonMatrix from "@/components/estimate/ProposalComparisonMatrix";
@@ -30,6 +31,7 @@ export default function BidPackagesPage() {
   const [compareData, setCompareData] = useState(null);
   const [awardPkg, setAwardPkg] = useState(null);
   const [syncing, setSyncing] = useState(false);
+  const [view, setView] = useState("packages"); // "packages" | "leveling"
 
   // Sync with server on mount
   useEffect(() => {
@@ -99,8 +101,9 @@ export default function BidPackagesPage() {
     <div
       style={{
         padding: `${T.space[6]}px ${T.space[7]}px`,
-        maxWidth: 900,
+        maxWidth: view === "leveling" ? 1200 : 900,
         fontFamily: "'DM Sans', sans-serif",
+        transition: "max-width 200ms",
       }}
     >
       {/* Page Header */}
@@ -109,7 +112,7 @@ export default function BidPackagesPage() {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          marginBottom: 24,
+          marginBottom: 20,
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -124,35 +127,78 @@ export default function BidPackagesPage() {
               justifyContent: "center",
             }}
           >
-            <Ic d={I.send} size={20} color={C.accent} />
+            <Ic d={view === "leveling" ? I.report : I.send} size={20} color={C.accent} />
           </div>
           <div>
-            <h2 style={{ color: C.text, fontSize: 18, fontWeight: 600, margin: 0 }}>Bid Packages</h2>
+            <h2 style={{ color: C.text, fontSize: 18, fontWeight: 600, margin: 0 }}>
+              {view === "leveling" ? "Bid Leveling" : "Bid Packages"}
+            </h2>
             <p style={{ color: C.textMuted, fontSize: 13, margin: 0 }}>
-              Send scope to subs, track responses, and auto-populate bid leveling
+              {view === "leveling"
+                ? "Compare all proposals side-by-side with scope gap analysis"
+                : "Send scope to subs, track responses, and auto-populate bid leveling"}
             </p>
           </div>
         </div>
 
-        <button
-          onClick={() => setShowCreate(true)}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            background: `linear-gradient(135deg, ${C.accent}, #BF5AF2)`,
-            color: "#fff",
-            border: "none",
-            borderRadius: 10,
-            padding: "10px 20px",
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: "pointer",
-          }}
-        >
-          <Ic d={I.plus} size={14} />
-          New Package
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {/* View Toggle */}
+          <div
+            style={{
+              display: "flex",
+              borderRadius: 8,
+              border: `1px solid ${C.border}`,
+              overflow: "hidden",
+            }}
+          >
+            {[
+              { key: "packages", icon: I.send, label: "Packages" },
+              { key: "leveling", icon: I.report, label: "Leveling" },
+            ].map(v => (
+              <button
+                key={v.key}
+                onClick={() => setView(v.key)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 5,
+                  padding: "6px 12px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  border: "none",
+                  background: view === v.key ? `${C.accent}15` : "transparent",
+                  color: view === v.key ? C.accent : C.textMuted,
+                  borderRight: v.key === "packages" ? `1px solid ${C.border}` : "none",
+                }}
+              >
+                <Ic d={v.icon} size={13} color={view === v.key ? C.accent : C.textMuted} />
+                {v.label}
+              </button>
+            ))}
+          </div>
+
+          {/* New Package button */}
+          <button
+            onClick={() => setShowCreate(true)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              background: `linear-gradient(135deg, ${C.accent}, #BF5AF2)`,
+              color: "#fff",
+              border: "none",
+              borderRadius: 10,
+              padding: "10px 20px",
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            <Ic d={I.plus} size={14} />
+            New Package
+          </button>
+        </div>
       </div>
 
       {/* Sync indicator */}
@@ -172,13 +218,17 @@ export default function BidPackagesPage() {
         </div>
       )}
 
-      {/* Package List */}
-      <BidPackagesPanel
-        onCreateNew={() => setShowCreate(true)}
-        onViewProposal={proposal => setSelectedProposal(proposal)}
-        onCompare={(pkg, proposals) => setCompareData({ pkg, proposals })}
-        onAward={pkg => setAwardPkg(pkg)}
-      />
+      {/* Content: Packages or Leveling */}
+      {view === "packages" ? (
+        <BidPackagesPanel
+          onCreateNew={() => setShowCreate(true)}
+          onViewProposal={proposal => setSelectedProposal(proposal)}
+          onCompare={(pkg, proposals) => setCompareData({ pkg, proposals })}
+          onAward={pkg => setAwardPkg(pkg)}
+        />
+      ) : (
+        <BidLevelingGrid onViewProposal={proposal => setSelectedProposal(proposal)} onAward={pkg => setAwardPkg(pkg)} />
+      )}
 
       {/* Modals */}
       {showCreate && <CreateBidPackageModal onClose={() => setShowCreate(false)} />}

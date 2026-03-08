@@ -56,10 +56,12 @@ export function safeTransition(transition, prefersMotion) {
 // ─── Variant Libraries ───────────────────────────────────────────
 
 // Page transitions (route-level)
+// NOTE: Do NOT add `filter` here — even filter: blur(0px) creates a CSS
+// containing block that breaks position:fixed modals inside page components.
 export const pageVariants = {
-  initial: { opacity: 0, y: 6, filter: "blur(1px)" },
-  animate: { opacity: 1, y: 0, filter: "blur(0px)" },
-  exit: { opacity: 0, y: -4, filter: "blur(1px)" },
+  initial: { opacity: 0, y: 6 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -4 },
 };
 export const pageTransition = {
   type: "tween",

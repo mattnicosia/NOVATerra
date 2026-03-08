@@ -1,6 +1,7 @@
-import { supabaseAdmin } from './lib/supabaseAdmin.js';
-import { parseRfpEmail } from './lib/parseEmail.js';
-import { cors } from './lib/cors.js';
+import { supabaseAdmin } from "./lib/supabaseAdmin.js";
+import { parseRfpEmail } from "./lib/parseEmail.js";
+import { detectAddendum } from "./lib/addendumMatcher.js";
+import { cors } from "./lib/cors.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Inbound Email Webhook — Resend (replaced SendGrid Inbound Parse)
@@ -10,7 +11,7 @@ import { cors } from './lib/cors.js';
 // This is more reliable than SendGrid's multipart approach.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const RESEND_API = 'https://api.resend.com';
+const RESEND_API = "https://api.resend.com";
 
 // Extract email address from "Name <email>" format
 function extractEmail(fromStr) {
@@ -24,10 +25,10 @@ function extractEmail(fromStr) {
 // Fetch full email content from Resend Received Emails API
 async function fetchEmail(emailId, apiKey) {
   const res = await fetch(`${RESEND_API}/emails/receiving/${emailId}`, {
-    headers: { 'Authorization': `Bearer ${apiKey}` },
+    headers: { Authorization: `Bearer ${apiKey}` },
   });
   if (!res.ok) {
-    const errText = await res.text().catch(() => '');
+    const errText = await res.text().catch(() => "");
     throw new Error(`Resend API ${res.status}: ${errText}`);
   }
   return res.json();
@@ -36,7 +37,7 @@ async function fetchEmail(emailId, apiKey) {
 // Fetch attachment list with download URLs
 async function fetchAttachments(emailId, apiKey) {
   const res = await fetch(`${RESEND_API}/emails/receiving/${emailId}/attachments`, {
-    headers: { 'Authorization': `Bearer ${apiKey}` },
+    headers: { Authorization: `Bearer ${apiKey}` },
   });
   if (!res.ok) return [];
   const data = await res.json();
@@ -69,8 +70,8 @@ export default async function handler(req, res) {
     const event = req.body;
 
     // Only process email.received events (ignore other Resend webhook types)
-    if (!event || event.type !== 'email.received') {
-      console.log(`[inbound] Ignoring event type: ${event?.type || 'unknown'}`);
+    if (!event || event.type !== "email.received") {
+      console.log(`[inbound] Ignoring event type: ${event?.type || "unknown"}`);
       return res.status(200).json({ status: "ignored", type: event?.type });
     }
 
@@ -86,7 +87,9 @@ export default async function handler(req, res) {
     const html = email.html || "";
     const toAddr = Array.isArray(email.to) ? email.to.join(", ") : email.to || "(unknown)";
 
-    console.log(`[inbound] from=${senderEmail} to=${toAddr} subject="${subject}" attachments=${email.attachments?.length || 0}`);
+    console.log(
+      `[inbound] from=${senderEmail} to=${toAddr} subject="${subject}" attachments=${email.attachments?.length || 0}`,
+    );
 
     // ── Look up the sender in user_email_mappings ──
     const { data: mapping } = await supabaseAdmin
@@ -117,7 +120,7 @@ export default async function handler(req, res) {
             const { error: uploadErr } = await supabaseAdmin.storage
               .from("rfp-attachments")
               .upload(storagePath, buffer, {
-                contentType: att.content_type || 'application/octet-stream',
+                contentType: att.content_type || "application/octet-stream",
                 upsert: false,
               });
 
@@ -125,7 +128,7 @@ export default async function handler(req, res) {
               attachmentMeta.push({
                 id: crypto.randomUUID(),
                 filename: att.filename,
-                contentType: att.content_type || 'application/octet-stream',
+                contentType: att.content_type || "application/octet-stream",
                 size: buffer.length,
                 storagePath,
               });
@@ -143,18 +146,16 @@ export default async function handler(req, res) {
     }
 
     // ── Insert pending RFP row ──
-    const { error: insertErr } = await supabaseAdmin
-      .from("pending_rfps")
-      .insert({
-        id: rfpId,
-        user_id: userId,
-        status: "pending",
-        sender_email: senderEmail,
-        sender_name: senderName,
-        subject,
-        raw_text: text.slice(0, 50000),
-        attachments: attachmentMeta,
-      });
+    const { error: insertErr } = await supabaseAdmin.from("pending_rfps").insert({
+      id: rfpId,
+      user_id: userId,
+      status: "pending",
+      sender_email: senderEmail,
+      sender_name: senderName,
+      subject,
+      raw_text: text.slice(0, 50000),
+      attachments: attachmentMeta,
+    });
 
     if (insertErr) {
       console.error("[inbound] Insert error:", insertErr.message);
@@ -174,22 +175,49 @@ export default async function handler(req, res) {
     const hasError = parsedData.error;
     if (hasError) console.error("[inbound] Parse error:", parsedData.error);
 
+    // ── Addendum detection — check if this email is an addendum to an existing project ──
+    let addendumMatch = null;
+    if (!hasError) {
+      try {
+        addendumMatch = await detectAddendum({ parsedData, senderEmail, subject, userId }, supabaseAdmin);
+        if (addendumMatch) {
+          console.log(
+            `[inbound] Addendum detected: #${addendumMatch.addendumNumber} for parent=${addendumMatch.parentRfpId} (confidence=${addendumMatch.confidence})`,
+          );
+        }
+      } catch (matchErr) {
+        console.error("[inbound] Addendum detection error (non-critical):", matchErr.message);
+        // Non-critical — continue as normal RFP
+      }
+    }
+
     await supabaseAdmin
       .from("pending_rfps")
       .update({
         parsed_data: hasError ? null : parsedData,
         parse_error: hasError ? parsedData.error : null,
         status: hasError ? "error" : "parsed",
+        // Addendum metadata
+        type: addendumMatch ? "addendum" : "original",
+        parent_rfp_id: addendumMatch?.parentRfpId || null,
+        parent_estimate_id: addendumMatch?.estimateId || null,
+        addendum_number: addendumMatch?.addendumNumber || null,
+        match_confidence: addendumMatch?.confidence || null,
       })
       .eq("id", rfpId);
 
-    console.log(`[inbound] OK rfpId=${rfpId} parsed=${!hasError} attachments=${attachmentMeta.length}`);
+    const typeLabel = addendumMatch ? `addendum #${addendumMatch.addendumNumber}` : "original";
+    console.log(
+      `[inbound] OK rfpId=${rfpId} type=${typeLabel} parsed=${!hasError} attachments=${attachmentMeta.length}`,
+    );
     return res.status(200).json({
       status: "ok",
       rfpId,
       parsed: !hasError,
       parseError: hasError ? parsedData.error : null,
       attachments: attachmentMeta.length,
+      type: addendumMatch ? "addendum" : "original",
+      addendumNumber: addendumMatch?.addendumNumber || null,
     });
   } catch (err) {
     console.error("[inbound] Webhook error:", err);

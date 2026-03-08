@@ -26,6 +26,7 @@ import { migrateIndexEntry, migrateProposal } from "@/utils/costHistoryMigration
 import { idbKey } from "@/utils/idbKey";
 import { useAuthStore } from "@/stores/authStore";
 import { useOrgStore } from "@/stores/orgStore";
+import { useCollaborationStore } from "@/stores/collaborationStore";
 import { drainPendingSessions } from "@/hooks/useActivityTracker";
 
 // One-time migration: rename bare `bldg-*` keys to `u-{userId}-bldg-*`
@@ -575,7 +576,12 @@ export function usePersistenceLoad() {
 
         if (recovered) {
           useEstimatesStore.getState().setEstimatesIndex(recovered);
-          useUiStore.getState().showToast(`Recovered ${recovered.length} estimate(s)`, "success");
+          // Switch to "All" profile so recovered estimates aren't hidden by company filter
+          const uiState = useUiStore.getState();
+          if (uiState.appSettings.activeCompanyId !== "__all__") {
+            uiState.setAppSettings({ ...uiState.appSettings, activeCompanyId: "__all__" });
+          }
+          uiState.showToast(`Recovered ${recovered.length} estimate(s)`, "success");
         } else {
           console.warn("[usePersistence] RECOVERY GUARD: all fallbacks exhausted — no estimates found");
         }
@@ -818,6 +824,16 @@ export async function loadEstimate(id) {
 export async function saveEstimate() {
   const id = useEstimatesStore.getState().activeEstimateId;
   if (!id) return;
+
+  // Guard: skip save if in org mode and not the lock holder
+  const orgId = useOrgStore.getState().org?.id;
+  if (orgId) {
+    const { isLockHolder } = useCollaborationStore.getState();
+    if (!isLockHolder) {
+      console.warn("[saveEstimate] Not lock holder — skipping save");
+      return;
+    }
+  }
 
   // Guard: skip save if estimate was deleted (race with auto-save debounce timer)
   const draftId = useEstimatesStore.getState().draftId;

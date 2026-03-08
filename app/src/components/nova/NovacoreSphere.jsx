@@ -22,11 +22,16 @@ import { atmosphereFragmentShader } from "./shaders/atmosphere.frag";
 // (IQ: "R/B must stay < 0.40 after satBoost for true violet")
 // R range: 0.06–0.26. At R peak with B≈0.70: R/B=0.37 → VIOLET, not magenta.
 // B range: 0.26–0.82 (always dominant). G range: 0–0.18 (faint accent only).
+// v11.6: TRUE BLUE STAR palette — blue is DOMINANT, never violet.
+// R base 0.06 + swing 0.04 → max R ≈ 0.10, min R ≈ 0.02. Almost no red.
+// Real blue stars (Rigel, Vega): overwhelmingly blue with slight cyan undertone.
+// B base 0.56 + swing 0.32 → rich range from deep indigo (0.24) to bright blue (0.88).
+// G base 0.14 + swing 0.10 → G range [0.04, 0.24]. Never zero → always reads blue, not violet.
 const NOVA_PAL = {
-  a: new THREE.Vector3(0.16, 0.06, 0.54), // moderate R base → violet tint everywhere
-  b: new THREE.Vector3(0.10, 0.12, 0.28), // R TINY swing → violet↔blue gradient, never pink
-  c: new THREE.Vector3(1.0, 0.85, 0.70),  // standard IQ frequency separation
-  d: new THREE.Vector3(0.50, 0.78, 0.50), // R+B sync, G phase-shifted off center
+  a: new THREE.Vector3(0.06, 0.14, 0.56), // very low R, raised G for true blue (not violet), dominant B
+  b: new THREE.Vector3(0.04, 0.1, 0.32), // minimal R swing, tighter G swing (min 0.04), wide B
+  c: new THREE.Vector3(1.0, 0.85, 0.7), // standard IQ frequency separation
+  d: new THREE.Vector3(0.5, 0.78, 0.5), // R+B sync, G phase-shifted
 };
 
 // CORE: amber-gold-white spectrum — deep darks with blazing hot peaks
@@ -102,7 +107,7 @@ const NovacoreSphere = forwardRef(function NovacoreSphere(
       uIntensity: { value: intensity },
       uPulse: { value: 0.0 },
       uExhale: { value: 0.0 },
-      uNovaGlow: { value: new THREE.Vector3(0.10, 0.28, 0.95) }, // v10.5: drop R → pure blue, no pink rim
+      uNovaGlow: { value: new THREE.Vector3(0.1, 0.18, 0.9) }, // v11.5b: blue glow matching blue star body
       uCoreGlow: { value: new THREE.Vector3(0.95, 0.6, 0.12) },
     }),
     [],
@@ -181,7 +186,7 @@ const NovacoreSphere = forwardRef(function NovacoreSphere(
     if (groupRef.current) {
       // Base speed + 2-freq wobble → living rotation (Hodgin)
       const baseRot = lerp(0.025, 0.06, s.morph);
-      const rotWobble = 1.0 + 0.25 * Math.sin(elapsedTime * 0.15) + 0.10 * Math.sin(elapsedTime * 0.37);
+      const rotWobble = 1.0 + 0.25 * Math.sin(elapsedTime * 0.15) + 0.1 * Math.sin(elapsedTime * 0.37);
       groupRef.current.rotation.y += baseRot * rotWobble * delta;
       // Multi-frequency tilt — subtle breathing axis
       groupRef.current.rotation.x = Math.sin(elapsedTime * 0.08) * 0.06 + Math.sin(elapsedTime * 0.13) * 0.03;
@@ -208,9 +213,9 @@ const NovacoreSphere = forwardRef(function NovacoreSphere(
         />
       </mesh>
 
-      {/* Atmosphere glow — ethereal halo */}
-      <mesh scale={[1.28, 1.28, 1.28]}>
-        <icosahedronGeometry args={[size, 5]} />
+      {/* Atmosphere glow — v11.4b: tighter scale (1.04) eliminates visible seam */}
+      <mesh scale={[1.04, 1.04, 1.04]}>
+        <icosahedronGeometry args={[size, 6]} />
         <shaderMaterial
           ref={atmosphereMatRef}
           vertexShader={atmosphereVertexShader}

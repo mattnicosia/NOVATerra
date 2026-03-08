@@ -526,6 +526,8 @@ export const pushEstimate = async (estimateId, data) => {
       const cleanData = await stripAndUploadBlobs(estimateId, data);
       const userId = getUserId();
       const scope = getScope();
+      // Extract assignedTo from the estimate data to store as a column (for queries)
+      const assignedTo = cleanData?.project?.assignedTo || null;
       const row = {
         user_id: userId,
         estimate_id: estimateId,
@@ -533,6 +535,7 @@ export const pushEstimate = async (estimateId, data) => {
         updated_at: new Date().toISOString(),
         deleted_at: null,
         ...(scope || {}),
+        ...(assignedTo ? { assigned_to: assignedTo } : {}),
       };
 
       if (scope?.org_id) {

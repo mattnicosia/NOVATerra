@@ -31,13 +31,10 @@ export function useDashboardData() {
 
   const [selectedEstimateId, setSelectedEstimateId] = useState(null);
 
-  // Filter by company
+  // Filter by company — "__all__" shows everything, otherwise exact match
   const companyEstimates = useMemo(() => {
     if (activeCompanyId === "__all__") return estimatesIndex;
-    return estimatesIndex.filter(e => {
-      const cid = e.companyProfileId || "";
-      return cid === activeCompanyId || cid === "";
-    });
+    return estimatesIndex.filter(e => (e.companyProfileId || "") === (activeCompanyId || ""));
   }, [estimatesIndex, activeCompanyId]);
 
   // Sort by lastModified descending

@@ -39,13 +39,10 @@ export default function DashboardPage() {
   const [csvImportOpen, setCsvImportOpen] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
 
-  // Company-scoped estimates — include unassigned (empty companyProfileId) estimates
+  // Company-scoped estimates — "__all__" shows everything, otherwise exact match
   const companyEstimates = useMemo(() => {
     if (activeCompanyId === "__all__") return estimatesIndex;
-    return estimatesIndex.filter(e => {
-      const cid = e.companyProfileId || "";
-      return cid === activeCompanyId || cid === "";
-    });
+    return estimatesIndex.filter(e => (e.companyProfileId || "") === (activeCompanyId || ""));
   }, [estimatesIndex, activeCompanyId]);
 
   // Onboarding step completion

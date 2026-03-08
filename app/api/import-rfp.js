@@ -146,6 +146,13 @@ export default async function handler(req, res) {
       contacts,
       scopeNotes: rfp.parsed_data?.scopeNotes || [],
       planLinks: rfp.parsed_data?.planLinks || [],
+      bidList: rfp.parsed_data?.bidList || [],
+      // Addendum metadata (from server-side detection in inbound-email.js)
+      type: rfp.type || "original",
+      parentRfpId: rfp.parent_rfp_id || null,
+      parentEstimateId: rfp.parent_estimate_id || null,
+      addendumNumber: rfp.addendum_number || null,
+      matchConfidence: rfp.match_confidence || null,
     });
   } catch (err) {
     console.error("Import RFP error:", err.message);

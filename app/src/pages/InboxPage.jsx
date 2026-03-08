@@ -5,8 +5,12 @@ import { useInboxStore } from "@/stores/inboxStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useUiStore } from "@/stores/uiStore";
+import { useCalendarStore } from "@/stores/calendarStore";
+import { useMasterDataStore } from "@/stores/masterDataStore";
+import { useDrawingsStore } from "@/stores/drawingsStore";
 import { supabase } from "@/utils/supabase";
 import { loadEstimate } from "@/hooks/usePersistence";
+import { processContact } from "@/utils/contactDedup";
 import RfpCard from "@/components/inbox/RfpCard";
 import RfpDetailModal from "@/components/inbox/RfpDetailModal";
 import ImportConfirmModal from "@/components/inbox/ImportConfirmModal";
@@ -15,6 +19,7 @@ import { I } from "@/constants/icons";
 import { bt, pageContainer, card, sectionLabel } from "@/utils/styles";
 import { titleCase, uid } from "@/utils/format";
 import { loadPdfJs } from "@/utils/pdf";
+import { runFullScan } from "@/utils/scanRunner";
 
 const API_BASE = import.meta.env.DEV ? "https://app-nova-42373ca7.vercel.app" : "";
 
@@ -74,6 +79,7 @@ export default function InboxPage() {
   const [progressSteps, setProgressSteps] = useState([]);
   const [importComplete, setImportComplete] = useState(false);
   const [createdEstimateId, setCreatedEstimateId] = useState(null);
+  const [failedCloudLinks, setFailedCloudLinks] = useState([]);
 
   // Fetch RFPs + subscribe (user is already authenticated at this point)
   useEffect(() => {
@@ -92,6 +98,7 @@ export default function InboxPage() {
       setProgressSteps([]);
       setImportComplete(false);
       setCreatedEstimateId(null);
+      setFailedCloudLinks([]);
       navigate(path);
     };
     return () => {
@@ -103,12 +110,7 @@ export default function InboxPage() {
   const displayedRfps = useMemo(() => {
     // Company profile filter (same logic as estimates)
     const companyFiltered =
-      activeCompanyId === "__all__"
-        ? rfps
-        : rfps.filter(r => {
-            const cid = r.company_profile_id || "";
-            return cid === activeCompanyId || cid === "";
-          });
+      activeCompanyId === "__all__" ? rfps : rfps.filter(r => (r.company_profile_id || "") === (activeCompanyId || ""));
 
     // Status tab filter
     if (filter === "unread") {
@@ -122,12 +124,7 @@ export default function InboxPage() {
   // Profile-filtered unread count
   const unreadCount = useMemo(() => {
     const companyFiltered =
-      activeCompanyId === "__all__"
-        ? rfps
-        : rfps.filter(r => {
-            const cid = r.company_profile_id || "";
-            return cid === activeCompanyId || cid === "";
-          });
+      activeCompanyId === "__all__" ? rfps : rfps.filter(r => (r.company_profile_id || "") === (activeCompanyId || ""));
     return companyFiltered.filter(r => (r.status === "parsed" || r.status === "pending") && !readIds.includes(r.id))
       .length;
   }, [rfps, readIds, activeCompanyId]);
@@ -145,6 +142,7 @@ export default function InboxPage() {
     setProgressSteps([]);
     setImportComplete(false);
     setCreatedEstimateId(null);
+    setFailedCloudLinks([]);
   };
 
   // Helper to update progress steps
@@ -159,24 +157,14 @@ export default function InboxPage() {
   const handleImportConfirm = async ({ fields: editedFields, destination, profileId: selectedProfileId }) => {
     if (!importRfpData) return;
     setImporting(true);
+    setFailedCloudLinks([]);
 
-    // Build initial progress steps
-    const pdfAtts = (importRfpData.attachments || []).filter(
-      a => a.contentType === "application/pdf" || a.filename?.toLowerCase().endsWith(".pdf"),
-    );
-    const hasPdfs = pdfAtts.length > 0;
-
-    let steps = [
-      { label: "Creating estimate...", status: "active" },
-      ...(hasPdfs
-        ? [{ label: `Processing ${pdfAtts.length} PDF${pdfAtts.length > 1 ? "s" : ""}...`, status: "pending" }]
-        : []),
-      { label: "Finalizing...", status: "pending" },
-    ];
+    // Step 0: Creating estimate
+    let steps = [{ label: "Creating estimate...", status: "active" }];
     setProgressSteps(steps);
 
     try {
-      // Use the profile selected in the modal (falls back to active profile)
+      // --- Step 0: Import RFP (create estimate data) ---
       const profileId =
         selectedProfileId != null ? selectedProfileId : activeCompanyId === "__all__" ? "" : activeCompanyId;
       const result = await importRfp(importRfpData.id, profileId);
@@ -192,8 +180,8 @@ export default function InboxPage() {
       data.project.bidDue = editedFields.bidDue || data.project.bidDue;
       data.project.bidDueTime = editedFields.bidDueTime || data.project.bidDueTime;
       data.project.description = editedFields.description || data.project.description;
+      data.project.companyProfileId = profileId;
 
-      // Mark step 1 done
       steps = setStep(steps, 0, "done", "Estimate created");
 
       // Include documents from attachments
@@ -210,22 +198,150 @@ export default function InboxPage() {
         }));
       }
 
-      // Download PDF attachments and add as drawings for takeoffs
+      // Email PDF attachments
+      const emailPdfAtts = (importRfpData.attachments || []).filter(
+        a => a.contentType === "application/pdf" || a.filename?.toLowerCase().endsWith(".pdf"),
+      );
+
+      // Get auth session once (used for cloud download + PDF download)
+      const session = supabase ? (await supabase.auth.getSession()).data.session : null;
+      const authHeaders = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+
+      // --- Cloud download step (optional) ---
+      const cloudLinks = result.planLinks || [];
+      const hasCloudLinks = cloudLinks.length > 0;
+      let cloudPdfAtts = [];
+      let cloudStoragePaths = [];
+
+      if (hasCloudLinks) {
+        const cloudStepIdx = steps.length;
+        steps = [
+          ...steps,
+          {
+            label: `Downloading ${cloudLinks.length} cloud file${cloudLinks.length > 1 ? "s" : ""}...`,
+            status: "active",
+          },
+        ];
+        setProgressSteps(steps);
+
+        try {
+          const existingFilenames = emailPdfAtts.map(a => a.filename);
+
+          const cloudResp = await fetch(`${API_BASE}/api/fetch-cloud-files`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...authHeaders },
+            body: JSON.stringify({
+              planLinks: cloudLinks,
+              rfpId: importRfpData.id,
+              existingFilenames,
+            }),
+          });
+
+          if (!cloudResp.ok) {
+            const errData = await cloudResp.json().catch(() => ({}));
+            throw new Error(errData.error || `Cloud download failed (${cloudResp.status})`);
+          }
+
+          const cloudResult = await cloudResp.json();
+          const cloudFiles = cloudResult.files || [];
+          const cloudErrors = cloudResult.errors || [];
+
+          // Track failed links for UI
+          if (cloudErrors.length > 0) {
+            setFailedCloudLinks(cloudErrors);
+            // Preserve failed URLs in project data for manual access
+            data.project.planLinks = cloudErrors.map(e => ({ url: e.url, label: e.label, error: e.message }));
+          }
+
+          // Separate cloud files by category
+          for (const cf of cloudFiles) {
+            cloudStoragePaths.push(cf.storagePath);
+
+            const isPdf = cf.contentType === "application/pdf" || cf.filename?.toLowerCase().endsWith(".pdf");
+
+            if (isPdf && (cf.docCategory === "drawing" || cf.docCategory === "addendum" || !cf.docCategory)) {
+              // PDFs classified as drawings/addenda → process as drawings
+              cloudPdfAtts.push({
+                filename: cf.filename,
+                downloadPath: cf.storagePath,
+                contentType: cf.contentType,
+                size: cf.size,
+                isAddendum: cf.isAddendum || false,
+                addendumNumber: cf.addendumNumber || null,
+                relativePath: cf.relativePath || null,
+                source: "cloud",
+                provider: cf.provider,
+              });
+            } else {
+              // Non-PDF files or specs/bid forms → add as documents
+              if (!data.documents) data.documents = [];
+              data.documents.push({
+                id: cf.storagePath || cf.filename,
+                filename: cf.filename,
+                contentType: cf.contentType,
+                size: cf.size,
+                source: "cloud",
+                provider: cf.provider,
+                storagePath: cf.storagePath,
+                docCategory: cf.docCategory || "general",
+                data: null,
+                uploadDate: new Date().toISOString(),
+              });
+            }
+          }
+
+          const downloadedCount = cloudFiles.length;
+          const errorCount = cloudErrors.length;
+          const statusLabel =
+            errorCount > 0
+              ? `${downloadedCount} file${downloadedCount !== 1 ? "s" : ""} downloaded (${errorCount} failed)`
+              : `${downloadedCount} cloud file${downloadedCount !== 1 ? "s" : ""} downloaded`;
+          steps = setStep(steps, cloudStepIdx, "done", statusLabel);
+        } catch (err) {
+          console.error("Cloud download error:", err);
+          steps = setStep(steps, cloudStepIdx, "done", "Cloud download failed — links preserved");
+          // Preserve all cloud links for manual access
+          data.project.planLinks = cloudLinks.map(l => ({ url: l.url, label: l.label }));
+          setFailedCloudLinks(cloudLinks.map(l => ({ url: l.url, label: l.label, message: err.message })));
+        }
+      }
+
+      // Combine email + cloud PDFs
+      const allPdfAtts = [...emailPdfAtts, ...cloudPdfAtts];
+      const hasPdfs = allPdfAtts.length > 0;
+
+      // Build remaining steps dynamically now that we know the full picture
+      const pdfStepIdx = hasPdfs ? steps.length : -1;
       if (hasPdfs) {
-        const pdfStepIdx = 1;
+        steps = [
+          ...steps,
+          {
+            label: `Processing ${allPdfAtts.length} PDF${allPdfAtts.length > 1 ? "s" : ""}...`,
+            status: "pending",
+          },
+        ];
+      }
+      const saveStepIdx = steps.length;
+      steps = [...steps, { label: "Saving estimate...", status: "pending" }];
+      const discoveryStepIdx = hasPdfs ? steps.length : -1;
+      if (hasPdfs) {
+        steps = [...steps, { label: "Running NOVA Discovery...", status: "pending" }];
+      }
+      setProgressSteps(steps);
+
+      // --- PDF processing step ---
+      if (hasPdfs) {
         steps = setStep(steps, pdfStepIdx, "active");
 
         try {
-          const session = supabase ? (await supabase.auth.getSession()).data.session : null;
-          const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {};
           await loadPdfJs();
 
           const drawings = [];
           let totalPages = 0;
-          for (const att of pdfAtts) {
+          for (const att of allPdfAtts) {
             try {
               const url = `${API_BASE}/api/attachment?path=${encodeURIComponent(att.downloadPath)}`;
-              const resp = await fetch(url, { headers });
+              const resp = await fetch(url, { headers: authHeaders });
               if (!resp.ok) {
                 console.error(`PDF download failed: ${att.filename} (${resp.status})`);
                 continue;
@@ -236,7 +352,7 @@ export default function InboxPage() {
               const pdf = await window.pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
 
               for (let p = 1; p <= pdf.numPages; p++) {
-                drawings.push({
+                const drawing = {
                   id: uid(),
                   label: `${att.filename.replace(/\.pdf$/i, "")}-Pg${p}`,
                   sheetNumber: "",
@@ -248,7 +364,21 @@ export default function InboxPage() {
                   uploadDate: new Date().toISOString(),
                   pdfPage: p,
                   totalPdfPages: pdf.numPages,
-                });
+                };
+                // Add addendum metadata from cloud files
+                if (att.isAddendum) {
+                  drawing.isAddendum = true;
+                  drawing.addendumNumber = att.addendumNumber;
+                }
+                // Preserve relative path for future auto-grouping
+                if (att.relativePath) {
+                  drawing.relativePath = att.relativePath;
+                }
+                if (att.source === "cloud") {
+                  drawing.source = "cloud";
+                  drawing.provider = att.provider;
+                }
+                drawings.push(drawing);
               }
               totalPages += pdf.numPages;
 
@@ -271,7 +401,7 @@ export default function InboxPage() {
             steps,
             pdfStepIdx,
             "done",
-            `${pdfAtts.length} PDF${pdfAtts.length > 1 ? "s" : ""} processed (${totalPages} pages)`,
+            `${allPdfAtts.length} PDF${allPdfAtts.length > 1 ? "s" : ""} processed (${totalPages} pages)`,
           );
         } catch (err) {
           console.error("PDF drawing import error:", err);
@@ -279,16 +409,125 @@ export default function InboxPage() {
         }
       }
 
-      // Finalize step
-      const finalIdx = steps.length - 1;
-      steps = setStep(steps, finalIdx, "active", "Saving estimate...");
+      // Cleanup cloud temp files from Supabase after extraction
+      if (cloudStoragePaths.length > 0) {
+        try {
+          await fetch(`${API_BASE}/api/cleanup-cloud-files`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...authHeaders },
+            body: JSON.stringify({ paths: cloudStoragePaths }),
+          });
+        } catch (err) {
+          console.error("Cloud cleanup error:", err);
+          // Non-critical — files can be cleaned up later
+        }
+      }
+
+      // --- Save step ---
+      steps = setStep(steps, saveStepIdx, "active", "Saving estimate...");
 
       // Create estimate in IndexedDB
       const estId = await importFromRfp(data);
       // Load the saved estimate into all stores so project data is available immediately
       await loadEstimate(estId);
 
-      steps = setStep(steps, finalIdx, "done", "Complete!");
+      steps = setStep(steps, saveStepIdx, "done", "Estimate saved");
+
+      // --- Auto-create calendar events from parsed dates ---
+      try {
+        const { addTask } = useCalendarStore.getState();
+        if (data.project.bidDue) {
+          addTask({
+            title: `Bid Due: ${data.project.name}`,
+            date: data.project.bidDue,
+            time: data.project.bidDueTime || "",
+            description: `Bid submission deadline for ${data.project.name}`,
+            estimateId: estId,
+            color: "#FF3B30",
+          });
+        }
+        if (data.project.walkthroughDate) {
+          addTask({
+            title: `Walkthrough: ${data.project.name}`,
+            date: data.project.walkthroughDate,
+            time: "",
+            description: `Site walkthrough for ${data.project.name}`,
+            estimateId: estId,
+            color: "#007AFF",
+          });
+        }
+        if (data.project.rfiDueDate) {
+          addTask({
+            title: `RFI Due: ${data.project.name}`,
+            date: data.project.rfiDueDate,
+            time: "",
+            description: `RFI submission deadline for ${data.project.name}`,
+            estimateId: estId,
+            color: "#FF9500",
+          });
+        }
+      } catch (calErr) {
+        console.error("Calendar auto-create error (non-critical):", calErr);
+      }
+
+      // --- Contact dedup / merge into masterData ---
+      try {
+        const mdState = useMasterDataStore.getState();
+        const md = mdState.masterData;
+        let mdUpdated = false;
+        const updatedMd = { ...md };
+
+        const contactPairs = [
+          { data: result.contacts?.client, list: "clients" },
+          { data: result.contacts?.architect, list: "architects" },
+          { data: result.contacts?.engineer, list: "engineers" },
+        ];
+
+        for (const { data: contactData, list } of contactPairs) {
+          if (!contactData?.company) continue;
+          const result2 = processContact(contactData, updatedMd[list] || []);
+          if (!result2) continue;
+
+          if (result2.action === "merge") {
+            updatedMd[list] = (updatedMd[list] || []).map(c => (c.id === result2.matchId ? result2.contact : c));
+            mdUpdated = true;
+          } else {
+            updatedMd[list] = [...(updatedMd[list] || []), { id: uid(), ...result2.contact }];
+            mdUpdated = true;
+          }
+        }
+
+        if (mdUpdated) {
+          mdState.setMasterData(updatedMd);
+        }
+      } catch (dedupErr) {
+        console.error("Contact dedup error (non-critical):", dedupErr);
+      }
+
+      // --- Store bid list if parsed ---
+      if (result.bidList?.length > 0) {
+        data.project.bidList = result.bidList;
+      }
+
+      // --- Discovery step — run NOVA scan on imported drawings ---
+      if (hasPdfs) {
+        steps = setStep(steps, discoveryStepIdx, "active", "Running NOVA Discovery...");
+        try {
+          await runFullScan({
+            onComplete: () => {
+              steps = setStep(steps, discoveryStepIdx, "done", "Discovery complete!");
+              setProgressSteps([...steps]);
+            },
+            onError: msg => {
+              steps = setStep(steps, discoveryStepIdx, "done", `Discovery: ${msg || "skipped"}`);
+              setProgressSteps([...steps]);
+            },
+          });
+        } catch {
+          steps = setStep(steps, discoveryStepIdx, "done", "Discovery skipped");
+        }
+      }
+
       setCreatedEstimateId(estId);
       setImportComplete(true);
       setImporting(false);
@@ -296,6 +535,230 @@ export default function InboxPage() {
       fetchRfps();
     } catch (err) {
       showToast("Failed to import: " + err.message);
+      setImporting(false);
+      setImportRfpData(null);
+      setProgressSteps([]);
+      setImportComplete(false);
+    }
+  };
+
+  // ── Addendum Import Flow ──────────────────────────────────────
+  // When the RFP is an addendum (type === 'addendum'), merge into existing estimate
+  const handleAddendumImport = async ({ profileId: selectedProfileId }) => {
+    if (!importRfpData) return;
+    setImporting(true);
+    setFailedCloudLinks([]);
+
+    let steps = [{ label: "Loading parent estimate...", status: "active" }];
+    setProgressSteps(steps);
+
+    try {
+      const profileId =
+        selectedProfileId != null ? selectedProfileId : activeCompanyId === "__all__" ? "" : activeCompanyId;
+      const result = await importRfp(importRfpData.id, profileId);
+      if (!result) throw new Error("Import failed");
+
+      const parentEstimateId = result.parentEstimateId || importRfpData.parent_estimate_id;
+      const addendumNumber = result.addendumNumber || importRfpData.addendum_number || 1;
+
+      if (!parentEstimateId) {
+        throw new Error("Parent estimate not found — import as new estimate instead");
+      }
+
+      // Load parent estimate into stores
+      await loadEstimate(parentEstimateId);
+      steps = setStep(steps, 0, "done", "Parent estimate loaded");
+
+      // Get auth session
+      const session = supabase ? (await supabase.auth.getSession()).data.session : null;
+      const authHeaders = session ? { Authorization: `Bearer ${session.access_token}` } : {};
+
+      // Email PDF attachments from addendum
+      const emailPdfAtts = (importRfpData.attachments || []).filter(
+        a => a.contentType === "application/pdf" || a.filename?.toLowerCase().endsWith(".pdf"),
+      );
+
+      // Cloud download step (same as normal import)
+      const cloudLinks = result.planLinks || [];
+      const hasCloudLinks = cloudLinks.length > 0;
+      let cloudPdfAtts = [];
+      let cloudStoragePaths = [];
+
+      if (hasCloudLinks) {
+        const cloudStepIdx = steps.length;
+        steps = [
+          ...steps,
+          {
+            label: `Downloading ${cloudLinks.length} cloud file${cloudLinks.length > 1 ? "s" : ""}...`,
+            status: "active",
+          },
+        ];
+        setProgressSteps(steps);
+
+        try {
+          const cloudResp = await fetch(`${API_BASE}/api/fetch-cloud-files`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...authHeaders },
+            body: JSON.stringify({
+              planLinks: cloudLinks,
+              rfpId: importRfpData.id,
+              existingFilenames: emailPdfAtts.map(a => a.filename),
+            }),
+          });
+          if (cloudResp.ok) {
+            const cloudResult = await cloudResp.json();
+            for (const cf of cloudResult.files || []) {
+              cloudStoragePaths.push(cf.storagePath);
+              const isPdf = cf.contentType === "application/pdf" || cf.filename?.toLowerCase().endsWith(".pdf");
+              if (isPdf) {
+                cloudPdfAtts.push({
+                  filename: cf.filename,
+                  downloadPath: cf.storagePath,
+                  contentType: cf.contentType,
+                  size: cf.size,
+                  source: "cloud",
+                  provider: cf.provider,
+                });
+              }
+            }
+            if (cloudResult.errors?.length > 0) setFailedCloudLinks(cloudResult.errors);
+          }
+          steps = setStep(steps, cloudStepIdx, "done", `Cloud files downloaded`);
+        } catch (err) {
+          console.error("Addendum cloud download error:", err);
+          steps = setStep(steps, cloudStepIdx, "done", "Cloud download failed");
+        }
+      }
+
+      // Process PDFs
+      const allPdfAtts = [...emailPdfAtts, ...cloudPdfAtts];
+      const hasPdfs = allPdfAtts.length > 0;
+
+      const pdfStepIdx = hasPdfs ? steps.length : -1;
+      if (hasPdfs)
+        steps = [
+          ...steps,
+          {
+            label: `Processing ${allPdfAtts.length} addendum PDF${allPdfAtts.length > 1 ? "s" : ""}...`,
+            status: "pending",
+          },
+        ];
+      const saveStepIdx = steps.length;
+      steps = [...steps, { label: "Merging into estimate...", status: "pending" }];
+      if (hasPdfs) steps = [...steps, { label: "Running NOVA Discovery...", status: "pending" }];
+      const discoveryStepIdx = hasPdfs ? steps.length - 1 : -1;
+      setProgressSteps(steps);
+
+      if (hasPdfs) {
+        steps = setStep(steps, pdfStepIdx, "active");
+        try {
+          await loadPdfJs();
+          const newDrawings = [];
+          for (const att of allPdfAtts) {
+            try {
+              const url = `${API_BASE}/api/attachment?path=${encodeURIComponent(att.downloadPath)}`;
+              const resp = await fetch(url, { headers: authHeaders });
+              if (!resp.ok) continue;
+              const buffer = await resp.arrayBuffer();
+              const base64 = arrayBufferToBase64(buffer);
+              const pdf = await window.pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
+              for (let p = 1; p <= pdf.numPages; p++) {
+                newDrawings.push({
+                  id: uid(),
+                  label: `${att.filename.replace(/\.pdf$/i, "")}-Pg${p}`,
+                  sheetNumber: "",
+                  sheetTitle: "",
+                  revision: "0",
+                  type: "pdf",
+                  data: base64,
+                  fileName: att.filename,
+                  uploadDate: new Date().toISOString(),
+                  pdfPage: p,
+                  totalPdfPages: pdf.numPages,
+                  isAddendum: true,
+                  addendumNumber,
+                  source: att.source || "rfp",
+                  provider: att.provider || null,
+                });
+              }
+            } catch (err) {
+              console.error(`Addendum PDF error: ${att.filename}`, err);
+            }
+          }
+
+          // Merge drawings using version tracking
+          if (newDrawings.length > 0) {
+            useDrawingsStore.getState().mergeAddendumDrawings(newDrawings, addendumNumber);
+          }
+          steps = setStep(
+            steps,
+            pdfStepIdx,
+            "done",
+            `${newDrawings.length} addendum drawing${newDrawings.length > 1 ? "s" : ""} processed`,
+          );
+        } catch (err) {
+          console.error("Addendum PDF error:", err);
+          steps = setStep(steps, pdfStepIdx, "done", "PDF processing complete (with errors)");
+        }
+      }
+
+      // Cleanup cloud files
+      if (cloudStoragePaths.length > 0) {
+        try {
+          await fetch(`${API_BASE}/api/cleanup-cloud-files`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...authHeaders },
+            body: JSON.stringify({ paths: cloudStoragePaths }),
+          });
+        } catch {}
+      }
+
+      // Save estimate (the drawings store already updated, trigger a save)
+      steps = setStep(steps, saveStepIdx, "active", "Merging into estimate...");
+      // Re-save the estimate with updated drawings
+      const estStore = useEstimatesStore.getState();
+      const drawingsStore = useDrawingsStore.getState();
+      (await estStore.saveCurrentEstimate?.()) || (await loadEstimate(parentEstimateId));
+      steps = setStep(steps, saveStepIdx, "done", `Addendum #${addendumNumber} merged`);
+
+      // Calendar event for addendum
+      try {
+        useCalendarStore.getState().addTask({
+          title: `Addendum #${addendumNumber}: ${importRfpData.parsed_data?.projectName || "Project"}`,
+          date: new Date().toISOString().split("T")[0],
+          time: "",
+          description: `Addendum #${addendumNumber} received and imported`,
+          estimateId: parentEstimateId,
+          color: "#FF9500",
+        });
+      } catch {}
+
+      // Discovery on new drawings
+      if (hasPdfs) {
+        steps = setStep(steps, discoveryStepIdx, "active", "Running NOVA Discovery...");
+        try {
+          await runFullScan({
+            onComplete: () => {
+              steps = setStep(steps, discoveryStepIdx, "done", "Discovery complete!");
+              setProgressSteps([...steps]);
+            },
+            onError: msg => {
+              steps = setStep(steps, discoveryStepIdx, "done", `Discovery: ${msg || "skipped"}`);
+              setProgressSteps([...steps]);
+            },
+          });
+        } catch {
+          steps = setStep(steps, discoveryStepIdx, "done", "Discovery skipped");
+        }
+      }
+
+      setCreatedEstimateId(parentEstimateId);
+      setImportComplete(true);
+      setImporting(false);
+      showToast(`Addendum #${addendumNumber} imported!`);
+      fetchRfps();
+    } catch (err) {
+      showToast("Addendum import failed: " + err.message);
       setImporting(false);
       setImportRfpData(null);
       setProgressSteps([]);
@@ -515,12 +978,17 @@ export default function InboxPage() {
             setProgressSteps([]);
             setImportComplete(false);
             setCreatedEstimateId(null);
+            setFailedCloudLinks([]);
           }}
-          onConfirm={handleImportConfirm}
+          onConfirm={importRfpData.type === "addendum" ? handleAddendumImport : handleImportConfirm}
           loading={importing}
           progressSteps={progressSteps}
           importComplete={importComplete}
           createdEstimateId={createdEstimateId}
+          failedCloudLinks={failedCloudLinks}
+          isAddendum={importRfpData.type === "addendum"}
+          addendumNumber={importRfpData.addendum_number}
+          parentProjectName={importRfpData.parsed_data?.parentProjectName || importRfpData.parsed_data?.projectName}
         />
       )}
     </div>

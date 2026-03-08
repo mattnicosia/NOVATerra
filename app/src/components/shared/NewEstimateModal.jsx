@@ -5,6 +5,50 @@ import Modal from "./Modal";
 import { bt, inp } from "@/utils/styles";
 import { ESTIMATE_TEMPLATES } from "@/constants/seedTemplates";
 
+/**
+ * Suggest the next estimate number based on existing patterns.
+ * Detects prefix + numeric suffix, increments the number, preserves zero-padding.
+ * e.g. "EST-2026-003" → "EST-2026-004", "24-017" → "24-018", "1042" → "1043"
+ */
+function suggestNextEstimateNumber(existingNumbers) {
+  if (!existingNumbers.length) return "";
+
+  // Parse each number into { prefix, num, padLength, original }
+  const parsed = existingNumbers
+    .filter(Boolean)
+    .map(s => {
+      const match = s.match(/^(.*?)(\d+)$/);
+      if (!match) return null;
+      const prefix = match[1];
+      const numStr = match[2];
+      return { prefix, num: parseInt(numStr, 10), padLength: numStr.length, original: s };
+    })
+    .filter(Boolean);
+
+  if (!parsed.length) return "";
+
+  // Group by prefix to find the most common pattern
+  const groups = {};
+  for (const p of parsed) {
+    const key = p.prefix;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(p);
+  }
+
+  // Use the prefix group with the most entries (most common pattern)
+  const bestPrefix = Object.entries(groups).sort((a, b) => b[1].length - a[1].length)[0];
+  const group = bestPrefix[1];
+
+  // Find the highest number in that group
+  const maxEntry = group.reduce((best, cur) => (cur.num > best.num ? cur : best), group[0]);
+
+  // Increment and preserve padding
+  const nextNum = maxEntry.num + 1;
+  const nextStr = String(nextNum).padStart(maxEntry.padLength, "0");
+
+  return maxEntry.prefix + nextStr;
+}
+
 export default function NewEstimateModal({ onCreated, onClose, companyProfileId }) {
   const C = useTheme();
   const T = C.T;
@@ -16,10 +60,17 @@ export default function NewEstimateModal({ onCreated, onClose, companyProfileId 
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
 
+  // Auto-suggest next estimate number from existing pattern
+  const suggestedNumber = useMemo(() => {
+    const existing = useEstimatesStore.getState().estimatesIndex;
+    const numbers = existing.map(e => e.estimateNumber).filter(Boolean);
+    return suggestNextEstimateNumber(numbers);
+  }, []);
+
   const showTemplateStep = selectedTemplate === null;
 
   const handleCreate = async () => {
-    const trimmed = estNum.trim();
+    const trimmed = estNum.trim() || suggestedNumber;
     if (!trimmed) {
       setError("Estimate number is required");
       return;
@@ -236,17 +287,44 @@ export default function NewEstimateModal({ onCreated, onClose, companyProfileId 
         >
           Estimate Number
         </label>
-        <input
-          autoFocus
-          value={estNum}
-          onChange={e => {
-            setEstNum(e.target.value);
-            setError("");
-          }}
-          onKeyDown={e => e.key === "Enter" && handleCreate()}
-          placeholder="e.g. EST-2026-001"
-          style={inp(C, { width: "100%", marginTop: 4, marginBottom: error ? 4 : T.space[4], fontSize: 13 })}
-        />
+        <div style={{ position: "relative", marginTop: 4, marginBottom: error ? 4 : T.space[4] }}>
+          <input
+            autoFocus
+            value={estNum}
+            onChange={e => {
+              setEstNum(e.target.value);
+              setError("");
+            }}
+            onKeyDown={e => e.key === "Enter" && handleCreate()}
+            placeholder={suggestedNumber || "e.g. EST-2026-001"}
+            style={inp(C, { width: "100%", fontSize: 13, paddingRight: suggestedNumber && !estNum ? 60 : undefined })}
+          />
+          {suggestedNumber && !estNum && (
+            <button
+              onClick={() => {
+                setEstNum(suggestedNumber);
+                setError("");
+              }}
+              style={{
+                position: "absolute",
+                right: 6,
+                top: "50%",
+                transform: "translateY(-50%)",
+                fontSize: 10,
+                fontWeight: 600,
+                color: C.accent,
+                background: `${C.accent}15`,
+                border: `1px solid ${C.accent}30`,
+                borderRadius: 4,
+                padding: "2px 8px",
+                cursor: "pointer",
+                lineHeight: "16px",
+              }}
+            >
+              Use
+            </button>
+          )}
+        </div>
         {error && <div style={{ fontSize: 11, color: C.red || "#f44", marginBottom: T.space[3] }}>{error}</div>}
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
           <button
