@@ -31,6 +31,19 @@ function addDays(date, n) {
   return d;
 }
 
+function countWeekdays(start, end) {
+  let count = 0;
+  const d = new Date(start);
+  d.setHours(0, 0, 0, 0);
+  const e = new Date(end);
+  e.setHours(0, 0, 0, 0);
+  while (d <= e) {
+    if (isWeekday(d)) count++;
+    d.setDate(d.getDate() + 1);
+  }
+  return count;
+}
+
 const TEAM_COLORS = [
   "#A78BFA",
   "#60A5FA",
@@ -82,6 +95,26 @@ export function useWorkloadData(dateRange) {
       const workDays = allDays.filter(isWeekday);
       const hoursPerDay = workDays.length > 0 && estHours > 0 ? estHours / workDays.length : 0;
 
+      // ── Progress & schedule status ──
+      const hoursLogged = (est.timerTotalMs || 0) / 3600000;
+      const percentComplete = estHours > 0
+        ? Math.min(100, Math.round((hoursLogged / estHours) * 100))
+        : 0;
+      const daysTotal = countWeekdays(startDate, bidDue);
+      const daysRemaining = countWeekdays(today, bidDue);
+      const dayProgress = daysTotal > 0
+        ? Math.round(((daysTotal - daysRemaining) / daysTotal) * 100)
+        : 100;
+      // Derive schedule health
+      let scheduleStatus = "on-track";
+      if (bidDue < today) {
+        scheduleStatus = "overdue";
+      } else if (dayProgress > 0 && percentComplete < dayProgress - 20) {
+        scheduleStatus = "behind";
+      } else if (percentComplete > dayProgress + 15) {
+        scheduleStatus = "ahead";
+      }
+
       const estEntry = {
         id: est.id,
         name: est.name || "Untitled",
@@ -94,6 +127,13 @@ export function useWorkloadData(dateRange) {
         grandTotal: est.grandTotal || 0,
         timerTotalMs: est.timerTotalMs || 0,
         workDays: workDays.map(fmtDate),
+        // New progress fields
+        hoursLogged: Math.round(hoursLogged * 10) / 10,
+        percentComplete,
+        daysTotal,
+        daysRemaining,
+        dayProgress,
+        scheduleStatus,
       };
 
       if (!estimator) {

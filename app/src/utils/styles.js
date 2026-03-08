@@ -146,6 +146,17 @@ export const card = (C, overrides) => {
 export const cardSolid = (C, overrides) => {
   const tokens = C.T || T;
 
+  // ── CONCRETE: Stone/concrete material — no glass, subtle grain texture ──
+  if (C.materialMode === "concrete") {
+    return {
+      background: C.bg1,
+      borderRadius: T.radius.md,
+      border: `1px solid ${C.border}`,
+      boxShadow: tokens.shadow.sm,
+      ...overrides,
+    };
+  }
+
   // ── NERO: Matte Carbon — structural surface, NO glass treatment ──
   if (C.neroMode) {
     return {

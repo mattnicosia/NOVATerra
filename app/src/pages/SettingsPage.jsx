@@ -21,6 +21,7 @@ import LogoPill from "@/components/shared/LogoPill";
 import NovaScriptEditor from "@/components/settings/NovaScriptEditor";
 import TeamPanel from "@/components/settings/TeamPanel";
 import AutoResponseSettings from "@/components/settings/AutoResponseSettings";
+import EstimatorSettingsPanel from "@/components/settings/EstimatorSettingsPanel";
 
 export default function SettingsPage() {
   const C = useTheme();
@@ -897,6 +898,11 @@ export default function SettingsPage() {
         {/* Auto-Responses */}
         <Sec title="Auto-Responses" icon={I.send}>
           <AutoResponseSettings />
+        </Sec>
+
+        {/* Estimator Management */}
+        <Sec title="Estimator Management" icon={I.people}>
+          <EstimatorSettingsPanel />
         </Sec>
 
         {/* Team / Organization */}

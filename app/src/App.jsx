@@ -1084,23 +1084,27 @@ function AppContent() {
           }}
         />
       )}
-      {/* Liquid Glass mesh background — vivid animated color field for BOTH modes */}
-      <Suspense fallback={null}>
-        <LiquidGlassBackground />
-      </Suspense>
-      {/* SVG refraction filter — subtle distortion simulating glass lensing */}
-      <svg style={{ position: "absolute", width: 0, height: 0, pointerEvents: "none" }} aria-hidden="true">
-        <defs>
-          <filter id="glass-refract" x="-5%" y="-5%" width="110%" height="110%">
-            <feTurbulence type="fractalNoise" baseFrequency="0.015 0.012" numOctaves="3" seed="42" result="noise" />
-            <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" xChannelSelector="R" yChannelSelector="G" />
-          </filter>
-          <filter id="glass-refract-lg" x="-5%" y="-5%" width="110%" height="110%">
-            <feTurbulence type="fractalNoise" baseFrequency="0.008 0.006" numOctaves="3" seed="17" result="noise" />
-            <feDisplacementMap in="SourceGraphic" in2="noise" scale="4" xChannelSelector="R" yChannelSelector="G" />
-          </filter>
-        </defs>
-      </svg>
+      {/* Liquid Glass mesh background — suppressed for noGlass/concrete themes */}
+      {!C.noGlass && (
+        <Suspense fallback={null}>
+          <LiquidGlassBackground />
+        </Suspense>
+      )}
+      {/* SVG refraction filter — suppressed for noGlass/concrete themes */}
+      {!C.noGlass && (
+        <svg style={{ position: "absolute", width: 0, height: 0, pointerEvents: "none" }} aria-hidden="true">
+          <defs>
+            <filter id="glass-refract" x="-5%" y="-5%" width="110%" height="110%">
+              <feTurbulence type="fractalNoise" baseFrequency="0.015 0.012" numOctaves="3" seed="42" result="noise" />
+              <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" xChannelSelector="R" yChannelSelector="G" />
+            </filter>
+            <filter id="glass-refract-lg" x="-5%" y="-5%" width="110%" height="110%">
+              <feTurbulence type="fractalNoise" baseFrequency="0.008 0.006" numOctaves="3" seed="17" result="noise" />
+              <feDisplacementMap in="SourceGraphic" in2="noise" scale="4" xChannelSelector="R" yChannelSelector="G" />
+            </filter>
+          </defs>
+        </svg>
+      )}
       <div
         className="app-main"
         style={{

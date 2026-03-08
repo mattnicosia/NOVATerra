@@ -1,19 +1,24 @@
-// NOVACORE fragment shader v12 — PHASE TRANSITION
+// NOVACORE fragment shader v14 — KILL THE SWIRLS
 // "NOVACORE's visual identity is not a sphere. It's a phase transition."
 // NOVA: a blue star in deep space — dramatic limb darkening, blazing center,
 // Voronoi convection cells, deep indigo edges dissolving into corona.
 // CORE: amber fusion reactor — volcanic, turbulent, textured.
 //
-// v12: MOD NOISE CRYSTALLIZATION (IQ + Patricio)
-//   fract(rawNoise * layers) in vertex shader creates terraced strata.
-//   Fragment detects facet boundaries via fwidth() → bright specular ridges.
-//   Supercooled plasma on the edge of crystallizing — perpetual phase transition.
-//   Hodgin temporal layers: geological drift, state-driven, pulse shatter, grain drift.
+// v14: FRAGMENT-SIDE MOD-NOISE CRYSTALLIZATION
+//   crystalize() quantization applied to ALL 7 continuous color systems:
+//   domain warp outputs, flow blending, Voronoi drift, organic drift noise,
+//   hue oscillation, volumetric interior, and crystal edge specular.
+//   At crystal=0: smooth plasma (identical to v13). At crystal=1: fully faceted crystal.
+//   Auto range raised to 0.18–0.60 — crystal character always somewhat visible.
 //
 // v13: VISUAL BOARD REFINEMENTS
 //   IQ: Hierarchical fract() — two layers (fine grain + tectonic plates).
 //   Anadol: Crystal edge specular modulated by quiet/singing spatial zones.
 //   Hodgin: Stochastic frost events — flash-freeze moments at random 45-90s intervals.
+//
+// v12: MOD NOISE CRYSTALLIZATION (IQ + Patricio)
+//   fract(rawNoise * layers) in vertex shader creates terraced strata.
+//   Fragment detects facet boundaries via fwidth() → bright specular ridges.
 //
 // v11.8: Voronoi cells with 2-layer temporal drift (fast ~52s + slow ~3min).
 // Spatial quiet/singing zones with deeper contrast (0.45 floor).
@@ -41,6 +46,7 @@ export const novacoreFragmentShader = /* glsl */ `
   uniform vec3 uCorePalD;
 
   uniform float uCrystallize;      // phase-transition state
+  uniform float uCrystalLayers;    // facet density (v14: used in fragment crystallization)
 
   varying vec3 vNormal;
   varying vec3 vPosition;
@@ -121,6 +127,19 @@ export const novacoreFragmentShader = /* glsl */ `
     return a + b * cos(6.28318 * (c * t + d));
   }
 
+  // ── Crystallize helpers (v14) ─────────────────────────────────
+  // Centered rounding: floor(val * levels + 0.5) / levels
+  // Gated by uCrystallize — at 0: smooth pass-through, at 1: fully quantized.
+  // Apply to EVERY continuous color pipeline input to kill swirls.
+  float crystalize(float val, float levels) {
+    float stepped = floor(val * levels + 0.5) / levels;
+    return mix(val, stepped, uCrystallize);
+  }
+  vec3 crystalizeVec3(vec3 val, float levels) {
+    vec3 stepped = floor(val * levels + 0.5) / levels;
+    return mix(val, stepped, uCrystallize);
+  }
+
   // ── 3D hash (IQ) ──────────────────────────────────────────────
   vec3 hash3(vec3 p) {
     p = vec3(dot(p, vec3(127.1, 311.7, 74.7)),
@@ -146,9 +165,11 @@ export const novacoreFragmentShader = /* glsl */ `
       vec3 nb = vec3(float(x), float(y), float(z));
       vec3 o = hash3(ic + nb);
       // Layer 1: fast convective drift (~52s period)
-      vec3 fastDrift = 0.18 * sin(time * 0.12 + o * 6.28318);
+      // v14: Scale drift by crystallization — frozen constellation at crystal=1
+      float driftScale = 1.0 - uCrystallize * 0.85;
+      vec3 fastDrift = 0.18 * sin(time * 0.12 + o * 6.28318) * driftScale;
       // Layer 2: slow geological drift (~3 min period, phase-shifted per cell)
-      vec3 slowDrift = 0.10 * sin(time * 0.006 + o.yzx * 6.28318 + vec3(1.7, 3.2, 5.1));
+      vec3 slowDrift = 0.10 * sin(time * 0.006 + o.yzx * 6.28318 + vec3(1.7, 3.2, 5.1)) * driftScale;
       o += fastDrift + slowDrift;
       vec3 dv = nb + o - fc;
       float dist = dot(dv, dv);
@@ -221,6 +242,13 @@ export const novacoreFragmentShader = /* glsl */ `
     float qMag = warpResult.y;
     float rMag = warpResult.z;
 
+    // v14: Quantize domain warp outputs — highest leverage crystallization.
+    // These three values drive the ENTIRE color pipeline downstream.
+    // At crystal=0: smooth flow. At crystal=1: terraced color zones.
+    pattern = crystalize(pattern, uCrystalLayers * 1.5);
+    qMag = crystalize(qMag, uCrystalLayers);
+    rMag = crystalize(rMag, uCrystalLayers);
+
     // Detail noise — mostly CORE, very faint at NOVA
     float detailSpeed = mix(0.8, 1.5, uMorph);
     float detailAmount = uMorph * uMorph;  // morph² — near-zero at NOVA
@@ -269,9 +297,14 @@ export const novacoreFragmentShader = /* glsl */ `
     vec3 palColor2 = max(iqPalette(qMag * 0.5 + 0.5, palA, palB, palC, palDShifted + vec3(0.18, 0.12, 0.08)), vec3(0.0));
     vec3 palColor3 = max(iqPalette(rMag * 0.4 + 0.2, palA, palB, palC, palDShifted + vec3(-0.10, 0.08, -0.12)), vec3(0.0));
 
-    float blendFlow = smoothstep(0.3, 0.8, qMag);
+    // v14: Step-approaching blending — smooth at crystal=0, hard at crystal=1
+    float blendSmooth = smoothstep(0.3, 0.8, qMag);
+    float blendHard = step(0.55, qMag);
+    float blendFlow = mix(blendSmooth, blendHard, uCrystallize);
     vec3 noiseFlowColor = mix(palColor1, palColor2, blendFlow);
-    noiseFlowColor = mix(noiseFlowColor, palColor3, smoothstep(0.4, 0.9, rMag) * 0.3);
+    float rBlendSmooth = smoothstep(0.4, 0.9, rMag) * 0.3;
+    float rBlendHard = step(0.65, rMag) * 0.3;
+    noiseFlowColor = mix(noiseFlowColor, palColor3, mix(rBlendSmooth, rBlendHard, uCrystallize));
 
     // Flow boundary brightening (CORE feature)
     float flowBoundary = 1.0 - smoothstep(0.0, mix(0.18, 0.05, uMorph), abs(qMag - rMag));
@@ -299,6 +332,9 @@ export const novacoreFragmentShader = /* glsl */ `
     // 2-layer organic noise drift — NOVA: ultra-low freq (broad zones), CORE: tighter
     float driftNoise1 = fbm2(wDir * mix(0.5, 1.5, uMorph) + uTime * vec3(0.038, 0.028, 0.048));
     float driftNoise2 = fbm2(wDir * mix(0.7, 2.2, uMorph) + uTime * vec3(-0.025, 0.042, -0.018) + vec3(3.7, 1.2, 5.8));
+    // v14: Quantize drift noise — flowing aurora → discrete color zones that snap
+    driftNoise1 = crystalize(driftNoise1, 4.0);
+    driftNoise2 = crystalize(driftNoise2, 4.0);
     float organicDrift = (driftNoise1 * 0.28 + driftNoise2 * 0.18) * (1.0 - uMorph);
 
     // ── Streaming flow — broad directional color sweep ──────────
@@ -339,7 +375,10 @@ export const novacoreFragmentShader = /* glsl */ `
     // v11: Oscillation KILLED at NOVA (creates visible bands = "swirly lines").
     // CORE: enriches hue variety at fine scale.
     float oscAmount = uMorph * uMorph;  // morph² — zero at NOVA, full at CORE
-    float hueOsc = sin(flowAngle * 3.6 + flowElev * 2.8 + uTime * 0.12) * 0.08 * oscAmount;
+    // v14: Step hue oscillation — each crystal facet picks a fixed hue
+    float hueOscRaw = sin(flowAngle * 3.6 + flowElev * 2.8 + uTime * 0.12);
+    float hueOscStepped = floor(hueOscRaw * 2.0 + 0.5) / 2.0;
+    float hueOsc = mix(hueOscRaw, hueOscStepped, uCrystallize) * 0.08 * oscAmount;
     vec3 oscColor = max(iqPalette(smoothT + 0.32 + hueOsc, palA, palB, palC, palDShifted + vec3(0.03, 0.06, 0.02)), vec3(0.0));
     smoothFlowColor = mix(smoothFlowColor, oscColor, 0.22 * oscAmount);
 
@@ -502,6 +541,8 @@ export const novacoreFragmentShader = /* glsl */ `
         float remapped = (density - threshold) / (1.0 - threshold);
         // NOVA: depth-driven color (smooth), CORE: density-driven (textured)
         float volT = depthRatio * mix(0.65, 0.3, uMorph) + remapped * mix(0.15, 0.6, uMorph);
+        // v14: Quantize volumetric interior — visible internal strata (looking into a geode)
+        volT = crystalize(volT, 5.0);
         vec3 volColor = iqPalette(volT, palA, palB, palC, palDShifted);
         volColor = max(volColor, vec3(0.0));
         volColor *= 1.0 + depthRatio * mix(1.5, 2.8, uMorph);

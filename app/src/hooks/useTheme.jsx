@@ -118,6 +118,19 @@ export function ThemeProvider({ children }) {
         ? { ...finalTokens, glass: flatGlass, glassLight: flatGlass, neroGlass: undefined, glow: accentGlow }
         : { ...finalTokens, glow: accentGlow };
 
+      // Concrete material mode: diffused ambient occlusion shadows (no sharp specular)
+      if (isNoGlass && colors.materialMode === "concrete") {
+        resolvedTokens.shadow = {
+          sm: "0 1px 4px rgba(0,0,0,0.25)",
+          md: "0 2px 10px rgba(0,0,0,0.30)",
+          lg: "0 4px 20px rgba(0,0,0,0.35)",
+          xl: "0 8px 40px rgba(0,0,0,0.40)",
+          glow: "0 2px 12px rgba(0,0,0,0.25)",
+          glowAccent: `0 0 8px ${(colors.accent || "#B0A698")}18`,
+          glowPurple: `0 0 8px ${(colors.accent || "#B0A698")}18`,
+        };
+      }
+
       return { ...colors, T: resolvedTokens, isDark: true, panel: { ...colors, T: resolvedTokens, isDark: true } };
     }
 
@@ -143,6 +156,20 @@ export function ThemeProvider({ children }) {
       const panelTokens = isNoGlass
         ? { ...tokens, glass: flatGlass, neroGlass: undefined, glow: panelGlow }
         : { ...tokens, glow: panelGlow };
+
+      // Concrete shadows for panel (dark side)
+      if (isNoGlass && darkBase.materialMode === "concrete") {
+        panelTokens.shadow = {
+          sm: "0 1px 4px rgba(0,0,0,0.25)",
+          md: "0 2px 10px rgba(0,0,0,0.30)",
+          lg: "0 4px 20px rgba(0,0,0,0.35)",
+          xl: "0 8px 40px rgba(0,0,0,0.40)",
+          glow: "0 2px 12px rgba(0,0,0,0.25)",
+          glowAccent: `0 0 8px ${(darkBase.accent || "#8A7E70")}18`,
+          glowPurple: `0 0 8px ${(darkBase.accent || "#8A7E70")}18`,
+        };
+      }
+
       const panel = { ...darkBase, T: panelTokens, isDark: true };
       const lightT = isNoGlass
         ? {
@@ -158,6 +185,20 @@ export function ThemeProvider({ children }) {
             glass: tokens.glassLight || tokens.glass,
             glow: mainGlow,
           };
+
+      // Concrete shadows for light side — softer, diffused
+      if (isNoGlass && darkBase.materialMode === "concrete") {
+        lightT.shadow = {
+          sm: "0 1px 3px rgba(0,0,0,0.08), 0 0 0 0.5px rgba(0,0,0,0.04)",
+          md: "0 2px 8px rgba(0,0,0,0.10), 0 0 0 0.5px rgba(0,0,0,0.04)",
+          lg: "0 4px 16px rgba(0,0,0,0.12), 0 0 0 0.5px rgba(0,0,0,0.04)",
+          xl: "0 8px 32px rgba(0,0,0,0.14), 0 0 0 0.5px rgba(0,0,0,0.04)",
+          glow: "0 2px 8px rgba(0,0,0,0.08)",
+          glowAccent: `0 0 6px ${(darkBase.accent || "#8A7E70")}10`,
+          glowPurple: `0 0 6px ${(darkBase.accent || "#8A7E70")}10`,
+        };
+      }
+
       return { ...mainColors, T: lightT, isDark: false, panel };
     }
 

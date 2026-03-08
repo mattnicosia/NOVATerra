@@ -205,7 +205,8 @@ const NovacoreSphere = forwardRef(function NovacoreSphere(
       // Layer 1: Geological crystallize drift — 2-3 min
       const geoPhase = Math.sin(elapsedTime * 0.0055 + 1.7) * 0.5 + 0.5;
       const geoPhase2 = Math.sin(elapsedTime * 0.0031 + 4.2) * 0.5 + 0.5;
-      const geoCrystallize = 0.08 + 0.32 * (geoPhase * 0.6 + geoPhase2 * 0.4);
+      // v14: Raised range 0.18–0.60 (was 0.08–0.40) — crystal character always visible
+      const geoCrystallize = 0.18 + 0.42 * (geoPhase * 0.6 + geoPhase2 * 0.4);
 
       // Layer 2: State-driven — morph adds crystallization
       const stateCrystallize = s.morph * 0.2;

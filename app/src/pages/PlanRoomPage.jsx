@@ -197,23 +197,40 @@ export default function PlanRoomPage() {
   }, [scanResultsPending, scanResults, showScanModal]);
 
   // ── Auto-start Discovery scan when drawings exist but no results yet ──
-  // Covers: page refresh, returning after upload, plans uploaded in a previous session
+  // Covers: page refresh, returning after upload, plans uploaded in a previous session.
+  // Uses a 2s delay to let IDB hydration complete, then re-checks from fresh store state.
   const autoScanTriggered = useRef(false);
   useEffect(() => {
     if (autoScanTriggered.current) return;
-    if (drawings.length === 0) return; // No drawings to scan
+    if (drawings.length === 0) return; // No drawings loaded yet
     if (scanResults !== null) return; // Already have results
     if (scanProgress.phase !== null) return; // Scan already running
-    if (rescanning) return; // Manual rescan in progress
 
-    autoScanTriggered.current = true;
-    console.log("[Discovery] Auto-starting scan — drawings exist but no scan results");
-    showToast(`Starting discovery scan on ${drawings.length} drawings...`);
-    runFullScan({
-      onComplete: () => setShowScanModal(true),
-      onError: () => {},
-    });
-  }, [drawings.length, scanResults, scanProgress.phase, rescanning, showToast]);
+    // Delay to ensure IDB persistence has fully hydrated all stores
+    const timer = setTimeout(() => {
+      // Re-check from fresh store state (not stale closure values)
+      const freshResults = useScanStore.getState().scanResults;
+      const freshProgress = useScanStore.getState().scanProgress;
+      if (freshResults !== null) return; // Results loaded from IDB
+      if (freshProgress.phase !== null) return; // Another scan started
+
+      autoScanTriggered.current = true;
+      console.log(`[Discovery] Auto-starting scan — ${drawings.length} drawings, no results`);
+      showToast(`NOVA is scanning ${drawings.length} drawings...`);
+      setRescanning(true); // Enable progress banner visibility
+      runFullScan({
+        onComplete: () => {
+          setRescanning(false);
+          setShowScanModal(true);
+        },
+        onError: err => {
+          setRescanning(false);
+          console.error("[Discovery] Auto-scan failed:", err);
+        },
+      });
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [drawings.length, scanResults, scanProgress.phase]);
 
   // Upload handler
   const handleUpload = useCallback(
@@ -1114,6 +1131,53 @@ export default function PlanRoomPage() {
                   </div>
                 )}
 
+                {/* ── Run Discovery prompt when scan hasn't run ── */}
+                {!scanResults && !scanProgress.phase && !rescanning && drawings.length > 0 && (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "10px 16px",
+                      marginBottom: T.space[3],
+                      borderRadius: T.radius.sm,
+                      background: `linear-gradient(135deg, ${C.accent}08, ${C.accent}04)`,
+                      border: `1px solid ${C.accent}20`,
+                    }}
+                  >
+                    <NovaOrb size={20} scheme="nova" />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: C.text }}>
+                        {drawings.length} drawings ready for discovery
+                      </div>
+                      <div style={{ fontSize: 9, color: C.textDim, marginTop: 2 }}>
+                        NOVA will detect schedules, extract notes, and generate a rough order of magnitude estimate.
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setRescanning(true);
+                        runFullScan({
+                          onComplete: () => { setRescanning(false); setShowScanModal(true); },
+                          onError: () => setRescanning(false),
+                        });
+                      }}
+                      style={bt(C, {
+                        fontSize: 11,
+                        fontWeight: 600,
+                        padding: "6px 16px",
+                        borderRadius: T.radius.sm,
+                        color: "#fff",
+                        background: C.accent,
+                        border: "none",
+                        cursor: "pointer",
+                        flexShrink: 0,
+                      })}
+                    >
+                      Run Discovery
+                    </button>
+                  </div>
+                )}
                 <div style={{ display: "flex", gap: T.space[3], flexWrap: "wrap" }}>
                   <PipelineStep
                     label="Page Extraction"

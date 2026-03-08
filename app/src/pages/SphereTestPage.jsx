@@ -180,7 +180,7 @@ export default function SphereTestPage() {
         {/* Title */}
         <div style={{ marginBottom: 4 }}>
           <h1 style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 2, letterSpacing: "-0.02em" }}>
-            NOVACORE v12 — Phase Transition
+            NOVACORE v14 — Phase Transition
           </h1>
           <p style={{ fontSize: 10, color: "#555", margin: 0 }}>
             Domain-warped FBM · IQ Palette · Mod Noise Crystallization
