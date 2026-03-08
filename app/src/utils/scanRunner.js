@@ -36,6 +36,9 @@ import {
 } from "@/utils/romEngine";
 import { runParameterDetection } from "@/utils/parameterDetectionEngine";
 import { extractDrawingNotes, buildNotesContext } from "@/utils/notesExtractor";
+import { extractTitleBlockFields, mapBuildingTypeKey, inferWorkType } from "@/utils/titleBlockExtractor";
+import { generateScopeOutline } from "@/utils/scopeOutlineGenerator";
+import { autoTradeFromCode } from "@/constants/tradeGroupings";
 import { renderPdfPage } from "@/utils/drawingUtils";
 import { saveEstimate } from "@/hooks/usePersistence";
 
@@ -233,6 +236,137 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
     );
     const validNotesResults = drawingNotesResults.filter(r => !r.error);
     const notesContext = buildNotesContext(validNotesResults);
+
+    // ── Phase 1.7: Extract title block fields ──
+    checkAbort();
+    try {
+      useNovaStore.getState().updateProgress(30, "Reading title block...");
+      setScanProgress({ phase: "titleblock", current: 0, total: 1, message: "Reading title block..." });
+
+      // Pick 2 candidate sheets — prefer those with title-block notes, fall back to first 2
+      const titleBlockSheets = validNotesResults.filter(
+        r => r.notes?.some(n => n.category === "title-block"),
+      );
+      const candidateSheetIds = titleBlockSheets.length > 0
+        ? titleBlockSheets.slice(0, 2).map(r => r.sheetId)
+        : detections.filter(d => !d.error && d.imgBase64).slice(0, 2).map(d => d.sheetId);
+
+      const candidateDets = detections.filter(d => candidateSheetIds.includes(d.sheetId) && d.imgBase64);
+
+      if (candidateDets.length > 0) {
+        const tbResults = await batchAI(
+          candidateDets,
+          async (det) => {
+            return extractTitleBlockFields({
+              imgBase64: det.imgBase64,
+              ocrText: det.ocrText || "",
+              sheetLabel: det.sheetLabel || "Unknown",
+            });
+          },
+          2,
+        );
+
+        // Merge: first non-empty value per field wins
+        const merged = {};
+        const fields = [
+          "projectName", "client", "architect", "engineer",
+          "address", "city", "state", "zipCode",
+          "projectNumber", "buildingTypeHint", "workTypeHint",
+        ];
+        for (const result of tbResults) {
+          if (!result || result.error) continue;
+          for (const f of fields) {
+            if (!merged[f] && result[f]) merged[f] = result[f];
+          }
+        }
+
+        // Write to projectStore — only empty fields
+        const proj = useProjectStore.getState().project;
+        const updates = {};
+        const detected = { ...(proj.autoDetected || {}) };
+        let anyUpdate = false;
+
+        if (merged.projectName && (!proj.name || proj.name === "New Estimate")) {
+          updates.name = merged.projectName;
+          detected.name = true;
+          anyUpdate = true;
+        }
+        if (merged.client && !proj.client) {
+          updates.client = merged.client;
+          detected.client = true;
+          anyUpdate = true;
+        }
+        if (merged.architect && !proj.architect) {
+          updates.architect = merged.architect;
+          detected.architect = true;
+          anyUpdate = true;
+        }
+        if (merged.engineer && !proj.engineer) {
+          updates.engineer = merged.engineer;
+          detected.engineer = true;
+          anyUpdate = true;
+        }
+        if (merged.address && !proj.address) {
+          let addr = merged.address;
+          if (merged.city) addr += `, ${merged.city}`;
+          if (merged.state) addr += `, ${merged.state}`;
+          updates.address = addr;
+          detected.address = true;
+          anyUpdate = true;
+        }
+        if (merged.zipCode && !proj.zipCode) {
+          updates.zipCode = merged.zipCode;
+          detected.zipCode = true;
+          anyUpdate = true;
+        }
+        if (merged.projectNumber && !proj.projectNumber) {
+          updates.projectNumber = merged.projectNumber;
+          detected.projectNumber = true;
+          anyUpdate = true;
+        }
+        if (merged.buildingTypeHint && !proj.buildingType) {
+          const mapped = mapBuildingTypeKey(merged.buildingTypeHint);
+          if (mapped) {
+            updates.buildingType = mapped;
+            detected.buildingType = true;
+            anyUpdate = true;
+          }
+        }
+
+        // Infer work type from drawing notes
+        if (!proj.workType) {
+          const inferredWork = inferWorkType(validNotesResults);
+          if (inferredWork) {
+            updates.workType = inferredWork;
+            detected.workType = true;
+            anyUpdate = true;
+          }
+        }
+
+        // Also check title block work type hint
+        if (merged.workTypeHint && !proj.workType && !updates.workType) {
+          const lower = merged.workTypeHint.toLowerCase();
+          if (lower.includes("renovation")) updates.workType = "renovation";
+          else if (lower.includes("tenant")) updates.workType = "tenant-fit-out";
+          else if (lower.includes("addition")) updates.workType = "addition";
+          else if (lower.includes("new")) updates.workType = "new-construction";
+          if (updates.workType) {
+            detected.workType = true;
+            anyUpdate = true;
+          }
+        }
+
+        if (anyUpdate) {
+          updates.autoDetected = detected;
+          useProjectStore.getState().setProject({ ...useProjectStore.getState().project, ...updates });
+          const fieldCount = Object.keys(updates).filter(k => k !== "autoDetected").length;
+          console.log(`[scanRunner] Phase 1.7: Auto-filled ${fieldCount} project fields from title block`);
+        }
+      }
+    } catch (err) {
+      console.warn("[scanRunner] Phase 1.7 (title block) failed:", err.message);
+      // Non-critical — project fields remain empty for user to fill
+    }
 
     // ── Phase 2: Parse schedules (skip if none detected) ──
     checkAbort();
@@ -484,9 +618,10 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
           detected.floorCount = true;
         }
 
-        // Building type
+        // Building type — map to BUILDING_TYPES key
         if (detectionResult.parameters.buildingType && !proj.buildingType) {
-          updates.buildingType = detectionResult.parameters.buildingType;
+          updates.buildingType = mapBuildingTypeKey(detectionResult.parameters.buildingType)
+            || detectionResult.parameters.buildingType;
           detected.buildingType = true;
         }
 
@@ -554,6 +689,16 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
       baseline.sfEstimateDetails = sfEstimate;
       baseline.sfMissing = false;
       baseline.projectSF = sfEstimate.estimatedSF;
+
+      // Write estimated SF back to projectStore if user hasn't set it
+      if (!useProjectStore.getState().project.projectSF) {
+        const sfVal = String(Math.round(sfEstimate.estimatedSF));
+        useProjectStore.getState().setProject({
+          ...useProjectStore.getState().project,
+          projectSF: sfVal,
+          autoDetected: { ...useProjectStore.getState().project.autoDetected, projectSF: true },
+        });
+      }
     }
     const scheduleLineItems = await generateScheduleLineItems(validSchedules);
 
@@ -571,6 +716,54 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
       notesContext,
     });
 
+    // ── Phase 3.5: Auto-populate scope outline (only for empty estimates) ──
+    let scopeOutlineStats = null;
+    checkAbort();
+    if (useItemsStore.getState().items.length === 0) {
+      try {
+        useNovaStore.getState().updateProgress(85, "Generating scope outline...");
+        setScanProgress({ phase: "scope", current: 0, total: 1, message: "Generating scope outline..." });
+
+        const scopeResult = await generateScopeOutline({
+          scheduleLineItems,
+          rom: augmentedROM,
+          project: useProjectStore.getState().project,
+          notesContext,
+        });
+
+        if (scopeResult.items.length > 0) {
+          const { addElement } = useItemsStore.getState();
+          const { divFromCode } = useProjectStore.getState();
+          for (const item of scopeResult.items) {
+            const division = item.division || divFromCode(item.code) || "";
+            addElement(division, {
+              code: item.code,
+              name: item.description,
+              unit: item.unit,
+              quantity: item.quantity || 1,
+              material: item.material || 0,
+              labor: item.labor || 0,
+              equipment: item.equipment || 0,
+              subcontractor: item.subcontractor || 0,
+              trade: autoTradeFromCode(item.code) || "",
+            });
+          }
+          scopeOutlineStats = {
+            totalItems: scopeResult.items.length,
+            scheduleItems: scopeResult.scheduleItemCount,
+            aiItems: scopeResult.aiItemCount,
+          };
+          console.log(
+            `[scanRunner] Phase 3.5: Generated ${scopeResult.items.length} scope items ` +
+            `(${scopeResult.scheduleItemCount} from schedules, ${scopeResult.aiItemCount} AI-generated)`,
+          );
+        }
+      } catch (err) {
+        console.warn("[scanRunner] Phase 3.5 (scope outline) failed:", err.message);
+        // Non-critical — user can still add items manually
+      }
+    }
+
     const results = {
       schedules: validSchedules.map(s => ({
         type: s.type,
@@ -584,6 +777,7 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
       lineItems: scheduleLineItems,
       drawingNotes: validNotesResults,
       notesContext,
+      scopeOutline: scopeOutlineStats,
       timestamp: Date.now(),
     };
     setScanResults(results);
@@ -606,6 +800,7 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
       parts.push(
         `ROM $${Math.round(augmentedROM.totals.low / 1000)}K–$${Math.round(augmentedROM.totals.high / 1000)}K`,
       );
+    if (scopeOutlineStats) parts.push(`${scopeOutlineStats.totalItems} scope items generated`);
     const scanMsg = parts.length > 0 ? `Scan complete: ${parts.join(" · ")}` : "Scan complete: drawings analyzed";
     showToast(scanMsg);
     useNovaStore.getState().completeTask(scanMsg);

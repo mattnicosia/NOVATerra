@@ -18,6 +18,7 @@ import { I } from "@/constants/icons";
 import { inp, nInp, bt } from "@/utils/styles";
 import { uid } from "@/utils/format";
 import { resolveLocationFactors, getAllLocations } from "@/constants/locationFactors";
+import { suggestEstimatedHours } from "@/utils/hoursEstimator";
 
 /* ── Completion calculator ── */
 const ALL_FIELDS = [
@@ -228,6 +229,7 @@ export default function ProjectInfoPage() {
 
   const [quickAddModal, setQuickAddModal] = useState(null);
   const [quickAddValue, setQuickAddValue] = useState("");
+  const [hoursSuggestion, setHoursSuggestion] = useState(null);
 
   const completion = useMemo(() => calcCompletion(project), [project]);
 
@@ -245,6 +247,8 @@ export default function ProjectInfoPage() {
         client: project.client || "",
         status: project.status || "Bidding",
         bidDue: project.bidDue || "",
+        startDate: project.startDate || "",
+        estimatedHours: project.estimatedHours || "",
         estimator: project.estimator || "",
         jobType: project.jobType || "",
         buildingType: project.buildingType || "",
@@ -260,6 +264,12 @@ export default function ProjectInfoPage() {
   };
 
   const up = (field, value) => setProject({ ...project, [field]: value });
+
+  const handleSuggestHours = () => {
+    const estimatesIndex = useEstimatesStore.getState().estimatesIndex;
+    const result = suggestEstimatedHours(project, estimatesIndex);
+    setHoursSuggestion(result);
+  };
 
   const handleQuickAdd = () => {
     if (!quickAddValue.trim()) return;
@@ -316,8 +326,20 @@ export default function ProjectInfoPage() {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
         {detected && (
-          <span style={{ fontSize: 8, color: C.green, fontWeight: 600, animation: "fadeIn 0.3s ease" }}>
-            ✦ Auto-detected
+          <span
+            style={{
+              fontSize: 8,
+              fontWeight: 700,
+              padding: "1px 5px",
+              borderRadius: 3,
+              background: `${C.accent}18`,
+              color: C.accent,
+              letterSpacing: "0.04em",
+              lineHeight: "14px",
+              animation: "fadeIn 0.3s ease",
+            }}
+          >
+            NOVA
           </span>
         )}
         {needsSave && (
@@ -447,6 +469,7 @@ export default function ProjectInfoPage() {
                   </option>
                 ))}
               </select>
+              {autoTag("buildingType")}
             </Fld>
             <Fld label="Project SF">
               <input
@@ -455,6 +478,7 @@ export default function ProjectInfoPage() {
                 onChange={e => up("projectSF", e.target.value)}
                 style={nInp(C, { fontSize: 13 })}
               />
+              {autoTag("projectSF")}
             </Fld>
             <Fld label="Project Zip Code">
               <input
@@ -474,6 +498,7 @@ export default function ProjectInfoPage() {
                     </div>
                   ) : null;
                 })()}
+              {autoTag("zipCode")}
             </Fld>
 
             {/* ── Extended fields ── */}
@@ -712,6 +737,7 @@ export default function ProjectInfoPage() {
                   </option>
                 ))}
               </select>
+              {autoTag("workType")}
             </Fld>
             <Fld label="Labor Type">
               <select
@@ -894,6 +920,95 @@ export default function ProjectInfoPage() {
           {/* Visual Timeline */}
           <BidTimeline project={project} C={C} />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
+            <Fld label="Start Date">
+              <input
+                type="date"
+                value={project.startDate || ""}
+                onChange={e => up("startDate", e.target.value)}
+                style={inp(C)}
+              />
+            </Fld>
+            <Fld label="Estimated Hours">
+              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={project.estimatedHours || ""}
+                  onChange={e => up("estimatedHours", e.target.value)}
+                  placeholder="0"
+                  style={inp(C, { flex: 1 })}
+                />
+                <button
+                  type="button"
+                  onClick={handleSuggestHours}
+                  title="NOVA: Suggest hours from similar projects"
+                  style={{
+                    ...bt(C),
+                    padding: "6px 8px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                    fontSize: 11,
+                    background: `${C.accent}18`,
+                    border: `1px solid ${C.accent}44`,
+                    color: C.accent,
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <Ic path={I.ai} size={14} color={C.accent} />
+                </button>
+              </div>
+              {hoursSuggestion && (
+                <div
+                  style={{
+                    marginTop: 6,
+                    padding: "6px 10px",
+                    borderRadius: 6,
+                    background: `${C.accent}10`,
+                    border: `1px solid ${C.accent}22`,
+                    fontSize: 11,
+                    color: C.textSoft,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <span style={{ flex: 1, minWidth: 120 }}>
+                    ~{hoursSuggestion.range[0]}-{hoursSuggestion.range[1]} hrs based on {hoursSuggestion.basedOn}{" "}
+                    similar project{hoursSuggestion.basedOn !== 1 ? "s" : ""}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      up("estimatedHours", String(hoursSuggestion.suggested));
+                      setHoursSuggestion(null);
+                    }}
+                    style={{
+                      ...bt(C),
+                      padding: "3px 10px",
+                      fontSize: 10,
+                      fontWeight: 600,
+                      background: C.accent,
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: 4,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Apply
+                  </button>
+                </div>
+              )}
+              {hoursSuggestion === null && (
+                <div style={{ fontSize: 10, color: C.textSoft, marginTop: 2, opacity: 0.6 }}>
+                  Click the star to get NOVA's estimate
+                </div>
+              )}
+            </Fld>
             <Fld label="Bid Due Date">
               <input
                 type="date"

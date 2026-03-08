@@ -23,18 +23,6 @@ import { runFullScan } from "@/utils/scanRunner";
 
 const API_BASE = import.meta.env.DEV ? "https://app-nova-42373ca7.vercel.app" : "";
 
-// Convert ArrayBuffer to base64 (chunked to avoid stack overflow on large files)
-const arrayBufferToBase64 = buffer => {
-  const bytes = new Uint8Array(buffer);
-  let binary = "";
-  const chunkSize = 8192;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, i + chunkSize);
-    binary += String.fromCharCode(...chunk);
-  }
-  return btoa(binary);
-};
-
 const FILTERS = [
   { key: "all", label: "All" },
   { key: "unread", label: "Unread" },
@@ -255,7 +243,8 @@ export default function InboxPage() {
 
           // Separate cloud files by category
           for (const cf of cloudFiles) {
-            cloudStoragePaths.push(cf.storagePath);
+            // Only track storagePath for cleanup if file was uploaded to Supabase
+            if (cf.storagePath) cloudStoragePaths.push(cf.storagePath);
 
             const isPdf = cf.contentType === "application/pdf" || cf.filename?.toLowerCase().endsWith(".pdf");
 
@@ -264,6 +253,7 @@ export default function InboxPage() {
               cloudPdfAtts.push({
                 filename: cf.filename,
                 downloadPath: cf.storagePath,
+                proxyToken: cf.proxyToken || null,
                 contentType: cf.contentType,
                 size: cf.size,
                 isAddendum: cf.isAddendum || false,
@@ -283,6 +273,7 @@ export default function InboxPage() {
                 source: "cloud",
                 provider: cf.provider,
                 storagePath: cf.storagePath,
+                proxyToken: cf.proxyToken || null,
                 docCategory: cf.docCategory || "general",
                 data: null,
                 uploadDate: new Date().toISOString(),
@@ -340,7 +331,10 @@ export default function InboxPage() {
           let totalPages = 0;
           for (const att of allPdfAtts) {
             try {
-              const url = `${API_BASE}/api/attachment?path=${encodeURIComponent(att.downloadPath)}`;
+              // Use proxy endpoint for large files (no storagePath), or standard attachment endpoint
+              const url = att.proxyToken
+                ? `${API_BASE}/api/proxy-cloud-file?token=${encodeURIComponent(att.proxyToken)}`
+                : `${API_BASE}/api/attachment?path=${encodeURIComponent(att.downloadPath)}`;
               const resp = await fetch(url, { headers: authHeaders });
               if (!resp.ok) {
                 console.error(`PDF download failed: ${att.filename} (${resp.status})`);
@@ -348,10 +342,19 @@ export default function InboxPage() {
               }
 
               const buffer = await resp.arrayBuffer();
-              const base64 = arrayBufferToBase64(buffer);
               const pdf = await window.pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
 
+              // Render each page to JPEG instead of storing raw PDF base64 per page
               for (let p = 1; p <= pdf.numPages; p++) {
+                const pg = await pdf.getPage(p);
+                const scale = 1.5;
+                const vp = pg.getViewport({ scale });
+                const canvas = document.createElement("canvas");
+                canvas.width = vp.width;
+                canvas.height = vp.height;
+                await pg.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise;
+                const jpegDataUrl = canvas.toDataURL("image/jpeg", 0.85);
+
                 const drawing = {
                   id: uid(),
                   label: `${att.filename.replace(/\.pdf$/i, "")}-Pg${p}`,
@@ -359,7 +362,8 @@ export default function InboxPage() {
                   sheetTitle: "",
                   revision: "0",
                   type: "pdf",
-                  data: base64,
+                  pdfPreRendered: true,
+                  data: jpegDataUrl,
                   fileName: att.filename,
                   uploadDate: new Date().toISOString(),
                   pdfPage: p,
@@ -608,12 +612,13 @@ export default function InboxPage() {
           if (cloudResp.ok) {
             const cloudResult = await cloudResp.json();
             for (const cf of cloudResult.files || []) {
-              cloudStoragePaths.push(cf.storagePath);
+              if (cf.storagePath) cloudStoragePaths.push(cf.storagePath);
               const isPdf = cf.contentType === "application/pdf" || cf.filename?.toLowerCase().endsWith(".pdf");
               if (isPdf) {
                 cloudPdfAtts.push({
                   filename: cf.filename,
                   downloadPath: cf.storagePath,
+                  proxyToken: cf.proxyToken || null,
                   contentType: cf.contentType,
                   size: cf.size,
                   source: "cloud",
@@ -656,13 +661,25 @@ export default function InboxPage() {
           const newDrawings = [];
           for (const att of allPdfAtts) {
             try {
-              const url = `${API_BASE}/api/attachment?path=${encodeURIComponent(att.downloadPath)}`;
+              // Use proxy endpoint for large files (no storagePath), or standard attachment endpoint
+              const url = att.proxyToken
+                ? `${API_BASE}/api/proxy-cloud-file?token=${encodeURIComponent(att.proxyToken)}`
+                : `${API_BASE}/api/attachment?path=${encodeURIComponent(att.downloadPath)}`;
               const resp = await fetch(url, { headers: authHeaders });
               if (!resp.ok) continue;
               const buffer = await resp.arrayBuffer();
-              const base64 = arrayBufferToBase64(buffer);
               const pdf = await window.pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
+              // Render each page to JPEG instead of storing raw PDF base64 per page
               for (let p = 1; p <= pdf.numPages; p++) {
+                const pg = await pdf.getPage(p);
+                const scale = 1.5;
+                const vp = pg.getViewport({ scale });
+                const canvas = document.createElement("canvas");
+                canvas.width = vp.width;
+                canvas.height = vp.height;
+                await pg.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise;
+                const jpegDataUrl = canvas.toDataURL("image/jpeg", 0.85);
+
                 newDrawings.push({
                   id: uid(),
                   label: `${att.filename.replace(/\.pdf$/i, "")}-Pg${p}`,
@@ -670,7 +687,8 @@ export default function InboxPage() {
                   sheetTitle: "",
                   revision: "0",
                   type: "pdf",
-                  data: base64,
+                  pdfPreRendered: true,
+                  data: jpegDataUrl,
                   fileName: att.filename,
                   uploadDate: new Date().toISOString(),
                   pdfPage: p,

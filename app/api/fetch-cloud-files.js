@@ -9,19 +9,50 @@ import {
   classifyByParentFolder,
   extractAddendumNumber,
 } from "./lib/cloudDownloaders.js";
+import crypto from "crypto";
 
 /* ────────────────────────────────────────────────────────
    POST /api/fetch-cloud-files
    Downloads files from cloud storage links (Dropbox, Google Drive, Box, etc.)
    and uploads them to Supabase Storage for frontend retrieval.
+   Files >50MB fall back to proxy token (bypasses Supabase Storage limit).
 
    Body: { planLinks: [{ url, provider, label }], rfpId, existingFilenames: [] }
    Returns: { files: [...], errors: [...] }
    ──────────────────────────────────────────────────────── */
 
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB per file
-const MAX_TOTAL_SIZE = 200 * 1024 * 1024; // 200MB total
+const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB per file (construction plan sets can be 100MB+)
+const MAX_TOTAL_SIZE = 500 * 1024 * 1024; // 500MB total
 const MAX_FILES = 50; // 50 files max
+const SUPABASE_UPLOAD_LIMIT = 50 * 1024 * 1024; // Supabase free tier: 50MB per file
+
+/* ── Proxy token helpers (AES-256-CBC encrypted, 1-hour expiry) ── */
+const PROXY_KEY = crypto
+  .createHash("sha256")
+  .update(process.env.SUPABASE_SERVICE_ROLE_KEY || "proxy-fallback-key")
+  .digest();
+
+export function createProxyToken(info) {
+  const payload = JSON.stringify({ ...info, ts: Date.now() });
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv("aes-256-cbc", PROXY_KEY, iv);
+  let enc = cipher.update(payload, "utf8", "hex");
+  enc += cipher.final("hex");
+  return iv.toString("hex") + "." + enc;
+}
+
+export function decryptProxyToken(token) {
+  try {
+    const [ivHex, enc] = token.split(".");
+    const iv = Buffer.from(ivHex, "hex");
+    const decipher = crypto.createDecipheriv("aes-256-cbc", PROXY_KEY, iv);
+    let dec = decipher.update(enc, "hex", "utf8");
+    dec += decipher.final("utf8");
+    return JSON.parse(dec);
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Read API keys — first try cloud_provider_configs table (future: per-org),
@@ -181,20 +212,36 @@ export default async function handler(req, res) {
           const storagePath = `${user.id}/${rfpId}/cloud/${fileInfo.filename}`;
           const contentType = getContentType(fileInfo.filename);
 
-          const { error: uploadErr } = await supabaseAdmin.storage
-            .from("rfp-attachments")
-            .upload(storagePath, buffer, { contentType, upsert: true });
+          let uploadOk = false;
+          let proxyToken = null;
 
-          if (uploadErr) {
-            console.error("Supabase upload error:", uploadErr.message);
-            results.errors.push({
-              url: link.url,
-              error: "upload_failed",
+          // Try Supabase upload for files within the storage limit
+          if (buffer.length <= SUPABASE_UPLOAD_LIMIT) {
+            const { error: uploadErr } = await supabaseAdmin.storage
+              .from("rfp-attachments")
+              .upload(storagePath, buffer, { contentType, upsert: true });
+            if (uploadErr) {
+              console.warn("Supabase upload error (will try proxy fallback):", uploadErr.message);
+            } else {
+              uploadOk = true;
+            }
+          }
+
+          // Fallback: for large files or failed uploads, create a proxy token
+          // so the client can re-download via /api/proxy-cloud-file
+          if (!uploadOk) {
+            proxyToken = createProxyToken({
+              downloadUrl: fileInfo.downloadUrl,
               filename: fileInfo.filename,
-              label: link.label,
-              message: uploadErr.message,
+              provider: fileInfo.provider || link.provider || "generic",
+              _useApi: fileInfo._useApi || false,
+              _apiKey: fileInfo._apiKey || "",
+              _path: fileInfo._path || "",
+              _fileId: fileInfo._fileId || "",
             });
-            continue;
+            console.log(
+              `Large file proxy: ${fileInfo.filename} (${(buffer.length / 1024 / 1024).toFixed(1)}MB) → proxy token`,
+            );
           }
 
           downloadedNames.add(nameLower);
@@ -202,7 +249,8 @@ export default async function handler(req, res) {
             filename: fileInfo.filename,
             contentType,
             size: buffer.length,
-            storagePath,
+            storagePath: uploadOk ? storagePath : null,
+            proxyToken: proxyToken || undefined,
             provider: fileInfo.provider || link.provider,
             label: link.label,
             sourceUrl: link.url,
