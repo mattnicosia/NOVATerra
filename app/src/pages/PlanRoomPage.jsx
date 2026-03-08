@@ -150,9 +150,14 @@ export default function PlanRoomPage() {
     Object.keys(autoDetected).length > 0 ||
     documents.length > 0;
 
-  // Detect stale state: drawing-type documents exist but drawing pages are missing
-  // Only consider drawing-type docs (not specs/RFPs/general) to avoid false "re-upload" prompts
-  const drawingTypeDocs = documents.filter(d => d.docType === "drawing");
+  // Detect stale state: drawing-related documents exist but drawing pages are missing
+  // Consider: explicit drawing docType, docs with drawingIds, and legacy docs without docType
+  const drawingTypeDocs = documents.filter(d =>
+    d.docType === "drawing" ||
+    (d.drawingIds && d.drawingIds.length > 0) ||
+    !d.docType
+  );
+  const nonDrawingDocs = documents.filter(d => d.docType === "specification" || d.docType === "rfp");
   const failedDrawingDocs = drawingTypeDocs.filter(d => d.processingStatus === "error");
   const drawingsMissing = drawingTypeDocs.length > 0 && drawings.length === 0 && !scanResults && processingDocs.length === 0;
 
@@ -1047,8 +1052,8 @@ export default function PlanRoomPage() {
         )}
 
         {/* ─── No Drawing Plans Uploaded ─── */}
-        {/* Non-drawing docs exist (specs, RFPs) but no drawing-type files and no drawings */}
-        {!drawingsMissing && documents.length > 0 && drawingTypeDocs.length === 0 && drawings.length === 0 && !scanResults && !scanProgress.phase && (
+        {/* Only spec/RFP docs exist — no drawing-type files, no legacy docs, no drawings */}
+        {!drawingsMissing && nonDrawingDocs.length > 0 && drawingTypeDocs.length === 0 && drawings.length === 0 && !scanResults && !scanProgress.phase && (
           <div
             style={{
               ...card(C),
