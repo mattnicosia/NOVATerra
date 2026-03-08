@@ -3,7 +3,7 @@
 // Foundation for auto/predictive takeoffs
 // ══════════════════════════════════════════════════════════════════════
 
-import { loadPdfJs } from './pdf';
+import { loadPdfJs } from "./pdf";
 
 // ── Cache (per drawing ID) ──────────────────────────────────────────
 const cache = new Map();
@@ -21,10 +21,7 @@ export function registerExternalScheduleRegions(drawingId, regions) {
   // Merge into cached data if it exists
   if (cache.has(drawingId)) {
     const cached = cache.get(drawingId);
-    cached.scheduleRegions = mergeScheduleRegions(
-      cached.scheduleRegions || [],
-      regions
-    );
+    cached.scheduleRegions = mergeScheduleRegions(cached.scheduleRegions || [], regions);
   }
 }
 
@@ -43,9 +40,8 @@ export function getScheduleRegions(drawingId) {
 function mergeScheduleRegions(a, b) {
   const merged = [...a];
   for (const reg of b) {
-    const alreadyCovered = merged.some(r =>
-      reg.minX >= r.minX - 20 && reg.maxX <= r.maxX + 20 &&
-      reg.minY >= r.minY - 20 && reg.maxY <= r.maxY + 20
+    const alreadyCovered = merged.some(
+      r => reg.minX >= r.minX - 20 && reg.maxX <= r.maxX + 20 && reg.minY >= r.minY - 20 && reg.maxY <= r.maxY + 20,
     );
     if (!alreadyCovered) merged.push(reg);
   }
@@ -57,24 +53,24 @@ const identityMatrix = () => [1, 0, 0, 1, 0, 0];
 
 function multiplyMatrix(a, b) {
   return [
-    a[0] * b[0] + a[2] * b[1],       // a
-    a[1] * b[0] + a[3] * b[1],       // b
-    a[0] * b[2] + a[2] * b[3],       // c
-    a[1] * b[2] + a[3] * b[3],       // d
+    a[0] * b[0] + a[2] * b[1], // a
+    a[1] * b[0] + a[3] * b[1], // b
+    a[0] * b[2] + a[2] * b[3], // c
+    a[1] * b[2] + a[3] * b[3], // d
     a[0] * b[4] + a[2] * b[5] + a[4], // e
     a[1] * b[4] + a[3] * b[5] + a[5], // f
   ];
 }
 
 function applyMatrix(m, x, y) {
-  return [
-    m[0] * x + m[2] * y + m[4],
-    m[1] * x + m[3] * y + m[5],
-  ];
+  return [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
 }
 
 // ── Load a PDF page from a drawing object ───────────────────────────
+// Returns null for pdfPreRendered drawings (data is JPEG, not raw PDF).
 async function loadPage(drawing) {
+  // Pre-rendered pages don't have raw PDF data — can't extract text/vectors
+  if (drawing.pdfPreRendered) return null;
   await loadPdfJs();
   const resp = await fetch(`data:application/pdf;base64,${drawing.data}`);
   const buf = await resp.arrayBuffer();
@@ -88,7 +84,9 @@ async function loadPage(drawing) {
 // TEXT EXTRACTION — precise (x,y) positions from embedded PDF text
 // ══════════════════════════════════════════════════════════════════════
 export async function extractText(drawing) {
-  const { page, viewport } = await loadPage(drawing);
+  const loaded = await loadPage(drawing);
+  if (!loaded) return []; // pdfPreRendered — no raw PDF for text extraction
+  const { page, viewport } = loaded;
   const textContent = await page.getTextContent();
   const items = [];
 
@@ -98,9 +96,7 @@ export async function extractText(drawing) {
     const tx = item.transform; // [a, b, c, d, x, y] in PDF coords
 
     // Convert PDF position to canvas coordinates using viewport transform
-    const [canvasX, canvasY] = window.pdfjsLib.Util.transform(
-      viewport.transform, [tx[4], tx[5]]
-    ) || [0, 0];
+    const [canvasX, canvasY] = window.pdfjsLib.Util.transform(viewport.transform, [tx[4], tx[5]]) || [0, 0];
 
     // Calculate rotation from transform matrix
     const angle = Math.atan2(tx[1], tx[0]) * (180 / Math.PI);
@@ -131,7 +127,9 @@ export async function extractText(drawing) {
 // Used for wall detection, room boundaries, structural elements
 // ══════════════════════════════════════════════════════════════════════
 export async function extractVectors(drawing) {
-  const { page, viewport } = await loadPage(drawing);
+  const loaded = await loadPage(drawing);
+  if (!loaded) return { lines: [], rects: [] }; // pdfPreRendered — no raw PDF for vector extraction
+  const { page, viewport } = loaded;
   const ops = await page.getOperatorList();
   const OPS = window.pdfjsLib.OPS;
 
@@ -164,10 +162,11 @@ export async function extractVectors(drawing) {
         break;
 
       case OPS.constructPath: {
-        const subOps = args[0];  // Array of sub-operation codes
+        const subOps = args[0]; // Array of sub-operation codes
         const subArgs = args[1]; // Flat array of coordinates
         let argIdx = 0;
-        let cx = 0, cy = 0; // Current point in PDF coords
+        let cx = 0,
+          cy = 0; // Current point in PDF coords
         let pathStart = null;
 
         for (let j = 0; j < subOps.length; j++) {
@@ -179,28 +178,27 @@ export async function extractVectors(drawing) {
             pathStart = { x: cx, y: cy };
             const [canvasX, canvasY] = applyMatrix(ctm, cx, cy);
             currentPath.push({ type: "M", x: canvasX, y: canvasY, pdfX: cx, pdfY: cy });
-          }
-          else if (op === OPS.lineTo) {
-            const prevX = cx, prevY = cy;
+          } else if (op === OPS.lineTo) {
+            const prevX = cx,
+              prevY = cy;
             cx = subArgs[argIdx++];
             cy = subArgs[argIdx++];
             const [x1, y1] = applyMatrix(ctm, prevX, prevY);
             const [x2, y2] = applyMatrix(ctm, cx, cy);
             const len = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-            if (len > 2) { // Filter noise (< 2px)
+            if (len > 2) {
+              // Filter noise (< 2px)
               lines.push({ x1, y1, x2, y2, lineWidth, length: len });
             }
             currentPath.push({ type: "L", x: x2, y: y2, pdfX: cx, pdfY: cy });
-          }
-          else if (op === OPS.curveTo) {
+          } else if (op === OPS.curveTo) {
             // Skip bezier details, just consume args and track endpoint
             argIdx += 4; // cp1x, cp1y, cp2x, cp2y
             cx = subArgs[argIdx++];
             cy = subArgs[argIdx++];
             const [canvasX, canvasY] = applyMatrix(ctm, cx, cy);
             currentPath.push({ type: "C", x: canvasX, y: canvasY, pdfX: cx, pdfY: cy });
-          }
-          else if (op === OPS.rectangle) {
+          } else if (op === OPS.rectangle) {
             const rx = subArgs[argIdx++];
             const ry = subArgs[argIdx++];
             const rw = subArgs[argIdx++];
@@ -214,9 +212,9 @@ export async function extractVectors(drawing) {
             if (w > 2 && h > 2) {
               rects.push({ x1, y1, x2, y2, x3, y3, x4, y4, width: w, height: h, lineWidth });
             }
-            cx = rx; cy = ry;
-          }
-          else if (op === OPS.closePath) {
+            cx = rx;
+            cy = ry;
+          } else if (op === OPS.closePath) {
             if (pathStart && currentPath.length > 1) {
               const last = currentPath[currentPath.length - 1];
               const first = currentPath[0];
@@ -251,10 +249,7 @@ export async function extractVectors(drawing) {
 export async function extractPageData(drawing) {
   if (cache.has(drawing.id)) return cache.get(drawing.id);
 
-  const [text, vectors] = await Promise.all([
-    extractText(drawing),
-    extractVectors(drawing),
-  ]);
+  const [text, vectors] = await Promise.all([extractText(drawing), extractVectors(drawing)]);
 
   const result = {
     drawingId: drawing.id,
@@ -377,7 +372,8 @@ export function findAllTagInstances(extractedData, tag) {
 //   2. Text-density-based: fallback for unbordered schedules (keyword + dense rows)
 // ══════════════════════════════════════════════════════════════════════
 // Keywords that indicate a schedule/legend header row
-const SCHEDULE_KEYWORDS = /\b(SCHEDULE|FINISH|MATERIAL|LEGEND|KEY|NOTES|SPECIFICATIONS?|ABBREVIATIONS?|TYPE|MARK|SIZE|DESCRIPTION|MANUFACTURER|MODEL|QUANTITY|QTY|REMARKS?|HEIGHT|WIDTH|THICKNESS|RATING)\b/i;
+const SCHEDULE_KEYWORDS =
+  /\b(SCHEDULE|FINISH|MATERIAL|LEGEND|KEY|NOTES|SPECIFICATIONS?|ABBREVIATIONS?|TYPE|MARK|SIZE|DESCRIPTION|MANUFACTURER|MODEL|QUANTITY|QTY|REMARKS?|HEIGHT|WIDTH|THICKNESS|RATING)\b/i;
 
 export function detectScheduleRegions(extractedData) {
   if (!extractedData?.text || extractedData.text.length === 0) return [];
@@ -391,7 +387,8 @@ export function detectScheduleRegions(extractedData) {
   if (extractedData.rects && extractedData.rects.length > 0) {
     // Find rectangles that are table-cell-sized (not tiny dots or huge page borders)
     const tableCells = extractedData.rects.filter(r => {
-      const w = r.width, h = r.height;
+      const w = r.width,
+        h = r.height;
       return w > 20 && w < 800 && h > 8 && h < 200;
     });
 
@@ -421,8 +418,12 @@ export function detectScheduleRegions(extractedData) {
             const b = cellBounds[j];
             // Check overlap or adjacency (within 5px gap)
             const gap = 5;
-            if (b.minX <= cluster.maxX + gap && b.maxX >= cluster.minX - gap &&
-                b.minY <= cluster.maxY + gap && b.maxY >= cluster.minY - gap) {
+            if (
+              b.minX <= cluster.maxX + gap &&
+              b.maxX >= cluster.minX - gap &&
+              b.minY <= cluster.maxY + gap &&
+              b.maxY >= cluster.minY - gap
+            ) {
               cluster.minX = Math.min(cluster.minX, b.minX);
               cluster.minY = Math.min(cluster.minY, b.minY);
               cluster.maxX = Math.max(cluster.maxX, b.maxX);
@@ -434,9 +435,13 @@ export function detectScheduleRegions(extractedData) {
         }
 
         // Count how many original cells are in this cluster
-        const cellCount = cellBounds.filter((b, idx) => used.has(idx) &&
-          b.minX >= cluster.minX - 5 && b.maxX <= cluster.maxX + 5 &&
-          b.minY >= cluster.minY - 5 && b.maxY <= cluster.maxY + 5
+        const cellCount = cellBounds.filter(
+          (b, idx) =>
+            used.has(idx) &&
+            b.minX >= cluster.minX - 5 &&
+            b.maxX <= cluster.maxX + 5 &&
+            b.minY >= cluster.minY - 5 &&
+            b.maxY <= cluster.maxY + 5,
         ).length;
 
         // A table needs at least 3 cells in a cluster
@@ -447,9 +452,12 @@ export function detectScheduleRegions(extractedData) {
 
       // Check each cluster: does it contain schedule keywords?
       for (const cluster of clusters) {
-        const textsInCluster = extractedData.text.filter(t =>
-          t.x >= cluster.minX - 10 && t.x <= cluster.maxX + 10 &&
-          t.y >= cluster.minY - 10 && t.y <= cluster.maxY + 10
+        const textsInCluster = extractedData.text.filter(
+          t =>
+            t.x >= cluster.minX - 10 &&
+            t.x <= cluster.maxX + 10 &&
+            t.y >= cluster.minY - 10 &&
+            t.y <= cluster.maxY + 10,
         );
         const clusterText = textsInCluster.map(t => t.text).join(" ");
         // Rectangle cluster with keywords = definite schedule
@@ -518,9 +526,12 @@ export function detectScheduleRegions(extractedData) {
             maxY: Math.max(...allItems.map(t => t.y + (t.height || 15))) + pad,
           };
           // Don't add if already covered by a rectangle-detected region
-          const alreadyCovered = regions.some(r =>
-            candidate.minX >= r.minX && candidate.maxX <= r.maxX &&
-            candidate.minY >= r.minY && candidate.maxY <= r.maxY
+          const alreadyCovered = regions.some(
+            r =>
+              candidate.minX >= r.minX &&
+              candidate.maxX <= r.maxX &&
+              candidate.minY >= r.minY &&
+              candidate.maxY <= r.maxY,
           );
           if (!alreadyCovered) regions.push(candidate);
         }
@@ -542,9 +553,9 @@ export function detectScheduleRegions(extractedData) {
         maxX: Math.max(...allItems.map(t => t.x + (t.width || 50))) + pad,
         maxY: Math.max(...allItems.map(t => t.y + (t.height || 15))) + pad,
       };
-      const alreadyCovered = regions.some(r =>
-        candidate.minX >= r.minX && candidate.maxX <= r.maxX &&
-        candidate.minY >= r.minY && candidate.maxY <= r.maxY
+      const alreadyCovered = regions.some(
+        r =>
+          candidate.minX >= r.minX && candidate.maxX <= r.maxX && candidate.minY >= r.minY && candidate.maxY <= r.maxY,
       );
       if (!alreadyCovered) regions.push(candidate);
     }

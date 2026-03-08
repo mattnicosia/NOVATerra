@@ -35,7 +35,7 @@ export const useCollaborationStore = create((set, get) => ({
 
   // ── Lock Lifecycle ────────────────────────────────────
 
-  acquireLock: async (estimateId) => {
+  acquireLock: async estimateId => {
     const orgId = getOrgId();
     if (!orgId || !supabase) return;
 
@@ -130,7 +130,7 @@ export const useCollaborationStore = create((set, get) => ({
     }
   },
 
-  releaseLock: async (estimateId) => {
+  releaseLock: async estimateId => {
     const orgId = getOrgId();
     if (!orgId || !supabase) return;
 
@@ -151,7 +151,7 @@ export const useCollaborationStore = create((set, get) => ({
     set({ currentLock: null, isLockHolder: false, lockError: null });
   },
 
-  forceReleaseLock: async (estimateId) => {
+  forceReleaseLock: async estimateId => {
     const orgId = getOrgId();
     if (!orgId || !supabase) return;
 
@@ -175,7 +175,7 @@ export const useCollaborationStore = create((set, get) => ({
     }
   },
 
-  _startHeartbeat: (estimateId) => {
+  _startHeartbeat: estimateId => {
     get()._stopHeartbeat();
     const orgId = getOrgId();
     const { userId } = getUserInfo();
@@ -208,7 +208,7 @@ export const useCollaborationStore = create((set, get) => ({
 
   // ── Presence ──────────────────────────────────────────
 
-  joinEstimate: async (estimateId) => {
+  joinEstimate: async estimateId => {
     const orgId = getOrgId();
     if (!orgId || !supabase) return;
 
@@ -253,7 +253,7 @@ export const useCollaborationStore = create((set, get) => ({
     set({ _presenceInterval: presInterval });
   },
 
-  leaveEstimate: async (estimateId) => {
+  leaveEstimate: async estimateId => {
     const orgId = getOrgId();
     if (!orgId || !supabase) return;
 
@@ -282,7 +282,7 @@ export const useCollaborationStore = create((set, get) => ({
     set({ viewers: [], _currentEstimateId: null });
   },
 
-  _refreshViewers: async (estimateId) => {
+  _refreshViewers: async estimateId => {
     const orgId = getOrgId();
     if (!orgId || !supabase) return;
 
@@ -303,7 +303,7 @@ export const useCollaborationStore = create((set, get) => ({
 
   // ── Subscriptions ─────────────────────────────────────
 
-  subscribeLockChanges: (estimateId) => {
+  subscribeLockChanges: estimateId => {
     if (!supabase) return;
     const orgId = getOrgId();
     if (!orgId) return;
@@ -312,7 +312,9 @@ export const useCollaborationStore = create((set, get) => ({
     // Clean up existing channel
     const { _lockChannel } = get();
     if (_lockChannel) {
-      try { supabase.removeChannel(_lockChannel); } catch {}
+      try {
+        supabase.removeChannel(_lockChannel);
+      } catch {}
     }
 
     const channel = supabase
@@ -320,7 +322,7 @@ export const useCollaborationStore = create((set, get) => ({
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "estimate_locks", filter: `estimate_id=eq.${estimateId}` },
-        (payload) => {
+        payload => {
           if (payload.eventType === "DELETE") {
             // Lock was released — if we're not the holder, we can try to acquire
             const wasOurLock = get().isLockHolder;
@@ -350,14 +352,16 @@ export const useCollaborationStore = create((set, get) => ({
     set({ _lockChannel: channel });
   },
 
-  subscribePresence: (estimateId) => {
+  subscribePresence: estimateId => {
     if (!supabase) return;
     const orgId = getOrgId();
     if (!orgId) return;
 
     const { _presenceChannel } = get();
     if (_presenceChannel) {
-      try { supabase.removeChannel(_presenceChannel); } catch {}
+      try {
+        supabase.removeChannel(_presenceChannel);
+      } catch {}
     }
 
     const channel = supabase
@@ -389,10 +393,14 @@ export const useCollaborationStore = create((set, get) => ({
 
     // Unsubscribe channels
     if (_lockChannel) {
-      try { supabase?.removeChannel(_lockChannel); } catch {}
+      try {
+        supabase?.removeChannel(_lockChannel);
+      } catch {}
     }
     if (_presenceChannel) {
-      try { supabase?.removeChannel(_presenceChannel); } catch {}
+      try {
+        supabase?.removeChannel(_presenceChannel);
+      } catch {}
     }
 
     // Release lock if we hold it

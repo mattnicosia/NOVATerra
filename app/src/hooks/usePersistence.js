@@ -934,6 +934,8 @@ export async function saveEstimate() {
     client: data.project.client,
     status: data.project.status,
     bidDue: data.project.bidDue,
+    startDate: data.project.startDate || "",
+    estimatedHours: data.project.estimatedHours || 0,
     walkthroughDate: data.project.walkthroughDate || "",
     rfiDueDate: data.project.rfiDueDate || "",
     otherDueDate: data.project.otherDueDate || "",

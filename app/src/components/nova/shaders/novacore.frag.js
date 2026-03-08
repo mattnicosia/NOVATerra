@@ -1,10 +1,21 @@
-// NOVACORE fragment shader v11.8 — CELESTIAL BODY
+// NOVACORE fragment shader v12 — PHASE TRANSITION
+// "NOVACORE's visual identity is not a sphere. It's a phase transition."
 // NOVA: a blue star in deep space — dramatic limb darkening, blazing center,
 // Voronoi convection cells, deep indigo edges dissolving into corona.
 // CORE: amber fusion reactor — volcanic, turbulent, textured.
-// v11.8: ENHANCED TEMPORAL EVOLUTION + SPATIAL CONTRAST (Hodgin + Anadol).
-// Voronoi cells with 2-layer temporal drift (fast ~52s + slow ~3min).
-// Wider amplitude (±0.25) → visible cell reshaping over time.
+//
+// v12: MOD NOISE CRYSTALLIZATION (IQ + Patricio)
+//   fract(rawNoise * layers) in vertex shader creates terraced strata.
+//   Fragment detects facet boundaries via fwidth() → bright specular ridges.
+//   Supercooled plasma on the edge of crystallizing — perpetual phase transition.
+//   Hodgin temporal layers: geological drift, state-driven, pulse shatter, grain drift.
+//
+// v13: VISUAL BOARD REFINEMENTS
+//   IQ: Hierarchical fract() — two layers (fine grain + tectonic plates).
+//   Anadol: Crystal edge specular modulated by quiet/singing spatial zones.
+//   Hodgin: Stochastic frost events — flash-freeze moments at random 45-90s intervals.
+//
+// v11.8: Voronoi cells with 2-layer temporal drift (fast ~52s + slow ~3min).
 // Spatial quiet/singing zones with deeper contrast (0.45 floor).
 // Anti-violet guard ensures true blue, not purple.
 
@@ -29,6 +40,8 @@ export const novacoreFragmentShader = /* glsl */ `
   uniform vec3 uCorePalC;
   uniform vec3 uCorePalD;
 
+  uniform float uCrystallize;      // phase-transition state
+
   varying vec3 vNormal;
   varying vec3 vPosition;
   varying vec3 vWorldPosition;
@@ -36,6 +49,8 @@ export const novacoreFragmentShader = /* glsl */ `
   varying float vFresnel;
   varying vec3 vViewDir;
   varying vec3 vLocalPos;
+  varying float vCrystalRaw;       // crystal value for edge detection (fine grain)
+  varying float vCrystalRaw2;      // secondary tectonic-scale crystal (IQ hierarchical)
 
   // ── Simplex 3D noise ──────────────────────────────────────────
   vec4 permute(vec4 x) { return mod(((x * 34.0) + 1.0) * x, 289.0); }
@@ -507,6 +522,11 @@ export const novacoreFragmentShader = /* glsl */ `
       baseColor += volAccum.rgb * (1.0 - surfOp) * mix(0.62, 0.95, uMorph);
     }
 
+    // ── 6a. Spatial zone hierarchy (Anadol) ─────────────────────────
+    // Quiet zones: hushed, subdued. Singing zones: vivid, high-contrast.
+    // Hoisted to main scope — used by Voronoi granulation AND crystal edge specular.
+    float spatialZone = 0.45 + 0.55 * fbm2(normalize(vWorldPosition) * 0.6 + uTime * vec3(0.012, 0.009, 0.015));
+
     // ── 6b. POST-VOLUMETRIC VORONOI GRANULATION ──────────────────
     // v11.7: Voronoi cellular noise (IQ + Visual Board recommendation).
     // Real stellar granulation = Voronoi cells with bright upwelling centers
@@ -533,11 +553,9 @@ export const novacoreFragmentShader = /* glsl */ `
       float edgeDark = sEdge * 0.45 + gEdge * 0.35;
       float cellVar = mix(sVor.z, gVor.z, 0.4) * 0.10;  // per-cell variation
 
-      // v11.8: Anadol spatial modulation — DEEPER contrast between quiet and singing zones.
-      // Floor 0.45 → quiet zones genuinely hushed (cells nearly invisible in smooth patches).
-      // Singing zones vivid and high-contrast. More dramatic spatial hierarchy.
+      // v11.8: Anadol spatial modulation — quiet vs singing zones.
       // "Some regions whisper, others sing — the contrast IS the drama." (Anadol)
-      float granVis = 0.45 + 0.55 * fbm2(normalize(vWorldPosition) * 0.6 + uTime * vec3(0.012, 0.009, 0.015));
+      float granVis = spatialZone;
 
       // Granulation signal: bright cells vs dark intergranular lanes
       float granulation = ((cellBright * 2.0 - 1.0) * 0.24 + cellVar - edgeDark * 0.16) * (1.0 - uMorph) * granVis;
@@ -589,6 +607,42 @@ export const novacoreFragmentShader = /* glsl */ `
     baseColor += pulseColor * uPulse * 0.35 + vec3(1.0, 0.95, 0.9) * uPulse * 0.15;
     baseColor += flowColor * uExhale * 0.12;
     baseColor += pulseColor * uVoice * 0.10;
+
+    // ── 10b. Crystal edge specular (IQ + Patricio) ────────────
+    // fwidth() detects facet boundaries from mod noise crystallization.
+    // Bright ridges at terraced strata edges — supercooled plasma catching light.
+    //
+    // v13 (IQ): Hierarchical edge detection — two layers:
+    //   Fine grain edges: sharp, detailed strata boundaries
+    //   Tectonic edges: bold, structural plate boundaries (brighter, wider)
+    // v13 (Anadol): Spatial zone modulation — quiet zones hushed, singing zones vivid.
+    {
+      // Fine grain edges (primary layer)
+      float crystalVal = fract(vCrystalRaw);
+      float fw = fwidth(crystalVal) * 2.0;
+      float fineEdge = 1.0 - smoothstep(0.0, fw, min(crystalVal, 1.0 - crystalVal));
+
+      // Tectonic plate edges (secondary layer — bolder, wider ridges)
+      float crystalVal2 = fract(vCrystalRaw2);
+      float fw2 = fwidth(crystalVal2) * 3.0;  // wider detection → bolder tectonic ridges
+      float tectonicEdge = 1.0 - smoothstep(0.0, fw2, min(crystalVal2, 1.0 - crystalVal2));
+
+      // Hierarchical combine: tectonic edges are brighter (0.7) than fine grain (0.4)
+      float crystalEdge = max(fineEdge * 0.4, tectonicEdge * 0.7);
+      crystalEdge *= uCrystallize;
+
+      // Anadol: spatial zone modulation — quiet zones show 25% crystal, singing zones 100%
+      float crystalZoneMod = mix(0.25, 1.0, spatialZone);
+      crystalEdge *= crystalZoneMod;
+
+      // Morph-tinted specular: NOVA = cool blue-white, CORE = hot amber-white
+      vec3 crystalSpecColor = mix(
+        vec3(0.3, 0.45, 1.0),    // NOVA: blue-white crystal edges
+        vec3(1.0, 0.7, 0.2),     // CORE: amber crystal edges
+        uMorph
+      );
+      baseColor += crystalSpecColor * crystalEdge * 0.6;
+    }
 
     // ── Final adjustments ─────────────────────────────────────
     // CORE: slightly darker for contrast

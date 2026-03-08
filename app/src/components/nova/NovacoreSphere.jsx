@@ -57,7 +57,7 @@ function lerp(a, b, t) {
 }
 
 const NovacoreSphere = forwardRef(function NovacoreSphere(
-  { morphTarget = null, intensity = 0.7, size = 1.6, segments = 128, gpuTier = 2, onClick },
+  { morphTarget = null, intensity = 0.7, size = 1.6, segments = 128, gpuTier = 2, onClick, crystallize = null, crystalLayers = null },
   ref,
 ) {
   const groupRef = useRef();
@@ -71,6 +71,9 @@ const NovacoreSphere = forwardRef(function NovacoreSphere(
     exhale: 0.0,
     intensity: intensity,
     voice: 0.0,
+    // Hodgin frost event — stochastic flash-freeze moments
+    frostActive: 0.0,       // 0→1 frost intensity (decays after spike)
+    frostNextTime: 15.0,    // seconds until next frost event (first one at ~15s)
   });
 
   // ── Main sphere uniforms ──────────────────────────────────────
@@ -85,6 +88,9 @@ const NovacoreSphere = forwardRef(function NovacoreSphere(
       uNoiseScale: { value: 1.8 },
       uSize: { value: size },
       uTier: { value: gpuTier },
+      // Phase-transition crystallization (IQ + Patricio)
+      uCrystallize: { value: 0.0 },    // 0 = fluid, 1 = fully crystalline
+      uCrystalLayers: { value: 4.0 },  // facet density
       // IQ palette: NOVA
       uNovaPalA: { value: NOVA_PAL.a },
       uNovaPalB: { value: NOVA_PAL.b },
@@ -171,6 +177,60 @@ const NovacoreSphere = forwardRef(function NovacoreSphere(
     // Voice
     u.uVoice.value = lerp(u.uVoice.value, s.voice, 0.15);
     s.voice *= 0.92;
+
+    // ── Layer 5: Hodgin frost event — stochastic flash-freeze ──────
+    // Brief moments (3-8s) where crystallization spikes to 0.8+, then slowly melts.
+    // Random interval 45-90s. Creates genuine surprise — "did it just freeze?"
+    // Only in auto mode — manual override bypasses all temporal layers.
+    if (crystallize === null) {
+      s.frostNextTime -= delta;
+      if (s.frostNextTime <= 0) {
+        // FROST! Spike to 0.8-1.0
+        s.frostActive = 0.8 + Math.random() * 0.2;
+        // Next frost in 45-90 seconds
+        s.frostNextTime = 45 + Math.random() * 45;
+      }
+      // Slow melt — exp decay at -0.4 gives ~5s half-life (visible freeze then gradual thaw)
+      s.frostActive *= Math.exp(-0.4 * delta);
+      if (s.frostActive < 0.005) s.frostActive = 0.0;
+    }
+
+    // ── Phase-transition crystallization (Hodgin temporal layers) ──
+    // Manual override: crystallize/crystalLayers props bypass auto when non-null
+    if (crystallize !== null) {
+      // Manual control — direct set with smooth interpolation
+      u.uCrystallize.value = lerp(u.uCrystallize.value, crystallize, 1.0 - Math.exp(-3.0 * delta));
+    } else {
+      // Auto: Hodgin temporal layers
+      // Layer 1: Geological crystallize drift — 2-3 min
+      const geoPhase = Math.sin(elapsedTime * 0.0055 + 1.7) * 0.5 + 0.5;
+      const geoPhase2 = Math.sin(elapsedTime * 0.0031 + 4.2) * 0.5 + 0.5;
+      const geoCrystallize = 0.08 + 0.32 * (geoPhase * 0.6 + geoPhase2 * 0.4);
+
+      // Layer 2: State-driven — morph adds crystallization
+      const stateCrystallize = s.morph * 0.2;
+
+      // Layer 3: Pulse/exhale spike — crystal shatter moment
+      const eventCrystallize = s.pulse * 0.6 + s.exhale * 0.3;
+
+      // Layer 5: Frost event — stochastic flash-freeze spike
+      const frostCrystallize = s.frostActive;
+
+      // Combine — clamp to 0→1
+      const targetCrystallize = Math.min(1.0, geoCrystallize + stateCrystallize + eventCrystallize + frostCrystallize);
+      u.uCrystallize.value = lerp(u.uCrystallize.value, targetCrystallize, 1.0 - Math.exp(-2.0 * delta));
+    }
+
+    if (crystalLayers !== null) {
+      // Manual control
+      u.uCrystalLayers.value = lerp(u.uCrystalLayers.value, crystalLayers, 1.0 - Math.exp(-2.0 * delta));
+    } else {
+      // Auto: Crystal grain drift — 40-60s, facet density evolves independently
+      const layerPhase = Math.sin(elapsedTime * 0.018 + 2.9) * 0.5 + 0.5;
+      const layerPhase2 = Math.sin(elapsedTime * 0.011 + 0.7) * 0.5 + 0.5;
+      const targetLayers = 3.0 + 4.0 * (layerPhase * 0.65 + layerPhase2 * 0.35);
+      u.uCrystalLayers.value = lerp(u.uCrystalLayers.value, targetLayers, 1.0 - Math.exp(-0.5 * delta));
+    }
 
     // ── Sync atmosphere uniforms ──────────────────────────────
     if (atmosphereMatRef.current) {

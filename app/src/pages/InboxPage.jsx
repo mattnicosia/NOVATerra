@@ -96,9 +96,14 @@ export default function InboxPage() {
 
   // Filter by company profile first, then by status tab
   const displayedRfps = useMemo(() => {
-    // Company profile filter (same logic as estimates)
+    // Company profile filter — include unassigned RFPs (no company_profile_id) alongside matched ones
     const companyFiltered =
-      activeCompanyId === "__all__" ? rfps : rfps.filter(r => (r.company_profile_id || "") === (activeCompanyId || ""));
+      activeCompanyId === "__all__"
+        ? rfps
+        : rfps.filter(r => {
+            const cid = r.company_profile_id || "";
+            return cid === (activeCompanyId || "") || cid === "";
+          });
 
     // Status tab filter
     if (filter === "unread") {
@@ -112,7 +117,12 @@ export default function InboxPage() {
   // Profile-filtered unread count
   const unreadCount = useMemo(() => {
     const companyFiltered =
-      activeCompanyId === "__all__" ? rfps : rfps.filter(r => (r.company_profile_id || "") === (activeCompanyId || ""));
+      activeCompanyId === "__all__"
+        ? rfps
+        : rfps.filter(r => {
+            const cid = r.company_profile_id || "";
+            return cid === (activeCompanyId || "") || cid === "";
+          });
     return companyFiltered.filter(r => (r.status === "parsed" || r.status === "pending") && !readIds.includes(r.id))
       .length;
   }, [rfps, readIds, activeCompanyId]);

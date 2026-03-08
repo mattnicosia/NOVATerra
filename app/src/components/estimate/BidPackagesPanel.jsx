@@ -8,6 +8,7 @@ import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { statusBadge } from "@/utils/styles";
 import { analyzeGaps } from "@/utils/scopeGapEngine";
+import { fireAutoResponse } from "@/utils/autoResponseEngine";
 
 const STATUS_COLORS = {
   pending: { color: "#AEAEB2", label: "Pending" },
@@ -23,6 +24,47 @@ const STATUS_COLORS = {
 function StatusPill({ status }) {
   const s = STATUS_COLORS[status] || STATUS_COLORS.pending;
   return <span style={statusBadge(s.color)}>{s.label}</span>;
+}
+
+const OPENED_SET = new Set(["opened", "downloaded"]);
+const SUBMITTED_SET = new Set(["submitted", "parsed", "awarded", "not_awarded"]);
+
+function ResponseProgressBar({ invites }) {
+  if (!invites || invites.length === 0) return null;
+  const total = invites.length;
+  let sentOnly = 0;
+  let opened = 0;
+  let submitted = 0;
+  for (const inv of invites) {
+    if (SUBMITTED_SET.has(inv.status)) submitted++;
+    else if (OPENED_SET.has(inv.status)) opened++;
+    else if (inv.status === "sent") sentOnly++;
+  }
+  const active = sentOnly + opened + submitted;
+  if (active === 0) return null;
+  return (
+    <div
+      style={{
+        display: "flex",
+        height: 6,
+        borderRadius: 3,
+        overflow: "hidden",
+        background: "rgba(255,255,255,0.06)",
+        marginBottom: 8,
+      }}
+      title={`${submitted} submitted · ${opened} opened · ${sentOnly} awaiting`}
+    >
+      {submitted > 0 && (
+        <div style={{ width: `${(submitted / total) * 100}%`, background: "#30D158", transition: "width 300ms" }} />
+      )}
+      {opened > 0 && (
+        <div style={{ width: `${(opened / total) * 100}%`, background: "#FF9F0A", transition: "width 300ms" }} />
+      )}
+      {sentOnly > 0 && (
+        <div style={{ width: `${(sentOnly / total) * 100}%`, background: "#8E8E93", transition: "width 300ms" }} />
+      )}
+    </div>
+  );
 }
 
 const fmtShort = v => {
@@ -374,6 +416,9 @@ export default function BidPackagesPanel({ onCreateNew, onViewProposal, onCompar
                   </div>
                 )}
 
+                {/* Response progress bar */}
+                {pkgInvites.length > 0 && <ResponseProgressBar invites={pkgInvites} />}
+
                 {/* Invitations list */}
                 <div
                   style={{
@@ -408,6 +453,13 @@ export default function BidPackagesPanel({ onCreateNew, onViewProposal, onCompar
                     .map(inv => proposals[inv.id])
                     .filter(p => p?.parsedData && Object.keys(p.parsedData).length > 0);
                   const isAwarded = pkg.status === "awarded";
+                  const now = Date.now();
+                  const nonResponsive = pkgInvites.filter(
+                    inv =>
+                      inv.status === "sent" &&
+                      inv.sentAt &&
+                      (now - new Date(inv.sentAt).getTime()) / 3600000 >= 72,
+                  );
                   return (
                     <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
                       {parsedProposals.length >= 2 && onCompare && (
@@ -472,6 +524,46 @@ export default function BidPackagesPanel({ onCreateNew, onViewProposal, onCompar
                         >
                           Awarded
                         </div>
+                      )}
+                      {/* Nudge non-responsive subs (72h+) */}
+                      {nonResponsive.length > 0 && !isAwarded && pkg.status !== "closed" && (
+                        <button
+                          onClick={() => {
+                            for (const inv of nonResponsive) {
+                              fireAutoResponse("noResponse72h", {
+                                packageId: pkg.id,
+                                invitationId: inv.id,
+                                recipientEmail: inv.subEmail || "",
+                                subCompany: inv.subCompany || inv.subContact || "",
+                                projectName: pkg.name || "",
+                                dueDate: pkg.dueDate || "",
+                                sentAt: inv.sentAt,
+                              });
+                            }
+                            showToast(
+                              `Nudge draft${nonResponsive.length > 1 ? "s" : ""} queued for ${nonResponsive.length} sub${nonResponsive.length > 1 ? "s" : ""} — review in notifications`,
+                              "success",
+                            );
+                          }}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 6,
+                            background: "linear-gradient(135deg, rgba(255,159,10,0.12), rgba(255,159,10,0.05))",
+                            border: "1px solid rgba(255,159,10,0.25)",
+                            color: "#FF9F0A",
+                            borderRadius: 8,
+                            padding: "8px 14px",
+                            fontSize: 12,
+                            fontWeight: 600,
+                            cursor: "pointer",
+                          }}
+                          title="Send follow-up to subs who haven't opened their invitation"
+                        >
+                          <Ic d={I.warn} size={13} color="#FF9F0A" />
+                          Nudge {nonResponsive.length}
+                        </button>
                       )}
                       {/* Close/Archive — available when not yet awarded/closed */}
                       {!isAwarded && pkg.status !== "closed" && (

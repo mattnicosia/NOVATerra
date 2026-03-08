@@ -84,6 +84,10 @@ export async function callAnthropic({
     console.warn(`[AI] Request body is ${bodySizeMB} MB — may exceed Vercel's 4.5 MB limit`);
   }
 
+  // Default timeout: 2 minutes per request to prevent pipeline stalls.
+  // If the caller provides their own signal, use that instead.
+  const effectiveSignal = signal || AbortSignal.timeout(120_000);
+
   let activeToken = token;
   let lastError;
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -95,7 +99,7 @@ export async function callAnthropic({
           Authorization: `Bearer ${activeToken}`,
         },
         body: bodyJson,
-        ...(signal ? { signal } : {}),
+        signal: effectiveSignal,
       });
       if (resp.status === 429) {
         const wait = Math.min(2000 * Math.pow(2, attempt), 8000);
@@ -144,6 +148,7 @@ export async function callAnthropic({
         .trim();
     } catch (err) {
       if (err.name === "AbortError") throw err;
+      if (err.name === "TimeoutError") throw new Error("AI request timed out (2 min) — server may be slow");
       if (err instanceof TypeError) throw new Error(`Network error: ${err.message} (check connection)`);
       lastError = err;
       if (attempt < 2 && err.message?.includes("retrying")) continue;

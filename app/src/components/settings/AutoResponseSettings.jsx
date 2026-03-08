@@ -9,6 +9,7 @@ const TRIGGER_ORDER = [
   "proposalSubmitted",
   "bidDue48h",
   "bidDue24h",
+  "noResponse72h",
   "postAwardWinner",
   "postAwardLoser",
 ];

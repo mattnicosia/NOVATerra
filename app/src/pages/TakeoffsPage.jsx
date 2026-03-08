@@ -1796,6 +1796,11 @@ IMPORTANT:
     // Check latest store state to avoid stale closure
     const current = useDrawingsStore.getState().pdfCanvases;
     if (current[drawing.id]) return current[drawing.id];
+    // Pre-rendered PDF page — data is already a JPEG, cache and return
+    if (drawing.pdfPreRendered && drawing.data) {
+      useDrawingsStore.setState(s => ({ pdfCanvases: { ...s.pdfCanvases, [drawing.id]: drawing.data } }));
+      return drawing.data;
+    }
     if (drawing.type !== "pdf" || !drawing.data) return null;
     try {
       await loadPdfJs();

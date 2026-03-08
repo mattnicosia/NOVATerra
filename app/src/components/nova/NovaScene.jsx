@@ -1,4 +1,5 @@
-// NovaScene v2 — R3F canvas + HDR post-processing
+// NovaScene v3 — R3F canvas + HDR post-processing + Chamber environment
+// Three zoom levels: sphere → artifact → chamber
 // Tuned for domain-warped volumetric sphere with selective bloom
 
 import { Suspense, useRef, forwardRef, useImperativeHandle } from "react";
@@ -6,15 +7,20 @@ import { Canvas } from "@react-three/fiber";
 import { EffectComposer, Bloom, ChromaticAberration } from "@react-three/postprocessing";
 import { BlendFunction } from "postprocessing";
 import NovacoreSphere from "./NovacoreSphere";
+import ArtifactShell from "./ArtifactShell";
+import Chamber from "./Chamber";
 import { getGpuTier } from "./gpuDetect";
 
 // ── Post-processing — HDR selective bloom ───────────────────────────
-function Effects({ morphValue = 0 }) {
-  // v11.5: Lower threshold + higher intensity → visible bloom halo from star core.
-  // NOVA: threshold 0.72 catches the HDR center glow, creating visible stellar bloom.
-  // CORE: threshold drops further for volcanic eruption bloom.
-  const bloomIntensity = 1.2 + morphValue * 0.4;
-  const bloomThreshold = 0.72 - morphValue * 0.08;
+function Effects({ morphValue = 0, artifact = false, awaken = 1.0 }) {
+  let bloomIntensity = 1.2 + morphValue * 0.4;
+  let bloomThreshold = 0.72 - morphValue * 0.08;
+
+  if (artifact) {
+    const bloomScale = 0.08 + 0.92 * awaken;
+    bloomIntensity *= bloomScale;
+    bloomThreshold += (1.0 - awaken) * 0.4;
+  }
 
   return (
     <EffectComposer multisampling={4}>
@@ -38,7 +44,7 @@ function Effects({ morphValue = 0 }) {
 
 // ── Scene wrapper ──────────────────────────────────────────────────
 const NovaScene = forwardRef(function NovaScene(
-  { morphTarget = null, intensity = 0.7, size = 1.6, width = 200, height = 200, className = "", style = {}, onClick },
+  { morphTarget = null, intensity = 0.7, size = 1.6, width = 200, height = 200, className = "", style = {}, onClick, artifact = false, awaken = 1.0, chamber = false, crystallize = null, crystalLayers = null },
   ref,
 ) {
   const sphereRef = useRef();
@@ -101,9 +107,31 @@ const NovaScene = forwardRef(function NovaScene(
             segments={gpuTier >= 2 ? 128 : 64}
             gpuTier={gpuTier}
             onClick={onClick}
+            crystallize={crystallize}
+            crystalLayers={crystalLayers}
           />
 
-          {gpuTier >= 2 && <Effects morphValue={morphTarget ?? 0} />}
+          {/* The Artifact — dark obsidian housing shell */}
+          {artifact && (
+            <ArtifactShell
+              size={size}
+              awaken={awaken}
+              morph={morphTarget ?? 0}
+              innerLight={intensity}
+            />
+          )}
+
+          {/* The Chamber — environmental vault with caustic floor + particles */}
+          {chamber && (
+            <Chamber
+              size={size}
+              awaken={awaken}
+              morph={morphTarget ?? 0}
+              innerLight={intensity}
+            />
+          )}
+
+          {gpuTier >= 2 && <Effects morphValue={morphTarget ?? 0} artifact={artifact} awaken={awaken} />}
         </Suspense>
       </Canvas>
     </div>

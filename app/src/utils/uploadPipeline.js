@@ -14,21 +14,56 @@ import { useUiStore } from "@/stores/uiStore";
 import { uid, nowStr } from "@/utils/format";
 import { callAnthropic, optimizeImageForAI, imageBlock } from "@/utils/ai";
 import { loadPdfJs } from "@/utils/pdf";
-import { arrayBufferToBase64, matchScaleKey, renderPdfPage, classifyFile, isDuplicateFile } from "@/utils/drawingUtils";
+import { matchScaleKey, renderPdfPage, classifyFile, isDuplicateFile } from "@/utils/drawingUtils";
 import { detectBuildingOutline, outlineToFeet, computePolygonArea } from "@/utils/outlineDetector";
 import { runFullScan } from "@/utils/scanRunner";
 
+// ─── Compress large image during import ─────────────────────────────────────
+function compressImportImage(dataUrl, maxDim = 4096, quality = 0.85) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width,
+        h = img.height;
+      if (w > maxDim || h > maxDim) {
+        const scale = maxDim / Math.max(w, h);
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      try {
+        const compressed = canvas.toDataURL("image/jpeg", quality);
+        resolve(compressed.length < dataUrl.length ? compressed : dataUrl);
+      } catch {
+        resolve(dataUrl);
+      }
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
 // ─── Extract drawing pages from a file (PDF or image) ──────────────────────
+// PDF pages are rendered to JPEG at import time (scale 1.5 = ~108 DPI).
+// This eliminates the N×M problem where raw PDF base64 was duplicated per page,
+// reducing a 50MB PDF × 20 pages from ~1.34GB of JSON to ~8MB of JPEGs.
 export async function extractDrawingPages(file) {
   const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
 
   if (!isPdf) {
-    const data = await new Promise((res, rej) => {
+    let data = await new Promise((res, rej) => {
       const r = new FileReader();
       r.onload = () => res(r.result);
       r.onerror = () => rej(new Error("Read failed"));
       r.readAsDataURL(file);
     });
+    // Compress large images (>5MB data URL) during import
+    if (data.length > 5_000_000) {
+      data = await compressImportImage(data, 4096, 0.85);
+    }
     const d = {
       id: uid(),
       label: file.name.replace(/\.[^.]+$/, ""),
@@ -47,30 +82,56 @@ export async function extractDrawingPages(file) {
     return [d.id];
   }
 
+  // ── PDF: render each page to JPEG instead of storing raw PDF base64 ──
   const arrayBuffer = await file.arrayBuffer();
-  const base64 = arrayBufferToBase64(arrayBuffer);
   await loadPdfJs();
   const pdf = await window.pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
-  const newDrawings = [];
-  for (let p = 1; p <= pdf.numPages; p++) {
-    newDrawings.push({
-      id: uid(),
-      label: `${file.name.replace(/\.pdf$/i, "")}-Pg${p}`,
-      sheetNumber: "",
-      sheetTitle: "",
-      revision: "0",
-      type: "pdf",
-      data: base64,
-      fileName: file.name,
-      uploadDate: nowStr(),
-      pdfPage: p,
-      totalPdfPages: pdf.numPages,
-    });
+  const numPages = pdf.numPages;
+  const newIds = [];
+
+  for (let p = 1; p <= numPages; p++) {
+    try {
+      // Render page to canvas → JPEG at scale 1.5 (matches PDF_RENDER_DPI = 108)
+      const pg = await pdf.getPage(p);
+      const scale = 1.5;
+      const vp = pg.getViewport({ scale });
+      const canvas = document.createElement("canvas");
+      canvas.width = vp.width;
+      canvas.height = vp.height;
+      await pg.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise;
+      const jpegDataUrl = canvas.toDataURL("image/jpeg", 0.85);
+
+      const drawing = {
+        id: uid(),
+        label: `${file.name.replace(/\.pdf$/i, "")}-Pg${p}`,
+        sheetNumber: "",
+        sheetTitle: "",
+        revision: "0",
+        type: "pdf",
+        pdfPreRendered: true,
+        data: jpegDataUrl,
+        fileName: file.name,
+        uploadDate: nowStr(),
+        pdfPage: p,
+        totalPdfPages: numPages,
+      };
+
+      // Progressive: add each page to store immediately so UI shows pages appearing
+      const cur = useDrawingsStore.getState().drawings;
+      useDrawingsStore.getState().setDrawings([...cur, drawing]);
+
+      // Cache in pdfCanvases for immediate display (renderPdfPage will use this)
+      useDrawingsStore.setState(s => ({
+        pdfCanvases: { ...s.pdfCanvases, [drawing.id]: jpegDataUrl },
+      }));
+
+      newIds.push(drawing.id);
+    } catch (err) {
+      console.warn(`[extractDrawingPages] Failed to render page ${p}/${numPages}:`, err.message);
+    }
   }
-  const cur = useDrawingsStore.getState().drawings;
-  useDrawingsStore.getState().setDrawings([...cur, ...newDrawings]);
-  newDrawings.forEach(d => renderPdfPage(d));
-  return newDrawings.map(d => d.id);
+
+  return newIds;
 }
 
 // ─── Auto-label drawings via AI ─────────────────────────────────────────────
@@ -729,19 +790,26 @@ export async function handleFileUpload(files, options = {}) {
     }
 
     let docType = classifyFile(file.name, file.type, file.size);
+    console.log(`[uploadPipeline] ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB) → classified as "${docType}"`);
 
     // AI classification for ambiguous PDFs
     const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
     if (docType === "general" && isPdf) {
+      // For small unmatched PDFs, try AI classification.
+      // Large PDFs should already be classified as "drawing" by classifyFile.
       try {
+        const fallbackType = file.size > 1024 * 1024 ? "drawing" : "general"; // >1MB → drawing fallback
         const aiType = await Promise.race([
           aiClassifyDocument(file),
-          new Promise(resolve => setTimeout(() => resolve("general"), 15000)),
+          new Promise(resolve => setTimeout(() => resolve(fallbackType), 15000)),
         ]);
         if (aiType !== "general") docType = aiType;
+        else if (fallbackType === "drawing") docType = "drawing"; // AI said "general" but file is large → drawing
       } catch {
-        /* classification non-critical */
+        // AI classification failed — default large PDFs to drawing
+        if (file.size > 1024 * 1024) docType = "drawing";
       }
+      console.log(`[uploadPipeline] AI reclassified ${file.name} → "${docType}"`);
     }
 
     const processingMsg =
@@ -780,6 +848,9 @@ export async function handleFileUpload(files, options = {}) {
   }
 
   let bidInfoExtracted = false;
+  console.log(
+    `[uploadPipeline] Classification: ${classified.drawing.length} drawings, ${classified.rfp.length} RFPs, ${classified.specification.length} specs, ${classified.general.length} general`,
+  );
 
   // ═══════════════════════════════════════════════════════════════════════════
   // STEP 2: Process RFP/ITB documents FIRST — these have all the bid info
@@ -865,13 +936,17 @@ export async function handleFileUpload(files, options = {}) {
 
   if (drawingDocIds.length > 0) {
     const allNewDrawingIds = drawingDocIds.flatMap(d => d.drawingIds);
+    console.log(`[uploadPipeline] Drawing pipeline: ${drawingDocIds.length} docs → ${allNewDrawingIds.length} pages`);
 
-    // Step 4a: Auto-label
+    // Step 4a: Auto-label (with 3-minute timeout so scan always runs even if labeling stalls)
     for (const { docId } of drawingDocIds) {
       useDocumentsStore.getState().updateDocument(docId, { processingMessage: "NOVA labeling sheets..." });
     }
     try {
-      await autoLabelDrawings(allNewDrawingIds);
+      await Promise.race([
+        autoLabelDrawings(allNewDrawingIds),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Labeling timed out")), 180_000)),
+      ]);
       for (const { docId } of drawingDocIds) {
         useDocumentsStore
           .getState()
@@ -890,12 +965,16 @@ export async function handleFileUpload(files, options = {}) {
         }
       }
     } catch (err) {
+      console.warn("[uploadPipeline] Labeling failed/timed out:", err.message);
       for (const { docId } of drawingDocIds) {
-        useDocumentsStore.getState().updateDocument(docId, { processingMessage: `Label failed: ${err.message}` });
+        useDocumentsStore
+          .getState()
+          .updateDocument(docId, { processingMessage: `Label incomplete — proceeding to scan...` });
       }
     }
 
     // Step 4b: Auto-scan (schedule detection + ROM)
+    console.log("[uploadPipeline] Starting scan pipeline...");
     try {
       await runFullScan({
         onComplete: () => {

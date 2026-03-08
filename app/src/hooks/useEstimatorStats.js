@@ -15,7 +15,15 @@ export function useEstimatorStats(estimatorName) {
 
   return useMemo(() => {
     if (!estimatorName) {
-      return { totalEstimates: 0, activeCount: 0, wonCount: 0, accuracy: null, winRate: null, topDivisions: [], totalHours: 0 };
+      return {
+        totalEstimates: 0,
+        activeCount: 0,
+        wonCount: 0,
+        accuracy: null,
+        winRate: null,
+        topDivisions: [],
+        totalHours: 0,
+      };
     }
 
     const mine = estimates.filter(e => e.estimator === estimatorName);

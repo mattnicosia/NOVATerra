@@ -10,6 +10,8 @@ const blankProject = () => ({
   estimator: "",
   address: "",
   date: today(),
+  startDate: "", // YYYY-MM-DD — when estimator begins work
+  estimatedHours: "", // number — estimated hours to complete
   bidDue: "",
   bidDueTime: "",
   walkthroughDate: "",

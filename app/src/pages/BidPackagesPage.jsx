@@ -4,12 +4,17 @@ import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { useBidPackagesStore } from "@/stores/bidPackagesStore";
 import { useItemsStore } from "@/stores/itemsStore";
+import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useUiStore } from "@/stores/uiStore";
 import { fireAutoResponse } from "@/utils/autoResponseEngine";
+import { generateBidPackageProposals, generateCoverMessages } from "@/utils/bidPackageAutoGenerator";
 import BidPackagesPanel from "@/components/estimate/BidPackagesPanel";
 import BidLevelingGrid from "@/components/estimate/BidLevelingGrid";
 import CreateBidPackageModal from "@/components/estimate/CreateBidPackageModal";
+import AutoBidPackageReview from "@/components/estimate/AutoBidPackageReview";
+import BidTrackingStrip from "@/components/estimate/BidTrackingStrip";
 import ProposalDetailModal from "@/components/estimate/ProposalDetailModal";
 import ProposalComparisonMatrix from "@/components/estimate/ProposalComparisonMatrix";
 import AwardBidModal from "@/components/estimate/AwardBidModal";
@@ -26,12 +31,56 @@ export default function BidPackagesPage() {
   const showToast = useUiStore(s => s.showToast);
   const estimateItems = useItemsStore(s => s.items);
 
+  const drawings = useDrawingsStore(s => s.drawings);
+  const subs = useMasterDataStore(s => s.masterData.subcontractors);
+
   const [showCreate, setShowCreate] = useState(false);
   const [selectedProposal, setSelectedProposal] = useState(null);
   const [compareData, setCompareData] = useState(null);
   const [awardPkg, setAwardPkg] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [view, setView] = useState("packages"); // "packages" | "leveling"
+
+  // Auto-generate bid packages
+  const [showAutoReview, setShowAutoReview] = useState(false);
+  const [autoProposals, setAutoProposals] = useState(null);
+  const [autoGenerating, setAutoGenerating] = useState(false);
+
+  const handleAutoGenerate = async () => {
+    if (autoGenerating) return;
+    if (!estimateItems || estimateItems.length === 0) {
+      showToast("No scope items — import an RFP or add items first", "warn");
+      return;
+    }
+    setAutoGenerating(true);
+    try {
+      // 1. Deterministic split (instant)
+      const { proposals, unassignedCount } = generateBidPackageProposals({
+        items: estimateItems,
+        drawings: drawings || [],
+        subs: subs || [],
+        project: project || {},
+      });
+      if (proposals.length === 0) {
+        showToast("No trade-assigned items found — check CSI codes", "warn");
+        setAutoGenerating(false);
+        return;
+      }
+      if (unassignedCount > 0) {
+        showToast(`${unassignedCount} item${unassignedCount > 1 ? "s" : ""} could not be assigned to a trade`, "info");
+      }
+      // 2. AI cover messages (async ~3s)
+      const messages = await generateCoverMessages(proposals, project || {});
+      const enriched = proposals.map((p, i) => ({ ...p, coverMessage: messages[i] || "" }));
+      setAutoProposals(enriched);
+      setShowAutoReview(true);
+    } catch (err) {
+      console.error("[AutoBid] Generation failed:", err);
+      showToast("Auto-generation failed — try again", "error");
+    } finally {
+      setAutoGenerating(false);
+    }
+  };
 
   // Sync with server on mount
   useEffect(() => {
@@ -178,6 +227,35 @@ export default function BidPackagesPage() {
             ))}
           </div>
 
+          {/* Auto-Generate button */}
+          <button
+            onClick={handleAutoGenerate}
+            disabled={autoGenerating}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              background: "transparent",
+              color: autoGenerating ? C.textMuted : C.accent,
+              border: `1.5px solid ${autoGenerating ? C.border : C.accent}`,
+              borderRadius: 10,
+              padding: "9px 16px",
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: autoGenerating ? "default" : "pointer",
+              opacity: autoGenerating ? 0.6 : 1,
+              transition: "all 150ms",
+            }}
+          >
+            <Ic
+              d={I.ai}
+              size={14}
+              color={autoGenerating ? C.textMuted : C.accent}
+              style={autoGenerating ? { animation: "spin 1s linear infinite" } : {}}
+            />
+            {autoGenerating ? "Generating..." : "Auto-Generate"}
+          </button>
+
           {/* New Package button */}
           <button
             onClick={() => setShowCreate(true)}
@@ -218,6 +296,9 @@ export default function BidPackagesPage() {
         </div>
       )}
 
+      {/* Bid Tracking KPIs */}
+      {view === "packages" && bidPackages.length > 0 && <BidTrackingStrip />}
+
       {/* Content: Packages or Leveling */}
       {view === "packages" ? (
         <BidPackagesPanel
@@ -231,6 +312,15 @@ export default function BidPackagesPage() {
       )}
 
       {/* Modals */}
+      {showAutoReview && autoProposals && (
+        <AutoBidPackageReview
+          proposals={autoProposals}
+          onClose={() => {
+            setShowAutoReview(false);
+            setAutoProposals(null);
+          }}
+        />
+      )}
       {showCreate && <CreateBidPackageModal onClose={() => setShowCreate(false)} />}
       {selectedProposal && (
         <ProposalDetailModal

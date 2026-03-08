@@ -143,6 +143,21 @@ const NAV_ICONS = {
       <path d="M5.5 11.5h5" />
     </svg>
   ),
+  resources: (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="1" y1="3" x2="10" y2="3" />
+      <line x1="1" y1="6.5" x2="14" y2="6.5" />
+      <line x1="4" y1="10" x2="12" y2="10" />
+      <line x1="1" y1="13" x2="8" y2="13" />
+    </svg>
+  ),
 };
 
 const NAV_ITEMS = [
@@ -151,6 +166,7 @@ const NAV_ITEMS = [
   { key: "inbox", path: "/inbox", icon: NAV_ICONS.inbox, label: "Inbox", badge: true },
   { key: "core", path: "/core", icon: NAV_ICONS.core, label: "Core" },
   { key: "intelligence", path: "/intelligence", icon: NAV_ICONS.intelligence, label: "Intel" },
+  { key: "resources", path: "/resources", icon: NAV_ICONS.resources, label: "Resources" },
   { key: "business", path: "/business", icon: NAV_ICONS.business, label: "Business", managerOnly: true },
   { key: "people", path: "/contacts", icon: NAV_ICONS.people, label: "People" },
   { key: "settings", path: "/settings", icon: NAV_ICONS.settings, label: "Settings" },

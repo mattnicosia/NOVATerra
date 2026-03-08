@@ -196,6 +196,25 @@ export default function PlanRoomPage() {
     }
   }, [scanResultsPending, scanResults, showScanModal]);
 
+  // ── Auto-start Discovery scan when drawings exist but no results yet ──
+  // Covers: page refresh, returning after upload, plans uploaded in a previous session
+  const autoScanTriggered = useRef(false);
+  useEffect(() => {
+    if (autoScanTriggered.current) return;
+    if (drawings.length === 0) return; // No drawings to scan
+    if (scanResults !== null) return; // Already have results
+    if (scanProgress.phase !== null) return; // Scan already running
+    if (rescanning) return; // Manual rescan in progress
+
+    autoScanTriggered.current = true;
+    console.log("[Discovery] Auto-starting scan — drawings exist but no scan results");
+    showToast(`Starting discovery scan on ${drawings.length} drawings...`);
+    runFullScan({
+      onComplete: () => setShowScanModal(true),
+      onError: () => {},
+    });
+  }, [drawings.length, scanResults, scanProgress.phase, rescanning, showToast]);
+
   // Upload handler
   const handleUpload = useCallback(
     async files => {

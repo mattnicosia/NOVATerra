@@ -9,6 +9,7 @@ export const TRIGGER_TYPES = {
   bidDue24h: { label: "24h Reminder", description: "Bid due in 24 hours", color: "#FF453A" },
   postAwardWinner: { label: "Award (Winner)", description: "Sub was awarded the bid", color: "#30D158" },
   postAwardLoser: { label: "Award (Result)", description: "Sub was not awarded", color: "#8E8E93" },
+  noResponse72h: { label: "No Response (72h)", description: "Sub hasn't opened invitation in 72 hours", color: "#FF9F0A" },
 };
 
 const DEFAULT_CONFIG = {
@@ -18,6 +19,7 @@ const DEFAULT_CONFIG = {
   bidDue24h: { enabled: true },
   postAwardWinner: { enabled: true },
   postAwardLoser: { enabled: true },
+  noResponse72h: { enabled: true },
 };
 
 export const useAutoResponseStore = create((set, get) => ({

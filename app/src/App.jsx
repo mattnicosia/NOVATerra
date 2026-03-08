@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback, lazy, Suspense } from "react";
+import { useEffect, useState, useRef, useCallback, lazy, Suspense, Fragment } from "react";
 import { Routes, Route, Navigate, useParams, useLocation, useNavigate } from "react-router-dom";
 import { ThemeProvider, useTheme } from "@/hooks/useTheme";
 import { usePersistenceLoad, loadEstimate } from "@/hooks/usePersistence";
@@ -24,16 +24,16 @@ import { useOrgStore } from "@/stores/orgStore";
 import { useCollaborationStore } from "@/stores/collaborationStore";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 import NovaOrb from "@/components/dashboard/NovaOrb";
-import { CAR_PALETTE_IDS, LIGHT_PALETTE_IDS, PALETTES } from "@/constants/palettes";
+import { CAR_PALETTE_IDS, LIGHT_PALETTE_IDS, ARTIFACT_PALETTE_IDS, PALETTES } from "@/constants/palettes";
 import { NOISE_GRAIN } from "@/constants/textures";
 import NovaHeader from "@/components/layout/NovaHeader";
+import { useJourneyProgress } from "@/hooks/useJourneyProgress";
 import Toast from "@/components/layout/Toast";
 import PageTransition from "@/components/ambient/PageTransition";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
 import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
 import { AnimatePresence } from "framer-motion";
-import Ic from "@/components/shared/Ic";
-import { I } from "@/constants/icons";
+// Icons not needed in App — tabs use text-only pills
 import LoginPage from "@/pages/LoginPage";
 
 // Lazy-load heavy components not needed until after auth + first paint
@@ -71,6 +71,7 @@ const BidPackagesPage = lazy(() => import("@/pages/BidPackagesPage"));
 const BusinessDashboardPage = lazy(() => import("@/pages/BusinessDashboardPage"));
 const PortalPage = lazy(() => import("@/pages/PortalPage"));
 const SubDashboardPage = lazy(() => import("@/pages/SubDashboardPage"));
+const ResourcePage = lazy(() => import("@/pages/ResourcePage"));
 
 // BLDG Talent + ROM pages (lazy-loaded, role-gated — existing users never download these)
 const RomPage = lazy(() => import("@/pages/RomPage"));
@@ -165,14 +166,12 @@ function EstimateLoader({ children }) {
 }
 
 const PROJECT_TABS = [
-  { key: "info", path: "info", icon: I.settings, label: "Project Info" },
-  { key: "plans", path: "plans", icon: I.plans, label: "Discovery" },
-  { key: "takeoffs", path: "takeoffs", icon: I.takeoff, label: "Estimate" },
-  { key: "alternates", path: "alternates", icon: I.change, label: "Alternates" },
-  { key: "sov", path: "sov", icon: I.dollar, label: "SOV" },
-  { key: "bids", path: "bids", icon: I.bid, label: "Bids" },
-  { key: "reports", path: "reports", icon: I.report, label: "Reports" },
-  { key: "insights", path: "insights", icon: I.insights, label: "Insights" },
+  { key: "info", path: "info", label: "Info", stageKey: "define" },
+  { key: "plans", path: "plans", label: "Discovery", stageKey: "discover" },
+  { key: "takeoffs", path: "takeoffs", label: "Estimate", stageKey: "estimate" },
+  { key: "bids", path: "bids", label: "Bids", stageKey: "bid" },
+  { key: "reports", path: "reports", label: "Reports", stageKey: "propose" },
+  { key: "insights", path: "insights", label: "Insights", stageKey: null },
 ];
 
 /* ── Takeoffs header controls: mode button + NOVA orb ── */
@@ -346,6 +345,16 @@ function TakeoffsHeaderControls({ C }) {
   );
 }
 
+// ─── Keyframes for pill completion animation ────────────────────────────────
+const PILL_KEYFRAMES = `
+@keyframes pillPulse {
+  0%    { transform: scale(1); }
+  40%   { transform: scale(1.06); }
+  70%   { transform: scale(1.02); }
+  100%  { transform: scale(1); }
+}
+`;
+
 function ProjectTabBar() {
   const C = useTheme();
   const T = C.T;
@@ -358,18 +367,29 @@ function ProjectTabBar() {
   const getCompanyInfo = useMasterDataStore(s => s.getCompanyInfo);
   const companyInfo = getCompanyInfo(project.companyProfileId);
   const companyInitial = (companyInfo?.name || "?")[0].toUpperCase();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef(null);
+  const { stages, justCompleted } = useJourneyProgress();
 
-  // Close on outside click
+  const [animatingKeys, setAnimatingKeys] = useState({});
+  const [hoveredKey, setHoveredKey] = useState(null);
+
+  // ── Completion animation lifecycle ──
   useEffect(() => {
-    if (!menuOpen) return;
-    const close = e => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [menuOpen]);
+    const keys = Object.keys(justCompleted);
+    if (keys.length === 0) return;
+    setAnimatingKeys(prev => {
+      const next = { ...prev };
+      keys.forEach(k => { next[k] = true; });
+      return next;
+    });
+    const timer = setTimeout(() => {
+      setAnimatingKeys(prev => {
+        const next = { ...prev };
+        keys.forEach(k => { delete next[k]; });
+        return next;
+      });
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [justCompleted]);
 
   // Only show on /estimate/:id/* routes
   if (!activeId || !location.pathname.startsWith("/estimate/")) return null;
@@ -380,214 +400,201 @@ function ProjectTabBar() {
   // Determine active tab
   const activeTab = PROJECT_TABS.find(t => location.pathname.includes(`/${t.path}`)) || PROJECT_TABS[0];
 
+  // Build stage completion lookup
+  const stageMap = {};
+  stages.forEach(s => { stageMap[s.key] = s.complete; });
+
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 4,
-        padding: `0 ${T.space[6]}px`,
-        height: 40,
-        minHeight: 40,
-        background: C.bg,
-        borderBottom: `1px solid ${C.border}`,
-        fontFamily: "'DM Sans', sans-serif",
-      }}
-    >
-      {/* Project indicator — company logo + project name */}
+    <>
+      <style>{PILL_KEYFRAMES}</style>
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 8,
-          paddingRight: 12,
-          marginRight: 8,
-          borderRight: `1px solid ${C.border}`,
-          flexShrink: 0,
+          gap: 4,
+          padding: `0 ${T.space[6]}px`,
+          height: 40,
+          minHeight: 40,
+          background: C.bg,
+          borderBottom: `1px solid ${C.border}`,
+          fontFamily: "'DM Sans', sans-serif",
         }}
       >
-        {companyInfo?.logo ? (
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 26,
-              height: 26,
-              borderRadius: 6,
-              flexShrink: 0,
-              background: dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.03)",
-              border: dk ? "1px solid rgba(255,255,255,0.10)" : "1px solid rgba(0,0,0,0.04)",
-              overflow: "hidden",
-            }}
-          >
-            <img
-              src={companyInfo.logo}
-              alt=""
-              style={{
-                maxHeight: 20,
-                maxWidth: 20,
-                objectFit: "contain",
-              }}
-            />
-          </div>
-        ) : (
-          <div
-            style={{
-              width: 26,
-              height: 26,
-              borderRadius: 6,
-              background: `${C.accent}18`,
-              border: `1px solid ${C.accent}30`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 11,
-              fontWeight: 700,
-              color: C.accent,
-              flexShrink: 0,
-            }}
-          >
-            {companyInitial}
-          </div>
-        )}
-        <span
-          style={{
-            fontSize: 11,
-            fontWeight: 600,
-            color: C.text,
-            maxWidth: 160,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {project.name || "Untitled"}
-        </span>
-      </div>
-
-      {/* Collapsible menu button */}
-      <div ref={menuRef} style={{ position: "relative" }}>
-        <button
-          onClick={() => setMenuOpen(v => !v)}
+        {/* Project indicator — company logo + project name */}
+        <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 6,
-            padding: "5px 10px",
-            borderRadius: T.radius.sm,
-            fontSize: T.fontSize.sm,
-            fontWeight: T.fontWeight.bold,
-            color: C.accent,
-            background: menuOpen ? C.accentBg : "transparent",
-            border: `1px solid ${menuOpen ? C.accent + "30" : "transparent"}`,
-            cursor: "pointer",
-            whiteSpace: "nowrap",
-            transition: T.transition.fast,
-            fontFamily: "'DM Sans', sans-serif",
-          }}
-          onMouseEnter={e => {
-            if (!menuOpen) e.currentTarget.style.background = C.bg2;
-          }}
-          onMouseLeave={e => {
-            if (!menuOpen) e.currentTarget.style.background = "transparent";
+            gap: 8,
+            paddingRight: 12,
+            marginRight: 4,
+            borderRight: `1px solid ${C.border}`,
+            flexShrink: 0,
           }}
         >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke={C.accent}
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <line x1="3" y1="6" x2="21" y2="6" />
-            <line x1="3" y1="12" x2="21" y2="12" />
-            <line x1="3" y1="18" x2="21" y2="18" />
-          </svg>
-          <Ic d={activeTab.icon} size={13} />
-          {activeTab.label}
-          <svg
-            width="10"
-            height="10"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke={C.textMuted}
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            style={{ marginLeft: -2 }}
-          >
-            <polyline points={menuOpen ? "18 15 12 9 6 15" : "6 9 12 15 18 9"} />
-          </svg>
-        </button>
-
-        {/* Dropdown */}
-        {menuOpen && (
-          <div
+          {companyInfo?.logo ? (
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 26,
+                height: 26,
+                borderRadius: 6,
+                flexShrink: 0,
+                background: dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.03)",
+                border: dk ? "1px solid rgba(255,255,255,0.10)" : "1px solid rgba(0,0,0,0.04)",
+                overflow: "hidden",
+              }}
+            >
+              <img
+                src={companyInfo.logo}
+                alt=""
+                style={{
+                  maxHeight: 20,
+                  maxWidth: 20,
+                  objectFit: "contain",
+                }}
+              />
+            </div>
+          ) : (
+            <div
+              style={{
+                width: 26,
+                height: 26,
+                borderRadius: 6,
+                background: `${C.accent}18`,
+                border: `1px solid ${C.accent}30`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 11,
+                fontWeight: 700,
+                color: C.accent,
+                flexShrink: 0,
+              }}
+            >
+              {companyInitial}
+            </div>
+          )}
+          <span
             style={{
-              position: "absolute",
-              top: "calc(100% + 4px)",
-              left: 0,
-              minWidth: 180,
-              background: C.bg1,
-              border: `1px solid ${C.border}`,
-              borderRadius: 8,
-              boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
-              zIndex: 500,
-              padding: "4px 0",
-              animation: "fadeIn 0.12s ease-out",
+              fontSize: 11,
+              fontWeight: 600,
+              color: C.text,
+              maxWidth: 160,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
             }}
           >
-            {PROJECT_TABS.map(tab => {
-              const isActive = tab.key === activeTab.key;
-              return (
+            {project.name || "Untitled"}
+          </span>
+        </div>
+
+        {/* ── Journey pill tabs with workflow arrows ── */}
+        <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+          {PROJECT_TABS.map((tab, i) => {
+            const isActive = tab.key === activeTab.key;
+            const isComplete = !isActive && tab.stageKey && !!stageMap[tab.stageKey];
+            const isAnimating = tab.stageKey && !!animatingKeys[tab.stageKey];
+            const isHovered = hoveredKey === tab.key && !isActive;
+
+            // Arrow between pills — the left pill's completion state determines arrow brightness
+            const prevTab = i > 0 ? PROJECT_TABS[i - 1] : null;
+            const prevComplete = prevTab?.stageKey && !!stageMap[prevTab.stageKey];
+            const prevIsActive = prevTab?.key === activeTab.key;
+            const arrowTraveled = prevComplete || prevIsActive;
+
+            // ── Pill style by state ──
+            const basePill = {
+              height: 26,
+              borderRadius: 13,
+              padding: "0 14px",
+              fontSize: 11,
+              fontWeight: isActive ? 600 : 500,
+              cursor: "pointer",
+              border: "none",
+              outline: "none",
+              whiteSpace: "nowrap",
+              fontFamily: "'DM Sans', sans-serif",
+              transition: "all 200ms ease",
+              flexShrink: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            };
+
+            let pillStyle;
+
+            if (isActive) {
+              pillStyle = {
+                ...basePill,
+                background: C.accent,
+                color: "#fff",
+                boxShadow: `0 0 0 1px ${C.accent}15, 0 0 8px ${C.accent}25`,
+              };
+            } else if (isComplete) {
+              pillStyle = {
+                ...basePill,
+                background: isHovered ? `${C.green}20` : `${C.green}12`,
+                color: C.text,
+                border: `1px solid ${C.green}30`,
+                animation: isAnimating ? "pillPulse 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275)" : undefined,
+              };
+            } else {
+              pillStyle = {
+                ...basePill,
+                background: isHovered ? C.bg2 : "transparent",
+                color: isHovered ? C.textMuted : C.textDim,
+                border: `1px solid ${isHovered ? `${C.text}18` : `${C.border}`}`,
+              };
+            }
+
+            return (
+              <Fragment key={tab.key}>
+                {/* Workflow arrow */}
+                {i > 0 && (
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    style={{
+                      flexShrink: 0,
+                      margin: "0 2px",
+                      transition: "opacity 200ms ease",
+                    }}
+                  >
+                    <path
+                      d="M6 3.5L10.5 8L6 12.5"
+                      stroke={arrowTraveled ? C.accent : C.textDim}
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      opacity={arrowTraveled ? 0.5 : 0.3}
+                    />
+                  </svg>
+                )}
                 <button
-                  key={tab.key}
-                  onClick={() => {
-                    navigate(`/estimate/${activeId}/${tab.path}`);
-                    setMenuOpen(false);
-                  }}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    width: "100%",
-                    padding: "8px 14px",
-                    border: "none",
-                    background: isActive ? C.accentBg : "transparent",
-                    color: isActive ? C.accent : C.text,
-                    fontSize: 12,
-                    fontWeight: isActive ? 700 : 500,
-                    fontFamily: "'DM Sans', sans-serif",
-                    cursor: "pointer",
-                    textAlign: "left",
-                    transition: "background 0.1s",
-                    borderLeft: isActive ? `3px solid ${C.accent}` : "3px solid transparent",
-                  }}
-                  onMouseEnter={e => {
-                    if (!isActive) e.currentTarget.style.background = C.bg2;
-                  }}
-                  onMouseLeave={e => {
-                    if (!isActive) e.currentTarget.style.background = isActive ? C.accentBg : "transparent";
-                  }}
+                  onClick={() => navigate(`/estimate/${activeId}/${tab.path}`)}
+                  onMouseEnter={() => setHoveredKey(tab.key)}
+                  onMouseLeave={() => setHoveredKey(null)}
+                  style={pillStyle}
                 >
-                  <Ic d={tab.icon} size={14} color={isActive ? C.accent : C.textMuted} />
                   {tab.label}
                 </button>
-              );
-            })}
-          </div>
-        )}
+              </Fragment>
+            );
+          })}
+        </div>
+
+        {/* Takeoffs controls — mode button + NOVA (only on takeoffs page) */}
+        {activeTab.key === "takeoffs" && <TakeoffsHeaderControls C={C} />}
+
+        <div style={{ flex: 1 }} />
       </div>
-
-      {/* Takeoffs controls — mode button + NOVA (after menu, only on takeoffs page) */}
-      {activeTab.key === "takeoffs" && <TakeoffsHeaderControls C={C} />}
-
-      <div style={{ flex: 1 }} />
-    </div>
+    </>
   );
 }
 
@@ -598,7 +605,7 @@ function FloatingThemePicker() {
   const updateSetting = useUiStore(s => s.updateSetting);
   const [expanded, setExpanded] = useState(false);
 
-  const ALL_IDS = ["nova", "clarity", "clean-light", "nero", ...CAR_PALETTE_IDS, ...LIGHT_PALETTE_IDS];
+  const ALL_IDS = ["nova", "clarity", "clean-light", "nero", ...CAR_PALETTE_IDS, ...LIGHT_PALETTE_IDS, ...ARTIFACT_PALETTE_IDS];
   const currentIdx = ALL_IDS.indexOf(selectedPalette);
   const currentPalette = PALETTES.find(p => p.id === selectedPalette);
   const currentName = currentPalette?.name || "Default";
@@ -836,7 +843,7 @@ function ThemeCycleButton({ C }) {
   const [hovered, setHovered] = useState(false);
 
   // All available palettes: originals + car collection
-  const ALL_IDS = ["nova", "clarity", "clean-light", "nero", ...CAR_PALETTE_IDS, ...LIGHT_PALETTE_IDS];
+  const ALL_IDS = ["nova", "clarity", "clean-light", "nero", ...CAR_PALETTE_IDS, ...LIGHT_PALETTE_IDS, ...ARTIFACT_PALETTE_IDS];
   const currentIdx = ALL_IDS.indexOf(selectedPalette);
 
   // Find current palette metadata
@@ -1125,6 +1132,7 @@ function AppContent() {
                 <Route path="/inbox" element={<InboxPage />} />
                 <Route path="/intelligence" element={<IntelligencePage />} />
                 <Route path="/projects" element={<ProjectsPage />} />
+                <Route path="/resources" element={<ResourcePage />} />
                 <Route path="/core" element={<CorePage />} />
                 <Route
                   path="/estimate/:id/info"

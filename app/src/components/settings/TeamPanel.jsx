@@ -5,6 +5,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { useAllEstimatorStats } from "@/hooks/useEstimatorStats";
 import Sec from "@/components/shared/Sec";
 import Ic from "@/components/shared/Ic";
+import Avatar from "@/components/shared/Avatar";
 import { I } from "@/constants/icons";
 import { inp, bt } from "@/utils/styles";
 
@@ -123,24 +124,18 @@ export default function TeamPanel() {
           My Profile
         </div>
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          {/* Avatar circle */}
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: "50%",
-              background: membership?.color || "#6366F1",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 14,
-              fontWeight: 700,
-              color: "#fff",
-              flexShrink: 0,
+          {/* Avatar with headshot upload */}
+          <Avatar
+            name={membership?.display_name || user?.email || "?"}
+            src={membership?.avatar_url}
+            color={membership?.color || "#6366F1"}
+            size={36}
+            editable
+            onUpload={async dataUrl => {
+              const res = await updateProfile({ avatar_url: dataUrl });
+              if (res.error) setError(res.error);
             }}
-          >
-            {(membership?.display_name || user?.email || "?")[0].toUpperCase()}
-          </div>
+          />
 
           {/* Name + role */}
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -239,23 +234,7 @@ export default function TeamPanel() {
                     background: ov(0.02),
                   }}
                 >
-                  <div
-                    style={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: "50%",
-                      flexShrink: 0,
-                      background: m.color || "#6366F1",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 10,
-                      fontWeight: 700,
-                      color: "#fff",
-                    }}
-                  >
-                    {(m.display_name || "?")[0].toUpperCase()}
-                  </div>
+                  <Avatar name={m.display_name || "?"} src={m.avatar_url} color={m.color || "#6366F1"} size={24} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div
                       style={{
@@ -274,7 +253,9 @@ export default function TeamPanel() {
                       {mStats.totalEstimates > 0 && (
                         <>
                           <span style={{ opacity: 0.4 }}>·</span>
-                          <span>{mStats.totalEstimates} estimate{mStats.totalEstimates !== 1 ? "s" : ""}</span>
+                          <span>
+                            {mStats.totalEstimates} estimate{mStats.totalEstimates !== 1 ? "s" : ""}
+                          </span>
                           {mStats.winRate != null && (
                             <>
                               <span style={{ opacity: 0.4 }}>·</span>
@@ -313,125 +294,151 @@ export default function TeamPanel() {
       )}
 
       {/* Division Expertise Heat Map (managers only) */}
-      {isManager && members.length > 0 && (() => {
-        // Gather all divisions across all estimators
-        const estimatorNames = members.map(m => m.display_name).filter(Boolean);
-        const allDivs = new Set();
-        for (const name of estimatorNames) {
-          const s = allStats[name];
-          if (s?.divisions) Object.keys(s.divisions).forEach(d => allDivs.add(d));
-        }
-        const divList = [...allDivs].sort();
-        if (divList.length === 0) return null;
+      {isManager &&
+        members.length > 0 &&
+        (() => {
+          // Gather all divisions across all estimators
+          const estimatorNames = members.map(m => m.display_name).filter(Boolean);
+          const allDivs = new Set();
+          for (const name of estimatorNames) {
+            const s = allStats[name];
+            if (s?.divisions) Object.keys(s.divisions).forEach(d => allDivs.add(d));
+          }
+          const divList = [...allDivs].sort();
+          if (divList.length === 0) return null;
 
-        const heatColor = (count, won) => {
-          if (!count) return "transparent";
-          const base = won > 0 ? "52,211,153" : "96,165,250"; // green if won, blue otherwise
-          const alpha = count >= 5 ? 0.5 : count >= 3 ? 0.35 : 0.18;
-          return `rgba(${base},${alpha})`;
-        };
+          const heatColor = (count, won) => {
+            if (!count) return "transparent";
+            const base = won > 0 ? "52,211,153" : "96,165,250"; // green if won, blue otherwise
+            const alpha = count >= 5 ? 0.5 : count >= 3 ? 0.35 : 0.18;
+            return `rgba(${base},${alpha})`;
+          };
 
-        return (
-          <div style={{ marginBottom: 20 }}>
-            <div
-              style={{
-                fontSize: 9,
-                fontWeight: 600,
-                color: C.textDim,
-                textTransform: "uppercase",
-                letterSpacing: "0.1em",
-                marginBottom: 8,
-              }}
-            >
-              Division Expertise
-            </div>
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 9 }}>
-                <thead>
-                  <tr>
-                    <th style={{ textAlign: "left", padding: "4px 6px", color: C.textDim, fontWeight: 500 }} />
-                    {divList.map(d => (
-                      <th
-                        key={d}
-                        style={{
-                          padding: "4px 3px",
-                          color: C.textDim,
-                          fontWeight: 500,
-                          textAlign: "center",
-                          whiteSpace: "nowrap",
-                          maxWidth: 40,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                        title={d}
-                      >
-                        {d.length > 5 ? d.slice(0, 5) : d}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {estimatorNames.map(name => {
-                    const s = allStats[name];
-                    if (!s) return null;
-                    return (
-                      <tr key={name}>
-                        <td
+          return (
+            <div style={{ marginBottom: 20 }}>
+              <div
+                style={{
+                  fontSize: 9,
+                  fontWeight: 600,
+                  color: C.textDim,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.1em",
+                  marginBottom: 8,
+                }}
+              >
+                Division Expertise
+              </div>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 9 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: "left", padding: "4px 6px", color: C.textDim, fontWeight: 500 }} />
+                      {divList.map(d => (
+                        <th
+                          key={d}
                           style={{
-                            padding: "3px 6px",
-                            color: C.text,
+                            padding: "4px 3px",
+                            color: C.textDim,
                             fontWeight: 500,
+                            textAlign: "center",
                             whiteSpace: "nowrap",
-                            maxWidth: 100,
+                            maxWidth: 40,
                             overflow: "hidden",
                             textOverflow: "ellipsis",
                           }}
+                          title={d}
                         >
-                          {name}
-                        </td>
-                        {divList.map(d => {
-                          const dd = s.divisions?.[d];
-                          return (
-                            <td
-                              key={d}
-                              title={dd ? `${dd.count} est, ${dd.wonCount} won` : "—"}
-                              style={{
-                                padding: "3px 3px",
-                                textAlign: "center",
-                                background: heatColor(dd?.count, dd?.wonCount),
-                                borderRadius: 3,
-                                color: dd?.count ? C.text : "transparent",
-                                fontWeight: 600,
-                                minWidth: 28,
-                              }}
-                            >
-                              {dd?.count || ""}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                          {d.length > 5 ? d.slice(0, 5) : d}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {estimatorNames.map(name => {
+                      const s = allStats[name];
+                      if (!s) return null;
+                      return (
+                        <tr key={name}>
+                          <td
+                            style={{
+                              padding: "3px 6px",
+                              color: C.text,
+                              fontWeight: 500,
+                              whiteSpace: "nowrap",
+                              maxWidth: 100,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                          >
+                            {name}
+                          </td>
+                          {divList.map(d => {
+                            const dd = s.divisions?.[d];
+                            return (
+                              <td
+                                key={d}
+                                title={dd ? `${dd.count} est, ${dd.wonCount} won` : "—"}
+                                style={{
+                                  padding: "3px 3px",
+                                  textAlign: "center",
+                                  background: heatColor(dd?.count, dd?.wonCount),
+                                  borderRadius: 3,
+                                  color: dd?.count ? C.text : "transparent",
+                                  fontWeight: 600,
+                                  minWidth: 28,
+                                }}
+                              >
+                                {dd?.count || ""}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ fontSize: 8, color: C.textDim, marginTop: 6, display: "flex", gap: 12 }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                  <span
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 2,
+                      background: "rgba(52,211,153,0.5)",
+                      display: "inline-block",
+                    }}
+                  />
+                  5+ with wins
+                </span>
+                <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                  <span
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 2,
+                      background: "rgba(96,165,250,0.35)",
+                      display: "inline-block",
+                    }}
+                  />
+                  3-4
+                </span>
+                <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                  <span
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 2,
+                      background: "rgba(96,165,250,0.18)",
+                      display: "inline-block",
+                    }}
+                  />
+                  1-2
+                </span>
+              </div>
             </div>
-            <div style={{ fontSize: 8, color: C.textDim, marginTop: 6, display: "flex", gap: 12 }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                <span style={{ width: 8, height: 8, borderRadius: 2, background: "rgba(52,211,153,0.5)", display: "inline-block" }} />
-                5+ with wins
-              </span>
-              <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                <span style={{ width: 8, height: 8, borderRadius: 2, background: "rgba(96,165,250,0.35)", display: "inline-block" }} />
-                3-4
-              </span>
-              <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                <span style={{ width: 8, height: 8, borderRadius: 2, background: "rgba(96,165,250,0.18)", display: "inline-block" }} />
-                1-2
-              </span>
-            </div>
-          </div>
-        );
-      })()}
+          );
+        })()}
 
       {/* Pending Invitations */}
       {isManager && invitations.length > 0 && (

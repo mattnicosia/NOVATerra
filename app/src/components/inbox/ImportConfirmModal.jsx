@@ -58,9 +58,11 @@ export default function ImportConfirmModal({
     architect: pd.architect?.company || "",
     address: pd.address || "",
     jobType: pd.jobType || "",
+    bidType: pd.bidType || "",
+    bidDelivery: pd.bidDelivery || "",
     bidDue: pd.bidDue || "",
     bidDueTime: pd.bidDueTime || "",
-    description: pd.description || "",
+    description: pd.description || (pd.scopeNotes || []).join("; ") || "",
   });
 
   const update = (key, value) => setFields(f => ({ ...f, [key]: value }));
@@ -80,6 +82,18 @@ export default function ImportConfirmModal({
           ? masterData.jobTypes.map(j => (typeof j === "string" ? j : j.name))
           : []),
       ],
+    },
+    {
+      key: "bidType",
+      label: "Bid Type",
+      type: "select",
+      options: ["", "Hard Bid", "Negotiated", "Design-Build", "CM at Risk", "GMP"],
+    },
+    {
+      key: "bidDelivery",
+      label: "Bid Delivery",
+      type: "select",
+      options: ["", "Email", "Sealed & Delivered", "Both", "Online Portal"],
     },
     { key: "bidDue", label: "Bid Due Date", type: "date" },
     { key: "bidDueTime", label: "Bid Due Time", type: "time" },
@@ -265,6 +279,68 @@ export default function ImportConfirmModal({
 
                 {/* Bid Intelligence Panel */}
                 <BidIntelligencePanel parsedData={pd} editedFields={fields} />
+
+                {/* Bid Requirements — read-only display from parsed data */}
+                {(() => {
+                  const br = pd.bidRequirements || {};
+                  const reqs = Object.entries(br)
+                    .filter(([k, v]) => v && k !== "other")
+                    .map(([k]) => k.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase()));
+                  if (reqs.length === 0 && !br.other) return null;
+                  return (
+                    <div
+                      style={{
+                        padding: T.space[3],
+                        borderRadius: T.radius.sm,
+                        background: C.isDark ? "rgba(139,92,246,0.06)" : "rgba(139,92,246,0.04)",
+                        border: `1px solid ${C.isDark ? "rgba(139,92,246,0.15)" : "rgba(139,92,246,0.10)"}`,
+                        marginBottom: T.space[4],
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: T.fontSize.xs,
+                          color: "#8b5cf6",
+                          fontWeight: T.fontWeight.semibold,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.05em",
+                          marginBottom: T.space[2],
+                        }}
+                      >
+                        Bid Requirements
+                      </div>
+                      {reqs.length > 0 && (
+                        <div
+                          style={{
+                            display: "flex",
+                            flexWrap: "wrap",
+                            gap: T.space[2],
+                            marginBottom: br.other ? T.space[2] : 0,
+                          }}
+                        >
+                          {reqs.map(r => (
+                            <span
+                              key={r}
+                              style={{
+                                fontSize: T.fontSize.xs,
+                                padding: "2px 8px",
+                                borderRadius: T.radius.full,
+                                background: "#8b5cf618",
+                                color: "#8b5cf6",
+                                fontWeight: T.fontWeight.medium,
+                              }}
+                            >
+                              {r}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {br.other && (
+                        <div style={{ fontSize: T.fontSize.xs, color: C.textMuted }}>{br.other}</div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Company Profile selector — only shown if multiple profiles exist */}
                 {hasMultipleProfiles && (

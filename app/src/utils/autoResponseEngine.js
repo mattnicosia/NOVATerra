@@ -40,6 +40,12 @@ const TRIGGER_PROMPTS = {
     buildContext: ctx =>
       `Project: ${ctx.projectName}\nSubcontractor: ${ctx.subCompany}\nTheir Bid: ${ctx.bidAmount || "N/A"}`,
   },
+  noResponse72h: {
+    system:
+      'You are NOVA, an AI assistant for a general contractor. Write a brief follow-up email (3-4 sentences) to a sub who received a bid invitation 72+ hours ago but hasn\'t opened it. Be professional and helpful — assume they may have missed the original email. Mention the project name, encourage them to review the scope, and note the due date. Output JSON: { "subject": "...", "body": "..." }.',
+    buildContext: ctx =>
+      `Project: ${ctx.projectName}\nSubcontractor: ${ctx.subCompany}\nDue Date: ${ctx.dueDate}\nSent: ${ctx.sentAt || "3+ days ago"}\nGC Company: ${ctx.gcCompany || "Our firm"}`,
+  },
 };
 
 /* ─── Default subject fallbacks (used if AI fails) ─── */
@@ -50,6 +56,7 @@ const DEFAULT_SUBJECTS = {
   bidDue24h: ctx => `Final Reminder: ${ctx.projectName} — Bids Due Tomorrow`,
   postAwardWinner: ctx => `Award Notice: ${ctx.projectName}`,
   postAwardLoser: ctx => `Bid Result: ${ctx.projectName}`,
+  noResponse72h: ctx => `Following Up — ${ctx.projectName} Bid Invitation`,
 };
 
 const DEFAULT_BODIES = {
@@ -65,6 +72,8 @@ const DEFAULT_BODIES = {
     `Congratulations! We are pleased to inform you that ${ctx.subCompany} has been selected for ${ctx.projectName}. Our team will be in touch shortly regarding contract preparation and next steps.`,
   postAwardLoser: ctx =>
     `Thank you for submitting your proposal for ${ctx.projectName}. After careful review, we have decided to move forward with another firm for this project. We appreciate your time and effort, and we look forward to working with you on future opportunities.`,
+  noResponse72h: ctx =>
+    `We wanted to follow up on the bid invitation we sent for ${ctx.projectName}. We haven't seen activity on your portal yet and wanted to make sure it didn't get lost. Please take a moment to review the scope — bids are due ${ctx.dueDate || "soon"}.`,
 };
 
 /* ─── Main trigger function ─── */

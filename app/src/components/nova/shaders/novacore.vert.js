@@ -1,6 +1,22 @@
-// NOVACORE vertex shader v11 — celestial body topology
-// NOVA: perfectly smooth sphere (near-zero displacement)
-// CORE: dramatic volcanic displacement + fluid topology
+// NOVACORE vertex shader v13 — phase-transition topology
+// "NOVACORE's visual identity is not a sphere. It's a phase transition."
+//
+// Mod noise crystallization (IQ + Patricio):
+//   fract(rawNoise * layers) creates terraced strata from smooth FBM.
+//   mix(smooth, crystal, uCrystallize) blends between fluid plasma and faceted crystal.
+//   The form oscillates perpetually — supercooled plasma on the edge of crystallizing.
+//
+// v13 (IQ): Hierarchical crystallization — two fract() layers:
+//   Primary (uCrystalLayers): fine grain strata (6-12 divisions)
+//   Secondary (uCrystalLayers * 0.25): tectonic plates (1-3 large divisions)
+//   Two varyings (vCrystalRaw, vCrystalRaw2) drive hierarchical edge detection in fragment.
+//
+// Temporal layers (Hodgin):
+//   1. Geological crystallize drift (2-3 min) — base form slowly evolves
+//   2. State-driven crystallize (instant) — thinking adds crystal, idle relaxes
+//   3. Crystal grain drift (40-60s) — facet density shifts independently
+//   4. Pulse/exhale crystal shatter — momentary dramatic faceting
+//   5. Frost event (random 45-90s) — stochastic flash-freeze + slow melt
 
 export const novacoreVertexShader = /* glsl */ `
   uniform float uTime;
@@ -9,6 +25,8 @@ export const novacoreVertexShader = /* glsl */ `
   uniform float uExhale;
   uniform float uNoiseScale;
   uniform float uSize;
+  uniform float uCrystallize;    // 0 = fluid plasma, 1 = fully crystalline
+  uniform float uCrystalLayers;  // facet density: 2 = tectonic plates, 12 = fine grain
 
   varying vec3 vNormal;
   varying vec3 vPosition;
@@ -17,6 +35,8 @@ export const novacoreVertexShader = /* glsl */ `
   varying float vFresnel;
   varying vec3 vViewDir;
   varying vec3 vLocalPos;
+  varying float vCrystalRaw;     // raw crystal value for fragment edge detection (fine grain)
+  varying float vCrystalRaw2;    // secondary tectonic-scale crystal for hierarchical edges (IQ)
 
   // ── Simplex 3D noise ──────────────────────────────────────────────
   vec4 permute(vec4 x) { return mod(((x * 34.0) + 1.0) * x, 289.0); }
@@ -98,7 +118,30 @@ export const novacoreVertexShader = /* glsl */ `
 
     // NOVA: near-zero warp on displacement (perfect sphere). CORE: volcanic.
     float warp = mix(0.3, 3.8, uMorph);
-    float displacement = fbm4(noisePos + warp * vec3(q, 0.0) + vec3(t * 0.3)) * amplitude;
+    float rawNoise = fbm4(noisePos + warp * vec3(q, 0.0) + vec3(t * 0.3));
+
+    // ── Mod noise crystallization (IQ + Patricio) ──────────────
+    // fract() creates terraced strata from smooth noise — sharp facet boundaries
+    // Patricio: "Supercooled plasma on the edge of crystallizing."
+    //
+    // v13 (IQ): Hierarchical crystallization — two fract() layers:
+    //   Primary: uCrystalLayers frequency → fine grain (6-12 strata)
+    //   Secondary: uCrystalLayers * 0.25 → tectonic plates (1-3 large divisions)
+    //   Large plates with fine grain nested inside. Like real crystal growth.
+    float smoothDisp = rawNoise;
+    float crystalFine = fract(rawNoise * uCrystalLayers);            // fine grain
+    float crystalTectonic = fract(rawNoise * uCrystalLayers * 0.25); // tectonic plates
+    float crystalDisp = crystalFine * 0.55 + crystalTectonic * 0.45; // hierarchical blend
+    float baseDisp = mix(smoothDisp, crystalDisp, uCrystallize);
+
+    // Crystal also adds subtle displacement even at NOVA (smooth sphere)
+    // so the faceting is visible as surface perturbation, not just texture
+    float crystalMinAmp = uCrystallize * 0.025;
+    float displacement = baseDisp * (amplitude + crystalMinAmp);
+
+    // Pass raw crystal values to fragment for edge specular detection
+    vCrystalRaw = rawNoise * uCrystalLayers * uCrystallize;
+    vCrystalRaw2 = rawNoise * uCrystalLayers * 0.25 * uCrystallize;
 
     // CORE: gentle extra turbulence (not chaotic)
     float turb1 = snoise(position * uNoiseScale * 2.0 + vec3(t * 0.6, t * 0.3, t * 0.4));

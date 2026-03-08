@@ -17,44 +17,72 @@ export default function useAutoResponseTimers() {
       const { hasDraft, triggerConfig } = useAutoResponseStore.getState();
       const project = useProjectStore.getState().project;
 
-      if (!triggerConfig.bidDue48h?.enabled && !triggerConfig.bidDue24h?.enabled) return;
+      const hasDeadlineTriggers = triggerConfig.bidDue48h?.enabled || triggerConfig.bidDue24h?.enabled;
+      const hasNoResponseTrigger = triggerConfig.noResponse72h?.enabled;
+
+      if (!hasDeadlineTriggers && !hasNoResponseTrigger) return;
+
+      const now = Date.now();
 
       for (const pkg of bidPackages) {
-        if (!pkg.dueDate || pkg.status === "awarded" || pkg.status === "closed") continue;
-
-        const due = new Date(pkg.dueDate + "T17:00:00"); // 5pm on due date
-        const hoursLeft = (due - Date.now()) / 3600000;
-
-        // Skip if already past due or too far out
-        if (hoursLeft <= 0 || hoursLeft > 48) continue;
+        if (pkg.status === "awarded" || pkg.status === "closed") continue;
 
         const pkgInvites = invitations[pkg.id] || [];
-        for (const inv of pkgInvites) {
-          // Only remind subs who haven't submitted yet
-          if (!["sent", "opened", "downloaded"].includes(inv.status)) continue;
 
-          const ctx = {
-            packageId: pkg.id,
-            invitationId: inv.id,
-            recipientEmail: inv.subEmail || "",
-            subCompany: inv.subCompany || inv.subContact || "",
-            projectName: pkg.name || project?.name || "",
-            dueDate: due.toLocaleDateString("en-US", {
-              weekday: "long",
-              month: "long",
-              day: "numeric",
-              year: "numeric",
-            }),
-          };
+        // ── Deadline-based triggers (48h / 24h) ──
+        if (hasDeadlineTriggers && pkg.dueDate) {
+          const due = new Date(pkg.dueDate + "T17:00:00"); // 5pm on due date
+          const hoursLeft = (due - now) / 3600000;
 
-          // 48h trigger
-          if (hoursLeft <= 48 && hoursLeft > 24 && !hasDraft("bidDue48h", inv.id)) {
-            fireAutoResponse("bidDue48h", ctx);
+          if (hoursLeft > 0 && hoursLeft <= 48) {
+            for (const inv of pkgInvites) {
+              // Only remind subs who haven't submitted yet
+              if (!["sent", "opened", "downloaded"].includes(inv.status)) continue;
+
+              const ctx = {
+                packageId: pkg.id,
+                invitationId: inv.id,
+                recipientEmail: inv.subEmail || "",
+                subCompany: inv.subCompany || inv.subContact || "",
+                projectName: pkg.name || project?.name || "",
+                dueDate: due.toLocaleDateString("en-US", {
+                  weekday: "long",
+                  month: "long",
+                  day: "numeric",
+                  year: "numeric",
+                }),
+              };
+
+              // 48h trigger
+              if (hoursLeft > 24 && !hasDraft("bidDue48h", inv.id)) {
+                fireAutoResponse("bidDue48h", ctx);
+              }
+
+              // 24h trigger
+              if (hoursLeft <= 24 && !hasDraft("bidDue24h", inv.id)) {
+                fireAutoResponse("bidDue24h", ctx);
+              }
+            }
           }
+        }
 
-          // 24h trigger
-          if (hoursLeft <= 24 && !hasDraft("bidDue24h", inv.id)) {
-            fireAutoResponse("bidDue24h", ctx);
+        // ── No-response 72h check ──
+        if (hasNoResponseTrigger) {
+          for (const inv of pkgInvites) {
+            if (inv.status !== "sent") continue; // only subs who haven't opened
+            if (!inv.sentAt) continue;
+            const hoursSinceSent = (now - new Date(inv.sentAt).getTime()) / 3600000;
+            if (hoursSinceSent >= 72 && !hasDraft("noResponse72h", inv.id)) {
+              fireAutoResponse("noResponse72h", {
+                packageId: pkg.id,
+                invitationId: inv.id,
+                recipientEmail: inv.subEmail || "",
+                subCompany: inv.subCompany || inv.subContact || "",
+                projectName: pkg.name || project?.name || "",
+                dueDate: pkg.dueDate || "",
+                sentAt: inv.sentAt,
+              });
+            }
           }
         }
       }

@@ -110,9 +110,19 @@ export function getScaleLabel(key) {
 }
 
 // Render PDF page to canvas data URL (caches in drawingsStore.pdfCanvases)
+// Handles both legacy PDF drawings (raw PDF base64) and pre-rendered pages (JPEG).
 export async function renderPdfPage(drawing) {
   const currentCanvases = useDrawingsStore.getState().pdfCanvases;
   if (currentCanvases[drawing.id]) return currentCanvases[drawing.id];
+
+  // Pre-rendered PDF page: data is already a JPEG — cache and return directly
+  if (drawing.pdfPreRendered && drawing.data) {
+    useDrawingsStore.setState(s => ({
+      pdfCanvases: { ...s.pdfCanvases, [drawing.id]: drawing.data },
+    }));
+    return drawing.data;
+  }
+
   if (drawing.type !== "pdf" || !drawing.data) return null;
   try {
     await loadPdfJs();
@@ -234,8 +244,10 @@ export function classifyFile(filename, contentType, size) {
     if (rfpPatterns.some(p => p.test(lower))) return "rfp";
     if (drawingPatterns.some(p => p.test(lower))) return "drawing";
     if (specPatterns.some(p => p.test(lower))) return "specification";
-    // Large PDFs (>10MB) with "plan" anywhere → likely drawing sets
-    if (size && size > 10 * 1024 * 1024 && /plan/i.test(lower)) return "drawing";
+    // Large PDFs (>2MB) are almost always drawing sets in construction.
+    // AI classification will refine this if needed, but defaulting to "drawing"
+    // ensures the extraction pipeline runs rather than silently skipping.
+    if (size && size > 2 * 1024 * 1024) return "drawing";
   }
   return "general";
 }

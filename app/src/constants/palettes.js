@@ -972,6 +972,138 @@ export const PALETTES = [
       },
     ],
   },
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Artifact Dark — Monumental concrete, stone architecture, muted warmth
+  // Inspired by brutalist galleries and ancient chambers.
+  // Neutral grays with warm stone accent. No neon. No violet. Just material.
+  // ═══════════════════════════════════════════════════════════════════════════
+  {
+    id: "artifact-dark",
+    name: "Artifact Dark",
+    desc: "Monumental concrete — stone, shadow, warmth",
+    preview: ["#0B0B0E", "#B0A698", "#1B1B1F", "#E4E0DB", "#242428"],
+    variantLabels: ["Concrete"],
+    overrides: {
+      bg: "#0B0B0E",
+      bg1: "#121215",
+      bg2: "#1B1B1F",
+      bg3: "#242428",
+      border: "rgba(255,255,255,0.06)",
+      borderLight: "rgba(255,255,255,0.03)",
+      borderAccent: "rgba(176,166,152,0.15)",
+      text: "#E4E0DB",
+      textMuted: "rgba(228,224,219,0.55)",
+      textDim: "rgba(228,224,219,0.25)",
+      accent: "#B0A698",
+      accentDim: "#8A7E70",
+      accentBg: "rgba(176,166,152,0.08)",
+      accentAlt: "#C8BEB2",
+      gradient: "linear-gradient(135deg, #B0A698, #C8BEB2)",
+      gradientSubtle: "linear-gradient(135deg, rgba(176,166,152,0.12), rgba(200,190,178,0.12))",
+      gradientText: "linear-gradient(135deg, #B0A698, #C8BEB2)",
+      green: "#7BA88A",
+      red: "#C47B78",
+      blue: "#7B9AB5",
+      purple: "#A08CB5",
+      orange: "#C49A6C",
+      cyan: "#6BAAB5",
+      yellow: "#C4B56C",
+      sidebarBg: "rgba(11,11,14,0.97)",
+      glassBg: "rgba(18,18,21,0.80)",
+      glassBorder: "rgba(255,255,255,0.05)",
+      glassBgDark: "rgba(8,8,10,0.80)",
+      bgGradient: [
+        "radial-gradient(ellipse at 50% 0%, rgba(176,166,152,0.03) 0%, transparent 50%)",
+        "radial-gradient(ellipse at 50% 100%, rgba(100,95,88,0.04) 0%, transparent 40%)",
+        "#0B0B0E",
+      ].join(", "),
+      forceDark: true,
+    },
+    variants: [null],
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Artifact Light — Warm concrete gallery, daylit stone surfaces
+  // The light counterpart: polished concrete floors, diffused skylight,
+  // sandstone walls. Same muted palette, inverted luminance.
+  // ═══════════════════════════════════════════════════════════════════════════
+  {
+    id: "artifact-light",
+    name: "Artifact Light",
+    desc: "Daylit gallery — warm stone, soft light",
+    preview: ["#E6E2DC", "#8A7E70", "#F0ECE6", "#28231E", "#D8D3CB"],
+    variantLabels: ["Gallery"],
+    overrides: {
+      bg: "#28231E",
+      bg1: "#332D26",
+      bg2: "#3E372F",
+      bg3: "#4A4238",
+      border: "rgba(255,255,255,0.07)",
+      borderLight: "rgba(255,255,255,0.04)",
+      borderAccent: "rgba(138,126,112,0.18)",
+      text: "#F0ECE6",
+      textMuted: "rgba(240,236,230,0.55)",
+      textDim: "rgba(240,236,230,0.28)",
+      accent: "#8A7E70",
+      accentDim: "#6D6358",
+      accentBg: "rgba(138,126,112,0.08)",
+      accentAlt: "#A89888",
+      gradient: "linear-gradient(135deg, #8A7E70, #A89888)",
+      gradientSubtle: "linear-gradient(135deg, rgba(138,126,112,0.12), rgba(168,152,136,0.12))",
+      gradientText: "linear-gradient(135deg, #8A7E70, #A89888)",
+      green: "#5C8A6A",
+      red: "#B06560",
+      blue: "#5C7F9A",
+      purple: "#806C9A",
+      orange: "#A07A48",
+      cyan: "#4C8A9A",
+      yellow: "#A09548",
+      sidebarBg: "rgba(40,35,30,0.97)",
+      glassBg: "rgba(51,45,38,0.80)",
+      glassBorder: "rgba(255,255,255,0.06)",
+      glassBgDark: "rgba(28,23,18,0.80)",
+      bgGradient: "#28231E",
+      forceDark: false,
+      noGlass: true,
+    },
+    variants: [
+      null,
+      {
+        bg: "#E6E2DC",
+        bg1: "#F0ECE6",
+        bg2: "#D8D3CB",
+        bg3: "#CEC8BF",
+        border: "rgba(0,0,0,0.08)",
+        borderLight: "rgba(0,0,0,0.04)",
+        borderAccent: "rgba(138,126,112,0.18)",
+        text: "#28231E",
+        textMuted: "rgba(40,35,30,0.55)",
+        textDim: "rgba(40,35,30,0.30)",
+        accent: "#8A7E70",
+        accentDim: "#6D6358",
+        accentBg: "rgba(138,126,112,0.07)",
+        accentAlt: "#A89888",
+        gradient: "linear-gradient(135deg, #8A7E70, #A89888)",
+        gradientSubtle: "linear-gradient(135deg, rgba(138,126,112,0.10), rgba(168,152,136,0.10))",
+        gradientText: "linear-gradient(135deg, #6D6358, #8A7E70)",
+        green: "#5C8A6A",
+        red: "#B06560",
+        blue: "#5C7F9A",
+        purple: "#806C9A",
+        orange: "#A07A48",
+        cyan: "#4C8A9A",
+        yellow: "#A09548",
+        sidebarBg: "rgba(230,226,220,0.97)",
+        glassBg: "rgba(240,236,230,0.85)",
+        glassBorder: "rgba(0,0,0,0.06)",
+        glassBgDark: "rgba(230,226,220,0.85)",
+        bgGradient: [
+          "radial-gradient(ellipse at 50% 0%, rgba(138,126,112,0.04) 0%, transparent 50%)",
+          "#E6E2DC",
+        ].join(", "),
+      },
+    ],
+  },
 ];
 
 // Car palette IDs for cycling
@@ -979,6 +1111,9 @@ export const CAR_PALETTE_IDS = ["car-terzo", "car-720s", "car-visiondee", "car-a
 
 // Premium light palette IDs
 export const LIGHT_PALETTE_IDS = ["blueprint"];
+
+// Artifact palette IDs
+export const ARTIFACT_PALETTE_IDS = ["artifact-dark", "artifact-light"];
 
 // Chart colors
 export const PIE_COLORS = [
