@@ -227,8 +227,8 @@ export const useMasterDataStore = create((set, get) => ({
     if (companyId === "__all__") return items;
     // Primary ("") → only contacts with falsy companyProfileId ("", undefined, null)
     if (!companyId) return items.filter(c => !c.companyProfileId);
-    // Specific profile → exact match only
-    return items.filter(c => c.companyProfileId === companyId);
+    // Specific profile → exact match OR global contacts (no profile assigned)
+    return items.filter(c => c.companyProfileId === companyId || !c.companyProfileId);
   },
 
   // Filter proposals by company profile (same pattern as getContactsForCompany)

@@ -1488,6 +1488,16 @@ export default function App() {
     );
   }
 
+  // Login mockup — dev only (3D sphere hero concept)
+  if (window.location.pathname.startsWith("/login-mockup")) {
+    const LoginMockupPage = lazy(() => import("@/pages/LoginMockupPage"));
+    return (
+      <Suspense fallback={<AuthLoading />}>
+        <LoginMockupPage />
+      </Suspense>
+    );
+  }
+
   // Free ROM tool — public, no auth required (lead capture funnel)
   if (window.location.pathname.startsWith("/rom")) {
     return (

@@ -605,8 +605,12 @@ Return ONLY a JSON object with these fields (use null for any field you cannot f
   "projectNumber": "Project or job number",
   "client": "Owner or client name",
   "architect": "Architect or design firm",
-  "engineer": "Engineer firm name",
+  "engineer": "Primary or general engineer firm name",
+  "engineerStructural": "Structural engineering firm name",
+  "engineerMEP": "MEP (mechanical/electrical/plumbing) engineering firm name",
+  "engineerCivil": "Civil engineering firm name",
   "address": "Project street address, city, state, zip",
+  "zipCode": "Project zip code (5-digit, e.g. 90210)",
   "bidDue": "Bid due date in YYYY-MM-DD format",
   "bidDueTime": "Bid due time in HH:MM format (24hr)",
   "walkthroughDate": "Pre-bid walkthrough date in YYYY-MM-DD format",
@@ -664,15 +668,39 @@ CRITICAL: Respond with ONLY the JSON object. No markdown, no explanation.`,
       detected.engineer = true;
       fieldCount++;
     }
+    if (parsed.engineerStructural && !proj.engineerStructural) {
+      updates.engineerStructural = parsed.engineerStructural;
+      detected.engineerStructural = true;
+      fieldCount++;
+    }
+    if (parsed.engineerMEP && !proj.engineerMEP) {
+      updates.engineerMEP = parsed.engineerMEP;
+      detected.engineerMEP = true;
+      fieldCount++;
+    }
+    if (parsed.engineerCivil && !proj.engineerCivil) {
+      updates.engineerCivil = parsed.engineerCivil;
+      detected.engineerCivil = true;
+      fieldCount++;
+    }
     if (parsed.address && !proj.address) {
       updates.address = parsed.address;
       detected.address = true;
       fieldCount++;
-      // Auto-extract zip
+      // Auto-extract zip from address
       const zipMatch = parsed.address.match(/\b(\d{5})(?:-\d{4})?\b/);
       if (zipMatch && (!proj.zipCode || proj.zipCode.length < 5)) {
         updates.zipCode = zipMatch[1];
         detected.zipCode = true;
+      }
+    }
+    // Explicit zipCode field (fallback if address parsing didn't capture it)
+    if (parsed.zipCode && !updates.zipCode && (!proj.zipCode || proj.zipCode.length < 5)) {
+      const zip = String(parsed.zipCode).replace(/[^0-9]/g, "").slice(0, 5);
+      if (zip.length === 5) {
+        updates.zipCode = zip;
+        detected.zipCode = true;
+        fieldCount++;
       }
     }
     if (parsed.bidDue && !proj.bidDue) {

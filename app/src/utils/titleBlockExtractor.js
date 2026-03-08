@@ -18,14 +18,17 @@ LOOK FOR:
 1. **Project Name** — the name of the project or building (e.g., "Oak Grove Medical Center", "Riverside Apartments Phase 2")
 2. **Client / Owner** — the entity the project is for (e.g., "ABC Development LLC", "City of Portland")
 3. **Architect** — the architecture firm name (e.g., "Smith & Associates Architects")
-4. **Engineer** — the engineering firm name (structural, MEP, or civil)
-5. **Address** — the project site address (street address)
-6. **City** — the city name
-7. **State** — the state (2-letter abbreviation preferred)
-8. **Zip Code** — 5-digit zip code
-9. **Project Number** — the architect's or engineer's project/job number (NOT the sheet number)
-10. **Building Type Hint** — if stated or clearly implied (e.g., "Medical Office Building", "Multi-Family Residential")
-11. **Work Type Hint** — if stated (e.g., "Renovation", "Tenant Improvement", "New Construction", "Addition")
+4. **Engineer** — the primary or general engineering firm name
+5. **Structural Engineer** — the structural engineering firm (often has "Structural" in stamp/seal area)
+6. **MEP Engineer** — the mechanical/electrical/plumbing engineering firm (often labeled "MEP", "M/E/P", or "Mechanical/Electrical")
+7. **Civil Engineer** — the civil engineering firm (site/civil work, often labeled "Civil")
+8. **Address** — the project site address (street address)
+9. **City** — the city name
+10. **State** — the state (2-letter abbreviation preferred)
+11. **Zip Code** — 5-digit zip code
+12. **Project Number** — the architect's or engineer's project/job number (NOT the sheet number)
+13. **Building Type Hint** — if stated or clearly implied (e.g., "Medical Office Building", "Multi-Family Residential")
+14. **Work Type Hint** — if stated (e.g., "Renovation", "Tenant Improvement", "New Construction", "Addition")
 
 IMPORTANT:
 - Read ONLY what is explicitly written — do NOT guess or infer
@@ -40,6 +43,9 @@ Return ONLY a JSON object:
   "client": "",
   "architect": "",
   "engineer": "",
+  "engineerStructural": "",
+  "engineerMEP": "",
+  "engineerCivil": "",
   "address": "",
   "city": "",
   "state": "",
@@ -62,7 +68,7 @@ Use this OCR text to help identify title block content. Cross-reference with the
  * Send drawing image + OCR text to Claude for title block extraction.
  *
  * @param {{ imgBase64: string, ocrText: string, sheetLabel: string }} opts
- * @returns {{ projectName, client, architect, engineer, address, city, state, zipCode, projectNumber, buildingTypeHint, workTypeHint }}
+ * @returns {{ projectName, client, architect, engineer, engineerStructural, engineerMEP, engineerCivil, address, city, state, zipCode, projectNumber, buildingTypeHint, workTypeHint }}
  */
 export async function extractTitleBlockFields({ imgBase64, ocrText, sheetLabel }) {
   if (!imgBase64) return null;
@@ -97,6 +103,9 @@ export async function extractTitleBlockFields({ imgBase64, ocrText, sheetLabel }
       client: (parsed.client || "").trim(),
       architect: (parsed.architect || "").trim(),
       engineer: (parsed.engineer || "").trim(),
+      engineerStructural: (parsed.engineerStructural || "").trim(),
+      engineerMEP: (parsed.engineerMEP || "").trim(),
+      engineerCivil: (parsed.engineerCivil || "").trim(),
       address: (parsed.address || "").trim(),
       city: (parsed.city || "").trim(),
       state: (parsed.state || "").trim(),

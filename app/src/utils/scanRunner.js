@@ -270,6 +270,7 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
         const merged = {};
         const fields = [
           "projectName", "client", "architect", "engineer",
+          "engineerStructural", "engineerMEP", "engineerCivil",
           "address", "city", "state", "zipCode",
           "projectNumber", "buildingTypeHint", "workTypeHint",
         ];
@@ -304,6 +305,21 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
         if (merged.engineer && !proj.engineer) {
           updates.engineer = merged.engineer;
           detected.engineer = true;
+          anyUpdate = true;
+        }
+        if (merged.engineerStructural && !proj.engineerStructural) {
+          updates.engineerStructural = merged.engineerStructural;
+          detected.engineerStructural = true;
+          anyUpdate = true;
+        }
+        if (merged.engineerMEP && !proj.engineerMEP) {
+          updates.engineerMEP = merged.engineerMEP;
+          detected.engineerMEP = true;
+          anyUpdate = true;
+        }
+        if (merged.engineerCivil && !proj.engineerCivil) {
+          updates.engineerCivil = merged.engineerCivil;
+          detected.engineerCivil = true;
           anyUpdate = true;
         }
         if (merged.address && !proj.address) {

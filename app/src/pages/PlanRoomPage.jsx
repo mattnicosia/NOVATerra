@@ -150,8 +150,9 @@ export default function PlanRoomPage() {
     Object.keys(autoDetected).length > 0 ||
     documents.length > 0;
 
-  // Detect stale state: documents uploaded but drawing pages lost (e.g., blob eviction)
-  const drawingsMissing = documents.length > 0 && drawings.length === 0 && !scanResults;
+  // Detect stale state: documents exist but drawing pages are missing (blob eviction, failed extraction)
+  // Only hold off if documents are ACTIVELY processing right now
+  const drawingsMissing = documents.length > 0 && drawings.length === 0 && !scanResults && processingDocs.length === 0;
 
   // Upload state
   const showToast = useUiStore(s => s.showToast);
@@ -1033,7 +1034,7 @@ export default function PlanRoomPage() {
         {hasData && (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: T.space[4] }}>
             {/* ─── Nova Vision Card ─── */}
-            {(drawings.length > 0 || specs.length > 0) && (
+            {(drawings.length > 0 || specs.length > 0 || documents.length > 0) && (
               <div style={{ ...card(C), padding: T.space[5], gridColumn: "1 / -1" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: T.space[2], marginBottom: T.space[3] }}>
                   <Ic d={I.ai} size={16} color={C.purple || C.accent} />
@@ -2167,26 +2168,8 @@ export default function PlanRoomPage() {
                   minWidth: 180,
                 })}
               >
-                <Ic d={I.layers} size={15} color="#fff" sw={2} /> Start Takeoffs
+                <Ic d={I.edit} size={15} color="#fff" sw={2} /> Build Estimate
                 <span style={{ display: "block", fontSize: 9, fontWeight: 400, opacity: 0.8, marginTop: 2 }}>
-                  Measure quantities from drawings
-                </span>
-              </button>
-              <button
-                onClick={() => navigate(`/estimate/${estId}/takeoffs`)}
-                style={bt(C, {
-                  background: "transparent",
-                  border: `1px solid ${C.accent}`,
-                  color: C.accent,
-                  padding: "10px 20px",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  flex: 1,
-                  minWidth: 180,
-                })}
-              >
-                <Ic d={I.edit} size={15} color={C.accent} sw={2} /> Build Estimate
-                <span style={{ display: "block", fontSize: 9, fontWeight: 400, opacity: 0.7, marginTop: 2 }}>
                   Add line items and pricing
                 </span>
               </button>

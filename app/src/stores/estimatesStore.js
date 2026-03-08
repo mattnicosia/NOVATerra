@@ -138,7 +138,7 @@ export const useEstimatesStore = create((set, get) => ({
         jobType: "",
         buildingType: templateProject.buildingType || "",
         workType: templateProject.workType || "",
-        bidType: "",
+        bidType: "Hard Bid",
         bidDelivery: "",
         bidRequirements: {},
         status: "Bidding",

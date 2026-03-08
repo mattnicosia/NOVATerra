@@ -552,6 +552,78 @@ export default function ProjectInfoPage() {
               </select>
               {autoTag("engineer", "engineers", "Engineer")}
             </Fld>
+            <Fld label="Structural Engineer">
+              <select
+                value={project.engineerStructural || ""}
+                onChange={e => {
+                  if (e.target.value === "__new__") {
+                    setQuickAddModal({ category: "engineers", field: "engineerStructural", label: "Structural Engineer" });
+                    setQuickAddValue("");
+                  } else up("engineerStructural", e.target.value);
+                }}
+                style={inp(C)}
+              >
+                <option value="">— Select Structural Engineer —</option>
+                {project.engineerStructural && !isInContacts("engineers", project.engineerStructural) && (
+                  <option value={project.engineerStructural}>{project.engineerStructural}</option>
+                )}
+                {projectEngineers.map(eng => (
+                  <option key={eng.id} value={eng.company}>
+                    {eng.company}
+                  </option>
+                ))}
+                <option value="__new__">+ Create New Engineer...</option>
+              </select>
+              {autoTag("engineerStructural")}
+            </Fld>
+            <Fld label="MEP Engineer">
+              <select
+                value={project.engineerMEP || ""}
+                onChange={e => {
+                  if (e.target.value === "__new__") {
+                    setQuickAddModal({ category: "engineers", field: "engineerMEP", label: "MEP Engineer" });
+                    setQuickAddValue("");
+                  } else up("engineerMEP", e.target.value);
+                }}
+                style={inp(C)}
+              >
+                <option value="">— Select MEP Engineer —</option>
+                {project.engineerMEP && !isInContacts("engineers", project.engineerMEP) && (
+                  <option value={project.engineerMEP}>{project.engineerMEP}</option>
+                )}
+                {projectEngineers.map(eng => (
+                  <option key={eng.id} value={eng.company}>
+                    {eng.company}
+                  </option>
+                ))}
+                <option value="__new__">+ Create New Engineer...</option>
+              </select>
+              {autoTag("engineerMEP")}
+            </Fld>
+            <Fld label="Civil Engineer">
+              <select
+                value={project.engineerCivil || ""}
+                onChange={e => {
+                  if (e.target.value === "__new__") {
+                    setQuickAddModal({ category: "engineers", field: "engineerCivil", label: "Civil Engineer" });
+                    setQuickAddValue("");
+                  } else up("engineerCivil", e.target.value);
+                }}
+                style={inp(C)}
+              >
+                <option value="">— Select Civil Engineer —</option>
+                {project.engineerCivil && !isInContacts("engineers", project.engineerCivil) && (
+                  <option value={project.engineerCivil}>{project.engineerCivil}</option>
+                )}
+                {projectEngineers.map(eng => (
+                  <option key={eng.id} value={eng.company}>
+                    {eng.company}
+                  </option>
+                ))}
+                <option value="__new__">+ Create New Engineer...</option>
+              </select>
+              {autoTag("engineerCivil")}
+            </Fld>
             <Fld label="Estimator">
               <select
                 value={project.estimator}
@@ -718,15 +790,6 @@ export default function ProjectInfoPage() {
             <Fld label="Address">
               <input value={project.address} onChange={e => up("address", e.target.value)} style={inp(C)} />
               {autoTag("address")}
-            </Fld>
-            <Fld label="Project Number">
-              <input
-                value={project.projectNumber || ""}
-                onChange={e => up("projectNumber", e.target.value)}
-                placeholder="e.g. 2024-0156"
-                style={inp(C)}
-              />
-              {autoTag("projectNumber")}
             </Fld>
             <Fld label="Work Type">
               <select value={project.workType || ""} onChange={e => up("workType", e.target.value)} style={inp(C)}>
@@ -1237,7 +1300,7 @@ export default function ProjectInfoPage() {
               borderRadius: 6,
             })}
           >
-            <Ic d={I.check} size={14} color="#fff" sw={2.5} /> Save Project Info
+            <Ic d={I.check} size={14} color="#fff" sw={2.5} /> Save & Continue
           </button>
         </div>
       </div>
