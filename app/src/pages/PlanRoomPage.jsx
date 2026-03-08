@@ -147,7 +147,11 @@ export default function PlanRoomPage() {
     floors.length > 0 ||
     filledRooms.length > 0 ||
     scanResults ||
-    Object.keys(autoDetected).length > 0;
+    Object.keys(autoDetected).length > 0 ||
+    documents.length > 0;
+
+  // Detect stale state: documents uploaded but drawing pages lost (e.g., blob eviction)
+  const drawingsMissing = documents.length > 0 && drawings.length === 0 && !scanResults;
 
   // Upload state
   const showToast = useUiStore(s => s.showToast);
@@ -209,14 +213,22 @@ export default function PlanRoomPage() {
     // Delay to ensure IDB persistence has fully hydrated all stores
     const timer = setTimeout(() => {
       // Re-check from fresh store state (not stale closure values)
+      const freshDrawings = useDrawingsStore.getState().drawings;
       const freshResults = useScanStore.getState().scanResults;
       const freshProgress = useScanStore.getState().scanProgress;
       if (freshResults !== null) return; // Results loaded from IDB
       if (freshProgress.phase !== null) return; // Another scan started
 
+      // Check that drawings actually have image data (blobs)
+      const drawingsWithData = freshDrawings.filter(d => d.data);
+      if (drawingsWithData.length === 0) {
+        console.warn(`[Discovery] Auto-scan skipped — ${freshDrawings.length} drawings but none have image data`);
+        return; // Don't scan if no drawings have data — show re-upload CTA instead
+      }
+
       autoScanTriggered.current = true;
-      console.log(`[Discovery] Auto-starting scan — ${drawings.length} drawings, no results`);
-      showToast(`NOVA is scanning ${drawings.length} drawings...`);
+      console.log(`[Discovery] Auto-starting scan — ${drawingsWithData.length} drawings with data, no results`);
+      showToast(`NOVA is scanning ${drawingsWithData.length} drawings...`);
       setRescanning(true); // Enable progress banner visibility
       runFullScan({
         onComplete: () => {
@@ -978,6 +990,79 @@ export default function PlanRoomPage() {
         {!hasData && documents.length === 0 && !uploadExpanded && (
           <div style={{ textAlign: "center", padding: `${T.space[7]}px 0`, color: C.textDim, fontSize: 12 }}>
             Drop files above to get started
+          </div>
+        )}
+
+        {/* ─── Missing Drawings Recovery ─── */}
+        {/* When documents exist but drawing pages were never extracted or were lost */}
+        {drawingsMissing && !scanProgress.phase && !rescanning && (
+          <div
+            style={{
+              ...card(C),
+              padding: `${T.space[5]}px`,
+              marginBottom: T.space[4],
+              textAlign: "center",
+              border: `1px solid ${C.orange || "#F59E0B"}20`,
+            }}
+          >
+            <div
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: T.radius.md,
+                background: `${C.orange || "#F59E0B"}12`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                margin: "0 auto",
+                marginBottom: T.space[3],
+              }}
+            >
+              <Ic d={I.plans} size={22} color={C.orange || "#F59E0B"} />
+            </div>
+            <div
+              style={{
+                fontSize: T.fontSize.sm,
+                fontWeight: T.fontWeight.semibold,
+                color: C.text,
+                marginBottom: T.space[1],
+              }}
+            >
+              Drawing pages need to be re-extracted
+            </div>
+            <div
+              style={{
+                fontSize: T.fontSize.xs,
+                color: C.textDim,
+                marginBottom: T.space[4],
+                maxWidth: 420,
+                margin: "0 auto",
+                lineHeight: 1.6,
+              }}
+            >
+              {documents.length} document{documents.length > 1 ? "s" : ""} uploaded but drawing pages are missing.
+              Re-upload your PDF plans to extract pages and run Discovery.
+            </div>
+            <div style={{ display: "flex", gap: T.space[3], justifyContent: "center", marginTop: T.space[3] }}>
+              <button
+                onClick={() => {
+                  setUploadExpanded(true);
+                  fileInputRef.current?.click();
+                }}
+                style={{
+                  ...bt(C),
+                  padding: "8px 20px",
+                  fontSize: T.fontSize.xs,
+                  fontWeight: 600,
+                  color: "#fff",
+                  background: C.accent,
+                  borderRadius: T.radius.sm,
+                  cursor: "pointer",
+                }}
+              >
+                <Ic d={I.upload} size={13} color="#fff" /> Re-upload Plans
+              </button>
+            </div>
           </div>
         )}
 
