@@ -231,11 +231,18 @@ export function useWorkloadData(dateRange) {
       }
     }
 
+    // Flat list of all active estimates for card-based views
+    const allEstimates = [
+      ...estimatorRows.flatMap(r => r.estimates.map(e => ({ ...e, estimator: r.name, estimatorColor: r.color }))),
+      ...unassigned.map(e => ({ ...e, estimator: "", estimatorColor: "#8E8E93" })),
+    ];
+
     return {
       estimatorRows,
       dailyLoad,
       teamDailyLoad,
       unassignedEstimates: unassigned,
+      allEstimates,
       warnings,
       rangeDays: rangeDays.map(fmtDate),
       rangeStart: fmtDate(rangeStart),

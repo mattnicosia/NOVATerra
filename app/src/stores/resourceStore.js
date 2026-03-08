@@ -18,6 +18,13 @@ export const useResourceStore = create(set => ({
   // Sidebar
   sidebarCollapsed: false,
 
+  // Drag-and-drop state
+  dragEstimateId: null,
+  dragOverEstimator: null, // estimator name being hovered (or "__unassigned__")
+
+  // Workload view mode
+  sortMode: "timeline", // "timeline" | "hours" | "due-date"
+
   // Actions
   setCalendarView: v => set({ calendarView: v }),
   setSelectedDate: v => set({ selectedDate: v }),
@@ -25,4 +32,8 @@ export const useResourceStore = create(set => ({
   setSelectedEstimators: v => set({ selectedEstimators: v }),
   setShowCompleted: v => set({ showCompleted: v }),
   setSidebarCollapsed: v => set({ sidebarCollapsed: v }),
+  setDragEstimateId: v => set({ dragEstimateId: v }),
+  setDragOverEstimator: v => set({ dragOverEstimator: v }),
+  setSortMode: v => set({ sortMode: v }),
+  clearDragState: () => set({ dragEstimateId: null, dragOverEstimator: null }),
 }));

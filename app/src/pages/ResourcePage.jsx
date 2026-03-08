@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useWorkloadData } from "@/hooks/useWorkloadData";
 import { useResourceStore } from "@/stores/resourceStore";
+import { useEstimatesStore } from "@/stores/estimatesStore";
+import { useUiStore } from "@/stores/uiStore";
 import { bt, cardSolid } from "@/utils/styles";
 import Avatar from "@/components/shared/Avatar";
 import EstimatorScorecard from "@/components/shared/EstimatorScorecard";
@@ -77,8 +79,11 @@ const DAY_WIDTH = 44; // px per day column
 // ══════════════════════════════════════════════════════════
 // GANTT CHART
 // ══════════════════════════════════════════════════════════
-function GanttChart({ workload, C, T, navigate, onEstimatorClick }) {
+function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
   const { estimatorRows, unassignedEstimates, CAPACITY_HOURS, rangeDays, rangeStart, rangeEnd } = workload;
+  const dragEstimateId = useResourceStore(s => s.dragEstimateId);
+  const dragOverEstimator = useResourceStore(s => s.dragOverEstimator);
+  const { setDragEstimateId, setDragOverEstimator, clearDragState } = useResourceStore.getState();
 
   // Build day columns (weekdays only from rangeDays)
   const days = useMemo(() => {
@@ -183,10 +188,14 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick }) {
             // Compute daily utilization for this estimator
             const dailyHours = row.estimates.reduce((s, e) => s + e.hoursPerDay, 0);
             const utilColor = utilizationColor(dailyHours, CAPACITY_HOURS);
+            const isDropTarget = dragOverEstimator === row.name && dragEstimateId;
             return (
               <div
                 key={row.name}
                 onClick={() => onEstimatorClick?.({ name: row.name, color: row.color })}
+                onDragOver={e => { e.preventDefault(); setDragOverEstimator(row.name); }}
+                onDragLeave={() => { if (dragOverEstimator === row.name) setDragOverEstimator(null); }}
+                onDrop={e => { e.preventDefault(); onDrop?.(dragEstimateId, row.name); clearDragState(); }}
                 style={{
                   height: Math.max(ROW_HEIGHT, row.bars.length * 22 + 12),
                   display: "flex",
@@ -195,6 +204,8 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick }) {
                   padding: `0 ${T.space[3]}px`,
                   borderBottom: `1px solid ${C.border}08`,
                   cursor: "pointer",
+                  ...(isDropTarget ? { background: `${C.accent}12`, outline: `2px solid ${C.accent}`, outlineOffset: -2, borderRadius: 4 } : {}),
+                  transition: "background 100ms, outline 100ms",
                 }}
               >
                 <Avatar name={row.name} color={row.color} size={24} fontSize={10} />
@@ -235,8 +246,11 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick }) {
           })}
 
           {/* Unassigned section */}
-          {unassignedBars.length > 0 && (
+          {(unassignedBars.length > 0 || dragEstimateId) && (
             <div
+              onDragOver={e => { e.preventDefault(); setDragOverEstimator("__unassigned__"); }}
+              onDragLeave={() => { if (dragOverEstimator === "__unassigned__") setDragOverEstimator(null); }}
+              onDrop={e => { e.preventDefault(); onDrop?.(dragEstimateId, ""); clearDragState(); }}
               style={{
                 height: Math.max(ROW_HEIGHT, unassignedBars.length * 22 + 12),
                 display: "flex",
@@ -244,7 +258,11 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick }) {
                 gap: T.space[2],
                 padding: `0 ${T.space[3]}px`,
                 borderTop: `2px solid ${C.border}`,
-                background: C.isDark ? "#FBBF2406" : "#FBBF240A",
+                background: dragOverEstimator === "__unassigned__" && dragEstimateId
+                  ? `${C.accent}12`
+                  : C.isDark ? "#FBBF2406" : "#FBBF240A",
+                ...(dragOverEstimator === "__unassigned__" && dragEstimateId ? { outline: `2px solid ${C.accent}`, outlineOffset: -2, borderRadius: 4 } : {}),
+                transition: "background 100ms, outline 100ms",
               }}
             >
               <div
@@ -353,14 +371,20 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick }) {
             {/* Estimator rows with bars */}
             {rowData.map(row => {
               const rowHeight = Math.max(ROW_HEIGHT, row.bars.length * 22 + 12);
+              const isDropTarget = dragOverEstimator === row.name && dragEstimateId;
               return (
                 <div
                   key={row.name}
+                  onDragOver={e => { e.preventDefault(); setDragOverEstimator(row.name); }}
+                  onDragLeave={() => { if (dragOverEstimator === row.name) setDragOverEstimator(null); }}
+                  onDrop={e => { e.preventDefault(); onDrop?.(dragEstimateId, row.name); clearDragState(); }}
                   style={{
                     position: "relative",
                     height: rowHeight,
                     borderBottom: `1px solid ${C.border}08`,
                     display: "flex",
+                    ...(isDropTarget ? { background: `${C.accent}08`, outline: `2px solid ${C.accent}40`, outlineOffset: -2 } : {}),
+                    transition: "background 100ms",
                   }}
                 >
                   {/* Day grid lines */}
@@ -379,9 +403,17 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick }) {
                   {/* Project bars (absolute positioned over grid) */}
                   {row.bars.map((bar, i) => {
                     const color = SCHEDULE_COLORS[bar.scheduleStatus] || STATUS_COLORS[bar.status] || "#A78BFA";
+                    const isDragging = dragEstimateId === bar.id;
                     return (
                       <div
                         key={bar.id}
+                        draggable
+                        onDragStart={e => {
+                          e.dataTransfer.effectAllowed = "move";
+                          e.dataTransfer.setData("text/plain", bar.id);
+                          setDragEstimateId(bar.id);
+                        }}
+                        onDragEnd={() => clearDragState()}
                         onClick={e => {
                           e.stopPropagation();
                           navigate(`/estimate/${bar.id}/info`);
@@ -404,10 +436,11 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick }) {
                           height: 18,
                           borderRadius: 4,
                           overflow: "hidden",
-                          cursor: "pointer",
+                          cursor: isDragging ? "grabbing" : "grab",
                           display: "flex",
                           alignItems: "center",
                           border: `1px solid ${color}40`,
+                          opacity: isDragging ? 0.4 : 1,
                           transition: "opacity 100ms",
                         }}
                       >
@@ -480,14 +513,21 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick }) {
             })}
 
             {/* Unassigned row */}
-            {unassignedBars.length > 0 && (
+            {(unassignedBars.length > 0 || dragEstimateId) && (
               <div
+                onDragOver={e => { e.preventDefault(); setDragOverEstimator("__unassigned__"); }}
+                onDragLeave={() => { if (dragOverEstimator === "__unassigned__") setDragOverEstimator(null); }}
+                onDrop={e => { e.preventDefault(); onDrop?.(dragEstimateId, ""); clearDragState(); }}
                 style={{
                   position: "relative",
                   height: Math.max(ROW_HEIGHT, unassignedBars.length * 22 + 12),
                   borderTop: `2px solid ${C.border}`,
-                  background: C.isDark ? "#FBBF2403" : "#FBBF2406",
+                  background: dragOverEstimator === "__unassigned__" && dragEstimateId
+                    ? `${C.accent}08`
+                    : C.isDark ? "#FBBF2403" : "#FBBF2406",
                   display: "flex",
+                  ...(dragOverEstimator === "__unassigned__" && dragEstimateId ? { outline: `2px solid ${C.accent}40`, outlineOffset: -2 } : {}),
+                  transition: "background 100ms",
                 }}
               >
                 {days.map(day => (
@@ -500,9 +540,18 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick }) {
                     }}
                   />
                 ))}
-                {unassignedBars.map((bar, i) => (
+                {unassignedBars.map((bar, i) => {
+                  const isDragging = dragEstimateId === bar.id;
+                  return (
                   <div
                     key={bar.id}
+                    draggable
+                    onDragStart={e => {
+                      e.dataTransfer.effectAllowed = "move";
+                      e.dataTransfer.setData("text/plain", bar.id);
+                      setDragEstimateId(bar.id);
+                    }}
+                    onDragEnd={() => clearDragState()}
                     onClick={e => {
                       e.stopPropagation();
                       navigate(`/estimate/${bar.id}/info`);
@@ -519,7 +568,9 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick }) {
                       display: "flex",
                       alignItems: "center",
                       padding: "0 6px",
-                      cursor: "pointer",
+                      cursor: isDragging ? "grabbing" : "grab",
+                      opacity: isDragging ? 0.4 : 1,
+                      transition: "opacity 100ms",
                     }}
                   >
                     <span
@@ -535,7 +586,8 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick }) {
                       {bar.name}
                     </span>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -689,6 +741,338 @@ function GanttRangeNav({ rangeLabel, onPrev, onNext, onToday, C, T }) {
 }
 
 // ══════════════════════════════════════════════════════════
+// BY HOURS VIEW
+// ══════════════════════════════════════════════════════════
+function ByHoursView({ workload, C, T, navigate }) {
+  const { estimatorRows, unassignedEstimates, CAPACITY_HOURS } = workload;
+
+  const ProgressBar = ({ value, max, color }) => (
+    <div style={{ height: 6, borderRadius: 3, background: C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)", overflow: "hidden", flex: 1 }}>
+      <div style={{ height: "100%", width: `${Math.min(100, max > 0 ? (value / max) * 100 : 0)}%`, background: color, borderRadius: 3, transition: "width 300ms" }} />
+    </div>
+  );
+
+  const EstimateRow = ({ est }) => {
+    const color = SCHEDULE_COLORS[est.scheduleStatus] || "#A78BFA";
+    return (
+      <div
+        onClick={() => navigate(`/estimate/${est.id}/info`)}
+        style={{
+          display: "flex", alignItems: "center", gap: T.space[3],
+          padding: `${T.space[2]}px ${T.space[3]}px`,
+          borderRadius: T.radius.sm,
+          cursor: "pointer",
+          background: C.isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
+          border: `1px solid ${C.border}40`,
+          transition: "background 100ms",
+        }}
+      >
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: T.fontSize.xs, fontWeight: T.fontWeight.semibold, color: C.text, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
+            {est.name}
+          </div>
+          {est.bidDue && (
+            <div style={{ fontSize: 9, color: C.textDim, marginTop: 1 }}>
+              Due {parseDateStr(est.bidDue).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+              {est.daysRemaining > 0 ? ` · ${est.daysRemaining}d left` : est.daysRemaining === 0 ? " · Today" : " · Overdue"}
+            </div>
+          )}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: T.space[2], flexShrink: 0 }}>
+          <ProgressBar value={est.hoursLogged} max={est.estimatedHours} color={color} />
+          <span style={{ fontSize: 10, fontWeight: 600, color: C.textMuted, minWidth: 60, textAlign: "right" }}>
+            {est.hoursLogged}h / {est.estimatedHours}h
+          </span>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(380px, 1fr))", gap: T.space[4] }}>
+      {estimatorRows.map(row => {
+        const totalHours = row.estimates.reduce((s, e) => s + e.estimatedHours, 0);
+        const totalLogged = row.estimates.reduce((s, e) => s + e.hoursLogged, 0);
+        const sorted = [...row.estimates].sort((a, b) => b.estimatedHours - a.estimatedHours);
+        // Daily capacity used
+        const dailyHours = row.estimates.reduce((s, e) => s + e.hoursPerDay, 0);
+        const utilPct = Math.round((dailyHours / CAPACITY_HOURS) * 100);
+        const utilColor = utilizationColor(dailyHours, CAPACITY_HOURS);
+
+        return (
+          <div key={row.name} style={{ ...cardSolid(C), padding: T.space[4] }}>
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", gap: T.space[3], marginBottom: T.space[3] }}>
+              <Avatar name={row.name} color={row.color} size={32} fontSize={12} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: T.fontSize.base, fontWeight: T.fontWeight.bold, color: C.text }}>{row.name}</div>
+                <div style={{ fontSize: 9, color: C.textDim }}>{row.estimates.length} active project{row.estimates.length !== 1 ? "s" : ""}</div>
+              </div>
+              {/* Utilization badge */}
+              <div style={{
+                fontSize: 10, fontWeight: 700, color: utilColor,
+                padding: "3px 8px", borderRadius: T.radius.sm,
+                background: hexAlpha(utilColor, 0.12),
+              }}>
+                {utilPct}% utilized
+              </div>
+            </div>
+
+            {/* Hours summary */}
+            <div style={{ display: "flex", gap: T.space[4], marginBottom: T.space[3] }}>
+              <div>
+                <div style={{ fontSize: T.fontSize.lg, fontWeight: T.fontWeight.bold, color: C.text }}>{totalHours}h</div>
+                <div style={{ fontSize: 8, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.06em" }}>Estimated</div>
+              </div>
+              <div>
+                <div style={{ fontSize: T.fontSize.lg, fontWeight: T.fontWeight.bold, color: C.text }}>{totalLogged}h</div>
+                <div style={{ fontSize: 8, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.06em" }}>Logged</div>
+              </div>
+              <div>
+                <div style={{ fontSize: T.fontSize.lg, fontWeight: T.fontWeight.bold, color: C.text }}>
+                  {Math.max(0, totalHours - totalLogged)}h
+                </div>
+                <div style={{ fontSize: 8, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.06em" }}>Remaining</div>
+              </div>
+            </div>
+
+            {/* Utilization bar */}
+            <div style={{ marginBottom: T.space[3] }}>
+              <div style={{ height: 4, borderRadius: 2, background: C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)", overflow: "hidden" }}>
+                <div style={{
+                  height: "100%", width: `${Math.min(100, utilPct)}%`,
+                  background: utilColor, borderRadius: 2, transition: "width 300ms",
+                }} />
+              </div>
+            </div>
+
+            {/* Estimates list */}
+            <div style={{ display: "flex", flexDirection: "column", gap: T.space[2] }}>
+              {sorted.map(est => <EstimateRow key={est.id} est={est} />)}
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Unassigned card */}
+      {unassignedEstimates.length > 0 && (
+        <div style={{ ...cardSolid(C), padding: T.space[4], border: `1px solid #FBBF2430` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: T.space[3], marginBottom: T.space[3] }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: "50%", background: "#FBBF2420",
+              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14,
+            }}>?</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: T.fontSize.base, fontWeight: T.fontWeight.bold, color: "#FBBF24" }}>Unassigned</div>
+              <div style={{ fontSize: 9, color: C.textDim }}>{unassignedEstimates.length} project{unassignedEstimates.length !== 1 ? "s" : ""} need assignment</div>
+            </div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: T.space[2] }}>
+            {unassignedEstimates.map(est => <EstimateRow key={est.id} est={est} />)}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════
+// BY DUE DATE VIEW
+// ══════════════════════════════════════════════════════════
+function ByDueDateView({ workload, C, T, navigate }) {
+  const { allEstimates } = workload;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Sort by bid due date (soonest first)
+  const sorted = useMemo(() => {
+    return [...(allEstimates || [])].sort((a, b) => {
+      if (!a.bidDue) return 1;
+      if (!b.bidDue) return -1;
+      return a.bidDue.localeCompare(b.bidDue);
+    });
+  }, [allEstimates]);
+
+  // Group by week
+  const weeks = useMemo(() => {
+    const groups = new Map();
+    const todayKey = toDateStr(today);
+
+    for (const est of sorted) {
+      if (!est.bidDue) continue;
+      const due = parseDateStr(est.bidDue);
+      // Get Monday of due week
+      const day = due.getDay();
+      const monday = new Date(due);
+      monday.setDate(due.getDate() - ((day + 6) % 7));
+      const weekKey = toDateStr(monday);
+
+      // Label
+      const thisMonday = new Date(today);
+      thisMonday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+      const thisMondayKey = toDateStr(thisMonday);
+      const nextMonday = addDays(thisMonday, 7);
+      const nextMondayKey = toDateStr(nextMonday);
+
+      let label;
+      if (weekKey < thisMondayKey) label = "Overdue";
+      else if (weekKey === thisMondayKey) label = "This Week";
+      else if (weekKey === nextMondayKey) label = "Next Week";
+      else label = `Week of ${monday.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+
+      if (!groups.has(label)) groups.set(label, { label, weekKey, estimates: [] });
+      groups.get(label).estimates.push(est);
+    }
+
+    return Array.from(groups.values()).sort((a, b) => {
+      // Overdue first, then chronological
+      if (a.label === "Overdue") return -1;
+      if (b.label === "Overdue") return 1;
+      return a.weekKey.localeCompare(b.weekKey);
+    });
+  }, [sorted]);
+
+  const urgencyColor = (daysRemaining) => {
+    if (daysRemaining < 0) return "#FF3B30";  // overdue
+    if (daysRemaining <= 3) return "#FF9500";  // critical
+    if (daysRemaining <= 7) return "#FBBF24";  // warning
+    return "#30D158";                          // comfortable
+  };
+
+  if (sorted.length === 0) {
+    return (
+      <div style={{ ...cardSolid(C), padding: T.space[6], textAlign: "center" }}>
+        <div style={{ fontSize: T.fontSize.md, color: C.textMuted }}>No active bids with due dates</div>
+        <div style={{ fontSize: T.fontSize.xs, color: C.textDim, marginTop: 4 }}>
+          Set bid due dates on your estimates to see them here
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: T.space[5] }}>
+      {weeks.map(week => (
+        <div key={week.label}>
+          {/* Week header */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: T.space[2],
+            marginBottom: T.space[3],
+          }}>
+            <div style={{
+              fontSize: T.fontSize.sm, fontWeight: T.fontWeight.bold,
+              color: week.label === "Overdue" ? "#FF3B30" : C.text,
+            }}>
+              {week.label}
+            </div>
+            <div style={{
+              fontSize: 9, fontWeight: 600, color: C.textDim,
+              padding: "2px 8px", borderRadius: T.radius.full,
+              background: C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+            }}>
+              {week.estimates.length} bid{week.estimates.length !== 1 ? "s" : ""}
+            </div>
+            <div style={{ flex: 1, height: 1, background: C.border }} />
+          </div>
+
+          {/* Estimate cards */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: T.space[3] }}>
+            {week.estimates.map(est => {
+              const uColor = urgencyColor(est.daysRemaining);
+              const schedColor = SCHEDULE_COLORS[est.scheduleStatus] || "#A78BFA";
+              const hoursRemaining = Math.max(0, est.estimatedHours - est.hoursLogged);
+              return (
+                <div
+                  key={est.id}
+                  onClick={() => navigate(`/estimate/${est.id}/info`)}
+                  style={{
+                    ...cardSolid(C),
+                    padding: T.space[3],
+                    cursor: "pointer",
+                    borderLeft: `3px solid ${uColor}`,
+                    transition: "background 100ms",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: T.space[3] }}>
+                    {/* Estimator avatar */}
+                    {est.estimator ? (
+                      <Avatar name={est.estimator} color={est.estimatorColor} size={28} fontSize={10} />
+                    ) : (
+                      <div style={{
+                        width: 28, height: 28, borderRadius: "50%", background: "#FBBF2420",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 11, color: "#FBBF24",
+                      }}>?</div>
+                    )}
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {/* Name */}
+                      <div style={{
+                        fontSize: T.fontSize.sm, fontWeight: T.fontWeight.semibold, color: C.text,
+                        overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis",
+                      }}>
+                        {est.name}
+                      </div>
+                      {/* Estimator name */}
+                      <div style={{ fontSize: 9, color: C.textDim, marginTop: 1 }}>
+                        {est.estimator || "Unassigned"}
+                      </div>
+                    </div>
+
+                    {/* Due date badge */}
+                    <div style={{
+                      fontSize: 10, fontWeight: 700, color: uColor,
+                      padding: "3px 8px", borderRadius: T.radius.sm,
+                      background: hexAlpha(uColor, 0.12),
+                      flexShrink: 0,
+                    }}>
+                      {est.daysRemaining < 0 ? `${Math.abs(est.daysRemaining)}d overdue`
+                        : est.daysRemaining === 0 ? "Due today"
+                        : `${est.daysRemaining}d left`}
+                    </div>
+                  </div>
+
+                  {/* Stats row */}
+                  <div style={{ display: "flex", gap: T.space[4], marginTop: T.space[2], paddingLeft: 40 }}>
+                    <div style={{ fontSize: 9, color: C.textDim }}>
+                      <span style={{ fontWeight: 600, color: C.text }}>{est.estimatedHours}h</span> estimated
+                    </div>
+                    <div style={{ fontSize: 9, color: C.textDim }}>
+                      <span style={{ fontWeight: 600, color: C.text }}>{est.hoursLogged}h</span> logged
+                    </div>
+                    <div style={{ fontSize: 9, color: C.textDim }}>
+                      <span style={{ fontWeight: 600, color: uColor }}>{hoursRemaining}h</span> remaining
+                    </div>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div style={{ marginTop: T.space[2], paddingLeft: 40 }}>
+                    <div style={{ height: 4, borderRadius: 2, background: C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)", overflow: "hidden" }}>
+                      <div style={{
+                        height: "100%", width: `${est.percentComplete}%`,
+                        background: schedColor, borderRadius: 2, transition: "width 300ms",
+                      }} />
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
+                      <span style={{ fontSize: 8, color: C.textDim }}>{est.percentComplete}% complete</span>
+                      <span style={{
+                        fontSize: 8, fontWeight: 600, color: schedColor, textTransform: "capitalize",
+                      }}>
+                        {est.scheduleStatus?.replace("-", " ")}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════
 // MAIN PAGE
 // ══════════════════════════════════════════════════════════
 export default function ResourcePage() {
@@ -700,6 +1084,8 @@ export default function ResourcePage() {
     setSelectedDate,
     sidebarCollapsed,
     setSidebarCollapsed,
+    sortMode,
+    setSortMode,
   } = useResourceStore();
 
   // Range state: shift by 2-week increments
@@ -739,6 +1125,17 @@ export default function ResourcePage() {
     const opts = { month: "short", day: "numeric" };
     return `${start.toLocaleDateString("en-US", opts)} – ${end.toLocaleDateString("en-US", opts)}, ${end.getFullYear()}`;
   }, [workload.rangeStart, workload.rangeEnd]);
+
+  // Drag-and-drop handler: reassign estimate to a different estimator
+  const handleDrop = useCallback((estimateId, estimatorName) => {
+    if (!estimateId) return;
+    useEstimatesStore.getState().updateIndexEntry(estimateId, { estimator: estimatorName });
+    const estName = workload.allEstimates?.find(e => e.id === estimateId)?.name || "Estimate";
+    useUiStore.getState().showToast(
+      estimatorName ? `Assigned "${estName}" to ${estimatorName}` : `Moved "${estName}" to Unassigned`,
+      "success"
+    );
+  }, [workload.allEstimates]);
 
   return (
     <div
@@ -841,39 +1238,77 @@ export default function ResourcePage() {
         ))}
       </div>
 
-      {/* Nav + Legend Row */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: T.space[4],
-          flexWrap: "wrap",
-          gap: T.space[3],
-        }}
-      >
-        <GanttRangeNav
-          rangeLabel={rangeLabel}
-          onPrev={() => setRangeOffset(o => o - 1)}
-          onNext={() => setRangeOffset(o => o + 1)}
-          onToday={() => setRangeOffset(0)}
-          C={C}
-          T={T}
-        />
-        <ScheduleLegend C={C} T={T} />
+      {/* View Toggle Strip */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: T.space[4], flexWrap: "wrap", gap: T.space[3] }}>
+        <div style={{ display: "flex", background: C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)", borderRadius: T.radius.md, padding: 2, border: `1px solid ${C.border}` }}>
+          {[
+            { key: "timeline", label: "Timeline" },
+            { key: "hours", label: "By Hours" },
+            { key: "due-date", label: "By Due Date" },
+          ].map(v => (
+            <button
+              key={v.key}
+              onClick={() => setSortMode(v.key)}
+              style={{
+                ...bt(C),
+                padding: "6px 16px",
+                fontSize: T.fontSize.xs,
+                fontWeight: sortMode === v.key ? T.fontWeight.bold : T.fontWeight.medium,
+                color: sortMode === v.key ? (C.isDark ? "#fff" : C.text) : C.textMuted,
+                background: sortMode === v.key ? (C.isDark ? "rgba(255,255,255,0.10)" : "#fff") : "transparent",
+                borderRadius: T.radius.sm,
+                border: sortMode === v.key ? `1px solid ${C.border}` : "1px solid transparent",
+                boxShadow: sortMode === v.key ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                transition: "all 150ms",
+              }}
+            >
+              {v.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Show legend + range nav only in timeline mode */}
+        {sortMode === "timeline" && <ScheduleLegend C={C} T={T} />}
       </div>
 
-      {/* Gantt Chart */}
-      <GanttChart
-        workload={workload}
-        C={C}
-        T={T}
-        navigate={navigate}
-        onEstimatorClick={setScorecardEstimator}
-      />
+      {/* Timeline Nav (only in timeline mode) */}
+      {sortMode === "timeline" && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: T.space[4] }}>
+          <GanttRangeNav
+            rangeLabel={rangeLabel}
+            onPrev={() => setRangeOffset(o => o - 1)}
+            onNext={() => setRangeOffset(o => o + 1)}
+            onToday={() => setRangeOffset(0)}
+            C={C}
+            T={T}
+          />
+        </div>
+      )}
 
-      {/* Alerts */}
-      <AlertsSection warnings={workload.warnings} C={C} T={T} />
+      {/* Timeline View (Gantt Chart) */}
+      {sortMode === "timeline" && (
+        <>
+          <GanttChart
+            workload={workload}
+            C={C}
+            T={T}
+            navigate={navigate}
+            onEstimatorClick={setScorecardEstimator}
+            onDrop={handleDrop}
+          />
+          <AlertsSection warnings={workload.warnings} C={C} T={T} />
+        </>
+      )}
+
+      {/* By Hours View */}
+      {sortMode === "hours" && (
+        <ByHoursView workload={workload} C={C} T={T} navigate={navigate} />
+      )}
+
+      {/* By Due Date View */}
+      {sortMode === "due-date" && (
+        <ByDueDateView workload={workload} C={C} T={T} navigate={navigate} />
+      )}
 
       {/* Estimator Scorecard Modal */}
       {scorecardEstimator && (
