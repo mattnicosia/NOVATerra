@@ -251,7 +251,7 @@ export const useEstimatesStore = create((set, get) => ({
       jobType: "",
       buildingType: "",
       workType: "",
-      bidType: "",
+      bidType: "Hard Bid",
       bidDelivery: "",
       bidRequirements: {},
       status: "Bidding",

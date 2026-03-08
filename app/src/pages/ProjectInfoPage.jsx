@@ -30,7 +30,6 @@ const ALL_FIELDS = [
   "projectSF",
   "zipCode",
   "architect",
-  "engineer",
   "estimator",
   "address",
   "workType",
@@ -526,31 +525,6 @@ export default function ProjectInfoPage() {
                 <option value="__new__">+ Create New Architect...</option>
               </select>
               {autoTag("architect", "architects", "Architect")}
-            </Fld>
-            <Fld label="Engineer">
-              <select
-                value={project.engineer || ""}
-                onChange={e => {
-                  if (e.target.value === "__new__") {
-                    setQuickAddModal({ category: "engineers", field: "engineer", label: "Engineer" });
-                    setQuickAddValue("");
-                  } else up("engineer", e.target.value);
-                }}
-                style={inp(C)}
-              >
-                <option value="">— Select Engineer —</option>
-                {/* Show auto-detected value if not yet in contacts */}
-                {project.engineer && !isInContacts("engineers", project.engineer) && (
-                  <option value={project.engineer}>{project.engineer}</option>
-                )}
-                {projectEngineers.map(eng => (
-                  <option key={eng.id} value={eng.company}>
-                    {eng.company}
-                  </option>
-                ))}
-                <option value="__new__">+ Create New Engineer...</option>
-              </select>
-              {autoTag("engineer", "engineers", "Engineer")}
             </Fld>
             <Fld label="Structural Engineer">
               <select

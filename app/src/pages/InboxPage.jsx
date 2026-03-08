@@ -174,7 +174,9 @@ export default function InboxPage() {
       data.project.client = titleCase(editedFields.client || data.project.client);
       data.project.architect = titleCase(editedFields.architect || data.project.architect);
       data.project.address = editedFields.address || data.project.address;
-      data.project.jobType = editedFields.jobType || data.project.jobType;
+      data.project.workType = editedFields.workType || data.project.workType;
+      data.project.bidType = editedFields.bidType || data.project.bidType;
+      data.project.bidDelivery = editedFields.bidDelivery || data.project.bidDelivery;
       data.project.bidDue = editedFields.bidDue || data.project.bidDue;
       data.project.bidDueTime = editedFields.bidDueTime || data.project.bidDueTime;
       data.project.description = editedFields.description || data.project.description;
@@ -324,10 +326,8 @@ export default function InboxPage() {
       }
       const saveStepIdx = steps.length;
       steps = [...steps, { label: "Saving estimate...", status: "pending" }];
-      const discoveryStepIdx = hasPdfs ? steps.length : -1;
-      if (hasPdfs) {
-        steps = [...steps, { label: "Running NOVA Discovery...", status: "pending" }];
-      }
+      const discoveryStepIdx = steps.length;
+      steps = [...steps, { label: "Running NOVA Discovery...", status: "pending" }];
       setProgressSteps(steps);
 
       // --- PDF processing step ---
@@ -524,7 +524,8 @@ export default function InboxPage() {
       }
 
       // --- Discovery step — run NOVA scan on imported drawings ---
-      if (hasPdfs) {
+      const hasDrawings = useDrawingsStore.getState().drawings.length > 0;
+      if (hasDrawings) {
         steps = setStep(steps, discoveryStepIdx, "active", "Running NOVA Discovery...");
         try {
           await runFullScan({
@@ -540,6 +541,8 @@ export default function InboxPage() {
         } catch {
           steps = setStep(steps, discoveryStepIdx, "done", "Discovery skipped");
         }
+      } else {
+        steps = setStep(steps, discoveryStepIdx, "done", "No drawings — Discovery skipped");
       }
 
       setCreatedEstimateId(estId);

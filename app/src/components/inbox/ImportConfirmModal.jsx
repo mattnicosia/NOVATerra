@@ -8,6 +8,7 @@ import { I } from "@/constants/icons";
 import { inp, bt } from "@/utils/styles";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useUiStore } from "@/stores/uiStore";
+import { WORK_TYPES } from "@/constants/constructionTypes";
 
 /* ────────────────────────────────────────────────────────
    ImportConfirmModal — Phase A: edit fields, Phase B: processing
@@ -57,8 +58,8 @@ export default function ImportConfirmModal({
     client: pd.client?.company || "",
     architect: pd.architect?.company || "",
     address: pd.address || "",
-    jobType: pd.jobType || "",
-    bidType: pd.bidType || "",
+    workType: pd.workType || "",
+    bidType: pd.bidType || "Hard Bid",
     bidDelivery: pd.bidDelivery || "",
     bidDue: pd.bidDue || "",
     bidDueTime: pd.bidDueTime || "",
@@ -73,15 +74,11 @@ export default function ImportConfirmModal({
     { key: "architect", label: "Architect", type: "text" },
     { key: "address", label: "Address", type: "text" },
     {
-      key: "jobType",
-      label: "Job Type",
+      key: "workType",
+      label: "Work Type",
       type: "select",
-      options: [
-        "",
-        ...(Array.isArray(masterData.jobTypes)
-          ? masterData.jobTypes.map(j => (typeof j === "string" ? j : j.name))
-          : []),
-      ],
+      options: ["", ...WORK_TYPES.map(w => w.key)],
+      displayMap: Object.fromEntries(WORK_TYPES.map(w => [w.key, w.label])),
     },
     {
       key: "bidType",
@@ -255,7 +252,7 @@ export default function ImportConfirmModal({
                         <select value={fields[fd.key]} onChange={e => update(fd.key, e.target.value)} style={inp(C)}>
                           {fd.options.map(o => (
                             <option key={o} value={o}>
-                              {o || "\u2014"}
+                              {o ? (fd.displayMap?.[o] || o) : "\u2014"}
                             </option>
                           ))}
                         </select>
