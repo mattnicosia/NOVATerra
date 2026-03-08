@@ -1002,7 +1002,7 @@ export default function PlanRoomPage() {
               padding: `${T.space[5]}px`,
               marginBottom: T.space[4],
               textAlign: "center",
-              border: `1px solid ${C.orange || "#F59E0B"}20`,
+              border: `1px solid ${C.accent}20`,
             }}
           >
             <div
@@ -1010,7 +1010,7 @@ export default function PlanRoomPage() {
                 width: 48,
                 height: 48,
                 borderRadius: T.radius.md,
-                background: `${C.orange || "#F59E0B"}12`,
+                background: `${C.accent}12`,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -1018,36 +1018,40 @@ export default function PlanRoomPage() {
                 marginBottom: T.space[3],
               }}
             >
-              <Ic d={I.plans} size={22} color={C.orange || "#F59E0B"} />
+              <Ic d={I.plans} size={22} color={C.accent} />
             </div>
             <div
               style={{
                 fontSize: T.fontSize.sm,
                 fontWeight: T.fontWeight.semibold,
                 color: C.text,
-                marginBottom: T.space[1],
+                marginBottom: T.space[2],
               }}
             >
-              Drawing pages need to be re-extracted
+              Re-upload plans to start Discovery
             </div>
             <div
               style={{
                 fontSize: T.fontSize.xs,
                 color: C.textDim,
-                marginBottom: T.space[4],
                 maxWidth: 420,
                 margin: "0 auto",
                 lineHeight: 1.6,
+                marginBottom: T.space[4],
               }}
             >
-              {documents.length} document{documents.length > 1 ? "s" : ""} uploaded but drawing pages are missing.
-              Re-upload your PDF plans to extract pages and run Discovery.
+              Your previous upload record is here but the extracted pages were lost.
+              Drop your PDF plans below to re-extract and scan automatically.
             </div>
-            <div style={{ display: "flex", gap: T.space[3], justifyContent: "center", marginTop: T.space[3] }}>
+            <div style={{ display: "flex", gap: T.space[3], justifyContent: "center" }}>
               <button
                 onClick={() => {
+                  // Clear stale document entries so duplicate-filename check won't block re-upload
+                  const staleDocs = useDocumentsStore.getState().documents;
+                  staleDocs.forEach(d => removeDocument(d.id));
                   setUploadExpanded(true);
-                  fileInputRef.current?.click();
+                  // Small delay to let state settle before opening picker
+                  setTimeout(() => fileInputRef.current?.click(), 50);
                 }}
                 style={{
                   ...bt(C),
