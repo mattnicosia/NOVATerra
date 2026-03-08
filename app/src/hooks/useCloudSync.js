@@ -293,9 +293,10 @@ async function syncEstimates() {
   }
   const deletedSet = new Set(deletedIds);
 
-  // Get cloud index
+  // Get cloud index — filter out any locally-deleted estimates to prevent resurrection
   const cloudIndexResult = await cloudSync.pullDataWithMeta("index");
-  const cloudIndex = cloudIndexResult?.data && Array.isArray(cloudIndexResult.data) ? cloudIndexResult.data : [];
+  const cloudIndexRaw = cloudIndexResult?.data && Array.isArray(cloudIndexResult.data) ? cloudIndexResult.data : [];
+  const cloudIndex = cloudIndexRaw.filter(e => !deletedSet.has(e.id));
   const cloudIndexMap = new Map(cloudIndex.map(e => [e.id, e]));
 
   // Get all cloud estimates with metadata
@@ -368,6 +369,15 @@ async function syncEstimates() {
       }
       changed = true;
     }
+  }
+
+  // Final filter: ensure no deleted estimates remain in localIndex before persisting
+  // Uses original deletedSet (all known deleted IDs, not just retry failures)
+  const cleanedIndex = localIndex.filter(e => !deletedSet.has(e.id));
+  if (cleanedIndex.length !== localIndex.length) {
+    console.log(`[cloudSync] Estimates: filtered ${localIndex.length - cleanedIndex.length} deleted entries from index`);
+    localIndex = cleanedIndex;
+    changed = true;
   }
 
   if (changed) {
