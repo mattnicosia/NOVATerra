@@ -10,6 +10,7 @@ import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useAutoSnapshot } from "@/hooks/useAutoSnapshot";
 import useAutoResponseTimers from "@/hooks/useAutoResponseTimers";
 import { useActivityTracker } from "@/hooks/useActivityTracker";
+import { useAutoDiscovery } from "@/hooks/useAutoDiscovery";
 import AutoResponseBanner from "@/components/shared/AutoResponseBanner";
 import DraftApprovalPanel from "@/components/shared/DraftApprovalPanel";
 
@@ -1032,6 +1033,7 @@ function AppContent() {
   useKeyboardShortcuts();
   useAutoResponseTimers();
   useActivityTracker();
+  useAutoDiscovery();
 
   const [showDraftPanel, setShowDraftPanel] = useState(false);
   const cmdPaletteOpen = useCommandPaletteStore(s => s.open);

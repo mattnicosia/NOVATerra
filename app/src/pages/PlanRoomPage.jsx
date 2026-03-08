@@ -200,49 +200,9 @@ export default function PlanRoomPage() {
     }
   }, [scanResultsPending, scanResults, showScanModal]);
 
-  // ── Auto-start Discovery scan when drawings exist but no results yet ──
-  // Covers: page refresh, returning after upload, plans uploaded in a previous session.
-  // Uses a 2s delay to let IDB hydration complete, then re-checks from fresh store state.
-  const autoScanTriggered = useRef(false);
-  useEffect(() => {
-    if (autoScanTriggered.current) return;
-    if (drawings.length === 0) return; // No drawings loaded yet
-    if (scanResults !== null) return; // Already have results
-    if (scanProgress.phase !== null) return; // Scan already running
-
-    // Delay to ensure IDB persistence has fully hydrated all stores
-    const timer = setTimeout(() => {
-      // Re-check from fresh store state (not stale closure values)
-      const freshDrawings = useDrawingsStore.getState().drawings;
-      const freshResults = useScanStore.getState().scanResults;
-      const freshProgress = useScanStore.getState().scanProgress;
-      if (freshResults !== null) return; // Results loaded from IDB
-      if (freshProgress.phase !== null) return; // Another scan started
-
-      // Check that drawings actually have image data (blobs)
-      const drawingsWithData = freshDrawings.filter(d => d.data);
-      if (drawingsWithData.length === 0) {
-        console.warn(`[Discovery] Auto-scan skipped — ${freshDrawings.length} drawings but none have image data`);
-        return; // Don't scan if no drawings have data — show re-upload CTA instead
-      }
-
-      autoScanTriggered.current = true;
-      console.log(`[Discovery] Auto-starting scan — ${drawingsWithData.length} drawings with data, no results`);
-      showToast(`NOVA is scanning ${drawingsWithData.length} drawings...`);
-      setRescanning(true); // Enable progress banner visibility
-      runFullScan({
-        onComplete: () => {
-          setRescanning(false);
-          setShowScanModal(true);
-        },
-        onError: err => {
-          setRescanning(false);
-          console.error("[Discovery] Auto-scan failed:", err);
-        },
-      });
-    }, 2000);
-    return () => clearTimeout(timer);
-  }, [drawings.length, scanResults, scanProgress.phase]);
+  // Auto-scan recovery is handled globally by useAutoDiscovery() in App.jsx.
+  // It triggers runFullScan() when drawings exist without results, on any page.
+  // When it completes, scanResultsPending=true causes the modal to auto-open above.
 
   // Upload handler
   const handleUpload = useCallback(
