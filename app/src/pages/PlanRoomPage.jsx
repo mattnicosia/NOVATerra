@@ -150,9 +150,11 @@ export default function PlanRoomPage() {
     Object.keys(autoDetected).length > 0 ||
     documents.length > 0;
 
-  // Detect stale state: documents exist but drawing pages are missing (blob eviction, failed extraction)
-  // Only hold off if documents are ACTIVELY processing right now
-  const drawingsMissing = documents.length > 0 && drawings.length === 0 && !scanResults && processingDocs.length === 0;
+  // Detect stale state: drawing-type documents exist but drawing pages are missing
+  // Only consider drawing-type docs (not specs/RFPs/general) to avoid false "re-upload" prompts
+  const drawingTypeDocs = documents.filter(d => d.docType === "drawing");
+  const failedDrawingDocs = drawingTypeDocs.filter(d => d.processingStatus === "error");
+  const drawingsMissing = drawingTypeDocs.length > 0 && drawings.length === 0 && !scanResults && processingDocs.length === 0;
 
   // Upload state
   const showToast = useUiStore(s => s.showToast);
@@ -172,7 +174,7 @@ export default function PlanRoomPage() {
   const isSetupMode = project.setupComplete === false;
   const hasProcessing = documents.some(d => d.processingStatus === "processing");
 
-  // Stale processing recovery
+  // Stale processing recovery — mark documents stuck in "processing" for >5 minutes
   useEffect(() => {
     const interval = setInterval(() => {
       const docs = useDocumentsStore.getState().documents;
@@ -181,8 +183,12 @@ export default function PlanRoomPage() {
         if (d.processingStatus === "processing" && d.uploadDate) {
           const uploadTime = new Date(d.uploadDate).getTime();
           if (uploadTime < fiveMinAgo) {
+            // Drawing docs that timed out = extraction failed, mark as error
+            // Non-drawing docs = probably completed but status wasn't updated
+            const isDrawingDoc = d.docType === "drawing";
             useDocumentsStore.getState().updateDocument(d.id, {
-              processingStatus: "complete",
+              processingStatus: isDrawingDoc ? "error" : "complete",
+              processingError: isDrawingDoc ? "Processing timed out" : null,
               processingMessage: d.processingMessage ? `${d.processingMessage} (timed out)` : "Processing timed out",
             });
           }
@@ -288,8 +294,8 @@ export default function PlanRoomPage() {
     showToast(`Added ${selectedNotes.length} note${selectedNotes.length > 1 ? "s" : ""} to clarifications`);
   };
 
-  // Document groups
-  const drawingDocs = documents.filter(d => d.docType === "drawing");
+  // Document groups (drawingTypeDocs already computed above for drawingsMissing check)
+  const drawingDocs = drawingTypeDocs;
   const specDocs = documents.filter(d => d.docType === "specification");
   const generalDocs = documents.filter(d => d.docType === "general" || (!d.docType && d.source !== "rfp"));
   const handleResetAll = () => {
@@ -955,7 +961,7 @@ export default function PlanRoomPage() {
         )}
 
         {/* ─── Missing Drawings Recovery ─── */}
-        {/* When documents exist but drawing pages were never extracted or were lost */}
+        {/* When drawing-type documents exist but drawing pages were never extracted or were lost */}
         {drawingsMissing && !scanProgress.phase && !rescanning && (
           <div
             style={{
@@ -963,7 +969,7 @@ export default function PlanRoomPage() {
               padding: `${T.space[5]}px`,
               marginBottom: T.space[4],
               textAlign: "center",
-              border: `1px solid ${C.accent}20`,
+              border: `1px solid ${failedDrawingDocs.length > 0 ? C.red : C.accent}20`,
             }}
           >
             <div
@@ -971,7 +977,7 @@ export default function PlanRoomPage() {
                 width: 48,
                 height: 48,
                 borderRadius: T.radius.md,
-                background: `${C.accent}12`,
+                background: `${failedDrawingDocs.length > 0 ? C.red : C.accent}12`,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -979,7 +985,7 @@ export default function PlanRoomPage() {
                 marginBottom: T.space[3],
               }}
             >
-              <Ic d={I.plans} size={22} color={C.accent} />
+              <Ic d={I.plans} size={22} color={failedDrawingDocs.length > 0 ? C.red : C.accent} />
             </div>
             <div
               style={{
@@ -989,7 +995,9 @@ export default function PlanRoomPage() {
                 marginBottom: T.space[2],
               }}
             >
-              Re-upload plans to start Discovery
+              {failedDrawingDocs.length > 0
+                ? "Drawing extraction failed"
+                : "Re-upload plans to start Discovery"}
             </div>
             <div
               style={{
@@ -1001,14 +1009,21 @@ export default function PlanRoomPage() {
                 marginBottom: T.space[4],
               }}
             >
-              Your previous upload record is here but the extracted pages were lost.
-              Drop your PDF plans below to re-extract and scan automatically.
+              {failedDrawingDocs.length > 0 ? (
+                <>
+                  {failedDrawingDocs.length} file{failedDrawingDocs.length > 1 ? "s" : ""} could not be processed
+                  {failedDrawingDocs[0].processingError ? ` — ${failedDrawingDocs[0].processingError}` : ""}.
+                  Try re-uploading or use a different PDF version.
+                </>
+              ) : (
+                "Your previous upload record is here but the extracted pages were lost. Drop your PDF plans below to re-extract and scan automatically."
+              )}
             </div>
             <div style={{ display: "flex", gap: T.space[3], justifyContent: "center" }}>
               <button
                 onClick={() => {
-                  // Clear stale document entries so duplicate-filename check won't block re-upload
-                  const staleDocs = useDocumentsStore.getState().documents;
+                  // Clear stale drawing-type document entries so duplicate-filename check won't block re-upload
+                  const staleDocs = useDocumentsStore.getState().documents.filter(d => d.docType === "drawing");
                   staleDocs.forEach(d => removeDocument(d.id));
                   setUploadExpanded(true);
                   // Small delay to let state settle before opening picker
@@ -1028,6 +1043,49 @@ export default function PlanRoomPage() {
                 <Ic d={I.upload} size={13} color="#fff" /> Re-upload Plans
               </button>
             </div>
+          </div>
+        )}
+
+        {/* ─── No Drawing Plans Uploaded ─── */}
+        {/* Non-drawing docs exist (specs, RFPs) but no drawing-type files and no drawings */}
+        {!drawingsMissing && documents.length > 0 && drawingTypeDocs.length === 0 && drawings.length === 0 && !scanResults && !scanProgress.phase && (
+          <div
+            style={{
+              ...card(C),
+              padding: `${T.space[4]}px ${T.space[5]}px`,
+              marginBottom: T.space[4],
+              display: "flex",
+              alignItems: "center",
+              gap: T.space[3],
+              border: `1px solid ${C.accent}15`,
+            }}
+          >
+            <Ic d={I.plans} size={18} color={C.accent} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: T.fontSize.xs, fontWeight: T.fontWeight.semibold, color: C.text }}>
+                Upload drawing plans to run NOVA Discovery
+              </div>
+              <div style={{ fontSize: 10, color: C.textDim, marginTop: 2 }}>
+                Specs and bid documents are loaded. Add your PDF drawing plans to detect schedules and generate a ROM.
+              </div>
+            </div>
+            <button
+              onClick={() => { setUploadExpanded(true); setTimeout(() => fileInputRef.current?.click(), 50); }}
+              style={{
+                ...bt(C),
+                padding: "6px 14px",
+                fontSize: T.fontSize.xs,
+                fontWeight: 600,
+                color: C.accent,
+                background: `${C.accent}08`,
+                border: `1px solid ${C.accent}20`,
+                borderRadius: T.radius.sm,
+                cursor: "pointer",
+                flexShrink: 0,
+              }}
+            >
+              Add Plans
+            </button>
           </div>
         )}
 
