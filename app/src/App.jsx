@@ -35,7 +35,7 @@ import ErrorBoundary from "@/components/shared/ErrorBoundary";
 import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
 import { AnimatePresence } from "framer-motion";
 // Icons not needed in App — tabs use text-only pills
-import LoginPage from "@/pages/LoginMockupPage";
+import LoginPage from "@/pages/LoginPage";
 
 // Lazy-load heavy components not needed until after auth + first paint
 const AIChatPanel = lazy(() => import("@/components/ai/AIChatPanel"));
