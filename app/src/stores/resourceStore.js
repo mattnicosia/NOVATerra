@@ -18,9 +18,12 @@ export const useResourceStore = create(set => ({
   // Sidebar
   sidebarCollapsed: false,
 
-  // Drag-and-drop state
+  // Drag-and-drop state (unified: horizontal = reschedule, vertical = reassign)
   dragEstimateId: null,
   dragOverEstimator: null, // estimator name being hovered (or "__unassigned__")
+  dragMode: null,          // "reschedule" | "reassign" | null
+  dragDaysDelta: 0,        // Day offset for horizontal reschedule
+  dragOriginalBidDue: "",  // Original bidDue for the bar being dragged
 
   // Workload view mode
   sortMode: "timeline", // "timeline" | "hours" | "due-date" | "weekly"
@@ -37,7 +40,10 @@ export const useResourceStore = create(set => ({
   setSidebarCollapsed: v => set({ sidebarCollapsed: v }),
   setDragEstimateId: v => set({ dragEstimateId: v }),
   setDragOverEstimator: v => set({ dragOverEstimator: v }),
+  setDragMode: v => set({ dragMode: v }),
+  setDragDaysDelta: v => set({ dragDaysDelta: v }),
+  setDragOriginalBidDue: v => set({ dragOriginalBidDue: v }),
   setSortMode: v => set({ sortMode: v }),
   setWeeklyViewWeekOffset: v => set({ weeklyViewWeekOffset: v }),
-  clearDragState: () => set({ dragEstimateId: null, dragOverEstimator: null }),
+  clearDragState: () => set({ dragEstimateId: null, dragOverEstimator: null, dragMode: null, dragDaysDelta: 0, dragOriginalBidDue: "" }),
 }));

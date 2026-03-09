@@ -110,6 +110,7 @@ export const useEstimatesStore = create((set, get) => ({
       sourceRfpId: "",
       emailCount: 0,
       lastEmailAt: "",
+      schedulePauses: [], // [{ start: "YYYY-MM-DD", end: "YYYY-MM-DD", reason: "" }]
     };
     set(s => ({
       activeEstimateId: id,

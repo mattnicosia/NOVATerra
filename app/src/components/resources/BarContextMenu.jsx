@@ -17,7 +17,19 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
   const [corrTitle, setCorrTitle] = useState("");
   const [corrDue, setCorrDue] = useState("");
   const [corrHours, setCorrHours] = useState("");
+  const [addPause, setAddPause] = useState(false);
+  const [pauseStart, setPauseStart] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+  });
+  const [pauseEnd, setPauseEnd] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() + 3);
+    return d.toISOString().slice(0, 10);
+  });
+  const [pauseReason, setPauseReason] = useState("");
+  const [managePauses, setManagePauses] = useState(false);
   const isSubmittedOrWon = bar.status === "Submitted" || bar.status === "Won";
+  const existingPauses = bar.schedulePauses || [];
 
   const estimators = useMasterDataStore(s => s.masterData?.estimators) || [];
 
@@ -87,6 +99,21 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
       estimatedHours: Number(corrHours) || 0,
     });
     useUiStore.getState().showToast(`Added correspondence to "${bar.name}"`);
+    onClose();
+  };
+
+  const doAddPause = () => {
+    if (!pauseStart || !pauseEnd || pauseStart > pauseEnd) return;
+    const newPauses = [...existingPauses, { start: pauseStart, end: pauseEnd, reason: pauseReason.trim() }];
+    useEstimatesStore.getState().updateIndexEntry(bar.id, { schedulePauses: newPauses });
+    useUiStore.getState().showToast(`Added pause to "${bar.name}"`);
+    onClose();
+  };
+
+  const doRemovePause = idx => {
+    const newPauses = existingPauses.filter((_, i) => i !== idx);
+    useEstimatesStore.getState().updateIndexEntry(bar.id, { schedulePauses: newPauses });
+    useUiStore.getState().showToast(`Removed pause from "${bar.name}"`);
     onClose();
   };
 
@@ -298,6 +325,90 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
             </button>
           </div>
         </div>
+      ) : addPause ? (
+        <div style={{ padding: "6px 12px" }}>
+          <div style={{ fontSize: 9, fontWeight: 600, color: C.textDim, marginBottom: 6 }}>Add Pause / Split</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ display: "flex", gap: 4 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 8, color: C.textDim, marginBottom: 2 }}>From</div>
+                <input
+                  type="date"
+                  value={pauseStart}
+                  onChange={e => setPauseStart(e.target.value)}
+                  autoFocus
+                  style={{
+                    width: "100%", padding: "4px 6px", fontSize: 10, borderRadius: 4,
+                    border: `1px solid ${C.border}`, background: C.bg1, color: C.text, outline: "none",
+                  }}
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 8, color: C.textDim, marginBottom: 2 }}>To</div>
+                <input
+                  type="date"
+                  value={pauseEnd}
+                  onChange={e => setPauseEnd(e.target.value)}
+                  style={{
+                    width: "100%", padding: "4px 6px", fontSize: 10, borderRadius: 4,
+                    border: `1px solid ${C.border}`, background: C.bg1, color: C.text, outline: "none",
+                  }}
+                />
+              </div>
+            </div>
+            <input
+              placeholder="Reason (optional)"
+              value={pauseReason}
+              onChange={e => setPauseReason(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") doAddPause(); if (e.key === "Escape") onClose(); }}
+              style={{
+                padding: "4px 8px", fontSize: 10, borderRadius: 4,
+                border: `1px solid ${C.border}`, background: C.bg1, color: C.text, outline: "none",
+              }}
+            />
+            <button
+              onClick={doAddPause}
+              style={{
+                ...menuItemStyle, width: "100%", padding: "4px 10px",
+                background: `${C.accent}20`, color: C.accent, fontWeight: 600,
+                borderRadius: 4, justifyContent: "center",
+              }}
+            >
+              Add Pause
+            </button>
+          </div>
+        </div>
+      ) : managePauses ? (
+        <div style={{ padding: "6px 12px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+            <div style={{ fontSize: 9, fontWeight: 600, color: C.textDim }}>Pauses ({existingPauses.length})</div>
+            <button
+              onClick={() => setManagePauses(false)}
+              style={{ ...menuItemStyle, width: "auto", padding: "2px 8px", color: C.textDim, fontSize: 9 }}
+            >
+              ← Back
+            </button>
+          </div>
+          {existingPauses.map((p, idx) => (
+            <div key={idx} style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "4px 0", borderBottom: idx < existingPauses.length - 1 ? `1px solid ${C.border}10` : "none",
+            }}>
+              <div>
+                <div style={{ fontSize: 10, color: C.text, fontWeight: 500 }}>
+                  {p.start} → {p.end}
+                </div>
+                {p.reason && <div style={{ fontSize: 9, color: C.textDim }}>{p.reason}</div>}
+              </div>
+              <button
+                onClick={() => doRemovePause(idx)}
+                style={{ ...menuItemStyle, width: "auto", padding: "2px 6px", color: "#FF3B30", fontSize: 9 }}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
       ) : (
         <>
           <button
@@ -327,6 +438,27 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
             <span style={{ fontSize: 13, width: 18, textAlign: "center" }}>→</span>
             Push to Next Week
           </button>
+          <div style={{ height: 1, background: `${C.border}40`, margin: "4px 8px" }} />
+          <button
+            onClick={() => setAddPause(true)}
+            style={menuItemStyle}
+            onMouseEnter={e => e.target.style.background = `${C.accent}12`}
+            onMouseLeave={e => e.target.style.background = "transparent"}
+          >
+            <span style={{ fontSize: 13, width: 18, textAlign: "center" }}>✂</span>
+            Split / Pause...
+          </button>
+          {existingPauses.length > 0 && (
+            <button
+              onClick={() => setManagePauses(true)}
+              style={menuItemStyle}
+              onMouseEnter={e => e.target.style.background = `${C.accent}12`}
+              onMouseLeave={e => e.target.style.background = "transparent"}
+            >
+              <span style={{ fontSize: 13, width: 18, textAlign: "center" }}>📋</span>
+              Manage Pauses ({existingPauses.length})
+            </button>
+          )}
           {isSubmittedOrWon && (
             <>
               <div style={{ height: 1, background: `${C.border}40`, margin: "4px 8px" }} />

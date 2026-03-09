@@ -1,12 +1,13 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
-import { useWorkloadData } from "@/hooks/useWorkloadData";
+import { useWorkloadData, addWeekdays } from "@/hooks/useWorkloadData";
 import { useResourceStore } from "@/stores/resourceStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useUiStore } from "@/stores/uiStore";
 import { bt, cardSolid, inp } from "@/utils/styles";
 import { useOrgStore, selectIsManager } from "@/stores/orgStore";
+import { useMasterDataStore } from "@/stores/masterDataStore";
 import Avatar from "@/components/shared/Avatar";
 import EstimatorScorecard from "@/components/shared/EstimatorScorecard";
 import ReviewPanel from "@/components/shared/ReviewPanel";
@@ -72,8 +73,9 @@ const addDays = (d, n) => {
   return r;
 };
 
-const isWeekday = d => {
+const isWeekdayFn = (d, workWeek = "mon-fri") => {
   const day = d.getDay();
+  if (workWeek === "mon-sat") return day !== 0; // Sun off only
   return day !== 0 && day !== 6;
 };
 
@@ -87,15 +89,206 @@ const TODAY = toDateStr(new Date());
 const DAY_WIDTH = 44; // px per day column
 
 // ══════════════════════════════════════════════════════════
+// ESTIMATOR CONTEXT MENU (right-click on estimator name)
+// ══════════════════════════════════════════════════════════
+function EstimatorContextMenu({ pos, name, color, projectCount, C, T, onViewScorecard, onRemove, onClose }) {
+  const menuRef = useRef(null);
+  const [confirming, setConfirming] = useState(false);
+
+  useEffect(() => {
+    const handler = e => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) onClose();
+    };
+    const t = setTimeout(() => document.addEventListener("mousedown", handler), 0);
+    return () => { clearTimeout(t); document.removeEventListener("mousedown", handler); };
+  }, [onClose]);
+
+  useEffect(() => {
+    const handler = e => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  const x = Math.min(pos.x, window.innerWidth - 200);
+  const y = Math.min(pos.y, window.innerHeight - 180);
+
+  const itemStyle = {
+    display: "flex", alignItems: "center", gap: 8,
+    padding: "7px 12px", borderRadius: 6,
+    fontSize: 11, fontWeight: 500, color: C.text, cursor: "pointer",
+    transition: "background 80ms", border: "none",
+    background: "transparent", width: "100%", textAlign: "left",
+  };
+
+  return (
+    <div
+      ref={menuRef}
+      onClick={e => e.stopPropagation()}
+      style={{
+        position: "fixed", left: x, top: y, zIndex: 1000,
+        background: C.isDark
+          ? "linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.04))"
+          : "linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.90))",
+        backdropFilter: "blur(40px) saturate(1.8)",
+        WebkitBackdropFilter: "blur(40px) saturate(1.8)",
+        border: `1px solid ${C.isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.10)"}`,
+        borderRadius: 10, padding: "6px 4px", minWidth: 180,
+        boxShadow: C.isDark
+          ? "0 12px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)"
+          : "0 8px 30px rgba(0,0,0,0.15)",
+      }}
+    >
+      <div style={{
+        padding: "4px 12px 6px", fontSize: 9, fontWeight: 700, color: C.textDim,
+        textTransform: "uppercase", letterSpacing: "0.06em",
+        borderBottom: `1px solid ${C.border}20`, marginBottom: 2,
+        display: "flex", alignItems: "center", gap: 6,
+      }}>
+        <div style={{
+          width: 12, height: 12, borderRadius: "50%", background: color,
+        }} />
+        {name}
+      </div>
+      {confirming ? (
+        <div style={{ padding: "8px 12px" }}>
+          <div style={{ fontSize: 10, color: C.textMuted, marginBottom: 6 }}>
+            Remove <strong>{name}</strong>?
+            {projectCount > 0 && <> {projectCount} project{projectCount !== 1 ? "s" : ""} will become unassigned.</>}
+          </div>
+          <div style={{ display: "flex", gap: 4 }}>
+            <button
+              onClick={onRemove}
+              style={{ ...itemStyle, width: "auto", padding: "4px 10px", background: "#FF3B3015", color: "#FF3B30", fontWeight: 600, borderRadius: 4 }}
+            >
+              Remove
+            </button>
+            <button
+              onClick={() => setConfirming(false)}
+              style={{ ...itemStyle, width: "auto", padding: "4px 10px", color: C.textMuted, borderRadius: 4 }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <button
+            onClick={onViewScorecard}
+            style={itemStyle}
+            onMouseEnter={e => (e.target.style.background = `${C.accent}12`)}
+            onMouseLeave={e => (e.target.style.background = "transparent")}
+          >
+            <span style={{ fontSize: 13, width: 18, textAlign: "center" }}>📊</span>
+            View Scorecard
+          </button>
+          <div style={{ height: 1, background: `${C.border}40`, margin: "4px 8px" }} />
+          <button
+            onClick={() => setConfirming(true)}
+            style={{ ...itemStyle, color: "#FF3B30" }}
+            onMouseEnter={e => (e.target.style.background = "#FF3B3010")}
+            onMouseLeave={e => (e.target.style.background = "transparent")}
+          >
+            <span style={{ fontSize: 13, width: 18, textAlign: "center" }}>✕</span>
+            Remove Estimator
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════
 // GANTT CHART
 // ══════════════════════════════════════════════════════════
-function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
+function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWeek }) {
   const { estimatorRows, unassignedEstimates, CAPACITY_HOURS, effectiveHoursPerDay, estimatorCapacity, rangeDays, rangeStart, rangeEnd } = workload;
   const dragEstimateId = useResourceStore(s => s.dragEstimateId);
   const dragOverEstimator = useResourceStore(s => s.dragOverEstimator);
-  const { setDragEstimateId, setDragOverEstimator, clearDragState } = useResourceStore.getState();
+  const dragMode = useResourceStore(s => s.dragMode);
+  const dragDaysDelta = useResourceStore(s => s.dragDaysDelta);
+  const { setDragEstimateId, setDragOverEstimator, setDragMode, setDragDaysDelta, setDragOriginalBidDue, clearDragState } = useResourceStore.getState();
+
+  // Refs for mouse drag (reschedule + reassign)
+  const dragRef = useRef({ startX: 0, startY: 0, barId: null, bidDue: "", estimator: "", activated: false });
+  const rowRectsRef = useRef([]);
   const [contextMenu, setContextMenu] = useState(null);
+  const [estimatorMenu, setEstimatorMenu] = useState(null); // { x, y, name, color, projectCount }
+  const [addingEstimator, setAddingEstimator] = useState(false);
+  const [addEstimatorName, setAddEstimatorName] = useState("");
   const capHours = effectiveHoursPerDay || CAPACITY_HOURS;
+
+  // Document-level mousemove/mouseup for bar drag (reschedule + reassign)
+  useEffect(() => {
+    const onMouseMove = e => {
+      const dr = dragRef.current;
+      if (!dr.barId) return;
+
+      const dx = e.clientX - dr.startX;
+      const dy = e.clientY - dr.startY;
+
+      // Activation threshold: 5px
+      if (!dr.activated && Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+
+      if (!dr.activated) {
+        dr.activated = true;
+        const mode = Math.abs(dx) >= Math.abs(dy) ? "reschedule" : "reassign";
+        setDragMode(mode);
+        setDragEstimateId(dr.barId);
+        setDragOriginalBidDue(dr.bidDue);
+      }
+
+      const mode = useResourceStore.getState().dragMode;
+      if (mode === "reschedule") {
+        const delta = Math.round(dx / DAY_WIDTH);
+        setDragDaysDelta(delta);
+      } else if (mode === "reassign") {
+        // Find which estimator row the cursor is over
+        for (const rect of rowRectsRef.current) {
+          if (e.clientY >= rect.top && e.clientY <= rect.bottom) {
+            setDragOverEstimator(rect.name);
+            return;
+          }
+        }
+        setDragOverEstimator(null);
+      }
+    };
+
+    const onMouseUp = () => {
+      const dr = dragRef.current;
+      if (!dr.barId || !dr.activated) {
+        dr.barId = null;
+        dr.activated = false;
+        return;
+      }
+
+      const st = useResourceStore.getState();
+      if (st.dragMode === "reschedule" && st.dragDaysDelta !== 0) {
+        const newDue = addWeekdays(new Date(dr.bidDue + "T00:00:00"), st.dragDaysDelta, workWeek);
+        const fmt = d => d.toISOString().slice(0, 10);
+        useEstimatesStore.getState().updateIndexEntry(dr.barId, { bidDue: fmt(newDue) });
+        useUiStore.getState().showToast(
+          `Rescheduled to ${fmt(newDue)}`,
+          "success",
+        );
+      } else if (st.dragMode === "reassign" && st.dragOverEstimator) {
+        const target = st.dragOverEstimator === "__unassigned__" ? "" : st.dragOverEstimator;
+        if (target !== dr.estimator) {
+          onDrop?.(dr.barId, target);
+        }
+      }
+
+      dr.barId = null;
+      dr.activated = false;
+      clearDragState();
+    };
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [workWeek]);
 
   // Build day columns (weekdays only from rangeDays)
   const days = useMemo(() => {
@@ -108,7 +301,7 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
         dayName: dt.toLocaleDateString("en-US", { weekday: "short" }),
         monthName: dt.toLocaleDateString("en-US", { month: "short" }),
         isToday: dayStr === TODAY,
-        isMonday: dt.getDay() === 1,
+        isWeekStart: dt.getDay() === 1, // Monday is always the visual week start
       };
     });
   }, [rangeDays]);
@@ -123,15 +316,26 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
       const bars = row.estimates.map(est => {
         const startIdx = days.findIndex(d => d.key === est.scheduledStart);
         const endIdx = days.findIndex(d => d.key === est.scheduledEnd);
-        // Clamp to visible range
         const s = Math.max(0, startIdx >= 0 ? startIdx : 0);
         const e = Math.min(days.length - 1, endIdx >= 0 ? endIdx : days.length - 1);
+        // Build segment positions for split bars
+        let segPositions = null;
+        if (est.segments && est.segments.length > 1) {
+          segPositions = est.segments.map(seg => {
+            const si = days.findIndex(d => d.key === seg.start);
+            const ei = days.findIndex(d => d.key === seg.end);
+            const ss = Math.max(0, si >= 0 ? si : 0);
+            const se = Math.min(days.length - 1, ei >= 0 ? ei : days.length - 1);
+            return { left: ss * DAY_WIDTH, width: Math.max(DAY_WIDTH, (se - ss + 1) * DAY_WIDTH - 4) };
+          });
+        }
         return {
           ...est,
           startCol: s,
           endCol: e,
           left: s * DAY_WIDTH,
           width: Math.max(DAY_WIDTH, (e - s + 1) * DAY_WIDTH - 4),
+          segPositions,
         };
       });
       return { ...row, bars };
@@ -209,9 +413,15 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
               <div
                 key={row.name}
                 onClick={() => onEstimatorClick?.({ name: row.name, color: row.color })}
-                onDragOver={e => { e.preventDefault(); setDragOverEstimator(row.name); }}
-                onDragLeave={() => { if (dragOverEstimator === row.name) setDragOverEstimator(null); }}
-                onDrop={e => { e.preventDefault(); onDrop?.(dragEstimateId, row.name); clearDragState(); }}
+                onContextMenu={e => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setEstimatorMenu({
+                    x: e.clientX, y: e.clientY,
+                    name: row.name, color: row.color,
+                    projectCount: row.estimates.length,
+                  });
+                }}
                 style={{
                   height: Math.max(ROW_HEIGHT, row.bars.length * 22 + 12),
                   display: "flex",
@@ -264,9 +474,6 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
           {/* Unassigned section */}
           {(unassignedBars.length > 0 || dragEstimateId) && (
             <div
-              onDragOver={e => { e.preventDefault(); setDragOverEstimator("__unassigned__"); }}
-              onDragLeave={() => { if (dragOverEstimator === "__unassigned__") setDragOverEstimator(null); }}
-              onDrop={e => { e.preventDefault(); onDrop?.(dragEstimateId, ""); clearDragState(); }}
               style={{
                 height: Math.max(ROW_HEIGHT, unassignedBars.length * 22 + 12),
                 display: "flex",
@@ -305,10 +512,71 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
               </div>
             </div>
           )}
+
+          {/* Add Estimator */}
+          {addingEstimator ? (
+            <div style={{ padding: `${T.space[2]}px ${T.space[3]}px`, borderTop: `1px solid ${C.border}08` }}>
+              <input
+                autoFocus
+                placeholder="Estimator name..."
+                value={addEstimatorName}
+                onChange={e => setAddEstimatorName(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter" && addEstimatorName.trim()) {
+                    useMasterDataStore.getState().addMasterItem("estimators", { name: addEstimatorName.trim() });
+                    useUiStore.getState().showToast(`Added estimator "${addEstimatorName.trim()}"`);
+                    setAddEstimatorName("");
+                    setAddingEstimator(false);
+                  } else if (e.key === "Escape") {
+                    setAddEstimatorName("");
+                    setAddingEstimator(false);
+                  }
+                }}
+                onBlur={() => { setAddEstimatorName(""); setAddingEstimator(false); }}
+                style={{
+                  width: "100%",
+                  padding: "4px 8px",
+                  fontSize: T.fontSize.xs,
+                  borderRadius: T.radius.sm,
+                  border: `1px solid ${C.accent}40`,
+                  background: C.bg1,
+                  color: C.text,
+                  outline: "none",
+                }}
+              />
+            </div>
+          ) : (
+            <div
+              onClick={() => setAddingEstimator(true)}
+              style={{
+                padding: `${T.space[2]}px ${T.space[3]}px`,
+                display: "flex",
+                alignItems: "center",
+                gap: T.space[2],
+                cursor: "pointer",
+                borderTop: `1px solid ${C.border}08`,
+                transition: "background 80ms",
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}08`)}
+              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+            >
+              <div style={{
+                width: 24, height: 24, borderRadius: "50%",
+                background: `${C.accent}15`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 14, color: C.accent, fontWeight: 700,
+              }}>
+                +
+              </div>
+              <span style={{ fontSize: T.fontSize.xs, color: C.textMuted, fontWeight: T.fontWeight.medium }}>
+                Add Estimator
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Right scrollable timeline area */}
-        <div style={{ flex: 1, overflowX: "auto", position: "relative" }}>
+        <div style={{ flex: 1, overflowX: "auto", position: "relative" }} data-gantt-rows>
           <div style={{ minWidth: totalWidth, position: "relative" }}>
             {/* Day headers */}
             <div
@@ -332,12 +600,13 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
                     flexDirection: "column",
                     alignItems: "center",
                     justifyContent: "center",
-                    borderRight: day.isMonday ? `1px solid ${C.border}` : `1px solid ${C.border}08`,
+                    borderLeft: day.isWeekStart ? `1px solid ${C.border}` : "none",
+                    borderRight: `1px solid ${C.border}08`,
                     background: day.isToday ? `${C.accent}0C` : "transparent",
                   }}
                 >
-                  {/* Show month label on 1st and Mondays */}
-                  {(day.dayNum === 1 || day.isMonday) && (
+                  {/* Show month label on 1st and week starts */}
+                  {(day.dayNum === 1 || day.isWeekStart) && (
                     <div style={{ fontSize: 8, color: C.textDim, fontWeight: 600, lineHeight: 1 }}>
                       {day.monthName}
                     </div>
@@ -391,9 +660,7 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
               return (
                 <div
                   key={row.name}
-                  onDragOver={e => { e.preventDefault(); setDragOverEstimator(row.name); }}
-                  onDragLeave={() => { if (dragOverEstimator === row.name) setDragOverEstimator(null); }}
-                  onDrop={e => { e.preventDefault(); onDrop?.(dragEstimateId, row.name); clearDragState(); }}
+                  data-estimator-row={row.name}
                   style={{
                     position: "relative",
                     height: rowHeight,
@@ -410,7 +677,8 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
                       style={{
                         width: DAY_WIDTH,
                         flexShrink: 0,
-                        borderRight: day.isMonday ? `1px solid ${C.border}15` : `1px solid ${C.border}06`,
+                        borderLeft: day.isWeekStart ? `1px solid ${C.border}15` : "none",
+                        borderRight: `1px solid ${C.border}06`,
                         background: day.isToday ? `${C.accent}04` : "transparent",
                       }}
                     />
@@ -420,17 +688,56 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
                   {row.bars.map((bar, i) => {
                     const color = SCHEDULE_COLORS[bar.scheduleStatus] || STATUS_COLORS[bar.status] || "#A78BFA";
                     const isDragging = dragEstimateId === bar.id;
+                    const rescheduleOffset = isDragging && dragMode === "reschedule" ? dragDaysDelta * DAY_WIDTH : 0;
+
+                    // Render segment connectors (dashed lines between split bar segments)
+                    const segConnectors = bar.segPositions && bar.segPositions.length > 1
+                      ? bar.segPositions.slice(0, -1).map((seg, si) => {
+                          const next = bar.segPositions[si + 1];
+                          const gapLeft = seg.left + seg.width + 2 + rescheduleOffset;
+                          const gapWidth = next.left - seg.left - seg.width;
+                          if (gapWidth <= 0) return null;
+                          return (
+                            <div key={`conn-${bar.id}-${si}`} style={{
+                              position: "absolute",
+                              left: gapLeft,
+                              top: 6 + i * 22 + 8,
+                              width: gapWidth - 4,
+                              height: 2,
+                              borderTop: `2px dashed ${color}40`,
+                              zIndex: 1,
+                              pointerEvents: "none",
+                            }} />
+                          );
+                        })
+                      : null;
+
                     return (
+                      <React.Fragment key={bar.id}>
+                      {segConnectors}
                       <div
                         key={bar.id}
-                        draggable
-                        onDragStart={e => {
-                          e.dataTransfer.effectAllowed = "move";
-                          e.dataTransfer.setData("text/plain", bar.id);
-                          setDragEstimateId(bar.id);
+                        onMouseDown={e => {
+                          if (e.button !== 0) return; // left click only
+                          e.preventDefault();
+                          dragRef.current = {
+                            startX: e.clientX, startY: e.clientY,
+                            barId: bar.id, bidDue: bar.bidDue,
+                            estimator: row.name, activated: false,
+                          };
+                          // Capture row rects for vertical detection
+                          const ganttEl = e.currentTarget.closest("[data-gantt-rows]");
+                          if (ganttEl) {
+                            const rows = ganttEl.querySelectorAll("[data-estimator-row]");
+                            rowRectsRef.current = Array.from(rows).map(el => ({
+                              name: el.dataset.estimatorRow,
+                              top: el.getBoundingClientRect().top,
+                              bottom: el.getBoundingClientRect().bottom,
+                            }));
+                          }
                         }}
-                        onDragEnd={() => clearDragState()}
                         onClick={e => {
+                          if (dragRef.current.activated) return; // was a drag, not a click
                           e.stopPropagation();
                           navigate(`/estimate/${bar.id}/info`);
                         }}
@@ -459,9 +766,9 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
                         onMouseLeave={() => setTooltip(null)}
                         style={{
                           position: "absolute",
-                          left: bar.left + 2,
+                          left: (bar.segPositions ? bar.segPositions[0].left : bar.left) + 2 + rescheduleOffset,
                           top: 6 + i * 22,
-                          width: bar.width,
+                          width: bar.segPositions ? bar.segPositions[0].width : bar.width,
                           height: 18,
                           borderRadius: 4,
                           overflow: "hidden",
@@ -470,9 +777,11 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
                           alignItems: "center",
                           border: `1px solid ${color}40`,
                           borderLeft: bar.conflict ? `3px solid #FF3B30` : `1px solid ${color}40`,
-                          opacity: isDragging ? 0.4 : 1,
-                          transition: "opacity 100ms",
-                          animation: bar.conflict ? "conflictPulse 2s ease-in-out infinite" : undefined,
+                          opacity: isDragging && dragMode === "reassign" ? 0.4 : 1,
+                          transition: isDragging ? "none" : "opacity 100ms",
+                          animation: bar.conflict && !isDragging ? "conflictPulse 2s ease-in-out infinite" : undefined,
+                          zIndex: isDragging ? 10 : 1,
+                          boxShadow: isDragging && dragMode === "reschedule" ? "0 2px 8px rgba(0,0,0,0.3)" : "none",
                         }}
                       >
                         {/* Fill portion (% complete) */}
@@ -675,7 +984,82 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
                             />
                           );
                         })()}
+                        {/* Reschedule delta badge */}
+                        {isDragging && dragMode === "reschedule" && dragDaysDelta !== 0 && (
+                          <div style={{
+                            position: "absolute",
+                            top: -14, right: -2,
+                            fontSize: 8, fontWeight: 700,
+                            color: "#fff",
+                            background: dragDaysDelta > 0 ? "#30D158" : "#FF9500",
+                            borderRadius: 4,
+                            padding: "1px 4px",
+                            whiteSpace: "nowrap",
+                            zIndex: 20,
+                          }}>
+                            {dragDaysDelta > 0 ? "+" : ""}{dragDaysDelta}d
+                          </div>
+                        )}
                       </div>
+                      {/* Additional segment bars for split/paused projects */}
+                      {bar.segPositions && bar.segPositions.length > 1 && bar.segPositions.slice(1).map((seg, si) => (
+                        <div
+                          key={`seg-${bar.id}-${si + 1}`}
+                          onMouseDown={e => {
+                            if (e.button !== 0) return;
+                            e.preventDefault();
+                            dragRef.current = {
+                              startX: e.clientX, startY: e.clientY,
+                              barId: bar.id, bidDue: bar.bidDue,
+                              estimator: row.name, activated: false,
+                            };
+                            const ganttEl = e.currentTarget.closest("[data-gantt-rows]");
+                            if (ganttEl) {
+                              const rows = ganttEl.querySelectorAll("[data-estimator-row]");
+                              rowRectsRef.current = Array.from(rows).map(el => ({
+                                name: el.dataset.estimatorRow,
+                                top: el.getBoundingClientRect().top,
+                                bottom: el.getBoundingClientRect().bottom,
+                              }));
+                            }
+                          }}
+                          onClick={e => {
+                            if (dragRef.current.activated) return;
+                            e.stopPropagation();
+                            navigate(`/estimate/${bar.id}/info`);
+                          }}
+                          onContextMenu={e => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setContextMenu({ x: e.clientX, y: e.clientY, bar, estimator: row.name });
+                          }}
+                          style={{
+                            position: "absolute",
+                            left: seg.left + 2 + rescheduleOffset,
+                            top: 6 + i * 22,
+                            width: seg.width,
+                            height: 18,
+                            borderRadius: 4,
+                            overflow: "hidden",
+                            cursor: isDragging ? "grabbing" : "grab",
+                            border: `1px solid ${color}40`,
+                            background: `${color}15`,
+                            opacity: isDragging && dragMode === "reassign" ? 0.4 : 1,
+                            zIndex: isDragging ? 10 : 1,
+                            boxShadow: isDragging && dragMode === "reschedule" ? "0 2px 8px rgba(0,0,0,0.3)" : "none",
+                          }}
+                        >
+                          {seg.width > 60 && (
+                            <span style={{
+                              fontSize: 8, fontWeight: 600, color: C.textMuted,
+                              padding: "0 6px", whiteSpace: "nowrap",
+                            }}>
+                              {bar.name}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                      </React.Fragment>
                     );
                   })}
 
@@ -708,9 +1092,7 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
             {/* Unassigned row */}
             {(unassignedBars.length > 0 || dragEstimateId) && (
               <div
-                onDragOver={e => { e.preventDefault(); setDragOverEstimator("__unassigned__"); }}
-                onDragLeave={() => { if (dragOverEstimator === "__unassigned__") setDragOverEstimator(null); }}
-                onDrop={e => { e.preventDefault(); onDrop?.(dragEstimateId, ""); clearDragState(); }}
+                data-estimator-row="__unassigned__"
                 style={{
                   position: "relative",
                   height: Math.max(ROW_HEIGHT, unassignedBars.length * 22 + 12),
@@ -735,23 +1117,36 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
                 ))}
                 {unassignedBars.map((bar, i) => {
                   const isDragging = dragEstimateId === bar.id;
+                  const rescheduleOffset = isDragging && dragMode === "reschedule" ? dragDaysDelta * DAY_WIDTH : 0;
                   return (
                   <div
                     key={bar.id}
-                    draggable
-                    onDragStart={e => {
-                      e.dataTransfer.effectAllowed = "move";
-                      e.dataTransfer.setData("text/plain", bar.id);
-                      setDragEstimateId(bar.id);
+                    onMouseDown={e => {
+                      if (e.button !== 0) return;
+                      e.preventDefault();
+                      dragRef.current = {
+                        startX: e.clientX, startY: e.clientY,
+                        barId: bar.id, bidDue: bar.bidDue,
+                        estimator: "", activated: false,
+                      };
+                      const ganttEl = e.currentTarget.closest("[data-gantt-rows]");
+                      if (ganttEl) {
+                        const rows = ganttEl.querySelectorAll("[data-estimator-row]");
+                        rowRectsRef.current = Array.from(rows).map(el => ({
+                          name: el.dataset.estimatorRow,
+                          top: el.getBoundingClientRect().top,
+                          bottom: el.getBoundingClientRect().bottom,
+                        }));
+                      }
                     }}
-                    onDragEnd={() => clearDragState()}
                     onClick={e => {
+                      if (dragRef.current.activated) return;
                       e.stopPropagation();
                       navigate(`/estimate/${bar.id}/info`);
                     }}
                     style={{
                       position: "absolute",
-                      left: bar.left + 2,
+                      left: bar.left + 2 + rescheduleOffset,
                       top: 6 + i * 22,
                       width: bar.width,
                       height: 18,
@@ -868,6 +1263,40 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
           bar={contextMenu.bar}
           currentEstimator={contextMenu.estimator}
           onClose={() => setContextMenu(null)}
+        />
+      )}
+
+      {/* Estimator context menu (right-click on estimator name) */}
+      {estimatorMenu && (
+        <EstimatorContextMenu
+          pos={{ x: estimatorMenu.x, y: estimatorMenu.y }}
+          name={estimatorMenu.name}
+          color={estimatorMenu.color}
+          projectCount={estimatorMenu.projectCount}
+          C={C}
+          T={T}
+          onViewScorecard={() => {
+            onEstimatorClick?.({ name: estimatorMenu.name, color: estimatorMenu.color });
+            setEstimatorMenu(null);
+          }}
+          onRemove={() => {
+            const name = estimatorMenu.name;
+            // Reassign all their estimates to unassigned
+            const allEsts = estimatorRows.flatMap(r => r.estimates);
+            const theirs = allEsts.filter(e => e.estimator === name);
+            for (const e of theirs) {
+              useEstimatesStore.getState().updateIndexEntry(e.id, { estimator: "" });
+            }
+            // Find and remove from master data
+            const estimators = useMasterDataStore.getState().masterData?.estimators || [];
+            const match = estimators.find(e => e.name === name);
+            if (match) {
+              useMasterDataStore.getState().removeMasterItem("estimators", match.id);
+            }
+            useUiStore.getState().showToast(`Removed estimator "${name}"`);
+            setEstimatorMenu(null);
+          }}
+          onClose={() => setEstimatorMenu(null)}
         />
       )}
     </div>
@@ -1605,6 +2034,7 @@ export default function ResourcePage() {
     return { start: toDateStr(start), end: toDateStr(end) };
   }, [rangeOffset]);
 
+  const workWeek = useUiStore(s => s.appSettings?.workWeek) || "mon-fri";
   const workload = useWorkloadData(dateRange);
   const [scorecardEstimator, setScorecardEstimator] = useState(null);
   const [showReviewPanel, setShowReviewPanel] = useState(false);
@@ -1840,6 +2270,27 @@ export default function ResourcePage() {
             C={C}
             T={T}
           />
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 9, color: C.textDim, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Week</span>
+            {["mon-fri", "mon-sat"].map(ww => (
+              <button
+                key={ww}
+                onClick={() => useUiStore.getState().updateSetting("workWeek", ww)}
+                style={{
+                  ...bt(C),
+                  padding: "3px 8px",
+                  fontSize: 9,
+                  fontWeight: workWeek === ww ? 700 : 500,
+                  color: workWeek === ww ? C.text : C.textMuted,
+                  background: workWeek === ww ? (C.isDark ? "rgba(255,255,255,0.10)" : "#fff") : "transparent",
+                  border: workWeek === ww ? `1px solid ${C.border}` : `1px solid transparent`,
+                  borderRadius: T.radius.sm,
+                }}
+              >
+                {ww === "mon-fri" ? "M-F" : "M-Sa"}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -1853,6 +2304,7 @@ export default function ResourcePage() {
             navigate={navigate}
             onEstimatorClick={setScorecardEstimator}
             onDrop={handleDrop}
+            workWeek={workWeek}
           />
           <AlertsSection warnings={workload.warnings} C={C} T={T} />
         </>

@@ -47,6 +47,7 @@ export const useUiStore = create((set, get) => ({
     complexityMultipliers: { light: 0.8, normal: 1.0, heavy: 1.3 },
     onboardingDismissed: false,
     showActivityTimer: false,
+    workWeek: "mon-fri", // "mon-fri" | "mon-sat"
   },
 
   // AI Chat

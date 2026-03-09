@@ -4,8 +4,9 @@ import { useUiStore } from "@/stores/uiStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 
 // ── Helpers ───────────────────────────────────────────────────
-function isWeekday(date) {
+function isWeekday(date, workWeek = "mon-fri") {
   const d = date.getDay();
+  if (workWeek === "mon-sat") return d !== 0; // Sunday off only
   return d !== 0 && d !== 6;
 }
 
@@ -32,52 +33,53 @@ function addDays(date, n) {
   return d;
 }
 
-function countWeekdays(start, end) {
+function countWeekdays(start, end, workWeek) {
   let count = 0;
   const d = new Date(start);
   d.setHours(0, 0, 0, 0);
   const e = new Date(end);
   e.setHours(0, 0, 0, 0);
   while (d <= e) {
-    if (isWeekday(d)) count++;
+    if (isWeekday(d, workWeek)) count++;
     d.setDate(d.getDate() + 1);
   }
   return count;
 }
 
 /** Walk backward N weekdays from date (exclusive — returns the Nth weekday before) */
-function subtractWeekdays(date, n) {
+function subtractWeekdays(date, n, workWeek) {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
   let remaining = n;
   while (remaining > 0) {
     d.setDate(d.getDate() - 1);
-    if (isWeekday(d)) remaining--;
+    if (isWeekday(d, workWeek)) remaining--;
   }
   return d;
 }
 
 /** Walk forward N weekdays from date */
-function addWeekdays(date, n) {
+export function addWeekdays(date, n, workWeek) {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
-  let remaining = n;
+  let remaining = Math.abs(n);
+  const direction = n >= 0 ? 1 : -1;
   while (remaining > 0) {
-    d.setDate(d.getDate() + 1);
-    if (isWeekday(d)) remaining--;
+    d.setDate(d.getDate() + direction);
+    if (isWeekday(d, workWeek)) remaining--;
   }
   return d;
 }
 
 /** Get all weekdays between two dates (inclusive) */
-function weekdaysBetween(start, end) {
+function weekdaysBetween(start, end, workWeek) {
   const days = [];
   const d = new Date(start);
   d.setHours(0, 0, 0, 0);
   const e = new Date(end);
   e.setHours(0, 0, 0, 0);
   while (d <= e) {
-    if (isWeekday(d)) days.push(new Date(d));
+    if (isWeekday(d, workWeek)) days.push(new Date(d));
     d.setDate(d.getDate() + 1);
   }
   return days;
@@ -107,6 +109,7 @@ export function useWorkloadData(dateRange) {
   const aheadThreshold = useUiStore(s => s.appSettings?.aheadThreshold) ?? 15;
   const useAccuracyAdjustment = useUiStore(s => s.appSettings?.useAccuracyAdjustment) || false;
   const complexityMultipliers = useUiStore(s => s.appSettings?.complexityMultipliers) || { light: 0.8, normal: 1.0, heavy: 1.3 };
+  const workWeek = useUiStore(s => s.appSettings?.workWeek) || "mon-fri";
   const estimators = useMasterDataStore(s => s.masterData?.estimators) || [];
 
   return useMemo(() => {
@@ -161,6 +164,7 @@ export function useWorkloadData(dateRange) {
         correspondenceTotalHours: est.correspondenceTotalHours || 0,
         emailCount: est.emailCount || 0,
         lastEmailAt: est.lastEmailAt || "",
+        schedulePauses: est.schedulePauses || [],
       };
 
       if (!estimator) {
@@ -224,7 +228,7 @@ export function useWorkloadData(dateRange) {
             daysNeeded: 0,
             conflict: false,
             daysTotal: 0,
-            daysRemaining: countWeekdays(today, est.bidDueDate),
+            daysRemaining: countWeekdays(today, est.bidDueDate, workWeek),
             dayProgress: 100,
             scheduleStatus: est.bidDueDate < today ? "overdue" : "on-track",
           });
@@ -236,30 +240,52 @@ export function useWorkloadData(dateRange) {
         if (previousBlockStart) {
           const prevStart = new Date(previousBlockStart + "T00:00:00");
           const gapEnd = bufferDays > 0
-            ? subtractWeekdays(prevStart, bufferDays)
-            : subtractWeekdays(prevStart, 1);
+            ? subtractWeekdays(prevStart, bufferDays, workWeek)
+            : subtractWeekdays(prevStart, 1, workWeek);
           if (gapEnd < latestEnd) latestEnd = gapEnd;
         }
 
         // Schedule backward
         const scheduledStartDate = daysNeeded > 1
-          ? subtractWeekdays(latestEnd, daysNeeded - 1)
+          ? subtractWeekdays(latestEnd, daysNeeded - 1, workWeek)
           : new Date(latestEnd);
         const scheduledEndDate = new Date(latestEnd);
 
-        while (!isWeekday(scheduledStartDate)) {
+        while (!isWeekday(scheduledStartDate, workWeek)) {
           scheduledStartDate.setDate(scheduledStartDate.getDate() - 1);
         }
 
         const conflict = scheduledStartDate < today;
 
-        const blockWorkDays = weekdaysBetween(scheduledStartDate, scheduledEndDate);
+        let blockWorkDays = weekdaysBetween(scheduledStartDate, scheduledEndDate, workWeek);
+
+        // Filter out paused days and extend start if needed
+        const pauses = est.schedulePauses || [];
+        if (pauses.length > 0) {
+          const pausedSet = new Set();
+          for (const p of pauses) {
+            const pDays = weekdaysBetween(new Date(p.start + "T00:00:00"), new Date(p.end + "T00:00:00"), workWeek);
+            for (const pd of pDays) pausedSet.add(fmtDate(pd));
+          }
+          const activeDays = blockWorkDays.filter(d => !pausedSet.has(fmtDate(d)));
+          const deficit = daysNeeded - activeDays.length;
+          if (deficit > 0) {
+            // Extend start earlier to compensate for paused days
+            const newStart = subtractWeekdays(scheduledStartDate, deficit, workWeek);
+            scheduledStartDate.setTime(newStart.getTime());
+            blockWorkDays = weekdaysBetween(scheduledStartDate, scheduledEndDate, workWeek)
+              .filter(d => !pausedSet.has(fmtDate(d)));
+          } else {
+            blockWorkDays = activeDays;
+          }
+        }
+
         const hoursPerDay = blockWorkDays.length > 0
           ? est.estimatedHours / blockWorkDays.length
           : effectiveHoursPerDay;
 
-        const daysRemaining = countWeekdays(today, est.bidDueDate);
-        const daysTotal = countWeekdays(scheduledStartDate, est.bidDueDate);
+        const daysRemaining = countWeekdays(today, est.bidDueDate, workWeek);
+        const daysTotal = countWeekdays(scheduledStartDate, est.bidDueDate, workWeek);
         const dayProgress = daysTotal > 0
           ? Math.round(((daysTotal - daysRemaining) / daysTotal) * 100)
           : 100;
@@ -270,11 +296,32 @@ export function useWorkloadData(dateRange) {
         else if (dayProgress > 0 && est.percentComplete < dayProgress - behindThreshold) scheduleStatus = "behind";
         else if (est.percentComplete > dayProgress + aheadThreshold) scheduleStatus = "ahead";
 
+        // Build segments (contiguous groups of work days, split by gaps/pauses)
+        const workDayStrs = blockWorkDays.map(fmtDate);
+        const segments = [];
+        if (workDayStrs.length > 0) {
+          let segStart = workDayStrs[0];
+          let segEnd = workDayStrs[0];
+          for (let wi = 1; wi < workDayStrs.length; wi++) {
+            const prev = new Date(segEnd + "T00:00:00");
+            const curr = new Date(workDayStrs[wi] + "T00:00:00");
+            // Gap > 1 calendar day between consecutive work days means a break
+            const gap = (curr - prev) / 86400000;
+            const expectedGap = workWeek === "mon-sat" ? 2 : (prev.getDay() === 5 ? 3 : prev.getDay() === 6 ? 2 : 1);
+            if (gap > expectedGap) {
+              segments.push({ start: segStart, end: segEnd });
+              segStart = workDayStrs[wi];
+            }
+            segEnd = workDayStrs[wi];
+          }
+          segments.push({ start: segStart, end: segEnd });
+        }
+
         const entry = {
           ...est,
           scheduledStart: fmtDate(scheduledStartDate),
           scheduledEnd: fmtDate(scheduledEndDate),
-          workDays: blockWorkDays.map(fmtDate),
+          workDays: workDayStrs,
           hoursPerDay,
           daysNeeded,
           conflict,
@@ -282,6 +329,7 @@ export function useWorkloadData(dateRange) {
           daysRemaining,
           dayProgress,
           scheduleStatus,
+          segments: segments.length > 1 ? segments : null, // null = single bar (no splits)
         };
 
         scheduled.push(entry);
@@ -368,7 +416,7 @@ export function useWorkloadData(dateRange) {
     const dailyLoad = new Map();
     const teamDailyLoad = new Map();
 
-    const rangeDays = eachDay(rangeStart, rangeEnd).filter(isWeekday);
+    const rangeDays = eachDay(rangeStart, rangeEnd).filter(d => isWeekday(d, workWeek));
     for (const day of rangeDays) {
       const key = fmtDate(day);
       dailyLoad.set(key, new Map());
@@ -435,7 +483,7 @@ export function useWorkloadData(dateRange) {
       let count = 0;
       while (count < 10) {
         d.setDate(d.getDate() + 1);
-        if (isWeekday(d)) {
+        if (isWeekday(d, workWeek)) {
           futureDays.push(fmtDate(new Date(d)));
           count++;
         }
@@ -598,5 +646,5 @@ export function useWorkloadData(dateRange) {
       CAPACITY_HOURS: productionHoursPerDay,
       effectiveHoursPerDay,
     };
-  }, [estimatesIndex, activeCompanyId, dateRange?.start, dateRange?.end, productionHoursPerDay, bufferHours, overheadPercent, behindThreshold, aheadThreshold, useAccuracyAdjustment, complexityMultipliers, estimators]);
+  }, [estimatesIndex, activeCompanyId, dateRange?.start, dateRange?.end, productionHoursPerDay, bufferHours, overheadPercent, behindThreshold, aheadThreshold, useAccuracyAdjustment, complexityMultipliers, workWeek, estimators]);
 }
