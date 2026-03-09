@@ -509,6 +509,11 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
                               flex: 1,
                             }}
                           >
+                            {bar.complexity && bar.complexity !== "normal" && (
+                              <span title={bar.complexity} style={{ fontSize: 7, marginRight: 2 }}>
+                                {bar.complexity === "light" ? "\u26A1" : "\u25A0"}
+                              </span>
+                            )}
                             {bar.name}
                           </span>
                           <span
@@ -741,13 +746,14 @@ function AlertsSection({ warnings, C, T }) {
   if (!warnings || warnings.length === 0) return null;
 
   const isRed = w => w.type === "overloaded" || w.type === "conflict";
-  const isAmber = w => w.type === "predicted_overload";
+  const isAmber = w => w.type === "predicted_overload" || w.type === "load_imbalance";
   const alertBg = w => isRed(w) ? "#FF3B3010" : isAmber(w) ? "#FF950010" : "#FBBF2410";
   const alertBorder = w => isRed(w) ? "#FF3B3025" : isAmber(w) ? "#FF950025" : "#FBBF2425";
   const alertIcon = w => {
     if (w.type === "conflict") return "\u{1F534}";
     if (w.type === "overloaded") return "\u{1F534}";
     if (w.type === "predicted_overload") return "\u{1F7E0}";
+    if (w.type === "load_imbalance") return "\u2696\uFE0F";
     return "\u26A0\uFE0F";
   };
 
@@ -761,8 +767,8 @@ function AlertsSection({ warnings, C, T }) {
     }
   };
 
-  // Sort: conflicts first, then overloaded, then predicted, then rest
-  const priority = { conflict: 0, overloaded: 1, predicted_overload: 2, bid_cluster: 3 };
+  // Sort: conflicts first, then overloaded, then predicted, then imbalance, then rest
+  const priority = { conflict: 0, overloaded: 1, predicted_overload: 2, load_imbalance: 3, bid_cluster: 4 };
   const sorted = [...warnings].sort((a, b) => (priority[a.type] ?? 9) - (priority[b.type] ?? 9));
 
   return (
@@ -833,6 +839,13 @@ function AlertsSection({ warnings, C, T }) {
               {w.type === "bid_cluster" && (
                 <span>
                   <strong>{w.count} bids</strong> due the week of{" "}
+                  {parseDateStr(w.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                </span>
+              )}
+              {w.type === "load_imbalance" && (
+                <span>
+                  <strong>{w.overloaded.name}</strong> at {w.overloaded.utilization}% while{" "}
+                  <strong>{w.underloaded.name}</strong> is at {w.underloaded.utilization}% on{" "}
                   {parseDateStr(w.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                 </span>
               )}

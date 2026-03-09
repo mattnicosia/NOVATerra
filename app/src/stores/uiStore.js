@@ -44,6 +44,7 @@ export const useUiStore = create((set, get) => ({
     behindThreshold: 20,
     aheadThreshold: 15,
     useAccuracyAdjustment: false,
+    complexityMultipliers: { light: 0.8, normal: 1.0, heavy: 1.3 },
     onboardingDismissed: false,
     showActivityTimer: false,
   },

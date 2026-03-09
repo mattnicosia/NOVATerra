@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useUiStore } from "@/stores/uiStore";
+import { useMasterDataStore } from "@/stores/masterDataStore";
 
 // ── Helpers ───────────────────────────────────────────────────
 function isWeekday(date) {
@@ -105,6 +106,8 @@ export function useWorkloadData(dateRange) {
   const behindThreshold = useUiStore(s => s.appSettings?.behindThreshold) ?? 20;
   const aheadThreshold = useUiStore(s => s.appSettings?.aheadThreshold) ?? 15;
   const useAccuracyAdjustment = useUiStore(s => s.appSettings?.useAccuracyAdjustment) || false;
+  const complexityMultipliers = useUiStore(s => s.appSettings?.complexityMultipliers) || { light: 0.8, normal: 1.0, heavy: 1.3 };
+  const estimators = useMasterDataStore(s => s.masterData?.estimators) || [];
 
   return useMemo(() => {
     const today = new Date();
@@ -199,7 +202,8 @@ export function useWorkloadData(dateRange) {
       const accFactor = accuracyFactors.get(estimatorName) || 1.0;
 
       for (const est of sorted) {
-        const adjustedHours = est.estimatedHours * accFactor;
+        const complexityMult = complexityMultipliers[est.complexity] || 1.0;
+        const adjustedHours = est.estimatedHours * accFactor * complexityMult;
         const daysNeeded = adjustedHours > 0
           ? Math.ceil(adjustedHours / effectiveHoursPerDay)
           : 0;
@@ -455,10 +459,17 @@ export function useWorkloadData(dateRange) {
       }
     }
 
+    // ── Build estimator specialties map ──
+    const specialtiesMap = new Map();
+    for (const e of estimators) {
+      if (e.name && e.specialties) specialtiesMap.set(e.name, e.specialties);
+    }
+
     // ── Conflict resolution suggestions ──
     for (const w of warnings) {
       if (w.type !== "conflict") continue;
       const suggestions = [];
+      const estDiscipline = w.primaryDiscipline || "";
 
       // Find estimators with capacity around the conflict window
       for (const row of estimatorRows) {
@@ -474,15 +485,20 @@ export function useWorkloadData(dateRange) {
           ? next5.reduce((s, c) => s + c.remainingHours, 0) / next5.length
           : 0;
         if (avgRemaining > effectiveHoursPerDay * 0.3) {
+          const specs = specialtiesMap.get(row.name) || [];
+          const skillMatch = estDiscipline && specs.includes(estDiscipline);
           suggestions.push({
             action: "reassign",
             target: row.name,
             targetColor: row.color,
-            label: `Reassign to ${row.name}`,
+            label: skillMatch ? `Reassign to ${row.name} (skill match)` : `Reassign to ${row.name}`,
             capacity: Math.round(avgRemaining * 10) / 10,
+            skillMatch,
           });
         }
       }
+      // Sort skill matches first
+      suggestions.sort((a, b) => (b.skillMatch ? 1 : 0) - (a.skillMatch ? 1 : 0));
 
       // Extend due date suggestion
       const startDate = new Date(w.scheduledStart + "T00:00:00");
@@ -522,6 +538,34 @@ export function useWorkloadData(dateRange) {
       }
     }
 
+    // ── Load imbalance warnings ──
+    if (estimatorRows.length > 1) {
+      for (const [dayStr, dayMap] of dailyLoad) {
+        const d = new Date(dayStr + "T00:00:00");
+        if (d < today || countWeekdays(today, d) > 5) continue;
+        let overloaded = null;
+        let underloaded = null;
+        for (const row of estimatorRows) {
+          const load = dayMap.get(row.name);
+          const util = load ? load.totalHours / effectiveHoursPerDay : 0;
+          if (util > 1.0 && (!overloaded || util > overloaded.util)) {
+            overloaded = { name: row.name, util };
+          }
+          if (util < 0.5 && (!underloaded || util < underloaded.util)) {
+            underloaded = { name: row.name, util };
+          }
+        }
+        if (overloaded && underloaded) {
+          warnings.push({
+            type: "load_imbalance",
+            date: dayStr,
+            overloaded: { name: overloaded.name, utilization: Math.round(overloaded.util * 100) },
+            underloaded: { name: underloaded.name, utilization: Math.round(underloaded.util * 100) },
+          });
+        }
+      }
+    }
+
     // ── Needs Action count ──
     const needsActionCount = warnings.filter(
       w => w.type === "conflict" || w.type === "overloaded"
@@ -548,5 +592,5 @@ export function useWorkloadData(dateRange) {
       CAPACITY_HOURS: productionHoursPerDay,
       effectiveHoursPerDay,
     };
-  }, [estimatesIndex, activeCompanyId, dateRange?.start, dateRange?.end, productionHoursPerDay, bufferHours, overheadPercent, behindThreshold, aheadThreshold, useAccuracyAdjustment]);
+  }, [estimatesIndex, activeCompanyId, dateRange?.start, dateRange?.end, productionHoursPerDay, bufferHours, overheadPercent, behindThreshold, aheadThreshold, useAccuracyAdjustment, complexityMultipliers, estimators]);
 }
