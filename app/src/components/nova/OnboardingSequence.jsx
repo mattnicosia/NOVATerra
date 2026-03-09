@@ -4,7 +4,7 @@
 // Sound: Web Audio drone + text pings + activation chord
 // Voice: ElevenLabs TTS via useNovaVoice (graceful fallback if unavailable)
 import { useState, useEffect, useRef, useCallback } from 'react';
-import NovaOrb from '@/components/dashboard/NovaOrb';
+import NovaSceneLazy from '@/components/nova/NovaSceneLazy';
 import TypeWriter from './TypeWriter';
 import useNovaSound from './useNovaSound';
 import useNovaVoice from './useNovaVoice';
@@ -411,7 +411,7 @@ export default function OnboardingSequence({ onComplete, onTransitionStart }) {
       {/* ── Portal ── */}
       {stage !== 'void' && (
         <div ref={portalWrapRef} style={portalWrapStyle}>
-          <NovaOrb size={heroSize} scheme="nova" />
+          <NovaSceneLazy width={heroSize} height={heroSize} size={0.85} intensity={0.7} artifact awaken={0.8} />
         </div>
       )}
 

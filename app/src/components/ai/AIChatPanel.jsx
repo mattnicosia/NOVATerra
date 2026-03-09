@@ -12,7 +12,7 @@ import { motion } from "framer-motion";
 import { slidePanelVariants, slidePanelTransition } from "@/utils/motion";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
-import NovaOrb from "@/components/dashboard/NovaOrb";
+import NovaSceneLazy from "@/components/nova/NovaSceneLazy";
 
 const SYSTEM_PROMPT = `You are NOVA, an expert construction estimating AI assistant embedded inside NOVATerra. You have deep knowledge of:
 - CSI MasterFormat divisions and specification sections
@@ -314,9 +314,7 @@ export default function AIChatPanel() {
               overflow: "visible",
             }}
           >
-            <div style={{ transform: "scale(0.6)", transformOrigin: "center" }}>
-              <NovaOrb />
-            </div>
+            <NovaSceneLazy width={100} height={100} size={0.85} intensity={0.7} artifact awaken={0.8} />
           </div>
           {/* Label */}
           <div style={{ textAlign: "center", marginTop: 12 }}>
@@ -697,7 +695,7 @@ export function MessageBubble({ msg, C, streaming }) {
             justifyContent: "center",
           }}
         >
-          <NovaOrb size={30} scheme="nova" />
+          <NovaSceneLazy width={30} height={30} size={0.8} intensity={0.6} lightweight />
         </div>
       )}
       <div

@@ -6,7 +6,7 @@ import { useNovaStore } from '@/stores/novaStore';
 import { callAnthropicStream } from '@/utils/ai';
 import Ic from '@/components/shared/Ic';
 import { I } from '@/constants/icons';
-import NovaOrb from '@/components/dashboard/NovaOrb';
+import NovaSceneLazy from '@/components/nova/NovaSceneLazy';
 import { bt, inp, nInp } from '@/utils/styles';
 import { nn, fmt2, titleCase } from '@/utils/format';
 
@@ -148,7 +148,7 @@ export default function AIAssemblyGenerator({ onClose }) {
             display: "flex", alignItems: "center", justifyContent: "center",
             position: "relative",
           }}>
-            <NovaOrb size={36} scheme="nova" />
+            <NovaSceneLazy width={36} height={36} size={0.8} intensity={0.6} lightweight />
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>NOVA Assembly Builder</div>
@@ -258,7 +258,7 @@ export default function AIAssemblyGenerator({ onClose }) {
           {loading && !stream && (
             <div style={{ textAlign: "center", padding: 32 }}>
               <div style={{ margin: "0 auto 12px", width: 56, height: 56, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <NovaOrb size={56} scheme="nova" />
+                <NovaSceneLazy width={56} height={56} size={0.8} intensity={0.6} lightweight />
               </div>
               <div style={{ fontSize: 12, color: C.textMuted }}>NOVA is building your assembly...</div>
             </div>

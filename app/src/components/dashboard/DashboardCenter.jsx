@@ -1,7 +1,8 @@
 import { useRef, useState, useEffect, useMemo } from 'react';
 import { useTheme } from '@/hooks/useTheme';
 import { useUiStore } from '@/stores/uiStore';
-import NovaOrb from './NovaOrb';
+import NovaSceneLazy from '@/components/nova/NovaSceneLazy';
+import { useNovaStore } from '@/stores/novaStore';
 import DashboardCalendar from './DashboardCalendar';
 
 /* ────────────────────────────────────────────────────────
@@ -168,12 +169,16 @@ export default function DashboardCenter({ activeProject }) {
         animation: 'fadeUp 1s cubic-bezier(0.16,1,0.3,1) 0.95s both',
       }}
     >
-      {/* ─── 1. Nova Orb (compact) ─────────────────────────── */}
-      <NovaOrb
+      {/* ─── 1. Nova Sphere (3D, v15) ──────────────────────── */}
+      <NovaSceneLazy
         ref={orbRef}
+        width={100}
+        height={100}
+        size={0.85}
+        intensity={0.7}
+        artifact
+        awaken={0.8}
         onClick={handleOrbClick}
-        scheme="nova"
-        size={100}
       />
 
       {/* ─── 2. Status + Ask ─────────────────────────────── */}

@@ -1,7 +1,7 @@
 // NovaMarketBrief — AI-generated market summary with NOVA avatar
 import { useTheme } from '@/hooks/useTheme';
 import { useIntelligenceStore } from '@/stores/intelligenceStore';
-import NovaOrb from '@/components/dashboard/NovaOrb';
+import NovaSceneLazy from '@/components/nova/NovaSceneLazy';
 
 export default function NovaMarketBrief({ contextData }) {
   const C = useTheme();
@@ -35,7 +35,7 @@ export default function NovaMarketBrief({ contextData }) {
     }}>
       {/* NOVA avatar */}
       <div style={{ flexShrink: 0, paddingTop: 2 }}>
-        <NovaOrb size={42} scheme="nova" />
+        <NovaSceneLazy width={42} height={42} size={0.8} intensity={0.6} lightweight />
       </div>
 
       {/* Brief content */}

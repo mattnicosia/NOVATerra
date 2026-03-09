@@ -45,7 +45,13 @@ function Effects({ morphValue = 0, artifact = false, awaken = 1.0 }) {
 
 // ── Scene wrapper ──────────────────────────────────────────────────
 const NovaScene = forwardRef(function NovaScene(
-  { morphTarget = null, intensity = 0.7, size = 1.6, width = 200, height = 200, className = "", style = {}, onClick, artifact = false, awaken = 1.0, chamber = false, crystallize = null, crystalLayers = null },
+  {
+    morphTarget = null, intensity = 0.7, size = 1.6,
+    width = 200, height = 200, className = "", style = {},
+    onClick, artifact = false, awaken = 1.0, chamber = false,
+    crystallize = null, crystalLayers = null,
+    lightweight = false,  // v15: Stripped-down mode for small instances
+  },
   ref,
 ) {
   const sphereRef = useRef();
@@ -62,7 +68,15 @@ const NovaScene = forwardRef(function NovaScene(
   const gpuTier = getGpuTier();
   if (gpuTier === 0) return null;
 
-  const dpr = gpuTier >= 2 ? [1, 2] : [1, 1.5];
+  // Lightweight mode: minimal DPR, no postprocessing, lower segments
+  // For small instances (header logo, floating orbs, sidebar indicators)
+  const isLight = lightweight || gpuTier < 2;
+  const dpr = isLight ? [1, 1] : [1, 2];
+  const segments = isLight ? 32 : (gpuTier >= 2 ? 128 : 64);
+  const showEffects = !isLight && gpuTier >= 2;
+  const showArtifact = artifact && !lightweight;
+  const showChamber = chamber && !lightweight;
+  const frameloop = lightweight ? "demand" : "always";
 
   return (
     <div
@@ -77,12 +91,12 @@ const NovaScene = forwardRef(function NovaScene(
     >
       <Canvas
         dpr={dpr}
-        frameloop="always"
+        frameloop={frameloop}
         camera={{ position: [0, 0, 4.0], fov: 45 }}
         gl={{
-          antialias: gpuTier >= 2,
+          antialias: !isLight,
           alpha: true,
-          powerPreference: "high-performance",
+          powerPreference: lightweight ? "default" : "high-performance",
           stencil: false,
           depth: true,
         }}
@@ -98,14 +112,14 @@ const NovaScene = forwardRef(function NovaScene(
         <Suspense fallback={null}>
           {/* Minimal lighting — sphere is self-illuminating via shaders */}
           <pointLight position={[5, 5, 5]} intensity={0.08} color="#8B5CF6" />
-          <pointLight position={[-5, -3, 3]} intensity={0.06} color="#E8920A" />
+          {!lightweight && <pointLight position={[-5, -3, 3]} intensity={0.06} color="#E8920A" />}
 
           <NovacoreSphere
             ref={sphereRef}
             morphTarget={morphTarget}
             intensity={intensity}
             size={size}
-            segments={gpuTier >= 2 ? 128 : 64}
+            segments={segments}
             gpuTier={gpuTier}
             onClick={onClick}
             crystallize={crystallize}
@@ -113,7 +127,7 @@ const NovaScene = forwardRef(function NovaScene(
           />
 
           {/* The Artifact — dark obsidian housing shell */}
-          {artifact && (
+          {showArtifact && (
             <>
               <ArtifactShell
                 size={size}
@@ -131,7 +145,7 @@ const NovaScene = forwardRef(function NovaScene(
           )}
 
           {/* The Chamber — environmental vault with caustic floor + particles */}
-          {chamber && (
+          {showChamber && (
             <Chamber
               size={size}
               awaken={awaken}
@@ -140,7 +154,7 @@ const NovaScene = forwardRef(function NovaScene(
             />
           )}
 
-          {gpuTier >= 2 && <Effects morphValue={morphTarget ?? 0} artifact={artifact} awaken={awaken} />}
+          {showEffects && <Effects morphValue={morphTarget ?? 0} artifact={artifact} awaken={awaken} />}
         </Suspense>
       </Canvas>
     </div>

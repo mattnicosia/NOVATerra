@@ -25,6 +25,7 @@ import { useModelStore } from '@/stores/modelStore';
 import { runFullScan } from '@/utils/scanRunner';
 import ScanResultsModal from '@/components/planroom/ScanResultsModal';
 import NovaOrb from '@/components/dashboard/NovaOrb';
+import NovaSceneLazy from '@/components/nova/NovaSceneLazy';
 import EmptyState from '@/components/shared/EmptyState';
 
 // ─── Status badge component ──────────────────────────────────────────────────
@@ -919,7 +920,7 @@ Return ONLY a JSON object:
         <div style={{ maxWidth: 520, width: "100%", textAlign: "center" }}>
           {/* NOVA orb */}
           <div style={{ marginBottom: 24, display: "flex", justifyContent: "center" }}>
-            <NovaOrb size={48} scheme="nova" />
+            <NovaSceneLazy width={48} height={48} size={0.8} intensity={0.6} lightweight />
           </div>
 
           {/* Heading */}

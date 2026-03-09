@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { useTheme } from '@/hooks/useTheme';
 import { useUiStore } from '@/stores/uiStore';
 import { useDashboardData } from '@/hooks/useDashboardData';
-import NovaOrb from '@/components/dashboard/NovaOrb';
+import NovaSceneLazy from '@/components/nova/NovaSceneLazy';
 
 /* ────────────────────────────────────────────────────────
    NovaOrbWidget — orb + "Ask Nova" input
@@ -47,7 +47,16 @@ export default function NovaOrbWidget() {
       display: 'flex', flexDirection: 'column', alignItems: 'center',
       justifyContent: 'center', height: '100%', gap: 10,
     }}>
-      <NovaOrb ref={orbRef} onClick={handleOrbClick} scheme="nova" size={100} />
+      <NovaSceneLazy
+        ref={orbRef}
+        width={100}
+        height={100}
+        size={0.85}
+        intensity={0.7}
+        artifact
+        awaken={0.8}
+        onClick={handleOrbClick}
+      />
 
       <div style={{ textAlign: 'center' }}>
         <div style={{

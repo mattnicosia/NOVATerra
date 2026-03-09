@@ -2,7 +2,7 @@
 // Shows NovaOrb at 56px size with glow ring
 // State reflects NOVA's current activity
 import { useState } from 'react';
-import NovaOrb from '@/components/dashboard/NovaOrb';
+import NovaSceneLazy from '@/components/nova/NovaSceneLazy';
 
 export default function NovaFloatingOrb({ state = "idle", onClick, title }) {
   const [hovered, setHovered] = useState(false);
@@ -42,7 +42,7 @@ export default function NovaFloatingOrb({ state = "idle", onClick, title }) {
         animation: "novaGlowPulse 4s ease-in-out infinite",
         pointerEvents: "none",
       }} />
-      <NovaOrb size={56} scheme="nova" />
+      <NovaSceneLazy width={56} height={56} size={0.8} intensity={0.6} lightweight />
       <style>{`
         @keyframes novaGlowPulse {
           0%, 100% { opacity: 0.6; transform: scale(1); }

@@ -5,7 +5,7 @@
 //         "Please, continue." → user finishes settings themselves
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import NovaOrb from '@/components/dashboard/NovaOrb';
+import NovaSceneLazy from '@/components/nova/NovaSceneLazy';
 import TypeWriter from './TypeWriter';
 import useNovaSound from './useNovaSound';
 import useNovaVoice from './useNovaVoice';
@@ -184,7 +184,7 @@ export default function ProgressiveSetup({ onComplete }) {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           boxShadow: '0 0 16px rgba(160,100,255,0.3)',
         }}>
-          <NovaOrb size={42} scheme="nova" />
+          <NovaSceneLazy width={42} height={42} size={0.8} intensity={0.6} lightweight />
         </div>
         <div>
           <div style={{ fontWeight: 600, fontSize: 15, color: D.text }}>NOVA</div>
@@ -204,7 +204,7 @@ export default function ProgressiveSetup({ onComplete }) {
           }}>
             {msg.role === 'nova' && (
               <div style={{ width: 30, height: 30, borderRadius: '50%', marginRight: 8, flexShrink: 0 }}>
-                <NovaOrb size={30} scheme="nova" />
+                <NovaSceneLazy width={30} height={30} size={0.8} intensity={0.6} lightweight />
               </div>
             )}
             <div style={{
@@ -224,7 +224,7 @@ export default function ProgressiveSetup({ onComplete }) {
         {currentText && (
           <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
             <div style={{ width: 30, height: 30, borderRadius: '50%', marginRight: 8, flexShrink: 0 }}>
-              <NovaOrb size={30} scheme="nova" />
+              <NovaSceneLazy width={30} height={30} size={0.8} intensity={0.6} lightweight />
             </div>
             <div style={{
               maxWidth: '80%', padding: '10px 14px',

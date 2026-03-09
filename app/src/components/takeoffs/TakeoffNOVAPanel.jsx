@@ -12,7 +12,7 @@ import { useUiStore } from "@/stores/uiStore";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { bt } from "@/utils/styles";
-import NovaOrb from "@/components/dashboard/NovaOrb";
+import NovaSceneLazy from "@/components/nova/NovaSceneLazy";
 import { MessageBubble, ActionCards, QUICK_ACTIONS } from "@/components/ai/AIChatPanel";
 import { NOVA_TOOLS, executeNovaTool } from "@/utils/novaTools";
 import { callAnthropic, buildProjectContext } from "@/utils/ai";
@@ -248,9 +248,7 @@ export default function TakeoffNOVAPanel({
               overflow: "visible",
             }}
           >
-            <div style={{ transform: "scale(0.22)", transformOrigin: "center" }}>
-              <NovaOrb />
-            </div>
+            <NovaSceneLazy width={36} height={36} size={0.8} intensity={0.6} lightweight />
           </div>
           <div>
             <div

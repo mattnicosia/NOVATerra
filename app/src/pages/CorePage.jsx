@@ -9,7 +9,7 @@ import CoreOverview from '@/components/core/CoreOverview';
 import CoreProposals from '@/components/core/CoreProposals';
 import CostDatabasePage from '@/pages/CostDatabasePage';
 import CoreSources from '@/components/core/CoreSources';
-import NovaOrb from '@/components/dashboard/NovaOrb';
+import NovaSceneLazy from '@/components/nova/NovaSceneLazy';
 
 // Lightweight per-tab error catcher — prevents one tab crash from killing the page
 class TabErrorBoundary extends Component {
@@ -82,7 +82,7 @@ export default function CorePage() {
             boxShadow: "0 0 20px rgba(139,92,246,0.25), 0 0 40px rgba(109,40,217,0.12)",
             flexShrink: 0,
           }}>
-            <NovaOrb size={42} scheme="nova" />
+            <NovaSceneLazy width={42} height={42} size={0.8} intensity={0.6} lightweight />
           </div>
           <div>
             <h1 style={{

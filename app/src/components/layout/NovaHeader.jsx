@@ -4,7 +4,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useUiStore } from "@/stores/uiStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
-import NovaOrb from "@/components/dashboard/NovaOrb";
+import NovaSceneLazy from "@/components/nova/NovaSceneLazy";
 import NovaTerraLogo from "@/components/shared/NovaTerraLogo";
 import { useNovaStore } from "@/stores/novaStore";
 import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
@@ -188,7 +188,7 @@ function LogoPortal({ isNova, accent }) {
           : `0 0 8px ${accent}30, 0 0 16px ${accent}14`,
       }}
     >
-      <NovaOrb size={28} scheme="nova" />
+      <NovaSceneLazy width={28} height={28} size={0.8} intensity={0.6} lightweight />
     </div>
   );
 }
