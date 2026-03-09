@@ -15,6 +15,8 @@ import WeeklyPlanView from "@/components/resources/WeeklyPlanView";
 import AnalyticsPanel from "@/components/resources/AnalyticsPanel";
 import AutoScheduleModal from "@/components/resources/AutoScheduleModal";
 import WhatIfModal from "@/components/resources/WhatIfModal";
+import WorkloadTrendsPanel from "@/components/resources/WorkloadTrendsPanel";
+import PdfExport from "@/components/resources/PdfExport";
 import { useReviewStore } from "@/stores/reviewStore";
 
 /* ────────────────────────────────────────────────────────
@@ -1577,6 +1579,7 @@ export default function ResourcePage() {
               </button>
             </>
           )}
+          <PdfExport workload={workload} />
           <button
             onClick={() => setShowReviewPanel(true)}
             style={{
@@ -1746,6 +1749,11 @@ export default function ResourcePage() {
           T={T}
           estimatorColors={new Map(workload.estimatorRows.map(r => [r.name, r.color]))}
         />
+      )}
+
+      {/* Workload Trends — shows on Timeline and Analytics views */}
+      {(sortMode === "timeline" || sortMode === "analytics") && (
+        <WorkloadTrendsPanel workload={workload} C={C} T={T} />
       )}
 
       {/* Estimator Scorecard Modal */}
