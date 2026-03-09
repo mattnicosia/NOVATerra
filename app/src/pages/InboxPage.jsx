@@ -260,7 +260,7 @@ export default function InboxPage() {
 
             const isPdf = cf.contentType === "application/pdf" || cf.filename?.toLowerCase().endsWith(".pdf");
 
-            if (isPdf && (cf.docCategory === "drawing" || cf.docCategory === "addendum" || !cf.docCategory)) {
+            if (isPdf && cf.docCategory !== "specification" && cf.docCategory !== "bid_form") {
               // PDFs classified as drawings/addenda → process as drawings
               cloudPdfAtts.push({
                 filename: cf.filename,
