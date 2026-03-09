@@ -14,6 +14,7 @@ import Sec from "@/components/shared/Sec";
 import Fld from "@/components/shared/Fld";
 import Ic from "@/components/shared/Ic";
 import Modal from "@/components/shared/Modal";
+import TimePicker from "@/components/shared/TimePicker";
 import { I } from "@/constants/icons";
 import { inp, nInp, bt } from "@/utils/styles";
 import { uid } from "@/utils/format";
@@ -193,9 +194,6 @@ const SECTION_ICONS = {
   "Bid Schedule":
     I.calendar || "M19 4H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2zM16 2v4M8 2v4M3 10h18",
   "Bid Requirements": I.check || "M22 11.08V12a10 10 0 11-5.93-9.14M22 4L12 14.01l-3-3",
-  Terrain:
-    I.plans ||
-    "M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7",
 };
 
 export default function ProjectInfoPage() {
@@ -231,6 +229,7 @@ export default function ProjectInfoPage() {
   const [quickAddModal, setQuickAddModal] = useState(null);
   const [quickAddValue, setQuickAddValue] = useState("");
   const [hoursSuggestion, setHoursSuggestion] = useState(null);
+  const [estNumError, setEstNumError] = useState("");
 
   // Correspondences
   const correspondences = useCorrespondenceStore(s => s.correspondences);
@@ -309,6 +308,19 @@ export default function ProjectInfoPage() {
   };
 
   const up = (field, value) => setProject({ ...project, [field]: value });
+
+  const validateEstimateNumber = (val) => {
+    const trimmed = (val || "").trim();
+    if (!trimmed) { setEstNumError(""); return; }
+    const all = useEstimatesStore.getState().estimatesIndex;
+    const dup = all.find(e => e.estimateNumber === trimmed && e.id !== activeEstimateId);
+    if (dup) {
+      setEstNumError(`Estimate #${trimmed} already exists ("${dup.name}")`);
+      up("estimateNumber", project._prevEstNum || "");
+    } else {
+      setEstNumError("");
+    }
+  };
 
   const handleSuggestHours = () => {
     const estimatesIndex = useEstimatesStore.getState().estimatesIndex;
@@ -450,10 +462,15 @@ export default function ProjectInfoPage() {
             <Fld label="Estimate Number">
               <input
                 value={project.estimateNumber || ""}
-                onChange={e => up("estimateNumber", e.target.value)}
+                onFocus={() => { project._prevEstNum = project.estimateNumber || ""; }}
+                onChange={e => { setEstNumError(""); up("estimateNumber", e.target.value); }}
+                onBlur={e => validateEstimateNumber(e.target.value)}
                 placeholder="e.g. EST-2026-001"
-                style={inp(C)}
+                style={inp(C, estNumError ? { borderColor: C.red } : {})}
               />
+              {estNumError && (
+                <div style={{ fontSize: 10, color: C.red, marginTop: 2 }}>{estNumError}</div>
+              )}
               {autoTag("estimateNumber")}
             </Fld>
             <Fld label="Project Name">
@@ -869,26 +886,6 @@ export default function ProjectInfoPage() {
           </div>
         </Sec>
 
-        {/* Building Parameters — moved to Discovery tab */}
-        <Sec title="Terrain" icon={SECTION_ICONS["Terrain"]}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0" }}>
-            <Ic d={I.plans} size={18} color={C.accent} />
-            <div>
-              <div style={{ fontSize: 12, color: C.text, fontWeight: 600 }}>
-                Building parameters have moved to Discovery
-              </div>
-              <div style={{ fontSize: 10, color: C.textDim, marginTop: 2 }}>
-                Floor counts, heights, and room quantities are now in{" "}
-                <span
-                  onClick={() => navigate(`/estimate/${activeEstimateId}/plans`)}
-                  style={{ color: C.accent, cursor: "pointer", fontWeight: 600, textDecoration: "underline" }}
-                >
-                  Discovery &rarr; Terrain
-                </span>
-              </div>
-            </div>
-          </div>
-        </Sec>
 
         {/* Bid Outcome — visible when Won or Lost */}
         {["Won", "Lost"].includes(project.status) && (
@@ -1008,14 +1005,6 @@ export default function ProjectInfoPage() {
           {/* Visual Timeline */}
           <BidTimeline project={project} C={C} />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
-            <Fld label="Start Date">
-              <input
-                type="date"
-                value={project.startDate || ""}
-                onChange={e => up("startDate", e.target.value)}
-                style={inp(C)}
-              />
-            </Fld>
             <Fld label="Estimated Hours">
               <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                 <input
@@ -1102,15 +1091,13 @@ export default function ProjectInfoPage() {
                 type="date"
                 value={project.bidDue}
                 onChange={e => up("bidDue", e.target.value)}
-                style={inp(C, { color: project.bidDue ? C.red : C.text, fontWeight: project.bidDue ? 600 : 400 })}
+                style={inp(C)}
               />
             </Fld>
             <Fld label="Bid Due Time">
-              <input
-                type="time"
+              <TimePicker
                 value={project.bidDueTime || "14:00"}
-                onChange={e => up("bidDueTime", e.target.value)}
-                style={inp(C)}
+                onChange={v => up("bidDueTime", v)}
               />
             </Fld>
             <Fld label="Walkthrough Date">
@@ -1122,11 +1109,9 @@ export default function ProjectInfoPage() {
               />
             </Fld>
             <Fld label="Walkthrough Time">
-              <input
-                type="time"
+              <TimePicker
                 value={project.walkthroughTime || ""}
-                onChange={e => up("walkthroughTime", e.target.value)}
-                style={inp(C)}
+                onChange={v => up("walkthroughTime", v)}
               />
             </Fld>
             <Fld label="RFI Due Date">
@@ -1138,11 +1123,9 @@ export default function ProjectInfoPage() {
               />
             </Fld>
             <Fld label="RFI Due Time">
-              <input
-                type="time"
+              <TimePicker
                 value={project.rfiDueTime || ""}
-                onChange={e => up("rfiDueTime", e.target.value)}
-                style={inp(C)}
+                onChange={v => up("rfiDueTime", v)}
               />
             </Fld>
             <Fld label={project.otherDueLabel || "Other Due Date"}>

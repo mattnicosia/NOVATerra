@@ -94,7 +94,7 @@ export const useUiStore = create((set, get) => ({
 
   showToast: (msg, type = "success") => {
     set({ toast: { msg, type } });
-    setTimeout(() => set({ toast: null }), 2500);
+    setTimeout(() => set({ toast: null }), 3100);
   },
 
   setShowNotesPanel: v => set({ showNotesPanel: v }),

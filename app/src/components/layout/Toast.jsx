@@ -6,7 +6,7 @@ import { toastVariants, toastTransition } from "@/utils/motion";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 
-const TOAST_DURATION = 2800;
+const TOAST_DURATION = 3000;
 
 export default function Toast() {
   const C = useTheme();
