@@ -176,8 +176,36 @@ export function usePersistenceLoad() {
           let migrated = parsed.map(e => (e.companyProfileId === undefined ? { ...e, companyProfileId: "" } : e));
           // Migrate: two-axis taxonomy (buildingType, workType) + new fields
           migrated = migrated.map(migrateIndexEntry);
+
+          // ── Filter out deleted estimates BEFORE restoring ──
+          // This prevents zombie resurrection when IDB still has stale index entries
+          let deletedSet = new Set();
+          try {
+            const delRaw = await storage.get(idbKey("bldg-deleted-ids"));
+            let delIds = delRaw ? JSON.parse(delRaw.value) : [];
+            // Merge localStorage backup (survives IDB clears)
+            const userId = useAuthStore.getState().user?.id;
+            const lsKey = `bldg-deleted-ids-${userId || "anon"}`;
+            const lsRaw = localStorage.getItem(lsKey);
+            if (lsRaw) {
+              const lsIds = JSON.parse(lsRaw);
+              for (const id of lsIds) {
+                if (!delIds.includes(id)) delIds.push(id);
+              }
+            }
+            deletedSet = new Set(delIds);
+          } catch { /* proceed without filter if read fails */ }
+
+          const beforeCount = migrated.length;
+          if (deletedSet.size > 0) {
+            migrated = migrated.filter(e => !deletedSet.has(e.id));
+          }
+          if (migrated.length < beforeCount) {
+            console.log(`[usePersistence]   Filtered ${beforeCount - migrated.length} deleted estimates from IDB index`);
+          }
+
           useEstimatesStore.getState().setEstimatesIndex(migrated);
-          if (migrated.some((e, i) => e !== parsed[i])) {
+          if (migrated.some((e, i) => e !== parsed[i]) || migrated.length < beforeCount) {
             await storage.set(idbKey("bldg-index"), JSON.stringify(migrated));
           }
           if (migrated.length > 0) localHasData = true;
