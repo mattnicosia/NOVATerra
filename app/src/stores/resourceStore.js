@@ -23,7 +23,10 @@ export const useResourceStore = create(set => ({
   dragOverEstimator: null, // estimator name being hovered (or "__unassigned__")
 
   // Workload view mode
-  sortMode: "timeline", // "timeline" | "hours" | "due-date"
+  sortMode: "timeline", // "timeline" | "hours" | "due-date" | "weekly"
+
+  // Weekly planning view
+  weeklyViewWeekOffset: 0, // 0 = this week, -1 = last, +1 = next
 
   // Actions
   setCalendarView: v => set({ calendarView: v }),
@@ -35,5 +38,6 @@ export const useResourceStore = create(set => ({
   setDragEstimateId: v => set({ dragEstimateId: v }),
   setDragOverEstimator: v => set({ dragOverEstimator: v }),
   setSortMode: v => set({ sortMode: v }),
+  setWeeklyViewWeekOffset: v => set({ weeklyViewWeekOffset: v }),
   clearDragState: () => set({ dragEstimateId: null, dragOverEstimator: null }),
 }));

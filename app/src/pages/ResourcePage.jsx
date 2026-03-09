@@ -11,6 +11,7 @@ import Avatar from "@/components/shared/Avatar";
 import EstimatorScorecard from "@/components/shared/EstimatorScorecard";
 import ReviewPanel from "@/components/shared/ReviewPanel";
 import BarContextMenu from "@/components/resources/BarContextMenu";
+import WeeklyPlanView from "@/components/resources/WeeklyPlanView";
 import { useReviewStore } from "@/stores/reviewStore";
 
 /* ────────────────────────────────────────────────────────
@@ -1604,6 +1605,7 @@ export default function ResourcePage() {
         <div style={{ display: "flex", background: C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)", borderRadius: T.radius.md, padding: 2, border: `1px solid ${C.border}` }}>
           {[
             { key: "timeline", label: "Timeline" },
+            { key: "weekly", label: "This Week" },
             { key: "hours", label: "By Hours" },
             { key: "due-date", label: "By Due Date" },
           ].map(v => (
@@ -1659,6 +1661,11 @@ export default function ResourcePage() {
           />
           <AlertsSection warnings={workload.warnings} C={C} T={T} />
         </>
+      )}
+
+      {/* Weekly Plan View */}
+      {sortMode === "weekly" && (
+        <WeeklyPlanView workload={workload} C={C} T={T} />
       )}
 
       {/* By Hours View */}
