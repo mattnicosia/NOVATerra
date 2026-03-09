@@ -13,6 +13,8 @@ import ReviewPanel from "@/components/shared/ReviewPanel";
 import BarContextMenu from "@/components/resources/BarContextMenu";
 import WeeklyPlanView from "@/components/resources/WeeklyPlanView";
 import AnalyticsPanel from "@/components/resources/AnalyticsPanel";
+import AutoScheduleModal from "@/components/resources/AutoScheduleModal";
+import WhatIfModal from "@/components/resources/WhatIfModal";
 import { useReviewStore } from "@/stores/reviewStore";
 
 /* ────────────────────────────────────────────────────────
@@ -1473,6 +1475,8 @@ export default function ResourcePage() {
   const workload = useWorkloadData(dateRange);
   const [scorecardEstimator, setScorecardEstimator] = useState(null);
   const [showReviewPanel, setShowReviewPanel] = useState(false);
+  const [showAutoSchedule, setShowAutoSchedule] = useState(false);
+  const [showWhatIf, setShowWhatIf] = useState(false);
   const pendingReviews = useReviewStore(s => s.reviews.filter(r => r.status !== "completed").length);
   const isManager = useOrgStore(selectIsManager);
 
@@ -1531,6 +1535,48 @@ export default function ResourcePage() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: T.space[2] }}>
           {isManager && <ScheduleSettings C={C} T={T} />}
+          {isManager && (
+            <>
+              <button
+                onClick={() => setShowAutoSchedule(true)}
+                style={{
+                  ...bt(C),
+                  padding: "6px 12px",
+                  fontSize: T.fontSize.xs,
+                  fontWeight: 600,
+                  color: C.accent,
+                  background: `${C.accent}10`,
+                  border: `1px solid ${C.accent}30`,
+                  borderRadius: T.radius.sm,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                <span style={{ fontSize: 12 }}>⚡</span>
+                Optimize
+              </button>
+              <button
+                onClick={() => setShowWhatIf(true)}
+                style={{
+                  ...bt(C),
+                  padding: "6px 12px",
+                  fontSize: T.fontSize.xs,
+                  fontWeight: 600,
+                  color: C.textMuted,
+                  background: C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)",
+                  border: `1px solid ${C.border}`,
+                  borderRadius: T.radius.sm,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                <span style={{ fontSize: 12 }}>🔮</span>
+                What If?
+              </button>
+            </>
+          )}
           <button
             onClick={() => setShowReviewPanel(true)}
             style={{
@@ -1714,6 +1760,16 @@ export default function ResourcePage() {
 
       {/* Review Panel Modal */}
       <ReviewPanel open={showReviewPanel} onClose={() => setShowReviewPanel(false)} />
+
+      {/* Auto Schedule Modal */}
+      {showAutoSchedule && (
+        <AutoScheduleModal workload={workload} onClose={() => setShowAutoSchedule(false)} />
+      )}
+
+      {/* What If Modal */}
+      {showWhatIf && (
+        <WhatIfModal workload={workload} onClose={() => setShowWhatIf(false)} />
+      )}
     </div>
   );
 }
