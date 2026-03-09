@@ -524,33 +524,25 @@ export default function InboxPage() {
       }
 
       // --- Discovery step — run NOVA scan on imported drawings ---
-      // Ensure drawings are in the store — loadEstimate may have set them,
-      // but force-set from local data to guarantee runFullScan finds them
+      // Force drawings into store from local data — loadEstimate IDB round-trip
+      // can lose the race with runFullScan's store read
       if (data.drawings && data.drawings.length > 0) {
-        const storeDrawings = useDrawingsStore.getState().drawings;
-        if (storeDrawings.length === 0) {
-          useDrawingsStore.getState().setDrawings(data.drawings);
-        }
+        useDrawingsStore.getState().setDrawings(data.drawings);
       }
-      const scanDrawings = useDrawingsStore.getState().drawings.filter(d => d.data);
-      if (scanDrawings.length > 0) {
-        steps = setStep(steps, discoveryStepIdx, "active", "Running NOVA Discovery...");
-        try {
-          await runFullScan({
-            onComplete: () => {
-              steps = setStep(steps, discoveryStepIdx, "done", "Discovery complete!");
-              setProgressSteps([...steps]);
-            },
-            onError: msg => {
-              steps = setStep(steps, discoveryStepIdx, "done", `Discovery: ${msg || "skipped"}`);
-              setProgressSteps([...steps]);
-            },
-          });
-        } catch {
-          steps = setStep(steps, discoveryStepIdx, "done", "Discovery skipped");
-        }
-      } else {
-        steps = setStep(steps, discoveryStepIdx, "done", "No drawings — Discovery skipped");
+      steps = setStep(steps, discoveryStepIdx, "active", "Running NOVA Discovery...");
+      try {
+        await runFullScan({
+          onComplete: () => {
+            steps = setStep(steps, discoveryStepIdx, "done", "Discovery complete!");
+            setProgressSteps([...steps]);
+          },
+          onError: msg => {
+            steps = setStep(steps, discoveryStepIdx, "done", `Discovery: ${msg || "skipped"}`);
+            setProgressSteps([...steps]);
+          },
+        });
+      } catch {
+        steps = setStep(steps, discoveryStepIdx, "done", "Discovery skipped");
       }
 
       setCreatedEstimateId(estId);
