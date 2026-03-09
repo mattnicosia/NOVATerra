@@ -2,7 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
+import { useCorrespondenceStore } from "@/stores/correspondenceStore";
 import { useUiStore } from "@/stores/uiStore";
+import { loadEstimate } from "@/hooks/usePersistence";
 
 export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) {
   const C = useTheme();
@@ -11,6 +13,11 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
   const [submenu, setSubmenu] = useState(null);
   const [editHours, setEditHours] = useState(false);
   const [hoursVal, setHoursVal] = useState(bar.estimatedHours);
+  const [addCorr, setAddCorr] = useState(false);
+  const [corrTitle, setCorrTitle] = useState("");
+  const [corrDue, setCorrDue] = useState("");
+  const [corrHours, setCorrHours] = useState("");
+  const isSubmittedOrWon = bar.status === "Submitted" || bar.status === "Won";
 
   const estimators = useMasterDataStore(s => s.masterData?.estimators) || [];
 
@@ -64,6 +71,22 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
       useEstimatesStore.getState().updateIndexEntry(bar.id, { estimatedHours: h });
       useUiStore.getState().showToast(`Updated "${bar.name}" to ${h}h`);
     }
+    onClose();
+  };
+
+  const doAddCorrespondence = async () => {
+    if (!corrTitle.trim()) return;
+    // Ensure this estimate is loaded so correspondence store writes to the right context
+    const activeId = useEstimatesStore.getState().activeEstimateId;
+    if (activeId !== bar.id) {
+      await loadEstimate(bar.id);
+    }
+    useCorrespondenceStore.getState().addCorrespondence({
+      title: corrTitle.trim(),
+      dueDate: corrDue,
+      estimatedHours: Number(corrHours) || 0,
+    });
+    useUiStore.getState().showToast(`Added correspondence to "${bar.name}"`);
     onClose();
   };
 
@@ -202,6 +225,79 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
             </button>
           </div>
         </div>
+      ) : addCorr ? (
+        <div style={{ padding: "6px 12px" }}>
+          <div style={{ fontSize: 9, fontWeight: 600, color: C.textDim, marginBottom: 6 }}>Add Correspondence</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <input
+              autoFocus
+              placeholder="Title..."
+              value={corrTitle}
+              onChange={e => setCorrTitle(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") doAddCorrespondence(); if (e.key === "Escape") onClose(); }}
+              style={{
+                padding: "4px 8px",
+                fontSize: 11,
+                borderRadius: 4,
+                border: `1px solid ${C.border}`,
+                background: C.bg1,
+                color: C.text,
+                outline: "none",
+              }}
+            />
+            <div style={{ display: "flex", gap: 4 }}>
+              <input
+                type="date"
+                placeholder="Due date"
+                value={corrDue}
+                onChange={e => setCorrDue(e.target.value)}
+                style={{
+                  flex: 1,
+                  padding: "4px 6px",
+                  fontSize: 10,
+                  borderRadius: 4,
+                  border: `1px solid ${C.border}`,
+                  background: C.bg1,
+                  color: C.text,
+                  outline: "none",
+                }}
+              />
+              <input
+                type="number"
+                min={0}
+                placeholder="Hrs"
+                value={corrHours}
+                onChange={e => setCorrHours(e.target.value)}
+                style={{
+                  width: 42,
+                  padding: "4px 6px",
+                  fontSize: 10,
+                  borderRadius: 4,
+                  border: `1px solid ${C.border}`,
+                  background: C.bg1,
+                  color: C.text,
+                  outline: "none",
+                  textAlign: "center",
+                }}
+              />
+            </div>
+            <button
+              onClick={doAddCorrespondence}
+              style={{
+                ...menuItemStyle,
+                width: "100%",
+                padding: "4px 10px",
+                background: `${C.accent}20`,
+                color: C.accent,
+                fontWeight: 600,
+                borderRadius: 4,
+                justifyContent: "center",
+              }}
+            >
+              Add
+            </button>
+          </div>
+        </div>
       ) : (
         <>
           <button
@@ -231,6 +327,20 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
             <span style={{ fontSize: 13, width: 18, textAlign: "center" }}>→</span>
             Push to Next Week
           </button>
+          {isSubmittedOrWon && (
+            <>
+              <div style={{ height: 1, background: `${C.border}40`, margin: "4px 8px" }} />
+              <button
+                onClick={() => setAddCorr(true)}
+                style={menuItemStyle}
+                onMouseEnter={e => e.target.style.background = `${C.accent}12`}
+                onMouseLeave={e => e.target.style.background = "transparent"}
+              >
+                <span style={{ fontSize: 13, width: 18, textAlign: "center" }}>✉</span>
+                Add Correspondence...
+              </button>
+            </>
+          )}
         </>
       )}
     </div>

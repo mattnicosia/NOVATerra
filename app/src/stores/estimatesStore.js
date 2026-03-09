@@ -103,6 +103,10 @@ export const useEstimatesStore = create((set, get) => ({
       orgId,
       assignedTo: ownerId ? [ownerId] : [],
       templateId: templateId || null,
+      correspondenceCount: 0,
+      correspondencePendingCount: 0,
+      correspondenceNextDue: "",
+      correspondenceTotalHours: 0,
     };
     set(s => ({
       activeEstimateId: id,
@@ -189,6 +193,7 @@ export const useEstimatesStore = create((set, get) => ({
       specs: [],
       specPdf: null,
       alternates: [],
+      correspondences: [],
       documents: [],
     };
     await storage.set(idbKey(`bldg-est-${id}`), JSON.stringify(data));

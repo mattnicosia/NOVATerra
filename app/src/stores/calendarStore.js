@@ -23,6 +23,7 @@ export const useCalendarStore = create((set, get) => ({
       description: task.description || '',
       color: task.color || '',
       estimateId: task.estimateId || null,
+      correspondenceId: task.correspondenceId || null,
       completed: false,
       createdAt: new Date().toISOString(),
     };

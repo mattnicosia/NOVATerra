@@ -8,7 +8,8 @@ import { I } from "@/constants/icons";
 import { bt } from "@/utils/styles";
 
 /* ────────────────────────────────────────────────────────
-   InboxWidget — Pending RFPs and bid invitations
+   InboxWidget — RFPs and bid invitations with state
+   differentiation: unread, read, processed, rejected
    ──────────────────────────────────────────────────────── */
 
 function timeAgo(dateStr) {
@@ -23,6 +24,28 @@ function timeAgo(dateStr) {
   const days = Math.round(hrs / 24);
   return `${days}d ago`;
 }
+
+function rfpState(rfp, readIds) {
+  if (rfp.status === "imported") return "processed";
+  if (rfp.status === "dismissed") return "rejected";
+  if (rfp.status === "error") return "error";
+  if (rfp.status === "pending") return "processing";
+  // parsed — check read
+  if (readIds.includes(rfp.id)) return "read";
+  return "unread";
+}
+
+const STATE_CONFIG = {
+  unread:     { accent: null, badge: null,         badgeBg: null,        badgeColor: null,      bold: true,  muted: false },
+  read:       { accent: null, badge: null,         badgeBg: null,        badgeColor: null,      bold: false, muted: false },
+  processing: { accent: "#f59e0b", badge: "Processing", badgeBg: "#f59e0b20", badgeColor: "#f59e0b", bold: false, muted: false },
+  processed:  { accent: "#22c55e", badge: "Imported",   badgeBg: "#22c55e20", badgeColor: "#22c55e", bold: false, muted: true  },
+  rejected:   { accent: "#64748b", badge: "Dismissed",  badgeBg: "#64748b20", badgeColor: "#64748b", bold: false, muted: true  },
+  error:      { accent: "#ef4444", badge: "Error",      badgeBg: "#ef444420", badgeColor: "#ef4444", bold: false, muted: false },
+};
+
+// Sort priority: unread first, then processing, read, processed, rejected, error
+const STATE_PRIORITY = { unread: 0, processing: 1, read: 2, processed: 3, rejected: 4, error: 5 };
 
 export default function InboxWidget() {
   const C = useTheme();
@@ -44,15 +67,25 @@ export default function InboxWidget() {
     fetchRfps();
   }, []);
 
-  // Filter by status, then by company profile — exact match
-  const pendingRfps = useMemo(() => {
-    const pending = rfps.filter(r => r.status === "parsed" || r.status === "pending");
-    if (activeCompanyId === "__all__") return pending;
-    return pending.filter(r => (r.company_profile_id || "") === (activeCompanyId || ""));
-  }, [rfps, activeCompanyId]);
+  // Filter by company, sort by state priority then recency
+  const displayRfps = useMemo(() => {
+    let filtered = rfps;
+    if (activeCompanyId !== "__all__") {
+      filtered = filtered.filter(r => (r.company_profile_id || "") === (activeCompanyId || ""));
+    }
+    return [...filtered]
+      .map(r => ({ ...r, _state: rfpState(r, readIds) }))
+      .sort((a, b) => {
+        const pa = STATE_PRIORITY[a._state] ?? 9;
+        const pb = STATE_PRIORITY[b._state] ?? 9;
+        if (pa !== pb) return pa - pb;
+        return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+      });
+  }, [rfps, readIds, activeCompanyId]);
 
-  // Profile-filtered unread count
-  const unreadCount = useMemo(() => pendingRfps.filter(r => !readIds.includes(r.id)).length, [pendingRfps, readIds]);
+  const unreadCount = useMemo(() => displayRfps.filter(r => r._state === "unread").length, [displayRfps]);
+
+  const hasItems = displayRfps.length > 0;
 
   return (
     <div style={{ fontFamily: font, height: "100%", display: "flex", flexDirection: "column" }}>
@@ -100,12 +133,12 @@ export default function InboxWidget() {
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", gap: 4 }}>
         {loading && rfps.length === 0 && (
           <div style={{ fontSize: 10, color: C.textDim, padding: "8px 0" }}>Loading...</div>
         )}
 
-        {!loading && pendingRfps.length === 0 && (
+        {!loading && !hasItems && (
           <div
             style={{
               flex: 1,
@@ -118,7 +151,7 @@ export default function InboxWidget() {
             }}
           >
             <Ic d={I.email || I.folder} size={20} color={C.textDim} />
-            <div style={{ fontSize: 10, color: C.textDim, textAlign: "center", lineHeight: 1.5 }}>No pending RFPs</div>
+            <div style={{ fontSize: 10, color: C.textDim, textAlign: "center", lineHeight: 1.5 }}>No emails yet</div>
             <div style={{ fontSize: 9, color: C.textDim, textAlign: "center", opacity: 0.6 }}>
               Forward bid invitations to
               <br />
@@ -127,59 +160,93 @@ export default function InboxWidget() {
           </div>
         )}
 
-        {pendingRfps.slice(0, 4).map(rfp => (
-          <div
-            key={rfp.id}
-            onClick={() => navigate("/inbox")}
-            style={{
-              padding: "6px 8px",
-              borderRadius: 6,
-              cursor: "pointer",
-              background: dk ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
-              border: `1px solid ${dk ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"}`,
-              transition: "background 0.15s",
-            }}
-            onMouseEnter={e => (e.currentTarget.style.background = dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)")}
-            onMouseLeave={e => (e.currentTarget.style.background = dk ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)")}
-          >
+        {displayRfps.slice(0, 6).map(rfp => {
+          const st = STATE_CONFIG[rfp._state] || STATE_CONFIG.read;
+          return (
             <div
+              key={rfp.id}
+              onClick={() => navigate("/inbox")}
               style={{
-                fontSize: 10,
-                fontWeight: 600,
-                color: C.text,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
+                padding: "5px 8px",
+                borderRadius: 6,
+                cursor: "pointer",
+                background: dk ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+                border: `1px solid ${dk ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"}`,
+                borderLeft: st.accent ? `3px solid ${st.accent}` : `1px solid ${dk ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"}`,
+                transition: "background 0.15s",
+                opacity: st.muted ? 0.6 : 1,
               }}
+              onMouseEnter={e => (e.currentTarget.style.background = dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)")}
+              onMouseLeave={e => (e.currentTarget.style.background = dk ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)")}
             >
-              {rfp.subject || "Untitled RFP"}
-            </div>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginTop: 2,
-              }}
-            >
-              <span
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                {/* Unread dot */}
+                {rfp._state === "unread" && (
+                  <span style={{
+                    width: 5,
+                    height: 5,
+                    borderRadius: "50%",
+                    background: C.accent,
+                    flexShrink: 0,
+                  }} />
+                )}
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: st.bold ? 700 : 500,
+                    color: st.muted ? C.textDim : C.text,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    flex: 1,
+                    minWidth: 0,
+                  }}
+                >
+                  {rfp.subject || "Untitled RFP"}
+                </span>
+                {st.badge && (
+                  <span style={{
+                    fontSize: 7,
+                    fontWeight: 600,
+                    padding: "1px 5px",
+                    borderRadius: 4,
+                    background: st.badgeBg,
+                    color: st.badgeColor,
+                    flexShrink: 0,
+                    letterSpacing: "0.02em",
+                    textTransform: "uppercase",
+                  }}>
+                    {st.badge}
+                  </span>
+                )}
+              </div>
+              <div
                 style={{
-                  fontSize: 9,
-                  color: C.textDim,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                  maxWidth: "60%",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginTop: 1,
                 }}
               >
-                {rfp.sender_name || rfp.sender_email || "Unknown"}
-              </span>
-              <span style={{ fontSize: 8, color: C.textDim, opacity: 0.7, flexShrink: 0 }}>
-                {timeAgo(rfp.created_at)}
-              </span>
+                <span
+                  style={{
+                    fontSize: 9,
+                    color: C.textDim,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    maxWidth: "60%",
+                  }}
+                >
+                  {rfp.sender_name || rfp.sender_email || "Unknown"}
+                </span>
+                <span style={{ fontSize: 8, color: C.textDim, opacity: 0.7, flexShrink: 0 }}>
+                  {timeAgo(rfp.created_at)}
+                </span>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Footer — View Inbox button */}

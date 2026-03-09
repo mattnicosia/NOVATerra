@@ -10,6 +10,7 @@ import { useDatabaseStore } from "@/stores/databaseStore";
 import { useMasterDataStore, migrateSubcontractorSchema } from "@/stores/masterDataStore";
 import { useAlternatesStore } from "@/stores/alternatesStore";
 import { useSpecsStore } from "@/stores/specsStore";
+import { useCorrespondenceStore } from "@/stores/correspondenceStore";
 import { useReportsStore } from "@/stores/reportsStore";
 import { useDocumentsStore } from "@/stores/documentsStore";
 import { useModuleStore, migrateModuleInstances } from "@/stores/moduleStore";
@@ -795,6 +796,7 @@ export async function loadEstimate(id) {
     useSpecsStore.getState().setExclusions(data.exclusions || []);
     useSpecsStore.getState().setClarifications(data.clarifications || []);
     useAlternatesStore.getState().setAlternates(data.alternates || []);
+    useCorrespondenceStore.getState().setCorrespondences(data.correspondences || []);
     useDocumentsStore.getState().setDocuments(data.documents || []);
     // Migrate module instances + rename framing → walls (backwards compat: read old builderInstances key)
     let bInst = migrateModuleInstances(data.moduleInstances || data.builderInstances || {});
@@ -900,6 +902,7 @@ export async function saveEstimate() {
     specs: useSpecsStore.getState().specs,
     specPdf: useSpecsStore.getState().specPdf,
     alternates: useAlternatesStore.getState().alternates,
+    correspondences: useCorrespondenceStore.getState().correspondences,
     documents: useDocumentsStore.getState().documents,
     moduleInstances: useModuleStore.getState().moduleInstances,
     activeModule: useModuleStore.getState().activeModule,

@@ -19,6 +19,7 @@ import { fmt } from "@/utils/format";
 
 const STATUS_TABS = [
   { key: "all", label: "All" },
+  { key: "Qualifying", label: "Qualifying" },
   { key: "Bidding", label: "Bidding" },
   { key: "Submitted", label: "Submitted" },
   { key: "Won", label: "Won" },
@@ -35,6 +36,7 @@ const SORT_OPTIONS = [
 ];
 
 const STATUS_COLORS = {
+  Qualifying: "#F59E0B",
   Bidding: "#A78BFA",
   Submitted: "#60A5FA",
   Won: "#34D399",
@@ -44,7 +46,7 @@ const STATUS_COLORS = {
   Cancelled: "#8E8E93",
 };
 
-const STATUS_ORDER = ["Bidding", "Submitted", "Won", "Lost", "On Hold", "Draft"];
+const STATUS_ORDER = ["Qualifying", "Bidding", "Submitted", "Won", "Lost", "On Hold", "Draft"];
 
 /* ── Helper: is date within this week (Mon–Sun)? ── */
 function isDueThisWeek(dateStr) {

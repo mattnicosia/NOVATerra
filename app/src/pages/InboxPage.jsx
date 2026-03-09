@@ -26,6 +26,7 @@ const API_BASE = import.meta.env.DEV ? "https://app-nova-42373ca7.vercel.app" : 
 const FILTERS = [
   { key: "all", label: "All" },
   { key: "unread", label: "Unread" },
+  { key: "read", label: "Read" },
   { key: "imported", label: "Imported" },
   { key: "dismissed", label: "Dismissed" },
 ];
@@ -108,6 +109,9 @@ export default function InboxPage() {
     // Status tab filter
     if (filter === "unread") {
       return companyFiltered.filter(r => (r.status === "parsed" || r.status === "pending") && !readIds.includes(r.id));
+    }
+    if (filter === "read") {
+      return companyFiltered.filter(r => (r.status === "parsed" || r.status === "pending") && readIds.includes(r.id));
     }
     if (filter === "imported") return companyFiltered.filter(r => r.status === "imported");
     if (filter === "dismissed") return companyFiltered.filter(r => r.status === "dismissed");

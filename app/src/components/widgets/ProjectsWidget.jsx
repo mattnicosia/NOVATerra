@@ -213,6 +213,7 @@ export default function ProjectsWidget() {
   } = useDashboardData();
 
   const activeEstimateId = activeEstimate?.id || null;
+  const biddingEstimates = estimates.filter(e => e.statusLabel === "Bidding");
   const [hoveredId, setHoveredId] = useState(null);
   const [ctaHovered, setCtaHovered] = useState(false);
   const [menuState, setMenuState] = useState(null);
@@ -227,7 +228,7 @@ export default function ProjectsWidget() {
     boxShadow: "none",
   };
 
-  const hasEstimates = estimates.length > 0;
+  const hasEstimates = biddingEstimates.length > 0;
 
   const handleContextMenu = (e, proj) => {
     e.preventDefault();
@@ -263,7 +264,7 @@ export default function ProjectsWidget() {
             fontFamily: font,
           }}
         >
-          PROJECTS{hasEstimates ? ` (${estimates.length})` : ""}
+          PROJECTS{hasEstimates ? ` (${biddingEstimates.length})` : ""}
         </span>
         <button
           onClick={onCreateEstimate}
@@ -300,7 +301,7 @@ export default function ProjectsWidget() {
       {/* Project List */}
       <div style={{ ...glassCardStyle, overflow: "auto", flex: 1, minHeight: 0 }}>
         {hasEstimates ? (
-          estimates.map(proj => {
+          biddingEstimates.map(proj => {
             const isActive = proj.id === activeEstimateId;
             const isHovered = proj.id === hoveredId;
             return (
@@ -421,8 +422,8 @@ export default function ProjectsWidget() {
         ) : (
           <EmptyState
             icon={I.folder}
-            title="Create Your First Estimate"
-            subtitle="Start a new project to begin estimating with NOVATerra."
+            title="No Projects Bidding"
+            subtitle="Create a new estimate or move a qualifying project to Bidding."
             action={() => setShowNewEstimateModal(true)}
             actionLabel="New Estimate"
             actionIcon={I.plus}

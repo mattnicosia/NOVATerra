@@ -135,7 +135,7 @@ export function useWorkloadData(dateRange) {
     active.forEach(est => {
       const estimator = est.estimator || "";
       const bidDue = new Date(est.bidDue + "T00:00:00");
-      const estHours = Number(est.estimatedHours) || 0;
+      const estHours = (Number(est.estimatedHours) || 0) + (Number(est.correspondenceTotalHours) || 0);
       const hoursLogged = (est.timerTotalMs || 0) / 3600000;
       const percentComplete = estHours > 0
         ? Math.min(100, Math.round((hoursLogged / estHours) * 100))
@@ -155,6 +155,10 @@ export function useWorkloadData(dateRange) {
         percentComplete,
         complexity: est.complexity || "normal",
         primaryDiscipline: est.primaryDiscipline || "",
+        correspondenceCount: est.correspondenceCount || 0,
+        correspondencePendingCount: est.correspondencePendingCount || 0,
+        correspondenceNextDue: est.correspondenceNextDue || "",
+        correspondenceTotalHours: est.correspondenceTotalHours || 0,
       };
 
       if (!estimator) {

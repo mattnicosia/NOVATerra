@@ -31,6 +31,7 @@ import { useReviewStore } from "@/stores/reviewStore";
 
 // ── Constants ────────────────────────────────────────────
 const STATUS_COLORS = {
+  Qualifying: "#F59E0B",
   Bidding: "#A78BFA",
   Submitted: "#60A5FA",
   Won: "#34D399",
@@ -158,6 +159,10 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
 
   // Tooltip state
   const [tooltip, setTooltip] = useState(null);
+
+  // Inline hours editing state
+  const [editingHoursId, setEditingHoursId] = useState(null);
+  const [editingHoursVal, setEditingHoursVal] = useState("");
 
   const ROW_HEIGHT = 40;
   const HEADER_HEIGHT = 48;
@@ -445,6 +450,9 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
                             bidDue: bar.bidDue,
                             conflict: bar.conflict,
                             daysNeeded: bar.daysNeeded,
+                            correspondenceCount: bar.correspondenceCount,
+                            correspondenceTotalHours: bar.correspondenceTotalHours,
+                            correspondenceNextDue: bar.correspondenceNextDue,
                           })
                         }
                         onMouseLeave={() => setTooltip(null)}
@@ -511,6 +519,7 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
                               whiteSpace: "nowrap",
                               textOverflow: "ellipsis",
                               flex: 1,
+                              minWidth: 0,
                             }}
                           >
                             {bar.complexity && bar.complexity !== "normal" && (
@@ -520,17 +529,108 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
                             )}
                             {bar.name}
                           </span>
-                          <span
-                            style={{
-                              fontSize: 8,
-                              fontWeight: 700,
-                              color,
-                              flexShrink: 0,
-                              marginLeft: 4,
-                            }}
-                          >
-                            {bar.percentComplete}%
-                          </span>
+                          {/* Hours — click to edit inline */}
+                          {bar.width > 80 && (
+                            editingHoursId === bar.id ? (
+                              <input
+                                autoFocus
+                                type="number"
+                                value={editingHoursVal}
+                                onChange={e => setEditingHoursVal(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === "Enter") {
+                                    const h = Number(editingHoursVal);
+                                    if (!isNaN(h) && h >= 0) {
+                                      useEstimatesStore.getState().updateIndexEntry(bar.id, { estimatedHours: h });
+                                    }
+                                    setEditingHoursId(null);
+                                  } else if (e.key === "Escape") {
+                                    setEditingHoursId(null);
+                                  }
+                                }}
+                                onBlur={() => {
+                                  const h = Number(editingHoursVal);
+                                  if (!isNaN(h) && h >= 0) {
+                                    useEstimatesStore.getState().updateIndexEntry(bar.id, { estimatedHours: h });
+                                  }
+                                  setEditingHoursId(null);
+                                }}
+                                onClick={e => e.stopPropagation()}
+                                onMouseDown={e => e.stopPropagation()}
+                                style={{
+                                  width: 32,
+                                  fontSize: 8,
+                                  fontWeight: 600,
+                                  padding: "0 2px",
+                                  border: `1px solid ${C.accent}`,
+                                  borderRadius: 3,
+                                  background: C.bg1,
+                                  color: C.text,
+                                  textAlign: "center",
+                                  outline: "none",
+                                  flexShrink: 0,
+                                  marginLeft: 4,
+                                  height: 14,
+                                }}
+                              />
+                            ) : (
+                              <span
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  setEditingHoursId(bar.id);
+                                  setEditingHoursVal(String(bar.estimatedHours || 0));
+                                }}
+                                title="Click to edit hours"
+                                style={{
+                                  fontSize: 8,
+                                  fontWeight: 600,
+                                  color: C.textMuted,
+                                  flexShrink: 0,
+                                  marginLeft: 4,
+                                  cursor: "text",
+                                  padding: "0 2px",
+                                  borderRadius: 2,
+                                  transition: "background 0.15s",
+                                }}
+                                onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}26`)}
+                                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                              >
+                                {bar.estimatedHours || 0}h
+                              </span>
+                            )
+                          )}
+                          {bar.width > 120 && (
+                            <span
+                              style={{
+                                fontSize: 8,
+                                fontWeight: 700,
+                                color,
+                                flexShrink: 0,
+                                marginLeft: 4,
+                              }}
+                            >
+                              {bar.percentComplete}%
+                            </span>
+                          )}
+                          {/* Correspondence indicator */}
+                          {bar.correspondenceCount > 0 && (
+                            <span
+                              title={`${bar.correspondenceCount} correspondence${bar.correspondenceCount !== 1 ? "s" : ""}`}
+                              style={{
+                                fontSize: 7,
+                                fontWeight: 700,
+                                color: "#60A5FA",
+                                background: "#60A5FA20",
+                                borderRadius: 3,
+                                padding: "0 3px",
+                                flexShrink: 0,
+                                marginLeft: 3,
+                                lineHeight: "12px",
+                              }}
+                            >
+                              C{bar.correspondenceCount > 1 ? bar.correspondenceCount : ""}
+                            </span>
+                          )}
                         </div>
                         {/* Due date marker — orange dot when bar ends before bidDue */}
                         {bar.bidDue !== bar.scheduledEnd && (() => {
@@ -698,6 +798,12 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
             <div style={{ color: C.textMuted }}>{tooltip.daysNeeded} work day{tooltip.daysNeeded !== 1 ? "s" : ""} needed</div>
           )}
           <div style={{ color: C.textMuted }}>Days remaining: {tooltip.daysLeft}</div>
+          {tooltip.correspondenceCount > 0 && (
+            <div style={{ color: "#60A5FA", marginTop: 2 }}>
+              {tooltip.correspondenceCount} correspondence{tooltip.correspondenceCount !== 1 ? "s" : ""}, {tooltip.correspondenceTotalHours}h
+              {tooltip.correspondenceNextDue ? ` · next due ${tooltip.correspondenceNextDue}` : ""}
+            </div>
+          )}
           <div style={{ marginTop: 4, display: "flex", gap: 4, alignItems: "center" }}>
             <span
               style={{

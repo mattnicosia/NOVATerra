@@ -21,6 +21,7 @@ function fuzzy(text, query) {
 
 // Status → color
 const STATUS_COLORS = {
+  Qualifying: "#F59E0B",
   Bidding: "#A78BFA",
   Submitted: "#F59E0B",
   Won: "#34D399",

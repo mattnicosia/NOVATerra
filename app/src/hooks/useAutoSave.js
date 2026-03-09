@@ -20,6 +20,7 @@ import { useDrawingsStore } from "@/stores/drawingsStore";
 import { useBidLevelingStore } from "@/stores/bidLevelingStore";
 import { useAlternatesStore } from "@/stores/alternatesStore";
 import { useSpecsStore } from "@/stores/specsStore";
+import { useCorrespondenceStore } from "@/stores/correspondenceStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useDatabaseStore } from "@/stores/databaseStore";
 import { useModuleStore } from "@/stores/moduleStore";
@@ -54,6 +55,7 @@ export function useAutoSave() {
   const bidCells = useBidLevelingStore(s => s.bidCells);
   const alternates = useAlternatesStore(s => s.alternates);
   const exclusions = useSpecsStore(s => s.exclusions);
+  const correspondences = useCorrespondenceStore(s => s.correspondences);
   const moduleInstances = useModuleStore(s => s.moduleInstances);
   const groups = useGroupsStore(s => s.groups);
   const projectAssemblies = useItemsStore(s => s.projectAssemblies);
@@ -93,6 +95,7 @@ export function useAutoSave() {
     bidCells,
     alternates,
     exclusions,
+    correspondences,
     moduleInstances,
     groups,
     projectAssemblies,

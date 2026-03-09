@@ -17,6 +17,7 @@ import Modal from "@/components/shared/Modal";
 import { I } from "@/constants/icons";
 import { inp, nInp, bt } from "@/utils/styles";
 import { uid } from "@/utils/format";
+import { useCorrespondenceStore } from "@/stores/correspondenceStore";
 import { resolveLocationFactors, getAllLocations } from "@/constants/locationFactors";
 import { suggestEstimatedHours } from "@/utils/hoursEstimator";
 
@@ -229,6 +230,13 @@ export default function ProjectInfoPage() {
   const [quickAddModal, setQuickAddModal] = useState(null);
   const [quickAddValue, setQuickAddValue] = useState("");
   const [hoursSuggestion, setHoursSuggestion] = useState(null);
+
+  // Correspondences
+  const correspondences = useCorrespondenceStore(s => s.correspondences);
+  const addCorrespondence = useCorrespondenceStore(s => s.addCorrespondence);
+  const updateCorrespondence = useCorrespondenceStore(s => s.updateCorrespondence);
+  const removeCorrespondence = useCorrespondenceStore(s => s.removeCorrespondence);
+  const [corrExpanded, setCorrExpanded] = useState(null);
 
   const completion = useMemo(() => calcCompletion(project), [project]);
 
@@ -447,6 +455,7 @@ export default function ProjectInfoPage() {
             <Fld label="Status">
               <select value={project.status || "Active"} onChange={e => up("status", e.target.value)} style={inp(C)}>
                 <option>Active</option>
+                <option>Qualifying</option>
                 <option>Bidding</option>
                 <option>Submitted</option>
                 <option>Won</option>
@@ -1110,6 +1119,231 @@ export default function ProjectInfoPage() {
             </Fld>
           </div>
         </Sec>
+
+        {/* Correspondences — only for Submitted/Won, hidden until first one added */}
+        {(correspondences.length > 0 || project.status === "Submitted" || project.status === "Won") && (
+          <Sec
+            title={`Correspondences${correspondences.length > 0 ? ` (${correspondences.length})` : ""}`}
+            icon={I.email || "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"}
+          >
+            {correspondences.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "16px 0" }}>
+                <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 8 }}>
+                  No correspondences yet. Track client Q&A after bid submission.
+                </div>
+                <button
+                  onClick={() => addCorrespondence({ title: "", dueDate: "", estimatedHours: 0 })}
+                  style={{
+                    padding: "6px 14px",
+                    borderRadius: 6,
+                    border: `1px solid ${C.accent}4D`,
+                    background: `${C.accent}1A`,
+                    color: C.accent,
+                    fontSize: 10,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  + Add Correspondence
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {correspondences.map(c => {
+                  const isExpanded = corrExpanded === c.id;
+                  const statusColors = {
+                    pending: "#F59E0B",
+                    in_progress: "#60A5FA",
+                    answered: "#22C55E",
+                    closed: "#64748B",
+                  };
+                  const catLabels = {
+                    clarification: "Clarification",
+                    substitution: "Substitution",
+                    scope: "Scope",
+                    schedule: "Schedule",
+                    other: "Other",
+                  };
+                  return (
+                    <div
+                      key={c.id}
+                      style={{
+                        border: `1px solid ${C.border}`,
+                        borderRadius: 8,
+                        padding: "10px 12px",
+                        background: C.bg1,
+                      }}
+                    >
+                      {/* Header row */}
+                      <div
+                        style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}
+                        onClick={() => setCorrExpanded(isExpanded ? null : c.id)}
+                      >
+                        <svg
+                          width="10" height="10" viewBox="0 0 10 10"
+                          style={{ transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.15s", flexShrink: 0 }}
+                        >
+                          <path d="M3 1.5L7 5L3 8.5" stroke={C.textMuted} strokeWidth="1.3" fill="none" strokeLinecap="round" />
+                        </svg>
+                        <input
+                          value={c.title}
+                          onChange={e => updateCorrespondence(c.id, { title: e.target.value })}
+                          onClick={e => e.stopPropagation()}
+                          placeholder="Correspondence title..."
+                          style={inp(C, { flex: 1, fontSize: 11, fontWeight: 600, padding: "2px 6px", minWidth: 0 })}
+                        />
+                        <span
+                          style={{
+                            fontSize: 8,
+                            fontWeight: 600,
+                            padding: "2px 6px",
+                            borderRadius: 4,
+                            background: `${statusColors[c.status] || "#64748B"}20`,
+                            color: statusColors[c.status] || "#64748B",
+                            textTransform: "uppercase",
+                            flexShrink: 0,
+                          }}
+                        >
+                          {(c.status || "pending").replace("_", " ")}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: 8,
+                            fontWeight: 500,
+                            padding: "2px 6px",
+                            borderRadius: 4,
+                            background: C.isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)",
+                            color: C.textMuted,
+                            flexShrink: 0,
+                          }}
+                        >
+                          {catLabels[c.category] || c.category}
+                        </span>
+                      </div>
+
+                      {/* Compact row: due date + hours */}
+                      <div style={{ display: "flex", gap: 8, marginTop: 6, alignItems: "center" }}>
+                        <label style={{ fontSize: 9, color: C.textMuted, flexShrink: 0 }}>Due</label>
+                        <input
+                          type="date"
+                          value={c.dueDate || ""}
+                          onChange={e => updateCorrespondence(c.id, { dueDate: e.target.value })}
+                          style={inp(C, { fontSize: 10, padding: "2px 6px", width: 120 })}
+                        />
+                        <label style={{ fontSize: 9, color: C.textMuted, flexShrink: 0 }}>Hours</label>
+                        <input
+                          type="number"
+                          value={c.estimatedHours || ""}
+                          onChange={e => updateCorrespondence(c.id, { estimatedHours: Number(e.target.value) || 0 })}
+                          style={inp(C, { fontSize: 10, padding: "2px 6px", width: 50, textAlign: "center" })}
+                        />
+                      </div>
+
+                      {/* Expanded: question, response, actions */}
+                      {isExpanded && (
+                        <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+                          <div>
+                            <label style={{ fontSize: 9, color: C.textMuted, display: "block", marginBottom: 2 }}>Question</label>
+                            <textarea
+                              value={c.question || ""}
+                              onChange={e => updateCorrespondence(c.id, { question: e.target.value })}
+                              placeholder="Client's question..."
+                              rows={2}
+                              style={inp(C, { fontSize: 10, padding: "4px 8px", resize: "vertical", width: "100%" })}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: 9, color: C.textMuted, display: "block", marginBottom: 2 }}>Response</label>
+                            <textarea
+                              value={c.response || ""}
+                              onChange={e => updateCorrespondence(c.id, { response: e.target.value })}
+                              placeholder="Your response..."
+                              rows={2}
+                              style={inp(C, { fontSize: 10, padding: "4px 8px", resize: "vertical", width: "100%" })}
+                            />
+                          </div>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                            <Fld label="Category" style={{ flex: 1 }}>
+                              <select
+                                value={c.category || "clarification"}
+                                onChange={e => updateCorrespondence(c.id, { category: e.target.value })}
+                                style={inp(C, { fontSize: 10, padding: "2px 6px" })}
+                              >
+                                <option value="clarification">Clarification</option>
+                                <option value="substitution">Substitution</option>
+                                <option value="scope">Scope</option>
+                                <option value="schedule">Schedule</option>
+                                <option value="other">Other</option>
+                              </select>
+                            </Fld>
+                            <Fld label="Status" style={{ flex: 1 }}>
+                              <select
+                                value={c.status || "pending"}
+                                onChange={e => {
+                                  const updates = { status: e.target.value };
+                                  if (e.target.value === "answered") updates.answeredAt = new Date().toISOString();
+                                  updateCorrespondence(c.id, updates);
+                                }}
+                                style={inp(C, { fontSize: 10, padding: "2px 6px" })}
+                              >
+                                <option value="pending">Pending</option>
+                                <option value="in_progress">In Progress</option>
+                                <option value="answered">Answered</option>
+                                <option value="closed">Closed</option>
+                              </select>
+                            </Fld>
+                            <Fld label="Respondent" style={{ flex: 1 }}>
+                              <input
+                                value={c.respondent || ""}
+                                onChange={e => updateCorrespondence(c.id, { respondent: e.target.value })}
+                                placeholder="Who responded"
+                                style={inp(C, { fontSize: 10, padding: "2px 6px" })}
+                              />
+                            </Fld>
+                          </div>
+                          <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, marginTop: 4 }}>
+                            <button
+                              onClick={() => removeCorrespondence(c.id)}
+                              style={{
+                                padding: "4px 10px",
+                                borderRadius: 5,
+                                border: `1px solid ${C.red}4D`,
+                                background: `${C.red}15`,
+                                color: C.red,
+                                fontSize: 9,
+                                fontWeight: 600,
+                                cursor: "pointer",
+                              }}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {/* Quick add row */}
+                <button
+                  onClick={() => addCorrespondence({ title: "", dueDate: "", estimatedHours: 0 })}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 6,
+                    border: `1px dashed ${C.border}`,
+                    background: "transparent",
+                    color: C.textMuted,
+                    fontSize: 10,
+                    fontWeight: 500,
+                    cursor: "pointer",
+                    textAlign: "center",
+                  }}
+                >
+                  + Add Correspondence
+                </button>
+              </div>
+            )}
+          </Sec>
+        )}
 
         {/* Bid Requirements */}
         <Sec title="Bid Requirements" icon={SECTION_ICONS["Bid Requirements"]}>

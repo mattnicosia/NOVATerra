@@ -13,6 +13,7 @@ import { loadEstimate } from "@/hooks/usePersistence";
 const nn = v => (typeof v === "number" && !isNaN(v) ? v : 0);
 
 function statusToDisplay(status) {
+  if (status === "Qualifying") return "review";
   if (status === "Bidding") return "bidding";
   if (status === "Submitted") return "bidding";
   if (status === "Won") return "active";
