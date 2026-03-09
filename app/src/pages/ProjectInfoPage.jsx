@@ -1436,6 +1436,7 @@ export default function ProjectInfoPage() {
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {[
+              { k: "bidForm", l: "Bid Form" },
               { k: "schedule", l: "Schedule" },
               { k: "marketing", l: "Marketing / Quals" },
               { k: "financials", l: "Financial Statements" },

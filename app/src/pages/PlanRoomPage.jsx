@@ -1947,28 +1947,48 @@ export default function PlanRoomPage() {
                           </span>
                         )}
                       </div>
-                      <span
+                      <input
+                        value={d.sheetNumber || ""}
+                        placeholder="—"
+                        onChange={e => useDrawingsStore.getState().updateDrawing(d.id, "sheetNumber", e.target.value)}
+                        onClick={e => e.stopPropagation()}
                         style={{
                           fontFamily: "'DM Sans',sans-serif",
                           fontWeight: 700,
                           color: C.accent,
-                          minWidth: 70,
+                          width: 70,
                           fontSize: 10,
+                          background: "transparent",
+                          border: `1px solid transparent`,
+                          borderRadius: 3,
+                          padding: "1px 4px",
+                          outline: "none",
+                          flexShrink: 0,
+                          transition: "border-color 0.15s",
                         }}
-                      >
-                        {d.sheetNumber || "—"}
-                      </span>
-                      <span
+                        onFocus={e => (e.target.style.borderColor = C.accent + "4D")}
+                        onBlur={e => (e.target.style.borderColor = "transparent")}
+                      />
+                      <input
+                        value={d.sheetTitle || ""}
+                        placeholder={d.label || "Untitled"}
+                        onChange={e => useDrawingsStore.getState().updateDrawing(d.id, "sheetTitle", e.target.value)}
+                        onClick={e => e.stopPropagation()}
                         style={{
                           flex: 1,
                           color: C.text,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
+                          fontSize: 10,
+                          background: "transparent",
+                          border: `1px solid transparent`,
+                          borderRadius: 3,
+                          padding: "1px 4px",
+                          outline: "none",
+                          minWidth: 0,
+                          transition: "border-color 0.15s",
                         }}
-                      >
-                        {d.sheetTitle || d.label || "Untitled"}
-                      </span>
+                        onFocus={e => (e.target.style.borderColor = C.border)}
+                        onBlur={e => (e.target.style.borderColor = "transparent")}
+                      />
                       {outlines[d.id] && (
                         <span
                           style={{
