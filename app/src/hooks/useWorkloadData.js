@@ -104,6 +104,7 @@ export function useWorkloadData(dateRange) {
   const overheadPercent = useUiStore(s => s.appSettings?.overheadPercent) ?? 15;
   const behindThreshold = useUiStore(s => s.appSettings?.behindThreshold) ?? 20;
   const aheadThreshold = useUiStore(s => s.appSettings?.aheadThreshold) ?? 15;
+  const useAccuracyAdjustment = useUiStore(s => s.appSettings?.useAccuracyAdjustment) || false;
 
   return useMemo(() => {
     const today = new Date();
@@ -168,19 +169,39 @@ export function useWorkloadData(dateRange) {
       estimatorMap.get(estimator).rawEstimates.push(raw);
     });
 
+    // ── Accuracy adjustment map (opt-in) ──
+    const accuracyFactors = new Map(); // estimatorName → ratio
+    if (useAccuracyAdjustment) {
+      const completed = estimatesIndex.filter(e =>
+        e.timerTotalMs > 0 && e.estimatedHours > 0 && e.estimator,
+      );
+      const byEstimator = new Map();
+      for (const e of completed) {
+        if (!byEstimator.has(e.estimator)) byEstimator.set(e.estimator, []);
+        byEstimator.get(e.estimator).push((e.timerTotalMs / 3600000) / e.estimatedHours);
+      }
+      for (const [name, ratios] of byEstimator) {
+        if (ratios.length >= 3) { // need 3+ data points
+          accuracyFactors.set(name, ratios.reduce((s, r) => s + r, 0) / ratios.length);
+        }
+      }
+    }
+
     // ── Phase 2: Backward ALAP scheduling per estimator ──
     const bufferDays = bufferHours > 0 ? Math.ceil(bufferHours / effectiveHoursPerDay) : 0;
     const warnings = [];
 
-    function scheduleEstimates(rawEstimates) {
+    function scheduleEstimates(rawEstimates, estimatorName) {
       // Sort by bidDue descending — latest due date gets prime slot
       const sorted = [...rawEstimates].sort((a, b) => b.bidDue.localeCompare(a.bidDue));
       let previousBlockStart = null;
       const scheduled = [];
+      const accFactor = accuracyFactors.get(estimatorName) || 1.0;
 
       for (const est of sorted) {
-        const daysNeeded = est.estimatedHours > 0
-          ? Math.ceil(est.estimatedHours / effectiveHoursPerDay)
+        const adjustedHours = est.estimatedHours * accFactor;
+        const daysNeeded = adjustedHours > 0
+          ? Math.ceil(adjustedHours / effectiveHoursPerDay)
           : 0;
 
         if (daysNeeded <= 0) {
@@ -262,7 +283,7 @@ export function useWorkloadData(dateRange) {
 
     // Schedule each estimator's estimates
     for (const [, row] of estimatorMap) {
-      row.estimates = scheduleEstimates(row.rawEstimates);
+      row.estimates = scheduleEstimates(row.rawEstimates, row.name);
       delete row.rawEstimates;
 
       // Generate conflict warnings
@@ -527,5 +548,5 @@ export function useWorkloadData(dateRange) {
       CAPACITY_HOURS: productionHoursPerDay,
       effectiveHoursPerDay,
     };
-  }, [estimatesIndex, activeCompanyId, dateRange?.start, dateRange?.end, productionHoursPerDay, bufferHours, overheadPercent, behindThreshold, aheadThreshold]);
+  }, [estimatesIndex, activeCompanyId, dateRange?.start, dateRange?.end, productionHoursPerDay, bufferHours, overheadPercent, behindThreshold, aheadThreshold, useAccuracyAdjustment]);
 }

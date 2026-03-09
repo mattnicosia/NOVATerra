@@ -12,6 +12,7 @@ import EstimatorScorecard from "@/components/shared/EstimatorScorecard";
 import ReviewPanel from "@/components/shared/ReviewPanel";
 import BarContextMenu from "@/components/resources/BarContextMenu";
 import WeeklyPlanView from "@/components/resources/WeeklyPlanView";
+import AnalyticsPanel from "@/components/resources/AnalyticsPanel";
 import { useReviewStore } from "@/stores/reviewStore";
 
 /* ────────────────────────────────────────────────────────
@@ -1608,6 +1609,7 @@ export default function ResourcePage() {
             { key: "weekly", label: "This Week" },
             { key: "hours", label: "By Hours" },
             { key: "due-date", label: "By Due Date" },
+            { key: "analytics", label: "Analytics" },
           ].map(v => (
             <button
               key={v.key}
@@ -1676,6 +1678,15 @@ export default function ResourcePage() {
       {/* By Due Date View */}
       {sortMode === "due-date" && (
         <ByDueDateView workload={workload} C={C} T={T} navigate={navigate} />
+      )}
+
+      {/* Analytics View */}
+      {sortMode === "analytics" && (
+        <AnalyticsPanel
+          C={C}
+          T={T}
+          estimatorColors={new Map(workload.estimatorRows.map(r => [r.name, r.color]))}
+        />
       )}
 
       {/* Estimator Scorecard Modal */}
