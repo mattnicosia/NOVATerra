@@ -107,6 +107,7 @@ export function resetAllStores() {
   useMasterDataStore.setState({ pdfUploadQueue: [] });
   useCalendarStore.getState().setTasks([]);
   useDatabaseStore.getState().setAssemblies([]);
+  useDatabaseStore.getState().resetToMaster();
   useUiStore.getState().setPersistenceLoaded(false);
   useUiStore.setState({ aiChatMessages: [], aiChatInput: "" });
 
@@ -304,6 +305,20 @@ export function usePersistenceLoad() {
         } catch (err) {
           console.error("[usePersistence] Failed to parse assemblies:", err);
           await storage.delete(idbKey("bldg-assemblies")); // Clear corrupted data so cloud sync can recover
+        }
+      }
+
+      // Load user cost library (global, like assemblies)
+      const userElRaw = await storage.get(idbKey("bldg-user-elements"));
+      if (userElRaw) {
+        try {
+          if (!userElRaw.value || typeof userElRaw.value !== "string" || userElRaw.value.trim().length === 0) {
+            throw new Error("Empty or invalid user cost library value");
+          }
+          useDatabaseStore.getState().loadUserElements(JSON.parse(userElRaw.value));
+        } catch (err) {
+          console.error("[usePersistence] Failed to parse user cost library:", err);
+          await storage.delete(idbKey("bldg-user-elements"));
         }
       }
 
@@ -833,8 +848,14 @@ export async function loadEstimate(id) {
     useBidPackagesStore.getState().setProposals(data.bidProposals || {});
     useBidPackagesStore.getState().setScopeGapResults(data.bidScopeGapResults || {});
 
-    // Load database elements with master/override merge + migration
-    useDatabaseStore.getState().loadUserElements(data.elements || []);
+    // One-time migration: if user cost library is empty but estimate has elements,
+    // seed the global library from this estimate's elements (first load after architecture change)
+    const libEmpty = useDatabaseStore.getState().getUserElements().length === 0;
+    if (libEmpty && data.elements?.length > 0) {
+      useDatabaseStore.getState().loadUserElements(data.elements);
+      saveUserLibrary().catch(err => console.warn("[migration] Failed to seed cost library:", err));
+      console.log("[migration] Seeded cost library from estimate:", id);
+    }
 
     // Load subdivision data for this estimate
     if (data.subdivisionData) useSubdivisionStore.getState().setSubdivisionData(data.subdivisionData);
@@ -1171,6 +1192,20 @@ export async function saveAssemblies() {
   // Cloud push (non-blocking)
   cloudSync.pushData("assemblies", assemblies).catch(err => {
     console.warn("[usePersistence] Cloud push failed for assemblies:", err?.message);
+  });
+}
+
+// Save user cost library (global, independent of estimates)
+export async function saveUserLibrary() {
+  const lib = useDatabaseStore.getState().getUserElements();
+  const ok = await storage.set(idbKey("bldg-user-elements"), JSON.stringify(lib));
+  if (!ok) {
+    console.error("[usePersistence] Failed to save user cost library");
+  }
+
+  // Cloud push (non-blocking)
+  cloudSync.pushData("user-elements", lib).catch(err => {
+    console.warn("[usePersistence] Cloud push failed for cost library:", err?.message);
   });
 }
 

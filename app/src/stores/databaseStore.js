@@ -61,6 +61,22 @@ export const useDatabaseStore = create((set, get) => ({
   /** Check if a user override exists for a given master item ID. */
   hasOverride: (masterId) => get().elements.some(el => el.masterItemId === masterId),
 
+  /** Get the source type for badge display: null (master), "override", or "custom". */
+  getItemSource: (id) => {
+    const el = get().elements.find(e => e.id === id);
+    if (!el || el.source === "master") return null;
+    return el.masterItemId ? "override" : "custom";
+  },
+
+  /** Get summary counts for override management view. */
+  getOverrideSummary: () => {
+    const userEls = get().elements.filter(e => e.source !== "master");
+    return {
+      overrideCount: userEls.filter(e => e.masterItemId).length,
+      customCount: userEls.filter(e => !e.masterItemId).length,
+    };
+  },
+
   /** Get the master version of an overridden item. */
   getMasterVersion: (masterItemId) => MASTER_COST_MAP.get(masterItemId) || null,
 

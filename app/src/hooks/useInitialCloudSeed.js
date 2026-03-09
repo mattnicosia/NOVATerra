@@ -92,6 +92,12 @@ export function useInitialCloudSeed() {
           await cloudSync.pushData("assemblies", JSON.parse(asmRaw.value));
         }
 
+        // 6. Push user cost library
+        const userElRaw = await storage.get(idbKey("bldg-user-elements"));
+        if (userElRaw) {
+          await cloudSync.pushData("user-elements", JSON.parse(userElRaw.value));
+        }
+
         // Mark as seeded — never run again on this browser
         await storage.set(SEED_FLAG_KEY, "1");
 

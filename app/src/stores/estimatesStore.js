@@ -12,7 +12,7 @@ import { useAlternatesStore } from "@/stores/alternatesStore";
 import { useDocumentsStore } from "@/stores/documentsStore";
 import { useModuleStore } from "@/stores/moduleStore";
 import { useScanStore } from "@/stores/scanStore";
-import { useDatabaseStore } from "@/stores/databaseStore";
+
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useOrgStore } from "@/stores/orgStore";
@@ -325,7 +325,6 @@ export const useEstimatesStore = create((set, get) => ({
     useModuleStore.getState().setModuleInstances({});
     useModuleStore.getState().setActiveModule(null);
     useScanStore.getState().clearScan();
-    useDatabaseStore.getState().loadUserElements([]);
 
     // Set active ID last — EstimateLoader checks activeId === id to skip DB load
     set({ activeEstimateId: id, draftId: id });

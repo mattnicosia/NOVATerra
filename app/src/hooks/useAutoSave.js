@@ -9,6 +9,7 @@ import {
   saveAutoResponseConfig,
   saveAutoResponseDrafts,
   saveSubdivisionConfig,
+  saveUserLibrary,
 } from "./usePersistence";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useOrgStore } from "@/stores/orgStore";
@@ -40,6 +41,7 @@ export function useAutoSave() {
   const arConfigTimer = useRef(null);
   const arDraftsTimer = useRef(null);
   const subConfigTimer = useRef(null);
+  const userElTimer = useRef(null);
   const persistenceLoaded = useUiStore(s => s.persistenceLoaded);
 
   // ══════════════════════════════════════════════════════════════
@@ -162,6 +164,21 @@ export function useAutoSave() {
       if (assemblyTimer.current) clearTimeout(assemblyTimer.current);
     };
   }, [persistenceLoaded, assemblies]);
+
+  // ── User cost library (debounced) ───────────────────────
+  const dbElements = useDatabaseStore(s => s.elements);
+  useEffect(() => {
+    if (!persistenceLoaded) return;
+    if (userElTimer.current) clearTimeout(userElTimer.current);
+    userElTimer.current = setTimeout(() => {
+      saveUserLibrary().catch(err => {
+        console.error("[autoSave] User cost library save failed:", err);
+      });
+    }, 2000);
+    return () => {
+      if (userElTimer.current) clearTimeout(userElTimer.current);
+    };
+  }, [persistenceLoaded, dbElements]);
 
   // ── Calendar tasks (debounced) ─────────────────────────
   const calendarTasks = useCalendarStore(s => s.tasks);

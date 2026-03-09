@@ -67,6 +67,7 @@ async function runCloudSync() {
   await trySync("Estimates", syncEstimates);
   await trySync("Settings", syncSettings);
   await trySync("Assemblies", syncAssemblies);
+  await trySync("User cost library", syncUserElements);
   await trySync("Calendar", syncCalendar);
 
   // CRITICAL: If a user-switch wipe occurred above, resetAllStores() set
@@ -505,6 +506,45 @@ async function syncAssemblies() {
     await cloudSync.pushData("assemblies", merged);
   } else if (localAsm) {
     await cloudSync.pushData("assemblies", localAsm);
+  }
+}
+
+// ─── User Cost Library Sync ───────────────────────────────────────
+
+async function syncUserElements() {
+  const cloudResult = await cloudSync.pullDataWithMeta("user-elements");
+  const localRaw = await storage.get(idbKey("bldg-user-elements"));
+  let localEl = null;
+  try {
+    localEl = localRaw ? JSON.parse(localRaw.value) : null;
+  } catch {
+    localEl = null;
+  }
+
+  if (localEl && !cloudResult) {
+    await cloudSync.pushData("user-elements", localEl);
+    return;
+  }
+
+  if (!localEl && cloudResult) {
+    if (Array.isArray(cloudResult.data)) {
+      useDatabaseStore.getState().loadUserElements(cloudResult.data);
+      await storage.set(idbKey("bldg-user-elements"), JSON.stringify(cloudResult.data));
+    }
+    return;
+  }
+
+  // Both exist — union by id, local wins on conflict
+  if (localEl && cloudResult?.data && Array.isArray(localEl) && Array.isArray(cloudResult.data)) {
+    const elMap = new Map();
+    for (const e of cloudResult.data) elMap.set(e.id, e);
+    for (const e of localEl) elMap.set(e.id, e); // local wins
+    const merged = Array.from(elMap.values());
+    useDatabaseStore.getState().loadUserElements(merged);
+    await storage.set(idbKey("bldg-user-elements"), JSON.stringify(merged));
+    await cloudSync.pushData("user-elements", merged);
+  } else if (localEl) {
+    await cloudSync.pushData("user-elements", localEl);
   }
 }
 

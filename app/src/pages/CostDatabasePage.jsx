@@ -17,6 +17,8 @@ import AssemblyCard from "@/components/shared/AssemblyCard";
 import AIAssemblyGenerator from "@/components/shared/AIAssemblyGenerator";
 import CodeManager from "@/components/shared/CodeManager";
 import SubProposalModal from "@/components/database/SubProposalModal";
+import CsvImportPreviewModal from "@/components/database/CsvImportPreviewModal";
+import { exportUserElementsCsv } from "@/utils/csvExport";
 import EmptyState from "@/components/shared/EmptyState";
 import { useSubdivisionStore } from "@/stores/subdivisionStore";
 import { SUBDIVISION_BENCHMARKS, DEFAULT_SUBDIVISIONS } from "@/constants/subdivisionBenchmarks";
@@ -546,6 +548,8 @@ export default function CostDatabasePage({ embedded = false }) {
   const removeElement = useDatabaseStore(s => s.removeElement);
   const updateElement = useDatabaseStore(s => s.updateElement);
   const duplicateElement = useDatabaseStore(s => s.duplicateElement);
+  const getMasterVersion = useDatabaseStore(s => s.getMasterVersion);
+  const revertOverride = useDatabaseStore(s => s.revertOverride);
 
   const assemblies = useDatabaseStore(s => s.assemblies);
   const dbActiveTab = useDatabaseStore(s => s.dbActiveTab);
@@ -572,6 +576,9 @@ export default function CostDatabasePage({ embedded = false }) {
   const [menuOpenId, setMenuOpenId] = useState(null);
   const [movingId, setMovingId] = useState(null);
   const [moveCode, setMoveCode] = useState("");
+  const [compareId, setCompareId] = useState(null);
+  const [csvImportOpen, setCsvImportOpen] = useState(false);
+  const [showOverridesOnly, setShowOverridesOnly] = useState(false);
   const [addSubForDiv, setAddSubForDiv] = useState(null);
   const [newSubCode, setNewSubCode] = useState("");
   const [newSubName, setNewSubName] = useState("");
@@ -614,6 +621,9 @@ export default function CostDatabasePage({ embedded = false }) {
   // Filter visible elements
   const dbVisibleElements = useMemo(() => {
     let list = elements;
+    if (showOverridesOnly) {
+      list = list.filter(el => el.source !== "master");
+    }
     if (dbSearch) {
       const q = dbSearch.toLowerCase();
       list = list.filter(el => (el.name || "").toLowerCase().includes(q) || (el.code || "").toLowerCase().includes(q));
@@ -621,7 +631,17 @@ export default function CostDatabasePage({ embedded = false }) {
       list = list.filter(el => el.code && el.code.startsWith(dbSelectedSub));
     }
     return list;
-  }, [elements, dbSearch, dbSelectedSub]);
+  }, [elements, dbSearch, dbSelectedSub, showOverridesOnly]);
+
+  // Override summary for badge counts
+  const overrideSummary = useMemo(() => {
+    const userEls = elements.filter(e => e.source !== "master");
+    return {
+      overrideCount: userEls.filter(e => e.masterItemId).length,
+      customCount: userEls.filter(e => !e.masterItemId).length,
+      total: userEls.length,
+    };
+  }, [elements]);
 
   const addFromDB = el => {
     const dc = el.code ? el.code.split(".")[0] : "";
@@ -1132,6 +1152,37 @@ export default function CostDatabasePage({ embedded = false }) {
                   </span>
                 )}
                 <button
+                  onClick={() => setShowOverridesOnly(!showOverridesOnly)}
+                  style={bt(C, {
+                    background: showOverridesOnly ? `${C.orange}18` : "transparent",
+                    border: `1px solid ${showOverridesOnly ? C.orange : C.border}`,
+                    color: showOverridesOnly ? C.orange : C.textMuted,
+                    padding: "4px 10px",
+                    fontSize: 10,
+                    fontWeight: showOverridesOnly ? 700 : 500,
+                  })}
+                >
+                  My Overrides
+                  {overrideSummary.total > 0 && (
+                    <span
+                      style={{
+                        marginLeft: 4,
+                        fontSize: 8,
+                        fontWeight: 700,
+                        background: showOverridesOnly ? C.orange : C.textDim,
+                        color: "#fff",
+                        padding: "1px 5px",
+                        borderRadius: 8,
+                        minWidth: 14,
+                        textAlign: "center",
+                        display: "inline-block",
+                      }}
+                    >
+                      {overrideSummary.total}
+                    </span>
+                  )}
+                </button>
+                <button
                   className="accent-btn"
                   onClick={() => {
                     const sub = dbSelectedSub || "";
@@ -1184,6 +1235,61 @@ export default function CostDatabasePage({ embedded = false }) {
                 >
                   <Ic d={I.upload} size={11} color="#fff" /> Import Sub Proposal
                 </button>
+                <button
+                  className="ghost-btn"
+                  onClick={() => {
+                    const userEls = useDatabaseStore.getState().getUserElements();
+                    if (userEls.length === 0) {
+                      showToast("No user items to export", "warning");
+                      return;
+                    }
+                    exportUserElementsCsv(userEls);
+                    showToast(`Exported ${userEls.length} item${userEls.length !== 1 ? "s" : ""} to CSV`);
+                  }}
+                  style={bt(C, {
+                    background: "transparent",
+                    border: `1px solid ${C.border}`,
+                    color: C.text,
+                    padding: "5px 10px",
+                    fontSize: 10,
+                  })}
+                >
+                  <Ic d={I.download} size={11} color={C.textMuted} /> Export CSV
+                </button>
+                <button
+                  className="ghost-btn"
+                  onClick={() => setCsvImportOpen(true)}
+                  style={bt(C, {
+                    background: "transparent",
+                    border: `1px solid ${C.border}`,
+                    color: C.text,
+                    padding: "5px 10px",
+                    fontSize: 10,
+                  })}
+                >
+                  <Ic d={I.upload} size={11} color={C.textMuted} /> Import CSV
+                </button>
+                {showOverridesOnly && overrideSummary.overrideCount > 0 && (
+                  <button
+                    className="ghost-btn"
+                    onClick={() => {
+                      if (confirm(`Revert all ${overrideSummary.overrideCount} override${overrideSummary.overrideCount !== 1 ? "s" : ""} to master pricing? This cannot be undone.`)) {
+                        const overrides = elements.filter(e => e.source !== "master" && e.masterItemId);
+                        overrides.forEach(o => revertOverride(o.id));
+                        showToast(`Reverted ${overrides.length} override${overrides.length !== 1 ? "s" : ""} to master pricing`);
+                      }
+                    }}
+                    style={bt(C, {
+                      background: "transparent",
+                      border: `1px solid ${C.orange}`,
+                      color: C.orange,
+                      padding: "5px 10px",
+                      fontSize: 10,
+                    })}
+                  >
+                    <Ic d={I.refresh} size={11} color={C.orange} /> Revert All Overrides
+                  </button>
+                )}
                 {elements.length > 0 && (
                   <button
                     className="ghost-btn"
@@ -1565,6 +1671,38 @@ export default function CostDatabasePage({ embedded = false }) {
                               onClick={() => addFromDB(el)}
                             >
                               {titleCase(el.name)}
+                              {el.source === "user" && el.masterItemId && (
+                                <span
+                                  style={{
+                                    marginLeft: 4,
+                                    fontSize: 7,
+                                    fontWeight: 700,
+                                    color: C.orange,
+                                    background: `${C.orange}14`,
+                                    padding: "1px 4px",
+                                    borderRadius: 3,
+                                    verticalAlign: "middle",
+                                  }}
+                                >
+                                  Override
+                                </span>
+                              )}
+                              {el.source === "user" && !el.masterItemId && (
+                                <span
+                                  style={{
+                                    marginLeft: 4,
+                                    fontSize: 7,
+                                    fontWeight: 700,
+                                    color: C.green,
+                                    background: `${C.green}14`,
+                                    padding: "1px 4px",
+                                    borderRadius: 3,
+                                    verticalAlign: "middle",
+                                  }}
+                                >
+                                  Custom
+                                </span>
+                              )}
                               {(el.specVariants || []).length > 0 && (
                                 <span
                                   style={{
@@ -1767,6 +1905,60 @@ export default function CostDatabasePage({ embedded = false }) {
                                   >
                                     <Ic d={I.edit} size={12} color={C.textMuted} /> Edit
                                   </button>
+                                  {el.masterItemId && (
+                                    <button
+                                      onMouseDown={e => {
+                                        e.stopPropagation();
+                                        setCompareId(compareId === el.id ? null : el.id);
+                                        setMenuOpenId(null);
+                                      }}
+                                      style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 8,
+                                        width: "100%",
+                                        padding: "7px 14px",
+                                        fontSize: 11,
+                                        fontWeight: 500,
+                                        background: "transparent",
+                                        border: "none",
+                                        color: C.text,
+                                        cursor: "pointer",
+                                        textAlign: "left",
+                                      }}
+                                    >
+                                      <Ic d={I.eye} size={12} color={C.textMuted} /> See Original
+                                    </button>
+                                  )}
+                                  {el.masterItemId && (
+                                    <button
+                                      onMouseDown={e => {
+                                        e.stopPropagation();
+                                        if (confirm(`Revert "${el.name}" to master pricing?`)) {
+                                          revertOverride(el.id);
+                                          showToast(`Reverted "${el.name}" to master pricing`);
+                                        }
+                                        setMenuOpenId(null);
+                                      }}
+                                      style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 8,
+                                        width: "100%",
+                                        padding: "7px 14px",
+                                        fontSize: 11,
+                                        fontWeight: 500,
+                                        background: "transparent",
+                                        border: "none",
+                                        color: C.orange,
+                                        cursor: "pointer",
+                                        textAlign: "left",
+                                      }}
+                                    >
+                                      <Ic d={I.refresh} size={12} color={C.orange} /> Revert to Master
+                                    </button>
+                                  )}
+                                  <div style={{ height: 1, background: C.border, margin: "4px 0" }} />
                                   <button
                                     onMouseDown={e => {
                                       e.stopPropagation();
@@ -1795,6 +1987,67 @@ export default function CostDatabasePage({ embedded = false }) {
                             </div>
                           </>
                         )}
+                        {compareId === el.id && el.masterItemId && (() => {
+                          const master = getMasterVersion(el.masterItemId);
+                          if (!master) return null;
+                          const delta = (a, b) => {
+                            const d = nn(a) - nn(b);
+                            return d === 0 ? "—" : (d > 0 ? "+" : "") + fmt2(d);
+                          };
+                          const dColor = (a, b) => nn(a) - nn(b) === 0 ? C.textDim : nn(a) > nn(b) ? C.red : C.green;
+                          return (
+                            <div
+                              style={{
+                                gridColumn: "1 / -1",
+                                padding: "8px 12px",
+                                background: `${C.orange}08`,
+                                borderTop: `1px solid ${C.orange}20`,
+                                display: "grid",
+                                gridTemplateColumns: "80px 1fr repeat(3, 80px)",
+                                gap: 8,
+                                fontSize: 10,
+                              }}
+                            >
+                              <div style={{ fontWeight: 700, color: C.textDim }}>Compare</div>
+                              <div />
+                              <div style={{ textAlign: "right", fontWeight: 700, color: C.green }}>Material</div>
+                              <div style={{ textAlign: "right", fontWeight: 700, color: C.blue }}>Labor</div>
+                              <div style={{ textAlign: "right", fontWeight: 700, color: C.orange }}>Equipment</div>
+                              <div style={{ color: C.textDim, fontWeight: 600 }}>Master</div>
+                              <div style={{ color: C.textDim }}>{titleCase(master.name)}</div>
+                              <div style={{ textAlign: "right", color: C.textMuted }}>{fmt2(master.material)}</div>
+                              <div style={{ textAlign: "right", color: C.textMuted }}>{fmt2(master.labor)}</div>
+                              <div style={{ textAlign: "right", color: C.textMuted }}>{fmt2(master.equipment)}</div>
+                              <div style={{ color: C.accent, fontWeight: 600 }}>Yours</div>
+                              <div style={{ color: C.text }}>{titleCase(el.name)}</div>
+                              <div style={{ textAlign: "right", color: C.green, fontWeight: 600 }}>{fmt2(el.material)}</div>
+                              <div style={{ textAlign: "right", color: C.blue, fontWeight: 600 }}>{fmt2(el.labor)}</div>
+                              <div style={{ textAlign: "right", color: C.orange, fontWeight: 600 }}>{fmt2(el.equipment)}</div>
+                              <div style={{ color: C.textDim, fontWeight: 600 }}>Delta</div>
+                              <div />
+                              <div style={{ textAlign: "right", fontWeight: 700, color: dColor(el.material, master.material) }}>{delta(el.material, master.material)}</div>
+                              <div style={{ textAlign: "right", fontWeight: 700, color: dColor(el.labor, master.labor) }}>{delta(el.labor, master.labor)}</div>
+                              <div style={{ textAlign: "right", fontWeight: 700, color: dColor(el.equipment, master.equipment) }}>{delta(el.equipment, master.equipment)}</div>
+                              <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end", paddingTop: 4 }}>
+                                <button
+                                  onClick={() => setCompareId(null)}
+                                  style={{
+                                    fontSize: 10,
+                                    fontWeight: 600,
+                                    color: C.textMuted,
+                                    background: "transparent",
+                                    border: `1px solid ${C.border}`,
+                                    borderRadius: 4,
+                                    padding: "3px 10px",
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  Close
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     );
                   })}
@@ -2354,6 +2607,7 @@ export default function CostDatabasePage({ embedded = false }) {
       {aiAssemblyOpen && <AIAssemblyGenerator onClose={() => setAiAssemblyOpen(false)} />}
       {/* Sub Proposal Import Modal */}
       {subProposalOpen && <SubProposalModal onClose={() => setSubProposalOpen(false)} />}
+      {csvImportOpen && <CsvImportPreviewModal onClose={() => setCsvImportOpen(false)} />}
     </div>
   );
 }

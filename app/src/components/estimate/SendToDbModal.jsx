@@ -34,10 +34,10 @@ export default function SendToDbModal({ item, onClose }) {
     };
     if (existing) {
       Object.entries(data).forEach(([k, v]) => updateElement(existing.id, k, v));
-      showToast(`Updated "${data.name}" in database`);
+      showToast(`Updated "${data.name}" in your cost library`);
     } else {
       addElement(data);
-      showToast(`Added "${data.name}" to database`);
+      showToast(`Saved "${data.name}" to your cost library`);
     }
     onClose();
   };
