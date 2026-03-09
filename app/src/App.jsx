@@ -379,13 +379,17 @@ function ProjectTabBar() {
     if (keys.length === 0) return;
     setAnimatingKeys(prev => {
       const next = { ...prev };
-      keys.forEach(k => { next[k] = true; });
+      keys.forEach(k => {
+        next[k] = true;
+      });
       return next;
     });
     const timer = setTimeout(() => {
       setAnimatingKeys(prev => {
         const next = { ...prev };
-        keys.forEach(k => { delete next[k]; });
+        keys.forEach(k => {
+          delete next[k];
+        });
         return next;
       });
     }, 400);
@@ -403,7 +407,9 @@ function ProjectTabBar() {
 
   // Build stage completion lookup
   const stageMap = {};
-  stages.forEach(s => { stageMap[s.key] = s.complete; });
+  stages.forEach(s => {
+    stageMap[s.key] = s.complete;
+  });
 
   return (
     <>
@@ -606,7 +612,15 @@ function FloatingThemePicker() {
   const updateSetting = useUiStore(s => s.updateSetting);
   const [expanded, setExpanded] = useState(false);
 
-  const ALL_IDS = ["nova", "clarity", "clean-light", "nero", ...CAR_PALETTE_IDS, ...LIGHT_PALETTE_IDS, ...ARTIFACT_PALETTE_IDS];
+  const ALL_IDS = [
+    "nova",
+    "clarity",
+    "clean-light",
+    "nero",
+    ...CAR_PALETTE_IDS,
+    ...LIGHT_PALETTE_IDS,
+    ...ARTIFACT_PALETTE_IDS,
+  ];
   const currentIdx = ALL_IDS.indexOf(selectedPalette);
   const currentPalette = PALETTES.find(p => p.id === selectedPalette);
   const currentName = currentPalette?.name || "Default";
@@ -844,7 +858,15 @@ function ThemeCycleButton({ C }) {
   const [hovered, setHovered] = useState(false);
 
   // All available palettes: originals + car collection
-  const ALL_IDS = ["nova", "clarity", "clean-light", "nero", ...CAR_PALETTE_IDS, ...LIGHT_PALETTE_IDS, ...ARTIFACT_PALETTE_IDS];
+  const ALL_IDS = [
+    "nova",
+    "clarity",
+    "clean-light",
+    "nero",
+    ...CAR_PALETTE_IDS,
+    ...LIGHT_PALETTE_IDS,
+    ...ARTIFACT_PALETTE_IDS,
+  ];
   const currentIdx = ALL_IDS.indexOf(selectedPalette);
 
   // Find current palette metadata

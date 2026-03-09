@@ -456,9 +456,7 @@ export default function BidPackagesPanel({ onCreateNew, onViewProposal, onCompar
                   const now = Date.now();
                   const nonResponsive = pkgInvites.filter(
                     inv =>
-                      inv.status === "sent" &&
-                      inv.sentAt &&
-                      (now - new Date(inv.sentAt).getTime()) / 3600000 >= 72,
+                      inv.status === "sent" && inv.sentAt && (now - new Date(inv.sentAt).getTime()) / 3600000 >= 72,
                   );
                   return (
                     <div style={{ display: "flex", gap: 8, marginTop: 10 }}>

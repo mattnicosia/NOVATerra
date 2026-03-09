@@ -20,9 +20,7 @@ function syncToIndex() {
   const id = useEstimatesStore.getState().activeEstimateId;
   if (!id) return;
   const pending = correspondences.filter(c => c.status === "pending" || c.status === "in_progress");
-  const nextDue = pending
-    .filter(c => c.dueDate)
-    .sort((a, b) => a.dueDate.localeCompare(b.dueDate))[0]?.dueDate || "";
+  const nextDue = pending.filter(c => c.dueDate).sort((a, b) => a.dueDate.localeCompare(b.dueDate))[0]?.dueDate || "";
   useEstimatesStore.getState().updateIndexEntry(id, {
     correspondenceCount: correspondences.length,
     correspondencePendingCount: pending.length,
@@ -34,7 +32,7 @@ function syncToIndex() {
 export const useCorrespondenceStore = create((set, get) => ({
   correspondences: [],
 
-  setCorrespondences: (v) => set({ correspondences: v }),
+  setCorrespondences: v => set({ correspondences: v }),
 
   addCorrespondence: (fields = {}) => {
     const c = {
@@ -72,9 +70,7 @@ export const useCorrespondenceStore = create((set, get) => ({
   updateCorrespondence: (id, updates) => {
     const prev = get().correspondences.find(c => c.id === id);
     set(s => ({
-      correspondences: s.correspondences.map(c =>
-        c.id === id ? { ...c, ...updates } : c,
-      ),
+      correspondences: s.correspondences.map(c => (c.id === id ? { ...c, ...updates } : c)),
     }));
     syncToIndex();
     // If due date changed, update calendar task
@@ -105,7 +101,7 @@ export const useCorrespondenceStore = create((set, get) => ({
     }
   },
 
-  removeCorrespondence: (id) => {
+  removeCorrespondence: id => {
     set(s => ({
       correspondences: s.correspondences.filter(c => c.id !== id),
     }));

@@ -36,12 +36,33 @@ function rfpState(rfp, readIds) {
 }
 
 const STATE_CONFIG = {
-  unread:     { accent: null, badge: null,         badgeBg: null,        badgeColor: null,      bold: true,  muted: false },
-  read:       { accent: null, badge: null,         badgeBg: null,        badgeColor: null,      bold: false, muted: false },
-  processing: { accent: "#f59e0b", badge: "Processing", badgeBg: "#f59e0b20", badgeColor: "#f59e0b", bold: false, muted: false },
-  processed:  { accent: "#22c55e", badge: "Imported",   badgeBg: "#22c55e20", badgeColor: "#22c55e", bold: false, muted: true  },
-  rejected:   { accent: "#64748b", badge: "Dismissed",  badgeBg: "#64748b20", badgeColor: "#64748b", bold: false, muted: true  },
-  error:      { accent: "#ef4444", badge: "Error",      badgeBg: "#ef444420", badgeColor: "#ef4444", bold: false, muted: false },
+  unread: { accent: null, badge: null, badgeBg: null, badgeColor: null, bold: true, muted: false },
+  read: { accent: null, badge: null, badgeBg: null, badgeColor: null, bold: false, muted: false },
+  processing: {
+    accent: "#f59e0b",
+    badge: "Processing",
+    badgeBg: "#f59e0b20",
+    badgeColor: "#f59e0b",
+    bold: false,
+    muted: false,
+  },
+  processed: {
+    accent: "#22c55e",
+    badge: "Imported",
+    badgeBg: "#22c55e20",
+    badgeColor: "#22c55e",
+    bold: false,
+    muted: true,
+  },
+  rejected: {
+    accent: "#64748b",
+    badge: "Dismissed",
+    badgeBg: "#64748b20",
+    badgeColor: "#64748b",
+    bold: false,
+    muted: true,
+  },
+  error: { accent: "#ef4444", badge: "Error", badgeBg: "#ef444420", badgeColor: "#ef4444", bold: false, muted: false },
 };
 
 // Sort priority: unread first, then processing, read, processed, rejected, error
@@ -172,23 +193,31 @@ export default function InboxWidget() {
                 cursor: "pointer",
                 background: dk ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
                 border: `1px solid ${dk ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"}`,
-                borderLeft: st.accent ? `3px solid ${st.accent}` : `1px solid ${dk ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"}`,
+                borderLeft: st.accent
+                  ? `3px solid ${st.accent}`
+                  : `1px solid ${dk ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"}`,
                 transition: "background 0.15s",
                 opacity: st.muted ? 0.6 : 1,
               }}
-              onMouseEnter={e => (e.currentTarget.style.background = dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)")}
-              onMouseLeave={e => (e.currentTarget.style.background = dk ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)")}
+              onMouseEnter={e =>
+                (e.currentTarget.style.background = dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)")
+              }
+              onMouseLeave={e =>
+                (e.currentTarget.style.background = dk ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)")
+              }
             >
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 {/* Unread dot */}
                 {rfp._state === "unread" && (
-                  <span style={{
-                    width: 5,
-                    height: 5,
-                    borderRadius: "50%",
-                    background: C.accent,
-                    flexShrink: 0,
-                  }} />
+                  <span
+                    style={{
+                      width: 5,
+                      height: 5,
+                      borderRadius: "50%",
+                      background: C.accent,
+                      flexShrink: 0,
+                    }}
+                  />
                 )}
                 <span
                   style={{
@@ -205,17 +234,19 @@ export default function InboxWidget() {
                   {rfp.subject || "Untitled RFP"}
                 </span>
                 {st.badge && (
-                  <span style={{
-                    fontSize: 7,
-                    fontWeight: 600,
-                    padding: "1px 5px",
-                    borderRadius: 4,
-                    background: st.badgeBg,
-                    color: st.badgeColor,
-                    flexShrink: 0,
-                    letterSpacing: "0.02em",
-                    textTransform: "uppercase",
-                  }}>
+                  <span
+                    style={{
+                      fontSize: 7,
+                      fontWeight: 600,
+                      padding: "1px 5px",
+                      borderRadius: 4,
+                      background: st.badgeBg,
+                      color: st.badgeColor,
+                      flexShrink: 0,
+                      letterSpacing: "0.02em",
+                      textTransform: "uppercase",
+                    }}
+                  >
                     {st.badge}
                   </span>
                 )}

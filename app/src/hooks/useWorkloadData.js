@@ -85,6 +85,10 @@ function weekdaysBetween(start, end, workWeek) {
   return days;
 }
 
+// Module-level defaults — prevents new object reference on every render from busting useMemo
+const DEFAULT_COMPLEXITY = { light: 0.8, normal: 1.0, heavy: 1.3 };
+const DEFAULT_ESTIMATORS = [];
+
 const TEAM_COLORS = [
   "#A78BFA",
   "#60A5FA",
@@ -108,9 +112,9 @@ export function useWorkloadData(dateRange) {
   const behindThreshold = useUiStore(s => s.appSettings?.behindThreshold) ?? 20;
   const aheadThreshold = useUiStore(s => s.appSettings?.aheadThreshold) ?? 15;
   const useAccuracyAdjustment = useUiStore(s => s.appSettings?.useAccuracyAdjustment) || false;
-  const complexityMultipliers = useUiStore(s => s.appSettings?.complexityMultipliers) || { light: 0.8, normal: 1.0, heavy: 1.3 };
+  const complexityMultipliers = useUiStore(s => s.appSettings?.complexityMultipliers) || DEFAULT_COMPLEXITY;
   const workWeek = useUiStore(s => s.appSettings?.workWeek) || "mon-fri";
-  const estimators = useMasterDataStore(s => s.masterData?.estimators) || [];
+  const estimators = useMasterDataStore(s => s.masterData?.estimators) || DEFAULT_ESTIMATORS;
 
   return useMemo(() => {
     const today = new Date();
@@ -140,9 +144,7 @@ export function useWorkloadData(dateRange) {
       const bidDue = new Date(est.bidDue + "T00:00:00");
       const estHours = (Number(est.estimatedHours) || 0) + (Number(est.correspondenceTotalHours) || 0);
       const hoursLogged = (est.timerTotalMs || 0) / 3600000;
-      const percentComplete = estHours > 0
-        ? Math.min(100, Math.round((hoursLogged / estHours) * 100))
-        : 0;
+      const percentComplete = estHours > 0 ? Math.min(100, Math.round((hoursLogged / estHours) * 100)) : 0;
 
       const raw = {
         id: est.id,
@@ -185,16 +187,15 @@ export function useWorkloadData(dateRange) {
     // ── Accuracy adjustment map (opt-in) ──
     const accuracyFactors = new Map(); // estimatorName → ratio
     if (useAccuracyAdjustment) {
-      const completed = estimatesIndex.filter(e =>
-        e.timerTotalMs > 0 && e.estimatedHours > 0 && e.estimator,
-      );
+      const completed = estimatesIndex.filter(e => e.timerTotalMs > 0 && e.estimatedHours > 0 && e.estimator);
       const byEstimator = new Map();
       for (const e of completed) {
         if (!byEstimator.has(e.estimator)) byEstimator.set(e.estimator, []);
-        byEstimator.get(e.estimator).push((e.timerTotalMs / 3600000) / e.estimatedHours);
+        byEstimator.get(e.estimator).push(e.timerTotalMs / 3600000 / e.estimatedHours);
       }
       for (const [name, ratios] of byEstimator) {
-        if (ratios.length >= 3) { // need 3+ data points
+        if (ratios.length >= 3) {
+          // need 3+ data points
           accuracyFactors.set(name, ratios.reduce((s, r) => s + r, 0) / ratios.length);
         }
       }
@@ -214,9 +215,7 @@ export function useWorkloadData(dateRange) {
       for (const est of sorted) {
         const complexityMult = complexityMultipliers[est.complexity] || 1.0;
         const adjustedHours = est.estimatedHours * accFactor * complexityMult;
-        const daysNeeded = adjustedHours > 0
-          ? Math.ceil(adjustedHours / effectiveHoursPerDay)
-          : 0;
+        const daysNeeded = adjustedHours > 0 ? Math.ceil(adjustedHours / effectiveHoursPerDay) : 0;
 
         if (daysNeeded <= 0) {
           scheduled.push({
@@ -239,16 +238,16 @@ export function useWorkloadData(dateRange) {
         let latestEnd = new Date(est.bidDueDate);
         if (previousBlockStart) {
           const prevStart = new Date(previousBlockStart + "T00:00:00");
-          const gapEnd = bufferDays > 0
-            ? subtractWeekdays(prevStart, bufferDays, workWeek)
-            : subtractWeekdays(prevStart, 1, workWeek);
+          const gapEnd =
+            bufferDays > 0
+              ? subtractWeekdays(prevStart, bufferDays, workWeek)
+              : subtractWeekdays(prevStart, 1, workWeek);
           if (gapEnd < latestEnd) latestEnd = gapEnd;
         }
 
         // Schedule backward
-        const scheduledStartDate = daysNeeded > 1
-          ? subtractWeekdays(latestEnd, daysNeeded - 1, workWeek)
-          : new Date(latestEnd);
+        const scheduledStartDate =
+          daysNeeded > 1 ? subtractWeekdays(latestEnd, daysNeeded - 1, workWeek) : new Date(latestEnd);
         const scheduledEndDate = new Date(latestEnd);
 
         while (!isWeekday(scheduledStartDate, workWeek)) {
@@ -273,22 +272,19 @@ export function useWorkloadData(dateRange) {
             // Extend start earlier to compensate for paused days
             const newStart = subtractWeekdays(scheduledStartDate, deficit, workWeek);
             scheduledStartDate.setTime(newStart.getTime());
-            blockWorkDays = weekdaysBetween(scheduledStartDate, scheduledEndDate, workWeek)
-              .filter(d => !pausedSet.has(fmtDate(d)));
+            blockWorkDays = weekdaysBetween(scheduledStartDate, scheduledEndDate, workWeek).filter(
+              d => !pausedSet.has(fmtDate(d)),
+            );
           } else {
             blockWorkDays = activeDays;
           }
         }
 
-        const hoursPerDay = blockWorkDays.length > 0
-          ? est.estimatedHours / blockWorkDays.length
-          : effectiveHoursPerDay;
+        const hoursPerDay = blockWorkDays.length > 0 ? est.estimatedHours / blockWorkDays.length : effectiveHoursPerDay;
 
         const daysRemaining = countWeekdays(today, est.bidDueDate, workWeek);
         const daysTotal = countWeekdays(scheduledStartDate, est.bidDueDate, workWeek);
-        const dayProgress = daysTotal > 0
-          ? Math.round(((daysTotal - daysRemaining) / daysTotal) * 100)
-          : 100;
+        const dayProgress = daysTotal > 0 ? Math.round(((daysTotal - daysRemaining) / daysTotal) * 100) : 100;
 
         let scheduleStatus = "on-track";
         if (est.bidDueDate < today) scheduleStatus = "overdue";
@@ -307,7 +303,7 @@ export function useWorkloadData(dateRange) {
             const curr = new Date(workDayStrs[wi] + "T00:00:00");
             // Gap > 1 calendar day between consecutive work days means a break
             const gap = (curr - prev) / 86400000;
-            const expectedGap = workWeek === "mon-sat" ? 2 : (prev.getDay() === 5 ? 3 : prev.getDay() === 6 ? 2 : 1);
+            const expectedGap = workWeek === "mon-sat" ? 2 : prev.getDay() === 5 ? 3 : prev.getDay() === 6 ? 2 : 1;
             if (gap > expectedGap) {
               segments.push({ start: segStart, end: segEnd });
               segStart = workDayStrs[wi];
@@ -362,9 +358,7 @@ export function useWorkloadData(dateRange) {
 
     // Schedule unassigned estimates (no stacking)
     const scheduledUnassigned = unassigned.map(est => {
-      const daysNeeded = est.estimatedHours > 0
-        ? Math.ceil(est.estimatedHours / effectiveHoursPerDay)
-        : 0;
+      const daysNeeded = est.estimatedHours > 0 ? Math.ceil(est.estimatedHours / effectiveHoursPerDay) : 0;
       if (daysNeeded <= 0) {
         return {
           ...est,
@@ -380,15 +374,12 @@ export function useWorkloadData(dateRange) {
           scheduleStatus: est.bidDueDate < today ? "overdue" : "on-track",
         };
       }
-      const scheduledStartDate = daysNeeded > 1
-        ? subtractWeekdays(est.bidDueDate, daysNeeded - 1)
-        : new Date(est.bidDueDate);
+      const scheduledStartDate =
+        daysNeeded > 1 ? subtractWeekdays(est.bidDueDate, daysNeeded - 1) : new Date(est.bidDueDate);
       const blockWorkDays = weekdaysBetween(scheduledStartDate, est.bidDueDate);
       const daysRemaining = countWeekdays(today, est.bidDueDate);
       const daysTotal = countWeekdays(scheduledStartDate, est.bidDueDate);
-      const dayProgress = daysTotal > 0
-        ? Math.round(((daysTotal - daysRemaining) / daysTotal) * 100)
-        : 100;
+      const dayProgress = daysTotal > 0 ? Math.round(((daysTotal - daysRemaining) / daysTotal) * 100) : 100;
       let scheduleStatus = "on-track";
       if (est.bidDueDate < today) scheduleStatus = "overdue";
       else if (scheduledStartDate < today) scheduleStatus = "conflict";
@@ -535,9 +526,7 @@ export function useWorkloadData(dateRange) {
           const d = new Date(c.date + "T00:00:00");
           return d >= today && countWeekdays(today, d) <= 5;
         });
-        const avgRemaining = next5.length > 0
-          ? next5.reduce((s, c) => s + c.remainingHours, 0) / next5.length
-          : 0;
+        const avgRemaining = next5.length > 0 ? next5.reduce((s, c) => s + c.remainingHours, 0) / next5.length : 0;
         if (avgRemaining > effectiveHoursPerDay * 0.3) {
           const specs = specialtiesMap.get(row.name) || [];
           const skillMatch = estDiscipline && specs.includes(estDiscipline);
@@ -621,9 +610,7 @@ export function useWorkloadData(dateRange) {
     }
 
     // ── Needs Action count ──
-    const needsActionCount = warnings.filter(
-      w => w.type === "conflict" || w.type === "overloaded"
-    ).length;
+    const needsActionCount = warnings.filter(w => w.type === "conflict" || w.type === "overloaded").length;
 
     // Flat list for card-based views
     const allEstimates = [
@@ -646,5 +633,19 @@ export function useWorkloadData(dateRange) {
       CAPACITY_HOURS: productionHoursPerDay,
       effectiveHoursPerDay,
     };
-  }, [estimatesIndex, activeCompanyId, dateRange?.start, dateRange?.end, productionHoursPerDay, bufferHours, overheadPercent, behindThreshold, aheadThreshold, useAccuracyAdjustment, complexityMultipliers, workWeek, estimators]);
+  }, [
+    estimatesIndex,
+    activeCompanyId,
+    dateRange?.start,
+    dateRange?.end,
+    productionHoursPerDay,
+    bufferHours,
+    overheadPercent,
+    behindThreshold,
+    aheadThreshold,
+    useAccuracyAdjustment,
+    complexityMultipliers,
+    workWeek,
+    estimators,
+  ]);
 }

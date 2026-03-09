@@ -80,7 +80,9 @@ const isWeekdayFn = (d, workWeek = "mon-fri") => {
 };
 
 const hexAlpha = (hex, alpha) => {
-  const a = Math.round(alpha * 255).toString(16).padStart(2, "0");
+  const a = Math.round(alpha * 255)
+    .toString(16)
+    .padStart(2, "0");
   return hex + a;
 };
 
@@ -100,11 +102,16 @@ function EstimatorContextMenu({ pos, name, color, projectCount, C, T, onViewScor
       if (menuRef.current && !menuRef.current.contains(e.target)) onClose();
     };
     const t = setTimeout(() => document.addEventListener("mousedown", handler), 0);
-    return () => { clearTimeout(t); document.removeEventListener("mousedown", handler); };
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener("mousedown", handler);
+    };
   }, [onClose]);
 
   useEffect(() => {
-    const handler = e => { if (e.key === "Escape") onClose(); };
+    const handler = e => {
+      if (e.key === "Escape") onClose();
+    };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [onClose]);
@@ -113,11 +120,20 @@ function EstimatorContextMenu({ pos, name, color, projectCount, C, T, onViewScor
   const y = Math.min(pos.y, window.innerHeight - 180);
 
   const itemStyle = {
-    display: "flex", alignItems: "center", gap: 8,
-    padding: "7px 12px", borderRadius: 6,
-    fontSize: 11, fontWeight: 500, color: C.text, cursor: "pointer",
-    transition: "background 80ms", border: "none",
-    background: "transparent", width: "100%", textAlign: "left",
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "7px 12px",
+    borderRadius: 6,
+    fontSize: 11,
+    fontWeight: 500,
+    color: C.text,
+    cursor: "pointer",
+    transition: "background 80ms",
+    border: "none",
+    background: "transparent",
+    width: "100%",
+    textAlign: "left",
   };
 
   return (
@@ -125,40 +141,72 @@ function EstimatorContextMenu({ pos, name, color, projectCount, C, T, onViewScor
       ref={menuRef}
       onClick={e => e.stopPropagation()}
       style={{
-        position: "fixed", left: x, top: y, zIndex: 1000,
+        position: "fixed",
+        left: x,
+        top: y,
+        zIndex: 1000,
         background: C.isDark
           ? "linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.04))"
           : "linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.90))",
         backdropFilter: "blur(40px) saturate(1.8)",
         WebkitBackdropFilter: "blur(40px) saturate(1.8)",
         border: `1px solid ${C.isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.10)"}`,
-        borderRadius: 10, padding: "6px 4px", minWidth: 180,
+        borderRadius: 10,
+        padding: "6px 4px",
+        minWidth: 180,
         boxShadow: C.isDark
           ? "0 12px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)"
           : "0 8px 30px rgba(0,0,0,0.15)",
       }}
     >
-      <div style={{
-        padding: "4px 12px 6px", fontSize: 9, fontWeight: 700, color: C.textDim,
-        textTransform: "uppercase", letterSpacing: "0.06em",
-        borderBottom: `1px solid ${C.border}20`, marginBottom: 2,
-        display: "flex", alignItems: "center", gap: 6,
-      }}>
-        <div style={{
-          width: 12, height: 12, borderRadius: "50%", background: color,
-        }} />
+      <div
+        style={{
+          padding: "4px 12px 6px",
+          fontSize: 9,
+          fontWeight: 700,
+          color: C.textDim,
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
+          borderBottom: `1px solid ${C.border}20`,
+          marginBottom: 2,
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+        }}
+      >
+        <div
+          style={{
+            width: 12,
+            height: 12,
+            borderRadius: "50%",
+            background: color,
+          }}
+        />
         {name}
       </div>
       {confirming ? (
         <div style={{ padding: "8px 12px" }}>
           <div style={{ fontSize: 10, color: C.textMuted, marginBottom: 6 }}>
             Remove <strong>{name}</strong>?
-            {projectCount > 0 && <> {projectCount} project{projectCount !== 1 ? "s" : ""} will become unassigned.</>}
+            {projectCount > 0 && (
+              <>
+                {" "}
+                {projectCount} project{projectCount !== 1 ? "s" : ""} will become unassigned.
+              </>
+            )}
           </div>
           <div style={{ display: "flex", gap: 4 }}>
             <button
               onClick={onRemove}
-              style={{ ...itemStyle, width: "auto", padding: "4px 10px", background: "#FF3B3015", color: "#FF3B30", fontWeight: 600, borderRadius: 4 }}
+              style={{
+                ...itemStyle,
+                width: "auto",
+                padding: "4px 10px",
+                background: "#FF3B3015",
+                color: "#FF3B30",
+                fontWeight: 600,
+                borderRadius: 4,
+              }}
             >
               Remove
             </button>
@@ -201,12 +249,28 @@ function EstimatorContextMenu({ pos, name, color, projectCount, C, T, onViewScor
 // GANTT CHART
 // ══════════════════════════════════════════════════════════
 function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWeek }) {
-  const { estimatorRows, unassignedEstimates, CAPACITY_HOURS, effectiveHoursPerDay, estimatorCapacity, rangeDays, rangeStart, rangeEnd } = workload;
+  const {
+    estimatorRows,
+    unassignedEstimates,
+    CAPACITY_HOURS,
+    effectiveHoursPerDay,
+    estimatorCapacity,
+    rangeDays,
+    rangeStart,
+    rangeEnd,
+  } = workload;
   const dragEstimateId = useResourceStore(s => s.dragEstimateId);
   const dragOverEstimator = useResourceStore(s => s.dragOverEstimator);
   const dragMode = useResourceStore(s => s.dragMode);
   const dragDaysDelta = useResourceStore(s => s.dragDaysDelta);
-  const { setDragEstimateId, setDragOverEstimator, setDragMode, setDragDaysDelta, setDragOriginalBidDue, clearDragState } = useResourceStore.getState();
+  const {
+    setDragEstimateId,
+    setDragOverEstimator,
+    setDragMode,
+    setDragDaysDelta,
+    setDragOriginalBidDue,
+    clearDragState,
+  } = useResourceStore.getState();
 
   // Refs for mouse drag (reschedule + reassign)
   const dragRef = useRef({ startX: 0, startY: 0, barId: null, bidDue: "", estimator: "", activated: false });
@@ -266,10 +330,7 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
         const newDue = addWeekdays(new Date(dr.bidDue + "T00:00:00"), st.dragDaysDelta, workWeek);
         const fmt = d => d.toISOString().slice(0, 10);
         useEstimatesStore.getState().updateIndexEntry(dr.barId, { bidDue: fmt(newDue) });
-        useUiStore.getState().showToast(
-          `Rescheduled to ${fmt(newDue)}`,
-          "success",
-        );
+        useUiStore.getState().showToast(`Rescheduled to ${fmt(newDue)}`, "success");
       } else if (st.dragMode === "reassign" && st.dragOverEstimator) {
         const target = st.dragOverEstimator === "__unassigned__" ? "" : st.dragOverEstimator;
         if (target !== dr.estimator) {
@@ -306,24 +367,31 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
     });
   }, [rangeDays]);
 
+  // Pre-build O(1) lookup Map — replaces O(N) findIndex per bar (prevents O(N²) in rowData)
+  const dayIndexMap = useMemo(() => {
+    const m = new Map();
+    days.forEach((d, i) => m.set(d.key, i));
+    return m;
+  }, [days]);
+
   // Get today position index
-  const todayIdx = days.findIndex(d => d.key === TODAY);
+  const todayIdx = dayIndexMap.get(TODAY) ?? -1;
   const totalWidth = days.length * DAY_WIDTH;
 
   // Build estimate bars per row
   const rowData = useMemo(() => {
     return estimatorRows.map(row => {
       const bars = row.estimates.map(est => {
-        const startIdx = days.findIndex(d => d.key === est.scheduledStart);
-        const endIdx = days.findIndex(d => d.key === est.scheduledEnd);
+        const startIdx = dayIndexMap.get(est.scheduledStart) ?? -1;
+        const endIdx = dayIndexMap.get(est.scheduledEnd) ?? -1;
         const s = Math.max(0, startIdx >= 0 ? startIdx : 0);
         const e = Math.min(days.length - 1, endIdx >= 0 ? endIdx : days.length - 1);
         // Build segment positions for split bars
         let segPositions = null;
         if (est.segments && est.segments.length > 1) {
           segPositions = est.segments.map(seg => {
-            const si = days.findIndex(d => d.key === seg.start);
-            const ei = days.findIndex(d => d.key === seg.end);
+            const si = dayIndexMap.get(seg.start) ?? -1;
+            const ei = dayIndexMap.get(seg.end) ?? -1;
             const ss = Math.max(0, si >= 0 ? si : 0);
             const se = Math.min(days.length - 1, ei >= 0 ? ei : days.length - 1);
             return { left: ss * DAY_WIDTH, width: Math.max(DAY_WIDTH, (se - ss + 1) * DAY_WIDTH - 4) };
@@ -340,15 +408,15 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
       });
       return { ...row, bars };
     });
-  }, [estimatorRows, days]);
+  }, [estimatorRows, days, dayIndexMap]);
 
   // Unassigned bars
   const unassignedBars = useMemo(() => {
     return unassignedEstimates.map(est => {
       const sKey = est.scheduledStart || TODAY;
       const eKey = est.scheduledEnd || TODAY;
-      const startIdx = days.findIndex(d => d.key === sKey);
-      const endIdx = days.findIndex(d => d.key === eKey);
+      const startIdx = dayIndexMap.get(sKey) ?? -1;
+      const endIdx = dayIndexMap.get(eKey) ?? -1;
       const s = Math.max(0, startIdx >= 0 ? startIdx : 0);
       const e = Math.min(days.length - 1, endIdx >= 0 ? endIdx : days.length - 1);
       return {
@@ -359,7 +427,7 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
         width: Math.max(DAY_WIDTH, (e - s + 1) * DAY_WIDTH - 4),
       };
     });
-  }, [unassignedEstimates, days]);
+  }, [unassignedEstimates, days, dayIndexMap]);
 
   // Tooltip state
   const [tooltip, setTooltip] = useState(null);
@@ -417,8 +485,10 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
                   e.preventDefault();
                   e.stopPropagation();
                   setEstimatorMenu({
-                    x: e.clientX, y: e.clientY,
-                    name: row.name, color: row.color,
+                    x: e.clientX,
+                    y: e.clientY,
+                    name: row.name,
+                    color: row.color,
                     projectCount: row.estimates.length,
                   });
                 }}
@@ -430,7 +500,14 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
                   padding: `0 ${T.space[3]}px`,
                   borderBottom: `1px solid ${C.border}08`,
                   cursor: "pointer",
-                  ...(isDropTarget ? { background: `${C.accent}12`, outline: `2px solid ${C.accent}`, outlineOffset: -2, borderRadius: 4 } : {}),
+                  ...(isDropTarget
+                    ? {
+                        background: `${C.accent}12`,
+                        outline: `2px solid ${C.accent}`,
+                        outlineOffset: -2,
+                        borderRadius: 4,
+                      }
+                    : {}),
                   transition: "background 100ms, outline 100ms",
                 }}
               >
@@ -481,10 +558,15 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
                 gap: T.space[2],
                 padding: `0 ${T.space[3]}px`,
                 borderTop: `2px solid ${C.border}`,
-                background: dragOverEstimator === "__unassigned__" && dragEstimateId
-                  ? `${C.accent}12`
-                  : C.isDark ? "#FBBF2406" : "#FBBF240A",
-                ...(dragOverEstimator === "__unassigned__" && dragEstimateId ? { outline: `2px solid ${C.accent}`, outlineOffset: -2, borderRadius: 4 } : {}),
+                background:
+                  dragOverEstimator === "__unassigned__" && dragEstimateId
+                    ? `${C.accent}12`
+                    : C.isDark
+                      ? "#FBBF2406"
+                      : "#FBBF240A",
+                ...(dragOverEstimator === "__unassigned__" && dragEstimateId
+                  ? { outline: `2px solid ${C.accent}`, outlineOffset: -2, borderRadius: 4 }
+                  : {}),
                 transition: "background 100ms, outline 100ms",
               }}
             >
@@ -532,7 +614,10 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
                     setAddingEstimator(false);
                   }
                 }}
-                onBlur={() => { setAddEstimatorName(""); setAddingEstimator(false); }}
+                onBlur={() => {
+                  setAddEstimatorName("");
+                  setAddingEstimator(false);
+                }}
                 style={{
                   width: "100%",
                   padding: "4px 8px",
@@ -560,12 +645,20 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
               onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}08`)}
               onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
             >
-              <div style={{
-                width: 24, height: 24, borderRadius: "50%",
-                background: `${C.accent}15`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 14, color: C.accent, fontWeight: 700,
-              }}>
+              <div
+                style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: "50%",
+                  background: `${C.accent}15`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 14,
+                  color: C.accent,
+                  fontWeight: 700,
+                }}
+              >
                 +
               </div>
               <span style={{ fontSize: T.fontSize.xs, color: C.textMuted, fontWeight: T.fontWeight.medium }}>
@@ -607,9 +700,7 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
                 >
                   {/* Show month label on 1st and week starts */}
                   {(day.dayNum === 1 || day.isWeekStart) && (
-                    <div style={{ fontSize: 8, color: C.textDim, fontWeight: 600, lineHeight: 1 }}>
-                      {day.monthName}
-                    </div>
+                    <div style={{ fontSize: 8, color: C.textDim, fontWeight: 600, lineHeight: 1 }}>{day.monthName}</div>
                   )}
                   <div
                     style={{
@@ -666,7 +757,9 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
                     height: rowHeight,
                     borderBottom: `1px solid ${C.border}08`,
                     display: "flex",
-                    ...(isDropTarget ? { background: `${C.accent}08`, outline: `2px solid ${C.accent}40`, outlineOffset: -2 } : {}),
+                    ...(isDropTarget
+                      ? { background: `${C.accent}08`, outline: `2px solid ${C.accent}40`, outlineOffset: -2 }
+                      : {}),
                     transition: "background 100ms",
                   }}
                 >
@@ -691,328 +784,48 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
                     const rescheduleOffset = isDragging && dragMode === "reschedule" ? dragDaysDelta * DAY_WIDTH : 0;
 
                     // Render segment connectors (dashed lines between split bar segments)
-                    const segConnectors = bar.segPositions && bar.segPositions.length > 1
-                      ? bar.segPositions.slice(0, -1).map((seg, si) => {
-                          const next = bar.segPositions[si + 1];
-                          const gapLeft = seg.left + seg.width + 2 + rescheduleOffset;
-                          const gapWidth = next.left - seg.left - seg.width;
-                          if (gapWidth <= 0) return null;
-                          return (
-                            <div key={`conn-${bar.id}-${si}`} style={{
-                              position: "absolute",
-                              left: gapLeft,
-                              top: 6 + i * 22 + 8,
-                              width: gapWidth - 4,
-                              height: 2,
-                              borderTop: `2px dashed ${color}40`,
-                              zIndex: 1,
-                              pointerEvents: "none",
-                            }} />
-                          );
-                        })
-                      : null;
+                    const segConnectors =
+                      bar.segPositions && bar.segPositions.length > 1
+                        ? bar.segPositions.slice(0, -1).map((seg, si) => {
+                            const next = bar.segPositions[si + 1];
+                            const gapLeft = seg.left + seg.width + 2 + rescheduleOffset;
+                            const gapWidth = next.left - seg.left - seg.width;
+                            if (gapWidth <= 0) return null;
+                            return (
+                              <div
+                                key={`conn-${bar.id}-${si}`}
+                                style={{
+                                  position: "absolute",
+                                  left: gapLeft,
+                                  top: 6 + i * 22 + 8,
+                                  width: gapWidth - 4,
+                                  height: 2,
+                                  borderTop: `2px dashed ${color}40`,
+                                  zIndex: 1,
+                                  pointerEvents: "none",
+                                }}
+                              />
+                            );
+                          })
+                        : null;
 
                     return (
                       <React.Fragment key={bar.id}>
-                      {segConnectors}
-                      <div
-                        key={bar.id}
-                        onMouseDown={e => {
-                          if (e.button !== 0) return; // left click only
-                          e.preventDefault();
-                          dragRef.current = {
-                            startX: e.clientX, startY: e.clientY,
-                            barId: bar.id, bidDue: bar.bidDue,
-                            estimator: row.name, activated: false,
-                          };
-                          // Capture row rects for vertical detection
-                          const ganttEl = e.currentTarget.closest("[data-gantt-rows]");
-                          if (ganttEl) {
-                            const rows = ganttEl.querySelectorAll("[data-estimator-row]");
-                            rowRectsRef.current = Array.from(rows).map(el => ({
-                              name: el.dataset.estimatorRow,
-                              top: el.getBoundingClientRect().top,
-                              bottom: el.getBoundingClientRect().bottom,
-                            }));
-                          }
-                        }}
-                        onClick={e => {
-                          if (dragRef.current.activated) return; // was a drag, not a click
-                          e.stopPropagation();
-                          navigate(`/estimate/${bar.id}/info`);
-                        }}
-                        onContextMenu={e => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setContextMenu({ x: e.clientX, y: e.clientY, bar, estimator: row.name });
-                        }}
-                        onMouseEnter={() =>
-                          setTooltip({
-                            name: bar.name,
-                            hours: `${bar.hoursLogged}h / ${bar.estimatedHours}h`,
-                            pct: bar.percentComplete,
-                            daysLeft: bar.daysRemaining,
-                            status: bar.scheduleStatus,
-                            scheduledRange: `${bar.scheduledStart} → ${bar.scheduledEnd}`,
-                            bidDue: bar.bidDue,
-                            conflict: bar.conflict,
-                            daysNeeded: bar.daysNeeded,
-                            correspondenceCount: bar.correspondenceCount,
-                            correspondenceTotalHours: bar.correspondenceTotalHours,
-                            correspondenceNextDue: bar.correspondenceNextDue,
-                            emailCount: bar.emailCount,
-                          })
-                        }
-                        onMouseLeave={() => setTooltip(null)}
-                        style={{
-                          position: "absolute",
-                          left: (bar.segPositions ? bar.segPositions[0].left : bar.left) + 2 + rescheduleOffset,
-                          top: 6 + i * 22,
-                          width: bar.segPositions ? bar.segPositions[0].width : bar.width,
-                          height: 18,
-                          borderRadius: 4,
-                          overflow: "hidden",
-                          cursor: isDragging ? "grabbing" : "grab",
-                          display: "flex",
-                          alignItems: "center",
-                          border: `1px solid ${color}40`,
-                          borderLeft: bar.conflict ? `3px solid #FF3B30` : `1px solid ${color}40`,
-                          opacity: isDragging && dragMode === "reassign" ? 0.4 : 1,
-                          transition: isDragging ? "none" : "opacity 100ms",
-                          animation: bar.conflict && !isDragging ? "conflictPulse 2s ease-in-out infinite" : undefined,
-                          zIndex: isDragging ? 10 : 1,
-                          boxShadow: isDragging && dragMode === "reschedule" ? "0 2px 8px rgba(0,0,0,0.3)" : "none",
-                        }}
-                      >
-                        {/* Fill portion (% complete) */}
+                        {segConnectors}
                         <div
-                          style={{
-                            position: "absolute",
-                            left: 0,
-                            top: 0,
-                            bottom: 0,
-                            width: `${bar.percentComplete}%`,
-                            background: `${color}50`,
-                            zIndex: 0,
-                          }}
-                        />
-                        {/* Remaining portion */}
-                        <div
-                          style={{
-                            position: "absolute",
-                            left: `${bar.percentComplete}%`,
-                            top: 0,
-                            bottom: 0,
-                            right: 0,
-                            background: `${color}15`,
-                            zIndex: 0,
-                          }}
-                        />
-                        {/* Label */}
-                        <div
-                          style={{
-                            position: "relative",
-                            zIndex: 1,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            width: "100%",
-                            padding: "0 6px",
-                          }}
-                        >
-                          <span
-                            style={{
-                              fontSize: 9,
-                              fontWeight: 600,
-                              color: C.text,
-                              overflow: "hidden",
-                              whiteSpace: "nowrap",
-                              textOverflow: "ellipsis",
-                              flex: 1,
-                              minWidth: 0,
-                            }}
-                          >
-                            {bar.complexity && bar.complexity !== "normal" && (
-                              <span title={bar.complexity} style={{ fontSize: 7, marginRight: 2 }}>
-                                {bar.complexity === "light" ? "\u26A1" : "\u25A0"}
-                              </span>
-                            )}
-                            {bar.name}
-                          </span>
-                          {/* Hours — click to edit inline */}
-                          {bar.width > 80 && (
-                            editingHoursId === bar.id ? (
-                              <input
-                                autoFocus
-                                type="number"
-                                value={editingHoursVal}
-                                onChange={e => setEditingHoursVal(e.target.value)}
-                                onKeyDown={e => {
-                                  if (e.key === "Enter") {
-                                    const h = Number(editingHoursVal);
-                                    if (!isNaN(h) && h >= 0) {
-                                      useEstimatesStore.getState().updateIndexEntry(bar.id, { estimatedHours: h });
-                                    }
-                                    setEditingHoursId(null);
-                                  } else if (e.key === "Escape") {
-                                    setEditingHoursId(null);
-                                  }
-                                }}
-                                onBlur={() => {
-                                  const h = Number(editingHoursVal);
-                                  if (!isNaN(h) && h >= 0) {
-                                    useEstimatesStore.getState().updateIndexEntry(bar.id, { estimatedHours: h });
-                                  }
-                                  setEditingHoursId(null);
-                                }}
-                                onClick={e => e.stopPropagation()}
-                                onMouseDown={e => e.stopPropagation()}
-                                style={{
-                                  width: 32,
-                                  fontSize: 8,
-                                  fontWeight: 600,
-                                  padding: "0 2px",
-                                  border: `1px solid ${C.accent}`,
-                                  borderRadius: 3,
-                                  background: C.bg1,
-                                  color: C.text,
-                                  textAlign: "center",
-                                  outline: "none",
-                                  flexShrink: 0,
-                                  marginLeft: 4,
-                                  height: 14,
-                                }}
-                              />
-                            ) : (
-                              <span
-                                onClick={e => {
-                                  e.stopPropagation();
-                                  setEditingHoursId(bar.id);
-                                  setEditingHoursVal(String(bar.estimatedHours || 0));
-                                }}
-                                title="Click to edit hours"
-                                style={{
-                                  fontSize: 8,
-                                  fontWeight: 600,
-                                  color: C.textMuted,
-                                  flexShrink: 0,
-                                  marginLeft: 4,
-                                  cursor: "text",
-                                  padding: "0 2px",
-                                  borderRadius: 2,
-                                  transition: "background 0.15s",
-                                }}
-                                onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}26`)}
-                                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-                              >
-                                {bar.estimatedHours || 0}h
-                              </span>
-                            )
-                          )}
-                          {bar.width > 120 && (
-                            <span
-                              style={{
-                                fontSize: 8,
-                                fontWeight: 700,
-                                color,
-                                flexShrink: 0,
-                                marginLeft: 4,
-                              }}
-                            >
-                              {bar.percentComplete}%
-                            </span>
-                          )}
-                          {/* Correspondence indicator */}
-                          {bar.correspondenceCount > 0 && (
-                            <span
-                              title={`${bar.correspondenceCount} correspondence${bar.correspondenceCount !== 1 ? "s" : ""}`}
-                              style={{
-                                fontSize: 7,
-                                fontWeight: 700,
-                                color: "#60A5FA",
-                                background: "#60A5FA20",
-                                borderRadius: 3,
-                                padding: "0 3px",
-                                flexShrink: 0,
-                                marginLeft: 3,
-                                lineHeight: "12px",
-                              }}
-                            >
-                              C{bar.correspondenceCount > 1 ? bar.correspondenceCount : ""}
-                            </span>
-                          )}
-                          {/* Email count indicator */}
-                          {bar.emailCount > 1 && (
-                            <span
-                              title={`${bar.emailCount} linked emails`}
-                              style={{
-                                fontSize: 7,
-                                fontWeight: 700,
-                                color: "#A78BFA",
-                                background: "#A78BFA20",
-                                borderRadius: 3,
-                                padding: "0 3px",
-                                flexShrink: 0,
-                                marginLeft: 3,
-                                lineHeight: "12px",
-                              }}
-                            >
-                              {bar.emailCount}✉
-                            </span>
-                          )}
-                        </div>
-                        {/* Due date marker — orange dot when bar ends before bidDue */}
-                        {bar.bidDue !== bar.scheduledEnd && (() => {
-                          const dueIdx = days.findIndex(d => d.key === bar.bidDue);
-                          if (dueIdx < 0) return null;
-                          const dotLeft = (dueIdx * DAY_WIDTH + DAY_WIDTH / 2) - bar.left - 2;
-                          if (dotLeft < 0 || dotLeft > bar.width) return null;
-                          return (
-                            <div
-                              style={{
-                                position: "absolute",
-                                left: dotLeft - 3,
-                                top: 6,
-                                width: 6,
-                                height: 6,
-                                borderRadius: "50%",
-                                background: "#FF9500",
-                                border: "1px solid rgba(0,0,0,0.2)",
-                                zIndex: 2,
-                              }}
-                              title={`Due ${bar.bidDue}`}
-                            />
-                          );
-                        })()}
-                        {/* Reschedule delta badge */}
-                        {isDragging && dragMode === "reschedule" && dragDaysDelta !== 0 && (
-                          <div style={{
-                            position: "absolute",
-                            top: -14, right: -2,
-                            fontSize: 8, fontWeight: 700,
-                            color: "#fff",
-                            background: dragDaysDelta > 0 ? "#30D158" : "#FF9500",
-                            borderRadius: 4,
-                            padding: "1px 4px",
-                            whiteSpace: "nowrap",
-                            zIndex: 20,
-                          }}>
-                            {dragDaysDelta > 0 ? "+" : ""}{dragDaysDelta}d
-                          </div>
-                        )}
-                      </div>
-                      {/* Additional segment bars for split/paused projects */}
-                      {bar.segPositions && bar.segPositions.length > 1 && bar.segPositions.slice(1).map((seg, si) => (
-                        <div
-                          key={`seg-${bar.id}-${si + 1}`}
+                          key={bar.id}
                           onMouseDown={e => {
-                            if (e.button !== 0) return;
+                            if (e.button !== 0) return; // left click only
                             e.preventDefault();
                             dragRef.current = {
-                              startX: e.clientX, startY: e.clientY,
-                              barId: bar.id, bidDue: bar.bidDue,
-                              estimator: row.name, activated: false,
+                              startX: e.clientX,
+                              startY: e.clientY,
+                              barId: bar.id,
+                              bidDue: bar.bidDue,
+                              estimator: row.name,
+                              activated: false,
                             };
+                            // Capture row rects for vertical detection
                             const ganttEl = e.currentTarget.closest("[data-gantt-rows]");
                             if (ganttEl) {
                               const rows = ganttEl.querySelectorAll("[data-estimator-row]");
@@ -1024,7 +837,7 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
                             }
                           }}
                           onClick={e => {
-                            if (dragRef.current.activated) return;
+                            if (dragRef.current.activated) return; // was a drag, not a click
                             e.stopPropagation();
                             navigate(`/estimate/${bar.id}/info`);
                           }}
@@ -1033,58 +846,384 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
                             e.stopPropagation();
                             setContextMenu({ x: e.clientX, y: e.clientY, bar, estimator: row.name });
                           }}
+                          onMouseEnter={() =>
+                            setTooltip({
+                              name: bar.name,
+                              hours: `${bar.hoursLogged}h / ${bar.estimatedHours}h`,
+                              pct: bar.percentComplete,
+                              daysLeft: bar.daysRemaining,
+                              status: bar.scheduleStatus,
+                              scheduledRange: `${bar.scheduledStart} → ${bar.scheduledEnd}`,
+                              bidDue: bar.bidDue,
+                              conflict: bar.conflict,
+                              daysNeeded: bar.daysNeeded,
+                              correspondenceCount: bar.correspondenceCount,
+                              correspondenceTotalHours: bar.correspondenceTotalHours,
+                              correspondenceNextDue: bar.correspondenceNextDue,
+                              emailCount: bar.emailCount,
+                            })
+                          }
+                          onMouseLeave={() => setTooltip(null)}
                           style={{
                             position: "absolute",
-                            left: seg.left + 2 + rescheduleOffset,
+                            left: (bar.segPositions ? bar.segPositions[0].left : bar.left) + 2 + rescheduleOffset,
                             top: 6 + i * 22,
-                            width: seg.width,
+                            width: bar.segPositions ? bar.segPositions[0].width : bar.width,
                             height: 18,
                             borderRadius: 4,
                             overflow: "hidden",
                             cursor: isDragging ? "grabbing" : "grab",
+                            display: "flex",
+                            alignItems: "center",
                             border: `1px solid ${color}40`,
-                            background: `${color}15`,
+                            borderLeft: bar.conflict ? `3px solid #FF3B30` : `1px solid ${color}40`,
                             opacity: isDragging && dragMode === "reassign" ? 0.4 : 1,
+                            transition: isDragging ? "none" : "opacity 100ms",
+                            animation:
+                              bar.conflict && !isDragging ? "conflictPulse 2s ease-in-out infinite" : undefined,
                             zIndex: isDragging ? 10 : 1,
                             boxShadow: isDragging && dragMode === "reschedule" ? "0 2px 8px rgba(0,0,0,0.3)" : "none",
                           }}
                         >
-                          {seg.width > 60 && (
-                            <span style={{
-                              fontSize: 8, fontWeight: 600, color: C.textMuted,
-                              padding: "0 6px", whiteSpace: "nowrap",
-                            }}>
+                          {/* Fill portion (% complete) */}
+                          <div
+                            style={{
+                              position: "absolute",
+                              left: 0,
+                              top: 0,
+                              bottom: 0,
+                              width: `${bar.percentComplete}%`,
+                              background: `${color}50`,
+                              zIndex: 0,
+                            }}
+                          />
+                          {/* Remaining portion */}
+                          <div
+                            style={{
+                              position: "absolute",
+                              left: `${bar.percentComplete}%`,
+                              top: 0,
+                              bottom: 0,
+                              right: 0,
+                              background: `${color}15`,
+                              zIndex: 0,
+                            }}
+                          />
+                          {/* Label */}
+                          <div
+                            style={{
+                              position: "relative",
+                              zIndex: 1,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              width: "100%",
+                              padding: "0 6px",
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontSize: 9,
+                                fontWeight: 600,
+                                color: C.text,
+                                overflow: "hidden",
+                                whiteSpace: "nowrap",
+                                textOverflow: "ellipsis",
+                                flex: 1,
+                                minWidth: 0,
+                              }}
+                            >
+                              {bar.complexity && bar.complexity !== "normal" && (
+                                <span title={bar.complexity} style={{ fontSize: 7, marginRight: 2 }}>
+                                  {bar.complexity === "light" ? "\u26A1" : "\u25A0"}
+                                </span>
+                              )}
                               {bar.name}
                             </span>
+                            {/* Hours — click to edit inline */}
+                            {bar.width > 80 &&
+                              (editingHoursId === bar.id ? (
+                                <input
+                                  autoFocus
+                                  type="number"
+                                  value={editingHoursVal}
+                                  onChange={e => setEditingHoursVal(e.target.value)}
+                                  onKeyDown={e => {
+                                    if (e.key === "Enter") {
+                                      const h = Number(editingHoursVal);
+                                      if (!isNaN(h) && h >= 0) {
+                                        useEstimatesStore.getState().updateIndexEntry(bar.id, { estimatedHours: h });
+                                      }
+                                      setEditingHoursId(null);
+                                    } else if (e.key === "Escape") {
+                                      setEditingHoursId(null);
+                                    }
+                                  }}
+                                  onBlur={() => {
+                                    const h = Number(editingHoursVal);
+                                    if (!isNaN(h) && h >= 0) {
+                                      useEstimatesStore.getState().updateIndexEntry(bar.id, { estimatedHours: h });
+                                    }
+                                    setEditingHoursId(null);
+                                  }}
+                                  onClick={e => e.stopPropagation()}
+                                  onMouseDown={e => e.stopPropagation()}
+                                  style={{
+                                    width: 32,
+                                    fontSize: 8,
+                                    fontWeight: 600,
+                                    padding: "0 2px",
+                                    border: `1px solid ${C.accent}`,
+                                    borderRadius: 3,
+                                    background: C.bg1,
+                                    color: C.text,
+                                    textAlign: "center",
+                                    outline: "none",
+                                    flexShrink: 0,
+                                    marginLeft: 4,
+                                    height: 14,
+                                  }}
+                                />
+                              ) : (
+                                <span
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    setEditingHoursId(bar.id);
+                                    setEditingHoursVal(String(bar.estimatedHours || 0));
+                                  }}
+                                  title="Click to edit hours"
+                                  style={{
+                                    fontSize: 8,
+                                    fontWeight: 600,
+                                    color: C.textMuted,
+                                    flexShrink: 0,
+                                    marginLeft: 4,
+                                    cursor: "text",
+                                    padding: "0 2px",
+                                    borderRadius: 2,
+                                    transition: "background 0.15s",
+                                  }}
+                                  onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}26`)}
+                                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                                >
+                                  {bar.estimatedHours || 0}h
+                                </span>
+                              ))}
+                            {bar.width > 120 && (
+                              <span
+                                style={{
+                                  fontSize: 8,
+                                  fontWeight: 700,
+                                  color,
+                                  flexShrink: 0,
+                                  marginLeft: 4,
+                                }}
+                              >
+                                {bar.percentComplete}%
+                              </span>
+                            )}
+                            {/* Correspondence indicator */}
+                            {bar.correspondenceCount > 0 && (
+                              <span
+                                title={`${bar.correspondenceCount} correspondence${bar.correspondenceCount !== 1 ? "s" : ""}`}
+                                style={{
+                                  fontSize: 7,
+                                  fontWeight: 700,
+                                  color: "#60A5FA",
+                                  background: "#60A5FA20",
+                                  borderRadius: 3,
+                                  padding: "0 3px",
+                                  flexShrink: 0,
+                                  marginLeft: 3,
+                                  lineHeight: "12px",
+                                }}
+                              >
+                                C{bar.correspondenceCount > 1 ? bar.correspondenceCount : ""}
+                              </span>
+                            )}
+                            {/* Email count indicator */}
+                            {bar.emailCount > 1 && (
+                              <span
+                                title={`${bar.emailCount} linked emails`}
+                                style={{
+                                  fontSize: 7,
+                                  fontWeight: 700,
+                                  color: "#A78BFA",
+                                  background: "#A78BFA20",
+                                  borderRadius: 3,
+                                  padding: "0 3px",
+                                  flexShrink: 0,
+                                  marginLeft: 3,
+                                  lineHeight: "12px",
+                                }}
+                              >
+                                {bar.emailCount}✉
+                              </span>
+                            )}
+                          </div>
+                          {/* Due date marker — orange dot when bar ends before bidDue */}
+                          {bar.bidDue !== bar.scheduledEnd &&
+                            (() => {
+                              const dueIdx = dayIndexMap.get(bar.bidDue) ?? -1;
+                              if (dueIdx < 0) return null;
+                              const dotLeft = dueIdx * DAY_WIDTH + DAY_WIDTH / 2 - bar.left - 2;
+                              if (dotLeft < 0 || dotLeft > bar.width) return null;
+                              return (
+                                <div
+                                  style={{
+                                    position: "absolute",
+                                    left: dotLeft - 3,
+                                    top: 6,
+                                    width: 6,
+                                    height: 6,
+                                    borderRadius: "50%",
+                                    background: "#FF9500",
+                                    border: "1px solid rgba(0,0,0,0.2)",
+                                    zIndex: 2,
+                                  }}
+                                  title={`Due ${bar.bidDue}`}
+                                />
+                              );
+                            })()}
+                          {/* Reschedule delta badge */}
+                          {isDragging && dragMode === "reschedule" && dragDaysDelta !== 0 && (
+                            <div
+                              style={{
+                                position: "absolute",
+                                top: -14,
+                                right: -2,
+                                fontSize: 8,
+                                fontWeight: 700,
+                                color: "#fff",
+                                background: dragDaysDelta > 0 ? "#30D158" : "#FF9500",
+                                borderRadius: 4,
+                                padding: "1px 4px",
+                                whiteSpace: "nowrap",
+                                zIndex: 20,
+                              }}
+                            >
+                              {dragDaysDelta > 0 ? "+" : ""}
+                              {dragDaysDelta}d
+                            </div>
                           )}
                         </div>
-                      ))}
+                        {/* Additional segment bars for split/paused projects */}
+                        {bar.segPositions &&
+                          bar.segPositions.length > 1 &&
+                          bar.segPositions.slice(1).map((seg, si) => (
+                            <div
+                              key={`seg-${bar.id}-${si + 1}`}
+                              onMouseDown={e => {
+                                if (e.button !== 0) return;
+                                e.preventDefault();
+                                dragRef.current = {
+                                  startX: e.clientX,
+                                  startY: e.clientY,
+                                  barId: bar.id,
+                                  bidDue: bar.bidDue,
+                                  estimator: row.name,
+                                  activated: false,
+                                };
+                                const ganttEl = e.currentTarget.closest("[data-gantt-rows]");
+                                if (ganttEl) {
+                                  const rows = ganttEl.querySelectorAll("[data-estimator-row]");
+                                  rowRectsRef.current = Array.from(rows).map(el => ({
+                                    name: el.dataset.estimatorRow,
+                                    top: el.getBoundingClientRect().top,
+                                    bottom: el.getBoundingClientRect().bottom,
+                                  }));
+                                }
+                              }}
+                              onClick={e => {
+                                if (dragRef.current.activated) return;
+                                e.stopPropagation();
+                                navigate(`/estimate/${bar.id}/info`);
+                              }}
+                              onContextMenu={e => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setContextMenu({ x: e.clientX, y: e.clientY, bar, estimator: row.name });
+                              }}
+                              style={{
+                                position: "absolute",
+                                left: seg.left + 2 + rescheduleOffset,
+                                top: 6 + i * 22,
+                                width: seg.width,
+                                height: 18,
+                                borderRadius: 4,
+                                overflow: "hidden",
+                                cursor: isDragging ? "grabbing" : "grab",
+                                border: `1px solid ${color}40`,
+                                background: `${color}15`,
+                                opacity: isDragging && dragMode === "reassign" ? 0.4 : 1,
+                                zIndex: isDragging ? 10 : 1,
+                                boxShadow:
+                                  isDragging && dragMode === "reschedule" ? "0 2px 8px rgba(0,0,0,0.3)" : "none",
+                              }}
+                            >
+                              {seg.width > 60 && (
+                                <span
+                                  style={{
+                                    fontSize: 8,
+                                    fontWeight: 600,
+                                    color: C.textMuted,
+                                    padding: "0 6px",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {bar.name}
+                                </span>
+                              )}
+                            </div>
+                          ))}
                       </React.Fragment>
                     );
                   })}
 
                   {/* Capacity utilization bar at bottom of row */}
-                  {estimatorCapacity && (() => {
-                    const cap = estimatorCapacity.get(row.name);
-                    if (!cap) return null;
-                    return (
-                      <div style={{ position: "absolute", left: 0, bottom: 0, right: 0, height: 3, display: "flex", pointerEvents: "none" }}>
-                        {days.map(day => {
-                          const entry = cap.find(c => c.date === day.key);
-                          if (!entry) return <div key={day.key} style={{ width: DAY_WIDTH, flexShrink: 0 }} />;
-                          const pct = capHours > 0 ? entry.remainingHours / capHours : 1;
-                          const color = pct > 0.5 ? "#30D158" : pct > 0.25 ? "#FF9500" : pct > 0 ? "#FF3B30" : "transparent";
-                          return (
-                            <div key={day.key} style={{ width: DAY_WIDTH, flexShrink: 0, display: "flex", justifyContent: "center" }}>
-                              {entry.used > 0 && (
-                                <div style={{ width: DAY_WIDTH - 6, height: 3, borderRadius: 1.5, background: `${color}40` }} />
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  })()}
+                  {estimatorCapacity &&
+                    (() => {
+                      const cap = estimatorCapacity.get(row.name);
+                      if (!cap) return null;
+                      return (
+                        <div
+                          style={{
+                            position: "absolute",
+                            left: 0,
+                            bottom: 0,
+                            right: 0,
+                            height: 3,
+                            display: "flex",
+                            pointerEvents: "none",
+                          }}
+                        >
+                          {days.map(day => {
+                            const entry = cap.find(c => c.date === day.key);
+                            if (!entry) return <div key={day.key} style={{ width: DAY_WIDTH, flexShrink: 0 }} />;
+                            const pct = capHours > 0 ? entry.remainingHours / capHours : 1;
+                            const color =
+                              pct > 0.5 ? "#30D158" : pct > 0.25 ? "#FF9500" : pct > 0 ? "#FF3B30" : "transparent";
+                            return (
+                              <div
+                                key={day.key}
+                                style={{ width: DAY_WIDTH, flexShrink: 0, display: "flex", justifyContent: "center" }}
+                              >
+                                {entry.used > 0 && (
+                                  <div
+                                    style={{
+                                      width: DAY_WIDTH - 6,
+                                      height: 3,
+                                      borderRadius: 1.5,
+                                      background: `${color}40`,
+                                    }}
+                                  />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
                 </div>
               );
             })}
@@ -1097,11 +1236,16 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
                   position: "relative",
                   height: Math.max(ROW_HEIGHT, unassignedBars.length * 22 + 12),
                   borderTop: `2px solid ${C.border}`,
-                  background: dragOverEstimator === "__unassigned__" && dragEstimateId
-                    ? `${C.accent}08`
-                    : C.isDark ? "#FBBF2403" : "#FBBF2406",
+                  background:
+                    dragOverEstimator === "__unassigned__" && dragEstimateId
+                      ? `${C.accent}08`
+                      : C.isDark
+                        ? "#FBBF2403"
+                        : "#FBBF2406",
                   display: "flex",
-                  ...(dragOverEstimator === "__unassigned__" && dragEstimateId ? { outline: `2px solid ${C.accent}40`, outlineOffset: -2 } : {}),
+                  ...(dragOverEstimator === "__unassigned__" && dragEstimateId
+                    ? { outline: `2px solid ${C.accent}40`, outlineOffset: -2 }
+                    : {}),
                   transition: "background 100ms",
                 }}
               >
@@ -1119,61 +1263,64 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
                   const isDragging = dragEstimateId === bar.id;
                   const rescheduleOffset = isDragging && dragMode === "reschedule" ? dragDaysDelta * DAY_WIDTH : 0;
                   return (
-                  <div
-                    key={bar.id}
-                    onMouseDown={e => {
-                      if (e.button !== 0) return;
-                      e.preventDefault();
-                      dragRef.current = {
-                        startX: e.clientX, startY: e.clientY,
-                        barId: bar.id, bidDue: bar.bidDue,
-                        estimator: "", activated: false,
-                      };
-                      const ganttEl = e.currentTarget.closest("[data-gantt-rows]");
-                      if (ganttEl) {
-                        const rows = ganttEl.querySelectorAll("[data-estimator-row]");
-                        rowRectsRef.current = Array.from(rows).map(el => ({
-                          name: el.dataset.estimatorRow,
-                          top: el.getBoundingClientRect().top,
-                          bottom: el.getBoundingClientRect().bottom,
-                        }));
-                      }
-                    }}
-                    onClick={e => {
-                      if (dragRef.current.activated) return;
-                      e.stopPropagation();
-                      navigate(`/estimate/${bar.id}/info`);
-                    }}
-                    style={{
-                      position: "absolute",
-                      left: bar.left + 2 + rescheduleOffset,
-                      top: 6 + i * 22,
-                      width: bar.width,
-                      height: 18,
-                      borderRadius: 4,
-                      background: "#FBBF2420",
-                      border: "1px solid #FBBF2430",
-                      display: "flex",
-                      alignItems: "center",
-                      padding: "0 6px",
-                      cursor: isDragging ? "grabbing" : "grab",
-                      opacity: isDragging ? 0.4 : 1,
-                      transition: "opacity 100ms",
-                    }}
-                  >
-                    <span
+                    <div
+                      key={bar.id}
+                      onMouseDown={e => {
+                        if (e.button !== 0) return;
+                        e.preventDefault();
+                        dragRef.current = {
+                          startX: e.clientX,
+                          startY: e.clientY,
+                          barId: bar.id,
+                          bidDue: bar.bidDue,
+                          estimator: "",
+                          activated: false,
+                        };
+                        const ganttEl = e.currentTarget.closest("[data-gantt-rows]");
+                        if (ganttEl) {
+                          const rows = ganttEl.querySelectorAll("[data-estimator-row]");
+                          rowRectsRef.current = Array.from(rows).map(el => ({
+                            name: el.dataset.estimatorRow,
+                            top: el.getBoundingClientRect().top,
+                            bottom: el.getBoundingClientRect().bottom,
+                          }));
+                        }
+                      }}
+                      onClick={e => {
+                        if (dragRef.current.activated) return;
+                        e.stopPropagation();
+                        navigate(`/estimate/${bar.id}/info`);
+                      }}
                       style={{
-                        fontSize: 9,
-                        fontWeight: 600,
-                        color: "#FBBF24",
-                        overflow: "hidden",
-                        whiteSpace: "nowrap",
-                        textOverflow: "ellipsis",
+                        position: "absolute",
+                        left: bar.left + 2 + rescheduleOffset,
+                        top: 6 + i * 22,
+                        width: bar.width,
+                        height: 18,
+                        borderRadius: 4,
+                        background: "#FBBF2420",
+                        border: "1px solid #FBBF2430",
+                        display: "flex",
+                        alignItems: "center",
+                        padding: "0 6px",
+                        cursor: isDragging ? "grabbing" : "grab",
+                        opacity: isDragging ? 0.4 : 1,
+                        transition: "opacity 100ms",
                       }}
                     >
-                      {bar.name}
-                    </span>
-                  </div>
+                      <span
+                        style={{
+                          fontSize: 9,
+                          fontWeight: 600,
+                          color: "#FBBF24",
+                          overflow: "hidden",
+                          whiteSpace: "nowrap",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {bar.name}
+                      </span>
+                    </div>
                   );
                 })}
               </div>
@@ -1203,26 +1350,23 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
           <div style={{ fontWeight: T.fontWeight.bold, marginBottom: 4 }}>{tooltip.name}</div>
           <div style={{ color: C.textMuted }}>Hours: {tooltip.hours}</div>
           <div style={{ color: C.textMuted }}>Complete: {tooltip.pct}%</div>
-          {tooltip.scheduledRange && (
-            <div style={{ color: C.textMuted }}>Scheduled: {tooltip.scheduledRange}</div>
-          )}
-          {tooltip.bidDue && (
-            <div style={{ color: C.textMuted }}>Due: {tooltip.bidDue}</div>
-          )}
+          {tooltip.scheduledRange && <div style={{ color: C.textMuted }}>Scheduled: {tooltip.scheduledRange}</div>}
+          {tooltip.bidDue && <div style={{ color: C.textMuted }}>Due: {tooltip.bidDue}</div>}
           {tooltip.daysNeeded > 0 && (
-            <div style={{ color: C.textMuted }}>{tooltip.daysNeeded} work day{tooltip.daysNeeded !== 1 ? "s" : ""} needed</div>
+            <div style={{ color: C.textMuted }}>
+              {tooltip.daysNeeded} work day{tooltip.daysNeeded !== 1 ? "s" : ""} needed
+            </div>
           )}
           <div style={{ color: C.textMuted }}>Days remaining: {tooltip.daysLeft}</div>
           {tooltip.correspondenceCount > 0 && (
             <div style={{ color: "#60A5FA", marginTop: 2 }}>
-              {tooltip.correspondenceCount} correspondence{tooltip.correspondenceCount !== 1 ? "s" : ""}, {tooltip.correspondenceTotalHours}h
+              {tooltip.correspondenceCount} correspondence{tooltip.correspondenceCount !== 1 ? "s" : ""},{" "}
+              {tooltip.correspondenceTotalHours}h
               {tooltip.correspondenceNextDue ? ` · next due ${tooltip.correspondenceNextDue}` : ""}
             </div>
           )}
           {tooltip.emailCount > 1 && (
-            <div style={{ color: "#A78BFA", marginTop: 2 }}>
-              {tooltip.emailCount} linked emails
-            </div>
+            <div style={{ color: "#A78BFA", marginTop: 2 }}>{tooltip.emailCount} linked emails</div>
           )}
           <div style={{ marginTop: 4, display: "flex", gap: 4, alignItems: "center" }}>
             <span
@@ -1311,8 +1455,8 @@ function AlertsSection({ warnings, C, T }) {
 
   const isRed = w => w.type === "overloaded" || w.type === "conflict";
   const isAmber = w => w.type === "predicted_overload" || w.type === "load_imbalance";
-  const alertBg = w => isRed(w) ? "#FF3B3010" : isAmber(w) ? "#FF950010" : "#FBBF2410";
-  const alertBorder = w => isRed(w) ? "#FF3B3025" : isAmber(w) ? "#FF950025" : "#FBBF2425";
+  const alertBg = w => (isRed(w) ? "#FF3B3010" : isAmber(w) ? "#FF950010" : "#FBBF2410");
+  const alertBorder = w => (isRed(w) ? "#FF3B3025" : isAmber(w) ? "#FF950025" : "#FBBF2425");
   const alertIcon = w => {
     if (w.type === "conflict") return "\u{1F534}";
     if (w.type === "overloaded") return "\u{1F534}";
@@ -1360,7 +1504,8 @@ function AlertsSection({ warnings, C, T }) {
                 <>
                   <div>
                     <strong>{w.estimateName}</strong> ({w.estimator}) needs to start{" "}
-                    {parseDateStr(w.scheduledStart).toLocaleDateString("en-US", { month: "short", day: "numeric" })} (before today) to meet{" "}
+                    {parseDateStr(w.scheduledStart).toLocaleDateString("en-US", { month: "short", day: "numeric" })}{" "}
+                    (before today) to meet{" "}
                     {parseDateStr(w.bidDue).toLocaleDateString("en-US", { month: "short", day: "numeric" })} deadline
                   </div>
                   {w.suggestions?.length > 0 && (
@@ -1391,13 +1536,18 @@ function AlertsSection({ warnings, C, T }) {
               {w.type === "overloaded" && (
                 <span>
                   <strong>{w.estimator}</strong> is overloaded on{" "}
-                  {parseDateStr(w.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })} — {w.hours}h scheduled
+                  {parseDateStr(w.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })} — {w.hours}h
+                  scheduled
                 </span>
               )}
               {w.type === "predicted_overload" && (
                 <span>
-                  In <strong>{w.daysFromNow} day{w.daysFromNow !== 1 ? "s" : ""}</strong>, <strong>{w.estimator}</strong> will be at{" "}
-                  <strong>{w.utilization}%</strong> capacity ({w.hours}h scheduled)
+                  In{" "}
+                  <strong>
+                    {w.daysFromNow} day{w.daysFromNow !== 1 ? "s" : ""}
+                  </strong>
+                  , <strong>{w.estimator}</strong> will be at <strong>{w.utilization}%</strong> capacity ({w.hours}h
+                  scheduled)
                 </span>
               )}
               {w.type === "bid_cluster" && (
@@ -1460,7 +1610,9 @@ function GanttRangeNav({ rangeLabel, onPrev, onNext, onToday, C, T }) {
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: T.space[2] }}>
-      <button onClick={onPrev} style={btnStyle}>←</button>
+      <button onClick={onPrev} style={btnStyle}>
+        ←
+      </button>
       <span
         style={{
           fontSize: T.fontSize.base,
@@ -1472,8 +1624,13 @@ function GanttRangeNav({ rangeLabel, onPrev, onNext, onToday, C, T }) {
       >
         {rangeLabel}
       </span>
-      <button onClick={onNext} style={btnStyle}>→</button>
-      <button onClick={onToday} style={{ ...btnStyle, marginLeft: T.space[2], color: C.accent, borderColor: `${C.accent}30` }}>
+      <button onClick={onNext} style={btnStyle}>
+        →
+      </button>
+      <button
+        onClick={onToday}
+        style={{ ...btnStyle, marginLeft: T.space[2], color: C.accent, borderColor: `${C.accent}30` }}
+      >
         Today
       </button>
     </div>
@@ -1488,8 +1645,24 @@ function ByHoursView({ workload, C, T, navigate }) {
   const capHours = effectiveHoursPerDay || CAPACITY_HOURS;
 
   const ProgressBar = ({ value, max, color }) => (
-    <div style={{ height: 6, borderRadius: 3, background: C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)", overflow: "hidden", flex: 1 }}>
-      <div style={{ height: "100%", width: `${Math.min(100, max > 0 ? (value / max) * 100 : 0)}%`, background: color, borderRadius: 3, transition: "width 300ms" }} />
+    <div
+      style={{
+        height: 6,
+        borderRadius: 3,
+        background: C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
+        overflow: "hidden",
+        flex: 1,
+      }}
+    >
+      <div
+        style={{
+          height: "100%",
+          width: `${Math.min(100, max > 0 ? (value / max) * 100 : 0)}%`,
+          background: color,
+          borderRadius: 3,
+          transition: "width 300ms",
+        }}
+      />
     </div>
   );
 
@@ -1499,7 +1672,9 @@ function ByHoursView({ workload, C, T, navigate }) {
       <div
         onClick={() => navigate(`/estimate/${est.id}/info`)}
         style={{
-          display: "flex", alignItems: "center", gap: T.space[3],
+          display: "flex",
+          alignItems: "center",
+          gap: T.space[3],
           padding: `${T.space[2]}px ${T.space[3]}px`,
           borderRadius: T.radius.sm,
           cursor: "pointer",
@@ -1509,13 +1684,26 @@ function ByHoursView({ workload, C, T, navigate }) {
         }}
       >
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: T.fontSize.xs, fontWeight: T.fontWeight.semibold, color: C.text, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
+          <div
+            style={{
+              fontSize: T.fontSize.xs,
+              fontWeight: T.fontWeight.semibold,
+              color: C.text,
+              overflow: "hidden",
+              whiteSpace: "nowrap",
+              textOverflow: "ellipsis",
+            }}
+          >
             {est.name}
           </div>
           {est.bidDue && (
             <div style={{ fontSize: 9, color: C.textDim, marginTop: 1 }}>
               Due {parseDateStr(est.bidDue).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-              {est.daysRemaining > 0 ? ` · ${est.daysRemaining}d left` : est.daysRemaining === 0 ? " · Today" : " · Overdue"}
+              {est.daysRemaining > 0
+                ? ` · ${est.daysRemaining}d left`
+                : est.daysRemaining === 0
+                  ? " · Today"
+                  : " · Overdue"}
             </div>
           )}
         </div>
@@ -1546,15 +1734,24 @@ function ByHoursView({ workload, C, T, navigate }) {
             <div style={{ display: "flex", alignItems: "center", gap: T.space[3], marginBottom: T.space[3] }}>
               <Avatar name={row.name} color={row.color} size={32} fontSize={12} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: T.fontSize.base, fontWeight: T.fontWeight.bold, color: C.text }}>{row.name}</div>
-                <div style={{ fontSize: 9, color: C.textDim }}>{row.estimates.length} active project{row.estimates.length !== 1 ? "s" : ""}</div>
+                <div style={{ fontSize: T.fontSize.base, fontWeight: T.fontWeight.bold, color: C.text }}>
+                  {row.name}
+                </div>
+                <div style={{ fontSize: 9, color: C.textDim }}>
+                  {row.estimates.length} active project{row.estimates.length !== 1 ? "s" : ""}
+                </div>
               </div>
               {/* Utilization badge */}
-              <div style={{
-                fontSize: 10, fontWeight: 700, color: utilColor,
-                padding: "3px 8px", borderRadius: T.radius.sm,
-                background: hexAlpha(utilColor, 0.12),
-              }}>
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: utilColor,
+                  padding: "3px 8px",
+                  borderRadius: T.radius.sm,
+                  background: hexAlpha(utilColor, 0.12),
+                }}
+              >
                 {utilPct}% utilized
               </div>
             </div>
@@ -1562,34 +1759,58 @@ function ByHoursView({ workload, C, T, navigate }) {
             {/* Hours summary */}
             <div style={{ display: "flex", gap: T.space[4], marginBottom: T.space[3] }}>
               <div>
-                <div style={{ fontSize: T.fontSize.lg, fontWeight: T.fontWeight.bold, color: C.text }}>{totalHours}h</div>
-                <div style={{ fontSize: 8, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.06em" }}>Estimated</div>
+                <div style={{ fontSize: T.fontSize.lg, fontWeight: T.fontWeight.bold, color: C.text }}>
+                  {totalHours}h
+                </div>
+                <div style={{ fontSize: 8, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  Estimated
+                </div>
               </div>
               <div>
-                <div style={{ fontSize: T.fontSize.lg, fontWeight: T.fontWeight.bold, color: C.text }}>{totalLogged}h</div>
-                <div style={{ fontSize: 8, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.06em" }}>Logged</div>
+                <div style={{ fontSize: T.fontSize.lg, fontWeight: T.fontWeight.bold, color: C.text }}>
+                  {totalLogged}h
+                </div>
+                <div style={{ fontSize: 8, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  Logged
+                </div>
               </div>
               <div>
                 <div style={{ fontSize: T.fontSize.lg, fontWeight: T.fontWeight.bold, color: C.text }}>
                   {Math.max(0, totalHours - totalLogged)}h
                 </div>
-                <div style={{ fontSize: 8, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.06em" }}>Remaining</div>
+                <div style={{ fontSize: 8, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  Remaining
+                </div>
               </div>
             </div>
 
             {/* Utilization bar */}
             <div style={{ marginBottom: T.space[3] }}>
-              <div style={{ height: 4, borderRadius: 2, background: C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)", overflow: "hidden" }}>
-                <div style={{
-                  height: "100%", width: `${Math.min(100, utilPct)}%`,
-                  background: utilColor, borderRadius: 2, transition: "width 300ms",
-                }} />
+              <div
+                style={{
+                  height: 4,
+                  borderRadius: 2,
+                  background: C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    height: "100%",
+                    width: `${Math.min(100, utilPct)}%`,
+                    background: utilColor,
+                    borderRadius: 2,
+                    transition: "width 300ms",
+                  }}
+                />
               </div>
             </div>
 
             {/* Estimates list */}
             <div style={{ display: "flex", flexDirection: "column", gap: T.space[2] }}>
-              {sorted.map(est => <EstimateRow key={est.id} est={est} />)}
+              {sorted.map(est => (
+                <EstimateRow key={est.id} est={est} />
+              ))}
             </div>
           </div>
         );
@@ -1599,17 +1820,33 @@ function ByHoursView({ workload, C, T, navigate }) {
       {unassignedEstimates.length > 0 && (
         <div style={{ ...cardSolid(C), padding: T.space[4], border: `1px solid #FBBF2430` }}>
           <div style={{ display: "flex", alignItems: "center", gap: T.space[3], marginBottom: T.space[3] }}>
-            <div style={{
-              width: 32, height: 32, borderRadius: "50%", background: "#FBBF2420",
-              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14,
-            }}>?</div>
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: "50%",
+                background: "#FBBF2420",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 14,
+              }}
+            >
+              ?
+            </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: T.fontSize.base, fontWeight: T.fontWeight.bold, color: "#FBBF24" }}>Unassigned</div>
-              <div style={{ fontSize: 9, color: C.textDim }}>{unassignedEstimates.length} project{unassignedEstimates.length !== 1 ? "s" : ""} need assignment</div>
+              <div style={{ fontSize: T.fontSize.base, fontWeight: T.fontWeight.bold, color: "#FBBF24" }}>
+                Unassigned
+              </div>
+              <div style={{ fontSize: 9, color: C.textDim }}>
+                {unassignedEstimates.length} project{unassignedEstimates.length !== 1 ? "s" : ""} need assignment
+              </div>
             </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: T.space[2] }}>
-            {unassignedEstimates.map(est => <EstimateRow key={est.id} est={est} />)}
+            {unassignedEstimates.map(est => (
+              <EstimateRow key={est.id} est={est} />
+            ))}
           </div>
         </div>
       )}
@@ -1673,11 +1910,11 @@ function ByDueDateView({ workload, C, T, navigate }) {
     });
   }, [sorted]);
 
-  const urgencyColor = (daysRemaining) => {
-    if (daysRemaining < 0) return "#FF3B30";  // overdue
-    if (daysRemaining <= 3) return "#FF9500";  // critical
-    if (daysRemaining <= 7) return "#FBBF24";  // warning
-    return "#30D158";                          // comfortable
+  const urgencyColor = daysRemaining => {
+    if (daysRemaining < 0) return "#FF3B30"; // overdue
+    if (daysRemaining <= 3) return "#FF9500"; // critical
+    if (daysRemaining <= 7) return "#FBBF24"; // warning
+    return "#30D158"; // comfortable
   };
 
   if (sorted.length === 0) {
@@ -1696,28 +1933,42 @@ function ByDueDateView({ workload, C, T, navigate }) {
       {weeks.map(week => (
         <div key={week.label}>
           {/* Week header */}
-          <div style={{
-            display: "flex", alignItems: "center", gap: T.space[2],
-            marginBottom: T.space[3],
-          }}>
-            <div style={{
-              fontSize: T.fontSize.sm, fontWeight: T.fontWeight.bold,
-              color: week.label === "Overdue" ? "#FF3B30" : C.text,
-            }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: T.space[2],
+              marginBottom: T.space[3],
+            }}
+          >
+            <div
+              style={{
+                fontSize: T.fontSize.sm,
+                fontWeight: T.fontWeight.bold,
+                color: week.label === "Overdue" ? "#FF3B30" : C.text,
+              }}
+            >
               {week.label}
             </div>
-            <div style={{
-              fontSize: 9, fontWeight: 600, color: C.textDim,
-              padding: "2px 8px", borderRadius: T.radius.full,
-              background: C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
-            }}>
+            <div
+              style={{
+                fontSize: 9,
+                fontWeight: 600,
+                color: C.textDim,
+                padding: "2px 8px",
+                borderRadius: T.radius.full,
+                background: C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+              }}
+            >
               {week.estimates.length} bid{week.estimates.length !== 1 ? "s" : ""}
             </div>
             <div style={{ flex: 1, height: 1, background: C.border }} />
           </div>
 
           {/* Estimate cards */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: T.space[3] }}>
+          <div
+            style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: T.space[3] }}
+          >
             {week.estimates.map(est => {
               const uColor = urgencyColor(est.daysRemaining);
               const schedColor = SCHEDULE_COLORS[est.scheduleStatus] || "#A78BFA";
@@ -1739,37 +1990,58 @@ function ByDueDateView({ workload, C, T, navigate }) {
                     {est.estimator ? (
                       <Avatar name={est.estimator} color={est.estimatorColor} size={28} fontSize={10} />
                     ) : (
-                      <div style={{
-                        width: 28, height: 28, borderRadius: "50%", background: "#FBBF2420",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 11, color: "#FBBF24",
-                      }}>?</div>
+                      <div
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: "50%",
+                          background: "#FBBF2420",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 11,
+                          color: "#FBBF24",
+                        }}
+                      >
+                        ?
+                      </div>
                     )}
 
                     <div style={{ flex: 1, minWidth: 0 }}>
                       {/* Name */}
-                      <div style={{
-                        fontSize: T.fontSize.sm, fontWeight: T.fontWeight.semibold, color: C.text,
-                        overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis",
-                      }}>
+                      <div
+                        style={{
+                          fontSize: T.fontSize.sm,
+                          fontWeight: T.fontWeight.semibold,
+                          color: C.text,
+                          overflow: "hidden",
+                          whiteSpace: "nowrap",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
                         {est.name}
                       </div>
                       {/* Estimator name */}
-                      <div style={{ fontSize: 9, color: C.textDim, marginTop: 1 }}>
-                        {est.estimator || "Unassigned"}
-                      </div>
+                      <div style={{ fontSize: 9, color: C.textDim, marginTop: 1 }}>{est.estimator || "Unassigned"}</div>
                     </div>
 
                     {/* Due date badge */}
-                    <div style={{
-                      fontSize: 10, fontWeight: 700, color: uColor,
-                      padding: "3px 8px", borderRadius: T.radius.sm,
-                      background: hexAlpha(uColor, 0.12),
-                      flexShrink: 0,
-                    }}>
-                      {est.daysRemaining < 0 ? `${Math.abs(est.daysRemaining)}d overdue`
-                        : est.daysRemaining === 0 ? "Due today"
-                        : `${est.daysRemaining}d left`}
+                    <div
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        color: uColor,
+                        padding: "3px 8px",
+                        borderRadius: T.radius.sm,
+                        background: hexAlpha(uColor, 0.12),
+                        flexShrink: 0,
+                      }}
+                    >
+                      {est.daysRemaining < 0
+                        ? `${Math.abs(est.daysRemaining)}d overdue`
+                        : est.daysRemaining === 0
+                          ? "Due today"
+                          : `${est.daysRemaining}d left`}
                     </div>
                   </div>
 
@@ -1788,17 +2060,34 @@ function ByDueDateView({ workload, C, T, navigate }) {
 
                   {/* Progress bar */}
                   <div style={{ marginTop: T.space[2], paddingLeft: 40 }}>
-                    <div style={{ height: 4, borderRadius: 2, background: C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)", overflow: "hidden" }}>
-                      <div style={{
-                        height: "100%", width: `${est.percentComplete}%`,
-                        background: schedColor, borderRadius: 2, transition: "width 300ms",
-                      }} />
+                    <div
+                      style={{
+                        height: 4,
+                        borderRadius: 2,
+                        background: C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          height: "100%",
+                          width: `${est.percentComplete}%`,
+                          background: schedColor,
+                          borderRadius: 2,
+                          transition: "width 300ms",
+                        }}
+                      />
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
                       <span style={{ fontSize: 8, color: C.textDim }}>{est.percentComplete}% complete</span>
-                      <span style={{
-                        fontSize: 8, fontWeight: 600, color: schedColor, textTransform: "capitalize",
-                      }}>
+                      <span
+                        style={{
+                          fontSize: 8,
+                          fontWeight: 600,
+                          color: schedColor,
+                          textTransform: "capitalize",
+                        }}
+                      >
                         {est.scheduleStatus?.replace("-", " ")}
                       </span>
                     </div>
@@ -1834,7 +2123,7 @@ function ScheduleSettings({ C, T }) {
           padding: "6px 10px",
           fontSize: T.fontSize.xs,
           color: C.textMuted,
-          background: open ? `${C.accent}12` : (C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"),
+          background: open ? `${C.accent}12` : C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)",
           border: `1px solid ${open ? C.accent + "30" : C.border}`,
           borderRadius: T.radius.sm,
           display: "flex",
@@ -1861,13 +2150,25 @@ function ScheduleSettings({ C, T }) {
             minWidth: 240,
           }}
         >
-          <div style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.bold, color: C.text, marginBottom: T.space[3] }}>
+          <div
+            style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.bold, color: C.text, marginBottom: T.space[3] }}
+          >
             Schedule Settings
           </div>
 
           {/* Production Hours/Day */}
           <div style={{ marginBottom: T.space[3] }}>
-            <label style={{ fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 4 }}>
+            <label
+              style={{
+                fontSize: 9,
+                fontWeight: 700,
+                color: C.textDim,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                display: "block",
+                marginBottom: 4,
+              }}
+            >
               Production Hours / Day
             </label>
             <input
@@ -1891,7 +2192,17 @@ function ScheduleSettings({ C, T }) {
 
           {/* Buffer Hours */}
           <div>
-            <label style={{ fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 4 }}>
+            <label
+              style={{
+                fontSize: 9,
+                fontWeight: 700,
+                color: C.textDim,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                display: "block",
+                marginBottom: 4,
+              }}
+            >
               Buffer Between Estimates (hrs)
             </label>
             <input
@@ -1918,7 +2229,17 @@ function ScheduleSettings({ C, T }) {
 
           {/* Overhead % */}
           <div style={{ marginBottom: T.space[3] }}>
-            <label style={{ fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 4 }}>
+            <label
+              style={{
+                fontSize: 9,
+                fontWeight: 700,
+                color: C.textDim,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                display: "block",
+                marginBottom: 4,
+              }}
+            >
               Overhead %
             </label>
             <input
@@ -1942,7 +2263,17 @@ function ScheduleSettings({ C, T }) {
 
           {/* Behind Threshold */}
           <div style={{ marginBottom: T.space[3] }}>
-            <label style={{ fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 4 }}>
+            <label
+              style={{
+                fontSize: 9,
+                fontWeight: 700,
+                color: C.textDim,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                display: "block",
+                marginBottom: 4,
+              }}
+            >
               Behind Threshold %
             </label>
             <input
@@ -1966,7 +2297,17 @@ function ScheduleSettings({ C, T }) {
 
           {/* Ahead Threshold */}
           <div>
-            <label style={{ fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 4 }}>
+            <label
+              style={{
+                fontSize: 9,
+                fontWeight: 700,
+                color: C.textDim,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                display: "block",
+                marginBottom: 4,
+              }}
+            >
               Ahead Threshold %
             </label>
             <input
@@ -2015,14 +2356,8 @@ export default function ResourcePage() {
   const C = useTheme();
   const T = C.T;
   const navigate = useNavigate();
-  const {
-    selectedDate,
-    setSelectedDate,
-    sidebarCollapsed,
-    setSidebarCollapsed,
-    sortMode,
-    setSortMode,
-  } = useResourceStore();
+  const { selectedDate, setSelectedDate, sidebarCollapsed, setSidebarCollapsed, sortMode, setSortMode } =
+    useResourceStore();
 
   // Range state: shift by 2-week increments
   const [rangeOffset, setRangeOffset] = useState(0);
@@ -2067,15 +2402,20 @@ export default function ResourcePage() {
   }, [workload.rangeStart, workload.rangeEnd]);
 
   // Drag-and-drop handler: reassign estimate to a different estimator
-  const handleDrop = useCallback((estimateId, estimatorName) => {
-    if (!estimateId) return;
-    useEstimatesStore.getState().updateIndexEntry(estimateId, { estimator: estimatorName });
-    const estName = workload.allEstimates?.find(e => e.id === estimateId)?.name || "Estimate";
-    useUiStore.getState().showToast(
-      estimatorName ? `Assigned "${estName}" to ${estimatorName}` : `Moved "${estName}" to Unassigned`,
-      "success"
-    );
-  }, [workload.allEstimates]);
+  const handleDrop = useCallback(
+    (estimateId, estimatorName) => {
+      if (!estimateId) return;
+      useEstimatesStore.getState().updateIndexEntry(estimateId, { estimator: estimatorName });
+      const estName = workload.allEstimates?.find(e => e.id === estimateId)?.name || "Estimate";
+      useUiStore
+        .getState()
+        .showToast(
+          estimatorName ? `Assigned "${estName}" to ${estimatorName}` : `Moved "${estName}" to Unassigned`,
+          "success",
+        );
+    },
+    [workload.allEstimates],
+  );
 
   return (
     <div
@@ -2087,7 +2427,9 @@ export default function ResourcePage() {
       }}
     >
       {/* Page Title */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: T.space[5] }}>
+      <div
+        style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: T.space[5] }}
+      >
         <div>
           <h1 style={{ fontSize: T.fontSize["2xl"], fontWeight: T.fontWeight.bold, color: C.text, margin: 0 }}>
             Resources
@@ -2225,8 +2567,25 @@ export default function ResourcePage() {
       </div>
 
       {/* View Toggle Strip */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: T.space[4], flexWrap: "wrap", gap: T.space[3] }}>
-        <div style={{ display: "flex", background: C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)", borderRadius: T.radius.md, padding: 2, border: `1px solid ${C.border}` }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: T.space[4],
+          flexWrap: "wrap",
+          gap: T.space[3],
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            background: C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)",
+            borderRadius: T.radius.md,
+            padding: 2,
+            border: `1px solid ${C.border}`,
+          }}
+        >
           {[
             { key: "timeline", label: "Timeline" },
             { key: "weekly", label: "This Week" },
@@ -2261,7 +2620,9 @@ export default function ResourcePage() {
 
       {/* Timeline Nav (only in timeline mode) */}
       {sortMode === "timeline" && (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: T.space[4] }}>
+        <div
+          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: T.space[4] }}
+        >
           <GanttRangeNav
             rangeLabel={rangeLabel}
             onPrev={() => setRangeOffset(o => o - 1)}
@@ -2271,7 +2632,17 @@ export default function ResourcePage() {
             T={T}
           />
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 9, color: C.textDim, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Week</span>
+            <span
+              style={{
+                fontSize: 9,
+                color: C.textDim,
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+              }}
+            >
+              Week
+            </span>
             {["mon-fri", "mon-sat"].map(ww => (
               <button
                 key={ww}
@@ -2311,33 +2682,21 @@ export default function ResourcePage() {
       )}
 
       {/* Weekly Plan View */}
-      {sortMode === "weekly" && (
-        <WeeklyPlanView workload={workload} C={C} T={T} />
-      )}
+      {sortMode === "weekly" && <WeeklyPlanView workload={workload} C={C} T={T} />}
 
       {/* By Hours View */}
-      {sortMode === "hours" && (
-        <ByHoursView workload={workload} C={C} T={T} navigate={navigate} />
-      )}
+      {sortMode === "hours" && <ByHoursView workload={workload} C={C} T={T} navigate={navigate} />}
 
       {/* By Due Date View */}
-      {sortMode === "due-date" && (
-        <ByDueDateView workload={workload} C={C} T={T} navigate={navigate} />
-      )}
+      {sortMode === "due-date" && <ByDueDateView workload={workload} C={C} T={T} navigate={navigate} />}
 
       {/* Analytics View */}
       {sortMode === "analytics" && (
-        <AnalyticsPanel
-          C={C}
-          T={T}
-          estimatorColors={new Map(workload.estimatorRows.map(r => [r.name, r.color]))}
-        />
+        <AnalyticsPanel C={C} T={T} estimatorColors={new Map(workload.estimatorRows.map(r => [r.name, r.color]))} />
       )}
 
       {/* Workload Trends — shows on Timeline and Analytics views */}
-      {(sortMode === "timeline" || sortMode === "analytics") && (
-        <WorkloadTrendsPanel workload={workload} C={C} T={T} />
-      )}
+      {(sortMode === "timeline" || sortMode === "analytics") && <WorkloadTrendsPanel workload={workload} C={C} T={T} />}
 
       {/* Estimator Scorecard Modal */}
       {scorecardEstimator && (
@@ -2345,6 +2704,8 @@ export default function ResourcePage() {
           open
           estimatorName={scorecardEstimator.name}
           color={scorecardEstimator.color}
+          contextEstimate={scorecardEstimator.contextEstimate}
+          estimatorProfile={scorecardEstimator.profile}
           onClose={() => setScorecardEstimator(null)}
         />
       )}
@@ -2353,14 +2714,10 @@ export default function ResourcePage() {
       <ReviewPanel open={showReviewPanel} onClose={() => setShowReviewPanel(false)} />
 
       {/* Auto Schedule Modal */}
-      {showAutoSchedule && (
-        <AutoScheduleModal workload={workload} onClose={() => setShowAutoSchedule(false)} />
-      )}
+      {showAutoSchedule && <AutoScheduleModal workload={workload} onClose={() => setShowAutoSchedule(false)} />}
 
       {/* What If Modal */}
-      {showWhatIf && (
-        <WhatIfModal workload={workload} onClose={() => setShowWhatIf(false)} />
-      )}
+      {showWhatIf && <WhatIfModal workload={workload} onClose={() => setShowWhatIf(false)} />}
     </div>
   );
 }

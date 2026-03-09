@@ -8,15 +8,7 @@ import { bt } from "@/utils/styles";
    estimator specialties (disciplines they can estimate).
    ──────────────────────────────────────────────────────── */
 
-const DISCIPLINES = [
-  "structural",
-  "MEP",
-  "civil",
-  "interiors",
-  "finishes",
-  "sitework",
-  "general",
-];
+const DISCIPLINES = ["structural", "MEP", "civil", "interiors", "finishes", "sitework", "general"];
 
 export default function EstimatorSkillsEditor({ estimatorId, estimatorName, specialties = [], onClose }) {
   const C = useTheme();
@@ -30,24 +22,22 @@ export default function EstimatorSkillsEditor({ estimatorId, estimatorName, spec
   };
 
   const save = () => {
-    useMasterDataStore.getState().updateMasterItem(
-      "estimators",
-      estimatorId,
-      { specialties: Array.from(selected) },
-    );
+    useMasterDataStore.getState().updateMasterItem("estimators", estimatorId, "specialties", Array.from(selected));
     onClose?.();
   };
 
   return (
     <div style={{ padding: T.space[3] }}>
-      <div style={{
-        fontSize: 9,
-        fontWeight: 700,
-        color: C.textDim,
-        textTransform: "uppercase",
-        letterSpacing: "0.06em",
-        marginBottom: T.space[2],
-      }}>
+      <div
+        style={{
+          fontSize: 9,
+          fontWeight: 700,
+          color: C.textDim,
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
+          marginBottom: T.space[2],
+        }}
+      >
         {estimatorName} — Specialties
       </div>
 
@@ -64,7 +54,7 @@ export default function EstimatorSkillsEditor({ estimatorId, estimatorName, spec
                 fontSize: 10,
                 fontWeight: active ? 600 : 400,
                 color: active ? "#fff" : C.textMuted,
-                background: active ? C.accent : (C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)"),
+                background: active ? C.accent : C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
                 border: `1px solid ${active ? C.accent : C.border}`,
                 borderRadius: 20,
                 transition: "all 120ms",

@@ -257,22 +257,24 @@ function applyMasterData(data) {
 }
 
 // ─── Estimates Sync ────────────────────────────────────────────────
+//
+// CRITICAL FIX (v5): This function does async cloud operations that can take
+// several seconds. Previously it read a snapshot of the IDB index at the start,
+// then REPLACED the Zustand store at the end — any estimates the user created
+// or deleted during the async window were silently lost.
+//
+// v5 strategy: ADDITIVE MERGE ONLY.
+//   - Track which entries were pulled from cloud during sync.
+//   - At the END, re-read the CURRENT Zustand store + fresh deleted-IDs.
+//   - ADD cloud-pulled entries that aren't already in the store and aren't deleted.
+//   - NEVER call setEstimatesIndex() to replace the store — only additive operations.
+//   - Push local-only estimates to cloud (also using fresh state).
 
-async function syncEstimates() {
-  // Get local index
-  const idxRaw = await storage.get(idbKey("bldg-index"));
-  let localIndex = [];
-  try {
-    localIndex = idxRaw ? JSON.parse(idxRaw.value) : [];
-  } catch {
-    localIndex = [];
-  } // Corrupted → treat as empty
-  const localIndexMap = new Map(localIndex.map(e => [e.id, e]));
-
-  // Get locally-deleted IDs — merge IndexedDB + localStorage backup
-  const deletedRaw = await storage.get(idbKey("bldg-deleted-ids"));
+// Helper: read all deleted IDs from both IDB and localStorage
+async function readDeletedIds() {
   let deletedIds = [];
   try {
+    const deletedRaw = await storage.get(idbKey("bldg-deleted-ids"));
     deletedIds = deletedRaw ? JSON.parse(deletedRaw.value) : [];
   } catch {
     deletedIds = [];
@@ -291,99 +293,83 @@ async function syncEstimates() {
   } catch {
     /* ignore */
   }
-  const deletedSet = new Set(deletedIds);
+  return deletedIds;
+}
 
-  // Get cloud index — filter out any locally-deleted estimates to prevent resurrection
+async function syncEstimates() {
+  // ── Phase 1: Read initial deleted IDs for cloud operations ──
+  const initialDeletedIds = await readDeletedIds();
+  const initialDeletedSet = new Set(initialDeletedIds);
+
+  // ── Phase 2: Fetch cloud data ──
   const cloudIndexResult = await cloudSync.pullDataWithMeta("index");
   const cloudIndexRaw = cloudIndexResult?.data && Array.isArray(cloudIndexResult.data) ? cloudIndexResult.data : [];
-  const cloudIndex = cloudIndexRaw.filter(e => !deletedSet.has(e.id));
-  const cloudIndexMap = new Map(cloudIndex.map(e => [e.id, e]));
+  const cloudIndexMap = new Map(cloudIndexRaw.filter(e => !initialDeletedSet.has(e.id)).map(e => [e.id, e]));
 
-  // Get all cloud estimates with metadata
   const cloudEstimates = await cloudSync.pullAllEstimatesWithMeta();
   const cloudEstMap = new Map(cloudEstimates.map(e => [e.estimate_id, e]));
 
-  let changed = false;
-
-  // Retry cloud deletion for any locally-deleted estimates still in cloud
-  const cleanedDeletedIds = [];
-  for (const delId of deletedIds) {
+  // ── Phase 3: Retry cloud deletion for locally-deleted estimates still in cloud ──
+  for (const delId of initialDeletedIds) {
     if (cloudEstMap.has(delId)) {
       console.log(`[cloudSync] Estimates: retrying cloud deletion for ${delId}`);
       try {
         await cloudSync.deleteEstimate(delId);
       } catch (err) {
         console.warn(`[cloudSync] Retry delete failed for ${delId}:`, err.message);
-        cleanedDeletedIds.push(delId); // Keep in deleted list for next retry
       }
     }
-    // else: already gone from cloud, no need to keep tracking
   }
-  // Update deleted IDs list (remove successfully deleted ones)
-  if (cleanedDeletedIds.length !== deletedIds.length) {
-    await storage.set(idbKey("bldg-deleted-ids"), JSON.stringify(cleanedDeletedIds));
-    // Also update localStorage backup
-    try {
-      const userId = useAuthStore.getState().user?.id;
-      const lsKey = `bldg-deleted-ids-${userId || "anon"}`;
-      localStorage.setItem(lsKey, JSON.stringify(cleanedDeletedIds));
-    } catch {
-      /* ignore */
-    }
-  }
-  // Rebuild deleted set from cleaned list (original deletedSet is stale after retry loop)
-  const activeDeletedSet = new Set(cleanedDeletedIds);
 
-  // Pull estimates that exist in cloud but not locally
-  // SKIP any that were locally deleted (prevents resurrection)
+  // ── Phase 4: Cache cloud-only estimate data to IDB (doesn't touch the store yet) ──
+  const pulledEntries = []; // track entries pulled from cloud for Phase 5 merge
+  // Use initial IDB snapshot just for diffing against cloud — NOT for store replacement
+  let idbIndex = [];
+  try {
+    const idxRaw = await storage.get(idbKey("bldg-index"));
+    idbIndex = idxRaw ? JSON.parse(idxRaw.value) : [];
+  } catch {
+    idbIndex = [];
+  }
+  const idbIndexMap = new Map(idbIndex.map(e => [e.id, e]));
+
   for (const ce of cloudEstimates) {
-    if (activeDeletedSet.has(ce.estimate_id)) {
-      continue; // Don't pull back a deleted estimate
-    }
-    if (!localIndexMap.has(ce.estimate_id)) {
-      console.log(`[cloudSync] Estimates: pulling cloud estimate ${ce.estimate_id}`);
+    if (initialDeletedSet.has(ce.estimate_id)) continue; // Don't pull back deleted
+    if (!idbIndexMap.has(ce.estimate_id)) {
+      console.log(`[cloudSync] Estimates: caching cloud estimate ${ce.estimate_id} to IDB`);
       await storage.set(idbKey(`bldg-est-${ce.estimate_id}`), JSON.stringify(ce.data));
-      // Add to local index from cloud index entry
       const cloudEntry = cloudIndexMap.get(ce.estimate_id);
       if (cloudEntry) {
-        localIndex.push(cloudEntry);
-        localIndexMap.set(ce.estimate_id, cloudEntry);
+        pulledEntries.push(cloudEntry);
       }
-      changed = true;
     }
   }
 
-  // Push estimates that exist locally but not in cloud
-  for (const entry of localIndex) {
-    if (!cloudEstMap.has(entry.id)) {
-      console.log(`[cloudSync] Estimates: pushing local estimate ${entry.id}`);
-      const estRaw = await storage.get(idbKey(`bldg-est-${entry.id}`));
-      if (estRaw) {
-        let estData;
-        try {
-          estData = JSON.parse(estRaw.value);
-        } catch {
-          continue;
-        } // Skip corrupted estimate
-        await cloudSync.pushEstimate(entry.id, estData);
-      }
-      changed = true;
-    }
-  }
+  // ── Phase 5: SAFE ADDITIVE MERGE — re-read FRESH state, never replace ──
+  // Re-read deleted IDs (user may have deleted more estimates during the async window)
+  const freshDeletedIds = await readDeletedIds();
+  const freshDeletedSet = new Set(freshDeletedIds);
 
-  // Final filter: ensure no deleted estimates remain in localIndex before persisting
-  // Uses original deletedSet (all known deleted IDs, not just retry failures)
-  const cleanedIndex = localIndex.filter(e => !deletedSet.has(e.id));
-  if (cleanedIndex.length !== localIndex.length) {
-    console.log(`[cloudSync] Estimates: filtered ${localIndex.length - cleanedIndex.length} deleted entries from index`);
-    localIndex = cleanedIndex;
-    changed = true;
-  }
+  // Read the CURRENT Zustand store (NOT the stale IDB snapshot from Phase 4)
+  const currentIndex = useEstimatesStore.getState().estimatesIndex;
+  const currentIndexMap = new Map(currentIndex.map(e => [e.id, e]));
 
-  if (changed) {
-    // Update local index in store and IndexedDB
-    useEstimatesStore.getState().setEstimatesIndex(localIndex);
-    const idxJson = JSON.stringify(localIndex);
+  // Only ADD entries pulled from cloud that aren't already in store and aren't deleted
+  const toAdd = pulledEntries.filter(e => !currentIndexMap.has(e.id) && !freshDeletedSet.has(e.id));
+
+  if (toAdd.length > 0) {
+    console.log(`[cloudSync] Estimates: adding ${toAdd.length} cloud-pulled entries to store`);
+    // ATOMIC: Use functional setState so concurrent user creates/deletes are preserved.
+    // This reads the store state at write-time, not from a stale closure variable.
+    const toAddIds = new Set(toAdd.map(e => e.id));
+    useEstimatesStore.setState(state => ({
+      estimatesIndex: [
+        ...state.estimatesIndex,
+        ...toAdd.filter(e => !state.estimatesIndex.some(ex => ex.id === e.id)),
+      ],
+    }));
+    const merged = useEstimatesStore.getState().estimatesIndex;
+    const idxJson = JSON.stringify(merged);
     await storage.set(idbKey("bldg-index"), idxJson);
 
     // Mirror index to localStorage — resilient backup
@@ -393,10 +379,60 @@ async function syncEstimates() {
     } catch {
       /* quota exceeded */
     }
+  }
 
-    // Push merged index to cloud (excluding deleted)
-    await cloudSync.pushData("index", localIndex);
-    console.log(`[cloudSync] Estimates: synced, ${localIndex.length} total estimates`);
+  // ── Phase 6: Push local-only estimates to cloud (using FRESH store state) ──
+  // Re-read fresh state since we may have just added entries
+  const finalIndex = useEstimatesStore.getState().estimatesIndex;
+  let pushed = false;
+  for (const entry of finalIndex) {
+    if (!cloudEstMap.has(entry.id) && !freshDeletedSet.has(entry.id)) {
+      console.log(`[cloudSync] Estimates: pushing local estimate ${entry.id}`);
+      const estRaw = await storage.get(idbKey(`bldg-est-${entry.id}`));
+      if (estRaw) {
+        let estData;
+        try {
+          estData = JSON.parse(estRaw.value);
+        } catch {
+          continue;
+        } // Skip corrupted
+        await cloudSync.pushEstimate(entry.id, estData);
+        pushed = true;
+      }
+    }
+  }
+
+  // ── Phase 7: Clean deleted entries from IDB index ──
+  // ATOMIC: Use functional setState so concurrent user creates are preserved.
+  // Re-read freshDeletedIds one final time to catch any deletes during Phase 6.
+  const finalDeletedIds = await readDeletedIds();
+  const finalDeletedSet = new Set(finalDeletedIds);
+  const beforeLen = useEstimatesStore.getState().estimatesIndex.length;
+  useEstimatesStore.setState(state => ({
+    estimatesIndex: state.estimatesIndex.filter(e => !finalDeletedSet.has(e.id)),
+  }));
+  const afterLen = useEstimatesStore.getState().estimatesIndex.length;
+  if (afterLen < beforeLen) {
+    console.log(
+      `[cloudSync] Estimates: filtered ${beforeLen - afterLen} deleted entries from index`,
+    );
+  }
+  // Persist the cleaned index to IDB + localStorage mirror
+  const cleanedIndex = useEstimatesStore.getState().estimatesIndex;
+  const cleanedJson = JSON.stringify(cleanedIndex);
+  await storage.set(idbKey("bldg-index"), cleanedJson);
+  try {
+    const userId = useAuthStore.getState().user?.id;
+    if (userId) localStorage.setItem(`bldg-index-mirror-${userId}`, cleanedJson);
+  } catch {
+    /* quota exceeded */
+  }
+
+  // Push final index to cloud
+  const pushIndex = useEstimatesStore.getState().estimatesIndex;
+  if (toAdd.length > 0 || pushed || afterLen < beforeLen) {
+    await cloudSync.pushData("index", pushIndex);
+    console.log(`[cloudSync] Estimates: synced, ${pushIndex.length} total estimates`);
   }
 }
 
@@ -541,10 +577,27 @@ async function runBlobMigration() {
     return;
   }
 
+  // Load deleted IDs from BOTH IDB + localStorage to avoid re-pushing deleted estimates
+  let deletedIds = [];
+  try {
+    const delRaw = await storage.get(idbKey("bldg-deleted-ids"));
+    const idbIds = delRaw ? JSON.parse(delRaw.value) : [];
+    const lsKey = `bldg-deleted-ids-${useAuthStore.getState().user?.id || "anon"}`;
+    const lsRaw = localStorage.getItem(lsKey);
+    const lsIds = lsRaw ? JSON.parse(lsRaw) : [];
+    deletedIds = [...new Set([...idbIds, ...lsIds])];
+  } catch {
+    /* ignore */
+  }
+  const deletedSet = new Set(deletedIds);
+
   console.log(`[cloudSync] Blob migration: checking ${index.length} estimates...`);
   let migrated = 0;
 
   for (const entry of index) {
+    // Skip deleted estimates — pushEstimate could un-delete them
+    if (deletedSet.has(entry.id)) continue;
+
     try {
       const raw = await storage.get(idbKey(`bldg-est-${entry.id}`));
       if (!raw) continue;

@@ -244,19 +244,21 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
       setScanProgress({ phase: "titleblock", current: 0, total: 1, message: "Reading title block..." });
 
       // Pick 2 candidate sheets — prefer those with title-block notes, fall back to first 2
-      const titleBlockSheets = validNotesResults.filter(
-        r => r.notes?.some(n => n.category === "title-block"),
-      );
-      const candidateSheetIds = titleBlockSheets.length > 0
-        ? titleBlockSheets.slice(0, 2).map(r => r.sheetId)
-        : detections.filter(d => !d.error && d.imgBase64).slice(0, 2).map(d => d.sheetId);
+      const titleBlockSheets = validNotesResults.filter(r => r.notes?.some(n => n.category === "title-block"));
+      const candidateSheetIds =
+        titleBlockSheets.length > 0
+          ? titleBlockSheets.slice(0, 2).map(r => r.sheetId)
+          : detections
+              .filter(d => !d.error && d.imgBase64)
+              .slice(0, 2)
+              .map(d => d.sheetId);
 
       const candidateDets = detections.filter(d => candidateSheetIds.includes(d.sheetId) && d.imgBase64);
 
       if (candidateDets.length > 0) {
         const tbResults = await batchAI(
           candidateDets,
-          async (det) => {
+          async det => {
             return extractTitleBlockFields({
               imgBase64: det.imgBase64,
               ocrText: det.ocrText || "",
@@ -269,10 +271,20 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
         // Merge: first non-empty value per field wins
         const merged = {};
         const fields = [
-          "projectName", "client", "architect", "engineer",
-          "engineerStructural", "engineerMEP", "engineerCivil",
-          "address", "city", "state", "zipCode",
-          "projectNumber", "buildingTypeHint", "workTypeHint",
+          "projectName",
+          "client",
+          "architect",
+          "engineer",
+          "engineerStructural",
+          "engineerMEP",
+          "engineerCivil",
+          "address",
+          "city",
+          "state",
+          "zipCode",
+          "projectNumber",
+          "buildingTypeHint",
+          "workTypeHint",
         ];
         for (const result of tbResults) {
           if (!result || result.error) continue;
@@ -636,8 +648,8 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
 
         // Building type — map to BUILDING_TYPES key
         if (detectionResult.parameters.buildingType && !proj.buildingType) {
-          updates.buildingType = mapBuildingTypeKey(detectionResult.parameters.buildingType)
-            || detectionResult.parameters.buildingType;
+          updates.buildingType =
+            mapBuildingTypeKey(detectionResult.parameters.buildingType) || detectionResult.parameters.buildingType;
           detected.buildingType = true;
         }
 
@@ -771,7 +783,7 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
           };
           console.log(
             `[scanRunner] Phase 3.5: Generated ${scopeResult.items.length} scope items ` +
-            `(${scopeResult.scheduleItemCount} from schedules, ${scopeResult.aiItemCount} AI-generated)`,
+              `(${scopeResult.scheduleItemCount} from schedules, ${scopeResult.aiItemCount} AI-generated)`,
           );
         }
       } catch (err) {

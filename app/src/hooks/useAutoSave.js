@@ -32,8 +32,6 @@ import { useSubdivisionStore } from "@/stores/subdivisionStore";
 import { useUiStore } from "@/stores/uiStore";
 
 export function useAutoSave() {
-  const estTimer = useRef(null);
-  const drawTimer = useRef(null);
   const masterTimer = useRef(null);
   const settingsTimer = useRef(null);
   const assemblyTimer = useRef(null);
@@ -44,86 +42,83 @@ export function useAutoSave() {
   const subConfigTimer = useRef(null);
   const persistenceLoaded = useUiStore(s => s.persistenceLoaded);
 
-  // ── Estimate core data (fast-changing) ─────────────────────
-  const activeId = useEstimatesStore(s => s.activeEstimateId);
-  const draftId = useEstimatesStore(s => s.draftId);
-  const project = useProjectStore(s => s.project);
-  const items = useItemsStore(s => s.items);
-  const markup = useItemsStore(s => s.markup);
-  const markupOrder = useItemsStore(s => s.markupOrder);
-  const takeoffs = useTakeoffsStore(s => s.takeoffs);
-  const bidCells = useBidLevelingStore(s => s.bidCells);
-  const alternates = useAlternatesStore(s => s.alternates);
-  const exclusions = useSpecsStore(s => s.exclusions);
-  const correspondences = useCorrespondenceStore(s => s.correspondences);
-  const moduleInstances = useModuleStore(s => s.moduleInstances);
-  const groups = useGroupsStore(s => s.groups);
-  const projectAssemblies = useItemsStore(s => s.projectAssemblies);
-  const bidPackages = useBidPackagesStore(s => s.bidPackages);
-  const bidInvitations = useBidPackagesStore(s => s.invitations);
-
+  // ══════════════════════════════════════════════════════════════
+  // Estimate auto-save: Imperative Zustand subscriptions
+  //
+  // Previously used 15+ React hook subscriptions (useEffect deps),
+  // causing App.jsx re-renders on every store change. Now uses
+  // Zustand's subscribe() API — fires callbacks directly without
+  // React re-renders. saveEstimate() reads fresh state via getState().
+  // ══════════════════════════════════════════════════════════════
   useEffect(() => {
-    if (!persistenceLoaded || !activeId) return;
-    // Skip auto-save for draft estimates (not yet persisted — user must click Save first)
-    if (draftId && activeId === draftId) return;
-    // Skip auto-save in org mode if not the lock holder
-    if (useOrgStore.getState().org?.id && !useCollaborationStore.getState().isLockHolder) return;
-    if (estTimer.current) clearTimeout(estTimer.current);
-    estTimer.current = setTimeout(() => {
-      // Guard: verify estimate wasn't deleted during debounce window
-      const currentId = useEstimatesStore.getState().activeEstimateId;
-      if (!currentId) return;
-      // Re-check lock status at save time (may have changed during debounce)
+    if (!persistenceLoaded) return;
+
+    let estTimer = null;
+    let drawTimer = null;
+
+    const scheduleEstSave = () => {
+      const { activeEstimateId, draftId } = useEstimatesStore.getState();
+      if (!activeEstimateId) return;
+      if (draftId && activeEstimateId === draftId) return;
       if (useOrgStore.getState().org?.id && !useCollaborationStore.getState().isLockHolder) return;
-      saveEstimate().catch(err => {
-        console.error("[autoSave] Estimate save failed:", err);
-        useUiStore.getState().showToast("Auto-save failed — retrying...", "error");
-      });
-    }, 1500); // 1.5s debounce — gives rapid edits time to settle
-    return () => {
-      if (estTimer.current) clearTimeout(estTimer.current);
-    };
-  }, [
-    persistenceLoaded,
-    activeId,
-    draftId,
-    project,
-    items,
-    markup,
-    markupOrder,
-    takeoffs,
-    bidCells,
-    alternates,
-    exclusions,
-    correspondences,
-    moduleInstances,
-    groups,
-    projectAssemblies,
-    bidPackages,
-    bidInvitations,
-  ]);
-  // NOTE: `drawings` and `elements` removed — drawings save separately below,
-  // elements are database-level (not per-estimate) and don't need estimate saves
 
-  // ── Drawings (large blobs — save separately, longer debounce) ──
-  const drawings = useDrawingsStore(s => s.drawings);
-  useEffect(() => {
-    if (!persistenceLoaded || !activeId) return;
-    if (draftId && activeId === draftId) return;
-    if (drawTimer.current) clearTimeout(drawTimer.current);
-    drawTimer.current = setTimeout(() => {
-      const currentId = useEstimatesStore.getState().activeEstimateId;
-      if (!currentId) return;
-      saveEstimate().catch(err => {
-        console.error("[autoSave] Drawing save failed:", err);
-      });
-    }, 3000); // 3s debounce — drawings change infrequently but are large
-    return () => {
-      if (drawTimer.current) clearTimeout(drawTimer.current);
+      if (estTimer) clearTimeout(estTimer);
+      estTimer = setTimeout(() => {
+        const currentId = useEstimatesStore.getState().activeEstimateId;
+        if (!currentId) return;
+        if (useOrgStore.getState().org?.id && !useCollaborationStore.getState().isLockHolder) return;
+        saveEstimate().catch(err => {
+          console.error("[autoSave] Estimate save failed:", err);
+          useUiStore.getState().showToast("Auto-save failed — retrying...", "error");
+        });
+      }, 1500);
     };
-  }, [persistenceLoaded, activeId, draftId, drawings]);
 
-  // ── Master data (debounced — was previously instant) ───────
+    const scheduleDrawSave = () => {
+      const { activeEstimateId, draftId } = useEstimatesStore.getState();
+      if (!activeEstimateId) return;
+      if (draftId && activeEstimateId === draftId) return;
+
+      if (drawTimer) clearTimeout(drawTimer);
+      drawTimer = setTimeout(() => {
+        const currentId = useEstimatesStore.getState().activeEstimateId;
+        if (!currentId) return;
+        saveEstimate().catch(err => {
+          console.error("[autoSave] Drawing save failed:", err);
+        });
+      }, 3000);
+    };
+
+    // Subscribe to all estimate-related stores (no React re-renders)
+    const unsubs = [
+      useProjectStore.subscribe(scheduleEstSave),
+      useItemsStore.subscribe(scheduleEstSave),
+      useTakeoffsStore.subscribe(scheduleEstSave),
+      useBidLevelingStore.subscribe(scheduleEstSave),
+      useAlternatesStore.subscribe(scheduleEstSave),
+      useSpecsStore.subscribe(scheduleEstSave),
+      useCorrespondenceStore.subscribe(scheduleEstSave),
+      useModuleStore.subscribe(scheduleEstSave),
+      useGroupsStore.subscribe(scheduleEstSave),
+      useBidPackagesStore.subscribe(scheduleEstSave),
+      useDrawingsStore.subscribe(scheduleDrawSave),
+      // Cancel pending saves when active estimate changes
+      useEstimatesStore.subscribe((state, prev) => {
+        if (state.activeEstimateId !== prev.activeEstimateId) {
+          if (estTimer) clearTimeout(estTimer);
+          if (drawTimer) clearTimeout(drawTimer);
+        }
+      }),
+    ];
+
+    return () => {
+      unsubs.forEach(u => u());
+      if (estTimer) clearTimeout(estTimer);
+      if (drawTimer) clearTimeout(drawTimer);
+    };
+  }, [persistenceLoaded]);
+
+  // ── Master data (debounced) ───────────────────────────────────
   const masterData = useMasterDataStore(s => s.masterData);
   useEffect(() => {
     if (!persistenceLoaded) return;

@@ -42,12 +42,7 @@ const DIVISION_LABELS = {
  * @param {{ scheduleLineItems, rom, project, notesContext }} params
  * @returns {{ items: Array, scheduleItemCount: number, aiItemCount: number }}
  */
-export async function generateScopeOutline({
-  scheduleLineItems = [],
-  rom,
-  project = {},
-  notesContext = "",
-}) {
+export async function generateScopeOutline({ scheduleLineItems = [], rom, project = {}, notesContext = "" }) {
   // 1. Convert schedule line items to scope items (high confidence)
   const scheduleItems = scheduleLineItems
     .filter(li => li.code && li.description)
@@ -141,10 +136,7 @@ async function generateGapItems(gapDivisions, project, notesContext, rom) {
         d.total.low && d.total.high
           ? `$${Math.round(d.total.low).toLocaleString()}–$${Math.round(d.total.high).toLocaleString()} total`
           : "";
-      const perSFRange =
-        d.perSF.low != null && d.perSF.high != null
-          ? `$${d.perSF.low}–$${d.perSF.high}/SF`
-          : "";
+      const perSFRange = d.perSF.low != null && d.perSF.high != null ? `$${d.perSF.low}–$${d.perSF.high}/SF` : "";
       const budget = [perSFRange, totalRange].filter(Boolean).join(", ");
       return `- Division ${d.code} (${d.label}): ${budget || "estimate needed"}`;
     })

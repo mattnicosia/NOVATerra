@@ -19,11 +19,11 @@ export function getGpuTier() {
 
     // Check for software renderers / very old GPUs
     const isLowEnd = /swiftshader|llvmpipe|mesa/i.test(renderer);
+    const hasRealGPU = /apple|nvidia|amd|radeon|intel|geforce|metal/i.test(renderer);
     const isMobile = /mobile|android|iphone|ipad/i.test(navigator.userAgent);
-    const cores = navigator.hardwareConcurrency || 2;
 
-    if (isLowEnd || cores < 4)
-      _gpuTier = 0; // Tier 0: 2D fallback
+    if (isLowEnd && !hasRealGPU)
+      _gpuTier = 0; // Tier 0: 2D fallback (software renderer only)
     else if (isMobile)
       _gpuTier = 1; // Tier 1: simplified 3D
     else _gpuTier = 2; // Tier 2: full quality

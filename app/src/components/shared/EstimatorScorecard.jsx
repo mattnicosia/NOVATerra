@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useEstimatesStore } from "@/stores/estimatesStore";
+import { computeEstimatorExperience, computeMatchScore } from "@/utils/estimatorExperience";
 import Avatar from "@/components/shared/Avatar";
 import Modal from "@/components/shared/Modal";
 import { bt } from "@/utils/styles";
@@ -18,7 +19,15 @@ import { bt } from "@/utils/styles";
  *   onClose        — close callback
  *   open           — boolean
  */
-export default function EstimatorScorecard({ estimatorName, color = "#A78BFA", avatarSrc, onClose, open }) {
+export default function EstimatorScorecard({
+  estimatorName,
+  color = "#A78BFA",
+  avatarSrc,
+  onClose,
+  open,
+  contextEstimate,
+  estimatorProfile,
+}) {
   const C = useTheme();
   const T = C.T;
   const estimates = useEstimatesStore(s => s.estimatesIndex);
@@ -152,6 +161,18 @@ export default function EstimatorScorecard({ estimatorName, color = "#A78BFA", a
     if (topBuildingTypes.length >= 3) strengths.push("Versatile project types");
     if (strengths.length === 0) strengths.push("Building experience");
 
+    // ── Job Type Experience (from experience engine) ──
+    const experience = computeEstimatorExperience(estimates, estimatorName);
+    const jobTypes = experience.jobTypes.slice(0, 8);
+    const projectSizeRange = experience.projectSizeRange;
+    const recentProjects = experience.recentProjects;
+
+    // ── Contextual Match Score ──
+    let matchResult = null;
+    if (contextEstimate) {
+      matchResult = computeMatchScore(experience, contextEstimate, estimatorProfile || {});
+    }
+
     return {
       totalEstimates: mine.length,
       activeCount,
@@ -172,8 +193,12 @@ export default function EstimatorScorecard({ estimatorName, color = "#A78BFA", a
       tierLabel,
       strengths,
       score: Math.round(score),
+      jobTypes,
+      projectSizeRange,
+      recentProjects,
+      matchResult,
     };
-  }, [estimates, estimatorName]);
+  }, [estimates, estimatorName, contextEstimate, estimatorProfile]);
 
   if (!open || !data) return null;
 
@@ -181,6 +206,12 @@ export default function EstimatorScorecard({ estimatorName, color = "#A78BFA", a
     if (v >= 1000000) return `$${(v / 1000000).toFixed(1)}M`;
     if (v >= 1000) return `$${(v / 1000).toFixed(0)}K`;
     return `$${Math.round(v)}`;
+  };
+
+  const fmtSF = sf => {
+    if (sf >= 1000000) return `${(sf / 1000000).toFixed(1)}M SF`;
+    if (sf >= 1000) return `${Math.round(sf / 1000)}K SF`;
+    return `${sf} SF`;
   };
 
   // Radar metrics (0-100 scale each)
@@ -241,6 +272,100 @@ export default function EstimatorScorecard({ estimatorName, color = "#A78BFA", a
             </div>
           </div>
         </div>
+
+        {/* Contextual Match Score (when viewing from a specific project) */}
+        {data.matchResult && contextEstimate && (
+          <div
+            style={{
+              marginBottom: T.space[4],
+              padding: T.space[3],
+              background: C.isDark ? "rgba(167,139,250,0.08)" : "rgba(167,139,250,0.06)",
+              borderRadius: T.radius.lg,
+              border: `1px solid ${C.accent}20`,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: T.space[2],
+              }}
+            >
+              <div style={{ fontSize: T.fontSize.xs, fontWeight: 700, color: C.text }}>
+                Match for "{contextEstimate.name || "Untitled"}"
+              </div>
+              <span
+                style={{
+                  fontSize: T.fontSize.lg,
+                  fontWeight: 700,
+                  color:
+                    data.matchResult.score >= 70 ? "#30D158" : data.matchResult.score >= 40 ? "#FF9500" : "#FF3B30",
+                }}
+              >
+                {data.matchResult.score}/100
+              </span>
+            </div>
+            {Object.entries(data.matchResult.breakdown).map(([key, b]) => (
+              <div key={key} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
+                <span style={{ fontSize: 9, color: C.textMuted, width: 70, textAlign: "right" }}>
+                  {key === "jobType"
+                    ? "Job Type"
+                    : key === "buildingType"
+                      ? "Building"
+                      : key === "workType"
+                        ? "Work Type"
+                        : key === "winRate"
+                          ? "Win Rate"
+                          : key === "projectSize"
+                            ? "Size Fit"
+                            : key === "preference"
+                              ? "Preference"
+                              : key === "discipline"
+                                ? "Discipline"
+                                : key}
+                </span>
+                <div style={{ flex: 1, height: 4, borderRadius: 2, background: `${C.border}20`, overflow: "hidden" }}>
+                  <div
+                    style={{
+                      height: "100%",
+                      width: `${(b.score / b.max) * 100}%`,
+                      borderRadius: 2,
+                      background: C.accent,
+                      opacity: 0.7,
+                    }}
+                  />
+                </div>
+                <span style={{ fontSize: 8, fontWeight: 600, color: C.textDim, width: 36, textAlign: "right" }}>
+                  {b.score}/{b.max}
+                </span>
+              </div>
+            ))}
+            {data.matchResult.flags.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: T.space[2] }}>
+                {data.matchResult.flags.map((f, i) => (
+                  <span
+                    key={i}
+                    style={{
+                      fontSize: 8,
+                      fontWeight: 500,
+                      padding: "2px 6px",
+                      borderRadius: 8,
+                      color: f.startsWith("Strong") ? "#30D158" : f.startsWith("No ") ? "#FF3B30" : "#FF9500",
+                      background: f.startsWith("Strong")
+                        ? "#30D15810"
+                        : f.startsWith("No ")
+                          ? "#FF3B3010"
+                          : "#FF950010",
+                    }}
+                  >
+                    {f}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Strengths tags */}
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: T.space[4] }}>
@@ -513,6 +638,169 @@ export default function EstimatorScorecard({ estimatorName, color = "#A78BFA", a
                 >
                   {wt.type} ({wt.count})
                 </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Job Type Experience */}
+        {data.jobTypes.length > 0 && data.jobTypes[0]?.type !== "Unknown" && (
+          <div style={{ marginBottom: T.space[4] }}>
+            <div
+              style={{
+                fontSize: 9,
+                fontWeight: 700,
+                color: C.textDim,
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                marginBottom: T.space[2],
+              }}
+            >
+              Job Type Experience
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {data.jobTypes.map(jt => {
+                const maxCount = data.jobTypes[0]?.count || 1;
+                return (
+                  <div key={jt.type} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span
+                      style={{
+                        fontSize: 9,
+                        color: C.text,
+                        width: 90,
+                        overflow: "hidden",
+                        whiteSpace: "nowrap",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {jt.type}
+                    </span>
+                    <div
+                      style={{ flex: 1, height: 5, borderRadius: 3, background: `${C.border}20`, overflow: "hidden" }}
+                    >
+                      <div
+                        style={{
+                          height: "100%",
+                          width: `${(jt.count / maxCount) * 100}%`,
+                          borderRadius: 3,
+                          background: color,
+                          opacity: 0.7,
+                        }}
+                      />
+                    </div>
+                    <span style={{ fontSize: 8, fontWeight: 600, color: C.textDim, width: 22, textAlign: "right" }}>
+                      {jt.count}
+                    </span>
+                    {jt.winRate !== null && (
+                      <span
+                        style={{
+                          fontSize: 8,
+                          fontWeight: 600,
+                          width: 30,
+                          textAlign: "right",
+                          color: jt.winRate >= 50 ? "#30D158" : "#FF9500",
+                        }}
+                      >
+                        {jt.winRate}%
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Project Scale */}
+        {data.projectSizeRange && (
+          <div style={{ marginBottom: T.space[4] }}>
+            <div
+              style={{
+                fontSize: 9,
+                fontWeight: 700,
+                color: C.textDim,
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                marginBottom: T.space[1],
+              }}
+            >
+              Project Scale
+            </div>
+            <div style={{ fontSize: T.fontSize.xs, color: C.text }}>
+              {fmtSF(data.projectSizeRange.minSF)} — {fmtSF(data.projectSizeRange.maxSF)}
+              <span style={{ color: C.textDim, marginLeft: 8 }}>(avg {fmtSF(data.projectSizeRange.avgSF)})</span>
+            </div>
+          </div>
+        )}
+
+        {/* Recent Activity */}
+        {data.recentProjects.length > 0 && (
+          <div style={{ marginBottom: T.space[4] }}>
+            <div
+              style={{
+                fontSize: 9,
+                fontWeight: 700,
+                color: C.textDim,
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                marginBottom: T.space[2],
+              }}
+            >
+              Recent Projects
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              {data.recentProjects.map(p => (
+                <div
+                  key={p.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: T.space[2],
+                    padding: `${T.space[1]}px 0`,
+                    borderBottom: `1px solid ${C.border}06`,
+                    fontSize: T.fontSize.xs,
+                  }}
+                >
+                  <span
+                    style={{
+                      flex: 1,
+                      color: C.text,
+                      overflow: "hidden",
+                      whiteSpace: "nowrap",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {p.name}
+                  </span>
+                  {p.jobType && <span style={{ fontSize: 8, color: C.textDim }}>{p.jobType}</span>}
+                  <span
+                    style={{
+                      fontSize: 8,
+                      fontWeight: 600,
+                      padding: "1px 6px",
+                      borderRadius: 8,
+                      color:
+                        p.status === "Won"
+                          ? "#30D158"
+                          : p.status === "Lost"
+                            ? "#FF3B30"
+                            : p.status === "Bidding"
+                              ? "#FF9500"
+                              : C.textMuted,
+                      background:
+                        p.status === "Won"
+                          ? "#30D15810"
+                          : p.status === "Lost"
+                            ? "#FF3B3010"
+                            : p.status === "Bidding"
+                              ? "#FF950010"
+                              : `${C.border}10`,
+                    }}
+                  >
+                    {p.status}
+                  </span>
+                  {p.grandTotal > 0 && <span style={{ fontSize: 8, color: C.textDim }}>{fmtVal(p.grandTotal)}</span>}
+                </div>
               ))}
             </div>
           </div>

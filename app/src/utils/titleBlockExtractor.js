@@ -55,12 +55,16 @@ Return ONLY a JSON object:
   "workTypeHint": ""
 }
 
-${ocrText ? `OCR-EXTRACTED TEXT FROM THIS DRAWING:
+${
+  ocrText
+    ? `OCR-EXTRACTED TEXT FROM THIS DRAWING:
 """
 ${ocrText.slice(0, 6000)}
 """
 
-Use this OCR text to help identify title block content. Cross-reference with the image for accuracy.` : ""}`;
+Use this OCR text to help identify title block content. Cross-reference with the image for accuracy.`
+    : ""
+}`;
 }
 
 // ─── Extract Title Block Fields from a Single Drawing ─────────────────
@@ -170,7 +174,7 @@ const BUILDING_TYPE_ALIASES = {
   clinic: "healthcare",
   "medical office": "healthcare",
   "medical center": "healthcare",
-  "outpatient": "healthcare",
+  outpatient: "healthcare",
 
   // education
   education: "education",
@@ -277,9 +281,7 @@ export function inferWorkType(notesResults) {
   const demoNotes = allNotes.filter(n => n.category === "demolition-notes");
 
   // Collect all note text for keyword search
-  const allText = allNotes
-    .map(n => (n.text || "").toLowerCase())
-    .join(" ");
+  const allText = allNotes.map(n => (n.text || "").toLowerCase()).join(" ");
 
   // Check for specific work type signals
   if (/tenant\s*(fit[- ]?out|improvement)|(\bti\b.*improvement)/i.test(allText)) {

@@ -25,7 +25,7 @@ export default async function handler(req, res) {
       .from("pending_rfps")
       .select(
         "id, subject, sender_email, sender_name, received_at, status, type, classification, " +
-        "addendum_number, match_confidence, attachments, parsed_data, raw_text",
+          "addendum_number, match_confidence, attachments, parsed_data, raw_text",
       )
       .eq("user_id", user.id)
       .eq("linked_estimate_id", estimateId)
@@ -41,7 +41,7 @@ export default async function handler(req, res) {
       .from("pending_rfps")
       .select(
         "id, subject, sender_email, sender_name, received_at, status, type, classification, " +
-        "addendum_number, match_confidence, attachments, parsed_data, raw_text",
+          "addendum_number, match_confidence, attachments, parsed_data, raw_text",
       )
       .eq("user_id", user.id)
       .eq("parent_estimate_id", estimateId)

@@ -252,7 +252,7 @@ export default function ImportConfirmModal({
                         <select value={fields[fd.key]} onChange={e => update(fd.key, e.target.value)} style={inp(C)}>
                           {fd.options.map(o => (
                             <option key={o} value={o}>
-                              {o ? (fd.displayMap?.[o] || o) : "\u2014"}
+                              {o ? fd.displayMap?.[o] || o : "\u2014"}
                             </option>
                           ))}
                         </select>
@@ -332,9 +332,7 @@ export default function ImportConfirmModal({
                           ))}
                         </div>
                       )}
-                      {br.other && (
-                        <div style={{ fontSize: T.fontSize.xs, color: C.textMuted }}>{br.other}</div>
-                      )}
+                      {br.other && <div style={{ fontSize: T.fontSize.xs, color: C.textMuted }}>{br.other}</div>}
                     </div>
                   );
                 })()}

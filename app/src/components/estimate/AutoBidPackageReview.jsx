@@ -64,19 +64,15 @@ export default function AutoBidPackageReview({ proposals, onClose }) {
   }, [enabledPkgs]);
 
   // ─── Mutators ────────────────────────────────────────────
-  const updatePkg = (id, updates) =>
-    setPackages(prev => prev.map(p => (p.id === id ? { ...p, ...updates } : p)));
+  const updatePkg = (id, updates) => setPackages(prev => prev.map(p => (p.id === id ? { ...p, ...updates } : p)));
 
-  const toggleEnabled = id =>
-    updatePkg(id, { enabled: !packages.find(p => p.id === id)?.enabled });
+  const toggleEnabled = id => updatePkg(id, { enabled: !packages.find(p => p.id === id)?.enabled });
 
   const toggleItem = (pkgId, itemId) =>
     setPackages(prev =>
       prev.map(p => {
         if (p.id !== pkgId) return p;
-        const ids = p.itemIds.includes(itemId)
-          ? p.itemIds.filter(i => i !== itemId)
-          : [...p.itemIds, itemId];
+        const ids = p.itemIds.includes(itemId) ? p.itemIds.filter(i => i !== itemId) : [...p.itemIds, itemId];
         return { ...p, itemIds: ids, itemCount: ids.length };
       }),
     );
@@ -375,10 +371,12 @@ export default function AutoBidPackageReview({ proposals, onClose }) {
                       </div>
                     )}
                     <div style={{ fontSize: T.fontSize.xs, color: C.textMuted, marginTop: 2 }}>
-                      {pkg.itemIds.length} item{pkg.itemIds.length !== 1 ? "s" : ""} ·{" "}
-                      {pkg.drawingIds.length} drawing{pkg.drawingIds.length !== 1 ? "s" : ""} ·{" "}
+                      {pkg.itemIds.length} item{pkg.itemIds.length !== 1 ? "s" : ""} · {pkg.drawingIds.length} drawing
+                      {pkg.drawingIds.length !== 1 ? "s" : ""} ·{" "}
                       {pkg.subIds.length > 0 ? (
-                        <span>{pkg.subIds.length} sub{pkg.subIds.length !== 1 ? "s" : ""}</span>
+                        <span>
+                          {pkg.subIds.length} sub{pkg.subIds.length !== 1 ? "s" : ""}
+                        </span>
                       ) : (
                         <span style={{ color: "#f59e0b" }}>no subs matched</span>
                       )}
@@ -566,9 +564,7 @@ export default function AutoBidPackageReview({ proposals, onClose }) {
                                   </div>
                                   <Ic d={I.user} size={11} color={C.textDim} />
                                   <span>{s.company || s.contact || "Unknown"}</span>
-                                  {s.email && (
-                                    <span style={{ color: C.textDim, marginLeft: "auto" }}>{s.email}</span>
-                                  )}
+                                  {s.email && <span style={{ color: C.textDim, marginLeft: "auto" }}>{s.email}</span>}
                                 </div>
                               );
                             })}
@@ -684,8 +680,8 @@ export default function AutoBidPackageReview({ proposals, onClose }) {
               {enabledPkgs.filter(p => p.subIds.length === 0).length > 0 && (
                 <span style={{ color: "#f59e0b" }}>
                   ⚠ {enabledPkgs.filter(p => p.subIds.length === 0).length} package
-                  {enabledPkgs.filter(p => p.subIds.length === 0).length !== 1 ? "s" : ""} have no subs and
-                  won't be sent
+                  {enabledPkgs.filter(p => p.subIds.length === 0).length !== 1 ? "s" : ""} have no subs and won't be
+                  sent
                 </span>
               )}
             </div>

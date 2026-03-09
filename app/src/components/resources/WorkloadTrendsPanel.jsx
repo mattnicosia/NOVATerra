@@ -71,9 +71,8 @@ export default function WorkloadTrendsPanel({ workload, C, T }) {
       const utilization = teamCapacity > 0 ? Math.round((totalHours / teamCapacity) * 100) : 0;
 
       // Completed this week
-      const completed = entries.filter(e =>
-        ["Won", "Lost", "Submitted"].includes(e.status) &&
-        e.bidDue >= weekStart && e.bidDue <= weekEndStr,
+      const completed = entries.filter(
+        e => ["Won", "Lost", "Submitted"].includes(e.status) && e.bidDue >= weekStart && e.bidDue <= weekEndStr,
       ).length;
 
       return {
@@ -89,18 +88,14 @@ export default function WorkloadTrendsPanel({ workload, C, T }) {
 
     // Hiring signal: check last 4 weeks
     const last4 = weekData.slice(-4);
-    const avgUtil = last4.length > 0
-      ? last4.reduce((s, w) => s + w.utilization, 0) / last4.length
-      : 0;
+    const avgUtil = last4.length > 0 ? last4.reduce((s, w) => s + w.utilization, 0) / last4.length : 0;
     const hiringSignal = avgUtil > 85;
 
     // Per-estimator sparklines
     const estimatorTrends = estimatorRows.map(row => {
       const spark = weeks.map(weekStart => {
-        const inWeek = entries.filter(e =>
-          e.estimator === row.name &&
-          ["Bidding", "Submitted"].includes(e.status) &&
-          e.bidDue >= weekStart,
+        const inWeek = entries.filter(
+          e => e.estimator === row.name && ["Bidding", "Submitted"].includes(e.status) && e.bidDue >= weekStart,
         );
         return inWeek.reduce((s, e) => s + (e.estimatedHours || 0), 0);
       });
@@ -122,20 +117,20 @@ export default function WorkloadTrendsPanel({ workload, C, T }) {
 
       {/* Hiring Signal */}
       {trends.hiringSignal && (
-        <div style={{
-          ...cardSolid(C),
-          padding: `${T.space[3]}px ${T.space[4]}px`,
-          marginBottom: T.space[3],
-          borderLeft: "4px solid #FF9500",
-          display: "flex",
-          alignItems: "center",
-          gap: T.space[3],
-        }}>
+        <div
+          style={{
+            ...cardSolid(C),
+            padding: `${T.space[3]}px ${T.space[4]}px`,
+            marginBottom: T.space[3],
+            borderLeft: "4px solid #FF9500",
+            display: "flex",
+            alignItems: "center",
+            gap: T.space[3],
+          }}
+        >
           <span style={{ fontSize: 16 }}>📈</span>
           <div>
-            <div style={{ fontSize: T.fontSize.xs, fontWeight: 600, color: C.text }}>
-              Consider adding capacity
-            </div>
+            <div style={{ fontSize: T.fontSize.xs, fontWeight: 600, color: C.text }}>Consider adding capacity</div>
             <div style={{ fontSize: 9, color: C.textDim }}>
               Average team utilization has been {trends.avgUtil}% over the last 4 weeks
             </div>
@@ -145,7 +140,15 @@ export default function WorkloadTrendsPanel({ workload, C, T }) {
 
       {/* Utilization Chart */}
       <div style={{ ...cardSolid(C), padding: T.space[4], marginBottom: T.space[3] }}>
-        <div style={{ fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", marginBottom: T.space[2] }}>
+        <div
+          style={{
+            fontSize: 9,
+            fontWeight: 700,
+            color: C.textDim,
+            textTransform: "uppercase",
+            marginBottom: T.space[2],
+          }}
+        >
           Team Utilization % — Last 12 Weeks
         </div>
         <BarChart
@@ -163,7 +166,15 @@ export default function WorkloadTrendsPanel({ workload, C, T }) {
 
       {/* Bids Completed */}
       <div style={{ ...cardSolid(C), padding: T.space[4], marginBottom: T.space[3] }}>
-        <div style={{ fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", marginBottom: T.space[2] }}>
+        <div
+          style={{
+            fontSize: 9,
+            fontWeight: 700,
+            color: C.textDim,
+            textTransform: "uppercase",
+            marginBottom: T.space[2],
+          }}
+        >
           Bids Completed per Week
         </div>
         <BarChart
@@ -181,10 +192,20 @@ export default function WorkloadTrendsPanel({ workload, C, T }) {
       {/* Per-Estimator Sparklines */}
       {trends.estimatorTrends.length > 0 && (
         <div style={{ ...cardSolid(C), padding: T.space[4] }}>
-          <div style={{ fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", marginBottom: T.space[3] }}>
+          <div
+            style={{
+              fontSize: 9,
+              fontWeight: 700,
+              color: C.textDim,
+              textTransform: "uppercase",
+              marginBottom: T.space[3],
+            }}
+          >
             Hours by Estimator — 12-Week Trend
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: T.space[3] }}>
+          <div
+            style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: T.space[3] }}
+          >
             {trends.estimatorTrends.map(et => (
               <div
                 key={et.name}

@@ -1,31 +1,29 @@
-// Chamber v3 — The Vault: cinematic architectural space containing the Artifact
+// Chamber v4 — The Vault: cinematic architectural space containing the Artifact
 //
-// "Three zoom levels of the same world":
-//   1. Sphere: close-up NOVACORE plasma
-//   2. Artifact: sphere + obsidian housing shell
-//   3. Chamber: artifact floating in a dark architectural vault
-//
-// v3 enhancements (Paul Franklin joins the Visual Board):
-//   - Volumetric light shaft: visible atmospheric column from artifact to floor
-//   - Vault pillars: 8 dark obsidian columns giving architectural scale
-//   - Dynamic artifact light: point light at center, color-morphs with state
-//   - Subtle ambient fill: architectural depth even when dormant
-//
-// Paul Franklin: "The chamber isn't set dressing — it's the third character
-// in the scene. The artifact speaks through light, the chamber listens."
+// Visual Board v4 overhaul (rating target: 65+/100):
+//   Fix 1: SCALE — walls 2× taller (16), radius 10, camera further back
+//   Fix 2: RIB MASS — thick stone buttresses (0.5 wide × 1.0 deep), not paper fins
+//   Fix 3: MATERIALS — stone is dielectric (metalness=0, roughness 0.75–0.9)
+//   Fix 4: OCULUS GOD RAYS — volumetric cone from ceiling + spotLight
+//   Fix 5: GLOW REDUCTION — near-monochromatic, only 1-2 subtle horizontal rings
+//   GC FIX: persistent useRef(Color) for per-frame lerps (no .clone() allocations)
 //
 // Architecture:
-//   - Obsidian floor (custom shader: caustics + light pool + Fresnel)
+//   - Obsidian floor (custom shader: caustics + light pool + Fresnel + circuit etch)
 //   - Volumetric shaft (custom shader: noise-driven atmospheric density)
-//   - Vault pillars (MeshStandardMaterial, lit by artifact point light)
-//   - OrbitControls (interactive camera with auto-rotate)
-//   - Dual particle layers (ambient + concentrated)
-//   - Dynamic point light (color-morphs, intensity tracks awaken)
+//   - Oculus god rays (volumetric cone from ceiling opening)
+//   - Ribbed cylindrical walls with thick stone buttresses
+//   - Concentric ring platform with center void
+//   - Approach steps from +Z
+//   - Ceiling oculus with radial ribs
+//   - Vault dome (subtle architectural ceiling)
+//   - Ground fog, particles, orbit controls
 
 import { useRef, useMemo, useEffect } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Sparkles, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { chamberVertexShader } from "./shaders/chamber.vert";
 import { chamberFragmentShader } from "./shaders/chamber.frag";
 import { volumetricVertexShader } from "./shaders/volumetric.vert";
@@ -35,18 +33,46 @@ import { fogFragmentShader } from "./shaders/fog.frag";
 import { domeVertexShader } from "./shaders/dome.vert";
 import { domeFragmentShader } from "./shaders/dome.frag";
 
-// ── Camera Setup — initial position for chamber view ─────────────────
+// ── Architecture Constants ──────────────────────────────────────────
+// v4: Massive scale — camera at z=12 must be INSIDE the walls (BackSide rendering)
+const WALL_RADIUS = 14;
+const WALL_HEIGHT = 16;
+const RIB_COUNT = 16;
+const HORIZONTAL_RINGS = 5;
+const PILLAR_RING_RADIUS = 14;
+
+// Ring platform dimensions — scaled to fill the wider floor
+const PLATFORM_RINGS = [
+  { outer: 7.5, inner: 6.2, rise: 0.45 },
+  { outer: 6.0, inner: 4.5, rise: 0.90 },
+  { outer: 4.3, inner: 3.0, rise: 1.35 },
+  { outer: 2.8, inner: 1.8, rise: 1.80 },
+];
+
+// Oculus ceiling rings — must match wall radius at outer edge
+const OCULUS_RINGS = [
+  { outer: 14.0, inner: 11.0, thickness: 0.22 },
+  { outer: 10.8, inner: 7.5, thickness: 0.18 },
+  { outer: 7.3, inner: 3.5, thickness: 0.14 },
+];
+
+// ── Stone material palette (v4: dielectric, no metalness) ───────────
+const STONE_COLOR = "#0A0A10";
+const WALL_MATERIAL_PROPS = { color: STONE_COLOR, roughness: 0.88, metalness: 0.0, side: THREE.BackSide };
+const PLATFORM_MATERIAL_PROPS = { color: STONE_COLOR, roughness: 0.75, metalness: 0.0, side: THREE.DoubleSide };
+const STEP_MATERIAL_PROPS = { color: STONE_COLOR, roughness: 0.9, metalness: 0.0 };
+const OCULUS_MATERIAL_PROPS = { color: STONE_COLOR, roughness: 0.82, metalness: 0.0, side: THREE.DoubleSide };
+
+// ── Camera Setup — establishing shot for massive chamber ────────────
 function CameraSetup() {
   const { camera } = useThree();
   const initialized = useRef(false);
 
   useEffect(() => {
     if (!initialized.current) {
-      // Paul Franklin: "The establishing shot tells the audience
-      // what kind of story they're walking into."
-      // Higher + further back = shows artifact, shaft, pillars, and floor
-      camera.position.set(0, 2.5, 6.5);
-      camera.lookAt(0, -0.3, 0);
+      // v4: Higher + further back to frame the towering walls + platform
+      camera.position.set(0, 4.5, 12);
+      camera.lookAt(0, -0.8, 0);
       initialized.current = true;
     }
   }, [camera]);
@@ -92,7 +118,7 @@ function ChamberFloor({ size, awaken, morph, innerLight }) {
 
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, floorY, 0]} renderOrder={-1}>
-      <circleGeometry args={[12, 64]} />
+      <circleGeometry args={[18, 64]} />
       <shaderMaterial
         ref={matRef}
         vertexShader={chamberVertexShader}
@@ -108,9 +134,6 @@ function ChamberFloor({ size, awaken, morph, innerLight }) {
 }
 
 // ── Volumetric Light Shaft — visible column of artifact light ────────
-// Paul Franklin: "In Interstellar, the light from Gargantua's accretion
-// disk lit up the dust around the ship. That's how you know the light
-// is real — it interacts with the atmosphere."
 function VolumetricShaft({ size, awaken, morph, innerLight }) {
   const matRef = useRef();
   const awakenRef = useRef(awaken);
@@ -157,6 +180,79 @@ function VolumetricShaft({ size, awaken, morph, innerLight }) {
           shellRadius * 2.2, // bottom radius — light spreads at floor
           shaftHeight,
           32, // radial segments
+          8, // height segments
+          true, // open ended
+        ]}
+      />
+      <shaderMaterial
+        ref={matRef}
+        vertexShader={volumetricVertexShader}
+        fragmentShader={volumetricFragmentShader}
+        uniforms={uniforms}
+        transparent
+        depthWrite={false}
+        side={THREE.DoubleSide}
+        blending={THREE.AdditiveBlending}
+        toneMapped={false}
+      />
+    </mesh>
+  );
+}
+
+// ── Oculus God Rays — volumetric light pouring through ceiling ───────
+// v4: The hero lighting element. Light enters through the oculus opening
+// and streams down through atmosphere to illuminate the artifact.
+function OculusGodRays({ size, awaken, morph, innerLight }) {
+  const matRef = useRef();
+  const awakenRef = useRef(awaken);
+  const morphRef = useRef(morph);
+  const innerLightRef = useRef(innerLight);
+
+  awakenRef.current = awaken;
+  morphRef.current = morph;
+  innerLightRef.current = innerLight;
+
+  const uniforms = useMemo(
+    () => ({
+      uTime: { value: 0.0 },
+      uAwaken: { value: awaken },
+      uMorph: { value: morph },
+      uInnerLight: { value: innerLight },
+    }),
+    [],
+  );
+
+  useFrame((state, delta) => {
+    if (!matRef.current) return;
+    const u = matRef.current.uniforms;
+    u.uTime.value = state.clock.elapsedTime;
+
+    const speed = 2.0;
+    const t = 1.0 - Math.exp(-speed * delta);
+    u.uAwaken.value += (awakenRef.current - u.uAwaken.value) * t;
+    u.uMorph.value += (morphRef.current - u.uMorph.value) * t;
+    u.uInnerLight.value += (innerLightRef.current - u.uInnerLight.value) * t;
+  });
+
+  const shellRadius = size * 1.12;
+  const floorY = -(shellRadius + 0.4);
+  const ceilingY = floorY + WALL_HEIGHT;
+
+  // Cone from just below ceiling to near sphere
+  // Wide at top (oculus opening), narrow at bottom (near artifact)
+  const godRayTop = ceilingY - 0.5;
+  const godRayBottom = shellRadius + 0.5; // just above sphere
+  const godRayHeight = godRayTop - godRayBottom;
+  const godRayCenterY = (godRayTop + godRayBottom) / 2;
+
+  return (
+    <mesh position={[0, godRayCenterY, 0]}>
+      <cylinderGeometry
+        args={[
+          OCULUS_RINGS[2].inner * 0.9, // top radius — matches innermost oculus opening
+          shellRadius * 1.2,           // bottom radius — wider spread near sphere
+          godRayHeight,
+          32, // radial segments
           8,  // height segments
           true, // open ended
         ]}
@@ -177,8 +273,6 @@ function VolumetricShaft({ size, awaken, morph, innerLight }) {
 }
 
 // ── Ground Fog — atmospheric haze at floor level ────────────────────
-// Paul Franklin: "Fog is what separates a 3D scene from a movie set.
-// It's how the eye knows the space has depth."
 function GroundFog({ size, awaken, morph, innerLight }) {
   const matRef = useRef();
   const awakenRef = useRef(awaken);
@@ -216,7 +310,7 @@ function GroundFog({ size, awaken, morph, innerLight }) {
 
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, floorY + 0.08, 0]}>
-      <circleGeometry args={[10, 64]} />
+      <circleGeometry args={[16, 64]} />
       <shaderMaterial
         ref={matRef}
         vertexShader={fogVertexShader}
@@ -231,98 +325,112 @@ function GroundFog({ size, awaken, morph, innerLight }) {
   );
 }
 
-// ── Vault Pillars — dark obsidian columns with architectural detail ──
-// Paul Franklin: "Architecture gives scale. Without the pillars, you
-// don't know if the artifact is the size of a basketball or a building."
-// Jony: "Classical proportions — wider base, narrower shaft, capital at top.
-// Even in darkness, the silhouette should communicate permanence."
-const PILLAR_COUNT = 8;
-const PILLAR_RING_RADIUS = 8;
-const PILLAR_HEIGHT = 7;
-const SHAFT_RADIUS = 0.18;
-const BASE_RADIUS = 0.32;
-const CAP_RADIUS = 0.28;
-const BASE_HEIGHT = 0.35;
-const CAP_HEIGHT = 0.25;
-
-function VaultPillars({ size, awaken, morph, innerLight }) {
+// ── Chamber Walls — thick ribbed cylindrical enclosure ──────────────
+// v4: Ribs are massive stone buttresses (0.5 wide × 1.0 deep), not paper fins
+function ChamberWalls({ size, awaken, morph, innerLight }) {
   const shellRadius = size * 1.12;
   const floorY = -(shellRadius + 0.4);
+  const wallBottom = floorY;
+  const wallCenterY = floorY + WALL_HEIGHT / 2;
 
-  const positions = useMemo(() => {
-    return Array.from({ length: PILLAR_COUNT }, (_, i) => {
-      const angle = (i / PILLAR_COUNT) * Math.PI * 2;
-      return {
-        x: Math.cos(angle) * PILLAR_RING_RADIUS,
-        z: Math.sin(angle) * PILLAR_RING_RADIUS,
-      };
-    });
-  }, []);
+  // Merged structural geometry
+  const wallGeo = useMemo(() => {
+    const geos = [];
 
-  // Shared geometries
-  const shaftGeo = useMemo(
-    () => new THREE.CylinderGeometry(SHAFT_RADIUS * 0.92, SHAFT_RADIUS, PILLAR_HEIGHT - BASE_HEIGHT - CAP_HEIGHT, 8),
-    [],
-  );
-  const baseGeo = useMemo(
-    () => new THREE.CylinderGeometry(SHAFT_RADIUS * 1.05, BASE_RADIUS, BASE_HEIGHT, 8),
-    [],
-  );
-  const capGeo = useMemo(
-    () => new THREE.CylinderGeometry(CAP_RADIUS, SHAFT_RADIUS * 0.92, CAP_HEIGHT, 8),
-    [],
-  );
-  // Plinth — wider square base for visual grounding
-  const plinthGeo = useMemo(
-    () => new THREE.BoxGeometry(BASE_RADIUS * 2.2, 0.12, BASE_RADIUS * 2.2),
-    [],
-  );
-  // Glow disc — sits at the base of each pillar where light pool contacts
-  const glowDiscGeo = useMemo(
-    () => new THREE.CircleGeometry(BASE_RADIUS * 2.5, 16),
+    // Base cylinder (viewed from inside = BackSide on material)
+    const cyl = new THREE.CylinderGeometry(WALL_RADIUS, WALL_RADIUS, WALL_HEIGHT, 64, 1, true);
+    cyl.translate(0, wallCenterY, 0);
+    geos.push(cyl);
+
+    // v4: Thick vertical buttresses — massive stone members protruding inward
+    for (let i = 0; i < RIB_COUNT; i++) {
+      const angle = (i / RIB_COUNT) * Math.PI * 2;
+
+      // Main buttress body — thick and deep
+      const rib = new THREE.BoxGeometry(0.5, WALL_HEIGHT, 1.0);
+      const mat = new THREE.Matrix4();
+      mat.makeRotationY(angle);
+      mat.setPosition(
+        Math.cos(angle) * (WALL_RADIUS - 0.5),
+        wallCenterY,
+        Math.sin(angle) * (WALL_RADIUS - 0.5),
+      );
+      rib.applyMatrix4(mat);
+      geos.push(rib);
+
+      // Tapered cap at top of each buttress
+      const cap = new THREE.BoxGeometry(0.6, 0.4, 1.2);
+      const capMat = new THREE.Matrix4();
+      capMat.makeRotationY(angle);
+      capMat.setPosition(
+        Math.cos(angle) * (WALL_RADIUS - 0.55),
+        wallBottom + WALL_HEIGHT - 0.2,
+        Math.sin(angle) * (WALL_RADIUS - 0.55),
+      );
+      cap.applyMatrix4(capMat);
+      geos.push(cap);
+
+      // Base widening at bottom of each buttress
+      const base = new THREE.BoxGeometry(0.65, 0.5, 1.3);
+      const baseMat = new THREE.Matrix4();
+      baseMat.makeRotationY(angle);
+      baseMat.setPosition(
+        Math.cos(angle) * (WALL_RADIUS - 0.55),
+        wallBottom + 0.25,
+        Math.sin(angle) * (WALL_RADIUS - 0.55),
+      );
+      base.applyMatrix4(baseMat);
+      geos.push(base);
+    }
+
+    // Horizontal ring ledges on wall interior
+    for (let i = 1; i <= HORIZONTAL_RINGS; i++) {
+      const ledgeY = wallBottom + (i / (HORIZONTAL_RINGS + 1)) * WALL_HEIGHT;
+      const ledge = new THREE.RingGeometry(WALL_RADIUS - 0.2, WALL_RADIUS, 64);
+      ledge.rotateX(-Math.PI / 2);
+      ledge.translate(0, ledgeY, 0);
+      geos.push(ledge);
+    }
+
+    return mergeGeometries(geos);
+  }, [wallCenterY, wallBottom]);
+
+  const wallMat = useMemo(
+    () => new THREE.MeshStandardMaterial(WALL_MATERIAL_PROPS),
     [],
   );
 
-  // Material: dark obsidian with slight metallic sheen
-  const material = useMemo(
+  // v4: DRASTICALLY reduced glow — only 2 subtle horizontal rings, no vertical strips
+  const novaGlow = useMemo(() => new THREE.Color("#6B4CE6"), []);
+  const coreGlow = useMemo(() => new THREE.Color("#E8920A"), []);
+  const tempColor = useRef(new THREE.Color()); // GC fix: persistent color
+
+  const glowGeo = useMemo(() => {
+    const geos = [];
+    // Only 2 horizontal glow torus rings (at 1/3 and 2/3 height)
+    for (let i = 2; i <= 3; i++) {
+      const ledgeY = wallBottom + (i / (HORIZONTAL_RINGS + 1)) * WALL_HEIGHT;
+      const torus = new THREE.TorusGeometry(WALL_RADIUS - 0.1, 0.012, 4, 64);
+      torus.rotateX(Math.PI / 2);
+      torus.translate(0, ledgeY, 0);
+      geos.push(torus);
+    }
+    return mergeGeometries(geos);
+  }, [wallBottom]);
+
+  const glowMat = useMemo(
     () =>
-      new THREE.MeshStandardMaterial({
-        color: new THREE.Color("#08080E"),
-        roughness: 0.4,
-        metalness: 0.4,
+      new THREE.MeshBasicMaterial({
+        color: novaGlow.clone(),
+        transparent: true,
+        opacity: 0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
       }),
     [],
   );
 
-  // Glow materials — per-pillar for spatial modulation (v14)
-  // Each pillar gets its own brightness factor based on angle + time oscillation
-  const novaGlow = useMemo(() => new THREE.Color("#2233AA"), []);
-  const coreGlow = useMemo(() => new THREE.Color("#AA6611"), []);
-  const glowMats = useMemo(
-    () =>
-      Array.from({ length: PILLAR_COUNT }, () =>
-        new THREE.MeshBasicMaterial({
-          color: novaGlow.clone(),
-          transparent: true,
-          opacity: 0,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false,
-          side: THREE.DoubleSide,
-        }),
-      ),
-    [],
-  );
-  // Per-pillar brightness offsets (deterministic variation)
-  const pillarPhases = useMemo(
-    () => Array.from({ length: PILLAR_COUNT }, (_, i) => ({
-      phase: (i / PILLAR_COUNT) * Math.PI * 2 + i * 1.7,  // unique phase per pillar
-      speed: 0.08 + (i % 3) * 0.03,  // slightly different oscillation speeds
-      base: 0.6 + 0.4 * Math.sin(i * 2.39),  // 0.2–1.0 base brightness
-    })),
-    [],
-  );
-
-  // Animate glow materials
   const awakenRef = useRef(awaken);
   const morphRef = useRef(morph);
   const innerLightRef = useRef(innerLight);
@@ -330,60 +438,252 @@ function VaultPillars({ size, awaken, morph, innerLight }) {
   morphRef.current = morph;
   innerLightRef.current = innerLight;
 
-  useFrame((state, delta) => {
+  useFrame((_, delta) => {
     const speed = 2.0;
     const t = 1.0 - Math.exp(-speed * delta);
-    const elapsed = state.clock.elapsedTime;
-    const targetColor = novaGlow.clone().lerp(coreGlow, morphRef.current);
-
-    for (let i = 0; i < PILLAR_COUNT; i++) {
-      const mat = glowMats[i];
-      const pp = pillarPhases[i];
-      mat.color.lerp(targetColor, t);
-      // v14: Per-pillar spatial modulation — slow oscillation creates migrating bright/dim pillars
-      const pillarBright = pp.base * (0.75 + 0.25 * Math.sin(elapsed * pp.speed + pp.phase));
-      const targetOpacity = awakenRef.current * innerLightRef.current * 0.18 * pillarBright;
-      mat.opacity += (targetOpacity - mat.opacity) * t;
-    }
+    // GC fix: use persistent tempColor instead of clone()
+    tempColor.current.copy(novaGlow).lerp(coreGlow, morphRef.current);
+    glowMat.color.lerp(tempColor.current, t);
+    // v4: very subtle opacity (was 0.25)
+    const targetOpacity = awakenRef.current * innerLightRef.current * 0.05;
+    glowMat.opacity += (targetOpacity - glowMat.opacity) * t;
   });
-
-  const shaftHeight = PILLAR_HEIGHT - BASE_HEIGHT - CAP_HEIGHT;
 
   return (
     <group>
-      {positions.map((p, i) => {
-        const shaftY = floorY + BASE_HEIGHT + shaftHeight / 2;
-        const baseY = floorY + BASE_HEIGHT / 2;
-        const capY = floorY + BASE_HEIGHT + shaftHeight + CAP_HEIGHT / 2;
-        const plinthY = floorY + 0.06;
-        const glowY = floorY + 0.04;
-        return (
-          <group key={i} position={[p.x, 0, p.z]}>
-            {/* Light spill disc — per-pillar brightness modulation (v14) */}
-            <mesh
-              rotation={[-Math.PI / 2, 0, 0]}
-              position={[0, glowY, 0]}
-              geometry={glowDiscGeo}
-              material={glowMats[i]}
-            />
-            {/* Plinth — wide square base, barely visible */}
-            <mesh position={[0, plinthY, 0]} geometry={plinthGeo} material={material} />
-            {/* Base — flared transition from plinth to shaft */}
-            <mesh position={[0, baseY, 0]} geometry={baseGeo} material={material} />
-            {/* Shaft — main column body, slight taper */}
-            <mesh position={[0, shaftY, 0]} geometry={shaftGeo} material={material} />
-            {/* Capital — wider top, echoes the base form */}
-            <mesh position={[0, capY, 0]} geometry={capGeo} material={material} />
-          </group>
-        );
-      })}
+      <mesh geometry={wallGeo} material={wallMat} />
+      <mesh geometry={glowGeo} material={glowMat} />
+    </group>
+  );
+}
+
+// ── Ring Platform — concentric stepped rings with center void ───────
+function RingPlatform({ size, awaken, morph, innerLight }) {
+  const shellRadius = size * 1.12;
+  const floorY = -(shellRadius + 0.4);
+
+  const platformGeo = useMemo(() => {
+    const geos = [];
+
+    for (let i = 0; i < PLATFORM_RINGS.length; i++) {
+      const ring = PLATFORM_RINGS[i];
+      const topY = floorY + ring.rise;
+      const prevRise = i === 0 ? 0 : PLATFORM_RINGS[i - 1].rise;
+      const botY = floorY + prevRise;
+      const stepH = topY - botY;
+
+      // Top annular face
+      const top = new THREE.RingGeometry(ring.inner, ring.outer, 64);
+      top.rotateX(-Math.PI / 2);
+      top.translate(0, topY, 0);
+      geos.push(top);
+
+      // Outer vertical step face (riser)
+      const outerWall = new THREE.CylinderGeometry(ring.outer, ring.outer, stepH, 64, 1, true);
+      outerWall.translate(0, (topY + botY) / 2, 0);
+      geos.push(outerWall);
+
+      // Inner vertical wall (facing the void)
+      const innerWall = new THREE.CylinderGeometry(ring.inner, ring.inner, ring.rise, 64, 1, true);
+      innerWall.translate(0, floorY + ring.rise / 2, 0);
+      geos.push(innerWall);
+    }
+
+    return mergeGeometries(geos);
+  }, [floorY]);
+
+  const platformMat = useMemo(
+    () => new THREE.MeshStandardMaterial(PLATFORM_MATERIAL_PROPS),
+    [],
+  );
+
+  // v4: Only 1 subtle glow ring at innermost platform edge
+  const novaGlow = useMemo(() => new THREE.Color("#6B4CE6"), []);
+  const coreGlow = useMemo(() => new THREE.Color("#E8920A"), []);
+  const tempColor = useRef(new THREE.Color()); // GC fix
+
+  const glowGeo = useMemo(() => {
+    const geos = [];
+    // Only innermost ring's inner lip
+    const innerRing = PLATFORM_RINGS[PLATFORM_RINGS.length - 1];
+    const torus = new THREE.TorusGeometry(innerRing.inner, 0.015, 4, 64);
+    torus.rotateX(Math.PI / 2);
+    torus.translate(0, floorY + innerRing.rise + 0.01, 0);
+    geos.push(torus);
+    return mergeGeometries(geos);
+  }, [floorY]);
+
+  const glowMat = useMemo(
+    () =>
+      new THREE.MeshBasicMaterial({
+        color: novaGlow.clone(),
+        transparent: true,
+        opacity: 0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      }),
+    [],
+  );
+
+  const awakenRef = useRef(awaken);
+  const morphRef = useRef(morph);
+  const innerLightRef = useRef(innerLight);
+  awakenRef.current = awaken;
+  morphRef.current = morph;
+  innerLightRef.current = innerLight;
+
+  useFrame((_, delta) => {
+    const speed = 2.0;
+    const t = 1.0 - Math.exp(-speed * delta);
+    tempColor.current.copy(novaGlow).lerp(coreGlow, morphRef.current);
+    glowMat.color.lerp(tempColor.current, t);
+    const targetOpacity = awakenRef.current * innerLightRef.current * 0.04;
+    glowMat.opacity += (targetOpacity - glowMat.opacity) * t;
+  });
+
+  return (
+    <group>
+      <mesh geometry={platformGeo} material={platformMat} renderOrder={0} />
+      <mesh geometry={glowGeo} material={glowMat} />
+    </group>
+  );
+}
+
+// ── Platform Steps — approach stairs from +Z (toward camera) ────────
+function PlatformSteps({ size }) {
+  const shellRadius = size * 1.12;
+  const floorY = -(shellRadius + 0.4);
+
+  const stepsGeo = useMemo(() => {
+    const geos = [];
+    const STEP_COUNT = 6;
+    const STEP_WIDTH = 3.5; // v4: wider to match bigger chamber
+    const STEP_DEPTH = 0.6;
+    const TOTAL_RISE = PLATFORM_RINGS[0].rise;
+
+    for (let i = 0; i < STEP_COUNT; i++) {
+      const stepRise = (i + 1) * (TOTAL_RISE / STEP_COUNT);
+      const stepY = floorY + stepRise / 2;
+      const stepZ = PLATFORM_RINGS[0].outer + (STEP_COUNT - i - 0.5) * STEP_DEPTH;
+      const box = new THREE.BoxGeometry(STEP_WIDTH, stepRise, STEP_DEPTH);
+      box.translate(0, stepY, stepZ);
+      geos.push(box);
+    }
+
+    return mergeGeometries(geos);
+  }, [floorY]);
+
+  const stepMat = useMemo(
+    () => new THREE.MeshStandardMaterial(STEP_MATERIAL_PROPS),
+    [],
+  );
+
+  return <mesh geometry={stepsGeo} material={stepMat} />;
+}
+
+// ── Oculus — ceiling ring structure with thick radial ribs ───────────
+function Oculus({ size, awaken, morph, innerLight }) {
+  const shellRadius = size * 1.12;
+  const floorY = -(shellRadius + 0.4);
+  const ceilingY = floorY + WALL_HEIGHT;
+
+  const oculusGeo = useMemo(() => {
+    const geos = [];
+
+    // Concentric ceiling ring faces (facing downward)
+    for (const ring of OCULUS_RINGS) {
+      const face = new THREE.RingGeometry(ring.inner, ring.outer, 64);
+      face.rotateX(Math.PI / 2); // face downward
+      face.translate(0, ceilingY, 0);
+      geos.push(face);
+
+      // Inner vertical lip
+      const lip = new THREE.CylinderGeometry(ring.inner, ring.inner, ring.thickness, 64, 1, true);
+      lip.translate(0, ceilingY - ring.thickness / 2, 0);
+      geos.push(lip);
+    }
+
+    // v4: Thick radial ribs connecting rings (16 ribs matching wall rib count)
+    for (let i = 0; i < RIB_COUNT; i++) {
+      const angle = (i / RIB_COUNT) * Math.PI * 2;
+      const ribLength = OCULUS_RINGS[0].outer - OCULUS_RINGS[2].inner;
+      const ribCenterR = (OCULUS_RINGS[0].outer + OCULUS_RINGS[2].inner) / 2;
+      // v4: Much thicker ribs (was 0.04 × 0.12)
+      const rib = new THREE.BoxGeometry(0.3, 0.18, ribLength);
+      const mat4 = new THREE.Matrix4();
+      mat4.makeRotationY(angle);
+      mat4.setPosition(
+        Math.cos(angle) * ribCenterR,
+        ceilingY - 0.09,
+        Math.sin(angle) * ribCenterR,
+      );
+      rib.applyMatrix4(mat4);
+      geos.push(rib);
+    }
+
+    return mergeGeometries(geos);
+  }, [ceilingY]);
+
+  const oculusMat = useMemo(
+    () => new THREE.MeshStandardMaterial(OCULUS_MATERIAL_PROPS),
+    [],
+  );
+
+  // v4: Only 1 subtle glow ring at innermost oculus edge
+  const novaGlow = useMemo(() => new THREE.Color("#6B4CE6"), []);
+  const coreGlow = useMemo(() => new THREE.Color("#E8920A"), []);
+  const tempColor = useRef(new THREE.Color()); // GC fix
+
+  const glowGeo = useMemo(() => {
+    const geos = [];
+    // Only innermost ring
+    const ring = OCULUS_RINGS[OCULUS_RINGS.length - 1];
+    const torus = new THREE.TorusGeometry(ring.inner, 0.018, 4, 64);
+    torus.rotateX(Math.PI / 2);
+    torus.translate(0, ceilingY - 0.01, 0);
+    geos.push(torus);
+    return mergeGeometries(geos);
+  }, [ceilingY]);
+
+  const glowMat = useMemo(
+    () =>
+      new THREE.MeshBasicMaterial({
+        color: novaGlow.clone(),
+        transparent: true,
+        opacity: 0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      }),
+    [],
+  );
+
+  const awakenRef = useRef(awaken);
+  const morphRef = useRef(morph);
+  const innerLightRef = useRef(innerLight);
+  awakenRef.current = awaken;
+  morphRef.current = morph;
+  innerLightRef.current = innerLight;
+
+  useFrame((_, delta) => {
+    const speed = 2.0;
+    const t = 1.0 - Math.exp(-speed * delta);
+    tempColor.current.copy(novaGlow).lerp(coreGlow, morphRef.current);
+    glowMat.color.lerp(tempColor.current, t);
+    const targetOpacity = awakenRef.current * innerLightRef.current * 0.04;
+    glowMat.opacity += (targetOpacity - glowMat.opacity) * t;
+  });
+
+  return (
+    <group>
+      <mesh geometry={oculusGeo} material={oculusMat} />
+      <mesh geometry={glowGeo} material={glowMat} />
     </group>
   );
 }
 
 // ── Vault Dome — subtle architectural ceiling for enclosure ──────────
-// Paul Franklin: "In every Interstellar environment, there's a ceiling —
-// even if you can barely see it. It tells the audience they're inside."
 function VaultDome({ size, awaken, morph, innerLight }) {
   const matRef = useRef();
   const awakenRef = useRef(awaken);
@@ -431,8 +731,7 @@ function VaultDome({ size, awaken, morph, innerLight }) {
 }
 
 // ── Artifact Point Light — dynamic illumination from sphere energy ───
-// Color smoothly morphs between NOVA violet and CORE amber.
-// Intensity tracks awaken × innerLight. Dormant = no light, alive = full.
+// v4: Increased distance (30) and intensity (12×) to fill bigger chamber
 function ArtifactLight({ awaken, morph, innerLight }) {
   const lightRef = useRef();
   const novaColor = useMemo(() => new THREE.Color("#6B4CE6"), []);
@@ -455,31 +754,52 @@ function ArtifactLight({ awaken, morph, innerLight }) {
     targetColor.copy(novaColor).lerp(coreColor, morphRef.current);
     lightRef.current.color.lerp(targetColor, t);
 
-    // Smooth intensity transition — strong enough to light distant pillars
-    // Paul Franklin: "The light should reach every surface in the chamber,
-    // even if it arrives as barely a whisper on the far columns."
-    const targetIntensity = awakenRef.current * innerLightRef.current * 8.0;
+    // v4: Stronger intensity to fill the massive chamber
+    const targetIntensity = awakenRef.current * innerLightRef.current * 12.0;
+    lightRef.current.intensity += (targetIntensity - lightRef.current.intensity) * t;
+  });
+
+  return <pointLight ref={lightRef} position={[0, 0, 0]} intensity={0} distance={38} decay={1.3} />;
+}
+
+// ── Oculus Spot Light — directional light from ceiling opening ───────
+// v4: Adds real shadow-casting light from the oculus down to the sphere
+function OculusSpotLight({ size, awaken, innerLight }) {
+  const lightRef = useRef();
+  const awakenRef = useRef(awaken);
+  const innerLightRef = useRef(innerLight);
+  awakenRef.current = awaken;
+  innerLightRef.current = innerLight;
+
+  const shellRadius = size * 1.12;
+  const floorY = -(shellRadius + 0.4);
+  const ceilingY = floorY + WALL_HEIGHT;
+
+  useFrame((_, delta) => {
+    if (!lightRef.current) return;
+    const speed = 2.0;
+    const t = 1.0 - Math.exp(-speed * delta);
+    const targetIntensity = awakenRef.current * innerLightRef.current * 4.0;
     lightRef.current.intensity += (targetIntensity - lightRef.current.intensity) * t;
   });
 
   return (
-    <pointLight
+    <spotLight
       ref={lightRef}
-      position={[0, 0, 0]}
+      position={[0, ceilingY - 0.5, 0]}
+      target-position={[0, 0, 0]}
       intensity={0}
-      distance={22}
-      decay={1.6}
+      distance={WALL_HEIGHT + 2}
+      angle={Math.PI / 5}
+      penumbra={0.8}
+      decay={1.2}
+      color="#B8C4E8"
     />
   );
 }
 
 // ── Main Chamber Component ───────────────────────────────────────────
-export default function Chamber({
-  size = 1.6,
-  awaken = 0.0,
-  morph = 0.0,
-  innerLight = 0.7,
-}) {
+export default function Chamber({ size = 1.6, awaken = 0.0, morph = 0.0, innerLight = 0.7 }) {
   const shellRadius = size * 1.12;
   const floorY = -(shellRadius + 0.4);
 
@@ -488,13 +808,14 @@ export default function Chamber({
       {/* Dark vault background */}
       <color attach="background" args={["#020204"]} />
 
-      {/* Very subtle ambient fill — pillars visible even when dormant */}
-      {/* Paul Franklin: "Even in the darkest set, there's always ambient.
-          Zero light means invisible geometry, not mood." */}
-      <ambientLight intensity={0.008} color="#0a0a18" />
+      {/* v4: Neutral ambient (was blue-tinted #0a0a18) */}
+      <ambientLight intensity={0.008} color="#0C0C0C" />
 
-      {/* Dynamic artifact illumination — lights the pillars and environment */}
+      {/* Dynamic artifact illumination — lights walls and environment */}
       <ArtifactLight awaken={awaken} morph={morph} innerLight={innerLight} />
+
+      {/* v4: Directional light from oculus opening */}
+      <OculusSpotLight size={size} awaken={awaken} innerLight={innerLight} />
 
       {/* Obsidian floor with caustic light patterns */}
       <ChamberFloor size={size} awaken={awaken} morph={morph} innerLight={innerLight} />
@@ -502,23 +823,35 @@ export default function Chamber({
       {/* Volumetric light shaft — visible column of artifact light through dust */}
       <VolumetricShaft size={size} awaken={awaken} morph={morph} innerLight={innerLight} />
 
+      {/* v4: God rays from ceiling oculus — the hero volumetric element */}
+      <OculusGodRays size={size} awaken={awaken} morph={morph} innerLight={innerLight} />
+
       {/* Ground fog — atmospheric haze at floor level */}
       <GroundFog size={size} awaken={awaken} morph={morph} innerLight={innerLight} />
 
-      {/* Dark obsidian columns — architectural depth and scale */}
-      <VaultPillars size={size} awaken={awaken} morph={morph} innerLight={innerLight} />
+      {/* Thick-ribbed cylindrical walls */}
+      <ChamberWalls size={size} awaken={awaken} morph={morph} innerLight={innerLight} />
+
+      {/* Concentric ring platform with center void */}
+      <RingPlatform size={size} awaken={awaken} morph={morph} innerLight={innerLight} />
+
+      {/* Approach steps from +Z direction (toward camera) */}
+      <PlatformSteps size={size} />
+
+      {/* Ceiling oculus with thick radial ribs — light enters here */}
+      <Oculus size={size} awaken={awaken} morph={morph} innerLight={innerLight} />
 
       {/* Vault ceiling dome — subtle architectural enclosure */}
       <VaultDome size={size} awaken={awaken} morph={morph} innerLight={innerLight} />
 
       {/* ── Particle Layer 1: Ambient dust — sparse, slow, fills the vault ── */}
       <Sparkles
-        count={40}
+        count={50}
         size={1.2}
-        scale={[10, 6, 10]}
-        position={[0, 0.5, 0]}
+        scale={[18, 12, 18]}
+        position={[0, 3, 0]}
         speed={0.08}
-        opacity={0.10 + awaken * 0.12}
+        opacity={0.1 + awaken * 0.12}
         color={morph > 0.5 ? "#C4782A" : "#3355AA"}
       />
 
@@ -535,9 +868,9 @@ export default function Chamber({
 
       {/* ── Particle Layer 3: Floor-level dust — ground atmosphere ── */}
       <Sparkles
-        count={25}
+        count={30}
         size={0.8}
-        scale={[8, 1.0, 8]}
+        scale={[16, 1.5, 16]}
         position={[0, floorY + 0.5, 0]}
         speed={0.05}
         opacity={0.06 + awaken * 0.08}
@@ -548,11 +881,11 @@ export default function Chamber({
       <CameraSetup />
       <OrbitControls
         makeDefault
-        target={[0, -0.2, 0]}
-        minDistance={3.5}
-        maxDistance={14}
+        target={[0, -0.6, 0]}
+        minDistance={4}
+        maxDistance={13}
         maxPolarAngle={Math.PI / 2.05}
-        minPolarAngle={0.2}
+        minPolarAngle={0.15}
         enableDamping
         dampingFactor={0.04}
         autoRotate

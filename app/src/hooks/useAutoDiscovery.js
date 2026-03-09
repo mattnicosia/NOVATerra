@@ -73,9 +73,7 @@ export function useAutoDiscovery() {
       // Verify drawings actually have image data
       const drawingsWithData = freshDrawings.filter(d => d.data);
       if (drawingsWithData.length === 0) {
-        console.warn(
-          `[AutoDiscovery] Skipped — ${freshDrawings.length} drawings but none have .data`,
-        );
+        console.warn(`[AutoDiscovery] Skipped — ${freshDrawings.length} drawings but none have .data`);
         return;
       }
 

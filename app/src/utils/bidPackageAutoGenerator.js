@@ -4,18 +4,26 @@
 // User reviews and approves — all deterministic except cover messages.
 
 import { callAnthropic } from "./ai";
-import {
-  autoTradeFromCode,
-  TRADE_MAP,
-} from "@/constants/tradeGroupings";
+import { autoTradeFromCode, TRADE_MAP } from "@/constants/tradeGroupings";
 import { uid } from "@/utils/format";
 
 // ─── Sheet Prefix → Trade Discipline Mapping ─────────────────────
 export const SHEET_DISCIPLINE_MAP = {
   A: [
-    "general", "demo", "doors", "windows", "drywall", "tile", "act",
-    "flooring", "painting", "specialties", "finishCarp", "framing",
-    "insulation", "roofing",
+    "general",
+    "demo",
+    "doors",
+    "windows",
+    "drywall",
+    "tile",
+    "act",
+    "flooring",
+    "painting",
+    "specialties",
+    "finishCarp",
+    "framing",
+    "insulation",
+    "roofing",
   ],
   S: ["concrete", "masonry", "steel"],
   M: ["hvac"],
@@ -108,9 +116,7 @@ function matchDrawingsToTrades(drawings, tradeKeys) {
 // ─── Match Subcontractors by Trade ────────────────────────────────
 function matchSubsToTrades(subs, tradeKeys) {
   const keySet = new Set(tradeKeys);
-  return (subs || []).filter(s =>
-    (s.trades || []).some(tk => keySet.has(tk)),
-  );
+  return (subs || []).filter(s => (s.trades || []).some(tk => keySet.has(tk)));
 }
 
 // ─── Build Package Name from Trade Keys ───────────────────────────
@@ -201,7 +207,10 @@ export async function generateCoverMessages(proposals, project) {
     index: i,
     name: p.name,
     itemCount: p.itemCount,
-    sampleItems: p.items.slice(0, 5).map(it => it.description || it.code).join(", "),
+    sampleItems: p.items
+      .slice(0, 5)
+      .map(it => it.description || it.code)
+      .join(", "),
     subCount: p.subIds.length,
   }));
 

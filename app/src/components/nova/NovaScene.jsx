@@ -46,11 +46,20 @@ function Effects({ morphValue = 0, artifact = false, awaken = 1.0 }) {
 // ── Scene wrapper ──────────────────────────────────────────────────
 const NovaScene = forwardRef(function NovaScene(
   {
-    morphTarget = null, intensity = 0.7, size = 1.6,
-    width = 200, height = 200, className = "", style = {},
-    onClick, artifact = false, awaken = 1.0, chamber = false,
-    crystallize = null, crystalLayers = null,
-    lightweight = false,  // v15: Stripped-down mode for small instances
+    morphTarget = null,
+    intensity = 0.7,
+    size = 1.6,
+    width = 200,
+    height = 200,
+    className = "",
+    style = {},
+    onClick,
+    artifact = false,
+    awaken = 1.0,
+    chamber = false,
+    crystallize = null,
+    crystalLayers = null,
+    lightweight = false, // v15: Stripped-down mode for small instances
   },
   ref,
 ) {
@@ -72,7 +81,7 @@ const NovaScene = forwardRef(function NovaScene(
   // For small instances (header logo, floating orbs, sidebar indicators)
   const isLight = lightweight || gpuTier < 2;
   const dpr = isLight ? [1, 1] : [1, 2];
-  const segments = isLight ? 32 : (gpuTier >= 2 ? 128 : 64);
+  const segments = isLight ? 32 : gpuTier >= 2 ? 128 : 64;
   const showEffects = !isLight && gpuTier >= 2;
   const showArtifact = artifact && !lightweight;
   const showChamber = chamber && !lightweight;
@@ -129,30 +138,14 @@ const NovaScene = forwardRef(function NovaScene(
           {/* The Artifact — dark obsidian housing shell */}
           {showArtifact && (
             <>
-              <ArtifactShell
-                size={size}
-                awaken={awaken}
-                morph={morphTarget ?? 0}
-                innerLight={intensity}
-              />
+              <ArtifactShell size={size} awaken={awaken} morph={morphTarget ?? 0} innerLight={intensity} />
               {/* Energy wisps — sphere-shell bridge during mid-awakening (v14) */}
-              <EnergyWisps
-                size={size}
-                awaken={awaken}
-                morph={morphTarget ?? 0}
-              />
+              <EnergyWisps size={size} awaken={awaken} morph={morphTarget ?? 0} />
             </>
           )}
 
           {/* The Chamber — environmental vault with caustic floor + particles */}
-          {showChamber && (
-            <Chamber
-              size={size}
-              awaken={awaken}
-              morph={morphTarget ?? 0}
-              innerLight={intensity}
-            />
-          )}
+          {showChamber && <Chamber size={size} awaken={awaken} morph={morphTarget ?? 0} innerLight={intensity} />}
 
           {showEffects && <Effects morphValue={morphTarget ?? 0} artifact={artifact} awaken={awaken} />}
         </Suspense>

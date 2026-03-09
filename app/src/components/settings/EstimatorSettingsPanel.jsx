@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
+import { computeEstimatorExperience } from "@/utils/estimatorExperience";
 import { inp, bt, cardSolid } from "@/utils/styles";
 import { uid } from "@/utils/format";
 import Ic from "@/components/shared/Ic";
@@ -9,8 +10,16 @@ import { I } from "@/constants/icons";
 import Avatar from "@/components/shared/Avatar";
 
 const TEAM_COLORS = [
-  "#A78BFA", "#60A5FA", "#34D399", "#FB7185", "#FBBF24",
-  "#F472B6", "#38BDF8", "#4ADE80", "#FB923C", "#C084FC",
+  "#A78BFA",
+  "#60A5FA",
+  "#34D399",
+  "#FB7185",
+  "#FBBF24",
+  "#F472B6",
+  "#38BDF8",
+  "#4ADE80",
+  "#FB923C",
+  "#C084FC",
 ];
 
 function getInitials(name) {
@@ -18,6 +27,31 @@ function getInitials(name) {
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function ExperiencePills({ estimatorName, estimates, C, T }) {
+  const exp = useMemo(() => computeEstimatorExperience(estimates, estimatorName), [estimates, estimatorName]);
+  if (!exp || exp.jobTypes.length === 0) return null;
+  const top3 = exp.jobTypes.slice(0, 3);
+  return (
+    <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
+      {top3.map(jt => (
+        <span
+          key={jt.type}
+          style={{
+            fontSize: 9,
+            fontWeight: 500,
+            color: C.text,
+            background: C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+            padding: "2px 8px",
+            borderRadius: 10,
+          }}
+        >
+          {jt.type} ({jt.count})
+        </span>
+      ))}
+    </div>
+  );
 }
 
 export default function EstimatorSettingsPanel() {
@@ -34,11 +68,26 @@ export default function EstimatorSettingsPanel() {
   const [formName, setFormName] = useState("");
   const [formEmail, setFormEmail] = useState("");
   const [formColor, setFormColor] = useState(TEAM_COLORS[0]);
+  const [formMaxHours, setFormMaxHours] = useState(7);
+  const [formNotes, setFormNotes] = useState("");
+
+  // Collect unique job types from all estimates for preferred types picker
+  const allJobTypes = useMemo(() => {
+    const s = new Set();
+    for (const e of estimatesIndex) {
+      if (e.jobType) s.add(e.jobType);
+    }
+    return [...s].sort();
+  }, [estimatesIndex]);
+  const [formPreferredTypes, setFormPreferredTypes] = useState([]);
 
   const resetForm = () => {
     setFormName("");
     setFormEmail("");
     setFormColor(TEAM_COLORS[estimators.length % TEAM_COLORS.length]);
+    setFormMaxHours(7);
+    setFormPreferredTypes([]);
+    setFormNotes("");
     setEditId(null);
     setShowForm(false);
   };
@@ -54,6 +103,9 @@ export default function EstimatorSettingsPanel() {
         updateMasterItem("estimators", editId, "email", formEmail.trim());
         updateMasterItem("estimators", editId, "initials", initials);
         updateMasterItem("estimators", editId, "color", formColor);
+        updateMasterItem("estimators", editId, "maxHoursPerDay", Number(formMaxHours) || 7);
+        updateMasterItem("estimators", editId, "preferredJobTypes", formPreferredTypes);
+        updateMasterItem("estimators", editId, "notes", formNotes.trim());
       }
     } else {
       // Add new
@@ -62,6 +114,9 @@ export default function EstimatorSettingsPanel() {
         email: formEmail.trim(),
         initials,
         color: formColor,
+        maxHoursPerDay: Number(formMaxHours) || 7,
+        preferredJobTypes: formPreferredTypes,
+        notes: formNotes.trim(),
       });
     }
     resetForm();
@@ -72,6 +127,9 @@ export default function EstimatorSettingsPanel() {
     setFormName(est.name || "");
     setFormEmail(est.email || "");
     setFormColor(est.color || TEAM_COLORS[0]);
+    setFormMaxHours(est.maxHoursPerDay || 7);
+    setFormPreferredTypes(est.preferredJobTypes || []);
+    setFormNotes(est.notes || "");
     setShowForm(true);
   };
 
@@ -82,11 +140,9 @@ export default function EstimatorSettingsPanel() {
 
   // Compute active project counts per estimator
   const getEstimatorStats = name => {
-    const active = estimatesIndex.filter(
-      e => e.estimator === name && ["Bidding", "Submitted"].includes(e.status),
-    );
+    const active = estimatesIndex.filter(e => e.estimator === name && ["Bidding", "Submitted"].includes(e.status));
     const totalHours = active.reduce((s, e) => s + (Number(e.estimatedHours) || 0), 0);
-    const hoursLogged = active.reduce((s, e) => s + ((e.timerTotalMs || 0) / 3600000), 0);
+    const hoursLogged = active.reduce((s, e) => s + (e.timerTotalMs || 0) / 3600000, 0);
     return { activeCount: active.length, totalHours, hoursLogged: Math.round(hoursLogged * 10) / 10 };
   };
 
@@ -207,9 +263,7 @@ export default function EstimatorSettingsPanel() {
             textAlign: "center",
           }}
         >
-          <div style={{ fontSize: T.fontSize.md, color: C.textMuted, marginBottom: 4 }}>
-            No estimators added yet
-          </div>
+          <div style={{ fontSize: T.fontSize.md, color: C.textMuted, marginBottom: 4 }}>No estimators added yet</div>
           <div style={{ fontSize: T.fontSize.xs, color: C.textDim }}>
             Add estimators to track assignments and workload in the Resource page
           </div>
@@ -238,9 +292,7 @@ export default function EstimatorSettingsPanel() {
                     {est.name}
                   </div>
                   {est.email && (
-                    <div style={{ fontSize: T.fontSize.xs, color: C.textMuted, marginTop: 1 }}>
-                      {est.email}
-                    </div>
+                    <div style={{ fontSize: T.fontSize.xs, color: C.textMuted, marginTop: 1 }}>{est.email}</div>
                   )}
                 </div>
 
@@ -305,6 +357,9 @@ export default function EstimatorSettingsPanel() {
 
               {/* Mini Gantt */}
               <MiniGantt estimatorName={est.name} color={color} />
+
+              {/* Experience Pills — top 3 job types */}
+              <ExperiencePills estimatorName={est.name} estimates={estimatesIndex} C={C} T={T} />
             </div>
           );
         })}
@@ -320,7 +375,14 @@ export default function EstimatorSettingsPanel() {
             border: `1px solid ${C.accent}30`,
           }}
         >
-          <div style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.semibold, color: C.text, marginBottom: T.space[3] }}>
+          <div
+            style={{
+              fontSize: T.fontSize.sm,
+              fontWeight: T.fontWeight.semibold,
+              color: C.text,
+              marginBottom: T.space[3],
+            }}
+          >
             {editId ? "Edit Estimator" : "New Estimator"}
           </div>
 
@@ -373,6 +435,72 @@ export default function EstimatorSettingsPanel() {
                 />
               ))}
             </div>
+          </div>
+
+          {/* Daily Capacity */}
+          <div style={{ marginBottom: T.space[3] }}>
+            <label style={{ fontSize: T.fontSize.xs, color: C.textMuted, display: "block", marginBottom: 4 }}>
+              Max Hours/Day
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={12}
+              step={0.5}
+              value={formMaxHours}
+              onChange={e => setFormMaxHours(e.target.value)}
+              style={{ ...inp(C), width: 80 }}
+            />
+          </div>
+
+          {/* Preferred Job Types */}
+          {allJobTypes.length > 0 && (
+            <div style={{ marginBottom: T.space[3] }}>
+              <label style={{ fontSize: T.fontSize.xs, color: C.textMuted, display: "block", marginBottom: 4 }}>
+                Preferred Job Types
+              </label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {allJobTypes.map(jt => {
+                  const active = formPreferredTypes.includes(jt);
+                  return (
+                    <button
+                      key={jt}
+                      type="button"
+                      onClick={() => {
+                        setFormPreferredTypes(prev => (active ? prev.filter(t => t !== jt) : [...prev, jt]));
+                      }}
+                      style={{
+                        ...bt(C),
+                        padding: "4px 10px",
+                        fontSize: 10,
+                        fontWeight: active ? 600 : 400,
+                        color: active ? "#fff" : C.textMuted,
+                        background: active ? C.accent : C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+                        border: `1px solid ${active ? C.accent : C.border}`,
+                        borderRadius: 20,
+                        transition: "all 120ms",
+                      }}
+                    >
+                      {jt}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Notes */}
+          <div style={{ marginBottom: T.space[3] }}>
+            <label style={{ fontSize: T.fontSize.xs, color: C.textMuted, display: "block", marginBottom: 4 }}>
+              Notes
+            </label>
+            <textarea
+              value={formNotes}
+              onChange={e => setFormNotes(e.target.value)}
+              placeholder="Internal notes..."
+              rows={2}
+              style={{ ...inp(C), resize: "vertical", minHeight: 50, fontFamily: "inherit" }}
+            />
           </div>
 
           {/* Preview */}

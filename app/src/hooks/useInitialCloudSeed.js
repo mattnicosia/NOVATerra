@@ -36,20 +36,36 @@ export function useInitialCloudSeed() {
       useUiStore.getState().setCloudSyncStatus("syncing");
 
       try {
-        // 1. Push index
+        // 0. Load deleted-IDs to prevent resurrecting zombies
+        let deletedSet = new Set();
+        try {
+          const delRaw = await storage.get(idbKey("bldg-deleted-ids"));
+          const lsKey = `bldg-deleted-ids-${useAuthStore.getState().user?.id || "anon"}`;
+          const lsRaw = localStorage.getItem(lsKey);
+          const idbIds = delRaw ? JSON.parse(delRaw.value) : [];
+          const lsIds = lsRaw ? JSON.parse(lsRaw) : [];
+          deletedSet = new Set([...idbIds, ...lsIds]);
+        } catch { /* proceed with empty set */ }
+
+        // 1. Push index (excluding deleted estimates)
         const idxRaw = await storage.get(idbKey("bldg-index"));
         let estimateIds = [];
         if (idxRaw) {
           const index = JSON.parse(idxRaw.value);
           if (Array.isArray(index) && index.length > 0) {
-            await cloudSync.pushData("index", index);
-            estimateIds = index.map(e => e.id);
+            const cleanIndex = index.filter(e => !deletedSet.has(e.id));
+            if (cleanIndex.length > 0) {
+              await cloudSync.pushData("index", cleanIndex);
+            }
+            estimateIds = cleanIndex.map(e => e.id);
           }
         }
 
         // 2. Push each estimate sequentially (avoid overwhelming Supabase)
         let pushed = 0;
         for (const estId of estimateIds) {
+          // Double-check: skip if deleted (belt + suspenders)
+          if (deletedSet.has(estId)) continue;
           const estRaw = await storage.get(idbKey(`bldg-est-${estId}`));
           if (estRaw) {
             const estData = JSON.parse(estRaw.value);

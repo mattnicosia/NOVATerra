@@ -578,7 +578,11 @@ export default function ProjectInfoPage() {
                 value={project.engineerStructural || ""}
                 onChange={e => {
                   if (e.target.value === "__new__") {
-                    setQuickAddModal({ category: "engineers", field: "engineerStructural", label: "Structural Engineer" });
+                    setQuickAddModal({
+                      category: "engineers",
+                      field: "engineerStructural",
+                      label: "Structural Engineer",
+                    });
                     setQuickAddValue("");
                   } else up("engineerStructural", e.target.value);
                 }}
@@ -1162,7 +1166,10 @@ export default function ProjectInfoPage() {
         {(correspondences.length > 0 || project.status === "Submitted" || project.status === "Won") && (
           <Sec
             title={`Correspondences${correspondences.length > 0 ? ` (${correspondences.length})` : ""}`}
-            icon={I.email || "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"}
+            icon={
+              I.email ||
+              "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+            }
           >
             {correspondences.length === 0 ? (
               <div style={{ textAlign: "center", padding: "16px 0" }}>
@@ -1218,10 +1225,22 @@ export default function ProjectInfoPage() {
                         onClick={() => setCorrExpanded(isExpanded ? null : c.id)}
                       >
                         <svg
-                          width="10" height="10" viewBox="0 0 10 10"
-                          style={{ transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.15s", flexShrink: 0 }}
+                          width="10"
+                          height="10"
+                          viewBox="0 0 10 10"
+                          style={{
+                            transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
+                            transition: "transform 0.15s",
+                            flexShrink: 0,
+                          }}
                         >
-                          <path d="M3 1.5L7 5L3 8.5" stroke={C.textMuted} strokeWidth="1.3" fill="none" strokeLinecap="round" />
+                          <path
+                            d="M3 1.5L7 5L3 8.5"
+                            stroke={C.textMuted}
+                            strokeWidth="1.3"
+                            fill="none"
+                            strokeLinecap="round"
+                          />
                         </svg>
                         <input
                           value={c.title}
@@ -1281,7 +1300,9 @@ export default function ProjectInfoPage() {
                       {isExpanded && (
                         <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
                           <div>
-                            <label style={{ fontSize: 9, color: C.textMuted, display: "block", marginBottom: 2 }}>Question</label>
+                            <label style={{ fontSize: 9, color: C.textMuted, display: "block", marginBottom: 2 }}>
+                              Question
+                            </label>
                             <textarea
                               value={c.question || ""}
                               onChange={e => updateCorrespondence(c.id, { question: e.target.value })}
@@ -1291,7 +1312,9 @@ export default function ProjectInfoPage() {
                             />
                           </div>
                           <div>
-                            <label style={{ fontSize: 9, color: C.textMuted, display: "block", marginBottom: 2 }}>Response</label>
+                            <label style={{ fontSize: 9, color: C.textMuted, display: "block", marginBottom: 2 }}>
+                              Response
+                            </label>
                             <textarea
                               value={c.response || ""}
                               onChange={e => updateCorrespondence(c.id, { response: e.target.value })}
@@ -1387,7 +1410,10 @@ export default function ProjectInfoPage() {
         {(commEmails.length > 0 || sourceRfpId) && (
           <Sec
             title={`Communications${commEmails.length > 0 ? ` (${commEmails.length})` : ""}`}
-            icon={I.inbox || "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"}
+            icon={
+              I.inbox ||
+              "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+            }
           >
             {commLoading ? (
               <div style={{ fontSize: 11, color: C.textDim, padding: "8px 0" }}>Loading emails...</div>
@@ -1439,39 +1465,63 @@ export default function ProjectInfoPage() {
                       }}
                     >
                       {/* Timeline dot */}
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 3, flexShrink: 0 }}>
-                        <div style={{
-                          width: 10, height: 10, borderRadius: "50%",
-                          background: clsColor,
-                          border: `2px solid ${C.bg1}`,
-                          boxShadow: `0 0 0 1px ${clsColor}40`,
-                        }} />
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          paddingTop: 3,
+                          flexShrink: 0,
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: 10,
+                            height: 10,
+                            borderRadius: "50%",
+                            background: clsColor,
+                            border: `2px solid ${C.bg1}`,
+                            boxShadow: `0 0 0 1px ${clsColor}40`,
+                          }}
+                        />
                         {ei < commEmails.length - 1 && (
-                          <div style={{ width: 1, flex: 1, minHeight: 20, background: `${C.border}40`, marginTop: 2 }} />
+                          <div
+                            style={{ width: 1, flex: 1, minHeight: 20, background: `${C.border}40`, marginTop: 2 }}
+                          />
                         )}
                       </div>
                       {/* Email content */}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                          <span style={{
-                            fontSize: 9, fontWeight: 600, padding: "1px 6px", borderRadius: 4,
-                            background: `${clsColor}18`, color: clsColor,
-                          }}>
+                          <span
+                            style={{
+                              fontSize: 9,
+                              fontWeight: 600,
+                              padding: "1px 6px",
+                              borderRadius: 4,
+                              background: `${clsColor}18`,
+                              color: clsColor,
+                            }}
+                          >
                             {clsLabels[cls] || cls}
                           </span>
-                          <span style={{ fontSize: 10, color: C.textDim }}>
-                            {fmtDate(email.received_at)}
-                          </span>
+                          <span style={{ fontSize: 10, color: C.textDim }}>{fmtDate(email.received_at)}</span>
                           {attachCount > 0 && (
                             <span style={{ fontSize: 9, color: C.textDim }}>
                               {attachCount} file{attachCount !== 1 ? "s" : ""}
                             </span>
                           )}
                         </div>
-                        <div style={{
-                          fontSize: 11, fontWeight: 500, color: C.text,
-                          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                        }}>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 500,
+                            color: C.text,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
                           {email.subject || "(no subject)"}
                         </div>
                         <div style={{ fontSize: 10, color: C.textMuted, marginTop: 1 }}>

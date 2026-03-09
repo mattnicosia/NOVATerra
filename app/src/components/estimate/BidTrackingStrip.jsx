@@ -46,25 +46,14 @@ export default function BidTrackingStrip() {
         marginBottom: T.space[5],
       }}
     >
-      <KPI
-        label="Packages Sent"
-        value={packagesSent}
-        sub={`${packagesSent} of ${totalPackages} total`}
-        icon={I.send}
-      />
+      <KPI label="Packages Sent" value={packagesSent} sub={`${packagesSent} of ${totalPackages} total`} icon={I.send} />
       <KPI
         label="Invitations Out"
         value={totalInvites}
         sub={`across ${packagesSent} package${packagesSent !== 1 ? "s" : ""}`}
         icon={I.bid}
       />
-      <KPI
-        label="Opened"
-        value={openedCount}
-        sub={`${openRate}% open rate`}
-        icon={I.eye}
-        color="#30D158"
-      />
+      <KPI label="Opened" value={openedCount} sub={`${openRate}% open rate`} icon={I.eye} color="#30D158" />
       <KPI
         label="Proposals In"
         value={submittedCount}

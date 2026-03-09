@@ -1091,10 +1091,9 @@ export const PALETTES = [
         cyan: "#4C8A9A",
         yellow: "#A09548",
         sidebarBg: "#E0DCD5",
-        bgGradient: [
-          "radial-gradient(ellipse at 50% 0%, rgba(138,126,112,0.04) 0%, transparent 50%)",
-          "#E0DCD5",
-        ].join(", "),
+        bgGradient: ["radial-gradient(ellipse at 50% 0%, rgba(138,126,112,0.04) 0%, transparent 50%)", "#E0DCD5"].join(
+          ", ",
+        ),
       },
     ],
   },

@@ -57,7 +57,16 @@ function lerp(a, b, t) {
 }
 
 const NovacoreSphere = forwardRef(function NovacoreSphere(
-  { morphTarget = null, intensity = 0.7, size = 1.6, segments = 128, gpuTier = 2, onClick, crystallize = null, crystalLayers = null },
+  {
+    morphTarget = null,
+    intensity = 0.7,
+    size = 1.6,
+    segments = 128,
+    gpuTier = 2,
+    onClick,
+    crystallize = null,
+    crystalLayers = null,
+  },
   ref,
 ) {
   const groupRef = useRef();
@@ -72,8 +81,8 @@ const NovacoreSphere = forwardRef(function NovacoreSphere(
     intensity: intensity,
     voice: 0.0,
     // Hodgin frost event — stochastic flash-freeze moments
-    frostActive: 0.0,       // 0→1 frost intensity (decays after spike)
-    frostNextTime: 15.0,    // seconds until next frost event (first one at ~15s)
+    frostActive: 0.0, // 0→1 frost intensity (decays after spike)
+    frostNextTime: 15.0, // seconds until next frost event (first one at ~15s)
   });
 
   // ── Main sphere uniforms ──────────────────────────────────────
@@ -89,8 +98,8 @@ const NovacoreSphere = forwardRef(function NovacoreSphere(
       uSize: { value: size },
       uTier: { value: gpuTier },
       // Phase-transition crystallization (IQ + Patricio)
-      uCrystallize: { value: 0.0 },    // 0 = fluid, 1 = fully crystalline
-      uCrystalLayers: { value: 4.0 },  // facet density
+      uCrystallize: { value: 0.0 }, // 0 = fluid, 1 = fully crystalline
+      uCrystalLayers: { value: 4.0 }, // facet density
       // IQ palette: NOVA
       uNovaPalA: { value: NOVA_PAL.a },
       uNovaPalB: { value: NOVA_PAL.b },

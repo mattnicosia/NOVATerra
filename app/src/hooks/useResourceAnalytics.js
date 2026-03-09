@@ -31,9 +31,7 @@ export function useResourceAnalytics() {
     }
 
     // ── Completed estimates (have actual hours tracked) ──
-    const withActual = entries.filter(e =>
-      e.timerTotalMs > 0 && e.estimatedHours > 0,
-    );
+    const withActual = entries.filter(e => e.timerTotalMs > 0 && e.estimatedHours > 0);
 
     // ── Per-estimator accuracy ──
     const accuracyMap = new Map();
@@ -52,9 +50,7 @@ export function useResourceAnalytics() {
 
     const accuracyByEstimator = new Map();
     for (const [name, rec] of accuracyMap) {
-      const avgRatio = rec.ratios.length > 0
-        ? rec.ratios.reduce((s, r) => s + r, 0) / rec.ratios.length
-        : 1.0;
+      const avgRatio = rec.ratios.length > 0 ? rec.ratios.reduce((s, r) => s + r, 0) / rec.ratios.length : 1.0;
       accuracyByEstimator.set(name, {
         estimates: rec.estimates,
         avgAccuracy: Math.round(avgRatio * 100) / 100,
@@ -70,8 +66,8 @@ export function useResourceAnalytics() {
     eightWeeksAgo.setDate(now.getDate() - 56);
     const eightWeeksAgoStr = eightWeeksAgo.toISOString().slice(0, 10);
 
-    const submitted = entries.filter(e =>
-      ["Won", "Lost", "Submitted"].includes(e.status) && e.bidDue >= eightWeeksAgoStr,
+    const submitted = entries.filter(
+      e => ["Won", "Lost", "Submitted"].includes(e.status) && e.bidDue >= eightWeeksAgoStr,
     );
 
     const velocityMap = new Map();

@@ -195,14 +195,18 @@ export function usePersistenceLoad() {
               }
             }
             deletedSet = new Set(delIds);
-          } catch { /* proceed without filter if read fails */ }
+          } catch {
+            /* proceed without filter if read fails */
+          }
 
           const beforeCount = migrated.length;
           if (deletedSet.size > 0) {
             migrated = migrated.filter(e => !deletedSet.has(e.id));
           }
           if (migrated.length < beforeCount) {
-            console.log(`[usePersistence]   Filtered ${beforeCount - migrated.length} deleted estimates from IDB index`);
+            console.log(
+              `[usePersistence]   Filtered ${beforeCount - migrated.length} deleted estimates from IDB index`,
+            );
           }
 
           useEstimatesStore.getState().setEstimatesIndex(migrated);
@@ -995,11 +999,49 @@ export async function saveEstimate() {
     orgId: data.project.orgId || useOrgStore.getState().org?.id || null,
   };
 
-  // If this estimate isn't in the index yet (freshly created), add it
+  // CRITICAL FIX (v5): Re-check that this estimate still exists in the index.
+  // During the async IDB operations above, the user may have deleted this estimate.
+  // Previously, !existsInIndex would RE-ADD the deleted estimate to the index (zombie bug).
+  // createEstimate() already adds to the index immediately, so the only reason
+  // !existsInIndex would be true here is if the estimate was DELETED during save.
   const existsInIndex = useEstimatesStore.getState().estimatesIndex.some(e => e.id === id);
   if (!existsInIndex) {
-    const newEntry = { id, ...entryFields };
-    useEstimatesStore.getState().setEstimatesIndex([...useEstimatesStore.getState().estimatesIndex, newEntry]);
+    // Double-check: was this estimate intentionally deleted?
+    let wasDeleted = false;
+    try {
+      const delRaw = await storage.get(idbKey("bldg-deleted-ids"));
+      const deletedIds = delRaw ? JSON.parse(delRaw.value) : [];
+      // Also check localStorage backup (survives IDB eviction)
+      try {
+        const userId = useAuthStore.getState().user?.id;
+        const lsKey = `bldg-deleted-ids-${userId || "anon"}`;
+        const lsRaw = localStorage.getItem(lsKey);
+        if (lsRaw) {
+          for (const delId of JSON.parse(lsRaw)) {
+            if (!deletedIds.includes(delId)) deletedIds.push(delId);
+          }
+        }
+      } catch { /* ignore */ }
+      wasDeleted = deletedIds.includes(id);
+    } catch { /* proceed cautiously */ }
+
+    if (wasDeleted) {
+      console.warn("[saveEstimate] Estimate was deleted during save — aborting save for", id);
+      return;
+    }
+
+    // Only re-add if it genuinely wasn't in the index (e.g., draft-to-real transition)
+    // AND it's still the active estimate (not deleted)
+    const stillActive = useEstimatesStore.getState().activeEstimateId === id;
+    if (stillActive) {
+      const newEntry = { id, ...entryFields };
+      useEstimatesStore.setState(s => ({
+        estimatesIndex: [...s.estimatesIndex, newEntry],
+      }));
+    } else {
+      console.warn("[saveEstimate] Estimate not in index and not active — skipping re-add for", id);
+      return;
+    }
   } else {
     useEstimatesStore.getState().updateIndexEntry(id, entryFields);
   }
@@ -1022,12 +1064,19 @@ export async function saveEstimate() {
   }
 
   // ─── Cloud Push (non-blocking) ───
-  cloudSync.pushEstimate(id, data).catch(err => {
-    console.warn("[usePersistence] Cloud push failed for estimate:", err?.message);
-  });
-  cloudSync.pushData("index", idx).catch(err => {
-    console.warn("[usePersistence] Cloud push failed for index:", err?.message);
-  });
+  // Final guard: check if this estimate was deleted during the save window.
+  // This prevents a race where auto-save fires → user deletes → push un-deletes.
+  const pushId = useEstimatesStore.getState().activeEstimateId;
+  if (pushId === id && useEstimatesStore.getState().estimatesIndex.some(e => e.id === id)) {
+    cloudSync.pushEstimate(id, data).catch(err => {
+      console.warn("[usePersistence] Cloud push failed for estimate:", err?.message);
+    });
+    cloudSync.pushData("index", idx).catch(err => {
+      console.warn("[usePersistence] Cloud push failed for index:", err?.message);
+    });
+  } else {
+    console.warn("[usePersistence] Estimate deleted during save — skipping cloud push for", id);
+  }
 }
 
 // Save master data

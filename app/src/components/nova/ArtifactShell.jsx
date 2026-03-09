@@ -18,12 +18,7 @@ import * as THREE from "three";
 import { artifactVertexShader } from "./shaders/artifact.vert";
 import { artifactFragmentShader } from "./shaders/artifact.frag";
 
-export default function ArtifactShell({
-  size = 1.6,
-  awaken = 0.0,
-  morph = 0.0,
-  innerLight = 0.7,
-}) {
+export default function ArtifactShell({ size = 1.6, awaken = 0.0, morph = 0.0, innerLight = 0.7 }) {
   const meshRef = useRef();
   const matRef = useRef();
   const awakenRef = useRef(awaken);

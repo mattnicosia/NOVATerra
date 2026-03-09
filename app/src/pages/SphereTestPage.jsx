@@ -176,7 +176,9 @@ export default function SphereTestPage() {
       </div>
 
       {/* ── Right: Controls panel ────────────────────────────── */}
-      <div style={{ width: 320, display: "flex", flexDirection: "column", gap: 10, maxHeight: "100vh", overflow: "auto" }}>
+      <div
+        style={{ width: 320, display: "flex", flexDirection: "column", gap: 10, maxHeight: "100vh", overflow: "auto" }}
+      >
         {/* Title */}
         <div style={{ marginBottom: 4 }}>
           <h1 style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 2, letterSpacing: "-0.02em" }}>
@@ -228,10 +230,40 @@ export default function SphereTestPage() {
             </>
           )}
           <div style={{ display: "flex", gap: 5, marginTop: 6 }}>
-            <ActionButton onClick={() => { setCrystalAuto(false); setCrystallize(0.0); }} label="FLUID" color="#3B82F6" />
-            <ActionButton onClick={() => { setCrystalAuto(false); setCrystallize(0.35); setCrystalLayers(5); }} label="STRATA" />
-            <ActionButton onClick={() => { setCrystalAuto(false); setCrystallize(0.7); setCrystalLayers(8); }} label="CRYSTAL" color="#C77DFF" />
-            <ActionButton onClick={() => { setCrystalAuto(false); setCrystallize(1.0); setCrystalLayers(12); }} label="SHATTER" color="#E8920A" />
+            <ActionButton
+              onClick={() => {
+                setCrystalAuto(false);
+                setCrystallize(0.0);
+              }}
+              label="FLUID"
+              color="#3B82F6"
+            />
+            <ActionButton
+              onClick={() => {
+                setCrystalAuto(false);
+                setCrystallize(0.35);
+                setCrystalLayers(5);
+              }}
+              label="STRATA"
+            />
+            <ActionButton
+              onClick={() => {
+                setCrystalAuto(false);
+                setCrystallize(0.7);
+                setCrystalLayers(8);
+              }}
+              label="CRYSTAL"
+              color="#C77DFF"
+            />
+            <ActionButton
+              onClick={() => {
+                setCrystalAuto(false);
+                setCrystallize(1.0);
+                setCrystalLayers(12);
+              }}
+              label="SHATTER"
+              color="#E8920A"
+            />
           </div>
         </ControlSection>
 

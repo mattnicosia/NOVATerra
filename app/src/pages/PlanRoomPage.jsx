@@ -153,14 +153,13 @@ export default function PlanRoomPage() {
 
   // Detect stale state: drawing-related documents exist but drawing pages are missing
   // Consider: explicit drawing docType, docs with drawingIds, and legacy docs without docType
-  const drawingTypeDocs = documents.filter(d =>
-    d.docType === "drawing" ||
-    (d.drawingIds && d.drawingIds.length > 0) ||
-    !d.docType
+  const drawingTypeDocs = documents.filter(
+    d => d.docType === "drawing" || (d.drawingIds && d.drawingIds.length > 0) || !d.docType,
   );
   const nonDrawingDocs = documents.filter(d => d.docType === "specification" || d.docType === "rfp");
   const failedDrawingDocs = drawingTypeDocs.filter(d => d.processingStatus === "error");
-  const drawingsMissing = drawingTypeDocs.length > 0 && drawings.length === 0 && !scanResults && processingDocs.length === 0;
+  const drawingsMissing =
+    drawingTypeDocs.length > 0 && drawings.length === 0 && !scanResults && processingDocs.length === 0;
 
   // Upload state
   const showToast = useUiStore(s => s.showToast);
@@ -1001,9 +1000,7 @@ export default function PlanRoomPage() {
                 marginBottom: T.space[2],
               }}
             >
-              {failedDrawingDocs.length > 0
-                ? "Drawing extraction failed"
-                : "Re-upload plans to start Discovery"}
+              {failedDrawingDocs.length > 0 ? "Drawing extraction failed" : "Re-upload plans to start Discovery"}
             </div>
             <div
               style={{
@@ -1018,8 +1015,8 @@ export default function PlanRoomPage() {
               {failedDrawingDocs.length > 0 ? (
                 <>
                   {failedDrawingDocs.length} file{failedDrawingDocs.length > 1 ? "s" : ""} could not be processed
-                  {failedDrawingDocs[0].processingError ? ` — ${failedDrawingDocs[0].processingError}` : ""}.
-                  Try re-uploading or use a different PDF version.
+                  {failedDrawingDocs[0].processingError ? ` — ${failedDrawingDocs[0].processingError}` : ""}. Try
+                  re-uploading or use a different PDF version.
                 </>
               ) : (
                 "Your previous upload record is here but the extracted pages were lost. Drop your PDF plans below to re-extract and scan automatically."
@@ -1054,46 +1051,54 @@ export default function PlanRoomPage() {
 
         {/* ─── No Drawing Plans Uploaded ─── */}
         {/* Only spec/RFP docs exist — no drawing-type files, no legacy docs, no drawings */}
-        {!drawingsMissing && nonDrawingDocs.length > 0 && drawingTypeDocs.length === 0 && drawings.length === 0 && !scanResults && !scanProgress.phase && (
-          <div
-            style={{
-              ...card(C),
-              padding: `${T.space[4]}px ${T.space[5]}px`,
-              marginBottom: T.space[4],
-              display: "flex",
-              alignItems: "center",
-              gap: T.space[3],
-              border: `1px solid ${C.accent}15`,
-            }}
-          >
-            <Ic d={I.plans} size={18} color={C.accent} />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: T.fontSize.xs, fontWeight: T.fontWeight.semibold, color: C.text }}>
-                Upload drawing plans to run NOVA Discovery
-              </div>
-              <div style={{ fontSize: 10, color: C.textDim, marginTop: 2 }}>
-                Specs and bid documents are loaded. Add your PDF drawing plans to detect schedules and generate a ROM.
-              </div>
-            </div>
-            <button
-              onClick={() => { setUploadExpanded(true); setTimeout(() => fileInputRef.current?.click(), 50); }}
+        {!drawingsMissing &&
+          nonDrawingDocs.length > 0 &&
+          drawingTypeDocs.length === 0 &&
+          drawings.length === 0 &&
+          !scanResults &&
+          !scanProgress.phase && (
+            <div
               style={{
-                ...bt(C),
-                padding: "6px 14px",
-                fontSize: T.fontSize.xs,
-                fontWeight: 600,
-                color: C.accent,
-                background: `${C.accent}08`,
-                border: `1px solid ${C.accent}20`,
-                borderRadius: T.radius.sm,
-                cursor: "pointer",
-                flexShrink: 0,
+                ...card(C),
+                padding: `${T.space[4]}px ${T.space[5]}px`,
+                marginBottom: T.space[4],
+                display: "flex",
+                alignItems: "center",
+                gap: T.space[3],
+                border: `1px solid ${C.accent}15`,
               }}
             >
-              Add Plans
-            </button>
-          </div>
-        )}
+              <Ic d={I.plans} size={18} color={C.accent} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: T.fontSize.xs, fontWeight: T.fontWeight.semibold, color: C.text }}>
+                  Upload drawing plans to run NOVA Discovery
+                </div>
+                <div style={{ fontSize: 10, color: C.textDim, marginTop: 2 }}>
+                  Specs and bid documents are loaded. Add your PDF drawing plans to detect schedules and generate a ROM.
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setUploadExpanded(true);
+                  setTimeout(() => fileInputRef.current?.click(), 50);
+                }}
+                style={{
+                  ...bt(C),
+                  padding: "6px 14px",
+                  fontSize: T.fontSize.xs,
+                  fontWeight: 600,
+                  color: C.accent,
+                  background: `${C.accent}08`,
+                  border: `1px solid ${C.accent}20`,
+                  borderRadius: T.radius.sm,
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              >
+                Add Plans
+              </button>
+            </div>
+          )}
 
         {hasData && (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: T.space[4] }}>
@@ -1272,7 +1277,10 @@ export default function PlanRoomPage() {
                       onClick={() => {
                         setRescanning(true);
                         runFullScan({
-                          onComplete: () => { setRescanning(false); setShowScanModal(true); },
+                          onComplete: () => {
+                            setRescanning(false);
+                            setShowScanModal(true);
+                          },
                           onError: () => setRescanning(false),
                         });
                       }}

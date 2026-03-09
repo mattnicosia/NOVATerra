@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useCorrespondenceStore } from "@/stores/correspondenceStore";
 import { useUiStore } from "@/stores/uiStore";
 import { loadEstimate } from "@/hooks/usePersistence";
+import { computeEstimatorExperience, computeMatchScore } from "@/utils/estimatorExperience";
 
 export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) {
   const C = useTheme();
@@ -19,11 +20,13 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
   const [corrHours, setCorrHours] = useState("");
   const [addPause, setAddPause] = useState(false);
   const [pauseStart, setPauseStart] = useState(() => {
-    const d = new Date(); d.setDate(d.getDate() + 1);
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
     return d.toISOString().slice(0, 10);
   });
   const [pauseEnd, setPauseEnd] = useState(() => {
-    const d = new Date(); d.setDate(d.getDate() + 3);
+    const d = new Date();
+    d.setDate(d.getDate() + 3);
     return d.toISOString().slice(0, 10);
   });
   const [pauseReason, setPauseReason] = useState("");
@@ -32,6 +35,19 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
   const existingPauses = bar.schedulePauses || [];
 
   const estimators = useMasterDataStore(s => s.masterData?.estimators) || [];
+  const estimatesIndex = useEstimatesStore(s => s.estimatesIndex);
+
+  // Compute match scores for smart reassign ranking
+  const rankedEstimators = useMemo(() => {
+    const others = estimators.filter(e => e.name !== currentEstimator);
+    return others
+      .map(est => {
+        const experience = computeEstimatorExperience(estimatesIndex, est.name);
+        const matchResult = computeMatchScore(experience, bar, est);
+        return { ...est, matchScore: matchResult.score, matchFlags: matchResult.flags };
+      })
+      .sort((a, b) => b.matchScore - a.matchScore);
+  }, [estimators, estimatesIndex, bar, currentEstimator]);
 
   // Close on outside click
   useEffect(() => {
@@ -39,12 +55,17 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
       if (ref.current && !ref.current.contains(e.target)) onClose();
     };
     const t = setTimeout(() => document.addEventListener("mousedown", handler), 0);
-    return () => { clearTimeout(t); document.removeEventListener("mousedown", handler); };
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener("mousedown", handler);
+    };
   }, [onClose]);
 
   // Close on Escape
   useEffect(() => {
-    const handler = e => { if (e.key === "Escape") onClose(); };
+    const handler = e => {
+      if (e.key === "Escape") onClose();
+    };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [onClose]);
@@ -71,9 +92,7 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
 
   const doReassign = name => {
     useEstimatesStore.getState().updateIndexEntry(bar.id, { estimator: name });
-    useUiStore.getState().showToast(
-      name ? `Assigned "${bar.name}" to ${name}` : `Moved "${bar.name}" to Unassigned`,
-    );
+    useUiStore.getState().showToast(name ? `Assigned "${bar.name}" to ${name}` : `Moved "${bar.name}" to Unassigned`);
     onClose();
   };
 
@@ -121,7 +140,7 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
     // Find next Monday
     const due = new Date(bar.bidDue + "T00:00:00");
     const dayOfWeek = due.getDay();
-    const daysToAdd = dayOfWeek === 0 ? 1 : (8 - dayOfWeek);
+    const daysToAdd = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
     const nextMon = new Date(due);
     nextMon.setDate(due.getDate() + daysToAdd);
     // Add estimate's work days to get new due date
@@ -157,62 +176,128 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
       }}
     >
       {/* Header */}
-      <div style={{
-        padding: "4px 12px 6px",
-        fontSize: 9,
-        fontWeight: 700,
-        color: C.textDim,
-        textTransform: "uppercase",
-        letterSpacing: "0.06em",
-        borderBottom: `1px solid ${C.border}20`,
-        marginBottom: 2,
-      }}>
+      <div
+        style={{
+          padding: "4px 12px 6px",
+          fontSize: 9,
+          fontWeight: 700,
+          color: C.textDim,
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
+          borderBottom: `1px solid ${C.border}20`,
+          marginBottom: 2,
+        }}
+      >
         {bar.name}
       </div>
 
-      {/* Reassign submenu */}
+      {/* Reassign submenu (smart-ranked) */}
       {submenu === "reassign" ? (
-        <>
+        <div style={{ minWidth: 240 }}>
           <button
             onClick={() => setSubmenu(null)}
             style={{ ...menuItemStyle, color: C.textDim, fontSize: 9 }}
-            onMouseEnter={e => e.target.style.background = `${C.accent}12`}
-            onMouseLeave={e => e.target.style.background = "transparent"}
+            onMouseEnter={e => (e.target.style.background = `${C.accent}12`)}
+            onMouseLeave={e => (e.target.style.background = "transparent")}
           >
             ← Back
           </button>
-          {estimators
-            .filter(e => e.name !== currentEstimator)
-            .map(e => (
+          {rankedEstimators.map((e, idx) => {
+            const badgeColor = e.matchScore >= 70 ? "#30D158" : e.matchScore >= 40 ? "#FF9500" : "#FF3B30";
+            const topFlag = e.matchFlags?.[0];
+            return (
               <button
                 key={e.id}
                 onClick={() => doReassign(e.name)}
-                style={menuItemStyle}
-                onMouseEnter={ev => ev.target.style.background = `${C.accent}12`}
-                onMouseLeave={ev => ev.target.style.background = "transparent"}
+                style={{ ...menuItemStyle, alignItems: "flex-start", gap: 8, padding: "6px 12px" }}
+                onMouseEnter={ev => (ev.currentTarget.style.background = `${C.accent}12`)}
+                onMouseLeave={ev => (ev.currentTarget.style.background = "transparent")}
               >
-                <div style={{
-                  width: 16, height: 16, borderRadius: "50%",
-                  background: e.color || "#A78BFA",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 8, fontWeight: 700, color: "#fff",
-                }}>
+                <div
+                  style={{
+                    width: 20,
+                    height: 20,
+                    borderRadius: "50%",
+                    flexShrink: 0,
+                    background: e.color || "#A78BFA",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 8,
+                    fontWeight: 700,
+                    color: "#fff",
+                  }}
+                >
                   {(e.name || "?")[0]}
                 </div>
-                {e.name}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <span style={{ fontSize: 11, fontWeight: 500 }}>{e.name}</span>
+                    {idx === 0 && e.matchScore >= 40 && (
+                      <span
+                        style={{
+                          fontSize: 7,
+                          fontWeight: 700,
+                          color: "#30D158",
+                          background: "#30D15810",
+                          padding: "1px 4px",
+                          borderRadius: 4,
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        Best
+                      </span>
+                    )}
+                  </div>
+                  {topFlag && (
+                    <div
+                      style={{
+                        fontSize: 8,
+                        color: C.textDim,
+                        marginTop: 1,
+                        overflow: "hidden",
+                        whiteSpace: "nowrap",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {topFlag}
+                    </div>
+                  )}
+                </div>
+                <div
+                  style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: "50%",
+                    flexShrink: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 9,
+                    fontWeight: 700,
+                    color: badgeColor,
+                    background: `${badgeColor}12`,
+                  }}
+                >
+                  {e.matchScore}
+                </div>
               </button>
-            ))}
+            );
+          })}
           {currentEstimator && (
-            <button
-              onClick={() => doReassign("")}
-              style={{ ...menuItemStyle, color: "#FBBF24" }}
-              onMouseEnter={e => e.target.style.background = `${C.accent}12`}
-              onMouseLeave={e => e.target.style.background = "transparent"}
-            >
-              Move to Unassigned
-            </button>
+            <>
+              <div style={{ height: 1, background: `${C.border}40`, margin: "4px 8px" }} />
+              <button
+                onClick={() => doReassign("")}
+                style={{ ...menuItemStyle, color: "#FBBF24" }}
+                onMouseEnter={e => (e.target.style.background = `${C.accent}12`)}
+                onMouseLeave={e => (e.target.style.background = "transparent")}
+              >
+                Move to Unassigned
+              </button>
+            </>
           )}
-        </>
+        </div>
       ) : editHours ? (
         <div style={{ padding: "6px 12px" }}>
           <div style={{ fontSize: 9, fontWeight: 600, color: C.textDim, marginBottom: 4 }}>Estimated Hours</div>
@@ -224,7 +309,10 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
               value={hoursVal}
               onChange={e => setHoursVal(e.target.value)}
               autoFocus
-              onKeyDown={e => { if (e.key === "Enter") doAdjustHours(); if (e.key === "Escape") onClose(); }}
+              onKeyDown={e => {
+                if (e.key === "Enter") doAdjustHours();
+                if (e.key === "Escape") onClose();
+              }}
               style={{
                 width: 70,
                 padding: "4px 8px",
@@ -261,7 +349,10 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
               placeholder="Title..."
               value={corrTitle}
               onChange={e => setCorrTitle(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter") doAddCorrespondence(); if (e.key === "Escape") onClose(); }}
+              onKeyDown={e => {
+                if (e.key === "Enter") doAddCorrespondence();
+                if (e.key === "Escape") onClose();
+              }}
               style={{
                 padding: "4px 8px",
                 fontSize: 11,
@@ -338,8 +429,14 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
                   onChange={e => setPauseStart(e.target.value)}
                   autoFocus
                   style={{
-                    width: "100%", padding: "4px 6px", fontSize: 10, borderRadius: 4,
-                    border: `1px solid ${C.border}`, background: C.bg1, color: C.text, outline: "none",
+                    width: "100%",
+                    padding: "4px 6px",
+                    fontSize: 10,
+                    borderRadius: 4,
+                    border: `1px solid ${C.border}`,
+                    background: C.bg1,
+                    color: C.text,
+                    outline: "none",
                   }}
                 />
               </div>
@@ -350,8 +447,14 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
                   value={pauseEnd}
                   onChange={e => setPauseEnd(e.target.value)}
                   style={{
-                    width: "100%", padding: "4px 6px", fontSize: 10, borderRadius: 4,
-                    border: `1px solid ${C.border}`, background: C.bg1, color: C.text, outline: "none",
+                    width: "100%",
+                    padding: "4px 6px",
+                    fontSize: 10,
+                    borderRadius: 4,
+                    border: `1px solid ${C.border}`,
+                    background: C.bg1,
+                    color: C.text,
+                    outline: "none",
                   }}
                 />
               </div>
@@ -360,18 +463,31 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
               placeholder="Reason (optional)"
               value={pauseReason}
               onChange={e => setPauseReason(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter") doAddPause(); if (e.key === "Escape") onClose(); }}
+              onKeyDown={e => {
+                if (e.key === "Enter") doAddPause();
+                if (e.key === "Escape") onClose();
+              }}
               style={{
-                padding: "4px 8px", fontSize: 10, borderRadius: 4,
-                border: `1px solid ${C.border}`, background: C.bg1, color: C.text, outline: "none",
+                padding: "4px 8px",
+                fontSize: 10,
+                borderRadius: 4,
+                border: `1px solid ${C.border}`,
+                background: C.bg1,
+                color: C.text,
+                outline: "none",
               }}
             />
             <button
               onClick={doAddPause}
               style={{
-                ...menuItemStyle, width: "100%", padding: "4px 10px",
-                background: `${C.accent}20`, color: C.accent, fontWeight: 600,
-                borderRadius: 4, justifyContent: "center",
+                ...menuItemStyle,
+                width: "100%",
+                padding: "4px 10px",
+                background: `${C.accent}20`,
+                color: C.accent,
+                fontWeight: 600,
+                borderRadius: 4,
+                justifyContent: "center",
               }}
             >
               Add Pause
@@ -390,10 +506,16 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
             </button>
           </div>
           {existingPauses.map((p, idx) => (
-            <div key={idx} style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "4px 0", borderBottom: idx < existingPauses.length - 1 ? `1px solid ${C.border}10` : "none",
-            }}>
+            <div
+              key={idx}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "4px 0",
+                borderBottom: idx < existingPauses.length - 1 ? `1px solid ${C.border}10` : "none",
+              }}
+            >
               <div>
                 <div style={{ fontSize: 10, color: C.text, fontWeight: 500 }}>
                   {p.start} → {p.end}
@@ -414,8 +536,8 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
           <button
             onClick={() => setSubmenu("reassign")}
             style={menuItemStyle}
-            onMouseEnter={e => e.target.style.background = `${C.accent}12`}
-            onMouseLeave={e => e.target.style.background = "transparent"}
+            onMouseEnter={e => (e.target.style.background = `${C.accent}12`)}
+            onMouseLeave={e => (e.target.style.background = "transparent")}
           >
             <span style={{ fontSize: 13, width: 18, textAlign: "center" }}>👤</span>
             Reassign to...
@@ -423,8 +545,8 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
           <button
             onClick={() => setEditHours(true)}
             style={menuItemStyle}
-            onMouseEnter={e => e.target.style.background = `${C.accent}12`}
-            onMouseLeave={e => e.target.style.background = "transparent"}
+            onMouseEnter={e => (e.target.style.background = `${C.accent}12`)}
+            onMouseLeave={e => (e.target.style.background = "transparent")}
           >
             <span style={{ fontSize: 13, width: 18, textAlign: "center" }}>⏱</span>
             Adjust Hours...
@@ -432,8 +554,8 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
           <button
             onClick={doPushNextWeek}
             style={menuItemStyle}
-            onMouseEnter={e => e.target.style.background = `${C.accent}12`}
-            onMouseLeave={e => e.target.style.background = "transparent"}
+            onMouseEnter={e => (e.target.style.background = `${C.accent}12`)}
+            onMouseLeave={e => (e.target.style.background = "transparent")}
           >
             <span style={{ fontSize: 13, width: 18, textAlign: "center" }}>→</span>
             Push to Next Week
@@ -442,8 +564,8 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
           <button
             onClick={() => setAddPause(true)}
             style={menuItemStyle}
-            onMouseEnter={e => e.target.style.background = `${C.accent}12`}
-            onMouseLeave={e => e.target.style.background = "transparent"}
+            onMouseEnter={e => (e.target.style.background = `${C.accent}12`)}
+            onMouseLeave={e => (e.target.style.background = "transparent")}
           >
             <span style={{ fontSize: 13, width: 18, textAlign: "center" }}>✂</span>
             Split / Pause...
@@ -452,8 +574,8 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
             <button
               onClick={() => setManagePauses(true)}
               style={menuItemStyle}
-              onMouseEnter={e => e.target.style.background = `${C.accent}12`}
-              onMouseLeave={e => e.target.style.background = "transparent"}
+              onMouseEnter={e => (e.target.style.background = `${C.accent}12`)}
+              onMouseLeave={e => (e.target.style.background = "transparent")}
             >
               <span style={{ fontSize: 13, width: 18, textAlign: "center" }}>📋</span>
               Manage Pauses ({existingPauses.length})
@@ -465,8 +587,8 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
               <button
                 onClick={() => setAddCorr(true)}
                 style={menuItemStyle}
-                onMouseEnter={e => e.target.style.background = `${C.accent}12`}
-                onMouseLeave={e => e.target.style.background = "transparent"}
+                onMouseEnter={e => (e.target.style.background = `${C.accent}12`)}
+                onMouseLeave={e => (e.target.style.background = "transparent")}
               >
                 <span style={{ fontSize: 13, width: 18, textAlign: "center" }}>✉</span>
                 Add Correspondence...

@@ -78,14 +78,16 @@ function EstCard({ est, C, T, navigate, compact }) {
         fontSize: compact ? 9 : 10,
       }}
     >
-      <div style={{
-        fontWeight: 600,
-        color: C.text,
-        overflow: "hidden",
-        whiteSpace: "nowrap",
-        textOverflow: "ellipsis",
-        marginBottom: 2,
-      }}>
+      <div
+        style={{
+          fontWeight: 600,
+          color: C.text,
+          overflow: "hidden",
+          whiteSpace: "nowrap",
+          textOverflow: "ellipsis",
+          marginBottom: 2,
+        }}
+      >
         {est.name}
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 4, color: C.textDim, fontSize: compact ? 8 : 9 }}>
@@ -111,7 +113,8 @@ export default function WeeklyPlanView({ workload, C, T }) {
   const weekDays = useMemo(() => getWeekDays(weekOffset), [weekOffset]);
   const todayStr = toDateStr(new Date());
 
-  const { estimatorRows, unassignedEstimates, effectiveHoursPerDay, CAPACITY_HOURS, estimatorCapacity, dailyLoad } = workload;
+  const { estimatorRows, unassignedEstimates, effectiveHoursPerDay, CAPACITY_HOURS, estimatorCapacity, dailyLoad } =
+    workload;
   const capHours = effectiveHoursPerDay || CAPACITY_HOURS;
 
   // Build per-estimator × per-day grid
@@ -119,9 +122,7 @@ export default function WeeklyPlanView({ workload, C, T }) {
     const result = [];
     for (const row of estimatorRows) {
       const dayCells = weekDays.map(dayStr => {
-        const ests = row.estimates.filter(e =>
-          e.workDays && e.workDays.includes(dayStr),
-        );
+        const ests = row.estimates.filter(e => e.workDays && e.workDays.includes(dayStr));
         const cap = estimatorCapacity?.get(row.name);
         const dayEntry = cap?.find(c => c.date === dayStr);
         return {
@@ -140,23 +141,24 @@ export default function WeeklyPlanView({ workload, C, T }) {
   const sidebarEstimates = useMemo(() => {
     const weekSet = new Set(weekDays);
     const overflow = estimatorRows.flatMap(r =>
-      r.estimates.filter(e =>
-        e.workDays && !e.workDays.some(d => weekSet.has(d)),
-      ),
+      r.estimates.filter(e => e.workDays && !e.workDays.some(d => weekSet.has(d))),
     );
     return [...unassignedEstimates, ...overflow];
   }, [estimatorRows, unassignedEstimates, weekDays]);
 
   // Handle drop onto a day cell
-  const handleDrop = useCallback((estimatorName, dayStr, e) => {
-    e.preventDefault();
-    const estId = e.dataTransfer.getData("text/plain") || useResourceStore.getState().dragEstimateId;
-    if (!estId) return;
-    // Reassign to this estimator
-    useEstimatesStore.getState().updateIndexEntry(estId, { estimator: estimatorName });
-    useUiStore.getState().showToast(`Assigned to ${estimatorName}`);
-    clearDragState();
-  }, [clearDragState]);
+  const handleDrop = useCallback(
+    (estimatorName, dayStr, e) => {
+      e.preventDefault();
+      const estId = e.dataTransfer.getData("text/plain") || useResourceStore.getState().dragEstimateId;
+      if (!estId) return;
+      // Reassign to this estimator
+      useEstimatesStore.getState().updateIndexEntry(estId, { estimator: estimatorName });
+      useUiStore.getState().showToast(`Assigned to ${estimatorName}`);
+      clearDragState();
+    },
+    [clearDragState],
+  );
 
   const weekLabel = WeekLabel({ weekDays });
   const isThisWeek = weekOffset === 0;
@@ -167,7 +169,14 @@ export default function WeeklyPlanView({ workload, C, T }) {
       <div style={{ display: "flex", alignItems: "center", gap: T.space[3], marginBottom: T.space[4] }}>
         <button
           onClick={() => setWeekOffset(weekOffset - 1)}
-          style={{ ...bt(C), padding: "6px 10px", fontSize: T.fontSize.xs, color: C.textMuted, borderRadius: T.radius.sm, border: `1px solid ${C.border}` }}
+          style={{
+            ...bt(C),
+            padding: "6px 10px",
+            fontSize: T.fontSize.xs,
+            color: C.textMuted,
+            borderRadius: T.radius.sm,
+            border: `1px solid ${C.border}`,
+          }}
         >
           ← Prev
         </button>
@@ -187,24 +196,44 @@ export default function WeeklyPlanView({ workload, C, T }) {
         </button>
         <button
           onClick={() => setWeekOffset(weekOffset + 1)}
-          style={{ ...bt(C), padding: "6px 10px", fontSize: T.fontSize.xs, color: C.textMuted, borderRadius: T.radius.sm, border: `1px solid ${C.border}` }}
+          style={{
+            ...bt(C),
+            padding: "6px 10px",
+            fontSize: T.fontSize.xs,
+            color: C.textMuted,
+            borderRadius: T.radius.sm,
+            border: `1px solid ${C.border}`,
+          }}
         >
           Next →
         </button>
-        <span style={{ fontSize: T.fontSize.sm, fontWeight: 600, color: C.text, marginLeft: T.space[2] }}>{weekLabel}</span>
+        <span style={{ fontSize: T.fontSize.sm, fontWeight: 600, color: C.text, marginLeft: T.space[2] }}>
+          {weekLabel}
+        </span>
       </div>
 
       <div style={{ display: "flex", gap: T.space[4] }}>
         {/* Main Grid */}
         <div style={{ flex: 1, overflow: "auto" }}>
           {/* Day Headers */}
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "140px repeat(5, 1fr)",
-            gap: 1,
-            marginBottom: 1,
-          }}>
-            <div style={{ padding: "8px 12px", fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "140px repeat(5, 1fr)",
+              gap: 1,
+              marginBottom: 1,
+            }}
+          >
+            <div
+              style={{
+                padding: "8px 12px",
+                fontSize: 9,
+                fontWeight: 700,
+                color: C.textDim,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+              }}
+            >
               Estimator
             </div>
             {weekDays.map((dayStr, i) => {
@@ -244,16 +273,27 @@ export default function WeeklyPlanView({ workload, C, T }) {
               }}
             >
               {/* Name cell */}
-              <div style={{
-                padding: "10px 12px",
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                borderRight: `1px solid ${C.border}20`,
-              }}>
+              <div
+                style={{
+                  padding: "10px 12px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  borderRight: `1px solid ${C.border}20`,
+                }}
+              >
                 <Avatar name={row.name} color={row.color} size={24} fontSize={9} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: C.text, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: C.text,
+                      overflow: "hidden",
+                      whiteSpace: "nowrap",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
                     {row.name}
                   </div>
                   <div style={{ fontSize: 8, color: C.textDim }}>
@@ -271,7 +311,10 @@ export default function WeeklyPlanView({ workload, C, T }) {
                 return (
                   <div
                     key={cell.dayStr}
-                    onDragOver={e => { e.preventDefault(); setDragOverEstimator(row.name); }}
+                    onDragOver={e => {
+                      e.preventDefault();
+                      setDragOverEstimator(row.name);
+                    }}
                     onDragLeave={() => setDragOverEstimator(null)}
                     onDrop={e => handleDrop(row.name, cell.dayStr, e)}
                     style={{
@@ -290,32 +333,36 @@ export default function WeeklyPlanView({ workload, C, T }) {
                     ))}
 
                     {/* Capacity indicator */}
-                    <div style={{
-                      position: "absolute",
-                      bottom: 2,
-                      left: 6,
-                      right: 6,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 4,
-                    }}>
-                      <div style={{
-                        flex: 1,
-                        height: 3,
-                        borderRadius: 2,
-                        background: C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
-                        overflow: "hidden",
-                      }}>
-                        <div style={{
-                          height: "100%",
-                          width: `${Math.min(100, utilPct * 100)}%`,
-                          background: capColor,
+                    <div
+                      style={{
+                        position: "absolute",
+                        bottom: 2,
+                        left: 6,
+                        right: 6,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      <div
+                        style={{
+                          flex: 1,
+                          height: 3,
                           borderRadius: 2,
-                        }} />
+                          background: C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div
+                          style={{
+                            height: "100%",
+                            width: `${Math.min(100, utilPct * 100)}%`,
+                            background: capColor,
+                            borderRadius: 2,
+                          }}
+                        />
                       </div>
-                      <span style={{ fontSize: 7, color: C.textDim, flexShrink: 0 }}>
-                        {cell.remaining.toFixed(1)}h
-                      </span>
+                      <span style={{ fontSize: 7, color: C.textDim, flexShrink: 0 }}>{cell.remaining.toFixed(1)}h</span>
                     </div>
                   </div>
                 );
@@ -332,23 +379,27 @@ export default function WeeklyPlanView({ workload, C, T }) {
 
         {/* Sidebar: Available Work */}
         {sidebarEstimates.length > 0 && (
-          <div style={{
-            width: 220,
-            flexShrink: 0,
-            ...cardSolid(C),
-            padding: T.space[3],
-            alignSelf: "flex-start",
-            maxHeight: "70vh",
-            overflowY: "auto",
-          }}>
-            <div style={{
-              fontSize: 9,
-              fontWeight: 700,
-              color: C.textDim,
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
-              marginBottom: T.space[3],
-            }}>
+          <div
+            style={{
+              width: 220,
+              flexShrink: 0,
+              ...cardSolid(C),
+              padding: T.space[3],
+              alignSelf: "flex-start",
+              maxHeight: "70vh",
+              overflowY: "auto",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 9,
+                fontWeight: 700,
+                color: C.textDim,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                marginBottom: T.space[3],
+              }}
+            >
               Available Work ({sidebarEstimates.length})
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>

@@ -1,3 +1,4 @@
+/* global AbortSignal */
 // NOVATerra AI Engine — Anthropic API layer (Powered by NOVA)
 // Routes all AI calls through server-side proxy (/api/ai) which uses the
 // platform ANTHROPIC_API_KEY — no user-managed API keys needed.

@@ -13,25 +13,22 @@ import * as THREE from "three";
 
 const WISP_COUNT = 8;
 
-export default function EnergyWisps({
-  size = 1.6,
-  awaken = 0.0,
-  morph = 0.0,
-}) {
+export default function EnergyWisps({ size = 1.6, awaken = 0.0, morph = 0.0 }) {
   const groupRef = useRef();
   const spritesRef = useRef([]);
 
   // Per-wisp parameters — deterministic orbits at different radii, speeds, inclinations
-  const wispParams = useMemo(() =>
-    Array.from({ length: WISP_COUNT }, (_, i) => ({
-      radius: size * (1.03 + 0.07 * ((i * 0.618) % 1)),  // golden ratio spread between sphere and shell
-      speed: 0.15 + 0.12 * Math.sin(i * 1.7),             // orbital speed variation
-      phase: (i / WISP_COUNT) * Math.PI * 2,               // evenly spaced start positions
-      inclination: (i * 0.37 - 0.5) * 0.8,                 // ±0.4 radian tilt from equator
-      alphaPhase: i * 2.39,                                 // unique alpha oscillation phase
-      alphaSpeed: 0.3 + 0.15 * (i % 3),                    // vary fade speed
-      wispSize: 0.04 + 0.03 * ((i * 0.73) % 1),           // size variation
-    })),
+  const wispParams = useMemo(
+    () =>
+      Array.from({ length: WISP_COUNT }, (_, i) => ({
+        radius: size * (1.03 + 0.07 * ((i * 0.618) % 1)), // golden ratio spread between sphere and shell
+        speed: 0.15 + 0.12 * Math.sin(i * 1.7), // orbital speed variation
+        phase: (i / WISP_COUNT) * Math.PI * 2, // evenly spaced start positions
+        inclination: (i * 0.37 - 0.5) * 0.8, // ±0.4 radian tilt from equator
+        alphaPhase: i * 2.39, // unique alpha oscillation phase
+        alphaSpeed: 0.3 + 0.15 * (i % 3), // vary fade speed
+        wispSize: 0.04 + 0.03 * ((i * 0.73) % 1), // size variation
+      })),
     [size],
   );
 
@@ -42,24 +39,24 @@ export default function EnergyWisps({
   // Create sprite materials — one per wisp for individual alpha control
   const materials = useMemo(
     () =>
-      wispParams.map(() =>
-        new THREE.SpriteMaterial({
-          color: novaColor.clone(),
-          transparent: true,
-          opacity: 0,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false,
-        }),
+      wispParams.map(
+        () =>
+          new THREE.SpriteMaterial({
+            color: novaColor.clone(),
+            transparent: true,
+            opacity: 0,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+          }),
       ),
     [],
   );
 
-  useFrame((state) => {
+  useFrame(state => {
     const elapsed = state.clock.elapsedTime;
 
     // Visibility envelope: peaks at awaken 0.3–0.7, fades at edges
-    const wispVisibility =
-      smoothstep(0.2, 0.4, awaken) * (1.0 - smoothstep(0.65, 0.9, awaken));
+    const wispVisibility = smoothstep(0.2, 0.4, awaken) * (1.0 - smoothstep(0.65, 0.9, awaken));
 
     // Color morph
     const targetColor = novaColor.clone().lerp(coreColor, morph);
@@ -100,7 +97,9 @@ export default function EnergyWisps({
       {wispParams.map((wp, i) => (
         <sprite
           key={i}
-          ref={el => { spritesRef.current[i] = el; }}
+          ref={el => {
+            spritesRef.current[i] = el;
+          }}
           material={materials[i]}
         />
       ))}

@@ -1,8 +1,8 @@
 // NovaFloatingOrb — Floating NOVA orb button (replaces AIFab)
 // Shows NovaOrb at 56px size with glow ring
 // State reflects NOVA's current activity
-import { useState } from 'react';
-import NovaSceneLazy from '@/components/nova/NovaSceneLazy';
+import { useState } from "react";
+import NovaSceneLazy from "@/components/nova/NovaSceneLazy";
 
 export default function NovaFloatingOrb({ state = "idle", onClick, title }) {
   const [hovered, setHovered] = useState(false);
@@ -30,18 +30,24 @@ export default function NovaFloatingOrb({ state = "idle", onClick, title }) {
       }}
     >
       {/* Glow ring */}
-      <div style={{
-        position: "absolute",
-        top: -6, left: -6, right: -6, bottom: -6,
-        borderRadius: "50%",
-        boxShadow: state === "alert"
-          ? "0 0 16px rgba(210,160,60,0.4), 0 0 32px rgba(180,120,30,0.2)"
-          : state === "thinking"
-          ? "0 0 20px rgba(160,100,255,0.5), 0 0 40px rgba(120,60,220,0.25)"
-          : "0 0 16px rgba(160,100,255,0.4), 0 0 32px rgba(100,50,220,0.15)",
-        animation: "novaGlowPulse 4s ease-in-out infinite",
-        pointerEvents: "none",
-      }} />
+      <div
+        style={{
+          position: "absolute",
+          top: -6,
+          left: -6,
+          right: -6,
+          bottom: -6,
+          borderRadius: "50%",
+          boxShadow:
+            state === "alert"
+              ? "0 0 16px rgba(210,160,60,0.4), 0 0 32px rgba(180,120,30,0.2)"
+              : state === "thinking"
+                ? "0 0 20px rgba(160,100,255,0.5), 0 0 40px rgba(120,60,220,0.25)"
+                : "0 0 16px rgba(160,100,255,0.4), 0 0 32px rgba(100,50,220,0.15)",
+          animation: "novaGlowPulse 4s ease-in-out infinite",
+          pointerEvents: "none",
+        }}
+      />
       <NovaSceneLazy width={56} height={56} size={0.8} intensity={0.6} lightweight />
       <style>{`
         @keyframes novaGlowPulse {

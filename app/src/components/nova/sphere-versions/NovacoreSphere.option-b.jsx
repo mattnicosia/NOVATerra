@@ -29,7 +29,7 @@ import { atmosphereFragmentShader } from "./shaders/atmosphere.frag";
 // G base 0.14 + swing 0.10 → G range [0.04, 0.24]. Never zero → always reads blue, not violet.
 const NOVA_PAL = {
   a: new THREE.Vector3(0.06, 0.14, 0.56), // very low R, raised G for true blue (not violet), dominant B
-  b: new THREE.Vector3(0.04, 0.10, 0.32), // minimal R swing, tighter G swing (min 0.04), wide B
+  b: new THREE.Vector3(0.04, 0.1, 0.32), // minimal R swing, tighter G swing (min 0.04), wide B
   c: new THREE.Vector3(1.0, 0.85, 0.7), // standard IQ frequency separation
   d: new THREE.Vector3(0.5, 0.78, 0.5), // R+B sync, G phase-shifted
 };

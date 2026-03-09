@@ -126,8 +126,8 @@ export function ThemeProvider({ children }) {
           lg: "0 4px 20px rgba(0,0,0,0.35)",
           xl: "0 8px 40px rgba(0,0,0,0.40)",
           glow: "0 2px 12px rgba(0,0,0,0.25)",
-          glowAccent: `0 0 8px ${(colors.accent || "#B0A698")}18`,
-          glowPurple: `0 0 8px ${(colors.accent || "#B0A698")}18`,
+          glowAccent: `0 0 8px ${colors.accent || "#B0A698"}18`,
+          glowPurple: `0 0 8px ${colors.accent || "#B0A698"}18`,
         };
       }
 
@@ -165,8 +165,8 @@ export function ThemeProvider({ children }) {
           lg: "0 4px 20px rgba(0,0,0,0.35)",
           xl: "0 8px 40px rgba(0,0,0,0.40)",
           glow: "0 2px 12px rgba(0,0,0,0.25)",
-          glowAccent: `0 0 8px ${(darkBase.accent || "#8A7E70")}18`,
-          glowPurple: `0 0 8px ${(darkBase.accent || "#8A7E70")}18`,
+          glowAccent: `0 0 8px ${darkBase.accent || "#8A7E70"}18`,
+          glowPurple: `0 0 8px ${darkBase.accent || "#8A7E70"}18`,
         };
       }
 
@@ -194,8 +194,8 @@ export function ThemeProvider({ children }) {
           lg: "0 4px 16px rgba(0,0,0,0.12), 0 0 0 0.5px rgba(0,0,0,0.04)",
           xl: "0 8px 32px rgba(0,0,0,0.14), 0 0 0 0.5px rgba(0,0,0,0.04)",
           glow: "0 2px 8px rgba(0,0,0,0.08)",
-          glowAccent: `0 0 6px ${(darkBase.accent || "#8A7E70")}10`,
-          glowPurple: `0 0 6px ${(darkBase.accent || "#8A7E70")}10`,
+          glowAccent: `0 0 6px ${darkBase.accent || "#8A7E70"}10`,
+          glowPurple: `0 0 6px ${darkBase.accent || "#8A7E70"}10`,
         };
       }
 

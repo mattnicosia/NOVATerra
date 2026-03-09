@@ -141,8 +141,13 @@ export default function InboxPage() {
 
     for (const rfp of displayedRfps) {
       // Determine project key: use linked_estimate_id, parent_rfp_id, or project name
-      const projectName = rfp.parsed_data?.projectName || rfp.parsed_data?.parentProjectName || rfp.subject || "Unknown";
-      const groupKey = rfp.linked_estimate_id || rfp.parent_rfp_id || rfp.parent_estimate_id || `name:${projectName.toLowerCase().trim()}`;
+      const projectName =
+        rfp.parsed_data?.projectName || rfp.parsed_data?.parentProjectName || rfp.subject || "Unknown";
+      const groupKey =
+        rfp.linked_estimate_id ||
+        rfp.parent_rfp_id ||
+        rfp.parent_estimate_id ||
+        `name:${projectName.toLowerCase().trim()}`;
 
       if (!groups.has(groupKey)) {
         groups.set(groupKey, {
@@ -1168,14 +1173,25 @@ export default function InboxPage() {
                     <span style={{ fontSize: T.fontSize.xs, color: C.textDim, flexShrink: 0 }}>
                       {rfp.sender_name || rfp.sender_email?.split("@")[0]}
                     </span>
-                    <span style={{ fontSize: T.fontSize.xs, color: C.textDim, flexShrink: 0, minWidth: 40, textAlign: "right" }}>
+                    <span
+                      style={{
+                        fontSize: T.fontSize.xs,
+                        color: C.textDim,
+                        flexShrink: 0,
+                        minWidth: 40,
+                        textAlign: "right",
+                      }}
+                    >
                       {rfp.received_at
                         ? (() => {
                             const diff = Math.floor((Date.now() - new Date(rfp.received_at)) / 1000);
                             if (diff < 3600) return `${Math.floor(diff / 60)}m`;
                             if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
                             if (diff < 604800) return `${Math.floor(diff / 86400)}d`;
-                            return new Date(rfp.received_at).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                            return new Date(rfp.received_at).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                            });
                           })()
                         : ""}
                     </span>

@@ -696,7 +696,9 @@ CRITICAL: Respond with ONLY the JSON object. No markdown, no explanation.`,
     }
     // Explicit zipCode field (fallback if address parsing didn't capture it)
     if (parsed.zipCode && !updates.zipCode && (!proj.zipCode || proj.zipCode.length < 5)) {
-      const zip = String(parsed.zipCode).replace(/[^0-9]/g, "").slice(0, 5);
+      const zip = String(parsed.zipCode)
+        .replace(/[^0-9]/g, "")
+        .slice(0, 5);
       if (zip.length === 5) {
         updates.zipCode = zip;
         detected.zipCode = true;
@@ -818,7 +820,9 @@ export async function handleFileUpload(files, options = {}) {
     }
 
     let docType = classifyFile(file.name, file.type, file.size);
-    console.log(`[uploadPipeline] ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB) → classified as "${docType}"`);
+    console.log(
+      `[uploadPipeline] ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB) → classified as "${docType}"`,
+    );
 
     // AI classification for ambiguous PDFs
     const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");

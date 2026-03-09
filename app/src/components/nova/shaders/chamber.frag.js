@@ -182,13 +182,42 @@ export const chamberFragmentShader = /* glsl */ `
     vec3 coreCausticHot = vec3(1.0, 0.72, 0.20);
     vec3 causticColor = mix(novaCausticHot, coreCausticHot, uMorph);
 
+    // ── 6b. Circuit etching — polar-coordinate grid etched into obsidian ─
+    // Concentric ring lines + radial spokes with noise-driven breaks
+    float circAngle = atan(vWorldPosition.z, vWorldPosition.x);
+
+    // Concentric rings every ~0.8 world units
+    float ringPattern = abs(fract(dist * 1.25) - 0.5);
+    float ringLine = 1.0 - smoothstep(0.0, 0.025, ringPattern);
+
+    // Radial spokes (24 spokes = every 15 degrees)
+    float spokeAngle = mod(circAngle, 3.14159265 / 12.0);
+    float spokeDist = abs(spokeAngle - 3.14159265 / 24.0);
+    float spokeLine = 1.0 - smoothstep(0.0, 0.012, spokeDist);
+    // Fade spokes near center to avoid convergence noise
+    spokeLine *= smoothstep(0.5, 1.8, dist);
+
+    // Combine circuit grid
+    float circuit = max(ringLine, spokeLine);
+    // Noise-driven breaks for organic feel
+    float circuitNoise = snoise(vec3(vWorldPosition.xz * 2.0, 0.5));
+    circuit *= smoothstep(-0.1, 0.3, circuitNoise);
+    // Fade circuit at outer edges
+    circuit *= 1.0 - smoothstep(5.0, 9.0, dist);
+
+    // Dormant: subtle dark etch (subtractive)
+    float circuitEtch = circuit * 0.018 * (1.0 - lightStrength);
+    // Lit: faint glow with artifact color
+    vec3 circuitGlow = lightColor * circuit * lightStrength * 0.08 * poolIntensity;
+
     // ── 7. Compose all layers ─────────────────────────────────────────
     vec3 poolContrib = lightColor * poolIntensity * 0.12;
     vec3 causticContrib = causticColor * caustic * poolIntensity * 0.6;
     vec3 reflectionContrib = lightColor * reflectionGlow;
     vec3 fresnelContrib = lightColor * fresnelLit + vec3(fresnelBase);
 
-    vec3 finalColor = baseColor + poolContrib + causticContrib + reflectionContrib + fresnelContrib;
+    baseColor -= vec3(circuitEtch); // dark etching when dormant
+    vec3 finalColor = baseColor + poolContrib + causticContrib + reflectionContrib + fresnelContrib + circuitGlow;
 
     // Central specular — sharp point of brilliance directly below
     float specular = exp(-dist * dist * 8.0);

@@ -12,14 +12,16 @@ import Avatar from "@/components/shared/Avatar";
 
 const Section = ({ title, children, C, T }) => (
   <div style={{ ...cardSolid(C), padding: T.space[4], marginBottom: T.space[4] }}>
-    <div style={{
-      fontSize: 9,
-      fontWeight: 700,
-      color: C.textDim,
-      textTransform: "uppercase",
-      letterSpacing: "0.06em",
-      marginBottom: T.space[3],
-    }}>
+    <div
+      style={{
+        fontSize: 9,
+        fontWeight: 700,
+        color: C.textDim,
+        textTransform: "uppercase",
+        letterSpacing: "0.06em",
+        marginBottom: T.space[3],
+      }}
+    >
       {title}
     </div>
     {children}
@@ -29,11 +31,8 @@ const Section = ({ title, children, C, T }) => (
 function AccuracyBadge({ ratio, C }) {
   const pct = Math.round(ratio * 100);
   const color = ratio > 1.15 ? "#FF3B30" : ratio < 0.85 ? "#FBBF24" : "#30D158";
-  const label = ratio > 1.1
-    ? `Takes ${pct - 100}% longer`
-    : ratio < 0.9
-      ? `Finishes ${100 - pct}% faster`
-      : "On target";
+  const label =
+    ratio > 1.1 ? `Takes ${pct - 100}% longer` : ratio < 0.9 ? `Finishes ${100 - pct}% faster` : "On target";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
       <span style={{ fontSize: 14, fontWeight: 700, color }}>{pct}%</span>
@@ -101,15 +100,23 @@ export default function AnalyticsPanel({ estimatorColors, C: propC, T: propT }) 
   return (
     <div>
       {/* Top Summary */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: T.space[3], marginBottom: T.space[4] }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+          gap: T.space[3],
+          marginBottom: T.space[4],
+        }}
+      >
         {[
           { label: "Estimates Tracked", value: totalCompleted, color: "#A78BFA" },
           { label: "Estimators", value: accuracyByEstimator.size, color: "#60A5FA" },
           {
             label: "Avg Velocity",
-            value: weeklyVelocity.length > 0
-              ? `${Math.round(weeklyVelocity.reduce((s, w) => s + w.count, 0) / weeklyVelocity.length)}/wk`
-              : "—",
+            value:
+              weeklyVelocity.length > 0
+                ? `${Math.round(weeklyVelocity.reduce((s, w) => s + w.count, 0) / weeklyVelocity.length)}/wk`
+                : "—",
             color: "#34D399",
           },
           {
@@ -119,7 +126,15 @@ export default function AnalyticsPanel({ estimatorColors, C: propC, T: propT }) 
           },
         ].map(kpi => (
           <div key={kpi.label} style={{ ...cardSolid(C), padding: `${T.space[3]}px ${T.space[4]}px` }}>
-            <div style={{ fontSize: 9, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
+            <div
+              style={{
+                fontSize: 9,
+                color: C.textDim,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                marginBottom: 4,
+              }}
+            >
               {kpi.label}
             </div>
             <div style={{ fontSize: 18, fontWeight: 700, color: kpi.color }}>{kpi.value}</div>
@@ -130,20 +145,16 @@ export default function AnalyticsPanel({ estimatorColors, C: propC, T: propT }) 
       {/* Velocity */}
       {velocityData.length > 0 && (
         <Section title="Team Velocity — Bids per Week" C={C} T={T}>
-          <BarChart
-            data={velocityData}
-            height={100}
-            showLabels
-            showValues
-            barColor="#A78BFA"
-          />
+          <BarChart data={velocityData} height={100} showLabels showValues barColor="#A78BFA" />
         </Section>
       )}
 
       {/* Estimator Accuracy */}
       {accuracyByEstimator.size > 0 && (
         <Section title="Estimator Accuracy — Actual vs Estimated" C={C} T={T}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: T.space[3] }}>
+          <div
+            style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: T.space[3] }}
+          >
             {Array.from(accuracyByEstimator.entries()).map(([name, data]) => {
               const colorEntry = estimatorColors?.get(name);
               return (
@@ -160,7 +171,9 @@ export default function AnalyticsPanel({ estimatorColors, C: propC, T: propT }) 
                     <Avatar name={name} color={colorEntry || "#A78BFA"} size={24} fontSize={9} />
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: T.fontSize.xs, fontWeight: 600, color: C.text }}>{name}</div>
-                      <div style={{ fontSize: 8, color: C.textDim }}>{data.estimates} estimate{data.estimates !== 1 ? "s" : ""} tracked</div>
+                      <div style={{ fontSize: 8, color: C.textDim }}>
+                        {data.estimates} estimate{data.estimates !== 1 ? "s" : ""} tracked
+                      </div>
                     </div>
                     <AccuracyBadge ratio={data.avgAccuracy} C={C} />
                   </div>
@@ -180,7 +193,9 @@ export default function AnalyticsPanel({ estimatorColors, C: propC, T: propT }) 
                   {/* Trend sparkline */}
                   {data.trend.length > 2 && (
                     <div>
-                      <div style={{ fontSize: 8, color: C.textDim, marginBottom: 2 }}>Accuracy trend (last {data.trend.length})</div>
+                      <div style={{ fontSize: 8, color: C.textDim, marginBottom: 2 }}>
+                        Accuracy trend (last {data.trend.length})
+                      </div>
                       <Spark
                         data={data.trend.map(r => Math.round(r * 100))}
                         height={20}
@@ -198,13 +213,7 @@ export default function AnalyticsPanel({ estimatorColors, C: propC, T: propT }) 
       {/* Cycle Time */}
       {cycleData.length > 0 && (
         <Section title="Cycle Time — Avg Days per Estimate" C={C} T={T}>
-          <BarChart
-            data={cycleData}
-            height={80}
-            showLabels
-            showValues
-            barColor="#60A5FA"
-          />
+          <BarChart data={cycleData} height={80} showLabels showValues barColor="#60A5FA" />
         </Section>
       )}
 
@@ -226,7 +235,9 @@ export default function AnalyticsPanel({ estimatorColors, C: propC, T: propT }) 
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: T.fontSize.xs, fontWeight: 600, color: C.text }}>{b.fullLabel}</div>
-                  <div style={{ fontSize: 8, color: C.textDim }}>{b.count} project{b.count !== 1 ? "s" : ""}</div>
+                  <div style={{ fontSize: 8, color: C.textDim }}>
+                    {b.count} project{b.count !== 1 ? "s" : ""}
+                  </div>
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: "#FBBF24" }}>{b.value}h avg</div>

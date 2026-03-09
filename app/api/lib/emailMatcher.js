@@ -46,10 +46,7 @@ function levenshtein(a, b) {
   for (let j = 0; j <= n; j++) dp[0][j] = j;
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
-      dp[i][j] =
-        a[i - 1] === b[j - 1]
-          ? dp[i - 1][j - 1]
-          : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
     }
   }
   return dp[m][n];
@@ -166,10 +163,7 @@ async function getNextAddendumNumber(parentRfpId, supabase) {
  * @param {Object} supabase - Supabase admin client
  * @returns {Object|null} Match result with classification
  */
-export async function matchEmail(
-  { parsedData, senderEmail, subject, userId, inReplyTo, referencesHeader },
-  supabase,
-) {
+export async function matchEmail({ parsedData, senderEmail, subject, userId, inReplyTo, referencesHeader }, supabase) {
   const senderDomain = domainOf(senderEmail);
   const aiClassification = parsedData?.classification || "initial_rfp";
   const isNonInitial = aiClassification !== "initial_rfp";
@@ -191,7 +185,9 @@ export async function matchEmail(
       // Look for any existing RFP whose message_id matches our In-Reply-To or References
       const { data: threadMatches } = await supabase
         .from("pending_rfps")
-        .select("id, parsed_data, subject, sender_email, sender_domain, status, linked_estimate_id, parent_estimate_id, parent_rfp_id")
+        .select(
+          "id, parsed_data, subject, sender_email, sender_domain, status, linked_estimate_id, parent_estimate_id, parent_rfp_id",
+        )
         .eq("user_id", userId)
         .in("message_id", messageIds)
         .order("created_at", { ascending: false })
@@ -235,7 +231,9 @@ export async function matchEmail(
   // Expand beyond just same sender — also match by sender domain
   const { data: candidates } = await supabase
     .from("pending_rfps")
-    .select("id, parsed_data, subject, sender_email, sender_domain, status, linked_estimate_id, parent_estimate_id, parent_rfp_id")
+    .select(
+      "id, parsed_data, subject, sender_email, sender_domain, status, linked_estimate_id, parent_estimate_id, parent_rfp_id",
+    )
     .eq("user_id", userId)
     .in("status", ["imported", "parsed"])
     .order("created_at", { ascending: false })

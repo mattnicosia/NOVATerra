@@ -1,0 +1,13 @@
+blender/
+*.blend
+*.blend1
+renders/
+*.py
+*.pdf
+*.zip
+*.jpg
+*.png
+!public/**
+!src/**
+node_modules/
+.git/

@@ -528,12 +528,15 @@ export const pushEstimate = async (estimateId, data) => {
       const scope = getScope();
       // Extract assignedTo from the estimate data to store as a column (for queries)
       const assignedTo = cleanData?.project?.assignedTo || null;
+      // CRITICAL: Do NOT include deleted_at here. Setting deleted_at: null on every
+      // push was the root cause of zombie resurrection — an in-flight auto-save
+      // would un-delete rows that deleteEstimate() had just soft-deleted.
+      // Only deleteEstimate() should touch the deleted_at column.
       const row = {
         user_id: userId,
         estimate_id: estimateId,
         data: cleanData,
         updated_at: new Date().toISOString(),
-        deleted_at: null,
         ...(scope || {}),
         ...(assignedTo ? { assigned_to: assignedTo } : {}),
       };
@@ -557,7 +560,7 @@ export const pushEstimate = async (estimateId, data) => {
         if (existing) {
           const { error } = await supabase
             .from("user_estimates")
-            .update({ data: cleanData, updated_at: row.updated_at, deleted_at: null })
+            .update({ data: cleanData, updated_at: row.updated_at })
             .eq("user_id", userId)
             .eq("estimate_id", estimateId)
             .is("org_id", null);
@@ -657,7 +660,10 @@ export const pullAllEstimatesWithMeta = async () => {
     if (scope?.org_id) {
       query = query.eq("org_id", scope.org_id);
     } else {
-      query = query.eq("user_id", getUserId());
+      // Solo mode: scope by BOTH user_id AND org_id IS NULL to prevent
+      // org-scoped rows from leaking into solo mode (they can't be deleted
+      // from solo mode since deleteEstimate only touches org_id IS NULL rows)
+      query = query.eq("user_id", getUserId()).is("org_id", null);
     }
 
     const { data, error } = await query;
@@ -683,7 +689,7 @@ export const pullEstimate = async estimateId => {
     if (scope?.org_id) {
       query = query.eq("org_id", scope.org_id);
     } else {
-      query = query.eq("user_id", getUserId());
+      query = query.eq("user_id", getUserId()).is("org_id", null);
     }
 
     const { data, error } = await query.maybeSingle();
@@ -708,7 +714,7 @@ export const pullAllEstimates = async () => {
     if (scope?.org_id) {
       query = query.eq("org_id", scope.org_id);
     } else {
-      query = query.eq("user_id", getUserId());
+      query = query.eq("user_id", getUserId()).is("org_id", null);
     }
 
     const { data, error } = await query;

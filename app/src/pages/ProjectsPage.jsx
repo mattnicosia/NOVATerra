@@ -25,6 +25,7 @@ const STATUS_TABS = [
   { key: "Won", label: "Won" },
   { key: "Lost", label: "Lost" },
   { key: "On Hold", label: "On Hold" },
+  { key: "Trash", label: "Trash" },
 ];
 
 const SORT_OPTIONS = [
@@ -44,6 +45,7 @@ const STATUS_COLORS = {
   "On Hold": "#FBBF24",
   Draft: "#8E8E93",
   Cancelled: "#8E8E93",
+  Trash: "#8E8E93",
 };
 
 const STATUS_ORDER = ["Qualifying", "Bidding", "Submitted", "Won", "Lost", "On Hold", "Draft"];
@@ -307,9 +309,10 @@ export default function ProjectsPage() {
     return companyFiltered.filter(e => !e.assignedTo?.length || e.assignedTo.includes(userId));
   }, [companyFiltered, scope, orgId, userId]);
 
-  // Filter by status tab
+  // Filter by status tab — Trash items are excluded from "all" and only visible in Trash tab
   const tabFiltered = useMemo(() => {
-    if (activeTab === "all") return scopeFiltered;
+    if (activeTab === "Trash") return scopeFiltered.filter(e => e.status === "Trash");
+    if (activeTab === "all") return scopeFiltered.filter(e => e.status !== "Trash");
     return scopeFiltered.filter(e => (e.status || "Draft") === activeTab);
   }, [scopeFiltered, activeTab]);
 
@@ -369,7 +372,7 @@ export default function ProjectsPage() {
   }, [searchFiltered, sortBy, sortDir]);
 
   const tabCounts = useMemo(() => {
-    const counts = { all: scopeFiltered.length };
+    const counts = { all: scopeFiltered.filter(e => e.status !== "Trash").length };
     STATUS_TABS.forEach(t => {
       if (t.key !== "all") counts[t.key] = scopeFiltered.filter(e => (e.status || "Draft") === t.key).length;
     });
@@ -412,12 +415,45 @@ export default function ProjectsPage() {
     if (newId) showToast(`Duplicated "${est.name}"`);
   };
 
-  const handleDelete = async () => {
+  // Move to Trash (soft) — saves original status so we can restore
+  const handleTrash = () => {
     if (!deleteConfirm) return;
     const id = deleteConfirm;
-    setDeleteConfirm(null); // close modal immediately
+    const est = estimatesIndex.find(e => e.id === id);
+    setDeleteConfirm(null);
+    updateIndexEntry(id, {
+      status: "Trash",
+      _preTrashStatus: est?.status || "Bidding",
+      _trashedAt: new Date().toISOString(),
+    });
+    showToast("Moved to Trash");
+  };
+
+  // Restore from Trash
+  const handleRestore = id => {
+    const est = estimatesIndex.find(e => e.id === id);
+    const restoreStatus = est?._preTrashStatus || "Bidding";
+    updateIndexEntry(id, { status: restoreStatus, _preTrashStatus: undefined, _trashedAt: undefined });
+    showToast("Restored");
+  };
+
+  // Permanent delete (from Trash only)
+  const [permDeleteConfirm, setPermDeleteConfirm] = useState(null);
+  const handlePermanentDelete = async () => {
+    if (!permDeleteConfirm) return;
+    const id = permDeleteConfirm;
+    setPermDeleteConfirm(null);
     await deleteEstimate(id);
-    showToast("Estimate deleted");
+    showToast("Permanently deleted");
+  };
+
+  // Empty Trash
+  const handleEmptyTrash = async () => {
+    const trashed = estimatesIndex.filter(e => e.status === "Trash");
+    for (const est of trashed) {
+      await deleteEstimate(est.id);
+    }
+    showToast(`Deleted ${trashed.length} item${trashed.length !== 1 ? "s" : ""}`);
   };
 
   const handleStatusChange = useCallback(
@@ -473,7 +509,9 @@ export default function ProjectsPage() {
               Projects
             </h1>
             <p style={{ color: C.textMuted, fontSize: T.fontSize.sm }}>
-              {companyFiltered.length} estimate{companyFiltered.length !== 1 ? "s" : ""} across all statuses
+              {activeTab === "Trash"
+                ? `${tabCounts.Trash || 0} item${(tabCounts.Trash || 0) !== 1 ? "s" : ""} in Trash`
+                : `${companyFiltered.filter(e => e.status !== "Trash").length} estimate${companyFiltered.filter(e => e.status !== "Trash").length !== 1 ? "s" : ""} across all statuses`}
             </p>
           </div>
           <div style={{ display: "flex", gap: T.space[2], alignItems: "center" }}>
@@ -502,6 +540,21 @@ export default function ProjectsPage() {
                   </button>
                 ))}
               </div>
+            )}
+            {activeTab === "Trash" && (tabCounts.Trash || 0) > 0 && (
+              <button
+                onClick={handleEmptyTrash}
+                style={bt(C, {
+                  background: C.red,
+                  color: "#fff",
+                  padding: "8px 18px",
+                  borderRadius: T.radius.sm,
+                  boxShadow: `0 0 12px ${C.red}20`,
+                  fontSize: T.fontSize.sm,
+                })}
+              >
+                <Ic d={I.trash} size={13} color="#fff" sw={2} /> Empty Trash
+              </button>
             )}
             <button
               onClick={handleNewEstimate}
@@ -938,53 +991,117 @@ export default function ProjectsPage() {
                         style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}
                         onClick={e => e.stopPropagation()}
                       >
-                        <button
-                          title="Duplicate"
-                          onClick={e => handleDuplicate(e, est)}
-                          className="icon-btn"
-                          style={{
-                            width: 26,
-                            height: 26,
-                            borderRadius: T.radius.sm,
-                            border: "none",
-                            background: "transparent",
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                        >
-                          <Ic
-                            d={
-                              I.copy ||
-                              I.duplicate ||
-                              "M8 4H4a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-4M14 2h-4v4h4V2zM12 2v4h4"
-                            }
-                            size={12}
-                            color={C.textDim}
-                          />
-                        </button>
-                        <button
-                          title="Delete"
-                          onClick={e => {
-                            e.stopPropagation();
-                            setDeleteConfirm(est.id);
-                          }}
-                          className="icon-btn"
-                          style={{
-                            width: 26,
-                            height: 26,
-                            borderRadius: T.radius.sm,
-                            border: "none",
-                            background: "transparent",
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                        >
-                          <Ic d={I.trash} size={12} color={C.red} />
-                        </button>
+                        {activeTab === "Trash" ? (
+                          <>
+                            <button
+                              title="Restore"
+                              onClick={() => handleRestore(est.id)}
+                              className="icon-btn"
+                              style={{
+                                width: 26,
+                                height: 26,
+                                borderRadius: T.radius.sm,
+                                border: "none",
+                                background: "transparent",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              <Ic d="M3 12a9 9 0 109-9M3 3v6h6" size={12} color="#34D399" />
+                            </button>
+                            <button
+                              title="Delete permanently"
+                              onClick={() => setPermDeleteConfirm(est.id)}
+                              className="icon-btn"
+                              style={{
+                                width: 26,
+                                height: 26,
+                                borderRadius: T.radius.sm,
+                                border: "none",
+                                background: "transparent",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              <Ic d={I.trash} size={12} color={C.red} />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              title="Project Settings"
+                              onClick={async () => {
+                                await loadEstimate(est.id);
+                                navigate(`/estimate/${est.id}/project`);
+                              }}
+                              className="icon-btn"
+                              style={{
+                                width: 26,
+                                height: 26,
+                                borderRadius: T.radius.sm,
+                                border: "none",
+                                background: "transparent",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              <Ic d={I.settings} size={12} color={C.textDim} />
+                            </button>
+                            <button
+                              title="Duplicate"
+                              onClick={e => handleDuplicate(e, est)}
+                              className="icon-btn"
+                              style={{
+                                width: 26,
+                                height: 26,
+                                borderRadius: T.radius.sm,
+                                border: "none",
+                                background: "transparent",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              <Ic
+                                d={
+                                  I.copy ||
+                                  I.duplicate ||
+                                  "M8 4H4a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-4M14 2h-4v4h4V2zM12 2v4h4"
+                                }
+                                size={12}
+                                color={C.textDim}
+                              />
+                            </button>
+                            <button
+                              title="Move to Trash"
+                              onClick={e => {
+                                e.stopPropagation();
+                                setDeleteConfirm(est.id);
+                              }}
+                              className="icon-btn"
+                              style={{
+                                width: 26,
+                                height: 26,
+                                borderRadius: T.radius.sm,
+                                border: "none",
+                                background: "transparent",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              <Ic d={I.trash} size={12} color={C.red} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   );
@@ -1099,7 +1216,7 @@ export default function ProjectsPage() {
         )}
       </div>
 
-      {/* Delete confirmation modal */}
+      {/* Move to Trash confirmation modal */}
       {deleteConfirm && (
         <div
           style={{
@@ -1114,6 +1231,94 @@ export default function ProjectsPage() {
             animation: "fadeIn 0.2s ease-out",
           }}
           onClick={() => setDeleteConfirm(null)}
+        >
+          <div
+            style={{
+              background: C.bg1,
+              border: `1px solid ${C.border}`,
+              borderRadius: T.radius.lg,
+              padding: T.space[7],
+              width: 340,
+              boxShadow: T.shadow.xl,
+              animation: "modalEnter 0.3s cubic-bezier(0.16,1,0.3,1)",
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: T.radius.full,
+                margin: "0 auto",
+                marginBottom: T.space[4],
+                background: `${C.accent}15`,
+                border: `1px solid ${C.accent}25`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ic d={I.trash} size={22} color={C.accent} sw={1.7} />
+            </div>
+            <div
+              style={{
+                fontSize: T.fontSize.md,
+                fontWeight: T.fontWeight.semibold,
+                color: C.text,
+                marginBottom: T.space[2],
+                textAlign: "center",
+              }}
+            >
+              Move to Trash?
+            </div>
+            <div style={{ fontSize: T.fontSize.sm, color: C.textMuted, marginBottom: T.space[5], textAlign: "center" }}>
+              "{estimatesIndex.find(e => e.id === deleteConfirm)?.name || "Untitled"}" will be moved to Trash. You can
+              restore it later.
+            </div>
+            <div style={{ display: "flex", gap: T.space[2], justifyContent: "center" }}>
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                style={bt(C, {
+                  background: C.bg2,
+                  color: C.textMuted,
+                  padding: `${T.space[2]}px ${T.space[5]}px`,
+                  border: `1px solid ${C.border}`,
+                  borderRadius: T.radius.sm,
+                })}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleTrash}
+                style={bt(C, {
+                  background: C.accent,
+                  color: "#fff",
+                  padding: `${T.space[2]}px ${T.space[5]}px`,
+                  boxShadow: `0 0 12px ${C.accent}30`,
+                  borderRadius: T.radius.sm,
+                })}
+              >
+                Move to Trash
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Permanent delete confirmation (from Trash view) */}
+      {permDeleteConfirm && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.65)",
+            backdropFilter: "blur(12px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 200,
+            animation: "fadeIn 0.2s ease-out",
+          }}
+          onClick={() => setPermDeleteConfirm(null)}
         >
           <div
             style={{
@@ -1152,14 +1357,15 @@ export default function ProjectsPage() {
                 textAlign: "center",
               }}
             >
-              Delete Estimate?
+              Delete Permanently?
             </div>
             <div style={{ fontSize: T.fontSize.sm, color: C.textMuted, marginBottom: T.space[5], textAlign: "center" }}>
-              "{estimatesIndex.find(e => e.id === deleteConfirm)?.name || "Untitled"}" will be permanently removed.
+              "{estimatesIndex.find(e => e.id === permDeleteConfirm)?.name || "Untitled"}" will be permanently removed.
+              This cannot be undone.
             </div>
             <div style={{ display: "flex", gap: T.space[2], justifyContent: "center" }}>
               <button
-                onClick={() => setDeleteConfirm(null)}
+                onClick={() => setPermDeleteConfirm(null)}
                 style={bt(C, {
                   background: C.bg2,
                   color: C.textMuted,
@@ -1171,7 +1377,7 @@ export default function ProjectsPage() {
                 Cancel
               </button>
               <button
-                onClick={handleDelete}
+                onClick={handlePermanentDelete}
                 style={bt(C, {
                   background: C.red,
                   color: "#fff",
@@ -1180,7 +1386,7 @@ export default function ProjectsPage() {
                   borderRadius: T.radius.sm,
                 })}
               >
-                Delete
+                Delete Forever
               </button>
             </div>
           </div>

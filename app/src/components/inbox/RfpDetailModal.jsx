@@ -196,7 +196,8 @@ export default function RfpDetailModal({ rfp, onClose, onImport }) {
           {pd.confidence != null &&
             (() => {
               // Normalize: API may return 0-1 (0.85), 0-10 (8.5), or 0-100 (85)
-              const conf = pd.confidence > 10 ? pd.confidence / 100 : pd.confidence > 1 ? pd.confidence / 10 : pd.confidence;
+              const conf =
+                pd.confidence > 10 ? pd.confidence / 100 : pd.confidence > 1 ? pd.confidence / 10 : pd.confidence;
               return (
                 <div
                   style={{

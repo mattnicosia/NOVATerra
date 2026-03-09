@@ -21,9 +21,8 @@ export default function RfpCard({ rfp, isUnread, onView, onImport, onDismiss, on
   const attachments = rfp.attachments || [];
   const rawConf = pd.confidence;
   // Normalize: API may return 0-1 (0.85), 0-10 (8.5), or 0-100 (85)
-  const confidence = rawConf != null
-    ? Math.round((rawConf > 10 ? rawConf / 100 : rawConf > 1 ? rawConf / 10 : rawConf) * 100)
-    : null;
+  const confidence =
+    rawConf != null ? Math.round((rawConf > 10 ? rawConf / 100 : rawConf > 1 ? rawConf / 10 : rawConf) * 100) : null;
 
   const isError = rfp.status === "error";
   const isImported = rfp.status === "imported";

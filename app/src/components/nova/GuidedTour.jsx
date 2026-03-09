@@ -1,20 +1,23 @@
 // GuidedTour — 6-step workspace tour after first-time onboarding
 // Runs over a dimmed dashboard. Orb narrates, sections illuminate.
 // Script reference: Archive/NOVA-SCRIPT-FINAL.md § "GUIDED WORKSPACE TOUR"
-import { useState, useEffect, useRef, useCallback } from 'react';
-import TypeWriter from './TypeWriter';
-import useNovaSound from './useNovaSound';
-import useNovaVoice from './useNovaVoice';
-import { VOICE_PRESETS } from './voicePresets';
-import { getScript } from '@/utils/novaScriptOverrides';
-import { useNovaStore } from '@/stores/novaStore';
-import NovaSceneLazy from '@/components/nova/NovaSceneLazy';
+import { useState, useEffect, useRef, useCallback } from "react";
+import TypeWriter from "./TypeWriter";
+import useNovaSound from "./useNovaSound";
+import useNovaVoice from "./useNovaVoice";
+import { VOICE_PRESETS } from "./voicePresets";
+import { getScript } from "@/utils/novaScriptOverrides";
+import { useNovaStore } from "@/stores/novaStore";
+import NovaSceneLazy from "@/components/nova/NovaSceneLazy";
 
 // ── Timer safety helpers (shared pattern from OnboardingSequence) ──
 function useTimerManager() {
   const timers = useRef(new Set());
   const later = useCallback((fn, ms) => {
-    const id = setTimeout(() => { timers.current.delete(id); fn(); }, ms);
+    const id = setTimeout(() => {
+      timers.current.delete(id);
+      fn();
+    }, ms);
     timers.current.add(id);
     return id;
   }, []);
@@ -26,18 +29,18 @@ const textStyle = {
   fontSize: 18,
   fontWeight: 300,
   letterSpacing: 1,
-  color: 'rgba(220,200,255,0.75)',
+  color: "rgba(220,200,255,0.75)",
 };
 
 export default function GuidedTour({ onComplete }) {
-  const S = getScript('TOUR');
+  const S = getScript("TOUR");
   const TOUR_STEPS = S.steps;
   const { later } = useTimerManager();
   const sound = useNovaSound();
   const voice = useNovaVoice();
 
   const [step, setStep] = useState(-1); // -1 = not started
-  const [lineText, setLineText] = useState('');
+  const [lineText, setLineText] = useState("");
   const [lineKey, setLineKey] = useState(0);
   const [lineDone, setLineDone] = useState(false);
   const [illuminated, setIlluminated] = useState(new Set()); // Stays lit once illuminated
@@ -49,7 +52,7 @@ export default function GuidedTour({ onComplete }) {
   useEffect(() => {
     voice.preWarm(
       TOUR_STEPS.map(s => s.text),
-      VOICE_PRESETS.onboarding
+      VOICE_PRESETS.onboarding,
     );
     later(() => setStep(0), S.startDelayMs);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -60,14 +63,14 @@ export default function GuidedTour({ onComplete }) {
     const current = TOUR_STEPS[step];
 
     // Set orb state — use 'learning' for warm glow instead of spinning
-    if (current.orbState === 'learning') {
-      useNovaStore.setState({ status: 'learning', activity: 'Learning...' });
-    } else if (current.orbState === 'affirm') {
-      useNovaStore.setState({ status: 'affirm', activity: null });
+    if (current.orbState === "learning") {
+      useNovaStore.setState({ status: "learning", activity: "Learning..." });
+    } else if (current.orbState === "affirm") {
+      useNovaStore.setState({ status: "affirm", activity: null });
     } else {
       // idle — reset from any previous state
       if (step > 0) {
-        useNovaStore.setState({ status: 'idle', activity: null });
+        useNovaStore.setState({ status: "idle", activity: null });
       }
     }
 
@@ -101,12 +104,12 @@ export default function GuidedTour({ onComplete }) {
         later(() => {
           setOverlayOpacity(0);
           later(() => {
-            localStorage.setItem('nova_tour_complete', 'true');
+            localStorage.setItem("nova_tour_complete", "true");
             if (onComplete) onComplete();
           }, S.exitFadeMs);
         }, 200);
       } else {
-        setLineText('');
+        setLineText("");
         later(() => setStep(nextStep), S.stepGapMs);
       }
     }, current.holdMs);
@@ -119,11 +122,13 @@ export default function GuidedTour({ onComplete }) {
       const el = document.querySelector(selector);
       if (el) {
         const prev = el.style.cssText;
-        el.style.position = 'relative';
-        el.style.zIndex = '1001';
-        el.style.boxShadow = '0 0 20px rgba(160,100,255,0.12), 0 0 40px rgba(160,100,255,0.06)';
-        el.style.transition = 'box-shadow 600ms ease, z-index 0ms';
-        cleanups.push(() => { el.style.cssText = prev; });
+        el.style.position = "relative";
+        el.style.zIndex = "1001";
+        el.style.boxShadow = "0 0 20px rgba(160,100,255,0.12), 0 0 40px rgba(160,100,255,0.06)";
+        el.style.transition = "box-shadow 600ms ease, z-index 0ms";
+        cleanups.push(() => {
+          el.style.cssText = prev;
+        });
       }
     });
 
@@ -139,8 +144,8 @@ export default function GuidedTour({ onComplete }) {
         if (s.target) {
           const el = document.querySelector(s.target);
           if (el) {
-            el.style.boxShadow = '';
-            el.style.zIndex = '';
+            el.style.boxShadow = "";
+            el.style.zIndex = "";
           }
         }
       });
@@ -148,35 +153,47 @@ export default function GuidedTour({ onComplete }) {
   }, []);
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 1000,
-      background: 'rgba(4,4,12,0.65)',
-      display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'flex-end',
-      paddingBottom: 120,
-      fontFamily: "'DM Sans', sans-serif",
-      opacity: overlayOpacity,
-      transition: 'opacity 1.2s ease',
-      pointerEvents: exiting ? 'none' : 'auto',
-    }}>
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 1000,
+        background: "rgba(4,4,12,0.65)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "flex-end",
+        paddingBottom: 120,
+        fontFamily: "'DM Sans', sans-serif",
+        opacity: overlayOpacity,
+        transition: "opacity 1.2s ease",
+        pointerEvents: exiting ? "none" : "auto",
+      }}
+    >
       {/* Text area — centered at bottom */}
       {lineText && (
-        <div style={{
-          maxWidth: 560,
-          textAlign: 'center',
-          animation: 'novaFadeIn 0.4s ease-out',
-        }}>
+        <div
+          style={{
+            maxWidth: 560,
+            textAlign: "center",
+            animation: "novaFadeIn 0.4s ease-out",
+          }}
+        >
           <TypeWriter
             key={lineKey}
             text={lineText}
             speed={S.typewriterSpeed}
             style={textStyle}
             voice={lineDone ? undefined : voice}
-            voiceOptions={lineDone ? undefined : {
-              ...VOICE_PRESETS[TOUR_STEPS[step]?.voice || 'onboarding'],
-              onVoiceStart: () => sound.setDroneDuck?.(true),
-              onVoiceEnd: () => sound.setDroneDuck?.(false),
-            }}
+            voiceOptions={
+              lineDone
+                ? undefined
+                : {
+                    ...VOICE_PRESETS[TOUR_STEPS[step]?.voice || "onboarding"],
+                    onVoiceStart: () => sound.setDroneDuck?.(true),
+                    onVoiceEnd: () => sound.setDroneDuck?.(false),
+                  }
+            }
             onComplete={handleLineComplete}
           />
         </div>

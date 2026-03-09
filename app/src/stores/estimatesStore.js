@@ -334,6 +334,21 @@ export const useEstimatesStore = create((set, get) => ({
   },
 
   deleteEstimate: async id => {
+    // STEP 1: Track deleted-ID FIRST — crash-safe. If app dies after this but
+    // before index removal, the ID is recorded and cloud sync won't resurrect it.
+    try {
+      const raw = await storage.get(idbKey("bldg-deleted-ids"));
+      const deletedIds = raw ? JSON.parse(raw.value) : [];
+      if (!deletedIds.includes(id)) deletedIds.push(id);
+      await storage.set(idbKey("bldg-deleted-ids"), JSON.stringify(deletedIds));
+      // Backup to localStorage (survives IndexedDB clears)
+      const lsKey = `bldg-deleted-ids-${useAuthStore.getState().user?.id || "anon"}`;
+      localStorage.setItem(lsKey, JSON.stringify(deletedIds));
+    } catch (err) {
+      console.error("[deleteEstimate] Failed to track deleted ID — estimate may resurrect from cloud:", err);
+    }
+
+    // STEP 2: Remove from Zustand index (atomic)
     set(s => ({
       estimatesIndex: s.estimatesIndex.filter(e => e.id !== id),
       activeEstimateId: s.activeEstimateId === id ? null : s.activeEstimateId,
@@ -351,21 +366,7 @@ export const useEstimatesStore = create((set, get) => ({
       /* quota exceeded */
     }
 
-    // Track deleted ID locally so cloud sync doesn't pull it back.
-    // Store in BOTH IndexedDB and localStorage for resilience.
-    try {
-      const raw = await storage.get(idbKey("bldg-deleted-ids"));
-      const deletedIds = raw ? JSON.parse(raw.value) : [];
-      if (!deletedIds.includes(id)) deletedIds.push(id);
-      await storage.set(idbKey("bldg-deleted-ids"), JSON.stringify(deletedIds));
-      // Backup to localStorage (survives IndexedDB clears)
-      const lsKey = `bldg-deleted-ids-${useAuthStore.getState().user?.id || "anon"}`;
-      localStorage.setItem(lsKey, JSON.stringify(deletedIds));
-    } catch (err) {
-      console.error("[deleteEstimate] Failed to track deleted ID — estimate may resurrect from cloud:", err);
-    }
-
-    // Cloud sync — await so deletion completes before user closes app
+    // STEP 3: Cloud sync — await so deletion completes before user closes app
     try {
       await cloudSync.deleteEstimate(id);
       await cloudSync.pushData("index", idx);
@@ -409,12 +410,21 @@ export const useEstimatesStore = create((set, get) => ({
   },
 
   updateIndexEntry: (id, updates) => {
-    set(s => ({
-      estimatesIndex: s.estimatesIndex.map(e => (e.id === id ? { ...e, ...updates } : e)),
-    }));
+    // ATOMIC: functional setState to prevent concurrent mutations from overwriting each other.
+    // No-op guard: skip if nothing actually changed — prevents re-renders in 30+ consumers.
+    set(s => {
+      const entry = s.estimatesIndex.find(e => e.id === id);
+      if (!entry) return s;
+      const changed = Object.keys(updates).some(k => entry[k] !== updates[k]);
+      if (!changed) return s;
+      return { estimatesIndex: s.estimatesIndex.map(e => (e.id === id ? { ...e, ...updates } : e)) };
+    });
   },
 
   assignEstimate: (estimateId, userIds) => {
+    // No-op guard: skip if assignedTo hasn't changed
+    const entry = get().estimatesIndex.find(e => e.id === estimateId);
+    if (entry && JSON.stringify(entry.assignedTo) === JSON.stringify(userIds)) return;
     set(s => ({
       estimatesIndex: s.estimatesIndex.map(e => (e.id === estimateId ? { ...e, assignedTo: userIds } : e)),
     }));
@@ -460,8 +470,8 @@ export const useEstimatesStore = create((set, get) => ({
       emailCount: 1, // The initial RFP counts as the first email
       lastEmailAt: nowStr(),
     };
-    const idx = [...get().estimatesIndex, est];
-    set({ estimatesIndex: idx, activeEstimateId: id });
+    set(s => ({ estimatesIndex: [...s.estimatesIndex, est], activeEstimateId: id }));
+    const idx = get().estimatesIndex;
     const idxJson = JSON.stringify(idx);
     await storage.set(idbKey("bldg-index"), idxJson);
     await storage.set(idbKey(`bldg-est-${id}`), JSON.stringify(data));
