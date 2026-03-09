@@ -38,6 +38,8 @@ export const useUiStore = create((set, get) => ({
     ],
     laborTypes: DEFAULT_LABOR_TYPES,
     defaultLaborType: "open_shop",
+    productionHoursPerDay: 7,
+    bufferHours: 0,
     onboardingDismissed: false,
     showActivityTimer: false,
   },

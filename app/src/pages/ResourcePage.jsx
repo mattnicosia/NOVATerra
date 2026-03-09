@@ -5,7 +5,8 @@ import { useWorkloadData } from "@/hooks/useWorkloadData";
 import { useResourceStore } from "@/stores/resourceStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useUiStore } from "@/stores/uiStore";
-import { bt, cardSolid } from "@/utils/styles";
+import { bt, cardSolid, inp } from "@/utils/styles";
+import { useOrgStore, selectIsManager } from "@/stores/orgStore";
 import Avatar from "@/components/shared/Avatar";
 import EstimatorScorecard from "@/components/shared/EstimatorScorecard";
 import ReviewPanel from "@/components/shared/ReviewPanel";
@@ -36,9 +37,10 @@ const SCHEDULE_COLORS = {
   "on-track": "#60A5FA",
   behind: "#FF9500",
   overdue: "#FF3B30",
+  conflict: "#FF3B30",
 };
 
-function utilizationColor(hours, capacity = 8) {
+function utilizationColor(hours, capacity = 7) {
   const pct = hours / capacity;
   if (pct <= 0) return "transparent";
   if (pct <= 0.5) return "#30D158";
@@ -109,8 +111,8 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
   const rowData = useMemo(() => {
     return estimatorRows.map(row => {
       const bars = row.estimates.map(est => {
-        const startIdx = days.findIndex(d => d.key === est.startDate);
-        const endIdx = days.findIndex(d => d.key === est.bidDue);
+        const startIdx = days.findIndex(d => d.key === est.scheduledStart);
+        const endIdx = days.findIndex(d => d.key === est.scheduledEnd);
         // Clamp to visible range
         const s = Math.max(0, startIdx >= 0 ? startIdx : 0);
         const e = Math.min(days.length - 1, endIdx >= 0 ? endIdx : days.length - 1);
@@ -129,8 +131,8 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
   // Unassigned bars
   const unassignedBars = useMemo(() => {
     return unassignedEstimates.map(est => {
-      const sKey = est.startDate || TODAY;
-      const eKey = est.bidDue || TODAY;
+      const sKey = est.scheduledStart || TODAY;
+      const eKey = est.scheduledEnd || TODAY;
       const startIdx = days.findIndex(d => d.key === sKey);
       const endIdx = days.findIndex(d => d.key === eKey);
       const s = Math.max(0, startIdx >= 0 ? startIdx : 0);
@@ -425,6 +427,10 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
                             pct: bar.percentComplete,
                             daysLeft: bar.daysRemaining,
                             status: bar.scheduleStatus,
+                            scheduledRange: `${bar.scheduledStart} → ${bar.scheduledEnd}`,
+                            bidDue: bar.bidDue,
+                            conflict: bar.conflict,
+                            daysNeeded: bar.daysNeeded,
                           })
                         }
                         onMouseLeave={() => setTooltip(null)}
@@ -440,8 +446,10 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
                           display: "flex",
                           alignItems: "center",
                           border: `1px solid ${color}40`,
+                          borderLeft: bar.conflict ? `3px solid #FF3B30` : `1px solid ${color}40`,
                           opacity: isDragging ? 0.4 : 1,
                           transition: "opacity 100ms",
+                          animation: bar.conflict ? "conflictPulse 2s ease-in-out infinite" : undefined,
                         }}
                       >
                         {/* Fill portion (% complete) */}
@@ -505,6 +513,29 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
                             {bar.percentComplete}%
                           </span>
                         </div>
+                        {/* Due date marker — orange dot when bar ends before bidDue */}
+                        {bar.bidDue !== bar.scheduledEnd && (() => {
+                          const dueIdx = days.findIndex(d => d.key === bar.bidDue);
+                          if (dueIdx < 0) return null;
+                          const dotLeft = (dueIdx * DAY_WIDTH + DAY_WIDTH / 2) - bar.left - 2;
+                          if (dotLeft < 0 || dotLeft > bar.width) return null;
+                          return (
+                            <div
+                              style={{
+                                position: "absolute",
+                                left: dotLeft - 3,
+                                top: 6,
+                                width: 6,
+                                height: 6,
+                                borderRadius: "50%",
+                                background: "#FF9500",
+                                border: "1px solid rgba(0,0,0,0.2)",
+                                zIndex: 2,
+                              }}
+                              title={`Due ${bar.bidDue}`}
+                            />
+                          );
+                        })()}
                       </div>
                     );
                   })}
@@ -615,8 +646,17 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
           <div style={{ fontWeight: T.fontWeight.bold, marginBottom: 4 }}>{tooltip.name}</div>
           <div style={{ color: C.textMuted }}>Hours: {tooltip.hours}</div>
           <div style={{ color: C.textMuted }}>Complete: {tooltip.pct}%</div>
+          {tooltip.scheduledRange && (
+            <div style={{ color: C.textMuted }}>Scheduled: {tooltip.scheduledRange}</div>
+          )}
+          {tooltip.bidDue && (
+            <div style={{ color: C.textMuted }}>Due: {tooltip.bidDue}</div>
+          )}
+          {tooltip.daysNeeded > 0 && (
+            <div style={{ color: C.textMuted }}>{tooltip.daysNeeded} work day{tooltip.daysNeeded !== 1 ? "s" : ""} needed</div>
+          )}
           <div style={{ color: C.textMuted }}>Days remaining: {tooltip.daysLeft}</div>
-          <div style={{ marginTop: 4 }}>
+          <div style={{ marginTop: 4, display: "flex", gap: 4, alignItems: "center" }}>
             <span
               style={{
                 fontSize: 9,
@@ -630,6 +670,20 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
             >
               {tooltip.status}
             </span>
+            {tooltip.conflict && (
+              <span
+                style={{
+                  fontSize: 9,
+                  fontWeight: 700,
+                  color: "#FF3B30",
+                  padding: "2px 6px",
+                  borderRadius: T.radius.sm,
+                  background: "#FF3B3018",
+                }}
+              >
+                Conflict
+              </span>
+            )}
           </div>
         </div>
       )}
@@ -654,14 +708,23 @@ function AlertsSection({ warnings, C, T }) {
               alignItems: "center",
               gap: T.space[3],
               padding: `${T.space[2]}px ${T.space[3]}px`,
-              background: w.type === "overloaded" ? "#FF3B3010" : "#FBBF2410",
-              border: `1px solid ${w.type === "overloaded" ? "#FF3B3025" : "#FBBF2425"}`,
+              background: (w.type === "overloaded" || w.type === "conflict") ? "#FF3B3010" : "#FBBF2410",
+              border: `1px solid ${(w.type === "overloaded" || w.type === "conflict") ? "#FF3B3025" : "#FBBF2425"}`,
               borderRadius: T.radius.md,
               fontSize: T.fontSize.xs,
               color: C.text,
             }}
           >
-            <span style={{ fontSize: 14 }}>{w.type === "overloaded" ? "🔴" : "⚠️"}</span>
+            <span style={{ fontSize: 14 }}>
+              {w.type === "conflict" ? "🔴" : w.type === "overloaded" ? "🔴" : "⚠️"}
+            </span>
+            {w.type === "conflict" && (
+              <span>
+                <strong>{w.estimateName}</strong> ({w.estimator}) needs to start{" "}
+                {parseDateStr(w.scheduledStart).toLocaleDateString("en-US", { month: "short", day: "numeric" })} (before today) to meet{" "}
+                {parseDateStr(w.bidDue).toLocaleDateString("en-US", { month: "short", day: "numeric" })} deadline
+              </span>
+            )}
             {w.type === "overloaded" && (
               <span>
                 <strong>{w.estimator}</strong> is overloaded on{" "}
@@ -691,6 +754,7 @@ function ScheduleLegend({ C, T }) {
     { label: "On Track", color: SCHEDULE_COLORS["on-track"] },
     { label: "Behind", color: SCHEDULE_COLORS.behind },
     { label: "Overdue", color: SCHEDULE_COLORS.overdue },
+    { label: "Conflict", color: SCHEDULE_COLORS.conflict },
   ];
   return (
     <div style={{ display: "flex", gap: T.space[4], alignItems: "center" }}>
@@ -1073,6 +1137,123 @@ function ByDueDateView({ workload, C, T, navigate }) {
 }
 
 // ══════════════════════════════════════════════════════════
+// SCHEDULE SETTINGS POPOVER (Manager-only)
+// ══════════════════════════════════════════════════════════
+function ScheduleSettings({ C, T }) {
+  const [open, setOpen] = useState(false);
+  const productionHours = useUiStore(s => s.appSettings?.productionHoursPerDay) || 7;
+  const bufferHours = useUiStore(s => s.appSettings?.bufferHours) || 0;
+  const updateSetting = useUiStore(s => s.updateSetting);
+
+  return (
+    <div style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          ...bt(C),
+          padding: "6px 10px",
+          fontSize: T.fontSize.xs,
+          color: C.textMuted,
+          background: open ? `${C.accent}12` : (C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"),
+          border: `1px solid ${open ? C.accent + "30" : C.border}`,
+          borderRadius: T.radius.sm,
+          display: "flex",
+          alignItems: "center",
+          gap: 4,
+        }}
+        title="Schedule Settings"
+      >
+        <span style={{ fontSize: 13 }}>⚙</span>
+        <span style={{ fontWeight: 600 }}>Schedule</span>
+      </button>
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 6px)",
+            right: 0,
+            background: C.bg1,
+            border: `1px solid ${C.border}`,
+            borderRadius: T.radius.md,
+            padding: T.space[4],
+            boxShadow: T.shadow?.md || "0 4px 12px rgba(0,0,0,0.15)",
+            zIndex: 50,
+            minWidth: 240,
+          }}
+        >
+          <div style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.bold, color: C.text, marginBottom: T.space[3] }}>
+            Schedule Settings
+          </div>
+
+          {/* Production Hours/Day */}
+          <div style={{ marginBottom: T.space[3] }}>
+            <label style={{ fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 4 }}>
+              Production Hours / Day
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={12}
+              step={0.5}
+              value={productionHours}
+              onChange={e => updateSetting("productionHoursPerDay", Number(e.target.value) || 7)}
+              style={{
+                ...inp(C),
+                width: "100%",
+                padding: "6px 10px",
+                fontSize: T.fontSize.xs,
+              }}
+            />
+            <div style={{ fontSize: 8, color: C.textDim, marginTop: 2 }}>
+              Expected productive hours per estimator per day
+            </div>
+          </div>
+
+          {/* Buffer Hours */}
+          <div>
+            <label style={{ fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: 4 }}>
+              Buffer Between Estimates (hrs)
+            </label>
+            <input
+              type="number"
+              min={0}
+              max={24}
+              step={1}
+              value={bufferHours}
+              onChange={e => updateSetting("bufferHours", Number(e.target.value) || 0)}
+              style={{
+                ...inp(C),
+                width: "100%",
+                padding: "6px 10px",
+                fontSize: T.fontSize.xs,
+              }}
+            />
+            <div style={{ fontSize: 8, color: C.textDim, marginTop: 2 }}>
+              Gap between consecutive estimate blocks (0 = no gap)
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════
+// CONFLICT PULSE ANIMATION
+// ══════════════════════════════════════════════════════════
+const conflictKeyframes = document.createElement("style");
+conflictKeyframes.textContent = `
+  @keyframes conflictPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+`;
+if (!document.querySelector("[data-conflict-pulse]")) {
+  conflictKeyframes.setAttribute("data-conflict-pulse", "");
+  document.head.appendChild(conflictKeyframes);
+}
+
+// ══════════════════════════════════════════════════════════
 // MAIN PAGE
 // ══════════════════════════════════════════════════════════
 export default function ResourcePage() {
@@ -1102,6 +1283,7 @@ export default function ResourcePage() {
   const [scorecardEstimator, setScorecardEstimator] = useState(null);
   const [showReviewPanel, setShowReviewPanel] = useState(false);
   const pendingReviews = useReviewStore(s => s.reviews.filter(r => r.status !== "completed").length);
+  const isManager = useOrgStore(selectIsManager);
 
   // KPI summary
   const activeEstimators = workload.estimatorRows.length;
@@ -1156,41 +1338,44 @@ export default function ResourcePage() {
             Estimator workload timeline and capacity management
           </p>
         </div>
-        <button
-          onClick={() => setShowReviewPanel(true)}
-          style={{
-            ...bt(C),
-            padding: "8px 16px",
-            fontSize: T.fontSize.xs,
-            fontWeight: 600,
-            color: C.text,
-            background: `${C.accent}12`,
-            border: `1px solid ${C.accent}30`,
-            borderRadius: T.radius.md,
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-          }}
-        >
-          <span style={{ fontSize: 13 }}>📋</span>
-          Reviews
-          {pendingReviews > 0 && (
-            <span
-              style={{
-                fontSize: 9,
-                fontWeight: 700,
-                color: "#fff",
-                background: C.accent,
-                borderRadius: T.radius.full,
-                padding: "1px 6px",
-                minWidth: 16,
-                textAlign: "center",
-              }}
-            >
-              {pendingReviews}
-            </span>
-          )}
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: T.space[2] }}>
+          {isManager && <ScheduleSettings C={C} T={T} />}
+          <button
+            onClick={() => setShowReviewPanel(true)}
+            style={{
+              ...bt(C),
+              padding: "8px 16px",
+              fontSize: T.fontSize.xs,
+              fontWeight: 600,
+              color: C.text,
+              background: `${C.accent}12`,
+              border: `1px solid ${C.accent}30`,
+              borderRadius: T.radius.md,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <span style={{ fontSize: 13 }}>📋</span>
+            Reviews
+            {pendingReviews > 0 && (
+              <span
+                style={{
+                  fontSize: 9,
+                  fontWeight: 700,
+                  color: "#fff",
+                  background: C.accent,
+                  borderRadius: T.radius.full,
+                  padding: "1px 6px",
+                  minWidth: 16,
+                  textAlign: "center",
+                }}
+              >
+                {pendingReviews}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* KPI Strip */}
