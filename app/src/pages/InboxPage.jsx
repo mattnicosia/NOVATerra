@@ -27,9 +27,22 @@ const FILTERS = [
   { key: "all", label: "All" },
   { key: "unread", label: "Unread" },
   { key: "read", label: "Read" },
+  { key: "threaded", label: "By Project" },
   { key: "imported", label: "Imported" },
   { key: "dismissed", label: "Dismissed" },
 ];
+
+// Classification labels and colors for email types
+const CLASSIFICATION_LABELS = {
+  initial_rfp: { label: "RFP", color: "#22c55e" },
+  addendum: { label: "Addendum", color: "#FF9500" },
+  date_change: { label: "Date Change", color: "#f59e0b" },
+  scope_clarification: { label: "Scope Clarification", color: "#60A5FA" },
+  substitution: { label: "Substitution", color: "#A78BFA" },
+  pre_bid_notes: { label: "Pre-Bid Notes", color: "#34D399" },
+  plan_room_notification: { label: "Plan Room", color: "#94A3B8" },
+  other: { label: "Other", color: "#94A3B8" },
+};
 
 export default function InboxPage() {
   const C = useTheme();
@@ -96,27 +109,69 @@ export default function InboxPage() {
   }, [navigate]);
 
   // Filter by company profile first, then by status tab
-  const displayedRfps = useMemo(() => {
-    // Company profile filter — include unassigned RFPs (no company_profile_id) alongside matched ones
-    const companyFiltered =
-      activeCompanyId === "__all__"
-        ? rfps
-        : rfps.filter(r => {
-            const cid = r.company_profile_id || "";
-            return cid === (activeCompanyId || "") || cid === "";
-          });
+  const companyFiltered = useMemo(() => {
+    return activeCompanyId === "__all__"
+      ? rfps
+      : rfps.filter(r => {
+          const cid = r.company_profile_id || "";
+          return cid === (activeCompanyId || "") || cid === "";
+        });
+  }, [rfps, activeCompanyId]);
 
-    // Status tab filter
+  const displayedRfps = useMemo(() => {
     if (filter === "unread") {
       return companyFiltered.filter(r => (r.status === "parsed" || r.status === "pending") && !readIds.includes(r.id));
     }
     if (filter === "read") {
       return companyFiltered.filter(r => (r.status === "parsed" || r.status === "pending") && readIds.includes(r.id));
     }
+    if (filter === "threaded") {
+      // Show all non-dismissed emails for "By Project" — grouping is handled separately
+      return companyFiltered.filter(r => r.status !== "dismissed");
+    }
     if (filter === "imported") return companyFiltered.filter(r => r.status === "imported");
     if (filter === "dismissed") return companyFiltered.filter(r => r.status === "dismissed");
     return companyFiltered; // "all"
-  }, [rfps, filter, readIds, activeCompanyId]);
+  }, [companyFiltered, filter, readIds]);
+
+  // Group emails by project for the "By Project" view
+  const projectGroups = useMemo(() => {
+    if (filter !== "threaded") return null;
+    const groups = new Map(); // projectKey → { name, emails[], estimateId }
+
+    for (const rfp of displayedRfps) {
+      // Determine project key: use linked_estimate_id, parent_rfp_id, or project name
+      const projectName = rfp.parsed_data?.projectName || rfp.parsed_data?.parentProjectName || rfp.subject || "Unknown";
+      const groupKey = rfp.linked_estimate_id || rfp.parent_rfp_id || rfp.parent_estimate_id || `name:${projectName.toLowerCase().trim()}`;
+
+      if (!groups.has(groupKey)) {
+        groups.set(groupKey, {
+          name: projectName,
+          emails: [],
+          estimateId: rfp.linked_estimate_id || rfp.parent_estimate_id || null,
+          hasUnread: false,
+        });
+      }
+      const group = groups.get(groupKey);
+      group.emails.push(rfp);
+      if ((rfp.status === "parsed" || rfp.status === "pending") && !readIds.includes(rfp.id)) {
+        group.hasUnread = true;
+      }
+      // Use the most descriptive project name available
+      if (rfp.type === "original" && rfp.parsed_data?.projectName) {
+        group.name = rfp.parsed_data.projectName;
+      }
+    }
+
+    // Sort groups: those with unread emails first, then by most recent email
+    return Array.from(groups.values()).sort((a, b) => {
+      if (a.hasUnread && !b.hasUnread) return -1;
+      if (!a.hasUnread && b.hasUnread) return 1;
+      const aLatest = a.emails[a.emails.length - 1]?.received_at || "";
+      const bLatest = b.emails[b.emails.length - 1]?.received_at || "";
+      return bLatest.localeCompare(aLatest);
+    });
+  }, [filter, displayedRfps, readIds]);
 
   // Profile-filtered unread count
   const unreadCount = useMemo(() => {
@@ -444,10 +499,22 @@ export default function InboxPage() {
       // --- Save step ---
       steps = setStep(steps, saveStepIdx, "active", "Saving estimate...");
 
-      // Create estimate in IndexedDB
-      const estId = await importFromRfp(data);
+      // Create estimate in IndexedDB (pass sourceRfpId for email threading)
+      const estId = await importFromRfp(data, { sourceRfpId: importRfpData.id });
       // Load the saved estimate into all stores so project data is available immediately
       await loadEstimate(estId);
+
+      // Link RFP → estimate in Supabase (bidirectional, also links child emails)
+      try {
+        const session2 = supabase ? (await supabase.auth.getSession()).data.session : null;
+        if (session2) {
+          fetch(`${API_BASE}/api/link-rfp`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${session2.access_token}` },
+            body: JSON.stringify({ rfpId: importRfpData.id, estimateId: estId }),
+          }).catch(err => console.error("[import] link-rfp failed:", err.message));
+        }
+      } catch {}
 
       steps = setStep(steps, saveStepIdx, "done", "Estimate saved");
 
@@ -980,6 +1047,143 @@ export default function InboxPage() {
                   : `No ${filter} emails.`}
             </div>
           </div>
+        ) : filter === "threaded" && projectGroups ? (
+          // ── "By Project" grouped view ──────────────────────────────────
+          projectGroups.map((group, gi) => (
+            <div
+              key={gi}
+              style={{
+                ...card(C),
+                marginBottom: T.space[4],
+                overflow: "hidden",
+              }}
+            >
+              {/* Project group header */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: `${T.space[3]} ${T.space[4]}`,
+                  borderBottom: `1px solid ${C.border}30`,
+                  background: group.hasUnread ? `${C.accent}08` : "transparent",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: T.space[2] }}>
+                  {group.hasUnread && (
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: C.accent, flexShrink: 0 }} />
+                  )}
+                  <span
+                    style={{
+                      fontSize: T.fontSize.base,
+                      fontWeight: T.fontWeight.bold,
+                      color: C.text,
+                    }}
+                  >
+                    {group.name}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: T.fontSize.xs,
+                      fontWeight: T.fontWeight.semibold,
+                      padding: "1px 8px",
+                      borderRadius: T.radius.full,
+                      background: `${C.accent}15`,
+                      color: C.accent,
+                    }}
+                  >
+                    {group.emails.length} email{group.emails.length !== 1 ? "s" : ""}
+                  </span>
+                </div>
+                {group.estimateId && (
+                  <button
+                    style={bt(C, {
+                      padding: "3px 10px",
+                      fontSize: T.fontSize.xs,
+                      background: "transparent",
+                      color: C.accent,
+                      border: `1px solid ${C.accent}30`,
+                    })}
+                    onClick={() => navigate(`/info`)}
+                  >
+                    Open Project
+                  </button>
+                )}
+              </div>
+              {/* Email list within group */}
+              {group.emails.map(rfp => {
+                const cls = CLASSIFICATION_LABELS[rfp.classification] || CLASSIFICATION_LABELS.other;
+                const isUnread = (rfp.status === "parsed" || rfp.status === "pending") && !readIds.includes(rfp.id);
+                return (
+                  <div
+                    key={rfp.id}
+                    onClick={() => handleView(rfp)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: T.space[3],
+                      padding: `${T.space[2]} ${T.space[4]}`,
+                      borderBottom: `1px solid ${C.border}15`,
+                      cursor: "pointer",
+                      transition: T.transition.fast,
+                      background: isUnread ? `${C.accent}04` : "transparent",
+                    }}
+                    onMouseOver={e => (e.currentTarget.style.background = `${C.accent}08`)}
+                    onMouseOut={e => (e.currentTarget.style.background = isUnread ? `${C.accent}04` : "transparent")}
+                  >
+                    {isUnread && (
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.accent, flexShrink: 0 }} />
+                    )}
+                    {/* Classification badge */}
+                    <span
+                      style={{
+                        fontSize: 9,
+                        fontWeight: T.fontWeight.semibold,
+                        padding: "1px 6px",
+                        borderRadius: T.radius.sm,
+                        background: `${cls.color}18`,
+                        color: cls.color,
+                        flexShrink: 0,
+                        minWidth: 50,
+                        textAlign: "center",
+                      }}
+                    >
+                      {rfp.addendum_number ? `Add. #${rfp.addendum_number}` : cls.label}
+                    </span>
+                    {/* Subject */}
+                    <span
+                      style={{
+                        flex: 1,
+                        fontSize: T.fontSize.sm,
+                        fontWeight: isUnread ? T.fontWeight.semibold : T.fontWeight.normal,
+                        color: C.text,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {rfp.subject || "(no subject)"}
+                    </span>
+                    {/* Sender + time */}
+                    <span style={{ fontSize: T.fontSize.xs, color: C.textDim, flexShrink: 0 }}>
+                      {rfp.sender_name || rfp.sender_email?.split("@")[0]}
+                    </span>
+                    <span style={{ fontSize: T.fontSize.xs, color: C.textDim, flexShrink: 0, minWidth: 40, textAlign: "right" }}>
+                      {rfp.received_at
+                        ? (() => {
+                            const diff = Math.floor((Date.now() - new Date(rfp.received_at)) / 1000);
+                            if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+                            if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+                            if (diff < 604800) return `${Math.floor(diff / 86400)}d`;
+                            return new Date(rfp.received_at).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                          })()
+                        : ""}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          ))
         ) : (
           displayedRfps.map(rfp => (
             <RfpCard

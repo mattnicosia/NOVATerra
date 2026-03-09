@@ -127,6 +127,8 @@ export default async function handler(req, res) {
     }));
 
     // Mark RFP as imported + tag with company profile
+    // Note: linked_estimate_id is set after the frontend creates the estimate
+    // (see InboxPage.handleImportConfirm → linkRfpToEstimate)
     const updateFields = { status: "imported" };
     if (companyProfileId !== undefined) {
       updateFields.company_profile_id = companyProfileId;

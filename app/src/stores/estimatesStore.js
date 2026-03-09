@@ -107,6 +107,9 @@ export const useEstimatesStore = create((set, get) => ({
       correspondencePendingCount: 0,
       correspondenceNextDue: "",
       correspondenceTotalHours: 0,
+      sourceRfpId: "",
+      emailCount: 0,
+      lastEmailAt: "",
     };
     set(s => ({
       activeEstimateId: id,
@@ -418,7 +421,8 @@ export const useEstimatesStore = create((set, get) => ({
   },
 
   // Import a pre-built estimate from an RFP
-  importFromRfp: async estimateData => {
+  // options.sourceRfpId: the RFP ID that originated this estimate (for email threading)
+  importFromRfp: async (estimateData, options = {}) => {
     const id = uid();
     const data = { ...estimateData };
     const { ownerId, orgId } = get()._getOwnership();
@@ -451,6 +455,9 @@ export const useEstimatesStore = create((set, get) => ({
       outcomeMetadata: data.project?.outcomeMetadata || {},
       ownerId,
       orgId,
+      sourceRfpId: options.sourceRfpId || "",
+      emailCount: 1, // The initial RFP counts as the first email
+      lastEmailAt: nowStr(),
     };
     const idx = [...get().estimatesIndex, est];
     set({ estimatesIndex: idx, activeEstimateId: id });

@@ -36,6 +36,17 @@ IMPORTANT RULES:
 - Extract all cloud storage or file sharing links (Dropbox, Google Drive, Box, OneDrive, SharePoint, WeTransfer, etc.) found in the email body. For "label", use any descriptive text near the link (e.g. "Construction Plans", "Bid Documents"). If no label is discernible, use null. For "provider", identify the service from the URL domain.
 - Look for "Bid List", "Plan Holders", "Invited Bidders", "Distribution List", "Bidder's List" sections in the email. If found, extract the company names and any associated contact info as bidList entries.
 - Detect if this email is an addendum or revision to a previous bid invitation. Look for "Addendum", "Addendum #N", "Add.", "Revised", "Updated Plans", "Supplement", "Bulletin", "Amended" in the subject line or body. Set isAddendum to true if detected, and extract the addendum number if present. If the email references a parent project name (e.g. "Addendum #2 for Acme Office Tower"), extract that as parentProjectName.
+- CLASSIFY the email into one of these categories based on its PRIMARY purpose:
+  - "initial_rfp": A new bid invitation, request for proposal, or invitation to bid
+  - "addendum": Revised drawings, spec changes, addendum bulletins, supplemental documents
+  - "date_change": Email primarily communicating a changed bid due date, walkthrough date, or other deadline
+  - "scope_clarification": RFI responses, scope clarifications, technical questions/answers before bid day
+  - "substitution": Substitution requests, approved alternates, product/material changes
+  - "pre_bid_notes": Pre-bid meeting minutes, site walkthrough notes, meeting summaries
+  - "plan_room_notification": Automated notification from BuildingConnected, iSqFt, Dodge, PlanHub, etc. that new documents are available
+  - "other": Anything that doesn't fit the above categories
+- If this is NOT an initial_rfp, try to identify the PARENT project name this email relates to. Set parentProjectName to that project name.
+- For date_change emails, extract the NEW dates in the standard date fields (bidDue, walkthroughDate, rfiDueDate) and list which dates changed in changedFields.
 
 Respond with ONLY a valid JSON object (no markdown fences, no explanation):
 
@@ -68,9 +79,11 @@ Respond with ONLY a valid JSON object (no markdown fences, no explanation):
   "additionalDates": [{ "label": string, "date": "YYYY-MM-DD" }],
   "planLinks": [{ "url": string, "provider": "dropbox"|"google_drive"|"box"|"onedrive"|"sharepoint"|"wetransfer"|"other", "label": string|null }],
   "bidList": [{ "company": string, "contact": string|null, "email": string|null, "phone": string|null }],
+  "classification": "initial_rfp"|"addendum"|"date_change"|"scope_clarification"|"substitution"|"pre_bid_notes"|"plan_room_notification"|"other",
   "isAddendum": boolean,
   "addendumNumber": number | null,
   "parentProjectName": string | null,
+  "changedFields": [string],
   "confidence": number
 }`;
 

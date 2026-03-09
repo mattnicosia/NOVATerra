@@ -159,6 +159,8 @@ export function useWorkloadData(dateRange) {
         correspondencePendingCount: est.correspondencePendingCount || 0,
         correspondenceNextDue: est.correspondenceNextDue || "",
         correspondenceTotalHours: est.correspondenceTotalHours || 0,
+        emailCount: est.emailCount || 0,
+        lastEmailAt: est.lastEmailAt || "",
       };
 
       if (!estimator) {

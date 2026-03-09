@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "./lib/supabaseAdmin.js";
 import { parseRfpEmail } from "./lib/parseEmail.js";
-import { detectAddendum } from "./lib/addendumMatcher.js";
+import { matchEmail } from "./lib/emailMatcher.js";
 import { cors } from "./lib/cors.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -87,8 +87,15 @@ export default async function handler(req, res) {
     const html = email.html || "";
     const toAddr = Array.isArray(email.to) ? email.to.join(", ") : email.to || "(unknown)";
 
+    // Extract email thread headers for threading
+    const headers = email.headers || {};
+    const messageId = headers["message-id"] || headers["Message-ID"] || email.message_id || null;
+    const inReplyTo = headers["in-reply-to"] || headers["In-Reply-To"] || null;
+    const referencesHeader = headers["references"] || headers["References"] || null;
+    const senderDomain = senderEmail ? senderEmail.split("@")[1] || "" : "";
+
     console.log(
-      `[inbound] from=${senderEmail} to=${toAddr} subject="${subject}" attachments=${email.attachments?.length || 0}`,
+      `[inbound] from=${senderEmail} to=${toAddr} subject="${subject}" attachments=${email.attachments?.length || 0} thread=${messageId ? "yes" : "no"}`,
     );
 
     // ── Look up the sender in user_email_mappings ──
@@ -152,9 +159,13 @@ export default async function handler(req, res) {
       status: "pending",
       sender_email: senderEmail,
       sender_name: senderName,
+      sender_domain: senderDomain,
       subject,
       raw_text: text.slice(0, 50000),
       attachments: attachmentMeta,
+      message_id: messageId,
+      in_reply_to: inReplyTo,
+      references_header: referencesHeader,
     });
 
     if (insertErr) {
@@ -175,21 +186,28 @@ export default async function handler(req, res) {
     const hasError = parsedData.error;
     if (hasError) console.error("[inbound] Parse error:", parsedData.error);
 
-    // ── Addendum detection — check if this email is an addendum to an existing project ──
-    let addendumMatch = null;
+    // ── Email matching — check if this email relates to an existing project ──
+    let emailMatch = null;
     if (!hasError) {
       try {
-        addendumMatch = await detectAddendum({ parsedData, senderEmail, subject, userId }, supabaseAdmin);
-        if (addendumMatch) {
+        emailMatch = await matchEmail(
+          { parsedData, senderEmail, subject, userId, inReplyTo, referencesHeader },
+          supabaseAdmin,
+        );
+        if (emailMatch) {
           console.log(
-            `[inbound] Addendum detected: #${addendumMatch.addendumNumber} for parent=${addendumMatch.parentRfpId} (confidence=${addendumMatch.confidence})`,
+            `[inbound] Email matched: classification=${emailMatch.classification} parent=${emailMatch.parentRfpId} estimate=${emailMatch.estimateId} confidence=${emailMatch.confidence}`,
           );
         }
       } catch (matchErr) {
-        console.error("[inbound] Addendum detection error (non-critical):", matchErr.message);
-        // Non-critical — continue as normal RFP
+        console.error("[inbound] Email matching error (non-critical):", matchErr.message);
+        // Non-critical — continue as new RFP
       }
     }
+
+    // Determine classification: AI classification > match classification > 'initial_rfp'
+    const classification = parsedData?.classification || emailMatch?.classification || "initial_rfp";
+    const isAddendum = emailMatch?.isAddendum || classification === "addendum";
 
     await supabaseAdmin
       .from("pending_rfps")
@@ -197,16 +215,22 @@ export default async function handler(req, res) {
         parsed_data: hasError ? null : parsedData,
         parse_error: hasError ? parsedData.error : null,
         status: hasError ? "error" : "parsed",
-        // Addendum metadata
-        type: addendumMatch ? "addendum" : "original",
-        parent_rfp_id: addendumMatch?.parentRfpId || null,
-        parent_estimate_id: addendumMatch?.estimateId || null,
-        addendum_number: addendumMatch?.addendumNumber || null,
-        match_confidence: addendumMatch?.confidence || null,
+        // Classification + threading
+        classification,
+        type: isAddendum ? "addendum" : emailMatch ? "related" : "original",
+        parent_rfp_id: emailMatch?.parentRfpId || null,
+        parent_estimate_id: emailMatch?.estimateId || null,
+        linked_estimate_id: emailMatch?.estimateId || null,
+        addendum_number: emailMatch?.addendumNumber || null,
+        match_confidence: emailMatch?.confidence || null,
       })
       .eq("id", rfpId);
 
-    const typeLabel = addendumMatch ? `addendum #${addendumMatch.addendumNumber}` : "original";
+    const typeLabel = isAddendum
+      ? `addendum #${emailMatch?.addendumNumber}`
+      : emailMatch
+        ? `related (${classification})`
+        : "new";
     console.log(
       `[inbound] OK rfpId=${rfpId} type=${typeLabel} parsed=${!hasError} attachments=${attachmentMeta.length}`,
     );
@@ -216,8 +240,10 @@ export default async function handler(req, res) {
       parsed: !hasError,
       parseError: hasError ? parsedData.error : null,
       attachments: attachmentMeta.length,
-      type: addendumMatch ? "addendum" : "original",
-      addendumNumber: addendumMatch?.addendumNumber || null,
+      classification,
+      type: isAddendum ? "addendum" : emailMatch ? "related" : "original",
+      addendumNumber: emailMatch?.addendumNumber || null,
+      linkedEstimateId: emailMatch?.estimateId || null,
     });
   } catch (err) {
     console.error("[inbound] Webhook error:", err);

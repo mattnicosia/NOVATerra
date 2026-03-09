@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useProjectStore } from "@/stores/projectStore";
@@ -20,6 +20,7 @@ import { uid } from "@/utils/format";
 import { useCorrespondenceStore } from "@/stores/correspondenceStore";
 import { resolveLocationFactors, getAllLocations } from "@/constants/locationFactors";
 import { suggestEstimatedHours } from "@/utils/hoursEstimator";
+import { supabase } from "@/utils/supabase";
 
 /* ── Completion calculator ── */
 const ALL_FIELDS = [
@@ -237,6 +238,43 @@ export default function ProjectInfoPage() {
   const updateCorrespondence = useCorrespondenceStore(s => s.updateCorrespondence);
   const removeCorrespondence = useCorrespondenceStore(s => s.removeCorrespondence);
   const [corrExpanded, setCorrExpanded] = useState(null);
+
+  // Communications timeline — linked emails from inbox
+  const [commEmails, setCommEmails] = useState([]);
+  const [commLoading, setCommLoading] = useState(false);
+  const estimatesIndex = useEstimatesStore(s => s.estimatesIndex);
+  const currentEntry = useMemo(
+    () => estimatesIndex.find(e => e.id === activeEstimateId),
+    [estimatesIndex, activeEstimateId],
+  );
+  const sourceRfpId = currentEntry?.sourceRfpId || "";
+  const emailCount = currentEntry?.emailCount || 0;
+
+  // Fetch linked emails when sourceRfpId is available
+  const API_BASE = import.meta.env.DEV ? "https://app-nova-42373ca7.vercel.app" : "";
+  const fetchCommEmails = useCallback(async () => {
+    if (!activeEstimateId || !supabase) return;
+    setCommLoading(true);
+    try {
+      const session = (await supabase.auth.getSession()).data.session;
+      if (!session) return;
+      const resp = await fetch(`${API_BASE}/api/estimate-emails?estimateId=${activeEstimateId}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        setCommEmails(data.emails || []);
+      }
+    } catch (err) {
+      console.error("[ProjectInfo] Failed to fetch communications:", err);
+    } finally {
+      setCommLoading(false);
+    }
+  }, [activeEstimateId]);
+
+  useEffect(() => {
+    if (sourceRfpId || emailCount > 0) fetchCommEmails();
+  }, [sourceRfpId, emailCount, fetchCommEmails]);
 
   const completion = useMemo(() => calcCompletion(project), [project]);
 
@@ -1340,6 +1378,109 @@ export default function ProjectInfoPage() {
                 >
                   + Add Correspondence
                 </button>
+              </div>
+            )}
+          </Sec>
+        )}
+
+        {/* Communications Timeline — shows all linked emails */}
+        {(commEmails.length > 0 || sourceRfpId) && (
+          <Sec
+            title={`Communications${commEmails.length > 0 ? ` (${commEmails.length})` : ""}`}
+            icon={I.inbox || "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"}
+          >
+            {commLoading ? (
+              <div style={{ fontSize: 11, color: C.textDim, padding: "8px 0" }}>Loading emails...</div>
+            ) : commEmails.length === 0 ? (
+              <div style={{ fontSize: 11, color: C.textDim, padding: "8px 0" }}>
+                No linked emails found. Future emails matching this project will appear here automatically.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                {commEmails.map((email, ei) => {
+                  const cls = email.classification || "initial_rfp";
+                  const clsColors = {
+                    initial_rfp: "#22c55e",
+                    addendum: "#FF9500",
+                    date_change: "#f59e0b",
+                    scope_clarification: "#60A5FA",
+                    substitution: "#A78BFA",
+                    pre_bid_notes: "#34D399",
+                    plan_room_notification: "#94A3B8",
+                    other: "#94A3B8",
+                  };
+                  const clsLabels = {
+                    initial_rfp: "RFP",
+                    addendum: email.addendum_number ? `Addendum #${email.addendum_number}` : "Addendum",
+                    date_change: "Date Change",
+                    scope_clarification: "Clarification",
+                    substitution: "Substitution",
+                    pre_bid_notes: "Pre-Bid Notes",
+                    plan_room_notification: "Plan Room",
+                    other: "Other",
+                  };
+                  const clsColor = clsColors[cls] || "#94A3B8";
+                  const fmtDate = d => {
+                    if (!d) return "";
+                    const dt = new Date(d);
+                    return dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+                  };
+                  const attachCount = (email.attachments || []).length;
+
+                  return (
+                    <div
+                      key={email.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: 10,
+                        padding: "8px 0",
+                        borderBottom: ei < commEmails.length - 1 ? `1px solid ${C.border}20` : "none",
+                      }}
+                    >
+                      {/* Timeline dot */}
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 3, flexShrink: 0 }}>
+                        <div style={{
+                          width: 10, height: 10, borderRadius: "50%",
+                          background: clsColor,
+                          border: `2px solid ${C.bg1}`,
+                          boxShadow: `0 0 0 1px ${clsColor}40`,
+                        }} />
+                        {ei < commEmails.length - 1 && (
+                          <div style={{ width: 1, flex: 1, minHeight: 20, background: `${C.border}40`, marginTop: 2 }} />
+                        )}
+                      </div>
+                      {/* Email content */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                          <span style={{
+                            fontSize: 9, fontWeight: 600, padding: "1px 6px", borderRadius: 4,
+                            background: `${clsColor}18`, color: clsColor,
+                          }}>
+                            {clsLabels[cls] || cls}
+                          </span>
+                          <span style={{ fontSize: 10, color: C.textDim }}>
+                            {fmtDate(email.received_at)}
+                          </span>
+                          {attachCount > 0 && (
+                            <span style={{ fontSize: 9, color: C.textDim }}>
+                              {attachCount} file{attachCount !== 1 ? "s" : ""}
+                            </span>
+                          )}
+                        </div>
+                        <div style={{
+                          fontSize: 11, fontWeight: 500, color: C.text,
+                          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                        }}>
+                          {email.subject || "(no subject)"}
+                        </div>
+                        <div style={{ fontSize: 10, color: C.textMuted, marginTop: 1 }}>
+                          from {email.sender_name || email.sender_email}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </Sec>

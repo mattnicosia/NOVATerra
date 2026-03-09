@@ -30,11 +30,23 @@ export default function RfpCard({ rfp, isUnread, onView, onImport, onDismiss, on
   const isDismissed = rfp.status === "dismissed";
   const isPending = rfp.status === "pending";
   const isAddendum = rfp.type === "addendum";
+  const isRelated = rfp.type === "related"; // Non-addendum follow-up email
+  const classification = rfp.classification || (isAddendum ? "addendum" : "initial_rfp");
+
+  // Classification colors
+  const classColors = {
+    addendum: "#FF9500",
+    date_change: "#f59e0b",
+    scope_clarification: "#60A5FA",
+    substitution: "#A78BFA",
+    pre_bid_notes: "#34D399",
+    plan_room_notification: "#94A3B8",
+  };
 
   // Left accent bar color — immediate visual signal
   const accentColor =
-    isAddendum && isUnread
-      ? "#FF9500"
+    (isAddendum || isRelated) && isUnread
+      ? classColors[classification] || "#FF9500"
       : isUnread
         ? C.accent
         : isError
@@ -45,6 +57,16 @@ export default function RfpCard({ rfp, isUnread, onView, onImport, onDismiss, on
               ? "#f59e0b"
               : null;
 
+  // Classification labels for display
+  const classLabels = {
+    date_change: "Date Change",
+    scope_clarification: "Scope Clarification",
+    substitution: "Substitution",
+    pre_bid_notes: "Pre-Bid Notes",
+    plan_room_notification: "Plan Room",
+    other: "Related",
+  };
+
   // Status badge
   let badgeLabel, badgeBg, badgeColor;
   if (isAddendum && !isImported && !isDismissed && !isError) {
@@ -52,6 +74,12 @@ export default function RfpCard({ rfp, isUnread, onView, onImport, onDismiss, on
     badgeLabel = `Addendum #${rfp.addendum_number || "?"}`;
     badgeBg = "#FF950020";
     badgeColor = "#FF9500";
+  } else if (isRelated && !isImported && !isDismissed && !isError && classLabels[classification]) {
+    // Related email with classification
+    const clsColor = classColors[classification] || "#94A3B8";
+    badgeLabel = classLabels[classification];
+    badgeBg = `${clsColor}20`;
+    badgeColor = clsColor;
   } else if (isUnread) {
     badgeLabel = isPending ? "Processing" : "New";
     badgeBg = isPending ? "#f59e0b20" : `${C.accent}20`;

@@ -453,6 +453,7 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
                             correspondenceCount: bar.correspondenceCount,
                             correspondenceTotalHours: bar.correspondenceTotalHours,
                             correspondenceNextDue: bar.correspondenceNextDue,
+                            emailCount: bar.emailCount,
                           })
                         }
                         onMouseLeave={() => setTooltip(null)}
@@ -631,6 +632,25 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
                               C{bar.correspondenceCount > 1 ? bar.correspondenceCount : ""}
                             </span>
                           )}
+                          {/* Email count indicator */}
+                          {bar.emailCount > 1 && (
+                            <span
+                              title={`${bar.emailCount} linked emails`}
+                              style={{
+                                fontSize: 7,
+                                fontWeight: 700,
+                                color: "#A78BFA",
+                                background: "#A78BFA20",
+                                borderRadius: 3,
+                                padding: "0 3px",
+                                flexShrink: 0,
+                                marginLeft: 3,
+                                lineHeight: "12px",
+                              }}
+                            >
+                              {bar.emailCount}✉
+                            </span>
+                          )}
                         </div>
                         {/* Due date marker — orange dot when bar ends before bidDue */}
                         {bar.bidDue !== bar.scheduledEnd && (() => {
@@ -802,6 +822,11 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop }) {
             <div style={{ color: "#60A5FA", marginTop: 2 }}>
               {tooltip.correspondenceCount} correspondence{tooltip.correspondenceCount !== 1 ? "s" : ""}, {tooltip.correspondenceTotalHours}h
               {tooltip.correspondenceNextDue ? ` · next due ${tooltip.correspondenceNextDue}` : ""}
+            </div>
+          )}
+          {tooltip.emailCount > 1 && (
+            <div style={{ color: "#A78BFA", marginTop: 2 }}>
+              {tooltip.emailCount} linked emails
             </div>
           )}
           <div style={{ marginTop: 4, display: "flex", gap: 4, alignItems: "center" }}>
