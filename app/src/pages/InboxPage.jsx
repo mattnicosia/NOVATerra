@@ -524,9 +524,16 @@ export default function InboxPage() {
       }
 
       // --- Discovery step — run NOVA scan on imported drawings ---
-      // Check both the local data (just built) and the store (in case loadEstimate hydrated it)
-      const hasDrawings = (data.drawings && data.drawings.length > 0) || useDrawingsStore.getState().drawings.length > 0;
-      if (hasDrawings) {
+      // Ensure drawings are in the store — loadEstimate may have set them,
+      // but force-set from local data to guarantee runFullScan finds them
+      if (data.drawings && data.drawings.length > 0) {
+        const storeDrawings = useDrawingsStore.getState().drawings;
+        if (storeDrawings.length === 0) {
+          useDrawingsStore.getState().setDrawings(data.drawings);
+        }
+      }
+      const scanDrawings = useDrawingsStore.getState().drawings.filter(d => d.data);
+      if (scanDrawings.length > 0) {
         steps = setStep(steps, discoveryStepIdx, "active", "Running NOVA Discovery...");
         try {
           await runFullScan({
