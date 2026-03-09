@@ -56,6 +56,18 @@ function subtractWeekdays(date, n) {
   return d;
 }
 
+/** Walk forward N weekdays from date */
+function addWeekdays(date, n) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  let remaining = n;
+  while (remaining > 0) {
+    d.setDate(d.getDate() + 1);
+    if (isWeekday(d)) remaining--;
+  }
+  return d;
+}
+
 /** Get all weekdays between two dates (inclusive) */
 function weekdaysBetween(start, end) {
   const days = [];
@@ -89,10 +101,16 @@ export function useWorkloadData(dateRange) {
   const activeCompanyId = useUiStore(s => s.appSettings?.activeCompanyId) || "__all__";
   const productionHoursPerDay = useUiStore(s => s.appSettings?.productionHoursPerDay) || 7;
   const bufferHours = useUiStore(s => s.appSettings?.bufferHours) || 0;
+  const overheadPercent = useUiStore(s => s.appSettings?.overheadPercent) ?? 15;
+  const behindThreshold = useUiStore(s => s.appSettings?.behindThreshold) ?? 20;
+  const aheadThreshold = useUiStore(s => s.appSettings?.aheadThreshold) ?? 15;
 
   return useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+
+    // Effective capacity = production hours minus overhead (admin, meetings, etc.)
+    const effectiveHoursPerDay = productionHoursPerDay * (1 - overheadPercent / 100);
 
     // Default date range: 2 weeks back, 6 weeks forward
     const rangeStart = dateRange?.start ? new Date(dateRange.start) : addDays(today, -14);
@@ -131,10 +149,11 @@ export function useWorkloadData(dateRange) {
         timerTotalMs: est.timerTotalMs || 0,
         hoursLogged: Math.round(hoursLogged * 10) / 10,
         percentComplete,
+        complexity: est.complexity || "normal",
+        primaryDiscipline: est.primaryDiscipline || "",
       };
 
       if (!estimator) {
-        // Schedule unassigned estimates too (so they show on Gantt)
         unassigned.push(raw);
         return;
       }
@@ -150,7 +169,7 @@ export function useWorkloadData(dateRange) {
     });
 
     // ── Phase 2: Backward ALAP scheduling per estimator ──
-    const bufferDays = bufferHours > 0 ? Math.ceil(bufferHours / productionHoursPerDay) : 0;
+    const bufferDays = bufferHours > 0 ? Math.ceil(bufferHours / effectiveHoursPerDay) : 0;
     const warnings = [];
 
     function scheduleEstimates(rawEstimates) {
@@ -161,11 +180,10 @@ export function useWorkloadData(dateRange) {
 
       for (const est of sorted) {
         const daysNeeded = est.estimatedHours > 0
-          ? Math.ceil(est.estimatedHours / productionHoursPerDay)
+          ? Math.ceil(est.estimatedHours / effectiveHoursPerDay)
           : 0;
 
         if (daysNeeded <= 0) {
-          // Zero-hour estimate: single point at due date
           scheduled.push({
             ...est,
             scheduledStart: est.bidDue,
@@ -185,35 +203,30 @@ export function useWorkloadData(dateRange) {
         // Latest possible end for this block
         let latestEnd = new Date(est.bidDueDate);
         if (previousBlockStart) {
-          // Must end before the previous block's start (minus buffer)
           const prevStart = new Date(previousBlockStart + "T00:00:00");
           const gapEnd = bufferDays > 0
             ? subtractWeekdays(prevStart, bufferDays)
             : subtractWeekdays(prevStart, 1);
-          // But also can't end after its own due date
           if (gapEnd < latestEnd) latestEnd = gapEnd;
         }
 
-        // Schedule backward: block ends at latestEnd, starts daysNeeded-1 weekdays before
+        // Schedule backward
         const scheduledStartDate = daysNeeded > 1
           ? subtractWeekdays(latestEnd, daysNeeded - 1)
           : new Date(latestEnd);
         const scheduledEndDate = new Date(latestEnd);
 
-        // Ensure start lands on a weekday
         while (!isWeekday(scheduledStartDate)) {
           scheduledStartDate.setDate(scheduledStartDate.getDate() - 1);
         }
 
-        // Conflict: needs to start before today
         const conflict = scheduledStartDate < today;
 
         const blockWorkDays = weekdaysBetween(scheduledStartDate, scheduledEndDate);
         const hoursPerDay = blockWorkDays.length > 0
           ? est.estimatedHours / blockWorkDays.length
-          : productionHoursPerDay;
+          : effectiveHoursPerDay;
 
-        // Schedule status
         const daysRemaining = countWeekdays(today, est.bidDueDate);
         const daysTotal = countWeekdays(scheduledStartDate, est.bidDueDate);
         const dayProgress = daysTotal > 0
@@ -223,8 +236,8 @@ export function useWorkloadData(dateRange) {
         let scheduleStatus = "on-track";
         if (est.bidDueDate < today) scheduleStatus = "overdue";
         else if (conflict) scheduleStatus = "conflict";
-        else if (dayProgress > 0 && est.percentComplete < dayProgress - 20) scheduleStatus = "behind";
-        else if (est.percentComplete > dayProgress + 15) scheduleStatus = "ahead";
+        else if (dayProgress > 0 && est.percentComplete < dayProgress - behindThreshold) scheduleStatus = "behind";
+        else if (est.percentComplete > dayProgress + aheadThreshold) scheduleStatus = "ahead";
 
         const entry = {
           ...est,
@@ -262,15 +275,16 @@ export function useWorkloadData(dateRange) {
             estimateName: est.name,
             scheduledStart: est.scheduledStart,
             bidDue: est.bidDue,
+            suggestions: [], // populated after dailyLoad is built
           });
         }
       }
     }
 
-    // Schedule unassigned estimates (no stacking, just backward from due date)
+    // Schedule unassigned estimates (no stacking)
     const scheduledUnassigned = unassigned.map(est => {
       const daysNeeded = est.estimatedHours > 0
-        ? Math.ceil(est.estimatedHours / productionHoursPerDay)
+        ? Math.ceil(est.estimatedHours / effectiveHoursPerDay)
         : 0;
       if (daysNeeded <= 0) {
         return {
@@ -299,15 +313,15 @@ export function useWorkloadData(dateRange) {
       let scheduleStatus = "on-track";
       if (est.bidDueDate < today) scheduleStatus = "overdue";
       else if (scheduledStartDate < today) scheduleStatus = "conflict";
-      else if (dayProgress > 0 && est.percentComplete < dayProgress - 20) scheduleStatus = "behind";
-      else if (est.percentComplete > dayProgress + 15) scheduleStatus = "ahead";
+      else if (dayProgress > 0 && est.percentComplete < dayProgress - behindThreshold) scheduleStatus = "behind";
+      else if (est.percentComplete > dayProgress + aheadThreshold) scheduleStatus = "ahead";
 
       return {
         ...est,
         scheduledStart: fmtDate(scheduledStartDate),
         scheduledEnd: fmtDate(est.bidDueDate),
         workDays: blockWorkDays.map(fmtDate),
-        hoursPerDay: blockWorkDays.length > 0 ? est.estimatedHours / blockWorkDays.length : productionHoursPerDay,
+        hoursPerDay: blockWorkDays.length > 0 ? est.estimatedHours / blockWorkDays.length : effectiveHoursPerDay,
         daysNeeded,
         conflict: scheduledStartDate < today,
         daysTotal,
@@ -342,7 +356,7 @@ export function useWorkloadData(dateRange) {
           const cell = dayMap.get(row.name);
           cell.totalHours += est.hoursPerDay;
           cell.estimates.push({ id: est.id, name: est.name, hours: est.hoursPerDay });
-          cell.utilization = cell.totalHours / productionHoursPerDay;
+          cell.utilization = cell.totalHours / effectiveHoursPerDay;
 
           const team = teamDailyLoad.get(dayStr);
           if (team) team.totalHours += est.hoursPerDay;
@@ -353,8 +367,20 @@ export function useWorkloadData(dateRange) {
     // Compute team avg utilization
     for (const [, team] of teamDailyLoad) {
       if (estimatorRows.length > 0) {
-        team.avgUtilization = team.totalHours / (estimatorRows.length * productionHoursPerDay);
+        team.avgUtilization = team.totalHours / (estimatorRows.length * effectiveHoursPerDay);
       }
+    }
+
+    // ── Estimator capacity map (remaining hours per day) ──
+    const estimatorCapacity = new Map();
+    for (const row of estimatorRows) {
+      const cap = [];
+      for (const dayStr of rangeDays.map(fmtDate)) {
+        const load = dailyLoad.get(dayStr)?.get(row.name);
+        const used = load?.totalHours || 0;
+        cap.push({ date: dayStr, remainingHours: Math.max(0, effectiveHoursPerDay - used), used });
+      }
+      estimatorCapacity.set(row.name, cap);
     }
 
     // ── Warnings: overloaded ──
@@ -369,6 +395,88 @@ export function useWorkloadData(dateRange) {
           });
         }
       }
+    }
+
+    // ── Warnings: predictive overload (next 10 weekdays) ──
+    const futureDays = [];
+    {
+      const d = new Date(today);
+      let count = 0;
+      while (count < 10) {
+        d.setDate(d.getDate() + 1);
+        if (isWeekday(d)) {
+          futureDays.push(fmtDate(new Date(d)));
+          count++;
+        }
+      }
+    }
+    const predictedSet = new Set(); // prevent duplicate warnings per estimator-day
+    for (const dayStr of futureDays) {
+      const dayMap = dailyLoad.get(dayStr);
+      if (!dayMap) continue;
+      for (const [estName, cell] of dayMap) {
+        if (cell.utilization > 0.9) {
+          const key = `${estName}:${dayStr}`;
+          if (predictedSet.has(key)) continue;
+          // Don't duplicate if already an overloaded warning for today
+          if (dayStr === fmtDate(today)) continue;
+          predictedSet.add(key);
+          const dayDate = new Date(dayStr + "T00:00:00");
+          warnings.push({
+            type: "predicted_overload",
+            estimator: estName,
+            date: dayStr,
+            hours: Math.round(cell.totalHours * 10) / 10,
+            utilization: Math.round(cell.utilization * 100),
+            daysFromNow: countWeekdays(today, dayDate),
+          });
+        }
+      }
+    }
+
+    // ── Conflict resolution suggestions ──
+    for (const w of warnings) {
+      if (w.type !== "conflict") continue;
+      const suggestions = [];
+
+      // Find estimators with capacity around the conflict window
+      for (const row of estimatorRows) {
+        if (row.name === w.estimator) continue;
+        // Check average utilization over next 5 weekdays
+        const cap = estimatorCapacity.get(row.name);
+        if (!cap) continue;
+        const next5 = cap.filter(c => {
+          const d = new Date(c.date + "T00:00:00");
+          return d >= today && countWeekdays(today, d) <= 5;
+        });
+        const avgRemaining = next5.length > 0
+          ? next5.reduce((s, c) => s + c.remainingHours, 0) / next5.length
+          : 0;
+        if (avgRemaining > effectiveHoursPerDay * 0.3) {
+          suggestions.push({
+            action: "reassign",
+            target: row.name,
+            targetColor: row.color,
+            label: `Reassign to ${row.name}`,
+            capacity: Math.round(avgRemaining * 10) / 10,
+          });
+        }
+      }
+
+      // Extend due date suggestion
+      const startDate = new Date(w.scheduledStart + "T00:00:00");
+      if (startDate < today) {
+        const daysShort = countWeekdays(startDate, today);
+        const newDue = addWeekdays(new Date(w.bidDue + "T00:00:00"), daysShort);
+        suggestions.push({
+          action: "extend",
+          daysNeeded: daysShort,
+          newBidDue: fmtDate(newDue),
+          label: `Extend due date by ${daysShort} day${daysShort !== 1 ? "s" : ""}`,
+        });
+      }
+
+      w.suggestions = suggestions.slice(0, 3);
     }
 
     // ── Warnings: bid clustering ──
@@ -393,6 +501,11 @@ export function useWorkloadData(dateRange) {
       }
     }
 
+    // ── Needs Action count ──
+    const needsActionCount = warnings.filter(
+      w => w.type === "conflict" || w.type === "overloaded"
+    ).length;
+
     // Flat list for card-based views
     const allEstimates = [
       ...estimatorRows.flatMap(r => r.estimates.map(e => ({ ...e, estimator: r.name, estimatorColor: r.color }))),
@@ -403,13 +516,16 @@ export function useWorkloadData(dateRange) {
       estimatorRows,
       dailyLoad,
       teamDailyLoad,
+      estimatorCapacity,
       unassignedEstimates: scheduledUnassigned,
       allEstimates,
       warnings,
+      needsActionCount,
       rangeDays: rangeDays.map(fmtDate),
       rangeStart: fmtDate(rangeStart),
       rangeEnd: fmtDate(rangeEnd),
       CAPACITY_HOURS: productionHoursPerDay,
+      effectiveHoursPerDay,
     };
-  }, [estimatesIndex, activeCompanyId, dateRange?.start, dateRange?.end, productionHoursPerDay, bufferHours]);
+  }, [estimatesIndex, activeCompanyId, dateRange?.start, dateRange?.end, productionHoursPerDay, bufferHours, overheadPercent, behindThreshold, aheadThreshold]);
 }
