@@ -4,6 +4,26 @@ import { storage } from "@/utils/storage";
 import { resetAllStores } from "@/hooks/usePersistence";
 import { useOrgStore } from "@/stores/orgStore";
 
+// Check for pending invite token in localStorage and auto-accept
+const checkPendingInvite = async () => {
+  try {
+    const token = localStorage.getItem("pendingInviteToken");
+    if (!token) return;
+    localStorage.removeItem("pendingInviteToken");
+    console.log("[auth] Found pending invite token, auto-accepting...");
+    const result = await useOrgStore.getState().acceptInvitation(token);
+    if (result?.success) {
+      console.log("[auth] Auto-accepted invitation");
+      // Re-fetch org to pick up new membership
+      await useOrgStore.getState().fetchOrg();
+    } else if (result?.error) {
+      console.warn("[auth] Auto-accept failed:", result.error);
+    }
+  } catch (err) {
+    console.warn("[auth] checkPendingInvite error:", err.message || err);
+  }
+};
+
 export const useAuthStore = create((set, get) => ({
   // State
   user: null,
@@ -54,6 +74,8 @@ export const useAuthStore = create((set, get) => ({
         set({ user: session.user, session, loading: false });
         // Load org membership — awaited so orgReady is set before persistence loads
         await useOrgStore.getState().fetchOrg();
+        // Auto-accept pending invite if present (e.g., from email link → signup → redirect)
+        await checkPendingInvite();
         // Load app role (BLDG Talent) — awaited so role-gated routing is correct on first render
         await get().fetchAppRole(session.user.id);
       } else {
@@ -74,8 +96,8 @@ export const useAuthStore = create((set, get) => ({
         if (currentUser?.id === session.user.id) return;
 
         set({ user: session.user, session, loading: false, magicLinkSent: false, authError: null });
-        // Load org membership in background
-        useOrgStore.getState().fetchOrg();
+        // Load org membership in background, then check for pending invite
+        useOrgStore.getState().fetchOrg().then(() => checkPendingInvite());
         // Load app role (BLDG Talent) in background
         get().fetchAppRole(session.user.id);
       } else if (event === "SIGNED_OUT") {
@@ -121,8 +143,8 @@ export const useAuthStore = create((set, get) => ({
     }
 
     set({ user: data.user, session: data.session });
-    // Load org membership (onAuthStateChange may also fire, but dedup guard handles it)
-    useOrgStore.getState().fetchOrg();
+    // Load org membership, then auto-accept pending invite (onAuthStateChange may also fire, but dedup guard handles it)
+    useOrgStore.getState().fetchOrg().then(() => checkPendingInvite());
     // Load app role (BLDG Talent)
     get().fetchAppRole(data.user.id);
     return { success: true };
@@ -154,8 +176,8 @@ export const useAuthStore = create((set, get) => ({
     }
 
     set({ user: data.user, session: data.session });
-    // Load org membership for newly signed-up user (may have pre-accepted invite)
-    useOrgStore.getState().fetchOrg();
+    // Load org membership for newly signed-up user, then auto-accept pending invite
+    useOrgStore.getState().fetchOrg().then(() => checkPendingInvite());
     // Load app role (BLDG Talent)
     get().fetchAppRole(data.user.id);
     return { success: true };

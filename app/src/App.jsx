@@ -1441,6 +1441,19 @@ export default function App() {
     init();
   }, [init]);
 
+  // Detect ?invite=TOKEN query param and store for auto-acceptance after sign-in/signup
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("invite");
+    if (token) {
+      localStorage.setItem("pendingInviteToken", token);
+      // Clean URL without reload
+      const url = new URL(window.location);
+      url.searchParams.delete("invite");
+      window.history.replaceState({}, "", url.pathname + url.search);
+    }
+  }, []);
+
   // Reset NOVA intro — reusable for keyboard shortcut + preview button
   const resetIntro = useCallback(() => {
     localStorage.removeItem("nova_onboarding_complete");

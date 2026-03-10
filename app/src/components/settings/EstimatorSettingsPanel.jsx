@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
+import { useOrgStore, selectIsManager } from "@/stores/orgStore";
 import { computeEstimatorExperience } from "@/utils/estimatorExperience";
 import { inp, bt, cardSolid } from "@/utils/styles";
 import { uid } from "@/utils/format";
@@ -62,6 +63,22 @@ export default function EstimatorSettingsPanel() {
   const updateMasterItem = useMasterDataStore(s => s.updateMasterItem);
   const removeMasterItem = useMasterDataStore(s => s.removeMasterItem);
   const estimatesIndex = useEstimatesStore(s => s.estimatesIndex);
+
+  // Org store — for invite functionality
+  const org = useOrgStore(s => s.org);
+  const isManager = useOrgStore(selectIsManager);
+  const members = useOrgStore(s => s.members);
+  const allInvitations = useOrgStore(s => s.allInvitations);
+  const sendEstimatorInvite = useOrgStore(s => s.sendEstimatorInvite);
+  const fetchAllInvitations = useOrgStore(s => s.fetchAllInvitations);
+  const revokeInvitation = useOrgStore(s => s.revokeInvitation);
+
+  const [inviting, setInviting] = useState(null); // email currently being invited
+
+  // Load all invitations when org is available
+  useEffect(() => {
+    if (org && isManager) fetchAllInvitations();
+  }, [org, isManager]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -136,6 +153,49 @@ export default function EstimatorSettingsPanel() {
   const handleRemove = id => {
     removeMasterItem("estimators", id);
     if (editId === id) resetForm();
+  };
+
+  // ── Invitation status lookup ──
+  const getInviteStatus = email => {
+    if (!email || !org) return null;
+    const normalized = email.toLowerCase().trim();
+
+    // Check if already an active org member
+    const member = members.find(m => m.email?.toLowerCase() === normalized && m.active);
+    if (member) return { status: "active", member };
+
+    // Check invitations (most recent first — already sorted by created_at desc)
+    const inv = allInvitations.find(i => i.email?.toLowerCase() === normalized);
+    if (!inv) return null;
+
+    if (inv.accepted_at) return { status: "accepted", inv };
+    if (new Date(inv.expires_at) < new Date()) return { status: "expired", inv };
+    return { status: "pending", inv };
+  };
+
+  const handleInvite = async (email, name) => {
+    if (!email || inviting) return;
+    setInviting(email);
+    const result = await sendEstimatorInvite(email, name);
+    if (result?.error) {
+      // Simple alert for now — could use toast
+      console.warn("[invite]", result.error);
+      alert(result.error);
+    }
+    setInviting(null);
+  };
+
+  const handleResendInvite = async (email, name, oldInvitationId) => {
+    if (!email || inviting) return;
+    setInviting(email);
+    // Revoke old invitation first, then send new one
+    if (oldInvitationId) await revokeInvitation(oldInvitationId);
+    const result = await sendEstimatorInvite(email, name);
+    if (result?.error) {
+      console.warn("[invite resend]", result.error);
+      alert(result.error);
+    }
+    setInviting(null);
   };
 
   // Compute active project counts per estimator
@@ -295,6 +355,117 @@ export default function EstimatorSettingsPanel() {
                     <div style={{ fontSize: T.fontSize.xs, color: C.textMuted, marginTop: 1 }}>{est.email}</div>
                   )}
                 </div>
+
+                {/* Invite Status Badge */}
+                {org && isManager && (() => {
+                  const invStatus = getInviteStatus(est.email);
+                  if (!est.email) {
+                    return (
+                      <div style={{
+                        fontSize: 10, color: C.textDim, fontStyle: "italic",
+                        padding: "3px 10px", borderRadius: 12,
+                        background: C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
+                      }}>
+                        No email — local only
+                      </div>
+                    );
+                  }
+                  if (!invStatus) {
+                    return (
+                      <button
+                        onClick={() => handleInvite(est.email, est.name)}
+                        disabled={inviting === est.email}
+                        style={{
+                          ...bt(C),
+                          padding: "5px 14px",
+                          fontSize: 11,
+                          fontWeight: 600,
+                          color: "#fff",
+                          background: inviting === est.email ? C.textDim : C.accent,
+                          borderRadius: 20,
+                          opacity: inviting === est.email ? 0.6 : 1,
+                          cursor: inviting === est.email ? "wait" : "pointer",
+                        }}
+                      >
+                        {inviting === est.email ? "Sending..." : "Invite to Platform"}
+                      </button>
+                    );
+                  }
+                  if (invStatus.status === "active" || invStatus.status === "accepted") {
+                    return (
+                      <div style={{
+                        fontSize: 10, fontWeight: 600, color: "#34D399",
+                        padding: "3px 10px", borderRadius: 12,
+                        background: "rgba(52,211,153,0.12)",
+                        display: "flex", alignItems: "center", gap: 4,
+                      }}>
+                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#34D399" }} />
+                        Active
+                      </div>
+                    );
+                  }
+                  if (invStatus.status === "pending") {
+                    return (
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <div style={{
+                          fontSize: 10, fontWeight: 600, color: "#FBBF24",
+                          padding: "3px 10px", borderRadius: 12,
+                          background: "rgba(251,191,36,0.12)",
+                          display: "flex", alignItems: "center", gap: 4,
+                        }}>
+                          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#FBBF24" }} />
+                          Pending
+                        </div>
+                        <button
+                          onClick={() => handleResendInvite(est.email, est.name, invStatus.inv?.id)}
+                          disabled={inviting === est.email}
+                          style={{
+                            ...bt(C),
+                            padding: "3px 8px",
+                            fontSize: 10,
+                            color: C.accent,
+                            background: "transparent",
+                            borderRadius: 10,
+                            textDecoration: "underline",
+                            cursor: inviting === est.email ? "wait" : "pointer",
+                          }}
+                        >
+                          {inviting === est.email ? "..." : "Resend"}
+                        </button>
+                      </div>
+                    );
+                  }
+                  if (invStatus.status === "expired") {
+                    return (
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <div style={{
+                          fontSize: 10, fontWeight: 600, color: C.textDim,
+                          padding: "3px 10px", borderRadius: 12,
+                          background: C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)",
+                        }}>
+                          Expired
+                        </div>
+                        <button
+                          onClick={() => handleResendInvite(est.email, est.name, invStatus.inv?.id)}
+                          disabled={inviting === est.email}
+                          style={{
+                            ...bt(C),
+                            padding: "3px 8px",
+                            fontSize: 10,
+                            color: C.accent,
+                            background: "transparent",
+                            borderRadius: 10,
+                            textDecoration: "underline",
+                            cursor: inviting === est.email ? "wait" : "pointer",
+                          }}
+                        >
+                          {inviting === est.email ? "..." : "Re-invite"}
+                        </button>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
 
                 {/* Stats */}
                 <div style={{ display: "flex", gap: T.space[4], alignItems: "center" }}>

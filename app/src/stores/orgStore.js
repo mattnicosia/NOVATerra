@@ -35,6 +35,7 @@ export const useOrgStore = create((set, get) => ({
   membership: null, // Current user's org_members row
   members: [], // All org members (loaded for managers)
   invitations: [], // Pending invitations (loaded for managers)
+  allInvitations: [], // All invitations (pending + accepted + expired) for status display
   orgReady: false, // true once fetchOrg has resolved (even with no org)
   _fetchGeneration: 0, // Invalidated on reset to discard in-flight fetchOrg
 
@@ -124,6 +125,64 @@ export const useOrgStore = create((set, get) => ({
       set({ invitations: data || [] });
     } catch (err) {
       console.warn("[orgStore] fetchInvitations failed:", err.message);
+    }
+  },
+
+  // ── Load ALL invitations (for status display in settings) ──
+  fetchAllInvitations: async () => {
+    const org = get().org;
+    if (!supabase || !org) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("org_invitations")
+        .select("*")
+        .eq("org_id", org.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      set({ allInvitations: data || [] });
+    } catch (err) {
+      console.warn("[orgStore] fetchAllInvitations failed:", err.message);
+    }
+  },
+
+  // ── Send estimator invitation (create record + send email) ──
+  sendEstimatorInvite: async (email, displayName) => {
+    // 1. Create invitation via existing inviteMember (role = "estimator")
+    const result = await get().inviteMember(email, "estimator");
+    if (result.error) return result;
+
+    // 2. Call send-team-invite serverless function
+    try {
+      const session = useAuthStore.getState().session;
+      const resp = await fetch("/api/send-team-invite", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ invitationId: result.invitation.id }),
+      });
+
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({}));
+        console.warn("[orgStore] send-team-invite failed:", errData.error);
+        // Invitation was created but email failed — still return success with warning
+        get().fetchAllInvitations();
+        get().fetchInvitations();
+        return { success: true, emailFailed: true };
+      }
+
+      // 3. Refresh all invitations
+      get().fetchAllInvitations();
+      get().fetchInvitations();
+      return { success: true };
+    } catch (err) {
+      console.error("[orgStore] sendEstimatorInvite email failed:", err.message);
+      get().fetchAllInvitations();
+      get().fetchInvitations();
+      return { success: true, emailFailed: true };
     }
   },
 
@@ -340,6 +399,7 @@ export const useOrgStore = create((set, get) => ({
       membership: null,
       members: [],
       invitations: [],
+      allInvitations: [],
       orgReady: false,
       _fetchGeneration: s._fetchGeneration + 1, // invalidate in-flight fetchOrg
     })),
