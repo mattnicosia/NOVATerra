@@ -165,7 +165,7 @@ const NAV_ITEMS = [
   { key: "projects", path: "/projects", icon: NAV_ICONS.projects, label: "Projects" },
   { key: "inbox", path: "/inbox", icon: NAV_ICONS.inbox, label: "Inbox", badge: true },
   { key: "core", path: "/core", icon: NAV_ICONS.core, label: "Core" },
-  { key: "intelligence", path: "/intelligence", icon: NAV_ICONS.intelligence, label: "Intel" },
+  // { key: "intelligence", path: "/intelligence", icon: NAV_ICONS.intelligence, label: "Intel" }, // temporarily removed
   { key: "resources", path: "/resources", icon: NAV_ICONS.resources, label: "Resources" },
   { key: "business", path: "/business", icon: NAV_ICONS.business, label: "Business", managerOnly: true },
   { key: "people", path: "/contacts", icon: NAV_ICONS.people, label: "People" },

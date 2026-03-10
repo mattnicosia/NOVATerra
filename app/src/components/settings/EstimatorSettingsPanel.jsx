@@ -384,6 +384,25 @@ export default function EstimatorSettingsPanel() {
     if (org && isManager) fetchAllInvitations();
   }, [org, isManager]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Auto-add org members (including owner) to estimator list if not already present
+  useEffect(() => {
+    if (!members || members.length === 0) return;
+    const existingNames = new Set((estimators || []).map(e => e.name));
+    for (const m of members) {
+      if (m.display_name && !existingNames.has(m.display_name)) {
+        addMasterItem("estimators", {
+          name: m.display_name,
+          email: m.email || "",
+          initials: m.display_name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2),
+          color: m.color || TEAM_COLORS[estimators.length % TEAM_COLORS.length],
+          maxHoursPerDay: 7,
+          preferredJobTypes: [],
+          notes: `Auto-added from org (${m.role})`,
+        });
+      }
+    }
+  }, [members]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
   const [formName, setFormName] = useState("");

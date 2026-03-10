@@ -18,7 +18,6 @@ import { uid } from "@/utils/format";
 import { processLogo } from "@/utils/imageUtils";
 
 import LogoPill from "@/components/shared/LogoPill";
-import NovaScriptEditor from "@/components/settings/NovaScriptEditor";
 import AutoResponseSettings from "@/components/settings/AutoResponseSettings";
 import EstimatorSettingsPanel from "@/components/settings/EstimatorSettingsPanel";
 
@@ -813,9 +812,6 @@ export default function SettingsPage() {
             </div>
           </div>
         </Sec>
-
-        {/* NOVA Script Editor */}
-        <NovaScriptEditor />
 
         {/* Historical Proposals — moved to Cost Database */}
         <Sec title="Cost History & ROM Calibration">

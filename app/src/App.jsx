@@ -1158,7 +1158,7 @@ function AppContent() {
                 <Route path="/contacts" element={<ContactsPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/inbox" element={<InboxPage />} />
-                <Route path="/intelligence" element={<IntelligencePage />} />
+                {/* <Route path="/intelligence" element={<IntelligencePage />} /> temporarily removed */}
                 <Route path="/projects" element={<ProjectsPage />} />
                 <Route path="/resources" element={<ResourcePage />} />
                 <Route path="/core" element={<CorePage />} />

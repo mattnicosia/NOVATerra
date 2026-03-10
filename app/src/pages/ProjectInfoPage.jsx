@@ -671,7 +671,14 @@ export default function ProjectInfoPage() {
               {/* Chip-based multi-estimator picker */}
               {(() => {
                 const team = [project.estimator, ...(project.coEstimators || [])].filter(Boolean);
-                const available = masterData.estimators.filter(e => !team.includes(e.name));
+                // Merge org members into estimator list so owner + all members are selectable
+                const masterEsts = masterData.estimators || [];
+                const masterNames = new Set(masterEsts.map(e => e.name));
+                const orgExtras = (orgMembers || [])
+                  .filter(m => m.display_name && !masterNames.has(m.display_name))
+                  .map(m => ({ id: m.id, name: m.display_name, color: m.color }));
+                const allEstimators = [...masterEsts, ...orgExtras];
+                const available = allEstimators.filter(e => !team.includes(e.name));
                 const removeEstimator = name => {
                   if (name === project.estimator) {
                     // Removing lead → promote first co-estimator
