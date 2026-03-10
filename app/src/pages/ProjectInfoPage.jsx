@@ -668,47 +668,136 @@ export default function ProjectInfoPage() {
               {autoTag("engineerCivil")}
             </Fld>
             <Fld label="Estimator">
-              <select
-                value={project.estimator}
-                onChange={e => {
-                  if (e.target.value === "__new__") {
-                    setQuickAddModal({ category: "estimators", field: "estimator", label: "Estimator" });
-                    setQuickAddValue("");
-                  } else up("estimator", e.target.value);
-                }}
-                style={inp(C)}
-              >
-                <option value="">— Select Estimator —</option>
-                {masterData.estimators.map(est => (
-                  <option key={est.id} value={est.name}>
-                    {est.name}
-                  </option>
-                ))}
-                <option value="__new__">+ Create New Estimator...</option>
-              </select>
-              {project.estimator && (estimatorStats.winRate != null || estimatorStats.accuracy != null) && (
-                <div style={{ fontSize: 9, color: C.textDim, marginTop: 3, display: "flex", gap: 6 }}>
-                  {estimatorStats.winRate != null && (
-                    <span style={{ color: estimatorStats.winRate >= 40 ? C.green : C.textDim }}>
-                      Win rate: {estimatorStats.winRate}%
-                    </span>
-                  )}
-                  {estimatorStats.winRate != null && estimatorStats.accuracy != null && (
-                    <span style={{ opacity: 0.4 }}>·</span>
-                  )}
-                  {estimatorStats.accuracy != null && (
-                    <span style={{ color: estimatorStats.accuracy <= 10 ? C.green : "#F59E0B" }}>
-                      Accuracy: ±{estimatorStats.accuracy}%
-                    </span>
-                  )}
-                  {estimatorStats.totalHours > 0 && (
-                    <>
-                      <span style={{ opacity: 0.4 }}>·</span>
-                      <span>{estimatorStats.totalHours}h logged</span>
-                    </>
-                  )}
-                </div>
-              )}
+              {/* Chip-based multi-estimator picker */}
+              {(() => {
+                const team = [project.estimator, ...(project.coEstimators || [])].filter(Boolean);
+                const available = masterData.estimators.filter(e => !team.includes(e.name));
+                const removeEstimator = name => {
+                  if (name === project.estimator) {
+                    // Removing lead → promote first co-estimator
+                    const coEsts = project.coEstimators || [];
+                    up("estimator", coEsts[0] || "");
+                    up("coEstimators", coEsts.slice(1));
+                  } else {
+                    up("coEstimators", (project.coEstimators || []).filter(c => c !== name));
+                  }
+                };
+                const addEstimator = name => {
+                  if (!project.estimator) {
+                    up("estimator", name);
+                  } else {
+                    up("coEstimators", [...(project.coEstimators || []), name]);
+                  }
+                };
+                return (
+                  <>
+                    <div
+                      style={{
+                        ...inp(C),
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: 4,
+                        alignItems: "center",
+                        minHeight: 34,
+                        padding: "4px 6px",
+                      }}
+                    >
+                      {team.map((name, idx) => (
+                        <span
+                          key={name}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 3,
+                            padding: "2px 6px 2px 8px",
+                            background: `${C.accent}18`,
+                            border: `1px solid ${C.accent}30`,
+                            borderRadius: 12,
+                            fontSize: 11,
+                            fontWeight: 600,
+                            color: C.text,
+                          }}
+                        >
+                          {idx === 0 && team.length > 1 && (
+                            <span style={{ fontSize: 8, color: C.accent, fontWeight: 700, marginRight: 1 }}>LEAD</span>
+                          )}
+                          {name}
+                          <button
+                            onClick={() => removeEstimator(name)}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              color: C.textMuted,
+                              fontSize: 13,
+                              lineHeight: 1,
+                              padding: "0 2px",
+                              display: "flex",
+                              alignItems: "center",
+                            }}
+                            title={`Remove ${name}`}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                      <select
+                        value=""
+                        onChange={e => {
+                          if (e.target.value === "__new__") {
+                            setQuickAddModal({ category: "estimators", field: "estimator", label: "Estimator" });
+                            setQuickAddValue("");
+                          } else if (e.target.value) {
+                            addEstimator(e.target.value);
+                          }
+                        }}
+                        style={{
+                          ...inp(C),
+                          border: "none",
+                          background: "transparent",
+                          padding: "2px 4px",
+                          fontSize: 11,
+                          minWidth: team.length > 0 ? 30 : 160,
+                          flex: team.length > 0 ? "0 0 auto" : 1,
+                          cursor: "pointer",
+                          color: team.length > 0 ? C.textMuted : C.text,
+                        }}
+                      >
+                        <option value="">{team.length > 0 ? "+" : "— Select Estimator —"}</option>
+                        {available.map(est => (
+                          <option key={est.id} value={est.name}>
+                            {est.name}
+                          </option>
+                        ))}
+                        <option value="__new__">+ Create New Estimator...</option>
+                      </select>
+                    </div>
+                    {project.estimator && (estimatorStats.winRate != null || estimatorStats.accuracy != null) && (
+                      <div style={{ fontSize: 9, color: C.textDim, marginTop: 3, display: "flex", gap: 6 }}>
+                        {estimatorStats.winRate != null && (
+                          <span style={{ color: estimatorStats.winRate >= 40 ? C.green : C.textDim }}>
+                            Win rate: {estimatorStats.winRate}%
+                          </span>
+                        )}
+                        {estimatorStats.winRate != null && estimatorStats.accuracy != null && (
+                          <span style={{ opacity: 0.4 }}>·</span>
+                        )}
+                        {estimatorStats.accuracy != null && (
+                          <span style={{ color: estimatorStats.accuracy <= 10 ? C.green : "#F59E0B" }}>
+                            Accuracy: ±{estimatorStats.accuracy}%
+                          </span>
+                        )}
+                        {estimatorStats.totalHours > 0 && (
+                          <>
+                            <span style={{ opacity: 0.4 }}>·</span>
+                            <span>{estimatorStats.totalHours}h logged</span>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </Fld>
             {/* Assigned To (org mode only) */}
             {org && (

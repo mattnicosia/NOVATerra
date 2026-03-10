@@ -1006,6 +1006,7 @@ export async function saveEstimate() {
       minute: "2-digit",
     }),
     estimator: data.project.estimator,
+    coEstimators: data.project.coEstimators || [],
     jobType: data.project.jobType,
     companyProfileId: data.project.companyProfileId || "",
     buildingType: data.project.buildingType || "",

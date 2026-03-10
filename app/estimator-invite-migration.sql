@@ -1,6 +1,6 @@
 -- Estimator Invitation System Migration
 -- Run in Supabase Dashboard > SQL Editor
--- Adds email tracking to org_invitations + email column to org_members
+-- Adds email tracking, fixes RLS infinite recursion on org_members
 
 -- ═══════════════════════════════════════════════════════════════════════
 -- 1. Add email column to org_members (for matching local estimator entries)
@@ -22,7 +22,55 @@ ALTER TABLE org_invitations ADD COLUMN IF NOT EXISTS sent_at TIMESTAMPTZ;
 ALTER TABLE org_invitations ADD COLUMN IF NOT EXISTS resend_email_id TEXT;
 
 -- ═══════════════════════════════════════════════════════════════════════
--- 3. Update accept_invitation RPC to include email in membership
+-- 3. Fix org_members RLS — replace self-referencing subqueries with
+--    SECURITY DEFINER helper functions to prevent infinite recursion.
+--    The existing is_org_member() and is_org_manager() functions already
+--    bypass RLS via SECURITY DEFINER, so using them here is safe.
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- Helper: get a member's current role (bypasses RLS for WITH CHECK)
+CREATE OR REPLACE FUNCTION get_member_role(member_id UUID) RETURNS TEXT AS $$
+  SELECT role FROM org_members WHERE id = member_id;
+$$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public;
+
+-- Drop old recursive policies
+DROP POLICY IF EXISTS "org_members_select" ON org_members;
+DROP POLICY IF EXISTS "org_members_insert" ON org_members;
+DROP POLICY IF EXISTS "org_members_update" ON org_members;
+DROP POLICY IF EXISTS "org_members_delete" ON org_members;
+
+-- Recreate using SECURITY DEFINER helpers (no recursion)
+CREATE POLICY "org_members_select" ON org_members
+  FOR SELECT USING (
+    user_id = auth.uid()
+    OR is_org_member(org_id)
+  );
+
+CREATE POLICY "org_members_insert" ON org_members
+  FOR INSERT WITH CHECK (
+    is_org_manager(org_id)
+    -- Allow org owner to bootstrap first membership (chicken-and-egg fix)
+    OR EXISTS(SELECT 1 FROM organizations WHERE id = org_id AND owner_id = auth.uid())
+  );
+
+CREATE POLICY "org_members_update" ON org_members
+  FOR UPDATE USING (
+    user_id = auth.uid()
+    OR is_org_manager(org_id)
+  ) WITH CHECK (
+    -- Self-updates: role must not change (prevents escalation)
+    (user_id = auth.uid() AND role = get_member_role(id))
+    -- Manager/owner updates: any valid role
+    OR is_org_manager(org_id)
+  );
+
+CREATE POLICY "org_members_delete" ON org_members
+  FOR DELETE USING (
+    is_org_manager(org_id)
+  );
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- 4. Update accept_invitation RPC to include email in membership
 -- ═══════════════════════════════════════════════════════════════════════
 
 CREATE OR REPLACE FUNCTION accept_invitation(invitation_token TEXT)

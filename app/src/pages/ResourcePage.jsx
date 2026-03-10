@@ -336,7 +336,7 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
       } else if (st.dragMode === "reassign" && st.dragOverEstimator) {
         const target = st.dragOverEstimator === "__unassigned__" ? "" : st.dragOverEstimator;
         if (target !== dr.estimator) {
-          onDrop?.(dr.barId, target);
+          onDrop?.(dr.barId, target, dr.estimator);
         }
       }
 
@@ -438,7 +438,7 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
   const [editingHoursId, setEditingHoursId] = useState(null);
   const [editingHoursVal, setEditingHoursVal] = useState("");
 
-  const ROW_HEIGHT = 40;
+  const ROW_HEIGHT = 54;
   const HEADER_HEIGHT = 48;
   const LABEL_WIDTH = 200;
 
@@ -496,7 +496,7 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
                   });
                 }}
                 style={{
-                  height: Math.max(ROW_HEIGHT, row.bars.length * 22 + 12),
+                  height: Math.max(ROW_HEIGHT, row.bars.length * 26 + 16),
                   display: "flex",
                   alignItems: "center",
                   gap: T.space[2],
@@ -555,7 +555,7 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
           {(unassignedBars.length > 0 || dragEstimateId) && (
             <div
               style={{
-                height: Math.max(ROW_HEIGHT, unassignedBars.length * 22 + 12),
+                height: Math.max(ROW_HEIGHT, unassignedBars.length * 26 + 16),
                 display: "flex",
                 alignItems: "center",
                 gap: T.space[2],
@@ -749,7 +749,7 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
 
             {/* Estimator rows with bars */}
             {rowData.map(row => {
-              const rowHeight = Math.max(ROW_HEIGHT, row.bars.length * 22 + 12);
+              const rowHeight = Math.max(ROW_HEIGHT, row.bars.length * 26 + 16);
               const isDropTarget = dragOverEstimator === row.name && dragEstimateId;
               return (
                 <div
@@ -861,7 +861,9 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
                           onMouseEnter={() =>
                             setTooltip({
                               name: bar.name,
-                              hours: `${bar.hoursLogged}h / ${bar.estimatedHours}h`,
+                              hours: bar._teamSize > 1
+                                ? `${bar.hoursLogged}h / ${Math.round(bar._perPersonHours)}h (of ${bar.estimatedHours}h total)`
+                                : `${bar.hoursLogged}h / ${bar.estimatedHours}h`,
                               pct: bar.percentComplete,
                               daysLeft: bar.daysRemaining,
                               status: bar.scheduleStatus,
@@ -873,6 +875,8 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
                               correspondenceTotalHours: bar.correspondenceTotalHours,
                               correspondenceNextDue: bar.correspondenceNextDue,
                               emailCount: bar.emailCount,
+                              teamSize: bar._teamSize || 1,
+                              teamMembers: bar._teamMembers || [],
                             })
                           }
                           onMouseLeave={() => setTooltip(null)}
@@ -1018,7 +1022,7 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
                                   onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}26`)}
                                   onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                                 >
-                                  {bar.estimatedHours || 0}h
+                                  {bar._teamSize > 1 ? `${Math.round(bar._perPersonHours)}h` : `${bar.estimatedHours || 0}h`}
                                 </span>
                               ))}
                             {bar.width > 120 && (
@@ -1070,6 +1074,25 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
                                 }}
                               >
                                 {bar.emailCount}✉
+                              </span>
+                            )}
+                            {/* Team size badge */}
+                            {bar._teamSize > 1 && (
+                              <span
+                                title={`Team: ${(bar._teamMembers || []).join(", ")}`}
+                                style={{
+                                  fontSize: 7,
+                                  fontWeight: 700,
+                                  color: "#30D158",
+                                  background: "#30D15820",
+                                  borderRadius: 3,
+                                  padding: "0 3px",
+                                  flexShrink: 0,
+                                  marginLeft: 3,
+                                  lineHeight: "12px",
+                                }}
+                              >
+                                ×{bar._teamSize}
                               </span>
                             )}
                           </div>
@@ -1254,7 +1277,7 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
                 data-estimator-row="__unassigned__"
                 style={{
                   position: "relative",
-                  height: Math.max(ROW_HEIGHT, unassignedBars.length * 22 + 12),
+                  height: Math.max(ROW_HEIGHT, unassignedBars.length * 26 + 16),
                   overflow: "hidden",
                   borderTop: `2px solid ${C.border}`,
                   background:
@@ -1379,6 +1402,11 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
           <div style={{ fontWeight: T.fontWeight.bold, marginBottom: 4 }}>{tooltip.name}</div>
           <div style={{ color: C.textMuted }}>Hours: {tooltip.hours}</div>
           <div style={{ color: C.textMuted }}>Complete: {tooltip.pct}%</div>
+          {tooltip.teamSize > 1 && (
+            <div style={{ color: "#30D158", marginTop: 2 }}>
+              Team ({tooltip.teamSize}): {tooltip.teamMembers.join(", ")}
+            </div>
+          )}
           {tooltip.scheduledRange && <div style={{ color: C.textMuted }}>Scheduled: {tooltip.scheduledRange}</div>}
           {tooltip.bidDue && <div style={{ color: C.textMuted }}>Due: {tooltip.bidDue}</div>}
           {tooltip.daysNeeded > 0 && (
@@ -2722,18 +2750,47 @@ export default function ResourcePage() {
     return `${start.toLocaleDateString("en-US", opts)} – ${end.toLocaleDateString("en-US", opts)}, ${end.getFullYear()}`;
   }, [workload.rangeStart, workload.rangeEnd]);
 
-  // Drag-and-drop handler: reassign estimate to a different estimator
+  // Drag-and-drop handler: team-aware reassign estimate
   const handleDrop = useCallback(
-    (estimateId, estimatorName) => {
+    (estimateId, targetEstimator, fromEstimator) => {
       if (!estimateId) return;
-      useEstimatesStore.getState().updateIndexEntry(estimateId, { estimator: estimatorName });
-      const estName = workload.allEstimates?.find(e => e.id === estimateId)?.name || "Estimate";
-      useUiStore
-        .getState()
-        .showToast(
-          estimatorName ? `Assigned "${estName}" to ${estimatorName}` : `Moved "${estName}" to Unassigned`,
-          "success",
-        );
+      const est = workload.allEstimates?.find(e => e.id === estimateId);
+      const estName = est?.name || "Estimate";
+      const store = useEstimatesStore.getState();
+
+      // Get current team state
+      const lead = est?.estimator || "";
+      const coEstimators = [...(est?.coEstimators || [])];
+      const team = [lead, ...coEstimators].filter(Boolean);
+
+      if (!targetEstimator) {
+        // Dropped on unassigned — remove the dragged member from the team
+        if (team.length <= 1) {
+          // Solo estimator → just clear
+          store.updateIndexEntry(estimateId, { estimator: "", coEstimators: [] });
+        } else if (fromEstimator === lead) {
+          // Removing lead → promote first co-estimator
+          const newLead = coEstimators[0] || "";
+          store.updateIndexEntry(estimateId, { estimator: newLead, coEstimators: coEstimators.slice(1) });
+        } else {
+          // Removing co-estimator
+          store.updateIndexEntry(estimateId, { coEstimators: coEstimators.filter(c => c !== fromEstimator) });
+        }
+        useUiStore.getState().showToast(`Removed ${fromEstimator || "estimator"} from "${estName}"`, "success");
+      } else if (team.length <= 1) {
+        // Solo estimator — simple reassign (old behavior)
+        store.updateIndexEntry(estimateId, { estimator: targetEstimator });
+        useUiStore.getState().showToast(`Assigned "${estName}" to ${targetEstimator}`, "success");
+      } else {
+        // Team estimate — replace the dragged member with the target
+        if (fromEstimator === lead) {
+          store.updateIndexEntry(estimateId, { estimator: targetEstimator });
+        } else {
+          const newCo = coEstimators.map(c => (c === fromEstimator ? targetEstimator : c));
+          store.updateIndexEntry(estimateId, { coEstimators: newCo });
+        }
+        useUiStore.getState().showToast(`Replaced ${fromEstimator} with ${targetEstimator} on "${estName}"`, "success");
+      }
     },
     [workload.allEstimates],
   );

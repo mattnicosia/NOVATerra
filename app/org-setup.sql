@@ -57,10 +57,11 @@ ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE org_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE org_invitations ENABLE ROW LEVEL SECURITY;
 
--- Organizations: members can read, owner can update
+-- Organizations: owner + members can read, owner can update
 CREATE POLICY "org_select" ON organizations
   FOR SELECT USING (
-    id IN (SELECT om.org_id FROM org_members om WHERE om.user_id = auth.uid() AND om.active = true)
+    owner_id = auth.uid()
+    OR id IN (SELECT om.org_id FROM org_members om WHERE om.user_id = auth.uid() AND om.active = true)
   );
 CREATE POLICY "org_insert" ON organizations
   FOR INSERT WITH CHECK (owner_id = auth.uid());
@@ -104,14 +105,19 @@ CREATE POLICY "org_members_delete" ON org_members
     )
   );
 
--- Invitations: owners/managers can CRUD
+-- Helper: get current user's email (avoids auth.users permission issue in RLS)
+CREATE OR REPLACE FUNCTION get_my_email() RETURNS TEXT AS $$
+  SELECT email FROM auth.users WHERE id = auth.uid();
+$$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public;
+
+-- Invitations: owners/managers can CRUD, invitee can read/update own
 CREATE POLICY "org_invitations_select" ON org_invitations
   FOR SELECT USING (
     org_id IN (
       SELECT om.org_id FROM org_members om
       WHERE om.user_id = auth.uid() AND om.active = true AND om.role IN ('owner','manager')
     )
-    OR email = (SELECT email FROM auth.users WHERE id = auth.uid())
+    OR email = get_my_email()
   );
 CREATE POLICY "org_invitations_insert" ON org_invitations
   FOR INSERT WITH CHECK (
@@ -126,7 +132,7 @@ CREATE POLICY "org_invitations_update" ON org_invitations
       SELECT om.org_id FROM org_members om
       WHERE om.user_id = auth.uid() AND om.active = true AND om.role IN ('owner','manager')
     )
-    OR email = (SELECT email FROM auth.users WHERE id = auth.uid())
+    OR email = get_my_email()
   );
 CREATE POLICY "org_invitations_delete" ON org_invitations
   FOR DELETE USING (

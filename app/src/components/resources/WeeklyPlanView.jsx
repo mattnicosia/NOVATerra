@@ -146,15 +146,30 @@ export default function WeeklyPlanView({ workload, C, T }) {
     return [...unassignedEstimates, ...overflow];
   }, [estimatorRows, unassignedEstimates, weekDays]);
 
-  // Handle drop onto a day cell
+  // Handle drop onto a day cell — team-aware
   const handleDrop = useCallback(
     (estimatorName, dayStr, e) => {
       e.preventDefault();
       const estId = e.dataTransfer.getData("text/plain") || useResourceStore.getState().dragEstimateId;
       if (!estId) return;
-      // Reassign to this estimator
-      useEstimatesStore.getState().updateIndexEntry(estId, { estimator: estimatorName });
-      useUiStore.getState().showToast(`Assigned to ${estimatorName}`);
+      const store = useEstimatesStore.getState();
+      const est = store.estimatesIndex.find(ei => ei.id === estId);
+      const lead = est?.estimator || "";
+      const coEsts = est?.coEstimators || [];
+      const team = [lead, ...coEsts].filter(Boolean);
+
+      if (!lead) {
+        // Unassigned → assign as lead
+        store.updateIndexEntry(estId, { estimator: estimatorName });
+        useUiStore.getState().showToast(`Assigned to ${estimatorName}`);
+      } else if (team.includes(estimatorName)) {
+        // Already on team — no-op
+        useUiStore.getState().showToast(`${estimatorName} is already on this estimate`, "info");
+      } else {
+        // Has a lead → add as co-estimator
+        store.updateIndexEntry(estId, { coEstimators: [...coEsts, estimatorName] });
+        useUiStore.getState().showToast(`Added ${estimatorName} to team`);
+      }
       clearDragState();
     },
     [clearDragState],

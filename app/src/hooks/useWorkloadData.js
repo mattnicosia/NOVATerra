@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useUiStore } from "@/stores/uiStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
+import { TEAM_COLORS } from "@/stores/orgStore";
 
 // ── Helpers ───────────────────────────────────────────────────
 function isWeekday(date, workWeek = "mon-fri") {
@@ -89,19 +90,6 @@ function weekdaysBetween(start, end, workWeek) {
 const DEFAULT_COMPLEXITY = { light: 0.8, normal: 1.0, heavy: 1.3 };
 const DEFAULT_ESTIMATORS = [];
 
-const TEAM_COLORS = [
-  "#A78BFA",
-  "#60A5FA",
-  "#34D399",
-  "#FB7185",
-  "#FBBF24",
-  "#F472B6",
-  "#38BDF8",
-  "#4ADE80",
-  "#FB923C",
-  "#C084FC",
-];
-
 // ── Main Hook ─────────────────────────────────────────────────
 export function useWorkloadData(dateRange) {
   const estimatesIndex = useEstimatesStore(s => s.estimatesIndex);
@@ -135,20 +123,23 @@ export function useWorkloadData(dateRange) {
       return true;
     });
 
-    // ── Phase 1: Group raw estimates by estimator ──
+    // ── Phase 1: Group raw estimates by estimator (multi-estimator aware) ──
     const estimatorMap = new Map(); // name → { color, rawEstimates[] }
     const unassigned = [];
 
     active.forEach(est => {
-      const estimator = est.estimator || "";
+      const lead = est.estimator || "";
+      const team = [lead, ...(est.coEstimators || [])].filter(Boolean);
+      const teamSize = team.length || 1;
       const bidDue = new Date(est.bidDue + "T00:00:00");
       const estHours = (Number(est.estimatedHours) || 0) + (Number(est.correspondenceTotalHours) || 0);
-      const hoursLogged = est.manualHoursLogged != null
-        ? est.manualHoursLogged
-        : (est.timerTotalMs || 0) / 3600000;
-      const percentComplete = est.manualPercentComplete != null
-        ? est.manualPercentComplete
-        : (estHours > 0 ? Math.min(100, Math.round((hoursLogged / estHours) * 100)) : 0);
+      const hoursLogged = est.manualHoursLogged != null ? est.manualHoursLogged : (est.timerTotalMs || 0) / 3600000;
+      const percentComplete =
+        est.manualPercentComplete != null
+          ? est.manualPercentComplete
+          : estHours > 0
+            ? Math.min(100, Math.round((hoursLogged / estHours) * 100))
+            : 0;
 
       const raw = {
         id: est.id,
@@ -174,21 +165,27 @@ export function useWorkloadData(dateRange) {
         manualPercentComplete: est.manualPercentComplete ?? null,
         manualHoursLogged: est.manualHoursLogged ?? null,
         delegatedBy: est.delegatedBy || "",
+        _teamSize: teamSize,
+        _teamMembers: team,
+        _perPersonHours: estHours / teamSize,
       };
 
-      if (!estimator) {
+      if (team.length === 0) {
         unassigned.push(raw);
         return;
       }
 
-      if (!estimatorMap.has(estimator)) {
-        estimatorMap.set(estimator, {
-          name: estimator,
-          color: TEAM_COLORS[estimatorMap.size % TEAM_COLORS.length],
-          rawEstimates: [],
-        });
+      // Add to EACH team member's row with split hours
+      for (const name of team) {
+        if (!estimatorMap.has(name)) {
+          estimatorMap.set(name, {
+            name,
+            color: TEAM_COLORS[estimatorMap.size % TEAM_COLORS.length],
+            rawEstimates: [],
+          });
+        }
+        estimatorMap.get(name).rawEstimates.push(raw);
       }
-      estimatorMap.get(estimator).rawEstimates.push(raw);
     });
 
     // ── Accuracy adjustment map (opt-in) ──
@@ -221,7 +218,8 @@ export function useWorkloadData(dateRange) {
 
       for (const est of sorted) {
         const complexityMult = complexityMultipliers[est.complexity] || 1.0;
-        const adjustedHours = est.estimatedHours * accFactor * complexityMult;
+        const perPersonHours = est._perPersonHours ?? est.estimatedHours;
+        const adjustedHours = perPersonHours * accFactor * complexityMult;
         const daysNeeded = adjustedHours > 0 ? Math.ceil(adjustedHours / effectiveHoursPerDay) : 0;
 
         if (daysNeeded <= 0) {
@@ -287,7 +285,7 @@ export function useWorkloadData(dateRange) {
           }
         }
 
-        const hoursPerDay = blockWorkDays.length > 0 ? est.estimatedHours / blockWorkDays.length : effectiveHoursPerDay;
+        const hoursPerDay = blockWorkDays.length > 0 ? perPersonHours / blockWorkDays.length : effectiveHoursPerDay;
 
         const daysRemaining = countWeekdays(today, est.bidDueDate, workWeek);
         const daysTotal = countWeekdays(scheduledStartDate, est.bidDueDate, workWeek);
@@ -398,7 +396,7 @@ export function useWorkloadData(dateRange) {
         scheduledStart: fmtDate(scheduledStartDate),
         scheduledEnd: fmtDate(est.bidDueDate),
         workDays: blockWorkDays.map(fmtDate),
-        hoursPerDay: blockWorkDays.length > 0 ? est.estimatedHours / blockWorkDays.length : effectiveHoursPerDay,
+        hoursPerDay: blockWorkDays.length > 0 ? (est._perPersonHours ?? est.estimatedHours) / blockWorkDays.length : effectiveHoursPerDay,
         daysNeeded,
         conflict: scheduledStartDate < today,
         daysTotal,

@@ -37,9 +37,16 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
   const estimators = useMasterDataStore(s => s.masterData?.estimators) || [];
   const estimatesIndex = useEstimatesStore(s => s.estimatesIndex);
 
+  // Team members for this bar
+  const barTeam = useMemo(() => {
+    const lead = bar.estimator || currentEstimator || "";
+    return [lead, ...(bar._teamMembers || bar.coEstimators || [])].filter(Boolean);
+  }, [bar, currentEstimator]);
+
   // Compute match scores for smart reassign ranking
   const rankedEstimators = useMemo(() => {
-    const others = estimators.filter(e => e.name !== currentEstimator);
+    const teamSet = new Set(barTeam);
+    const others = estimators.filter(e => !teamSet.has(e.name));
     return others
       .map(est => {
         const experience = computeEstimatorExperience(estimatesIndex, est.name);
@@ -47,7 +54,7 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
         return { ...est, matchScore: matchResult.score, matchFlags: matchResult.flags };
       })
       .sort((a, b) => b.matchScore - a.matchScore);
-  }, [estimators, estimatesIndex, bar, currentEstimator]);
+  }, [estimators, estimatesIndex, bar, barTeam]);
 
   // Close on outside click
   useEffect(() => {
@@ -91,8 +98,47 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
   };
 
   const doReassign = name => {
-    useEstimatesStore.getState().updateIndexEntry(bar.id, { estimator: name });
-    useUiStore.getState().showToast(name ? `Assigned "${bar.name}" to ${name}` : `Moved "${bar.name}" to Unassigned`);
+    const store = useEstimatesStore.getState();
+    const est = store.estimatesIndex.find(e => e.id === bar.id);
+    const lead = est?.estimator || "";
+    const coEsts = [...(est?.coEstimators || [])];
+    const team = [lead, ...coEsts].filter(Boolean);
+
+    if (!name) {
+      // Move to unassigned — remove this member from team
+      if (team.length <= 1) {
+        store.updateIndexEntry(bar.id, { estimator: "", coEstimators: [] });
+      } else if (currentEstimator === lead) {
+        store.updateIndexEntry(bar.id, { estimator: coEsts[0] || "", coEstimators: coEsts.slice(1) });
+      } else {
+        store.updateIndexEntry(bar.id, { coEstimators: coEsts.filter(c => c !== currentEstimator) });
+      }
+      useUiStore.getState().showToast(`Removed ${currentEstimator || "estimator"} from "${bar.name}"`);
+    } else if (team.length <= 1) {
+      // Solo → simple reassign
+      store.updateIndexEntry(bar.id, { estimator: name });
+      useUiStore.getState().showToast(`Assigned "${bar.name}" to ${name}`);
+    } else {
+      // Team → replace this member
+      if (currentEstimator === lead) {
+        store.updateIndexEntry(bar.id, { estimator: name });
+      } else {
+        store.updateIndexEntry(bar.id, { coEstimators: coEsts.map(c => (c === currentEstimator ? name : c)) });
+      }
+      useUiStore.getState().showToast(`Replaced ${currentEstimator} with ${name} on "${bar.name}"`);
+    }
+    onClose();
+  };
+
+  const doAddToTeam = name => {
+    const store = useEstimatesStore.getState();
+    const est = store.estimatesIndex.find(e => e.id === bar.id);
+    if (!est?.estimator) {
+      store.updateIndexEntry(bar.id, { estimator: name });
+    } else {
+      store.updateIndexEntry(bar.id, { coEstimators: [...(est.coEstimators || []), name] });
+    }
+    useUiStore.getState().showToast(`Added ${name} to team on "${bar.name}"`);
     onClose();
   };
 
@@ -297,6 +343,48 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
               </button>
             </>
           )}
+        </div>
+      ) : submenu === "addToTeam" ? (
+        <div style={{ minWidth: 240 }}>
+          <button
+            onClick={() => setSubmenu(null)}
+            style={{ ...menuItemStyle, color: C.textDim, fontSize: 9 }}
+            onMouseEnter={e => (e.target.style.background = `${C.accent}12`)}
+            onMouseLeave={e => (e.target.style.background = "transparent")}
+          >
+            ← Back
+          </button>
+          <div style={{ padding: "2px 12px 4px", fontSize: 9, color: C.textDim }}>
+            Add estimator to team ({barTeam.length} current)
+          </div>
+          {rankedEstimators.map(e => (
+            <button
+              key={e.id}
+              onClick={() => doAddToTeam(e.name)}
+              style={{ ...menuItemStyle, padding: "6px 12px" }}
+              onMouseEnter={ev => (ev.currentTarget.style.background = `${C.accent}12`)}
+              onMouseLeave={ev => (ev.currentTarget.style.background = "transparent")}
+            >
+              <div
+                style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: "50%",
+                  flexShrink: 0,
+                  background: e.color || "#A78BFA",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 8,
+                  fontWeight: 700,
+                  color: "#fff",
+                }}
+              >
+                {(e.name || "?")[0]}
+              </div>
+              <span style={{ fontSize: 11, fontWeight: 500 }}>{e.name}</span>
+            </button>
+          ))}
         </div>
       ) : editHours ? (
         <div style={{ padding: "6px 12px" }}>
@@ -540,8 +628,19 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
             onMouseLeave={e => (e.target.style.background = "transparent")}
           >
             <span style={{ fontSize: 13, width: 18, textAlign: "center" }}>👤</span>
-            Reassign to...
+            {barTeam.length > 1 ? `Replace ${currentEstimator}...` : "Reassign to..."}
           </button>
+          {rankedEstimators.length > 0 && (
+            <button
+              onClick={() => setSubmenu("addToTeam")}
+              style={menuItemStyle}
+              onMouseEnter={e => (e.target.style.background = `${C.accent}12`)}
+              onMouseLeave={e => (e.target.style.background = "transparent")}
+            >
+              <span style={{ fontSize: 13, width: 18, textAlign: "center" }}>👥</span>
+              Add to team...
+            </button>
+          )}
           <button
             onClick={() => setEditHours(true)}
             style={menuItemStyle}

@@ -97,7 +97,10 @@ export const useAuthStore = create((set, get) => ({
 
         set({ user: session.user, session, loading: false, magicLinkSent: false, authError: null });
         // Load org membership in background, then check for pending invite
-        useOrgStore.getState().fetchOrg().then(() => checkPendingInvite());
+        useOrgStore
+          .getState()
+          .fetchOrg()
+          .then(() => checkPendingInvite());
         // Load app role (BLDG Talent) in background
         get().fetchAppRole(session.user.id);
       } else if (event === "SIGNED_OUT") {
@@ -144,7 +147,10 @@ export const useAuthStore = create((set, get) => ({
 
     set({ user: data.user, session: data.session });
     // Load org membership, then auto-accept pending invite (onAuthStateChange may also fire, but dedup guard handles it)
-    useOrgStore.getState().fetchOrg().then(() => checkPendingInvite());
+    useOrgStore
+      .getState()
+      .fetchOrg()
+      .then(() => checkPendingInvite());
     // Load app role (BLDG Talent)
     get().fetchAppRole(data.user.id);
     return { success: true };
@@ -177,7 +183,10 @@ export const useAuthStore = create((set, get) => ({
 
     set({ user: data.user, session: data.session });
     // Load org membership for newly signed-up user, then auto-accept pending invite
-    useOrgStore.getState().fetchOrg().then(() => checkPendingInvite());
+    useOrgStore
+      .getState()
+      .fetchOrg()
+      .then(() => checkPendingInvite());
     // Load app role (BLDG Talent)
     get().fetchAppRole(data.user.id);
     return { success: true };

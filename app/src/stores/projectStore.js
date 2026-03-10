@@ -11,6 +11,7 @@ const blankProject = () => ({
   engineerMEP: "",
   engineerCivil: "",
   estimator: "",
+  coEstimators: [], // additional estimators for team-based bidding
   address: "",
   date: today(),
   startDate: "", // YYYY-MM-DD — when estimator begins work

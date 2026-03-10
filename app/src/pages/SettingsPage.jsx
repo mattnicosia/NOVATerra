@@ -19,7 +19,6 @@ import { processLogo } from "@/utils/imageUtils";
 
 import LogoPill from "@/components/shared/LogoPill";
 import NovaScriptEditor from "@/components/settings/NovaScriptEditor";
-import TeamPanel from "@/components/settings/TeamPanel";
 import AutoResponseSettings from "@/components/settings/AutoResponseSettings";
 import EstimatorSettingsPanel from "@/components/settings/EstimatorSettingsPanel";
 
@@ -826,87 +825,16 @@ export default function SettingsPage() {
           </div>
         </Sec>
 
-        {/* Display Options */}
-        <Sec title="Display Options">
-          <div style={{ display: "flex", gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>
-            <label
-              style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 12, color: C.text }}
-            >
-              <input
-                type="checkbox"
-                checked={appSettings.sidebarDefault}
-                onChange={e => updateSetting("sidebarDefault", e.target.checked)}
-                style={{ width: 16, height: 16, accentColor: C.accent }}
-              />
-              <span>Sidebar expanded by default</span>
-            </label>
-            <div>
-              <label style={{ fontSize: 9, color: C.textDim, fontWeight: 600, display: "block", marginBottom: 4 }}>
-                Font Size
-              </label>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <input
-                  type="range"
-                  min="11"
-                  max="16"
-                  value={appSettings.fontSize || 13}
-                  onChange={e => updateSetting("fontSize", parseInt(e.target.value))}
-                  style={{ width: 120, accentColor: C.accent }}
-                />
-                <span style={{ fontSize: 12, fontFamily: "'DM Sans',sans-serif", color: C.textMuted }}>
-                  {appSettings.fontSize || 13}px
-                </span>
-              </div>
-            </div>
-            <div>
-              <label style={{ fontSize: 9, color: C.textDim, fontWeight: 600, display: "block", marginBottom: 4 }}>
-                Density
-              </label>
-              <div
-                style={{
-                  display: "flex",
-                  gap: 0,
-                  borderRadius: 6,
-                  overflow: "hidden",
-                  border: `1px solid ${C.border}`,
-                }}
-              >
-                {["comfortable", "compact"].map(d => (
-                  <button
-                    key={d}
-                    onClick={() => updateSetting("density", d)}
-                    style={{
-                      padding: "5px 14px",
-                      fontSize: 10,
-                      fontWeight: 600,
-                      border: "none",
-                      cursor: "pointer",
-                      background: (appSettings.density || "comfortable") === d ? C.accent : "transparent",
-                      color: (appSettings.density || "comfortable") === d ? "#fff" : C.textDim,
-                      transition: "all 120ms ease-out",
-                      textTransform: "capitalize",
-                    }}
-                  >
-                    {d}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </Sec>
 
         {/* Auto-Responses */}
         <Sec title="Auto-Responses" icon={I.send}>
           <AutoResponseSettings />
         </Sec>
 
-        {/* Estimator Management */}
-        <Sec title="Estimator Management" icon={I.people}>
+        {/* Team */}
+        <Sec title="Team" icon={I.people}>
           <EstimatorSettingsPanel />
         </Sec>
-
-        {/* Team / Organization */}
-        {supabase && <TeamPanel />}
 
         {/* Email Inbox */}
         {supabase && <EmailInboxSection C={C} T={T} showToast={showToast} />}

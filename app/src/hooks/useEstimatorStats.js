@@ -26,7 +26,10 @@ export function useEstimatorStats(estimatorName) {
       };
     }
 
-    const mine = estimates.filter(e => e.estimator === estimatorName);
+    const mine = estimates.filter(e => {
+      const team = [e.estimator, ...(e.coEstimators || [])].filter(Boolean);
+      return team.includes(estimatorName);
+    });
 
     // ── Accuracy: avg absolute deviation % on Won projects with actual amounts ──
     const wonWithActual = mine.filter(
@@ -162,9 +165,16 @@ export function useAllEstimatorStats() {
   return useMemo(() => {
     const byEstimator = {};
     for (const e of estimates) {
-      const name = e.estimator || "Unassigned";
-      if (!byEstimator[name]) byEstimator[name] = [];
-      byEstimator[name].push(e);
+      const team = [e.estimator, ...(e.coEstimators || [])].filter(Boolean);
+      if (team.length === 0) {
+        if (!byEstimator["Unassigned"]) byEstimator["Unassigned"] = [];
+        byEstimator["Unassigned"].push(e);
+      } else {
+        for (const name of team) {
+          if (!byEstimator[name]) byEstimator[name] = [];
+          byEstimator[name].push(e);
+        }
+      }
     }
 
     const stats = {};

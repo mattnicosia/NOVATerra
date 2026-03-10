@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import NovaSceneLazy from "@/components/nova/NovaSceneLazy";
+import { useAuthStore } from "@/stores/authStore";
 
 /* ────────────────────────────────────────────────────────────────
    LoginMockupPage — NOVACORE v15 Cinematic Hybrid Login
@@ -476,10 +477,24 @@ function PasswordInput({ value, onChange, placeholder, onFocusCb, ...rest }) {
 function LoginOverlay({ setPhase }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [mode, setMode] = useState("password"); // password | magic | signup | forgot
   const [visible, setVisible] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
   const prevEmailLen = useRef(0);
   const prevPwLen = useRef(0);
+
+  // Auth store
+  const signInWithPassword = useAuthStore(s => s.signInWithPassword);
+  const signInWithMagicLink = useAuthStore(s => s.signInWithMagicLink);
+  const signUpWithPassword = useAuthStore(s => s.signUpWithPassword);
+  const resetPasswordFn = useAuthStore(s => s.resetPassword);
+  const authError = useAuthStore(s => s.authError);
+  const magicLinkSent = useAuthStore(s => s.magicLinkSent);
+  const clearError = useAuthStore(s => s.clearError);
+  const clearMagicLinkSent = useAuthStore(s => s.clearMagicLinkSent);
 
   // Stagger form entry
   useEffect(() => {
@@ -515,22 +530,205 @@ function LoginOverlay({ setPhase }) {
     if (email.length > 0) setPhase("dissolving");
   }, [email, setPhase]);
 
-  const handleSubmit = useCallback(
-    e => {
-      e.preventDefault();
-      if (!email.trim() || !password) return;
+  // Mode switching — clears error, resets sub-states
+  const switchMode = useCallback((newMode) => {
+    setMode(newMode);
+    clearError?.();
+    setResetSent(false);
+    clearMagicLinkSent?.();
+  }, [clearError, clearMagicLinkSent]);
 
-      // Trigger full awakening
+  // ── Auth handlers ──────────────────────────────────────────
+  const handlePasswordLogin = useCallback(async (e) => {
+    e.preventDefault();
+    if (!email.trim() || !password) return;
+    setSubmitting(true);
+    const result = await signInWithPassword(email.trim(), password);
+    setSubmitting(false);
+    if (!result?.error) {
+      // Auth succeeded — trigger the ascension
       setPhase("ascending");
       setTransitioning(true);
+    }
+  }, [email, password, signInWithPassword, setPhase]);
 
-      // After animation, would navigate to dashboard
-      // setTimeout(() => navigate('/dashboard'), 1200);
-    },
-    [email, password, setPhase],
-  );
+  const handleMagicLink = useCallback(async (e) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setSubmitting(true);
+    await signInWithMagicLink(email.trim());
+    setSubmitting(false);
+    // authStore sets magicLinkSent=true → confirmation screen
+  }, [email, signInWithMagicLink]);
+
+  const handleSignUp = useCallback(async (e) => {
+    e.preventDefault();
+    if (!email.trim() || !password) return;
+    setSubmitting(true);
+    const result = await signUpWithPassword(email.trim(), password, fullName.trim());
+    setSubmitting(false);
+    if (result?.success && !result?.confirmEmail) {
+      setPhase("ascending");
+      setTransitioning(true);
+    }
+    // If confirmEmail, authStore sets magicLinkSent → confirmation screen
+  }, [email, password, fullName, signUpWithPassword, setPhase]);
+
+  const handleForgotPassword = useCallback(async (e) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setSubmitting(true);
+    const result = await resetPasswordFn(email.trim());
+    setSubmitting(false);
+    if (result?.success) setResetSent(true);
+  }, [email, resetPasswordFn]);
+
+  const handleSubmit =
+    mode === "password" ? handlePasswordLogin
+    : mode === "magic" ? handleMagicLink
+    : mode === "signup" ? handleSignUp
+    : handleForgotPassword;
 
   if (!visible) return null;
+
+  // ── Confirmation screens ───────────────────────────────────
+  if (magicLinkSent) {
+    return (
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 10,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: 340,
+            textAlign: "center",
+            animation: "loginFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both",
+          }}
+        >
+          <div
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: "50%",
+              background: "rgba(48,209,88,0.12)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 18px",
+              border: "1px solid rgba(48,209,88,0.25)",
+            }}
+          >
+            <svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="#30D158" strokeWidth={2.5} strokeLinecap="round">
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+          </div>
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: TEXT, margin: "0 0 8px", fontFamily: FONT }}>
+            Check your email
+          </h2>
+          <p style={{ fontSize: 13, color: TEXT_MUTED, margin: "0 0 24px", lineHeight: 1.5, fontFamily: FONT }}>
+            We sent a {mode === "magic" ? "magic link" : "confirmation link"} to <strong style={{ color: TEXT }}>{email}</strong>
+          </p>
+          <button
+            onClick={() => { clearMagicLinkSent?.(); switchMode("password"); }}
+            style={{
+              ...submitBtnStyle(false),
+              maxWidth: 200,
+              margin: "0 auto",
+              background: "rgba(255,255,255,0.08)",
+              boxShadow: "none",
+            }}
+          >
+            Back to Sign In
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (resetSent) {
+    return (
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 10,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: 340,
+            textAlign: "center",
+            animation: "loginFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both",
+          }}
+        >
+          <div
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: "50%",
+              background: "rgba(124,92,252,0.12)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 18px",
+              border: "1px solid rgba(124,92,252,0.25)",
+            }}
+          >
+            <svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth={2} strokeLinecap="round">
+              <rect x="3" y="5" width="18" height="14" rx="2" />
+              <path d="m3 7 9 6 9-6" />
+            </svg>
+          </div>
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: TEXT, margin: "0 0 8px", fontFamily: FONT }}>
+            Reset link sent
+          </h2>
+          <p style={{ fontSize: 13, color: TEXT_MUTED, margin: "0 0 24px", lineHeight: 1.5, fontFamily: FONT }}>
+            Check <strong style={{ color: TEXT }}>{email}</strong> for a password reset link
+          </p>
+          <button
+            onClick={() => { setResetSent(false); switchMode("password"); }}
+            style={{
+              ...submitBtnStyle(false),
+              maxWidth: 200,
+              margin: "0 auto",
+              background: "rgba(255,255,255,0.08)",
+              boxShadow: "none",
+            }}
+          >
+            Back to Sign In
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Determine form fields based on mode ────────────────────
+  const showPasswordField = mode === "password" || mode === "signup";
+  const showNameField = mode === "signup";
+  const showTabs = mode === "password" || mode === "magic";
+  const isFormDisabled = mode === "magic" || mode === "forgot"
+    ? !email.trim()
+    : !email.trim() || !password;
+
+  const submitLabel =
+    mode === "password" ? (submitting ? "Signing in…" : "Sign In")
+    : mode === "magic" ? (submitting ? "Sending…" : "Send Magic Link")
+    : mode === "signup" ? (submitting ? "Creating…" : "Create Account")
+    : (submitting ? "Sending…" : "Send Reset Link");
+
+  const headingLabel =
+    mode === "signup" ? "Create Account"
+    : mode === "forgot" ? "Reset Password"
+    : null;
 
   return (
     <>
@@ -631,45 +829,88 @@ function LoginOverlay({ setPhase }) {
               animation: "loginFadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both",
             }}
           >
-            {/* Mode tabs */}
-            <div
-              style={{
-                display: "flex",
-                background: "rgba(255,255,255,0.04)",
-                borderRadius: 8,
-                padding: 3,
-                marginBottom: 18,
-                gap: 2,
-                border: "1px solid rgba(255,255,255,0.05)",
-              }}
-            >
-              {[
-                { key: "password", label: "Password" },
-                { key: "magic", label: "Magic Link" },
-              ].map(tab => (
+            {/* Mode heading (signup / forgot) */}
+            {headingLabel && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
                 <button
-                  key={tab.key}
+                  type="button"
+                  onClick={() => switchMode("password")}
                   style={{
-                    flex: 1,
-                    padding: "7px 0",
-                    fontSize: 12,
-                    fontWeight: tab.key === "password" ? 600 : 500,
-                    fontFamily: FONT,
-                    color: tab.key === "password" ? TEXT : TEXT_MUTED,
-                    background: tab.key === "password" ? "rgba(255,255,255,0.08)" : "transparent",
+                    background: "none",
                     border: "none",
-                    borderRadius: 7,
                     cursor: "pointer",
-                    transition: "all 150ms ease-out",
-                    boxShadow: tab.key === "password" ? "0 1px 4px rgba(0,0,0,0.3)" : "none",
+                    padding: 2,
+                    display: "flex",
+                    alignItems: "center",
                   }}
                 >
-                  {tab.label}
+                  <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={TEXT_MUTED} strokeWidth={2} strokeLinecap="round">
+                    <path d="M19 12H5M12 19l-7-7 7-7" />
+                  </svg>
                 </button>
-              ))}
-            </div>
+                <span style={{ fontSize: 14, fontWeight: 600, color: TEXT, fontFamily: FONT }}>{headingLabel}</span>
+              </div>
+            )}
+
+            {/* Mode tabs (password / magic link) */}
+            {showTabs && (
+              <div
+                style={{
+                  display: "flex",
+                  background: "rgba(255,255,255,0.04)",
+                  borderRadius: 8,
+                  padding: 3,
+                  marginBottom: 18,
+                  gap: 2,
+                  border: "1px solid rgba(255,255,255,0.05)",
+                }}
+              >
+                {[
+                  { key: "password", label: "Password" },
+                  { key: "magic", label: "Magic Link" },
+                ].map(tab => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => switchMode(tab.key)}
+                    style={{
+                      flex: 1,
+                      padding: "7px 0",
+                      fontSize: 12,
+                      fontWeight: mode === tab.key ? 600 : 500,
+                      fontFamily: FONT,
+                      color: mode === tab.key ? TEXT : TEXT_MUTED,
+                      background: mode === tab.key ? "rgba(255,255,255,0.08)" : "transparent",
+                      border: "none",
+                      borderRadius: 7,
+                      cursor: "pointer",
+                      transition: "all 150ms ease-out",
+                      boxShadow: mode === tab.key ? "0 1px 4px rgba(0,0,0,0.3)" : "none",
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <form onSubmit={handleSubmit}>
+              {/* Full Name (signup only) */}
+              {showNameField && (
+                <>
+                  <label style={labelStyle}>Full Name</label>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={e => setFullName(e.target.value)}
+                    placeholder="Jane Smith"
+                    style={{ ...inputStyle, marginBottom: 14 }}
+                    onFocus={focusHandler}
+                    onBlur={blurHandler}
+                  />
+                </>
+              )}
+
               <label style={labelStyle}>Email Address</label>
               <input
                 type="email"
@@ -678,47 +919,81 @@ function LoginOverlay({ setPhase }) {
                 onFocus={handleEmailFocus}
                 placeholder="you@company.com"
                 autoFocus
-                style={{ ...inputStyle, marginBottom: 14 }}
+                style={{ ...inputStyle, marginBottom: showPasswordField ? 14 : 18 }}
                 onBlur={blurHandler}
               />
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                <label style={{ ...labelStyle, marginBottom: 0 }}>Password</label>
-                <button
-                  type="button"
+
+              {/* Password field (password + signup modes) */}
+              {showPasswordField && (
+                <>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                    <label style={{ ...labelStyle, marginBottom: 0 }}>Password</label>
+                    {mode === "password" && (
+                      <button
+                        type="button"
+                        onClick={() => switchMode("forgot")}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          color: ACCENT,
+                          fontSize: 11,
+                          fontWeight: 500,
+                          fontFamily: FONT,
+                          padding: 0,
+                          opacity: 0.8,
+                        }}
+                      >
+                        Forgot?
+                      </button>
+                    )}
+                  </div>
+                  <div style={{ marginBottom: 18 }}>
+                    <PasswordInput
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      placeholder={mode === "signup" ? "Create a password" : "Enter your password"}
+                      onFocusCb={handlePasswordFocus}
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Auth error */}
+              {authError && (
+                <div
                   style={{
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    color: ACCENT,
-                    fontSize: 11,
-                    fontWeight: 500,
-                    fontFamily: FONT,
-                    padding: 0,
-                    opacity: 0.8,
+                    marginBottom: 12,
+                    padding: "8px 12px",
+                    borderRadius: 8,
+                    background: "rgba(255,69,58,0.08)",
+                    border: "1px solid rgba(255,69,58,0.18)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    animation: "loginFadeIn 0.3s ease-out both",
                   }}
                 >
-                  Forgot?
-                </button>
-              </div>
-              <div style={{ marginBottom: 18 }}>
-                <PasswordInput
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  onFocusCb={handlePasswordFocus}
-                />
-              </div>
+                  <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#FF453A" strokeWidth={2} strokeLinecap="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="15" y1="9" x2="9" y2="15" />
+                    <line x1="9" y1="9" x2="15" y2="15" />
+                  </svg>
+                  <span style={{ fontSize: 12, color: "#FF453A", fontFamily: FONT }}>{authError}</span>
+                </div>
+              )}
+
               <button
                 type="submit"
-                disabled={!email.trim() || !password}
-                style={submitBtnStyle(!email.trim() || !password)}
+                disabled={isFormDisabled || submitting}
+                style={submitBtnStyle(isFormDisabled || submitting)}
               >
-                Sign In
+                {submitLabel}
               </button>
             </form>
           </div>
 
-          {/* Sign up + Powered by */}
+          {/* Footer links */}
           <div
             style={{
               textAlign: "center",
@@ -726,10 +1001,27 @@ function LoginOverlay({ setPhase }) {
               animation: "loginFadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.35s both",
             }}
           >
-            <p style={{ fontSize: 12, color: "rgba(238,237,245,0.25)", margin: "0 0 12px" }}>
-              Don't have an account?{" "}
-              <span style={{ color: ACCENT, fontWeight: 600, cursor: "pointer" }}>Create one</span>
-            </p>
+            {mode === "signup" ? (
+              <p style={{ fontSize: 12, color: "rgba(238,237,245,0.25)", margin: "0 0 12px" }}>
+                Already have an account?{" "}
+                <span
+                  onClick={() => switchMode("password")}
+                  style={{ color: ACCENT, fontWeight: 600, cursor: "pointer" }}
+                >
+                  Sign in
+                </span>
+              </p>
+            ) : (
+              <p style={{ fontSize: 12, color: "rgba(238,237,245,0.25)", margin: "0 0 12px" }}>
+                Don't have an account?{" "}
+                <span
+                  onClick={() => switchMode("signup")}
+                  style={{ color: ACCENT, fontWeight: 600, cursor: "pointer" }}
+                >
+                  Create one
+                </span>
+              </p>
+            )}
             <p
               style={{
                 fontSize: 9,

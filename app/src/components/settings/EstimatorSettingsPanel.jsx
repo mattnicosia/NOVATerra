@@ -2,26 +2,16 @@ import { useState, useMemo, useEffect } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
-import { useOrgStore, selectIsManager } from "@/stores/orgStore";
+import { useOrgStore, TEAM_COLORS, selectIsManager } from "@/stores/orgStore";
+import { useAuthStore } from "@/stores/authStore";
+import { useAllEstimatorStats } from "@/hooks/useEstimatorStats";
+import { supabase } from "@/utils/supabase";
 import { computeEstimatorExperience } from "@/utils/estimatorExperience";
 import { inp, bt, cardSolid } from "@/utils/styles";
 import { uid } from "@/utils/format";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import Avatar from "@/components/shared/Avatar";
-
-const TEAM_COLORS = [
-  "#A78BFA",
-  "#60A5FA",
-  "#34D399",
-  "#FB7185",
-  "#FBBF24",
-  "#F472B6",
-  "#38BDF8",
-  "#4ADE80",
-  "#FB923C",
-  "#C084FC",
-];
 
 function getInitials(name) {
   if (!name) return "??";
@@ -55,6 +45,320 @@ function ExperiencePills({ estimatorName, estimates, C, T }) {
   );
 }
 
+// ── Org Creation Form (shown when supabase exists but no org yet) ──
+function OrgCreateForm({ C, T }) {
+  const createOrg = useOrgStore(s => s.createOrg);
+  const [orgName, setOrgName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  return (
+    <div style={{ marginBottom: T.space[5] }}>
+      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 14, lineHeight: 1.6 }}>
+        Create an organization to invite team members. Each estimator gets their own login, avatar, and color. Managers
+        can monitor all estimators' work.
+      </div>
+      <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+        <div style={{ flex: 1 }}>
+          <label style={{ fontSize: 9, color: C.textDim, fontWeight: 600, display: "block", marginBottom: 4 }}>
+            Organization Name
+          </label>
+          <input
+            value={orgName}
+            onChange={e => setOrgName(e.target.value)}
+            placeholder="e.g. Acme Construction"
+            style={inp(C)}
+          />
+        </div>
+        <button
+          disabled={!orgName.trim() || loading}
+          onClick={async () => {
+            setLoading(true);
+            setError("");
+            const res = await createOrg(orgName.trim());
+            setLoading(false);
+            if (res.error) setError(res.error);
+            else setOrgName("");
+          }}
+          style={bt(C, {
+            background: C.accent,
+            color: "#fff",
+            padding: "8px 20px",
+            fontSize: 11,
+            fontWeight: 600,
+            opacity: !orgName.trim() || loading ? 0.5 : 1,
+          })}
+        >
+          {loading ? "Creating..." : "Create Organization"}
+        </button>
+      </div>
+      {error && <div style={{ fontSize: 10, color: C.red, marginTop: 6 }}>{error}</div>}
+    </div>
+  );
+}
+
+// ── My Profile (shown when org exists) ──
+function MyProfileSection({ C, T }) {
+  const user = useAuthStore(s => s.user);
+  const membership = useOrgStore(s => s.membership);
+  const updateProfile = useOrgStore(s => s.updateProfile);
+  const [editingName, setEditingName] = useState(false);
+  const [displayName, setDisplayName] = useState(membership?.display_name || "");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (membership?.display_name) setDisplayName(membership.display_name);
+  }, [membership?.display_name]);
+
+  const handleSaveName = async () => {
+    const trimmed = displayName.trim();
+    if (!trimmed) return;
+    const res = await updateProfile({ display_name: trimmed });
+    if (!res.error) setEditingName(false);
+    else setError(res.error);
+  };
+
+  return (
+    <div style={{ marginBottom: T.space[5] }}>
+      <div
+        style={{
+          fontSize: 9,
+          fontWeight: 600,
+          color: C.textDim,
+          textTransform: "uppercase",
+          letterSpacing: "0.1em",
+          marginBottom: 8,
+        }}
+      >
+        My Profile
+      </div>
+      <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+        <Avatar
+          name={membership?.display_name || user?.email || "?"}
+          src={membership?.avatar_url}
+          color={membership?.color || "#6366F1"}
+          size={36}
+          editable
+          onUpload={async dataUrl => {
+            const res = await updateProfile({ avatar_url: dataUrl });
+            if (res.error) setError(res.error);
+          }}
+        />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {editingName ? (
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <input
+                value={displayName}
+                onChange={e => setDisplayName(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter") handleSaveName();
+                  if (e.key === "Escape") setEditingName(false);
+                }}
+                autoFocus
+                style={{ ...inp(C), fontSize: 12, padding: "4px 8px", flex: 1 }}
+              />
+              <button
+                onClick={handleSaveName}
+                style={{ ...bt(C), fontSize: 9, padding: "4px 10px", background: C.accent, color: "#fff" }}
+              >
+                Save
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: C.text }}>
+                {membership?.display_name || "Set name"}
+              </span>
+              <button
+                onClick={() => {
+                  setDisplayName(membership?.display_name || "");
+                  setEditingName(true);
+                }}
+                style={{ background: "none", border: "none", cursor: "pointer", padding: 2 }}
+                aria-label="Edit display name"
+              >
+                <Ic d={I.edit} size={10} color={C.textDim} />
+              </button>
+            </div>
+          )}
+          <div style={{ fontSize: 9, color: C.textDim, textTransform: "uppercase", marginTop: 2 }}>
+            {membership?.role} {user?.email && `· ${user.email}`}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 3, flexWrap: "wrap", maxWidth: 130 }}>
+          {TEAM_COLORS.map(c => (
+            <button
+              key={c}
+              onClick={() => updateProfile({ color: c })}
+              aria-label={`Select color ${c}`}
+              style={{
+                width: 16,
+                height: 16,
+                borderRadius: "50%",
+                border: "none",
+                cursor: "pointer",
+                background: c,
+                transition: "transform 0.1s",
+                transform: membership?.color === c ? "scale(1.3)" : "scale(1)",
+                boxShadow: membership?.color === c ? `0 0 0 2px ${C.bg1}, 0 0 0 3px ${c}` : "none",
+              }}
+            />
+          ))}
+        </div>
+      </div>
+      {error && <div style={{ fontSize: 10, color: C.red, marginTop: 6 }}>{error}</div>}
+    </div>
+  );
+}
+
+// ── Division Expertise Heatmap (managers only) ──
+function DivisionHeatmap({ C, T }) {
+  const members = useOrgStore(s => s.members);
+  const allStats = useAllEstimatorStats();
+
+  const estimatorNames = members.map(m => m.display_name).filter(Boolean);
+  const allDivs = new Set();
+  for (const name of estimatorNames) {
+    const s = allStats[name];
+    if (s?.divisions) Object.keys(s.divisions).forEach(d => allDivs.add(d));
+  }
+  const divList = [...allDivs].sort();
+  if (divList.length === 0) return null;
+
+  const heatColor = (count, won) => {
+    if (!count) return "transparent";
+    const base = won > 0 ? "52,211,153" : "96,165,250";
+    const alpha = count >= 5 ? 0.5 : count >= 3 ? 0.35 : 0.18;
+    return `rgba(${base},${alpha})`;
+  };
+
+  return (
+    <div style={{ marginTop: T.space[5] }}>
+      <div
+        style={{
+          fontSize: 9,
+          fontWeight: 600,
+          color: C.textDim,
+          textTransform: "uppercase",
+          letterSpacing: "0.1em",
+          marginBottom: 8,
+        }}
+      >
+        Division Expertise
+      </div>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 9 }}>
+          <thead>
+            <tr>
+              <th style={{ textAlign: "left", padding: "4px 6px", color: C.textDim, fontWeight: 500 }} />
+              {divList.map(d => (
+                <th
+                  key={d}
+                  style={{
+                    padding: "4px 3px",
+                    color: C.textDim,
+                    fontWeight: 500,
+                    textAlign: "center",
+                    whiteSpace: "nowrap",
+                    maxWidth: 40,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                  title={d}
+                >
+                  {d.length > 5 ? d.slice(0, 5) : d}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {estimatorNames.map(name => {
+              const s = allStats[name];
+              if (!s) return null;
+              return (
+                <tr key={name}>
+                  <td
+                    style={{
+                      padding: "3px 6px",
+                      color: C.text,
+                      fontWeight: 500,
+                      whiteSpace: "nowrap",
+                      maxWidth: 100,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {name}
+                  </td>
+                  {divList.map(d => {
+                    const dd = s.divisions?.[d];
+                    return (
+                      <td
+                        key={d}
+                        title={dd ? `${dd.count} est, ${dd.wonCount} won` : "—"}
+                        style={{
+                          padding: "3px 3px",
+                          textAlign: "center",
+                          background: heatColor(dd?.count, dd?.wonCount),
+                          borderRadius: 3,
+                          color: dd?.count ? C.text : "transparent",
+                          fontWeight: 600,
+                          minWidth: 28,
+                        }}
+                      >
+                        {dd?.count || ""}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div style={{ fontSize: 8, color: C.textDim, marginTop: 6, display: "flex", gap: 12 }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: 2,
+              background: "rgba(52,211,153,0.5)",
+              display: "inline-block",
+            }}
+          />
+          5+ with wins
+        </span>
+        <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: 2,
+              background: "rgba(96,165,250,0.35)",
+              display: "inline-block",
+            }}
+          />
+          3-4
+        </span>
+        <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: 2,
+              background: "rgba(96,165,250,0.18)",
+              display: "inline-block",
+            }}
+          />
+          1-2
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Panel ──
 export default function EstimatorSettingsPanel() {
   const C = useTheme();
   const T = C.T;
@@ -109,15 +413,18 @@ export default function EstimatorSettingsPanel() {
     setShowForm(false);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formName.trim()) return;
     const initials = getInitials(formName);
+    const isNew = !editId;
+    const email = formEmail.trim();
+
     if (editId) {
       // Update existing
       const est = estimators.find(e => e.id === editId);
       if (est) {
         updateMasterItem("estimators", editId, "name", formName.trim());
-        updateMasterItem("estimators", editId, "email", formEmail.trim());
+        updateMasterItem("estimators", editId, "email", email);
         updateMasterItem("estimators", editId, "initials", initials);
         updateMasterItem("estimators", editId, "color", formColor);
         updateMasterItem("estimators", editId, "maxHoursPerDay", Number(formMaxHours) || 7);
@@ -128,7 +435,7 @@ export default function EstimatorSettingsPanel() {
       // Add new
       addMasterItem("estimators", {
         name: formName.trim(),
-        email: formEmail.trim(),
+        email,
         initials,
         color: formColor,
         maxHoursPerDay: Number(formMaxHours) || 7,
@@ -136,6 +443,16 @@ export default function EstimatorSettingsPanel() {
         notes: formNotes.trim(),
       });
     }
+
+    // Auto-invite when adding a new estimator with email in org mode
+    if (isNew && email && org && isManager) {
+      const result = await sendEstimatorInvite(email, formName.trim());
+      if (result?.error) {
+        console.warn("[invite]", result.error);
+        // Don't block — estimator was added locally even if invite fails
+      }
+    }
+
     resetForm();
   };
 
@@ -178,7 +495,6 @@ export default function EstimatorSettingsPanel() {
     setInviting(email);
     const result = await sendEstimatorInvite(email, name);
     if (result?.error) {
-      // Simple alert for now — could use toast
       console.warn("[invite]", result.error);
       alert(result.error);
     }
@@ -188,7 +504,6 @@ export default function EstimatorSettingsPanel() {
   const handleResendInvite = async (email, name, oldInvitationId) => {
     if (!email || inviting) return;
     setInviting(email);
-    // Revoke old invitation first, then send new one
     if (oldInvitationId) await revokeInvitation(oldInvitationId);
     const result = await sendEstimatorInvite(email, name);
     if (result?.error) {
@@ -245,7 +560,6 @@ export default function EstimatorSettingsPanel() {
           marginTop: 6,
         }}
       >
-        {/* Today marker */}
         <div
           style={{
             position: "absolute",
@@ -282,6 +596,12 @@ export default function EstimatorSettingsPanel() {
 
   return (
     <div style={{ marginTop: T.space[6] }}>
+      {/* Org Creation (if supabase exists but no org yet) */}
+      {supabase && !org && <OrgCreateForm C={C} T={T} />}
+
+      {/* My Profile (if org exists) */}
+      {org && <MyProfileSection C={C} T={T} />}
+
       {/* Section Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: T.space[4] }}>
         <div>
@@ -357,67 +677,30 @@ export default function EstimatorSettingsPanel() {
                 </div>
 
                 {/* Invite Status Badge */}
-                {org && isManager && (() => {
-                  const invStatus = getInviteStatus(est.email);
-                  if (!est.email) {
-                    return (
-                      <div style={{
-                        fontSize: 10, color: C.textDim, fontStyle: "italic",
-                        padding: "3px 10px", borderRadius: 12,
-                        background: C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
-                      }}>
-                        No email — local only
-                      </div>
-                    );
-                  }
-                  if (!invStatus) {
-                    return (
-                      <button
-                        onClick={() => handleInvite(est.email, est.name)}
-                        disabled={inviting === est.email}
-                        style={{
-                          ...bt(C),
-                          padding: "5px 14px",
-                          fontSize: 11,
-                          fontWeight: 600,
-                          color: "#fff",
-                          background: inviting === est.email ? C.textDim : C.accent,
-                          borderRadius: 20,
-                          opacity: inviting === est.email ? 0.6 : 1,
-                          cursor: inviting === est.email ? "wait" : "pointer",
-                        }}
-                      >
-                        {inviting === est.email ? "Sending..." : "Invite to Platform"}
-                      </button>
-                    );
-                  }
-                  if (invStatus.status === "active" || invStatus.status === "accepted") {
-                    return (
-                      <div style={{
-                        fontSize: 10, fontWeight: 600, color: "#34D399",
-                        padding: "3px 10px", borderRadius: 12,
-                        background: "rgba(52,211,153,0.12)",
-                        display: "flex", alignItems: "center", gap: 4,
-                      }}>
-                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#34D399" }} />
-                        Active
-                      </div>
-                    );
-                  }
-                  if (invStatus.status === "pending") {
-                    return (
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <div style={{
-                          fontSize: 10, fontWeight: 600, color: "#FBBF24",
-                          padding: "3px 10px", borderRadius: 12,
-                          background: "rgba(251,191,36,0.12)",
-                          display: "flex", alignItems: "center", gap: 4,
-                        }}>
-                          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#FBBF24" }} />
-                          Pending
+                {org &&
+                  isManager &&
+                  (() => {
+                    const invStatus = getInviteStatus(est.email);
+                    if (!est.email) {
+                      return (
+                        <div
+                          style={{
+                            fontSize: 10,
+                            color: C.textDim,
+                            fontStyle: "italic",
+                            padding: "3px 10px",
+                            borderRadius: 12,
+                            background: C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
+                          }}
+                        >
+                          No email — local only
                         </div>
+                      );
+                    }
+                    if (!invStatus) {
+                      return (
                         <button
-                          onClick={() => handleResendInvite(est.email, est.name, invStatus.inv?.id)}
+                          onClick={() => handleInvite(est.email, est.name)}
                           disabled={inviting === est.email}
                           style={{
                             ...bt(C),
@@ -430,42 +713,104 @@ export default function EstimatorSettingsPanel() {
                             cursor: inviting === est.email ? "wait" : "pointer",
                           }}
                         >
-                          {inviting === est.email ? "..." : "Resend"}
+                          {inviting === est.email ? "Sending..." : "Send Invite"}
                         </button>
-                      </div>
-                    );
-                  }
-                  if (invStatus.status === "expired") {
-                    return (
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <div style={{
-                          fontSize: 10, fontWeight: 600, color: C.textDim,
-                          padding: "3px 10px", borderRadius: 12,
-                          background: C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)",
-                        }}>
-                          Expired
-                        </div>
-                        <button
-                          onClick={() => handleResendInvite(est.email, est.name, invStatus.inv?.id)}
-                          disabled={inviting === est.email}
+                      );
+                    }
+                    if (invStatus.status === "active" || invStatus.status === "accepted") {
+                      return (
+                        <div
                           style={{
-                            ...bt(C),
-                            padding: "3px 8px",
                             fontSize: 10,
-                            color: C.accent,
-                            background: "transparent",
-                            borderRadius: 10,
-                            textDecoration: "underline",
-                            cursor: inviting === est.email ? "wait" : "pointer",
+                            fontWeight: 600,
+                            color: "#34D399",
+                            padding: "3px 10px",
+                            borderRadius: 12,
+                            background: "rgba(52,211,153,0.12)",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4,
                           }}
                         >
-                          {inviting === est.email ? "..." : "Re-invite"}
-                        </button>
-                      </div>
-                    );
-                  }
-                  return null;
-                })()}
+                          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#34D399" }} />
+                          Active
+                        </div>
+                      );
+                    }
+                    if (invStatus.status === "pending") {
+                      return (
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <div
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 600,
+                              color: "#FBBF24",
+                              padding: "3px 10px",
+                              borderRadius: 12,
+                              background: "rgba(251,191,36,0.12)",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 4,
+                            }}
+                          >
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#FBBF24" }} />
+                            Pending
+                          </div>
+                          <button
+                            onClick={() => handleResendInvite(est.email, est.name, invStatus.inv?.id)}
+                            disabled={inviting === est.email}
+                            style={{
+                              ...bt(C),
+                              padding: "3px 8px",
+                              fontSize: 10,
+                              color: C.accent,
+                              background: "transparent",
+                              borderRadius: 10,
+                              textDecoration: "underline",
+                              cursor: inviting === est.email ? "wait" : "pointer",
+                            }}
+                          >
+                            {inviting === est.email ? "..." : "Resend"}
+                          </button>
+                        </div>
+                      );
+                    }
+                    if (invStatus.status === "expired") {
+                      return (
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <div
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 600,
+                              color: C.textDim,
+                              padding: "3px 10px",
+                              borderRadius: 12,
+                              background: C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)",
+                            }}
+                          >
+                            Expired
+                          </div>
+                          <button
+                            onClick={() => handleResendInvite(est.email, est.name, invStatus.inv?.id)}
+                            disabled={inviting === est.email}
+                            style={{
+                              ...bt(C),
+                              padding: "3px 8px",
+                              fontSize: 10,
+                              color: C.accent,
+                              background: "transparent",
+                              borderRadius: 10,
+                              textDecoration: "underline",
+                              cursor: inviting === est.email ? "wait" : "pointer",
+                            }}
+                          >
+                            {inviting === est.email ? "..." : "Re-invite"}
+                          </button>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
 
                 {/* Stats */}
                 <div style={{ display: "flex", gap: T.space[4], alignItems: "center" }}>
@@ -719,6 +1064,9 @@ export default function EstimatorSettingsPanel() {
           </div>
         </div>
       )}
+
+      {/* Division Expertise Heatmap (managers only) */}
+      {org && isManager && members.length > 0 && <DivisionHeatmap C={C} T={T} />}
     </div>
   );
 }
