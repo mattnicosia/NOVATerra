@@ -30,6 +30,72 @@ import { useOrgStore } from "@/stores/orgStore";
 import { useCollaborationStore } from "@/stores/collaborationStore";
 import { drainPendingSessions } from "@/hooks/useActivityTracker";
 
+// One-time migration: copy solo-mode IDB data into org-scoped keys.
+// When a user creates/joins an org, the idbKey() namespace changes from
+// `u-{userId}-bldg-*` to `org-{orgId}-bldg-*`, making all existing data
+// invisible. This migration copies it forward so nothing is lost.
+async function migrateSoloToOrg() {
+  const userId = useAuthStore.getState().user?.id;
+  const org = useOrgStore.getState().org;
+  if (!userId || !org?.id) return; // Only needed in org mode
+
+  const flag = `idb-solo-to-org-${userId}-${org.id}`;
+  if (localStorage.getItem(flag)) return; // Already migrated
+
+  const dataKeys = ["bldg-index", "bldg-master", "bldg-deleted-ids"];
+  let migrated = 0;
+
+  try {
+    for (const key of dataKeys) {
+      const soloKey = `u-${userId}-${key}`;
+      const orgKey = `org-${org.id}-${key}`;
+
+      // Only migrate if org key is empty AND solo key has data
+      const orgData = await storage.get(orgKey);
+      if (orgData) continue; // org already has data for this key
+
+      const soloData = await storage.get(soloKey);
+      if (soloData?.value) {
+        await storage.set(orgKey, soloData.value);
+        migrated++;
+      }
+    }
+
+    // Also migrate individual estimate data blobs (bldg-est-{id})
+    // The index was migrated above, but the actual estimate data blobs
+    // are stored under separate keys that also need org-scoping.
+    try {
+      const soloIndexKey = `u-${userId}-bldg-index`;
+      const indexRaw = await storage.get(`org-${org.id}-bldg-index`);
+      const indexData = indexRaw?.value ? JSON.parse(indexRaw.value) : null;
+      if (Array.isArray(indexData)) {
+        for (const est of indexData) {
+          if (!est.id) continue;
+          const orgEstKey = `org-${org.id}-bldg-est-${est.id}`;
+          const orgEst = await storage.get(orgEstKey);
+          if (orgEst) continue; // already exists in org scope
+
+          const soloEstKey = `u-${userId}-bldg-est-${est.id}`;
+          const soloEst = await storage.get(soloEstKey);
+          if (soloEst?.value) {
+            await storage.set(orgEstKey, soloEst.value);
+            migrated++;
+          }
+        }
+      }
+    } catch (estErr) {
+      console.warn("[migration] Estimate blob migration failed:", estErr);
+    }
+
+    if (migrated > 0) {
+      console.log(`[migration] Copied ${migrated} solo-mode IDB keys → org-${org.id.slice(0, 8)}`);
+    }
+  } catch (err) {
+    console.warn("[migration] Solo→org IDB migration failed:", err);
+  }
+  localStorage.setItem(flag, "1");
+}
+
 // One-time migration: rename bare `bldg-*` keys to `u-{userId}-bldg-*`
 // so different users on the same browser have isolated IndexedDB data.
 async function migrateIdbKeysForUser() {
@@ -146,6 +212,9 @@ export function usePersistenceLoad() {
 
       // Migrate bare IDB keys to user-namespaced keys (one-time, solo mode only)
       await migrateIdbKeysForUser();
+
+      // Migrate solo-mode data to org-scoped keys (one-time, on first org load)
+      await migrateSoloToOrg();
 
       // ── Startup Diagnostics ──
       const _orgState = useOrgStore.getState();
@@ -655,6 +724,23 @@ export function usePersistenceLoad() {
 export async function loadEstimate(id) {
   let raw = await storage.get(idbKey(`bldg-est-${id}`));
 
+  // Fallback: if in org mode and org-scoped key missed, check solo-scoped key
+  // (handles estimates created before org migration that weren't copied)
+  if (!raw) {
+    const org = useOrgStore.getState().org;
+    const userId = useAuthStore.getState().user?.id;
+    if (org?.id && userId) {
+      const soloKey = `u-${userId}-bldg-est-${id}`;
+      const soloRaw = await storage.get(soloKey);
+      if (soloRaw?.value) {
+        console.log(`[loadEstimate] Found estimate ${id} under solo key — copying to org scope`);
+        const orgKey = `org-${org.id}-bldg-est-${id}`;
+        await storage.set(orgKey, soloRaw.value);
+        raw = soloRaw;
+      }
+    }
+  }
+
   // If not in IndexedDB, try cloud
   if (!raw) {
     try {
@@ -1043,9 +1129,13 @@ export async function saveEstimate() {
             if (!deletedIds.includes(delId)) deletedIds.push(delId);
           }
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
       wasDeleted = deletedIds.includes(id);
-    } catch { /* proceed cautiously */ }
+    } catch {
+      /* proceed cautiously */
+    }
 
     if (wasDeleted) {
       console.warn("[saveEstimate] Estimate was deleted during save — aborting save for", id);
