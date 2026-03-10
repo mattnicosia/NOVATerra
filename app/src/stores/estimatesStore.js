@@ -111,6 +111,9 @@ export const useEstimatesStore = create((set, get) => ({
       emailCount: 0,
       lastEmailAt: "",
       schedulePauses: [], // [{ start: "YYYY-MM-DD", end: "YYYY-MM-DD", reason: "" }]
+      manualPercentComplete: null, // number | null — overrides auto-calculated %
+      manualHoursLogged: null, // number | null — overrides timer-based hours logged
+      delegatedBy: "", // name of estimator who delegated (empty = direct assignment)
     };
     set(s => ({
       activeEstimateId: id,

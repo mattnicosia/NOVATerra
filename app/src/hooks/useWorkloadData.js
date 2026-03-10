@@ -143,8 +143,12 @@ export function useWorkloadData(dateRange) {
       const estimator = est.estimator || "";
       const bidDue = new Date(est.bidDue + "T00:00:00");
       const estHours = (Number(est.estimatedHours) || 0) + (Number(est.correspondenceTotalHours) || 0);
-      const hoursLogged = (est.timerTotalMs || 0) / 3600000;
-      const percentComplete = estHours > 0 ? Math.min(100, Math.round((hoursLogged / estHours) * 100)) : 0;
+      const hoursLogged = est.manualHoursLogged != null
+        ? est.manualHoursLogged
+        : (est.timerTotalMs || 0) / 3600000;
+      const percentComplete = est.manualPercentComplete != null
+        ? est.manualPercentComplete
+        : (estHours > 0 ? Math.min(100, Math.round((hoursLogged / estHours) * 100)) : 0);
 
       const raw = {
         id: est.id,
@@ -167,6 +171,9 @@ export function useWorkloadData(dateRange) {
         emailCount: est.emailCount || 0,
         lastEmailAt: est.lastEmailAt || "",
         schedulePauses: est.schedulePauses || [],
+        manualPercentComplete: est.manualPercentComplete ?? null,
+        manualHoursLogged: est.manualHoursLogged ?? null,
+        delegatedBy: est.delegatedBy || "",
       };
 
       if (!estimator) {
