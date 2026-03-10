@@ -25,7 +25,7 @@ export default function NovaOrbWidget() {
   const value = activeProject ? nn(activeProject.value) : 0;
 
   useEffect(() => {
-    if (orbRef.current && value > 0) {
+    if (orbRef.current?.setValueTarget && value > 0) {
       orbRef.current.setValueTarget(value);
     }
   }, [value]);
