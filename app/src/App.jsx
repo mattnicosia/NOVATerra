@@ -12,7 +12,7 @@ import useAutoResponseTimers from "@/hooks/useAutoResponseTimers";
 import { useActivityTracker } from "@/hooks/useActivityTracker";
 import { useAutoDiscovery } from "@/hooks/useAutoDiscovery";
 import AutoResponseBanner from "@/components/shared/AutoResponseBanner";
-import DraftApprovalPanel from "@/components/shared/DraftApprovalPanel";
+const DraftApprovalPanel = lazy(() => import("@/components/shared/DraftApprovalPanel"));
 
 import { useAuthStore } from "@/stores/authStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
@@ -33,11 +33,8 @@ import Toast from "@/components/layout/Toast";
 import PageTransition from "@/components/ambient/PageTransition";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
 import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
-import { AnimatePresence } from "framer-motion";
-// Icons not needed in App — tabs use text-only pills
-import LoginPage from "@/pages/LoginPage";
-
 // Lazy-load heavy components not needed until after auth + first paint
+const LoginPage = lazy(() => import("@/pages/LoginPage"));
 const AIChatPanel = lazy(() => import("@/components/ai/AIChatPanel"));
 const AmbientBackground = lazy(() => import("@/components/nova/AmbientBackground"));
 const AmbientParticles = lazy(() => import("@/components/ambient/AmbientParticles"));
@@ -108,6 +105,8 @@ function EstimateLoader({ children }) {
   const activeId = useEstimatesStore(s => s.activeEstimateId);
   const persistenceLoaded = useUiStore(s => s.persistenceLoaded);
   const [loading, setLoading] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const navigate = useNavigate();
   const orgId = useOrgStore(s => s.org?.id);
   const isLockHolder = useCollaborationStore(s => s.isLockHolder);
   const currentLock = useCollaborationStore(s => s.currentLock);
@@ -119,8 +118,31 @@ function EstimateLoader({ children }) {
   useEffect(() => {
     if (!persistenceLoaded || !id || activeId === id) return;
     setLoading(true);
-    loadEstimate(id).finally(() => setLoading(false));
+    setLoadFailed(false);
+    loadEstimate(id).then(ok => {
+      setLoading(false);
+      if (!ok) {
+        console.warn(`[EstimateLoader] Estimate ${id} not found — redirecting to dashboard`);
+        useUiStore.getState().showToast("Estimate not found — returning to dashboard", "error");
+        setLoadFailed(true);
+      }
+    });
   }, [id, activeId, persistenceLoaded]);
+
+  // Safety timeout: if stuck loading for >15s, bail to dashboard
+  useEffect(() => {
+    if (!loading && persistenceLoaded) return;
+    const timer = setTimeout(() => {
+      const stillStuck = !useEstimatesStore.getState().activeEstimateId && id;
+      if (stillStuck) {
+        console.warn(`[EstimateLoader] Timed out loading estimate ${id}`);
+        useUiStore.getState().showToast("Estimate load timed out — returning to dashboard", "error");
+        setLoadFailed(true);
+        setLoading(false);
+      }
+    }, 15000);
+    return () => clearTimeout(timer);
+  }, [loading, persistenceLoaded, id]);
 
   // Collaboration: acquire lock + join presence when estimate loads
   useEffect(() => {
@@ -135,6 +157,11 @@ function EstimateLoader({ children }) {
       collab.cleanup();
     };
   }, [orgId, activeId]);
+
+  // Load failed — estimate data not in IDB or cloud; redirect to dashboard
+  if (loadFailed) {
+    return <Navigate to="/" replace />;
+  }
 
   if (loading || !persistenceLoaded || (!activeId && id)) {
     return (
@@ -424,7 +451,7 @@ function ProjectTabBar() {
           minHeight: 40,
           background: C.bg,
           borderBottom: `1px solid ${C.border}`,
-          fontFamily: "'DM Sans', sans-serif",
+          fontFamily: "'Switzer', sans-serif",
         }}
       >
         {/* Project indicator — company logo + project name */}
@@ -524,7 +551,7 @@ function ProjectTabBar() {
               border: "none",
               outline: "none",
               whiteSpace: "nowrap",
-              fontFamily: "'DM Sans', sans-serif",
+              fontFamily: "'Switzer', sans-serif",
               transition: "all 200ms ease",
               flexShrink: 0,
               display: "flex",
@@ -644,7 +671,7 @@ function FloatingThemePicker() {
         flexDirection: "column",
         alignItems: "center",
         gap: 8,
-        fontFamily: "'DM Sans', sans-serif",
+        fontFamily: "'Switzer', sans-serif",
       }}
     >
       {/* Expanded palette grid */}
@@ -984,7 +1011,7 @@ function ThemeCycleButton({ C }) {
             fontWeight: 600,
             color: hovered ? C.text : C.textSub,
             whiteSpace: "nowrap",
-            fontFamily: "'DM Sans', sans-serif",
+            fontFamily: "'Switzer', sans-serif",
             letterSpacing: 0.2,
           }}
         >
@@ -1142,7 +1169,11 @@ function AppContent() {
       >
         <NovaHeader onDraftPanelToggle={() => setShowDraftPanel(v => !v)} />
         <AutoResponseBanner onReviewClick={() => setShowDraftPanel(true)} />
-        <DraftApprovalPanel open={showDraftPanel} onClose={() => setShowDraftPanel(false)} />
+        {showDraftPanel && (
+          <Suspense fallback={null}>
+            <DraftApprovalPanel open={showDraftPanel} onClose={() => setShowDraftPanel(false)} />
+          </Suspense>
+        )}
         <ProjectTabBar />
         <FloatingThemePicker />
         <div
@@ -1261,23 +1292,21 @@ function AppContent() {
         </div>
       </div>
       <Toast />
-      <AnimatePresence>
-        {aiChatOpen && (
-          <Suspense fallback={null}>
-            <AIChatPanel />
-          </Suspense>
-        )}
-      </AnimatePresence>
-      <AnimatePresence>
-        {cmdPaletteOpen && (
-          <Suspense fallback={null}>
-            <CommandPalette />
-          </Suspense>
-        )}
-      </AnimatePresence>
-      <Suspense fallback={null}>
-        <NovaCursor />
-      </Suspense>
+      {aiChatOpen && (
+        <Suspense fallback={null}>
+          <AIChatPanel />
+        </Suspense>
+      )}
+      {cmdPaletteOpen && (
+        <Suspense fallback={null}>
+          <CommandPalette />
+        </Suspense>
+      )}
+      {/* PERF FIX: NovaCursor disabled — its always-on 60fps RAF loop + mousemove
+          listener caused perceptible input lag across the entire app.
+          The custom cursor (green dot + ring + scout-ahead) is nice polish but
+          not worth the GPU cost. Default system cursor is instant. */}
+      {/* <Suspense fallback={null}><NovaCursor /></Suspense> */}
     </div>
   );
 }
@@ -1292,7 +1321,7 @@ function AuthLoading() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        fontFamily: "'DM Sans', sans-serif",
+        fontFamily: "'Switzer', sans-serif",
       }}
     >
       <div style={{ textAlign: "center" }}>
@@ -1371,7 +1400,7 @@ function MobileGuard() {
         background: C.bg,
         padding: 32,
         textAlign: "center",
-        fontFamily: "'DM Sans', sans-serif",
+        fontFamily: "'Switzer', sans-serif",
         zIndex: 99999,
       }}
     >
@@ -1562,7 +1591,9 @@ export default function App() {
   if (!user)
     return (
       <ThemeProvider>
-        <LoginPage />
+        <Suspense fallback={<AuthLoading />}>
+          <LoginPage />
+        </Suspense>
       </ThemeProvider>
     );
 
