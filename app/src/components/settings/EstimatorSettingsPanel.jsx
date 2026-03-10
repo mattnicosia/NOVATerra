@@ -310,7 +310,7 @@ export default function EstimatorSettingsPanel() {
             borderRadius: T.radius.sm,
           }}
         >
-          <Ic i={I.plus} s={13} /> Add Estimator
+          <Ic d={I.plus} size={13} /> Add Estimator
         </button>
       </div>
 
@@ -508,7 +508,7 @@ export default function EstimatorSettingsPanel() {
                     }}
                     title="Edit"
                   >
-                    <Ic i={I.edit} s={14} />
+                    <Ic d={I.edit} size={14} />
                   </button>
                   <button
                     onClick={() => handleRemove(est.id)}
@@ -521,7 +521,7 @@ export default function EstimatorSettingsPanel() {
                     }}
                     title="Remove"
                   >
-                    <Ic i={I.trash} s={14} />
+                    <Ic d={I.trash} size={14} />
                   </button>
                 </div>
               </div>
