@@ -479,9 +479,28 @@ export const pushData = async (key, data) => {
       const row = { user_id: userId, key, data: cleanData, updated_at: new Date().toISOString(), ...(scope || {}) };
 
       if (scope?.org_id) {
-        // Org mode: onConflict works fine
-        const { error } = await supabase.from("user_data").upsert(row, { onConflict: "user_id,key,org_id" });
-        if (error) throw error;
+        // Org mode: partial unique index can't be used with onConflict directly,
+        // so use select-then-update/insert like solo mode.
+        const { data: existing } = await supabase
+          .from("user_data")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("key", key)
+          .eq("org_id", scope.org_id)
+          .maybeSingle();
+
+        if (existing) {
+          const { error } = await supabase
+            .from("user_data")
+            .update({ data: cleanData, updated_at: row.updated_at })
+            .eq("user_id", userId)
+            .eq("key", key)
+            .eq("org_id", scope.org_id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from("user_data").insert(row);
+          if (error) throw error;
+        }
       } else {
         // Solo/settings mode: explicitly filter org_id IS NULL to avoid
         // collisions with org-mode rows for the same user+key.
@@ -542,11 +561,28 @@ export const pushEstimate = async (estimateId, data) => {
       };
 
       if (scope?.org_id) {
-        // Org mode: onConflict works fine (org_id is non-null)
-        const { error } = await supabase
+        // Org mode: partial unique index can't be used with onConflict directly,
+        // so use select-then-update/insert like solo mode.
+        const { data: existing } = await supabase
           .from("user_estimates")
-          .upsert(row, { onConflict: "user_id,estimate_id,org_id" });
-        if (error) throw error;
+          .select("id")
+          .eq("user_id", userId)
+          .eq("estimate_id", estimateId)
+          .eq("org_id", scope.org_id)
+          .maybeSingle();
+
+        if (existing) {
+          const { error } = await supabase
+            .from("user_estimates")
+            .update({ data: cleanData, updated_at: row.updated_at, ...(assignedTo ? { assigned_to: assignedTo } : {}) })
+            .eq("user_id", userId)
+            .eq("estimate_id", estimateId)
+            .eq("org_id", scope.org_id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from("user_estimates").insert(row);
+          if (error) throw error;
+        }
       } else {
         // Solo mode: explicitly filter org_id IS NULL to avoid collisions with org-mode rows.
         const { data: existing } = await supabase
@@ -649,6 +685,31 @@ export const pullDataWithMeta = async key => {
 };
 
 /**
+ * Pull a key from the solo-mode (org_id IS NULL) scope.
+ * Used as a fallback when org-mode pull returns nothing — migrates
+ * pre-org data forward so company profiles, contacts, etc. aren't lost.
+ */
+export const pullSoloFallback = async key => {
+  if (!isReady()) return null;
+  const scope = getScope();
+  if (!scope?.org_id) return null; // Already in solo mode, no fallback needed
+  try {
+    const { data, error } = await supabase
+      .from("user_data")
+      .select("data, updated_at")
+      .eq("user_id", getUserId())
+      .eq("key", key)
+      .is("org_id", null)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? { data: data.data, updated_at: data.updated_at } : null;
+  } catch (err) {
+    console.warn(`[cloudSync] pullSoloFallback("${key}") failed:`, err.message || err);
+    return null;
+  }
+};
+
+/**
  * Pull all estimates with their metadata (estimate_id, data, updated_at).
  */
 export const pullAllEstimatesWithMeta = async () => {
@@ -671,6 +732,29 @@ export const pullAllEstimatesWithMeta = async () => {
     return data || [];
   } catch (err) {
     console.warn("[cloudSync] pullAllEstimatesWithMeta() failed:", err.message || err);
+    return [];
+  }
+};
+
+/**
+ * Solo fallback for estimates — pulls from org_id IS NULL scope.
+ * Used when org-mode pull returns empty to migrate pre-org estimates.
+ */
+export const pullAllEstimatesSoloFallback = async () => {
+  if (!isReady()) return [];
+  const scope = getScope();
+  if (!scope?.org_id) return []; // Already in solo mode
+  try {
+    const { data, error } = await supabase
+      .from("user_estimates")
+      .select("estimate_id, data, updated_at, user_id")
+      .is("deleted_at", null)
+      .eq("user_id", getUserId())
+      .is("org_id", null);
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    console.warn("[cloudSync] pullAllEstimatesSoloFallback() failed:", err.message || err);
     return [];
   }
 };
