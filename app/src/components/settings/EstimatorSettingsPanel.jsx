@@ -393,7 +393,12 @@ export default function EstimatorSettingsPanel() {
         addMasterItem("estimators", {
           name: m.display_name,
           email: m.email || "",
-          initials: m.display_name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2),
+          initials: m.display_name
+            .split(" ")
+            .map(w => w[0])
+            .join("")
+            .toUpperCase()
+            .slice(0, 2),
           color: m.color || TEAM_COLORS[estimators.length % TEAM_COLORS.length],
           maxHoursPerDay: 7,
           preferredJobTypes: [],
@@ -516,6 +521,8 @@ export default function EstimatorSettingsPanel() {
     if (result?.error) {
       console.warn("[invite]", result.error);
       alert(result.error);
+    } else if (result?.emailFailed) {
+      alert(`Invitation created for ${email} but the email could not be sent. The estimator can still join via the invite link in Settings.`);
     }
     setInviting(null);
   };
@@ -528,6 +535,8 @@ export default function EstimatorSettingsPanel() {
     if (result?.error) {
       console.warn("[invite resend]", result.error);
       alert(result.error);
+    } else if (result?.emailFailed) {
+      alert(`Invitation created for ${email} but the email could not be sent. Check email service configuration.`);
     }
     setInviting(null);
   };

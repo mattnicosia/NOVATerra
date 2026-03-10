@@ -167,11 +167,11 @@ export const useOrgStore = create((set, get) => ({
 
       if (!resp.ok) {
         const errData = await resp.json().catch(() => ({}));
-        console.warn("[orgStore] send-team-invite failed:", errData.error);
+        console.warn("[orgStore] send-team-invite failed:", resp.status, errData.error);
         // Invitation was created but email failed — still return success with warning
         get().fetchAllInvitations();
         get().fetchInvitations();
-        return { success: true, emailFailed: true };
+        return { success: true, emailFailed: true, emailError: errData.error || `HTTP ${resp.status}` };
       }
 
       // 3. Refresh all invitations

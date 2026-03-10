@@ -18,6 +18,7 @@ import AutoScheduleModal from "@/components/resources/AutoScheduleModal";
 import WhatIfModal from "@/components/resources/WhatIfModal";
 import WorkloadTrendsPanel from "@/components/resources/WorkloadTrendsPanel";
 import PdfExport from "@/components/resources/PdfExport";
+import Modal from "@/components/shared/Modal";
 import { useReviewStore } from "@/stores/reviewStore";
 
 /* ────────────────────────────────────────────────────────
@@ -279,8 +280,7 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
   const rowRectsRef = useRef([]);
   const [contextMenu, setContextMenu] = useState(null);
   const [estimatorMenu, setEstimatorMenu] = useState(null); // { x, y, name, color, projectCount }
-  const [addingEstimator, setAddingEstimator] = useState(false);
-  const [addEstimatorName, setAddEstimatorName] = useState("");
+  // "Add Estimator" removed — estimators come from org members only
   const capHours = effectiveHoursPerDay || CAPACITY_HOURS;
 
   // Document-level mousemove/mouseup for bar drag (reschedule + reassign)
@@ -598,77 +598,7 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
             </div>
           )}
 
-          {/* Add Estimator */}
-          {addingEstimator ? (
-            <div style={{ padding: `${T.space[2]}px ${T.space[3]}px`, borderTop: `1px solid ${C.border}08` }}>
-              <input
-                autoFocus
-                placeholder="Estimator name..."
-                value={addEstimatorName}
-                onChange={e => setAddEstimatorName(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === "Enter" && addEstimatorName.trim()) {
-                    useMasterDataStore.getState().addMasterItem("estimators", { name: addEstimatorName.trim() });
-                    useUiStore.getState().showToast(`Added estimator "${addEstimatorName.trim()}"`);
-                    setAddEstimatorName("");
-                    setAddingEstimator(false);
-                  } else if (e.key === "Escape") {
-                    setAddEstimatorName("");
-                    setAddingEstimator(false);
-                  }
-                }}
-                onBlur={() => {
-                  setAddEstimatorName("");
-                  setAddingEstimator(false);
-                }}
-                style={{
-                  width: "100%",
-                  padding: "4px 8px",
-                  fontSize: T.fontSize.xs,
-                  borderRadius: T.radius.sm,
-                  border: `1px solid ${C.accent}40`,
-                  background: C.bg1,
-                  color: C.text,
-                  outline: "none",
-                }}
-              />
-            </div>
-          ) : (
-            <div
-              onClick={() => setAddingEstimator(true)}
-              style={{
-                padding: `${T.space[2]}px ${T.space[3]}px`,
-                display: "flex",
-                alignItems: "center",
-                gap: T.space[2],
-                cursor: "pointer",
-                borderTop: `1px solid ${C.border}08`,
-                transition: "background 80ms",
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}08`)}
-              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-            >
-              <div
-                style={{
-                  width: 24,
-                  height: 24,
-                  borderRadius: "50%",
-                  background: `${C.accent}15`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 14,
-                  color: C.accent,
-                  fontWeight: 700,
-                }}
-              >
-                +
-              </div>
-              <span style={{ fontSize: T.fontSize.xs, color: C.textMuted, fontWeight: T.fontWeight.medium }}>
-                Add Estimator
-              </span>
-            </div>
-          )}
+          {/* "Add Estimator" removed — estimators come from org members / invitations */}
         </div>
 
         {/* Right scrollable timeline area */}
@@ -861,9 +791,10 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
                           onMouseEnter={() =>
                             setTooltip({
                               name: bar.name,
-                              hours: bar._teamSize > 1
-                                ? `${bar.hoursLogged}h / ${Math.round(bar._perPersonHours)}h (of ${bar.estimatedHours}h total)`
-                                : `${bar.hoursLogged}h / ${bar.estimatedHours}h`,
+                              hours:
+                                bar._teamSize > 1
+                                  ? `${bar.hoursLogged}h / ${Math.round(bar._perPersonHours)}h (of ${bar.estimatedHours}h total)`
+                                  : `${bar.hoursLogged}h / ${bar.estimatedHours}h`,
                               pct: bar.percentComplete,
                               daysLeft: bar.daysRemaining,
                               status: bar.scheduleStatus,
@@ -1022,7 +953,9 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
                                   onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}26`)}
                                   onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                                 >
-                                  {bar._teamSize > 1 ? `${Math.round(bar._perPersonHours)}h` : `${bar.estimatedHours || 0}h`}
+                                  {bar._teamSize > 1
+                                    ? `${Math.round(bar._perPersonHours)}h`
+                                    : `${bar.estimatedHours || 0}h`}
                                 </span>
                               ))}
                             {bar.width > 120 && (
@@ -1699,13 +1632,25 @@ function GanttRangeNav({ rangeLabel, onPrev, onNext, onToday, C, T }) {
 // ══════════════════════════════════════════════════════════
 function ProjectQuickActions({ data, onClose, estimatorRows, C, T, navigate }) {
   const ref = useRef(null);
-  const { id, name, client, status, bidDue, daysRemaining, hoursLogged, estimatedHours,
-    percentComplete, estimator, manualPercentComplete, manualHoursLogged, delegatedBy, scheduleStatus } = data;
+  const {
+    id,
+    name,
+    client,
+    status,
+    bidDue,
+    daysRemaining,
+    hoursLogged,
+    estimatedHours,
+    percentComplete,
+    estimator,
+    manualPercentComplete,
+    manualHoursLogged,
+    delegatedBy,
+    scheduleStatus,
+  } = data;
 
   const [pctVal, setPctVal] = useState(manualPercentComplete != null ? manualPercentComplete : percentComplete);
-  const [hoursVal, setHoursVal] = useState(
-    manualHoursLogged != null ? String(manualHoursLogged) : ""
-  );
+  const [hoursVal, setHoursVal] = useState(manualHoursLogged != null ? String(manualHoursLogged) : "");
   const [assignVal, setAssignVal] = useState(estimator || "");
   const [showDelegate, setShowDelegate] = useState(false);
 
@@ -1723,7 +1668,8 @@ function ProjectQuickActions({ data, onClose, estimatorRows, C, T, navigate }) {
   useEffect(() => {
     if (!ref.current) return;
     const rect = ref.current.getBoundingClientRect();
-    let x = data.x, y = data.y;
+    let x = data.x,
+      y = data.y;
     if (x + rect.width > window.innerWidth - 16) x = window.innerWidth - rect.width - 16;
     if (y + rect.height > window.innerHeight - 16) y = window.innerHeight - rect.height - 16;
     if (x < 16) x = 16;
@@ -1781,7 +1727,15 @@ function ProjectQuickActions({ data, onClose, estimatorRows, C, T, navigate }) {
   const statusColor = SCHEDULE_COLORS[scheduleStatus] || STATUS_COLORS[status] || "#A78BFA";
   const pctColor = pctVal >= 100 ? "#30D158" : pctVal >= 50 ? "#FF9500" : statusColor;
 
-  const sectionTitle = { fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6, marginTop: 12 };
+  const sectionTitle = {
+    fontSize: 9,
+    fontWeight: 700,
+    color: C.textDim,
+    textTransform: "uppercase",
+    letterSpacing: "0.06em",
+    marginBottom: 6,
+    marginTop: 12,
+  };
   const inputStyle = {
     width: "100%",
     padding: "6px 8px",
@@ -1793,8 +1747,25 @@ function ProjectQuickActions({ data, onClose, estimatorRows, C, T, navigate }) {
     fontFamily: T.font.display,
     outline: "none",
   };
-  const selectStyle = { ...inputStyle, cursor: "pointer", appearance: "none", WebkitAppearance: "none", backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23999' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 8px center", paddingRight: 24 };
-  const linkBtn = { background: "none", border: "none", fontSize: 9, fontWeight: 600, cursor: "pointer", padding: 0, fontFamily: T.font.display };
+  const selectStyle = {
+    ...inputStyle,
+    cursor: "pointer",
+    appearance: "none",
+    WebkitAppearance: "none",
+    backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23999' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
+    backgroundRepeat: "no-repeat",
+    backgroundPosition: "right 8px center",
+    paddingRight: 24,
+  };
+  const linkBtn = {
+    background: "none",
+    border: "none",
+    fontSize: 9,
+    fontWeight: 600,
+    cursor: "pointer",
+    padding: 0,
+    fontFamily: T.font.display,
+  };
 
   return (
     <div
@@ -1818,19 +1789,39 @@ function ProjectQuickActions({ data, onClose, estimatorRows, C, T, navigate }) {
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 4 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.bold, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <div
+            style={{
+              fontSize: T.fontSize.sm,
+              fontWeight: T.fontWeight.bold,
+              color: C.text,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
             {name}
           </div>
           {client && <div style={{ fontSize: 10, color: C.textMuted, marginTop: 1 }}>{client}</div>}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-          <span style={{ fontSize: 9, fontWeight: 600, padding: "2px 6px", borderRadius: 4, background: hexAlpha(statusColor, 0.12), color: statusColor }}>
+          <span
+            style={{
+              fontSize: 9,
+              fontWeight: 600,
+              padding: "2px 6px",
+              borderRadius: 4,
+              background: hexAlpha(statusColor, 0.12),
+              color: statusColor,
+            }}
+          >
             {status}
           </span>
           <button
             onClick={onClose}
             style={{ ...linkBtn, color: C.textDim, fontSize: 14, lineHeight: 1, padding: "0 2px" }}
-          >×</button>
+          >
+            ×
+          </button>
         </div>
       </div>
 
@@ -1844,9 +1835,7 @@ function ProjectQuickActions({ data, onClose, estimatorRows, C, T, navigate }) {
 
       {/* Delegated By label */}
       {delegatedBy && (
-        <div style={{ fontSize: 9, color: "#FF9500", fontWeight: 600, marginTop: 4 }}>
-          Delegated by {delegatedBy}
-        </div>
+        <div style={{ fontSize: 9, color: "#FF9500", fontWeight: 600, marginTop: 4 }}>Delegated by {delegatedBy}</div>
       )}
 
       {/* ─── % Complete ─── */}
@@ -1900,19 +1889,25 @@ function ProjectQuickActions({ data, onClose, estimatorRows, C, T, navigate }) {
 
       {/* Progress bar */}
       <div style={{ height: 4, borderRadius: 2, background: ov(0.06), marginTop: 8, overflow: "hidden" }}>
-        <div style={{ height: "100%", width: `${Math.min(100, pctVal)}%`, background: pctColor, borderRadius: 2, transition: "width 200ms" }} />
+        <div
+          style={{
+            height: "100%",
+            width: `${Math.min(100, pctVal)}%`,
+            background: pctColor,
+            borderRadius: 2,
+            transition: "width 200ms",
+          }}
+        />
       </div>
 
       {/* ─── Assign / Reassign ─── */}
       <div style={sectionTitle}>{estimator ? "Reassign" : "Assign"}</div>
-      <select
-        value={assignVal}
-        onChange={e => handleAssign(e.target.value)}
-        style={selectStyle}
-      >
+      <select value={assignVal} onChange={e => handleAssign(e.target.value)} style={selectStyle}>
         <option value="">Unassigned</option>
         {estimatorRows.map(r => (
-          <option key={r.name} value={r.name}>{r.name}</option>
+          <option key={r.name} value={r.name}>
+            {r.name}
+          </option>
         ))}
       </select>
 
@@ -1941,30 +1936,475 @@ function ProjectQuickActions({ data, onClose, estimatorRows, C, T, navigate }) {
               onBlur={() => setShowDelegate(false)}
               style={selectStyle}
             >
-              <option value="" disabled>Select estimator…</option>
-              {estimatorRows.filter(r => r.name !== estimator).map(r => (
-                <option key={r.name} value={r.name}>{r.name}</option>
-              ))}
+              <option value="" disabled>
+                Select estimator…
+              </option>
+              {estimatorRows
+                .filter(r => r.name !== estimator)
+                .map(r => (
+                  <option key={r.name} value={r.name}>
+                    {r.name}
+                  </option>
+                ))}
             </select>
           )}
         </>
       )}
 
       {/* Footer */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14, paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginTop: 14,
+          paddingTop: 10,
+          borderTop: `1px solid ${C.border}`,
+        }}
+      >
         <button
-          onClick={() => { onClose(); navigate(`/estimate/${id}/info`); }}
+          onClick={() => {
+            onClose();
+            navigate(`/estimate/${id}/info`);
+          }}
           style={{ ...linkBtn, color: C.accent, fontSize: 10 }}
         >
           Open Full Details →
         </button>
-        <button
-          onClick={onClose}
-          style={{ ...linkBtn, color: C.textDim, fontSize: 10 }}
-        >
+        <button onClick={onClose} style={{ ...linkBtn, color: C.textDim, fontSize: 10 }}>
           Close
         </button>
       </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════
+// BOARD VIEW — drag-and-drop estimator assignment
+// ══════════════════════════════════════════════════════════
+function BoardView({ workload, C, T, navigate, onDrop, onProjectClick }) {
+  const { estimatorRows, unassignedEstimates, CAPACITY_HOURS, effectiveHoursPerDay, dailyLoad } = workload;
+  const capHours = effectiveHoursPerDay || CAPACITY_HOURS;
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const [dragOverTarget, setDragOverTarget] = useState(null); // estimator name or "__unassigned__"
+
+  // ── Inline hours editor state ──
+  const [editingHoursId, setEditingHoursId] = useState(null);
+  const [editingHoursVal, setEditingHoursVal] = useState("");
+
+  // ── Draggable Project Card ──
+  const ProjectCard = ({ est, estimatorName }) => {
+    const statusColor = SCHEDULE_COLORS[est.scheduleStatus] || "#A78BFA";
+    const pct = est.estimatedHours > 0 ? Math.min(100, (est.hoursLogged / est.estimatedHours) * 100) : 0;
+    const isEditingHours = editingHoursId === est.id;
+
+    const saveHours = () => {
+      const h = Number(editingHoursVal);
+      if (h >= 0) {
+        useEstimatesStore.getState().updateIndexEntry(est.id, { estimatedHours: h });
+        useUiStore.getState().showToast(`Updated "${est.name}" to ${h}h`);
+      }
+      setEditingHoursId(null);
+    };
+
+    return (
+      <div
+        draggable={!isEditingHours}
+        onDragStart={e => {
+          if (isEditingHours) { e.preventDefault(); return; }
+          e.dataTransfer.setData("estimateId", est.id);
+          e.dataTransfer.setData("fromEstimator", estimatorName || "");
+          e.dataTransfer.effectAllowed = "move";
+        }}
+        onClick={e => {
+          if (isEditingHours) return;
+          if (onProjectClick) onProjectClick({ ...est, estimator: estimatorName || "" }, e);
+        }}
+        onDoubleClick={() => { if (!isEditingHours) navigate(`/estimate/${est.id}/info`); }}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "8px 10px",
+          borderRadius: T.radius.sm,
+          background: C.isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+          border: `1px solid ${C.border}40`,
+          cursor: isEditingHours ? "default" : "grab",
+          transition: "background 100ms, box-shadow 100ms",
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.background = C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)";
+          e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.08)";
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.background = C.isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)";
+          e.currentTarget.style.boxShadow = "none";
+        }}
+      >
+        {/* Grab handle */}
+        <div style={{ fontSize: 10, color: C.textDim, cursor: "grab", userSelect: "none", lineHeight: 1 }}>⠿</div>
+
+        {/* Status dot */}
+        <div style={{ width: 7, height: 7, borderRadius: "50%", background: statusColor, flexShrink: 0 }} />
+
+        {/* Content */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              fontSize: T.fontSize.xs,
+              fontWeight: T.fontWeight.semibold,
+              color: C.text,
+              overflow: "hidden",
+              whiteSpace: "nowrap",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {est.name}
+          </div>
+          <div style={{ fontSize: 9, color: C.textDim, marginTop: 1, display: "flex", gap: 6 }}>
+            {est.bidDue && (
+              <span>
+                {parseDateStr(est.bidDue).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                {est.daysRemaining > 0
+                  ? ` · ${est.daysRemaining}d`
+                  : est.daysRemaining === 0
+                    ? " · Today"
+                    : " · Overdue"}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Hours progress — click to edit */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+          <div
+            style={{
+              width: 40,
+              height: 4,
+              borderRadius: 2,
+              background: C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                height: "100%",
+                width: `${pct}%`,
+                background: statusColor,
+                borderRadius: 2,
+              }}
+            />
+          </div>
+          {isEditingHours ? (
+            <input
+              type="number"
+              min={0}
+              step={1}
+              autoFocus
+              value={editingHoursVal}
+              onChange={e => setEditingHoursVal(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter") saveHours();
+                if (e.key === "Escape") setEditingHoursId(null);
+              }}
+              onBlur={saveHours}
+              onClick={e => e.stopPropagation()}
+              style={{
+                width: 48,
+                padding: "2px 4px",
+                fontSize: 9,
+                fontWeight: 600,
+                borderRadius: 4,
+                border: `1px solid ${C.accent}`,
+                background: C.isDark ? "rgba(255,255,255,0.08)" : "#fff",
+                color: C.text,
+                outline: "none",
+                textAlign: "right",
+              }}
+            />
+          ) : (
+            <span
+              onClick={e => {
+                e.stopPropagation();
+                setEditingHoursId(est.id);
+                setEditingHoursVal(est.estimatedHours || 0);
+              }}
+              title="Click to edit estimated hours"
+              style={{
+                fontSize: 9,
+                color: C.textMuted,
+                fontWeight: 600,
+                minWidth: 50,
+                textAlign: "right",
+                cursor: "text",
+                padding: "2px 4px",
+                borderRadius: 4,
+                transition: "background 100ms",
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}15`)}
+              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+            >
+              {est.hoursLogged}h/{est.estimatedHours}h
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // ── Drop zone handlers ──
+  const onDragOver = (e, target) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverTarget(target);
+  };
+  const onDragLeave = () => setDragOverTarget(null);
+  const onDropHandler = (e, targetEstimator) => {
+    e.preventDefault();
+    setDragOverTarget(null);
+    const estimateId = e.dataTransfer.getData("estimateId");
+    const fromEstimator = e.dataTransfer.getData("fromEstimator");
+    if (estimateId && onDrop) {
+      onDrop(estimateId, targetEstimator, fromEstimator);
+    }
+  };
+
+  return (
+    <div>
+      {/* Unassigned Tray */}
+      {unassignedEstimates.length > 0 && (
+        <div
+          onDragOver={e => onDragOver(e, "__unassigned__")}
+          onDragLeave={onDragLeave}
+          onDrop={e => onDropHandler(e, "")}
+          style={{
+            ...cardSolid(C),
+            padding: T.space[4],
+            marginBottom: T.space[4],
+            border: `1px solid ${dragOverTarget === "__unassigned__" ? "#FBBF24" : "#FBBF2430"}`,
+            background:
+              dragOverTarget === "__unassigned__"
+                ? C.isDark
+                  ? "rgba(251,191,36,0.08)"
+                  : "rgba(251,191,36,0.05)"
+                : undefined,
+            transition: "border-color 150ms, background 150ms",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: T.space[3], marginBottom: T.space[3] }}>
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: "50%",
+                background: "#FBBF2420",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 14,
+                color: "#FBBF24",
+                fontWeight: 700,
+              }}
+            >
+              ?
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: T.fontSize.base, fontWeight: T.fontWeight.bold, color: "#FBBF24" }}>
+                Unassigned
+              </div>
+              <div style={{ fontSize: 9, color: C.textDim }}>
+                {unassignedEstimates.length} project{unassignedEstimates.length !== 1 ? "s" : ""} need assignment — drag
+                to an estimator below
+              </div>
+            </div>
+          </div>
+          <div
+            style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: T.space[2] }}
+          >
+            {unassignedEstimates.map(est => (
+              <ProjectCard key={est.id} est={est} estimatorName="" />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Estimator Columns Grid */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+          gap: T.space[4],
+        }}
+      >
+        {estimatorRows.map(row => {
+          const todayLoad = dailyLoad?.get(todayStr)?.get(row.name);
+          const dailyHours = todayLoad?.totalHours || 0;
+          const utilPct = Math.round((dailyHours / capHours) * 100);
+          const utilColor = utilizationColor(dailyHours, capHours);
+          const isOver = dragOverTarget === row.name;
+          const sorted = [...row.estimates].sort((a, b) => {
+            if (!a.bidDue) return 1;
+            if (!b.bidDue) return -1;
+            return a.bidDue.localeCompare(b.bidDue);
+          });
+
+          return (
+            <div
+              key={row.name}
+              onDragOver={e => onDragOver(e, row.name)}
+              onDragLeave={onDragLeave}
+              onDrop={e => onDropHandler(e, row.name)}
+              style={{
+                ...cardSolid(C),
+                padding: T.space[4],
+                border: isOver ? `1px solid ${C.accent}` : undefined,
+                background: isOver ? (C.isDark ? "rgba(139,92,246,0.06)" : "rgba(139,92,246,0.03)") : undefined,
+                transition: "border-color 150ms, background 150ms",
+                minHeight: 120,
+              }}
+            >
+              {/* Estimator Header */}
+              <div style={{ display: "flex", alignItems: "center", gap: T.space[3], marginBottom: T.space[3] }}>
+                <div style={{ position: "relative" }}>
+                  <Avatar name={row.name} color={row.pending ? "#666" : row.color} size={32} fontSize={12} />
+                  {row.pending && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        bottom: -2,
+                        right: -2,
+                        width: 12,
+                        height: 12,
+                        borderRadius: "50%",
+                        background: "#FBBF24",
+                        border: `2px solid ${C.isDark ? "#1a1a2e" : "#fff"}`,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 7,
+                        fontWeight: 700,
+                      }}
+                    >
+                      ✉
+                    </div>
+                  )}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span
+                      style={{
+                        fontSize: T.fontSize.base,
+                        fontWeight: T.fontWeight.bold,
+                        color: row.pending ? C.textMuted : C.text,
+                      }}
+                    >
+                      {row.name}
+                    </span>
+                    {row.pending && (
+                      <span
+                        style={{
+                          fontSize: 8,
+                          fontWeight: 700,
+                          color: "#FBBF24",
+                          background: "#FBBF2418",
+                          border: "1px solid #FBBF2430",
+                          padding: "1px 6px",
+                          borderRadius: T.radius.sm,
+                          textTransform: "uppercase",
+                          letterSpacing: 0.5,
+                        }}
+                      >
+                        Invited
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 9, color: C.textDim }}>
+                    {row.pending
+                      ? row.email || "Pending acceptance"
+                      : `${row.estimates.length} project${row.estimates.length !== 1 ? "s" : ""}`}
+                  </div>
+                </div>
+                {/* Utilization badge */}
+                <div
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    color: utilColor,
+                    padding: "3px 8px",
+                    borderRadius: T.radius.sm,
+                    background: hexAlpha(utilColor === "transparent" ? "#30D158" : utilColor, 0.12),
+                  }}
+                >
+                  {utilPct}%
+                </div>
+              </div>
+
+              {/* Utilization bar */}
+              <div style={{ marginBottom: T.space[3] }}>
+                <div
+                  style={{
+                    height: 3,
+                    borderRadius: 2,
+                    background: C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      height: "100%",
+                      width: `${Math.min(100, utilPct)}%`,
+                      background: utilColor === "transparent" ? "#30D158" : utilColor,
+                      borderRadius: 2,
+                      transition: "width 300ms",
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Project cards */}
+              <div style={{ display: "flex", flexDirection: "column", gap: T.space[2] }}>
+                {sorted.map(est => (
+                  <ProjectCard key={est.id} est={est} estimatorName={row.name} />
+                ))}
+                {row.estimates.length === 0 && (
+                  <div
+                    style={{
+                      padding: "16px 12px",
+                      textAlign: "center",
+                      fontSize: T.fontSize.xs,
+                      color: C.textDim,
+                      borderRadius: T.radius.sm,
+                      border: `1px dashed ${row.pending ? "#FBBF2430" : `${C.border}40`}`,
+                    }}
+                  >
+                    {row.pending ? "Awaiting acceptance — assign projects after they join" : "Drop projects here"}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Empty state — no estimators and no unassigned */}
+      {estimatorRows.length === 0 && unassignedEstimates.length === 0 && (
+        <div
+          style={{
+            ...cardSolid(C),
+            padding: `${T.space[8]}px ${T.space[6]}px`,
+            textAlign: "center",
+          }}
+        >
+          <div
+            style={{ fontSize: T.fontSize.lg, fontWeight: T.fontWeight.bold, color: C.text, marginBottom: T.space[2] }}
+          >
+            No active bids
+          </div>
+          <div style={{ fontSize: T.fontSize.sm, color: C.textMuted }}>
+            Create an estimate and set it to "Bidding" status to see it here.
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2683,6 +3123,202 @@ function ScheduleSettings({ C, T }) {
 }
 
 // ══════════════════════════════════════════════════════════
+// RESOURCE GUIDE MODAL
+// ══════════════════════════════════════════════════════════
+const GUIDE_VIDEO_URL = null; // Set to a Loom/YouTube embed URL to show video section
+
+const GUIDE_STEPS = [
+  {
+    num: "1",
+    icon: "📋",
+    title: "Create & Set Status",
+    desc: 'Create an estimate from the Projects page, then set its status to "Bidding" to make it appear here.',
+  },
+  {
+    num: "2",
+    icon: "👋",
+    title: "Drag to Assign",
+    desc: "Unassigned projects appear in the amber tray at the top. Drag any project card onto an estimator to assign it.",
+  },
+  {
+    num: "3",
+    icon: "🔄",
+    title: "Reassign Anytime",
+    desc: "Drag a project between estimator columns to reassign. Drop it back on the unassigned tray to remove the assignment.",
+  },
+  {
+    num: "4",
+    icon: "📊",
+    title: "Track Utilization",
+    desc: "Each estimator shows a utilization percentage — green means capacity, amber means busy, red means overloaded.",
+  },
+  {
+    num: "5",
+    icon: "⚡",
+    title: "Optimize & Plan",
+    desc: 'Use the "Optimize" button to auto-balance workloads, or "What If?" to simulate adding or removing projects.',
+  },
+];
+
+const GUIDE_TIPS = [
+  "Switch to Timeline view to see day-by-day Gantt scheduling",
+  "Double-click any project card to jump straight to the estimate",
+  "The schedule status dot on each card shows if it's ahead, on-track, or behind",
+  "Use the By Hours view to see detailed time breakdowns per estimator",
+];
+
+function ResourceGuideModal({ open, onClose }) {
+  const C = useTheme();
+  const T = C.T;
+
+  return (
+    <Modal open={open} onClose={onClose} wide>
+      {/* Header */}
+      <div style={{ marginBottom: T.space[5] }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div
+              style={{
+                fontSize: T.fontSize.xl,
+                fontWeight: T.fontWeight.bold,
+                color: C.text,
+                letterSpacing: "-0.01em",
+              }}
+            >
+              Resource Management
+            </div>
+            <div style={{ fontSize: T.fontSize.sm, color: C.textMuted, marginTop: 2 }}>
+              Assign estimators, balance workloads, and track capacity
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              ...bt(C),
+              padding: "6px 14px",
+              fontSize: T.fontSize.xs,
+              fontWeight: 600,
+              color: C.textMuted,
+              border: `1px solid ${C.border}`,
+              borderRadius: T.radius.sm,
+            }}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+
+      {/* Video Section (if URL is set) */}
+      {GUIDE_VIDEO_URL && (
+        <div
+          style={{
+            marginBottom: T.space[5],
+            borderRadius: T.radius.md,
+            overflow: "hidden",
+            border: `1px solid ${C.border}`,
+            aspectRatio: "16/9",
+          }}
+        >
+          <iframe
+            src={GUIDE_VIDEO_URL}
+            title="Resource Management Guide"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            style={{ width: "100%", height: "100%", border: "none" }}
+          />
+        </div>
+      )}
+
+      {/* Steps */}
+      <div style={{ display: "flex", flexDirection: "column", gap: T.space[3], marginBottom: T.space[5] }}>
+        {GUIDE_STEPS.map(step => (
+          <div
+            key={step.num}
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: T.space[3],
+              padding: `${T.space[3]}px ${T.space[4]}px`,
+              borderRadius: T.radius.md,
+              background: C.isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+              border: `1px solid ${C.border}30`,
+            }}
+          >
+            {/* Step number circle */}
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: "50%",
+                background: `${C.accent}15`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 13,
+                fontWeight: 800,
+                color: C.accent,
+                flexShrink: 0,
+                marginTop: 1,
+              }}
+            >
+              {step.num}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  fontSize: T.fontSize.sm,
+                  fontWeight: T.fontWeight.bold,
+                  color: C.text,
+                  marginBottom: 2,
+                }}
+              >
+                <span style={{ fontSize: 14 }}>{step.icon}</span>
+                {step.title}
+              </div>
+              <div style={{ fontSize: T.fontSize.xs, color: C.textMuted, lineHeight: 1.5 }}>{step.desc}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Pro Tips */}
+      <div
+        style={{
+          padding: `${T.space[3]}px ${T.space[4]}px`,
+          borderRadius: T.radius.md,
+          background: C.isDark ? "rgba(139,92,246,0.06)" : "rgba(139,92,246,0.04)",
+          border: `1px solid ${C.accent}20`,
+        }}
+      >
+        <div
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            color: C.accent,
+            textTransform: "uppercase",
+            letterSpacing: "0.08em",
+            marginBottom: T.space[2],
+          }}
+        >
+          Pro Tips
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {GUIDE_TIPS.map((tip, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+              <span style={{ color: C.accent, fontSize: 10, marginTop: 2, flexShrink: 0 }}>&#9679;</span>
+              <span style={{ fontSize: T.fontSize.xs, color: C.textMuted, lineHeight: 1.5 }}>{tip}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ══════════════════════════════════════════════════════════
 // CONFLICT PULSE ANIMATION
 // ══════════════════════════════════════════════════════════
 const conflictKeyframes = document.createElement("style");
@@ -2723,6 +3359,7 @@ export default function ResourcePage() {
   const [showReviewPanel, setShowReviewPanel] = useState(false);
   const [showAutoSchedule, setShowAutoSchedule] = useState(false);
   const [showWhatIf, setShowWhatIf] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
   const [quickAction, setQuickAction] = useState(null); // { id, name, x, y, ... } for ProjectQuickActions popover
   const pendingReviews = useReviewStore(s => s.reviews.filter(r => r.status !== "completed").length);
   const isManager = useOrgStore(selectIsManager);
@@ -2810,7 +3447,7 @@ export default function ResourcePage() {
         padding: `${T.space[6]}px ${T.space[7]}px`,
         maxWidth: 1600,
         margin: "0 auto",
-        fontFamily: T.font?.display || "'DM Sans',sans-serif",
+        fontFamily: T.font?.display || "'Switzer', sans-serif",
       }}
     >
       {/* Page Title */}
@@ -2825,91 +3462,10 @@ export default function ResourcePage() {
             Estimator workload timeline and capacity management
           </p>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: T.space[2] }}>
-          {isManager && <ScheduleSettings C={C} T={T} />}
-          {isManager && (
-            <>
-              <button
-                onClick={() => setShowAutoSchedule(true)}
-                style={{
-                  ...bt(C),
-                  padding: "6px 12px",
-                  fontSize: T.fontSize.xs,
-                  fontWeight: 600,
-                  color: C.accent,
-                  background: `${C.accent}10`,
-                  border: `1px solid ${C.accent}30`,
-                  borderRadius: T.radius.sm,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 4,
-                }}
-              >
-                <span style={{ fontSize: 12 }}>⚡</span>
-                Optimize
-              </button>
-              <button
-                onClick={() => setShowWhatIf(true)}
-                style={{
-                  ...bt(C),
-                  padding: "6px 12px",
-                  fontSize: T.fontSize.xs,
-                  fontWeight: 600,
-                  color: C.textMuted,
-                  background: C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)",
-                  border: `1px solid ${C.border}`,
-                  borderRadius: T.radius.sm,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 4,
-                }}
-              >
-                <span style={{ fontSize: 12 }}>🔮</span>
-                What If?
-              </button>
-            </>
-          )}
-          <PdfExport workload={workload} />
-          <button
-            onClick={() => setShowReviewPanel(true)}
-            style={{
-              ...bt(C),
-              padding: "8px 16px",
-              fontSize: T.fontSize.xs,
-              fontWeight: 600,
-              color: C.text,
-              background: `${C.accent}12`,
-              border: `1px solid ${C.accent}30`,
-              borderRadius: T.radius.md,
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-            }}
-          >
-            <span style={{ fontSize: 13 }}>📋</span>
-            Reviews
-            {pendingReviews > 0 && (
-              <span
-                style={{
-                  fontSize: 9,
-                  fontWeight: 700,
-                  color: "#fff",
-                  background: C.accent,
-                  borderRadius: T.radius.full,
-                  padding: "1px 6px",
-                  minWidth: 16,
-                  textAlign: "center",
-                }}
-              >
-                {pendingReviews}
-              </span>
-            )}
-          </button>
-        </div>
       </div>
 
       {/* KPI Strip */}
-      <div style={{ display: "flex", gap: T.space[4], marginBottom: T.space[5] }}>
+      <div style={{ display: "flex", gap: T.space[4], marginBottom: T.space[3] }}>
         {[
           { label: "Active Bids", value: totalActiveBids, color: "#A78BFA" },
           { label: "Estimators", value: activeEstimators, color: "#60A5FA" },
@@ -2953,6 +3509,116 @@ export default function ResourcePage() {
         ))}
       </div>
 
+      {/* Action Toolbar — integrated below KPI cards */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: T.space[2],
+          marginBottom: T.space[5],
+          flexWrap: "wrap",
+        }}
+      >
+        {isManager && <ScheduleSettings C={C} T={T} />}
+        {isManager && (
+          <>
+            <button
+              onClick={() => setShowAutoSchedule(true)}
+              style={{
+                ...bt(C),
+                padding: "6px 14px",
+                fontSize: T.fontSize.xs,
+                fontWeight: 600,
+                color: "#fff",
+                background: `${C.accent}40`,
+                border: `1px solid ${C.accent}60`,
+                borderRadius: T.radius.sm,
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+              }}
+            >
+              <span style={{ fontSize: 12 }}>⚡</span>
+              Optimize
+            </button>
+            <button
+              onClick={() => setShowWhatIf(true)}
+              style={{
+                ...bt(C),
+                padding: "6px 14px",
+                fontSize: T.fontSize.xs,
+                fontWeight: 600,
+                color: C.isDark ? "rgba(255,255,255,0.75)" : C.text,
+                background: C.isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+                border: `1px solid ${C.border}`,
+                borderRadius: T.radius.sm,
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+              }}
+            >
+              <span style={{ fontSize: 12 }}>🔮</span>
+              What If?
+            </button>
+          </>
+        )}
+        <button
+          onClick={() => setShowReviewPanel(true)}
+          style={{
+            ...bt(C),
+            padding: "6px 14px",
+            fontSize: T.fontSize.xs,
+            fontWeight: 600,
+            color: "#fff",
+            background: `${C.accent}30`,
+            border: `1px solid ${C.accent}50`,
+            borderRadius: T.radius.sm,
+            display: "flex",
+            alignItems: "center",
+            gap: 5,
+          }}
+        >
+          <span style={{ fontSize: 12 }}>📋</span>
+          Reviews
+          {pendingReviews > 0 && (
+            <span
+              style={{
+                fontSize: 9,
+                fontWeight: 700,
+                color: "#fff",
+                background: C.accent,
+                borderRadius: T.radius.full,
+                padding: "1px 6px",
+                minWidth: 16,
+                textAlign: "center",
+              }}
+            >
+              {pendingReviews}
+            </span>
+          )}
+        </button>
+        <PdfExport workload={workload} />
+        <button
+          onClick={() => setShowGuide(true)}
+          style={{
+            ...bt(C),
+            padding: "6px 14px",
+            fontSize: T.fontSize.xs,
+            fontWeight: 600,
+            color: C.isDark ? "rgba(255,255,255,0.75)" : C.text,
+            background: C.isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+            border: `1px solid ${C.border}`,
+            borderRadius: T.radius.sm,
+            display: "flex",
+            alignItems: "center",
+            gap: 5,
+          }}
+        >
+          <span style={{ fontSize: 12 }}>?</span>
+          How It Works
+        </button>
+      </div>
+
       {/* View Toggle Strip */}
       <div
         style={{
@@ -2974,6 +3640,7 @@ export default function ResourcePage() {
           }}
         >
           {[
+            { key: "board", label: "Board" },
             { key: "timeline", label: "Timeline" },
             { key: "weekly", label: "This Week" },
             { key: "hours", label: "By Hours" },
@@ -2988,8 +3655,8 @@ export default function ResourcePage() {
                 padding: "6px 16px",
                 fontSize: T.fontSize.xs,
                 fontWeight: sortMode === v.key ? T.fontWeight.bold : T.fontWeight.medium,
-                color: sortMode === v.key ? (C.isDark ? "#fff" : C.text) : C.textMuted,
-                background: sortMode === v.key ? (C.isDark ? "rgba(255,255,255,0.10)" : "#fff") : "transparent",
+                color: sortMode === v.key ? "#fff" : C.isDark ? "rgba(255,255,255,0.65)" : C.text,
+                background: sortMode === v.key ? (C.isDark ? "rgba(255,255,255,0.12)" : C.accent) : "transparent",
                 borderRadius: T.radius.sm,
                 border: sortMode === v.key ? `1px solid ${C.border}` : "1px solid transparent",
                 boxShadow: sortMode === v.key ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
@@ -3052,6 +3719,18 @@ export default function ResourcePage() {
         </div>
       )}
 
+      {/* Board View (default — drag-and-drop assignment) */}
+      {sortMode === "board" && (
+        <BoardView
+          workload={workload}
+          C={C}
+          T={T}
+          navigate={navigate}
+          onDrop={handleDrop}
+          onProjectClick={handleProjectClick}
+        />
+      )}
+
       {/* Timeline View (Gantt Chart) */}
       {sortMode === "timeline" && (
         <>
@@ -3073,10 +3752,14 @@ export default function ResourcePage() {
       {sortMode === "weekly" && <WeeklyPlanView workload={workload} C={C} T={T} />}
 
       {/* By Hours View */}
-      {sortMode === "hours" && <ByHoursView workload={workload} C={C} T={T} navigate={navigate} onProjectClick={handleProjectClick} />}
+      {sortMode === "hours" && (
+        <ByHoursView workload={workload} C={C} T={T} navigate={navigate} onProjectClick={handleProjectClick} />
+      )}
 
       {/* By Due Date View */}
-      {sortMode === "due-date" && <ByDueDateView workload={workload} C={C} T={T} navigate={navigate} onProjectClick={handleProjectClick} />}
+      {sortMode === "due-date" && (
+        <ByDueDateView workload={workload} C={C} T={T} navigate={navigate} onProjectClick={handleProjectClick} />
+      )}
 
       {/* Analytics View */}
       {sortMode === "analytics" && (
@@ -3106,6 +3789,9 @@ export default function ResourcePage() {
 
       {/* What If Modal */}
       {showWhatIf && <WhatIfModal workload={workload} onClose={() => setShowWhatIf(false)} />}
+
+      {/* Resource Guide Modal */}
+      <ResourceGuideModal open={showGuide} onClose={() => setShowGuide(false)} />
 
       {/* Project Quick Actions Popover */}
       {quickAction && (

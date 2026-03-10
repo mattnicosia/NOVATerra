@@ -23,9 +23,8 @@ export default async function handler(req, res) {
   const apiKey = process.env.RESEND_API_KEY;
   const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
   const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : "http://localhost:3000";
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
 
   if (!apiKey) {
     return res.status(500).json({ error: "Email service not configured" });
@@ -104,6 +103,7 @@ export default async function handler(req, res) {
 </body>
 </html>`;
 
+    console.log(`[send-team-invite] Sending from="${fromEmail}" to="${inv.email}" signupUrl="${signupUrl}"`);
     const resend = new Resend(apiKey);
     const { data: emailData, error: emailError } = await resend.emails.send({
       from: `NOVATerra <${fromEmail}>`,
@@ -113,7 +113,7 @@ export default async function handler(req, res) {
     });
 
     if (emailError) {
-      console.error("[send-team-invite] Resend error:", emailError);
+      console.error("[send-team-invite] Resend error:", JSON.stringify(emailError));
       return res.status(502).json({ error: emailError.message || "Failed to send email" });
     }
 
