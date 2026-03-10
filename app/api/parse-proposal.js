@@ -2,7 +2,7 @@
 // POST { proposalId } — downloads PDF from Supabase Storage, sends to Claude, saves parsed data
 
 import Anthropic from '@anthropic-ai/sdk';
-import { supabaseAdmin } from './lib/supabaseAdmin.js';
+import { supabaseAdmin, verifyUser } from './lib/supabaseAdmin.js';
 import { cors } from './lib/cors.js';
 import { PROPOSAL_PARSE_PROMPT, buildProposalMessages } from './lib/parseProposal.js';
 
@@ -16,6 +16,9 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  const user = await verifyUser(req);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
   if (!supabaseAdmin) return res.status(500).json({ error: 'Database not configured' });
 

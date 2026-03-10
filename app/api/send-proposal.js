@@ -3,6 +3,7 @@
 
 import { Resend } from 'resend';
 import { cors } from './lib/cors.js';
+import { verifyUser } from './lib/supabaseAdmin.js';
 
 export const config = {
   api: { bodyParser: { sizeLimit: '10mb' } },
@@ -14,6 +15,9 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  const user = await verifyUser(req);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
   const { to, cc, bcc, subject, body, pdfBase64, pdfFilename, fromName, replyTo } = req.body || {};
 

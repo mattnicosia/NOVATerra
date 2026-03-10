@@ -1,3 +1,4 @@
+import { Webhook } from "svix";
 import { supabaseAdmin } from "./lib/supabaseAdmin.js";
 import { parseRfpEmail } from "./lib/parseEmail.js";
 import { matchEmail } from "./lib/emailMatcher.js";
@@ -59,6 +60,31 @@ export default async function handler(req, res) {
 
   if (!supabaseAdmin) {
     return res.status(500).json({ error: "Supabase not configured" });
+  }
+
+  // Verify webhook signature from Resend (svix)
+  const webhookSecret = process.env.WEBHOOK_SECRET;
+  if (webhookSecret) {
+    try {
+      const wh = new Webhook(webhookSecret);
+      const svixId = req.headers["svix-id"];
+      const svixTimestamp = req.headers["svix-timestamp"];
+      const svixSignature = req.headers["svix-signature"];
+      if (!svixId || !svixTimestamp || !svixSignature) {
+        console.warn("[inbound] Missing svix headers — rejecting");
+        return res.status(401).json({ error: "Missing webhook signature" });
+      }
+      wh.verify(JSON.stringify(req.body), {
+        "svix-id": svixId,
+        "svix-timestamp": svixTimestamp,
+        "svix-signature": svixSignature,
+      });
+    } catch (verifyErr) {
+      console.warn("[inbound] Webhook signature verification failed:", verifyErr.message);
+      return res.status(401).json({ error: "Invalid webhook signature" });
+    }
+  } else {
+    console.warn("[inbound] WEBHOOK_SECRET not set — skipping signature verification");
   }
 
   const RESEND_KEY = process.env.RESEND_API_KEY;

@@ -4,6 +4,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { cors } from "./lib/cors.js";
+import { verifyUser } from "./lib/supabaseAdmin.js";
 
 export const config = {
   api: { bodyParser: { sizeLimit: "1mb" } },
@@ -15,6 +16,9 @@ export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
+
+  const user = await verifyUser(req);
+  if (!user) return res.status(401).json({ error: "Unauthorized" });
 
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   if (!anthropicKey) return res.status(500).json({ error: "AI service not configured" });

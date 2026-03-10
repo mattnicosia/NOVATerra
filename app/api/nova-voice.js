@@ -2,17 +2,18 @@
 // Keeps API key server-side. Client POSTs { text, stability?, similarity_boost?, style? }
 // Returns audio/mpeg stream.
 
+import { verifyUser } from './lib/supabaseAdmin.js';
+import { cors } from './lib/cors.js';
+
 export default async function handler(req, res) {
-  if (req.method === 'OPTIONS') {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    return res.status(200).end();
-  }
+  if (cors(req, res)) return;
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  const user = await verifyUser(req);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
   const { text, stability, similarity_boost, style } = req.body || {};
 

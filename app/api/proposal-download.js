@@ -1,16 +1,15 @@
 // Vercel Serverless Function — Generate signed download URL for a proposal PDF
 // POST { proposalId } → returns { url, filename }
 
-import { supabaseAdmin } from "./lib/supabaseAdmin.js";
+import { supabaseAdmin, verifyUser } from "./lib/supabaseAdmin.js";
 import { cors } from "./lib/cors.js";
-import { authGuard } from "./lib/authGuard.js";
 
 export default async function handler(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const user = await authGuard(req, res);
-  if (!user) return;
+  const user = await verifyUser(req);
+  if (!user) return res.status(401).json({ error: "Unauthorized" });
 
   if (!supabaseAdmin) return res.status(500).json({ error: "Storage not configured" });
 
