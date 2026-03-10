@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useProjectStore } from "@/stores/projectStore";
@@ -230,6 +230,7 @@ export default function ProjectInfoPage() {
   const [quickAddValue, setQuickAddValue] = useState("");
   const [hoursSuggestion, setHoursSuggestion] = useState(null);
   const [estNumError, setEstNumError] = useState("");
+  const prevEstNumRef = useRef("");
 
   // Correspondences
   const correspondences = useCorrespondenceStore(s => s.correspondences);
@@ -316,7 +317,7 @@ export default function ProjectInfoPage() {
     const dup = all.find(e => e.estimateNumber === trimmed && e.id !== activeEstimateId);
     if (dup) {
       setEstNumError(`Estimate #${trimmed} already exists ("${dup.name}")`);
-      up("estimateNumber", project._prevEstNum || "");
+      up("estimateNumber", prevEstNumRef.current);
     } else {
       setEstNumError("");
     }
@@ -462,7 +463,7 @@ export default function ProjectInfoPage() {
             <Fld label="Estimate Number">
               <input
                 value={project.estimateNumber || ""}
-                onFocus={() => { project._prevEstNum = project.estimateNumber || ""; }}
+                onFocus={() => { prevEstNumRef.current = project.estimateNumber || ""; }}
                 onChange={e => { setEstNumError(""); up("estimateNumber", e.target.value); }}
                 onBlur={e => validateEstimateNumber(e.target.value)}
                 placeholder="e.g. EST-2026-001"

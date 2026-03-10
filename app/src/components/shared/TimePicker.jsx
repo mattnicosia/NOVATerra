@@ -16,7 +16,9 @@ function parse24(val) {
   const [hh, mm] = val.split(":").map(Number);
   const period = hh >= 12 ? "PM" : "AM";
   const h12 = hh === 0 ? 12 : hh > 12 ? hh - 12 : hh;
-  return { h: h12, m: mm, period };
+  // Snap to nearest 5-minute boundary so selection always highlights
+  const m5 = Math.round(mm / 5) * 5;
+  return { h: h12, m: m5 >= 60 ? 55 : m5, period };
 }
 
 function to24(h12, m, period) {
