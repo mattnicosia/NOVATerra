@@ -479,8 +479,7 @@ export const pushData = async (key, data) => {
       const row = { user_id: userId, key, data: cleanData, updated_at: new Date().toISOString(), ...(scope || {}) };
 
       if (scope?.org_id) {
-        // Org mode: partial unique index can't be used with onConflict directly,
-        // so use select-then-update/insert like solo mode.
+        // Org mode: check for existing org-scoped row first
         const { data: existing } = await supabase
           .from("user_data")
           .select("id")
@@ -498,8 +497,21 @@ export const pushData = async (key, data) => {
             .eq("org_id", scope.org_id);
           if (error) throw error;
         } else {
+          // Try insert; if blocked by legacy UNIQUE(user_id,key) constraint,
+          // update the existing solo-mode row to claim it for this org.
           const { error } = await supabase.from("user_data").insert(row);
-          if (error) throw error;
+          if (error?.code === "23505") {
+            console.log(`[cloudSync] pushData("${key}"): migrating solo row to org ${scope.org_id}`);
+            const { error: upErr } = await supabase
+              .from("user_data")
+              .update({ org_id: scope.org_id, data: cleanData, updated_at: row.updated_at })
+              .eq("user_id", userId)
+              .eq("key", key)
+              .is("org_id", null);
+            if (upErr) throw upErr;
+          } else if (error) {
+            throw error;
+          }
         }
       } else {
         // Solo/settings mode: explicitly filter org_id IS NULL to avoid
@@ -561,8 +573,7 @@ export const pushEstimate = async (estimateId, data) => {
       };
 
       if (scope?.org_id) {
-        // Org mode: partial unique index can't be used with onConflict directly,
-        // so use select-then-update/insert like solo mode.
+        // Org mode: check for existing org-scoped row first
         const { data: existing } = await supabase
           .from("user_estimates")
           .select("id")
@@ -580,8 +591,21 @@ export const pushEstimate = async (estimateId, data) => {
             .eq("org_id", scope.org_id);
           if (error) throw error;
         } else {
+          // Try insert; if blocked by legacy UNIQUE(user_id,estimate_id) constraint,
+          // update the existing solo-mode row to claim it for this org.
           const { error } = await supabase.from("user_estimates").insert(row);
-          if (error) throw error;
+          if (error?.code === "23505") {
+            console.log(`[cloudSync] pushEstimate("${estimateId}"): migrating solo row to org ${scope.org_id}`);
+            const { error: upErr } = await supabase
+              .from("user_estimates")
+              .update({ org_id: scope.org_id, data: cleanData, updated_at: row.updated_at, ...(assignedTo ? { assigned_to: assignedTo } : {}) })
+              .eq("user_id", userId)
+              .eq("estimate_id", estimateId)
+              .is("org_id", null);
+            if (upErr) throw upErr;
+          } else if (error) {
+            throw error;
+          }
         }
       } else {
         // Solo mode: explicitly filter org_id IS NULL to avoid collisions with org-mode rows.
