@@ -3243,28 +3243,36 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
           zIndex: 50,
         };
         return (
+          <div style={{ width: RAIL_W, flexShrink: 0, position: "relative", zIndex: 40 }}>
+          {/* Floating rail pill — top aligned with GroupBar, bottom at screen midpoint */}
           <div
             style={{
-              width: RAIL_W,
-              flexShrink: 0,
+              position: "absolute",
+              top: tkPanelTier === "estimate" ? 78 : 8,
+              left: 2,
+              width: RAIL_W - 4,
+              bottom: "50%",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              paddingTop: tkPanelTier === "estimate" ? 78 : 10,
+              paddingTop: 10,
+              paddingBottom: 10,
               gap: 8,
               background: C.sidebarBg || C.bg1,
-              backgroundImage: `linear-gradient(180deg, rgba(255,255,255,0.05) 0%, transparent 30%, transparent 80%, rgba(0,0,0,0.08) 100%)`,
-              borderRight: `1px solid ${C.isDark ? "rgba(255,255,255,0.08)" : C.border}`,
+              backgroundImage: `linear-gradient(180deg, rgba(255,255,255,0.06) 0%, transparent 25%, transparent 85%, rgba(0,0,0,0.06) 100%)`,
+              border: `1px solid ${C.isDark ? "rgba(255,255,255,0.10)" : C.border}`,
+              borderRadius: 14,
               boxShadow: [
-                "3px 0 20px rgba(0,0,0,0.40)",
-                "1px 0 6px rgba(0,0,0,0.30)",
+                "0 4px 24px rgba(0,0,0,0.45)",
+                "0 2px 8px rgba(0,0,0,0.30)",
                 T.glass.specular,
                 T.glass.innerDepth,
                 T.glass.specularBottom,
-                "inset -1px 0 0 rgba(255,255,255,0.05)",
+                T.glass.edge,
               ].filter(Boolean).join(", "),
-              zIndex: 40,
-              position: "relative",
+              backdropFilter: T.glass.blurLight || "blur(12px)",
+              WebkitBackdropFilter: T.glass.blurLight || "blur(12px)",
+              transition: "top 0.2s ease-out",
             }}
           >
             {/* View cycle button */}
@@ -3358,7 +3366,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
 
             {/* Tools button — hidden in estimate mode */}
             {tkPanelTier !== "estimate" && (
-              <div className="rail-btn-wrap" style={{ position: "relative", display: "flex", alignItems: "center" }}>
+              <div ref={toolsBtnRef} className="rail-btn-wrap" style={{ position: "relative", display: "flex", alignItems: "center" }}>
                 <button
                   className="icon-btn rail-btn"
                   title="Tools"
@@ -3389,6 +3397,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                 <span className="rail-label" style={railLabelStyle}>Tools</span>
               </div>
             )}
+          </div>
           </div>
         );
       })()}
@@ -5893,38 +5902,8 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
             {/* Drawing controls — hidden in estimate mode */}
             {tkPanelTier !== "estimate" && (
               <>
-                {/* Tools folder */}
-                <div ref={toolsBtnRef} style={{ position: "relative", flexShrink: 0 }}>
-                  <button
-                    className="icon-btn"
-                    onClick={() => setToolsFolderOpen(v => !v)}
-                    title="Tools"
-                    style={{
-                      width: 24,
-                      height: 24,
-                      border: `1px solid ${toolsFolderOpen ? C.accent + "60" : C.border}`,
-                      background: toolsFolderOpen ? C.accent + "18" : C.bg2,
-                      borderRadius: 4,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke={toolsFolderOpen ? C.accent : C.textMuted}
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" />
-                    </svg>
-                  </button>
-                  {toolsFolderOpen &&
+                {/* Tools dropdown — anchored to rail Tools button via toolsBtnRef */}
+                {toolsFolderOpen &&
                     (() => {
                       const r = toolsBtnRef.current?.getBoundingClientRect();
                       const tools = [
@@ -6156,8 +6135,6 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                         </>
                       );
                     })()}
-                </div>
-                <div style={{ width: 1, height: 20, background: C.border, margin: "0 2px", flexShrink: 0 }} />
                 <button
                   className="icon-btn"
                   title="Previous"
