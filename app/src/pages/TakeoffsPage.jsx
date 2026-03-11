@@ -3324,8 +3324,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
 
             {/* ── Tools — organized by Jony's 4-group layout ── */}
             {tkPanelTier !== "estimate" && (() => {
-              const isCalibrating = tkTool === "calibrate";
-              const isSelecting = tkMeasureState === "idle" && !checkDimMode && !isCalibrating;
+              const isSelecting = tkMeasureState === "idle" && !checkDimMode && tkTool !== "calibrate";
               const railBtn = (active) => ({
                 width: 28, height: 28,
                 border: `1px solid ${active ? (C.accent + "50") : (C.isDark ? "rgba(255,255,255,0.12)" : C.border)}`,
@@ -3338,14 +3337,8 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
               const ico = (active) => ({ width: 13, height: 13, viewBox: "0 0 24 24", fill: "none", stroke: active ? C.accent : C.textMuted, strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" });
               const sep = <div key={Math.random()} style={{ width: 20, height: 1, background: C.isDark ? "rgba(255,255,255,0.08)" : C.border, flexShrink: 0, boxShadow: "0 1px 0 rgba(0,0,0,0.2)" }} />;
 
-              /* ── MODE GROUP: Scale, Select ── */
+              /* ── MODE GROUP: Select ── */
               const modeTools = [
-                { id: "calibrate", label: isCalibrating ? "Calibrating..." : "Scale", active: isCalibrating,
-                  action: () => {
-                    if (isCalibrating) { setTkTool("select"); setTkActivePoints([]); }
-                    else { setTkTool("calibrate"); setTkActivePoints([]); setTkMeasureState("idle"); }
-                  },
-                  icon: <svg {...ico(isCalibrating)}><path d="M2 12h4 M18 12h4 M12 2v4 M12 18v4" /><circle cx="12" cy="12" r="3" /><path d="M4.93 4.93l2.83 2.83 M16.24 16.24l2.83 2.83 M4.93 19.07l2.83-2.83 M16.24 7.76l2.83-2.83" /></svg> },
                 { id: "select", label: "Select", active: isSelecting,
                   action: () => {
                     setCheckDimMode(false);
