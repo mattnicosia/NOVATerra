@@ -47,7 +47,6 @@ const EstimatePanelView = lazy(() => import("@/components/estimate/EstimatePanel
 const EstimatePage = lazy(() => import("@/pages/EstimatePage"));
 const ItemDetailPanel = lazy(() => import("@/components/estimate/ItemDetailPanel"));
 import NotesPanel from "@/components/estimate/NotesPanel";
-import NovaOrb from "@/components/dashboard/NovaOrb";
 import { MessageBubble, ActionCards, QUICK_ACTIONS } from "@/components/ai/AIChatPanel";
 import { NOVA_TOOLS, executeNovaTool } from "@/utils/novaTools";
 import TakeoffNOVAPanel from "@/components/takeoffs/TakeoffNOVAPanel";
@@ -63,6 +62,8 @@ import {
 } from "@/utils/takeoffHelpers";
 
 // ─── Utilities imported from @/utils/takeoffHelpers ──────────────────
+
+const RAIL_W = 36; // px — navigation rail width
 
 export default function TakeoffsPage() {
   const C = useTheme();
@@ -3215,40 +3216,54 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
             sessionStorage.setItem("bldg-tkPanelWidth", nextMode.id === "full" ? "900" : "550");
           }
         };
+        const railLabelStyle = {
+          position: "absolute",
+          left: RAIL_W + 4,
+          top: "50%",
+          transform: "translateY(-50%)",
+          whiteSpace: "nowrap",
+          fontSize: 10,
+          fontWeight: 600,
+          fontFamily: T.font.sans,
+          color: C.text,
+          background: C.bg1,
+          border: `1px solid ${C.border}`,
+          borderRadius: 5,
+          padding: "4px 10px",
+          boxShadow: T.shadow.md || "0 4px 12px rgba(0,0,0,0.2)",
+          opacity: 0,
+          pointerEvents: "none",
+          transition: "opacity 0.15s ease",
+          zIndex: 50,
+        };
         return (
           <div
             style={{
-              width: 28,
+              width: RAIL_W,
               flexShrink: 0,
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              paddingTop: 8,
-              gap: 6,
-              background: C.isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
-              borderRight: `0.5px solid ${C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`,
+              paddingTop: 10,
+              gap: 8,
+              background: C.sidebarBg || C.bg1,
+              borderRight: `1px solid ${C.border}`,
               zIndex: 40,
+              position: "relative",
             }}
           >
-            {/* View cycle button with hover-expand label */}
-            <div
-              style={{
-                position: "relative",
-                display: "flex",
-                alignItems: "center",
-              }}
-              className="rail-btn-wrap"
-            >
+            {/* View cycle button */}
+            <div className="rail-btn-wrap" style={{ position: "relative", display: "flex", alignItems: "center" }}>
               <button
                 className="icon-btn rail-btn"
                 title={`${current.label} → ${nextMode.label}`}
                 onClick={cycleTier}
                 style={{
-                  width: 22,
-                  height: 22,
+                  width: 28,
+                  height: 28,
                   border: `1px solid ${current.bars > 0 ? (C.accent + "50") : C.border}`,
                   background: current.bars > 0 ? (C.accent + "14") : "transparent",
-                  borderRadius: 3,
+                  borderRadius: 5,
                   cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
@@ -3259,43 +3274,56 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                 }}
               >
                 {current.bars === 0 ? (
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="3" y="3" width="7" height="18" rx="1" />
                     <path d="M14 3h7M14 9h7M14 15h5" />
                   </svg>
                 ) : (
                   Array.from({ length: current.bars }).map((_, i) => (
-                    <div key={i} style={{ width: 2.5, height: 8, borderRadius: 1, background: C.accent }} />
+                    <div key={i} style={{ width: 2.5, height: 10, borderRadius: 1, background: C.accent }} />
                   ))
                 )}
               </button>
-              {/* Hover flyout label */}
-              <span
-                className="rail-label"
-                style={{
-                  position: "absolute",
-                  left: 26,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  whiteSpace: "nowrap",
-                  fontSize: 9,
-                  fontWeight: 600,
-                  fontFamily: C.T.font.sans,
-                  color: C.text,
-                  background: C.bg1,
-                  border: `1px solid ${C.border}`,
-                  borderRadius: 4,
-                  padding: "3px 8px",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-                  opacity: 0,
-                  pointerEvents: "none",
-                  transition: "opacity 0.15s ease",
-                  zIndex: 50,
-                }}
-              >
-                {current.label}
-              </span>
+              <span className="rail-label" style={railLabelStyle}>{current.label}</span>
             </div>
+
+            {/* Separator */}
+            {tkPanelTier !== "estimate" && (
+              <div style={{ width: 18, height: 1, background: C.border, flexShrink: 0 }} />
+            )}
+
+            {/* Panel toggle button — hidden in estimate mode */}
+            {tkPanelTier !== "estimate" && (
+              <div className="rail-btn-wrap" style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                <button
+                  className="icon-btn rail-btn"
+                  title={tkPanelOpen ? "Close Takeoffs" : "Open Takeoffs"}
+                  onClick={() => {
+                    const store = useTakeoffsStore.getState();
+                    store.setTkPanelOpen(!tkPanelOpen);
+                  }}
+                  style={{
+                    width: 28,
+                    height: 28,
+                    border: `1px solid ${tkPanelOpen ? (C.accent + "50") : C.border}`,
+                    background: tkPanelOpen ? (C.accent + "14") : "transparent",
+                    borderRadius: 5,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: 0,
+                    flexShrink: 0,
+                  }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={tkPanelOpen ? C.accent : C.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <line x1="9" y1="3" x2="9" y2="21" />
+                  </svg>
+                </button>
+                <span className="rail-label" style={railLabelStyle}>Takeoffs</span>
+              </div>
+            )}
           </div>
         );
       })()}
@@ -3312,7 +3340,10 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
           }}
           style={{
             position: "absolute",
-            inset: 0,
+            top: 0,
+            left: RAIL_W,
+            right: 0,
+            bottom: 0,
             background: C.isDark ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.15)",
             zIndex: 30,
             animation: "fadeIn 0.15s ease-out",
@@ -3323,7 +3354,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
         <div
           style={{
             position: "absolute",
-            left: 0,
+            left: RAIL_W,
             top: 0,
             bottom: 0,
             width: tkPanelWidth,
