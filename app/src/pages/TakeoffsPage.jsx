@@ -326,8 +326,7 @@ export default function TakeoffsPage() {
   const [estSelectedItemId, setEstSelectedItemId] = useState(null);
 
   // Toolbar dropdowns
-  const [toolsFolderOpen, setToolsFolderOpen] = useState(false);
-  const toolsBtnRef = useRef(null);
+  // toolsFolderOpen / toolsBtnRef removed — tools are now individual rail buttons
 
   // Takeoff Command Palette
   const [tkCmdOpen, setTkCmdOpen] = useState(false);
@@ -3248,7 +3247,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
           <div
             style={{
               position: "absolute",
-              top: tkPanelTier === "estimate" ? 78 : 8,
+              top: 78,
               left: 2,
               width: RAIL_W - 4,
               bottom: "50%",
@@ -3364,39 +3363,50 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
               </div>
             )}
 
-            {/* Tools button — hidden in estimate mode */}
-            {tkPanelTier !== "estimate" && (
-              <div ref={toolsBtnRef} className="rail-btn-wrap" style={{ position: "relative", display: "flex", alignItems: "center" }}>
-                <button
-                  className="icon-btn rail-btn"
-                  title="Tools"
-                  onClick={() => setToolsFolderOpen(v => !v)}
-                  style={{
-                    width: 28,
-                    height: 28,
-                    border: `1px solid ${toolsFolderOpen ? (C.accent + "60") : (C.isDark ? "rgba(255,255,255,0.12)" : C.border)}`,
-                    background: toolsFolderOpen ? (C.accent + "18") : (C.isDark ? "rgba(255,255,255,0.06)" : C.bg2),
-                    borderRadius: 6,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: 0,
-                    flexShrink: 0,
-                    boxShadow: [
-                      T.shadow.sm,
-                      T.glass.specularSm,
-                      toolsFolderOpen ? `0 0 8px ${C.accent}20` : null,
-                    ].filter(Boolean).join(", "),
-                  }}
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={toolsFolderOpen ? C.accent : C.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" />
-                  </svg>
-                </button>
-                <span className="rail-label" style={railLabelStyle}>Tools</span>
-              </div>
-            )}
+            {/* ── Individual tool buttons — hidden in estimate mode ── */}
+            {tkPanelTier !== "estimate" && (() => {
+              const railBtn = (active) => ({
+                width: 28, height: 28,
+                border: `1px solid ${active ? (C.accent + "50") : (C.isDark ? "rgba(255,255,255,0.12)" : C.border)}`,
+                background: active ? (C.accent + "18") : (C.isDark ? "rgba(255,255,255,0.06)" : C.bg2),
+                borderRadius: 6, cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                padding: 0, flexShrink: 0,
+                boxShadow: [T.shadow.sm, T.glass.specularSm, active ? `0 0 8px ${C.accent}20` : null].filter(Boolean).join(", "),
+              });
+              const ico = (active) => ({ width: 13, height: 13, viewBox: "0 0 24 24", fill: "none", stroke: active ? C.accent : C.textMuted, strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" });
+              const tools = [
+                { id: "snap", label: snapAngleOn ? "Snap ON" : "Snap Angle", active: snapAngleOn, action: () => setSnapAngleOn(v => !v),
+                  icon: <svg {...ico(snapAngleOn)}><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" /></svg> },
+                { id: "labels", label: "Labels", soon: true,
+                  icon: <svg {...ico(false)}><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg> },
+                { id: "checkdim", label: "Check Dim", soon: true,
+                  icon: <svg {...ico(false)}><path d="M2 20h20 M2 20V4 M6 16V8 M10 16V6 M14 16v-4 M18 16V8" /></svg> },
+                { id: "compare", label: "Compare", soon: true,
+                  icon: <svg {...ico(false)}><rect x="2" y="3" width="8" height="8" rx="1" /><rect x="14" y="13" width="8" height="8" rx="1" /><path d="M7 11v2a2 2 0 002 2h2 M17 13v-2a2 2 0 00-2-2h-2" /></svg> },
+                { id: "screenshot", label: "Screenshot", soon: true,
+                  icon: <svg {...ico(false)}><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" /><circle cx="12" cy="13" r="4" /></svg> },
+                { id: "angle", label: "Angle", soon: true,
+                  icon: <svg {...ico(false)}><path d="M21 19H5V5" /><path d="M5 19l14-14" /></svg> },
+              ];
+              return tools.map(t => (
+                <div key={t.id} className="rail-btn-wrap" style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                  <button
+                    className="icon-btn rail-btn"
+                    title={t.label}
+                    onClick={t.action || undefined}
+                    style={{
+                      ...railBtn(t.active),
+                      opacity: t.soon && !t.action ? 0.45 : 1,
+                      cursor: t.soon && !t.action ? "default" : "pointer",
+                    }}
+                  >
+                    {t.icon}
+                  </button>
+                  <span className="rail-label" style={railLabelStyle}>{t.label}</span>
+                </div>
+              ));
+            })()}
           </div>
           </div>
         );
@@ -5902,239 +5912,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
             {/* Drawing controls — hidden in estimate mode */}
             {tkPanelTier !== "estimate" && (
               <>
-                {/* Tools dropdown — anchored to rail Tools button via toolsBtnRef */}
-                {toolsFolderOpen &&
-                    (() => {
-                      const r = toolsBtnRef.current?.getBoundingClientRect();
-                      const tools = [
-                        {
-                          id: "checkdim",
-                          label: "Check Dim",
-                          icon: (
-                            <svg
-                              width="14"
-                              height="14"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke={C.text}
-                              strokeWidth="1.8"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <path d="M2 20h20 M2 20V4 M6 16V8 M10 16V6 M14 16v-4 M18 16V8" />
-                            </svg>
-                          ),
-                          desc: "Measure without creating a takeoff",
-                          soon: true,
-                        },
-                        {
-                          id: "angle",
-                          label: "Angle",
-                          icon: (
-                            <svg
-                              width="14"
-                              height="14"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke={C.text}
-                              strokeWidth="1.8"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <path d="M21 19H5V5" />
-                              <path d="M5 19l14-14" />
-                            </svg>
-                          ),
-                          desc: "Measure angles between lines",
-                          soon: true,
-                        },
-                        {
-                          id: "compare",
-                          label: "Compare",
-                          icon: (
-                            <svg
-                              width="14"
-                              height="14"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke={C.text}
-                              strokeWidth="1.8"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <rect x="2" y="3" width="8" height="8" rx="1" />
-                              <rect x="14" y="13" width="8" height="8" rx="1" />
-                              <path d="M7 11v2a2 2 0 002 2h2 M17 13v-2a2 2 0 00-2-2h-2" />
-                            </svg>
-                          ),
-                          desc: "Overlay drawings for revision comparison",
-                          soon: true,
-                        },
-                        {
-                          id: "screenshot",
-                          label: "Screenshot",
-                          icon: (
-                            <svg
-                              width="14"
-                              height="14"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke={C.text}
-                              strokeWidth="1.8"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
-                              <circle cx="12" cy="13" r="4" />
-                            </svg>
-                          ),
-                          desc: "Export canvas view as image",
-                          soon: true,
-                        },
-                        {
-                          id: "labels",
-                          label: "Labels",
-                          icon: (
-                            <svg
-                              width="14"
-                              height="14"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke={C.text}
-                              strokeWidth="1.8"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-                            </svg>
-                          ),
-                          desc: "Toggle measurement labels on canvas",
-                          soon: true,
-                        },
-                        {
-                          id: "snap",
-                          label: "Snap Angle",
-                          icon: (
-                            <svg
-                              width="14"
-                              height="14"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke={snapAngleOn ? C.accent : C.text}
-                              strokeWidth="1.8"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
-                              <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-                              <line x1="12" y1="22.08" x2="12" y2="12" />
-                            </svg>
-                          ),
-                          desc: snapAngleOn ? "Snap is ON" : "Lock to 45° angles",
-                          active: snapAngleOn,
-                          action: () => setSnapAngleOn(v => !v),
-                        },
-                      ];
-                      return (
-                        <>
-                          <div
-                            onClick={() => setToolsFolderOpen(false)}
-                            style={{ position: "fixed", inset: 0, zIndex: 199 }}
-                          />
-                          <div
-                            style={{
-                              position: "fixed",
-                              top: (r?.bottom || 0) + 6,
-                              left: Math.max(8, r?.left || 0),
-                              width: 200,
-                              background: C.bg1,
-                              border: `1px solid ${C.border}`,
-                              borderRadius: 10,
-                              boxShadow: "0 8px 32px rgba(0,0,0,0.35)",
-                              zIndex: 200,
-                              padding: 8,
-                              animation: "fadeIn 0.12s ease-out",
-                            }}
-                          >
-                            <div
-                              style={{
-                                fontSize: 8,
-                                fontWeight: 700,
-                                color: C.textDim,
-                                textTransform: "uppercase",
-                                letterSpacing: 0.8,
-                                padding: "2px 4px 6px",
-                                borderBottom: `1px solid ${C.border}`,
-                              }}
-                            >
-                              Tools
-                            </div>
-                            <div
-                              style={{
-                                display: "grid",
-                                gridTemplateColumns: "1fr 1fr 1fr",
-                                gap: 4,
-                                padding: "8px 0 4px",
-                              }}
-                            >
-                              {tools.map(t => (
-                                <button
-                                  key={t.id}
-                                  onClick={() => {
-                                    if (t.action) {
-                                      t.action();
-                                      setToolsFolderOpen(false);
-                                    } else if (!t.soon) {
-                                      setToolsFolderOpen(false);
-                                    }
-                                  }}
-                                  title={t.desc}
-                                  style={{
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    alignItems: "center",
-                                    gap: 3,
-                                    padding: "8px 4px",
-                                    background: t.active ? C.accent + "15" : "transparent",
-                                    border: t.active ? `1px solid ${C.accent}40` : "1px solid transparent",
-                                    borderRadius: 8,
-                                    cursor: t.soon && !t.action ? "default" : "pointer",
-                                    opacity: t.soon && !t.action ? 0.45 : 1,
-                                    transition: "all 0.12s",
-                                  }}
-                                >
-                                  <div
-                                    style={{
-                                      width: 28,
-                                      height: 28,
-                                      borderRadius: 8,
-                                      background: t.active ? C.accent + "20" : C.bg2,
-                                      display: "flex",
-                                      alignItems: "center",
-                                      justifyContent: "center",
-                                      border: `1px solid ${t.active ? C.accent + "30" : C.border}`,
-                                    }}
-                                  >
-                                    {t.icon}
-                                  </div>
-                                  <span
-                                    style={{
-                                      fontSize: 7,
-                                      fontWeight: 600,
-                                      color: t.active ? C.accent : C.textMuted,
-                                      lineHeight: 1.1,
-                                      textAlign: "center",
-                                    }}
-                                  >
-                                    {t.label}
-                                  </span>
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        </>
-                      );
-                    })()}
+                {/* Tools now live as individual buttons in the vertical rail */}
                 <button
                   className="icon-btn"
                   title="Previous"
