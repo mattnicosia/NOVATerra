@@ -13,6 +13,7 @@ const VIEW_MODES = [
   { key: "detail", label: "Detail" },
   { key: "level", label: "Level" },
 ];
+const VIEW_MODE_ORDER = ["scope", "detail", "level"];
 
 export default function GroupBar() {
   const C = useTheme();
@@ -191,43 +192,39 @@ export default function GroupBar() {
           minHeight: 36,
         }}
       >
-        {/* View mode toggle: Scope | Detail | Level */}
-        <div
-          style={{
-            display: "flex",
-            background: dk ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.10)",
-            borderRadius: T.radius.sm,
-            overflow: "hidden",
-            border: `0.5px solid ${dk ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.20)"}`,
-            boxShadow: `inset 0 0.5px 0 ${dk ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.35)"}`,
-            flexShrink: 0,
-          }}
-        >
-          {VIEW_MODES.map(v => (
+        {/* View mode cycle button: Scope → Detail → Level */}
+        {(() => {
+          const curIdx = VIEW_MODE_ORDER.indexOf(viewMode);
+          const cur = VIEW_MODES[curIdx >= 0 ? curIdx : 0];
+          const nextIdx = (curIdx + 1) % VIEW_MODE_ORDER.length;
+          const next = VIEW_MODES[nextIdx];
+          return (
             <button
-              key={v.key}
-              onClick={() => setEstViewMode(v.key)}
+              onClick={() => setEstViewMode(next.key)}
+              title={`${cur.label} → ${next.label}`}
               style={{
                 padding: "4px 10px",
                 fontSize: 10,
                 fontWeight: 600,
-                border: "none",
+                border: `0.5px solid ${dk ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.25)"}`,
+                borderRadius: T.radius.sm,
                 cursor: "pointer",
                 transition: "all 0.25s ease",
-                background:
-                  viewMode === v.key ? (dk ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.40)") : "transparent",
-                color: viewMode === v.key ? C.text : C.textMuted,
+                background: dk ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.25)",
+                color: C.text,
                 fontFamily: T.font.sans,
-                boxShadow:
-                  viewMode === v.key
-                    ? `inset 0 0.5px 0 ${dk ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.50)"}`
-                    : "none",
+                boxShadow: `inset 0 0.5px 0 ${dk ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.45)"}`,
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
               }}
             >
-              {v.label}
+              {cur.label}
+              <span style={{ fontSize: 8, opacity: 0.5 }}>{"\u25B6"}</span>
             </button>
-          ))}
-        </div>
+          );
+        })()}
 
         {/* Separator between view toggle and bid tabs */}
         <div
