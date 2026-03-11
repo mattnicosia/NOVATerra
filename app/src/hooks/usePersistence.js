@@ -1119,6 +1119,9 @@ export async function saveEstimate() {
     data.timerTotalMs = data.timerSessions.reduce((sum, s) => sum + (s.durationMs || 0), 0);
   }
 
+  // Stamp save time for cross-device sync freshness comparison
+  data._savedAt = new Date().toISOString();
+
   const estOk = await storage.set(idbKey(`bldg-est-${id}`), JSON.stringify(data));
   if (!estOk) {
     useUiStore.getState().showToast("Save failed — check storage space", "error");

@@ -359,11 +359,15 @@ async function syncEstimates() {
   }
   const idbIndexMap = new Map(idbIndex.map(e => [e.id, e]));
 
+  const updatedFromCloud = []; // track estimates overwritten by newer cloud data
   for (const ce of cloudEstimates) {
     if (initialDeletedSet.has(ce.estimate_id)) continue; // Don't pull back deleted
-    if (!idbIndexMap.has(ce.estimate_id)) {
+
+    const existsLocally = idbIndexMap.has(ce.estimate_id);
+
+    if (!existsLocally) {
+      // ── New estimate from cloud — pull it ──
       console.log(`[cloudSync] Estimates: caching cloud estimate ${ce.estimate_id} to IDB`);
-      // Hydrate blobs before caching — cloud data has stripped drawings
       let estData = ce.data;
       try { estData = await cloudSync.hydrateBlobs(ce.data); } catch {}
       await storage.set(idbKey(`bldg-est-${ce.estimate_id}`), JSON.stringify(estData));
@@ -371,7 +375,91 @@ async function syncEstimates() {
       if (cloudEntry) {
         pulledEntries.push(cloudEntry);
       }
+    } else {
+      // ── Estimate exists locally — check if cloud is newer ──
+      // Compare cloud updated_at vs local _savedAt timestamp
+      const cloudTime = ce.updated_at ? new Date(ce.updated_at).getTime() : 0;
+      if (cloudTime > 0) {
+        let localTime = 0;
+        try {
+          const localRaw = await storage.get(idbKey(`bldg-est-${ce.estimate_id}`));
+          if (localRaw) {
+            const localData = JSON.parse(localRaw.value);
+            localTime = localData._savedAt ? new Date(localData._savedAt).getTime() : 0;
+          }
+        } catch {}
+
+        // Cloud is newer — overwrite local with cloud data
+        // Also handle case where local has no _savedAt (legacy data before this fix)
+        if (cloudTime > localTime) {
+          console.log(`[cloudSync] Estimates: cloud is newer for ${ce.estimate_id} (cloud: ${ce.updated_at}, local _savedAt: ${localTime ? new Date(localTime).toISOString() : "none"}) — overwriting local`);
+          let estData = ce.data;
+          try { estData = await cloudSync.hydrateBlobs(ce.data); } catch {}
+          // Stamp with _savedAt so future comparisons work
+          estData._savedAt = ce.updated_at;
+          await storage.set(idbKey(`bldg-est-${ce.estimate_id}`), JSON.stringify(estData));
+          updatedFromCloud.push(ce.estimate_id);
+
+          // Update the index entry from cloud too
+          const cloudEntry = cloudIndexMap.get(ce.estimate_id);
+          if (cloudEntry) {
+            const localEntry = idbIndexMap.get(ce.estimate_id);
+            // Merge cloud entry fields into local entry
+            idbIndexMap.set(ce.estimate_id, { ...localEntry, ...cloudEntry });
+          }
+        }
+      }
     }
+  }
+
+  // If any existing estimates were updated from cloud, reload them into stores
+  if (updatedFromCloud.length > 0) {
+    console.log(`[cloudSync] Estimates: ${updatedFromCloud.length} estimate(s) updated from cloud — refreshing stores`);
+    // Update IDB index with merged entries
+    const mergedIndex = Array.from(idbIndexMap.values());
+    await storage.set(idbKey("bldg-index"), JSON.stringify(mergedIndex));
+
+    // If the active estimate was updated, reload it into stores
+    const activeId = useEstimatesStore.getState().activeEstimateId;
+    if (activeId && updatedFromCloud.includes(activeId)) {
+      try {
+        const freshRaw = await storage.get(idbKey(`bldg-est-${activeId}`));
+        if (freshRaw) {
+          const freshData = JSON.parse(freshRaw.value);
+          // Reload stores from the fresh cloud data
+          const { useItemsStore } = await import("@/stores/itemsStore");
+          const { useProjectStore } = await import("@/stores/projectStore");
+          const { useDrawingsStore } = await import("@/stores/drawingsStore");
+          const { useTakeoffsStore } = await import("@/stores/takeoffsStore");
+          const { useSpecsStore } = await import("@/stores/specsStore");
+          const { useGroupsStore } = await import("@/stores/groupsStore");
+
+          if (freshData.project) useProjectStore.getState().setProject(freshData.project);
+          if (freshData.items !== undefined) useItemsStore.getState().setItems(freshData.items || []);
+          if (freshData.markup !== undefined) useItemsStore.getState().setMarkup(freshData.markup);
+          if (freshData.drawings) useDrawingsStore.getState().setDrawings(freshData.drawings);
+          if (freshData.takeoffs) useTakeoffsStore.getState().setTakeoffs(freshData.takeoffs);
+          if (freshData.specs) useSpecsStore.getState().setSpecs(freshData.specs);
+          if (freshData.exclusions) useSpecsStore.getState().setExclusions(freshData.exclusions);
+          if (freshData.clarifications) useSpecsStore.getState().setClarifications(freshData.clarifications);
+          if (freshData.groups) useGroupsStore.getState().setGroups(freshData.groups);
+
+          console.log(`[cloudSync] Active estimate ${activeId} reloaded from newer cloud data`);
+          useUiStore.getState().showToast("Estimate updated from another device", "info");
+        }
+      } catch (err) {
+        console.warn("[cloudSync] Failed to reload active estimate from cloud:", err.message);
+      }
+    }
+
+    // Update estimates index in store
+    useEstimatesStore.setState(state => {
+      const updated = state.estimatesIndex.map(e => {
+        const merged = idbIndexMap.get(e.id);
+        return merged || e;
+      });
+      return { estimatesIndex: updated };
+    });
   }
 
   // ── Phase 5: SAFE ADDITIVE MERGE — re-read FRESH state, never replace ──
