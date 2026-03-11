@@ -3244,7 +3244,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              paddingTop: 10,
+              paddingTop: tkPanelTier === "estimate" ? 106 : 10,
               gap: 8,
               background: C.sidebarBg || C.bg1,
               borderRight: `1px solid ${C.border}`,
@@ -3322,6 +3322,35 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                   </svg>
                 </button>
                 <span className="rail-label" style={railLabelStyle}>Takeoffs</span>
+              </div>
+            )}
+
+            {/* Tools button — hidden in estimate mode */}
+            {tkPanelTier !== "estimate" && (
+              <div className="rail-btn-wrap" style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                <button
+                  className="icon-btn rail-btn"
+                  title="Tools"
+                  onClick={() => setToolsFolderOpen(v => !v)}
+                  style={{
+                    width: 28,
+                    height: 28,
+                    border: `1px solid ${toolsFolderOpen ? (C.accent + "60") : C.border}`,
+                    background: toolsFolderOpen ? (C.accent + "18") : "transparent",
+                    borderRadius: 5,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: 0,
+                    flexShrink: 0,
+                  }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={toolsFolderOpen ? C.accent : C.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" />
+                  </svg>
+                </button>
+                <span className="rail-label" style={railLabelStyle}>Tools</span>
               </div>
             )}
           </div>
