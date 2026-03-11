@@ -8,13 +8,6 @@ import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { bt } from "@/utils/styles";
 
-const VIEW_MODES = [
-  { key: "scope", label: "Scope" },
-  { key: "detail", label: "Detail" },
-  { key: "level", label: "Level" },
-];
-const VIEW_MODE_ORDER = ["scope", "detail", "level"];
-
 export default function GroupBar() {
   const C = useTheme();
   const T = C.T;
@@ -29,18 +22,6 @@ export default function GroupBar() {
   const items = useItemsStore(s => s.items);
   const takeoffs = useTakeoffsStore(s => s.takeoffs);
   const showToast = useUiStore(s => s.showToast);
-
-  const estViewMode = useUiStore(s => s.estViewMode);
-  const setEstViewMode = useUiStore(s => s.setEstViewMode);
-  // Normalize old mode values
-  const viewMode =
-    estViewMode === "scope" || estViewMode === "detail" || estViewMode === "level"
-      ? estViewMode
-      : estViewMode === "pricing" || estViewMode === "detailed" || estViewMode === "both"
-        ? "detail"
-        : estViewMode === "leveling"
-          ? "level"
-          : "scope";
 
   const [editingId, setEditingId] = useState(null);
   const [editingName, setEditingName] = useState("");
@@ -192,51 +173,6 @@ export default function GroupBar() {
           minHeight: 36,
         }}
       >
-        {/* View mode cycle button: Scope → Detail → Level */}
-        {(() => {
-          const curIdx = VIEW_MODE_ORDER.indexOf(viewMode);
-          const cur = VIEW_MODES[curIdx >= 0 ? curIdx : 0];
-          const nextIdx = (curIdx + 1) % VIEW_MODE_ORDER.length;
-          const next = VIEW_MODES[nextIdx];
-          return (
-            <button
-              onClick={() => setEstViewMode(next.key)}
-              title={`${cur.label} → ${next.label}`}
-              style={{
-                padding: "4px 10px",
-                fontSize: 10,
-                fontWeight: 600,
-                border: `0.5px solid ${dk ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.25)"}`,
-                borderRadius: T.radius.sm,
-                cursor: "pointer",
-                transition: "all 0.25s ease",
-                background: dk ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.25)",
-                color: C.text,
-                fontFamily: T.font.sans,
-                boxShadow: `inset 0 0.5px 0 ${dk ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.45)"}`,
-                flexShrink: 0,
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-              }}
-            >
-              {cur.label}
-              <span style={{ fontSize: 8, opacity: 0.5 }}>{"\u25B6"}</span>
-            </button>
-          );
-        })()}
-
-        {/* Separator between view toggle and bid tabs */}
-        <div
-          style={{
-            width: 1,
-            height: 18,
-            background: dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)",
-            flexShrink: 0,
-            margin: "0 4px",
-          }}
-        />
-
         {/* Render groups with nesting support — top-level groups shown first, sub-groups indented after parent */}
         {(() => {
           const topLevel = groups.filter(g => !g.parentId);

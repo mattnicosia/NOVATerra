@@ -352,6 +352,26 @@ export default function PlanRoomPage() {
   // Drawing index expansion toggle
   const [drawingsExpanded, setDrawingsExpanded] = useState(false);
   const [specsExpanded, setSpecsExpanded] = useState(false);
+  const [previewDrawingId, setPreviewDrawingId] = useState(null);
+  const [activeDiscipline, setActiveDiscipline] = useState(null); // null = all
+
+  // Keyboard navigation for drawing lightbox
+  useEffect(() => {
+    if (!previewDrawingId) return;
+    const handler = e => {
+      if (e.key === "Escape") setPreviewDrawingId(null);
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        const idx = drawings.findIndex(d => d.id === previewDrawingId);
+        if (idx < drawings.length - 1) setPreviewDrawingId(drawings[idx + 1].id);
+      }
+      if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        const idx = drawings.findIndex(d => d.id === previewDrawingId);
+        if (idx > 0) setPreviewDrawingId(drawings[idx - 1].id);
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [previewDrawingId, drawings]);
 
   // ═══════════════════════════════════════════════════════════════════════
   // SETUP MODE: First-time focused upload experience for new estimates
@@ -636,7 +656,7 @@ export default function PlanRoomPage() {
                   ) : (
                     <>
                       <Ic d={I.refresh} size={11} color={C.accent} />
-                      {scanResults ? "Re-Discover" : "Run Discovery"}
+                      Discover
                     </>
                   )}
                 </button>
@@ -1155,42 +1175,6 @@ export default function PlanRoomPage() {
                   </span>
                   <div style={{ flex: 1 }} />
                   <button
-                    onClick={handleRescan}
-                    disabled={rescanning || drawings.length === 0}
-                    style={bt(C, {
-                      fontSize: 10,
-                      padding: "4px 10px",
-                      borderRadius: T.radius.sm,
-                      color: rescanning ? C.textDim : C.orange || "#F59E0B",
-                      background: rescanning ? `${C.textDim}08` : `${C.orange || "#F59E0B"}08`,
-                      border: `1px solid ${rescanning ? C.textDim + "20" : (C.orange || "#F59E0B") + "20"}`,
-                      opacity: drawings.length === 0 ? 0.4 : 1,
-                      cursor: rescanning || drawings.length === 0 ? "not-allowed" : "pointer",
-                    })}
-                  >
-                    {rescanning ? (
-                      <>
-                        <span
-                          style={{
-                            display: "inline-block",
-                            width: 10,
-                            height: 10,
-                            border: `2px solid ${C.textDim}40`,
-                            borderTop: `2px solid ${C.textDim}`,
-                            borderRadius: "50%",
-                            animation: "spin 0.8s linear infinite",
-                            marginRight: 4,
-                          }}
-                        />
-                        Scanning…
-                      </>
-                    ) : (
-                      <>
-                        <Ic d={I.refresh} size={11} color={C.orange || "#F59E0B"} /> Rescan
-                      </>
-                    )}
-                  </button>
-                  <button
                     onClick={() => navigate(`/estimate/${estId}/insights`)}
                     style={bt(C, {
                       fontSize: 10,
@@ -1204,6 +1188,55 @@ export default function PlanRoomPage() {
                     <Ic d={I.insights} size={11} color={C.accent} /> View Insights
                   </button>
                 </div>
+                {/* Overall discovery progress bar */}
+                {(() => {
+                  const steps = [
+                    drawings.length > 0,
+                    labeledCount > 0,
+                    scaledCount > 0,
+                    Object.keys(autoDetected).length > 0,
+                    !!scanResults?.schedules,
+                    !!scanResults?.drawingNotes,
+                    !!scanResults?.rom,
+                    outlineCount > 0,
+                    specs.length > 0,
+                  ];
+                  const done = steps.filter(Boolean).length;
+                  const pct = Math.round((done / steps.length) * 100);
+                  return (
+                    <div style={{ marginBottom: T.space[3] }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                        <span style={{ fontSize: 10, fontWeight: 600, color: C.textMuted }}>
+                          Discovery Progress
+                        </span>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: done === steps.length ? (C.green || "#22c55e") : C.accent }}>
+                          {done}/{steps.length} — {pct}%
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          width: "100%",
+                          height: 6,
+                          borderRadius: 3,
+                          background: C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div
+                          style={{
+                            height: "100%",
+                            borderRadius: 3,
+                            width: `${pct}%`,
+                            background: done === steps.length
+                              ? `linear-gradient(90deg, ${C.green || "#22c55e"}, ${C.green || "#22c55e"}cc)`
+                              : `linear-gradient(90deg, ${C.accent}, ${C.purple || C.accent})`,
+                            transition: "width 0.4s ease",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })()}
                 {/* Scan progress banner */}
                 {rescanning && scanProgress?.phase && (
                   <div
@@ -1931,57 +1964,102 @@ export default function PlanRoomPage() {
                   </div>
                 </div>
 
-                {/* Discipline breakdown */}
+                {/* Discipline filter pills */}
                 {Object.keys(disciplines).length > 1 && (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: T.space[2], marginBottom: T.space[2] }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: T.space[2] }}>
+                    <button
+                      onClick={e => { e.stopPropagation(); setActiveDiscipline(null); }}
+                      style={{
+                        padding: "2px 8px",
+                        borderRadius: T.radius.full,
+                        background: !activeDiscipline ? `${C.blue}18` : `${C.blue}08`,
+                        border: !activeDiscipline ? `1px solid ${C.blue}30` : "1px solid transparent",
+                        fontSize: 10,
+                        fontWeight: !activeDiscipline ? 700 : 500,
+                        color: C.blue,
+                        cursor: "pointer",
+                      }}
+                    >
+                      All ({drawings.length})
+                    </button>
                     {Object.entries(disciplines)
                       .sort((a, b) => b[1] - a[1])
                       .map(([name, count]) => (
-                        <span
+                        <button
                           key={name}
+                          onClick={e => { e.stopPropagation(); setActiveDiscipline(activeDiscipline === name ? null : name); }}
                           style={{
                             padding: "2px 8px",
                             borderRadius: T.radius.full,
-                            background: `${C.blue}08`,
+                            background: activeDiscipline === name ? `${C.blue}18` : `${C.blue}08`,
+                            border: activeDiscipline === name ? `1px solid ${C.blue}30` : "1px solid transparent",
                             fontSize: 10,
-                            fontWeight: 500,
+                            fontWeight: activeDiscipline === name ? 700 : 500,
                             color: C.blue,
+                            cursor: "pointer",
                           }}
                         >
                           {name}: {count}
-                        </span>
+                        </button>
                       ))}
                   </div>
                 )}
 
                 <div
                   style={{
-                    maxHeight: drawingsExpanded ? "none" : 200,
+                    maxHeight: drawingsExpanded ? "none" : 260,
                     overflowY: drawingsExpanded ? "visible" : "auto",
                     transition: "max-height 0.3s ease",
                   }}
                 >
-                  {drawings.map(d => (
+                  {drawings
+                    .filter(d => {
+                      if (!activeDiscipline) return true;
+                      const num = d.sheetNumber || "";
+                      const prefix = num.match(/^([A-Z])/i)?.[1]?.toUpperCase() || "?";
+                      const labels = { A: "Architectural", S: "Structural", M: "Mechanical", E: "Electrical", P: "Plumbing", L: "Landscape", C: "Civil", G: "General" };
+                      return (labels[prefix] || "Other") === activeDiscipline;
+                    })
+                    .map(d => (
                     <div
                       key={d.id}
+                      className="nav-item"
                       style={{
                         display: "flex",
                         alignItems: "center",
                         gap: T.space[2],
-                        padding: "4px 0",
+                        padding: "5px 4px",
                         borderBottom: `1px solid ${C.border}08`,
                         fontSize: T.fontSize.xs,
+                        borderRadius: 4,
+                        transition: "background 0.15s",
+                        cursor: "pointer",
                       }}
+                      onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}06`)}
+                      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                     >
-                      {/* Thumbnail */}
+                      {/* Thumbnail — click to preview */}
                       <div
+                        onClick={() => setPreviewDrawingId(d.id)}
+                        title="Click to preview"
                         style={{
-                          width: 32,
-                          height: 22,
-                          borderRadius: 2,
+                          width: 48,
+                          height: 32,
+                          borderRadius: 3,
                           overflow: "hidden",
                           background: C.bg2,
                           flexShrink: 0,
+                          cursor: "pointer",
+                          border: `1px solid ${C.border}20`,
+                          transition: "border-color 0.15s, box-shadow 0.15s",
+                        }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.borderColor = C.accent + "50";
+                          e.currentTarget.style.boxShadow = `0 0 6px ${C.accent}20`;
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.borderColor = C.border + "20";
+                          e.currentTarget.style.boxShadow = "none";
                         }}
                       >
                         {pdfCanvases[d.id] ? (
@@ -1991,7 +2069,7 @@ export default function PlanRoomPage() {
                         ) : (
                           <span
                             style={{
-                              fontSize: 6,
+                              fontSize: 7,
                               color: C.textDim,
                               display: "flex",
                               alignItems: "center",
@@ -2017,13 +2095,19 @@ export default function PlanRoomPage() {
                           background: "transparent",
                           border: `1px solid transparent`,
                           borderRadius: 3,
-                          padding: "1px 4px",
+                          padding: "2px 4px",
                           outline: "none",
                           flexShrink: 0,
-                          transition: "border-color 0.15s",
+                          transition: "border-color 0.15s, background 0.15s",
                         }}
-                        onFocus={e => (e.target.style.borderColor = C.accent + "4D")}
-                        onBlur={e => (e.target.style.borderColor = "transparent")}
+                        onFocus={e => {
+                          e.target.style.borderColor = C.accent + "4D";
+                          e.target.style.background = `${C.accent}06`;
+                        }}
+                        onBlur={e => {
+                          e.target.style.borderColor = "transparent";
+                          e.target.style.background = "transparent";
+                        }}
                       />
                       <input
                         value={d.sheetTitle || ""}
@@ -2037,13 +2121,19 @@ export default function PlanRoomPage() {
                           background: "transparent",
                           border: `1px solid transparent`,
                           borderRadius: 3,
-                          padding: "1px 4px",
+                          padding: "2px 4px",
                           outline: "none",
                           minWidth: 0,
-                          transition: "border-color 0.15s",
+                          transition: "border-color 0.15s, background 0.15s",
                         }}
-                        onFocus={e => (e.target.style.borderColor = C.border)}
-                        onBlur={e => (e.target.style.borderColor = "transparent")}
+                        onFocus={e => {
+                          e.target.style.borderColor = C.border;
+                          e.target.style.background = `${C.accent}06`;
+                        }}
+                        onBlur={e => {
+                          e.target.style.borderColor = "transparent";
+                          e.target.style.background = "transparent";
+                        }}
                       />
                       {outlines[d.id] && (
                         <span
@@ -2085,6 +2175,142 @@ export default function PlanRoomPage() {
                 )}
               </div>
             )}
+
+            {/* ─── Drawing Lightbox Preview ─── */}
+            {previewDrawingId && (() => {
+              const d = drawings.find(dr => dr.id === previewDrawingId);
+              if (!d) return null;
+              const imgSrc = pdfCanvases[d.id] || (d.type === "image" ? d.data : null);
+              return (
+                <div
+                  onClick={() => setPreviewDrawingId(null)}
+                  onKeyDown={e => e.key === "Escape" && setPreviewDrawingId(null)}
+                  style={{
+                    position: "fixed",
+                    inset: 0,
+                    zIndex: 9999,
+                    background: "rgba(0,0,0,0.85)",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    animation: "fadeIn 0.15s ease-out",
+                  }}
+                >
+                  {/* Header with sheet info */}
+                  <div
+                    onClick={e => e.stopPropagation()}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "10px 20px",
+                      marginBottom: 8,
+                      background: "rgba(255,255,255,0.06)",
+                      borderRadius: T.radius.md,
+                      backdropFilter: "blur(12px)",
+                    }}
+                  >
+                    <span style={{ fontSize: 13, fontWeight: 700, color: C.accent }}>{d.sheetNumber || "—"}</span>
+                    <span style={{ fontSize: 12, color: "#fff", opacity: 0.8 }}>{d.sheetTitle || d.label || "Untitled"}</span>
+                    {drawingScales[d.id] && (
+                      <span style={{ fontSize: 10, color: C.green, fontWeight: 500, marginLeft: 8 }}>
+                        {getScaleLabel(drawingScales[d.id])}
+                      </span>
+                    )}
+                    <div style={{ flex: 1 }} />
+                    {/* Nav: prev/next */}
+                    <button
+                      onClick={e => {
+                        e.stopPropagation();
+                        const idx = drawings.findIndex(dr => dr.id === previewDrawingId);
+                        if (idx > 0) setPreviewDrawingId(drawings[idx - 1].id);
+                      }}
+                      style={{
+                        background: "rgba(255,255,255,0.08)",
+                        border: "1px solid rgba(255,255,255,0.15)",
+                        color: "#fff",
+                        fontSize: 14,
+                        padding: "4px 10px",
+                        borderRadius: 4,
+                        cursor: "pointer",
+                      }}
+                    >
+                      ‹
+                    </button>
+                    <span style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>
+                      {drawings.findIndex(dr => dr.id === previewDrawingId) + 1} / {drawings.length}
+                    </span>
+                    <button
+                      onClick={e => {
+                        e.stopPropagation();
+                        const idx = drawings.findIndex(dr => dr.id === previewDrawingId);
+                        if (idx < drawings.length - 1) setPreviewDrawingId(drawings[idx + 1].id);
+                      }}
+                      style={{
+                        background: "rgba(255,255,255,0.08)",
+                        border: "1px solid rgba(255,255,255,0.15)",
+                        color: "#fff",
+                        fontSize: 14,
+                        padding: "4px 10px",
+                        borderRadius: 4,
+                        cursor: "pointer",
+                      }}
+                    >
+                      ›
+                    </button>
+                    <button
+                      onClick={e => { e.stopPropagation(); setPreviewDrawingId(null); }}
+                      style={{
+                        background: "rgba(255,255,255,0.08)",
+                        border: "1px solid rgba(255,255,255,0.15)",
+                        color: "#fff",
+                        fontSize: 12,
+                        padding: "4px 10px",
+                        borderRadius: 4,
+                        cursor: "pointer",
+                        marginLeft: 8,
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  {/* Drawing image */}
+                  {imgSrc ? (
+                    <img
+                      src={imgSrc}
+                      onClick={e => e.stopPropagation()}
+                      style={{
+                        maxWidth: "90vw",
+                        maxHeight: "80vh",
+                        objectFit: "contain",
+                        borderRadius: T.radius.md,
+                        boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+                        cursor: "default",
+                      }}
+                    />
+                  ) : (
+                    <div
+                      onClick={e => e.stopPropagation()}
+                      style={{
+                        width: 300,
+                        height: 200,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: "rgba(255,255,255,0.06)",
+                        borderRadius: T.radius.md,
+                        color: "rgba(255,255,255,0.4)",
+                        fontSize: 13,
+                      }}
+                    >
+                      No preview available
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* ─── Specifications Card ─── */}
             {specs.length > 0 && (

@@ -161,7 +161,7 @@ export default function BuildingSketch({ outlines, floorAssignments, floors, pro
 
     // ── Compute viewBox ──
     const allPts = floorPolys.flat();
-    const pad = 30;
+    const pad = 40;
     const svgMinX = Math.min(...allPts.map(p => p.sx)) - pad;
     const svgMinY = Math.min(...allPts.map(p => p.sy)) - pad;
     const svgMaxX = Math.max(...allPts.map(p => p.sx)) + pad;
@@ -305,6 +305,38 @@ export default function BuildingSketch({ outlines, floorAssignments, floors, pro
       });
     }
 
+    // Depth — along the longest left-receding bottom edge (back-facing, going into depth)
+    let bestDepthEdge = null,
+      bestDepthLen = 0;
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      const dx = centered[j].x - centered[i].x;
+      const dz = centered[j].z - centered[i].z;
+      if (dz - dx <= 0) {
+        // back-facing / left-receding edge
+        const len = Math.sqrt(dx * dx + dz * dz);
+        if (len > bestDepthLen) {
+          bestDepthLen = len;
+          bestDepthEdge = [i, j];
+        }
+      }
+    }
+    if (bestDepthEdge) {
+      const [a, b] = bestDepthEdge;
+      const p0 = iso(centered[a].x, -4 * Y_SCALE, centered[a].z);
+      const p1 = iso(centered[b].x, -4 * Y_SCALE, centered[b].z);
+      const edgeLen = Math.sqrt((centered[b].x - centered[a].x) ** 2 + (centered[b].z - centered[a].z) ** 2);
+      dims.push({
+        x1: p0.sx - 6,
+        y1: p0.sy,
+        x2: p1.sx - 6,
+        y2: p1.sy,
+        tx: (p0.sx + p1.sx) / 2 - 14,
+        ty: (p0.sy + p1.sy) / 2 + 2,
+        label: `${Math.round(edgeLen)}'`,
+      });
+    }
+
     const tier = entries.length > 0 ? 1 : 2;
 
     return {
@@ -383,7 +415,7 @@ export default function BuildingSketch({ outlines, floorAssignments, floors, pro
       <svg
         viewBox={data.vb}
         preserveAspectRatio="xMidYMid meet"
-        style={{ width: "100%", maxHeight: 220, display: "block" }}
+        style={{ width: "100%", maxHeight: 280, display: "block" }}
       >
         <defs>
           {/* Cross-hatch pattern for side faces */}
