@@ -220,10 +220,17 @@ export default function TakeoffsPage() {
 
   // Snap angle toggle — persistent state + ref mirror
   const [snapAngleOn, setSnapAngleOn] = useState(() => sessionStorage.getItem("bldg-snapAngle") === "true");
+  // Check Dim mode — measure without creating a takeoff (verification only)
+  const [checkDimMode, setCheckDimMode] = useState(false);
+  const checkDimRef = useRef(false);
+  // Labels visibility toggle
+  const [showMeasureLabels, setShowMeasureLabels] = useState(() => sessionStorage.getItem("bldg-showLabels") !== "false");
   useEffect(() => {
     snapAngleOnRef.current = snapAngleOn;
     sessionStorage.setItem("bldg-snapAngle", snapAngleOn);
   }, [snapAngleOn]);
+  useEffect(() => { checkDimRef.current = checkDimMode; }, [checkDimMode]);
+  useEffect(() => { sessionStorage.setItem("bldg-showLabels", showMeasureLabels); }, [showMeasureLabels]);
 
   // Cleanup RAF cursor on unmount
   useEffect(
@@ -3126,6 +3133,7 @@ Where confidence is "high", "medium", or "low".`,
     moduleRenderWidths,
     aiDrawingAnalysis,
     tkVisibility,
+    showMeasureLabels,
   ]);
 
   // AI Scope Suggestions
@@ -3250,7 +3258,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
               top: 78,
               left: 2,
               width: RAIL_W - 4,
-              bottom: "50%",
+              bottom: 20,
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
@@ -3314,57 +3322,10 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
               <span className="rail-label" style={railLabelStyle}>{current.label}</span>
             </div>
 
-            {/* Separator */}
-            {tkPanelTier !== "estimate" && (
-              <div style={{
-                width: 20,
-                height: 1,
-                background: C.isDark ? "rgba(255,255,255,0.10)" : C.border,
-                flexShrink: 0,
-                boxShadow: "0 1px 0 rgba(0,0,0,0.3)",
-              }} />
-            )}
-
-            {/* Panel toggle button — hidden in estimate mode */}
-            {tkPanelTier !== "estimate" && (
-              <div className="rail-btn-wrap" style={{ position: "relative", display: "flex", alignItems: "center" }}>
-                <button
-                  className="icon-btn rail-btn"
-                  title={tkPanelOpen ? "Close Takeoffs" : "Open Takeoffs"}
-                  onClick={() => {
-                    const store = useTakeoffsStore.getState();
-                    store.setTkPanelOpen(!tkPanelOpen);
-                  }}
-                  style={{
-                    width: 28,
-                    height: 28,
-                    border: `1px solid ${tkPanelOpen ? (C.accent + "50") : (C.isDark ? "rgba(255,255,255,0.12)" : C.border)}`,
-                    background: tkPanelOpen ? (C.accent + "18") : (C.isDark ? "rgba(255,255,255,0.06)" : C.bg2),
-                    borderRadius: 6,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: 0,
-                    flexShrink: 0,
-                    boxShadow: [
-                      T.shadow.sm,
-                      T.glass.specularSm,
-                      tkPanelOpen ? `0 0 8px ${C.accent}20` : null,
-                    ].filter(Boolean).join(", "),
-                  }}
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={tkPanelOpen ? C.accent : C.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="3" width="18" height="18" rx="2" />
-                    <line x1="9" y1="3" x2="9" y2="21" />
-                  </svg>
-                </button>
-                <span className="rail-label" style={railLabelStyle}>Takeoffs</span>
-              </div>
-            )}
-
-            {/* ── Individual tool buttons — hidden in estimate mode ── */}
+            {/* ── Tools — organized by Jony's 4-group layout ── */}
             {tkPanelTier !== "estimate" && (() => {
+              const isCalibrating = tkTool === "calibrate";
+              const isSelecting = tkMeasureState === "idle" && !checkDimMode && !isCalibrating;
               const railBtn = (active) => ({
                 width: 28, height: 28,
                 border: `1px solid ${active ? (C.accent + "50") : (C.isDark ? "rgba(255,255,255,0.12)" : C.border)}`,
@@ -3375,21 +3336,62 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                 boxShadow: [T.shadow.sm, T.glass.specularSm, active ? `0 0 8px ${C.accent}20` : null].filter(Boolean).join(", "),
               });
               const ico = (active) => ({ width: 13, height: 13, viewBox: "0 0 24 24", fill: "none", stroke: active ? C.accent : C.textMuted, strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" });
-              const tools = [
+              const sep = <div key={Math.random()} style={{ width: 20, height: 1, background: C.isDark ? "rgba(255,255,255,0.08)" : C.border, flexShrink: 0, boxShadow: "0 1px 0 rgba(0,0,0,0.2)" }} />;
+
+              /* ── MODE GROUP: Scale, Select ── */
+              const modeTools = [
+                { id: "calibrate", label: isCalibrating ? "Calibrating..." : "Scale", active: isCalibrating,
+                  action: () => {
+                    if (isCalibrating) { setTkTool("select"); setTkActivePoints([]); }
+                    else { setTkTool("calibrate"); setTkActivePoints([]); setTkMeasureState("idle"); }
+                  },
+                  icon: <svg {...ico(isCalibrating)}><path d="M2 12h4 M18 12h4 M12 2v4 M12 18v4" /><circle cx="12" cy="12" r="3" /><path d="M4.93 4.93l2.83 2.83 M16.24 16.24l2.83 2.83 M4.93 19.07l2.83-2.83 M16.24 7.76l2.83-2.83" /></svg> },
+                { id: "select", label: "Select", active: isSelecting,
+                  action: () => {
+                    setCheckDimMode(false);
+                    setTkTool("select");
+                    setTkMeasureState("idle");
+                    setTkActivePoints([]);
+                  },
+                  icon: <svg {...ico(isSelecting)}><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z" /><path d="M13 13l6 6" /></svg> },
+              ];
+
+              /* ── ACTIVE TOOLS: Snap, Labels, Check Dim ── */
+              const activeTools = [
                 { id: "snap", label: snapAngleOn ? "Snap ON" : "Snap Angle", active: snapAngleOn, action: () => setSnapAngleOn(v => !v),
                   icon: <svg {...ico(snapAngleOn)}><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" /></svg> },
-                { id: "labels", label: "Labels", soon: true,
-                  icon: <svg {...ico(false)}><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg> },
-                { id: "checkdim", label: "Check Dim", soon: true,
-                  icon: <svg {...ico(false)}><path d="M2 20h20 M2 20V4 M6 16V8 M10 16V6 M14 16v-4 M18 16V8" /></svg> },
+                { id: "labels", label: showMeasureLabels ? "Labels ON" : "Labels OFF", active: showMeasureLabels,
+                  action: () => setShowMeasureLabels(v => !v),
+                  icon: <svg {...ico(showMeasureLabels)}><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg> },
+                { id: "checkdim", label: checkDimMode ? "Check Dim ON" : "Check Dim", active: checkDimMode,
+                  action: () => {
+                    setCheckDimMode(v => !v);
+                    if (!checkDimMode) { setTkTool("linear"); setTkMeasureState("idle"); setTkActivePoints([]); setTkActiveTakeoffId(null); }
+                    else { setTkTool("select"); }
+                  },
+                  icon: <svg {...ico(checkDimMode)}><path d="M2 20h20 M2 20V4 M6 16V8 M10 16V6 M14 16v-4 M18 16V8" /></svg> },
+              ];
+
+              /* ── AI/SMART TOOLS: AutoCount, Compare, Cut ── */
+              const aiTools = [
+                { id: "autocount", label: tkAutoCount ? "Counting..." : "AutoCount",
+                  active: !!tkAutoCount,
+                  action: () => {
+                    if (tkAutoCount) { setTkAutoCount(null); }
+                    else {
+                      const selId = useTakeoffsStore.getState().tkSelectedTakeoffId;
+                      if (selId) setTkAutoCount({ phase: "select", takeoffId: selId });
+                      else { const toast = useUiStore.getState().showToast; toast("Select a takeoff first", "warning"); }
+                    }
+                  },
+                  icon: <svg {...ico(!!tkAutoCount)}><circle cx="12" cy="12" r="10" /><path d="M12 8v8 M8 12h8" /></svg> },
                 { id: "compare", label: "Compare", soon: true,
                   icon: <svg {...ico(false)}><rect x="2" y="3" width="8" height="8" rx="1" /><rect x="14" y="13" width="8" height="8" rx="1" /><path d="M7 11v2a2 2 0 002 2h2 M17 13v-2a2 2 0 00-2-2h-2" /></svg> },
-                { id: "screenshot", label: "Screenshot", soon: true,
-                  icon: <svg {...ico(false)}><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" /><circle cx="12" cy="13" r="4" /></svg> },
-                { id: "angle", label: "Angle", soon: true,
-                  icon: <svg {...ico(false)}><path d="M21 19H5V5" /><path d="M5 19l14-14" /></svg> },
+                { id: "cut", label: "Cut / Subtract", soon: true,
+                  icon: <svg {...ico(false)}><circle cx="8" cy="12" r="6" /><circle cx="16" cy="12" r="6" /><path d="M12 8v8" /></svg> },
               ];
-              return tools.map(t => (
+
+              const renderBtn = (t) => (
                 <div key={t.id} className="rail-btn-wrap" style={{ position: "relative", display: "flex", alignItems: "center" }}>
                   <button
                     className="icon-btn rail-btn"
@@ -3405,7 +3407,15 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                   </button>
                   <span className="rail-label" style={railLabelStyle}>{t.label}</span>
                 </div>
-              ));
+              );
+
+              return [
+                ...modeTools.map(renderBtn),
+                sep,
+                ...activeTools.map(renderBtn),
+                sep,
+                ...aiTools.map(renderBtn),
+              ];
             })()}
           </div>
           </div>
