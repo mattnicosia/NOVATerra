@@ -3317,74 +3317,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
               </div>
             )}
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              {/* Tier mode cycling button — moved here from header */}
-              {(() => {
-                const modes = [
-                  { id: "closed", w: 0, bars: 0, label: "Closed" },
-                  { id: "standard", w: 550, bars: 2, label: "Estimate" },
-                  { id: "full", w: 900, bars: 3, label: "Split" },
-                  { id: "estimate", w: 0, bars: 4, label: "Estimate" },
-                ];
-                let curId;
-                if (tkPanelTier === "estimate") curId = "estimate";
-                else if (!tkPanelOpen) curId = "closed";
-                else if (tkPanelTier === "full") curId = "full";
-                else curId = "standard";
-                const idx = modes.findIndex(m => m.id === curId);
-                const current = modes[idx >= 0 ? idx : 0];
-                const nextMode = modes[(idx + 1) % modes.length];
-                const cycleTier = () => {
-                  if (nextMode.id === "closed") {
-                    setTkPanelOpen(false);
-                    useTakeoffsStore.getState().setTkPanelTier("standard");
-                    sessionStorage.setItem("bldg-tkPanelTier", "standard");
-                    sessionStorage.setItem("bldg-tkPanelWidth", "550");
-                  } else if (nextMode.id === "estimate") {
-                    setTkPanelOpen(false);
-                    useTakeoffsStore.getState().setTkPanelTier("estimate");
-                    sessionStorage.setItem("bldg-tkPanelTier", "estimate");
-                    sessionStorage.setItem("bldg-tkPanelWidth", "0");
-                  } else {
-                    setTkPanelOpen(true);
-                    useTakeoffsStore.getState().setTkPanelWidth(nextMode.w);
-                    useTakeoffsStore.getState().setTkPanelTier(nextMode.id);
-                    sessionStorage.setItem("bldg-tkPanelTier", nextMode.id);
-                    sessionStorage.setItem("bldg-tkPanelWidth", String(nextMode.w));
-                  }
-                };
-                return (
-                  <button
-                    className="icon-btn"
-                    title={`${current.label} → ${nextMode.label}`}
-                    onClick={cycleTier}
-                    style={{
-                      width: 22,
-                      height: 22,
-                      border: `1px solid ${current.bars > 0 ? C.accent + "50" : C.border}`,
-                      background: current.bars > 0 ? C.accent + "14" : "transparent",
-                      borderRadius: 3,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 1.5,
-                      padding: 0,
-                      position: "relative",
-                    }}
-                  >
-                    {current.bars === 0 ? (
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="3" width="7" height="18" rx="1" />
-                        <path d="M14 3h7M14 9h7M14 15h5" />
-                      </svg>
-                    ) : (
-                      Array.from({ length: current.bars }).map((_, i) => (
-                        <div key={i} style={{ width: 2.5, height: 8, borderRadius: 1, background: C.accent }} />
-                      ))
-                    )}
-                  </button>
-                );
-              })()}
+              {/* Tier cycling button moved to GroupBar */}
               {!showNotesPanel && (
                 <button
                   className="icon-btn"
