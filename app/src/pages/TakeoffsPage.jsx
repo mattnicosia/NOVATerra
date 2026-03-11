@@ -3218,7 +3218,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
         };
         const railLabelStyle = {
           position: "absolute",
-          left: RAIL_W + 4,
+          left: RAIL_W + 6,
           top: "50%",
           transform: "translateY(-50%)",
           whiteSpace: "nowrap",
@@ -3226,11 +3226,17 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
           fontWeight: 600,
           fontFamily: T.font.sans,
           color: C.text,
-          background: C.bg1,
-          border: `1px solid ${C.border}`,
-          borderRadius: 5,
-          padding: "4px 10px",
-          boxShadow: T.shadow.md || "0 4px 12px rgba(0,0,0,0.2)",
+          background: C.sidebarBg || C.bg1,
+          border: `1px solid ${C.isDark ? "rgba(255,255,255,0.12)" : C.border}`,
+          borderRadius: 6,
+          padding: "5px 12px",
+          boxShadow: [
+            T.shadow.lg || "0 8px 24px rgba(0,0,0,0.35)",
+            T.glass.specularSm,
+            T.glass.edge,
+          ].filter(Boolean).join(", "),
+          backdropFilter: T.glass.blurLight || "blur(12px)",
+          WebkitBackdropFilter: T.glass.blurLight || "blur(12px)",
           opacity: 0,
           pointerEvents: "none",
           transition: "opacity 0.15s ease",
@@ -3244,10 +3250,19 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              paddingTop: tkPanelTier === "estimate" ? 106 : 10,
+              paddingTop: tkPanelTier === "estimate" ? 78 : 10,
               gap: 8,
               background: C.sidebarBg || C.bg1,
-              borderRight: `1px solid ${C.border}`,
+              backgroundImage: `linear-gradient(180deg, rgba(255,255,255,0.05) 0%, transparent 30%, transparent 80%, rgba(0,0,0,0.08) 100%)`,
+              borderRight: `1px solid ${C.isDark ? "rgba(255,255,255,0.08)" : C.border}`,
+              boxShadow: [
+                "3px 0 20px rgba(0,0,0,0.40)",
+                "1px 0 6px rgba(0,0,0,0.30)",
+                T.glass.specular,
+                T.glass.innerDepth,
+                T.glass.specularBottom,
+                "inset -1px 0 0 rgba(255,255,255,0.05)",
+              ].filter(Boolean).join(", "),
               zIndex: 40,
               position: "relative",
             }}
@@ -3261,9 +3276,9 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                 style={{
                   width: 28,
                   height: 28,
-                  border: `1px solid ${current.bars > 0 ? (C.accent + "50") : C.border}`,
-                  background: current.bars > 0 ? (C.accent + "14") : "transparent",
-                  borderRadius: 5,
+                  border: `1px solid ${current.bars > 0 ? (C.accent + "50") : (C.isDark ? "rgba(255,255,255,0.12)" : C.border)}`,
+                  background: current.bars > 0 ? (C.accent + "18") : (C.isDark ? "rgba(255,255,255,0.06)" : C.bg2),
+                  borderRadius: 6,
                   cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
@@ -3271,6 +3286,11 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                   gap: 1.5,
                   padding: 0,
                   flexShrink: 0,
+                  boxShadow: [
+                    T.shadow.sm,
+                    T.glass.specularSm,
+                    current.bars > 0 ? `0 0 8px ${C.accent}20` : null,
+                  ].filter(Boolean).join(", "),
                 }}
               >
                 {current.bars === 0 ? (
@@ -3289,7 +3309,13 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
 
             {/* Separator */}
             {tkPanelTier !== "estimate" && (
-              <div style={{ width: 18, height: 1, background: C.border, flexShrink: 0 }} />
+              <div style={{
+                width: 20,
+                height: 1,
+                background: C.isDark ? "rgba(255,255,255,0.10)" : C.border,
+                flexShrink: 0,
+                boxShadow: "0 1px 0 rgba(0,0,0,0.3)",
+              }} />
             )}
 
             {/* Panel toggle button — hidden in estimate mode */}
@@ -3305,15 +3331,20 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                   style={{
                     width: 28,
                     height: 28,
-                    border: `1px solid ${tkPanelOpen ? (C.accent + "50") : C.border}`,
-                    background: tkPanelOpen ? (C.accent + "14") : "transparent",
-                    borderRadius: 5,
+                    border: `1px solid ${tkPanelOpen ? (C.accent + "50") : (C.isDark ? "rgba(255,255,255,0.12)" : C.border)}`,
+                    background: tkPanelOpen ? (C.accent + "18") : (C.isDark ? "rgba(255,255,255,0.06)" : C.bg2),
+                    borderRadius: 6,
                     cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     padding: 0,
                     flexShrink: 0,
+                    boxShadow: [
+                      T.shadow.sm,
+                      T.glass.specularSm,
+                      tkPanelOpen ? `0 0 8px ${C.accent}20` : null,
+                    ].filter(Boolean).join(", "),
                   }}
                 >
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={tkPanelOpen ? C.accent : C.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -3335,15 +3366,20 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                   style={{
                     width: 28,
                     height: 28,
-                    border: `1px solid ${toolsFolderOpen ? (C.accent + "60") : C.border}`,
-                    background: toolsFolderOpen ? (C.accent + "18") : "transparent",
-                    borderRadius: 5,
+                    border: `1px solid ${toolsFolderOpen ? (C.accent + "60") : (C.isDark ? "rgba(255,255,255,0.12)" : C.border)}`,
+                    background: toolsFolderOpen ? (C.accent + "18") : (C.isDark ? "rgba(255,255,255,0.06)" : C.bg2),
+                    borderRadius: 6,
                     cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     padding: 0,
                     flexShrink: 0,
+                    boxShadow: [
+                      T.shadow.sm,
+                      T.glass.specularSm,
+                      toolsFolderOpen ? `0 0 8px ${C.accent}20` : null,
+                    ].filter(Boolean).join(", "),
                   }}
                 >
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={toolsFolderOpen ? C.accent : C.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
