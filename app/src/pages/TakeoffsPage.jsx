@@ -3335,7 +3335,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                 boxShadow: [T.shadow.sm, T.glass.specularSm, active ? `0 0 8px ${C.accent}20` : null].filter(Boolean).join(", "),
               });
               const ico = (active) => ({ width: 13, height: 13, viewBox: "0 0 24 24", fill: "none", stroke: active ? C.accent : C.textMuted, strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" });
-              const sep = <div key={Math.random()} style={{ width: 20, height: 1, background: C.isDark ? "rgba(255,255,255,0.08)" : C.border, flexShrink: 0, boxShadow: "0 1px 0 rgba(0,0,0,0.2)" }} />;
+              const sepStyle = { width: 20, height: 1, background: C.isDark ? "rgba(255,255,255,0.08)" : C.border, flexShrink: 0, boxShadow: "0 1px 0 rgba(0,0,0,0.2)" };
 
               /* ── MODE GROUP: Select ── */
               const modeTools = [
@@ -3404,9 +3404,9 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
 
               return [
                 ...modeTools.map(renderBtn),
-                sep,
+                <div key="sep-1" style={sepStyle} />,
                 ...activeTools.map(renderBtn),
-                sep,
+                <div key="sep-2" style={sepStyle} />,
                 ...aiTools.map(renderBtn),
               ];
             })()}
