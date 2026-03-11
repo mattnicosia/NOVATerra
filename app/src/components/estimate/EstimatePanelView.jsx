@@ -40,8 +40,14 @@ function EstimatePanelView({ onSelectItem, selectedItemId }) {
   const [focusedCostCell, setFocusedCostCell] = useState(null);
 
   const viewMode =
-    estViewMode === "scope" || estViewMode === "pricing" || estViewMode === "leveling" ? estViewMode : "scope";
-  const isPricing = viewMode === "pricing";
+    estViewMode === "scope" || estViewMode === "detail" || estViewMode === "level"
+      ? estViewMode
+      : estViewMode === "pricing" || estViewMode === "detailed" || estViewMode === "both"
+        ? "detail"
+        : estViewMode === "leveling"
+          ? "level"
+          : "scope";
+  const isPricing = viewMode === "detail";
 
   // Filter items
   const filteredItems = useMemo(() => {
@@ -127,8 +133,8 @@ function EstimatePanelView({ onSelectItem, selectedItemId }) {
         <div style={{ display: "flex", gap: 0, background: C.bg2, borderRadius: 4, padding: 1 }}>
           {[
             { key: "scope", label: "Scope" },
-            { key: "pricing", label: "Pricing" },
-            { key: "leveling", label: "Leveling" },
+            { key: "detail", label: "Detail" },
+            { key: "level", label: "Level" },
           ].map(v => (
             <button
               key={v.key}
@@ -167,7 +173,7 @@ function EstimatePanelView({ onSelectItem, selectedItemId }) {
       </div>
 
       {/* Grid or Leveling */}
-      {viewMode === "leveling" ? (
+      {viewMode === "level" ? (
         <div style={{ flex: 1, overflow: "auto" }}>
           <LevelingView />
         </div>

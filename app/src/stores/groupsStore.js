@@ -1,15 +1,13 @@
-import { create } from 'zustand';
-import { uid } from '@/utils/format';
-import { useUndoStore } from '@/stores/undoStore';
+import { create } from "zustand";
+import { uid } from "@/utils/format";
+import { useUndoStore } from "@/stores/undoStore";
 
-export const DEFAULT_GROUPS = [
-  { id: "base", name: "Base Bid", type: "base", accepted: true, description: "" },
-];
+export const DEFAULT_GROUPS = [{ id: "base", name: "Base Bid", type: "base", accepted: true, description: "" }];
 
 export const useGroupsStore = create((set, get) => ({
   groups: [...DEFAULT_GROUPS],
 
-  setGroups: (v) => set({ groups: v }),
+  setGroups: v => set({ groups: v }),
 
   addGroup: (name, type, parentId = null) => {
     const newGroup = { id: uid(), name, type: type || "add", accepted: false, description: "", parentId };
@@ -27,7 +25,7 @@ export const useGroupsStore = create((set, get) => ({
   updateGroup: (id, field, value) => {
     if (id === "base" && (field === "id" || field === "type")) return;
     const prev = get().groups;
-    const next = prev.map(g => g.id === id ? { ...g, [field]: value } : g);
+    const next = prev.map(g => (g.id === id ? { ...g, [field]: value } : g));
     set({ groups: next });
     useUndoStore.getState().push({
       action: `Update group`,
@@ -37,7 +35,7 @@ export const useGroupsStore = create((set, get) => ({
     });
   },
 
-  removeGroup: (id) => {
+  removeGroup: id => {
     if (id === "base") return;
     const prev = get().groups;
     const next = prev.filter(g => g.id !== id);
@@ -50,7 +48,7 @@ export const useGroupsStore = create((set, get) => ({
     });
   },
 
-  reorderGroups: (newGroups) => {
+  reorderGroups: newGroups => {
     // Ensure Base Bid stays at index 0
     const base = newGroups.find(g => g.id === "base");
     const rest = newGroups.filter(g => g.id !== "base");

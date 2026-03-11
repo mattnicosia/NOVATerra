@@ -104,11 +104,22 @@ export function useAutoSave() {
       useGroupsStore.subscribe(scheduleEstSave),
       useBidPackagesStore.subscribe(scheduleEstSave),
       useDrawingsStore.subscribe(scheduleDrawSave),
-      // Cancel pending saves when active estimate changes
+      // Flush pending save for outgoing estimate, then cancel timers
       useEstimatesStore.subscribe((state, prev) => {
         if (state.activeEstimateId !== prev.activeEstimateId) {
+          const hadPending = !!(estTimer || drawTimer);
           if (estTimer) clearTimeout(estTimer);
           if (drawTimer) clearTimeout(drawTimer);
+          estTimer = null;
+          drawTimer = null;
+          // If there was a pending save, flush the outgoing estimate immediately.
+          // At this point stores still contain the outgoing estimate's data
+          // (loading the new estimate is async), so we can safely save it.
+          if (hadPending && prev.activeEstimateId) {
+            saveEstimate(prev.activeEstimateId).catch(err => {
+              console.error("[autoSave] Flush on estimate switch failed:", err);
+            });
+          }
         }
       }),
     ];

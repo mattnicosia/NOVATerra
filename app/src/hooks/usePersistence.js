@@ -562,7 +562,9 @@ export function usePersistenceLoad() {
               if (deletedSet.has(ce.estimate_id)) continue; // Don't resurrect deleted
               // Hydrate blobs before caching — cloud data has stripped drawings
               let estData = ce.data;
-              try { estData = await cloudSync.hydrateBlobs(ce.data); } catch {}
+              try {
+                estData = await cloudSync.hydrateBlobs(ce.data);
+              } catch {}
               await storage.set(idbKey(`bldg-est-${ce.estimate_id}`), JSON.stringify(estData));
             }
           }
@@ -725,7 +727,9 @@ export function usePersistenceLoad() {
                   if (recoveryDeletedSet.has(ce.estimate_id)) continue;
                   // Hydrate blobs before caching — cloud data has stripped drawings
                   let estData = ce.data;
-                  try { estData = await cloudSync.hydrateBlobs(ce.data); } catch {}
+                  try {
+                    estData = await cloudSync.hydrateBlobs(ce.data);
+                  } catch {}
                   await storage.set(idbKey(`bldg-est-${ce.estimate_id}`), JSON.stringify(estData));
                 }
               }
@@ -830,7 +834,9 @@ export async function loadEstimate(id) {
         } else {
           // Partial success — use hydrated data in-memory but don't persist
           // the partial result (markers still intact for retry next load)
-          console.warn(`[loadEstimate] Partial hydration (${stats.hydrated} ok, ${stats.failed} failed) — not persisting to IDB`);
+          console.warn(
+            `[loadEstimate] Partial hydration (${stats.hydrated} ok, ${stats.failed} failed) — not persisting to IDB`,
+          );
           raw = { value: JSON.stringify(hydrated) };
         }
       }
@@ -1026,8 +1032,8 @@ export async function loadEstimate(id) {
 }
 
 // Save the active estimate
-export async function saveEstimate() {
-  const id = useEstimatesStore.getState().activeEstimateId;
+export async function saveEstimate(overrideId) {
+  const id = overrideId || useEstimatesStore.getState().activeEstimateId;
   if (!id) return;
 
   // Guard: skip save if in org mode and not the lock holder
@@ -1248,13 +1254,23 @@ export async function saveEstimate() {
   }
 
   // ─── Cloud Push (non-blocking) ───
-  // Final guard: check if this estimate was deleted during the save window.
+  // Guard 1: Skip cloud push while startup sync is running to prevent race conditions.
+  if (useUiStore.getState().cloudSyncInProgress) {
+    console.log("[saveEstimate] Startup cloud sync in progress — deferring cloud push, marking dirty");
+    markDirtyEstimate(id);
+    return;
+  }
+  // Guard 2: Check if this estimate was deleted during the save window.
   // This prevents a race where auto-save fires → user deletes → push un-deletes.
   const pushId = useEstimatesStore.getState().activeEstimateId;
   if (pushId === id && useEstimatesStore.getState().estimatesIndex.some(e => e.id === id)) {
-    cloudSync.pushEstimate(id, data).catch(err => {
-      console.warn("[usePersistence] Cloud push failed for estimate:", err?.message);
-    });
+    cloudSync
+      .pushEstimate(id, data)
+      .then(() => clearDirtyEstimate(id))
+      .catch(err => {
+        console.warn("[usePersistence] Cloud push failed for estimate:", err?.message);
+        markDirtyEstimate(id);
+      });
     cloudSync.pushData("index", idx).catch(err => {
       console.warn("[usePersistence] Cloud push failed for index:", err?.message);
     });
@@ -1424,5 +1440,52 @@ export async function saveAutoResponseDrafts() {
   const ok = await storage.set(idbKey("bldg-auto-response-drafts"), JSON.stringify(keep));
   if (!ok) {
     console.error("[usePersistence] Failed to save auto-response drafts");
+  }
+}
+
+// ── Dirty-flag system for failed cloud pushes ──────────────────────
+// When a cloud push fails or is deferred, mark the estimate as "dirty".
+// On next startup, useCloudSync re-pushes all dirty estimates before normal sync.
+
+const DIRTY_KEY = "bldg-dirty-estimates";
+
+export function markDirtyEstimate(estimateId) {
+  try {
+    const raw = localStorage.getItem(DIRTY_KEY);
+    const ids = raw ? JSON.parse(raw) : [];
+    if (!ids.includes(estimateId)) {
+      ids.push(estimateId);
+      localStorage.setItem(DIRTY_KEY, JSON.stringify(ids));
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+export function clearDirtyEstimate(estimateId) {
+  try {
+    const raw = localStorage.getItem(DIRTY_KEY);
+    if (!raw) return;
+    const ids = JSON.parse(raw).filter(id => id !== estimateId);
+    localStorage.setItem(DIRTY_KEY, JSON.stringify(ids));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function getDirtyEstimates() {
+  try {
+    const raw = localStorage.getItem(DIRTY_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function clearAllDirtyEstimates() {
+  try {
+    localStorage.removeItem(DIRTY_KEY);
+  } catch {
+    /* ignore */
   }
 }

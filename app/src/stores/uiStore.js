@@ -75,7 +75,7 @@ export const useUiStore = create((set, get) => ({
   estShowVars: null,
   estShowSpec: null,
   estShowAllowance: null,
-  estViewMode: "both", // "scope" | "detailed" | "both"
+  estViewMode: "scope", // "scope" | "detail" | "level"
   activeGroupId: "base",
   expandedDivs: new Set(),
 
@@ -83,6 +83,7 @@ export const useUiStore = create((set, get) => ({
   cloudSyncStatus: "idle", // "idle" | "syncing" | "synced" | "error"
   cloudSyncLastAt: null, // timestamp string
   cloudSyncError: null, // error message string (for debug)
+  cloudSyncInProgress: false, // true while startup sync is running — blocks auto-save cloud pushes
 
   // Value engineering
   veLoading: false,

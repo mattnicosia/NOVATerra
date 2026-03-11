@@ -271,7 +271,10 @@ const downloadBlob = async storagePath => {
     } catch (err) {
       const isLastAttempt = attempt === BLOB_DOWNLOAD_RETRIES - 1;
       if (isLastAttempt) {
-        console.warn(`[cloudSync] downloadBlob("${storagePath}") failed after ${BLOB_DOWNLOAD_RETRIES} attempts:`, err.message);
+        console.warn(
+          `[cloudSync] downloadBlob("${storagePath}") failed after ${BLOB_DOWNLOAD_RETRIES} attempts:`,
+          err.message,
+        );
         return null;
       }
       // Exponential backoff: 1s, 2s, 4s
@@ -452,7 +455,9 @@ const stripMasterBlobs = data => {
 
 // ---------- retry helper (exponential backoff + cooldown) ----------
 
-let _lastSyncError = 0;
+// Per-operation cooldown: each operation (e.g. pushData("settings"), pushEstimate("abc"))
+// tracks its own cooldown independently. A failure in one operation no longer blocks others.
+const _syncErrors = new Map(); // key → timestamp of last exhausted-retry failure
 const SYNC_COOLDOWN = 30000; // 30s cooldown after all retries exhausted
 let _activeSyncs = 0;
 const MAX_CONCURRENT_SYNCS = 3; // limit parallel uploads
@@ -472,8 +477,9 @@ const isPermanentError = err => {
 };
 
 const withRetry = async (label, fn, retries = 2) => {
-  // Cooldown: skip entirely if we just had a total failure
-  if (Date.now() - _lastSyncError < SYNC_COOLDOWN) {
+  // Per-operation cooldown: only skip THIS operation if it recently failed
+  const lastError = _syncErrors.get(label) || 0;
+  if (Date.now() - lastError < SYNC_COOLDOWN) {
     console.warn(`[cloudSync] ${label} skipped — cooling down after recent failure`);
     return;
   }
@@ -486,12 +492,15 @@ const withRetry = async (label, fn, retries = 2) => {
   try {
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
-        return await fn();
+        const result = await fn();
+        // Success — clear any previous cooldown for this operation
+        _syncErrors.delete(label);
+        return result;
       } catch (err) {
         // Don't retry permanent errors (auth, RLS, constraint violations)
         if (isPermanentError(err)) {
           console.error(`[cloudSync] ${label} permanent error — not retrying:`, err.message);
-          _lastSyncError = Date.now();
+          _syncErrors.set(label, Date.now());
           throw err;
         }
         if (attempt < retries) {
@@ -499,7 +508,7 @@ const withRetry = async (label, fn, retries = 2) => {
           console.warn(`[cloudSync] ${label} attempt ${attempt + 1} failed, retrying in ${delay / 1000}s...`);
           await new Promise(r => setTimeout(r, delay));
         } else {
-          _lastSyncError = Date.now();
+          _syncErrors.set(label, Date.now());
           throw err;
         }
       }

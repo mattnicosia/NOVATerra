@@ -6,7 +6,7 @@ import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useDatabaseStore } from "@/stores/databaseStore";
 import { useCalendarStore } from "@/stores/calendarStore";
-import { resetAllStores } from "@/hooks/usePersistence";
+import { resetAllStores, getDirtyEstimates, clearDirtyEstimate, clearAllDirtyEstimates } from "@/hooks/usePersistence";
 import * as cloudSync from "@/utils/cloudSync";
 import { idbKey } from "@/utils/idbKey";
 import { useOrgStore } from "@/stores/orgStore";
@@ -38,6 +38,7 @@ export async function retryCloudSync() {
 async function runCloudSync() {
   console.log("[cloudSync] Starting bidirectional sync...");
   useUiStore.getState().setCloudSyncStatus("syncing");
+  useUiStore.setState({ cloudSyncInProgress: true });
 
   // User-switch detection now runs in usePersistenceLoad BEFORE data loads.
   // This is a safety-net in case persistence didn't catch it.
@@ -62,6 +63,28 @@ async function runCloudSync() {
       console.warn(`[cloudSync] ${label} failed:`, err.message || err);
     }
   };
+
+  // ── Flush dirty estimates first (failed/deferred pushes from last session) ──
+  await trySync("Dirty estimates", async () => {
+    const dirtyIds = getDirtyEstimates();
+    if (dirtyIds.length === 0) return;
+    console.log(`[cloudSync] Flushing ${dirtyIds.length} dirty estimate(s) from last session`);
+    for (const did of dirtyIds) {
+      try {
+        const raw = await storage.get(idbKey(`bldg-est-${did}`));
+        if (raw) {
+          const data = JSON.parse(raw.value);
+          await cloudSync.pushEstimate(did, data);
+          clearDirtyEstimate(did);
+          console.log(`[cloudSync] Dirty estimate ${did} pushed successfully`);
+        } else {
+          clearDirtyEstimate(did); // Data gone, can't push
+        }
+      } catch (err) {
+        console.warn(`[cloudSync] Failed to push dirty estimate ${did}:`, err.message);
+      }
+    }
+  });
 
   await trySync("Master data", syncMasterData);
   await trySync("Estimates", syncEstimates);
@@ -96,6 +119,9 @@ async function runCloudSync() {
     console.error(`[cloudSync] ${failures}/6 sync operations failed.`);
     useUiStore.getState().setCloudSyncStatus("error");
   }
+
+  // Clear the in-progress flag so auto-save cloud pushes can resume
+  useUiStore.setState({ cloudSyncInProgress: false });
 
   // One-time background migration: re-push estimates with blobs so they
   // get uploaded to Supabase Storage. Estimates created before the blob
@@ -206,9 +232,12 @@ async function syncMasterData() {
     return;
   }
 
-  // Both exist → merge
+  // Both exist → merge with timestamp-based conflict resolution
   const cloudMaster = cloudResult.data;
-  const merged = mergeMasterData(localMaster, cloudMaster);
+  const cloudTime = cloudResult.updated_at ? new Date(cloudResult.updated_at).getTime() : 0;
+  const localTime = localMaster._savedAt ? new Date(localMaster._savedAt).getTime() : 0;
+  const cloudNewer = cloudTime > localTime;
+  const merged = mergeMasterData(localMaster, cloudMaster, cloudNewer);
 
   // Apply merged data locally
   applyMasterData(merged);
@@ -216,49 +245,51 @@ async function syncMasterData() {
 
   // Push merged data to cloud so the other device gets it
   await cloudSync.pushData("master", merged);
-  console.log("[cloudSync] Master: merged and pushed");
+  console.log(`[cloudSync] Master: merged and pushed (${cloudNewer ? "cloud" : "local"} preferred on conflicts)`);
 }
 
 /**
  * Merge two master data objects. Strategy:
- * - For companyProfiles: union by id (keep profiles from both sides)
- * - For companyInfo: prefer local (user is actively editing on this machine)
+ * - For companyProfiles: union by id (winner overwrites on conflict)
+ * - For companyInfo: prefer winner (based on timestamp)
  * - For contact arrays (clients, architects, etc): union by id
- * - For static arrays (jobTypes, bidTypes, etc): prefer local
+ * - For static arrays (jobTypes, bidTypes, etc): prefer winner
+ * @param {boolean} cloudNewer — if true, cloud data wins on same-id conflicts
  */
-function mergeMasterData(local, cloud) {
-  const merged = { ...local };
+function mergeMasterData(local, cloud, cloudNewer = false) {
+  // Winner's data is applied SECOND (overwrites conflicts)
+  const [loser, winner] = cloudNewer ? [local, cloud] : [cloud, local];
+  const merged = { ...winner };
 
-  // Merge companyProfiles — union by id
-  const localProfiles = local.companyProfiles || [];
-  const cloudProfiles = cloud.companyProfiles || [];
+  // Merge companyProfiles — union by id, winner overwrites conflicts
+  const loserProfiles = loser.companyProfiles || [];
+  const winnerProfiles = winner.companyProfiles || [];
   const profileMap = new Map();
-  // Cloud first (so local overrides if same id)
-  for (const p of cloudProfiles) profileMap.set(p.id, p);
-  for (const p of localProfiles) profileMap.set(p.id, p);
+  for (const p of loserProfiles) profileMap.set(p.id, p);
+  for (const p of winnerProfiles) profileMap.set(p.id, p);
   merged.companyProfiles = Array.from(profileMap.values());
 
-  // Merge contact categories — union by id
+  // Merge contact categories — union by id, winner overwrites conflicts
   for (const cat of ["clients", "architects", "engineers", "estimators", "subcontractors"]) {
-    const localItems = local[cat] || [];
-    const cloudItems = cloud[cat] || [];
+    const loserItems = loser[cat] || [];
+    const winnerItems = winner[cat] || [];
     const itemMap = new Map();
-    for (const item of cloudItems) itemMap.set(item.id, item);
-    for (const item of localItems) itemMap.set(item.id, item);
+    for (const item of loserItems) itemMap.set(item.id, item);
+    for (const item of winnerItems) itemMap.set(item.id, item);
     merged[cat] = Array.from(itemMap.values());
   }
 
   // Merge historicalProposals — union by id (prevents proposals from being dropped)
-  const localProposals = local.historicalProposals || [];
-  const cloudProposals = cloud.historicalProposals || [];
+  const loserProposals = loser.historicalProposals || [];
+  const winnerProposals = winner.historicalProposals || [];
   const proposalMap = new Map();
-  for (const p of cloudProposals) proposalMap.set(p.id, p);
-  for (const p of localProposals) proposalMap.set(p.id, p);
+  for (const p of loserProposals) proposalMap.set(p.id, p);
+  for (const p of winnerProposals) proposalMap.set(p.id, p);
   merged.historicalProposals = Array.from(proposalMap.values());
 
-  // companyInfo: prefer local (has logos etc), but if local has no name and cloud does, use cloud
-  if (!local.companyInfo?.name && cloud.companyInfo?.name) {
-    merged.companyInfo = { ...cloud.companyInfo };
+  // companyInfo: prefer winner, but if winner has no name and loser does, use loser
+  if (!winner.companyInfo?.name && loser.companyInfo?.name) {
+    merged.companyInfo = { ...loser.companyInfo };
   }
 
   return merged;
@@ -369,7 +400,9 @@ async function syncEstimates() {
       // ── New estimate from cloud — pull it ──
       console.log(`[cloudSync] Estimates: caching cloud estimate ${ce.estimate_id} to IDB`);
       let estData = ce.data;
-      try { estData = await cloudSync.hydrateBlobs(ce.data); } catch {}
+      try {
+        estData = await cloudSync.hydrateBlobs(ce.data);
+      } catch {}
       await storage.set(idbKey(`bldg-est-${ce.estimate_id}`), JSON.stringify(estData));
       const cloudEntry = cloudIndexMap.get(ce.estimate_id);
       if (cloudEntry) {
@@ -392,9 +425,13 @@ async function syncEstimates() {
         // Cloud is newer — overwrite local with cloud data
         // Also handle case where local has no _savedAt (legacy data before this fix)
         if (cloudTime > localTime) {
-          console.log(`[cloudSync] Estimates: cloud is newer for ${ce.estimate_id} (cloud: ${ce.updated_at}, local _savedAt: ${localTime ? new Date(localTime).toISOString() : "none"}) — overwriting local`);
+          console.log(
+            `[cloudSync] Estimates: cloud is newer for ${ce.estimate_id} (cloud: ${ce.updated_at}, local _savedAt: ${localTime ? new Date(localTime).toISOString() : "none"}) — overwriting local`,
+          );
           let estData = ce.data;
-          try { estData = await cloudSync.hydrateBlobs(ce.data); } catch {}
+          try {
+            estData = await cloudSync.hydrateBlobs(ce.data);
+          } catch {}
           // Stamp with _savedAt so future comparisons work
           estData._savedAt = ce.updated_at;
           await storage.set(idbKey(`bldg-est-${ce.estimate_id}`), JSON.stringify(estData));
@@ -574,10 +611,24 @@ async function syncSettings() {
     return;
   }
 
-  // Both exist — prefer local (settings are device-specific mostly),
-  // but push local to cloud so other device gets apiKey etc.
-  if (localSettings) {
-    await cloudSync.pushData("settings", localSettings);
+  // Both exist — compare timestamps: cloud-newer wins
+  if (localSettings && cloudResult) {
+    const cloudTime = cloudResult.updated_at ? new Date(cloudResult.updated_at).getTime() : 0;
+    const localTime = localSettings._savedAt ? new Date(localSettings._savedAt).getTime() : 0;
+
+    if (cloudTime > localTime) {
+      // Cloud is newer — pull cloud settings
+      console.log("[cloudSync] Settings: cloud is newer — pulling");
+      useUiStore.getState().setAppSettings({
+        ...useUiStore.getState().appSettings,
+        ...cloudResult.data,
+      });
+      cloudResult.data._savedAt = cloudResult.updated_at;
+      await storage.set(idbKey("bldg-settings"), JSON.stringify(cloudResult.data));
+    } else {
+      // Local is newer or same — push to cloud
+      await cloudSync.pushData("settings", localSettings);
+    }
   }
 }
 
@@ -606,11 +657,22 @@ async function syncAssemblies() {
     return;
   }
 
-  // Both exist — union by id
+  // Both exist — union by id, then use timestamps to decide winner on conflicts
   if (localAsm && cloudResult?.data && Array.isArray(localAsm) && Array.isArray(cloudResult.data)) {
+    const cloudTime = cloudResult.updated_at ? new Date(cloudResult.updated_at).getTime() : 0;
+    const localMeta = localAsm._meta || {};
+    const localTime = localMeta._savedAt ? new Date(localMeta._savedAt).getTime() : 0;
+
     const asmMap = new Map();
-    for (const a of cloudResult.data) asmMap.set(a.id, a);
-    for (const a of localAsm) asmMap.set(a.id, a);
+    if (cloudTime > localTime) {
+      // Cloud newer — cloud wins on conflict
+      for (const a of localAsm) if (a.id) asmMap.set(a.id, a);
+      for (const a of cloudResult.data) if (a.id) asmMap.set(a.id, a);
+    } else {
+      // Local newer — local wins on conflict
+      for (const a of cloudResult.data) if (a.id) asmMap.set(a.id, a);
+      for (const a of localAsm) if (a.id) asmMap.set(a.id, a);
+    }
     const merged = Array.from(asmMap.values());
     useDatabaseStore.getState().setAssemblies(merged);
     await storage.set(idbKey("bldg-assemblies"), JSON.stringify(merged));
@@ -645,11 +707,20 @@ async function syncUserElements() {
     return;
   }
 
-  // Both exist — union by id, local wins on conflict
+  // Both exist — union by id, timestamps decide conflict winner
   if (localEl && cloudResult?.data && Array.isArray(localEl) && Array.isArray(cloudResult.data)) {
+    const cloudTime = cloudResult.updated_at ? new Date(cloudResult.updated_at).getTime() : 0;
+    const localMeta = localEl._meta || {};
+    const localTime = localMeta._savedAt ? new Date(localMeta._savedAt).getTime() : 0;
+
     const elMap = new Map();
-    for (const e of cloudResult.data) elMap.set(e.id, e);
-    for (const e of localEl) elMap.set(e.id, e); // local wins
+    if (cloudTime > localTime) {
+      for (const e of localEl) if (e.id) elMap.set(e.id, e);
+      for (const e of cloudResult.data) if (e.id) elMap.set(e.id, e); // cloud wins
+    } else {
+      for (const e of cloudResult.data) if (e.id) elMap.set(e.id, e);
+      for (const e of localEl) if (e.id) elMap.set(e.id, e); // local wins
+    }
     const merged = Array.from(elMap.values());
     useDatabaseStore.getState().loadUserElements(merged);
     await storage.set(idbKey("bldg-user-elements"), JSON.stringify(merged));
@@ -684,11 +755,21 @@ async function syncCalendar() {
     return;
   }
 
-  // Both exist — union by id
+  // Both exist — union by id, timestamps decide conflict winner
   if (localTasks && cloudResult?.data && Array.isArray(localTasks) && Array.isArray(cloudResult.data)) {
+    const cloudTime = cloudResult.updated_at ? new Date(cloudResult.updated_at).getTime() : 0;
+    const localTime = localTasks._savedAt ? new Date(localTasks._savedAt).getTime() : 0;
+
     const taskMap = new Map();
-    for (const t of cloudResult.data) taskMap.set(t.id, t);
-    for (const t of localTasks) taskMap.set(t.id, t); // local wins on conflict
+    if (cloudTime > localTime) {
+      // Cloud newer — cloud wins on conflict
+      for (const t of localTasks) if (t.id) taskMap.set(t.id, t);
+      for (const t of cloudResult.data) if (t.id) taskMap.set(t.id, t);
+    } else {
+      // Local newer — local wins on conflict
+      for (const t of cloudResult.data) if (t.id) taskMap.set(t.id, t);
+      for (const t of localTasks) if (t.id) taskMap.set(t.id, t);
+    }
     const merged = Array.from(taskMap.values());
     useCalendarStore.getState().setTasks(merged);
     await storage.set(idbKey("bldg-calendar"), JSON.stringify(merged));

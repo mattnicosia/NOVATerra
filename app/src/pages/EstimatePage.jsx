@@ -334,10 +334,18 @@ export default function EstimatePage() {
   const [clearConfirm, setClearConfirm] = useState(0); // 0 = idle, 1 = first confirm, 2 = second confirm
   const [leftPanelTab, setLeftPanelTab] = useState("divisions"); // "divisions" | "notes"
   const [leftPanelWidth, setLeftPanelWidth] = useState(() => {
-    try { return parseInt(sessionStorage.getItem("bldg-estLeftWidth")) || 200; } catch { return 200; }
+    try {
+      return parseInt(sessionStorage.getItem("bldg-estLeftWidth")) || 200;
+    } catch {
+      return 200;
+    }
   });
   const [rightPanelWidth, setRightPanelWidth] = useState(() => {
-    try { return parseInt(sessionStorage.getItem("bldg-estRightWidth")) || 380; } catch { return 380; }
+    try {
+      return parseInt(sessionStorage.getItem("bldg-estRightWidth")) || 380;
+    } catch {
+      return 380;
+    }
   });
   const addMenuRef = useRef(null);
   const exportMenuRef = useRef(null);
@@ -364,7 +372,9 @@ export default function EstimatePage() {
       document.removeEventListener("mouseup", onUp);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
-      try { sessionStorage.setItem("bldg-estLeftWidth", String(leftWidthRef.current)); } catch {}
+      try {
+        sessionStorage.setItem("bldg-estLeftWidth", String(leftWidthRef.current));
+      } catch {}
     };
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
@@ -385,7 +395,9 @@ export default function EstimatePage() {
       document.removeEventListener("mouseup", onUp);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
-      try { sessionStorage.setItem("bldg-estRightWidth", String(rightWidthRef.current)); } catch {}
+      try {
+        sessionStorage.setItem("bldg-estRightWidth", String(rightWidthRef.current));
+      } catch {}
     };
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
@@ -393,9 +405,15 @@ export default function EstimatePage() {
     document.addEventListener("mouseup", onUp);
   }, []);
 
-  // Normalize view mode — map old "both"/"detailed" to new modes
+  // Normalize view mode — map old values to current modes
   const viewMode =
-    estViewMode === "scope" || estViewMode === "pricing" || estViewMode === "leveling" ? estViewMode : "scope";
+    estViewMode === "scope" || estViewMode === "detail" || estViewMode === "level"
+      ? estViewMode
+      : estViewMode === "pricing" || estViewMode === "detailed" || estViewMode === "both"
+        ? "detail"
+        : estViewMode === "leveling"
+          ? "level"
+          : "scope";
 
   const laborType = useProjectStore(s => s.project.laborType);
   const currentLaborType = (appSettings.laborTypes || []).find(lt => lt.key === laborType);
@@ -498,7 +516,9 @@ export default function EstimatePage() {
     const ids = new Set([activeGroupId]);
     // Include child groups of the active group
     const allGroups = useGroupsStore.getState().groups;
-    allGroups.forEach(g => { if (g.parentId === activeGroupId) ids.add(g.id); });
+    allGroups.forEach(g => {
+      if (g.parentId === activeGroupId) ids.add(g.id);
+    });
     return ids;
   }, [activeGroupId]);
 
@@ -538,14 +558,17 @@ export default function EstimatePage() {
   };
 
   // Helper: get group key for item based on groupBy type
-  const getGroupKey = useCallback((item, groupByType) => {
-    if (groupByType === "trade") return getTradeLabel(item);
-    if (groupByType === "division") {
-      const rawDiv = item.division || "";
-      return rawDiv.includes(" - ") ? rawDiv : divFromCode(rawDiv) || rawDiv || "Unassigned";
-    }
-    return getSubKey(item); // subdivision
-  }, [divFromCode]);
+  const getGroupKey = useCallback(
+    (item, groupByType) => {
+      if (groupByType === "trade") return getTradeLabel(item);
+      if (groupByType === "division") {
+        const rawDiv = item.division || "";
+        return rawDiv.includes(" - ") ? rawDiv : divFromCode(rawDiv) || rawDiv || "Unassigned";
+      }
+      return getSubKey(item); // subdivision
+    },
+    [divFromCode],
+  );
 
   // Grouping — supports optional secondary groupBy for nested hierarchy
   const groupedItems = useMemo(() => {
@@ -703,7 +726,7 @@ export default function EstimatePage() {
   const handleBlurCostCell = useCallback(() => setFocusedCostCell(null), []);
 
   // isPricing mode — shows M/L/E/S columns inline
-  const isPricing = viewMode === "pricing";
+  const isPricing = viewMode === "detail";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", animation: "fadeIn 0.15s ease-out" }}>
@@ -718,9 +741,24 @@ export default function EstimatePage() {
       {/* Zone 2+3: Navigator + Grid + Detail */}
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         {/* Left Panel — Divisions / Notes tab switch */}
-        <div style={{ width: leftPanelWidth, flexShrink: 0, display: "flex", flexDirection: "column", overflow: "hidden", transition: "width 0.15s ease" }}>
+        <div
+          style={{
+            width: leftPanelWidth,
+            flexShrink: 0,
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+            transition: "width 0.15s ease",
+          }}
+        >
           {/* Tab strip */}
-          <div style={{ display: "flex", borderBottom: `0.5px solid ${C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`, flexShrink: 0 }}>
+          <div
+            style={{
+              display: "flex",
+              borderBottom: `0.5px solid ${C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`,
+              flexShrink: 0,
+            }}
+          >
             {[
               { key: "divisions", label: "Divisions" },
               { key: "notes", label: "Notes", count: (exclusions?.length || 0) + (clarifications?.length || 0) },
@@ -736,7 +774,12 @@ export default function EstimatePage() {
                   border: "none",
                   cursor: "pointer",
                   fontFamily: T.font.sans,
-                  background: leftPanelTab === t.key ? (C.isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.20)") : "transparent",
+                  background:
+                    leftPanelTab === t.key
+                      ? C.isDark
+                        ? "rgba(255,255,255,0.06)"
+                        : "rgba(255,255,255,0.20)"
+                      : "transparent",
                   color: leftPanelTab === t.key ? C.text : C.textDim,
                   borderBottom: leftPanelTab === t.key ? `2px solid ${C.accent}` : "2px solid transparent",
                   textTransform: "uppercase",
@@ -746,7 +789,17 @@ export default function EstimatePage() {
               >
                 {t.label}
                 {t.count > 0 && (
-                  <span style={{ fontSize: 8, background: `${C.accent}20`, padding: "1px 4px", borderRadius: 6, marginLeft: 3 }}>{t.count}</span>
+                  <span
+                    style={{
+                      fontSize: 8,
+                      background: `${C.accent}20`,
+                      padding: "1px 4px",
+                      borderRadius: 6,
+                      marginLeft: 3,
+                    }}
+                  >
+                    {t.count}
+                  </span>
                 )}
               </button>
             ))}
@@ -913,55 +966,8 @@ export default function EstimatePage() {
             {/* Separator */}
             <div style={{ width: 1, height: 20, background: C.border, flexShrink: 0, opacity: 0.6 }} />
 
-            {/* View mode toggle: Scope | Pricing | Leveling */}
-            <div
-              style={{
-                display: "flex",
-                background: dk ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.10)",
-                backdropFilter: "blur(8px) saturate(150%)",
-                WebkitBackdropFilter: "blur(8px) saturate(150%)",
-                borderRadius: T.radius.sm,
-                overflow: "hidden",
-                border: `0.5px solid ${dk ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.20)"}`,
-                boxShadow: `inset 0 0.5px 0 ${dk ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.35)"}`,
-                flexShrink: 0,
-              }}
-            >
-              {[
-                { key: "scope", label: "Scope" },
-                { key: "pricing", label: "Pricing" },
-                { key: "leveling", label: "Leveling" },
-              ].map(v => (
-                <button
-                  key={v.key}
-                  onClick={() => {
-                    setEstViewMode(v.key);
-                    setSelectedItemId(null);
-                  }}
-                  style={{
-                    padding: "5px 12px",
-                    fontSize: 10,
-                    fontWeight: 600,
-                    border: "none",
-                    cursor: "pointer",
-                    transition: "all 0.25s ease",
-                    background:
-                      viewMode === v.key ? (dk ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.40)") : "transparent",
-                    color: viewMode === v.key ? C.text : C.textMuted,
-                    fontFamily: T.font.sans,
-                    boxShadow:
-                      viewMode === v.key
-                        ? `inset 0 0.5px 0 ${dk ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.50)"}`
-                        : "none",
-                  }}
-                >
-                  {v.label}
-                </button>
-              ))}
-            </div>
-
             {/* GroupBy toggle: Subdivision | Division | Trade — click=primary, shift+click=add secondary */}
-            {viewMode !== "leveling" && (
+            {viewMode !== "level" && (
               <div style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
                 <div
                   style={{
@@ -1003,11 +1009,15 @@ export default function EstimatePage() {
                           cursor: "pointer",
                           transition: "all 0.25s ease",
                           background: isPrimary
-                            ? dk ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.40)"
+                            ? dk
+                              ? "rgba(255,255,255,0.10)"
+                              : "rgba(255,255,255,0.40)"
                             : isSecondary
-                              ? dk ? "rgba(139,92,246,0.12)" : "rgba(139,92,246,0.10)"
+                              ? dk
+                                ? "rgba(139,92,246,0.12)"
+                                : "rgba(139,92,246,0.10)"
                               : "transparent",
-                          color: isPrimary ? C.text : isSecondary ? (C.purple || C.accent) : C.textMuted,
+                          color: isPrimary ? C.text : isSecondary ? C.purple || C.accent : C.textMuted,
                           fontFamily: T.font.sans,
                           boxShadow: isPrimary
                             ? `inset 0 0.5px 0 ${dk ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.50)"}`
@@ -1017,7 +1027,18 @@ export default function EstimatePage() {
                       >
                         {v.label}
                         {isSecondary && (
-                          <span style={{ position: "absolute", top: 1, right: 2, fontSize: 7, color: C.purple || C.accent, fontWeight: 800 }}>2</span>
+                          <span
+                            style={{
+                              position: "absolute",
+                              top: 1,
+                              right: 2,
+                              fontSize: 7,
+                              color: C.purple || C.accent,
+                              fontWeight: 800,
+                            }}
+                          >
+                            2
+                          </span>
                         )}
                       </button>
                     );
@@ -1028,7 +1049,20 @@ export default function EstimatePage() {
                   <button
                     onClick={() => setEstGroupBy2(null)}
                     title="Remove secondary grouping"
-                    style={{ width: 16, height: 16, border: `1px solid ${C.border}`, background: "transparent", borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 9, color: C.textDim, padding: 0 }}
+                    style={{
+                      width: 16,
+                      height: 16,
+                      border: `1px solid ${C.border}`,
+                      background: "transparent",
+                      borderRadius: 3,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      fontSize: 9,
+                      color: C.textDim,
+                      padding: 0,
+                    }}
                   >
                     ×
                   </button>
@@ -1037,7 +1071,7 @@ export default function EstimatePage() {
             )}
 
             {/* Expand/Collapse all toggle */}
-            {viewMode !== "leveling" && sortedGroups.length > 0 && (
+            {viewMode !== "level" && sortedGroups.length > 0 && (
               <button
                 onClick={() => {
                   const allKeys = sortedGroups.map(([gk]) => gk);
@@ -1199,20 +1233,19 @@ export default function EstimatePage() {
                   onClick={() => setClearConfirm(1)}
                   title="Clear All Items"
                   style={bt(C, {
-                    padding: "5px 7px",
-                    color: C.textDim,
-                    opacity: 0.5,
+                    background: "transparent",
+                    border: `1px solid ${C.border}`,
+                    color: C.textMuted,
+                    padding: "5px 10px",
+                    fontSize: 10,
                   })}
                 >
-                  <Ic d={I.trash} size={12} color={C.textDim} />
+                  <Ic d={I.trash} size={12} color={C.textMuted} />
                 </button>
 
                 {clearConfirm > 0 && (
                   <>
-                    <div
-                      style={{ position: "fixed", inset: 0, zIndex: 999 }}
-                      onClick={() => setClearConfirm(0)}
-                    />
+                    <div style={{ position: "fixed", inset: 0, zIndex: 999 }} onClick={() => setClearConfirm(0)} />
                     <div
                       style={{
                         position: "absolute",
@@ -1229,23 +1262,25 @@ export default function EstimatePage() {
                         textAlign: "center",
                       }}
                     >
-                      <div style={{
-                        fontSize: 13,
-                        fontWeight: 600,
-                        color: C.text,
-                        fontFamily: T.font.sans,
-                        marginBottom: 4,
-                      }}>
-                        {clearConfirm === 1
-                          ? "Delete all items?"
-                          : "Are you sure you're sure?"}
+                      <div
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: C.text,
+                          fontFamily: T.font.sans,
+                          marginBottom: 4,
+                        }}
+                      >
+                        {clearConfirm === 1 ? "Delete all items?" : "Are you sure you're sure?"}
                       </div>
-                      <div style={{
-                        fontSize: 11,
-                        color: C.textDim,
-                        fontFamily: T.font.sans,
-                        marginBottom: 14,
-                      }}>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: C.textDim,
+                          fontFamily: T.font.sans,
+                          marginBottom: 14,
+                        }}
+                      >
                         {clearConfirm === 1
                           ? `This will remove all ${items.length} items from the estimate.`
                           : "This cannot be undone."}
@@ -1292,7 +1327,7 @@ export default function EstimatePage() {
           </div>
 
           {/* Content area — grid or leveling */}
-          {viewMode === "leveling" ? (
+          {viewMode === "level" ? (
             <LevelingView />
           ) : (
             <div style={{ flex: 1, overflowY: "auto", overflowX: "auto", minHeight: 0 }} className="blueprint-grid">
@@ -1460,93 +1495,129 @@ export default function EstimatePage() {
                       )}
 
                       {/* Item rows — supports nested sub-groups when estGroupBy2 is set */}
-                      {isExpanded && (() => {
-                        // Render function for a list of items
-                        const renderItems = (itemList, rowOffset = 0) =>
-                          itemList.map((item, rowIdx) => {
-                            const lt = getTotal(item);
-                            const gi = itemIndexMap[item.id] || 0;
-                            if (!itemTotalKeys.current[item.id]) itemTotalKeys.current[item.id] = { val: lt, k: 0 };
-                            else if (itemTotalKeys.current[item.id].val !== lt) {
-                              itemTotalKeys.current[item.id] = { val: lt, k: itemTotalKeys.current[item.id].k + 1 };
-                            }
-                            const focusedField = focusedCostCell?.startsWith(item.id + "-")
-                              ? focusedCostCell.slice(item.id.length + 1)
-                              : null;
-                            return (
-                              <EstimateItemRow
-                                key={item.id}
-                                item={item}
-                                rowIdx={rowIdx + rowOffset}
-                                globalIndex={gi}
-                                lineTotal={lt}
-                                animKey={itemTotalKeys.current[item.id].k}
-                                isSelected={selectedItemId === item.id}
-                                isDragging={dragItemId === item.id}
-                                isOddRow={(rowIdx + rowOffset) % 2 === 1}
-                                isPricing={isPricing}
-                                focusedField={focusedField}
-                                C={C}
-                                T={T}
-                                updateItem={updateItem}
-                                onDragStart={setDragItemId}
-                                onDragEnd={handleDragEnd}
-                                onRowClick={handleRowClick}
-                                onFocusCostCell={setFocusedCostCell}
-                                onBlurCostCell={handleBlurCostCell}
-                              />
-                            );
-                          });
+                      {isExpanded &&
+                        (() => {
+                          // Render function for a list of items
+                          const renderItems = (itemList, rowOffset = 0) =>
+                            itemList.map((item, rowIdx) => {
+                              const lt = getTotal(item);
+                              const gi = itemIndexMap[item.id] || 0;
+                              if (!itemTotalKeys.current[item.id]) itemTotalKeys.current[item.id] = { val: lt, k: 0 };
+                              else if (itemTotalKeys.current[item.id].val !== lt) {
+                                itemTotalKeys.current[item.id] = { val: lt, k: itemTotalKeys.current[item.id].k + 1 };
+                              }
+                              const focusedField = focusedCostCell?.startsWith(item.id + "-")
+                                ? focusedCostCell.slice(item.id.length + 1)
+                                : null;
+                              return (
+                                <EstimateItemRow
+                                  key={item.id}
+                                  item={item}
+                                  rowIdx={rowIdx + rowOffset}
+                                  globalIndex={gi}
+                                  lineTotal={lt}
+                                  animKey={itemTotalKeys.current[item.id].k}
+                                  isSelected={selectedItemId === item.id}
+                                  isDragging={dragItemId === item.id}
+                                  isOddRow={(rowIdx + rowOffset) % 2 === 1}
+                                  isPricing={isPricing}
+                                  focusedField={focusedField}
+                                  C={C}
+                                  T={T}
+                                  updateItem={updateItem}
+                                  onDragStart={setDragItemId}
+                                  onDragEnd={handleDragEnd}
+                                  onRowClick={handleRowClick}
+                                  onFocusCostCell={setFocusedCostCell}
+                                  onBlurCostCell={handleBlurCostCell}
+                                />
+                              );
+                            });
 
-                        // Nested sub-groups
-                        if (group.subGroups) {
-                          const sortedSubs = Object.entries(group.subGroups).sort(([a, ag], [b, bg]) =>
-                            estGroupBy2 === "trade" ? (ag.sortVal || 0) - (bg.sortVal || 0) : a.localeCompare(b),
-                          );
-                          let runningOffset = 0;
-                          return sortedSubs.map(([sk, sg]) => {
-                            const subKey = `${gk}::${sk}`;
-                            const subExpanded = expandedDivs.has(subKey);
-                            const subTotal = sg.items.reduce((s, i) => s + getTotal(i), 0);
-                            const subLabel = estGroupBy2 === "subdivision" ? getSubLabel(sk)
-                              : estGroupBy2 === "division" && !sk.includes(" - ") ? (divFromCode(sk) || sk)
-                              : sk;
-                            const offset = runningOffset;
-                            runningOffset += sg.items.length;
-                            return (
-                              <div key={subKey}>
-                                {/* Sub-group header */}
-                                <div
-                                  className="nav-item"
-                                  onClick={() => toggleDiv(subKey)}
-                                  style={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    alignItems: "center",
-                                    padding: "4px 12px 4px 28px",
-                                    borderTop: `1px solid ${C.border}30`,
-                                    background: `${C.accent}04`,
-                                    cursor: "pointer",
-                                  }}
-                                >
-                                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                    <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke={C.textDim} strokeWidth="2" style={{ transform: subExpanded ? "rotate(90deg)" : "rotate(0)", transition: "transform 0.2s" }}>
-                                      <path d="M3 1l4 4-4 4" />
-                                    </svg>
-                                    <span style={{ fontSize: 10, fontWeight: 600, color: C.textMuted }}>{subLabel}</span>
-                                    <span style={{ fontSize: 9, color: C.textDim, background: C.bg, padding: "0px 5px", borderRadius: 6 }}>{sg.items.length}</span>
+                          // Nested sub-groups
+                          if (group.subGroups) {
+                            const sortedSubs = Object.entries(group.subGroups).sort(([a, ag], [b, bg]) =>
+                              estGroupBy2 === "trade" ? (ag.sortVal || 0) - (bg.sortVal || 0) : a.localeCompare(b),
+                            );
+                            let runningOffset = 0;
+                            return sortedSubs.map(([sk, sg]) => {
+                              const subKey = `${gk}::${sk}`;
+                              const subExpanded = expandedDivs.has(subKey);
+                              const subTotal = sg.items.reduce((s, i) => s + getTotal(i), 0);
+                              const subLabel =
+                                estGroupBy2 === "subdivision"
+                                  ? getSubLabel(sk)
+                                  : estGroupBy2 === "division" && !sk.includes(" - ")
+                                    ? divFromCode(sk) || sk
+                                    : sk;
+                              const offset = runningOffset;
+                              runningOffset += sg.items.length;
+                              return (
+                                <div key={subKey}>
+                                  {/* Sub-group header */}
+                                  <div
+                                    className="nav-item"
+                                    onClick={() => toggleDiv(subKey)}
+                                    style={{
+                                      display: "flex",
+                                      justifyContent: "space-between",
+                                      alignItems: "center",
+                                      padding: "4px 12px 4px 28px",
+                                      borderTop: `1px solid ${C.border}30`,
+                                      background: `${C.accent}04`,
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                      <svg
+                                        width="8"
+                                        height="8"
+                                        viewBox="0 0 10 10"
+                                        fill="none"
+                                        stroke={C.textDim}
+                                        strokeWidth="2"
+                                        style={{
+                                          transform: subExpanded ? "rotate(90deg)" : "rotate(0)",
+                                          transition: "transform 0.2s",
+                                        }}
+                                      >
+                                        <path d="M3 1l4 4-4 4" />
+                                      </svg>
+                                      <span style={{ fontSize: 10, fontWeight: 600, color: C.textMuted }}>
+                                        {subLabel}
+                                      </span>
+                                      <span
+                                        style={{
+                                          fontSize: 9,
+                                          color: C.textDim,
+                                          background: C.bg,
+                                          padding: "0px 5px",
+                                          borderRadius: 6,
+                                        }}
+                                      >
+                                        {sg.items.length}
+                                      </span>
+                                    </div>
+                                    <span
+                                      style={{
+                                        fontSize: 10,
+                                        color: C.textDim,
+                                        fontFeatureSettings: "'tnum'",
+                                        fontFamily: T.font.sans,
+                                      }}
+                                    >
+                                      {fmt(subTotal)}
+                                    </span>
                                   </div>
-                                  <span style={{ fontSize: 10, color: C.textDim, fontFeatureSettings: "'tnum'", fontFamily: T.font.sans }}>{fmt(subTotal)}</span>
+                                  {subExpanded && renderItems(sg.items, offset)}
                                 </div>
-                                {subExpanded && renderItems(sg.items, offset)}
-                              </div>
-                            );
-                          });
-                        }
+                              );
+                            });
+                          }
 
-                        // Flat rendering (no sub-groups)
-                        return renderItems(skItems);
-                      })()}
+                          // Flat rendering (no sub-groups)
+                          return renderItems(skItems);
+                        })()}
 
                       {/* Add item row */}
                       {isExpanded && (
@@ -1668,7 +1739,7 @@ export default function EstimatePage() {
         </div>
 
         {/* Right resize handle + Detail Panel */}
-        {selectedItemId && viewMode !== "leveling" && (
+        {selectedItemId && viewMode !== "level" && (
           <>
             {/* Right resize handle */}
             <div
@@ -1693,7 +1764,6 @@ export default function EstimatePage() {
             />
           </>
         )}
-
       </div>
 
       {/* Modals */}
