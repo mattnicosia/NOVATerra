@@ -3317,7 +3317,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
               </div>
             )}
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              {/* Tier cycling button moved to GroupBar */}
+              {/* Tier cycling button is now in the toolbar above */}
               {!showNotesPanel && (
                 <button
                   className="icon-btn"
@@ -5673,6 +5673,78 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
         <div style={{ borderBottom: `1px solid ${C.border}` }}>
           {/* Toolbar: Drawing nav + zoom + scale + tools */}
           <div style={{ padding: "6px 10px", display: "flex", gap: 6, alignItems: "center", overflow: "hidden" }}>
+            {/* Tier cycling button — always visible in all tiers */}
+            {(() => {
+              const modes = [
+                { id: "closed", bars: 0, label: "Drawings" },
+                { id: "standard", bars: 2, label: "Standard" },
+                { id: "full", bars: 3, label: "Split" },
+                { id: "estimate", bars: 4, label: "Estimate" },
+              ];
+              let curId;
+              if (tkPanelTier === "estimate") curId = "estimate";
+              else if (!tkPanelOpen) curId = "closed";
+              else if (tkPanelTier === "full") curId = "full";
+              else curId = "standard";
+              const idx = modes.findIndex(m => m.id === curId);
+              const current = modes[idx >= 0 ? idx : 0];
+              const nextMode = modes[(idx + 1) % modes.length];
+              const cycleTier = () => {
+                const store = useTakeoffsStore.getState();
+                if (nextMode.id === "closed") {
+                  store.setTkPanelOpen(false);
+                  store.setTkPanelTier("standard");
+                  sessionStorage.setItem("bldg-tkPanelTier", "standard");
+                  sessionStorage.setItem("bldg-tkPanelWidth", "550");
+                } else if (nextMode.id === "estimate") {
+                  store.setTkPanelOpen(false);
+                  store.setTkPanelTier("estimate");
+                  sessionStorage.setItem("bldg-tkPanelTier", "estimate");
+                  sessionStorage.setItem("bldg-tkPanelWidth", "0");
+                } else {
+                  store.setTkPanelOpen(true);
+                  store.setTkPanelWidth(nextMode.id === "full" ? 900 : 550);
+                  store.setTkPanelTier(nextMode.id);
+                  sessionStorage.setItem("bldg-tkPanelTier", nextMode.id);
+                  sessionStorage.setItem("bldg-tkPanelWidth", nextMode.id === "full" ? "900" : "550");
+                }
+              };
+              return (
+                <>
+                  <button
+                    className="icon-btn"
+                    title={`${current.label} → ${nextMode.label}`}
+                    onClick={cycleTier}
+                    style={{
+                      width: 22,
+                      height: 22,
+                      border: `1px solid ${current.bars > 0 ? (C.accent + "50") : C.border}`,
+                      background: current.bars > 0 ? (C.accent + "14") : "transparent",
+                      borderRadius: 3,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 1.5,
+                      padding: 0,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {current.bars === 0 ? (
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="7" height="18" rx="1" />
+                        <path d="M14 3h7M14 9h7M14 15h5" />
+                      </svg>
+                    ) : (
+                      Array.from({ length: current.bars }).map((_, i) => (
+                        <div key={i} style={{ width: 2.5, height: 8, borderRadius: 1, background: C.accent }} />
+                      ))
+                    )}
+                  </button>
+                  <div style={{ width: 1, height: 16, background: C.border, flexShrink: 0 }} />
+                </>
+              );
+            })()}
             {/* Drawing controls — hidden in estimate mode */}
             {tkPanelTier !== "estimate" && (
               <>
