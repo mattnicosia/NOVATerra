@@ -20,11 +20,11 @@ import { useProjectStore } from "@/stores/projectStore";
 import { useUiStore } from "@/stores/uiStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useTakeoffsStore } from "@/stores/takeoffsStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
+// useDrawingsStore removed — no longer needed in App header
 import { useOrgStore } from "@/stores/orgStore";
 import { useCollaborationStore } from "@/stores/collaborationStore";
 import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
-import NovaOrb from "@/components/dashboard/NovaOrb";
+// NovaOrb moved to EstimatePage left panel
 import { CAR_PALETTE_IDS, LIGHT_PALETTE_IDS, ARTIFACT_PALETTE_IDS, PALETTES } from "@/constants/palettes";
 import { NOISE_GRAIN } from "@/constants/textures";
 import NovaHeader from "@/components/layout/NovaHeader";
@@ -207,57 +207,20 @@ const PROJECT_TABS = [
 /* ── Takeoffs header controls: mode button + NOVA orb ── */
 function TakeoffsHeaderControls({ C }) {
   const tkPanelOpen = useTakeoffsStore(s => s.tkPanelOpen);
-  const setTkPanelOpen = useTakeoffsStore(s => s.setTkPanelOpen);
   const tkPanelTier = useTakeoffsStore(s => s.tkPanelTier);
-  const setTkPanelTier = useTakeoffsStore(s => s.setTkPanelTier);
-  const setTkPanelWidth = useTakeoffsStore(s => s.setTkPanelWidth);
-  const tkNovaPanelOpen = useTakeoffsStore(s => s.tkNovaPanelOpen);
-  const setTkNovaPanelOpen = useTakeoffsStore(s => s.setTkNovaPanelOpen);
-  const tkPredictions = useTakeoffsStore(s => s.tkPredictions);
-  const tkPredAccepted = useTakeoffsStore(s => s.tkPredAccepted);
-  const tkPredRejected = useTakeoffsStore(s => s.tkPredRejected);
-  const takeoffs = useTakeoffsStore(s => s.takeoffs);
-  const drawings = useDrawingsStore(s => s.drawings);
-  const hasDrawings = drawings.length > 0;
 
   const modes = [
-    { id: "closed", w: 0, bars: 0, label: "Closed" },
-    { id: "standard", w: 550, bars: 2, label: "Estimate" },
-    { id: "full", w: 900, bars: 3, label: "Split" },
-    { id: "estimate", w: 0, bars: 4, label: "Estimate" },
+    { id: "closed", label: "Drawings" },
+    { id: "standard", label: "Standard" },
+    { id: "full", label: "Split" },
+    { id: "estimate", label: "Estimate" },
   ];
   let curId;
   if (tkPanelTier === "estimate") curId = "estimate";
   else if (!tkPanelOpen) curId = "closed";
   else if (tkPanelTier === "full") curId = "full";
   else curId = "standard";
-  const idx = modes.findIndex(m => m.id === curId);
-  const current = modes[idx >= 0 ? idx : 0];
-  const next = modes[(idx + 1) % modes.length];
-
-  const pendingPredictions =
-    tkPredictions?.predictions?.filter(p => !tkPredAccepted.includes(p.id) && !tkPredRejected.includes(p.id)).length ||
-    0;
-
-  const cycleMode = () => {
-    if (next.id === "closed") {
-      setTkPanelOpen(false);
-      setTkPanelTier("standard");
-      sessionStorage.setItem("bldg-tkPanelTier", "standard");
-      sessionStorage.setItem("bldg-tkPanelWidth", "550");
-    } else if (next.id === "estimate") {
-      setTkPanelOpen(false);
-      setTkPanelTier("estimate");
-      sessionStorage.setItem("bldg-tkPanelTier", "estimate");
-      sessionStorage.setItem("bldg-tkPanelWidth", "0");
-    } else {
-      setTkPanelOpen(true);
-      setTkPanelWidth(next.w);
-      setTkPanelTier(next.id);
-      sessionStorage.setItem("bldg-tkPanelTier", next.id);
-      sessionStorage.setItem("bldg-tkPanelWidth", String(next.w));
-    }
-  };
+  const current = modes.find(m => m.id === curId) || modes[0];
 
   return (
     <div
@@ -270,33 +233,6 @@ function TakeoffsHeaderControls({ C }) {
         borderRight: `1px solid ${C.border}`,
       }}
     >
-      {/* NOVA orb */}
-      {hasDrawings && tkPanelTier !== "estimate" && (
-        <div style={{ position: "relative", flexShrink: 0 }}>
-          <NovaOrb size={24} onClick={() => setTkNovaPanelOpen(v => !v)} />
-          {pendingPredictions > 0 && !tkNovaPanelOpen && (
-            <span
-              style={{
-                position: "absolute",
-                top: -2,
-                right: -4,
-                background: C.accent,
-                color: "#fff",
-                fontSize: 7,
-                fontWeight: 800,
-                padding: "1px 4px",
-                borderRadius: 6,
-                minWidth: 14,
-                textAlign: "center",
-                pointerEvents: "none",
-              }}
-            >
-              {pendingPredictions}
-            </span>
-          )}
-        </div>
-      )}
-      {/* Mode label */}
       <span
         style={{
           fontSize: 9,

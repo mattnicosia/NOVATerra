@@ -32,9 +32,10 @@ import AIScopeGenerateModal from "@/components/estimate/AIScopeGenerateModal";
 import { exportEstimateXlsx } from "@/utils/exportXlsx";
 import EstimateKPIStrip from "@/components/estimate/EstimateKPIStrip";
 import DivisionNavigator from "@/components/estimate/DivisionNavigator";
-import ItemDetailPanel from "@/components/estimate/ItemDetailPanel";
 import LevelingView from "@/components/estimate/LevelingView";
 import GroupBar from "@/components/shared/GroupBar";
+import NovaOrb from "@/components/dashboard/NovaOrb";
+import TakeoffNOVAPanel from "@/components/takeoffs/TakeoffNOVAPanel";
 
 // ── Memoized item row — prevents re-rendering all 200+ rows on each keystroke ──
 const EstimateItemRow = memo(
@@ -332,19 +333,12 @@ export default function EstimatePage() {
   const [selectedItemId, setSelectedItemId] = useState(null);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [clearConfirm, setClearConfirm] = useState(0); // 0 = idle, 1 = first confirm, 2 = second confirm
-  const [leftPanelTab, setLeftPanelTab] = useState("divisions"); // "divisions" | "notes"
+  const [leftPanelTab, setLeftPanelTab] = useState("divisions"); // "divisions" | "notes" | "nova"
   const [leftPanelWidth, setLeftPanelWidth] = useState(() => {
     try {
       return parseInt(sessionStorage.getItem("bldg-estLeftWidth")) || 200;
     } catch {
       return 200;
-    }
-  });
-  const [rightPanelWidth, setRightPanelWidth] = useState(() => {
-    try {
-      return parseInt(sessionStorage.getItem("bldg-estRightWidth")) || 380;
-    } catch {
-      return 380;
     }
   });
   const addMenuRef = useRef(null);
@@ -353,11 +347,9 @@ export default function EstimatePage() {
   const prevGrandRef = useRef(null);
   const itemTotalKeys = useRef({});
 
-  // ── Panel resize drag handlers ──
+  // ── Panel resize drag handler ──
   const leftWidthRef = useRef(leftPanelWidth);
   leftWidthRef.current = leftPanelWidth;
-  const rightWidthRef = useRef(rightPanelWidth);
-  rightWidthRef.current = rightPanelWidth;
 
   const startLeftDrag = useCallback(e => {
     e.preventDefault();
@@ -374,29 +366,6 @@ export default function EstimatePage() {
       document.body.style.userSelect = "";
       try {
         sessionStorage.setItem("bldg-estLeftWidth", String(leftWidthRef.current));
-      } catch {}
-    };
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
-  }, []);
-
-  const startRightDrag = useCallback(e => {
-    e.preventDefault();
-    const startX = e.clientX;
-    const startW = rightWidthRef.current;
-    const onMove = ev => {
-      const newW = Math.min(600, Math.max(280, startW - (ev.clientX - startX)));
-      setRightPanelWidth(newW);
-    };
-    const onUp = () => {
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-      try {
-        sessionStorage.setItem("bldg-estRightWidth", String(rightWidthRef.current));
       } catch {}
     };
     document.body.style.cursor = "col-resize";
@@ -762,13 +731,14 @@ export default function EstimatePage() {
             {[
               { key: "divisions", label: "Divisions" },
               { key: "notes", label: "Notes", count: (exclusions?.length || 0) + (clarifications?.length || 0) },
+              { key: "nova", label: null, isNova: true },
             ].map(t => (
               <button
                 key={t.key}
                 onClick={() => setLeftPanelTab(t.key)}
                 style={{
-                  flex: 1,
-                  padding: "6px 4px",
+                  flex: t.isNova ? "0 0 auto" : 1,
+                  padding: t.isNova ? "4px 8px" : "6px 4px",
                   fontSize: 9,
                   fontWeight: leftPanelTab === t.key ? 700 : 500,
                   border: "none",
@@ -782,24 +752,33 @@ export default function EstimatePage() {
                       : "transparent",
                   color: leftPanelTab === t.key ? C.text : C.textDim,
                   borderBottom: leftPanelTab === t.key ? `2px solid ${C.accent}` : "2px solid transparent",
-                  textTransform: "uppercase",
-                  letterSpacing: 0.8,
+                  textTransform: t.isNova ? "none" : "uppercase",
+                  letterSpacing: t.isNova ? 0 : 0.8,
                   transition: "all 0.15s",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
               >
-                {t.label}
-                {t.count > 0 && (
-                  <span
-                    style={{
-                      fontSize: 8,
-                      background: `${C.accent}20`,
-                      padding: "1px 4px",
-                      borderRadius: 6,
-                      marginLeft: 3,
-                    }}
-                  >
-                    {t.count}
-                  </span>
+                {t.isNova ? (
+                  <NovaOrb size={16} />
+                ) : (
+                  <>
+                    {t.label}
+                    {t.count > 0 && (
+                      <span
+                        style={{
+                          fontSize: 8,
+                          background: `${C.accent}20`,
+                          padding: "1px 4px",
+                          borderRadius: 6,
+                          marginLeft: 3,
+                        }}
+                      >
+                        {t.count}
+                      </span>
+                    )}
+                  </>
                 )}
               </button>
             ))}
@@ -808,6 +787,8 @@ export default function EstimatePage() {
           <div style={{ flex: 1, overflow: "hidden" }}>
             {leftPanelTab === "divisions" ? (
               <DivisionNavigator activeDivision={estDivision} onSelectDivision={setEstDivision} />
+            ) : leftPanelTab === "nova" ? (
+              <TakeoffNOVAPanel />
             ) : (
               <NotesPanel inline />
             )}
@@ -1738,32 +1719,7 @@ export default function EstimatePage() {
           )}
         </div>
 
-        {/* Right resize handle + Detail Panel */}
-        {selectedItemId && viewMode !== "level" && (
-          <>
-            {/* Right resize handle */}
-            <div
-              onMouseDown={startRightDrag}
-              style={{
-                width: 4,
-                cursor: "col-resize",
-                flexShrink: 0,
-                background: "transparent",
-                transition: "background 0.15s",
-                position: "relative",
-                zIndex: 5,
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}30`)}
-              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-            />
-            <ItemDetailPanel
-              itemId={selectedItemId}
-              onClose={() => setSelectedItemId(null)}
-              onNavigate={handleDetailNavigate}
-              panelWidth={rightPanelWidth}
-            />
-          </>
-        )}
+        {/* Right panel removed — item details handled inline */}
       </div>
 
       {/* Modals */}

@@ -218,10 +218,10 @@ Generate 5-10 RFIs, prioritized by impact on bid accuracy.`,
         {/* Tabs — pill style, title case */}
         <div style={{ display: "flex", gap: 4, padding: "8px 12px", borderBottom: `1px solid ${C.border}` }}>
           {[
-            { key: "exclusions", label: "Exclusions", count: exclusions.length, color: C.purple },
             { key: "allowances", label: "Allowances", count: allowanceItems.length, color: C.orange },
             { key: "notes", label: "Notes", count: clarifications.length, color: C.blue },
             { key: "rfis", label: "RFIs", count: rfis.length, color: C.accent },
+            { key: "exclusions", label: "Exclusions", count: exclusions.length, color: C.purple },
           ].map(t => (
             <button
               key={t.key}

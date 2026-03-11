@@ -653,6 +653,12 @@ input[type="number"] {
   background: rgba(255, 255, 255, 0.1);
 }
 
+/* Vertical control rail — hover flyout labels */
+.rail-btn-wrap:hover .rail-label {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
 /* ── Ghost buttons ── */
 .ghost-btn {
   transition:
