@@ -149,7 +149,7 @@ export default function JourneyStrip() {
           background: C.bg,
           borderBottom: `1px solid ${C.border}06`,
           flexShrink: 0,
-          fontFamily: "'DM Sans', sans-serif",
+          fontFamily: T.font.sans,
         }}
       >
         <div

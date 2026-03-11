@@ -654,7 +654,7 @@ IMPORTANT: Return ONLY valid JSON array. No markdown, no explanation. Example:
                     padding: "3px 6px",
                     width: 56,
                     textAlign: "center",
-                    fontFamily: "'DM Sans',sans-serif",
+                    fontFamily: T.font.sans,
                   })}
                 />
                 {hasLocationData && (
@@ -743,7 +743,7 @@ IMPORTANT: Return ONLY valid JSON array. No markdown, no explanation. Example:
                       value={item.specSection}
                       onChange={e => updateExtractedItem(item.id, "specSection", e.target.value)}
                       style={inp(C, {
-                        fontFamily: "'DM Sans',sans-serif",
+                        fontFamily: T.font.sans,
                         fontSize: 9,
                         padding: "3px 3px",
                         textAlign: "center",

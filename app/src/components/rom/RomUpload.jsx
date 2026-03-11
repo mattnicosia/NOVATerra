@@ -26,6 +26,7 @@ function validateEmail(email) {
 
 export default function RomUpload({ onGenerate }) {
   const C = useTheme();
+  const T = C.T;
   const [email, setEmail] = useState("");
   const [buildingType, setBuildingType] = useState("commercial-office");
   const [projectSF, setProjectSF] = useState("");
@@ -66,7 +67,7 @@ export default function RomUpload({ onGenerate }) {
     color: C.red || "#FB7185",
     fontSize: 11,
     marginTop: 4,
-    fontFamily: "'DM Sans',sans-serif",
+    fontFamily: T.font.sans,
   };
 
   const fieldWrap = {
@@ -89,7 +90,7 @@ export default function RomUpload({ onGenerate }) {
               fontSize: T.fontSize["2xl"],
               fontWeight: T.fontWeight.bold,
               color: C.text,
-              fontFamily: "'DM Sans',sans-serif",
+              fontFamily: T.font.sans,
               margin: 0,
               marginBottom: T.space[2],
             }}
@@ -100,7 +101,7 @@ export default function RomUpload({ onGenerate }) {
             style={{
               fontSize: T.fontSize.md,
               color: C.textMuted,
-              fontFamily: "'DM Sans',sans-serif",
+              fontFamily: T.font.sans,
               margin: 0,
               lineHeight: T.lineHeight.relaxed,
             }}
@@ -188,7 +189,7 @@ export default function RomUpload({ onGenerate }) {
             marginTop: T.space[5],
             fontSize: T.fontSize.xs,
             color: C.textDim,
-            fontFamily: "'DM Sans',sans-serif",
+            fontFamily: T.font.sans,
             letterSpacing: 0.5,
           }}
         >

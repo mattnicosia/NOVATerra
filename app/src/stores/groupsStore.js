@@ -11,8 +11,8 @@ export const useGroupsStore = create((set, get) => ({
 
   setGroups: (v) => set({ groups: v }),
 
-  addGroup: (name, type) => {
-    const newGroup = { id: uid(), name, type: type || "add", accepted: false, description: "" };
+  addGroup: (name, type, parentId = null) => {
+    const newGroup = { id: uid(), name, type: type || "add", accepted: false, description: "", parentId };
     const prev = get().groups;
     set({ groups: [...prev, newGroup] });
     useUndoStore.getState().push({

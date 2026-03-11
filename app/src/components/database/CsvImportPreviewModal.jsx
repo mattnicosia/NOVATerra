@@ -18,11 +18,11 @@ export default function CsvImportPreviewModal({ onClose }) {
   const [errors, setErrors] = useState([]);
   const [importing, setImporting] = useState(false);
 
-  const handleFile = (e) => {
+  const handleFile = e => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = ev => {
       const result = parseImportCsv(ev.target.result);
       setRows(result.rows);
       setErrors(result.errors);
@@ -30,8 +30,8 @@ export default function CsvImportPreviewModal({ onClose }) {
     reader.readAsText(file);
   };
 
-  const toggleRow = (idx) => {
-    setRows(prev => prev.map((r, i) => i === idx ? { ...r, _selected: !r._selected } : r));
+  const toggleRow = idx => {
+    setRows(prev => prev.map((r, i) => (i === idx ? { ...r, _selected: !r._selected } : r)));
   };
 
   const toggleAll = () => {
@@ -68,7 +68,10 @@ export default function CsvImportPreviewModal({ onClose }) {
         <h3 style={{ fontSize: 14, fontWeight: 700, color: C.text, margin: 0 }}>
           <Ic d={I.upload} size={14} color={C.accent} /> Import CSV to Cost Library
         </h3>
-        <button onClick={onClose} style={{ border: "none", background: "transparent", color: C.textDim, cursor: "pointer" }}>
+        <button
+          onClick={onClose}
+          style={{ border: "none", background: "transparent", color: C.textDim, cursor: "pointer" }}
+        >
           <Ic d={I.x} size={16} />
         </button>
       </div>
@@ -100,9 +103,19 @@ export default function CsvImportPreviewModal({ onClose }) {
       )}
 
       {errors.length > 0 && (
-        <div style={{ padding: "8px 12px", background: `${C.red}10`, border: `1px solid ${C.red}30`, borderRadius: 6, marginBottom: 8 }}>
+        <div
+          style={{
+            padding: "8px 12px",
+            background: `${C.red}10`,
+            border: `1px solid ${C.red}30`,
+            borderRadius: 6,
+            marginBottom: 8,
+          }}
+        >
           {errors.map((err, i) => (
-            <div key={i} style={{ fontSize: 11, color: C.red }}>{err}</div>
+            <div key={i} style={{ fontSize: 11, color: C.red }}>
+              {err}
+            </div>
           ))}
         </div>
       )}
@@ -112,7 +125,15 @@ export default function CsvImportPreviewModal({ onClose }) {
           <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 6 }}>
             {rows.length} item{rows.length !== 1 ? "s" : ""} found &middot; {selectedCount} selected
           </div>
-          <div style={{ maxHeight: 340, overflowY: "auto", border: `1px solid ${C.border}`, borderRadius: 6, marginBottom: 12 }}>
+          <div
+            style={{
+              maxHeight: 340,
+              overflowY: "auto",
+              border: `1px solid ${C.border}`,
+              borderRadius: 6,
+              marginBottom: 12,
+            }}
+          >
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
               <thead>
                 <tr style={{ background: C.bg2, position: "sticky", top: 0, zIndex: 1 }}>
@@ -124,7 +145,9 @@ export default function CsvImportPreviewModal({ onClose }) {
                   <th style={{ padding: "6px 8px", textAlign: "left", fontWeight: 700, color: C.textDim }}>Unit</th>
                   <th style={{ padding: "6px 8px", textAlign: "right", fontWeight: 700, color: C.green }}>Material</th>
                   <th style={{ padding: "6px 8px", textAlign: "right", fontWeight: 700, color: C.blue }}>Labor</th>
-                  <th style={{ padding: "6px 8px", textAlign: "right", fontWeight: 700, color: C.orange }}>Equipment</th>
+                  <th style={{ padding: "6px 8px", textAlign: "right", fontWeight: 700, color: C.orange }}>
+                    Equipment
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -140,10 +163,26 @@ export default function CsvImportPreviewModal({ onClose }) {
                     }}
                   >
                     <td style={{ padding: "5px 8px" }}>
-                      <input type="checkbox" checked={r._selected} onChange={() => toggleRow(i)} onClick={e => e.stopPropagation()} />
+                      <input
+                        type="checkbox"
+                        checked={r._selected}
+                        onChange={() => toggleRow(i)}
+                        onClick={e => e.stopPropagation()}
+                      />
                     </td>
                     <td style={{ padding: "5px 8px", color: C.purple, fontWeight: 600 }}>{r.code || "—"}</td>
-                    <td style={{ padding: "5px 8px", color: C.text, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</td>
+                    <td
+                      style={{
+                        padding: "5px 8px",
+                        color: C.text,
+                        maxWidth: 180,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {r.name}
+                    </td>
                     <td style={{ padding: "5px 8px", color: C.textMuted }}>{r.unit}</td>
                     <td style={{ padding: "5px 8px", textAlign: "right", color: C.green }}>{fmt2(r.material)}</td>
                     <td style={{ padding: "5px 8px", textAlign: "right", color: C.blue }}>{fmt2(r.labor)}</td>
@@ -155,7 +194,16 @@ export default function CsvImportPreviewModal({ onClose }) {
           </div>
 
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-            <button onClick={onClose} style={bt(C, { background: "transparent", border: `1px solid ${C.border}`, color: C.textMuted, padding: "6px 14px", fontSize: 12 })}>
+            <button
+              onClick={onClose}
+              style={bt(C, {
+                background: "transparent",
+                border: `1px solid ${C.border}`,
+                color: C.textMuted,
+                padding: "6px 14px",
+                fontSize: 12,
+              })}
+            >
               Cancel
             </button>
             <button

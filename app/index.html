@@ -3,16 +3,39 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>NOVATerra</title>
+    <title>Artifakt</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta property="og:title" content="NOVATerra — AI-Powered Construction Estimating" />
+    <meta property="og:title" content="Artifakt — AI-Powered Construction Estimating" />
     <meta property="og:description" content="Powered by NOVA. Scope sheets, bid management, and cost intelligence for general contractors." />
     <meta property="og:image" content="/novaterra-wordmark.png" />
     <meta property="og:type" content="website" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" />
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <!-- Self-hosted fonts: Switzer (neo-grotesk UI) + JetBrains Mono (data/tabular) -->
+    <link rel="preload" href="/fonts/Switzer-Variable.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/JetBrainsMono-Variable-Latin.woff2" as="font" type="font/woff2" crossorigin />
+    <style>
+      @font-face {
+        font-family: 'Switzer';
+        font-style: normal;
+        font-weight: 100 900;
+        font-display: swap;
+        src: url('/fonts/Switzer-Variable.woff2') format('woff2');
+      }
+      @font-face {
+        font-family: 'Switzer';
+        font-style: italic;
+        font-weight: 100 900;
+        font-display: swap;
+        src: url('/fonts/Switzer-VariableItalic.woff2') format('woff2');
+      }
+      @font-face {
+        font-family: 'JetBrains Mono';
+        font-style: normal;
+        font-weight: 400 700;
+        font-display: swap;
+        src: url('/fonts/JetBrainsMono-Variable-Latin.woff2') format('woff2');
+        unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+      }
+    </style>
     <style>
       /* Nova Loading Screen — pure CSS, zero JS */
       @keyframes breatheOrb {
@@ -109,9 +132,14 @@
         content: ''; position: absolute; inset: 0; border-radius: 50%;
         background: radial-gradient(circle, transparent 55%, rgba(2,1,8,0.7) 100%);
       }
-      /* Brand logo — actual NOVATerra wordmark PNG (transparent) */
+      /* Brand text — Switzer Thin, carved into obsidian */
       .nova-load-brand {
-        height: 40px; width: auto;
+        font-family: 'Switzer', -apple-system, BlinkMacSystemFont, sans-serif;
+        font-weight: 200;
+        font-size: 32px;
+        letter-spacing: 6px;
+        color: rgba(238,237,245,0.85);
+        text-transform: uppercase;
         animation: fadeInUp 0.8s ease-out 0.2s both;
       }
       /* Progress shimmer bar */
@@ -138,7 +166,7 @@
           <div class="nova-orb-ringC"></div>
           <div class="nova-orb-core"></div>
         </div>
-        <img class="nova-load-brand" src="/novaterra-wordmark.png" alt="NOVATerra" />
+        <div class="nova-load-brand">Artifakt</div>
         <div class="nova-load-shimmer"></div>
       </div>
     </div>

@@ -1,25 +1,26 @@
-import { useState, useEffect, useRef, useCallback, Suspense } from "react";
-import NovaSceneLazy from "@/components/nova/NovaSceneLazy";
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from "react";
 import { useAuthStore } from "@/stores/authStore";
 
+const NovaSceneLazy = lazy(() => import("@/components/nova/NovaSceneLazy"));
+
 /* ────────────────────────────────────────────────────────────────
-   LoginMockupPage — NOVACORE v15 Cinematic Hybrid Login
+   LoginMockupPage — NOVACORE v17 Live Sphere Login
 
    Layer stack (bottom → top):
-   1. <video>  — Pre-rendered Blender chamber orbit loop
-   2. <canvas> — Real-time NOVACORE sphere (sphere-only, no chamber)
-   3. <div>    — Cinematic vignette overlays
-   4. <div>    — Glass login form
+   1. <div>    — Dark void background + CSS atmosphere
+   2. <canvas> — Live NovaSceneLazy sphere (hero size, artifact shell)
+   3. <div>    — Glass login form
 
-   The sphere is DORMANT on page load. Form interaction triggers
-   a progressive awakening ritual:
+   The sphere is the SAME real-time WebGL sphere used everywhere
+   in the app. On login, it starts dormant (dark obsidian monolith)
+   and awakens as the user interacts with the form:
      email focus  → pre-awakening flicker
-     typing email → fracture phase (light breaks through shell)
+     typing email → fracture phase (NOVA purple breaks through shell)
      password     → shell dissolves, inner glow visible
      sign-in      → full awakening + pulse + exhale → transition
    ──────────────────────────────────────────────────────────────── */
 
-const FONT = "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif";
+const FONT = "'Switzer', -apple-system, BlinkMacSystemFont, sans-serif";
 const ACCENT = "#7C5CFC";
 const ACCENT_DIM = "#6D28D9";
 const TEXT = "rgba(238,237,245,0.92)";
@@ -28,9 +29,8 @@ const TEXT_DIM = "rgba(238,237,245,0.28)";
 const BORDER = "rgba(255,255,255,0.10)";
 const INPUT_BG = "rgba(255,255,255,0.04)";
 
-// Video assets (will be in public/chamber/ once render completes)
-const CHAMBER_VIDEO = "/chamber/chamber_orbit.webm";
-const CHAMBER_POSTER = "/chamber/chamber_poster.jpg";
+// Hero sphere size — prominent but not overwhelming
+const HERO_SPHERE_SIZE = 180;
 
 const keyframesCSS = `
 @keyframes loginFadeUp {
@@ -53,9 +53,9 @@ const keyframesCSS = `
   0%, 100% { opacity: 0.15; }
   50% { opacity: 0.35; }
 }
-/* Sphere canvas — transparent bg, blends with video via screen mode */
-.sphere-canvas canvas {
-  background: transparent !important;
+@keyframes lightDrift {
+  0%   { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(3%, 2%) scale(1.05); }
 }
 `;
 
@@ -66,13 +66,13 @@ const keyframesCSS = `
 
 function useAwakeningState() {
   const [state, setState] = useState({
-    awaken: 0.0,
-    crystallize: 0.0,
-    intensity: 0.3,
+    awaken: 0.28,
+    crystallize: 0.05,
+    intensity: 0.80,
     phase: "dormant", // dormant | flickering | fracture | dissolving | alive | ascending
   });
   const sceneRef = useRef(null);
-  const targetRef = useRef({ awaken: 0.0, crystallize: 0.0, intensity: 0.3 });
+  const targetRef = useRef({ awaken: 0.28, crystallize: 0.05, intensity: 0.80 });
   const frameRef = useRef(null);
 
   // Smooth interpolation loop — lerps current values toward targets
@@ -86,8 +86,9 @@ function useAwakeningState() {
         const newCrystallize = lerp(prev.crystallize, t.crystallize, spd);
         const newIntensity = lerp(prev.intensity, t.intensity, spd);
 
-        // Add subtle dormant breathing when awaken < 0.05
-        const breathe = prev.awaken < 0.05 ? 0.02 * Math.sin(Date.now() / 2000) : 0;
+        // Add subtle dormant breathing when in dormant/flickering phase (awaken < 0.25)
+        // Creates a living pulse — the monolith breathes
+        const breathe = prev.awaken < 0.35 ? 0.015 * Math.sin(Date.now() / 2500) : 0;
 
         return {
           ...prev,
@@ -108,30 +109,31 @@ function useAwakeningState() {
 
     switch (phase) {
       case "dormant":
-        targetRef.current = { awaken: 0.0, crystallize: 0.0, intensity: 0.3 };
+        // Visible dark monolith — cracks glow faintly, sphere shape reads at page scale
+        targetRef.current = { awaken: 0.28, crystallize: 0.05, intensity: 0.80 };
         break;
       case "flickering":
-        // Email field focused — pre-awakening flicker
-        targetRef.current = { awaken: 0.05, crystallize: 0.0, intensity: 0.4 };
+        // Email field focused — pre-awakening flicker, something stirs
+        targetRef.current = { awaken: 0.32, crystallize: 0.08, intensity: 0.83 };
         break;
       case "fracture":
-        // Typing email — light breaks through cracks
-        targetRef.current = { awaken: 0.25, crystallize: 0.1, intensity: 0.55 };
+        // Typing email — light breaks through cracks, Voronoi network lights up
+        targetRef.current = { awaken: 0.35, crystallize: 0.15, intensity: 0.80 };
         break;
       case "fracture-hold":
-        // Valid email entered — hold at fracture phase
-        targetRef.current = { awaken: 0.3, crystallize: 0.15, intensity: 0.6 };
+        // Valid email entered — hold at fracture phase, waiting
+        targetRef.current = { awaken: 0.40, crystallize: 0.18, intensity: 0.82 };
         break;
       case "dissolving":
-        // Typing password — shell becoming translucent
-        targetRef.current = { awaken: 0.5, crystallize: 0.25, intensity: 0.75 };
+        // Typing password — shell becoming translucent, inner glow visible
+        targetRef.current = { awaken: 0.55, crystallize: 0.25, intensity: 0.88 };
         break;
       case "alive":
-        // Sign-in enabled — sphere clearly alive, ready
-        targetRef.current = { awaken: 0.6, crystallize: 0.3, intensity: 0.85 };
+        // Sign-in enabled — sphere clearly alive and glowing, ready
+        targetRef.current = { awaken: 0.70, crystallize: 0.35, intensity: 0.95 };
         break;
       case "ascending":
-        // Sign-in clicked — full awakening
+        // Sign-in clicked — full awakening, maximum power
         targetRef.current = { awaken: 1.0, crystallize: 0.5, intensity: 1.2 };
         // Trigger pulse + exhale on the sphere
         if (sceneRef.current) {
@@ -152,186 +154,77 @@ function useAwakeningState() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   VIDEO BACKGROUND LAYER
-   Pre-rendered Blender chamber orbit (falls back gracefully)
+   DARK VOID BACKGROUND + CSS ATMOSPHERE
+   Multi-layer void: base gradient + overhead light cone + edge vignette
+   Creates depth without geometry (Path A+C: film still + CSS breath)
    ═══════════════════════════════════════════════════════════════ */
 
-function ChamberVideoBackground() {
-  const [videoLoaded, setVideoLoaded] = useState(false);
-  const videoRef = useRef(null);
-
-  return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 0,
-        background: "#08081A",
-        overflow: "hidden",
-      }}
-    >
-      {/* Pre-rendered Blender chamber video */}
-      <video
-        ref={videoRef}
-        autoPlay
-        muted
-        loop
-        playsInline
-        poster={CHAMBER_POSTER}
-        onCanPlay={() => setVideoLoaded(true)}
-        style={{
-          position: "absolute",
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          opacity: videoLoaded ? 1 : 0,
-          transition: "opacity 1.5s ease-in",
-        }}
-      >
-        <source src={CHAMBER_VIDEO} type="video/webm" />
-        <source src="/chamber/chamber_orbit.mp4" type="video/mp4" />
-      </video>
-
-      {/* Fallback: dark atmospheric background when video not available */}
-      {!videoLoaded && (
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: [
-              "radial-gradient(ellipse 60% 50% at 50% 60%,",
-              "rgba(30, 20, 60, 0.4) 0%,",
-              "rgba(8, 8, 26, 1.0) 60%,",
-              "#08081A 100%)",
-            ].join(" "),
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   LIVE SPHERE LAYER
-   Real-time NOVACORE sphere composited over video.
-   Positioned at the sphere void in the Blender render.
-   mix-blend-mode: screen — glow bleeds into video naturally.
-   ═══════════════════════════════════════════════════════════════ */
-
-function LiveSphereLayer({ awaken, crystallize, intensity, sceneRef }) {
-  const [dims, setDims] = useState({ w: window.innerWidth, h: window.innerHeight });
-
-  useEffect(() => {
-    const onResize = () => setDims({ w: window.innerWidth, h: window.innerHeight });
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
-
-  // Sphere canvas covers center of viewport where the void is
-  // In the Blender render, the void is roughly centered horizontally
-  // and about 55-65% from top
-  const sphereSize = Math.min(dims.w * 0.45, dims.h * 0.45, 600);
-
-  return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 2,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        pointerEvents: "none",
-        // Offset sphere slightly below center to match ring platform void
-        paddingTop: dims.h * 0.08,
-      }}
-    >
-      <div
-        className="sphere-canvas"
-        style={{
-          width: sphereSize,
-          height: sphereSize,
-          mixBlendMode: "screen", // Glow bleeds into video
-          filter: `brightness(${0.8 + intensity * 0.4})`,
-          transition: "filter 400ms ease-out",
-        }}
-      >
-        <Suspense
-          fallback={
-            <div
-              style={{
-                width: "100%",
-                height: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <div
-                style={{
-                  width: sphereSize * 0.3,
-                  height: sphereSize * 0.3,
-                  borderRadius: "50%",
-                  background: "radial-gradient(circle, rgba(124,92,252,0.15) 0%, transparent 70%)",
-                  animation: "dormantPulse 4s ease-in-out infinite",
-                }}
-              />
-            </div>
-          }
-        >
-          <NovaSceneLazy
-            ref={sceneRef}
-            width={sphereSize}
-            height={sphereSize}
-            size={0.85}
-            intensity={intensity}
-            artifact
-            awaken={awaken}
-            crystallize={crystallize}
-            crystalLayers={5}
-            style={{ background: "transparent" }}
-          />
-        </Suspense>
-      </div>
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   VIGNETTE OVERLAYS
-   Cinematic depth: bottom fade for form legibility, edge vignette
-   ═══════════════════════════════════════════════════════════════ */
-
-function CinematicVignettes() {
+function VoidBackground() {
   return (
     <>
-      {/* Bottom gradient — deep fade for form legibility */}
+      {/* Base: deep dark void */}
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 0,
+          background: "#06060F",
+        }}
+      />
+      {/* Overhead light cone — motivated by an unseen oculus above */}
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 1,
+          background: [
+            "radial-gradient(ellipse 45% 35% at 50% 18%,",
+            "rgba(30, 26, 52, 0.50) 0%,",
+            "rgba(16, 14, 30, 0.20) 40%,",
+            "transparent 70%)",
+          ].join(" "),
+          pointerEvents: "none",
+        }}
+      />
+      {/* Floor wash — faint ground-level ambient */}
       <div
         style={{
           position: "fixed",
           bottom: 0,
           left: 0,
           right: 0,
-          height: "55%",
-          zIndex: 3,
+          height: "40%",
+          zIndex: 1,
           background: [
             "linear-gradient(to top,",
-            "rgba(6,6,12,0.92) 0%,",
-            "rgba(6,6,12,0.70) 20%,",
-            "rgba(6,6,12,0.35) 45%,",
-            "rgba(6,6,12,0.10) 70%,",
+            "rgba(12, 10, 22, 0.4) 0%,",
             "transparent 100%)",
           ].join(" "),
           pointerEvents: "none",
         }}
       />
-      {/* Radial edge vignette for cinematic framing */}
+      {/* Edge vignette — cinematic framing */}
       <div
         style={{
           position: "fixed",
           inset: 0,
-          zIndex: 3,
-          background: "radial-gradient(ellipse 75% 85% at 50% 40%, transparent 0%, rgba(4,4,10,0.45) 100%)",
+          zIndex: 1,
+          background: "radial-gradient(ellipse 80% 75% at 50% 42%, transparent 0%, rgba(4,4,10,0.55) 100%)",
+          pointerEvents: "none",
+        }}
+      />
+      {/* Slow drifting light — barely perceptible (Hodgin: "alive, not frozen") */}
+      <div
+        style={{
+          position: "fixed",
+          inset: "-20%",
+          zIndex: 1,
+          background: [
+            "radial-gradient(ellipse 30% 25% at 48% 22%,",
+            "rgba(60, 40, 100, 0.06) 0%,",
+            "transparent 60%)",
+          ].join(" "),
+          animation: "lightDrift 45s ease-in-out infinite alternate",
           pointerEvents: "none",
         }}
       />
@@ -470,11 +363,10 @@ function PasswordInput({ value, onChange, placeholder, onFocusCb, ...rest }) {
 
 /* ═══════════════════════════════════════════════════════════════
    LOGIN FORM OVERLAY
-   Glass card floating over the chamber. Form interactions
-   drive the sphere awakening ritual.
+   Sphere hero image centered above the glass login card.
    ═══════════════════════════════════════════════════════════════ */
 
-function LoginOverlay({ setPhase }) {
+function LoginOverlay({ setPhase, awakening, sceneRef }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -531,63 +423,81 @@ function LoginOverlay({ setPhase }) {
   }, [email, setPhase]);
 
   // Mode switching — clears error, resets sub-states
-  const switchMode = useCallback((newMode) => {
-    setMode(newMode);
-    clearError?.();
-    setResetSent(false);
-    clearMagicLinkSent?.();
-  }, [clearError, clearMagicLinkSent]);
+  const switchMode = useCallback(
+    newMode => {
+      setMode(newMode);
+      clearError?.();
+      setResetSent(false);
+      clearMagicLinkSent?.();
+    },
+    [clearError, clearMagicLinkSent],
+  );
 
   // ── Auth handlers ──────────────────────────────────────────
-  const handlePasswordLogin = useCallback(async (e) => {
-    e.preventDefault();
-    if (!email.trim() || !password) return;
-    setSubmitting(true);
-    const result = await signInWithPassword(email.trim(), password);
-    setSubmitting(false);
-    if (!result?.error) {
-      // Auth succeeded — trigger the ascension
-      setPhase("ascending");
-      setTransitioning(true);
-    }
-  }, [email, password, signInWithPassword, setPhase]);
+  const handlePasswordLogin = useCallback(
+    async e => {
+      e.preventDefault();
+      if (!email.trim() || !password) return;
+      setSubmitting(true);
+      const result = await signInWithPassword(email.trim(), password);
+      setSubmitting(false);
+      if (!result?.error) {
+        // Auth succeeded — trigger the ascension
+        setPhase("ascending");
+        setTransitioning(true);
+      }
+    },
+    [email, password, signInWithPassword, setPhase],
+  );
 
-  const handleMagicLink = useCallback(async (e) => {
-    e.preventDefault();
-    if (!email.trim()) return;
-    setSubmitting(true);
-    await signInWithMagicLink(email.trim());
-    setSubmitting(false);
-    // authStore sets magicLinkSent=true → confirmation screen
-  }, [email, signInWithMagicLink]);
+  const handleMagicLink = useCallback(
+    async e => {
+      e.preventDefault();
+      if (!email.trim()) return;
+      setSubmitting(true);
+      await signInWithMagicLink(email.trim());
+      setSubmitting(false);
+      // authStore sets magicLinkSent=true → confirmation screen
+    },
+    [email, signInWithMagicLink],
+  );
 
-  const handleSignUp = useCallback(async (e) => {
-    e.preventDefault();
-    if (!email.trim() || !password) return;
-    setSubmitting(true);
-    const result = await signUpWithPassword(email.trim(), password, fullName.trim());
-    setSubmitting(false);
-    if (result?.success && !result?.confirmEmail) {
-      setPhase("ascending");
-      setTransitioning(true);
-    }
-    // If confirmEmail, authStore sets magicLinkSent → confirmation screen
-  }, [email, password, fullName, signUpWithPassword, setPhase]);
+  const handleSignUp = useCallback(
+    async e => {
+      e.preventDefault();
+      if (!email.trim() || !password) return;
+      setSubmitting(true);
+      const result = await signUpWithPassword(email.trim(), password, fullName.trim());
+      setSubmitting(false);
+      if (result?.success && !result?.confirmEmail) {
+        setPhase("ascending");
+        setTransitioning(true);
+      }
+      // If confirmEmail, authStore sets magicLinkSent → confirmation screen
+    },
+    [email, password, fullName, signUpWithPassword, setPhase],
+  );
 
-  const handleForgotPassword = useCallback(async (e) => {
-    e.preventDefault();
-    if (!email.trim()) return;
-    setSubmitting(true);
-    const result = await resetPasswordFn(email.trim());
-    setSubmitting(false);
-    if (result?.success) setResetSent(true);
-  }, [email, resetPasswordFn]);
+  const handleForgotPassword = useCallback(
+    async e => {
+      e.preventDefault();
+      if (!email.trim()) return;
+      setSubmitting(true);
+      const result = await resetPasswordFn(email.trim());
+      setSubmitting(false);
+      if (result?.success) setResetSent(true);
+    },
+    [email, resetPasswordFn],
+  );
 
   const handleSubmit =
-    mode === "password" ? handlePasswordLogin
-    : mode === "magic" ? handleMagicLink
-    : mode === "signup" ? handleSignUp
-    : handleForgotPassword;
+    mode === "password"
+      ? handlePasswordLogin
+      : mode === "magic"
+        ? handleMagicLink
+        : mode === "signup"
+          ? handleSignUp
+          : handleForgotPassword;
 
   if (!visible) return null;
 
@@ -624,7 +534,15 @@ function LoginOverlay({ setPhase }) {
               border: "1px solid rgba(48,209,88,0.25)",
             }}
           >
-            <svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="#30D158" strokeWidth={2.5} strokeLinecap="round">
+            <svg
+              width={28}
+              height={28}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#30D158"
+              strokeWidth={2.5}
+              strokeLinecap="round"
+            >
               <path d="M20 6 9 17l-5-5" />
             </svg>
           </div>
@@ -632,10 +550,14 @@ function LoginOverlay({ setPhase }) {
             Check your email
           </h2>
           <p style={{ fontSize: 13, color: TEXT_MUTED, margin: "0 0 24px", lineHeight: 1.5, fontFamily: FONT }}>
-            We sent a {mode === "magic" ? "magic link" : "confirmation link"} to <strong style={{ color: TEXT }}>{email}</strong>
+            We sent a {mode === "magic" ? "magic link" : "confirmation link"} to{" "}
+            <strong style={{ color: TEXT }}>{email}</strong>
           </p>
           <button
-            onClick={() => { clearMagicLinkSent?.(); switchMode("password"); }}
+            onClick={() => {
+              clearMagicLinkSent?.();
+              switchMode("password");
+            }}
             style={{
               ...submitBtnStyle(false),
               maxWidth: 200,
@@ -683,7 +605,15 @@ function LoginOverlay({ setPhase }) {
               border: "1px solid rgba(124,92,252,0.25)",
             }}
           >
-            <svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth={2} strokeLinecap="round">
+            <svg
+              width={28}
+              height={28}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke={ACCENT}
+              strokeWidth={2}
+              strokeLinecap="round"
+            >
               <rect x="3" y="5" width="18" height="14" rx="2" />
               <path d="m3 7 9 6 9-6" />
             </svg>
@@ -695,7 +625,10 @@ function LoginOverlay({ setPhase }) {
             Check <strong style={{ color: TEXT }}>{email}</strong> for a password reset link
           </p>
           <button
-            onClick={() => { setResetSent(false); switchMode("password"); }}
+            onClick={() => {
+              setResetSent(false);
+              switchMode("password");
+            }}
             style={{
               ...submitBtnStyle(false),
               maxWidth: 200,
@@ -715,20 +648,26 @@ function LoginOverlay({ setPhase }) {
   const showPasswordField = mode === "password" || mode === "signup";
   const showNameField = mode === "signup";
   const showTabs = mode === "password" || mode === "magic";
-  const isFormDisabled = mode === "magic" || mode === "forgot"
-    ? !email.trim()
-    : !email.trim() || !password;
+  const isFormDisabled = mode === "magic" || mode === "forgot" ? !email.trim() : !email.trim() || !password;
 
   const submitLabel =
-    mode === "password" ? (submitting ? "Signing in…" : "Sign In")
-    : mode === "magic" ? (submitting ? "Sending…" : "Send Magic Link")
-    : mode === "signup" ? (submitting ? "Creating…" : "Create Account")
-    : (submitting ? "Sending…" : "Send Reset Link");
+    mode === "password"
+      ? submitting
+        ? "Signing in…"
+        : "Sign In"
+      : mode === "magic"
+        ? submitting
+          ? "Sending…"
+          : "Send Magic Link"
+        : mode === "signup"
+          ? submitting
+            ? "Creating…"
+            : "Create Account"
+          : submitting
+            ? "Sending…"
+            : "Send Reset Link";
 
-  const headingLabel =
-    mode === "signup" ? "Create Account"
-    : mode === "forgot" ? "Reset Password"
-    : null;
+  const headingLabel = mode === "signup" ? "Create Account" : mode === "forgot" ? "Reset Password" : null;
 
   return (
     <>
@@ -753,17 +692,67 @@ function LoginOverlay({ setPhase }) {
           inset: 0,
           zIndex: 10,
           display: "flex",
-          alignItems: "flex-end",
+          flexDirection: "column",
+          alignItems: "center",
           justifyContent: "center",
-          paddingBottom: "5vh",
           pointerEvents: "none",
         }}
       >
+        {/* Live NOVACORE sphere — dormant monolith → awakens with form interaction */}
+        <div
+          style={{
+            flex: "1 1 auto",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            minHeight: 120,
+            pointerEvents: "none",
+            animation: "loginFadeIn 1.2s cubic-bezier(0.16, 1, 0.3, 1) both",
+            position: "relative",
+          }}
+        >
+          {/* Ambient halo — gives the sphere a visible presence against the void.
+              Positioned absolutely and overflows parent to create soft atmospheric glow */}
+          <div
+            style={{
+              position: "absolute",
+              width: HERO_SPHERE_SIZE * 1.8,
+              height: HERO_SPHERE_SIZE * 1.8,
+              borderRadius: "50%",
+              background: `radial-gradient(circle, rgba(100, 80, 180, ${0.15 + awakening.awaken * 0.18}) 0%, rgba(60, 40, 140, ${0.08 + awakening.awaken * 0.12}) 35%, transparent 65%)`,
+              filter: "blur(25px)",
+              pointerEvents: "none",
+            }}
+          />
+          <Suspense fallback={
+            <div style={{
+              width: HERO_SPHERE_SIZE,
+              height: HERO_SPHERE_SIZE,
+              borderRadius: "50%",
+              background: "radial-gradient(circle at 45% 40%, rgba(40,36,60,0.6) 0%, rgba(12,12,20,0.9) 60%, #08081A 100%)",
+            }} />
+          }>
+            <NovaSceneLazy
+              ref={sceneRef}
+              width={HERO_SPHERE_SIZE}
+              height={HERO_SPHERE_SIZE}
+              size={1.6}
+              intensity={awakening.intensity}
+              artifact
+              awaken={awakening.awaken}
+              crystallize={awakening.crystallize}
+              style={{ maxWidth: "100%", maxHeight: "100%" }}
+            />
+          </Suspense>
+        </div>
+
         <div
           style={{
             width: "100%",
             maxWidth: 340,
+            flexShrink: 0,
             pointerEvents: "auto",
+            paddingBottom: "4vh",
             animation: "loginFadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both",
           }}
         >
@@ -844,7 +833,15 @@ function LoginOverlay({ setPhase }) {
                     alignItems: "center",
                   }}
                 >
-                  <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={TEXT_MUTED} strokeWidth={2} strokeLinecap="round">
+                  <svg
+                    width={16}
+                    height={16}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke={TEXT_MUTED}
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                  >
                     <path d="M19 12H5M12 19l-7-7 7-7" />
                   </svg>
                 </button>
@@ -926,7 +923,9 @@ function LoginOverlay({ setPhase }) {
               {/* Password field (password + signup modes) */}
               {showPasswordField && (
                 <>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                  <div
+                    style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}
+                  >
                     <label style={{ ...labelStyle, marginBottom: 0 }}>Password</label>
                     {mode === "password" && (
                       <button
@@ -974,7 +973,15 @@ function LoginOverlay({ setPhase }) {
                     animation: "loginFadeIn 0.3s ease-out both",
                   }}
                 >
-                  <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#FF453A" strokeWidth={2} strokeLinecap="round">
+                  <svg
+                    width={14}
+                    height={14}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#FF453A"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                  >
                     <circle cx="12" cy="12" r="10" />
                     <line x1="15" y1="9" x2="9" y2="15" />
                     <line x1="9" y1="9" x2="15" y2="15" />
@@ -1050,25 +1057,14 @@ export default function LoginMockupPage() {
   const { state, setPhase, sceneRef } = useAwakeningState();
 
   return (
-    <div style={{ width: "100vw", height: "100vh", overflow: "hidden", background: "#08081A" }}>
+    <div style={{ width: "100vw", height: "100vh", overflow: "hidden", background: "#06060F" }}>
       <style>{keyframesCSS}</style>
 
-      {/* Layer 1: Pre-rendered Blender chamber video */}
-      <ChamberVideoBackground />
+      {/* Layer 1: Dark void + CSS atmospheric layers */}
+      <VoidBackground />
 
-      {/* Layer 2: Real-time NOVACORE sphere (sphere-only, no chamber) */}
-      <LiveSphereLayer
-        awaken={state.awaken}
-        crystallize={state.crystallize}
-        intensity={state.intensity}
-        sceneRef={sceneRef}
-      />
-
-      {/* Layer 3: Cinematic vignettes */}
-      <CinematicVignettes />
-
-      {/* Layer 4: Glass login form (drives awakening) */}
-      <LoginOverlay setPhase={setPhase} />
+      {/* Layer 2 + 3: Live NOVACORE sphere + Glass login form */}
+      <LoginOverlay setPhase={setPhase} awakening={state} sceneRef={sceneRef} />
     </div>
   );
 }

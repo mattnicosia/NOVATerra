@@ -417,7 +417,7 @@ export default function CsvImportModal({ onClose, mode }) {
                           ...tdStyle(C, T),
                           fontSize: T.fontSize.xs,
                           color: C.textDim,
-                          fontFamily: "'DM Sans', sans-serif",
+                          fontFamily: T.font.sans,
                         }}
                       >
                         {samples.slice(0, 2).join(", ").slice(0, 40)}

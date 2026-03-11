@@ -13,7 +13,7 @@ const CSV_COLUMNS = ["Code", "Name", "Unit", "Material", "Labor", "Equipment", "
  * @param {string} [filename] - Optional filename (defaults to "cost-library-export.csv")
  */
 export function exportUserElementsCsv(elements, filename = "cost-library-export.csv") {
-  const escapeField = (val) => {
+  const escapeField = val => {
     const str = val == null ? "" : String(val);
     if (str.includes(",") || str.includes('"') || str.includes("\n")) {
       return `"${str.replace(/"/g, '""')}"`;
@@ -23,16 +23,18 @@ export function exportUserElementsCsv(elements, filename = "cost-library-export.
 
   const rows = [CSV_COLUMNS.join(",")];
   for (const el of elements) {
-    rows.push([
-      escapeField(el.code),
-      escapeField(el.name),
-      escapeField(el.unit || "EA"),
-      el.material ?? "",
-      el.labor ?? "",
-      el.equipment ?? "",
-      el.subcontractor ?? "",
-      escapeField(el.trade || ""),
-    ].join(","));
+    rows.push(
+      [
+        escapeField(el.code),
+        escapeField(el.name),
+        escapeField(el.unit || "EA"),
+        el.material ?? "",
+        el.labor ?? "",
+        el.equipment ?? "",
+        el.subcontractor ?? "",
+        escapeField(el.trade || ""),
+      ].join(","),
+    );
   }
 
   const csv = rows.join("\n");

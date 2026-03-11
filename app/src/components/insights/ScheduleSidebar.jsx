@@ -1,26 +1,33 @@
 // ScheduleSidebar.jsx — Schedule details, settings, and activity inspector
 // Follows the same pattern as ModelSidebar.jsx
 
-import { useMemo } from 'react';
-import { useTheme } from '@/hooks/useTheme';
-import { useScheduleStore } from '@/stores/scheduleStore';
-import { dayToDate, formatDate } from '@/utils/scheduleEngine';
-import { fmt, nn } from '@/utils/format';
-import { card, sectionLabel, bt, inp } from '@/utils/styles';
-import Ic from '@/components/shared/Ic';
-import { I } from '@/constants/icons';
+import { useMemo } from "react";
+import { useTheme } from "@/hooks/useTheme";
+import { useScheduleStore } from "@/stores/scheduleStore";
+import { dayToDate, formatDate } from "@/utils/scheduleEngine";
+import { fmt, nn } from "@/utils/format";
+import { card, sectionLabel, bt, inp } from "@/utils/styles";
+import Ic from "@/components/shared/Ic";
+import { I } from "@/constants/icons";
 
 function StatBox({ label, value, C, T, accent }) {
   return (
-    <div style={{
-      textAlign: "center", padding: T.space[2],
-      background: C.bg2 || C.bg1, borderRadius: T.radius.sm,
-    }}>
-      <div style={{
-        fontSize: T.fontSize.lg, fontWeight: T.fontWeight.heavy,
-        fontFamily: "'DM Sans',sans-serif",
-        color: accent ? C.accent : C.text,
-      }}>
+    <div
+      style={{
+        textAlign: "center",
+        padding: T.space[2],
+        background: C.bg2 || C.bg1,
+        borderRadius: T.radius.sm,
+      }}
+    >
+      <div
+        style={{
+          fontSize: T.fontSize.lg,
+          fontWeight: T.fontWeight.heavy,
+          fontFamily: T.font.sans,
+          color: accent ? C.accent : C.text,
+        }}
+      >
         {value}
       </div>
       <div style={{ fontSize: 9, color: C.textDim, marginTop: 2 }}>{label}</div>
@@ -67,27 +74,27 @@ export default function ScheduleSidebar() {
 
   const startDateDisplay = useMemo(() => {
     if (!startDate) return "—";
-    return formatDate(new Date(startDate + 'T00:00:00'));
+    return formatDate(new Date(startDate + "T00:00:00"));
   }, [startDate]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: T.space[3], height: "100%", overflowY: "auto" }}>
-
       {/* View Mode Toggle */}
       <div style={{ ...card(C), padding: T.space[3] }}>
         <div style={{ ...sectionLabel(C), marginBottom: T.space[2] }}>View</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
           {[
             { key: "gantt", label: "Gantt" },
-            { key: "takt",  label: "Takt" },
+            { key: "takt", label: "Takt" },
           ].map(m => (
             <button
               key={m.key}
               onClick={() => setViewMode(m.key)}
               style={{
                 ...bt(C),
-                padding: "6px 10px", fontSize: T.fontSize.xs,
-                background: viewMode === m.key ? (C.gradient || C.accent) : C.bg2 || C.bg1,
+                padding: "6px 10px",
+                fontSize: T.fontSize.xs,
+                background: viewMode === m.key ? C.gradient || C.accent : C.bg2 || C.bg1,
                 color: viewMode === m.key ? "#fff" : C.textMuted,
                 borderRadius: T.radius.sm - 1,
                 justifyContent: "center",
@@ -126,7 +133,9 @@ export default function ScheduleSidebar() {
             onChange={e => setStartDate(e.target.value)}
             style={{
               ...inp(C),
-              width: "100%", fontSize: T.fontSize.sm, padding: "5px 8px",
+              width: "100%",
+              fontSize: T.fontSize.sm,
+              padding: "5px 8px",
             }}
           />
         </div>
@@ -141,7 +150,9 @@ export default function ScheduleSidebar() {
                 onClick={() => setWorkDays(d)}
                 style={{
                   ...bt(C),
-                  padding: "5px 8px", fontSize: T.fontSize.xs, justifyContent: "center",
+                  padding: "5px 8px",
+                  fontSize: T.fontSize.xs,
+                  justifyContent: "center",
                   background: workDays === d ? C.accent : C.bg2 || C.bg1,
                   color: workDays === d ? "#fff" : C.textMuted,
                   borderRadius: T.radius.sm - 1,
@@ -179,9 +190,12 @@ export default function ScheduleSidebar() {
               onClick={() => addZone(`Zone ${zones.length + 1}`)}
               style={{
                 ...bt(C),
-                padding: "4px 8px", fontSize: T.fontSize.xs,
-                color: C.accent, background: "transparent",
-                width: "100%", justifyContent: "center",
+                padding: "4px 8px",
+                fontSize: T.fontSize.xs,
+                color: C.accent,
+                background: "transparent",
+                width: "100%",
+                justifyContent: "center",
               }}
             >
               + Add Zone
@@ -197,7 +211,9 @@ export default function ScheduleSidebar() {
 
           {/* Trade + color */}
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: T.space[2] }}>
-            <div style={{ width: 12, height: 12, borderRadius: 3, background: selectedActivity.color, flexShrink: 0 }} />
+            <div
+              style={{ width: 12, height: 12, borderRadius: 3, background: selectedActivity.color, flexShrink: 0 }}
+            />
             <div style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.bold, color: C.text }}>
               {selectedActivity.label}
             </div>
@@ -206,8 +222,13 @@ export default function ScheduleSidebar() {
           {/* Stats grid */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: T.space[2] }}>
             <DetailRow label="Duration" value={`${selectedActivity.duration}d`} C={C} T={T} />
-            <DetailRow label="Float" value={`${selectedActivity.totalFloat}d`} C={C} T={T}
-              valueColor={selectedActivity.totalFloat === 0 ? (C.red || "#ef4444") : (C.green || "#22c55e")} />
+            <DetailRow
+              label="Float"
+              value={`${selectedActivity.totalFloat}d`}
+              C={C}
+              T={T}
+              valueColor={selectedActivity.totalFloat === 0 ? C.red || "#ef4444" : C.green || "#22c55e"}
+            />
             <DetailRow label="Early Start" value={`Day ${selectedActivity.earlyStart}`} C={C} T={T} />
             <DetailRow label="Early Finish" value={`Day ${selectedActivity.earlyFinish}`} C={C} T={T} />
             <DetailRow label="Late Start" value={`Day ${selectedActivity.lateStart}`} C={C} T={T} />
@@ -230,7 +251,7 @@ export default function ScheduleSidebar() {
                 <input
                   type="number"
                   value={tradeOverrides[selectedActivity.tradeKey]?.crewSize || selectedActivity.crewSize}
-                  onChange={e => setTradeOverride(selectedActivity.tradeKey, 'crewSize', parseInt(e.target.value) || 1)}
+                  onChange={e => setTradeOverride(selectedActivity.tradeKey, "crewSize", parseInt(e.target.value) || 1)}
                   style={{ ...inp(C), width: "100%", fontSize: T.fontSize.xs, padding: "3px 6px" }}
                   min={1}
                 />
@@ -240,7 +261,9 @@ export default function ScheduleSidebar() {
                 <input
                   type="number"
                   value={tradeOverrides[selectedActivity.tradeKey]?.dailyRate || selectedActivity.dailyRate}
-                  onChange={e => setTradeOverride(selectedActivity.tradeKey, 'dailyRate', parseInt(e.target.value) || 100)}
+                  onChange={e =>
+                    setTradeOverride(selectedActivity.tradeKey, "dailyRate", parseInt(e.target.value) || 100)
+                  }
                   style={{ ...inp(C), width: "100%", fontSize: T.fontSize.xs, padding: "3px 6px" }}
                   min={100}
                   step={50}
@@ -250,7 +273,15 @@ export default function ScheduleSidebar() {
             {tradeOverrides[selectedActivity.tradeKey] && (
               <button
                 onClick={() => clearTradeOverride(selectedActivity.tradeKey)}
-                style={{ ...bt(C), padding: "3px 8px", fontSize: 9, color: C.textDim, background: "transparent", width: "100%", justifyContent: "center" }}
+                style={{
+                  ...bt(C),
+                  padding: "3px 8px",
+                  fontSize: 9,
+                  color: C.textDim,
+                  background: "transparent",
+                  width: "100%",
+                  justifyContent: "center",
+                }}
               >
                 Reset to defaults
               </button>
@@ -259,14 +290,19 @@ export default function ScheduleSidebar() {
 
           {/* Critical badge */}
           {selectedActivity.isCritical && (
-            <div style={{
-              marginTop: T.space[2], padding: "4px 8px",
-              background: `${C.red || "#ef4444"}20`,
-              border: `1px solid ${C.red || "#ef4444"}40`,
-              borderRadius: T.radius.sm,
-              fontSize: T.fontSize.xs, color: C.red || "#ef4444",
-              textAlign: "center", fontWeight: T.fontWeight.semibold,
-            }}>
+            <div
+              style={{
+                marginTop: T.space[2],
+                padding: "4px 8px",
+                background: `${C.red || "#ef4444"}20`,
+                border: `1px solid ${C.red || "#ef4444"}40`,
+                borderRadius: T.radius.sm,
+                fontSize: T.fontSize.xs,
+                color: C.red || "#ef4444",
+                textAlign: "center",
+                fontWeight: T.fontWeight.semibold,
+              }}
+            >
               Critical Path
             </div>
           )}
@@ -281,22 +317,37 @@ export default function ScheduleSidebar() {
             key={act.id}
             onClick={() => setSelected(act.id === selectedId ? null : act.id)}
             style={{
-              display: "flex", alignItems: "center", gap: 6,
-              padding: "5px 6px", borderRadius: T.radius.sm - 1,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "5px 6px",
+              borderRadius: T.radius.sm - 1,
               background: act.id === selectedId ? C.accentBg : "transparent",
-              cursor: "pointer", marginBottom: 1,
+              cursor: "pointer",
+              marginBottom: 1,
               transition: "background 0.1s",
             }}
           >
             <div style={{ width: 8, height: 8, borderRadius: 2, background: act.color, flexShrink: 0 }} />
-            <div style={{ flex: 1, fontSize: T.fontSize.xs, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <div
+              style={{
+                flex: 1,
+                fontSize: T.fontSize.xs,
+                color: C.text,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
               {act.label}
             </div>
-            <div style={{ fontSize: 9, fontFamily: "'DM Sans',sans-serif", color: C.textDim, flexShrink: 0 }}>
+            <div style={{ fontSize: 9, fontFamily: T.font.sans, color: C.textDim, flexShrink: 0 }}>
               {act.duration}d
             </div>
             {act.isCritical && (
-              <div style={{ width: 5, height: 5, borderRadius: "50%", background: C.red || "#ef4444", flexShrink: 0 }} />
+              <div
+                style={{ width: 5, height: 5, borderRadius: "50%", background: C.red || "#ef4444", flexShrink: 0 }}
+              />
             )}
           </div>
         ))}
@@ -309,7 +360,14 @@ function DetailRow({ label, value, C, T, valueColor }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
       <span style={{ fontSize: 9, color: C.textDim }}>{label}</span>
-      <span style={{ fontSize: T.fontSize.xs, fontFamily: "'DM Sans',sans-serif", color: valueColor || C.text, fontWeight: 500 }}>
+      <span
+        style={{
+          fontSize: T.fontSize.xs,
+          fontFamily: T.font.sans,
+          color: valueColor || C.text,
+          fontWeight: 500,
+        }}
+      >
         {value}
       </span>
     </div>

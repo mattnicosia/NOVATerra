@@ -372,7 +372,7 @@ export default function PlanRoomPage() {
           justifyContent: "center",
           minHeight: "100%",
           padding: T.space[7],
-          fontFamily: "'DM Sans', sans-serif",
+          fontFamily: T.font.sans,
         }}
       >
         <div style={{ maxWidth: 520, width: "100%", textAlign: "center" }}>
@@ -386,7 +386,7 @@ export default function PlanRoomPage() {
               color: C.text,
               margin: 0,
               marginBottom: 6,
-              fontFamily: "'DM Sans', sans-serif",
+              fontFamily: T.font.sans,
             }}
           >
             Upload Your Construction Plans
@@ -461,7 +461,7 @@ export default function PlanRoomPage() {
                     padding: "4px 12px",
                     borderRadius: 6,
                     cursor: "pointer",
-                    fontFamily: "'DM Sans', sans-serif",
+                    fontFamily: T.font.sans,
                     flexShrink: 0,
                     marginLeft: 12,
                     transition: "all 0.15s ease",
@@ -540,7 +540,7 @@ export default function PlanRoomPage() {
                 fontSize: 11,
                 color: C.textDim,
                 padding: "8px 16px",
-                fontFamily: "'DM Sans', sans-serif",
+                fontFamily: T.font.sans,
                 transition: "color 0.15s",
               }}
               onMouseEnter={e => (e.currentTarget.style.color = C.text)}
@@ -579,7 +579,7 @@ export default function PlanRoomPage() {
                 display: "flex",
                 alignItems: "center",
                 gap: T.space[3],
-                fontFamily: "'DM Sans',sans-serif",
+                fontFamily: T.font.sans,
               }}
             >
               <Ic d={I.plans} size={22} color={C.accent} />
@@ -598,13 +598,56 @@ export default function PlanRoomPage() {
                   {documents.length} file{documents.length !== 1 ? "s" : ""}
                 </span>
               )}
+              {/* Re-Discover button — visible whenever drawings exist */}
+              {drawings.length > 0 && (
+                <button
+                  onClick={handleRescan}
+                  disabled={rescanning || scanProgress.phase}
+                  style={bt(C, {
+                    fontSize: 10,
+                    fontWeight: 600,
+                    padding: "4px 12px",
+                    borderRadius: T.radius.sm,
+                    color: rescanning || scanProgress.phase ? C.textDim : C.accent,
+                    background: rescanning || scanProgress.phase ? `${C.textDim}08` : `${C.accent}08`,
+                    border: `1px solid ${rescanning || scanProgress.phase ? C.textDim + "20" : C.accent + "20"}`,
+                    cursor: rescanning || scanProgress.phase ? "not-allowed" : "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                    marginLeft: 4,
+                  })}
+                >
+                  {rescanning || scanProgress.phase ? (
+                    <>
+                      <span
+                        style={{
+                          display: "inline-block",
+                          width: 10,
+                          height: 10,
+                          border: `2px solid ${C.textDim}40`,
+                          borderTop: `2px solid ${C.textDim}`,
+                          borderRadius: "50%",
+                          animation: "spin 0.8s linear infinite",
+                        }}
+                      />
+                      Scanning…
+                    </>
+                  ) : (
+                    <>
+                      <Ic d={I.refresh} size={11} color={C.accent} />
+                      {scanResults ? "Re-Discover" : "Run Discovery"}
+                    </>
+                  )}
+                </button>
+              )}
             </h1>
             <p
               style={{
                 fontSize: T.fontSize.xs,
                 color: C.textDim,
                 margin: `${T.space[1]}px 0 0`,
-                fontFamily: "'DM Sans',sans-serif",
+                fontFamily: T.font.sans,
               }}
             >
               Upload documents and view NOVA's analysis — schedules, parameters, and ROM estimate.
@@ -801,7 +844,7 @@ export default function PlanRoomPage() {
                     padding: "3px 10px",
                     borderRadius: 5,
                     cursor: "pointer",
-                    fontFamily: "'DM Sans', sans-serif",
+                    fontFamily: T.font.sans,
                     transition: "all 0.15s ease",
                   }}
                   onMouseEnter={e => {
@@ -1191,7 +1234,7 @@ export default function PlanRoomPage() {
                       {scanProgress.message || "Scanning..."}
                     </span>
                     {scanProgress.total > 0 && (
-                      <span style={{ fontSize: 10, color: C.textDim, fontFamily: "'DM Sans', sans-serif" }}>
+                      <span style={{ fontSize: 10, color: C.textDim, fontFamily: T.font.sans }}>
                         {scanProgress.current}/{scanProgress.total}
                       </span>
                     )}
@@ -1232,7 +1275,7 @@ export default function PlanRoomPage() {
                         padding: "3px 10px",
                         borderRadius: 5,
                         cursor: "pointer",
-                        fontFamily: "'DM Sans', sans-serif",
+                        fontFamily: T.font.sans,
                         flexShrink: 0,
                         transition: "all 0.15s ease",
                       }}
@@ -1601,7 +1644,12 @@ export default function PlanRoomPage() {
                         }}
                       >
                         <span
-                          style={{ fontSize: 9, fontWeight: 800, color: costColor, fontFamily: "'DM Sans',sans-serif" }}
+                          style={{
+                            fontSize: 9,
+                            fontWeight: 800,
+                            color: costColor,
+                            fontFamily: T.font.sans,
+                          }}
                         >
                           {composite}
                         </span>
@@ -1721,7 +1769,7 @@ export default function PlanRoomPage() {
                           fontSize: T.fontSize.xl,
                           fontWeight: T.fontWeight.bold,
                           color: C.purple || C.accent,
-                          fontFamily: "'DM Sans',sans-serif",
+                          fontFamily: T.font.sans,
                         }}
                       >
                         ${Math.round(scanResults.rom.totals.low).toLocaleString()}
@@ -1746,7 +1794,7 @@ export default function PlanRoomPage() {
                           fontSize: T.fontSize.xl,
                           fontWeight: T.fontWeight.bold,
                           color: C.text,
-                          fontFamily: "'DM Sans',sans-serif",
+                          fontFamily: T.font.sans,
                         }}
                       >
                         ${Math.round(scanResults.rom.totals.mid).toLocaleString()}
@@ -1771,7 +1819,7 @@ export default function PlanRoomPage() {
                           fontSize: T.fontSize.xl,
                           fontWeight: T.fontWeight.bold,
                           color: C.purple || C.accent,
-                          fontFamily: "'DM Sans',sans-serif",
+                          fontFamily: T.font.sans,
                         }}
                       >
                         ${Math.round(scanResults.rom.totals.high).toLocaleString()}
@@ -1961,7 +2009,7 @@ export default function PlanRoomPage() {
                         onChange={e => useDrawingsStore.getState().updateDrawing(d.id, "sheetNumber", e.target.value)}
                         onClick={e => e.stopPropagation()}
                         style={{
-                          fontFamily: "'DM Sans',sans-serif",
+                          fontFamily: T.font.sans,
                           fontWeight: 700,
                           color: C.accent,
                           width: 70,
@@ -2101,7 +2149,7 @@ export default function PlanRoomPage() {
                       >
                         <span
                           style={{
-                            fontFamily: "'DM Sans',sans-serif",
+                            fontFamily: T.font.sans,
                             fontWeight: 600,
                             color: C.purple || C.accent,
                             minWidth: 70,
@@ -2209,7 +2257,7 @@ export default function PlanRoomPage() {
                       >
                         <Ic d={I.check} size={10} color={C.green} />
                         <span
-                          style={{ color: C.textDim, fontFamily: "'DM Sans',sans-serif", fontSize: 9, minWidth: 60 }}
+                          style={{ color: C.textDim, fontFamily: T.font.sans, fontSize: 9, minWidth: 60 }}
                         >
                           {new Date(h.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         </span>
@@ -2263,27 +2311,6 @@ export default function PlanRoomPage() {
                 <Ic d={I.edit} size={15} color="#fff" sw={2} /> Build Estimate
                 <span style={{ display: "block", fontSize: 9, fontWeight: 400, opacity: 0.8, marginTop: 2 }}>
                   Add line items and pricing
-                </span>
-              </button>
-              <button
-                onClick={() => {
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                  setUploadExpanded(true);
-                }}
-                style={bt(C, {
-                  background: "transparent",
-                  border: `1px solid ${C.border}`,
-                  color: C.textMuted,
-                  padding: "10px 20px",
-                  fontSize: 12,
-                  fontWeight: 500,
-                  flex: 1,
-                  minWidth: 180,
-                })}
-              >
-                <Ic d={I.upload} size={15} color={C.textMuted} sw={2} /> Upload More Documents
-                <span style={{ display: "block", fontSize: 9, fontWeight: 400, opacity: 0.7, marginTop: 2 }}>
-                  Add drawings, specs, or addenda
                 </span>
               </button>
             </div>
@@ -2489,6 +2516,7 @@ function CompactDocList({ drawingDocs, specDocs, generalDocs, onRemove, C, T }) 
 
 // ─── Factor bar (used in Project Summary for cost index) ─────────────────────
 function FactorBar({ label, value, color, C }) {
+  const T = C.T;
   const pct = Math.min(Math.max((value - 0.6) / 0.8, 0), 1) * 100;
   const natPct = ((1.0 - 0.6) / 0.8) * 100;
   return (
@@ -2510,7 +2538,7 @@ function FactorBar({ label, value, color, C }) {
             fontSize: 11,
             fontWeight: 700,
             color: value > 1.05 ? C.orange : value < 0.95 ? C.green : C.text,
-            fontFamily: "'DM Sans',sans-serif",
+            fontFamily: T.font.sans,
           }}
         >
           {value.toFixed(2)}×
@@ -2566,8 +2594,8 @@ function StatPill({ label, value, unit, C, T, accent }) {
             color: accent ? C.purple || C.accent : C.text,
             fontFamily:
               typeof value === "number" || String(value).startsWith("$")
-                ? "'DM Sans',sans-serif"
-                : "'DM Sans',sans-serif",
+                ? "'Switzer', sans-serif"
+                : "'Switzer', sans-serif",
           }}
         >
           {value}

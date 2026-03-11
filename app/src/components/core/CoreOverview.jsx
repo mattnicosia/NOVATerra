@@ -73,7 +73,7 @@ function KpiCard({ icon, label, value, sub, color, accent }) {
             fontSize: 24,
             fontWeight: 700,
             color: C.text,
-            fontFamily: "'DM Sans', sans-serif",
+            fontFamily: T.font.sans,
             lineHeight: 1,
           }}
         >
@@ -282,7 +282,7 @@ export default function CoreOverview() {
                   {p.name || "Untitled Proposal"}
                 </span>
                 <span style={{ fontSize: 10, color: C.textDim, flexShrink: 0 }}>{p.client || "—"}</span>
-                <span style={{ fontSize: 10, color: C.textDim, fontFamily: "'DM Sans', sans-serif", flexShrink: 0 }}>
+                <span style={{ fontSize: 10, color: C.textDim, fontFamily: T.font.sans, flexShrink: 0 }}>
                   {p.totalCost ? `$${Math.round(p.totalCost).toLocaleString()}` : "—"}
                 </span>
                 <span style={{ fontSize: 9, color: C.textDim, flexShrink: 0 }}>

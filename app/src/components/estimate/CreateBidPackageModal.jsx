@@ -371,7 +371,7 @@ export default function CreateBidPackageModal({ onClose }) {
     fontSize: 14,
     outline: "none",
     boxSizing: "border-box",
-    fontFamily: "'DM Sans', sans-serif",
+    fontFamily: T.font.sans,
   };
 
   const checkboxStyle = checked => ({
@@ -443,7 +443,7 @@ export default function CreateBidPackageModal({ onClose }) {
                   fontSize: 11,
                   fontWeight: 600,
                   cursor: "pointer",
-                  fontFamily: "'DM Sans', sans-serif",
+                  fontFamily: T.font.sans,
                 }}
               >
                 <Ic d={I.copy || I.plans} size={12} color={C.accent} /> Use Template ({presets.length} saved)
@@ -471,7 +471,7 @@ export default function CreateBidPackageModal({ onClose }) {
                       color: C.textDim,
                       fontSize: 10,
                       cursor: "pointer",
-                      fontFamily: "'DM Sans', sans-serif",
+                      fontFamily: T.font.sans,
                     }}
                   >
                     Cancel
@@ -550,7 +550,7 @@ export default function CreateBidPackageModal({ onClose }) {
                     background: groupMode === mode.key ? C.accent : "transparent",
                     color: groupMode === mode.key ? "#fff" : C.textMuted,
                     transition: "all 150ms",
-                    fontFamily: "'DM Sans', sans-serif",
+                    fontFamily: T.font.sans,
                   }}
                 >
                   {mode.label}
@@ -755,7 +755,7 @@ export default function CreateBidPackageModal({ onClose }) {
                     fontWeight: 600,
                     cursor: "pointer",
                     width: "100%",
-                    fontFamily: "'DM Sans', sans-serif",
+                    fontFamily: T.font.sans,
                   }}
                 >
                   + Add New Sub
@@ -819,7 +819,7 @@ export default function CreateBidPackageModal({ onClose }) {
                         padding: "5px 12px",
                         fontSize: 11,
                         cursor: "pointer",
-                        fontFamily: "'DM Sans', sans-serif",
+                        fontFamily: T.font.sans,
                       }}
                     >
                       Cancel
@@ -861,7 +861,7 @@ export default function CreateBidPackageModal({ onClose }) {
                         fontSize: 11,
                         fontWeight: 600,
                         cursor: newSub.company.trim() ? "pointer" : "not-allowed",
-                        fontFamily: "'DM Sans', sans-serif",
+                        fontFamily: T.font.sans,
                       }}
                     >
                       Add & Select
@@ -889,7 +889,7 @@ export default function CreateBidPackageModal({ onClose }) {
                   cursor: "pointer",
                   width: "100%",
                   marginBottom: 12,
-                  fontFamily: "'DM Sans', sans-serif",
+                  fontFamily: T.font.sans,
                 }}
               >
                 Auto-select {matchedSubIds.size} matching sub{matchedSubIds.size !== 1 ? "s" : ""} for selected scope
@@ -1080,7 +1080,7 @@ export default function CreateBidPackageModal({ onClose }) {
                 fontSize: 11,
                 fontWeight: 600,
                 cursor: "pointer",
-                fontFamily: "'DM Sans', sans-serif",
+                fontFamily: T.font.sans,
                 width: "100%",
                 justifyContent: "center",
               }}

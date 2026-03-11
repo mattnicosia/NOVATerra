@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback, useRef } from "react";
+import React, { useMemo, useState, useEffect, useCallback, useRef, memo } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useProjectStore } from "@/stores/projectStore";
 import { useItemsStore } from "@/stores/itemsStore";
@@ -6,6 +6,7 @@ import { useBidLevelingStore } from "@/stores/bidLevelingStore";
 import { useDatabaseStore } from "@/stores/databaseStore";
 import { useSpecsStore } from "@/stores/specsStore";
 import { useUiStore } from "@/stores/uiStore";
+import { useGroupsStore } from "@/stores/groupsStore";
 import { UNITS } from "@/constants/units";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
@@ -34,6 +35,235 @@ import DivisionNavigator from "@/components/estimate/DivisionNavigator";
 import ItemDetailPanel from "@/components/estimate/ItemDetailPanel";
 import LevelingView from "@/components/estimate/LevelingView";
 import GroupBar from "@/components/shared/GroupBar";
+
+// ── Memoized item row — prevents re-rendering all 200+ rows on each keystroke ──
+const EstimateItemRow = memo(
+  function EstimateItemRow({
+    item,
+    rowIdx,
+    globalIndex,
+    lineTotal,
+    animKey,
+    isSelected,
+    isDragging,
+    isOddRow,
+    isPricing,
+    focusedField,
+    C,
+    T,
+    updateItem,
+    onDragStart,
+    onDragEnd,
+    onRowClick,
+    onFocusCostCell,
+    onBlurCostCell,
+  }) {
+    const isZeroTotal = lineTotal === 0 || lineTotal === null || lineTotal === undefined;
+
+    return (
+      <div
+        className="est-row"
+        data-item-id={item.id}
+        onClick={() => onRowClick(item.id)}
+        onMouseEnter={e => {
+          if (!isDragging && !isSelected) e.currentTarget.style.background = `${C.accent}08`;
+        }}
+        onMouseLeave={e => {
+          if (!isSelected)
+            e.currentTarget.style.background = isOddRow
+              ? C.isDark
+                ? "rgba(255,255,255,0.025)"
+                : "rgba(0,0,0,0.025)"
+              : "transparent";
+        }}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 4,
+          padding: "7px 8px 7px 10px",
+          borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.05)"}`,
+          background: isSelected
+            ? `${C.accent}12`
+            : isOddRow
+              ? C.isDark
+                ? "rgba(255,255,255,0.025)"
+                : "rgba(0,0,0,0.025)"
+              : "transparent",
+          borderLeft: isSelected
+            ? `3px solid ${C.accent}`
+            : `3px solid ${isZeroTotal ? "transparent" : C.accent + "20"}`,
+          opacity: isDragging ? 0.4 : 1,
+          transition: "background 100ms ease-out",
+          cursor: "pointer",
+        }}
+      >
+        {/* Drag handle + index */}
+        <div
+          className="est-col"
+          draggable
+          onDragStart={e => {
+            e.stopPropagation();
+            onDragStart(item.id);
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("text/plain", item.id);
+          }}
+          onDragEnd={onDragEnd}
+          onClick={e => e.stopPropagation()}
+          style={{
+            width: 32,
+            fontSize: T.fontSize.sm,
+            color: C.textDim,
+            fontFeatureSettings: "'tnum'",
+            cursor: "grab",
+            display: "flex",
+            alignItems: "center",
+            gap: 2,
+          }}
+          title="Drag to reorder"
+        >
+          <Ic d={I.move} size={9} color={C.textDim} />
+          <span>{globalIndex}</span>
+        </div>
+        {/* Code */}
+        <div
+          className="est-col"
+          style={{
+            width: 82,
+            fontSize: T.fontSize.sm,
+            fontWeight: T.fontWeight.semibold,
+            color: item.code ? C.text : C.textDim,
+            fontFeatureSettings: "'tnum'",
+          }}
+        >
+          {item.code || "\u2014"}
+        </div>
+        {/* Description */}
+        <div className="est-col" style={{ flex: 1, minWidth: 160 }}>
+          <input
+            value={item.description}
+            onChange={e => {
+              e.stopPropagation();
+              updateItem(item.id, "description", e.target.value);
+            }}
+            onClick={e => e.stopPropagation()}
+            placeholder="Description..."
+            style={inp(C, {
+              background: "transparent",
+              border: "1px solid transparent",
+              padding: "3px 4px",
+              fontSize: T.fontSize.sm,
+            })}
+          />
+          {hasAllowance(item) && (
+            <span
+              style={{
+                fontSize: 9,
+                color: C.orange,
+                fontWeight: T.fontWeight.bold,
+                marginLeft: 4,
+              }}
+            >
+              ALLOW
+            </span>
+          )}
+        </div>
+        {/* Qty */}
+        <div className="est-col" style={{ width: 60 }}>
+          <input
+            type="number"
+            value={item.quantity}
+            onChange={e => {
+              e.stopPropagation();
+              updateItem(item.id, "quantity", e.target.value);
+            }}
+            onClick={e => e.stopPropagation()}
+            placeholder="0"
+            style={nInp(C, {
+              background: "transparent",
+              border: "1px solid transparent",
+              padding: "3px 2px",
+              fontSize: T.fontSize.sm,
+            })}
+          />
+        </div>
+        {/* Unit */}
+        <div className="est-col" style={{ width: 42 }}>
+          <select
+            value={item.unit}
+            onChange={e => {
+              e.stopPropagation();
+              updateItem(item.id, "unit", e.target.value);
+            }}
+            onClick={e => e.stopPropagation()}
+            style={inp(C, {
+              background: "transparent",
+              border: "1px solid transparent",
+              padding: "3px 0",
+              fontSize: T.fontSize.sm,
+            })}
+          >
+            {UNITS.map(u => (
+              <option key={u} value={u}>
+                {u}
+              </option>
+            ))}
+          </select>
+        </div>
+        {/* Pricing columns */}
+        {isPricing &&
+          ["material", "labor", "equipment", "subcontractor"].map(f => {
+            const isFocused = focusedField === f;
+            const rawVal = item[f];
+            const displayVal = isFocused ? rawVal : nn(rawVal) ? formatCurrency(rawVal) : rawVal;
+            return (
+              <div className="est-col" key={f} style={{ width: 72, textAlign: "right" }}>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={displayVal}
+                  onFocus={() => onFocusCostCell(`${item.id}-${f}`)}
+                  onBlur={onBlurCostCell}
+                  onChange={e => updateItem(item.id, f, e.target.value.replace(/[$,]/g, ""))}
+                  onClick={e => e.stopPropagation()}
+                  placeholder="0.00"
+                  style={nInp(C, {
+                    background: "transparent",
+                    border: "1px solid transparent",
+                    padding: "3px 2px",
+                    fontSize: T.fontSize.sm,
+                    textAlign: "right",
+                  })}
+                />
+              </div>
+            );
+          })}
+        {/* Total */}
+        <div
+          key={`${item.id}-t-${animKey}`}
+          className="est-col"
+          style={moneyCell(C, lineTotal, {
+            width: 90,
+            paddingTop: 2,
+            fontSize: T.fontSize.base,
+            animation: animKey > 0 ? "lineFlash 400ms ease-out" : "none",
+          })}
+        >
+          {fmt(lineTotal)}
+        </div>
+      </div>
+    );
+  },
+  (prev, next) =>
+    prev.item === next.item &&
+    prev.lineTotal === next.lineTotal &&
+    prev.animKey === next.animKey &&
+    prev.isSelected === next.isSelected &&
+    prev.isDragging === next.isDragging &&
+    prev.focusedField === next.focusedField &&
+    prev.isPricing === next.isPricing &&
+    prev.globalIndex === next.globalIndex &&
+    prev.C === next.C,
+);
 
 export default function EstimatePage() {
   const C = useTheme();
@@ -76,14 +306,15 @@ export default function EstimatePage() {
   const setEstDivision = useUiStore(s => s.setEstDivision);
   const estGroupBy = useUiStore(s => s.estGroupBy);
   const setEstGroupBy = useUiStore(s => s.setEstGroupBy);
+  const estGroupBy2 = useUiStore(s => s.estGroupBy2);
+  const setEstGroupBy2 = useUiStore(s => s.setEstGroupBy2);
   const expandedDivs = useUiStore(s => s.expandedDivs);
   const toggleExpandedDiv = useUiStore(s => s.toggleExpandedDiv);
+  const setExpandedDivs = useUiStore(s => s.setExpandedDivs);
   const estViewMode = useUiStore(s => s.estViewMode);
   const setEstViewMode = useUiStore(s => s.setEstViewMode);
   const showToast = useUiStore(s => s.showToast);
   const activeGroupId = useUiStore(s => s.activeGroupId);
-  const showNotesPanel = useUiStore(s => s.showNotesPanel);
-  const setShowNotesPanel = useUiStore(s => s.setShowNotesPanel);
   const pricingModal = useUiStore(s => s.pricingModal);
   const setPricingModal = useUiStore(s => s.setPricingModal);
   const appSettings = useUiStore(s => s.appSettings);
@@ -100,11 +331,67 @@ export default function EstimatePage() {
   const [focusedCostCell, setFocusedCostCell] = useState(null);
   const [selectedItemId, setSelectedItemId] = useState(null);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [clearConfirm, setClearConfirm] = useState(0); // 0 = idle, 1 = first confirm, 2 = second confirm
+  const [leftPanelTab, setLeftPanelTab] = useState("divisions"); // "divisions" | "notes"
+  const [leftPanelWidth, setLeftPanelWidth] = useState(() => {
+    try { return parseInt(sessionStorage.getItem("bldg-estLeftWidth")) || 200; } catch { return 200; }
+  });
+  const [rightPanelWidth, setRightPanelWidth] = useState(() => {
+    try { return parseInt(sessionStorage.getItem("bldg-estRightWidth")) || 380; } catch { return 380; }
+  });
   const addMenuRef = useRef(null);
   const exportMenuRef = useRef(null);
   const grandTotalRef = useRef(null);
   const prevGrandRef = useRef(null);
   const itemTotalKeys = useRef({});
+
+  // ── Panel resize drag handlers ──
+  const leftWidthRef = useRef(leftPanelWidth);
+  leftWidthRef.current = leftPanelWidth;
+  const rightWidthRef = useRef(rightPanelWidth);
+  rightWidthRef.current = rightPanelWidth;
+
+  const startLeftDrag = useCallback(e => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = leftWidthRef.current;
+    const onMove = ev => {
+      const newW = Math.min(400, Math.max(160, startW + (ev.clientX - startX)));
+      setLeftPanelWidth(newW);
+    };
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      try { sessionStorage.setItem("bldg-estLeftWidth", String(leftWidthRef.current)); } catch {}
+    };
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, []);
+
+  const startRightDrag = useCallback(e => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = rightWidthRef.current;
+    const onMove = ev => {
+      const newW = Math.min(600, Math.max(280, startW - (ev.clientX - startX)));
+      setRightPanelWidth(newW);
+    };
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      try { sessionStorage.setItem("bldg-estRightWidth", String(rightWidthRef.current)); } catch {}
+    };
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, []);
 
   // Normalize view mode — map old "both"/"detailed" to new modes
   const viewMode =
@@ -206,9 +493,17 @@ export default function EstimatePage() {
     return evalFormula(item.formula, varArr, nn(item.quantity));
   }, []);
 
-  // Filter items
+  // Filter items — include sub-group items when parent group is selected
+  const activeGroupIds = useMemo(() => {
+    const ids = new Set([activeGroupId]);
+    // Include child groups of the active group
+    const allGroups = useGroupsStore.getState().groups;
+    allGroups.forEach(g => { if (g.parentId === activeGroupId) ids.add(g.id); });
+    return ids;
+  }, [activeGroupId]);
+
   const filteredItems = useMemo(() => {
-    let list = items.filter(i => (i.bidContext || "base") === activeGroupId);
+    let list = items.filter(i => activeGroupIds.has(i.bidContext || "base"));
     if (estDivision !== "All")
       list = list.filter(i => {
         const raw = i.division || "";
@@ -242,25 +537,40 @@ export default function EstimatePage() {
     return sk.includes(".") ? sk : `${sk}.00`;
   };
 
-  // Grouping
+  // Helper: get group key for item based on groupBy type
+  const getGroupKey = useCallback((item, groupByType) => {
+    if (groupByType === "trade") return getTradeLabel(item);
+    if (groupByType === "division") {
+      const rawDiv = item.division || "";
+      return rawDiv.includes(" - ") ? rawDiv : divFromCode(rawDiv) || rawDiv || "Unassigned";
+    }
+    return getSubKey(item); // subdivision
+  }, [divFromCode]);
+
+  // Grouping — supports optional secondary groupBy for nested hierarchy
   const groupedItems = useMemo(() => {
     const groups = {};
     filteredItems.forEach(item => {
-      let key;
-      if (estGroupBy === "trade") {
-        key = getTradeLabel(item);
-      } else if (estGroupBy === "division") {
-        const rawDiv = item.division || "";
-        key = rawDiv.includes(" - ") ? rawDiv : divFromCode(rawDiv) || rawDiv || "Unassigned";
-      } else {
-        key = getSubKey(item);
-      }
-      if (!groups[key]) groups[key] = { items: [], sortVal: 0 };
+      const key = getGroupKey(item, estGroupBy);
+      if (!groups[key]) groups[key] = { items: [], sortVal: 0, subGroups: null };
       groups[key].items.push(item);
       if (estGroupBy === "trade") groups[key].sortVal = getTradeSortOrder(item);
     });
+    // Build sub-groups if secondary groupBy is set
+    if (estGroupBy2 && estGroupBy2 !== estGroupBy) {
+      Object.values(groups).forEach(g => {
+        const subs = {};
+        g.items.forEach(item => {
+          const sk = getGroupKey(item, estGroupBy2);
+          if (!subs[sk]) subs[sk] = { items: [], sortVal: 0 };
+          subs[sk].items.push(item);
+          if (estGroupBy2 === "trade") subs[sk].sortVal = getTradeSortOrder(item);
+        });
+        g.subGroups = subs;
+      });
+    }
     return groups;
-  }, [filteredItems, estGroupBy]);
+  }, [filteredItems, estGroupBy, estGroupBy2, getGroupKey]);
 
   // Group key totals
   const groupKeyTotals = useMemo(() => {
@@ -383,6 +693,15 @@ export default function EstimatePage() {
     setSelectedItemId(prev => (prev === itemId ? null : itemId));
   }, []);
 
+  // Stable drag-end handler for memoized rows
+  const handleDragEnd = useCallback(() => {
+    setDragItemId(null);
+    setDragOverSk(null);
+  }, [setDragItemId, setDragOverSk]);
+
+  // Stable blur handler for cost cells
+  const handleBlurCostCell = useCallback(() => setFocusedCostCell(null), []);
+
   // isPricing mode — shows M/L/E/S columns inline
   const isPricing = viewMode === "pricing";
 
@@ -398,8 +717,65 @@ export default function EstimatePage() {
 
       {/* Zone 2+3: Navigator + Grid + Detail */}
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        {/* Division Navigator (left sidebar) */}
-        <DivisionNavigator activeDivision={estDivision} onSelectDivision={setEstDivision} />
+        {/* Left Panel — Divisions / Notes tab switch */}
+        <div style={{ width: leftPanelWidth, flexShrink: 0, display: "flex", flexDirection: "column", overflow: "hidden", transition: "width 0.15s ease" }}>
+          {/* Tab strip */}
+          <div style={{ display: "flex", borderBottom: `0.5px solid ${C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`, flexShrink: 0 }}>
+            {[
+              { key: "divisions", label: "Divisions" },
+              { key: "notes", label: "Notes", count: (exclusions?.length || 0) + (clarifications?.length || 0) },
+            ].map(t => (
+              <button
+                key={t.key}
+                onClick={() => setLeftPanelTab(t.key)}
+                style={{
+                  flex: 1,
+                  padding: "6px 4px",
+                  fontSize: 9,
+                  fontWeight: leftPanelTab === t.key ? 700 : 500,
+                  border: "none",
+                  cursor: "pointer",
+                  fontFamily: T.font.sans,
+                  background: leftPanelTab === t.key ? (C.isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.20)") : "transparent",
+                  color: leftPanelTab === t.key ? C.text : C.textDim,
+                  borderBottom: leftPanelTab === t.key ? `2px solid ${C.accent}` : "2px solid transparent",
+                  textTransform: "uppercase",
+                  letterSpacing: 0.8,
+                  transition: "all 0.15s",
+                }}
+              >
+                {t.label}
+                {t.count > 0 && (
+                  <span style={{ fontSize: 8, background: `${C.accent}20`, padding: "1px 4px", borderRadius: 6, marginLeft: 3 }}>{t.count}</span>
+                )}
+              </button>
+            ))}
+          </div>
+          {/* Tab content */}
+          <div style={{ flex: 1, overflow: "hidden" }}>
+            {leftPanelTab === "divisions" ? (
+              <DivisionNavigator activeDivision={estDivision} onSelectDivision={setEstDivision} />
+            ) : (
+              <NotesPanel inline />
+            )}
+          </div>
+        </div>
+
+        {/* Left resize handle */}
+        <div
+          onMouseDown={startLeftDrag}
+          style={{
+            width: 4,
+            cursor: "col-resize",
+            flexShrink: 0,
+            background: "transparent",
+            transition: "background 0.15s",
+            position: "relative",
+            zIndex: 5,
+          }}
+          onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}30`)}
+          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+        />
 
         {/* Main content (center) */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -508,7 +884,7 @@ export default function EstimatePage() {
                         fontSize: 12,
                         fontWeight: 500,
                         color: C.text,
-                        fontFamily: "'DM Sans',sans-serif",
+                        fontFamily: T.font.sans,
                         transition: "background 0.1s",
                       }}
                       onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}10`)}
@@ -572,7 +948,7 @@ export default function EstimatePage() {
                     background:
                       viewMode === v.key ? (dk ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.40)") : "transparent",
                     color: viewMode === v.key ? C.text : C.textMuted,
-                    fontFamily: "'DM Sans',sans-serif",
+                    fontFamily: T.font.sans,
                     boxShadow:
                       viewMode === v.key
                         ? `inset 0 0.5px 0 ${dk ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.50)"}`
@@ -584,54 +960,125 @@ export default function EstimatePage() {
               ))}
             </div>
 
-            {/* GroupBy toggle: Subdivision | Division | Trade */}
+            {/* GroupBy toggle: Subdivision | Division | Trade — click=primary, shift+click=add secondary */}
             {viewMode !== "leveling" && (
-              <div
+              <div style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    background: dk ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.10)",
+                    backdropFilter: "blur(8px) saturate(150%)",
+                    WebkitBackdropFilter: "blur(8px) saturate(150%)",
+                    borderRadius: T.radius.sm,
+                    overflow: "hidden",
+                    border: `0.5px solid ${dk ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.20)"}`,
+                    boxShadow: `inset 0 0.5px 0 ${dk ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.35)"}`,
+                  }}
+                >
+                  {[
+                    { key: "subdivision", label: "Sub" },
+                    { key: "division", label: "Div" },
+                    { key: "trade", label: "Trade" },
+                  ].map(v => {
+                    const isPrimary = estGroupBy === v.key;
+                    const isSecondary = estGroupBy2 === v.key;
+                    return (
+                      <button
+                        key={v.key}
+                        onClick={e => {
+                          if (e.shiftKey && v.key !== estGroupBy) {
+                            // Shift+click toggles secondary grouping
+                            setEstGroupBy2(estGroupBy2 === v.key ? null : v.key);
+                          } else {
+                            setEstGroupBy(v.key);
+                            if (estGroupBy2 === v.key) setEstGroupBy2(null); // clear secondary if same
+                          }
+                        }}
+                        title={`Click: group by ${v.key}. Shift+Click: add as secondary grouping level.`}
+                        style={{
+                          padding: "5px 10px",
+                          fontSize: 9,
+                          fontWeight: 600,
+                          border: "none",
+                          cursor: "pointer",
+                          transition: "all 0.25s ease",
+                          background: isPrimary
+                            ? dk ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.40)"
+                            : isSecondary
+                              ? dk ? "rgba(139,92,246,0.12)" : "rgba(139,92,246,0.10)"
+                              : "transparent",
+                          color: isPrimary ? C.text : isSecondary ? (C.purple || C.accent) : C.textMuted,
+                          fontFamily: T.font.sans,
+                          boxShadow: isPrimary
+                            ? `inset 0 0.5px 0 ${dk ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.50)"}`
+                            : "none",
+                          position: "relative",
+                        }}
+                      >
+                        {v.label}
+                        {isSecondary && (
+                          <span style={{ position: "absolute", top: 1, right: 2, fontSize: 7, color: C.purple || C.accent, fontWeight: 800 }}>2</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                {/* Clear secondary grouping */}
+                {estGroupBy2 && (
+                  <button
+                    onClick={() => setEstGroupBy2(null)}
+                    title="Remove secondary grouping"
+                    style={{ width: 16, height: 16, border: `1px solid ${C.border}`, background: "transparent", borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 9, color: C.textDim, padding: 0 }}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Expand/Collapse all toggle */}
+            {viewMode !== "leveling" && sortedGroups.length > 0 && (
+              <button
+                onClick={() => {
+                  const allKeys = sortedGroups.map(([gk]) => gk);
+                  const allExpanded = allKeys.every(k => expandedDivs.has(k));
+                  if (allExpanded) {
+                    setExpandedDivs(new Set());
+                  } else {
+                    setExpandedDivs(new Set(allKeys));
+                  }
+                }}
+                title={sortedGroups.every(([gk]) => expandedDivs.has(gk)) ? "Collapse all" : "Expand all"}
                 style={{
+                  width: 22,
+                  height: 22,
+                  border: `1px solid ${C.border}`,
+                  background: "transparent",
+                  borderRadius: 4,
+                  cursor: "pointer",
                   display: "flex",
-                  background: dk ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.10)",
-                  backdropFilter: "blur(8px) saturate(150%)",
-                  WebkitBackdropFilter: "blur(8px) saturate(150%)",
-                  borderRadius: T.radius.sm,
-                  overflow: "hidden",
-                  border: `0.5px solid ${dk ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.20)"}`,
-                  boxShadow: `inset 0 0.5px 0 ${dk ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.35)"}`,
+                  alignItems: "center",
+                  justifyContent: "center",
                   flexShrink: 0,
                 }}
               >
-                {[
-                  { key: "subdivision", label: "Subdivision" },
-                  { key: "division", label: "Division" },
-                  { key: "trade", label: "Trade" },
-                ].map(v => (
-                  <button
-                    key={v.key}
-                    onClick={() => setEstGroupBy(v.key)}
-                    style={{
-                      padding: "5px 10px",
-                      fontSize: 9,
-                      fontWeight: 600,
-                      border: "none",
-                      cursor: "pointer",
-                      transition: "all 0.25s ease",
-                      background:
-                        estGroupBy === v.key
-                          ? dk
-                            ? "rgba(255,255,255,0.10)"
-                            : "rgba(255,255,255,0.40)"
-                          : "transparent",
-                      color: estGroupBy === v.key ? C.text : C.textMuted,
-                      fontFamily: "'DM Sans',sans-serif",
-                      boxShadow:
-                        estGroupBy === v.key
-                          ? `inset 0 0.5px 0 ${dk ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.50)"}`
-                          : "none",
-                    }}
-                  >
-                    {v.label}
-                  </button>
-                ))}
-              </div>
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke={C.textMuted}
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  {sortedGroups.every(([gk]) => expandedDivs.has(gk)) ? (
+                    <path d="M4 14l8-8 8 8" />
+                  ) : (
+                    <path d="M4 10l8 8 8-8" />
+                  )}
+                </svg>
+              </button>
             )}
 
             <div style={{ flex: 1 }} />
@@ -716,7 +1163,7 @@ export default function EstimatePage() {
                         fontSize: 12,
                         fontWeight: 500,
                         color: C.text,
-                        fontFamily: "'DM Sans',sans-serif",
+                        fontFamily: T.font.sans,
                         transition: "background 0.1s",
                       }}
                       onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}10`)}
@@ -743,22 +1190,105 @@ export default function EstimatePage() {
             >
               <Ic d={I.ai} size={12} color={C.accent} /> Review
             </button>
-            <button
-              className="ghost-btn"
-              onClick={() => setShowNotesPanel(!showNotesPanel)}
-              style={bt(C, {
-                background: showNotesPanel ? `${C.blue}10` : "transparent",
-                border: `1px solid ${showNotesPanel ? C.blue + "40" : C.border}`,
-                color: showNotesPanel ? C.blue : C.textMuted,
-                padding: "5px 10px",
-                fontSize: 10,
-              })}
-            >
-              <Ic d={I.report} size={12} color={showNotesPanel ? C.blue : C.textMuted} />
-              {exclusions.length + clarifications.length > 0
-                ? ` ${exclusions.length + clarifications.length}`
-                : " Notes"}
-            </button>
+
+            {/* Clear All Items — two-layer confirmation */}
+            {items.length > 0 && (
+              <div style={{ position: "relative" }}>
+                <button
+                  className="ghost-btn"
+                  onClick={() => setClearConfirm(1)}
+                  title="Clear All Items"
+                  style={bt(C, {
+                    padding: "5px 7px",
+                    color: C.textDim,
+                    opacity: 0.5,
+                  })}
+                >
+                  <Ic d={I.trash} size={12} color={C.textDim} />
+                </button>
+
+                {clearConfirm > 0 && (
+                  <>
+                    <div
+                      style={{ position: "fixed", inset: 0, zIndex: 999 }}
+                      onClick={() => setClearConfirm(0)}
+                    />
+                    <div
+                      style={{
+                        position: "absolute",
+                        right: 0,
+                        top: "100%",
+                        marginTop: 6,
+                        zIndex: 1000,
+                        background: C.bg1,
+                        border: `1px solid ${clearConfirm === 2 ? "#ef4444" : C.border}`,
+                        borderRadius: T.radius.md,
+                        boxShadow: T.shadow.lg || "0 8px 24px rgba(0,0,0,0.25)",
+                        padding: "16px 20px",
+                        minWidth: 260,
+                        textAlign: "center",
+                      }}
+                    >
+                      <div style={{
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: C.text,
+                        fontFamily: T.font.sans,
+                        marginBottom: 4,
+                      }}>
+                        {clearConfirm === 1
+                          ? "Delete all items?"
+                          : "Are you sure you're sure?"}
+                      </div>
+                      <div style={{
+                        fontSize: 11,
+                        color: C.textDim,
+                        fontFamily: T.font.sans,
+                        marginBottom: 14,
+                      }}>
+                        {clearConfirm === 1
+                          ? `This will remove all ${items.length} items from the estimate.`
+                          : "This cannot be undone."}
+                      </div>
+                      <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                        <button
+                          onClick={() => setClearConfirm(0)}
+                          style={bt(C, {
+                            padding: "6px 16px",
+                            fontSize: 11,
+                            fontWeight: 500,
+                            color: C.textDim,
+                            background: C.bg2,
+                          })}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (clearConfirm === 1) {
+                              setClearConfirm(2);
+                            } else {
+                              useItemsStore.getState().setItems([]);
+                              setClearConfirm(0);
+                              useUiStore.getState().showToast(`Cleared ${items.length} items`);
+                            }
+                          }}
+                          style={bt(C, {
+                            padding: "6px 16px",
+                            fontSize: 11,
+                            fontWeight: 600,
+                            color: "#fff",
+                            background: clearConfirm === 2 ? "#dc2626" : "#ef4444",
+                          })}
+                        >
+                          {clearConfirm === 1 ? "Yes, Clear All" : "Yes, I'm Sure"}
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Content area — grid or leveling */}
@@ -883,7 +1413,7 @@ export default function EstimatePage() {
                               fontSize: 12,
                               color: C.textMuted,
                               fontFeatureSettings: "'tnum'",
-                              fontFamily: "'DM Sans',sans-serif",
+                              fontFamily: T.font.sans,
                             }}
                           >
                             {fmt(skTotal)}
@@ -929,220 +1459,94 @@ export default function EstimatePage() {
                         </div>
                       )}
 
-                      {/* Item rows */}
-                      {isExpanded &&
-                        skItems.map((item, rowIdx) => {
-                          const lt = getTotal(item);
-                          const gi = itemIndexMap[item.id] || 0;
-                          const isOddRow = rowIdx % 2 === 1;
-                          const isSelected = selectedItemId === item.id;
-                          const isZeroTotal = lt === 0 || lt === null || lt === undefined;
+                      {/* Item rows — supports nested sub-groups when estGroupBy2 is set */}
+                      {isExpanded && (() => {
+                        // Render function for a list of items
+                        const renderItems = (itemList, rowOffset = 0) =>
+                          itemList.map((item, rowIdx) => {
+                            const lt = getTotal(item);
+                            const gi = itemIndexMap[item.id] || 0;
+                            if (!itemTotalKeys.current[item.id]) itemTotalKeys.current[item.id] = { val: lt, k: 0 };
+                            else if (itemTotalKeys.current[item.id].val !== lt) {
+                              itemTotalKeys.current[item.id] = { val: lt, k: itemTotalKeys.current[item.id].k + 1 };
+                            }
+                            const focusedField = focusedCostCell?.startsWith(item.id + "-")
+                              ? focusedCostCell.slice(item.id.length + 1)
+                              : null;
+                            return (
+                              <EstimateItemRow
+                                key={item.id}
+                                item={item}
+                                rowIdx={rowIdx + rowOffset}
+                                globalIndex={gi}
+                                lineTotal={lt}
+                                animKey={itemTotalKeys.current[item.id].k}
+                                isSelected={selectedItemId === item.id}
+                                isDragging={dragItemId === item.id}
+                                isOddRow={(rowIdx + rowOffset) % 2 === 1}
+                                isPricing={isPricing}
+                                focusedField={focusedField}
+                                C={C}
+                                T={T}
+                                updateItem={updateItem}
+                                onDragStart={setDragItemId}
+                                onDragEnd={handleDragEnd}
+                                onRowClick={handleRowClick}
+                                onFocusCostCell={setFocusedCostCell}
+                                onBlurCostCell={handleBlurCostCell}
+                              />
+                            );
+                          });
 
-                          // Animated total key
-                          if (!itemTotalKeys.current[item.id]) itemTotalKeys.current[item.id] = { val: lt, k: 0 };
-                          else if (itemTotalKeys.current[item.id].val !== lt) {
-                            itemTotalKeys.current[item.id] = { val: lt, k: itemTotalKeys.current[item.id].k + 1 };
-                          }
-                          const tk = itemTotalKeys.current[item.id].k;
-
-                          return (
-                            <div
-                              key={item.id}
-                              className="est-row"
-                              data-item-id={item.id}
-                              onClick={() => handleRowClick(item.id)}
-                              onMouseEnter={e => {
-                                if (!dragItemId && !isSelected) e.currentTarget.style.background = `${C.accent}08`;
-                              }}
-                              onMouseLeave={e => {
-                                if (!isSelected)
-                                  e.currentTarget.style.background = isOddRow
-                                    ? C.isDark
-                                      ? "rgba(255,255,255,0.025)"
-                                      : "rgba(0,0,0,0.025)"
-                                    : "transparent";
-                              }}
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 4,
-                                padding: "7px 8px 7px 10px",
-                                borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.05)"}`,
-                                background: isSelected
-                                  ? `${C.accent}12`
-                                  : isOddRow
-                                    ? C.isDark
-                                      ? "rgba(255,255,255,0.025)"
-                                      : "rgba(0,0,0,0.025)"
-                                    : "transparent",
-                                borderLeft: isSelected
-                                  ? `3px solid ${C.accent}`
-                                  : `3px solid ${isZeroTotal ? "transparent" : C.accent + "20"}`,
-                                opacity: dragItemId === item.id ? 0.4 : 1,
-                                transition: "background 100ms ease-out",
-                                cursor: "pointer",
-                              }}
-                            >
-                              {/* Drag handle + index */}
-                              <div
-                                className="est-col"
-                                draggable
-                                onDragStart={e => {
-                                  e.stopPropagation();
-                                  setDragItemId(item.id);
-                                  e.dataTransfer.effectAllowed = "move";
-                                  e.dataTransfer.setData("text/plain", item.id);
-                                }}
-                                onDragEnd={() => {
-                                  setDragItemId(null);
-                                  setDragOverSk(null);
-                                }}
-                                onClick={e => e.stopPropagation()}
-                                style={{
-                                  width: 32,
-                                  fontSize: T.fontSize.sm,
-                                  color: C.textDim,
-                                  fontFeatureSettings: "'tnum'",
-                                  cursor: "grab",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 2,
-                                }}
-                                title="Drag to reorder"
-                              >
-                                <Ic d={I.move} size={9} color={C.textDim} />
-                                <span>{gi}</span>
-                              </div>
-                              {/* Code */}
-                              <div
-                                className="est-col"
-                                style={{
-                                  width: 82,
-                                  fontSize: T.fontSize.sm,
-                                  fontWeight: T.fontWeight.semibold,
-                                  color: item.code ? C.text : C.textDim,
-                                  fontFeatureSettings: "'tnum'",
-                                }}
-                              >
-                                {item.code || "\u2014"}
-                              </div>
-                              {/* Description */}
-                              <div className="est-col" style={{ flex: 1, minWidth: 160 }}>
-                                <input
-                                  value={item.description}
-                                  onChange={e => {
-                                    e.stopPropagation();
-                                    updateItem(item.id, "description", e.target.value);
-                                  }}
-                                  onClick={e => e.stopPropagation()}
-                                  placeholder="Description..."
-                                  style={inp(C, {
-                                    background: "transparent",
-                                    border: "1px solid transparent",
-                                    padding: "3px 4px",
-                                    fontSize: T.fontSize.sm,
-                                  })}
-                                />
-                                {hasAllowance(item) && (
-                                  <span
-                                    style={{
-                                      fontSize: 9,
-                                      color: C.orange,
-                                      fontWeight: T.fontWeight.bold,
-                                      marginLeft: 4,
-                                    }}
-                                  >
-                                    ALLOW
-                                  </span>
-                                )}
-                              </div>
-                              {/* Qty */}
-                              <div className="est-col" style={{ width: 60 }}>
-                                <input
-                                  type="number"
-                                  value={item.quantity}
-                                  onChange={e => {
-                                    e.stopPropagation();
-                                    updateItem(item.id, "quantity", e.target.value);
-                                  }}
-                                  onClick={e => e.stopPropagation()}
-                                  placeholder="0"
-                                  style={nInp(C, {
-                                    background: "transparent",
-                                    border: "1px solid transparent",
-                                    padding: "3px 2px",
-                                    fontSize: T.fontSize.sm,
-                                  })}
-                                />
-                              </div>
-                              {/* Unit */}
-                              <div className="est-col" style={{ width: 42 }}>
-                                <select
-                                  value={item.unit}
-                                  onChange={e => {
-                                    e.stopPropagation();
-                                    updateItem(item.id, "unit", e.target.value);
-                                  }}
-                                  onClick={e => e.stopPropagation()}
-                                  style={inp(C, {
-                                    background: "transparent",
-                                    border: "1px solid transparent",
-                                    padding: "3px 0",
-                                    fontSize: T.fontSize.sm,
-                                  })}
-                                >
-                                  {UNITS.map(u => (
-                                    <option key={u} value={u}>
-                                      {u}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                              {/* Pricing columns — only in pricing view */}
-                              {isPricing &&
-                                ["material", "labor", "equipment", "subcontractor"].map(f => {
-                                  const cellKey = `${item.id}-${f}`;
-                                  const isFocused = focusedCostCell === cellKey;
-                                  const rawVal = item[f];
-                                  const displayVal = isFocused ? rawVal : nn(rawVal) ? formatCurrency(rawVal) : rawVal;
-                                  return (
-                                    <div className="est-col" key={f} style={{ width: 72, textAlign: "right" }}>
-                                      <input
-                                        type="text"
-                                        inputMode="decimal"
-                                        value={displayVal}
-                                        onFocus={() => setFocusedCostCell(cellKey)}
-                                        onBlur={() => setFocusedCostCell(null)}
-                                        onChange={e => updateItem(item.id, f, e.target.value.replace(/[$,]/g, ""))}
-                                        onClick={e => e.stopPropagation()}
-                                        placeholder="0.00"
-                                        style={nInp(C, {
-                                          background: "transparent",
-                                          border: "1px solid transparent",
-                                          padding: "3px 2px",
-                                          fontSize: T.fontSize.sm,
-                                          textAlign: "right",
-                                        })}
-                                      />
-                                    </div>
-                                  );
-                                })}
-                              {/* Total */}
-                              <div
-                                key={`${item.id}-t-${tk}`}
-                                className="est-col"
-                                style={moneyCell(C, lt, {
-                                  width: 90,
-                                  paddingTop: 2,
-                                  fontSize: T.fontSize.base,
-                                  animation: tk > 0 ? "lineFlash 400ms ease-out" : "none",
-                                })}
-                              >
-                                {fmt(lt)}
-                              </div>
-                            </div>
+                        // Nested sub-groups
+                        if (group.subGroups) {
+                          const sortedSubs = Object.entries(group.subGroups).sort(([a, ag], [b, bg]) =>
+                            estGroupBy2 === "trade" ? (ag.sortVal || 0) - (bg.sortVal || 0) : a.localeCompare(b),
                           );
-                        })}
+                          let runningOffset = 0;
+                          return sortedSubs.map(([sk, sg]) => {
+                            const subKey = `${gk}::${sk}`;
+                            const subExpanded = expandedDivs.has(subKey);
+                            const subTotal = sg.items.reduce((s, i) => s + getTotal(i), 0);
+                            const subLabel = estGroupBy2 === "subdivision" ? getSubLabel(sk)
+                              : estGroupBy2 === "division" && !sk.includes(" - ") ? (divFromCode(sk) || sk)
+                              : sk;
+                            const offset = runningOffset;
+                            runningOffset += sg.items.length;
+                            return (
+                              <div key={subKey}>
+                                {/* Sub-group header */}
+                                <div
+                                  className="nav-item"
+                                  onClick={() => toggleDiv(subKey)}
+                                  style={{
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    alignItems: "center",
+                                    padding: "4px 12px 4px 28px",
+                                    borderTop: `1px solid ${C.border}30`,
+                                    background: `${C.accent}04`,
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                    <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke={C.textDim} strokeWidth="2" style={{ transform: subExpanded ? "rotate(90deg)" : "rotate(0)", transition: "transform 0.2s" }}>
+                                      <path d="M3 1l4 4-4 4" />
+                                    </svg>
+                                    <span style={{ fontSize: 10, fontWeight: 600, color: C.textMuted }}>{subLabel}</span>
+                                    <span style={{ fontSize: 9, color: C.textDim, background: C.bg, padding: "0px 5px", borderRadius: 6 }}>{sg.items.length}</span>
+                                  </div>
+                                  <span style={{ fontSize: 10, color: C.textDim, fontFeatureSettings: "'tnum'", fontFamily: T.font.sans }}>{fmt(subTotal)}</span>
+                                </div>
+                                {subExpanded && renderItems(sg.items, offset)}
+                              </div>
+                            );
+                          });
+                        }
+
+                        // Flat rendering (no sub-groups)
+                        return renderItems(skItems);
+                      })()}
 
                       {/* Add item row */}
                       {isExpanded && (
@@ -1228,7 +1632,7 @@ export default function EstimatePage() {
                   <span
                     style={{
                       color: C.textMuted,
-                      fontFamily: "'DM Sans',sans-serif",
+                      fontFamily: T.font.sans,
                       fontFeatureSettings: "'tnum'",
                       fontWeight: 600,
                     }}
@@ -1244,7 +1648,7 @@ export default function EstimatePage() {
                   fontSize: T.fontSize["2xl"] || 28,
                   fontWeight: 800,
                   fontFeatureSettings: "'tnum'",
-                  fontFamily: "'DM Sans',sans-serif",
+                  fontFamily: T.font.sans,
                   display: "inline-block",
                   letterSpacing: -0.5,
                   ...(C.isDark && C.gradient
@@ -1263,17 +1667,33 @@ export default function EstimatePage() {
           )}
         </div>
 
-        {/* Detail Panel (right side, slides in) */}
+        {/* Right resize handle + Detail Panel */}
         {selectedItemId && viewMode !== "leveling" && (
-          <ItemDetailPanel
-            itemId={selectedItemId}
-            onClose={() => setSelectedItemId(null)}
-            onNavigate={handleDetailNavigate}
-          />
+          <>
+            {/* Right resize handle */}
+            <div
+              onMouseDown={startRightDrag}
+              style={{
+                width: 4,
+                cursor: "col-resize",
+                flexShrink: 0,
+                background: "transparent",
+                transition: "background 0.15s",
+                position: "relative",
+                zIndex: 5,
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}30`)}
+              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+            />
+            <ItemDetailPanel
+              itemId={selectedItemId}
+              onClose={() => setSelectedItemId(null)}
+              onNavigate={handleDetailNavigate}
+              panelWidth={rightPanelWidth}
+            />
+          </>
         )}
 
-        {/* Notes Panel */}
-        {showNotesPanel && <NotesPanel />}
       </div>
 
       {/* Modals */}

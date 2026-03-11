@@ -9,6 +9,8 @@ function _flushTkEditUndo(set) {
   if (!_lastTkEdit.timer) return;
   clearTimeout(_lastTkEdit.timer);
   const { id, field, origValue } = _lastTkEdit;
+  // Capture the current value for redo before clearing
+  const curValue = useTakeoffsStore.getState().takeoffs.find(t => t.id === id)?.[field];
   useUndoStore.getState().push({
     action: `Edit takeoff`,
     undo: () =>
@@ -17,11 +19,7 @@ function _flushTkEditUndo(set) {
       })),
     redo: () =>
       set(s => ({
-        takeoffs: s.takeoffs.map(t => {
-          if (t.id !== id) return t;
-          // Value already applied — redo restores the current state
-          return t;
-        }),
+        takeoffs: s.takeoffs.map(t => (t.id === id ? { ...t, [field]: curValue } : t)),
       })),
     timestamp: Date.now(),
   });

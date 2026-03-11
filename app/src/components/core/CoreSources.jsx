@@ -67,7 +67,7 @@ function SourceCard({ icon, iconColor, title, count, description, status, C, T }
           </span>
         </div>
         <div
-          style={{ fontSize: 22, fontWeight: 700, color: C.text, fontFamily: "'DM Sans', sans-serif", marginBottom: 4 }}
+          style={{ fontSize: 22, fontWeight: 700, color: C.text, fontFamily: T.font.sans, marginBottom: 4 }}
         >
           {count.toLocaleString()}
         </div>

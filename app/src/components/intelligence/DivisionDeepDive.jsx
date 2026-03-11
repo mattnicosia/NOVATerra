@@ -1,12 +1,15 @@
 // DivisionDeepDive — 10-card grid, one per division index category
-import { useState } from 'react';
-import { useTheme } from '@/hooks/useTheme';
-import { useScanStore } from '@/stores/scanStore';
+import { useState } from "react";
+import { useTheme } from "@/hooks/useTheme";
+import { useScanStore } from "@/stores/scanStore";
 import {
-  getAllDivisionIndices, getAvailableYears, getDivisionIndex, getCurrentYear,
+  getAllDivisionIndices,
+  getAvailableYears,
+  getDivisionIndex,
+  getCurrentYear,
   DIVISION_INDICES,
-} from '@/constants/constructionCostIndex';
-import { Spark, BarChart } from './PureCSSChart';
+} from "@/constants/constructionCostIndex";
+import { Spark, BarChart } from "./PureCSSChart";
 
 const DIV_LABELS = {
   concrete: { label: "Concrete / Masonry", codes: "03, 04", icon: null },
@@ -43,18 +46,21 @@ export default function DivisionDeepDive() {
           // Sparkline data — all years for this division
           const sparkData = years.map(y => {
             const indices = DIVISION_INDICES[d.category];
-            return indices ? (indices[y] || 100) : 100;
+            return indices ? indices[y] || 100 : 100;
           });
 
           // Calibration factor for related divisions
-          const relatedDivs = (meta.codes || "").split(",").map(s => s.trim()).filter(Boolean);
+          const relatedDivs = (meta.codes || "")
+            .split(",")
+            .map(s => s.trim())
+            .filter(Boolean);
           const calFactors = relatedDivs
             .map(code => ({ code, factor: calibrationFactors[code] }))
             .filter(f => f.factor !== undefined);
 
           // Learning record stats
           const divRecordCount = learningRecords.filter(r =>
-            relatedDivs.some(code => r.calibration && r.calibration[code])
+            relatedDivs.some(code => r.calibration && r.calibration[code]),
           ).length;
 
           return (
@@ -62,30 +68,40 @@ export default function DivisionDeepDive() {
               key={d.category}
               onClick={() => setExpandedDiv(isExpanded ? null : d.category)}
               style={{
-                padding: "12px 14px", borderRadius: T.radius.md, cursor: "pointer",
-                background: C.glassBg || 'rgba(18,21,28,0.55)',
-                backdropFilter: T.glass.blur, WebkitBackdropFilter: T.glass.blur,
-                border: `1px solid ${isExpanded ? C.accent + '30' : (C.glassBorder || 'rgba(255,255,255,0.06)')}`,
+                padding: "12px 14px",
+                borderRadius: T.radius.md,
+                cursor: "pointer",
+                background: C.glassBg || "rgba(18,21,28,0.55)",
+                backdropFilter: T.glass.blur,
+                WebkitBackdropFilter: T.glass.blur,
+                border: `1px solid ${isExpanded ? C.accent + "30" : C.glassBorder || "rgba(255,255,255,0.06)"}`,
                 transition: "border-color 0.15s",
               }}
             >
               {/* Header */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+              <div
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}
+              >
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>{meta.label}</div>
-                  <div style={{ fontSize: 8, color: C.textDim, fontFamily: "'DM Sans',sans-serif" }}>
+                  <div style={{ fontSize: 8, color: C.textDim, fontFamily: T.font.sans }}>
                     Div {meta.codes}
                   </div>
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: C.text, fontFamily: T.font.sans }}>
                     {d.index.toFixed(1)}
                   </div>
-                  <div style={{
-                    fontSize: 9, fontWeight: 700, fontFamily: "'DM Sans',sans-serif",
-                    color: d.yoy > 3 ? C.orange : d.yoy > 0 ? C.green : C.textDim,
-                  }}>
-                    {d.yoy > 0 ? "+" : ""}{d.yoy.toFixed(1)}% YoY
+                  <div
+                    style={{
+                      fontSize: 9,
+                      fontWeight: 700,
+                      fontFamily: T.font.sans,
+                      color: d.yoy > 3 ? C.orange : d.yoy > 0 ? C.green : C.textDim,
+                    }}
+                  >
+                    {d.yoy > 0 ? "+" : ""}
+                    {d.yoy.toFixed(1)}% YoY
                   </div>
                 </div>
               </div>
@@ -100,12 +116,20 @@ export default function DivisionDeepDive() {
                     const pct = Math.round((f.factor - 1) * 100);
                     const color = pct > 0 ? C.red : pct < 0 ? C.green : C.textDim;
                     return (
-                      <div key={f.code} style={{
-                        fontSize: 8, padding: "2px 5px", borderRadius: 3,
-                        background: `${color}12`, color,
-                        fontFamily: "'DM Sans',sans-serif", fontWeight: 600,
-                      }}>
-                        {f.code}: {pct > 0 ? "+" : ""}{pct}%
+                      <div
+                        key={f.code}
+                        style={{
+                          fontSize: 8,
+                          padding: "2px 5px",
+                          borderRadius: 3,
+                          background: `${color}12`,
+                          color,
+                          fontFamily: T.font.sans,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {f.code}: {pct > 0 ? "+" : ""}
+                        {pct}%
                       </div>
                     );
                   })}
@@ -120,15 +144,26 @@ export default function DivisionDeepDive() {
 
               {/* Expanded detail */}
               {isExpanded && (
-                <div style={{ marginTop: 10, paddingTop: 8, borderTop: `1px solid ${C.border}` }}
-                  onClick={e => e.stopPropagation()}>
-                  <div style={{ fontSize: 8, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+                <div
+                  style={{ marginTop: 10, paddingTop: 8, borderTop: `1px solid ${C.border}` }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  <div
+                    style={{
+                      fontSize: 8,
+                      fontWeight: 700,
+                      color: C.textDim,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.5,
+                      marginBottom: 6,
+                    }}
+                  >
                     Yearly Index (base 2020 = 100)
                   </div>
                   <BarChart
                     data={years.map(y => {
                       const indices = DIVISION_INDICES[d.category];
-                      const val = indices ? (indices[y] || 100) : 100;
+                      const val = indices ? indices[y] || 100 : 100;
                       return {
                         label: String(y).slice(-2),
                         value: val,

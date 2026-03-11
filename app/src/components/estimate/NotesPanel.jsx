@@ -201,7 +201,9 @@ Generate 5-10 RFIs, prioritized by impact on bid accuracy.`,
               background: `linear-gradient(180deg, ${C.accent}08 0%, transparent 100%)`,
             }}
           >
-            <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>
+            <h3
+              style={{ margin: 0, fontSize: 14, fontWeight: 700, color: C.text, fontFamily: T.font.sans }}
+            >
               Notes & Exclusions
             </h3>
             <button
@@ -231,7 +233,7 @@ Generate 5-10 RFIs, prioritized by impact on bid accuracy.`,
                 fontWeight: 600,
                 border: "none",
                 cursor: "pointer",
-                fontFamily: "'DM Sans',sans-serif",
+                fontFamily: T.font.sans,
                 background: tab === t.key ? `${t.color}15` : "transparent",
                 color: tab === t.key ? t.color : C.textDim,
                 borderRadius: 6,
@@ -622,7 +624,7 @@ Generate 5-10 RFIs, prioritized by impact on bid accuracy.`,
                             color: C.purple,
                             fontWeight: 600,
                             marginBottom: 4,
-                            fontFamily: "'DM Sans',sans-serif",
+                            fontFamily: T.font.sans,
                           }}
                         >
                           Ref: {rfi.reference}

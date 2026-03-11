@@ -8,6 +8,7 @@ import { I } from "@/constants/icons";
 
 export default function AutoResponseBanner({ onReviewClick }) {
   const C = useTheme();
+  const T = C.T;
   const pendingCount = useAutoResponseStore(s => s.getPendingCount());
   const [snoozed, setSnoozed] = useState(false);
 
@@ -26,7 +27,7 @@ export default function AutoResponseBanner({ onReviewClick }) {
           ? "linear-gradient(135deg, rgba(124,92,252,0.08) 0%, rgba(191,90,242,0.04) 100%)"
           : "linear-gradient(135deg, rgba(124,92,252,0.06) 0%, rgba(191,90,242,0.03) 100%)",
         borderBottom: `1px solid ${dk ? "rgba(124,92,252,0.15)" : "rgba(124,92,252,0.12)"}`,
-        fontFamily: "'DM Sans', sans-serif",
+        fontFamily: T.font.sans,
         flexShrink: 0,
         zIndex: 20,
       }}
@@ -63,7 +64,7 @@ export default function AutoResponseBanner({ onReviewClick }) {
             background: "linear-gradient(135deg, #7C5CFC, #BF5AF2)",
             color: "#fff",
             cursor: "pointer",
-            fontFamily: "'DM Sans', sans-serif",
+            fontFamily: T.font.sans,
             transition: "opacity 0.15s",
           }}
           onMouseEnter={e => (e.currentTarget.style.opacity = "0.85")}

@@ -28,7 +28,6 @@ function injectOverrides() {
       border-radius: 20px !important;
       border: 1.5px dashed rgba(255,255,255,0.20) !important;
       opacity: 1 !important;
-      backdrop-filter: blur(8px) !important;
     }
     .react-resizable-handle {
       opacity: 0;

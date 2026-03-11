@@ -126,7 +126,8 @@ export function executeNovaTool(toolName, toolInput) {
 
   switch (toolName) {
     case "update_line_items": {
-      const { updates } = toolInput;
+      const rawUpdates = toolInput?.updates;
+      const updates = Array.isArray(rawUpdates) ? rawUpdates : rawUpdates ? [rawUpdates] : [];
       const results = [];
       let changeCount = 0;
 
@@ -162,12 +163,21 @@ export function executeNovaTool(toolName, toolInput) {
           if (costFields.includes(f)) val = clampCost(val);
           // Validate quantity — clamp negatives to 0
           if (f === "quantity") val = clampQty(val);
-          // Auto-derive trade from code when code changes and trade isn't explicitly set
-          if (f === "code" && !upd.trade) {
-            const derivedTrade = autoTradeFromCode(val);
-            if (derivedTrade && derivedTrade !== item.trade) {
-              before.trade = item.trade;
-              changes.trade = derivedTrade;
+          // Auto-derive division + trade from code when code changes and they aren't explicitly set
+          if (f === "code") {
+            if (!upd.division) {
+              const derivedDiv = divFromCode(val);
+              if (derivedDiv && derivedDiv !== item.division) {
+                before.division = item.division;
+                changes.division = derivedDiv;
+              }
+            }
+            if (!upd.trade) {
+              const derivedTrade = autoTradeFromCode(val);
+              if (derivedTrade && derivedTrade !== item.trade) {
+                before.trade = item.trade;
+                changes.trade = derivedTrade;
+              }
             }
           }
           // Only record if actually different
@@ -204,7 +214,8 @@ export function executeNovaTool(toolName, toolInput) {
     }
 
     case "add_line_items": {
-      const { items: newItems } = toolInput;
+      const rawItems = toolInput?.items;
+      const newItems = Array.isArray(rawItems) ? rawItems : rawItems ? [rawItems] : [];
       const results = [];
 
       for (const ni of newItems) {
@@ -250,7 +261,8 @@ export function executeNovaTool(toolName, toolInput) {
     }
 
     case "remove_line_items": {
-      const { item_ids } = toolInput;
+      const rawIds = toolInput?.item_ids;
+      const item_ids = Array.isArray(rawIds) ? rawIds : rawIds ? [rawIds] : [];
       // Deduplicate IDs
       const uniqueIds = [...new Set(item_ids)];
       const results = [];

@@ -254,7 +254,7 @@ export const PALETTES = [
         border: "#D4D0DE",
         borderLight: "#E2DFEA",
         sidebarBg: "rgba(248,247,252,0.90)",
-        bgGradient: `radial-gradient(ellipse at 18% 12%, ${hR("#7C3AED", 0.12)} 0%, transparent 50%), radial-gradient(ellipse at 82% 22%, ${hR("#3B82F6", 0.1)} 0%, transparent 50%), radial-gradient(ellipse at 50% 78%, ${hR("#C084FC", 0.08)} 0%, transparent 50%), #F8F7FC`,
+        bgGradient: `radial-gradient(ellipse at 18% 12%, ${hR("#7C3AED", 0.06)} 0%, transparent 50%), radial-gradient(ellipse at 82% 22%, ${hR("#3B82F6", 0.05)} 0%, transparent 50%), radial-gradient(ellipse at 50% 78%, ${hR("#C084FC", 0.04)} 0%, transparent 50%), #F8F7FC`,
       },
       {
         // 4 — Stardust — barely blue neutral
@@ -279,7 +279,7 @@ export const PALETTES = [
         border: "#CDD0DC",
         borderLight: "#DDDFE8",
         sidebarBg: "rgba(246,247,251,0.90)",
-        bgGradient: `radial-gradient(ellipse at 18% 12%, ${hR("#3B82F6", 0.12)} 0%, transparent 50%), radial-gradient(ellipse at 82% 22%, ${hR("#7C3AED", 0.1)} 0%, transparent 50%), radial-gradient(ellipse at 50% 72%, ${hR("#60A5FA", 0.08)} 0%, transparent 50%), #F6F7FB`,
+        bgGradient: `radial-gradient(ellipse at 18% 12%, ${hR("#3B82F6", 0.06)} 0%, transparent 50%), radial-gradient(ellipse at 82% 22%, ${hR("#7C3AED", 0.05)} 0%, transparent 50%), radial-gradient(ellipse at 50% 72%, ${hR("#60A5FA", 0.04)} 0%, transparent 50%), #F6F7FB`,
       },
     ],
   },

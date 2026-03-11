@@ -1136,11 +1136,11 @@ Return ONLY a JSON object. Example:
                       gap: 3,
                     }}
                   >
-                    <span style={{ fontWeight: 700, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>
+                    <span style={{ fontWeight: 700, color: C.text, fontFamily: T.font.sans }}>
                       Div {div}
                     </span>
                     <span style={{ color: C.textDim }}>{divInfo?.label || ""}</span>
-                    <span style={{ fontWeight: 700, color, fontFamily: "'DM Sans',sans-serif" }}>
+                    <span style={{ fontWeight: 700, color, fontFamily: T.font.sans }}>
                       {pct > 0 ? "+" : ""}
                       {pct}%
                     </span>
@@ -1807,13 +1807,13 @@ Return ONLY a JSON object. Example:
                       </div>
                     )}
                   </div>
-                  <div style={{ fontSize: 10, color: C.text, textAlign: "right", fontFamily: "'DM Sans',sans-serif" }}>
+                  <div style={{ fontSize: 10, color: C.text, textAlign: "right", fontFamily: T.font.sans }}>
                     {entry.projectSF > 0 ? entry.projectSF.toLocaleString() : "—"}
                   </div>
-                  <div style={{ fontSize: 10, color: C.text, textAlign: "right", fontFamily: "'DM Sans',sans-serif" }}>
+                  <div style={{ fontSize: 10, color: C.text, textAlign: "right", fontFamily: T.font.sans }}>
                     {costPerSF > 0 ? `$${costPerSF}` : "—"}
                   </div>
-                  <div style={{ fontSize: 10, textAlign: "right", fontFamily: "'DM Sans',sans-serif" }}>
+                  <div style={{ fontSize: 10, textAlign: "right", fontFamily: T.font.sans }}>
                     {adjCostPerSF > 0 && adjCostPerSF !== costPerSF ? (
                       <span style={{ color: C.accent, fontWeight: 600 }}>${adjCostPerSF}</span>
                     ) : adjCostPerSF > 0 ? (
@@ -1828,7 +1828,7 @@ Return ONLY a JSON object. Example:
                       color: C.text,
                       textAlign: "right",
                       fontWeight: 600,
-                      fontFamily: "'DM Sans',sans-serif",
+                      fontFamily: T.font.sans,
                     }}
                   >
                     {entry.totalCost > 0 ? fmtCost(entry.totalCost) : "—"}
@@ -2070,10 +2070,10 @@ Return ONLY a JSON object. Example:
                                 }}
                               >
                                 <span style={{ color: C.textDim }}>
-                                  <span style={{ fontWeight: 700, fontFamily: "'DM Sans',sans-serif" }}>{div}</span>{" "}
+                                  <span style={{ fontWeight: 700, fontFamily: T.font.sans }}>{div}</span>{" "}
                                   {divInfo?.label || ""}
                                 </span>
-                                <span style={{ fontWeight: 600, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>
+                                <span style={{ fontWeight: 600, color: C.text, fontFamily: T.font.sans }}>
                                   {fmtCost(cost)}
                                 </span>
                               </div>
@@ -2137,7 +2137,7 @@ Return ONLY a JSON object. Example:
                                   >
                                     <span style={{ color: C.textDim }}>{m.label || m.key}</span>
                                     <span
-                                      style={{ fontWeight: 600, color: catColor, fontFamily: "'DM Sans',sans-serif" }}
+                                      style={{ fontWeight: 600, color: catColor, fontFamily: T.font.sans }}
                                     >
                                       {m.type === "percent" ? `${m.inputValue}%` : ""} {fmtCost(m.calculatedAmount)}
                                     </span>

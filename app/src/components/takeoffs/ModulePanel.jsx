@@ -24,6 +24,7 @@ export default function ModulePanel({
   wallScheduleLoading,
 }) {
   const C = useTheme();
+  const T = C.T;
   const activeModule = useModuleStore(s => s.activeModule);
   const instances = useModuleStore(s => s.moduleInstances);
   const setActiveModule = useModuleStore(s => s.setActiveModule);
@@ -675,7 +676,7 @@ export default function ModulePanel({
               width: 45,
               textAlign: "right",
               fontSize: 11,
-              fontFamily: "'DM Sans',sans-serif",
+              fontFamily: T.font.sans,
               background: C.bg2,
               border: `1px solid ${C.border}`,
               borderRadius: 3,
@@ -688,7 +689,7 @@ export default function ModulePanel({
           <span
             style={{
               fontSize: 11,
-              fontFamily: "'DM Sans',sans-serif",
+              fontFamily: T.font.sans,
               color: hasQty ? C.text : C.textDimmer,
               fontFeatureSettings: "'tnum'",
               minWidth: 40,
@@ -1236,7 +1237,7 @@ export default function ModulePanel({
 
           {/* Driving qty */}
           {drivingQty > 0 && (
-            <span style={{ fontSize: 11, fontFamily: "'DM Sans',sans-serif", fontWeight: 600, color: C.text }}>
+            <span style={{ fontSize: 11, fontFamily: T.font.sans, fontWeight: 600, color: C.text }}>
               {drivingQty >= 1000 ? Math.round(drivingQty).toLocaleString() : Math.round(drivingQty * 100) / 100}
             </span>
           )}
@@ -1677,7 +1678,7 @@ export default function ModulePanel({
                     <span
                       style={{
                         fontSize: 12,
-                        fontFamily: "'DM Sans',sans-serif",
+                        fontFamily: T.font.sans,
                         fontWeight: 600,
                         color: C.text,
                         fontFeatureSettings: "'tnum'",

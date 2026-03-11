@@ -151,7 +151,7 @@ export default function BidPackagesPage() {
       style={{
         padding: `${T.space[6]}px ${T.space[7]}px`,
         maxWidth: view === "leveling" ? 1200 : 900,
-        fontFamily: "'DM Sans', sans-serif",
+        fontFamily: T.font.sans,
         transition: "max-width 200ms",
       }}
     >

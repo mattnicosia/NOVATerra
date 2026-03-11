@@ -1,9 +1,5 @@
 // CORS helper for serverless functions
-const ALLOWED_ORIGINS = [
-  "https://app-nova-42373ca7.vercel.app",
-  "http://localhost:5173",
-  "http://localhost:4173",
-];
+const ALLOWED_ORIGINS = ["https://app-nova-42373ca7.vercel.app", "http://localhost:5173", "http://localhost:4173"];
 
 export function cors(req, res) {
   const origin = req.headers.origin;

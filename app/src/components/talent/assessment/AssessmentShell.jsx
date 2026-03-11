@@ -46,7 +46,7 @@ export default function AssessmentShell({ moduleKey, totalQuestions, children })
         display: "flex",
         flexDirection: "column",
         height: "100%",
-        fontFamily: "'DM Sans', sans-serif",
+        fontFamily: T.font.sans,
       }}
     >
       {/* Fixed top bar */}
@@ -123,7 +123,7 @@ export default function AssessmentShell({ moduleKey, totalQuestions, children })
                 fontFeatureSettings: "'tnum'",
                 minWidth: 48,
                 textAlign: "center",
-                fontFamily: "'DM Sans', sans-serif",
+                fontFamily: T.font.sans,
               }}
             >
               {mm}:{ss}

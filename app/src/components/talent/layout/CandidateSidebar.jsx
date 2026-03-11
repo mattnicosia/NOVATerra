@@ -66,7 +66,7 @@ export default function CandidateSidebar({ activePath }) {
     textDecoration: "none",
     fontSize: T.fontSize.base,
     fontWeight: T.fontWeight.medium,
-    fontFamily: "'DM Sans', sans-serif",
+    fontFamily: T.font.sans,
     color: active ? P.accent : P.textMuted,
     background: active ? P.accentBg : "transparent",
     transition: "background 180ms ease-out, color 180ms ease-out",
@@ -82,7 +82,7 @@ export default function CandidateSidebar({ activePath }) {
     cursor: "pointer",
     fontSize: T.fontSize.base,
     fontWeight: T.fontWeight.medium,
-    fontFamily: "'DM Sans', sans-serif",
+    fontFamily: T.font.sans,
     color: P.textMuted,
     opacity: 0.4,
     transition: "opacity 180ms ease-out",
@@ -132,7 +132,7 @@ export default function CandidateSidebar({ activePath }) {
             style={{
               fontSize: T.fontSize.lg,
               fontWeight: T.fontWeight.bold,
-              fontFamily: "'DM Sans', sans-serif",
+              fontFamily: T.font.sans,
               color: P.text,
               letterSpacing: T.tracking.wide,
             }}
@@ -142,7 +142,7 @@ export default function CandidateSidebar({ activePath }) {
           <div
             style={{
               fontSize: T.fontSize.xs,
-              fontFamily: "'DM Sans', sans-serif",
+              fontFamily: T.font.sans,
               color: P.textDim,
               letterSpacing: T.tracking.wider,
             }}

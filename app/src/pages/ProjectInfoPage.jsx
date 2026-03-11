@@ -53,6 +53,7 @@ function calcCompletion(project) {
 
 /* ── Completion Ring (SVG) ── */
 function CompletionRing({ pct, size = 52, stroke = 3, C }) {
+  const T = C.T;
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
   const offset = circ * (1 - pct / 100);
@@ -84,7 +85,7 @@ function CompletionRing({ pct, size = 52, stroke = 3, C }) {
           fontSize: 11,
           fontWeight: 700,
           color,
-          fontFamily: "'DM Sans', sans-serif",
+          fontFamily: T.font.sans,
         }}
       >
         {pct}%
@@ -310,9 +311,12 @@ export default function ProjectInfoPage() {
 
   const up = (field, value) => setProject({ ...project, [field]: value });
 
-  const validateEstimateNumber = (val) => {
+  const validateEstimateNumber = val => {
     const trimmed = (val || "").trim();
-    if (!trimmed) { setEstNumError(""); return; }
+    if (!trimmed) {
+      setEstNumError("");
+      return;
+    }
     const all = useEstimatesStore.getState().estimatesIndex;
     const dup = all.find(e => e.estimateNumber === trimmed && e.id !== activeEstimateId);
     if (dup) {
@@ -463,15 +467,18 @@ export default function ProjectInfoPage() {
             <Fld label="Estimate Number">
               <input
                 value={project.estimateNumber || ""}
-                onFocus={() => { prevEstNumRef.current = project.estimateNumber || ""; }}
-                onChange={e => { setEstNumError(""); up("estimateNumber", e.target.value); }}
+                onFocus={() => {
+                  prevEstNumRef.current = project.estimateNumber || "";
+                }}
+                onChange={e => {
+                  setEstNumError("");
+                  up("estimateNumber", e.target.value);
+                }}
                 onBlur={e => validateEstimateNumber(e.target.value)}
                 placeholder="e.g. EST-2026-001"
                 style={inp(C, estNumError ? { borderColor: C.red } : {})}
               />
-              {estNumError && (
-                <div style={{ fontSize: 10, color: C.red, marginTop: 2 }}>{estNumError}</div>
-              )}
+              {estNumError && <div style={{ fontSize: 10, color: C.red, marginTop: 2 }}>{estNumError}</div>}
               {autoTag("estimateNumber")}
             </Fld>
             <Fld label="Project Name">
@@ -686,7 +693,10 @@ export default function ProjectInfoPage() {
                     up("estimator", coEsts[0] || "");
                     up("coEstimators", coEsts.slice(1));
                   } else {
-                    up("coEstimators", (project.coEstimators || []).filter(c => c !== name));
+                    up(
+                      "coEstimators",
+                      (project.coEstimators || []).filter(c => c !== name),
+                    );
                   }
                 };
                 const addEstimator = name => {
@@ -983,7 +993,6 @@ export default function ProjectInfoPage() {
           </div>
         </Sec>
 
-
         {/* Bid Outcome — visible when Won or Lost */}
         {["Won", "Lost"].includes(project.status) && (
           <Sec title="Bid Outcome" icon={SECTION_ICONS["Bid Outcome"]}>
@@ -1184,18 +1193,10 @@ export default function ProjectInfoPage() {
               )}
             </Fld>
             <Fld label="Bid Due Date">
-              <input
-                type="date"
-                value={project.bidDue}
-                onChange={e => up("bidDue", e.target.value)}
-                style={inp(C)}
-              />
+              <input type="date" value={project.bidDue} onChange={e => up("bidDue", e.target.value)} style={inp(C)} />
             </Fld>
             <Fld label="Bid Due Time">
-              <TimePicker
-                value={project.bidDueTime || "14:00"}
-                onChange={v => up("bidDueTime", v)}
-              />
+              <TimePicker value={project.bidDueTime || "14:00"} onChange={v => up("bidDueTime", v)} />
             </Fld>
             <Fld label="Walkthrough Date">
               <input
@@ -1206,10 +1207,7 @@ export default function ProjectInfoPage() {
               />
             </Fld>
             <Fld label="Walkthrough Time">
-              <TimePicker
-                value={project.walkthroughTime || ""}
-                onChange={v => up("walkthroughTime", v)}
-              />
+              <TimePicker value={project.walkthroughTime || ""} onChange={v => up("walkthroughTime", v)} />
             </Fld>
             <Fld label="RFI Due Date">
               <input
@@ -1220,10 +1218,7 @@ export default function ProjectInfoPage() {
               />
             </Fld>
             <Fld label="RFI Due Time">
-              <TimePicker
-                value={project.rfiDueTime || ""}
-                onChange={v => up("rfiDueTime", v)}
-              />
+              <TimePicker value={project.rfiDueTime || ""} onChange={v => up("rfiDueTime", v)} />
             </Fld>
             <Fld label={project.otherDueLabel || "Other Due Date"}>
               <input

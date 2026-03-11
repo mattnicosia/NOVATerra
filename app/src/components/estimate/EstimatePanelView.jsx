@@ -2,7 +2,7 @@
  * EstimatePanelView — Lightweight estimate grid for TakeoffsPage Full tier panel.
  * Renders grouped items with inline cost editing, same data sources as EstimatePage.
  */
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, memo } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useItemsStore } from "@/stores/itemsStore";
 import { useProjectStore } from "@/stores/projectStore";
@@ -13,7 +13,7 @@ import { nn, fmt, fmt2, formatCurrency } from "@/utils/format";
 import { getTradeLabel, getTradeSortOrder } from "@/constants/tradeGroupings";
 import LevelingView from "@/components/estimate/LevelingView";
 
-export default function EstimatePanelView({ onSelectItem, selectedItemId }) {
+function EstimatePanelView({ onSelectItem, selectedItemId }) {
   const C = useTheme();
   const T = C.T;
 
@@ -230,7 +230,7 @@ export default function EstimatePanelView({ onSelectItem, selectedItemId }) {
                         fontSize: 10,
                         color: C.textMuted,
                         fontFeatureSettings: "'tnum'",
-                        fontFamily: "'DM Sans',sans-serif",
+                        fontFamily: T.font.sans,
                       }}
                     >
                       {fmt(skTotal)}
@@ -443,7 +443,7 @@ export default function EstimatePanelView({ onSelectItem, selectedItemId }) {
               fontWeight: 800,
               color: C.text,
               fontFeatureSettings: "'tnum'",
-              fontFamily: "'DM Sans',sans-serif",
+              fontFamily: T.font.sans,
             }}
           >
             {fmt(totals.grand)}
@@ -453,3 +453,5 @@ export default function EstimatePanelView({ onSelectItem, selectedItemId }) {
     </div>
   );
 }
+
+export default memo(EstimatePanelView);

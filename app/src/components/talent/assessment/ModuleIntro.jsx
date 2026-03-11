@@ -96,7 +96,7 @@ export default function ModuleIntro({ moduleKey, onStart }) {
         justifyContent: "center",
         minHeight: "100%",
         padding: T.space[8],
-        fontFamily: "'DM Sans', sans-serif",
+        fontFamily: T.font.sans,
       }}
     >
       <div
@@ -137,7 +137,7 @@ export default function ModuleIntro({ moduleKey, onStart }) {
               fontWeight: T.fontWeight.bold,
               color: C.text,
               margin: 0,
-              fontFamily: "'DM Sans', sans-serif",
+              fontFamily: T.font.sans,
               letterSpacing: T.tracking.tight,
             }}
           >
@@ -232,7 +232,7 @@ export default function ModuleIntro({ moduleKey, onStart }) {
           style={accentButton(C, {
             padding: "12px 36px",
             fontSize: T.fontSize.md,
-            fontFamily: "'DM Sans', sans-serif",
+            fontFamily: T.font.sans,
             marginTop: T.space[2],
           })}
         >

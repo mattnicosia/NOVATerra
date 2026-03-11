@@ -376,7 +376,7 @@ export default function NovaSignInSplash({ onComplete, onTransitionStart }) {
         alignItems: "center",
         justifyContent: "center",
         overflow: "hidden",
-        fontFamily: "'DM Sans', sans-serif",
+        fontFamily: "'Switzer', sans-serif",
         cursor: "pointer",
       }}
     >

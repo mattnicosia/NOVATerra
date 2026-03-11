@@ -52,10 +52,29 @@ async function migrateFromLocalStorage(db) {
 
 let dbPromise = null;
 
+// Request persistent storage so the browser never silently evicts IDB data.
+// Without this, deploys that bust the HTML cache can trigger browser storage
+// cleanup — wiping all drawings, estimates, etc.
+let _persistRequested = false;
+async function requestPersistentStorage() {
+  if (_persistRequested) return;
+  _persistRequested = true;
+  try {
+    if (navigator.storage?.persist) {
+      const granted = await navigator.storage.persist();
+      console.log(`[storage] Persistent storage ${granted ? "granted ✓" : "denied — data may be evicted"}`);
+    }
+  } catch (e) {
+    console.warn("[storage] navigator.storage.persist() failed:", e);
+  }
+}
+
 function getDB() {
   if (!dbPromise) {
     dbPromise = openDB().then(async db => {
       await migrateFromLocalStorage(db);
+      // Fire-and-forget — don't block DB init on the permission prompt
+      requestPersistentStorage();
       return db;
     });
   }

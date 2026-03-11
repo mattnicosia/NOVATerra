@@ -1,4 +1,4 @@
-// Design Tokens — Command Center design system
+// Design Tokens — Artifakt design system
 // Single source of truth for spacing, typography, radii, shadows, transitions
 
 export const T = {
@@ -17,52 +17,53 @@ export const T = {
     10: 64,
   },
 
-  // Type scale — 10 sizes with clear contrast between steps
-  // UI sizes: xs/sm/base/md (tight cluster for interface text)
-  // Display sizes: lg/xl/2xl/3xl/4xl/5xl (dramatic jumps for headlines)
+  // Type scale — 11 sizes, anchored at 13px base
+  // UI sizes: xxs/xs/sm/base/md (tight cluster for interface text)
+  // Display sizes: lg/xl/2xl/3xl/4xl (dramatic jumps for headlines)
   fontSize: {
+    xxs: 8,
     xs: 10,
     sm: 11,
+    mono: 12,
     base: 13,
     md: 14,
-    lg: 16,
-    xl: 20,
+    lg: 17,
+    xl: 21,
     "2xl": 28,
     "3xl": 36,
     "4xl": 48,
-    "5xl": 60,
   },
 
-  // Font weights
+  // Font weights — Switzer supports 100-900 variable
   fontWeight: {
+    thin: 200,
+    light: 300,
     normal: 400,
     medium: 500,
     semibold: 600,
     bold: 700,
-    heavy: 800,
   },
 
   // Line heights
   lineHeight: {
-    tight: 1.2,
+    tight: 1.1,
     normal: 1.5,
-    relaxed: 1.6,
+    relaxed: 1.65,
   },
 
   // Letter spacing
   tracking: {
-    tight: -0.3,
+    tight: -0.5,
     normal: 0,
     wide: 0.5,
-    wider: 1.0,
     caps: 1.5,
   },
 
-  // Font families
+  // Font families — Switzer (UI) + JetBrains Mono (data)
   font: {
-    sans: "'DM Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-    mono: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif",
-    display: "'Outfit', 'DM Sans', sans-serif",
+    sans: "'Switzer', -apple-system, BlinkMacSystemFont, sans-serif",
+    mono: "'JetBrains Mono', 'SF Mono', 'Cascadia Code', monospace",
+    display: "'Switzer', sans-serif",
   },
 
   // Border radii — Apple Liquid Glass: larger, softer corners
@@ -143,58 +144,72 @@ export const T = {
     lg: { height: 40, padding: "10px 20px", fontSize: 14, iconSize: 16 },
   },
 
-  // Semantic typography presets — compose from existing scale values
+  // Semantic typography presets — Switzer (UI) + JetBrains Mono (data)
   type: {
-    heading: { fontSize: 20, fontWeight: 700, lineHeight: 1.2 },
-    subheading: { fontSize: 14, fontWeight: 600, lineHeight: 1.3 },
-    body: { fontSize: 13, fontWeight: 400, lineHeight: 1.5 },
-    caption: { fontSize: 10, fontWeight: 400, lineHeight: 1.4 },
-    label: { fontSize: 10, fontWeight: 600, lineHeight: 1.2, textTransform: "uppercase", letterSpacing: 1.5 },
-    mono: { fontSize: 12, fontWeight: 500, fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif" },
-    monoBig: { fontSize: 14, fontWeight: 600, fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif" },
-    // Numeric readout — large tabular numbers (Output VST "XY CONTROL 70 / 30" style)
+    heading: { fontSize: 21, fontWeight: 700, lineHeight: 1.1, letterSpacing: 0 },
+    subheading: { fontSize: 14, fontWeight: 600, lineHeight: 1.5, letterSpacing: 0.5 },
+    body: { fontSize: 13, fontWeight: 400, lineHeight: 1.5, letterSpacing: 0 },
+    bodySm: { fontSize: 11, fontWeight: 400, lineHeight: 1.5, letterSpacing: 0 },
+    caption: { fontSize: 10, fontWeight: 400, lineHeight: 1.5, letterSpacing: 0 },
+    label: { fontSize: 10, fontWeight: 600, lineHeight: 1.5, textTransform: "uppercase", letterSpacing: 1.5 },
+    badge: { fontSize: 8, fontWeight: 600, lineHeight: 1.5, letterSpacing: 0.5 },
+    button: { fontSize: 11, fontWeight: 600, lineHeight: 1.5, letterSpacing: 0.5 },
+    // Monospace — JetBrains Mono for tabular data
+    mono: {
+      fontSize: 12,
+      fontWeight: 500,
+      fontFamily: "'JetBrains Mono', 'SF Mono', 'Cascadia Code', monospace",
+      fontVariantNumeric: "tabular-nums",
+    },
+    monoBig: {
+      fontSize: 14,
+      fontWeight: 600,
+      fontFamily: "'JetBrains Mono', 'SF Mono', 'Cascadia Code', monospace",
+      fontVariantNumeric: "tabular-nums",
+    },
+    // Numeric readout — large tabular numbers
     numeric: {
       fontSize: 28,
       fontWeight: 700,
       letterSpacing: -0.5,
       fontVariantNumeric: "tabular-nums",
-      lineHeight: 1.0,
+      lineHeight: 1.1,
     },
     numericSm: {
-      fontSize: 20,
+      fontSize: 21,
       fontWeight: 700,
       letterSpacing: -0.3,
       fontVariantNumeric: "tabular-nums",
-      lineHeight: 1.0,
+      lineHeight: 1.1,
     },
-    // Display presets — Outfit for geometric precision at large sizes
+    // Display presets — Switzer Thin/Light for carved-from-stone feel
     display: {
       fontSize: 48,
-      fontWeight: 600,
+      fontWeight: 200,
       lineHeight: 1.05,
       letterSpacing: -1.5,
-      fontFamily: "'Outfit', 'DM Sans', sans-serif",
+      fontFamily: "'Switzer', sans-serif",
     },
     displaySm: {
       fontSize: 36,
-      fontWeight: 600,
+      fontWeight: 300,
       lineHeight: 1.1,
       letterSpacing: -1.0,
-      fontFamily: "'Outfit', 'DM Sans', sans-serif",
+      fontFamily: "'Switzer', sans-serif",
     },
     displayLg: {
-      fontSize: 60,
+      fontSize: 48,
       fontWeight: 700,
       lineHeight: 1.0,
-      letterSpacing: -2.0,
-      fontFamily: "'Outfit', 'DM Sans', sans-serif",
+      letterSpacing: -1.5,
+      fontFamily: "'Switzer', sans-serif",
     },
     hero: {
-      fontSize: 56,
-      fontWeight: 300,
+      fontSize: 48,
+      fontWeight: 200,
       lineHeight: 1.05,
-      letterSpacing: -1.5,
-      fontFamily: "'Outfit', 'DM Sans', sans-serif",
+      letterSpacing: -1.0,
+      fontFamily: "'Switzer', sans-serif",
     },
   },
 
@@ -214,35 +229,35 @@ export const T = {
   // Surface tint raised to 12%+ so panels read as distinct surfaces, not transparent.
   // Specular highlights bright enough to define glass edges. No brightness() amplification.
   glass: {
-    blur: "blur(24px) saturate(180%)",
-    blurLight: "blur(16px) saturate(160%)",
-    blurHover: "blur(28px) saturate(200%)",
-    bg: "rgba(255,255,255,0.12)",
-    bgDark: "rgba(10,10,22,0.55)",
-    border: "rgba(255,255,255,0.16)",
-    borderHover: "rgba(255,255,255,0.25)",
-    borderLight: "rgba(255,255,255,0.08)",
-    // Specular — prominent top-edge highlight defining the glass surface
-    specularSm: "inset 0 0.5px 0 rgba(255,255,255,0.28)",
-    specular: "inset 0 1px 0 rgba(255,255,255,0.35)",
-    specularLg: "inset 0 1px 0 rgba(255,255,255,0.42)",
-    specularHover: "inset 0 1px 0 rgba(255,255,255,0.50)",
+    blur: "blur(16px) saturate(140%)",
+    blurLight: "blur(12px) saturate(130%)",
+    blurHover: "blur(20px) saturate(160%)",
+    bg: "rgba(255,255,255,0.08)",
+    bgDark: "rgba(10,10,22,0.50)",
+    border: "rgba(255,255,255,0.10)",
+    borderHover: "rgba(255,255,255,0.18)",
+    borderLight: "rgba(255,255,255,0.05)",
+    // Specular — subtle top-edge highlight defining the glass surface
+    specularSm: "inset 0 0.5px 0 rgba(255,255,255,0.16)",
+    specular: "inset 0 1px 0 rgba(255,255,255,0.20)",
+    specularLg: "inset 0 1px 0 rgba(255,255,255,0.25)",
+    specularHover: "inset 0 1px 0 rgba(255,255,255,0.32)",
     // Hairline edge — subtle but visible
-    edge: "0 0 0 0.5px rgba(255,255,255,0.10)",
-    edgeHover: "0 0 0 0.5px rgba(255,255,255,0.18)",
+    edge: "0 0 0 0.5px rgba(255,255,255,0.06)",
+    edgeHover: "0 0 0 0.5px rgba(255,255,255,0.12)",
     // Bottom-edge specular — grounding the glass surface
-    specularBottom: "inset 0 -0.5px 0 rgba(255,255,255,0.10)",
-    specularBottomLg: "inset 0 -1px 0 rgba(255,255,255,0.16)",
+    specularBottom: "inset 0 -0.5px 0 rgba(255,255,255,0.06)",
+    specularBottomLg: "inset 0 -1px 0 rgba(255,255,255,0.10)",
     // Inner depth shadow — gives glass physical thickness
-    innerDepth: "inset 0 2px 6px rgba(0,0,0,0.12)",
-    innerDepthLg: "inset 0 3px 10px rgba(0,0,0,0.18)",
+    innerDepth: "inset 0 2px 6px rgba(0,0,0,0.08)",
+    innerDepthLg: "inset 0 3px 10px rgba(0,0,0,0.12)",
     // Refraction glow — subtle light spread at glass edges
-    refraction: "0 0 6px rgba(255,255,255,0.05)",
-    refractionHover: "0 0 10px rgba(255,255,255,0.08)",
+    refraction: "0 0 4px rgba(255,255,255,0.03)",
+    refractionHover: "0 0 8px rgba(255,255,255,0.05)",
     // Lens gradient — brightness variance within glass (CSS string for overlay)
-    lens: "linear-gradient(180deg, rgba(255,255,255,0.08) 0%, transparent 35%, transparent 75%, rgba(0,0,0,0.04) 100%)",
+    lens: "linear-gradient(180deg, rgba(255,255,255,0.05) 0%, transparent 35%, transparent 75%, rgba(0,0,0,0.03) 100%)",
     lensHover:
-      "linear-gradient(180deg, rgba(255,255,255,0.12) 0%, transparent 35%, transparent 75%, rgba(0,0,0,0.06) 100%)",
+      "linear-gradient(180deg, rgba(255,255,255,0.08) 0%, transparent 35%, transparent 75%, rgba(0,0,0,0.04) 100%)",
   },
 
   // ── NERO GLASS — "Black Glass From Another Planet" ──
@@ -371,11 +386,17 @@ export function buildTokens(density = "comfortable") {
       body: { fontSize: 12, fontWeight: 400, lineHeight: 1.4 },
       caption: { fontSize: 9, fontWeight: 400, lineHeight: 1.3 },
       label: { fontSize: 9, fontWeight: 600, lineHeight: 1.2, textTransform: "uppercase", letterSpacing: 1.2 },
-      mono: { fontSize: 11, fontWeight: 500, fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif" },
+      mono: {
+        fontSize: 11,
+        fontWeight: 500,
+        fontFamily: "'JetBrains Mono', 'SF Mono', monospace",
+        fontVariantNumeric: "tabular-nums",
+      },
       monoBig: {
         fontSize: 13,
         fontWeight: 600,
-        fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif",
+        fontFamily: "'JetBrains Mono', 'SF Mono', monospace",
+        fontVariantNumeric: "tabular-nums",
       },
       numeric: {
         fontSize: 24,

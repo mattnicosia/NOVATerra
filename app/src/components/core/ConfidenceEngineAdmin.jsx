@@ -27,7 +27,7 @@ function SliderRow({ label, value, onChange, min = 0, max = 1, step = 0.01, C, T
           fontSize: 12,
           fontWeight: 600,
           color: C.text,
-          fontFamily: "'DM Sans', monospace",
+          fontFamily: "'JetBrains Mono', monospace",
           textAlign: "right",
         }}
       >
@@ -41,7 +41,7 @@ function StatItem({ label, value, C }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
       <span style={{ fontSize: 11.5, color: C.textMuted }}>{label}</span>
-      <span style={{ fontSize: 12, fontWeight: 600, color: C.text, fontFamily: "'DM Sans', monospace" }}>
+      <span style={{ fontSize: 12, fontWeight: 600, color: C.text, fontFamily: "'JetBrains Mono', monospace" }}>
         {typeof value === "number" ? value.toLocaleString() : value}
       </span>
     </div>
@@ -124,7 +124,7 @@ export default function ConfidenceEngineAdmin() {
               fontSize: 13,
               fontWeight: 600,
               color: C.text,
-              fontFamily: "'DM Sans', sans-serif",
+              fontFamily: T.font.sans,
             }}
           >
             Subdivision Engine Config

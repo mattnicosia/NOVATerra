@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { Virtuoso } from "react-virtuoso";
 import { useTheme } from "@/hooks/useTheme";
 import { useProjectStore } from "@/stores/projectStore";
 import { useDatabaseStore } from "@/stores/databaseStore";
@@ -285,7 +286,7 @@ function SubdivisionsTab({ C, T }) {
                   <span
                     style={{
                       fontSize: 10,
-                      fontFamily: "'DM Sans',sans-serif",
+                      fontFamily: T.font.sans,
                       color: C.textDim,
                       fontWeight: 600,
                       width: 28,
@@ -397,7 +398,7 @@ function SubdivisionsTab({ C, T }) {
                             : "transparent",
                         }}
                       >
-                        <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: C.purple }}>
+                        <div style={{ fontFamily: T.font.sans, fontSize: 10, color: C.purple }}>
                           <span
                             style={{
                               display: "inline-block",
@@ -420,7 +421,7 @@ function SubdivisionsTab({ C, T }) {
                         <div
                           style={{
                             textAlign: "right",
-                            fontFamily: "'DM Sans',sans-serif",
+                            fontFamily: T.font.sans,
                             fontSize: 11,
                             color: C.text,
                             fontWeight: 500,
@@ -452,7 +453,7 @@ function SubdivisionsTab({ C, T }) {
                                 width: 54,
                                 padding: "2px 4px",
                                 fontSize: 11,
-                                fontFamily: "'DM Sans',sans-serif",
+                                fontFamily: T.font.sans,
                                 background: C.bg1,
                                 color: C.text,
                                 border: `1px solid ${C.accent}`,
@@ -632,6 +633,12 @@ export default function CostDatabasePage({ embedded = false }) {
     }
     return list;
   }, [elements, dbSearch, dbSelectedSub, showOverridesOnly]);
+
+  // Pre-sorted list for virtualized rendering (avoids re-sorting on each render)
+  const sortedDbElements = useMemo(
+    () => [...dbVisibleElements].sort((a, b) => (a.code || "").localeCompare(b.code || "")),
+    [dbVisibleElements],
+  );
 
   // Override summary for badge counts
   const overrideSummary = useMemo(() => {
@@ -920,7 +927,7 @@ export default function CostDatabasePage({ embedded = false }) {
                         <span
                           style={{
                             color: div.count > 0 ? C.accent : C.textDim,
-                            fontFamily: "'DM Sans',sans-serif",
+                            fontFamily: T.font.sans,
                             fontSize: 10,
                             minWidth: 18,
                           }}
@@ -978,7 +985,7 @@ export default function CostDatabasePage({ embedded = false }) {
                                 >
                                   <span
                                     style={{
-                                      fontFamily: "'DM Sans',sans-serif",
+                                      fontFamily: T.font.sans,
                                       color: isActive ? C.accent : hasItems ? C.textMuted : C.textDim,
                                       fontSize: 9,
                                     }}
@@ -1025,7 +1032,7 @@ export default function CostDatabasePage({ embedded = false }) {
                                 style={inp(C, {
                                   width: 56,
                                   fontSize: 9,
-                                  fontFamily: "'DM Sans',sans-serif",
+                                  fontFamily: T.font.sans,
                                   textAlign: "center",
                                   padding: "2px 3px",
                                 })}
@@ -1273,10 +1280,16 @@ export default function CostDatabasePage({ embedded = false }) {
                   <button
                     className="ghost-btn"
                     onClick={() => {
-                      if (confirm(`Revert all ${overrideSummary.overrideCount} override${overrideSummary.overrideCount !== 1 ? "s" : ""} to master pricing? This cannot be undone.`)) {
+                      if (
+                        confirm(
+                          `Revert all ${overrideSummary.overrideCount} override${overrideSummary.overrideCount !== 1 ? "s" : ""} to master pricing? This cannot be undone.`,
+                        )
+                      ) {
                         const overrides = elements.filter(e => e.source !== "master" && e.masterItemId);
                         overrides.forEach(o => revertOverride(o.id));
-                        showToast(`Reverted ${overrides.length} override${overrides.length !== 1 ? "s" : ""} to master pricing`);
+                        showToast(
+                          `Reverted ${overrides.length} override${overrides.length !== 1 ? "s" : ""} to master pricing`,
+                        );
                       }
                     }}
                     style={bt(C, {
@@ -1386,7 +1399,7 @@ export default function CostDatabasePage({ embedded = false }) {
                         autoFocus
                         style={inp(C, {
                           width: 110,
-                          fontFamily: "'DM Sans',sans-serif",
+                          fontFamily: T.font.sans,
                           fontSize: 11,
                           padding: "4px 8px",
                         })}
@@ -1465,11 +1478,13 @@ export default function CostDatabasePage({ embedded = false }) {
                   );
                 })()}
 
-              {/* Items list */}
-              <div style={{ flex: 1, overflowY: "auto" }}>
-                {dbVisibleElements
-                  .sort((a, b) => (a.code || "").localeCompare(b.code || ""))
-                  .map((el, idx) => {
+              {/* Items list — virtualized for performance with large databases */}
+              {sortedDbElements.length > 0 ? (
+                <Virtuoso
+                  style={{ flex: 1 }}
+                  data={sortedDbElements}
+                  overscan={200}
+                  itemContent={(idx, el) => {
                     const dirColor =
                       el.directive === "F/O"
                         ? C.blue
@@ -1517,7 +1532,7 @@ export default function CostDatabasePage({ embedded = false }) {
                               value={el.code}
                               onChange={e => editField("code", e.target.value)}
                               style={inp(C, {
-                                fontFamily: "'DM Sans',sans-serif",
+                                fontFamily: T.font.sans,
                                 fontSize: 10,
                                 padding: "3px 4px",
                                 textAlign: "center",
@@ -1621,7 +1636,7 @@ export default function CostDatabasePage({ embedded = false }) {
                           <>
                             <div
                               style={{
-                                fontFamily: "'DM Sans',sans-serif",
+                                fontFamily: T.font.sans,
                                 fontSize: 10,
                                 color: C.purple,
                                 fontWeight: 600,
@@ -1745,7 +1760,7 @@ export default function CostDatabasePage({ embedded = false }) {
                             <div
                               style={{
                                 textAlign: "right",
-                                fontFamily: "'DM Sans',sans-serif",
+                                fontFamily: T.font.sans,
                                 fontSize: 10,
                                 color: C.green,
                               }}
@@ -1755,7 +1770,7 @@ export default function CostDatabasePage({ embedded = false }) {
                             <div
                               style={{
                                 textAlign: "right",
-                                fontFamily: "'DM Sans',sans-serif",
+                                fontFamily: T.font.sans,
                                 fontSize: 10,
                                 color: C.blue,
                               }}
@@ -1765,7 +1780,7 @@ export default function CostDatabasePage({ embedded = false }) {
                             <div
                               style={{
                                 textAlign: "right",
-                                fontFamily: "'DM Sans',sans-serif",
+                                fontFamily: T.font.sans,
                                 fontSize: 10,
                                 color: C.orange,
                               }}
@@ -1775,7 +1790,7 @@ export default function CostDatabasePage({ embedded = false }) {
                             <div
                               style={{
                                 textAlign: "right",
-                                fontFamily: "'DM Sans',sans-serif",
+                                fontFamily: T.font.sans,
                                 fontSize: 10,
                                 color: C.red,
                               }}
@@ -1987,78 +2002,116 @@ export default function CostDatabasePage({ embedded = false }) {
                             </div>
                           </>
                         )}
-                        {compareId === el.id && el.masterItemId && (() => {
-                          const master = getMasterVersion(el.masterItemId);
-                          if (!master) return null;
-                          const delta = (a, b) => {
-                            const d = nn(a) - nn(b);
-                            return d === 0 ? "—" : (d > 0 ? "+" : "") + fmt2(d);
-                          };
-                          const dColor = (a, b) => nn(a) - nn(b) === 0 ? C.textDim : nn(a) > nn(b) ? C.red : C.green;
-                          return (
-                            <div
-                              style={{
-                                gridColumn: "1 / -1",
-                                padding: "8px 12px",
-                                background: `${C.orange}08`,
-                                borderTop: `1px solid ${C.orange}20`,
-                                display: "grid",
-                                gridTemplateColumns: "80px 1fr repeat(3, 80px)",
-                                gap: 8,
-                                fontSize: 10,
-                              }}
-                            >
-                              <div style={{ fontWeight: 700, color: C.textDim }}>Compare</div>
-                              <div />
-                              <div style={{ textAlign: "right", fontWeight: 700, color: C.green }}>Material</div>
-                              <div style={{ textAlign: "right", fontWeight: 700, color: C.blue }}>Labor</div>
-                              <div style={{ textAlign: "right", fontWeight: 700, color: C.orange }}>Equipment</div>
-                              <div style={{ color: C.textDim, fontWeight: 600 }}>Master</div>
-                              <div style={{ color: C.textDim }}>{titleCase(master.name)}</div>
-                              <div style={{ textAlign: "right", color: C.textMuted }}>{fmt2(master.material)}</div>
-                              <div style={{ textAlign: "right", color: C.textMuted }}>{fmt2(master.labor)}</div>
-                              <div style={{ textAlign: "right", color: C.textMuted }}>{fmt2(master.equipment)}</div>
-                              <div style={{ color: C.accent, fontWeight: 600 }}>Yours</div>
-                              <div style={{ color: C.text }}>{titleCase(el.name)}</div>
-                              <div style={{ textAlign: "right", color: C.green, fontWeight: 600 }}>{fmt2(el.material)}</div>
-                              <div style={{ textAlign: "right", color: C.blue, fontWeight: 600 }}>{fmt2(el.labor)}</div>
-                              <div style={{ textAlign: "right", color: C.orange, fontWeight: 600 }}>{fmt2(el.equipment)}</div>
-                              <div style={{ color: C.textDim, fontWeight: 600 }}>Delta</div>
-                              <div />
-                              <div style={{ textAlign: "right", fontWeight: 700, color: dColor(el.material, master.material) }}>{delta(el.material, master.material)}</div>
-                              <div style={{ textAlign: "right", fontWeight: 700, color: dColor(el.labor, master.labor) }}>{delta(el.labor, master.labor)}</div>
-                              <div style={{ textAlign: "right", fontWeight: 700, color: dColor(el.equipment, master.equipment) }}>{delta(el.equipment, master.equipment)}</div>
-                              <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end", paddingTop: 4 }}>
-                                <button
-                                  onClick={() => setCompareId(null)}
+                        {compareId === el.id &&
+                          el.masterItemId &&
+                          (() => {
+                            const master = getMasterVersion(el.masterItemId);
+                            if (!master) return null;
+                            const delta = (a, b) => {
+                              const d = nn(a) - nn(b);
+                              return d === 0 ? "—" : (d > 0 ? "+" : "") + fmt2(d);
+                            };
+                            const dColor = (a, b) =>
+                              nn(a) - nn(b) === 0 ? C.textDim : nn(a) > nn(b) ? C.red : C.green;
+                            return (
+                              <div
+                                style={{
+                                  gridColumn: "1 / -1",
+                                  padding: "8px 12px",
+                                  background: `${C.orange}08`,
+                                  borderTop: `1px solid ${C.orange}20`,
+                                  display: "grid",
+                                  gridTemplateColumns: "80px 1fr repeat(3, 80px)",
+                                  gap: 8,
+                                  fontSize: 10,
+                                }}
+                              >
+                                <div style={{ fontWeight: 700, color: C.textDim }}>Compare</div>
+                                <div />
+                                <div style={{ textAlign: "right", fontWeight: 700, color: C.green }}>Material</div>
+                                <div style={{ textAlign: "right", fontWeight: 700, color: C.blue }}>Labor</div>
+                                <div style={{ textAlign: "right", fontWeight: 700, color: C.orange }}>Equipment</div>
+                                <div style={{ color: C.textDim, fontWeight: 600 }}>Master</div>
+                                <div style={{ color: C.textDim }}>{titleCase(master.name)}</div>
+                                <div style={{ textAlign: "right", color: C.textMuted }}>{fmt2(master.material)}</div>
+                                <div style={{ textAlign: "right", color: C.textMuted }}>{fmt2(master.labor)}</div>
+                                <div style={{ textAlign: "right", color: C.textMuted }}>{fmt2(master.equipment)}</div>
+                                <div style={{ color: C.accent, fontWeight: 600 }}>Yours</div>
+                                <div style={{ color: C.text }}>{titleCase(el.name)}</div>
+                                <div style={{ textAlign: "right", color: C.green, fontWeight: 600 }}>
+                                  {fmt2(el.material)}
+                                </div>
+                                <div style={{ textAlign: "right", color: C.blue, fontWeight: 600 }}>
+                                  {fmt2(el.labor)}
+                                </div>
+                                <div style={{ textAlign: "right", color: C.orange, fontWeight: 600 }}>
+                                  {fmt2(el.equipment)}
+                                </div>
+                                <div style={{ color: C.textDim, fontWeight: 600 }}>Delta</div>
+                                <div />
+                                <div
                                   style={{
-                                    fontSize: 10,
-                                    fontWeight: 600,
-                                    color: C.textMuted,
-                                    background: "transparent",
-                                    border: `1px solid ${C.border}`,
-                                    borderRadius: 4,
-                                    padding: "3px 10px",
-                                    cursor: "pointer",
+                                    textAlign: "right",
+                                    fontWeight: 700,
+                                    color: dColor(el.material, master.material),
                                   }}
                                 >
-                                  Close
-                                </button>
+                                  {delta(el.material, master.material)}
+                                </div>
+                                <div
+                                  style={{ textAlign: "right", fontWeight: 700, color: dColor(el.labor, master.labor) }}
+                                >
+                                  {delta(el.labor, master.labor)}
+                                </div>
+                                <div
+                                  style={{
+                                    textAlign: "right",
+                                    fontWeight: 700,
+                                    color: dColor(el.equipment, master.equipment),
+                                  }}
+                                >
+                                  {delta(el.equipment, master.equipment)}
+                                </div>
+                                <div
+                                  style={{
+                                    gridColumn: "1 / -1",
+                                    display: "flex",
+                                    justifyContent: "flex-end",
+                                    paddingTop: 4,
+                                  }}
+                                >
+                                  <button
+                                    onClick={() => setCompareId(null)}
+                                    style={{
+                                      fontSize: 10,
+                                      fontWeight: 600,
+                                      color: C.textMuted,
+                                      background: "transparent",
+                                      border: `1px solid ${C.border}`,
+                                      borderRadius: 4,
+                                      padding: "3px 10px",
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    Close
+                                  </button>
+                                </div>
                               </div>
-                            </div>
-                          );
-                        })()}
+                            );
+                          })()}
                       </div>
                     );
-                  })}
-                {dbVisibleElements.length === 0 && (
+                  }}
+                />
+              ) : (
+                <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <EmptyState
                     icon={I.database}
                     title={`No items${dbSelectedSub ? ` in ${dbSelectedSub}` : ""}`}
                     subtitle={dbSearch ? `No results for "${dbSearch}"` : 'Click "Create Scope Item" to add one.'}
                   />
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -2317,7 +2370,7 @@ export default function CostDatabasePage({ embedded = false }) {
                               }
                               placeholder="01, 02..."
                               onClick={e => e.stopPropagation()}
-                              style={inp(C, { fontSize: 10, padding: "3px 6px", fontFamily: "'DM Sans',sans-serif" })}
+                              style={inp(C, { fontSize: 10, padding: "3px 6px", fontFamily: T.font.sans })}
                             />
                             <div style={{ textAlign: "center", fontSize: 10, color: C.textDim }}>{count}</div>
                             <div style={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
@@ -2349,7 +2402,7 @@ export default function CostDatabasePage({ embedded = false }) {
                             <div
                               style={{
                                 textAlign: "center",
-                                fontFamily: "'DM Sans',sans-serif",
+                                fontFamily: T.font.sans,
                                 fontSize: 10,
                                 color: C.textDim,
                               }}
@@ -2376,7 +2429,7 @@ export default function CostDatabasePage({ embedded = false }) {
                               )}
                               <span style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{bundle.label}</span>
                             </div>
-                            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, color: C.textMuted }}>
+                            <div style={{ fontFamily: T.font.sans, fontSize: 9, color: C.textMuted }}>
                               {(bundle.divisions || []).length > 0 ? (
                                 bundle.divisions.join(", ")
                               ) : (
@@ -2489,7 +2542,7 @@ export default function CostDatabasePage({ embedded = false }) {
                                   alignItems: "center",
                                 }}
                               >
-                                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, color: C.purple }}>
+                                <div style={{ fontFamily: T.font.sans, fontSize: 9, color: C.purple }}>
                                   {el.code || "—"}
                                 </div>
                                 <div
@@ -2506,7 +2559,7 @@ export default function CostDatabasePage({ embedded = false }) {
                                 <div
                                   style={{
                                     textAlign: "right",
-                                    fontFamily: "'DM Sans',sans-serif",
+                                    fontFamily: T.font.sans,
                                     fontSize: 10,
                                     color: C.green,
                                   }}
@@ -2516,7 +2569,7 @@ export default function CostDatabasePage({ embedded = false }) {
                                 <div
                                   style={{
                                     textAlign: "right",
-                                    fontFamily: "'DM Sans',sans-serif",
+                                    fontFamily: T.font.sans,
                                     fontSize: 10,
                                     color: C.blue,
                                   }}
@@ -2526,7 +2579,7 @@ export default function CostDatabasePage({ embedded = false }) {
                                 <div
                                   style={{
                                     textAlign: "right",
-                                    fontFamily: "'DM Sans',sans-serif",
+                                    fontFamily: T.font.sans,
                                     fontSize: 10,
                                     color: C.orange,
                                   }}
@@ -2536,7 +2589,7 @@ export default function CostDatabasePage({ embedded = false }) {
                                 <div
                                   style={{
                                     textAlign: "right",
-                                    fontFamily: "'DM Sans',sans-serif",
+                                    fontFamily: T.font.sans,
                                     fontSize: 10,
                                     color: C.red,
                                   }}

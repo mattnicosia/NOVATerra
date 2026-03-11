@@ -112,11 +112,12 @@ export const useActivityTimerStore = create((set, get) => ({
 
   /**
    * Record mouse movement distance.
+   * PERF: Accepts pre-computed distance (batched from useActivityTracker).
+   * Called at most every 2s — not on every mousemove.
    */
-  recordMouseMove: (dx, dy) => {
+  recordMouseMove: dist => {
     const session = get().currentSession;
-    if (!session) return;
-    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (!session || dist <= 0) return;
     set({
       currentSession: {
         ...session,

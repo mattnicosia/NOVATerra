@@ -1,11 +1,11 @@
 // GanttChart.jsx — SVG Gantt chart visualization
 // Renders horizontal bars per trade activity with dependency arrows and critical path
 
-import { useMemo, useState } from 'react';
-import { useTheme } from '@/hooks/useTheme';
-import { useScheduleStore } from '@/stores/scheduleStore';
-import { dayToDate, formatDate } from '@/utils/scheduleEngine';
-import { fmt } from '@/utils/format';
+import { useMemo, useState } from "react";
+import { useTheme } from "@/hooks/useTheme";
+import { useScheduleStore } from "@/stores/scheduleStore";
+import { dayToDate, formatDate } from "@/utils/scheduleEngine";
+import { fmt } from "@/utils/format";
 
 const ROW_H = 36;
 const LABEL_W = 180;
@@ -48,7 +48,9 @@ export default function GanttChart() {
   // Build activity ID map for dependency arrows
   const idxMap = useMemo(() => {
     const m = {};
-    activities.forEach((a, i) => { m[a.id] = i; });
+    activities.forEach((a, i) => {
+      m[a.id] = i;
+    });
     return m;
   }, [activities]);
 
@@ -80,7 +82,14 @@ export default function GanttChart() {
           return (
             <g key={`tick-${d}`}>
               <line x1={x} y1={PAD_T} x2={x} y2={chartH - PAD_B} stroke={C.border} strokeWidth={0.5} opacity={0.5} />
-              <text x={x} y={chartH - PAD_B + 16} textAnchor="middle" fontSize={9} fill={C.textDim} fontFamily="'DM Sans',sans-serif">
+              <text
+                x={x}
+                y={chartH - PAD_B + 16}
+                textAnchor="middle"
+                fontSize={9}
+                fill={C.textDim}
+                fontFamily="'Switzer', sans-serif"
+              >
                 {d === 0 ? "Start" : `Day ${d}`}
               </text>
             </g>
@@ -144,7 +153,7 @@ export default function GanttChart() {
                 y={y + ROW_H / 2 + 1}
                 textAnchor="end"
                 fontSize={11}
-                fontFamily="'DM Sans',sans-serif"
+                fontFamily="'Switzer', sans-serif"
                 fontWeight={act.isCritical ? 600 : 400}
                 fill={isSelected ? C.accent : C.text}
               >
@@ -176,7 +185,7 @@ export default function GanttChart() {
                   y={y + ROW_H / 2 + 1}
                   textAnchor="middle"
                   fontSize={9}
-                  fontFamily="'DM Sans',sans-serif"
+                  fontFamily="'Switzer', sans-serif"
                   fontWeight={600}
                   fill="#fff"
                   pointerEvents="none"
@@ -200,13 +209,7 @@ export default function GanttChart() {
 
               {/* Critical path marker */}
               {act.isCritical && (
-                <circle
-                  cx={LABEL_W - 16}
-                  cy={y + ROW_H / 2}
-                  r={3}
-                  fill={C.red || "#ef4444"}
-                  opacity={0.8}
-                />
+                <circle cx={LABEL_W - 16} cy={y + ROW_H / 2} r={3} fill={C.red || "#ef4444"} opacity={0.8} />
               )}
 
               {/* Hover tooltip */}
@@ -220,10 +223,10 @@ export default function GanttChart() {
                     rx={4}
                     fill="rgba(0,0,0,0.85)"
                   />
-                  <text x={barX + barWidth + 14} y={y + 14} fontSize={9} fill="#fff" fontFamily="'DM Sans',sans-serif">
+                  <text x={barX + barWidth + 14} y={y + 14} fontSize={9} fill="#fff" fontFamily="'Switzer', sans-serif">
                     {act.duration}d · ES:{act.earlyStart} EF:{act.earlyFinish}
                   </text>
-                  <text x={barX + barWidth + 14} y={y + 26} fontSize={9} fill="#aaa" fontFamily="'DM Sans',sans-serif">
+                  <text x={barX + barWidth + 14} y={y + 26} fontSize={9} fill="#aaa" fontFamily="'Switzer', sans-serif">
                     {fmt(act.totalCost)} · Float: {act.totalFloat}d
                   </text>
                 </g>

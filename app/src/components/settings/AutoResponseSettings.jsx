@@ -16,6 +16,7 @@ const TRIGGER_ORDER = [
 
 export default function AutoResponseSettings() {
   const C = useTheme();
+  const T = C.T;
   const dk = C.isDark !== false;
   const triggerConfig = useAutoResponseStore(s => s.triggerConfig);
   const updateTrigger = useAutoResponseStore(s => s.updateTrigger);
@@ -25,7 +26,7 @@ export default function AutoResponseSettings() {
   const pendingCount = drafts.filter(d => d.status === "pending").length;
 
   return (
-    <div style={{ fontFamily: "'DM Sans', sans-serif" }}>
+    <div style={{ fontFamily: T.font.sans }}>
       {/* Description */}
       <p style={{ fontSize: 12, color: C.textDim, margin: "0 0 16px", lineHeight: 1.5 }}>
         NOVA automatically drafts email responses when subcontractors interact with your bid packages. All drafts are

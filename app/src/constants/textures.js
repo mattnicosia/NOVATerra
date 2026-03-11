@@ -14,7 +14,7 @@
 // Inspired by Output Thermal's flowing terrain lines.
 // Organic concentric curves in ultra-subtle white, ~400x400 tile.
 const topoSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
-  <defs><style>path{fill:none;stroke:rgba(255,255,255,0.035);stroke-width:0.8}</style></defs>
+  <defs><style>path{fill:none;stroke:rgba(255,255,255,0.018);stroke-width:0.6}</style></defs>
   <path d="M-20,200 Q80,120 200,140 T420,200"/>
   <path d="M-20,170 Q100,80 200,110 T420,170"/>
   <path d="M-20,230 Q60,160 200,170 T420,230"/>

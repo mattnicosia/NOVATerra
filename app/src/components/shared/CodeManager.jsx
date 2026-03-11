@@ -1,11 +1,11 @@
-import { useState, useMemo } from 'react';
-import { useTheme } from '@/hooks/useTheme';
-import { useProjectStore } from '@/stores/projectStore';
-import { CODE_SYSTEMS } from '@/constants/codeSystems';
-import Modal from '@/components/shared/Modal';
-import Ic from '@/components/shared/Ic';
-import { I } from '@/constants/icons';
-import { bt, inp } from '@/utils/styles';
+import { useState, useMemo } from "react";
+import { useTheme } from "@/hooks/useTheme";
+import { useProjectStore } from "@/stores/projectStore";
+import { CODE_SYSTEMS } from "@/constants/codeSystems";
+import Modal from "@/components/shared/Modal";
+import Ic from "@/components/shared/Ic";
+import { I } from "@/constants/icons";
+import { bt, inp } from "@/utils/styles";
 
 export default function CodeManager({ onClose }) {
   const C = useTheme();
@@ -78,9 +78,11 @@ export default function CodeManager({ onClose }) {
     let entries = Object.entries(allCodes).sort(([a], [b]) => a.localeCompare(b));
     if (filter) {
       const q = filter.toLowerCase();
-      entries = entries.filter(([dc, div]) =>
-        dc.includes(q) || div.name.toLowerCase().includes(q) ||
-        Object.entries(div.subs || {}).some(([sk, sn]) => sk.includes(q) || sn.toLowerCase().includes(q))
+      entries = entries.filter(
+        ([dc, div]) =>
+          dc.includes(q) ||
+          div.name.toLowerCase().includes(q) ||
+          Object.entries(div.subs || {}).some(([sk, sn]) => sk.includes(q) || sn.toLowerCase().includes(q)),
       );
     }
     return entries;
@@ -97,7 +99,7 @@ export default function CodeManager({ onClose }) {
     setAddDivOpen(false);
   };
 
-  const handleAddSubdivision = (divCode) => {
+  const handleAddSubdivision = divCode => {
     const code = newSubCode.trim();
     const name = newSubName.trim();
     if (!code || !name) return;
@@ -109,7 +111,7 @@ export default function CodeManager({ onClose }) {
     setAddSubOpen(null);
   };
 
-  const handleRenameDiv = (divCode) => {
+  const handleRenameDiv = divCode => {
     if (!editDivName.trim()) return;
     renameDivision(divCode, editDivName.trim());
     setEditingDiv(null);
@@ -121,15 +123,18 @@ export default function CodeManager({ onClose }) {
     setEditingSub(null);
   };
 
-  const isDivHidden = (dc) => hidden.divisions.includes(dc);
-  const isSubHidden = (sk) => hidden.subdivisions.includes(sk);
+  const isDivHidden = dc => hidden.divisions.includes(dc);
+  const isSubHidden = sk => hidden.subdivisions.includes(sk);
 
   return (
     <Modal onClose={onClose} wide>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: T.space[4] }}>
         <div>
           <div style={{ fontSize: T.fontSize.lg, fontWeight: T.fontWeight.bold, color: C.text }}>Manage Cost Codes</div>
-          <div style={{ fontSize: T.fontSize.xs, color: C.textDim, marginTop: 2 }}>{sysName} &middot; {Object.keys(activeCodes).length} divisions{totalHidden > 0 ? ` \u00b7 ${totalHidden} hidden` : ""}</div>
+          <div style={{ fontSize: T.fontSize.xs, color: C.textDim, marginTop: 2 }}>
+            {sysName} &middot; {Object.keys(activeCodes).length} divisions
+            {totalHidden > 0 ? ` \u00b7 ${totalHidden} hidden` : ""}
+          </div>
         </div>
         <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
           <Ic d={I.x} size={16} color={C.textDim} />
@@ -156,7 +161,8 @@ export default function CodeManager({ onClose }) {
               background: showHidden ? C.bg2 : "transparent",
               border: `1px solid ${C.border}`,
               color: showHidden ? C.text : C.textMuted,
-              padding: "6px 12px", fontSize: 10,
+              padding: "6px 12px",
+              fontSize: 10,
             })}
           >
             <Ic d={showHidden ? I.eye : I.eyeOff} size={12} color={showHidden ? C.text : C.textDim} />
@@ -164,7 +170,11 @@ export default function CodeManager({ onClose }) {
           </button>
         )}
         <button
-          onClick={() => { setAddDivOpen(true); setNewDivCode(""); setNewDivName(""); }}
+          onClick={() => {
+            setAddDivOpen(true);
+            setNewDivCode("");
+            setNewDivName("");
+          }}
           style={bt(C, { background: C.accent, color: "#fff", padding: "6px 14px", fontSize: 11 })}
         >
           <Ic d={I.plus} size={12} color="#fff" sw={2.5} /> Add Division
@@ -173,17 +183,24 @@ export default function CodeManager({ onClose }) {
 
       {/* Add Division inline form */}
       {addDivOpen && (
-        <div style={{
-          background: C.accentBg, border: `1px solid ${C.accent}40`, borderRadius: T.radius.sm,
-          padding: `${T.space[3]}px ${T.space[4]}px`, marginBottom: T.space[3],
-          display: "flex", gap: T.space[2], alignItems: "center",
-        }}>
+        <div
+          style={{
+            background: C.accentBg,
+            border: `1px solid ${C.accent}40`,
+            borderRadius: T.radius.sm,
+            padding: `${T.space[3]}px ${T.space[4]}px`,
+            marginBottom: T.space[3],
+            display: "flex",
+            gap: T.space[2],
+            alignItems: "center",
+          }}
+        >
           <input
             placeholder="Code (e.g. 50)"
             value={newDivCode}
             onChange={e => setNewDivCode(e.target.value)}
             autoFocus
-            style={inp(C, { width: 80, fontSize: 12, fontFamily: "'DM Sans',sans-serif", textAlign: "center" })}
+            style={inp(C, { width: 80, fontSize: 12, fontFamily: T.font.sans, textAlign: "center" })}
           />
           <input
             placeholder="Division name..."
@@ -192,10 +209,22 @@ export default function CodeManager({ onClose }) {
             onKeyDown={e => e.key === "Enter" && handleAddDivision()}
             style={inp(C, { flex: 1, fontSize: 12 })}
           />
-          <button onClick={handleAddDivision} style={bt(C, { background: C.accent, color: "#fff", padding: "5px 12px", fontSize: 10 })}>
+          <button
+            onClick={handleAddDivision}
+            style={bt(C, { background: C.accent, color: "#fff", padding: "5px 12px", fontSize: 10 })}
+          >
             Add
           </button>
-          <button onClick={() => setAddDivOpen(false)} style={bt(C, { background: "transparent", border: `1px solid ${C.border}`, color: C.textMuted, padding: "5px 10px", fontSize: 10 })}>
+          <button
+            onClick={() => setAddDivOpen(false)}
+            style={bt(C, {
+              background: "transparent",
+              border: `1px solid ${C.border}`,
+              color: C.textMuted,
+              padding: "5px 10px",
+              fontSize: 10,
+            })}
+          >
             Cancel
           </button>
         </div>
@@ -216,7 +245,9 @@ export default function CodeManager({ onClose }) {
               {/* Division row */}
               <div
                 style={{
-                  display: "flex", alignItems: "center", gap: T.space[2],
+                  display: "flex",
+                  alignItems: "center",
+                  gap: T.space[2],
                   padding: `${T.space[2]}px ${T.space[3]}px`,
                   borderBottom: `1px solid ${C.border}`,
                   background: divHidden ? `${C.red}08` : isExpanded ? C.bg2 : "transparent",
@@ -224,27 +255,73 @@ export default function CodeManager({ onClose }) {
                 }}
                 onClick={() => setExpandedDiv(isExpanded ? null : dc)}
               >
-                <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke={C.textDim} strokeWidth="1.5"
-                  style={{ transform: isExpanded ? "rotate(90deg)" : "rotate(0)", transition: "transform 0.15s", flexShrink: 0 }}>
+                <svg
+                  width="8"
+                  height="8"
+                  viewBox="0 0 8 8"
+                  fill="none"
+                  stroke={C.textDim}
+                  strokeWidth="1.5"
+                  style={{
+                    transform: isExpanded ? "rotate(90deg)" : "rotate(0)",
+                    transition: "transform 0.15s",
+                    flexShrink: 0,
+                  }}
+                >
                   <path d="M2 0.5l3.5 3.5L2 7.5" />
                 </svg>
-                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, color: C.accent, fontWeight: 700, minWidth: 22 }}>{dc}</span>
+                <span
+                  style={{
+                    fontFamily: T.font.sans,
+                    fontSize: 11,
+                    color: C.accent,
+                    fontWeight: 700,
+                    minWidth: 22,
+                  }}
+                >
+                  {dc}
+                </span>
 
                 {editingDiv === dc ? (
                   <input
                     value={editDivName}
                     onChange={e => setEditDivName(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter") handleRenameDiv(dc); if (e.key === "Escape") setEditingDiv(null); }}
+                    onKeyDown={e => {
+                      if (e.key === "Enter") handleRenameDiv(dc);
+                      if (e.key === "Escape") setEditingDiv(null);
+                    }}
                     onBlur={() => handleRenameDiv(dc)}
                     autoFocus
                     onClick={e => e.stopPropagation()}
                     style={inp(C, { fontSize: 11, padding: "2px 6px", flex: 1 })}
                   />
                 ) : (
-                  <span style={{ flex: 1, fontSize: 11, fontWeight: 600, color: divHidden ? C.textDim : C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textDecoration: divHidden ? "line-through" : "none" }}>
+                  <span
+                    style={{
+                      flex: 1,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: divHidden ? C.textDim : C.text,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      textDecoration: divHidden ? "line-through" : "none",
+                    }}
+                  >
                     {div.name}
                     {isCustomDiv && (
-                      <span style={{ marginLeft: 6, fontSize: 8, fontWeight: 700, color: C.accent, background: C.accentBg, padding: "1px 5px", borderRadius: 3, verticalAlign: "middle" }}>
+                      <span
+                        style={{
+                          marginLeft: 6,
+                          fontSize: 8,
+                          fontWeight: 700,
+                          color: C.accent,
+                          background: C.accentBg,
+                          padding: "1px 5px",
+                          borderRadius: 3,
+                          verticalAlign: "middle",
+                        }}
+                      >
                         CUSTOM
                       </span>
                     )}
@@ -258,8 +335,21 @@ export default function CodeManager({ onClose }) {
                   <button
                     className="icon-btn"
                     title={divHidden ? "Show division" : "Hide division"}
-                    onClick={e => { e.stopPropagation(); toggleHideDivision(dc); }}
-                    style={{ width: 22, height: 22, border: "none", background: "transparent", borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                    onClick={e => {
+                      e.stopPropagation();
+                      toggleHideDivision(dc);
+                    }}
+                    style={{
+                      width: 22,
+                      height: 22,
+                      border: "none",
+                      background: "transparent",
+                      borderRadius: 3,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                    }}
                   >
                     <Ic d={divHidden ? I.eyeOff : I.eye} size={11} color={divHidden ? C.red : C.textDim} />
                   </button>
@@ -270,8 +360,22 @@ export default function CodeManager({ onClose }) {
                     <button
                       className="icon-btn"
                       title="Rename division"
-                      onClick={e => { e.stopPropagation(); setEditingDiv(dc); setEditDivName(div.name); }}
-                      style={{ width: 22, height: 22, border: "none", background: "transparent", borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                      onClick={e => {
+                        e.stopPropagation();
+                        setEditingDiv(dc);
+                        setEditDivName(div.name);
+                      }}
+                      style={{
+                        width: 22,
+                        height: 22,
+                        border: "none",
+                        background: "transparent",
+                        borderRadius: 3,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: "pointer",
+                      }}
                     >
                       <Ic d={I.edit} size={11} color={C.textDim} />
                     </button>
@@ -285,7 +389,17 @@ export default function CodeManager({ onClose }) {
                           if (expandedDiv === dc) setExpandedDiv(null);
                         }
                       }}
-                      style={{ width: 22, height: 22, border: "none", background: "transparent", borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                      style={{
+                        width: 22,
+                        height: 22,
+                        border: "none",
+                        background: "transparent",
+                        borderRadius: 3,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: "pointer",
+                      }}
                     >
                       <Ic d={I.trash} size={11} color={C.red} />
                     </button>
@@ -302,15 +416,28 @@ export default function CodeManager({ onClose }) {
                     // Only show hidden subs when showHidden is on (they're already filtered by getActiveCodes)
                     // but we re-add them in allCodes above when showHidden is true
                     return (
-                      <div key={subKey} style={{
-                        display: "flex", alignItems: "center", gap: T.space[2],
-                        padding: `${T.space[1]}px ${T.space[3]}px ${T.space[1]}px 36px`,
-                        borderBottom: `1px solid ${C.bg}`,
-                        fontSize: 10,
-                        opacity: subHidden ? 0.45 : 1,
-                        background: subHidden ? `${C.red}06` : "transparent",
-                      }}>
-                        <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: C.purple, fontWeight: 600, minWidth: 42 }}>
+                      <div
+                        key={subKey}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: T.space[2],
+                          padding: `${T.space[1]}px ${T.space[3]}px ${T.space[1]}px 36px`,
+                          borderBottom: `1px solid ${C.bg}`,
+                          fontSize: 10,
+                          opacity: subHidden ? 0.45 : 1,
+                          background: subHidden ? `${C.red}06` : "transparent",
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontFamily: T.font.sans,
+                            fontSize: 10,
+                            color: C.purple,
+                            fontWeight: 600,
+                            minWidth: 42,
+                          }}
+                        >
                           {subKey}
                         </span>
 
@@ -318,16 +445,39 @@ export default function CodeManager({ onClose }) {
                           <input
                             value={editSubName}
                             onChange={e => setEditSubName(e.target.value)}
-                            onKeyDown={e => { if (e.key === "Enter") handleRenameSub(dc, subKey); if (e.key === "Escape") setEditingSub(null); }}
+                            onKeyDown={e => {
+                              if (e.key === "Enter") handleRenameSub(dc, subKey);
+                              if (e.key === "Escape") setEditingSub(null);
+                            }}
                             onBlur={() => handleRenameSub(dc, subKey)}
                             autoFocus
                             style={inp(C, { fontSize: 10, padding: "1px 6px", flex: 1 })}
                           />
                         ) : (
-                          <span style={{ flex: 1, color: subHidden ? C.textDim : C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textDecoration: subHidden ? "line-through" : "none" }}>
+                          <span
+                            style={{
+                              flex: 1,
+                              color: subHidden ? C.textDim : C.text,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              textDecoration: subHidden ? "line-through" : "none",
+                            }}
+                          >
                             {subName}
                             {isCustomSub && (
-                              <span style={{ marginLeft: 6, fontSize: 7, fontWeight: 700, color: C.accent, background: C.accentBg, padding: "0px 4px", borderRadius: 2, verticalAlign: "middle" }}>
+                              <span
+                                style={{
+                                  marginLeft: 6,
+                                  fontSize: 7,
+                                  fontWeight: 700,
+                                  color: C.accent,
+                                  background: C.accentBg,
+                                  padding: "0px 4px",
+                                  borderRadius: 2,
+                                  verticalAlign: "middle",
+                                }}
+                              >
                                 CUSTOM
                               </span>
                             )}
@@ -340,7 +490,17 @@ export default function CodeManager({ onClose }) {
                             className="icon-btn"
                             title={subHidden ? "Show subdivision" : "Hide subdivision"}
                             onClick={() => toggleHideSubdivision(subKey)}
-                            style={{ width: 18, height: 18, border: "none", background: "transparent", borderRadius: 2, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                            style={{
+                              width: 18,
+                              height: 18,
+                              border: "none",
+                              background: "transparent",
+                              borderRadius: 2,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              cursor: "pointer",
+                            }}
                           >
                             <Ic d={subHidden ? I.eyeOff : I.eye} size={9} color={subHidden ? C.red : C.textDim} />
                           </button>
@@ -351,8 +511,21 @@ export default function CodeManager({ onClose }) {
                             <button
                               className="icon-btn"
                               title="Rename subdivision"
-                              onClick={() => { setEditingSub({ div: dc, sub: subKey }); setEditSubName(subName); }}
-                              style={{ width: 18, height: 18, border: "none", background: "transparent", borderRadius: 2, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                              onClick={() => {
+                                setEditingSub({ div: dc, sub: subKey });
+                                setEditSubName(subName);
+                              }}
+                              style={{
+                                width: 18,
+                                height: 18,
+                                border: "none",
+                                background: "transparent",
+                                borderRadius: 2,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                cursor: "pointer",
+                              }}
                             >
                               <Ic d={I.edit} size={9} color={C.textDim} />
                             </button>
@@ -364,7 +537,17 @@ export default function CodeManager({ onClose }) {
                                   removeSubdivision(dc, subKey);
                                 }
                               }}
-                              style={{ width: 18, height: 18, border: "none", background: "transparent", borderRadius: 2, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                              style={{
+                                width: 18,
+                                height: 18,
+                                border: "none",
+                                background: "transparent",
+                                borderRadius: 2,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                cursor: "pointer",
+                              }}
                             >
                               <Ic d={I.trash} size={9} color={C.red} />
                             </button>
@@ -375,47 +558,78 @@ export default function CodeManager({ onClose }) {
                   })}
 
                   {/* Add Subdivision inline form */}
-                  {!divHidden && (addSubOpen === dc ? (
-                    <div style={{
-                      display: "flex", gap: T.space[2], alignItems: "center",
-                      padding: `${T.space[2]}px ${T.space[3]}px ${T.space[2]}px 36px`,
-                      background: C.accentBg + "60",
-                    }}>
-                      <input
-                        placeholder={`${dc}.`}
-                        value={newSubCode}
-                        onChange={e => setNewSubCode(e.target.value)}
-                        autoFocus
-                        style={inp(C, { width: 70, fontSize: 10, fontFamily: "'DM Sans',sans-serif", textAlign: "center", padding: "2px 4px" })}
-                      />
-                      <input
-                        placeholder="Subdivision name..."
-                        value={newSubName}
-                        onChange={e => setNewSubName(e.target.value)}
-                        onKeyDown={e => e.key === "Enter" && handleAddSubdivision(dc)}
-                        style={inp(C, { flex: 1, fontSize: 10, padding: "2px 6px" })}
-                      />
-                      <button onClick={() => handleAddSubdivision(dc)} style={bt(C, { background: C.accent, color: "#fff", padding: "3px 8px", fontSize: 9 })}>
-                        Add
-                      </button>
-                      <button onClick={() => setAddSubOpen(null)} style={bt(C, { background: "transparent", border: `1px solid ${C.border}`, color: C.textMuted, padding: "3px 6px", fontSize: 9 })}>
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
-                    <div
-                      onClick={() => { setAddSubOpen(dc); setNewSubCode(""); setNewSubName(""); }}
-                      style={{
-                        padding: `${T.space[2]}px ${T.space[3]}px ${T.space[2]}px 36px`,
-                        fontSize: 10, color: C.accent, cursor: "pointer",
-                        display: "flex", alignItems: "center", gap: 4,
-                        opacity: 0.7,
-                      }}
-                      className="nav-item"
-                    >
-                      <Ic d={I.plus} size={10} color={C.accent} sw={2} /> Add subdivision...
-                    </div>
-                  ))}
+                  {!divHidden &&
+                    (addSubOpen === dc ? (
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: T.space[2],
+                          alignItems: "center",
+                          padding: `${T.space[2]}px ${T.space[3]}px ${T.space[2]}px 36px`,
+                          background: C.accentBg + "60",
+                        }}
+                      >
+                        <input
+                          placeholder={`${dc}.`}
+                          value={newSubCode}
+                          onChange={e => setNewSubCode(e.target.value)}
+                          autoFocus
+                          style={inp(C, {
+                            width: 70,
+                            fontSize: 10,
+                            fontFamily: T.font.sans,
+                            textAlign: "center",
+                            padding: "2px 4px",
+                          })}
+                        />
+                        <input
+                          placeholder="Subdivision name..."
+                          value={newSubName}
+                          onChange={e => setNewSubName(e.target.value)}
+                          onKeyDown={e => e.key === "Enter" && handleAddSubdivision(dc)}
+                          style={inp(C, { flex: 1, fontSize: 10, padding: "2px 6px" })}
+                        />
+                        <button
+                          onClick={() => handleAddSubdivision(dc)}
+                          style={bt(C, { background: C.accent, color: "#fff", padding: "3px 8px", fontSize: 9 })}
+                        >
+                          Add
+                        </button>
+                        <button
+                          onClick={() => setAddSubOpen(null)}
+                          style={bt(C, {
+                            background: "transparent",
+                            border: `1px solid ${C.border}`,
+                            color: C.textMuted,
+                            padding: "3px 6px",
+                            fontSize: 9,
+                          })}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div
+                        onClick={() => {
+                          setAddSubOpen(dc);
+                          setNewSubCode("");
+                          setNewSubName("");
+                        }}
+                        style={{
+                          padding: `${T.space[2]}px ${T.space[3]}px ${T.space[2]}px 36px`,
+                          fontSize: 10,
+                          color: C.accent,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                          opacity: 0.7,
+                        }}
+                        className="nav-item"
+                      >
+                        <Ic d={I.plus} size={10} color={C.accent} sw={2} /> Add subdivision...
+                      </div>
+                    ))}
                 </div>
               )}
             </div>
@@ -431,7 +645,8 @@ export default function CodeManager({ onClose }) {
 
       {/* Footer info */}
       <div style={{ marginTop: T.space[3], fontSize: T.fontSize.xs, color: C.textDim, lineHeight: 1.5 }}>
-        Click <Ic d={I.eye} size={10} color={C.textDim} style={{ verticalAlign: "middle" }} /> to hide standard codes you don't use. Hidden codes won't appear in the division tree or reports. Custom codes can be edited or deleted.
+        Click <Ic d={I.eye} size={10} color={C.textDim} style={{ verticalAlign: "middle" }} /> to hide standard codes
+        you don't use. Hidden codes won't appear in the division tree or reports. Custom codes can be edited or deleted.
       </div>
     </Modal>
   );

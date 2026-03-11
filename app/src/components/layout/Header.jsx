@@ -165,7 +165,7 @@ export default function Header() {
                   cursor: "pointer",
                   fontSize: T.fontSize.xs,
                   fontWeight: isActive ? T.fontWeight.semibold : T.fontWeight.medium,
-                  fontFamily: "'DM Sans',sans-serif",
+                  fontFamily: T.font.sans,
                   color: isActive ? C.accent : C.textMuted,
                   transition: T.transition.fast,
                   position: "relative",

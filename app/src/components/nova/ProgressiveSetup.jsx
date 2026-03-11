@@ -165,7 +165,7 @@ export default function ProgressiveSetup({ onComplete }) {
       }, S.thinkingMs);
     },
     [inputValue, stepIdx, advanceStep],
-  );  
+  );
 
   return (
     <div
@@ -180,7 +180,7 @@ export default function ProgressiveSetup({ onComplete }) {
         display: "flex",
         flexDirection: "column",
         zIndex: 1000,
-        fontFamily: "'DM Sans', sans-serif",
+        fontFamily: "'Switzer', sans-serif",
         transform: panelOpen && !closing ? "translateX(0)" : "translateX(100%)",
         transition: "transform 400ms cubic-bezier(0.4,0,0.2,1)",
         borderLeft: `1px solid ${D.border}`,
@@ -314,7 +314,7 @@ export default function ProgressiveSetup({ onComplete }) {
               background: "rgba(160,100,255,0.04)",
               color: D.text,
               fontSize: 14,
-              fontFamily: "'DM Sans', sans-serif",
+              fontFamily: "'Switzer', sans-serif",
               outline: "none",
               caretColor: D.accent,
             }}

@@ -66,7 +66,7 @@ export default function ActivityTimerPill() {
         boxShadow: [T.glass.specularSm, T.glass.edge].filter(Boolean).join(", "),
         cursor: "pointer",
         outline: "none",
-        fontFamily: "'DM Sans',sans-serif",
+        fontFamily: T.font.sans,
       }}
     >
       {/* Status dot */}

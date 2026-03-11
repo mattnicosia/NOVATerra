@@ -243,7 +243,7 @@ export default function AIAssemblyGenerator({ onClose }) {
                   resize: "vertical",
                   fontSize: 13,
                   padding: "10px 14px",
-                  fontFamily: "'DM Sans', sans-serif",
+                  fontFamily: T.font.sans,
                   lineHeight: 1.5,
                   minHeight: 48,
                 }}
@@ -355,7 +355,7 @@ export default function AIAssemblyGenerator({ onClose }) {
                 marginBottom: 14,
                 fontSize: 11,
                 color: C.textMuted,
-                fontFamily: "'DM Sans', sans-serif",
+                fontFamily: T.font.sans,
                 whiteSpace: "pre-wrap",
                 maxHeight: 200,
                 overflowY: "auto",
@@ -442,7 +442,7 @@ export default function AIAssemblyGenerator({ onClose }) {
                       fontSize: 11,
                       fontWeight: 600,
                       padding: "4px 8px",
-                      fontFamily: "'DM Sans', sans-serif",
+                      fontFamily: T.font.sans,
                       color: C.purple,
                       textAlign: "center",
                       background: "transparent",
@@ -521,7 +521,7 @@ export default function AIAssemblyGenerator({ onClose }) {
                           <input
                             value={el.code}
                             onChange={e => updateElement(idx, "code", e.target.value)}
-                            style={inp(C, { fontFamily: "'DM Sans',sans-serif", fontSize: 9, padding: "2px 4px" })}
+                            style={inp(C, { fontFamily: T.font.sans, fontSize: 9, padding: "2px 4px" })}
                           />
                           <input
                             value={el.desc}
@@ -558,7 +558,7 @@ export default function AIAssemblyGenerator({ onClose }) {
                             onChange={e => updateElement(idx, "factor", parseFloat(e.target.value) || 1)}
                             style={nInp(C, { fontSize: 10, padding: "2px 4px", textAlign: "center" })}
                           />
-                          <div style={{ textAlign: "right", fontFamily: "'DM Sans',sans-serif", fontWeight: 600 }}>
+                          <div style={{ textAlign: "right", fontFamily: T.font.sans, fontWeight: 600 }}>
                             {fmt2(elTotal)}
                           </div>
                           <button
@@ -582,7 +582,7 @@ export default function AIAssemblyGenerator({ onClose }) {
                         <>
                           <span
                             style={{
-                              fontFamily: "'DM Sans',sans-serif",
+                              fontFamily: T.font.sans,
                               fontSize: 9,
                               color: C.purple,
                               fontWeight: 600,
@@ -604,7 +604,7 @@ export default function AIAssemblyGenerator({ onClose }) {
                           <span
                             style={{
                               textAlign: "right",
-                              fontFamily: "'DM Sans',sans-serif",
+                              fontFamily: T.font.sans,
                               fontSize: 10,
                               color: C.green,
                             }}
@@ -614,7 +614,7 @@ export default function AIAssemblyGenerator({ onClose }) {
                           <span
                             style={{
                               textAlign: "right",
-                              fontFamily: "'DM Sans',sans-serif",
+                              fontFamily: T.font.sans,
                               fontSize: 10,
                               color: C.blue,
                             }}
@@ -624,7 +624,7 @@ export default function AIAssemblyGenerator({ onClose }) {
                           <span
                             style={{
                               textAlign: "right",
-                              fontFamily: "'DM Sans',sans-serif",
+                              fontFamily: T.font.sans,
                               fontSize: 10,
                               color: C.orange,
                             }}
@@ -634,14 +634,14 @@ export default function AIAssemblyGenerator({ onClose }) {
                           <span
                             style={{
                               textAlign: "center",
-                              fontFamily: "'DM Sans',sans-serif",
+                              fontFamily: T.font.sans,
                               fontSize: 9,
                               color: C.textDim,
                             }}
                           >
                             {nn(el.factor || 1) !== 1 ? `×${el.factor}` : ""}
                           </span>
-                          <span style={{ textAlign: "right", fontFamily: "'DM Sans',sans-serif", fontWeight: 600 }}>
+                          <span style={{ textAlign: "right", fontFamily: T.font.sans, fontWeight: 600 }}>
                             {fmt2(elTotal)}
                           </span>
                           <div style={{ display: "flex", gap: 1 }}>
@@ -716,7 +716,7 @@ export default function AIAssemblyGenerator({ onClose }) {
                   style={{
                     fontSize: 16,
                     fontWeight: 700,
-                    fontFamily: "'DM Sans', sans-serif",
+                    fontFamily: T.font.sans,
                     ...(C.isDark && C.gradient
                       ? {
                           background: C.gradient,

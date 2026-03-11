@@ -72,8 +72,10 @@ export default function WidgetWrapper({
           : dk
             ? T.glass.bg
             : C.glassBg || "rgba(255,255,255,0.32)",
-        backdropFilter: isActive ? undefined : hovered ? T.glass.blurHover : T.glass.blur,
-        WebkitBackdropFilter: isActive ? undefined : hovered ? T.glass.blurHover : T.glass.blur,
+        // PERF FIX: Use same blur level for both hover/normal — transitioning
+        // backdrop-filter is extremely expensive (forces GPU recomposition per frame).
+        backdropFilter: isActive ? undefined : T.glass.blur,
+        WebkitBackdropFilter: isActive ? undefined : T.glass.blur,
         border: `${dk ? "0.5" : "1"}px solid ${
           isActive
             ? `${C.accent}4D`
@@ -87,7 +89,7 @@ export default function WidgetWrapper({
         display: "flex",
         flexDirection: "column",
         overflow: "visible",
-        transition: "border-color 0.3s, box-shadow 0.3s, background 0.3s, backdrop-filter 0.3s",
+        transition: "border-color 0.3s, box-shadow 0.3s, background 0.3s",
         position: "relative",
       }}
     >

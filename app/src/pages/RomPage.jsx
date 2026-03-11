@@ -29,7 +29,7 @@ const BUILDING_TYPES = [
 
 /* ── Shared styles ── */
 const display = (size = 48) => ({
-  fontFamily: "'Outfit', 'DM Sans', sans-serif",
+  fontFamily: T.font.sans,
   fontWeight: 300,
   fontSize: size,
   letterSpacing: size > 32 ? -1.5 : -0.5,
@@ -37,7 +37,7 @@ const display = (size = 48) => ({
 });
 
 const ui = {
-  fontFamily: "'DM Sans', sans-serif",
+  fontFamily: T.font.sans,
 };
 
 /* ════════════════════════════════════════════════════════════════
@@ -45,6 +45,7 @@ const ui = {
    ════════════════════════════════════════════════════════════════ */
 function RomSignup() {
   const C = useTheme();
+  const T = C.T;
   const signUp = useAuthStore(s => s.signUpWithPassword);
   const signIn = useAuthStore(s => s.signInWithPassword);
 

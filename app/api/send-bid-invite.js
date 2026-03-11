@@ -4,6 +4,7 @@
 import { Resend } from "resend";
 import { supabaseAdmin, verifyUser } from "./lib/supabaseAdmin.js";
 import { cors } from "./lib/cors.js";
+import { checkRateLimit } from "./lib/rateLimiter.js";
 
 export default async function handler(req, res) {
   if (cors(req, res)) return;
@@ -15,6 +16,11 @@ export default async function handler(req, res) {
   const user = await verifyUser(req);
   if (!user) return res.status(401).json({ error: "Unauthorized" });
 
+  const { allowed, retryAfter } = checkRateLimit(`send_bid_invite_${user.id}`);
+  if (!allowed) {
+    return res.status(429).json({ error: "Rate limited — too many bid invites", retryAfter });
+  }
+
   const { invitationId, packageId } = req.body || {};
   if (!invitationId || !packageId) {
     return res.status(400).json({ error: "Missing invitationId or packageId" });
@@ -23,9 +29,8 @@ export default async function handler(req, res) {
   const apiKey = process.env.RESEND_API_KEY;
   const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
   const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : "http://localhost:3000";
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
 
   if (!apiKey) {
     return res.status(500).json({ error: "Email service not configured" });

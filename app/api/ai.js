@@ -4,6 +4,7 @@
 
 import { cors } from "./lib/cors.js";
 import { verifyUser } from "./lib/supabaseAdmin.js";
+import { checkRateLimit } from "./lib/rateLimiter.js";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const MAX_BODY_BYTES = 50 * 1024 * 1024; // 50 MB
@@ -50,6 +51,12 @@ export default async function handler(req, res) {
   if (!user) {
     console.error("[ai-proxy] Auth failed. Header present:", !!authHeader, "Header prefix:", authHeader.slice(0, 15));
     return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  // Rate limit per user
+  const { allowed, retryAfter } = checkRateLimit(`ai_${user.id}`);
+  if (!allowed) {
+    return res.status(429).json({ error: "Rate limited — too many AI requests", retryAfter });
   }
 
   const apiKey = (process.env.ANTHROPIC_API_KEY || "")

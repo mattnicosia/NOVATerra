@@ -242,17 +242,17 @@ export default function ProjectPulseWidget() {
 
       // Pipeline total (center)
       const pipeline = benchmarks.pipeline || 0;
-      ctx.font = `700 ${Math.min(28, w * 0.065)}px 'DM Sans', sans-serif`;
+      ctx.font = `700 ${Math.min(28, w * 0.065)}px 'Switzer', sans-serif`;
       ctx.fillStyle = C.text;
       ctx.fillText(fmtVal(pipeline), midX, midY - 6);
 
       // "PIPELINE" label
-      ctx.font = `600 ${Math.min(10, w * 0.025)}px 'DM Sans', sans-serif`;
+      ctx.font = `600 ${Math.min(10, w * 0.025)}px 'Switzer', sans-serif`;
       ctx.fillStyle = C.textDim;
       drawTracked(ctx, "PIPELINE", midX, midY + 14, 1.5);
 
       // Top axis label — estimate count
-      ctx.font = `600 ${Math.min(9, w * 0.022)}px 'DM Sans', sans-serif`;
+      ctx.font = `600 ${Math.min(9, w * 0.022)}px 'Switzer', sans-serif`;
       ctx.fillStyle = C.textDim;
       drawTracked(ctx, `${particles.length} ESTIMATES`, midX, midY - radius - 14, 1.2);
 

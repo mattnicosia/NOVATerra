@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useUiStore } from "@/stores/uiStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
-import { TEAM_COLORS } from "@/stores/orgStore";
+import { useOrgStore, TEAM_COLORS } from "@/stores/orgStore";
 
 // ── Helpers ───────────────────────────────────────────────────
 function isWeekday(date, workWeek = "mon-fri") {
@@ -102,7 +102,35 @@ export function useWorkloadData(dateRange) {
   const useAccuracyAdjustment = useUiStore(s => s.appSettings?.useAccuracyAdjustment) || false;
   const complexityMultipliers = useUiStore(s => s.appSettings?.complexityMultipliers) || DEFAULT_COMPLEXITY;
   const workWeek = useUiStore(s => s.appSettings?.workWeek) || "mon-fri";
-  const estimators = useMasterDataStore(s => s.masterData?.estimators) || DEFAULT_ESTIMATORS;
+  // Org mode: estimators come from org members (accepted) + pending invitations
+  // Solo mode: fall back to masterData estimators for backward compatibility
+  const orgMembers = useOrgStore(s => s.members);
+  const orgInvitations = useOrgStore(s => s.invitations);
+  const orgMode = useOrgStore(s => !!s.org);
+  const masterEstimators = useMasterDataStore(s => s.masterData?.estimators) || DEFAULT_ESTIMATORS;
+  const estimators = orgMode
+    ? [
+        // Active org members
+        ...orgMembers
+          .filter(m => m.active !== false)
+          .map((m, i) => ({
+            id: m.id,
+            name: m.display_name || m.email?.split("@")[0] || "Unknown",
+            color: m.color || TEAM_COLORS[i % TEAM_COLORS.length],
+          })),
+        // Pending invitations (not yet accepted)
+        ...(orgInvitations || [])
+          .filter(inv => !inv.accepted_at && new Date(inv.expires_at) > new Date())
+          .filter(inv => !orgMembers.some(m => m.email === inv.email))
+          .map((inv, i) => ({
+            id: `invite-${inv.id}`,
+            name: inv.email?.split("@")[0] || "Invited",
+            color: TEAM_COLORS[(orgMembers.length + i) % TEAM_COLORS.length],
+            pending: true,
+            email: inv.email,
+          })),
+      ]
+    : masterEstimators;
 
   return useMemo(() => {
     const today = new Date();
@@ -187,6 +215,25 @@ export function useWorkloadData(dateRange) {
         estimatorMap.get(name).rawEstimates.push(raw);
       }
     });
+
+    // ── Ensure all known estimators appear (even with zero projects) ──
+    for (const e of estimators) {
+      if (e.name && !estimatorMap.has(e.name)) {
+        estimatorMap.set(e.name, {
+          name: e.name,
+          color: e.color || TEAM_COLORS[estimatorMap.size % TEAM_COLORS.length],
+          rawEstimates: [],
+          pending: e.pending || false,
+          email: e.email || "",
+        });
+      }
+      // Carry pending/email flags for already-mapped estimators
+      if (e.name && e.pending && estimatorMap.has(e.name)) {
+        const row = estimatorMap.get(e.name);
+        row.pending = true;
+        row.email = e.email || "";
+      }
+    }
 
     // ── Accuracy adjustment map (opt-in) ──
     const accuracyFactors = new Map(); // estimatorName → ratio
@@ -396,7 +443,10 @@ export function useWorkloadData(dateRange) {
         scheduledStart: fmtDate(scheduledStartDate),
         scheduledEnd: fmtDate(est.bidDueDate),
         workDays: blockWorkDays.map(fmtDate),
-        hoursPerDay: blockWorkDays.length > 0 ? (est._perPersonHours ?? est.estimatedHours) / blockWorkDays.length : effectiveHoursPerDay,
+        hoursPerDay:
+          blockWorkDays.length > 0
+            ? (est._perPersonHours ?? est.estimatedHours) / blockWorkDays.length
+            : effectiveHoursPerDay,
         daysNeeded,
         conflict: scheduledStartDate < today,
         daysTotal,

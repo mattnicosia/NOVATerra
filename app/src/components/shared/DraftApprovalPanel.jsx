@@ -9,6 +9,7 @@ import { I } from "@/constants/icons";
 
 export default function DraftApprovalPanel({ open, onClose }) {
   const C = useTheme();
+  const T = C.T;
   const dk = C.isDark !== false;
   const ref = useRef(null);
   const pendingDrafts = useAutoResponseStore(s => s.getPendingDrafts());
@@ -133,7 +134,7 @@ export default function DraftApprovalPanel({ open, onClose }) {
         boxShadow: dk
           ? "0 16px 48px rgba(0,0,0,0.7), 0 4px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06)"
           : "0 8px 32px rgba(0,0,0,0.12), 0 16px 48px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,1)",
-        fontFamily: "'DM Sans', sans-serif",
+        fontFamily: T.font.sans,
       }}
     >
       {/* Header */}
@@ -173,7 +174,7 @@ export default function DraftApprovalPanel({ open, onClose }) {
               borderRadius: 4,
               padding: "3px 8px",
               cursor: "pointer",
-              fontFamily: "'DM Sans', sans-serif",
+              fontFamily: T.font.sans,
             }}
           >
             Approve All
@@ -254,7 +255,7 @@ export default function DraftApprovalPanel({ open, onClose }) {
                     outline: "none",
                     background: C.bg,
                     color: C.text,
-                    fontFamily: "'DM Sans', sans-serif",
+                    fontFamily: T.font.sans,
                     boxSizing: "border-box",
                     marginBottom: 6,
                   }}
@@ -272,7 +273,7 @@ export default function DraftApprovalPanel({ open, onClose }) {
                     outline: "none",
                     background: C.bg,
                     color: C.text,
-                    fontFamily: "'DM Sans', sans-serif",
+                    fontFamily: T.font.sans,
                     resize: "vertical",
                     boxSizing: "border-box",
                     lineHeight: 1.5,
@@ -290,7 +291,7 @@ export default function DraftApprovalPanel({ open, onClose }) {
                       background: C.accent,
                       color: "#fff",
                       cursor: "pointer",
-                      fontFamily: "'DM Sans', sans-serif",
+                      fontFamily: T.font.sans,
                     }}
                   >
                     Save
@@ -306,7 +307,7 @@ export default function DraftApprovalPanel({ open, onClose }) {
                       background: "transparent",
                       color: C.textDim,
                       cursor: "pointer",
-                      fontFamily: "'DM Sans', sans-serif",
+                      fontFamily: T.font.sans,
                     }}
                   >
                     Cancel
@@ -347,7 +348,7 @@ export default function DraftApprovalPanel({ open, onClose }) {
                       color: "#fff",
                       cursor: isSending ? "wait" : "pointer",
                       opacity: isSending ? 0.6 : 1,
-                      fontFamily: "'DM Sans', sans-serif",
+                      fontFamily: T.font.sans,
                       transition: "opacity 0.15s",
                     }}
                   >
@@ -364,7 +365,7 @@ export default function DraftApprovalPanel({ open, onClose }) {
                       background: "transparent",
                       color: C.accent,
                       cursor: "pointer",
-                      fontFamily: "'DM Sans', sans-serif",
+                      fontFamily: T.font.sans,
                     }}
                   >
                     Edit
@@ -380,7 +381,7 @@ export default function DraftApprovalPanel({ open, onClose }) {
                       background: "transparent",
                       color: C.textDim,
                       cursor: "pointer",
-                      fontFamily: "'DM Sans', sans-serif",
+                      fontFamily: T.font.sans,
                     }}
                   >
                     Dismiss
@@ -398,7 +399,7 @@ export default function DraftApprovalPanel({ open, onClose }) {
                       color: C.accent,
                       cursor: loadingAlts === draft.id ? "wait" : "pointer",
                       opacity: loadingAlts === draft.id ? 0.6 : 1,
-                      fontFamily: "'DM Sans', sans-serif",
+                      fontFamily: T.font.sans,
                       marginLeft: "auto",
                     }}
                   >

@@ -1,16 +1,16 @@
 // TaktChart.jsx — SVG Takt / Flowline diagram
 // Shows trade progression through zones over time as diagonal flowlines
 
-import { useMemo, useState } from 'react';
-import { useTheme } from '@/hooks/useTheme';
-import { useScheduleStore } from '@/stores/scheduleStore';
-import { generateTaktData } from '@/utils/scheduleEngine';
+import { useMemo, useState } from "react";
+import { useTheme } from "@/hooks/useTheme";
+import { useScheduleStore } from "@/stores/scheduleStore";
+import { generateTaktData } from "@/utils/scheduleEngine";
 
-const PAD_L = 100;  // Zone label width
-const PAD_T = 40;   // Header height
+const PAD_L = 100; // Zone label width
+const PAD_T = 40; // Header height
 const PAD_R = 40;
 const PAD_B = 40;
-const ZONE_H = 80;  // Height per zone row
+const ZONE_H = 80; // Height per zone row
 
 export default function TaktChart() {
   const C = useTheme();
@@ -82,7 +82,7 @@ export default function TaktChart() {
             y={PAD_T + zIdx * ZONE_H + ZONE_H / 2 + 4}
             textAnchor="end"
             fontSize={12}
-            fontFamily="'DM Sans',sans-serif"
+            fontFamily="'Switzer', sans-serif"
             fontWeight={500}
             fill={C.text}
           >
@@ -110,7 +110,14 @@ export default function TaktChart() {
           return (
             <g key={`ttick-${d}`}>
               <line x1={x} y1={PAD_T} x2={x} y2={chartH - PAD_B} stroke={C.border} strokeWidth={0.5} opacity={0.4} />
-              <text x={x} y={chartH - PAD_B + 16} textAnchor="middle" fontSize={9} fill={C.textDim} fontFamily="'DM Sans',sans-serif">
+              <text
+                x={x}
+                y={chartH - PAD_B + 16}
+                textAnchor="middle"
+                fontSize={9}
+                fill={C.textDim}
+                fontFamily="'Switzer', sans-serif"
+              >
                 {d === 0 ? "Start" : `Day ${d}`}
               </text>
             </g>
@@ -118,7 +125,15 @@ export default function TaktChart() {
         })}
 
         {/* X-axis header */}
-        <text x={chartW / 2} y={16} textAnchor="middle" fontSize={10} fill={C.textMuted} fontFamily="'DM Sans',sans-serif" fontWeight={600}>
+        <text
+          x={chartW / 2}
+          y={16}
+          textAnchor="middle"
+          fontSize={10}
+          fill={C.textMuted}
+          fontFamily="'Switzer', sans-serif"
+          fontWeight={600}
+        >
           Time (Working Days)
         </text>
 
@@ -150,7 +165,15 @@ export default function TaktChart() {
             <g key={line.activityId}>
               {/* Shadow for selected */}
               {isSelected && (
-                <path d={d} fill="none" stroke={line.color} strokeWidth={8} opacity={0.2} strokeLinecap="round" strokeLinejoin="round" />
+                <path
+                  d={d}
+                  fill="none"
+                  stroke={line.color}
+                  strokeWidth={8}
+                  opacity={0.2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               )}
 
               {/* Main flowline */}
@@ -175,7 +198,7 @@ export default function TaktChart() {
                   y={PAD_T + ZONE_H / 2 - 10}
                   textAnchor="start"
                   fontSize={8}
-                  fontFamily="'DM Sans',sans-serif"
+                  fontFamily="'Switzer', sans-serif"
                   fontWeight={600}
                   fill={line.color}
                   opacity={isHovered || isSelected ? 1 : 0.7}

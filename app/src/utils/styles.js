@@ -42,7 +42,7 @@ export const inp = (C, overrides) => {
     color: C.text,
     padding: "7px 14px",
     fontSize: T.fontSize.base,
-    fontFamily: "'DM Sans',sans-serif",
+    fontFamily: T.font.sans,
     lineHeight: T.lineHeight.normal,
     width: "100%",
     outline: "none",
@@ -59,7 +59,7 @@ export const inp = (C, overrides) => {
 export const nInp = (C, overrides) =>
   inp(C, {
     textAlign: "right",
-    fontFamily: "'DM Sans',sans-serif",
+    fontFamily: T.font.sans,
     fontSize: T.fontSize.sm,
     ...overrides,
   });
@@ -70,7 +70,7 @@ export const bt = (C, overrides) => ({
   cursor: "pointer",
   fontSize: T.fontSize.sm,
   fontWeight: T.fontWeight.semibold,
-  fontFamily: "'DM Sans',sans-serif",
+  fontFamily: T.font.sans,
   display: "flex",
   alignItems: "center",
   gap: T.space[2],
@@ -299,7 +299,7 @@ export const sectionLabel = C => ({
 
 // Monospace shorthand
 export const mono = () => ({
-  fontFamily: "'DM Sans',sans-serif",
+  fontFamily: T.font.sans,
 });
 
 // Page container — transparent so gradient shows through
@@ -356,7 +356,7 @@ export const statusBadge = (color, overrides) => ({
   gap: 4,
   fontSize: T.fontSize.xs,
   fontWeight: T.fontWeight.semibold,
-  fontFamily: "'DM Sans',sans-serif",
+  fontFamily: T.font.sans,
   padding: "2px 8px",
   borderRadius: T.radius.full,
   background: `${color}18`,

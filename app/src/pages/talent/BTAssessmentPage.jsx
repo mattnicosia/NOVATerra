@@ -153,7 +153,7 @@ export default function BTAssessmentPage() {
               color: C.text,
               textAlign: "center",
               marginBottom: T.space[2],
-              fontFamily: "'DM Sans', sans-serif",
+              fontFamily: T.font.sans,
             }}
           >
             Module Complete
@@ -164,7 +164,7 @@ export default function BTAssessmentPage() {
               color: C.textMuted,
               textAlign: "center",
               marginBottom: T.space[5],
-              fontFamily: "'DM Sans', sans-serif",
+              fontFamily: T.font.sans,
             }}
           >
             {mod.label}
@@ -186,7 +186,7 @@ export default function BTAssessmentPage() {
                   fontSize: 48,
                   fontWeight: T.fontWeight.heavy,
                   color: BT_COLORS.primary,
-                  fontFamily: "'DM Sans', sans-serif",
+                  fontFamily: T.font.sans,
                 }}
               >
                 {Math.round(score.pct)}%
@@ -196,7 +196,7 @@ export default function BTAssessmentPage() {
                   fontSize: T.fontSize.lg,
                   fontWeight: T.fontWeight.semibold,
                   color: C.textMuted,
-                  fontFamily: "'DM Sans', sans-serif",
+                  fontFamily: T.font.sans,
                 }}
               >
                 {score.grade || getGradeFromScore(score.pct)}
@@ -212,7 +212,7 @@ export default function BTAssessmentPage() {
                 color: BT_COLORS.success,
                 textAlign: "center",
                 marginBottom: T.space[5],
-                fontFamily: "'DM Sans', sans-serif",
+                fontFamily: T.font.sans,
               }}
             >
               Responses recorded successfully
@@ -261,7 +261,7 @@ export default function BTAssessmentPage() {
                 textTransform: "uppercase",
                 letterSpacing: 2,
                 marginBottom: T.space[2],
-                fontFamily: "'DM Sans', sans-serif",
+                fontFamily: T.font.sans,
               }}
             >
               Assessment Complete
@@ -271,7 +271,7 @@ export default function BTAssessmentPage() {
                 fontSize: 28,
                 fontWeight: T.fontWeight.heavy,
                 color: C.text,
-                fontFamily: "'DM Sans', sans-serif",
+                fontFamily: T.font.sans,
                 marginBottom: T.space[1],
               }}
             >
@@ -284,7 +284,7 @@ export default function BTAssessmentPage() {
                 style={{
                   fontSize: T.fontSize.base,
                   color: C.textMuted,
-                  fontFamily: "'DM Sans', sans-serif",
+                  fontFamily: T.font.sans,
                   lineHeight: T.lineHeight.relaxed,
                   marginTop: T.space[2],
                 }}
@@ -320,7 +320,7 @@ export default function BTAssessmentPage() {
                   fontSize: 56,
                   fontWeight: T.fontWeight.heavy,
                   color: BT_COLORS.primary,
-                  fontFamily: "'DM Sans', sans-serif",
+                  fontFamily: T.font.sans,
                   lineHeight: 1,
                 }}
               >
@@ -331,7 +331,7 @@ export default function BTAssessmentPage() {
                   fontSize: T.fontSize.sm,
                   color: C.textDim,
                   marginTop: T.space[1],
-                  fontFamily: "'DM Sans', sans-serif",
+                  fontFamily: T.font.sans,
                 }}
               >
                 Overall Score
@@ -345,7 +345,7 @@ export default function BTAssessmentPage() {
                   fontSize: 48,
                   fontWeight: T.fontWeight.heavy,
                   color: C.text,
-                  fontFamily: "'DM Sans', sans-serif",
+                  fontFamily: T.font.sans,
                   lineHeight: 1,
                 }}
               >
@@ -356,7 +356,7 @@ export default function BTAssessmentPage() {
                   fontSize: T.fontSize.sm,
                   color: C.textDim,
                   marginTop: T.space[1],
-                  fontFamily: "'DM Sans', sans-serif",
+                  fontFamily: T.font.sans,
                 }}
               >
                 Grade
@@ -385,7 +385,7 @@ export default function BTAssessmentPage() {
                       fontSize: T.fontSize.lg,
                       fontWeight: T.fontWeight.heavy,
                       color: certObj.color,
-                      fontFamily: "'DM Sans', sans-serif",
+                      fontFamily: T.font.sans,
                     }}
                   >
                     {certObj.badge[0]}
@@ -397,7 +397,7 @@ export default function BTAssessmentPage() {
                     fontWeight: T.fontWeight.semibold,
                     color: certObj.color,
                     marginTop: T.space[2],
-                    fontFamily: "'DM Sans', sans-serif",
+                    fontFamily: T.font.sans,
                   }}
                 >
                   {certObj.badge}
@@ -406,7 +406,7 @@ export default function BTAssessmentPage() {
                   style={{
                     fontSize: T.fontSize.xs,
                     color: C.textDim,
-                    fontFamily: "'DM Sans', sans-serif",
+                    fontFamily: T.font.sans,
                   }}
                 >
                   {certObj.label}
@@ -454,7 +454,7 @@ export default function BTAssessmentPage() {
                           fontSize: T.fontSize.base,
                           fontWeight: T.fontWeight.medium,
                           color: C.text,
-                          fontFamily: "'DM Sans', sans-serif",
+                          fontFamily: T.font.sans,
                         }}
                       >
                         {mod.label}
@@ -463,7 +463,7 @@ export default function BTAssessmentPage() {
                         style={{
                           fontSize: T.fontSize.xs,
                           color: C.textDim,
-                          fontFamily: "'DM Sans', sans-serif",
+                          fontFamily: T.font.sans,
                         }}
                       >
                         ({Math.round(mod.weight * 100)}%)
@@ -476,7 +476,7 @@ export default function BTAssessmentPage() {
                             fontSize: T.fontSize.md,
                             fontWeight: T.fontWeight.bold,
                             color: BT_COLORS.primary,
-                            fontFamily: "'DM Sans', sans-serif",
+                            fontFamily: T.font.sans,
                           }}
                         >
                           {pct}%
@@ -487,7 +487,7 @@ export default function BTAssessmentPage() {
                           fontSize: T.fontSize.sm,
                           fontWeight: T.fontWeight.semibold,
                           color: C.textMuted,
-                          fontFamily: "'DM Sans', sans-serif",
+                          fontFamily: T.font.sans,
                         }}
                       >
                         {grade}
@@ -519,7 +519,7 @@ export default function BTAssessmentPage() {
                           fontWeight: T.fontWeight.medium,
                           color: C.text,
                           textTransform: "capitalize",
-                          fontFamily: "'DM Sans', sans-serif",
+                          fontFamily: T.font.sans,
                         }}
                       >
                         {dim.replace(/_/g, " ")}
@@ -529,7 +529,7 @@ export default function BTAssessmentPage() {
                           fontSize: T.fontSize.sm,
                           fontWeight: T.fontWeight.semibold,
                           color: C.textMuted,
-                          fontFamily: "'DM Sans', sans-serif",
+                          fontFamily: T.font.sans,
                         }}
                       >
                         {Math.round(score)}
@@ -591,7 +591,7 @@ export default function BTAssessmentPage() {
               fontSize: 28,
               fontWeight: T.fontWeight.heavy,
               color: C.text,
-              fontFamily: "'DM Sans', sans-serif",
+              fontFamily: T.font.sans,
               marginBottom: T.space[2],
             }}
           >
@@ -604,7 +604,7 @@ export default function BTAssessmentPage() {
               lineHeight: T.lineHeight.relaxed,
               maxWidth: 520,
               margin: "0 auto",
-              fontFamily: "'DM Sans', sans-serif",
+              fontFamily: T.font.sans,
             }}
           >
             This assessment measures your construction estimating skills across multiple dimensions. Complete the
@@ -637,7 +637,7 @@ export default function BTAssessmentPage() {
                         fontSize: T.fontSize.md,
                         fontWeight: T.fontWeight.semibold,
                         color: C.text,
-                        fontFamily: "'DM Sans', sans-serif",
+                        fontFamily: T.font.sans,
                       }}
                     >
                       {mod.label}
@@ -646,7 +646,7 @@ export default function BTAssessmentPage() {
                       style={{
                         fontSize: T.fontSize.sm,
                         color: C.textDim,
-                        fontFamily: "'DM Sans', sans-serif",
+                        fontFamily: T.font.sans,
                         marginTop: 2,
                       }}
                     >
@@ -663,7 +663,7 @@ export default function BTAssessmentPage() {
                     background: `${BT_COLORS.success}12`,
                     padding: "3px 10px",
                     borderRadius: T.radius.full,
-                    fontFamily: "'DM Sans', sans-serif",
+                    fontFamily: T.font.sans,
                   }}
                 >
                   Ready
@@ -699,7 +699,7 @@ export default function BTAssessmentPage() {
                         fontSize: T.fontSize.md,
                         fontWeight: T.fontWeight.medium,
                         color: C.textMuted,
-                        fontFamily: "'DM Sans', sans-serif",
+                        fontFamily: T.font.sans,
                       }}
                     >
                       {mod.label}
@@ -708,7 +708,7 @@ export default function BTAssessmentPage() {
                       style={{
                         fontSize: T.fontSize.sm,
                         color: C.textDim,
-                        fontFamily: "'DM Sans', sans-serif",
+                        fontFamily: T.font.sans,
                         marginTop: 2,
                       }}
                     >
@@ -725,7 +725,7 @@ export default function BTAssessmentPage() {
                     background: C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)",
                     padding: "3px 10px",
                     borderRadius: T.radius.full,
-                    fontFamily: "'DM Sans', sans-serif",
+                    fontFamily: T.font.sans,
                   }}
                 >
                   Coming Soon
@@ -742,7 +742,7 @@ export default function BTAssessmentPage() {
             fontSize: T.fontSize.sm,
             color: C.textDim,
             marginBottom: T.space[5],
-            fontFamily: "'DM Sans', sans-serif",
+            fontFamily: T.font.sans,
           }}
         >
           Estimated time: {totalTimeMins} minutes
@@ -773,7 +773,7 @@ const pageWrapper = T => ({
   justifyContent: "center",
   padding: `${T.space[8]}px ${T.space[5]}px`,
   minHeight: "100%",
-  fontFamily: "'DM Sans', sans-serif",
+  fontFamily: T.font.sans,
 });
 
 const centeredCard = (C, T, overrides = {}) => ({

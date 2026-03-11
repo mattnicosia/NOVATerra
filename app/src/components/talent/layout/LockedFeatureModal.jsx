@@ -73,7 +73,7 @@ export default function LockedFeatureModal({ isOpen, onClose, feature }) {
           style={{
             fontSize: T.fontSize.lg,
             fontWeight: T.fontWeight.bold,
-            fontFamily: "'DM Sans', sans-serif",
+            fontFamily: T.font.sans,
             color: C.text,
             lineHeight: T.lineHeight.tight,
           }}
@@ -85,7 +85,7 @@ export default function LockedFeatureModal({ isOpen, onClose, feature }) {
         <div
           style={{
             fontSize: T.fontSize.base,
-            fontFamily: "'DM Sans', sans-serif",
+            fontFamily: T.font.sans,
             color: C.textMuted,
             lineHeight: T.lineHeight.normal,
             maxWidth: 280,
@@ -114,7 +114,7 @@ export default function LockedFeatureModal({ isOpen, onClose, feature }) {
             background: "none",
             color: C.textDim,
             fontSize: T.fontSize.sm,
-            fontFamily: "'DM Sans', sans-serif",
+            fontFamily: T.font.sans,
             padding: "4px 12px",
           })}
         >

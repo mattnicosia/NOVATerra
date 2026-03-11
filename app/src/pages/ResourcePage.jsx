@@ -2011,7 +2011,10 @@ function BoardView({ workload, C, T, navigate, onDrop, onProjectClick }) {
       <div
         draggable={!isEditingHours}
         onDragStart={e => {
-          if (isEditingHours) { e.preventDefault(); return; }
+          if (isEditingHours) {
+            e.preventDefault();
+            return;
+          }
           e.dataTransfer.setData("estimateId", est.id);
           e.dataTransfer.setData("fromEstimator", estimatorName || "");
           e.dataTransfer.effectAllowed = "move";
@@ -2020,7 +2023,9 @@ function BoardView({ workload, C, T, navigate, onDrop, onProjectClick }) {
           if (isEditingHours) return;
           if (onProjectClick) onProjectClick({ ...est, estimator: estimatorName || "" }, e);
         }}
-        onDoubleClick={() => { if (!isEditingHours) navigate(`/estimate/${est.id}/info`); }}
+        onDoubleClick={() => {
+          if (!isEditingHours) navigate(`/estimate/${est.id}/info`);
+        }}
         style={{
           display: "flex",
           alignItems: "center",

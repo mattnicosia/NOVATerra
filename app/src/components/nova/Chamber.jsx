@@ -44,9 +44,9 @@ const PILLAR_RING_RADIUS = 14;
 // Ring platform dimensions — scaled to fill the wider floor
 const PLATFORM_RINGS = [
   { outer: 7.5, inner: 6.2, rise: 0.45 },
-  { outer: 6.0, inner: 4.5, rise: 0.90 },
+  { outer: 6.0, inner: 4.5, rise: 0.9 },
   { outer: 4.3, inner: 3.0, rise: 1.35 },
-  { outer: 2.8, inner: 1.8, rise: 1.80 },
+  { outer: 2.8, inner: 1.8, rise: 1.8 },
 ];
 
 // Oculus ceiling rings — must match wall radius at outer edge
@@ -250,10 +250,10 @@ function OculusGodRays({ size, awaken, morph, innerLight }) {
       <cylinderGeometry
         args={[
           OCULUS_RINGS[2].inner * 0.9, // top radius — matches innermost oculus opening
-          shellRadius * 1.2,           // bottom radius — wider spread near sphere
+          shellRadius * 1.2, // bottom radius — wider spread near sphere
           godRayHeight,
           32, // radial segments
-          8,  // height segments
+          8, // height segments
           true, // open ended
         ]}
       />
@@ -350,11 +350,7 @@ function ChamberWalls({ size, awaken, morph, innerLight }) {
       const rib = new THREE.BoxGeometry(0.5, WALL_HEIGHT, 1.0);
       const mat = new THREE.Matrix4();
       mat.makeRotationY(angle);
-      mat.setPosition(
-        Math.cos(angle) * (WALL_RADIUS - 0.5),
-        wallCenterY,
-        Math.sin(angle) * (WALL_RADIUS - 0.5),
-      );
+      mat.setPosition(Math.cos(angle) * (WALL_RADIUS - 0.5), wallCenterY, Math.sin(angle) * (WALL_RADIUS - 0.5));
       rib.applyMatrix4(mat);
       geos.push(rib);
 
@@ -395,10 +391,7 @@ function ChamberWalls({ size, awaken, morph, innerLight }) {
     return mergeGeometries(geos);
   }, [wallCenterY, wallBottom]);
 
-  const wallMat = useMemo(
-    () => new THREE.MeshStandardMaterial(WALL_MATERIAL_PROPS),
-    [],
-  );
+  const wallMat = useMemo(() => new THREE.MeshStandardMaterial(WALL_MATERIAL_PROPS), []);
 
   // v4: DRASTICALLY reduced glow — only 2 subtle horizontal rings, no vertical strips
   const novaGlow = useMemo(() => new THREE.Color("#6B4CE6"), []);
@@ -492,10 +485,7 @@ function RingPlatform({ size, awaken, morph, innerLight }) {
     return mergeGeometries(geos);
   }, [floorY]);
 
-  const platformMat = useMemo(
-    () => new THREE.MeshStandardMaterial(PLATFORM_MATERIAL_PROPS),
-    [],
-  );
+  const platformMat = useMemo(() => new THREE.MeshStandardMaterial(PLATFORM_MATERIAL_PROPS), []);
 
   // v4: Only 1 subtle glow ring at innermost platform edge
   const novaGlow = useMemo(() => new THREE.Color("#6B4CE6"), []);
@@ -574,10 +564,7 @@ function PlatformSteps({ size }) {
     return mergeGeometries(geos);
   }, [floorY]);
 
-  const stepMat = useMemo(
-    () => new THREE.MeshStandardMaterial(STEP_MATERIAL_PROPS),
-    [],
-  );
+  const stepMat = useMemo(() => new THREE.MeshStandardMaterial(STEP_MATERIAL_PROPS), []);
 
   return <mesh geometry={stepsGeo} material={stepMat} />;
 }
@@ -613,11 +600,7 @@ function Oculus({ size, awaken, morph, innerLight }) {
       const rib = new THREE.BoxGeometry(0.3, 0.18, ribLength);
       const mat4 = new THREE.Matrix4();
       mat4.makeRotationY(angle);
-      mat4.setPosition(
-        Math.cos(angle) * ribCenterR,
-        ceilingY - 0.09,
-        Math.sin(angle) * ribCenterR,
-      );
+      mat4.setPosition(Math.cos(angle) * ribCenterR, ceilingY - 0.09, Math.sin(angle) * ribCenterR);
       rib.applyMatrix4(mat4);
       geos.push(rib);
     }
@@ -625,10 +608,7 @@ function Oculus({ size, awaken, morph, innerLight }) {
     return mergeGeometries(geos);
   }, [ceilingY]);
 
-  const oculusMat = useMemo(
-    () => new THREE.MeshStandardMaterial(OCULUS_MATERIAL_PROPS),
-    [],
-  );
+  const oculusMat = useMemo(() => new THREE.MeshStandardMaterial(OCULUS_MATERIAL_PROPS), []);
 
   // v4: Only 1 subtle glow ring at innermost oculus edge
   const novaGlow = useMemo(() => new THREE.Color("#6B4CE6"), []);

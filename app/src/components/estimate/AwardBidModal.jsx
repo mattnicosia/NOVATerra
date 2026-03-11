@@ -20,6 +20,7 @@ const fmt = v =>
 
 export default function AwardBidModal({ bidPackage, onClose }) {
   const C = useTheme();
+  const T = C.T;
   const invitations = useBidPackagesStore(s => s.invitations);
   const proposals = useBidPackagesStore(s => s.proposals);
   const updateBidPackage = useBidPackagesStore(s => s.updateBidPackage);
@@ -270,7 +271,7 @@ export default function AwardBidModal({ bidPackage, onClose }) {
                 fontSize: 13,
                 resize: "vertical",
                 outline: "none",
-                fontFamily: "'DM Sans', sans-serif",
+                fontFamily: T.font.sans,
               }}
             />
           </div>

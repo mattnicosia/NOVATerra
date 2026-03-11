@@ -732,7 +732,7 @@ export default function SettingsPage() {
                   style={inp(C, {
                     padding: "8px 12px",
                     fontSize: 12,
-                    fontFamily: "'DM Sans',sans-serif",
+                    fontFamily: T.font.sans,
                     flex: 1,
                     maxWidth: 500,
                   })}
@@ -820,7 +820,6 @@ export default function SettingsPage() {
             <strong style={{ color: C.accent }}>Cost Database → Cost History</strong> tab.
           </div>
         </Sec>
-
 
         {/* Auto-Responses */}
         <Sec title="Auto-Responses" icon={I.send}>
@@ -1331,7 +1330,7 @@ function CompanyProfilesSection({ C, T, masterData, showToast, logoFileRef, hand
                     style={{
                       ...inp(C, { padding: "5px 10px", fontSize: 11, resize: "vertical", minHeight: 28 }),
                       flex: 1,
-                      fontFamily: "'DM Sans',sans-serif",
+                      fontFamily: T.font.sans,
                       lineHeight: 1.5,
                     }}
                   />
@@ -1426,7 +1425,7 @@ function CompanyProfilesSection({ C, T, masterData, showToast, logoFileRef, hand
                     style={{
                       ...inp(C, { padding: "5px 10px", fontSize: 11, resize: "vertical", minHeight: 28 }),
                       flex: 1,
-                      fontFamily: "'DM Sans',sans-serif",
+                      fontFamily: T.font.sans,
                       lineHeight: 1.5,
                     }}
                   />
@@ -1520,7 +1519,7 @@ function EmailInboxSection({ C, T, showToast }) {
           <div style={{ fontSize: 11, color: C.textDim, fontWeight: 600, marginBottom: 4 }}>
             YOUR FORWARDING ADDRESS
           </div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: C.accent, fontFamily: "'DM Sans',sans-serif" }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: C.accent, fontFamily: T.font.sans }}>
             bids@novabuild.app
           </div>
           <div style={{ fontSize: 11, color: C.textMuted, marginTop: 4 }}>
@@ -1551,7 +1550,7 @@ function EmailInboxSection({ C, T, showToast }) {
                 marginBottom: 4,
               }}
             >
-              <span style={{ fontSize: 12, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>{email}</span>
+              <span style={{ fontSize: 12, color: C.text, fontFamily: T.font.sans }}>{email}</span>
               <button
                 style={{ background: "none", border: "none", cursor: "pointer", padding: 2 }}
                 onClick={() => handleRemoveSender(email)}

@@ -71,6 +71,7 @@ export const useUiStore = create((set, get) => ({
   estSearch: "",
   estDivision: "All",
   estGroupBy: "subdivision",
+  estGroupBy2: null, // secondary grouping level for hierarchical nesting (null = flat)
   estShowVars: null,
   estShowSpec: null,
   estShowAllowance: null,
@@ -116,6 +117,7 @@ export const useUiStore = create((set, get) => ({
   setEstSearch: v => set({ estSearch: v }),
   setEstDivision: v => set({ estDivision: v }),
   setEstGroupBy: v => set({ estGroupBy: v }),
+  setEstGroupBy2: v => set({ estGroupBy2: v }),
   setEstShowVars: v => set({ estShowVars: v }),
   setEstShowSpec: v => set({ estShowSpec: v }),
   setEstShowAllowance: v => set({ estShowAllowance: v }),

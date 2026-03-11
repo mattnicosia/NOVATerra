@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { NavLink } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useUiStore } from "@/stores/uiStore";
@@ -21,7 +22,7 @@ const globalNav = [
   { key: "settings", path: "/settings", icon: I.settings, label: "Settings" },
 ];
 
-export default function Sidebar() {
+function Sidebar() {
   const C = useTheme();
   const P = C.panel; // Dark panel theme for sidebar
   const T = C.T;
@@ -74,18 +75,22 @@ export default function Sidebar() {
       ? P.accent
       : syncStatus === "syncing"
         ? P.accent
-        : syncStatus === "error"
+        : syncStatus === "partial"
           ? P.orange
-          : P.textDim;
+          : syncStatus === "error"
+            ? P.orange
+            : P.textDim;
   const statusLabel =
     syncStatus === "synced"
       ? `Synced${syncLastAt ? ` ${syncLastAt}` : ""}`
       : syncStatus === "syncing"
         ? "Syncing..."
-        : syncStatus === "error"
-          ? "Tap to retry"
-          : "Cloud sync";
-  const isClickable = syncStatus === "error";
+        : syncStatus === "partial"
+          ? `Partial sync${syncLastAt ? ` ${syncLastAt}` : ""}`
+          : syncStatus === "error"
+            ? "Tap to retry"
+            : "Cloud sync";
+  const isClickable = syncStatus === "error" || syncStatus === "partial";
 
   return (
     <div
@@ -343,3 +348,5 @@ export default function Sidebar() {
     </div>
   );
 }
+
+export default memo(Sidebar);

@@ -164,7 +164,7 @@ export default function GuidedTour({ onComplete }) {
         alignItems: "center",
         justifyContent: "flex-end",
         paddingBottom: 120,
-        fontFamily: "'DM Sans', sans-serif",
+        fontFamily: "'Switzer', sans-serif",
         opacity: overlayOpacity,
         transition: "opacity 1.2s ease",
         pointerEvents: exiting ? "none" : "auto",

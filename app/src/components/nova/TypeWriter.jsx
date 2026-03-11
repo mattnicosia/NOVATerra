@@ -2,9 +2,9 @@
 // Used in NOVA onboarding and sign-in splash sequences
 // Supports optional voice: when voice + voiceOptions provided, Nova speaks the line.
 // onComplete fires when BOTH typing and voice are done (whichever is last).
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from "react";
 
-const PUNCTUATION = ['.', ',', '\u2014']; // period, comma, em-dash
+const PUNCTUATION = [".", ",", "\u2014"]; // period, comma, em-dash
 
 export default function TypeWriter({ text, speed = 40, delay = 0, onComplete, onStart, voice, voiceOptions, style }) {
   const [count, setCount] = useState(0);
@@ -119,27 +119,31 @@ export default function TypeWriter({ text, speed = 40, delay = 0, onComplete, on
   }, []);
 
   return (
-    <span style={{
-      fontSize: 18,
-      fontWeight: 300,
-      letterSpacing: 1,
-      color: 'rgba(220,200,255,0.75)',
-      fontFamily: "'DM Sans', sans-serif",
-      lineHeight: 1.6,
-      ...style,
-    }}>
+    <span
+      style={{
+        fontSize: 18,
+        fontWeight: 300,
+        letterSpacing: 1,
+        color: "rgba(220,200,255,0.75)",
+        fontFamily: "'Switzer', sans-serif",
+        lineHeight: 1.6,
+        ...style,
+      }}
+    >
       {text.slice(0, count)}
       {showCursor && (
-        <span style={{
-          display: 'inline-block',
-          width: 1,
-          height: '1.1em',
-          background: 'rgba(160,100,255,0.5)',
-          marginLeft: 2,
-          verticalAlign: 'text-bottom',
-          opacity: cursorOn ? 1 : 0,
-          transition: 'opacity 100ms',
-        }} />
+        <span
+          style={{
+            display: "inline-block",
+            width: 1,
+            height: "1.1em",
+            background: "rgba(160,100,255,0.5)",
+            marginLeft: 2,
+            verticalAlign: "text-bottom",
+            opacity: cursorOn ? 1 : 0,
+            transition: "opacity 100ms",
+          }}
+        />
       )}
     </span>
   );

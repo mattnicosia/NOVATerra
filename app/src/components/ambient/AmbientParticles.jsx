@@ -2,8 +2,8 @@
 // Renders subtle floating light motes that give the app a living, breathing quality.
 // Renders on a low-fps canvas (~20fps) layered behind all content.
 // Particle density and color shift based on NOVA state.
-import { useRef, useEffect, useCallback } from 'react';
-import { useNovaStore } from '@/stores/novaStore';
+import { useRef, useEffect, useCallback } from "react";
+import { useNovaStore } from "@/stores/novaStore";
 
 const PARTICLE_COUNT = 60;
 const TARGET_FPS = 20;
@@ -27,39 +27,40 @@ export default function AmbientParticles() {
   const particlesRef = useRef([]);
   const animRef = useRef(null);
   const lastFrameRef = useRef(0);
-  const mouseRef = useRef({ x: -1, y: -1 });
-  const statusRef = useRef('idle');
+  const statusRef = useRef("idle");
 
   // Sync NOVA status via ref to avoid re-render
   useEffect(() => {
-    return useNovaStore.subscribe(
-      (state) => { statusRef.current = state.status; },
-    );
+    return useNovaStore.subscribe(state => {
+      statusRef.current = state.status;
+    });
   }, []);
 
-  // Mouse tracking for subtle parallax
-  useEffect(() => {
-    const handler = (e) => {
-      mouseRef.current = { x: e.clientX, y: e.clientY };
-    };
-    window.addEventListener('mousemove', handler, { passive: true });
-    return () => window.removeEventListener('mousemove', handler);
-  }, []);
+  // PERF FIX: Removed mousemove listener — mouse repulsion at 0.01-0.05 opacity
+  // was invisible to users but added 1 of 7 simultaneous document mousemove handlers.
 
-  // Handle resize
+  // Handle resize — debounced to avoid expensive canvas reallocation spam
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    let resizeTimer = null;
     const resize = () => {
       const dpr = Math.min(window.devicePixelRatio, 1); // render at 1x for perf
       canvas.width = window.innerWidth * dpr;
       canvas.height = window.innerHeight * dpr;
-      canvas.style.width = window.innerWidth + 'px';
-      canvas.style.height = window.innerHeight + 'px';
+      canvas.style.width = window.innerWidth + "px";
+      canvas.style.height = window.innerHeight + "px";
     };
     resize();
-    window.addEventListener('resize', resize);
-    return () => window.removeEventListener('resize', resize);
+    const debouncedResize = () => {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(resize, 200);
+    };
+    window.addEventListener("resize", debouncedResize);
+    return () => {
+      window.removeEventListener("resize", debouncedResize);
+      if (resizeTimer) clearTimeout(resizeTimer);
+    };
   }, []);
 
   // Initialize particles
@@ -69,7 +70,7 @@ export default function AmbientParticles() {
     particlesRef.current = Array.from({ length: PARTICLE_COUNT }, () => createParticle(w, h));
   }, []);
 
-  const draw = useCallback((time) => {
+  const draw = useCallback(time => {
     animRef.current = requestAnimationFrame(draw);
 
     // Throttle to target FPS
@@ -78,29 +79,36 @@ export default function AmbientParticles() {
 
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     const w = canvas.width;
     const h = canvas.height;
     const particles = particlesRef.current;
     const status = statusRef.current;
-    const mouse = mouseRef.current;
     const t = time * 0.001;
 
     ctx.clearRect(0, 0, w, h);
 
     // State-dependent color tint
-    let baseR = 160, baseG = 140, baseB = 255; // default: soft purple
+    let baseR = 160,
+      baseG = 140,
+      baseB = 255; // default: soft purple
     let speedMult = 1;
-    if (status === 'thinking') {
-      baseR = 100; baseG = 180; baseB = 255; // blue shift
+    if (status === "thinking") {
+      baseR = 100;
+      baseG = 180;
+      baseB = 255; // blue shift
       speedMult = 1.8;
-    } else if (status === 'alert') {
-      baseR = 255; baseG = 160; baseB = 80; // warm amber
+    } else if (status === "alert") {
+      baseR = 255;
+      baseG = 160;
+      baseB = 80; // warm amber
       speedMult = 1.2;
-    } else if (status === 'affirm') {
-      baseR = 140; baseG = 255; baseB = 180; // green glow
+    } else if (status === "affirm") {
+      baseR = 140;
+      baseG = 255;
+      baseB = 180; // green glow
       speedMult = 0.6;
     }
 
@@ -118,17 +126,8 @@ export default function AmbientParticles() {
       const breathe = 0.5 + 0.5 * Math.sin(t * 0.5 + p.phase);
       const alpha = p.opacity * (0.7 + breathe * 0.3);
 
-      // Mouse influence — very subtle repulsion
-      if (mouse.x > 0) {
-        const dx = p.x - mouse.x;
-        const dy = p.y - mouse.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 120 && dist > 0) {
-          const force = (120 - dist) / 120 * 0.15;
-          p.x += (dx / dist) * force;
-          p.y += (dy / dist) * force;
-        }
-      }
+      // PERF FIX: Removed mouse repulsion (was running sqrt on 60 particles per frame
+      // for an effect invisible at 0.01-0.05 opacity)
 
       // Reset if off-screen
       if (p.y < -10 || p.x < -10 || p.x > w + 10) {
@@ -159,10 +158,10 @@ export default function AmbientParticles() {
     <canvas
       ref={canvasRef}
       style={{
-        position: 'fixed',
+        position: "fixed",
         inset: 0,
         zIndex: 0,
-        pointerEvents: 'none',
+        pointerEvents: "none",
         opacity: 0.7,
       }}
     />

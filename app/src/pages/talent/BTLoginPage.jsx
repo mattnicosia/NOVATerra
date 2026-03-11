@@ -72,7 +72,7 @@ function LoginForm() {
                 fontWeight: T.fontWeight.bold,
                 color: "#EEEDF5",
                 marginBottom: T.space[3],
-                fontFamily: "'DM Sans', sans-serif",
+                fontFamily: T.font.sans,
               }}
             >
               Check your email
@@ -82,7 +82,7 @@ function LoginForm() {
                 fontSize: T.fontSize.base,
                 color: "rgba(238,237,245,0.55)",
                 lineHeight: T.lineHeight.relaxed,
-                fontFamily: "'DM Sans', sans-serif",
+                fontFamily: T.font.sans,
               }}
             >
               We sent a password reset link to <strong style={{ color: "#EEEDF5" }}>{email}</strong>.
@@ -99,7 +99,7 @@ function LoginForm() {
                   fontSize: T.fontSize.sm,
                   padding: "8px 0",
                   marginTop: T.space[4],
-                  fontFamily: "'DM Sans', sans-serif",
+                  fontFamily: T.font.sans,
                 }),
               }}
             >
@@ -142,7 +142,7 @@ function LoginForm() {
                   border: `1px solid ${BT_COLORS.danger}30`,
                   borderRadius: T.radius.sm,
                   padding: `${T.space[2]}px ${T.space[3]}px`,
-                  fontFamily: "'DM Sans', sans-serif",
+                  fontFamily: T.font.sans,
                 }}
               >
                 {error}
@@ -179,7 +179,7 @@ function LoginForm() {
                     color: "rgba(238,237,245,0.4)",
                     fontSize: T.fontSize.sm,
                     padding: 0,
-                    fontFamily: "'DM Sans', sans-serif",
+                    fontFamily: T.font.sans,
                   }),
                 }}
               >
@@ -205,7 +205,7 @@ function BrandHeader({ T }) {
           fontWeight: 800,
           color: "#EEEDF5",
           letterSpacing: 1.5,
-          fontFamily: "'DM Sans', sans-serif",
+          fontFamily: T.font.sans,
           marginBottom: T.space[1],
         }}
       >
@@ -218,7 +218,7 @@ function BrandHeader({ T }) {
           color: "rgba(238,237,245,0.4)",
           letterSpacing: 2,
           textTransform: "uppercase",
-          fontFamily: "'DM Sans', sans-serif",
+          fontFamily: T.font.sans,
           marginBottom: T.space[2],
         }}
       >
@@ -230,7 +230,7 @@ function BrandHeader({ T }) {
           color: BT_COLORS.primary,
           fontWeight: 600,
           letterSpacing: 1.5,
-          fontFamily: "'DM Sans', sans-serif",
+          fontFamily: T.font.sans,
         }}
       >
         {BT_BRAND.poweredBy}
@@ -268,7 +268,7 @@ const pageStyle = {
   alignItems: "center",
   justifyContent: "center",
   background: "linear-gradient(180deg, #06060C 0%, #0C0B14 50%, #12101C 100%)",
-  fontFamily: "'DM Sans', sans-serif",
+  fontFamily: T.font.sans,
   padding: 20,
 };
 
@@ -290,7 +290,7 @@ const labelStyle = T => ({
   textTransform: "uppercase",
   letterSpacing: 1.2,
   marginBottom: T.space[1],
-  fontFamily: "'DM Sans', sans-serif",
+  fontFamily: T.font.sans,
 });
 
 const fieldStyle = (C, T) => ({
@@ -304,7 +304,7 @@ const fieldStyle = (C, T) => ({
   width: "100%",
   boxSizing: "border-box",
   outline: "none",
-  fontFamily: "'DM Sans', sans-serif",
+  fontFamily: T.font.sans,
   transition: "border-color 150ms ease",
 });
 
@@ -312,7 +312,7 @@ const linkStyle = T => ({
   fontSize: T.fontSize.sm,
   color: "rgba(238,237,245,0.45)",
   textDecoration: "none",
-  fontFamily: "'DM Sans', sans-serif",
+  fontFamily: T.font.sans,
   transition: "color 150ms ease",
 });
 

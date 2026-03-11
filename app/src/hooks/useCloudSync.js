@@ -84,16 +84,16 @@ async function runCloudSync() {
       .getState()
       .setCloudSyncLastAt(new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }));
     console.log("[cloudSync] Bidirectional sync complete.");
-  } else if (failures < 5) {
-    // Partial success — mark synced with warning logged
-    useUiStore.getState().setCloudSyncStatus("synced");
+  } else if (failures <= 3) {
+    // Partial success — show warning state so user knows something didn't sync
+    useUiStore.getState().setCloudSyncStatus("partial");
     useUiStore
       .getState()
       .setCloudSyncLastAt(new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }));
-    console.warn(`[cloudSync] Completed with ${failures} partial failure(s).`);
+    console.warn(`[cloudSync] Completed with ${failures}/6 failure(s).`);
   } else {
-    // All 4 sub-syncs failed — mark error
-    console.error("[cloudSync] All sync operations failed.");
+    // Most or all sub-syncs failed — mark error
+    console.error(`[cloudSync] ${failures}/6 sync operations failed.`);
     useUiStore.getState().setCloudSyncStatus("error");
   }
 
@@ -166,7 +166,19 @@ export function useCloudSync() {
 // ─── Master Data Sync ──────────────────────────────────────────────
 
 async function syncMasterData() {
-  const cloudResult = await cloudSync.pullDataWithMeta("master");
+  let cloudResult = await cloudSync.pullDataWithMeta("master");
+
+  // ── Solo→org migration: if org-mode cloud is empty, check solo-mode cloud ──
+  // When a user creates/joins an org, their data is in user_data with org_id=NULL.
+  // Pull that as a fallback so company profiles, contacts, etc. aren't lost.
+  if (!cloudResult) {
+    const soloResult = await cloudSync.pullSoloFallback("master");
+    if (soloResult) {
+      console.log("[cloudSync] Master: org cloud empty — migrating from solo-mode cloud");
+      cloudResult = soloResult;
+    }
+  }
+
   const localRaw = await storage.get(idbKey("bldg-master"));
   let localMaster = null;
   try {
@@ -189,6 +201,8 @@ async function syncMasterData() {
     console.log("[cloudSync] Master: cloud only → pulling to local");
     applyMasterData(cloudResult.data);
     await storage.set(idbKey("bldg-master"), JSON.stringify(cloudResult.data));
+    // Push to org-scoped cloud so future loads find it directly
+    await cloudSync.pushData("master", cloudResult.data);
     return;
   }
 
@@ -303,11 +317,22 @@ async function syncEstimates() {
   const initialDeletedSet = new Set(initialDeletedIds);
 
   // ── Phase 2: Fetch cloud data ──
-  const cloudIndexResult = await cloudSync.pullDataWithMeta("index");
+  let cloudIndexResult = await cloudSync.pullDataWithMeta("index");
+  let cloudEstimates = await cloudSync.pullAllEstimatesWithMeta();
+
+  // ── Solo→org migration: if org cloud is empty, check solo-mode cloud ──
+  if (cloudEstimates.length === 0) {
+    const soloIndex = await cloudSync.pullSoloFallback("index");
+    const soloEstimates = await cloudSync.pullAllEstimatesSoloFallback();
+    if (soloEstimates.length > 0) {
+      console.log(`[cloudSync] Estimates: org cloud empty — migrating ${soloEstimates.length} from solo-mode cloud`);
+      cloudEstimates = soloEstimates;
+      if (soloIndex && !cloudIndexResult) cloudIndexResult = soloIndex;
+    }
+  }
+
   const cloudIndexRaw = cloudIndexResult?.data && Array.isArray(cloudIndexResult.data) ? cloudIndexResult.data : [];
   const cloudIndexMap = new Map(cloudIndexRaw.filter(e => !initialDeletedSet.has(e.id)).map(e => [e.id, e]));
-
-  const cloudEstimates = await cloudSync.pullAllEstimatesWithMeta();
   const cloudEstMap = new Map(cloudEstimates.map(e => [e.estimate_id, e]));
 
   // ── Phase 3: Retry cloud deletion for locally-deleted estimates still in cloud ──
@@ -338,7 +363,10 @@ async function syncEstimates() {
     if (initialDeletedSet.has(ce.estimate_id)) continue; // Don't pull back deleted
     if (!idbIndexMap.has(ce.estimate_id)) {
       console.log(`[cloudSync] Estimates: caching cloud estimate ${ce.estimate_id} to IDB`);
-      await storage.set(idbKey(`bldg-est-${ce.estimate_id}`), JSON.stringify(ce.data));
+      // Hydrate blobs before caching — cloud data has stripped drawings
+      let estData = ce.data;
+      try { estData = await cloudSync.hydrateBlobs(ce.data); } catch {}
+      await storage.set(idbKey(`bldg-est-${ce.estimate_id}`), JSON.stringify(estData));
       const cloudEntry = cloudIndexMap.get(ce.estimate_id);
       if (cloudEntry) {
         pulledEntries.push(cloudEntry);
@@ -364,10 +392,7 @@ async function syncEstimates() {
     // This reads the store state at write-time, not from a stale closure variable.
     const toAddIds = new Set(toAdd.map(e => e.id));
     useEstimatesStore.setState(state => ({
-      estimatesIndex: [
-        ...state.estimatesIndex,
-        ...toAdd.filter(e => !state.estimatesIndex.some(ex => ex.id === e.id)),
-      ],
+      estimatesIndex: [...state.estimatesIndex, ...toAdd.filter(e => !state.estimatesIndex.some(ex => ex.id === e.id))],
     }));
     const merged = useEstimatesStore.getState().estimatesIndex;
     const idxJson = JSON.stringify(merged);
@@ -414,9 +439,7 @@ async function syncEstimates() {
   }));
   const afterLen = useEstimatesStore.getState().estimatesIndex.length;
   if (afterLen < beforeLen) {
-    console.log(
-      `[cloudSync] Estimates: filtered ${beforeLen - afterLen} deleted entries from index`,
-    );
+    console.log(`[cloudSync] Estimates: filtered ${beforeLen - afterLen} deleted entries from index`);
   }
   // Persist the cleaned index to IDB + localStorage mirror
   const cleanedIndex = useEstimatesStore.getState().estimatesIndex;

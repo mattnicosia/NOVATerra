@@ -1,35 +1,39 @@
 // IntelligencePage — Bloomberg Terminal for Construction
 // Shows industry trends, material costs, NOVA benchmarks, portfolio intelligence
 
-import { useEffect, useMemo } from 'react';
-import { useTheme } from '@/hooks/useTheme';
-import { useIntelligenceStore } from '@/stores/intelligenceStore';
-import { useEstimatesStore } from '@/stores/estimatesStore';
-import { useMasterDataStore } from '@/stores/masterDataStore';
-import { useScanStore } from '@/stores/scanStore';
-import { useUiStore } from '@/stores/uiStore';
-import { mapStatusToOutcome } from '@/utils/costHistoryMigration';
+import { useEffect, useMemo } from "react";
+import { useTheme } from "@/hooks/useTheme";
+import { useIntelligenceStore } from "@/stores/intelligenceStore";
+import { useEstimatesStore } from "@/stores/estimatesStore";
+import { useMasterDataStore } from "@/stores/masterDataStore";
+import { useScanStore } from "@/stores/scanStore";
+import { useUiStore } from "@/stores/uiStore";
+import { mapStatusToOutcome } from "@/utils/costHistoryMigration";
 import {
-  getCompositeIndex, getYoYChange, getAllDivisionIndices, getAvailableYears, getCurrentYear,
-} from '@/constants/constructionCostIndex';
-import { computeDeltas, FRED_SERIES } from '@/constants/fredSeries';
-import { pageContainer } from '@/utils/styles';
-import Ic from '@/components/shared/Ic';
-import { I } from '@/constants/icons';
-import NovaOrb from '@/components/dashboard/NovaOrb';
+  getCompositeIndex,
+  getYoYChange,
+  getAllDivisionIndices,
+  getAvailableYears,
+  getCurrentYear,
+} from "@/constants/constructionCostIndex";
+import { computeDeltas, FRED_SERIES } from "@/constants/fredSeries";
+import { pageContainer } from "@/utils/styles";
+import Ic from "@/components/shared/Ic";
+import { I } from "@/constants/icons";
+import NovaOrb from "@/components/dashboard/NovaOrb";
 
 // Intelligence components
-import SectionNav from '@/components/intelligence/SectionNav';
-import MarketTicker from '@/components/intelligence/MarketTicker';
-import IntelligenceKPI from '@/components/intelligence/IntelligenceKPI';
-import NovaMarketBrief from '@/components/intelligence/NovaMarketBrief';
-import MaterialCharts from '@/components/intelligence/MaterialCharts';
-import BenchmarkComparison from '@/components/intelligence/BenchmarkComparison';
-import PortfolioIntelligence from '@/components/intelligence/PortfolioIntelligence';
-import DivisionDeepDive from '@/components/intelligence/DivisionDeepDive';
-import { BarChart, Spark } from '@/components/intelligence/PureCSSChart';
+import SectionNav from "@/components/intelligence/SectionNav";
+import MarketTicker from "@/components/intelligence/MarketTicker";
+import IntelligenceKPI from "@/components/intelligence/IntelligenceKPI";
+import NovaMarketBrief from "@/components/intelligence/NovaMarketBrief";
+import MaterialCharts from "@/components/intelligence/MaterialCharts";
+import BenchmarkComparison from "@/components/intelligence/BenchmarkComparison";
+import PortfolioIntelligence from "@/components/intelligence/PortfolioIntelligence";
+import DivisionDeepDive from "@/components/intelligence/DivisionDeepDive";
+import { BarChart, Spark } from "@/components/intelligence/PureCSSChart";
 
-const fmtCost = (n) => {
+const fmtCost = n => {
   if (!n && n !== 0) return "\u2014";
   if (n >= 1000000) return "$" + (n / 1000000).toFixed(1) + "M";
   return "$" + Math.round(n).toLocaleString();
@@ -73,7 +77,7 @@ export default function IntelligencePage() {
   const divs = getAllDivisionIndices(currentYear);
   const years = getAvailableYears();
   const compositeSparkData = years.map(y => getCompositeIndex(y));
-  const hottest = divs.length > 0 ? divs.reduce((a, b) => a.yoy > b.yoy ? a : b) : null;
+  const hottest = divs.length > 0 ? divs.reduce((a, b) => (a.yoy > b.yoy ? a : b)) : null;
 
   // FRED-based housing starts
   const startsData = fredData.housingStarts || [];
@@ -83,9 +87,10 @@ export default function IntelligencePage() {
   // Calibration
   const calCount = Object.keys(calibrationFactors).length;
   const calFactors = Object.values(calibrationFactors);
-  const avgDeviation = calFactors.length > 0
-    ? Math.round(calFactors.reduce((s, f) => s + Math.abs(f - 1), 0) / calFactors.length * 100)
-    : null;
+  const avgDeviation =
+    calFactors.length > 0
+      ? Math.round((calFactors.reduce((s, f) => s + Math.abs(f - 1), 0) / calFactors.length) * 100)
+      : null;
 
   // Context data for NOVA brief
   const briefContext = {
@@ -130,10 +135,15 @@ export default function IntelligencePage() {
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Ic d={I.intelligence} size={22} color={C.accent} sw={2} />
           <div>
-            <h1 style={{
-              fontSize: T.fontSize.xl, fontWeight: T.fontWeight.bold, color: C.text,
-              margin: 0, fontFamily: "'DM Sans', sans-serif",
-            }}>
+            <h1
+              style={{
+                fontSize: T.fontSize.xl,
+                fontWeight: T.fontWeight.bold,
+                color: C.text,
+                margin: 0,
+                fontFamily: T.font.sans,
+              }}
+            >
               Intelligence Center
             </h1>
             <div style={{ fontSize: T.fontSize.xs, color: C.textMuted, marginTop: 2 }}>
@@ -142,9 +152,7 @@ export default function IntelligencePage() {
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {lastUpdated && (
-            <span style={{ fontSize: 9, color: C.textDim }}>Updated {lastUpdated}</span>
-          )}
+          {lastUpdated && <span style={{ fontSize: 9, color: C.textDim }}>Updated {lastUpdated}</span>}
           {fredApiKey && (
             <button
               onClick={() => {
@@ -152,10 +160,17 @@ export default function IntelligencePage() {
                 setTimeout(() => fetchFredData(), 100);
               }}
               style={{
-                background: `${C.accent}10`, border: `1px solid ${C.accent}30`,
-                color: C.accent, borderRadius: 5, padding: "5px 10px",
-                fontSize: 9, fontWeight: 600, cursor: "pointer",
-                display: "flex", alignItems: "center", gap: 4,
+                background: `${C.accent}10`,
+                border: `1px solid ${C.accent}30`,
+                color: C.accent,
+                borderRadius: 5,
+                padding: "5px 10px",
+                fontSize: 9,
+                fontWeight: 600,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
               }}
             >
               <Ic d={I.refresh} size={11} color={C.accent} />
@@ -188,7 +203,8 @@ export default function IntelligencePage() {
               icon={I.report}
               color={C.accent}
               spark={compositeSparkData}
-              accent pulse
+              accent
+              pulse
             />
             <IntelligenceKPI
               label="Pipeline"
@@ -229,13 +245,26 @@ export default function IntelligencePage() {
           {/* Two-column: Cost Index Trend + Material Sparklines */}
           <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 14 }}>
             {/* Cost Index Trend */}
-            <div style={{
-              padding: "14px 16px", borderRadius: T.radius.md,
-              background: C.glassBg || 'rgba(18,21,28,0.55)',
-              backdropFilter: T.glass.blur, WebkitBackdropFilter: T.glass.blur,
-              border: `1px solid ${C.glassBorder || 'rgba(255,255,255,0.06)'}`,
-            }}>
-              <div style={{ fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>
+            <div
+              style={{
+                padding: "14px 16px",
+                borderRadius: T.radius.md,
+                background: C.glassBg || "rgba(18,21,28,0.55)",
+                backdropFilter: T.glass.blur,
+                WebkitBackdropFilter: T.glass.blur,
+                border: `1px solid ${C.glassBorder || "rgba(255,255,255,0.06)"}`,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 9,
+                  fontWeight: 700,
+                  color: C.textDim,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.5,
+                  marginBottom: 10,
+                }}
+              >
                 Construction Cost Index — Composite (2015\u2013{currentYear})
               </div>
               <BarChart
@@ -254,13 +283,19 @@ export default function IntelligencePage() {
                 {years.map(y => {
                   const yoy = getYoYChange(y);
                   return (
-                    <div key={y} style={{
-                      flex: 1, textAlign: "center", fontSize: 7,
-                      fontFamily: "'DM Sans',sans-serif",
-                      color: yoy > 5 ? C.orange : yoy > 0 ? C.green : C.textDim,
-                      fontWeight: yoy > 5 ? 700 : 400,
-                    }}>
-                      {yoy > 0 ? "+" : ""}{yoy.toFixed(1)}%
+                    <div
+                      key={y}
+                      style={{
+                        flex: 1,
+                        textAlign: "center",
+                        fontSize: 7,
+                        fontFamily: T.font.sans,
+                        color: yoy > 5 ? C.orange : yoy > 0 ? C.green : C.textDim,
+                        fontWeight: yoy > 5 ? 700 : 400,
+                      }}
+                    >
+                      {yoy > 0 ? "+" : ""}
+                      {yoy.toFixed(1)}%
                     </div>
                   );
                 })}
@@ -268,48 +303,101 @@ export default function IntelligencePage() {
             </div>
 
             {/* Material Mini-Charts */}
-            <div style={{
-              padding: "14px 16px", borderRadius: T.radius.md,
-              background: C.glassBg || 'rgba(18,21,28,0.55)',
-              backdropFilter: T.glass.blur, WebkitBackdropFilter: T.glass.blur,
-              border: `1px solid ${C.glassBorder || 'rgba(255,255,255,0.06)'}`,
-            }}>
-              <div style={{ fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>
+            <div
+              style={{
+                padding: "14px 16px",
+                borderRadius: T.radius.md,
+                background: C.glassBg || "rgba(18,21,28,0.55)",
+                backdropFilter: T.glass.blur,
+                WebkitBackdropFilter: T.glass.blur,
+                border: `1px solid ${C.glassBorder || "rgba(255,255,255,0.06)"}`,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 9,
+                  fontWeight: 700,
+                  color: C.textDim,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.5,
+                  marginBottom: 10,
+                }}
+              >
                 Division Cost Indices ({currentYear})
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {divs.sort((a, b) => b.index - a.index).map(d => {
-                  const label = {
-                    concrete: "Concrete", metals: "Steel", wood: "Lumber",
-                    thermal: "Roofing", openings: "Openings", finishes: "Finishes",
-                    mechanical: "Mech/Plmb", electrical: "Electrical",
-                    sitework: "Sitework", general: "Labor",
-                  }[d.category] || d.category;
-                  const maxIdx = Math.max(...divs.map(x => x.index));
-                  return (
-                    <div key={d.category} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontSize: 8, color: C.textDim, width: 50, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
-                      <div style={{ flex: 1, height: 3, borderRadius: 2, background: C.bg2, position: "relative" }}>
-                        <div style={{
-                          position: "absolute", left: 0, top: 0, height: "100%",
-                          width: `${(d.index / maxIdx) * 100}%`, borderRadius: 2,
-                          background: d.yoy > 3 ? C.orange : C.accent,
-                          transition: "width 600ms ease",
-                        }} />
+                {divs
+                  .sort((a, b) => b.index - a.index)
+                  .map(d => {
+                    const label =
+                      {
+                        concrete: "Concrete",
+                        metals: "Steel",
+                        wood: "Lumber",
+                        thermal: "Roofing",
+                        openings: "Openings",
+                        finishes: "Finishes",
+                        mechanical: "Mech/Plmb",
+                        electrical: "Electrical",
+                        sitework: "Sitework",
+                        general: "Labor",
+                      }[d.category] || d.category;
+                    const maxIdx = Math.max(...divs.map(x => x.index));
+                    return (
+                      <div key={d.category} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span
+                          style={{
+                            fontSize: 8,
+                            color: C.textDim,
+                            width: 50,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {label}
+                        </span>
+                        <div style={{ flex: 1, height: 3, borderRadius: 2, background: C.bg2, position: "relative" }}>
+                          <div
+                            style={{
+                              position: "absolute",
+                              left: 0,
+                              top: 0,
+                              height: "100%",
+                              width: `${(d.index / maxIdx) * 100}%`,
+                              borderRadius: 2,
+                              background: d.yoy > 3 ? C.orange : C.accent,
+                              transition: "width 600ms ease",
+                            }}
+                          />
+                        </div>
+                        <span
+                          style={{
+                            fontSize: 9,
+                            fontWeight: 700,
+                            color: C.text,
+                            fontFamily: T.font.sans,
+                            minWidth: 26,
+                            textAlign: "right",
+                          }}
+                        >
+                          {d.index.toFixed(0)}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: 8,
+                            fontWeight: 600,
+                            minWidth: 28,
+                            textAlign: "right",
+                            fontFamily: T.font.sans,
+                            color: d.yoy > 3 ? C.orange : d.yoy > 0 ? C.green : C.textDim,
+                          }}
+                        >
+                          +{d.yoy.toFixed(1)}%
+                        </span>
                       </div>
-                      <span style={{ fontSize: 9, fontWeight: 700, color: C.text, fontFamily: "'DM Sans',sans-serif", minWidth: 26, textAlign: "right" }}>
-                        {d.index.toFixed(0)}
-                      </span>
-                      <span style={{
-                        fontSize: 8, fontWeight: 600, minWidth: 28, textAlign: "right",
-                        fontFamily: "'DM Sans',sans-serif",
-                        color: d.yoy > 3 ? C.orange : d.yoy > 0 ? C.green : C.textDim,
-                      }}>
-                        +{d.yoy.toFixed(1)}%
-                      </span>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
               </div>
             </div>
           </div>
@@ -317,24 +405,16 @@ export default function IntelligencePage() {
       )}
 
       {/* ═══ MARKETS ═══ */}
-      {activeSection === "markets" && (
-        <MaterialCharts />
-      )}
+      {activeSection === "markets" && <MaterialCharts />}
 
       {/* ═══ BENCHMARKS ═══ */}
-      {activeSection === "benchmarks" && (
-        <BenchmarkComparison />
-      )}
+      {activeSection === "benchmarks" && <BenchmarkComparison />}
 
       {/* ═══ PORTFOLIO ═══ */}
-      {activeSection === "portfolio" && (
-        <PortfolioIntelligence />
-      )}
+      {activeSection === "portfolio" && <PortfolioIntelligence />}
 
       {/* ═══ DIVISIONS ═══ */}
-      {activeSection === "divisions" && (
-        <DivisionDeepDive />
-      )}
+      {activeSection === "divisions" && <DivisionDeepDive />}
     </div>
   );
 }

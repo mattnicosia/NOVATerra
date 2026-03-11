@@ -240,7 +240,7 @@ function KanbanCard({ est, C, T, navigate, onStatusChange, onDuplicate, onDelete
       )}
       {est.client && <div style={{ fontSize: 10, color: C.textDim, marginBottom: 6 }}>{est.client}</div>}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, fontWeight: 600, color: C.text }}>
+        <span style={{ fontFamily: T.font.sans, fontSize: 11, fontWeight: 600, color: C.text }}>
           {est.grandTotal ? fmt(est.grandTotal) : "—"}
         </span>
         {est.bidDue && (
@@ -1124,7 +1124,7 @@ export default function ProjectsPage() {
                     {search && ` matching "${search}"`}
                     {dueThisWeek && " · due this week"}
                   </span>
-                  <span style={{ fontFamily: "'DM Sans',sans-serif", fontWeight: 600, color: C.textMuted }}>
+                  <span style={{ fontFamily: T.font.sans, fontWeight: 600, color: C.textMuted }}>
                     Total: {fmt(sorted.reduce((s, e) => s + (e.grandTotal || 0), 0))}
                   </span>
                 </div>

@@ -15,6 +15,7 @@ const FEATURES = [
 
 export default function RomUpsell() {
   const C = useTheme();
+  const T = C.T;
   const buildingType = useRomStore(s => s.buildingType);
   const projectSF = useRomStore(s => s.projectSF);
   const romResult = useRomStore(s => s.romResult);
@@ -65,7 +66,7 @@ export default function RomUpsell() {
               fontSize: T.fontSize["2xl"],
               fontWeight: T.fontWeight.bold,
               color: C.text,
-              fontFamily: "'DM Sans',sans-serif",
+              fontFamily: T.font.sans,
               margin: 0,
               marginBottom: T.space[3],
             }}
@@ -78,7 +79,7 @@ export default function RomUpsell() {
             style={{
               fontSize: T.fontSize.md,
               color: C.textMuted,
-              fontFamily: "'DM Sans',sans-serif",
+              fontFamily: T.font.sans,
               margin: 0,
               marginBottom: T.space[6],
               lineHeight: T.lineHeight.relaxed,
@@ -110,7 +111,7 @@ export default function RomUpsell() {
                   gap: T.space[2],
                   fontSize: T.fontSize.sm,
                   color: C.textMuted,
-                  fontFamily: "'DM Sans',sans-serif",
+                  fontFamily: T.font.sans,
                   lineHeight: T.lineHeight.normal,
                 }}
               >
@@ -153,7 +154,7 @@ export default function RomUpsell() {
               marginTop: T.space[4],
               fontSize: T.fontSize.xs,
               color: C.textDim,
-              fontFamily: "'DM Sans',sans-serif",
+              fontFamily: T.font.sans,
             }}
           >
             Your account is ready — your ROM data will be pre-loaded

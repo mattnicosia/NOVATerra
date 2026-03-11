@@ -228,32 +228,59 @@ const uploadBlob = async (path, dataUrl) => {
  * SAFETY: Validates downloaded blob size — rejects files smaller than
  * MIN_VALID_BLOB_BYTES (likely corrupted CDN error pages).
  */
-const downloadBlob = async storagePath => {
+const BLOB_DOWNLOAD_TIMEOUT = 20000; // 20s timeout for individual blob downloads
+const BLOB_DOWNLOAD_RETRIES = 3; // retry up to 3 times with exponential backoff
+
+const downloadBlobOnce = async storagePath => {
   if (!storagePath || !supabase) return null;
-  try {
-    const { data, error } = await supabase.storage.from(BLOB_BUCKET).download(storagePath);
+  const downloadPromise = supabase.storage.from(BLOB_BUCKET).download(storagePath);
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(
+      () => reject(new Error(`Blob download timed out after ${BLOB_DOWNLOAD_TIMEOUT / 1000}s`)),
+      BLOB_DOWNLOAD_TIMEOUT,
+    ),
+  );
+  const { data, error } = await Promise.race([downloadPromise, timeoutPromise]);
 
-    if (error) throw error;
-    if (!data) return null;
+  if (error) throw error;
+  if (!data) return null;
 
-    // Reject corrupted blobs (CDN error pages are ~40 bytes)
-    if (data.size < MIN_VALID_BLOB_BYTES) {
-      console.warn(
-        `[cloudSync] Downloaded blob "${storagePath}" is only ${data.size} bytes — likely corrupted, skipping`,
-      );
-      return null;
-    }
-
-    // Convert Blob to data URL
-    return new Promise(resolve => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.readAsDataURL(data);
-    });
-  } catch (err) {
-    console.warn(`[cloudSync] downloadBlob("${storagePath}") failed:`, err.message);
+  // Reject corrupted blobs (CDN error pages are ~40 bytes)
+  if (data.size < MIN_VALID_BLOB_BYTES) {
+    console.warn(
+      `[cloudSync] Downloaded blob "${storagePath}" is only ${data.size} bytes — likely corrupted, skipping`,
+    );
     return null;
   }
+
+  // Convert Blob to data URL
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.readAsDataURL(data);
+  });
+};
+
+const downloadBlob = async storagePath => {
+  for (let attempt = 0; attempt < BLOB_DOWNLOAD_RETRIES; attempt++) {
+    try {
+      const result = await downloadBlobOnce(storagePath);
+      if (result) return result;
+      // null result (corrupted blob) — don't retry, the file itself is bad
+      return null;
+    } catch (err) {
+      const isLastAttempt = attempt === BLOB_DOWNLOAD_RETRIES - 1;
+      if (isLastAttempt) {
+        console.warn(`[cloudSync] downloadBlob("${storagePath}") failed after ${BLOB_DOWNLOAD_RETRIES} attempts:`, err.message);
+        return null;
+      }
+      // Exponential backoff: 1s, 2s, 4s
+      const delay = 1000 * Math.pow(2, attempt);
+      console.log(`[cloudSync] downloadBlob("${storagePath}") attempt ${attempt + 1} failed, retrying in ${delay}ms…`);
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  return null;
 };
 
 /**
@@ -363,11 +390,11 @@ export const hydrateBlobs = async data => {
         if (!dataUrl) {
           failed_count++;
           console.warn(
-            `[cloudSync] Failed to hydrate drawing "${d.id}" from "${d.storagePath}" — clearing stripped flag for re-upload`,
+            `[cloudSync] Failed to hydrate drawing "${d.id}" from "${d.storagePath}" — KEEPING markers for retry`,
           );
-          // Clear stripped flag so next save can re-push if local blob exists
-          const { _cloudBlobStripped: _, storagePath: __, ...clean } = d;
-          return clean;
+          // KEEP _cloudBlobStripped + storagePath so we can retry later.
+          // Previous code stripped them, permanently losing the recovery path.
+          return d;
         }
         hydrated_count++;
         return { ...d, data: dataUrl };
@@ -383,8 +410,8 @@ export const hydrateBlobs = async data => {
         const dataUrl = await downloadBlob(d.storagePath);
         if (!dataUrl) {
           failed_count++;
-          const { _cloudBlobStripped: _, storagePath: __, ...clean } = d;
-          return clean;
+          // KEEP markers for retry — don't destroy the recovery path
+          return d;
         }
         hydrated_count++;
         return { ...d, data: dataUrl };
@@ -400,15 +427,16 @@ export const hydrateBlobs = async data => {
       hydrated_count++;
     } else {
       failed_count++;
-      // Clear stripped flag so specPdf can be re-pushed if available locally
-      delete hydrated._specPdfStripped;
-      delete hydrated._specPdfStoragePath;
+      // KEEP markers for retry — don't delete _specPdfStripped / _specPdfStoragePath
     }
   }
 
   if (hydrated_count + failed_count > 0) {
     console.log(`[cloudSync] Blob hydration: ${hydrated_count} restored, ${failed_count} failed`);
   }
+
+  // Attach hydration stats so callers can decide whether to persist
+  hydrated._hydrationStats = { hydrated: hydrated_count, failed: failed_count };
 
   return hydrated;
 };
@@ -429,6 +457,20 @@ const SYNC_COOLDOWN = 30000; // 30s cooldown after all retries exhausted
 let _activeSyncs = 0;
 const MAX_CONCURRENT_SYNCS = 3; // limit parallel uploads
 
+// Classify errors: permanent (don't retry) vs transient (do retry)
+const isPermanentError = err => {
+  const msg = (err?.message || "").toLowerCase();
+  const status = err?.status || err?.statusCode || 0;
+  // Auth failures, forbidden, not found, conflict — don't retry
+  if (status === 401 || status === 403 || status === 404 || status === 409) return true;
+  // Supabase-specific permanent errors
+  if (msg.includes("jwt expired") || msg.includes("invalid jwt")) return true;
+  if (msg.includes("row-level security") || msg.includes("rls")) return true;
+  if (msg.includes("violates unique constraint")) return true;
+  if (msg.includes("violates foreign key")) return true;
+  return false;
+};
+
 const withRetry = async (label, fn, retries = 2) => {
   // Cooldown: skip entirely if we just had a total failure
   if (Date.now() - _lastSyncError < SYNC_COOLDOWN) {
@@ -446,6 +488,12 @@ const withRetry = async (label, fn, retries = 2) => {
       try {
         return await fn();
       } catch (err) {
+        // Don't retry permanent errors (auth, RLS, constraint violations)
+        if (isPermanentError(err)) {
+          console.error(`[cloudSync] ${label} permanent error — not retrying:`, err.message);
+          _lastSyncError = Date.now();
+          throw err;
+        }
         if (attempt < retries) {
           const delay = Math.min(2000 * Math.pow(2, attempt), 16000); // 2s → 4s → 8s (max 16s)
           console.warn(`[cloudSync] ${label} attempt ${attempt + 1} failed, retrying in ${delay / 1000}s...`);
@@ -598,7 +646,12 @@ export const pushEstimate = async (estimateId, data) => {
             console.log(`[cloudSync] pushEstimate("${estimateId}"): migrating solo row to org ${scope.org_id}`);
             const { error: upErr } = await supabase
               .from("user_estimates")
-              .update({ org_id: scope.org_id, data: cleanData, updated_at: row.updated_at, ...(assignedTo ? { assigned_to: assignedTo } : {}) })
+              .update({
+                org_id: scope.org_id,
+                data: cleanData,
+                updated_at: row.updated_at,
+                ...(assignedTo ? { assigned_to: assignedTo } : {}),
+              })
               .eq("user_id", userId)
               .eq("estimate_id", estimateId)
               .is("org_id", null);

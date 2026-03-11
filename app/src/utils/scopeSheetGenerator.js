@@ -87,7 +87,7 @@ export function generateScopeSheet(selectedItems, csiData) {
 
   // Generate HTML for email — uses dark text on light backgrounds
   // since most email clients (Gmail, Outlook) render on white
-  const html = `<div style="font-family: 'DM Sans', Arial, sans-serif; font-size: 14px; color: #333333;">
+  const html = `<div style="font-family: 'Switzer', Arial, sans-serif; font-size: 14px; color: #333333;">
 ${divisions
   .map(
     d => `

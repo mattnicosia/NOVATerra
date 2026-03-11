@@ -26,7 +26,7 @@ export const useResourceStore = create(set => ({
   dragOriginalBidDue: "", // Original bidDue for the bar being dragged
 
   // Workload view mode
-  sortMode: "timeline", // "timeline" | "hours" | "due-date" | "weekly"
+  sortMode: "board", // "board" | "timeline" | "hours" | "due-date" | "weekly" | "analytics"
 
   // Weekly planning view
   weeklyViewWeekOffset: 0, // 0 = this week, -1 = last, +1 = next

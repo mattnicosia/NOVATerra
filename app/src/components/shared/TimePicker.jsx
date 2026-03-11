@@ -57,7 +57,7 @@ export default function TimePicker({ value, onChange, placeholder = "Select time
   // Close on outside click
   useEffect(() => {
     if (!open) return;
-    const handler = (e) => {
+    const handler = e => {
       if (ref.current && !ref.current.contains(e.target)) setOpen(false);
     };
     document.addEventListener("mousedown", handler);
@@ -68,15 +68,15 @@ export default function TimePicker({ value, onChange, placeholder = "Select time
     onChange(to24(h, m, p));
   };
 
-  const pickHour = (h) => {
+  const pickHour = h => {
     setSelH(h);
     commit(h, selM, selP);
   };
-  const pickMinute = (m) => {
+  const pickMinute = m => {
     setSelM(m);
     commit(selH, m, selP);
   };
-  const pickPeriod = (p) => {
+  const pickPeriod = p => {
     setSelP(p);
     commit(selH, selM, p);
   };
@@ -99,7 +99,7 @@ export default function TimePicker({ value, onChange, placeholder = "Select time
     setOpen(false);
   };
 
-  const ov = (a) => (dk ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`);
+  const ov = a => (dk ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`);
 
   const colStyle = {
     flex: 1,
@@ -131,7 +131,7 @@ export default function TimePicker({ value, onChange, placeholder = "Select time
       {/* Trigger button */}
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => setOpen(o => !o)}
         style={{
           width: "100%",
           textAlign: "left",
@@ -178,9 +178,7 @@ export default function TimePicker({ value, onChange, placeholder = "Select time
             background: C.bg1,
             border: `1px solid ${C.border}`,
             borderRadius: 10,
-            boxShadow: dk
-              ? "0 12px 40px rgba(0,0,0,0.5)"
-              : "0 12px 40px rgba(0,0,0,0.15)",
+            boxShadow: dk ? "0 12px 40px rgba(0,0,0,0.5)" : "0 12px 40px rgba(0,0,0,0.15)",
             padding: 12,
             fontFamily: T.font.display,
             animation: "modalEnter 0.15s ease-out both",
@@ -219,7 +217,7 @@ export default function TimePicker({ value, onChange, placeholder = "Select time
               >
                 HR
               </div>
-              {HOURS.map((h) => {
+              {HOURS.map(h => {
                 const active = h === selH;
                 return (
                   <button
@@ -232,10 +230,10 @@ export default function TimePicker({ value, onChange, placeholder = "Select time
                       color: active ? "#fff" : C.text,
                       background: active ? C.accent : "transparent",
                     }}
-                    onMouseEnter={(e) => {
+                    onMouseEnter={e => {
                       if (!active) e.currentTarget.style.background = ov(0.06);
                     }}
-                    onMouseLeave={(e) => {
+                    onMouseLeave={e => {
                       if (!active) e.currentTarget.style.background = "transparent";
                     }}
                   >
@@ -263,7 +261,7 @@ export default function TimePicker({ value, onChange, placeholder = "Select time
               >
                 MIN
               </div>
-              {MINUTES.map((m) => {
+              {MINUTES.map(m => {
                 const active = m === selM;
                 return (
                   <button
@@ -276,10 +274,10 @@ export default function TimePicker({ value, onChange, placeholder = "Select time
                       color: active ? "#fff" : C.text,
                       background: active ? C.accent : "transparent",
                     }}
-                    onMouseEnter={(e) => {
+                    onMouseEnter={e => {
                       if (!active) e.currentTarget.style.background = ov(0.06);
                     }}
-                    onMouseLeave={(e) => {
+                    onMouseLeave={e => {
                       if (!active) e.currentTarget.style.background = "transparent";
                     }}
                   >
@@ -298,7 +296,7 @@ export default function TimePicker({ value, onChange, placeholder = "Select time
                 paddingTop: 22,
               }}
             >
-              {["AM", "PM"].map((p) => {
+              {["AM", "PM"].map(p => {
                 const active = p === selP;
                 return (
                   <button
@@ -316,12 +314,11 @@ export default function TimePicker({ value, onChange, placeholder = "Select time
                       background: active ? C.accent : ov(0.04),
                       borderRadius: 8,
                     }}
-                    onMouseEnter={(e) => {
+                    onMouseEnter={e => {
                       if (!active) e.currentTarget.style.background = ov(0.08);
                     }}
-                    onMouseLeave={(e) => {
-                      if (!active)
-                        e.currentTarget.style.background = ov(0.04);
+                    onMouseLeave={e => {
+                      if (!active) e.currentTarget.style.background = ov(0.04);
                     }}
                   >
                     {p}

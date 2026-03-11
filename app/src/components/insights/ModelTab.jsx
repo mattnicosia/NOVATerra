@@ -1,22 +1,22 @@
 // ModelTab.jsx — 3D Building Model tab for Insights page
 // Auto-generates 3D from takeoffs + supports IFC import + plan outline analysis
 
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { useTheme } from '@/hooks/useTheme';
-import { useModelStore } from '@/stores/modelStore';
-import { useTakeoffsStore } from '@/stores/takeoffsStore';
-import { useDrawingsStore } from '@/stores/drawingsStore';
-import { useProjectStore } from '@/stores/projectStore';
-import { generateElementsFromTakeoffs } from '@/utils/geometryBuilder';
-import { parseIFCFile } from '@/utils/ifcLoader';
-import { detectBuildingOutline, outlineToFeet, ensureDrawingImage } from '@/utils/outlineDetector';
-import { buildFloorMap } from '@/utils/floorAssignment';
-import { buildCoverageGrid, testCoverage, computeCoverageStats } from '@/utils/coverageGrid';
-import { bt, card, sectionLabel, accentButton } from '@/utils/styles';
-import Ic from '@/components/shared/Ic';
-import { I } from '@/constants/icons';
-import SceneViewer from './SceneViewer';
-import ModelSidebar from './ModelSidebar';
+import { useState, useCallback, useRef, useEffect } from "react";
+import { useTheme } from "@/hooks/useTheme";
+import { useModelStore } from "@/stores/modelStore";
+import { useTakeoffsStore } from "@/stores/takeoffsStore";
+import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useProjectStore } from "@/stores/projectStore";
+import { generateElementsFromTakeoffs } from "@/utils/geometryBuilder";
+import { parseIFCFile } from "@/utils/ifcLoader";
+import { detectBuildingOutline, outlineToFeet, ensureDrawingImage } from "@/utils/outlineDetector";
+import { buildFloorMap } from "@/utils/floorAssignment";
+import { buildCoverageGrid, testCoverage, computeCoverageStats } from "@/utils/coverageGrid";
+import { bt, card, sectionLabel, accentButton } from "@/utils/styles";
+import Ic from "@/components/shared/Ic";
+import { I } from "@/constants/icons";
+import SceneViewer from "./SceneViewer";
+import ModelSidebar from "./ModelSidebar";
 
 export default function ModelTab() {
   const C = useTheme();
@@ -42,7 +42,9 @@ export default function ModelTab() {
       // Only seed if modelStore has no floor height overrides yet
       if (Object.keys(modelState.floorHeights).length === 0) {
         const heightMap = {};
-        proj.floors.forEach(f => { heightMap[f.label] = f.height || 12; });
+        proj.floors.forEach(f => {
+          heightMap[f.label] = f.height || 12;
+        });
         useModelStore.setState({ floorHeights: heightMap });
       }
       // Set default floor height from first above-grade floor
@@ -75,13 +77,13 @@ export default function ModelTab() {
           selectedElementId: null,
         });
       } catch (err) {
-        console.error('Auto-generate error:', err);
+        console.error("Auto-generate error:", err);
         useModelStore.setState({ generating: false });
       }
     }, 50);
   }, []);
 
-  const handleIFCImport = useCallback(async (e) => {
+  const handleIFCImport = useCallback(async e => {
     const file = e.target.files?.[0];
     if (!file) return;
     setIfcLoading(true);
@@ -98,15 +100,18 @@ export default function ModelTab() {
         generating: false,
         selectedElementId: null,
         levels: storeys.map((s, i) => ({
-          id: s.id, name: s.name, elevation: s.elevation, sheetId: null,
+          id: s.id,
+          name: s.name,
+          elevation: s.elevation,
+          sheetId: null,
         })),
       });
     } catch (err) {
-      console.error('IFC import error:', err);
-      useModelStore.setState({ ifcError: err.message || 'Failed to parse IFC file' });
+      console.error("IFC import error:", err);
+      useModelStore.setState({ ifcError: err.message || "Failed to parse IFC file" });
     } finally {
       setIfcLoading(false);
-      if (fileRef.current) fileRef.current.value = '';
+      if (fileRef.current) fileRef.current.value = "";
     }
   }, []);
 
@@ -121,7 +126,7 @@ export default function ModelTab() {
     if (planDrawings.length === 0) return;
 
     store.setAnalyzingPlans(true);
-    store.setAnalyzeProgress('Building floor map...');
+    store.setAnalyzeProgress("Building floor map...");
 
     try {
       // 1. Assign floors from sheet metadata (with per-floor height overrides)
@@ -129,7 +134,7 @@ export default function ModelTab() {
       store.setFloorAssignments(floorMap);
 
       // 2. Render any unrendered PDF pages first
-      store.setAnalyzeProgress('Rendering plan sheets...');
+      store.setAnalyzeProgress("Rendering plan sheets...");
       for (const d of planDrawings) {
         await ensureDrawingImage(d);
       }
@@ -142,7 +147,7 @@ export default function ModelTab() {
         try {
           const { polygon } = await detectBuildingOutline(d.id);
           const feetPoly = outlineToFeet(polygon, d.id);
-          store.setOutline(d.id, feetPoly, 'ai', polygon);
+          store.setOutline(d.id, feetPoly, "ai", polygon);
         } catch (err) {
           console.warn(`Outline detection failed for drawing ${d.id}:`, err.message);
           // Skip this drawing — user can trace manually later
@@ -150,12 +155,12 @@ export default function ModelTab() {
       }
 
       // 4. Generate/refresh elements from takeoffs
-      store.setAnalyzeProgress('Generating elements from takeoffs...');
+      store.setAnalyzeProgress("Generating elements from takeoffs...");
       const els = generateElementsFromTakeoffs();
       useModelStore.setState({ elements: els, autoGenerated: true, ifcLoaded: false });
 
       // 5. Build coverage grid from outlines
-      store.setAnalyzeProgress('Computing coverage...');
+      store.setAnalyzeProgress("Computing coverage...");
       const updatedOutlines = useModelStore.getState().outlines;
       const updatedFloors = useModelStore.getState().floorAssignments;
       let allCells = [];
@@ -173,7 +178,9 @@ export default function ModelTab() {
         // If no elements on this exact floor, test against all elements (single-floor fallback)
         testCoverage(grid, floorEls.length > 0 ? floorEls : els);
         // Tag each cell with its floor elevation for correct 3D positioning
-        grid.forEach(c => { c.elevation = elev; });
+        grid.forEach(c => {
+          c.elevation = elev;
+        });
         allCells = allCells.concat(grid);
       }
 
@@ -181,11 +188,11 @@ export default function ModelTab() {
       store.setCoverage(allCells, stats);
 
       // Switch to coverage view
-      store.setViewMode('coverage');
-      store.setAnalyzeProgress('');
+      store.setViewMode("coverage");
+      store.setAnalyzeProgress("");
     } catch (err) {
-      console.error('Plan analysis error:', err);
-      store.setAnalyzeProgress('');
+      console.error("Plan analysis error:", err);
+      store.setAnalyzeProgress("");
     } finally {
       store.setAnalyzingPlans(false);
     }
@@ -193,9 +200,11 @@ export default function ModelTab() {
 
   // Listen for re-detect event from ModelSidebar
   useEffect(() => {
-    const handler = () => { handleAnalyzePlans(); };
-    window.addEventListener('redetect-outlines', handler);
-    return () => window.removeEventListener('redetect-outlines', handler);
+    const handler = () => {
+      handleAnalyzePlans();
+    };
+    window.addEventListener("redetect-outlines", handler);
+    return () => window.removeEventListener("redetect-outlines", handler);
   }, [handleAnalyzePlans]);
 
   const hasTakeoffData = takeoffs.some(t => t.measurements?.length > 0);
@@ -204,25 +213,35 @@ export default function ModelTab() {
   // Empty state — no data at all
   if (elements.length === 0 && !generating && !ifcLoading && !analyzingPlans && !hasTakeoffData) {
     return (
-      <div style={{ ...card(C), padding: T.space[8], textAlign: 'center' }}>
+      <div style={{ ...card(C), padding: T.space[8], textAlign: "center" }}>
         <div style={{ fontSize: 48, marginBottom: T.space[4] }}>🏗️</div>
-        <div style={{ fontSize: T.fontSize.lg, fontWeight: T.fontWeight.bold, color: C.text, marginBottom: T.space[2] }}>
+        <div
+          style={{ fontSize: T.fontSize.lg, fontWeight: T.fontWeight.bold, color: C.text, marginBottom: T.space[2] }}
+        >
           3D Building Model
         </div>
-        <div style={{ fontSize: T.fontSize.sm, color: C.textDim, marginBottom: T.space[6], maxWidth: 400, margin: '0 auto' }}>
+        <div
+          style={{
+            fontSize: T.fontSize.sm,
+            color: C.textDim,
+            marginBottom: T.space[6],
+            maxWidth: 400,
+            margin: "0 auto",
+          }}
+        >
           Create takeoffs with measurements to auto-generate a 3D model, or import an IFC file from your architect.
         </div>
-        <div style={{ display: 'flex', gap: T.space[3], justifyContent: 'center' }}>
+        <div style={{ display: "flex", gap: T.space[3], justifyContent: "center" }}>
           <button
             onClick={() => fileRef.current?.click()}
             disabled={ifcLoading}
-            style={{ ...accentButton(C), padding: '10px 20px', gap: 6 }}
+            style={{ ...accentButton(C), padding: "10px 20px", gap: 6 }}
           >
             <Ic d={I.upload} size={16} color="#fff" />
             Import IFC / BIM
           </button>
         </div>
-        <input ref={fileRef} type="file" accept=".ifc" style={{ display: 'none' }} onChange={handleIFCImport} />
+        <input ref={fileRef} type="file" accept=".ifc" style={{ display: "none" }} onChange={handleIFCImport} />
       </div>
     );
   }
@@ -230,13 +249,19 @@ export default function ModelTab() {
   // Generating state
   if (generating) {
     return (
-      <div style={{ ...card(C), padding: T.space[8], textAlign: 'center' }}>
-        <div style={{
-          width: 40, height: 40, border: `3px solid ${C.bg3}`,
-          borderTopColor: C.accent, borderRadius: '50%',
-          animation: 'spin 1s linear infinite',
-          margin: '0 auto', marginBottom: T.space[4],
-        }} />
+      <div style={{ ...card(C), padding: T.space[8], textAlign: "center" }}>
+        <div
+          style={{
+            width: 40,
+            height: 40,
+            border: `3px solid ${C.bg3}`,
+            borderTopColor: C.accent,
+            borderRadius: "50%",
+            animation: "spin 1s linear infinite",
+            margin: "0 auto",
+            marginBottom: T.space[4],
+          }}
+        />
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         <div style={{ fontSize: T.fontSize.md, color: C.textMuted }}>Generating 3D model from takeoffs...</div>
       </div>
@@ -246,37 +271,59 @@ export default function ModelTab() {
   // IFC loading state
   if (ifcLoading) {
     return (
-      <div style={{ ...card(C), padding: T.space[8], textAlign: 'center' }}>
-        <div style={{
-          width: 40, height: 40, border: `3px solid ${C.bg3}`,
-          borderTopColor: C.accent, borderRadius: '50%',
-          animation: 'spin 1s linear infinite',
-          margin: '0 auto', marginBottom: T.space[4],
-        }} />
+      <div style={{ ...card(C), padding: T.space[8], textAlign: "center" }}>
+        <div
+          style={{
+            width: 40,
+            height: 40,
+            border: `3px solid ${C.bg3}`,
+            borderTopColor: C.accent,
+            borderRadius: "50%",
+            animation: "spin 1s linear infinite",
+            margin: "0 auto",
+            marginBottom: T.space[4],
+          }}
+        />
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         <div style={{ fontSize: T.fontSize.md, color: C.textMuted }}>Parsing IFC file...</div>
-        <div style={{ fontSize: T.fontSize.xs, color: C.textDim, marginTop: T.space[2] }}>This may take a few seconds for large models</div>
+        <div style={{ fontSize: T.fontSize.xs, color: C.textDim, marginTop: T.space[2] }}>
+          This may take a few seconds for large models
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: T.space[4], height: 'calc(100vh - 160px)' }}>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: T.space[4], height: "calc(100vh - 160px)" }}>
       {/* 3D Viewport */}
-      <div style={{ ...card(C), position: 'relative', overflow: 'hidden', minHeight: 400 }}>
+      <div style={{ ...card(C), position: "relative", overflow: "hidden", minHeight: 400 }}>
         {/* Toolbar */}
-        <div style={{
-          position: 'absolute', top: 12, left: 12, zIndex: 10,
-          display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap',
-        }}>
+        <div
+          style={{
+            position: "absolute",
+            top: 12,
+            left: 12,
+            zIndex: 10,
+            display: "flex",
+            gap: 6,
+            alignItems: "center",
+            flexWrap: "wrap",
+          }}
+        >
           <button
             onClick={handleAutoGenerate}
             disabled={!hasTakeoffData}
             title="Regenerate from takeoffs"
             style={{
-              ...bt(C), padding: '6px 10px', fontSize: T.fontSize.xs,
-              background: 'rgba(0,0,0,0.6)', color: '#fff', borderRadius: T.radius.sm,
-              backdropFilter: 'blur(8px)', gap: 4, opacity: hasTakeoffData ? 1 : 0.4,
+              ...bt(C),
+              padding: "6px 10px",
+              fontSize: T.fontSize.xs,
+              background: "rgba(0,0,0,0.6)",
+              color: "#fff",
+              borderRadius: T.radius.sm,
+              backdropFilter: "blur(8px)",
+              gap: 4,
+              opacity: hasTakeoffData ? 1 : 0.4,
             }}
           >
             <Ic d={I.refresh} size={12} color="#fff" />
@@ -285,9 +332,14 @@ export default function ModelTab() {
           <button
             onClick={() => fileRef.current?.click()}
             style={{
-              ...bt(C), padding: '6px 10px', fontSize: T.fontSize.xs,
-              background: 'rgba(0,0,0,0.6)', color: '#fff', borderRadius: T.radius.sm,
-              backdropFilter: 'blur(8px)', gap: 4,
+              ...bt(C),
+              padding: "6px 10px",
+              fontSize: T.fontSize.xs,
+              background: "rgba(0,0,0,0.6)",
+              color: "#fff",
+              borderRadius: T.radius.sm,
+              backdropFilter: "blur(8px)",
+              gap: 4,
             }}
           >
             <Ic d={I.upload} size={12} color="#fff" />
@@ -298,29 +350,40 @@ export default function ModelTab() {
             disabled={!hasDrawings || analyzingPlans}
             title="Detect building outlines from plan drawings and compute coverage"
             style={{
-              ...bt(C), padding: '6px 10px', fontSize: T.fontSize.xs,
-              background: analyzingPlans ? 'rgba(99,102,241,0.7)' : 'rgba(0,0,0,0.6)',
-              color: '#fff', borderRadius: T.radius.sm,
-              backdropFilter: 'blur(8px)', gap: 4,
+              ...bt(C),
+              padding: "6px 10px",
+              fontSize: T.fontSize.xs,
+              background: analyzingPlans ? "rgba(99,102,241,0.7)" : "rgba(0,0,0,0.6)",
+              color: "#fff",
+              borderRadius: T.radius.sm,
+              backdropFilter: "blur(8px)",
+              gap: 4,
               opacity: hasDrawings ? 1 : 0.4,
             }}
           >
             <Ic d={I.plans} size={12} color="#fff" />
-            {analyzingPlans ? 'Analyzing...' : 'Analyze Plans'}
+            {analyzingPlans ? "Analyzing..." : "Analyze Plans"}
           </button>
-          <input ref={fileRef} type="file" accept=".ifc" style={{ display: 'none' }} onChange={handleIFCImport} />
+          <input ref={fileRef} type="file" accept=".ifc" style={{ display: "none" }} onChange={handleIFCImport} />
 
           {/* Coverage summary chip */}
           {coverageStats && !analyzingPlans && (
-            <div style={{
-              padding: '4px 10px', borderRadius: T.radius.sm,
-              background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
-              fontSize: 10, fontFamily: "'DM Sans',sans-serif",
-              display: 'flex', gap: 6, alignItems: 'center',
-            }}>
-              <span style={{ color: '#10B981' }}>{coverageStats.pct}% covered</span>
-              <span style={{ color: '#555' }}>·</span>
-              <span style={{ color: coverageStats.gap > 0 ? '#EF4444' : '#10B981' }}>
+            <div
+              style={{
+                padding: "4px 10px",
+                borderRadius: T.radius.sm,
+                background: "rgba(0,0,0,0.6)",
+                backdropFilter: "blur(8px)",
+                fontSize: 10,
+                fontFamily: T.font.sans,
+                display: "flex",
+                gap: 6,
+                alignItems: "center",
+              }}
+            >
+              <span style={{ color: "#10B981" }}>{coverageStats.pct}% covered</span>
+              <span style={{ color: "#555" }}>·</span>
+              <span style={{ color: coverageStats.gap > 0 ? "#EF4444" : "#10B981" }}>
                 {100 - coverageStats.pct}% gaps
               </span>
             </div>
@@ -329,40 +392,73 @@ export default function ModelTab() {
 
         {/* Analyzing progress overlay */}
         {analyzingPlans && analyzeProgress && (
-          <div style={{
-            position: 'absolute', top: 50, left: 12, zIndex: 10,
-            padding: '6px 12px', borderRadius: T.radius.sm,
-            background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)',
-            fontSize: T.fontSize.xs, color: '#aaa',
-            display: 'flex', alignItems: 'center', gap: 8,
-          }}>
-            <div style={{
-              width: 12, height: 12, border: '2px solid rgba(255,255,255,0.2)',
-              borderTopColor: C.accent, borderRadius: '50%',
-              animation: 'spin 1s linear infinite',
-            }} />
+          <div
+            style={{
+              position: "absolute",
+              top: 50,
+              left: 12,
+              zIndex: 10,
+              padding: "6px 12px",
+              borderRadius: T.radius.sm,
+              background: "rgba(0,0,0,0.7)",
+              backdropFilter: "blur(8px)",
+              fontSize: T.fontSize.xs,
+              color: "#aaa",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <div
+              style={{
+                width: 12,
+                height: 12,
+                border: "2px solid rgba(255,255,255,0.2)",
+                borderTopColor: C.accent,
+                borderRadius: "50%",
+                animation: "spin 1s linear infinite",
+              }}
+            />
             {analyzeProgress}
           </div>
         )}
 
         {/* Element count badge */}
-        <div style={{
-          position: 'absolute', bottom: 12, left: 12, zIndex: 10,
-          padding: '4px 10px', borderRadius: T.radius.sm,
-          background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
-          fontSize: 10, color: '#aaa', fontFamily: "'DM Sans',sans-serif",
-        }}>
-          {elements.length} elements · {ifcLoaded ? 'IFC' : 'Takeoffs'}
+        <div
+          style={{
+            position: "absolute",
+            bottom: 12,
+            left: 12,
+            zIndex: 10,
+            padding: "4px 10px",
+            borderRadius: T.radius.sm,
+            background: "rgba(0,0,0,0.6)",
+            backdropFilter: "blur(8px)",
+            fontSize: 10,
+            color: "#aaa",
+            fontFamily: T.font.sans,
+          }}
+        >
+          {elements.length} elements · {ifcLoaded ? "IFC" : "Takeoffs"}
         </div>
 
         {/* IFC Error */}
         {ifcError && (
-          <div style={{
-            position: 'absolute', top: 12, right: 12, zIndex: 10,
-            padding: '8px 12px', borderRadius: T.radius.sm,
-            background: `${C.red}20`, border: `1px solid ${C.red}40`,
-            fontSize: T.fontSize.xs, color: C.red, maxWidth: 260,
-          }}>
+          <div
+            style={{
+              position: "absolute",
+              top: 12,
+              right: 12,
+              zIndex: 10,
+              padding: "8px 12px",
+              borderRadius: T.radius.sm,
+              background: `${C.red}20`,
+              border: `1px solid ${C.red}40`,
+              fontSize: T.fontSize.xs,
+              color: C.red,
+              maxWidth: 260,
+            }}
+          >
             IFC Error: {ifcError}
           </div>
         )}
@@ -370,10 +466,21 @@ export default function ModelTab() {
         {elements.length > 0 ? (
           <SceneViewer />
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12 }}>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "100%",
+              gap: 12,
+            }}
+          >
             <div style={{ fontSize: 32 }}>🏗️</div>
             <div style={{ fontSize: T.fontSize.sm, color: C.textDim }}>
-              {hasTakeoffData ? 'Click "Rebuild" to generate 3D model' : 'No measurements found — create takeoffs first'}
+              {hasTakeoffData
+                ? 'Click "Rebuild" to generate 3D model'
+                : "No measurements found — create takeoffs first"}
             </div>
           </div>
         )}

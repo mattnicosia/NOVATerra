@@ -522,7 +522,9 @@ export default function EstimatorSettingsPanel() {
       console.warn("[invite]", result.error);
       alert(result.error);
     } else if (result?.emailFailed) {
-      alert(`Invitation created for ${email} but the email could not be sent. The estimator can still join via the invite link in Settings.`);
+      alert(
+        `Invitation created for ${email} but the email could not be sent. The estimator can still join via the invite link in Settings.`,
+      );
     }
     setInviting(null);
   };

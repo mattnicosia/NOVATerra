@@ -146,7 +146,7 @@ export default function KPI({ label, value, sub, icon, color, accent }) {
       </div>
       <div
         style={{
-          fontFamily: "'DM Sans','Inter',sans-serif",
+          fontFamily: T.font.sans,
           fontSize: T.fontSize["2xl"],
           fontWeight: T.fontWeight.bold,
           color: accent ? C.accent : C.text,

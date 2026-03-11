@@ -125,30 +125,54 @@ export default function AIChatPanel() {
       });
 
       try {
-        // Use non-streaming call with tool support
-        const response = await callAnthropic({
-          system: SYSTEM_PROMPT,
-          max_tokens: 2000,
-          messages: apiMessages,
-          tools: NOVA_TOOLS,
-        });
+        // Multi-round tool loop — NOVA can continue processing in batches
+        const MAX_TOOL_ROUNDS = 8;
+        let currentMessages = [...apiMessages];
+        const allTextParts = [];
+        const allToolResults = [];
+        let round = 0;
+        let lastResponse = null;
 
-        // Handle response — could be plain text or tool use
-        if (typeof response === "string") {
-          // Simple text response
-          setMessages([...updatedMessages, { role: "assistant", text: response }]);
-        } else if (response?.content) {
-          // Tool use response — process content blocks
+        while (round < MAX_TOOL_ROUNDS) {
+          round++;
+          // Rebuild context with fresh item state on continuation rounds
+          if (round > 1) {
+            const freshItems = useItemsStore.getState().items;
+            const freshContext = buildProjectContext({ project, items: freshItems, takeoffs, specs, drawings });
+            // Inject updated context so NOVA sees progress
+            currentMessages.push({
+              role: "user",
+              content: `[Updated Context — round ${round}]\n${freshContext}\n\nContinue processing remaining items.`,
+            });
+          }
+
+          const response = await callAnthropic({
+            system: SYSTEM_PROMPT,
+            max_tokens: 4096,
+            messages: currentMessages,
+            tools: NOVA_TOOLS,
+          });
+
+          // Handle plain text response — done
+          if (typeof response === "string") {
+            allTextParts.push(response);
+            break;
+          }
+
+          if (!response?.content) break;
+          lastResponse = response;
+
+          // Extract text and tool calls from this round
           const textParts = [];
           const toolCalls = [];
-
           for (const block of response.content) {
-            if (block.type === "text") {
-              textParts.push(block.text);
-            } else if (block.type === "tool_use") {
-              toolCalls.push(block);
-            }
+            if (block.type === "text") textParts.push(block.text);
+            else if (block.type === "tool_use") toolCalls.push(block);
           }
+          if (textParts.length) allTextParts.push(textParts.join("\n"));
+
+          // No tool calls — plain text response, done
+          if (toolCalls.length === 0) break;
 
           // Execute tool calls
           const toolResults = [];
@@ -156,50 +180,51 @@ export default function AIChatPanel() {
             try {
               const result = executeNovaTool(tc.name, tc.input);
               toolResults.push({ tool_use_id: tc.id, ...result });
+              allToolResults.push({ tool_use_id: tc.id, ...result });
             } catch (err) {
               toolResults.push({ tool_use_id: tc.id, success: false, message: err.message });
+              allToolResults.push({ tool_use_id: tc.id, success: false, message: err.message });
             }
           }
 
-          // Build the action card message
-          const actionMsg = {
+          // Update the live message so user sees progress
+          const progressMsg = {
             role: "assistant",
-            text: textParts.join("\n") || "",
-            actions: toolResults,
+            text: allTextParts.join("\n\n") || `Processing... (round ${round})`,
+            actions: [...allToolResults],
           };
+          setMessages([...updatedMessages, progressMsg]);
 
-          // If there were tool calls, send results back to get a follow-up response
-          if (toolCalls.length > 0) {
-            const toolResultMessages = toolCalls.map((tc, idx) => ({
-              role: "user",
-              content: [
-                {
-                  type: "tool_result",
-                  tool_use_id: tc.id,
-                  content: JSON.stringify(toolResults[idx]),
-                },
-              ],
-            }));
+          // Build tool result messages for continuation
+          const toolResultContent = toolCalls.map((tc, idx) => ({
+            type: "tool_result",
+            tool_use_id: tc.id,
+            content: JSON.stringify(toolResults[idx]),
+          }));
 
-            // Continue conversation with tool results
-            try {
-              const followUp = await callAnthropic({
-                system: SYSTEM_PROMPT,
-                max_tokens: 1000,
-                messages: [...apiMessages, { role: "assistant", content: response.content }, ...toolResultMessages],
-              });
+          // Add this round to conversation history for next round
+          currentMessages = [
+            ...currentMessages,
+            { role: "assistant", content: response.content },
+            { role: "user", content: toolResultContent },
+          ];
 
-              const followUpText = typeof followUp === "string" ? followUp : "";
-              if (followUpText) {
-                actionMsg.text = (actionMsg.text ? actionMsg.text + "\n\n" : "") + followUpText;
-              }
-            } catch {
-              // Follow-up failed — that's ok, we still show the action result
-            }
+          // Check if there's more work: if all items now have divisions, stop early
+          const freshItems = useItemsStore.getState().items;
+          const remaining = freshItems.filter(i => !i.division || i.division === "").length;
+          if (remaining === 0) {
+            allTextParts.push(`All ${freshItems.length} items are now assigned.`);
+            break;
           }
-
-          setMessages([...updatedMessages, actionMsg]);
         }
+
+        // Build final message
+        const finalMsg = {
+          role: "assistant",
+          text: allTextParts.join("\n\n") || "",
+          actions: allToolResults.length > 0 ? allToolResults : undefined,
+        };
+        setMessages([...updatedMessages, finalMsg]);
       } catch (err) {
         setMessages([...updatedMessages, { role: "assistant", text: `⚠️ ${err.message}` }]);
       } finally {
@@ -237,7 +262,7 @@ export default function AIChatPanel() {
         flexDirection: "column",
         zIndex: 1000,
         boxShadow: `-4px 0 24px rgba(0,0,0,0.3)`,
-        fontFamily: "'DM Sans', -apple-system, sans-serif",
+        fontFamily: "'Switzer', -apple-system, sans-serif",
       }}
     >
       {/* Header — hero portal */}
@@ -733,6 +758,7 @@ export function MessageBubble({ msg, C, streaming }) {
 
 // Render inline markdown (bold, code, italic)
 function renderInline(text, C) {
+  const T = C.T;
   if (!text) return text;
   const parts = [];
   let remaining = text;
@@ -778,7 +804,7 @@ function renderInline(text, C) {
             padding: "1px 5px",
             borderRadius: 4,
             fontSize: "0.92em",
-            fontFamily: "'DM Sans', sans-serif",
+            fontFamily: T.font.sans,
             color: C.accent,
           }}
         >

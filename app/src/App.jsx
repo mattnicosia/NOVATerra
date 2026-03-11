@@ -32,9 +32,11 @@ import { useJourneyProgress } from "@/hooks/useJourneyProgress";
 import Toast from "@/components/layout/Toast";
 import PageTransition from "@/components/ambient/PageTransition";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
+import PageErrorBoundary from "@/components/shared/PageErrorBoundary";
 import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
 // Lazy-load heavy components not needed until after auth + first paint
 const LoginPage = lazy(() => import("@/pages/LoginPage"));
+const LoginMockupPage = lazy(() => import("@/pages/LoginMockupPage"));
 const AIChatPanel = lazy(() => import("@/components/ai/AIChatPanel"));
 const AmbientBackground = lazy(() => import("@/components/nova/AmbientBackground"));
 const AmbientParticles = lazy(() => import("@/components/ambient/AmbientParticles"));
@@ -268,69 +270,6 @@ function TakeoffsHeaderControls({ C }) {
         borderRight: `1px solid ${C.border}`,
       }}
     >
-      {/* Mode cycling button */}
-      <button
-        title={`${current.label} → ${next.label}`}
-        onClick={cycleMode}
-        style={{
-          width: 28,
-          height: 26,
-          border: `1px solid ${current.bars > 0 ? C.accent + "50" : C.border}`,
-          background: current.bars > 0 ? C.accent + "14" : "transparent",
-          borderRadius: 5,
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 1.5,
-          padding: 0,
-          position: "relative",
-          transition: "all 0.15s",
-        }}
-      >
-        {current.bars === 0 ? (
-          <svg
-            width="13"
-            height="13"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke={C.textMuted}
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <rect x="3" y="3" width="7" height="18" rx="1" />
-            <path d="M14 3h7M14 9h7M14 15h5" />
-          </svg>
-        ) : (
-          Array.from({ length: current.bars }).map((_, i) => (
-            <div key={i} style={{ width: 3, height: 10, borderRadius: 1, background: C.accent }} />
-          ))
-        )}
-        {takeoffs.length > 0 && curId === "closed" && (
-          <span
-            style={{
-              position: "absolute",
-              top: -4,
-              right: -4,
-              minWidth: 14,
-              height: 14,
-              borderRadius: 7,
-              background: C.accent,
-              color: "#fff",
-              fontSize: 8,
-              fontWeight: 700,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "0 3px",
-              lineHeight: 1,
-            }}
-          >
-            {takeoffs.length}
-          </span>
-        )}
-      </button>
       {/* NOVA orb */}
       {hasDrawings && tkPanelTier !== "estimate" && (
         <div style={{ position: "relative", flexShrink: 0 }}>
@@ -451,7 +390,7 @@ function ProjectTabBar() {
           minHeight: 40,
           background: C.bg,
           borderBottom: `1px solid ${C.border}`,
-          fontFamily: "'Switzer', sans-serif",
+          fontFamily: T.font.sans,
         }}
       >
         {/* Project indicator — company logo + project name */}
@@ -551,7 +490,7 @@ function ProjectTabBar() {
               border: "none",
               outline: "none",
               whiteSpace: "nowrap",
-              fontFamily: "'Switzer', sans-serif",
+              fontFamily: T.font.sans,
               transition: "all 200ms ease",
               flexShrink: 0,
               display: "flex",
@@ -635,6 +574,7 @@ function ProjectTabBar() {
 /* ── Floating theme picker — fixed bottom-right, always visible ── */
 function FloatingThemePicker() {
   const C = useTheme();
+  const T = C.T;
   const selectedPalette = useUiStore(s => s.appSettings.selectedPalette);
   const updateSetting = useUiStore(s => s.updateSetting);
   const [expanded, setExpanded] = useState(false);
@@ -671,7 +611,7 @@ function FloatingThemePicker() {
         flexDirection: "column",
         alignItems: "center",
         gap: 8,
-        fontFamily: "'Switzer', sans-serif",
+        fontFamily: T.font.sans,
       }}
     >
       {/* Expanded palette grid */}
@@ -880,6 +820,7 @@ function FloatingThemePicker() {
 
 /* ── Theme cycle button (header version — kept for reference) ── */
 function ThemeCycleButton({ C }) {
+  const T = C.T;
   const selectedPalette = useUiStore(s => s.appSettings.selectedPalette);
   const updateSetting = useUiStore(s => s.updateSetting);
   const [hovered, setHovered] = useState(false);
@@ -1011,7 +952,7 @@ function ThemeCycleButton({ C }) {
             fontWeight: 600,
             color: hovered ? C.text : C.textSub,
             whiteSpace: "nowrap",
-            fontFamily: "'Switzer', sans-serif",
+            fontFamily: T.font.sans,
             letterSpacing: 0.2,
           }}
         >
@@ -1186,18 +1127,48 @@ function AppContent() {
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="/database" element={<Navigate to="/core?tab=database" replace />} />
                 <Route path="/assemblies" element={<AssembliesPage />} />
-                <Route path="/contacts" element={<ContactsPage />} />
+                <Route
+                  path="/contacts"
+                  element={
+                    <PageErrorBoundary pageName="Contacts">
+                      <ContactsPage />
+                    </PageErrorBoundary>
+                  }
+                />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/inbox" element={<InboxPage />} />
                 {/* <Route path="/intelligence" element={<IntelligencePage />} /> temporarily removed */}
-                <Route path="/projects" element={<ProjectsPage />} />
-                <Route path="/resources" element={<ResourcePage />} />
-                <Route path="/core" element={<CorePage />} />
+                <Route
+                  path="/projects"
+                  element={
+                    <PageErrorBoundary pageName="Projects">
+                      <ProjectsPage />
+                    </PageErrorBoundary>
+                  }
+                />
+                <Route
+                  path="/resources"
+                  element={
+                    <PageErrorBoundary pageName="Resources">
+                      <ResourcePage />
+                    </PageErrorBoundary>
+                  }
+                />
+                <Route
+                  path="/core"
+                  element={
+                    <PageErrorBoundary pageName="NOVA Core">
+                      <CorePage />
+                    </PageErrorBoundary>
+                  }
+                />
                 <Route
                   path="/estimate/:id/info"
                   element={
                     <EstimateLoader>
-                      <ProjectInfoPage />
+                      <PageErrorBoundary pageName="Project Info">
+                        <ProjectInfoPage />
+                      </PageErrorBoundary>
                     </EstimateLoader>
                   }
                 />
@@ -1205,7 +1176,9 @@ function AppContent() {
                   path="/estimate/:id/documents"
                   element={
                     <EstimateLoader>
-                      <PlanRoomPage />
+                      <PageErrorBoundary pageName="Plan Room">
+                        <PlanRoomPage />
+                      </PageErrorBoundary>
                     </EstimateLoader>
                   }
                 />
@@ -1213,7 +1186,9 @@ function AppContent() {
                   path="/estimate/:id/plans"
                   element={
                     <EstimateLoader>
-                      <PlanRoomPage />
+                      <PageErrorBoundary pageName="Plan Room">
+                        <PlanRoomPage />
+                      </PageErrorBoundary>
                     </EstimateLoader>
                   }
                 />
@@ -1221,7 +1196,9 @@ function AppContent() {
                   path="/estimate/:id/takeoffs"
                   element={
                     <EstimateLoader>
-                      <TakeoffsPage />
+                      <PageErrorBoundary pageName="Takeoffs">
+                        <TakeoffsPage />
+                      </PageErrorBoundary>
                     </EstimateLoader>
                   }
                 />
@@ -1231,7 +1208,9 @@ function AppContent() {
                   path="/estimate/:id/alternates"
                   element={
                     <EstimateLoader>
-                      <AlternatesPage />
+                      <PageErrorBoundary pageName="Alternates">
+                        <AlternatesPage />
+                      </PageErrorBoundary>
                     </EstimateLoader>
                   }
                 />
@@ -1239,7 +1218,9 @@ function AppContent() {
                   path="/estimate/:id/sov"
                   element={
                     <EstimateLoader>
-                      <ScheduleOfValuesPage />
+                      <PageErrorBoundary pageName="Schedule of Values">
+                        <ScheduleOfValuesPage />
+                      </PageErrorBoundary>
                     </EstimateLoader>
                   }
                 />
@@ -1247,7 +1228,9 @@ function AppContent() {
                   path="/estimate/:id/reports"
                   element={
                     <EstimateLoader>
-                      <ReportsPage />
+                      <PageErrorBoundary pageName="Reports">
+                        <ReportsPage />
+                      </PageErrorBoundary>
                     </EstimateLoader>
                   }
                 />
@@ -1255,7 +1238,9 @@ function AppContent() {
                   path="/estimate/:id/bids"
                   element={
                     <EstimateLoader>
-                      <BidPackagesPage />
+                      <PageErrorBoundary pageName="Bid Packages">
+                        <BidPackagesPage />
+                      </PageErrorBoundary>
                     </EstimateLoader>
                   }
                 />
@@ -1263,7 +1248,9 @@ function AppContent() {
                   path="/estimate/:id/insights"
                   element={
                     <EstimateLoader>
-                      <InsightsPage />
+                      <PageErrorBoundary pageName="Insights">
+                        <InsightsPage />
+                      </PageErrorBoundary>
                     </EstimateLoader>
                   }
                 />
@@ -1302,11 +1289,9 @@ function AppContent() {
           <CommandPalette />
         </Suspense>
       )}
-      {/* PERF FIX: NovaCursor disabled — its always-on 60fps RAF loop + mousemove
-          listener caused perceptible input lag across the entire app.
-          The custom cursor (green dot + ring + scout-ahead) is nice polish but
-          not worth the GPU cost. Default system cursor is instant. */}
-      {/* <Suspense fallback={null}><NovaCursor /></Suspense> */}
+      {/* NovaCursor — scoped to drawing canvas only (deactivates in estimate mode).
+          Throttled to ~30fps to minimize GPU overhead. */}
+      <Suspense fallback={null}><NovaCursor /></Suspense>
     </div>
   );
 }
@@ -1321,7 +1306,7 @@ function AuthLoading() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        fontFamily: "'Switzer', sans-serif",
+        fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif",
       }}
     >
       <div style={{ textAlign: "center" }}>
@@ -1388,6 +1373,7 @@ function RouteLoading() {
 // ── Mobile guard — displayed on screens < 1024px ──
 function MobileGuard() {
   const C = useTheme();
+  const T = C.T;
   return (
     <div
       style={{
@@ -1400,7 +1386,7 @@ function MobileGuard() {
         background: C.bg,
         padding: 32,
         textAlign: "center",
-        fontFamily: "'Switzer', sans-serif",
+        fontFamily: T.font.sans,
         zIndex: 99999,
       }}
     >
@@ -1587,14 +1573,12 @@ export default function App() {
     );
   }
 
-  // Not logged in → show login page
+  // Not logged in → show cinematic chamber login
   if (!user)
     return (
-      <ThemeProvider>
-        <Suspense fallback={<AuthLoading />}>
-          <LoginPage />
-        </Suspense>
-      </ThemeProvider>
+      <Suspense fallback={<AuthLoading />}>
+        <LoginMockupPage />
+      </Suspense>
     );
 
   /* ── Onboarding gates disabled — login/signup is the entry point ──

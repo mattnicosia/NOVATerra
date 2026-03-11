@@ -1,15 +1,15 @@
-// ARTIFACT HOUSING fragment shader — The dark shell containing NOVA/CORE
+// ARTIFACT HOUSING fragment shader v2 — Film-quality obsidian shell
 // "An orb from another planet that has these powers inside of it."
 //
-// Material: obsidian — volcanic glass that transmits warm light at thin edges.
-// When dormant: dark, dense, nearly opaque. Faint inner glow at thinnest fractures.
-// When awakening: light bleeds through Voronoi fracture lines, intensifying.
-// When alive: shell becomes semi-transparent, cellular surface visible beneath.
-//
-// Key uniforms:
-//   uAwaken (0→1): dormant → alive transition
-//   uMorph (0→1): NOVA blue → CORE amber (tints the transmitted light)
-//   uInnerLight (0→1): intensity of the inner sphere (drives transmission brightness)
+// v2 changes (Visual Board session):
+//   - Micro-normal perturbation: visible conchoidal obsidian surface grain
+//   - Domain-warped Voronoi: breaks spatial regularity, organic fracture paths
+//   - Noise-modulated crack width: each segment varies thin↔wide (no uniform lines)
+//   - Edge roughness injection: high-freq noise breaks clean Voronoi edges
+//   - Sharper glow falloff: power curve concentrates light at crack center
+//   - Amplified zone contrast: dramatic active/quiet difference
+//   - Crushed blacks: deeper obsidian, wider tonal range
+//   - Reduced micro-crack contribution: macro dominates, micro is subtle detail
 
 export const artifactFragmentShader = /* glsl */ `
   precision highp float;
@@ -55,8 +55,7 @@ export const artifactFragmentShader = /* glsl */ `
     return vec2(sqrt(F1), sqrt(F2) - sqrt(F1));
   }
 
-  // ── Simplex noise (IQ: proper continuous noise for spatial zones) ──
-  // Ported from vertex shader — isotropic, no grid bias, smooth at all scales
+  // ── Simplex noise ──────────────────────────────────────────────────
   vec4 permute(vec4 x) { return mod(((x * 34.0) + 1.0) * x, 289.0); }
   vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
 
@@ -111,306 +110,232 @@ export const artifactFragmentShader = /* glsl */ `
   void main() {
     // ── View direction ────────────────────────────────────────────────
     vec3 viewDir = normalize(vViewDir);
-    float NdotV = max(dot(normalize(vNormal), viewDir), 0.0);
+
+    // ── Patricio: Surface grain — conchoidal fracture micro-texture ──
+    // Real obsidian has curved, shell-like fracture at micro scale.
+    // Perturb fragment normal with high-frequency noise to create
+    // visible surface grain under specular. This is the single biggest
+    // change for material authenticity — flat plates → textured glass.
+    float grainN1 = snoise(vLocalPos * 22.0 + vec3(3.1, 7.4, 1.9));
+    float grainN2 = snoise(vLocalPos * 40.0 + vec3(8.2, 2.6, 5.3));
+    // v2.2: reduced perturbation 0.07→0.04 — obsidian is glassy, not rough
+    vec3 grainOffset = vec3(grainN1, grainN2, grainN1 * grainN2) * 0.04;
+    vec3 perturbedNormal = normalize(vNormal + grainOffset);
+    float NdotV = max(dot(perturbedNormal, viewDir), 0.0);
 
     // ── Obsidian base color ──────────────────────────────────────────
-    // Near-black with faint warm undertone (obsidian = volcanic glass)
-    vec3 obsidianBase = vec3(0.012, 0.010, 0.014);  // very dark cool gray
-    // Subtle specularity — glassy surface catches light
-    float specular = pow(NdotV, 12.0) * 0.08;
+    // v2.2: Lightened from crushed blacks — sphere must read as an object
+    // against the dark page background. Still very dark, but visible.
+    vec3 obsidianBase = vec3(0.018, 0.016, 0.025);
+    // Visible grain: conchoidal ripple shifts reflectance at micro scale
+    float grainReflectance = 0.75 + 0.25 * (grainN1 * 0.6 + grainN2 * 0.4 + 0.5);
+    // Tighter specular with grain modulation — glassy with texture
+    // v2.2: 0.08 — visible glassy highlight without washing out obsidian
+    float specular = pow(NdotV, 20.0) * 0.08 * grainReflectance;
 
-    // ── Spatial hierarchy (Anadol) ───────────────────────────────────
-    // Low-frequency modulation creates zones of activity:
-    // High spatialZone = dense fracture webs (active zones)
-    // Low spatialZone  = solid obsidian plates (quiet zones)
-    // Drifts very slowly (~4 min cycle) so zones migrate across surface
-    // IQ: now using proper simplex noise — smooth, isotropic, no grid artifacts
+    // ── Spatial hierarchy (Anadol) — amplified zone contrast ─────────
     float spatialZone = shellFbm(vLocalPos * 0.7 + uTime * vec3(0.004, 0.003, 0.005));
-    // Remap: snoise returns [-1, 1], fbm ≈ [-0.6, 0.6], remap to [0, 1]
     spatialZone = spatialZone * 0.5 + 0.5;
-    // smoothstep creates sharper boundary between active and quiet zones
-    float zoneActivity = smoothstep(0.2, 0.7, spatialZone);
+    // Tighter smoothstep = sharper boundary = more dramatic contrast
+    float zoneActivity = smoothstep(0.25, 0.55, spatialZone);
 
-    // ── Anadol: Dormant surface variation ────────────────────────────
-    // Even at awaken=0, spatial zones create visible material differences.
-    // Active zones: slightly warmer obsidian, higher specular (glass-like)
-    // Quiet zones: cooler, more matte (stone-like)
-    // This gives the dormant monolith a subtle geological texture.
-    vec3 warmObsidian = vec3(0.018, 0.013, 0.012);   // warm dark — slight red undertone
-    vec3 coolObsidian = vec3(0.008, 0.009, 0.016);    // cool dark — slight blue undertone
+    // ── Dormant surface variation — visible geological texture ────────
+    // Active zones: warmer, glassier. Quiet zones: cooler, more matte (stone).
+    // Crushed values: quiet zones nearly invisible, active zones barely visible.
+    vec3 warmObsidian = vec3(0.025, 0.022, 0.032);   // neutral — slight violet undertone
+    vec3 coolObsidian = vec3(0.010, 0.012, 0.022);    // cool — deep blue-black
     obsidianBase = mix(coolObsidian, warmObsidian, zoneActivity);
-    // Specular varies by zone: active zones are glassier
-    specular *= 0.6 + 0.4 * zoneActivity;
+    // v2.2: grain only modulates specular, not base color — obsidian is glassy
+    obsidianBase *= 0.97 + 0.06 * grainReflectance;
+    // Fresnel-based base lightening — edges slightly brighter, sells the sphere shape
+    obsidianBase *= 1.0 + pow(vFresnel, 2.5) * 0.4;
+    specular *= 0.5 + 0.5 * zoneActivity;
 
-    // ── Patricio: Stress-concentration detection ─────────────────────
-    // dFdx/dFdy of thickness reveals boundaries between thin and thick regions.
-    // Steep gradients = stress concentration = brighter fracture edges.
-    // Where thin meets thick, the shell cracks hardest.
+    // ── Stress-concentration detection (Patricio) ─────────────────────
     float dTdx = dFdx(vThickness);
     float dTdy = dFdy(vThickness);
     float thicknessGradient = length(vec2(dTdx, dTdy));
-    // Normalize: typical gradient is 0.0–0.5, remap to visible range
     float stressConcentration = smoothstep(0.02, 0.25, thicknessGradient);
 
-    // ── Fracture network (Voronoi) ────────────────────────────────────
-    // Two scales of fractures: macro (tectonic) + micro (surface craze)
-    vec2 macroFrac = voronoiFracture(vLocalPos * 2.5);
-    vec2 microFrac = voronoiFracture(vLocalPos * 6.0 + vec3(5.1, 2.3, 8.7));
+    // ── Domain-warped Voronoi fractures (IQ) ────────────────────────
+    // Domain warping breaks Voronoi regularity — organic, asymmetric fracture paths.
+    // Without this, cells are too uniform = "hex grid" feel = cartoonish.
+    vec3 warp = vec3(
+      snoise(vLocalPos * 1.8 + vec3(0.0, 4.0, 8.0)),
+      snoise(vLocalPos * 1.8 + vec3(4.0, 8.0, 0.0)),
+      snoise(vLocalPos * 1.8 + vec3(8.0, 0.0, 4.0))
+    ) * 0.18;
+    vec3 warpedPos = vLocalPos + warp;
 
-    // ── IQ: Per-plate identity ──────────────────────────────────────
-    // F1 distance = proximity to nearest Voronoi seed = unique per plate.
-    // Use as a pseudo-random plate ID to vary each plate's properties:
-    //   - Small cells (low F1, near seed): denser, darker, awaken later
-    //   - Large cells (high F1, far from seed): thinner, more transmissive, awaken earlier
-    // fract(F1 * large_prime) gives a smooth 0-1 plate ID
-    float plateId = fract(macroFrac.x * 7.31);  // pseudo-random per plate [0,1]
-    // plateId modulates: emission response, awakening timing, base opacity
-    float plateEmissionMod = 0.75 + 0.5 * plateId;  // 0.75–1.25 emission range
-    float plateAwakenOffset = (plateId - 0.5) * 0.12;  // ±0.06 awakening shift
+    // Two scales: macro (tectonic plates) + micro (surface craze, subdued)
+    // v2.1: 2.5→1.6 macro = fewer, grander plates. 7.5→4.5 micro = less busy.
+    vec2 macroFrac = voronoiFracture(warpedPos * 1.6);
+    vec2 microFrac = voronoiFracture(warpedPos * 4.5 + vec3(5.1, 2.3, 8.7));
 
-    // F2-F1 = proximity to cell boundary → fracture line
-    // Low F2-F1 = ON the fracture. High = center of a plate.
-    // IQ: Fresnel-scaled edge width — fractures thin out at glancing angles
-    // due to foreshortening. Compensate by widening smoothstep at edges,
-    // narrowing at head-on. Makes fractures read consistently at all angles.
-    float fresnelWidth = 0.7 + 0.3 * vFresnel;  // 0.7× at head-on, 1.0× at edge
-    float macroEdge = 1.0 - smoothstep(0.0, 0.12 * fresnelWidth, macroFrac.y);
-    float microEdge = 1.0 - smoothstep(0.0, 0.08 * fresnelWidth, microFrac.y);
+    // ── Per-plate identity (IQ) ──────────────────────────────────────
+    float plateId = fract(macroFrac.x * 7.31);
+    float plateEmissionMod = 0.65 + 0.7 * plateId;  // wider range: 0.65–1.35
+    float plateAwakenOffset = (plateId - 0.5) * 0.14;  // wider timing spread
 
-    // Combined fracture intensity (macro dominates, micro adds detail)
-    // Anadol: modulate by spatial zone — quiet zones suppress micro fractures
-    float fracture = macroEdge * 0.7 + microEdge * 0.3 * (0.3 + 0.7 * zoneActivity);
+    // ── Edge roughness — break clean Voronoi lines (Hodgin) ──────────
+    // High-frequency noise injected INTO the distance field before smoothstep.
+    // This makes every fracture edge jagged, tapering, organic — never laser-cut.
+    float edgeJitter = snoise(vLocalPos * 40.0 + vec3(2.7, 9.1, 4.3)) * 0.02;
 
-    // ── Anadol: Plate interior micro-detail ────────────────────────────
-    // During awakening, plate interiors develop secondary crystalline patterns —
-    // internal fracture networks that appear as the material thins/dissolves.
-    // Uses high-frequency snoise to create veiny, crystalline texture WITHIN plates.
-    // Only visible during mid-awakening (plates are opaque at dormant, gone at alive).
+    // ── Noise-modulated crack width (IQ) ─────────────────────────────
+    // Each crack segment varies between hair-thin and wide.
+    // Uniform width = drawn line = cartoonish. Varying width = natural fracture.
+    float widthNoise = snoise(vLocalPos * 5.5 + vec3(1.1, 3.3, 5.5)) * 0.5 + 0.5;
+    widthNoise = 0.25 + 1.75 * widthNoise;  // range: 0.25× to 2.0× — hair-thin to wide gash
+
+    // Fresnel compensation: fractures thin at glancing angles due to foreshortening
+    float fresnelWidth = 0.7 + 0.3 * vFresnel;
+
+    // Macro edge with roughness + variable width + power curve for hot-center falloff
+    float macroRaw = macroFrac.y + edgeJitter;
+    float macroEdge = 1.0 - smoothstep(0.0, 0.065 * fresnelWidth * widthNoise, macroRaw);
+    // v2.2: pow 2.0 — hot center with enough width to read at 260px page scale
+    macroEdge = pow(macroEdge, 2.0);
+
+    // Micro edge — much more subtle, barely visible (just texture detail)
+    float microRaw = microFrac.y + edgeJitter * 0.4;
+    float microEdge = 1.0 - smoothstep(0.0, 0.04 * fresnelWidth, microRaw);
+    microEdge = pow(microEdge, 2.5);  // sharp falloff — thin bright core only
+
+    // Combined fracture — macro carries the dormant state entirely.
+    // v2.2: micro-cracks GATED behind awakening — they fade in during mid-awakening
+    // only in active zones. At dormant (awaken<0.3), surface is pure macro plates.
+    float microGate = smoothstep(0.25, 0.55, uAwaken);
+    float fracture = macroEdge + microEdge * 0.08 * microGate * (0.1 + 0.9 * zoneActivity);
+
+    // ── Plate interior crystalline detail (Anadol) ───────────────────
     float microDetailPhase = smoothstep(0.15, 0.45, uAwaken) * (1.0 - smoothstep(0.7, 1.0, uAwaken));
-    // High-frequency crystalline pattern — different seed from main fractures
     float crystalNoise1 = snoise(vLocalPos * 12.0 + vec3(9.1, 3.7, 6.4) + uTime * vec3(0.008, 0.006, 0.01));
     float crystalNoise2 = snoise(vLocalPos * 18.0 + vec3(2.3, 8.1, 4.9));
-
-    // v14: Amplify crystalline patterns with fract() mod-noise.
-    // During mid-awakening, the material doesn't dissolve smoothly — it shatters
-    // into discrete crystalline strata. Visible terracing within plate interiors.
     float crystalNoise1Mod = mix(crystalNoise1, fract(crystalNoise1 * 6.0), microDetailPhase * 0.6);
     float crystalNoise2Mod = mix(crystalNoise2, fract(crystalNoise2 * 8.0), microDetailPhase * 0.5);
-
-    // Create vein-like patterns: abs(noise) creates ridges at zero-crossings
     float crystalVeins = 1.0 - smoothstep(0.0, 0.15, abs(crystalNoise1Mod));
     float crystalDetail = 1.0 - smoothstep(0.0, 0.1, abs(crystalNoise2Mod));
-    // Combined: veins + fine detail, modulated by plate interior (not at edges)
-    float plateInterior = 1.0 - fracture;  // 1.0 at plate center, 0.0 at edges
+    float plateInterior = 1.0 - fracture;
     float microDetail = (crystalVeins * 0.6 + crystalDetail * 0.4) * plateInterior * microDetailPhase;
 
-    // ── Thickness-based transmission ──────────────────────────────────
-    // Thin regions (low vThickness) let more light through
-    // This simulates real obsidian held to light — red glow at thin edges
-    float thinness = 1.0 - vThickness;  // invert: 0 = thick, 1 = thin
+    // ── Thickness-based transmission ─────────────────────────────────
+    float thinness = 1.0 - vThickness;
 
-    // ── Transmission color (light from inner sphere) ──────────────────
-    // NOVA (morph=0): blue light bleeding through dark material
-    // CORE (morph=1): amber/red — physically correct for obsidian (warm transmission)
-    vec3 novaTransmit = vec3(0.08, 0.15, 0.65);   // deep blue glow
-    vec3 coreTransmit = vec3(0.55, 0.18, 0.04);    // warm amber-red (obsidian transmission)
+    // ── Transmission color ──────────────────────────────────────────
+    vec3 novaTransmit = vec3(0.06, 0.12, 0.60);   // deeper blue — less saturated
+    vec3 coreTransmit = vec3(0.50, 0.16, 0.03);    // warm amber-red
     vec3 transmitColor = mix(novaTransmit, coreTransmit, uMorph);
 
-    // ── Patricio: Subsurface scattering rim shift ────────────────────
-    // At grazing angles, light travels a longer path through the shell material.
-    // In real obsidian (and all SSS materials), longer paths shift transmission
-    // toward red/warm — shorter wavelengths scatter out, longer wavelengths penetrate.
-    // This is the same physics that makes your ears glow red when backlit.
-    // Subtle warm shift at high Fresnel: 20% shift toward warmer tones at full rim.
-    vec3 sssWarmShift = transmitColor * vec3(1.3, 0.85, 0.6);  // warm-shifted version
+    // SSS rim shift (Patricio)
+    vec3 sssWarmShift = transmitColor * vec3(1.3, 0.85, 0.6);
     transmitColor = mix(transmitColor, sssWarmShift, vFresnel * 0.2);
 
-    // ── Awaken-driven transmission ────────────────────────────────────
-    // uAwaken controls how much light escapes:
-    //   0.0 = dormant: only the thinnest fractures show faint glow
-    //   0.5 = awakening: fracture network lights up, thin regions glow
-    //   1.0 = alive: shell is mostly transparent, light pours through
-
-    // Phase 1 (awaken 0.0–0.3): Fracture glow only — the first sign of life
+    // ── Awaken-driven transmission ──────────────────────────────────
     float fracGlow = fracture * thinness;
     float fracPhase = smoothstep(0.0, 0.3, uAwaken);
 
-    // Phase 2 (awaken 0.2–0.6): Thin regions start transmitting
-    // Patricio: thickness drives the awakening wavefront —
-    // thin regions open FIRST, thick plates resist longer
-    float thicknessDelay = vThickness * 0.25;  // thick regions delay awakening by up to 0.25
-    // Anadol: zone-ordered awakening — active zones awaken before quiet zones
-    // This creates a wavefront: active zones light up first, quiet zones follow
-    float zoneDelay = (1.0 - zoneActivity) * 0.15;  // quiet zones delay by up to 0.15
-    // IQ: per-plate identity shifts awakening timing
+    float thicknessDelay = vThickness * 0.25;
+    float zoneDelay = (1.0 - zoneActivity) * 0.15;
     float combinedDelay = thicknessDelay + zoneDelay + plateAwakenOffset;
 
-    // ── Hodgin: Cascade awakening speed ─────────────────────────────
-    // Once a crack opens, it accelerates. Thin regions transition FASTER
-    // (narrow smoothstep range = snappy), thick plates transition SLOWER
-    // (wide smoothstep range = grinding). Creates cascade effect:
-    // thin regions snap open rapidly, thick plates resist and grind.
-    float cascadeWidth = 0.3 + vThickness * 0.2;  // thin: 0.3 range, thick: 0.5 range
+    float cascadeWidth = 0.3 + vThickness * 0.2;
     float thinPhase = smoothstep(0.2 + combinedDelay, 0.2 + combinedDelay + cascadeWidth, uAwaken);
 
-    // Phase 3 (awaken 0.5–1.0): Overall shell becomes transparent
-    // Patricio: thick plates are the last to yield
-    // Anadol: quiet zones are the last to go transparent
-    // Hodgin: thick plates also grind slower into transparency
     float transCascade = 0.4 + vThickness * 0.15;
     float transPhase = smoothstep(0.5 + combinedDelay * 0.5, 0.5 + combinedDelay * 0.5 + transCascade, uAwaken);
 
-    // Combined light transmission
     float transmission = 0.0;
 
-    // ── Hodgin: Dormant breathing pulse ──────────────────────────────
-    // ~8 BPM heartbeat — the single clue something lives inside.
-    // Two overlapping sine waves: primary breath + subtle secondary flutter.
-    // When dormant, the entire monolith pulses with barely perceptible life.
-    float breathPrimary = 0.65 + 0.35 * sin(uTime * 0.42);    // ~6.4s cycle (~9.4 BPM)
-    float breathSecondary = 0.85 + 0.15 * sin(uTime * 1.1);   // ~5.7s cycle, subtle flutter
+    // ── Dormant breathing (Hodgin) ──────────────────────────────────
+    float breathPrimary = 0.65 + 0.35 * sin(uTime * 0.42);
+    float breathSecondary = 0.85 + 0.15 * sin(uTime * 1.1);
     float dormantBreath = breathPrimary * breathSecondary;
-    // Only affects dormant state — fades out as awaken increases
     float breathInfluence = 1.0 - smoothstep(0.0, 0.35, uAwaken);
 
-    // Dormant: barely perceptible fracture glow — a whisper, not a tell.
-    // Only the deepest fractures (fracGlow > 0.5) emit any light.
-    // Modulated by breathing pulse (Hodgin) and spatial zone (Anadol).
-    float dormantGlow = smoothstep(0.4, 0.8, fracGlow) * 0.035;
+    float dormantGlow = smoothstep(0.35, 0.75, fracGlow) * 0.07;
     dormantGlow *= mix(1.0, dormantBreath, breathInfluence);
-    // Anadol: active zones glow brighter at dormant, quiet zones nearly invisible
-    dormantGlow *= 0.4 + 0.6 * zoneActivity;
-    // Patricio: stress boundaries glow slightly brighter even at dormant —
-    // the first cracks appear where thin meets thick
+    dormantGlow *= 0.3 + 0.7 * zoneActivity;  // amplified quiet/active contrast
     dormantGlow *= 1.0 + stressConcentration * 0.3;
     transmission += dormantGlow;
 
-    // ── Hodgin: Pre-awakening flicker ────────────────────────────────
-    // At awaken 0.05–0.15, before fractures truly ignite, rapid micro-pulses
-    // flash and die — like a fluorescent tube trying to turn on.
-    // 3-4 Hz flicker that appears briefly, telegraphing "something is about to happen."
-    // Uses smoothstep envelope: fades in at 0.05, peaks at 0.10, fades out by 0.20.
+    // ── Pre-awakening flicker (Hodgin) ──────────────────────────────
     float flickerEnvelope = smoothstep(0.04, 0.08, uAwaken) * (1.0 - smoothstep(0.12, 0.22, uAwaken));
-    // Rapid irregular flicker: multiple sin waves at different frequencies create
-    // stuttering, non-periodic pulses
-    float flicker1 = max(sin(uTime * 18.0), 0.0);         // ~2.9 Hz, half-wave rectified
-    float flicker2 = max(sin(uTime * 25.0 + 1.3), 0.0);   // ~4.0 Hz, offset phase
-    float flicker3 = max(sin(uTime * 11.0 + 2.7), 0.0);   // ~1.8 Hz, slower gate
-    // Multiply for spiky, irregular pulses (only bright when multiple align)
+    float flicker1 = max(sin(uTime * 18.0), 0.0);
+    float flicker2 = max(sin(uTime * 25.0 + 1.3), 0.0);
+    float flicker3 = max(sin(uTime * 11.0 + 2.7), 0.0);
     float flickerPulse = flicker1 * flicker2 + flicker3 * 0.3;
     flickerPulse = clamp(flickerPulse, 0.0, 1.0);
-    // Apply: flicker adds temporary fracture transmission
     float flickerGlow = flickerEnvelope * flickerPulse * fracture * thinness * 0.25;
     transmission += flickerGlow;
 
-    // Fracture phase: fractures light up dramatically
-    // Anadol: spatial zones create bright fracture webs vs dim quiet regions
-    float zonedFracGlow = fracGlow * (0.5 + 0.5 * zoneActivity);
-    transmission += zonedFracGlow * fracPhase * 0.50;
+    // Fracture phase — amplified zone contrast
+    float zonedFracGlow = fracGlow * (0.35 + 0.65 * zoneActivity);
+    transmission += zonedFracGlow * fracPhase * 0.55;
 
-    // Thin phase: broader transmission at thin areas
-    // Patricio: thinPhase already delayed by thickness — thin regions lead
+    // Thin phase
     transmission += thinness * thinPhase * 0.35;
 
-    // Anadol: micro-detail adds transmission within plate interiors during awakening
-    // Crystalline veins become light channels as the material dissolves
+    // Micro-detail transmission
     transmission += microDetail * thinness * 0.20;
 
-    // Alive phase: whole shell transmits
+    // Alive phase
     transmission += transPhase * 0.55;
 
-    // ── IQ: Spatially-varying inner light ──────────────────────────────
-    // The inner sphere isn't uniformly bright — it has domain-warped FBM patterns
-    // with bright and dark regions. Fractures positioned over a bright inner region
-    // should glow more than fractures over a dark region.
-    // Approximate the inner sphere's brightness at this shell position by projecting
-    // toward center and sampling noise. This is cheaper than render-to-texture
-    // and creates convincing spatial light variation.
-    vec3 innerSamplePos = normalize(vLocalPos) * 0.8;  // sample slightly inside shell
-    float innerBrightness = snoise(innerSamplePos * 2.5 + uTime * vec3(0.02, 0.015, 0.025));
-    innerBrightness = 0.7 + 0.3 * innerBrightness;  // 0.4–1.0 range, biased bright
+    // ── Spatially-varying inner light (IQ) ──────────────────────────
+    vec3 innerSamplePos = normalize(vLocalPos) * 0.8;
+    float innerBrightness = snoise(innerSamplePos * 2.0 + uTime * vec3(0.015, 0.012, 0.02));
+    innerBrightness = 0.65 + 0.35 * innerBrightness;  // broader variation
     float spatialInnerLight = uInnerLight * innerBrightness;
 
     transmission *= spatialInnerLight;
     transmission = clamp(transmission, 0.0, 1.0);
 
-    // ── Fresnel rim ──────────────────────────────────────────────────
-    // Glancing angles: more opaque (thicker effective path through shell)
-    // Head-on: more transmission (thinner effective path)
-    float rimDarken = 1.0 - pow(vFresnel, 2.0) * 0.6;
+    // ── Fresnel rim ─────────────────────────────────────────────────
+    float rimDarken = 1.0 - pow(vFresnel, 2.0) * 0.65;
     transmission *= rimDarken;
 
-    // Faint rim highlight — obsidian catches edge light (glassy)
-    // Hodgin: rim pulses faintly with dormant breath
     float rimPulse = mix(1.0, 0.7 + 0.3 * dormantBreath, breathInfluence);
-    float rimLight = pow(vFresnel, 4.0) * 0.04 * (1.0 - transPhase * 0.7) * rimPulse;
+    // v2.2: dramatically stronger rim — creates visible sphere silhouette at page scale
+    // Two-band Fresnel: sharp edge (pow 5) for silhouette + broad haze (pow 2) for volume
+    float rimSharp = pow(vFresnel, 5.0) * 0.14;     // bright edge line
+    float rimBroad = pow(vFresnel, 2.0) * 0.035;     // subtle volume haze
+    float rimLight = (rimSharp + rimBroad) * (1.0 - transPhase * 0.5) * rimPulse;
 
-    // ── Compose ──────────────────────────────────────────────────────
-    // Base obsidian + specular + transmitted light
-    vec3 surfaceColor = obsidianBase + vec3(specular);
-    surfaceColor += rimLight * vec3(0.4, 0.45, 0.5);  // cool rim highlight
+    // ── Compose ─────────────────────────────────────────────────────
+    // v2.1: cool-tinted specular — obsidian reflects blue-violet, not white
+    vec3 surfaceColor = obsidianBase + specular * vec3(0.7, 0.75, 1.0);
+    surfaceColor += rimLight * vec3(0.4, 0.45, 0.5);
 
-    // Fracture line emission (brighter than transmission — concentrated light)
-    // Anadol: spatial zone modulates emission intensity
-    // IQ: per-plate identity modulates emission — each plate glows differently
-    float fracEmission = fracture * fracPhase * spatialInnerLight * 0.6;
-    fracEmission *= 0.4 + 0.6 * zoneActivity;  // quiet zones: subdued fracture emission
-    fracEmission *= plateEmissionMod;  // IQ: per-plate emission variation (0.75–1.25×)
+    // Fracture emission — sharper, concentrated at crack center (power curve already applied)
+    float fracEmission = fracture * fracPhase * spatialInnerLight * 0.95;
+    fracEmission *= 0.3 + 0.7 * zoneActivity;  // more dramatic quiet suppression
+    fracEmission *= plateEmissionMod;
+    fracEmission *= 1.0 + stressConcentration * 0.6;
 
-    // ── Patricio: Stress-concentration glow ──────────────────────────
-    // Where thin meets thick, thermal stress is highest → fractures glow hotter.
-    // This is physically correct: differential expansion creates concentrated stress
-    // at material boundaries, which is exactly where cracks propagate hardest.
-    // Stress boosts fracture emission by up to 50% at high-gradient boundaries.
-    fracEmission *= 1.0 + stressConcentration * 0.5;
+    // Stress-shifted color: hotter at stress boundaries → desaturate toward white
+    vec3 stressColor = mix(transmitColor, vec3(1.0), stressConcentration * 0.22);
+    vec3 fracColor = stressColor * 1.6 * fracEmission;
 
-    // ── Patricio + Anadol: White-hot stress seams ─────────────────────
-    // At stress boundaries, emission shifts toward white (blackbody curve).
-    // Higher-energy points desaturate toward incandescent white.
-    // NOVA stress: blue → white-cyan. CORE stress: amber → white-gold.
-    // This creates thermal hierarchy: plate interiors glow one color,
-    // stress boundaries glow a shifted, hotter color.
-    vec3 stressColor = mix(transmitColor, vec3(1.0), stressConcentration * 0.18);
-    vec3 fracColor = stressColor * 1.5 * fracEmission;
-
-    // Also apply white-shift to transmitted light at stress boundaries
-    vec3 stressTransmitColor = mix(transmitColor, vec3(0.85), stressConcentration * 0.10);
+    vec3 stressTransmitColor = mix(transmitColor, vec3(0.85), stressConcentration * 0.12);
     vec3 transmittedLight2 = stressTransmitColor * transmission * 1.8;
 
     vec3 finalColor = surfaceColor + transmittedLight2 + fracColor;
 
-    // ── Alpha ────────────────────────────────────────────────────────
-    // Dormant: nearly opaque. Alive: semi-transparent (inner sphere shows through)
-    // Patricio: thickness drives alpha — thin regions become windows first
-    float baseAlpha = 1.0 - transPhase * 0.72;  // alive: 28% shell remains
-    float fracAlpha = fracture * fracPhase * 0.25;  // fractures lose alpha during awakening
+    // ── Alpha ───────────────────────────────────────────────────────
+    float baseAlpha = 1.0 - transPhase * 0.72;
+    float fracAlpha = fracture * fracPhase * 0.25;
     float alpha = clamp(baseAlpha - fracAlpha, 0.08, 1.0);
-
-    // Patricio: thin regions lose alpha faster during awakening.
-    // At mid-awaken, thin regions are transparent windows while thick plates
-    // remain opaque — creating a physically correct reveal sequence.
-    float thicknessAlphaBoost = thinness * thinPhase * 0.28;  // increased from 0.18
-    // Thick regions get slight alpha BOOST during mid-awaken (resist transparency)
+    float thicknessAlphaBoost = thinness * thinPhase * 0.28;
     float thickResist = vThickness * smoothstep(0.3, 0.7, uAwaken) * (1.0 - transPhase) * 0.08;
     alpha -= thicknessAlphaBoost;
     alpha += thickResist;
-
-    // Anadol: micro-detail creates crystalline transparency veins within plates
-    // During awakening, plate interiors develop visible internal fracture networks
     alpha -= microDetail * 0.12;
-
-    // At full alive, remaining thin regions more transparent than thick
     alpha -= thinness * transPhase * 0.15;
     alpha = clamp(alpha, 0.06, 1.0);
 
-    // ── IQ: Soft energy capping ─────────────────────────────────────
-    // Prevent non-bloom HDR blowout. Our additive composition
-    // (surface + transmission + fracture emission) can exceed physical energy bounds.
-    // Soft Reinhard tonemap: values below ~1.0 pass through nearly unchanged,
-    // values above compress smoothly. Preserves HDR peaks for bloom while
-    // preventing harsh clipping in non-bloom channels.
-    // Only apply to color, not alpha.
-    finalColor = finalColor / (1.0 + finalColor * 0.3);  // soft compression at high values
+    // ── Soft energy capping (IQ) ────────────────────────────────────
+    finalColor = finalColor / (1.0 + finalColor * 0.3);
 
     gl_FragColor = vec4(finalColor, alpha);
   }

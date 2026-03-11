@@ -73,6 +73,7 @@ const ROM_DIVISIONS = [
  */
 export default function CostHistoryEntryForm({ onClose, onSave, initial, mode = "manual", pdfBase64 }) {
   const C = useTheme();
+  const T = C.T;
   const masterData = useMasterDataStore(s => s.masterData);
   const addMasterItem = useMasterDataStore(s => s.addMasterItem);
   const showToast = useUiStore(s => s.showToast);
@@ -640,7 +641,7 @@ export default function CostHistoryEntryForm({ onClose, onSave, initial, mode = 
             }}
           >
             <span
-              style={{ fontSize: 9, fontWeight: 700, color: C.textDim, fontFamily: "'DM Sans',sans-serif", width: 18 }}
+              style={{ fontSize: 9, fontWeight: 700, color: C.textDim, fontFamily: T.font.sans, width: 18 }}
             >
               {d.code}
             </span>
@@ -864,7 +865,7 @@ export default function CostHistoryEntryForm({ onClose, onSave, initial, mode = 
           {/* Division subtotal */}
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: markupSum > 0 ? 4 : 0 }}>
             <span style={{ color: C.textDim }}>Division Subtotal</span>
-            <strong style={{ color: C.text, fontFamily: "'DM Sans',sans-serif" }}>{fmtCost(divSum)}</strong>
+            <strong style={{ color: C.text, fontFamily: T.font.sans }}>{fmtCost(divSum)}</strong>
           </div>
 
           {/* Markups total */}
@@ -873,7 +874,7 @@ export default function CostHistoryEntryForm({ onClose, onSave, initial, mode = 
               <span style={{ color: C.textDim }}>
                 + Markups ({markups.filter(m => parseFloat(m.inputValue) > 0).length} items)
               </span>
-              <strong style={{ color: C.accent, fontFamily: "'DM Sans',sans-serif" }}>{fmtCost(markupSum)}</strong>
+              <strong style={{ color: C.accent, fontFamily: T.font.sans }}>{fmtCost(markupSum)}</strong>
             </div>
           )}
 
@@ -883,7 +884,7 @@ export default function CostHistoryEntryForm({ onClose, onSave, initial, mode = 
               <div style={{ borderTop: `1px solid ${C.border}`, margin: "4px 0" }} />
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: total > 0 ? 4 : 0 }}>
                 <span style={{ color: C.textDim }}>Computed Total</span>
-                <strong style={{ color: C.text, fontFamily: "'DM Sans',sans-serif" }}>{fmtCost(computedTotal)}</strong>
+                <strong style={{ color: C.text, fontFamily: T.font.sans }}>{fmtCost(computedTotal)}</strong>
               </div>
             </>
           )}
@@ -895,7 +896,7 @@ export default function CostHistoryEntryForm({ onClose, onSave, initial, mode = 
               <span
                 style={{
                   fontWeight: 700,
-                  fontFamily: "'DM Sans',sans-serif",
+                  fontFamily: T.font.sans,
                   color: Math.abs(total - computedTotal) < 2 ? C.green : total - computedTotal > 0 ? C.orange : C.red,
                 }}
               >

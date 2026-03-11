@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, memo } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useUiStore } from "@/stores/uiStore";
@@ -196,6 +196,7 @@ function LogoPortal({ isNova, accent }) {
 /* ── Profile Dropdown — user account menu ── */
 function ProfileDropdown({ onClose }) {
   const C = useTheme();
+  const T = C.T;
   const dk = C.isDark;
   const isNeroDd = C.neroMode;
   const navigate = useNavigate();
@@ -247,7 +248,7 @@ function ProfileDropdown({ onClose }) {
     border: "none",
     width: "100%",
     textAlign: "left",
-    fontFamily: "'DM Sans', sans-serif",
+    fontFamily: T.font.sans,
   });
 
   return (
@@ -279,7 +280,7 @@ function ProfileDropdown({ onClose }) {
           fontWeight: 400,
           color: ddTextDim,
           letterSpacing: "0.03em",
-          fontFamily: "'DM Sans', sans-serif",
+          fontFamily: T.font.sans,
           borderBottom: `1px solid ${ddDivider}`,
           marginBottom: 4,
           overflow: "hidden",
@@ -357,6 +358,7 @@ function ProfileDropdown({ onClose }) {
 /* ── Company Profile Dropdown — shows all profiles for selection ── */
 function CompanyDropdown({ onClose }) {
   const C = useTheme();
+  const T = C.T;
   const dk = C.isDark;
   const isNeroDd = C.neroMode;
   const ref = useRef(null);
@@ -414,7 +416,7 @@ function CompanyDropdown({ onClose }) {
     border: "none",
     width: "100%",
     textAlign: "left",
-    fontFamily: "'DM Sans', sans-serif",
+    fontFamily: T.font.sans,
   });
 
   const renderItem = (id, name, logo, isActive) => (
@@ -504,7 +506,7 @@ function CompanyDropdown({ onClose }) {
           letterSpacing: "0.12em",
           textTransform: "uppercase",
           color: ddTextDim,
-          fontFamily: "'DM Sans', sans-serif",
+          fontFamily: T.font.sans,
         }}
       >
         Company Profile
@@ -518,7 +520,7 @@ function CompanyDropdown({ onClose }) {
 }
 
 /* ── NovaHeader ── */
-export default function NovaHeader({ onDraftPanelToggle }) {
+function NovaHeader({ onDraftPanelToggle }) {
   const C = useTheme();
   const T = C.T;
   const dk = C.isDark;
@@ -582,7 +584,7 @@ export default function NovaHeader({ onDraftPanelToggle }) {
         "",
       )
     : dk
-      ? `linear-gradient(180deg, rgba(15,15,30,0.40) 0%, rgba(15,15,30,0.20) 100%)`
+      ? `linear-gradient(180deg, rgba(2,2,6,0.95) 0%, rgba(60,36,120,0.14) 100%)`
       : `linear-gradient(180deg, ${C.glassBg || "rgba(255,255,255,0.32)"} 0%, ${C.glassBg || "rgba(255,255,255,0.32)"} 100%)`;
   const hShadow = isNero
     ? ["inset 0 -1px 0 rgba(255,255,255,0.06)", "0 1px 12px rgba(0,0,0,0.40)"].join(", ")
@@ -780,13 +782,13 @@ export default function NovaHeader({ onDraftPanelToggle }) {
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
-                fontFamily: "'DM Sans', sans-serif",
+                fontFamily: T.font.sans,
               }}
             >
               {novaActivity}
             </span>
             {novaTask?.progress > 0 && (
-              <span style={{ fontSize: 9, color: `${accent}80`, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
+              <span style={{ fontSize: 9, color: `${accent}80`, fontWeight: 600, fontFamily: T.font.sans }}>
                 {novaTask.progress}%
               </span>
             )}
@@ -807,7 +809,7 @@ export default function NovaHeader({ onDraftPanelToggle }) {
             cursor: "pointer",
             color: btnDim,
             transition: "all 0.18s ease",
-            fontFamily: "'Outfit', 'DM Sans', sans-serif",
+            fontFamily: T.font.sans,
           }}
           onMouseEnter={e => {
             e.currentTarget.style.color = btnHover;
@@ -843,7 +845,7 @@ export default function NovaHeader({ onDraftPanelToggle }) {
               border: `1px solid ${ov(0.08, 0.08)}`,
               borderRadius: 4,
               padding: "1px 5px",
-              fontFamily: "'DM Sans', sans-serif",
+              fontFamily: T.font.sans,
               marginLeft: 2,
             }}
           >
@@ -958,7 +960,7 @@ export default function NovaHeader({ onDraftPanelToggle }) {
                 fontWeight: 700,
                 color: "#fff",
                 padding: "0 3px",
-                fontFamily: "'DM Sans', sans-serif",
+                fontFamily: T.font.sans,
               }}
             >
               {unreadCount > 9 ? "9+" : unreadCount}
@@ -1028,7 +1030,7 @@ export default function NovaHeader({ onDraftPanelToggle }) {
                 fontWeight: 700,
                 color: "#fff",
                 padding: "0 3px",
-                fontFamily: "'DM Sans', sans-serif",
+                fontFamily: T.font.sans,
               }}
             >
               {draftPendingCount > 9 ? "9+" : draftPendingCount}
@@ -1053,7 +1055,7 @@ export default function NovaHeader({ onDraftPanelToggle }) {
                 cursor: "pointer",
                 color: companyMenuOpen ? accent : btnDim,
                 transition: "all 0.18s ease",
-                fontFamily: "'DM Sans', sans-serif",
+                fontFamily: T.font.sans,
                 maxWidth: 180,
               }}
               onMouseEnter={e => {
@@ -1283,3 +1285,5 @@ export default function NovaHeader({ onDraftPanelToggle }) {
     </header>
   );
 }
+
+export default memo(NovaHeader);

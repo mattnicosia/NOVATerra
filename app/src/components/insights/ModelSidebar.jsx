@@ -1,22 +1,22 @@
 // ModelSidebar.jsx — Element detail panel + view controls for 3D model
 // Includes floor isolation, section plane, x-ray, spec editing, coverage stats
 
-import { useMemo, useCallback, useState } from 'react';
-import { useTheme } from '@/hooks/useTheme';
-import { useModelStore } from '@/stores/modelStore';
-import { TRADE_MAP } from '@/constants/tradeGroupings';
-import { fmt } from '@/utils/format';
-import { bt, card, sectionLabel, inp } from '@/utils/styles';
-import Ic from '@/components/shared/Ic';
-import { I } from '@/constants/icons';
-import { getTradeColor } from '@/utils/geometryBuilder';
+import { useMemo, useCallback, useState } from "react";
+import { useTheme } from "@/hooks/useTheme";
+import { useModelStore } from "@/stores/modelStore";
+import { TRADE_MAP } from "@/constants/tradeGroupings";
+import { fmt } from "@/utils/format";
+import { bt, card, sectionLabel, inp } from "@/utils/styles";
+import Ic from "@/components/shared/Ic";
+import { I } from "@/constants/icons";
+import { getTradeColor } from "@/utils/geometryBuilder";
 
 const VIEW_MODES = [
-  { key: 'trade', label: 'Trade', icon: I.layers },
-  { key: 'cost', label: 'Cost Heat', icon: I.report },
-  { key: 'gaps', label: 'Gaps', icon: I.insights },
-  { key: 'presentation', label: 'Present', icon: I.bid },
-  { key: 'coverage', label: 'Coverage', icon: I.takeoff },
+  { key: "trade", label: "Trade", icon: I.layers },
+  { key: "cost", label: "Cost Heat", icon: I.report },
+  { key: "gaps", label: "Gaps", icon: I.insights },
+  { key: "presentation", label: "Present", icon: I.bid },
+  { key: "coverage", label: "Coverage", icon: I.takeoff },
 ];
 
 export default function ModelSidebar() {
@@ -45,8 +45,7 @@ export default function ModelSidebar() {
   const specOverrides = useModelStore(s => s.specOverrides);
   const setSpecOverride = useModelStore(s => s.setSpecOverride);
 
-  const selected = useMemo(() =>
-    elements.find(e => e.id === selectedElementId), [elements, selectedElementId]);
+  const selected = useMemo(() => elements.find(e => e.id === selectedElementId), [elements, selectedElementId]);
 
   const hasOutlines = Object.keys(outlines).length > 0;
 
@@ -56,7 +55,7 @@ export default function ModelSidebar() {
     // Derive from elements' level field
     const floorSet = new Map();
     elements.forEach(el => {
-      const name = el.level || 'Unknown';
+      const name = el.level || "Unknown";
       if (!floorSet.has(name)) {
         floorSet.set(name, { id: name, name, elevation: el.levelElevation || 0 });
       }
@@ -66,7 +65,8 @@ export default function ModelSidebar() {
 
   // Section plane range based on model bounds
   const sectionRange = useMemo(() => {
-    let minY = 0, maxY = 50;
+    let minY = 0,
+      maxY = 50;
     elements.forEach(el => {
       const elev = el.levelElevation || el.geometry?.elevation || 0;
       maxY = Math.max(maxY, elev + 20);
@@ -82,12 +82,13 @@ export default function ModelSidebar() {
     let unlinked = 0;
 
     elements.forEach(el => {
-      const trade = el.trade || 'unassigned';
+      const trade = el.trade || "unassigned";
       if (!byTrade[trade]) byTrade[trade] = { count: 0, cost: 0 };
       byTrade[trade].count++;
       byTrade[trade].cost += el.cost || 0;
       totalCost += el.cost || 0;
-      if (el.linkedItemId) linked++; else unlinked++;
+      if (el.linkedItemId) linked++;
+      else unlinked++;
     });
 
     return {
@@ -95,8 +96,7 @@ export default function ModelSidebar() {
       totalCost,
       linked,
       unlinked,
-      byTrade: Object.entries(byTrade)
-        .sort(([, a], [, b]) => b.cost - a.cost),
+      byTrade: Object.entries(byTrade).sort(([, a], [, b]) => b.cost - a.cost),
     };
   }, [elements]);
 
@@ -106,44 +106,44 @@ export default function ModelSidebar() {
     const fl = {};
     for (const [drawingId, { source }] of Object.entries(outlines)) {
       const fa = floorAssignments[drawingId];
-      const label = fa?.label || 'Floor 1';
+      const label = fa?.label || "Floor 1";
       if (!fl[label]) fl[label] = { source, label };
       else fl[label].source = source;
     }
     return Object.values(fl);
   }, [outlines, floorAssignments, hasOutlines]);
 
-  const handleFloorHeightChange = useCallback((e) => {
+  const handleFloorHeightChange = useCallback(e => {
     const v = parseFloat(e.target.value);
     if (v >= 6 && v <= 30) useModelStore.getState().setFloorHeight(v);
   }, []);
 
   // Spec override for selected element
-  const selectedSpec = selected ? (specOverrides[selected.id] || {}) : {};
+  const selectedSpec = selected ? specOverrides[selected.id] || {} : {};
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: T.space[3], height: '100%', overflowY: 'auto' }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: T.space[3], height: "100%", overflowY: "auto" }}>
       {/* View Mode Selector */}
       <div style={{ ...card(C), padding: T.space[3] }}>
         <div style={{ ...sectionLabel(C), marginBottom: T.space[2] }}>View Mode</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
           {VIEW_MODES.map(m => {
-            if (m.key === 'coverage' && !hasOutlines) return null;
+            if (m.key === "coverage" && !hasOutlines) return null;
             return (
               <button
                 key={m.key}
                 onClick={() => setViewMode(m.key)}
                 style={{
                   ...bt(C),
-                  padding: '6px 8px',
+                  padding: "6px 8px",
                   fontSize: T.fontSize.xs,
-                  background: viewMode === m.key ? (C.gradient || C.accent) : C.bg2,
-                  color: viewMode === m.key ? '#fff' : C.textMuted,
+                  background: viewMode === m.key ? C.gradient || C.accent : C.bg2,
+                  color: viewMode === m.key ? "#fff" : C.textMuted,
                   borderRadius: T.radius.sm,
                   gap: 4,
                 }}
               >
-                <Ic d={m.icon} size={11} color={viewMode === m.key ? '#fff' : C.textDim} />
+                <Ic d={m.icon} size={11} color={viewMode === m.key ? "#fff" : C.textDim} />
                 {m.label}
               </button>
             );
@@ -156,26 +156,41 @@ export default function ModelSidebar() {
         <div style={{ ...sectionLabel(C), marginBottom: T.space[2] }}>3D Tools</div>
 
         {/* X-Ray toggle */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: T.space[2] }}>
-          <span style={{ fontSize: T.fontSize.xs, color: C.textDim, display: 'flex', alignItems: 'center', gap: 4 }}>
+        <div
+          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: T.space[2] }}
+        >
+          <span style={{ fontSize: T.fontSize.xs, color: C.textDim, display: "flex", alignItems: "center", gap: 4 }}>
             <Ic d={I.eye} size={11} color={C.textDim} />
             X-Ray Mode
           </span>
           <button
             onClick={() => setXrayMode(!xrayMode)}
             style={{
-              ...bt(C), padding: '3px 10px', fontSize: 9, borderRadius: T.radius.sm,
+              ...bt(C),
+              padding: "3px 10px",
+              fontSize: 9,
+              borderRadius: T.radius.sm,
               background: xrayMode ? `${C.accent}30` : C.bg2,
               color: xrayMode ? C.accent : C.textMuted,
               border: `1px solid ${xrayMode ? `${C.accent}40` : C.border}`,
             }}
-          >{xrayMode ? 'On' : 'Off'}</button>
+          >
+            {xrayMode ? "On" : "Off"}
+          </button>
         </div>
 
         {/* Section Plane */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-          <span style={{ fontSize: T.fontSize.xs, color: C.textDim, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={C.textDim} strokeWidth="2" strokeLinecap="round">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+          <span style={{ fontSize: T.fontSize.xs, color: C.textDim, display: "flex", alignItems: "center", gap: 4 }}>
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke={C.textDim}
+              strokeWidth="2"
+              strokeLinecap="round"
+            >
               <path d="M2 12h20M6 8l-4 4 4 4M18 8l4 4-4 4" />
             </svg>
             Section Plane
@@ -183,27 +198,32 @@ export default function ModelSidebar() {
           <button
             onClick={() => setSectionPlaneY(sectionPlaneY === null ? sectionRange.max / 2 : null)}
             style={{
-              ...bt(C), padding: '3px 10px', fontSize: 9, borderRadius: T.radius.sm,
+              ...bt(C),
+              padding: "3px 10px",
+              fontSize: 9,
+              borderRadius: T.radius.sm,
               background: sectionPlaneY !== null ? `${C.accent}30` : C.bg2,
               color: sectionPlaneY !== null ? C.accent : C.textMuted,
               border: `1px solid ${sectionPlaneY !== null ? `${C.accent}40` : C.border}`,
             }}
-          >{sectionPlaneY !== null ? 'On' : 'Off'}</button>
+          >
+            {sectionPlaneY !== null ? "On" : "Off"}
+          </button>
         </div>
         {sectionPlaneY !== null && (
-          <div style={{ padding: '4px 0' }}>
+          <div style={{ padding: "4px 0" }}>
             <input
               type="range"
               min={sectionRange.min}
               max={sectionRange.max}
               step={0.5}
               value={sectionPlaneY}
-              onChange={(e) => setSectionPlaneY(parseFloat(e.target.value))}
-              style={{ width: '100%', accentColor: C.accent }}
+              onChange={e => setSectionPlaneY(parseFloat(e.target.value))}
+              style={{ width: "100%", accentColor: C.accent }}
             />
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 8, color: C.textDim }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 8, color: C.textDim }}>
               <span>Ground</span>
-              <span style={{ fontFamily: "'DM Sans',sans-serif" }}>{sectionPlaneY.toFixed(1)} ft</span>
+              <span style={{ fontFamily: T.font.sans }}>{sectionPlaneY.toFixed(1)} ft</span>
               <span>Top</span>
             </div>
           </div>
@@ -213,17 +233,25 @@ export default function ModelSidebar() {
       {/* Floor Isolation — shown when IFC has storeys */}
       {floors.length > 1 && (
         <div style={{ ...card(C), padding: T.space[3] }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: T.space[2] }}>
+          <div
+            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: T.space[2] }}
+          >
             <div style={sectionLabel(C)}>Floors</div>
             {hiddenFloors.length > 0 && (
               <button
                 onClick={showAllFloors}
                 style={{
-                  ...bt(C), padding: '2px 8px', fontSize: 8,
-                  background: 'transparent', color: C.accent,
-                  border: `1px solid ${C.accent}30`, borderRadius: T.radius.sm,
+                  ...bt(C),
+                  padding: "2px 8px",
+                  fontSize: 8,
+                  background: "transparent",
+                  color: C.accent,
+                  border: `1px solid ${C.accent}30`,
+                  borderRadius: T.radius.sm,
                 }}
-              >Show All</button>
+              >
+                Show All
+              </button>
             )}
           </div>
           {floors.map(f => {
@@ -234,21 +262,22 @@ export default function ModelSidebar() {
                 key={f.id}
                 onClick={() => toggleFloorVisibility(f.name)}
                 style={{
-                  ...bt(C), width: '100%', padding: '5px 8px',
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  background: isHidden ? C.bg2 : 'transparent',
-                  borderRadius: T.radius.sm, marginBottom: 2,
+                  ...bt(C),
+                  width: "100%",
+                  padding: "5px 8px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  background: isHidden ? C.bg2 : "transparent",
+                  borderRadius: T.radius.sm,
+                  marginBottom: 2,
                   opacity: isHidden ? 0.4 : 1,
-                  transition: 'opacity 0.2s',
+                  transition: "opacity 0.2s",
                 }}
               >
                 <Ic d={isHidden ? I.eyeOff : I.eye} size={10} color={isHidden ? C.textDim : C.accent} />
-                <span style={{ fontSize: T.fontSize.xs, color: C.text, flex: 1, textAlign: 'left' }}>
-                  {f.name}
-                </span>
-                <span style={{ fontSize: 8, color: C.textDim, fontFamily: "'DM Sans',sans-serif" }}>
-                  {count}
-                </span>
+                <span style={{ fontSize: T.fontSize.xs, color: C.text, flex: 1, textAlign: "left" }}>{f.name}</span>
+                <span style={{ fontSize: 8, color: C.textDim, fontFamily: T.font.sans }}>{count}</span>
               </button>
             );
           })}
@@ -260,29 +289,41 @@ export default function ModelSidebar() {
         <div style={{ ...card(C), padding: T.space[3] }}>
           <div style={{ ...sectionLabel(C), marginBottom: T.space[2] }}>Coverage Analysis</div>
           <div style={{ marginBottom: T.space[2] }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
               <span style={{ fontSize: T.fontSize.xs, color: C.textDim }}>Coverage</span>
-              <span style={{
-                fontSize: T.fontSize.sm, fontWeight: T.fontWeight.heavy,
-                fontFamily: "'DM Sans',sans-serif",
-                color: coverageStats.pct >= 80 ? '#10B981' : coverageStats.pct >= 50 ? C.orange : '#EF4444',
-              }}>
+              <span
+                style={{
+                  fontSize: T.fontSize.sm,
+                  fontWeight: T.fontWeight.heavy,
+                  fontFamily: T.font.sans,
+                  color: coverageStats.pct >= 80 ? "#10B981" : coverageStats.pct >= 50 ? C.orange : "#EF4444",
+                }}
+              >
                 {coverageStats.pct}%
               </span>
             </div>
-            <div style={{ height: 6, borderRadius: 3, background: C.bg3, overflow: 'hidden' }}>
-              <div style={{
-                height: '100%', borderRadius: 3,
-                width: `${coverageStats.pct}%`,
-                background: coverageStats.pct >= 80 ? '#10B981' : coverageStats.pct >= 50 ? C.orange : '#EF4444',
-                transition: 'width 0.5s ease',
-              }} />
+            <div style={{ height: 6, borderRadius: 3, background: C.bg3, overflow: "hidden" }}>
+              <div
+                style={{
+                  height: "100%",
+                  borderRadius: 3,
+                  width: `${coverageStats.pct}%`,
+                  background: coverageStats.pct >= 80 ? "#10B981" : coverageStats.pct >= 50 ? C.orange : "#EF4444",
+                  transition: "width 0.5s ease",
+                }}
+              />
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: T.space[1] }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: T.space[1] }}>
             <MiniStat C={C} T={T} label="Total Cells" value={coverageStats.total} />
             <MiniStat C={C} T={T} label="Covered" value={coverageStats.covered} color="#10B981" />
-            <MiniStat C={C} T={T} label="Gaps" value={coverageStats.gap} color={coverageStats.gap > 0 ? '#EF4444' : '#10B981'} />
+            <MiniStat
+              C={C}
+              T={T}
+              label="Gaps"
+              value={coverageStats.gap}
+              color={coverageStats.gap > 0 ? "#EF4444" : "#10B981"}
+            />
           </div>
         </div>
       )}
@@ -291,15 +332,19 @@ export default function ModelSidebar() {
       {hasOutlines && (
         <div style={{ ...card(C), padding: T.space[3] }}>
           <div style={{ ...sectionLabel(C), marginBottom: T.space[2] }}>Shell Settings</div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: T.space[1] }}>
+          <div
+            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: T.space[1] }}
+          >
             <span style={{ fontSize: T.fontSize.xs, color: C.textDim }}>Default Height</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <input
                 type="number"
                 value={floorHeight}
                 onChange={handleFloorHeightChange}
-                min={6} max={30} step={1}
-                style={{ ...inp(C), width: 44, padding: '2px 4px', fontSize: T.fontSize.xs, textAlign: 'center' }}
+                min={6}
+                max={30}
+                step={1}
+                style={{ ...inp(C), width: 44, padding: "2px 4px", fontSize: T.fontSize.xs, textAlign: "center" }}
               />
               <span style={{ fontSize: 8, color: C.textDim }}>ft</span>
             </div>
@@ -307,41 +352,66 @@ export default function ModelSidebar() {
           {floorSummary.map(f => {
             const h = floorHeights[f.label] || floorHeight;
             return (
-              <div key={f.label} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '4px 0', borderBottom: `1px solid ${C.border}20`,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1, minWidth: 0 }}>
-                  <span style={{ fontSize: T.fontSize.xs, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.label}</span>
-                  <span style={{ fontSize: 7, color: f.source === 'ai' ? '#10B981' : C.accent, flexShrink: 0 }}>
-                    {f.source === 'ai' ? 'AI' : 'Manual'} <Ic d={I.check} size={7} color={f.source === 'ai' ? '#10B981' : C.accent} />
+              <div
+                key={f.label}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "4px 0",
+                  borderBottom: `1px solid ${C.border}20`,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, minWidth: 0 }}>
+                  <span
+                    style={{
+                      fontSize: T.fontSize.xs,
+                      color: C.text,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {f.label}
+                  </span>
+                  <span style={{ fontSize: 7, color: f.source === "ai" ? "#10B981" : C.accent, flexShrink: 0 }}>
+                    {f.source === "ai" ? "AI" : "Manual"}{" "}
+                    <Ic d={I.check} size={7} color={f.source === "ai" ? "#10B981" : C.accent} />
                   </span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
                   <input
                     type="number"
                     value={h}
-                    onChange={(e) => {
+                    onChange={e => {
                       const v = parseFloat(e.target.value);
                       if (v >= 6 && v <= 40) useModelStore.getState().setFloorHeightFor(f.label, v);
                     }}
-                    min={6} max={40} step={1}
-                    style={{ ...inp(C), width: 38, padding: '2px 3px', fontSize: 10, textAlign: 'center' }}
+                    min={6}
+                    max={40}
+                    step={1}
+                    style={{ ...inp(C), width: 38, padding: "2px 3px", fontSize: 10, textAlign: "center" }}
                   />
                   <span style={{ fontSize: 7, color: C.textDim }}>ft</span>
                 </div>
               </div>
             );
           })}
-          <div style={{ display: 'flex', gap: 4, marginTop: T.space[2] }}>
+          <div style={{ display: "flex", gap: 4, marginTop: T.space[2] }}>
             <button
               onClick={() => {
                 useModelStore.setState({ outlines: {}, coverageCells: [], coverageStats: null });
               }}
               style={{
-                ...bt(C), padding: '4px 8px', fontSize: T.fontSize.xs, flex: 1,
-                background: 'transparent', border: `1px solid ${C.border}`,
-                color: C.textDim, borderRadius: T.radius.sm, gap: 4,
+                ...bt(C),
+                padding: "4px 8px",
+                fontSize: T.fontSize.xs,
+                flex: 1,
+                background: "transparent",
+                border: `1px solid ${C.border}`,
+                color: C.textDim,
+                borderRadius: T.radius.sm,
+                gap: 4,
               }}
             >
               <Ic d={I.x} size={9} color={C.textDim} />
@@ -350,12 +420,18 @@ export default function ModelSidebar() {
             <button
               onClick={() => {
                 useModelStore.setState({ outlines: {}, coverageCells: [], coverageStats: null });
-                window.dispatchEvent(new CustomEvent('redetect-outlines'));
+                window.dispatchEvent(new CustomEvent("redetect-outlines"));
               }}
               style={{
-                ...bt(C), padding: '4px 8px', fontSize: T.fontSize.xs, flex: 1,
-                background: 'transparent', border: `1px solid ${C.accent}40`,
-                color: C.accent, borderRadius: T.radius.sm, gap: 4,
+                ...bt(C),
+                padding: "4px 8px",
+                fontSize: T.fontSize.xs,
+                flex: 1,
+                background: "transparent",
+                border: `1px solid ${C.accent}40`,
+                color: C.accent,
+                borderRadius: T.radius.sm,
+                gap: 4,
               }}
             >
               <Ic d={I.refresh} size={9} color={C.accent} />
@@ -368,14 +444,14 @@ export default function ModelSidebar() {
       {/* Model Stats */}
       <div style={{ ...card(C), padding: T.space[3] }}>
         <div style={{ ...sectionLabel(C), marginBottom: T.space[2] }}>Model Summary</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: T.space[2] }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: T.space[2] }}>
           <StatBox C={C} T={T} label="Elements" value={stats.total} />
           <StatBox C={C} T={T} label="Total Cost" value={fmt(stats.totalCost)} />
           <StatBox C={C} T={T} label="Linked" value={stats.linked} color={C.green} />
           <StatBox C={C} T={T} label="Gaps" value={stats.unlinked} color={stats.unlinked > 0 ? C.orange : C.green} />
         </div>
         <div style={{ fontSize: 9, color: C.textDim, marginTop: T.space[2] }}>
-          {ifcLoaded ? 'Source: IFC Import' : autoGenerated ? 'Source: Auto-generated from takeoffs' : ''}
+          {ifcLoaded ? "Source: IFC Import" : autoGenerated ? "Source: Auto-generated from takeoffs" : ""}
         </div>
       </div>
 
@@ -387,39 +463,61 @@ export default function ModelSidebar() {
             {selected.description}
           </div>
           <DetailRow C={C} T={T} label="Type" value={selected.type} />
-          <DetailRow C={C} T={T} label="Trade" value={
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              <span style={{
-                width: 8, height: 8, borderRadius: 2,
-                background: getTradeColor(selected.trade),
-                display: 'inline-block',
-              }} />
-              {TRADE_MAP[selected.trade]?.label || selected.trade}
-            </span>
-          } />
+          <DetailRow
+            C={C}
+            T={T}
+            label="Trade"
+            value={
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                <span
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: 2,
+                    background: getTradeColor(selected.trade),
+                    display: "inline-block",
+                  }}
+                />
+                {TRADE_MAP[selected.trade]?.label || selected.trade}
+              </span>
+            }
+          />
           {selected.level && <DetailRow C={C} T={T} label="Floor" value={selected.level} />}
           {selected.division && <DetailRow C={C} T={T} label="Division" value={selected.division} />}
 
           {/* Material from IFC */}
-          {selected.material && (
-            <DetailRow C={C} T={T} label="Material" value={selected.material} />
-          )}
+          {selected.material && <DetailRow C={C} T={T} label="Material" value={selected.material} />}
 
           {/* Material Layers from IFC */}
           {selected.materialLayers?.length > 0 && (
             <div style={{ marginTop: 4, marginBottom: 4 }}>
               <div style={{ fontSize: 9, color: C.textDim, marginBottom: 2 }}>Layers</div>
               {selected.materialLayers.map((layer, i) => (
-                <div key={i} style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  padding: '2px 0', fontSize: T.fontSize.xs, color: C.text,
-                  borderBottom: `1px solid ${C.border}10`,
-                }}>
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                    {layer.name || 'Unnamed'}
+                <div
+                  key={i}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "2px 0",
+                    fontSize: T.fontSize.xs,
+                    color: C.text,
+                    borderBottom: `1px solid ${C.border}10`,
+                  }}
+                >
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+                    {layer.name || "Unnamed"}
                   </span>
-                  <span style={{ fontSize: 9, color: C.textDim, fontFamily: "'DM Sans',sans-serif", flexShrink: 0, marginLeft: 8 }}>
-                    {layer.thickness > 0 ? `${layer.thickness}m` : ''}
+                  <span
+                    style={{
+                      fontSize: 9,
+                      color: C.textDim,
+                      fontFamily: T.font.sans,
+                      flexShrink: 0,
+                      marginLeft: 8,
+                    }}
+                  >
+                    {layer.thickness > 0 ? `${layer.thickness}m` : ""}
                   </span>
                 </div>
               ))}
@@ -431,56 +529,109 @@ export default function ModelSidebar() {
             <IFCPropertyDisplay C={C} T={T} properties={selected.ifcProperties} />
           )}
 
-          <DetailRow C={C} T={T} label="Cost" value={
-            <span style={{ fontFamily: "'DM Sans',sans-serif", fontWeight: T.fontWeight.bold, color: selected.cost > 0 ? C.text : C.textDim }}>
-              {selected.cost > 0 ? fmt(selected.cost) : 'Not linked'}
-            </span>
-          } />
+          <DetailRow
+            C={C}
+            T={T}
+            label="Cost"
+            value={
+              <span
+                style={{
+                  fontFamily: T.font.sans,
+                  fontWeight: T.fontWeight.bold,
+                  color: selected.cost > 0 ? C.text : C.textDim,
+                }}
+              >
+                {selected.cost > 0 ? fmt(selected.cost) : "Not linked"}
+              </span>
+            }
+          />
           {selected.linkedItemId && (
-            <DetailRow C={C} T={T} label="Status" value={
-              <span style={{ color: C.green, fontWeight: T.fontWeight.semibold }}>Linked to estimate</span>
-            } />
+            <DetailRow
+              C={C}
+              T={T}
+              label="Status"
+              value={<span style={{ color: C.green, fontWeight: T.fontWeight.semibold }}>Linked to estimate</span>}
+            />
           )}
           {!selected.linkedItemId && (
-            <div style={{
-              marginTop: T.space[2], padding: '6px 8px', borderRadius: T.radius.sm,
-              background: `${C.orange}15`, border: `1px solid ${C.orange}30`,
-              fontSize: T.fontSize.xs, color: C.orange,
-            }}>
+            <div
+              style={{
+                marginTop: T.space[2],
+                padding: "6px 8px",
+                borderRadius: T.radius.sm,
+                background: `${C.orange}15`,
+                border: `1px solid ${C.orange}30`,
+                fontSize: T.fontSize.xs,
+                color: C.orange,
+              }}
+            >
               No matching estimate item — potential gap
             </div>
           )}
 
           {/* ── Spec Overrides ───────────────────────────── */}
           <div style={{ marginTop: T.space[3], borderTop: `1px solid ${C.border}30`, paddingTop: T.space[2] }}>
-            <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: C.accent, marginBottom: T.space[2] }}>
+            <div
+              style={{
+                fontSize: 9,
+                fontWeight: 600,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                color: C.accent,
+                marginBottom: T.space[2],
+              }}
+            >
               Spec Override
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <SpecField C={C} T={T} label="Material" value={selectedSpec.material || ''} placeholder={selected.material || 'e.g. CMU Block'}
-                onChange={(v) => setSpecOverride(selected.id, { material: v })} />
-              <SpecField C={C} T={T} label="Assembly" value={selectedSpec.assembly || ''} placeholder={'e.g. 8" CMU w/ rebar'}
-                onChange={(v) => setSpecOverride(selected.id, { assembly: v })} />
-              <SpecField C={C} T={T} label="Finish" value={selectedSpec.finish || ''} placeholder="e.g. Level 5 paint"
-                onChange={(v) => setSpecOverride(selected.id, { finish: v })} />
-              <SpecField C={C} T={T} label="Notes" value={selectedSpec.notes || ''} placeholder="Add notes..."
-                onChange={(v) => setSpecOverride(selected.id, { notes: v })} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <SpecField
+                C={C}
+                T={T}
+                label="Material"
+                value={selectedSpec.material || ""}
+                placeholder={selected.material || "e.g. CMU Block"}
+                onChange={v => setSpecOverride(selected.id, { material: v })}
+              />
+              <SpecField
+                C={C}
+                T={T}
+                label="Assembly"
+                value={selectedSpec.assembly || ""}
+                placeholder={'e.g. 8" CMU w/ rebar'}
+                onChange={v => setSpecOverride(selected.id, { assembly: v })}
+              />
+              <SpecField
+                C={C}
+                T={T}
+                label="Finish"
+                value={selectedSpec.finish || ""}
+                placeholder="e.g. Level 5 paint"
+                onChange={v => setSpecOverride(selected.id, { finish: v })}
+              />
+              <SpecField
+                C={C}
+                T={T}
+                label="Notes"
+                value={selectedSpec.notes || ""}
+                placeholder="Add notes..."
+                onChange={v => setSpecOverride(selected.id, { notes: v })}
+              />
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 <span style={{ fontSize: T.fontSize.xs, color: C.textDim, width: 60, flexShrink: 0 }}>Cost $</span>
                 <input
                   type="number"
-                  value={selectedSpec.costOverride || ''}
+                  value={selectedSpec.costOverride || ""}
                   placeholder="Override"
-                  onChange={(e) => setSpecOverride(selected.id, { costOverride: parseFloat(e.target.value) || 0 })}
-                  style={{ ...inp(C), flex: 1, padding: '4px 6px', fontSize: T.fontSize.xs }}
+                  onChange={e => setSpecOverride(selected.id, { costOverride: parseFloat(e.target.value) || 0 })}
+                  style={{ ...inp(C), flex: 1, padding: "4px 6px", fontSize: T.fontSize.xs }}
                 />
               </div>
             </div>
           </div>
         </div>
       ) : (
-        <div style={{ ...card(C), padding: T.space[4], textAlign: 'center' }}>
+        <div style={{ ...card(C), padding: T.space[4], textAlign: "center" }}>
           <Ic d={I.pointer} size={24} color={C.textDim} />
           <div style={{ fontSize: T.fontSize.sm, color: C.textDim, marginTop: T.space[2] }}>
             Click an element to inspect
@@ -496,17 +647,34 @@ export default function ModelSidebar() {
         <div style={{ ...card(C), padding: T.space[3] }}>
           <div style={{ ...sectionLabel(C), marginBottom: T.space[2] }}>By Trade</div>
           {stats.byTrade.map(([trade, data]) => (
-            <div key={trade} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, cursor: 'pointer' }}>
-              <span style={{
-                width: 8, height: 8, borderRadius: 2, flexShrink: 0,
-                background: getTradeColor(trade),
-              }} />
-              <span style={{ fontSize: T.fontSize.xs, color: C.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div
+              key={trade}
+              style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, cursor: "pointer" }}
+            >
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 2,
+                  flexShrink: 0,
+                  background: getTradeColor(trade),
+                }}
+              />
+              <span
+                style={{
+                  fontSize: T.fontSize.xs,
+                  color: C.text,
+                  flex: 1,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
                 {TRADE_MAP[trade]?.label || trade}
               </span>
               <span style={{ fontSize: 9, color: C.textDim, flexShrink: 0 }}>{data.count}</span>
               {data.cost > 0 && (
-                <span style={{ fontSize: 9, color: C.textMuted, fontFamily: "'DM Sans',sans-serif", flexShrink: 0 }}>
+                <span style={{ fontSize: 9, color: C.textMuted, fontFamily: T.font.sans, flexShrink: 0 }}>
                   {fmt(data.cost)}
                 </span>
               )}
@@ -522,14 +690,14 @@ export default function ModelSidebar() {
 
 function SpecField({ C, T, label, value, placeholder, onChange }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
       <span style={{ fontSize: T.fontSize.xs, color: C.textDim, width: 60, flexShrink: 0 }}>{label}</span>
       <input
         type="text"
         value={value}
         placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-        style={{ ...inp(C), flex: 1, padding: '4px 6px', fontSize: T.fontSize.xs }}
+        onChange={e => onChange(e.target.value)}
+        style={{ ...inp(C), flex: 1, padding: "4px 6px", fontSize: T.fontSize.xs }}
       />
     </div>
   );
@@ -538,7 +706,7 @@ function SpecField({ C, T, label, value, placeholder, onChange }) {
 function IFCPropertyDisplay({ C, T, properties }) {
   const [expanded, setExpanded] = useState(false);
   const entries = Object.entries(properties);
-  const isNested = entries.some(([, v]) => typeof v === 'object' && v !== null);
+  const isNested = entries.some(([, v]) => typeof v === "object" && v !== null);
 
   if (entries.length === 0) return null;
 
@@ -547,46 +715,68 @@ function IFCPropertyDisplay({ C, T, properties }) {
       <button
         onClick={() => setExpanded(!expanded)}
         style={{
-          background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-          display: 'flex', alignItems: 'center', gap: 4,
-          fontSize: 9, color: C.textDim, fontFamily: T.font.display,
+          background: "none",
+          border: "none",
+          padding: 0,
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          gap: 4,
+          fontSize: 9,
+          color: C.textDim,
+          fontFamily: T.font.display,
         }}
       >
-        <Ic d={I.chevron} size={8} color={C.textDim} style={{ transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }} />
-        IFC Properties ({isNested ? entries.length + ' sets' : entries.length})
+        <Ic
+          d={I.chevron}
+          size={8}
+          color={C.textDim}
+          style={{ transform: expanded ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}
+        />
+        IFC Properties ({isNested ? entries.length + " sets" : entries.length})
       </button>
       {expanded && (
         <div style={{ marginTop: 4, paddingLeft: 8 }}>
-          {isNested ? (
-            entries.map(([setName, props]) => (
-              <div key={setName} style={{ marginBottom: 6 }}>
-                <div style={{ fontSize: 8, fontWeight: 600, color: C.textMuted, marginBottom: 2 }}>{setName}</div>
-                {typeof props === 'object' && props !== null ? (
-                  Object.entries(props).map(([k, v]) => (
-                    <div key={k} style={{
-                      display: 'flex', justifyContent: 'space-between', padding: '1px 0',
-                      fontSize: 9, borderBottom: `1px solid ${C.border}10`,
-                    }}>
-                      <span style={{ color: C.textDim }}>{k}</span>
-                      <span style={{ color: C.text, fontFamily: "'DM Sans',sans-serif" }}>{String(v)}</span>
-                    </div>
-                  ))
-                ) : (
-                  <span style={{ fontSize: 9, color: C.text }}>{String(props)}</span>
-                )}
-              </div>
-            ))
-          ) : (
-            entries.map(([k, v]) => (
-              <div key={k} style={{
-                display: 'flex', justifyContent: 'space-between', padding: '1px 0',
-                fontSize: 9, borderBottom: `1px solid ${C.border}10`,
-              }}>
-                <span style={{ color: C.textDim }}>{k}</span>
-                <span style={{ color: C.text, fontFamily: "'DM Sans',sans-serif" }}>{String(v)}</span>
-              </div>
-            ))
-          )}
+          {isNested
+            ? entries.map(([setName, props]) => (
+                <div key={setName} style={{ marginBottom: 6 }}>
+                  <div style={{ fontSize: 8, fontWeight: 600, color: C.textMuted, marginBottom: 2 }}>{setName}</div>
+                  {typeof props === "object" && props !== null ? (
+                    Object.entries(props).map(([k, v]) => (
+                      <div
+                        key={k}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          padding: "1px 0",
+                          fontSize: 9,
+                          borderBottom: `1px solid ${C.border}10`,
+                        }}
+                      >
+                        <span style={{ color: C.textDim }}>{k}</span>
+                        <span style={{ color: C.text, fontFamily: T.font.sans }}>{String(v)}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <span style={{ fontSize: 9, color: C.text }}>{String(props)}</span>
+                  )}
+                </div>
+              ))
+            : entries.map(([k, v]) => (
+                <div
+                  key={k}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    padding: "1px 0",
+                    fontSize: 9,
+                    borderBottom: `1px solid ${C.border}10`,
+                  }}
+                >
+                  <span style={{ color: C.textDim }}>{k}</span>
+                  <span style={{ color: C.text, fontFamily: T.font.sans }}>{String(v)}</span>
+                </div>
+              ))}
         </div>
       )}
     </div>
@@ -595,11 +785,22 @@ function IFCPropertyDisplay({ C, T, properties }) {
 
 function StatBox({ C, T, label, value, color }) {
   return (
-    <div style={{
-      padding: '8px', borderRadius: T.radius.sm,
-      background: C.bg2, textAlign: 'center',
-    }}>
-      <div style={{ fontSize: T.fontSize.lg, fontWeight: T.fontWeight.heavy, color: color || C.text, fontFamily: "'DM Sans',sans-serif" }}>
+    <div
+      style={{
+        padding: "8px",
+        borderRadius: T.radius.sm,
+        background: C.bg2,
+        textAlign: "center",
+      }}
+    >
+      <div
+        style={{
+          fontSize: T.fontSize.lg,
+          fontWeight: T.fontWeight.heavy,
+          color: color || C.text,
+          fontFamily: T.font.sans,
+        }}
+      >
         {value}
       </div>
       <div style={{ fontSize: 9, color: C.textDim, marginTop: 2 }}>{label}</div>
@@ -609,11 +810,15 @@ function StatBox({ C, T, label, value, color }) {
 
 function MiniStat({ C, T, label, value, color }) {
   return (
-    <div style={{ textAlign: 'center', padding: '4px 0' }}>
-      <div style={{
-        fontSize: T.fontSize.sm, fontWeight: T.fontWeight.heavy,
-        color: color || C.text, fontFamily: "'DM Sans',sans-serif",
-      }}>
+    <div style={{ textAlign: "center", padding: "4px 0" }}>
+      <div
+        style={{
+          fontSize: T.fontSize.sm,
+          fontWeight: T.fontWeight.heavy,
+          color: color || C.text,
+          fontFamily: T.font.sans,
+        }}
+      >
         {value}
       </div>
       <div style={{ fontSize: 8, color: C.textDim, marginTop: 1 }}>{label}</div>
@@ -623,7 +828,15 @@ function MiniStat({ C, T, label, value, color }) {
 
 function DetailRow({ C, T, label, value }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0', borderBottom: `1px solid ${C.border}20` }}>
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "3px 0",
+        borderBottom: `1px solid ${C.border}20`,
+      }}
+    >
       <span style={{ fontSize: T.fontSize.xs, color: C.textDim }}>{label}</span>
       <span style={{ fontSize: T.fontSize.xs, color: C.text }}>{value}</span>
     </div>

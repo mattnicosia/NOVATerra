@@ -24,7 +24,7 @@ function LoadingFallback() {
         height: "100%",
         color: C.textDim,
         fontSize: T.fontSize.base,
-        fontFamily: "'DM Sans', sans-serif",
+        fontFamily: T.font.sans,
       }}
     >
       Loading...
@@ -51,7 +51,7 @@ function PlaceholderPage({ title }) {
         style={{
           fontSize: T.fontSize.lg,
           fontWeight: T.fontWeight.semibold,
-          fontFamily: "'DM Sans', sans-serif",
+          fontFamily: T.font.sans,
           color: C.text,
         }}
       >
@@ -60,7 +60,7 @@ function PlaceholderPage({ title }) {
       <div
         style={{
           fontSize: T.fontSize.base,
-          fontFamily: "'DM Sans', sans-serif",
+          fontFamily: T.font.sans,
           color: C.textDim,
         }}
       >
@@ -89,7 +89,7 @@ export default function CandidateLayout() {
         flexDirection: "column",
         height: "100vh",
         background: C.bg,
-        fontFamily: "'DM Sans', sans-serif",
+        fontFamily: T.font.sans,
       }}
     >
       {/* Header bar */}
@@ -188,7 +188,7 @@ export default function CandidateLayout() {
               color: P.textDim,
               fontSize: T.fontSize.sm,
               padding: "4px 10px",
-              fontFamily: "'DM Sans', sans-serif",
+              fontFamily: T.font.sans,
             })}
           >
             <Ic d={I.externalLink} size={14} color={P.textDim} sw={2} />

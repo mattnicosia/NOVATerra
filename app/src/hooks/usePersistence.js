@@ -28,7 +28,12 @@ import { idbKey } from "@/utils/idbKey";
 import { useAuthStore } from "@/stores/authStore";
 import { useOrgStore } from "@/stores/orgStore";
 import { useCollaborationStore } from "@/stores/collaborationStore";
-import { drainPendingSessions } from "@/hooks/useActivityTracker";
+import { useInboxStore } from "@/stores/inboxStore";
+import { useNovaStore } from "@/stores/novaStore";
+import { useActivityTimerStore } from "@/stores/activityTimerStore";
+import { useSnapshotsStore } from "@/stores/snapshotsStore";
+import { useUndoStore } from "@/stores/undoStore";
+import { peekPendingSessions, drainPendingSessions } from "@/hooks/useActivityTracker";
 
 // One-time migration: copy solo-mode IDB data into org-scoped keys.
 // When a user creates/joins an org, the idbKey() namespace changes from
@@ -176,6 +181,39 @@ export function resetAllStores() {
   useDatabaseStore.getState().resetToMaster();
   useUiStore.getState().setPersistenceLoaded(false);
   useUiStore.setState({ aiChatMessages: [], aiChatInput: "" });
+
+  // Reset stores that hold user/estimate-specific data
+  useProjectStore.setState({ project: { name: "New Estimate" } });
+  useItemsStore.setState({ items: [], customMarkups: [], changeOrders: [], projectAssemblies: [] });
+  useTakeoffsStore.setState({ takeoffs: [], tkCalibrations: {} });
+  useDrawingsStore.setState({ drawings: [], drawingScales: {}, drawingDpi: {} });
+  useBidLevelingStore.setState({
+    subBidSubs: {},
+    bidTotals: {},
+    bidCells: {},
+    bidSelections: {},
+    linkedSubs: [],
+    subKeyLabels: {},
+  });
+  useAlternatesStore.setState({ alternates: [] });
+  useSpecsStore.setState({ specs: [], specPdf: null, exclusions: [], clarifications: [] });
+  useCorrespondenceStore.setState({ correspondences: [] });
+  useDocumentsStore.setState({ documents: [] });
+  useModuleStore.setState({ moduleInstances: {}, activeModule: null });
+  useScanStore.getState().clearScan?.();
+  useBidPackagesStore.setState({ bidPackages: [], invitations: {}, proposals: {}, scopeGapResults: {} });
+  useGroupsStore.setState({ groups: [...DEFAULT_GROUPS] });
+  useSubdivisionStore.getState().clearSubdivisionData?.();
+
+  // Reset session-specific stores not tied to persistence
+  useCollaborationStore.getState().cleanup?.();
+  useCollaborationStore.setState({ currentLock: null, isLockHolder: false, lockError: null, presenceUsers: [] });
+  useInboxStore.setState({ rfps: [], unreadCount: 0 });
+  useNovaStore.setState({ notifications: [], history: [], activity: null, alert: null });
+  useActivityTimerStore.setState({ currentSession: null, isRunning: false });
+  useActivityTimerStore._pendingSessions = [];
+  useSnapshotsStore.setState({ snapshots: [] });
+  useUndoStore.setState({ past: [], future: [] });
 
   // Clear localStorage flags that are user-session-scoped
   localStorage.removeItem("blob_migration_v2");
@@ -518,11 +556,14 @@ export function usePersistenceLoad() {
             await storage.set(idbKey("bldg-index"), JSON.stringify(filteredIndex));
             if (hadCorruptedIndex) recoveredFromCloud = true;
 
-            // Pull all estimates and cache locally (skip deleted)
+            // Pull all estimates, hydrate blobs, then cache locally (skip deleted)
             const cloudEstimates = await cloudSync.pullAllEstimates();
             for (const ce of cloudEstimates) {
               if (deletedSet.has(ce.estimate_id)) continue; // Don't resurrect deleted
-              await storage.set(idbKey(`bldg-est-${ce.estimate_id}`), JSON.stringify(ce.data));
+              // Hydrate blobs before caching — cloud data has stripped drawings
+              let estData = ce.data;
+              try { estData = await cloudSync.hydrateBlobs(ce.data); } catch {}
+              await storage.set(idbKey(`bldg-est-${ce.estimate_id}`), JSON.stringify(estData));
             }
           }
 
@@ -678,11 +719,14 @@ export function usePersistenceLoad() {
                 );
                 recovered = filtered;
                 await storage.set(activeKey, JSON.stringify(filtered));
-                // Also pull estimate data (skip deleted)
+                // Also pull estimate data, hydrate blobs, then cache (skip deleted)
                 const cloudEstimates = await cloudSync.pullAllEstimates();
                 for (const ce of cloudEstimates) {
                   if (recoveryDeletedSet.has(ce.estimate_id)) continue;
-                  await storage.set(idbKey(`bldg-est-${ce.estimate_id}`), JSON.stringify(ce.data));
+                  // Hydrate blobs before caching — cloud data has stripped drawings
+                  let estData = ce.data;
+                  try { estData = await cloudSync.hydrateBlobs(ce.data); } catch {}
+                  await storage.set(idbKey(`bldg-est-${ce.estimate_id}`), JSON.stringify(estData));
                 }
               }
             }
@@ -748,8 +792,15 @@ export async function loadEstimate(id) {
       if (cloudData) {
         // Hydrate blobs from Supabase Storage (drawings, documents, specPdf)
         cloudData = await cloudSync.hydrateBlobs(cloudData);
-        // Cache locally with hydrated blobs for next time
-        await storage.set(idbKey(`bldg-est-${id}`), JSON.stringify(cloudData));
+        // Cache locally — but only persist if all blobs hydrated (keep markers for retry)
+        const stats = cloudData._hydrationStats;
+        if (!stats || stats.failed === 0) {
+          await storage.set(idbKey(`bldg-est-${id}`), JSON.stringify(cloudData));
+        } else {
+          // Store cloud data WITH markers so next load retries hydration
+          console.warn(`[loadEstimate] Partial hydration from cloud — caching with markers for retry`);
+          await storage.set(idbKey(`bldg-est-${id}`), JSON.stringify(cloudData));
+        }
         raw = { value: JSON.stringify(cloudData) };
       }
     } catch (err) {
@@ -769,8 +820,19 @@ export async function loadEstimate(id) {
         (parsed._specPdfStripped && parsed._specPdfStoragePath && !parsed.specPdf);
       if (hasStrippedBlobs) {
         const hydrated = await cloudSync.hydrateBlobs(parsed);
-        await storage.set(idbKey(`bldg-est-${id}`), JSON.stringify(hydrated));
-        raw = { value: JSON.stringify(hydrated) };
+        // Only overwrite IDB if ALL blobs were hydrated — otherwise keep
+        // the existing IDB entry with _cloudBlobStripped markers intact
+        // so we can retry hydration on next load.
+        const stats = hydrated._hydrationStats;
+        if (!stats || stats.failed === 0) {
+          await storage.set(idbKey(`bldg-est-${id}`), JSON.stringify(hydrated));
+          raw = { value: JSON.stringify(hydrated) };
+        } else {
+          // Partial success — use hydrated data in-memory but don't persist
+          // the partial result (markers still intact for retry next load)
+          console.warn(`[loadEstimate] Partial hydration (${stats.hydrated} ok, ${stats.failed} failed) — not persisting to IDB`);
+          raw = { value: JSON.stringify(hydrated) };
+        }
       }
     } catch (err) {
       console.warn("[loadEstimate] Blob hydration failed:", err);
@@ -831,6 +893,8 @@ export async function loadEstimate(id) {
 
   try {
     const data = JSON.parse(raw.value);
+    // Clean up internal hydration stats — not part of estimate data
+    delete data._hydrationStats;
 
     // Ensure backwards compatibility: old estimates without setupComplete are treated as complete
     const projectData = data.project || useProjectStore.getState().project;
@@ -1047,8 +1111,8 @@ export async function saveEstimate() {
     data.timerTotalMs = 0;
   }
 
-  // Drain any pending sessions collected by useActivityTracker
-  const pendingSessions = drainPendingSessions(id);
+  // Peek at pending sessions (don't drain yet — only drain after confirmed write)
+  const pendingSessions = peekPendingSessions(id);
   if (pendingSessions.length > 0) {
     data.timerSessions = [...data.timerSessions, ...pendingSessions];
     // Recalculate total from all sessions
@@ -1058,7 +1122,12 @@ export async function saveEstimate() {
   const estOk = await storage.set(idbKey(`bldg-est-${id}`), JSON.stringify(data));
   if (!estOk) {
     useUiStore.getState().showToast("Save failed — check storage space", "error");
-    return; // Don't update index if estimate didn't save
+    return; // Don't update index if estimate didn't save — pending sessions preserved
+  }
+
+  // IDB write confirmed — now safely drain the pending sessions
+  if (pendingSessions.length > 0) {
+    drainPendingSessions(id);
   }
 
   // Compute division totals snapshot for Cost History analytics

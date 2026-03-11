@@ -80,9 +80,18 @@ export const useCollaborationStore = create((set, get) => ({
           if (existing) {
             // Check if the lock is expired (race condition cleanup)
             if (new Date(existing.expires_at) < new Date()) {
-              // Expired — delete and retry
+              // Expired — delete and retry (with recursion guard)
               await supabase.from("estimate_locks").delete().eq("id", existing.id);
-              return get().acquireLock(estimateId);
+              if (!get()._lockRetried) {
+                set({ _lockRetried: true });
+                const result = await get().acquireLock(estimateId);
+                set({ _lockRetried: false });
+                return result;
+              }
+              // Already retried once — give up to prevent infinite loop
+              console.warn("[collab] Lock retry exhausted for", estimateId);
+              set({ _lockRetried: false });
+              return;
             }
 
             set({

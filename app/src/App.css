@@ -7,7 +7,11 @@
 }
 
 body {
-  font-family: "DM Sans", sans-serif;
+  font-family:
+    "Switzer",
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background: var(--app-bg, #06060c);
@@ -601,13 +605,9 @@ input[type="number"] {
   cursor: pointer;
 }
 
-/* ── Money cells — tabular nums, right-aligned ── */
+/* ── Money cells — JetBrains Mono for tabular alignment ── */
 .money-cell {
-  font-family:
-    "DM Sans",
-    -apple-system,
-    BlinkMacSystemFont,
-    sans-serif;
+  font-family: "JetBrains Mono", "SF Mono", "Cascadia Code", monospace;
   font-feature-settings: "tnum";
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -1714,7 +1714,7 @@ button:disabled {
     border-radius: 0 !important;
     box-shadow: none !important;
     font-family:
-      "DM Sans",
+      "Switzer",
       "Inter",
       -apple-system,
       BlinkMacSystemFont,
@@ -1755,7 +1755,7 @@ button:disabled {
   /* ── Currency — ensure mono font for alignment ── */
   .print-mono {
     font-family:
-      "DM Sans",
+      "Switzer",
       -apple-system,
       BlinkMacSystemFont,
       sans-serif !important;

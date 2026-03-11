@@ -464,7 +464,7 @@ export default function OnboardingSequence({ onComplete, onTransitionStart }) {
         alignItems: "center",
         justifyContent: "center",
         overflow: "hidden",
-        fontFamily: "'DM Sans', sans-serif",
+        fontFamily: "'Switzer', sans-serif",
       }}
     >
       {/* ── Void dot ── */}
@@ -551,7 +551,7 @@ export default function OnboardingSequence({ onComplete, onTransitionStart }) {
               borderBottom: "1px solid rgba(160,100,255,0.35)",
               color: "#fff",
               fontSize: isMobile ? 18 : 20,
-              fontFamily: "'DM Sans', sans-serif",
+              fontFamily: "'Switzer', sans-serif",
               fontWeight: 300,
               textAlign: "center",
               maxWidth: 300,
@@ -593,7 +593,7 @@ export default function OnboardingSequence({ onComplete, onTransitionStart }) {
                   borderRadius: 8,
                   padding: "12px 28px",
                   fontSize: isMobile ? 14 : 16,
-                  fontFamily: "'DM Sans', sans-serif",
+                  fontFamily: "'Switzer', sans-serif",
                   fontWeight: 300,
                   cursor: isHidden ? "default" : "pointer",
                   transition: "all 400ms",
@@ -637,7 +637,7 @@ export default function OnboardingSequence({ onComplete, onTransitionStart }) {
             color: "rgba(220,200,255,0.2)",
             cursor: "pointer",
             zIndex: 1002,
-            fontFamily: "'DM Sans', sans-serif",
+            fontFamily: "'Switzer', sans-serif",
             transition: "color 300ms",
           }}
           onMouseEnter={e => (e.currentTarget.style.color = "rgba(220,200,255,0.5)")}

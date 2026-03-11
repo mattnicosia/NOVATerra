@@ -75,7 +75,7 @@ export default function SubDashboardPage() {
       style={{
         minHeight: "100vh",
         background: C.bg,
-        fontFamily: "'DM Sans', -apple-system, sans-serif",
+        fontFamily: "'Switzer', -apple-system, sans-serif",
         padding: "40px 24px",
       }}
     >

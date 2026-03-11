@@ -7,6 +7,8 @@ import { useProjectStore } from "@/stores/projectStore";
 import { useSpecsStore } from "@/stores/specsStore";
 import { useUiStore } from "@/stores/uiStore";
 import { useDatabaseStore } from "@/stores/databaseStore";
+import useMeasurementEngine, { unitToTool, evalFormula } from "@/hooks/useMeasurementEngine";
+import useTakeoffCRUD from "@/hooks/useTakeoffCRUD";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { inp, nInp, bt, truncate } from "@/utils/styles";
@@ -175,6 +177,25 @@ export default function TakeoffsPage() {
   const setTkPredRefining = useTakeoffsStore(s => s.setTkPredRefining);
   const tkNovaPanelOpen = useTakeoffsStore(s => s.tkNovaPanelOpen);
   const setTkNovaPanelOpen = useTakeoffsStore(s => s.setTkNovaPanelOpen);
+
+  // Measurement engine — scale conversion, distance/area calculations, formula evaluation
+  const {
+    getDrawingDpi,
+    getPxPerUnit,
+    pxToReal,
+    realToPx,
+    getDisplayUnit,
+    hasScale,
+    calcPolylineLength,
+    calcPolygonArea,
+    computeMeasurementValue,
+    getMeasuredQty,
+    getComputedQty,
+  } = useMeasurementEngine();
+
+  // Takeoff CRUD — create, update, delete, assembly insert
+  const { updateTakeoff, removeTakeoff, addTakeoff, addTakeoffFromDb, addTakeoffFreeform, insertAssemblyIntoTakeoffs } =
+    useTakeoffCRUD();
 
   // Refs
   const drawingContainerRef = useRef(null);
@@ -421,197 +442,7 @@ export default function TakeoffsPage() {
     const snap = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
     return { x: anchor.x + dist * Math.cos(snap), y: anchor.y + dist * Math.sin(snap) };
   };
-  const unitToTool = unit => {
-    const u = (unit || "SF").toUpperCase();
-    if (["EA", "SET", "PAIR", "BOX", "ROLL", "PALLET", "BAG"].includes(u)) return "count";
-    if (["LF", "VLF"].includes(u)) return "linear";
-    return "area";
-  };
-
-  // All takeoff CRUD uses getState() to avoid stale closures (syncDerivedToTakeoffs also mutates store directly)
-  const updateTakeoff = useCallback((id, f, v) => {
-    const s = useTakeoffsStore.getState();
-    s.setTakeoffs(s.takeoffs.map(t => (t.id === id ? { ...t, [f]: v } : t)));
-  }, []);
-
-  const removeTakeoff = useCallback(id => {
-    const s = useTakeoffsStore.getState();
-    const toRemove = s.takeoffs.find(t => t.id === id);
-    s.setTakeoffs(s.takeoffs.filter(t => t.id !== id));
-    if (s.tkActiveTakeoffId === id) {
-      setTkActiveTakeoffId(null);
-      setTkMeasureState("idle");
-      setTkTool("select");
-    }
-
-    // Clean up module links if this was a module-linked takeoff
-    if (toRemove?.moduleId) {
-      const bs = useModuleStore.getState();
-      const inst = bs.moduleInstances?.[toRemove.moduleId];
-      if (!inst) return;
-      const moduleDef = MODULES[toRemove.moduleId];
-      if (!moduleDef) return;
-
-      // Check multi-instance categories first
-      let found = false;
-      moduleDef.categories.forEach(cat => {
-        if (!cat.multiInstance || found) return;
-        const catInstances = inst.categoryInstances?.[cat.id] || [];
-        catInstances.forEach(catInst => {
-          Object.entries(catInst.itemTakeoffIds || {}).forEach(([itemId, toId]) => {
-            if (toId === id) {
-              bs.linkCatInstanceItem(toRemove.moduleId, cat.id, catInst.id, itemId, null);
-              bs.setCatInstanceItemStatus(toRemove.moduleId, cat.id, catInst.id, itemId, "pending");
-              found = true;
-            }
-          });
-        });
-      });
-
-      // Check single-instance items
-      if (!found) {
-        Object.entries(inst.itemTakeoffIds || {}).forEach(([itemId, toId]) => {
-          if (toId === id) {
-            bs.linkItemToTakeoff(toRemove.moduleId, itemId, null);
-            bs.setItemStatus(toRemove.moduleId, itemId, "pending");
-          }
-        });
-      }
-    }
-  }, []);
-
-  const addTakeoff = useCallback((group = "", desc = "", unit = "SF", code = "", opts = {}) => {
-    const id = uid();
-    const current = useTakeoffsStore.getState().takeoffs;
-    const { noMeasure, quantity, ...extraFields } = opts;
-    const bidCtx = useUiStore.getState().activeGroupId || "base";
-    useTakeoffsStore.getState().setTakeoffs([
-      ...current,
-      {
-        id,
-        description: desc || "New Takeoff",
-        quantity: quantity || "",
-        unit,
-        color: TO_COLORS[Math.floor(Math.random() * TO_COLORS.length)],
-        drawingRef: "",
-        group,
-        linkedItemId: "",
-        code,
-        variables: [],
-        formula: "",
-        measurements: [],
-        bidContext: bidCtx,
-        ...extraFields,
-      },
-    ]);
-    clearPredictions(); // Immediately clear stale predictions from previous takeoff
-    const drawingId = useDrawingsStore.getState().selectedDrawingId;
-    if (drawingId && desc && !opts.noMeasure) {
-      setTkActiveTakeoffId(id);
-      setTkTool(unitToTool(unit));
-      setTkMeasureState("measuring");
-      setTkActivePoints([]);
-      setTkContextMenu(null);
-    }
-    return id;
-  }, []);
-
-  const addTakeoffFromDb = useCallback(el => {
-    const id = uid();
-    const current = useTakeoffsStore.getState().takeoffs;
-    const bidCtx = useUiStore.getState().activeGroupId || "base";
-    useTakeoffsStore.getState().setTakeoffs([
-      ...current,
-      {
-        id,
-        description: el.name,
-        quantity: "",
-        unit: el.unit || "SF",
-        color: TO_COLORS[Math.floor(Math.random() * TO_COLORS.length)],
-        drawingRef: "",
-        group: "",
-        linkedItemId: "",
-        code: el.code,
-        variables: [],
-        formula: "",
-        measurements: [],
-        bidContext: bidCtx,
-      },
-    ]);
-    clearPredictions(); // Immediately clear stale predictions from previous takeoff
-    setTkNewInput("");
-    setTkDbResults([]);
-    showToast(`Added: ${el.name} — measuring`);
-    const drawingId = useDrawingsStore.getState().selectedDrawingId;
-    if (drawingId) {
-      setTkActiveTakeoffId(id);
-      setTkTool(unitToTool(el.unit || "SF"));
-      setTkMeasureState("measuring");
-      setTkActivePoints([]);
-      setTkContextMenu(null);
-    }
-  }, []);
-
-  const addTakeoffFreeform = desc => {
-    if (!desc?.trim()) return;
-    const id = uid();
-    const unit = tkNewUnit || "SF";
-    const bidCtx = activeGroupId || "base";
-    setTakeoffs([
-      ...takeoffs,
-      {
-        id,
-        description: desc.trim(),
-        quantity: "",
-        unit,
-        color: TO_COLORS[takeoffs.length % TO_COLORS.length],
-        drawingRef: "",
-        group: "",
-        linkedItemId: "",
-        code: "",
-        variables: [],
-        formula: "",
-        measurements: [],
-        bidContext: bidCtx,
-      },
-    ]);
-    clearPredictions(); // Immediately clear stale predictions from previous takeoff
-    setTkNewInput("");
-    setTkDbResults([]);
-    showToast(`Added: ${desc.trim()} — measuring`);
-    if (selectedDrawingId) {
-      setTimeout(() => {
-        setTkActiveTakeoffId(id);
-        setTkTool(unitToTool(unit));
-        setTkMeasureState("measuring");
-        setTkActivePoints([]);
-        setTkContextMenu(null);
-      }, 50);
-    }
-  };
-
-  const insertAssemblyIntoTakeoffs = asm => {
-    const bidCtx = activeGroupId || "base";
-    const newTakeoffs = asm.elements.map((el, i) => ({
-      id: uid(),
-      description: el.desc,
-      quantity: "",
-      unit: el.unit || "SF",
-      color: TO_COLORS[(takeoffs.length + i) % TO_COLORS.length],
-      drawingRef: "",
-      group: asm.name,
-      linkedItemId: "",
-      code: el.code,
-      variables: [],
-      formula: "",
-      measurements: [],
-      bidContext: bidCtx,
-    }));
-    setTakeoffs([...takeoffs, ...newTakeoffs]);
-    setTkNewInput("");
-    setTkDbResults([]);
-    showToast(`Inserted ${asm.elements.length} takeoff items from "${asm.name}"`);
-  };
+  // ─── TAKEOFF CRUD — now provided by useTakeoffCRUD() hook above ─────────────
 
   // ─── AI ITEM LOOKUP (NOVA) — manual trigger only ─────────────
 
@@ -744,155 +575,7 @@ export default function TakeoffsPage() {
     });
   };
 
-  // ─── MEASUREMENT ENGINE ─────────────
-  const getDrawingDpi = drawingId => {
-    if (drawingDpi[drawingId]) return drawingDpi[drawingId];
-    const d = drawings.find(dr => dr.id === drawingId);
-    return d?.type === "pdf" ? PDF_RENDER_DPI : DEFAULT_IMAGE_DPI;
-  };
-
-  const scaleCodeToPxPerUnit = (code, dpi) => {
-    const archMap = {
-      full: 1,
-      half: 0.5,
-      "3-8": 3 / 8,
-      quarter: 1 / 4,
-      "3-16": 3 / 16,
-      eighth: 1 / 8,
-      "3-32": 3 / 32,
-      sixteenth: 1 / 16,
-    };
-    if (archMap[code] !== undefined) return dpi * archMap[code];
-    const engMatch = code.match(/^eng(\d+)$/);
-    if (engMatch) return dpi / parseInt(engMatch[1]);
-    const metricMatch = code.match(/^1:(\d+)$/);
-    if (metricMatch) {
-      const ratio = parseInt(metricMatch[1]);
-      return ((dpi / 25.4) * 1000) / ratio;
-    }
-    return null;
-  };
-
-  const getPxPerUnit = drawingId => {
-    const cal = tkCalibrations[drawingId];
-    if (cal?.p1 && cal?.p2 && cal?.realDist) {
-      const calPxDist = Math.sqrt((cal.p2.x - cal.p1.x) ** 2 + (cal.p2.y - cal.p1.y) ** 2);
-      if (calPxDist > 0) return calPxDist / nn(cal.realDist);
-    }
-    const scaleCode = drawingScales[drawingId];
-    if (scaleCode && scaleCode !== "custom") {
-      return scaleCodeToPxPerUnit(scaleCode, getDrawingDpi(drawingId));
-    }
-    return null;
-  };
-
-  const pxToReal = (drawingId, px) => {
-    const ppu = getPxPerUnit(drawingId);
-    if (!ppu) return null;
-    return px / ppu;
-  };
-
-  // Convert real-world inches to canvas pixels at the drawing's scale
-  const realToPx = (drawingId, realInches) => {
-    const ppu = getPxPerUnit(drawingId);
-    if (!ppu) return null;
-    const displayUnit = getDisplayUnit(drawingId);
-    // PPU is pixels-per-displayUnit, so convert inches to that unit
-    const realUnits = displayUnit === "m" ? realInches * 0.0254 : realInches / 12;
-    return realUnits * ppu;
-  };
-
-  const getDisplayUnit = drawingId => {
-    const cal = tkCalibrations[drawingId];
-    if (cal?.unit) return cal.unit;
-    const sc = drawingScales[drawingId];
-    if (sc && sc !== "custom") {
-      if (sc.startsWith("1:")) return "m";
-      return "ft";
-    }
-    return "px";
-  };
-
-  const hasScale = drawingId => !!getPxPerUnit(drawingId);
-
-  const calcPolylineLength = (points, drawingId) => {
-    let totalPx = 0;
-    for (let i = 1; i < points.length; i++) {
-      totalPx += Math.sqrt((points[i].x - points[i - 1].x) ** 2 + (points[i].y - points[i - 1].y) ** 2);
-    }
-    const real = pxToReal(drawingId, totalPx);
-    return real !== null ? real : totalPx;
-  };
-
-  const calcPolygonArea = (points, drawingId) => {
-    let areaPx = 0;
-    for (let i = 0; i < points.length; i++) {
-      const j = (i + 1) % points.length;
-      areaPx += points[i].x * points[j].y;
-      areaPx -= points[j].x * points[i].y;
-    }
-    areaPx = Math.abs(areaPx) / 2;
-    const ppu = getPxPerUnit(drawingId);
-    if (!ppu) return areaPx;
-    return areaPx / (ppu * ppu);
-  };
-
-  const computeMeasurementValue = (m, drawingId) => {
-    const did = m.sheetId || drawingId;
-    if (!hasScale(did) && m.type !== "count") return null;
-    if (m.type === "count") return nn(m.value) || 1;
-    if (m.type === "linear" && m.points?.length >= 2) return Math.round(calcPolylineLength(m.points, did) * 100) / 100;
-    if (m.type === "area" && m.points?.length >= 3) return Math.round(calcPolygonArea(m.points, did) * 100) / 100;
-    return null;
-  };
-
-  const getMeasuredQty = to => {
-    if (!to?.measurements?.length) return to?.quantity ? nn(to.quantity) : null;
-    const tool = unitToTool(to.unit);
-    if (tool === "count") {
-      return to.measurements.reduce((s, m) => s + nn(m.value || 1), 0);
-    }
-    let total = 0;
-    let anyNull = false;
-    for (const m of to.measurements) {
-      const v = computeMeasurementValue(m, selectedDrawingId);
-      if (v === null) {
-        anyNull = true;
-        continue;
-      }
-      total += v;
-    }
-    if (anyNull && total === 0) return null;
-    return Math.round(total * 100) / 100;
-  };
-
-  // Formula evaluation
-  const evalFormula = (formula, variables, measured) => {
-    if (!formula || !formula.trim()) return measured;
-    try {
-      let expr = formula.trim();
-      const vars = [{ key: "Measured", value: measured }, { key: "Qty", value: measured }, ...(variables || [])];
-      vars.sort((a, b) => (b.key || "").length - (a.key || "").length);
-      vars.forEach(v => {
-        if (v.key) {
-          const re = new RegExp(v.key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
-          expr = expr.replace(re, String(nn(v.value)));
-        }
-      });
-      const safe = expr.replace(/[^0-9.+\-*/()% ]/g, "");
-      if (!safe.trim()) return measured;
-      return Function('"use strict";return (' + safe + ")")();
-    } catch (e) {
-      return measured;
-    }
-  };
-
-  const getComputedQty = to => {
-    const measured = getMeasuredQty(to);
-    if (measured === null) return null;
-    if (!to.formula) return measured;
-    return evalFormula(to.formula, to.variables, measured);
-  };
+  // ─── MEASUREMENT ENGINE — now provided by useMeasurementEngine() hook above ─────────────
 
   // ─── MEASUREMENT ACTIONS ────────────
   const addMeasurement = useCallback(
@@ -2911,7 +2594,7 @@ Where confidence is "high", "medium", or "low".`,
           ctx.setLineDash([]);
           // Room label at centroid
           if (pred.point) {
-            ctx.font = "bold 10px 'DM Sans', sans-serif";
+            ctx.font = "bold 10px 'Switzer', sans-serif";
             ctx.fillStyle = isAccepted ? predColor : `rgba(139, 92, 246, 0.7)`;
             ctx.textAlign = "center";
             ctx.fillText(pred.tag || "Room", pred.point.x, pred.point.y + 4);
@@ -3253,7 +2936,7 @@ Where confidence is "high", "medium", or "low".`,
           // Angle badge
           const degVal = Math.round(((((snapAngleVal * 180) / Math.PI) % 360) + 360) % 360);
           const badgeLabel = degVal + "\u00B0";
-          ctx.font = "bold 11px 'DM Sans', sans-serif";
+          ctx.font = "bold 11px 'Switzer', sans-serif";
           const bw = ctx.measureText(badgeLabel).width + 10;
           const bx = tkCursorPt.x + 18,
             by = tkCursorPt.y + 16;
@@ -3288,7 +2971,7 @@ Where confidence is "high", "medium", or "low".`,
           const label = `${formatted} ${unitLbl}`;
           const lx = tkCursorPt.x + 18,
             ly = tkCursorPt.y - 18;
-          ctx.font = "bold 14px 'DM Sans', sans-serif";
+          ctx.font = "bold 14px 'Switzer', sans-serif";
           const tw = ctx.measureText(label).width;
           const px = 8,
             py = 4,
@@ -3365,7 +3048,7 @@ Where confidence is "high", "medium", or "low".`,
           // Label near first point
           if (pts[0]) {
             const lbl = item.name?.length > 25 ? item.name.slice(0, 22) + "..." : item.name;
-            ctx.font = "bold 10px 'DM Sans', sans-serif";
+            ctx.font = "bold 10px 'Switzer', sans-serif";
             const tw = ctx.measureText(lbl).width;
             ctx.fillStyle = aiColor + "D0";
             ctx.beginPath();
@@ -3390,7 +3073,7 @@ Where confidence is "high", "medium", or "low".`,
           });
           const mid = pts[Math.floor(pts.length / 2)];
           const lbl = item.name?.length > 25 ? item.name.slice(0, 22) + "..." : item.name;
-          ctx.font = "bold 10px 'DM Sans', sans-serif";
+          ctx.font = "bold 10px 'Switzer', sans-serif";
           const tw = ctx.measureText(lbl).width;
           ctx.fillStyle = aiColor + "D0";
           ctx.beginPath();
@@ -3413,7 +3096,7 @@ Where confidence is "high", "medium", or "low".`,
           const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length;
           const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
           const lbl = item.name?.length > 25 ? item.name.slice(0, 22) + "..." : item.name;
-          ctx.font = "bold 10px 'DM Sans', sans-serif";
+          ctx.font = "bold 10px 'Switzer', sans-serif";
           const tw = ctx.measureText(lbl).width;
           ctx.fillStyle = aiColor + "D0";
           ctx.beginPath();
@@ -3634,6 +3317,74 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
               </div>
             )}
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              {/* Tier mode cycling button — moved here from header */}
+              {(() => {
+                const modes = [
+                  { id: "closed", w: 0, bars: 0, label: "Closed" },
+                  { id: "standard", w: 550, bars: 2, label: "Estimate" },
+                  { id: "full", w: 900, bars: 3, label: "Split" },
+                  { id: "estimate", w: 0, bars: 4, label: "Estimate" },
+                ];
+                let curId;
+                if (tkPanelTier === "estimate") curId = "estimate";
+                else if (!tkPanelOpen) curId = "closed";
+                else if (tkPanelTier === "full") curId = "full";
+                else curId = "standard";
+                const idx = modes.findIndex(m => m.id === curId);
+                const current = modes[idx >= 0 ? idx : 0];
+                const nextMode = modes[(idx + 1) % modes.length];
+                const cycleTier = () => {
+                  if (nextMode.id === "closed") {
+                    setTkPanelOpen(false);
+                    useTakeoffsStore.getState().setTkPanelTier("standard");
+                    sessionStorage.setItem("bldg-tkPanelTier", "standard");
+                    sessionStorage.setItem("bldg-tkPanelWidth", "550");
+                  } else if (nextMode.id === "estimate") {
+                    setTkPanelOpen(false);
+                    useTakeoffsStore.getState().setTkPanelTier("estimate");
+                    sessionStorage.setItem("bldg-tkPanelTier", "estimate");
+                    sessionStorage.setItem("bldg-tkPanelWidth", "0");
+                  } else {
+                    setTkPanelOpen(true);
+                    useTakeoffsStore.getState().setTkPanelWidth(nextMode.w);
+                    useTakeoffsStore.getState().setTkPanelTier(nextMode.id);
+                    sessionStorage.setItem("bldg-tkPanelTier", nextMode.id);
+                    sessionStorage.setItem("bldg-tkPanelWidth", String(nextMode.w));
+                  }
+                };
+                return (
+                  <button
+                    className="icon-btn"
+                    title={`${current.label} → ${nextMode.label}`}
+                    onClick={cycleTier}
+                    style={{
+                      width: 22,
+                      height: 22,
+                      border: `1px solid ${current.bars > 0 ? C.accent + "50" : C.border}`,
+                      background: current.bars > 0 ? C.accent + "14" : "transparent",
+                      borderRadius: 3,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 1.5,
+                      padding: 0,
+                      position: "relative",
+                    }}
+                  >
+                    {current.bars === 0 ? (
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="7" height="18" rx="1" />
+                        <path d="M14 3h7M14 9h7M14 15h5" />
+                      </svg>
+                    ) : (
+                      Array.from({ length: current.bars }).map((_, i) => (
+                        <div key={i} style={{ width: 2.5, height: 8, borderRadius: 1, background: C.accent }} />
+                      ))
+                    )}
+                  </button>
+                );
+              })()}
               {!showNotesPanel && (
                 <button
                   className="icon-btn"
@@ -4073,7 +3824,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                     </span>
                                     <span
                                       style={{
-                                        fontFamily: "'DM Sans',sans-serif",
+                                        fontFamily: T.font.sans,
                                         fontSize: 9,
                                         color: C.accent,
                                         fontWeight: 600,
@@ -4120,7 +3871,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                 >
                                   <span
                                     style={{
-                                      fontFamily: "'DM Sans',sans-serif",
+                                      fontFamily: T.font.sans,
                                       fontSize: 9,
                                       color: C.purple,
                                       fontWeight: 600,
@@ -4144,7 +3895,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                   <span style={{ fontSize: 9, color: C.textDim }}>/{el.unit}</span>
                                   <span
                                     style={{
-                                      fontFamily: "'DM Sans',sans-serif",
+                                      fontFamily: T.font.sans,
                                       fontSize: 9,
                                       color: C.accent,
                                       fontWeight: 600,
@@ -4215,7 +3966,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                             >
                               <span
                                 style={{
-                                  fontFamily: "'DM Sans',sans-serif",
+                                  fontFamily: T.font.sans,
                                   fontSize: 9,
                                   color: C.purple,
                                   fontWeight: 600,
@@ -4240,7 +3991,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                               <span style={{ fontSize: 9, color: C.textDim }}>/{aiLookup.result.unit}</span>
                               <span
                                 style={{
-                                  fontFamily: "'DM Sans',sans-serif",
+                                  fontFamily: T.font.sans,
                                   fontSize: 9,
                                   color: C.green,
                                   fontWeight: 600,
@@ -4294,7 +4045,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                               >
                                 <span
                                   style={{
-                                    fontFamily: "'DM Sans',sans-serif",
+                                    fontFamily: T.font.sans,
                                     fontSize: 8,
                                     color: C.purple,
                                     fontWeight: 600,
@@ -4318,7 +4069,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                 <span style={{ fontSize: 8, color: C.textDim }}>/{item.unit}</span>
                                 <span
                                   style={{
-                                    fontFamily: "'DM Sans',sans-serif",
+                                    fontFamily: T.font.sans,
                                     fontSize: 8,
                                     color: C.green,
                                     fontWeight: 600,
@@ -5358,7 +5109,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                   style={{
                                                     fontSize: 8,
                                                     color: C.textDim,
-                                                    fontFamily: "'DM Sans',sans-serif",
+                                                    fontFamily: T.font.sans,
                                                     minWidth: 18,
                                                   }}
                                                 >
@@ -5398,7 +5149,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                   style={{
                                                     fontSize: 8,
                                                     color: C.textDim,
-                                                    fontFamily: "'DM Sans',sans-serif",
+                                                    fontFamily: T.font.sans,
                                                     minWidth: 24,
                                                   }}
                                                 >
@@ -5782,7 +5533,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                               {sg.desc}
                             </div>
                             {sg.code && (
-                              <span style={{ fontSize: 8, fontFamily: "'DM Sans',sans-serif", color: C.purple }}>
+                              <span style={{ fontSize: 8, fontFamily: T.font.sans, color: C.purple }}>
                                 {sg.code}
                               </span>
                             )}
@@ -5865,7 +5616,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                           style={{
                             color: C.green,
                             fontWeight: 700,
-                            fontFamily: "'DM Sans',sans-serif",
+                            fontFamily: T.font.sans,
                             fontFeatureSettings: "'tnum'",
                           }}
                         >
@@ -6856,7 +6607,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                     </button>
                     <div style={{ width: 1, height: 16, background: C.border }} />
                     <span style={{ fontSize: 9, fontWeight: 600, color: C.text }}>{toolLabel}:</span>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: C.text, fontFamily: T.font.sans }}>
                       {tkTool === "count" ? (
                         `${mQty ?? 0} EA`
                       ) : !scaleSet ? (
@@ -6950,7 +6701,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                             fontWeight: 700,
                             background: `${predColor}20`,
                             color: predColor,
-                            fontFamily: "'DM Sans',sans-serif",
+                            fontFamily: T.font.sans,
                             border: `1px solid ${predColor}30`,
                           }}
                         >
@@ -7181,7 +6932,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                       {isCount ? (
                         <span
                           style={{
-                            fontFamily: "'DM Sans',sans-serif",
+                            fontFamily: T.font.sans,
                             fontSize: 9,
                             color: C.accent,
                             fontWeight: 600,
@@ -7376,7 +7127,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                   borderRadius: 3,
                                   background: `${C.accent}10`,
                                   color: C.text,
-                                  fontFamily: "'DM Sans',sans-serif",
+                                  fontFamily: T.font.sans,
                                 }}
                               >
                                 {s}
@@ -7565,7 +7316,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                             </span>
                             <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{sched.title}</span>
                             <span style={{ fontSize: 9, color: C.textDim }}>Sheet {sched.sheetNumber}</span>
-                            <span style={{ fontSize: 9, color: C.textDim, fontFamily: "'DM Sans',sans-serif" }}>
+                            <span style={{ fontSize: 9, color: C.textDim, fontFamily: T.font.sans }}>
                               {sched.itemCount} items
                             </span>
                           </div>
@@ -7586,7 +7337,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                   fontWeight: 700,
                                   color: typeColor,
                                   minWidth: 40,
-                                  fontFamily: "'DM Sans',sans-serif",
+                                  fontFamily: T.font.sans,
                                 }}
                               >
                                 {row.typeLabel || row.mark || row.roomNo || "—"}
@@ -7623,7 +7374,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                     borderRadius: 3,
                                     background: `${C.accent}10`,
                                     color: C.text,
-                                    fontFamily: "'DM Sans',sans-serif",
+                                    fontFamily: T.font.sans,
                                   }}
                                 >
                                   {row.MSStudSize}
@@ -7637,7 +7388,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                     borderRadius: 3,
                                     background: `${C.accent}10`,
                                     color: C.text,
-                                    fontFamily: "'DM Sans',sans-serif",
+                                    fontFamily: T.font.sans,
                                   }}
                                 >
                                   {row.MSGauge}
@@ -7860,7 +7611,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                               background: C.bg2,
                               border: `1px solid ${C.border}`,
                               fontSize: 9,
-                              fontFamily: "'DM Sans',sans-serif",
+                              fontFamily: T.font.sans,
                             }}
                           >
                             ⌘K
@@ -7875,7 +7626,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                               background: C.bg2,
                               border: `1px solid ${C.border}`,
                               fontSize: 9,
-                              fontFamily: "'DM Sans',sans-serif",
+                              fontFamily: T.font.sans,
                             }}
                           >
                             Esc
@@ -8270,7 +8021,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                   }}
                                 >
                                   <span style={{ color: C.textDim, fontSize: 8 }}>{s.label}</span>
-                                  <span style={{ fontWeight: 600, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>
+                                  <span style={{ fontWeight: 600, color: C.text, fontFamily: T.font.sans }}>
                                     {s.value}
                                     {s.unit ? ` ${s.unit}` : ""}
                                   </span>

@@ -1,21 +1,21 @@
-import { useState, memo } from 'react';
-import { useAuthStore } from '@/stores/authStore';
+import { useState, memo } from "react";
+import { useAuthStore } from "@/stores/authStore";
 
 /* ────────────────────────────────────────────────────────
    LoginPage — immersive Nova-themed sign-in experience
    ──────────────────────────────────────────────────────── */
 
-const FONT = "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif";
-const ACCENT = '#7C5CFC';
-const ACCENT_DIM = '#6D28D9';
-const GREEN = '#30D158';
-const RED = '#FF453A';
-const TEXT = 'rgba(238,237,245,0.92)';
-const TEXT_MUTED = 'rgba(238,237,245,0.50)';
-const TEXT_DIM = 'rgba(238,237,245,0.28)';
-const BORDER = 'rgba(255,255,255,0.10)';
-const GLASS_BG = 'linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)';
-const INPUT_BG = 'rgba(255,255,255,0.04)';
+const FONT = "'Switzer', -apple-system, BlinkMacSystemFont, sans-serif";
+const ACCENT = "#7C5CFC";
+const ACCENT_DIM = "#6D28D9";
+const GREEN = "#30D158";
+const RED = "#FF453A";
+const TEXT = "rgba(238,237,245,0.92)";
+const TEXT_MUTED = "rgba(238,237,245,0.50)";
+const TEXT_DIM = "rgba(238,237,245,0.28)";
+const BORDER = "rgba(255,255,255,0.10)";
+const GLASS_BG = "linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)";
+const INPUT_BG = "rgba(255,255,255,0.04)";
 
 /* ── Inline keyframes ─────────────────────────────────── */
 const keyframesCSS = `
@@ -53,53 +53,65 @@ const keyframesCSS = `
 `;
 
 const labelStyle = {
-  display: 'block', fontSize: 11, fontWeight: 600,
-  color: TEXT_DIM, marginBottom: 6,
-  textTransform: 'uppercase', letterSpacing: '0.1em',
+  display: "block",
+  fontSize: 11,
+  fontWeight: 600,
+  color: TEXT_DIM,
+  marginBottom: 6,
+  textTransform: "uppercase",
+  letterSpacing: "0.1em",
   fontFamily: FONT,
 };
 
 const inputStyle = {
-  width: '100%', padding: '12px 14px', fontSize: 14,
-  fontFamily: FONT, fontWeight: 400,
+  width: "100%",
+  padding: "12px 14px",
+  fontSize: 14,
+  fontFamily: FONT,
+  fontWeight: 400,
   border: `1px solid ${BORDER}`,
-  borderRadius: 10, outline: 'none',
-  background: INPUT_BG, color: TEXT,
-  transition: 'border-color 200ms, box-shadow 200ms',
-  boxSizing: 'border-box',
+  borderRadius: 10,
+  outline: "none",
+  background: INPUT_BG,
+  color: TEXT,
+  transition: "border-color 200ms, box-shadow 200ms",
+  boxSizing: "border-box",
 };
 
 function submitBtnStyle(disabled) {
   return {
-    width: '100%', padding: '13px 0', fontSize: 14,
-    fontWeight: 600, fontFamily: FONT, color: '#fff',
-    background: disabled
-      ? 'rgba(255,255,255,0.08)'
-      : `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DIM})`,
-    border: 'none', borderRadius: 10,
-    cursor: disabled ? 'default' : 'pointer',
-    transition: 'all 200ms ease-out',
-    boxShadow: disabled ? 'none' : `0 4px 20px ${ACCENT}40, 0 0 0 1px ${ACCENT}30`,
+    width: "100%",
+    padding: "13px 0",
+    fontSize: 14,
+    fontWeight: 600,
+    fontFamily: FONT,
+    color: "#fff",
+    background: disabled ? "rgba(255,255,255,0.08)" : `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DIM})`,
+    border: "none",
+    borderRadius: 10,
+    cursor: disabled ? "default" : "pointer",
+    transition: "all 200ms ease-out",
+    boxShadow: disabled ? "none" : `0 4px 20px ${ACCENT}40, 0 0 0 1px ${ACCENT}30`,
     opacity: disabled ? 0.5 : 1,
   };
 }
 
-const focusHandler = (e) => {
+const focusHandler = e => {
   e.target.style.borderColor = `${ACCENT}66`;
   e.target.style.boxShadow = `0 0 0 3px ${ACCENT}1A`;
 };
-const blurHandler = (e) => {
+const blurHandler = e => {
   e.target.style.borderColor = BORDER;
-  e.target.style.boxShadow = 'none';
+  e.target.style.boxShadow = "none";
 };
 
 /* ── Password input with visibility toggle ────────────── */
 function PasswordInput({ value, onChange, placeholder, ...rest }) {
   const [visible, setVisible] = useState(false);
   return (
-    <div style={{ position: 'relative' }}>
+    <div style={{ position: "relative" }}>
       <input
-        type={visible ? 'text' : 'password'}
+        type={visible ? "text" : "password"}
         value={value}
         onChange={onChange}
         placeholder={placeholder}
@@ -112,22 +124,47 @@ function PasswordInput({ value, onChange, placeholder, ...rest }) {
         type="button"
         onClick={() => setVisible(v => !v)}
         style={{
-          position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-          background: 'none', border: 'none', cursor: 'pointer',
-          padding: 4, display: 'flex', alignItems: 'center',
+          position: "absolute",
+          right: 10,
+          top: "50%",
+          transform: "translateY(-50%)",
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          padding: 4,
+          display: "flex",
+          alignItems: "center",
         }}
         tabIndex={-1}
-        aria-label={visible ? 'Hide password' : 'Show password'}
+        aria-label={visible ? "Hide password" : "Show password"}
       >
         {visible ? (
-          <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={TEXT_DIM} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            width={16}
+            height={16}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke={TEXT_DIM}
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
             <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
             <line x1="1" y1="1" x2="23" y2="23" />
             <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
           </svg>
         ) : (
-          <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={TEXT_DIM} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            width={16}
+            height={16}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke={TEXT_DIM}
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
             <circle cx="12" cy="12" r="3" />
           </svg>
@@ -141,50 +178,80 @@ function PasswordInput({ value, onChange, placeholder, ...rest }) {
 function NovaOrbCSS({ size = 80 }) {
   const s = size;
   return (
-    <div style={{
-      position: 'relative', width: s, height: s,
-      perspective: 600, margin: '0 auto 12px',
-    }}>
+    <div
+      style={{
+        position: "relative",
+        width: s,
+        height: s,
+        perspective: 600,
+        margin: "0 auto 12px",
+      }}
+    >
       {/* Halo */}
-      <div style={{
-        position: 'absolute', inset: -Math.round(s * 0.2), borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(139,92,246,0.14) 0%, rgba(139,92,246,0.04) 50%, transparent 70%)',
-        animation: 'loginBreathOrb 5s ease-in-out infinite',
-      }} />
+      <div
+        style={{
+          position: "absolute",
+          inset: -Math.round(s * 0.2),
+          borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(139,92,246,0.14) 0%, rgba(139,92,246,0.04) 50%, transparent 70%)",
+          animation: "loginBreathOrb 5s ease-in-out infinite",
+        }}
+      />
       {/* Ring A */}
-      <div style={{
-        position: 'absolute', inset: -Math.round(s * 0.07), borderRadius: '50%',
-        border: '1px solid rgba(139,92,246,0.15)',
-        animation: 'loginSpinA 22s linear infinite',
-      }} />
+      <div
+        style={{
+          position: "absolute",
+          inset: -Math.round(s * 0.07),
+          borderRadius: "50%",
+          border: "1px solid rgba(139,92,246,0.15)",
+          animation: "loginSpinA 22s linear infinite",
+        }}
+      />
       {/* Ring B */}
-      <div style={{
-        position: 'absolute', inset: Math.round(s * 0.05), borderRadius: '50%',
-        border: '1px solid rgba(167,139,250,0.08)',
-        animation: 'loginSpinB 15s linear infinite',
-      }} />
+      <div
+        style={{
+          position: "absolute",
+          inset: Math.round(s * 0.05),
+          borderRadius: "50%",
+          border: "1px solid rgba(167,139,250,0.08)",
+          animation: "loginSpinB 15s linear infinite",
+        }}
+      />
       {/* Ring C — equatorial 3D tilt */}
-      <div style={{
-        position: 'absolute', inset: -Math.round(s * 0.03), borderRadius: '50%',
-        border: '1px solid rgba(167,139,250,0.12)',
-        animation: 'loginSpinC 34s linear infinite',
-      }} />
+      <div
+        style={{
+          position: "absolute",
+          inset: -Math.round(s * 0.03),
+          borderRadius: "50%",
+          border: "1px solid rgba(167,139,250,0.12)",
+          animation: "loginSpinC 34s linear infinite",
+        }}
+      />
       {/* Core */}
-      <div style={{
-        width: s, height: s, borderRadius: '50%', position: 'relative',
-        background: [
-          'radial-gradient(circle at 50% 48%, rgba(255,255,255,0.85) 0%, rgba(200,160,255,0.5) 8%, rgba(120,60,220,0.4) 20%, transparent 40%)',
-          'radial-gradient(circle at 50% 50%, rgba(215,175,255,0.7) 0%, rgba(150,78,255,0.5) 18%, rgba(90,24,220,0.3) 35%, rgba(60,10,160,0.8) 55%)',
-          'radial-gradient(circle at 50% 50%, #18063C 0%, #0A031A 42%, #060210 82%, #020108 100%)',
-        ].join(', '),
-        boxShadow: '0 14px 40px rgba(109,40,217,0.35), 0 6px 18px rgba(0,0,0,0.55), 0 0 60px rgba(139,92,246,0.15)',
-        animation: 'loginPulseGlow 4s ease-in-out infinite',
-      }}>
+      <div
+        style={{
+          width: s,
+          height: s,
+          borderRadius: "50%",
+          position: "relative",
+          background: [
+            "radial-gradient(circle at 50% 48%, rgba(255,255,255,0.85) 0%, rgba(200,160,255,0.5) 8%, rgba(120,60,220,0.4) 20%, transparent 40%)",
+            "radial-gradient(circle at 50% 50%, rgba(215,175,255,0.7) 0%, rgba(150,78,255,0.5) 18%, rgba(90,24,220,0.3) 35%, rgba(60,10,160,0.8) 55%)",
+            "radial-gradient(circle at 50% 50%, #18063C 0%, #0A031A 42%, #060210 82%, #020108 100%)",
+          ].join(", "),
+          boxShadow: "0 14px 40px rgba(109,40,217,0.35), 0 6px 18px rgba(0,0,0,0.55), 0 0 60px rgba(139,92,246,0.15)",
+          animation: "loginPulseGlow 4s ease-in-out infinite",
+        }}
+      >
         {/* Edge vignette */}
-        <div style={{
-          position: 'absolute', inset: 0, borderRadius: '50%',
-          background: 'radial-gradient(circle, transparent 55%, rgba(2,1,8,0.7) 100%)',
-        }} />
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            borderRadius: "50%",
+            background: "radial-gradient(circle, transparent 55%, rgba(2,1,8,0.7) 100%)",
+          }}
+        />
       </div>
     </div>
   );
@@ -201,76 +268,126 @@ const SKYLINE_SVG = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http:/
 /* ── Shell — immersive ambient background ─────────────── */
 const Shell = memo(function Shell({ children }) {
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: '#06060C',
-      display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
-      padding: 24, fontFamily: FONT,
-      position: 'relative', overflow: 'hidden',
-    }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#06060C",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+        fontFamily: FONT,
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
       {/* Inject keyframes */}
       <style>{keyframesCSS}</style>
 
       {/* Ambient nebula blobs */}
-      <div style={{
-        position: 'fixed', top: '10%', left: '20%',
-        width: 400, height: 400, borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(109,40,217,0.08) 0%, transparent 70%)',
-        filter: 'blur(80px)', pointerEvents: 'none',
-        animation: 'loginDriftBlob 22s ease-in-out infinite',
-      }} />
-      <div style={{
-        position: 'fixed', bottom: '5%', right: '15%',
-        width: 350, height: 350, borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(139,92,246,0.06) 0%, transparent 70%)',
-        filter: 'blur(60px)', pointerEvents: 'none',
-        animation: 'loginDriftBlob 18s ease-in-out infinite reverse',
-      }} />
-      <div style={{
-        position: 'fixed', top: '40%', right: '30%',
-        width: 250, height: 250, borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(167,139,250,0.05) 0%, transparent 70%)',
-        filter: 'blur(50px)', pointerEvents: 'none',
-        animation: 'loginDriftBlob 26s ease-in-out infinite',
-      }} />
+      <div
+        style={{
+          position: "fixed",
+          top: "10%",
+          left: "20%",
+          width: 400,
+          height: 400,
+          borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(109,40,217,0.08) 0%, transparent 70%)",
+          filter: "blur(80px)",
+          pointerEvents: "none",
+          animation: "loginDriftBlob 22s ease-in-out infinite",
+        }}
+      />
+      <div
+        style={{
+          position: "fixed",
+          bottom: "5%",
+          right: "15%",
+          width: 350,
+          height: 350,
+          borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(139,92,246,0.06) 0%, transparent 70%)",
+          filter: "blur(60px)",
+          pointerEvents: "none",
+          animation: "loginDriftBlob 18s ease-in-out infinite reverse",
+        }}
+      />
+      <div
+        style={{
+          position: "fixed",
+          top: "40%",
+          right: "30%",
+          width: 250,
+          height: 250,
+          borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(167,139,250,0.05) 0%, transparent 70%)",
+          filter: "blur(50px)",
+          pointerEvents: "none",
+          animation: "loginDriftBlob 26s ease-in-out infinite",
+        }}
+      />
 
       {/* Accent glow behind orb */}
-      <div style={{
-        position: 'fixed', top: '18%', left: '50%', transform: 'translateX(-50%)',
-        width: 500, height: 500, borderRadius: '50%',
-        background: `radial-gradient(ellipse, rgba(109,40,217,0.1) 0%, transparent 60%)`,
-        filter: 'blur(60px)', pointerEvents: 'none',
-      }} />
+      <div
+        style={{
+          position: "fixed",
+          top: "18%",
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: 500,
+          height: 500,
+          borderRadius: "50%",
+          background: `radial-gradient(ellipse, rgba(109,40,217,0.1) 0%, transparent 60%)`,
+          filter: "blur(60px)",
+          pointerEvents: "none",
+        }}
+      />
 
       {/* Construction silhouette */}
-      <div style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0, height: 200,
-        backgroundImage: `url("${SKYLINE_SVG}")`,
-        backgroundRepeat: 'repeat-x',
-        backgroundPosition: 'bottom center',
-        backgroundSize: 'auto 200px',
-        pointerEvents: 'none', opacity: 0.7,
-      }} />
+      <div
+        style={{
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: 200,
+          backgroundImage: `url("${SKYLINE_SVG}")`,
+          backgroundRepeat: "repeat-x",
+          backgroundPosition: "bottom center",
+          backgroundSize: "auto 200px",
+          pointerEvents: "none",
+          opacity: 0.7,
+        }}
+      />
 
       {/* Grain overlay */}
-      <div style={{
-        position: 'fixed', inset: 0,
-        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E")`,
-        pointerEvents: 'none', opacity: 0.5,
-      }} />
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E")`,
+          pointerEvents: "none",
+          opacity: 0.5,
+        }}
+      />
 
       {/* Content */}
-      <div style={{
-        position: 'relative', zIndex: 10, width: '100%', maxWidth: 380,
-        animation: 'loginFadeIn 0.6s ease-out both',
-      }}>
+      <div
+        style={{
+          position: "relative",
+          zIndex: 10,
+          width: "100%",
+          maxWidth: 380,
+          animation: "loginFadeIn 0.6s ease-out both",
+        }}
+      >
         {children}
       </div>
     </div>
   );
 });
-
 
 /* ── LoginForm ──────────────────────────────────────── */
 function LoginForm() {
@@ -281,14 +398,14 @@ function LoginForm() {
   const authError = useAuthStore(s => s.authError);
   const clearError = useAuthStore(s => s.clearError);
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [mode, setMode] = useState('password'); // password | magic | signup | forgot
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [mode, setMode] = useState("password"); // password | magic | signup | forgot
   const [submitting, setSubmitting] = useState(false);
   const [resetSent, setResetSent] = useState(false);
 
-  const handlePasswordLogin = async (e) => {
+  const handlePasswordLogin = async e => {
     e.preventDefault();
     if (!email.trim() || !password) return;
     setSubmitting(true);
@@ -296,7 +413,7 @@ function LoginForm() {
     setSubmitting(false);
   };
 
-  const handleMagicLink = async (e) => {
+  const handleMagicLink = async e => {
     e.preventDefault();
     if (!email.trim()) return;
     setSubmitting(true);
@@ -304,7 +421,7 @@ function LoginForm() {
     setSubmitting(false);
   };
 
-  const handleSignUp = async (e) => {
+  const handleSignUp = async e => {
     e.preventDefault();
     if (!email.trim() || !password) return;
     setSubmitting(true);
@@ -312,7 +429,7 @@ function LoginForm() {
     setSubmitting(false);
   };
 
-  const handleForgotPassword = async (e) => {
+  const handleForgotPassword = async e => {
     e.preventDefault();
     if (!email.trim()) return;
     setSubmitting(true);
@@ -321,11 +438,11 @@ function LoginForm() {
     if (result?.success) setResetSent(true);
   };
 
-  const switchMode = (m) => {
+  const switchMode = m => {
     setMode(m);
     clearError();
-    setPassword('');
-    setFullName('');
+    setPassword("");
+    setFullName("");
     setResetSent(false);
   };
 
@@ -335,63 +452,84 @@ function LoginForm() {
       <NovaOrbCSS size={80} />
 
       {/* Brand */}
-      <div style={{ textAlign: 'center', marginBottom: 28 }}>
-        <h1 style={{
-          fontSize: 22, fontWeight: 700, letterSpacing: '0.06em',
-          color: 'rgba(200,175,255,0.85)', margin: '0 0 4px',
-          fontFamily: "'Outfit', 'DM Sans', sans-serif",
-        }}>
+      <div style={{ textAlign: "center", marginBottom: 28 }}>
+        <h1
+          style={{
+            fontSize: 22,
+            fontWeight: 700,
+            letterSpacing: "0.06em",
+            color: "rgba(200,175,255,0.85)",
+            margin: "0 0 4px",
+            fontFamily: "'Switzer', sans-serif",
+          }}
+        >
           NOVATerra
         </h1>
-        <p style={{
-          fontSize: 12, fontWeight: 500, letterSpacing: '0.12em',
-          color: TEXT_DIM, margin: 0, textTransform: 'uppercase',
-        }}>
+        <p
+          style={{
+            fontSize: 12,
+            fontWeight: 500,
+            letterSpacing: "0.12em",
+            color: TEXT_DIM,
+            margin: 0,
+            textTransform: "uppercase",
+          }}
+        >
           Construction Intelligence
         </p>
       </div>
 
       {/* Card */}
-      <div style={{
-        background: GLASS_BG,
-        backdropFilter: 'blur(40px) saturate(1.6)',
-        WebkitBackdropFilter: 'blur(40px) saturate(1.6)',
-        border: `1px solid ${BORDER}`,
-        borderRadius: 18, padding: '24px 28px',
-        boxShadow: [
-          '0 24px 64px rgba(0,0,0,0.5)',
-          '0 8px 24px rgba(0,0,0,0.3)',
-          'inset 0 1px 0 rgba(255,255,255,0.06)',
-          'inset 0 -1px 0 rgba(0,0,0,0.15)',
-        ].join(', '),
-        animation: 'loginFadeIn 0.6s ease-out 0.15s both',
-      }}>
+      <div
+        style={{
+          background: GLASS_BG,
+          backdropFilter: "blur(40px) saturate(1.6)",
+          WebkitBackdropFilter: "blur(40px) saturate(1.6)",
+          border: `1px solid ${BORDER}`,
+          borderRadius: 18,
+          padding: "24px 28px",
+          boxShadow: [
+            "0 24px 64px rgba(0,0,0,0.5)",
+            "0 8px 24px rgba(0,0,0,0.3)",
+            "inset 0 1px 0 rgba(255,255,255,0.06)",
+            "inset 0 -1px 0 rgba(0,0,0,0.15)",
+          ].join(", "),
+          animation: "loginFadeIn 0.6s ease-out 0.15s both",
+        }}
+      >
         {/* Mode tabs — only Sign In methods */}
-        {mode !== 'signup' && mode !== 'forgot' && (
-          <div style={{
-            display: 'flex',
-            background: 'rgba(255,255,255,0.04)',
-            borderRadius: 9, padding: 3,
-            marginBottom: 22, gap: 2,
-            border: '1px solid rgba(255,255,255,0.06)',
-          }}>
+        {mode !== "signup" && mode !== "forgot" && (
+          <div
+            style={{
+              display: "flex",
+              background: "rgba(255,255,255,0.04)",
+              borderRadius: 9,
+              padding: 3,
+              marginBottom: 22,
+              gap: 2,
+              border: "1px solid rgba(255,255,255,0.06)",
+            }}
+          >
             {[
-              { key: 'password', label: 'Password' },
-              { key: 'magic', label: 'Magic Link' },
+              { key: "password", label: "Password" },
+              { key: "magic", label: "Magic Link" },
             ].map(tab => (
               <button
                 key={tab.key}
                 onClick={() => switchMode(tab.key)}
                 style={{
-                  flex: 1, padding: '8px 0', fontSize: 12,
+                  flex: 1,
+                  padding: "8px 0",
+                  fontSize: 12,
                   fontWeight: mode === tab.key ? 600 : 500,
                   fontFamily: FONT,
                   color: mode === tab.key ? TEXT : TEXT_MUTED,
-                  background: mode === tab.key ? 'rgba(255,255,255,0.08)' : 'transparent',
-                  border: 'none', borderRadius: 7,
-                  cursor: 'pointer',
-                  transition: 'all 150ms ease-out',
-                  boxShadow: mode === tab.key ? '0 1px 4px rgba(0,0,0,0.3)' : 'none',
+                  background: mode === tab.key ? "rgba(255,255,255,0.08)" : "transparent",
+                  border: "none",
+                  borderRadius: 7,
+                  cursor: "pointer",
+                  transition: "all 150ms ease-out",
+                  boxShadow: mode === tab.key ? "0 1px 4px rgba(0,0,0,0.3)" : "none",
                 }}
               >
                 {tab.label}
@@ -401,18 +539,36 @@ function LoginForm() {
         )}
 
         {/* Back button for signup/forgot modes */}
-        {(mode === 'signup' || mode === 'forgot') && (
+        {(mode === "signup" || mode === "forgot") && (
           <button
-            onClick={() => switchMode('password')}
+            onClick={() => switchMode("password")}
             style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: TEXT_MUTED, fontSize: 12, fontWeight: 500, fontFamily: FONT,
-              marginBottom: 18, padding: 0,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: TEXT_MUTED,
+              fontSize: 12,
+              fontWeight: 500,
+              fontFamily: FONT,
+              marginBottom: 18,
+              padding: 0,
             }}
           >
-            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 12H5" /><path d="M12 19l-7-7 7-7" />
+            <svg
+              width={14}
+              height={14}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M19 12H5" />
+              <path d="M12 19l-7-7 7-7" />
             </svg>
             Back to sign in
           </button>
@@ -420,12 +576,28 @@ function LoginForm() {
 
         {/* Error message */}
         {authError && (
-          <div style={{
-            background: `${RED}12`, border: `1px solid ${RED}30`,
-            borderRadius: 10, padding: '10px 14px',
-            marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8,
-          }}>
-            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={RED} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <div
+            style={{
+              background: `${RED}12`,
+              border: `1px solid ${RED}30`,
+              borderRadius: 10,
+              padding: "10px 14px",
+              marginBottom: 16,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <svg
+              width={14}
+              height={14}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke={RED}
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <circle cx="12" cy="12" r="10" />
               <line x1="15" y1="9" x2="9" y2="15" />
               <line x1="9" y1="9" x2="15" y2="15" />
@@ -435,24 +607,35 @@ function LoginForm() {
         )}
 
         {/* ── Password Login ── */}
-        {mode === 'password' && (
+        {mode === "password" && (
           <form onSubmit={handlePasswordLogin}>
             <label style={labelStyle}>Email Address</label>
             <input
-              type="email" value={email} onChange={e => setEmail(e.target.value)}
-              placeholder="you@company.com" autoFocus required
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="you@company.com"
+              autoFocus
+              required
               style={{ ...inputStyle, marginBottom: 14 }}
-              onFocus={focusHandler} onBlur={blurHandler}
+              onFocus={focusHandler}
+              onBlur={blurHandler}
             />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
               <label style={{ ...labelStyle, marginBottom: 0 }}>Password</label>
               <button
                 type="button"
-                onClick={() => switchMode('forgot')}
+                onClick={() => switchMode("forgot")}
                 style={{
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  color: ACCENT, fontSize: 11, fontWeight: 500, fontFamily: FONT,
-                  padding: 0, opacity: 0.8,
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: ACCENT,
+                  fontSize: 11,
+                  fontWeight: 500,
+                  fontFamily: FONT,
+                  padding: 0,
+                  opacity: 0.8,
                 }}
               >
                 Forgot?
@@ -466,50 +649,71 @@ function LoginForm() {
                 required
               />
             </div>
-            <button type="submit" disabled={submitting || !email.trim() || !password} style={submitBtnStyle(submitting || !email.trim() || !password)}>
-              {submitting ? 'Signing in...' : 'Sign In'}
+            <button
+              type="submit"
+              disabled={submitting || !email.trim() || !password}
+              style={submitBtnStyle(submitting || !email.trim() || !password)}
+            >
+              {submitting ? "Signing in..." : "Sign In"}
             </button>
           </form>
         )}
 
         {/* ── Magic Link ── */}
-        {mode === 'magic' && (
+        {mode === "magic" && (
           <form onSubmit={handleMagicLink}>
             <label style={labelStyle}>Email Address</label>
             <input
-              type="email" value={email} onChange={e => setEmail(e.target.value)}
-              placeholder="you@company.com" autoFocus required
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="you@company.com"
+              autoFocus
+              required
               style={{ ...inputStyle, marginBottom: 18 }}
-              onFocus={focusHandler} onBlur={blurHandler}
+              onFocus={focusHandler}
+              onBlur={blurHandler}
             />
-            <button type="submit" disabled={submitting || !email.trim()} style={submitBtnStyle(submitting || !email.trim())}>
-              {submitting ? 'Sending...' : 'Send Magic Link'}
+            <button
+              type="submit"
+              disabled={submitting || !email.trim()}
+              style={submitBtnStyle(submitting || !email.trim())}
+            >
+              {submitting ? "Sending..." : "Send Magic Link"}
             </button>
-            <p style={{ fontSize: 11, color: TEXT_DIM, textAlign: 'center', marginTop: 14, lineHeight: 1.5 }}>
+            <p style={{ fontSize: 11, color: TEXT_DIM, textAlign: "center", marginTop: 14, lineHeight: 1.5 }}>
               No password needed. We'll email you a secure sign-in link.
             </p>
           </form>
         )}
 
         {/* ── Sign Up ── */}
-        {mode === 'signup' && (
+        {mode === "signup" && (
           <form onSubmit={handleSignUp}>
-            <h3 style={{ fontSize: 15, fontWeight: 600, color: TEXT, margin: '0 0 18px', fontFamily: FONT }}>
+            <h3 style={{ fontSize: 15, fontWeight: 600, color: TEXT, margin: "0 0 18px", fontFamily: FONT }}>
               Create your account
             </h3>
             <label style={labelStyle}>Full Name</label>
             <input
-              type="text" value={fullName} onChange={e => setFullName(e.target.value)}
-              placeholder="John Smith" autoFocus
+              type="text"
+              value={fullName}
+              onChange={e => setFullName(e.target.value)}
+              placeholder="John Smith"
+              autoFocus
               style={{ ...inputStyle, marginBottom: 14 }}
-              onFocus={focusHandler} onBlur={blurHandler}
+              onFocus={focusHandler}
+              onBlur={blurHandler}
             />
             <label style={labelStyle}>Email Address</label>
             <input
-              type="email" value={email} onChange={e => setEmail(e.target.value)}
-              placeholder="you@company.com" required
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="you@company.com"
+              required
               style={{ ...inputStyle, marginBottom: 14 }}
-              onFocus={focusHandler} onBlur={blurHandler}
+              onFocus={focusHandler}
+              onBlur={blurHandler}
             />
             <label style={labelStyle}>Password</label>
             <div style={{ marginBottom: 18 }}>
@@ -521,51 +725,77 @@ function LoginForm() {
                 minLength={6}
               />
             </div>
-            <button type="submit" disabled={submitting || !email.trim() || !password} style={submitBtnStyle(submitting || !email.trim() || !password)}>
-              {submitting ? 'Creating account...' : 'Create Account'}
+            <button
+              type="submit"
+              disabled={submitting || !email.trim() || !password}
+              style={submitBtnStyle(submitting || !email.trim() || !password)}
+            >
+              {submitting ? "Creating account..." : "Create Account"}
             </button>
           </form>
         )}
 
         {/* ── Forgot Password ── */}
-        {mode === 'forgot' && !resetSent && (
+        {mode === "forgot" && !resetSent && (
           <form onSubmit={handleForgotPassword}>
-            <h3 style={{ fontSize: 15, fontWeight: 600, color: TEXT, margin: '0 0 6px', fontFamily: FONT }}>
+            <h3 style={{ fontSize: 15, fontWeight: 600, color: TEXT, margin: "0 0 6px", fontFamily: FONT }}>
               Reset your password
             </h3>
-            <p style={{ fontSize: 12, color: TEXT_MUTED, margin: '0 0 18px', lineHeight: 1.5 }}>
+            <p style={{ fontSize: 12, color: TEXT_MUTED, margin: "0 0 18px", lineHeight: 1.5 }}>
               Enter your email and we'll send a reset link.
             </p>
             <label style={labelStyle}>Email Address</label>
             <input
-              type="email" value={email} onChange={e => setEmail(e.target.value)}
-              placeholder="you@company.com" autoFocus required
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="you@company.com"
+              autoFocus
+              required
               style={{ ...inputStyle, marginBottom: 18 }}
-              onFocus={focusHandler} onBlur={blurHandler}
+              onFocus={focusHandler}
+              onBlur={blurHandler}
             />
-            <button type="submit" disabled={submitting || !email.trim()} style={submitBtnStyle(submitting || !email.trim())}>
-              {submitting ? 'Sending...' : 'Send Reset Link'}
+            <button
+              type="submit"
+              disabled={submitting || !email.trim()}
+              style={submitBtnStyle(submitting || !email.trim())}
+            >
+              {submitting ? "Sending..." : "Send Reset Link"}
             </button>
           </form>
         )}
 
         {/* ── Reset email sent ── */}
-        {mode === 'forgot' && resetSent && (
-          <div style={{ textAlign: 'center', padding: '8px 0' }}>
-            <div style={{
-              width: 48, height: 48, borderRadius: '50%',
-              background: `${GREEN}14`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              margin: '0 auto 16px',
-            }}>
-              <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={GREEN} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        {mode === "forgot" && resetSent && (
+          <div style={{ textAlign: "center", padding: "8px 0" }}>
+            <div
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: "50%",
+                background: `${GREEN}14`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                margin: "0 auto 16px",
+              }}
+            >
+              <svg
+                width={22}
+                height={22}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke={GREEN}
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                 <path d="M22 4 12 14.01l-3-3" />
               </svg>
             </div>
-            <h3 style={{ fontSize: 16, fontWeight: 600, color: TEXT, margin: '0 0 8px' }}>
-              Check your email
-            </h3>
+            <h3 style={{ fontSize: 16, fontWeight: 600, color: TEXT, margin: "0 0 8px" }}>Check your email</h3>
             <p style={{ fontSize: 12, color: TEXT_MUTED, lineHeight: 1.6, margin: 0 }}>
               We sent a password reset link to your email.
             </p>
@@ -574,18 +804,26 @@ function LoginForm() {
       </div>
 
       {/* Sign up / Sign in link below card */}
-      <div style={{
-        textAlign: 'center', marginTop: 20,
-        animation: 'loginFadeIn 0.6s ease-out 0.3s both',
-      }}>
-        {mode !== 'signup' && mode !== 'forgot' ? (
+      <div
+        style={{
+          textAlign: "center",
+          marginTop: 20,
+          animation: "loginFadeIn 0.6s ease-out 0.3s both",
+        }}
+      >
+        {mode !== "signup" && mode !== "forgot" ? (
           <p style={{ fontSize: 12, color: TEXT_DIM, margin: 0 }}>
-            Don't have an account?{' '}
+            Don't have an account?{" "}
             <button
-              onClick={() => switchMode('signup')}
+              onClick={() => switchMode("signup")}
               style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: ACCENT, fontSize: 12, fontWeight: 600, fontFamily: FONT,
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                color: ACCENT,
+                fontSize: 12,
+                fontWeight: 600,
+                fontFamily: FONT,
               }}
             >
               Create one
@@ -605,30 +843,50 @@ function MagicLinkSent() {
   return (
     <Shell>
       <NovaOrbCSS size={64} />
-      <div style={{ textAlign: 'center', marginTop: 8 }}>
-        <div style={{
-          width: 56, height: 56, borderRadius: '50%',
-          background: `${GREEN}14`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          margin: '0 auto 20px',
-        }}>
-          <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={GREEN} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <div style={{ textAlign: "center", marginTop: 8 }}>
+        <div
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: "50%",
+            background: `${GREEN}14`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            margin: "0 auto 20px",
+          }}
+        >
+          <svg
+            width={24}
+            height={24}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke={GREEN}
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
             <path d="M22 4 12 14.01l-3-3" />
           </svg>
         </div>
-        <h2 style={{ fontSize: 20, fontWeight: 700, color: TEXT, margin: '0 0 8px' }}>
-          Check your email
-        </h2>
-        <p style={{ fontSize: 13, color: TEXT_MUTED, lineHeight: 1.6, margin: '0 0 24px' }}>
+        <h2 style={{ fontSize: 20, fontWeight: 700, color: TEXT, margin: "0 0 8px" }}>Check your email</h2>
+        <p style={{ fontSize: 13, color: TEXT_MUTED, lineHeight: 1.6, margin: "0 0 24px" }}>
           We sent you a secure sign-in link. Click it to continue.
         </p>
         <button
-          onClick={() => { clearMagicLinkSent(); clearError(); }}
+          onClick={() => {
+            clearMagicLinkSent();
+            clearError();
+          }}
           style={{
-            background: 'transparent', border: 'none',
-            color: ACCENT, fontSize: 13, fontWeight: 600,
-            cursor: 'pointer', fontFamily: FONT,
+            background: "transparent",
+            border: "none",
+            color: ACCENT,
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: "pointer",
+            fontFamily: FONT,
           }}
         >
           Back to sign in

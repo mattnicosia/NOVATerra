@@ -40,7 +40,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
               justifyContent: "center",
               height: "100vh",
               padding: 40,
-              fontFamily: "DM Sans, sans-serif",
+              fontFamily: "Switzer, sans-serif",
               color: "#fff",
               background: "#0a0a1a",
             }}
@@ -59,7 +59,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                 color: "#fff",
                 cursor: "pointer",
                 fontSize: 14,
-                fontFamily: "DM Sans, sans-serif",
+                fontFamily: "Switzer, sans-serif",
               }}
             >
               Try Again

@@ -582,7 +582,7 @@ export default function PortalPage() {
                         fontSize: 18,
                         fontWeight: 600,
                         outline: "none",
-                        fontFamily: "'DM Sans', sans-serif",
+                        fontFamily: "'Switzer', sans-serif",
                       }}
                     />
                   </div>
@@ -610,7 +610,7 @@ export default function PortalPage() {
                         fontSize: 13,
                         resize: "vertical",
                         outline: "none",
-                        fontFamily: "'DM Sans', sans-serif",
+                        fontFamily: "'Switzer', sans-serif",
                       }}
                     />
                   </div>
@@ -636,7 +636,7 @@ export default function PortalPage() {
                         fontSize: 13,
                         resize: "vertical",
                         outline: "none",
-                        fontFamily: "'DM Sans', sans-serif",
+                        fontFamily: "'Switzer', sans-serif",
                       }}
                     />
                   </div>
@@ -782,7 +782,7 @@ function SpinStyle() {
 const pageStyle = {
   minHeight: "100vh",
   background: C.bg,
-  fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  fontFamily: "'Switzer', -apple-system, BlinkMacSystemFont, sans-serif",
 };
 
 const containerStyle = {

@@ -21,6 +21,7 @@ const CELL_STATUSES = [
 
 /* ─── Context Menu — pricing method picker (right-click on cell) ─── */
 function CellContextMenu({ pos, item, currentStatus, getItemTotal, onSelect, onClose, C }) {
+  const T = C.T;
   const ref = useRef(null);
   const dk = C.isDark !== false;
 
@@ -78,7 +79,7 @@ function CellContextMenu({ pos, item, currentStatus, getItemTotal, onSelect, onC
           textTransform: "uppercase",
           color: C.textDim,
           padding: "2px 8px 4px",
-          fontFamily: "'DM Sans',sans-serif",
+          fontFamily: T.font.sans,
         }}
       >
         Pricing Method
@@ -104,7 +105,7 @@ function CellContextMenu({ pos, item, currentStatus, getItemTotal, onSelect, onC
               fontSize: 11,
               fontWeight: isActive ? 700 : 500,
               color: isActive ? C.accent : C.text,
-              fontFamily: "'DM Sans',sans-serif",
+              fontFamily: T.font.sans,
               transition: "background 0.15s",
             }}
             onMouseEnter={e => {
@@ -133,6 +134,7 @@ function CellContextMenu({ pos, item, currentStatus, getItemTotal, onSelect, onC
 
 /* ─── Sub Autocomplete — CRM-backed search with inline add ─── */
 function SubAutocomplete({ newSubName, setNewSubName, newSubRef, onSelect, onCancel, C }) {
+  const T = C.T;
   const subs = useMasterDataStore(s => s.masterData.subcontractors) || [];
   const addMasterItem = useMasterDataStore(s => s.addMasterItem);
   const [showDropdown, setShowDropdown] = useState(true);
@@ -206,7 +208,7 @@ function SubAutocomplete({ newSubName, setNewSubName, newSubRef, onSelect, onCan
                   outline: "none",
                   background: C.bg,
                   color: C.text,
-                  fontFamily: "'DM Sans',sans-serif",
+                  fontFamily: T.font.sans,
                   boxSizing: "border-box",
                 }}
               />
@@ -280,7 +282,7 @@ function SubAutocomplete({ newSubName, setNewSubName, newSubRef, onSelect, onCan
             outline: "none",
             background: C.bg,
             color: C.text,
-            fontFamily: "'DM Sans',sans-serif",
+            fontFamily: T.font.sans,
           }}
         />
         <button
@@ -489,7 +491,7 @@ function BidCell({ value, status, item, onSave, onContextMenu, getItemTotal, hig
           padding: "2px 6px",
           fontSize: 11,
           fontWeight: 600,
-          fontFamily: "'DM Sans',sans-serif",
+          fontFamily: T.font.sans,
           textAlign: "right",
           border: `1.5px solid ${C.accent}`,
           borderRadius: 3,
@@ -554,7 +556,7 @@ function BidCell({ value, status, item, onSave, onContextMenu, getItemTotal, hig
         padding: "2px 4px",
         fontSize: 11,
         fontWeight: status === "blank" ? 400 : 600,
-        fontFamily: "'DM Sans',sans-serif",
+        fontFamily: T.font.sans,
         fontFeatureSettings: "'tnum'",
         textAlign: "right",
         cursor: status === "carried" ? "default" : "pointer",
@@ -594,6 +596,7 @@ function BidCell({ value, status, item, onSave, onContextMenu, getItemTotal, hig
 
 /* ─── Variance badge — % diff from internal ─── */
 function VarianceBadge({ subTotal, internalTotal, C, fontSize = 8 }) {
+  const T = C.T;
   if (!internalTotal || internalTotal <= 0 || !subTotal || subTotal <= 0) return null;
   const variance = ((subTotal - internalTotal) / internalTotal) * 100;
   const color = variance <= 0 ? C.green : C.red || C.orange;
@@ -604,7 +607,7 @@ function VarianceBadge({ subTotal, internalTotal, C, fontSize = 8 }) {
         fontSize,
         fontWeight: 600,
         color,
-        fontFamily: "'DM Sans',sans-serif",
+        fontFamily: T.font.sans,
         fontFeatureSettings: "'tnum'",
       }}
     >
@@ -616,6 +619,7 @@ function VarianceBadge({ subTotal, internalTotal, C, fontSize = 8 }) {
 
 /* ─── Import Proposals Popover ─── */
 function ImportProposalsPopover({ onClose, onImport, C }) {
+  const T = C.T;
   const ref = useRef(null);
   const dk = C.isDark !== false;
   const bidPackages = useBidPackagesStore(s => s.bidPackages);
@@ -690,7 +694,7 @@ function ImportProposalsPopover({ onClose, onImport, C }) {
           fontWeight: 700,
           color: C.text,
           marginBottom: 8,
-          fontFamily: "'DM Sans',sans-serif",
+          fontFamily: T.font.sans,
         }}
       >
         Import Bid Proposals
@@ -716,7 +720,7 @@ function ImportProposalsPopover({ onClose, onImport, C }) {
             }}
           >
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: C.text, fontFamily: T.font.sans }}>
                 {pkg.name || "Unnamed Package"}
               </div>
               <div style={{ fontSize: 9, color: C.textDim }}>
@@ -747,7 +751,7 @@ function ImportProposalsPopover({ onClose, onImport, C }) {
                   background: C.accent,
                   color: "#fff",
                   cursor: "pointer",
-                  fontFamily: "'DM Sans',sans-serif",
+                  fontFamily: T.font.sans,
                   transition: "opacity 0.15s",
                 }}
                 onMouseEnter={e => (e.currentTarget.style.opacity = "0.85")}
@@ -1002,7 +1006,7 @@ export default function LevelingView() {
                 background: showImportPopover ? `${C.accent}12` : "transparent",
                 color: C.accent,
                 cursor: "pointer",
-                fontFamily: "'DM Sans',sans-serif",
+                fontFamily: T.font.sans,
                 transition: "background 0.15s",
               }}
               onMouseEnter={e => {
@@ -1029,7 +1033,7 @@ export default function LevelingView() {
               fontSize: 18,
               fontWeight: 700,
               color: C.green,
-              fontFamily: "'DM Sans',sans-serif",
+              fontFamily: T.font.sans,
               fontFeatureSettings: "'tnum'",
             }}
           >
@@ -1045,7 +1049,7 @@ export default function LevelingView() {
             width: "100%",
             borderCollapse: "collapse",
             fontSize: 11,
-            fontFamily: "'DM Sans',sans-serif",
+            fontFamily: T.font.sans,
             tableLayout: "auto",
           }}
         >
@@ -1099,7 +1103,7 @@ export default function LevelingView() {
                           width: "100%",
                           outline: "none",
                           padding: 0,
-                          fontFamily: "'DM Sans',sans-serif",
+                          fontFamily: T.font.sans,
                         }}
                       />
                     </div>
@@ -1183,7 +1187,7 @@ export default function LevelingView() {
                   fontSize: 13,
                   color: C.green,
                   borderTop: `3px solid ${C.green}`,
-                  fontFamily: "'DM Sans',sans-serif",
+                  fontFamily: T.font.sans,
                 }}
               >
                 GRAND TOTAL
@@ -1197,7 +1201,7 @@ export default function LevelingView() {
                   color: C.accent,
                   borderLeft: `2px solid ${C.accent}30`,
                   borderTop: `3px solid ${C.green}`,
-                  fontFamily: "'DM Sans',sans-serif",
+                  fontFamily: T.font.sans,
                   fontFeatureSettings: "'tnum'",
                 }}
               >
@@ -1221,7 +1225,7 @@ export default function LevelingView() {
                       color: C.text,
                       borderLeft: `1px solid ${C.border}`,
                       borderTop: `3px solid ${C.green}`,
-                      fontFamily: "'DM Sans',sans-serif",
+                      fontFamily: T.font.sans,
                       fontFeatureSettings: "'tnum'",
                     }}
                   >
@@ -1353,7 +1357,7 @@ function SubdivisionGroup({
             borderBottom: `1px solid ${C.border}`,
             borderLeft: `2px solid ${C.accent}30`,
             borderTop: subIdx > 0 ? `2px solid ${C.border}` : `1px solid ${C.border}`,
-            fontFamily: "'DM Sans',sans-serif",
+            fontFamily: T.font.sans,
             fontFeatureSettings: "'tnum'",
           }}
         >
@@ -1375,7 +1379,7 @@ function SubdivisionGroup({
                 borderBottom: `1px solid ${C.border}`,
                 borderLeft: isSelected ? `2px solid ${C.green}` : `1px solid ${C.border}`,
                 borderTop: subIdx > 0 ? `2px solid ${C.border}` : `1px solid ${C.border}`,
-                fontFamily: "'DM Sans',sans-serif",
+                fontFamily: T.font.sans,
                 fontFeatureSettings: "'tnum'",
                 background: isSelected ? `${C.green}08` : undefined,
               }}
@@ -1489,7 +1493,7 @@ function SubdivisionGroup({
                 style={{
                   ...tdStyle(C),
                   textAlign: "right",
-                  fontFamily: "'DM Sans',sans-serif",
+                  fontFamily: T.font.sans,
                   fontFeatureSettings: "'tnum'",
                   fontSize: 10,
                   fontWeight: 600,
@@ -1502,7 +1506,7 @@ function SubdivisionGroup({
                 style={{
                   ...tdStyle(C),
                   textAlign: "right",
-                  fontFamily: "'DM Sans',sans-serif",
+                  fontFamily: T.font.sans,
                   fontFeatureSettings: "'tnum'",
                   color: C.accent,
                   fontWeight: 600,
@@ -1601,7 +1605,7 @@ function SubdivisionGroup({
                 color: sel.source ? C.green : C.textMuted,
                 cursor: "pointer",
                 outline: "none",
-                fontFamily: "'DM Sans',sans-serif",
+                fontFamily: T.font.sans,
               }}
             >
               <option value="">Select winner...</option>
@@ -1639,7 +1643,7 @@ function SubdivisionGroup({
                   color: C.green,
                   textAlign: "right",
                   outline: "none",
-                  fontFamily: "'DM Sans',sans-serif",
+                  fontFamily: T.font.sans,
                 }}
               />
             )}
@@ -1649,7 +1653,7 @@ function SubdivisionGroup({
                   fontSize: 12,
                   fontWeight: 700,
                   color: C.green,
-                  fontFamily: "'DM Sans',sans-serif",
+                  fontFamily: T.font.sans,
                   fontFeatureSettings: "'tnum'",
                 }}
               >
@@ -1667,7 +1671,7 @@ function SubdivisionGroup({
             borderBottom: `2px solid ${sel.source ? C.green : C.border}`,
             borderLeft: `2px solid ${C.accent}30`,
             color: sel.source === "internal" ? C.green : C.accent,
-            fontFamily: "'DM Sans',sans-serif",
+            fontFamily: T.font.sans,
             fontFeatureSettings: "'tnum'",
             background: sel.source === "internal" ? `${C.green}12` : undefined,
           }}
@@ -1689,7 +1693,7 @@ function SubdivisionGroup({
                 borderBottom: `2px solid ${sel.source ? C.green : C.border}`,
                 borderLeft: isSelected ? `2px solid ${C.green}` : `1px solid ${C.border}`,
                 color: isSelected ? C.green : isSk ? C.text : C.textDim,
-                fontFamily: "'DM Sans',sans-serif",
+                fontFamily: T.font.sans,
                 fontFeatureSettings: "'tnum'",
                 background: isSelected ? `${C.green}12` : undefined,
               }}
@@ -1722,7 +1726,7 @@ function thStyle(C) {
     background: C.bg,
     zIndex: 10,
     whiteSpace: "nowrap",
-    fontFamily: "'DM Sans',sans-serif",
+    fontFamily: C.T.font.sans,
   };
 }
 

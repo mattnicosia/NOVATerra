@@ -35,7 +35,7 @@ export default function BTAdminLayout() {
         display: "flex",
         height: "100vh",
         background: C.bg,
-        fontFamily: "'DM Sans', sans-serif",
+        fontFamily: T.font.sans,
       }}
     >
       {/* Sidebar */}

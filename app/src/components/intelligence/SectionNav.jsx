@@ -1,12 +1,12 @@
 // SectionNav — Horizontal tab strip for Intelligence Center sections
-import { useTheme } from '@/hooks/useTheme';
+import { useTheme } from "@/hooks/useTheme";
 
 const SECTIONS = [
-  { key: "overview",    label: "Overview" },
-  { key: "markets",     label: "Markets" },
-  { key: "benchmarks",  label: "Benchmarks" },
-  { key: "portfolio",   label: "Portfolio" },
-  { key: "divisions",   label: "Divisions" },
+  { key: "overview", label: "Overview" },
+  { key: "markets", label: "Markets" },
+  { key: "benchmarks", label: "Benchmarks" },
+  { key: "portfolio", label: "Portfolio" },
+  { key: "divisions", label: "Divisions" },
 ];
 
 export default function SectionNav({ active, onChange }) {
@@ -14,11 +14,16 @@ export default function SectionNav({ active, onChange }) {
   const T = C.T;
 
   return (
-    <div style={{
-      display: "flex", gap: 4, padding: "4px",
-      background: C.bg2, borderRadius: T.radius.md,
-      border: `1px solid ${C.border}`,
-    }}>
+    <div
+      style={{
+        display: "flex",
+        gap: 4,
+        padding: "4px",
+        background: C.bg2,
+        borderRadius: T.radius.md,
+        border: `1px solid ${C.border}`,
+      }}
+    >
       {SECTIONS.map(s => {
         const isActive = active === s.key;
         return (
@@ -33,7 +38,7 @@ export default function SectionNav({ active, onChange }) {
               cursor: "pointer",
               fontSize: T.fontSize.sm,
               fontWeight: isActive ? T.fontWeight.bold : T.fontWeight.medium,
-              fontFamily: "'DM Sans', sans-serif",
+              fontFamily: T.font.sans,
               color: isActive ? C.accent : C.textMuted,
               background: isActive ? `${C.accent}15` : "transparent",
               transition: T.transition.fast,

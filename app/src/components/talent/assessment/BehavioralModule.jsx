@@ -71,7 +71,7 @@ export default function BehavioralModule() {
       style={{
         display: "flex",
         justifyContent: "center",
-        fontFamily: "'DM Sans', sans-serif",
+        fontFamily: T.font.sans,
       }}
     >
       <div
@@ -152,7 +152,7 @@ export default function BehavioralModule() {
               padding: "8px 20px",
               opacity: isFirstGroup ? 0.4 : 1,
               cursor: isFirstGroup ? "not-allowed" : "pointer",
-              fontFamily: "'DM Sans', sans-serif",
+              fontFamily: T.font.sans,
             })}
           >
             <svg
@@ -176,7 +176,7 @@ export default function BehavioralModule() {
               disabled={!allGroupAnswered}
               style={accentButton(C, {
                 padding: "8px 24px",
-                fontFamily: "'DM Sans', sans-serif",
+                fontFamily: T.font.sans,
                 opacity: allGroupAnswered ? 1 : 0.5,
                 cursor: allGroupAnswered ? "pointer" : "not-allowed",
               })}
@@ -205,7 +205,7 @@ export default function BehavioralModule() {
                 padding: "8px 20px",
                 opacity: allGroupAnswered ? 1 : 0.5,
                 cursor: allGroupAnswered ? "pointer" : "not-allowed",
-                fontFamily: "'DM Sans', sans-serif",
+                fontFamily: T.font.sans,
               })}
             >
               Next Group
@@ -303,7 +303,7 @@ function BehavioralItem({ item, index, selectedValue, onSelect, C, T }) {
                 color: isSelected ? C.accent : C.textDim,
                 fontSize: T.fontSize.xs,
                 fontWeight: isSelected ? T.fontWeight.bold : T.fontWeight.medium,
-                fontFamily: "'DM Sans', sans-serif",
+                fontFamily: T.font.sans,
                 cursor: "pointer",
                 textAlign: "center",
                 lineHeight: T.lineHeight.tight,

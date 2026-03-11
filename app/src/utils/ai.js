@@ -384,8 +384,19 @@ export function buildProjectContext({ project, items, takeoffs, specs, drawings 
     if (roomParts.length) parts.push(`Rooms: ${roomParts.join(", ")}`);
   }
   if (items?.length) {
-    parts.push(`\nESTIMATE (${items.length} items):`);
-    items.slice(0, 60).forEach(it => {
+    // Sort: unassigned items first so NOVA can act on them, then assigned items for reference
+    const sorted = [...items].sort((a, b) => {
+      const aUn = !a.division || a.division === "";
+      const bUn = !b.division || b.division === "";
+      if (aUn && !bUn) return -1;
+      if (!aUn && bUn) return 1;
+      return 0;
+    });
+    const unassignedCount = sorted.filter(i => !i.division || i.division === "").length;
+    const MAX_ITEMS = 250;
+
+    parts.push(`\nESTIMATE (${items.length} items${unassignedCount ? `, ${unassignedCount} unassigned` : ""}):`);
+    sorted.slice(0, MAX_ITEMS).forEach(it => {
       const costs = [
         it.material && `M:$${it.material}`,
         it.labor && `L:$${it.labor}`,
@@ -396,12 +407,12 @@ export function buildProjectContext({ project, items, takeoffs, specs, drawings 
         .join(" ");
       const q = it.quantity || 1;
       const lineTotal = q * ((it.material || 0) + (it.labor || 0) + (it.equipment || 0) + (it.subcontractor || 0));
-      const div = it.division ? ` [${it.division}]` : "";
+      const div = it.division ? ` [${it.division}]` : " [UNASSIGNED]";
       parts.push(
         `  [id:${it.id}] ${it.code || "—"} ${it.description}${div} | ${q} ${it.unit} | ${costs} | Total:$${lineTotal.toFixed(2)}`,
       );
     });
-    if (items.length > 60) parts.push(`  ... and ${items.length - 60} more items`);
+    if (items.length > MAX_ITEMS) parts.push(`  ... and ${items.length - MAX_ITEMS} more items`);
   }
   if (takeoffs?.length) {
     parts.push(`\nTAKEOFFS (${takeoffs.length} items):`);

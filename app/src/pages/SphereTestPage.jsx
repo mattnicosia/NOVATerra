@@ -5,7 +5,7 @@
 import { useState, useRef, useCallback } from "react";
 import NovaSceneLazy from "@/components/nova/NovaSceneLazy";
 
-const T_FONT = "'DM Sans', sans-serif";
+const T_FONT = "'Switzer', sans-serif";
 
 function Slider({ label, value, onChange, min = 0, max = 1, step = 0.01 }) {
   return (

@@ -38,7 +38,7 @@ class TabErrorBoundary extends Component {
         <div style={{ fontSize: 14, fontWeight: 600, color: "#F87171", marginBottom: 8 }}>
           This tab encountered an error
         </div>
-        <div style={{ fontSize: 11, color: "#999", marginBottom: 16, fontFamily: "'DM Sans', sans-serif" }}>
+        <div style={{ fontSize: 11, color: "#999", marginBottom: 16, fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif" }}>
           {this.state.error?.message || "Unknown error"}
         </div>
         <button

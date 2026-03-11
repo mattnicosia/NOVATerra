@@ -1,14 +1,14 @@
 // PortfolioIntelligence — User's win rate, pipeline, clients, calibration health
-import { useMemo } from 'react';
-import { useTheme } from '@/hooks/useTheme';
-import { useEstimatesStore } from '@/stores/estimatesStore';
-import { useMasterDataStore } from '@/stores/masterDataStore';
-import { useScanStore } from '@/stores/scanStore';
-import { getBuildingTypeLabel } from '@/constants/constructionTypes';
-import { mapStatusToOutcome } from '@/utils/costHistoryMigration';
-import { Ring, GradientBar } from './PureCSSChart';
+import { useMemo } from "react";
+import { useTheme } from "@/hooks/useTheme";
+import { useEstimatesStore } from "@/stores/estimatesStore";
+import { useMasterDataStore } from "@/stores/masterDataStore";
+import { useScanStore } from "@/stores/scanStore";
+import { getBuildingTypeLabel } from "@/constants/constructionTypes";
+import { mapStatusToOutcome } from "@/utils/costHistoryMigration";
+import { Ring, GradientBar } from "./PureCSSChart";
 
-const fmtCost = (n) => {
+const fmtCost = n => {
   if (!n && n !== 0) return "\u2014";
   if (n >= 1000000) return "$" + (n / 1000000).toFixed(1) + "M";
   return "$" + Math.round(n).toLocaleString();
@@ -26,12 +26,16 @@ export default function PortfolioIntelligence() {
     // Unified entries
     const all = [
       ...estimatesIndex.map(e => ({
-        ...e, outcome: mapStatusToOutcome(e.status),
-        totalCost: e.grandTotal || 0, projectSF: e.projectSF || 0,
+        ...e,
+        outcome: mapStatusToOutcome(e.status),
+        totalCost: e.grandTotal || 0,
+        projectSF: e.projectSF || 0,
       })),
       ...historicalProposals.map(p => ({
-        ...p, outcome: p.outcome || "pending",
-        totalCost: p.totalCost || 0, projectSF: p.projectSF || 0,
+        ...p,
+        outcome: p.outcome || "pending",
+        totalCost: p.totalCost || 0,
+        projectSF: p.projectSF || 0,
       })),
     ];
 
@@ -51,21 +55,32 @@ export default function PortfolioIntelligence() {
     });
     const winRateByType = Object.entries(winByType)
       .map(([key, { won: w, total: t }]) => ({
-        key, label: getBuildingTypeLabel(key), rate: Math.round((w / t) * 100), won: w, total: t,
+        key,
+        label: getBuildingTypeLabel(key),
+        rate: Math.round((w / t) * 100),
+        won: w,
+        total: t,
       }))
       .sort((a, b) => b.total - a.total)
       .slice(0, 8);
 
     // $/SF by building type
     const perSFByType = {};
-    all.filter(e => e.totalCost > 0 && e.projectSF > 0).forEach(e => {
-      if (!e.buildingType) return;
-      if (!perSFByType[e.buildingType]) perSFByType[e.buildingType] = { total: 0, count: 0 };
-      perSFByType[e.buildingType].total += e.totalCost / e.projectSF;
-      perSFByType[e.buildingType].count += 1;
-    });
+    all
+      .filter(e => e.totalCost > 0 && e.projectSF > 0)
+      .forEach(e => {
+        if (!e.buildingType) return;
+        if (!perSFByType[e.buildingType]) perSFByType[e.buildingType] = { total: 0, count: 0 };
+        perSFByType[e.buildingType].total += e.totalCost / e.projectSF;
+        perSFByType[e.buildingType].count += 1;
+      });
     const avgPerSFByType = Object.entries(perSFByType)
-      .map(([key, { total, count }]) => ({ key, label: getBuildingTypeLabel(key), avg: Math.round(total / count), count }))
+      .map(([key, { total, count }]) => ({
+        key,
+        label: getBuildingTypeLabel(key),
+        avg: Math.round(total / count),
+        count,
+      }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 8);
 
@@ -90,22 +105,33 @@ export default function PortfolioIntelligence() {
 
     // Calibration health
     const calFactors = Object.values(calibrationFactors);
-    const avgDeviation = calFactors.length > 0
-      ? Math.round(calFactors.reduce((s, f) => s + Math.abs(f - 1), 0) / calFactors.length * 100)
-      : null;
+    const avgDeviation =
+      calFactors.length > 0
+        ? Math.round((calFactors.reduce((s, f) => s + Math.abs(f - 1), 0) / calFactors.length) * 100)
+        : null;
 
     return {
-      total: all.length, wonCount: won.length, lostCount: lost.length,
-      pendingCount: pending.length, winRate, pipelineValue,
-      winRateByType, avgPerSFByType, topClients,
-      calCount: calFactors.length, avgDeviation, recordCount: learningRecords.length,
+      total: all.length,
+      wonCount: won.length,
+      lostCount: lost.length,
+      pendingCount: pending.length,
+      winRate,
+      pipelineValue,
+      winRateByType,
+      avgPerSFByType,
+      topClients,
+      calCount: calFactors.length,
+      avgDeviation,
+      recordCount: learningRecords.length,
     };
   }, [estimatesIndex, historicalProposals, learningRecords, calibrationFactors]);
 
   if (stats.total === 0) {
     return (
       <div style={{ padding: 30, textAlign: "center", border: `1px dashed ${C.border}`, borderRadius: 10 }}>
-        <div style={{ fontSize: 12, color: C.textDim }}>Portfolio analytics will appear as you build estimates and track outcomes.</div>
+        <div style={{ fontSize: 12, color: C.textDim }}>
+          Portfolio analytics will appear as you build estimates and track outcomes.
+        </div>
       </div>
     );
   }
@@ -113,14 +139,30 @@ export default function PortfolioIntelligence() {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "auto 1fr 1fr", gap: 14 }}>
       {/* Win/Loss Ring */}
-      <div style={{
-        padding: "14px 16px", borderRadius: T.radius.md,
-        background: C.glassBg || 'rgba(18,21,28,0.55)',
-        backdropFilter: T.glass.blur, WebkitBackdropFilter: T.glass.blur,
-        border: `1px solid ${C.glassBorder || 'rgba(255,255,255,0.06)'}`,
-        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-      }}>
-        <div style={{ fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>
+      <div
+        style={{
+          padding: "14px 16px",
+          borderRadius: T.radius.md,
+          background: C.glassBg || "rgba(18,21,28,0.55)",
+          backdropFilter: T.glass.blur,
+          WebkitBackdropFilter: T.glass.blur,
+          border: `1px solid ${C.glassBorder || "rgba(255,255,255,0.06)"}`,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div
+          style={{
+            fontSize: 9,
+            fontWeight: 700,
+            color: C.textDim,
+            textTransform: "uppercase",
+            letterSpacing: 0.5,
+            marginBottom: 10,
+          }}
+        >
           Outcomes
         </div>
         <Ring
@@ -155,23 +197,60 @@ export default function PortfolioIntelligence() {
       </div>
 
       {/* Win rate by type + $/SF by type */}
-      <div style={{
-        padding: "14px 16px", borderRadius: T.radius.md,
-        background: C.glassBg || 'rgba(18,21,28,0.55)',
-        backdropFilter: T.glass.blur, WebkitBackdropFilter: T.glass.blur,
-        border: `1px solid ${C.glassBorder || 'rgba(255,255,255,0.06)'}`,
-      }}>
-        <div style={{ fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+      <div
+        style={{
+          padding: "14px 16px",
+          borderRadius: T.radius.md,
+          background: C.glassBg || "rgba(18,21,28,0.55)",
+          backdropFilter: T.glass.blur,
+          WebkitBackdropFilter: T.glass.blur,
+          border: `1px solid ${C.glassBorder || "rgba(255,255,255,0.06)"}`,
+        }}
+      >
+        <div
+          style={{
+            fontSize: 9,
+            fontWeight: 700,
+            color: C.textDim,
+            textTransform: "uppercase",
+            letterSpacing: 0.5,
+            marginBottom: 8,
+          }}
+        >
           Win Rate by Type
         </div>
         {stats.winRateByType.length > 0 ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
             {stats.winRateByType.map(t => (
               <div key={t.key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ fontSize: 9, color: C.textDim, width: 90, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.label}</span>
+                <span
+                  style={{
+                    fontSize: 9,
+                    color: C.textDim,
+                    width: 90,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {t.label}
+                </span>
                 <GradientBar pct={t.rate} color={t.rate >= 50 ? C.green : C.orange} />
-                <span style={{ fontSize: 10, fontWeight: 700, color: t.rate >= 50 ? C.green : C.orange, fontFamily: "'DM Sans',sans-serif", minWidth: 28, textAlign: "right" }}>{t.rate}%</span>
-                <span style={{ fontSize: 8, color: C.textDim }}>({t.won}/{t.total})</span>
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    color: t.rate >= 50 ? C.green : C.orange,
+                    fontFamily: T.font.sans,
+                    minWidth: 28,
+                    textAlign: "right",
+                  }}
+                >
+                  {t.rate}%
+                </span>
+                <span style={{ fontSize: 8, color: C.textDim }}>
+                  ({t.won}/{t.total})
+                </span>
               </div>
             ))}
           </div>
@@ -181,26 +260,63 @@ export default function PortfolioIntelligence() {
       </div>
 
       {/* Top Clients */}
-      <div style={{
-        padding: "14px 16px", borderRadius: T.radius.md,
-        background: C.glassBg || 'rgba(18,21,28,0.55)',
-        backdropFilter: T.glass.blur, WebkitBackdropFilter: T.glass.blur,
-        border: `1px solid ${C.glassBorder || 'rgba(255,255,255,0.06)'}`,
-      }}>
-        <div style={{ fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+      <div
+        style={{
+          padding: "14px 16px",
+          borderRadius: T.radius.md,
+          background: C.glassBg || "rgba(18,21,28,0.55)",
+          backdropFilter: T.glass.blur,
+          WebkitBackdropFilter: T.glass.blur,
+          border: `1px solid ${C.glassBorder || "rgba(255,255,255,0.06)"}`,
+        }}
+      >
+        <div
+          style={{
+            fontSize: 9,
+            fontWeight: 700,
+            color: C.textDim,
+            textTransform: "uppercase",
+            letterSpacing: 0.5,
+            marginBottom: 8,
+          }}
+        >
           Top Clients by Volume
         </div>
         {stats.topClients.length > 0 ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
             {stats.topClients.map(cl => {
               const maxVal = Math.max(...stats.topClients.map(x => x.totalValue));
-              const wr = (cl.won + cl.lost) > 0 ? Math.round((cl.won / (cl.won + cl.lost)) * 100) : null;
+              const wr = cl.won + cl.lost > 0 ? Math.round((cl.won / (cl.won + cl.lost)) * 100) : null;
               return (
                 <div key={cl.name} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontSize: 9, color: C.textDim, width: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cl.name}</span>
+                  <span
+                    style={{
+                      fontSize: 9,
+                      color: C.textDim,
+                      width: 80,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {cl.name}
+                  </span>
                   <GradientBar pct={maxVal > 0 ? (cl.totalValue / maxVal) * 100 : 0} color={C.blue} />
-                  <span style={{ fontSize: 9, fontWeight: 700, color: C.text, fontFamily: "'DM Sans',sans-serif", minWidth: 45, textAlign: "right" }}>{fmtCost(cl.totalValue)}</span>
-                  {wr !== null && <span style={{ fontSize: 8, color: wr >= 50 ? C.green : C.orange, fontWeight: 600 }}>{wr}%</span>}
+                  <span
+                    style={{
+                      fontSize: 9,
+                      fontWeight: 700,
+                      color: C.text,
+                      fontFamily: T.font.sans,
+                      minWidth: 45,
+                      textAlign: "right",
+                    }}
+                  >
+                    {fmtCost(cl.totalValue)}
+                  </span>
+                  {wr !== null && (
+                    <span style={{ fontSize: 8, color: wr >= 50 ? C.green : C.orange, fontWeight: 600 }}>{wr}%</span>
+                  )}
                 </div>
               );
             })}

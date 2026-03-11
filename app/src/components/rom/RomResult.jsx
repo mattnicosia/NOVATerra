@@ -80,6 +80,7 @@ function ConfidenceDot({ confidence, C }) {
 
 export default function RomResult({ rom, email }) {
   const C = useTheme();
+  const T = C.T;
 
   const [selectedRange, setSelectedRange] = useState("mid");
   const [expandedDivs, setExpandedDivs] = useState(new Set());
@@ -191,12 +192,12 @@ export default function RomResult({ rom, email }) {
   };
   const hasSoftCosts = totalSoftCostPct > 0;
 
-  const dimText = { color: C.textMuted, fontFamily: "'DM Sans',sans-serif" };
-  const brightText = { color: C.text, fontFamily: "'DM Sans',sans-serif" };
+  const dimText = { color: C.textMuted, fontFamily: T.font.sans };
+  const brightText = { color: C.text, fontFamily: T.font.sans };
 
   const cellBase = {
     padding: "10px 14px",
-    fontFamily: "'DM Sans',sans-serif",
+    fontFamily: T.font.sans,
     fontSize: T.fontSize.sm,
     borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`,
     verticalAlign: "middle",
@@ -323,7 +324,7 @@ export default function RomResult({ rom, email }) {
                   border: "none",
                   fontSize: T.fontSize.sm,
                   fontWeight: T.fontWeight.semibold,
-                  fontFamily: "'DM Sans',sans-serif",
+                  fontFamily: T.font.sans,
                   cursor: "pointer",
                   transition: "all 0.15s",
                   background:
@@ -353,7 +354,7 @@ export default function RomResult({ rom, email }) {
             style={{
               fontSize: 42,
               fontWeight: T.fontWeight.bold,
-              fontFamily: "'DM Sans',sans-serif",
+              fontFamily: T.font.sans,
               background: C.gradient || C.accent,
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
@@ -467,7 +468,7 @@ export default function RomResult({ rom, email }) {
             style={{
               width: "100%",
               borderCollapse: "collapse",
-              fontFamily: "'DM Sans',sans-serif",
+              fontFamily: T.font.sans,
               minWidth: 600,
             }}
           >
@@ -656,7 +657,7 @@ export default function RomResult({ rom, email }) {
                                   width: 60,
                                   padding: "2px 4px",
                                   fontSize: 11,
-                                  fontFamily: "'DM Sans',sans-serif",
+                                  fontFamily: T.font.sans,
                                   background: C.bg1,
                                   color: C.text,
                                   border: `1px solid ${C.accent}`,
@@ -825,7 +826,7 @@ export default function RomResult({ rom, email }) {
                               flex: 1,
                               padding: "2px 4px",
                               fontSize: 12,
-                              fontFamily: "'DM Sans',sans-serif",
+                              fontFamily: T.font.sans,
                               background: C.bg1,
                               color: C.text,
                               border: `1px solid ${C.accent}`,
@@ -893,7 +894,7 @@ export default function RomResult({ rom, email }) {
                             width: 50,
                             padding: "2px 4px",
                             fontSize: 12,
-                            fontFamily: "'DM Sans',sans-serif",
+                            fontFamily: T.font.sans,
                             background: C.bg1,
                             color: C.text,
                             border: `1px solid ${C.accent}`,
@@ -947,7 +948,7 @@ export default function RomResult({ rom, email }) {
                       color: C.accent,
                       fontSize: 11,
                       fontWeight: 600,
-                      fontFamily: "'DM Sans',sans-serif",
+                      fontFamily: T.font.sans,
                       padding: 0,
                     }}
                   >
@@ -1069,7 +1070,7 @@ export default function RomResult({ rom, email }) {
                 style={{
                   fontSize: 10,
                   fontWeight: 600,
-                  fontFamily: "'DM Sans',sans-serif",
+                  fontFamily: T.font.sans,
                   padding: "2px 8px",
                   borderRadius: 10,
                   background: C.isDark ? "rgba(255,149,0,0.12)" : "rgba(255,149,0,0.08)",
@@ -1082,7 +1083,7 @@ export default function RomResult({ rom, email }) {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             {!softCostsExpanded && !hasSoftCosts && (
-              <span style={{ fontSize: 10, color: C.textDim, fontFamily: "'DM Sans',sans-serif" }}>
+              <span style={{ fontSize: 10, color: C.textDim, fontFamily: T.font.sans }}>
                 A/E fees, permits, inspections...
               </span>
             )}
@@ -1097,7 +1098,7 @@ export default function RomResult({ rom, email }) {
                 borderRadius: 6,
                 fontSize: 10,
                 fontWeight: 600,
-                fontFamily: "'DM Sans',sans-serif",
+                fontFamily: T.font.sans,
                 cursor: "pointer",
                 background: hasSoftCosts
                   ? C.isDark
@@ -1120,7 +1121,7 @@ export default function RomResult({ rom, email }) {
         {softCostsExpanded && (
           <div style={{ overflowX: "auto" }}>
             <table
-              style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'DM Sans',sans-serif", minWidth: 500 }}
+              style={{ width: "100%", borderCollapse: "collapse", fontFamily: T.font.sans, minWidth: 500 }}
             >
               <thead>
                 <tr>
@@ -1196,7 +1197,7 @@ export default function RomResult({ rom, email }) {
                                 flex: 1,
                                 padding: "2px 4px",
                                 fontSize: 12,
-                                fontFamily: "'DM Sans',sans-serif",
+                                fontFamily: T.font.sans,
                                 background: C.bg1,
                                 color: C.text,
                                 border: `1px solid #FF9500`,
@@ -1264,7 +1265,7 @@ export default function RomResult({ rom, email }) {
                               width: 50,
                               padding: "2px 4px",
                               fontSize: 12,
-                              fontFamily: "'DM Sans',sans-serif",
+                              fontFamily: T.font.sans,
                               background: C.bg1,
                               color: C.text,
                               border: `1px solid #FF9500`,
@@ -1330,7 +1331,7 @@ export default function RomResult({ rom, email }) {
                         color: "#FF9500",
                         fontSize: 11,
                         fontWeight: 600,
-                        fontFamily: "'DM Sans',sans-serif",
+                        fontFamily: T.font.sans,
                         padding: 0,
                       }}
                     >
@@ -1455,7 +1456,7 @@ export default function RomResult({ rom, email }) {
             margin: 0,
             paddingLeft: T.space[5],
             color: C.textMuted,
-            fontFamily: "'DM Sans',sans-serif",
+            fontFamily: T.font.sans,
             fontSize: T.fontSize.sm,
             lineHeight: T.lineHeight.relaxed,
           }}
@@ -1477,7 +1478,7 @@ export default function RomResult({ rom, email }) {
             margin: 0,
             paddingLeft: T.space[5],
             color: C.textMuted,
-            fontFamily: "'DM Sans',sans-serif",
+            fontFamily: T.font.sans,
             fontSize: T.fontSize.sm,
             lineHeight: T.lineHeight.relaxed,
           }}
@@ -1498,7 +1499,7 @@ export default function RomResult({ rom, email }) {
           padding: `${T.space[4]}px 0`,
           fontSize: T.fontSize.xs,
           color: C.textDim,
-          fontFamily: "'DM Sans',sans-serif",
+          fontFamily: T.font.sans,
           lineHeight: T.lineHeight.relaxed,
           letterSpacing: 0.3,
         }}

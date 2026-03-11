@@ -45,7 +45,9 @@ export function useInitialCloudSeed() {
           const idbIds = delRaw ? JSON.parse(delRaw.value) : [];
           const lsIds = lsRaw ? JSON.parse(lsRaw) : [];
           deletedSet = new Set([...idbIds, ...lsIds]);
-        } catch { /* proceed with empty set */ }
+        } catch {
+          /* proceed with empty set */
+        }
 
         // 1. Push index (excluding deleted estimates)
         const idxRaw = await storage.get(idbKey("bldg-index"));

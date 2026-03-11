@@ -74,7 +74,7 @@ export default function CognitiveModule() {
       style={{
         display: "flex",
         justifyContent: "center",
-        fontFamily: "'DM Sans', sans-serif",
+        fontFamily: T.font.sans,
       }}
     >
       <div
@@ -214,7 +214,7 @@ export default function CognitiveModule() {
               padding: "8px 20px",
               opacity: isFirst ? 0.4 : 1,
               cursor: isFirst ? "not-allowed" : "pointer",
-              fontFamily: "'DM Sans', sans-serif",
+              fontFamily: T.font.sans,
             })}
           >
             <svg
@@ -237,7 +237,7 @@ export default function CognitiveModule() {
               onClick={handleSubmit}
               style={accentButton(C, {
                 padding: "8px 24px",
-                fontFamily: "'DM Sans', sans-serif",
+                fontFamily: T.font.sans,
               })}
             >
               Submit Module
@@ -261,7 +261,7 @@ export default function CognitiveModule() {
                 background: C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
                 color: C.text,
                 padding: "8px 20px",
-                fontFamily: "'DM Sans', sans-serif",
+                fontFamily: T.font.sans,
               })}
             >
               Next

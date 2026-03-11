@@ -2,8 +2,8 @@
 // Three zoom levels: sphere → artifact → chamber
 // Tuned for domain-warped volumetric sphere with selective bloom
 
-import { Suspense, useRef, forwardRef, useImperativeHandle } from "react";
-import { Canvas } from "@react-three/fiber";
+import { Suspense, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
+import { Canvas, useThree } from "@react-three/fiber";
 import { EffectComposer, Bloom, ChromaticAberration } from "@react-three/postprocessing";
 import { BlendFunction } from "postprocessing";
 import NovacoreSphere from "./NovacoreSphere";
@@ -41,6 +41,20 @@ function Effects({ morphValue = 0, artifact = false, awaken = 1.0 }) {
       />
     </EffectComposer>
   );
+}
+
+// ── PERF FIX: Throttled rendering via demand mode ─────────────────
+// Instead of frameloop="always" (60fps continuous), we use "demand" and
+// invalidate at a controlled rate. Full-quality spheres get 20fps,
+// lightweight icons get 10fps. Saves 67-83% GPU time.
+function ThrottledRender({ fps = 20 }) {
+  const { invalidate } = useThree();
+  useEffect(() => {
+    const ms = 1000 / fps;
+    const id = setInterval(invalidate, ms);
+    return () => clearInterval(id);
+  }, [invalidate, fps]);
+  return null;
 }
 
 // ── Scene wrapper ──────────────────────────────────────────────────
@@ -85,7 +99,10 @@ const NovaScene = forwardRef(function NovaScene(
   const showEffects = !isLight && gpuTier >= 2;
   const showArtifact = artifact && !lightweight;
   const showChamber = chamber && !lightweight;
-  const frameloop = lightweight ? "demand" : "always";
+  // PERF FIX: All instances use demand mode — rendering only when invalidated
+  // by our throttled timer (20fps full / 10fps lightweight) instead of 60fps always.
+  const frameloop = "demand";
+  const targetFps = lightweight ? 10 : 20;
 
   return (
     <div
@@ -119,6 +136,7 @@ const NovaScene = forwardRef(function NovaScene(
         }}
       >
         <Suspense fallback={null}>
+          <ThrottledRender fps={targetFps} />
           {/* Minimal lighting — sphere is self-illuminating via shaders */}
           <pointLight position={[5, 5, 5]} intensity={0.08} color="#8B5CF6" />
           {!lightweight && <pointLight position={[-5, -3, 3]} intensity={0.06} color="#E8920A" />}

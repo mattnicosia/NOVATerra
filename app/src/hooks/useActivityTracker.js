@@ -5,7 +5,8 @@ import { useTimerSync } from "@/hooks/useTimerSync";
 
 const IDLE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 const IDLE_CHECK_INTERVAL_MS = 10 * 1000; // Check every 10 seconds
-const MOUSE_THROTTLE_MS = 100; // Throttle mousemove to every 100ms
+const MOUSE_THROTTLE_MS = 2000; // Only flush mouse metrics to Zustand every 2s
+const ACTIVITY_THROTTLE_MS = 5000; // Only update lastActivity every 5s
 
 /**
  * useActivityTracker — Mounts in AppContent to track estimator activity.
@@ -23,7 +24,6 @@ export function useActivityTracker() {
   const activeEstimateId = useEstimatesStore(s => s.activeEstimateId);
   const prevEstimateIdRef = useRef(null);
   const lastMousePos = useRef({ x: 0, y: 0 });
-  const lastMouseTime = useRef(0);
   const idleCheckRef = useRef(null);
 
   // Cross-tab sync
@@ -57,34 +57,42 @@ export function useActivityTracker() {
   }, [activeEstimateId]);
 
   // ── Activity listeners ──
+  // PERF FIX: Accumulate mouse distance in a plain ref, only flush to Zustand
+  // store every 2s. The old code called set() 10x/sec creating new objects.
+  const mouseDeltaRef = useRef(0); // accumulated distance since last flush
+  const lastFlushTime = useRef(0);
+  const lastActivityFlush = useRef(0);
+
   useEffect(() => {
     if (!activeEstimateId) return;
 
-    // Click handler
+    // Click handler — only resumes + increments click counter (infrequent)
     const handleClick = () => {
       const s = useActivityTimerStore.getState();
       if (s.isPaused) {
-        // Resume from idle on any click
         s.resumeSession();
       }
       s.recordClick();
     };
 
-    // Key handler
+    // Key handler — just update lastActivity, heavily throttled
     const handleKey = () => {
       const s = useActivityTimerStore.getState();
       if (s.isPaused) {
         s.resumeSession();
+        return; // resumeSession already updates lastActivity
       }
+      // Throttle lastActivity updates to every 5s
+      const now = Date.now();
+      if (now - lastActivityFlush.current < ACTIVITY_THROTTLE_MS) return;
+      lastActivityFlush.current = now;
       s.recordActivity();
     };
 
-    // Mouse move handler (throttled)
+    // Mouse move handler — NO Zustand writes on hot path
+    // Only accumulates distance in a plain JS ref. Flushed by interval below.
     const handleMouseMove = e => {
-      const now = Date.now();
-      if (now - lastMouseTime.current < MOUSE_THROTTLE_MS) return;
-      lastMouseTime.current = now;
-
+      // Resume from idle (rare path — only when isPaused)
       const s = useActivityTimerStore.getState();
       if (s.isPaused) {
         s.resumeSession();
@@ -92,11 +100,12 @@ export function useActivityTracker() {
 
       const dx = e.clientX - lastMousePos.current.x;
       const dy = e.clientY - lastMousePos.current.y;
-      lastMousePos.current = { x: e.clientX, y: e.clientY };
+      lastMousePos.current.x = e.clientX;
+      lastMousePos.current.y = e.clientY;
 
-      // Skip first move (no meaningful delta)
-      if (Math.abs(dx) > 0 || Math.abs(dy) > 0) {
-        s.recordMouseMove(dx, dy);
+      // Accumulate distance in ref (no Zustand set() call — zero overhead)
+      if (dx !== 0 || dy !== 0) {
+        mouseDeltaRef.current += Math.sqrt(dx * dx + dy * dy);
       }
     };
 
@@ -124,24 +133,34 @@ export function useActivityTracker() {
       }
     };
 
-    // Attach listeners
+    // Attach listeners — mousemove is passive (no preventDefault needed)
     document.addEventListener("mousedown", handleClick);
     document.addEventListener("keydown", handleKey);
-    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mousemove", handleMouseMove, { passive: true });
     document.addEventListener("visibilitychange", handleVisibility);
     window.addEventListener("beforeunload", handleBeforeUnload);
 
-    // ── Idle check interval ──
+    // ── Combined idle check + mouse flush interval (every 2s) ──
+    // PERF FIX: Replaces the old 100ms mousemove → Zustand set() pattern.
+    // Now mouse distance accumulates in a plain ref and flushes here.
     idleCheckRef.current = setInterval(() => {
       const s = useActivityTimerStore.getState();
       if (!s.isRunning || !s.currentSession) return;
 
+      // Flush accumulated mouse distance to store (batched)
+      const dist = mouseDeltaRef.current;
+      if (dist > 0) {
+        mouseDeltaRef.current = 0;
+        s.recordMouseMove(dist, 0); // single set() call for all accumulated distance
+      }
+
+      // Idle detection
       const idleTime = Date.now() - s.currentSession.lastActivity;
       if (idleTime >= IDLE_TIMEOUT_MS) {
         s.recordIdlePause();
         s.pauseSession();
       }
-    }, IDLE_CHECK_INTERVAL_MS);
+    }, MOUSE_THROTTLE_MS);
 
     return () => {
       document.removeEventListener("mousedown", handleClick);
@@ -196,8 +215,33 @@ function appendSessionToEstimateSync(estimateId, session) {
 }
 
 /**
+ * Peek at pending sessions without removing them.
+ * Used to include sessions in save data before the write is confirmed.
+ */
+export function peekPendingSessions(estimateId) {
+  const pending = useActivityTimerStore._pendingSessions || [];
+  const forEst = pending.filter(p => p.estimateId === estimateId);
+
+  // Also peek at localStorage recovery sessions (don't remove yet)
+  try {
+    const key = `bldg-timer-pending-${estimateId}`;
+    const lsRaw = localStorage.getItem(key);
+    if (lsRaw) {
+      const lsSessions = JSON.parse(lsRaw);
+      if (Array.isArray(lsSessions) && lsSessions.length > 0) {
+        forEst.push(...lsSessions.map(s => ({ estimateId, session: s })));
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  return forEst.map(p => p.session);
+}
+
+/**
  * Get and clear pending sessions for a given estimate.
- * Called by usePersistence during save to merge timer data into the estimate blob.
+ * Called by usePersistence AFTER confirmed IDB write to remove drained sessions.
  */
 export function drainPendingSessions(estimateId) {
   const pending = useActivityTimerStore._pendingSessions || [];

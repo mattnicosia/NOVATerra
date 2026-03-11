@@ -1170,7 +1170,7 @@ Return ONLY a JSON object:
           justifyContent: "center",
           minHeight: "100%",
           padding: T.space[7],
-          fontFamily: "'DM Sans', sans-serif",
+          fontFamily: T.font.sans,
         }}
       >
         <div style={{ maxWidth: 520, width: "100%", textAlign: "center" }}>
@@ -1187,7 +1187,7 @@ Return ONLY a JSON object:
               color: C.text,
               margin: 0,
               marginBottom: 6,
-              fontFamily: "'DM Sans', sans-serif",
+              fontFamily: T.font.sans,
             }}
           >
             Upload Your Construction Plans
@@ -1314,7 +1314,7 @@ Return ONLY a JSON object:
                 fontSize: 11,
                 color: C.textDim,
                 padding: "8px 16px",
-                fontFamily: "'DM Sans', sans-serif",
+                fontFamily: T.font.sans,
                 transition: "color 0.15s",
               }}
               onMouseEnter={e => (e.currentTarget.style.color = C.text)}
@@ -1342,7 +1342,7 @@ Return ONLY a JSON object:
               display: "flex",
               alignItems: "center",
               gap: T.space[3],
-              fontFamily: "'DM Sans',sans-serif",
+              fontFamily: T.font.sans,
             }}
           >
             <Ic d={I.folder} size={22} color={C.accent} />
@@ -1367,7 +1367,7 @@ Return ONLY a JSON object:
               fontSize: T.fontSize.xs,
               color: C.textDim,
               margin: `${T.space[1]}px 0 0`,
-              fontFamily: "'DM Sans',sans-serif",
+              fontFamily: T.font.sans,
             }}
           >
             Upload project documents — NOVA automatically processes drawings and specifications.

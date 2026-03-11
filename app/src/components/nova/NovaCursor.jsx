@@ -5,9 +5,12 @@ import { useTakeoffsStore } from "@/stores/takeoffsStore";
    Idle:      teal dot + ring with tiny NOVA orb
    Measuring: vivid purple dot + expanded ring + purple NOVA orb + glow
    Predictions active: ring lerps toward nearest prediction (scout-ahead)
-   NO particle canvas — pure DOM + CSS transforms for zero overhead */
+   NO particle canvas — pure DOM + CSS transforms for zero overhead.
+   Scoped to drawing canvas only — deactivates in estimate mode and non-takeoff pages. */
 
 export default function NovaCursor() {
+  const tkPanelTier = useTakeoffsStore(s => s.tkPanelTier);
+  const isDrawingVisible = tkPanelTier !== "estimate";
   const dotRef = useRef(null);
   const ringRef = useRef(null);
   const orbRef = useRef(null);
@@ -20,7 +23,12 @@ export default function NovaCursor() {
   const predsRef = useRef(null); // tkPredictions snapshot
 
   useEffect(() => {
-    // Hide default cursor
+    if (!isDrawingVisible) {
+      document.documentElement.classList.remove("nova-cursor-active");
+      return;
+    }
+
+    // Hide default cursor (only when drawing is visible)
     document.documentElement.classList.add("nova-cursor-active");
 
     const dot = dotRef.current;
@@ -28,12 +36,11 @@ export default function NovaCursor() {
     const orb = orbRef.current;
     if (!dot || !ring) return;
 
-    // Mouse move — update dot immediately
+    // Mouse move — update dot immediately via transform (GPU-composited, no layout thrash)
     const onMove = e => {
       mxRef.current = e.clientX;
       myRef.current = e.clientY;
-      dot.style.left = e.clientX + "px";
-      dot.style.top = e.clientY + "px";
+      dot.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0) translate(-50%, -50%)`;
     };
 
     // Click ripple
@@ -57,7 +64,7 @@ export default function NovaCursor() {
       if (target) ring.classList.remove("nova-ring-hovering");
     };
 
-    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mousemove", onMove, { passive: true });
     document.addEventListener("click", onClick);
     document.addEventListener("mouseenter", onEnter, true);
     document.addEventListener("mouseleave", onLeave, true);
@@ -94,7 +101,23 @@ export default function NovaCursor() {
     });
 
     // ── RAF loop — lerp ring (+ optional scout-ahead toward nearest prediction) ──
+    // PERF: Uses transform3d instead of left/top (GPU compositor, no layout thrash).
+    // Caches nearest prediction to skip recalc when predictions haven't changed.
+    // Throttled to ~30fps via frame-skip flag to reduce GPU overhead.
+    let frameSkip = false;
+    let cachedNearestX = 0;
+    let cachedNearestY = 0;
+    let cachedNearestDist = Infinity;
+    let lastPreds = null;
+
     const loop = () => {
+      // Throttle to ~30fps — skip every other frame
+      frameSkip = !frameSkip;
+      if (frameSkip) {
+        animRef.current = requestAnimationFrame(loop);
+        return;
+      }
+
       let targetX = mxRef.current;
       let targetY = myRef.current;
 
@@ -103,45 +126,49 @@ export default function NovaCursor() {
       if (preds && preds.predictions && preds.predictions.length > 0) {
         const mx = mxRef.current;
         const my = myRef.current;
-        let nearestDist = Infinity;
-        let nearestX = mx;
-        let nearestY = my;
 
-        for (const pred of preds.predictions) {
-          let px, py;
-          if (pred.point) {
-            px = pred.point.x;
-            py = pred.point.y;
-          } else if (pred.points && pred.points.length > 0) {
-            // For linear/area, use midpoint of first segment
-            px = pred.points[0].x;
-            py = pred.points[0].y;
-          } else {
-            continue;
+        // Only recalculate nearest when predictions ref changes
+        if (preds !== lastPreds) {
+          lastPreds = preds;
+          cachedNearestDist = Infinity;
+          cachedNearestX = mx;
+          cachedNearestY = my;
+          for (const pred of preds.predictions) {
+            let px, py;
+            if (pred.point) {
+              px = pred.point.x;
+              py = pred.point.y;
+            } else if (pred.points && pred.points.length > 0) {
+              px = pred.points[0].x;
+              py = pred.points[0].y;
+            } else {
+              continue;
+            }
+            const dx = px - mx;
+            const dy = py - my;
+            const d2 = dx * dx + dy * dy; // skip sqrt for comparison
+            if (d2 < cachedNearestDist) {
+              cachedNearestDist = d2;
+              cachedNearestX = px;
+              cachedNearestY = py;
+            }
           }
-          const dx = px - mx;
-          const dy = py - my;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < nearestDist) {
-            nearestDist = dist;
-            nearestX = px;
-            nearestY = py;
-          }
+          cachedNearestDist = Math.sqrt(cachedNearestDist);
         }
 
-        // Only scout if prediction is within 250px of cursor
-        if (nearestDist < 250) {
-          const scoutFactor = Math.max(0, 1 - nearestDist / 250) * 0.35;
-          targetX = mx + (nearestX - mx) * scoutFactor;
-          targetY = my + (nearestY - my) * scoutFactor;
+        if (cachedNearestDist < 250) {
+          const scoutFactor = Math.max(0, 1 - cachedNearestDist / 250) * 0.35;
+          targetX = mx + (cachedNearestX - mx) * scoutFactor;
+          targetY = my + (cachedNearestY - my) * scoutFactor;
         }
+      } else {
+        lastPreds = null;
       }
 
-      // Lerp ring toward target
+      // Lerp ring toward target — GPU-composited via transform3d
       rxRef.current += (targetX - rxRef.current) * 0.1;
       ryRef.current += (targetY - ryRef.current) * 0.1;
-      ring.style.left = rxRef.current + "px";
-      ring.style.top = ryRef.current + "px";
+      ring.style.transform = `translate3d(${rxRef.current}px, ${ryRef.current}px, 0) translate(-50%, -50%)`;
 
       animRef.current = requestAnimationFrame(loop);
     };
@@ -156,39 +183,47 @@ export default function NovaCursor() {
       cancelAnimationFrame(animRef.current);
       unsubTk();
     };
-  }, []);
+  }, [isDrawingVisible]);
+
+  if (!isDrawingVisible) return null;
 
   return (
     <>
-      {/* Cursor dot — teal idle, purple measuring */}
+      {/* Cursor dot — teal idle, purple measuring. Uses transform3d for GPU compositing. */}
       <div
         ref={dotRef}
         style={{
           position: "fixed",
+          left: 0,
+          top: 0,
           width: 6,
           height: 6,
           borderRadius: "50%",
           background: "#10B981",
           pointerEvents: "none",
           zIndex: 9999,
-          transform: "translate(-50%,-50%)",
+          willChange: "transform",
+          transform: "translate3d(-50%, -50%, 0)",
           boxShadow: "0 0 8px #10B981, 0 0 18px rgba(16,185,129,0.30)",
           transition: "width 0.25s, height 0.25s, background 0.3s, box-shadow 0.3s",
         }}
       />
-      {/* Cursor ring with NOVA orb — teal idle, purple measuring */}
+      {/* Cursor ring with NOVA orb — teal idle, purple measuring. Uses transform3d for GPU compositing. */}
       <div
         ref={ringRef}
         className="nova-cursor-ring"
         style={{
           position: "fixed",
+          left: 0,
+          top: 0,
           width: 28,
           height: 28,
           borderRadius: "50%",
           border: "1px solid rgba(16,185,129,0.25)",
           pointerEvents: "none",
           zIndex: 9998,
-          transform: "translate(-50%,-50%)",
+          willChange: "transform",
+          transform: "translate3d(-50%, -50%, 0)",
           transition:
             "width 0.3s cubic-bezier(0.34,1.56,0.64,1), height 0.3s cubic-bezier(0.34,1.56,0.64,1), border-color 0.3s, border-width 0.2s",
           display: "flex",
