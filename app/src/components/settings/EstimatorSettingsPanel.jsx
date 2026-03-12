@@ -453,7 +453,6 @@ export default function EstimatorSettingsPanel() {
             .slice(0, 2),
           color: m.color || TEAM_COLORS[estimators.length % TEAM_COLORS.length],
           maxHoursPerDay: 7,
-          preferredJobTypes: [],
           notes: `Auto-added from org (${m.role})`,
         });
       }
@@ -468,22 +467,13 @@ export default function EstimatorSettingsPanel() {
   const [formMaxHours, setFormMaxHours] = useState(7);
   const [formNotes, setFormNotes] = useState("");
 
-  // Collect unique job types from all estimates for preferred types picker
-  const allJobTypes = useMemo(() => {
-    const s = new Set();
-    for (const e of estimatesIndex) {
-      if (e.jobType) s.add(e.jobType);
-    }
-    return [...s].sort();
-  }, [estimatesIndex]);
-  const [formPreferredTypes, setFormPreferredTypes] = useState([]);
+  // Preferred job types are now learned automatically from completed estimates
 
   const resetForm = () => {
     setFormName("");
     setFormEmail("");
     setFormColor(TEAM_COLORS[estimators.length % TEAM_COLORS.length]);
     setFormMaxHours(7);
-    setFormPreferredTypes([]);
     setFormNotes("");
     setEditId(null);
     setShowForm(false);
@@ -504,7 +494,6 @@ export default function EstimatorSettingsPanel() {
         updateMasterItem("estimators", editId, "initials", initials);
         updateMasterItem("estimators", editId, "color", formColor);
         updateMasterItem("estimators", editId, "maxHoursPerDay", Number(formMaxHours) || 7);
-        updateMasterItem("estimators", editId, "preferredJobTypes", formPreferredTypes);
         updateMasterItem("estimators", editId, "notes", formNotes.trim());
       }
     } else {
@@ -515,7 +504,6 @@ export default function EstimatorSettingsPanel() {
         initials,
         color: formColor,
         maxHoursPerDay: Number(formMaxHours) || 7,
-        preferredJobTypes: formPreferredTypes,
         notes: formNotes.trim(),
       });
     }
@@ -538,7 +526,6 @@ export default function EstimatorSettingsPanel() {
     setFormEmail(est.email || "");
     setFormColor(est.color || TEAM_COLORS[0]);
     setFormMaxHours(est.maxHoursPerDay || 7);
-    setFormPreferredTypes(est.preferredJobTypes || []);
     setFormNotes(est.notes || "");
     setShowForm(true);
   };
@@ -1051,41 +1038,7 @@ export default function EstimatorSettingsPanel() {
             />
           </div>
 
-          {/* Preferred Job Types */}
-          {allJobTypes.length > 0 && (
-            <div style={{ marginBottom: T.space[3] }}>
-              <label style={{ fontSize: T.fontSize.xs, color: C.textMuted, display: "block", marginBottom: 4 }}>
-                Preferred Job Types
-              </label>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {allJobTypes.map(jt => {
-                  const active = formPreferredTypes.includes(jt);
-                  return (
-                    <button
-                      key={jt}
-                      type="button"
-                      onClick={() => {
-                        setFormPreferredTypes(prev => (active ? prev.filter(t => t !== jt) : [...prev, jt]));
-                      }}
-                      style={{
-                        ...bt(C),
-                        padding: "4px 10px",
-                        fontSize: 10,
-                        fontWeight: active ? 600 : 400,
-                        color: active ? "#fff" : C.textMuted,
-                        background: active ? C.accent : C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
-                        border: `1px solid ${active ? C.accent : C.border}`,
-                        borderRadius: 20,
-                        transition: "all 120ms",
-                      }}
-                    >
-                      {jt}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          {/* Preferred Job Types — learned automatically from completed estimates */}
 
           {/* Notes */}
           <div style={{ marginBottom: T.space[3] }}>
