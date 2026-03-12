@@ -6,6 +6,7 @@ import { useBidLevelingStore } from "@/stores/bidLevelingStore";
 import { useDatabaseStore } from "@/stores/databaseStore";
 import { useSpecsStore } from "@/stores/specsStore";
 import { useUiStore } from "@/stores/uiStore";
+import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useGroupsStore } from "@/stores/groupsStore";
 import { UNITS } from "@/constants/units";
 import Ic from "@/components/shared/Ic";
@@ -28,6 +29,7 @@ import SendToDbModal from "@/components/estimate/SendToDbModal";
 import BidIntelModal from "@/components/estimate/BidIntelModal";
 import CsvImportModal from "@/components/import/CsvImportModal";
 import CostValidationPanel from "@/components/estimate/CostValidationPanel";
+import VersionHistoryPanel from "@/components/estimate/VersionHistoryPanel";
 import { VIRTUAL_THRESHOLD } from "@/hooks/useVirtualList";
 import AIScopeGenerateModal from "@/components/estimate/AIScopeGenerateModal";
 import { exportEstimateXlsx } from "@/utils/exportXlsx";
@@ -278,6 +280,7 @@ export default function EstimatePage() {
   const divFromCode = useProjectStore(s => s.divFromCode);
   const DIVISIONS = getDivisions();
 
+  const activeEstimateId = useEstimatesStore(s => s.activeEstimateId);
   const items = useItemsStore(s => s.items);
   const setItems = useItemsStore(s => s.setItems);
   const addElement = useItemsStore(s => s.addElement);
@@ -334,6 +337,7 @@ export default function EstimatePage() {
   const [focusedCostCell, setFocusedCostCell] = useState(null);
   const [selectedItemId, setSelectedItemId] = useState(null);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [clearConfirm, setClearConfirm] = useState(0); // 0 = idle, 1 = first confirm, 2 = second confirm
   const [leftPanelTab, setLeftPanelTab] = useState("divisions"); // "divisions" | "notes" | "nova"
   const [leftPanelWidth, setLeftPanelWidth] = useState(() => {
@@ -1196,6 +1200,20 @@ export default function EstimatePage() {
             </div>
             <button
               className="ghost-btn"
+              onClick={() => setShowHistory(v => !v)}
+              title="Version History"
+              style={bt(C, {
+                background: showHistory ? `${C.accent}12` : "transparent",
+                border: `1px solid ${showHistory ? C.accent + "30" : C.border}`,
+                color: showHistory ? C.accent : C.textMuted,
+                padding: "5px 10px",
+                fontSize: 10,
+              })}
+            >
+              <Ic d={I.clock || I.calendar} size={12} color={showHistory ? C.accent : C.textMuted} /> History
+            </button>
+            <button
+              className="ghost-btn"
               onClick={() => setBidIntelOpen(true)}
               title="AI Review"
               style={bt(C, {
@@ -1770,6 +1788,42 @@ export default function EstimatePage() {
         />
       )}
       {showScopeGenerate && <AIScopeGenerateModal onClose={() => setShowScopeGenerate(false)} />}
+
+      {/* Version History sidebar */}
+      {showHistory && (
+        <>
+          <div
+            onClick={() => setShowHistory(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.15)",
+              zIndex: 99,
+            }}
+          />
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              right: 0,
+              bottom: 0,
+              width: 340,
+              zIndex: 100,
+              background: C.bg1,
+              borderLeft: `1px solid ${C.border}`,
+              boxShadow: "-8px 0 24px rgba(0,0,0,0.15)",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+            }}
+          >
+            <VersionHistoryPanel
+              estimateId={activeEstimateId}
+              onClose={() => setShowHistory(false)}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }

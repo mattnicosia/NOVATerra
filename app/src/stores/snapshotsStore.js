@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { storage } from "@/utils/storage";
 import { uid, nowStr } from "@/utils/format";
 import { idbKey } from "@/utils/idbKey";
+import { useItemsStore } from "@/stores/itemsStore";
 
 const SNAPSHOTS_KEY_PREFIX = "bldg-snapshots-";
 
@@ -98,6 +99,8 @@ export const useSnapshotsStore = create((set, get) => ({
       divisionTotals,
       tradeTotals,
       projectName: project?.name || "",
+      // Store full items for restore capability
+      items: items.map(i => ({ ...i })),
     };
 
     set(s => {
@@ -134,6 +137,25 @@ export const useSnapshotsStore = create((set, get) => ({
       };
     });
     get()._persist(estimateId);
+  },
+
+  // ── Restore estimate to a snapshot's state ───────────────
+  restoreSnapshot: (estimateId, snapId) => {
+    const list = get().snapshots[estimateId] || [];
+    const target = list.find(sn => sn.id === snapId);
+    if (!target || !target.items) return { ok: false, reason: "no-items" };
+
+    // Auto-capture pre-restore snapshot of current state
+    const currentItems = useItemsStore.getState().items;
+    const currentTotals = useItemsStore.getState().getTotals();
+    get().captureSnapshot(estimateId, currentItems, currentTotals, {}, null, null, {}, {
+      label: `Pre-restore (→ ${target.label || target.dateStr})`,
+      trigger: "auto",
+    });
+
+    // Restore items
+    useItemsStore.getState().setItems(target.items.map(i => ({ ...i })));
+    return { ok: true };
   },
 
   // ── Get snapshots for an estimate ─────────────────────────

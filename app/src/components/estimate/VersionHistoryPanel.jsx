@@ -35,6 +35,7 @@ export default function VersionHistoryPanel({ estimateId, onClose }) {
   const computeDelta = useSnapshotsStore(s => s.computeDelta);
   const deleteSnapshot = useSnapshotsStore(s => s.deleteSnapshot);
   const renameSnapshot = useSnapshotsStore(s => s.renameSnapshot);
+  const restoreSnapshot = useSnapshotsStore(s => s.restoreSnapshot);
   const buildLiveSnapshot = useSnapshotsStore(s => s.buildLiveSnapshot);
 
   // Build live snapshot for comparison
@@ -295,6 +296,30 @@ export default function VersionHistoryPanel({ estimateId, onClose }) {
               {/* Actions */}
               {!isLive && !compareMode && (
                 <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
+                  <button
+                    onClick={e => {
+                      e.stopPropagation();
+                      if (!snap.items) {
+                        alert("This snapshot was created before restore support was added. No item data available.");
+                        return;
+                      }
+                      if (confirm(`Restore to "${snap.label || snap.dateStr}"? Your current state will be saved as a snapshot first.`)) {
+                        const result = restoreSnapshot(estimateId, snap.id);
+                        if (result.ok) onClose?.();
+                      }
+                    }}
+                    title={snap.items ? "Restore to this snapshot" : "No item data — cannot restore"}
+                    style={bt(C, {
+                      padding: 4,
+                      background: "transparent",
+                      border: "none",
+                      color: snap.items ? C.accent : C.textDim,
+                      opacity: snap.items ? 1 : 0.4,
+                      cursor: snap.items ? "pointer" : "not-allowed",
+                    })}
+                  >
+                    <Ic d={I.undo || I.back || I.chevronLeft} size={10} color={snap.items ? C.accent : C.textDim} />
+                  </button>
                   <button
                     onClick={e => {
                       e.stopPropagation();

@@ -8,6 +8,7 @@ import { SCHEDULE_TYPES } from "@/utils/scheduleParsers";
 import { NOTE_CATEGORIES, groupNotesByTrade } from "@/utils/notesExtractor";
 import PredictiveTakeoffPanel from "@/components/planroom/PredictiveTakeoffPanel";
 import { generateTakeoffSuggestions } from "@/nova/predictive/generateSuggestions";
+import { useCorrectionStore } from "@/nova/learning/correctionStore";
 
 const fmt = n => {
   if (!n && n !== 0) return "—";
@@ -205,6 +206,7 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
                 key={type}
                 C={C}
                 T={T}
+                scheduleType={type}
                 label={typeConfig?.label || type}
                 count={totalEntries}
                 schedules={schedulesOfType}
@@ -1233,8 +1235,34 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
 
 // ─── Sub-components ───────────────────────────────────────────────────
 
-function ScheduleGroup({ C, T, label, count, schedules, outputFields }) {
+function ScheduleGroup({ C, T, scheduleType, label, count, schedules, outputFields }) {
   const [expanded, setExpanded] = useState(true);
+  const [editing, setEditing] = useState(null); // "si::ei::field"
+  const [editValue, setEditValue] = useState("");
+  const [corrections, setCorrections] = useState(0);
+
+  const handleStartEdit = (si, ei, field, currentValue) => {
+    setEditing(`${si}::${ei}::${field}`);
+    setEditValue(currentValue ?? "");
+  };
+
+  const handleCommitEdit = (si, ei, field, entry) => {
+    const original = entry[field];
+    const corrected = editValue.trim();
+    if (corrected !== (original ?? "")) {
+      // Apply the edit to the entry object (mutate in place — modal-local data)
+      entry[field] = corrected || undefined;
+      // Log correction for NOVA learning
+      try {
+        useCorrectionStore.getState().logFieldCorrection(
+          scheduleType, field, original ?? "", corrected, schedules[si]?.sheetLabel
+        );
+        setCorrections(c => c + 1);
+      } catch (_) { /* correction store not available */ }
+    }
+    setEditing(null);
+    setEditValue("");
+  };
 
   return (
     <div style={{ marginBottom: 12, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
@@ -1253,7 +1281,7 @@ function ScheduleGroup({ C, T, label, count, schedules, outputFields }) {
           <span
             style={{
               fontSize: 11,
-              color: expanded ? C.textDim : C.textDim,
+              color: C.textDim,
               transform: expanded ? "rotate(90deg)" : "rotate(0deg)",
               transition: "transform 0.15s",
               display: "inline-block",
@@ -1265,6 +1293,11 @@ function ScheduleGroup({ C, T, label, count, schedules, outputFields }) {
           <span style={{ fontSize: 10, color: C.accent, fontWeight: 600 }}>
             {count} item{count !== 1 ? "s" : ""}
           </span>
+          {corrections > 0 && (
+            <span style={{ fontSize: 8, padding: "1px 5px", borderRadius: 3, fontWeight: 700, background: `${C.green}15`, color: C.green }}>
+              ✓ {corrections} learned
+            </span>
+          )}
         </div>
         <div style={{ display: "flex", gap: 4 }}>
           {schedules.map((s, i) => (
@@ -1321,21 +1354,51 @@ function ScheduleGroup({ C, T, label, count, schedules, outputFields }) {
                   <tbody>
                     {schedule.entries.map((entry, ei) => (
                       <tr key={ei} style={{ borderBottom: `1px solid ${C.bg2}` }}>
-                        {outputFields.slice(0, 6).map(field => (
-                          <td
-                            key={field}
-                            style={{
-                              padding: "3px 8px",
-                              color: entry[field] ? C.text : C.textDim,
-                              maxWidth: 160,
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {entry[field] ?? "—"}
-                          </td>
-                        ))}
+                        {outputFields.slice(0, 6).map(field => {
+                          const cellKey = `${si}::${ei}::${field}`;
+                          const isEditing = editing === cellKey;
+                          return (
+                            <td
+                              key={field}
+                              onDoubleClick={() => handleStartEdit(si, ei, field, entry[field])}
+                              style={{
+                                padding: "3px 8px",
+                                color: entry[field] ? C.text : C.textDim,
+                                maxWidth: 160,
+                                overflow: "hidden",
+                                textOverflow: isEditing ? "clip" : "ellipsis",
+                                whiteSpace: "nowrap",
+                                cursor: "text",
+                              }}
+                            >
+                              {isEditing ? (
+                                <input
+                                  autoFocus
+                                  value={editValue}
+                                  onChange={e => setEditValue(e.target.value)}
+                                  onBlur={() => handleCommitEdit(si, ei, field, entry)}
+                                  onKeyDown={e => {
+                                    if (e.key === "Enter") handleCommitEdit(si, ei, field, entry);
+                                    if (e.key === "Escape") { setEditing(null); setEditValue(""); }
+                                  }}
+                                  style={{
+                                    width: "100%",
+                                    fontSize: 10,
+                                    padding: "1px 4px",
+                                    border: `1px solid ${C.accent}50`,
+                                    borderRadius: 3,
+                                    background: C.bg,
+                                    color: C.text,
+                                    outline: "none",
+                                    fontFamily: "inherit",
+                                  }}
+                                />
+                              ) : (
+                                entry[field] ?? "—"
+                              )}
+                            </td>
+                          );
+                        })}
                       </tr>
                     ))}
                   </tbody>
