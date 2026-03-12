@@ -498,8 +498,7 @@ function ProjectTabBar() {
           })}
         </div>
 
-        {/* Takeoffs controls — mode button + NOVA (only on takeoffs page) */}
-        {activeTab.key === "takeoffs" && <TakeoffsHeaderControls C={C} />}
+        {/* Takeoffs controls removed — mode label was unnecessary */}
 
         <div style={{ flex: 1 }} />
       </div>
