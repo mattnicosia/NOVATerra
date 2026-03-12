@@ -252,8 +252,7 @@ export default function ComputationChain({ item }) {
   // Compute result
   const computeResult = () => {
     if (!hasFormula) return measured;
-    const varArr = variables.map(v => ({ name: v.key, value: nn(v.value) }));
-    return evalFormula(formula, varArr, measured);
+    return evalFormula(formula, variables, measured);
   };
   const result = computeResult();
   const resultRounded = Math.round(result * 100) / 100;

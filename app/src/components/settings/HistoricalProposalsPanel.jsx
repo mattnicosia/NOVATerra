@@ -429,7 +429,7 @@ Return ONLY a JSON object. Example:
         },
       ],
       system:
-        "You are NOVA, the AI construction intelligence inside NOVATerra. Analyze this historical proposal to extract cost data. Be precise with division costs vs below-the-line markups. Return only valid JSON.",
+        "You are ARTIFACT, the AI construction intelligence inside ARTIFACT. Analyze this historical proposal to extract cost data. Be precise with division costs vs below-the-line markups. Return only valid JSON.",
     });
 
     // Parse response
@@ -828,7 +828,7 @@ Return ONLY a JSON object. Example:
       const saved = editingId ? latest.find(p => p.id === editingId) : latest[latest.length - 1];
       if (saved) {
         await generateLearningFromProposal(saved);
-        showToast(`NOVA calibration data generated`);
+        showToast(`ARTIFACT calibration data generated`);
       }
     }
 
@@ -908,7 +908,7 @@ Return ONLY a JSON object. Example:
         : historicalProposals.find(p => p.id === entry.id);
     if (!proposal) return;
     await generateLearningFromProposal(proposal);
-    showToast(`NOVA recalibrated "${entry.name}"`);
+    showToast(`ARTIFACT recalibrated "${entry.name}"`);
   };
 
   // ── Quick outcome change ──
@@ -1007,7 +1007,7 @@ Return ONLY a JSON object. Example:
   return (
     <Sec title="Cost History">
       <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 14 }}>
-        All your estimates and imported proposals in one place. NOVA uses this data to calibrate ROM estimates, track
+        All your estimates and imported proposals in one place. ARTIFACT uses this data to calibrate ROM estimates, track
         win rates, and identify pricing patterns.
       </div>
 
@@ -1113,7 +1113,7 @@ Return ONLY a JSON object. Example:
               marginBottom: 6,
             }}
           >
-            NOVA Calibration Factors
+            ARTIFACT Calibration Factors
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
             {Object.entries(calibrationFactors)

@@ -439,7 +439,19 @@ export function buildProjectContext({ project, items, takeoffs, specs, drawings 
  * @param {string|null} storagePath — Supabase Storage path for large images (>3MB)
  * @returns {{ text: string, blocks: Array<{text: string, confidence: number}> }}
  */
+// ─── OCR Circuit Breaker ─────────────────────────────────────
+let _ocrConsecutiveFailures = 0;
+let _ocrCircuitOpenUntil = 0;
+const OCR_CIRCUIT_OPEN_AFTER = 3; // consecutive failures before stopping
+const OCR_CIRCUIT_RESET_MS = 30000; // try again after 30s
+
 export async function runOCR(base64Image, storagePath = null) {
+  // Circuit breaker: skip if too many recent failures
+  if (Date.now() < _ocrCircuitOpenUntil) {
+    console.warn("[OCR] Circuit open — skipping until", new Date(_ocrCircuitOpenUntil).toLocaleTimeString());
+    return { text: "", blocks: [] };
+  }
+
   try {
     let token = await getAuthToken();
     if (!token) return { text: "", blocks: [] };
@@ -473,13 +485,24 @@ export async function runOCR(base64Image, storagePath = null) {
 
     if (!resp.ok) {
       console.warn("[OCR] Failed:", resp.status);
-      return { text: "", blocks: [] }; // Graceful fallback — scan works without OCR
+      _ocrConsecutiveFailures++;
+      if (_ocrConsecutiveFailures >= OCR_CIRCUIT_OPEN_AFTER) {
+        _ocrCircuitOpenUntil = Date.now() + OCR_CIRCUIT_RESET_MS;
+        console.error(`[OCR] Circuit opened after ${_ocrConsecutiveFailures} failures — pausing for 30s`);
+      }
+      return { text: "", blocks: [] };
     }
 
+    _ocrConsecutiveFailures = 0; // reset on success
     return resp.json();
   } catch (err) {
     console.warn("[OCR] Error:", err.message);
-    return { text: "", blocks: [] }; // Never block scan on OCR failure
+    _ocrConsecutiveFailures++;
+    if (_ocrConsecutiveFailures >= OCR_CIRCUIT_OPEN_AFTER) {
+      _ocrCircuitOpenUntil = Date.now() + OCR_CIRCUIT_RESET_MS;
+      console.error(`[OCR] Circuit opened after ${_ocrConsecutiveFailures} failures — pausing for 30s`);
+    }
+    return { text: "", blocks: [] };
   }
 }
 
@@ -605,14 +628,13 @@ export async function segmentedOCR(base64Image, imgWidth, imgHeight) {
     // Crop all 4 quadrants in parallel
     const croppedImages = await Promise.all(quadrants.map(q => cropQuadrant(q)));
 
-    // OCR all 4 quadrants in parallel
-    const ocrResults = await Promise.all(
-      croppedImages.map((b64, i) => {
-        if (!b64) return Promise.resolve({ text: "", blocks: [] });
-        console.log(`[OCR-SEG] Running OCR on quadrant ${quadrants[i].label}...`);
-        return runOCR(b64);
-      }),
-    );
+    // OCR quadrants sequentially to avoid hammering the endpoint
+    const ocrResults = [];
+    for (let i = 0; i < croppedImages.length; i++) {
+      if (!croppedImages[i]) { ocrResults.push({ text: "", blocks: [] }); continue; }
+      console.log(`[OCR-SEG] Running OCR on quadrant ${quadrants[i].label}...`);
+      ocrResults.push(await runOCR(croppedImages[i]));
+    }
 
     const quadrantTexts = ocrResults.map(r => r.text || "");
     const allBlocks = ocrResults.flatMap(r => r.blocks || []);

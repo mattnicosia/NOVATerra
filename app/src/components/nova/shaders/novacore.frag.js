@@ -724,6 +724,16 @@ export const novacoreFragmentShader = /* glsl */ `
     float minG = baseColor.z * 0.18;
     baseColor.y = mix(max(baseColor.y, minG), baseColor.y, uMorph);
 
+    // v15: Global intensity gate — scales the ENTIRE output by uIntensity.
+    // Previously only baseGlow was gated, leaving flowLight, centerLight,
+    // volumetric, and HDR peaks unaffected. This meant lowering intensity
+    // barely dimmed the sphere. Now the full output responds to intensity:
+    //   intensity=0.25 → 36% brightness (dormant dark monolith behind shell)
+    //   intensity=0.70 → 75% brightness (normal dashboard use)
+    //   intensity=1.00 → 100% brightness (maximum power)
+    // mix(0.15, 1.0, ...) ensures even at zero intensity there's a faint floor.
+    baseColor *= mix(0.15, 1.0, uIntensity);
+
     // v11.2: Solid alpha edge — the rim glow adds visual softness via brightness,
     // NOT via transparency (which creates visible semi-transparent bands).
     float alpha = mix(0.97, 0.99, uMorph) + pow(vFresnel, 3.0) * 0.03;

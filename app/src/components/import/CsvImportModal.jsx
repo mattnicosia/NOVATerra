@@ -386,7 +386,7 @@ export default function CsvImportModal({ onClose, mode }) {
                 color: C.accent,
               }}
             >
-              <NovaOrb size={18} scheme="nova" /> NOVA is mapping your columns...
+              <NovaOrb size={18} scheme="nova" /> ARTIFACT is mapping your columns...
             </div>
           )}
 

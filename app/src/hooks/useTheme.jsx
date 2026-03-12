@@ -250,6 +250,7 @@ export function ThemeProvider({ children }) {
       document.documentElement.setAttribute("data-no-glass", "");
       // Determine colors from theme context
       const bg = value.bg || "#F5F5F7";
+      const shellBg = value.bgGradient || bg; // app shell uses bgGradient (grey field) if set
       const bg1 = value.bg1 || "#FFFFFF";
       const border = value.border || "#D1D1D6";
       const text = value.text || "#1D1D1F";
@@ -271,9 +272,9 @@ export function ThemeProvider({ children }) {
           -webkit-backdrop-filter: none !important;
         }
 
-        /* 2. App shell — solid flat background */
+        /* 2. App shell — solid flat background (uses bgGradient for themes with grey field) */
         html[data-no-glass] .app-shell {
-          background: ${bg} !important;
+          background: ${shellBg} !important;
         }
 
         /* 3. Cards/panels — solid opaque surfaces with clean borders */
@@ -331,7 +332,7 @@ export function ThemeProvider({ children }) {
       document.documentElement.removeAttribute("data-no-glass");
       document.getElementById(STYLE_ID)?.remove();
     };
-  }, [value.noGlass, value.bg, value.bg1, value.border, value.text, value.isDark]);
+  }, [value.noGlass, value.bg, value.bgGradient, value.bg1, value.border, value.text, value.isDark]);
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

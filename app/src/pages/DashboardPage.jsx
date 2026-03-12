@@ -6,7 +6,7 @@ import { useUiStore } from "@/stores/uiStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useInboxStore } from "@/stores/inboxStore";
 import { supabase } from "@/utils/supabase";
-import { loadEstimate } from "@/hooks/usePersistence";
+import { loadEstimate, recoverFromCloud } from "@/hooks/usePersistence";
 import KPI from "@/components/shared/KPI";
 import Ic from "@/components/shared/Ic";
 import CompanySwitcher from "@/components/shared/CompanySwitcher";
@@ -17,6 +17,8 @@ import { inp, bt, pageContainer, card, sectionLabel, mono, statusBadge, moneyCel
 import CsvImportModal from "@/components/import/CsvImportModal";
 import NewEstimateModal from "@/components/shared/NewEstimateModal";
 import NovaTerraLogo from "@/components/shared/NovaTerraLogo";
+import DashboardWidgets from "@/components/dashboard/DashboardWidgets";
+import OnboardingSequence from "@/components/onboarding/OnboardingSequence";
 
 const STATUSES = ["All", "Bidding", "Submitted", "Won", "Lost", "On Hold", "Cancelled"];
 
@@ -129,126 +131,7 @@ export default function DashboardPage() {
   };
 
   if (showOnboarding) {
-    const steps = [
-      {
-        icon: I.settings,
-        label: "Company Profile",
-        desc: "Add your company name, logo, and contact info for proposals.",
-        done: step1Done,
-        action: () => navigate("/settings"),
-        color: C.accent,
-      },
-      {
-        icon: I.database,
-        label: "Cost Database",
-        desc: "Review pre-loaded cost items or add your own pricing data.",
-        done: step2Done,
-        action: () => navigate("/core?tab=database"),
-        color: C.green,
-      },
-      {
-        icon: I.estimate,
-        label: "First Estimate",
-        desc: "Create your first project estimate and start building scope.",
-        done: step3Done,
-        action: () => handleCreate(),
-        color: C.purple,
-      },
-    ];
-    return (
-      <div style={{ ...pageContainer(C), display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ textAlign: "center", maxWidth: 680 }}>
-          <div style={{ marginBottom: T.space[2] }}>
-            <NovaTerraLogo size={48} />
-          </div>
-          <div style={{ fontSize: T.fontSize.lg, color: C.textMuted, marginBottom: T.space[8] }}>
-            Professional construction estimating. Powered by NOVA.
-          </div>
-          <div style={{ display: "flex", gap: T.space[4], justifyContent: "center" }}>
-            {steps.map((s, i) => (
-              <button
-                key={i}
-                onClick={s.action}
-                style={{
-                  ...card(C),
-                  width: 200,
-                  padding: T.space[5],
-                  cursor: "pointer",
-                  textAlign: "center",
-                  transition: T.transition.base,
-                  position: "relative",
-                  animation: `staggerFadeUp 500ms cubic-bezier(0.16,1,0.3,1) ${200 + i * 120}ms both`,
-                }}
-                className="card-hover"
-              >
-                {s.done && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: T.space[2],
-                      right: T.space[2],
-                      width: 20,
-                      height: 20,
-                      borderRadius: T.radius.full,
-                      background: C.green,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      boxShadow: `0 0 8px ${C.green}40`,
-                    }}
-                  >
-                    <Ic d={I.check} size={12} color="#fff" sw={2.5} />
-                  </div>
-                )}
-                <div
-                  style={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: T.radius.full,
-                    margin: "0 auto",
-                    marginBottom: T.space[3],
-                    background: `linear-gradient(135deg, ${s.color}25, ${s.color}08)`,
-                    border: `1px solid ${s.color}30`,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Ic d={s.icon} size={24} color={s.color} sw={1.7} />
-                </div>
-                <div
-                  style={{
-                    fontSize: T.fontSize.md,
-                    fontWeight: T.fontWeight.semibold,
-                    color: C.text,
-                    marginBottom: T.space[1],
-                  }}
-                >
-                  {s.label}
-                </div>
-                <div style={{ fontSize: T.fontSize.sm, color: C.textMuted, lineHeight: T.lineHeight.normal }}>
-                  {s.desc}
-                </div>
-              </button>
-            ))}
-          </div>
-          <button
-            onClick={() => updateSetting("onboardingDismissed", true)}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              fontSize: T.fontSize.sm,
-              color: C.textDim,
-              marginTop: T.space[7],
-              transition: T.transition.fast,
-            }}
-          >
-            Skip setup
-          </button>
-        </div>
-      </div>
-    );
+    return <OnboardingSequence />;
   }
 
   return (
@@ -351,6 +234,11 @@ export default function DashboardPage() {
             })}
           </div>
         </div>
+      )}
+
+      {/* Dashboard Widgets — Health, Quick Actions, Deadlines, NOVA Insights */}
+      {companyEstimates.length > 0 && (
+        <DashboardWidgets estimates={companyEstimates} />
       )}
 
       {/* Upcoming Deadlines — staggered rows */}
@@ -515,19 +403,54 @@ export default function DashboardPage() {
                 : "No estimates match your current filter."}
             </div>
             {companyEstimates.length === 0 && (
-              <button
-                onClick={handleCreate}
-                className="accent-btn"
-                style={bt(C, {
-                  background: C.gradient || C.accent,
-                  color: "#fff",
-                  padding: "10px 20px",
-                  borderRadius: T.radius.sm,
-                  boxShadow: `0 0 12px ${C.accent}20`,
-                })}
-              >
-                <Ic d={I.plus} size={14} color="#fff" sw={2.5} /> Create Estimate
-              </button>
+              <>
+                <button
+                  onClick={handleCreate}
+                  className="accent-btn"
+                  style={bt(C, {
+                    background: C.gradient || C.accent,
+                    color: "#fff",
+                    padding: "10px 20px",
+                    borderRadius: T.radius.sm,
+                    boxShadow: `0 0 12px ${C.accent}20`,
+                  })}
+                >
+                  <Ic d={I.plus} size={14} color="#fff" sw={2.5} /> Create Estimate
+                </button>
+                {supabase && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        useUiStore.getState().showToast("Recovering from cloud...", "info");
+                        const result = await recoverFromCloud();
+                        useUiStore.getState().showToast(
+                          `Recovered ${result.recovered} project(s) from cloud`,
+                          "success",
+                        );
+                      } catch (err) {
+                        useUiStore.getState().showToast(
+                          `Recovery failed: ${err.message}`,
+                          "error",
+                        );
+                      }
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      fontSize: 11,
+                      color: C.accent,
+                      textDecoration: "underline",
+                      textDecorationColor: `${C.accent}40`,
+                      padding: "8px 16px",
+                      fontFamily: T.font.sans,
+                      marginTop: 12,
+                    }}
+                  >
+                    Recover projects from cloud
+                  </button>
+                )}
+              </>
             )}
           </div>
         ) : (

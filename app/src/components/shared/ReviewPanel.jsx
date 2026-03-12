@@ -22,7 +22,7 @@ import { bt, inp } from "@/utils/styles";
  * Phase 2: Supabase persistence + notifications.
  */
 
-const REVIEW_SYSTEM_PROMPT = `You are NOVA, an AI construction estimating assistant reviewing estimates for a manager briefing.
+const REVIEW_SYSTEM_PROMPT = `You are ARTIFACT, an AI construction estimating assistant reviewing estimates for a manager briefing.
 
 Generate a concise but thorough review briefing covering:
 
@@ -229,8 +229,8 @@ Review notes: ${review.notes || "None provided"}`;
               {mode === "create"
                 ? "Set up an estimate review meeting"
                 : mode === "view"
-                  ? "NOVA-generated briefing for your review"
-                  : "Manage estimate reviews and NOVA briefings"}
+                  ? "ARTIFACT-generated briefing for your review"
+                  : "Manage estimate reviews and ARTIFACT briefings"}
             </div>
           </div>
           {mode !== "list" && (
@@ -368,7 +368,7 @@ Review notes: ${review.notes || "None provided"}`;
                         hour: "numeric",
                         minute: "2-digit",
                       })}
-                      {review.briefing && " · NOVA briefing ready"}
+                      {review.briefing && " · ARTIFACT briefing ready"}
                     </div>
                   </div>
                 ))}

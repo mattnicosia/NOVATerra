@@ -29,7 +29,7 @@ export default function AutoResponseSettings() {
     <div style={{ fontFamily: T.font.sans }}>
       {/* Description */}
       <p style={{ fontSize: 12, color: C.textDim, margin: "0 0 16px", lineHeight: 1.5 }}>
-        NOVA automatically drafts email responses when subcontractors interact with your bid packages. All drafts are
+        ARTIFACT automatically drafts email responses when subcontractors interact with your bid packages. All drafts are
         queued for your review before sending.
       </p>
 

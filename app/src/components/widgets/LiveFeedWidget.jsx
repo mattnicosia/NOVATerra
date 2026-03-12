@@ -61,14 +61,14 @@ export default function LiveFeedWidget() {
         {/* Fade top */}
         <div style={{
           position: 'absolute', top: 0, left: 0, right: 0, height: 24,
-          background: `linear-gradient(to bottom, ${C.glassBg}, transparent)`,
+          background: `linear-gradient(to bottom, ${C.noGlass ? C.bg1 : C.glassBg}, transparent)`,
           zIndex: 1, pointerEvents: 'none',
         }} />
 
         <div ref={scrollRef} style={{ willChange: 'transform' }}>
           {doubledTickers.map(([name, price, trend, change], i) => {
-            const pillColor = trend === 'up' ? '#34D399' : trend === 'dn' ? '#FB7185' : C.textMuted;
-            const pillBg = trend === 'up' ? 'rgba(52,211,153,0.08)' : trend === 'dn' ? 'rgba(251,113,133,0.08)' : ov(0.04);
+            const pillColor = trend === 'up' ? C.green : trend === 'dn' ? C.red : C.textMuted;
+            const pillBg = trend === 'up' ? `${C.green}14` : trend === 'dn' ? `${C.red}14` : ov(0.04);
 
             return (
               <div key={i} style={{
@@ -83,7 +83,7 @@ export default function LiveFeedWidget() {
                 <span style={{
                   fontSize: 8.5, fontWeight: 600, fontFamily: font,
                   color: pillColor, background: pillBg,
-                  border: `1px solid ${trend === 'up' ? 'rgba(52,211,153,0.15)' : trend === 'dn' ? 'rgba(251,113,133,0.15)' : C.borderLight}`,
+                  border: `1px solid ${trend === 'up' ? `${C.green}26` : trend === 'dn' ? `${C.red}26` : C.borderLight}`,
                   borderRadius: 20, padding: '1px 6px', minWidth: 32, textAlign: 'center',
                   lineHeight: '14px', flexShrink: 0,
                 }}>{change}</span>
@@ -95,7 +95,7 @@ export default function LiveFeedWidget() {
         {/* Fade bottom */}
         <div style={{
           position: 'absolute', bottom: 0, left: 0, right: 0, height: 24,
-          background: `linear-gradient(to top, ${C.glassBg}, transparent)`,
+          background: `linear-gradient(to top, ${C.noGlass ? C.bg1 : C.glassBg}, transparent)`,
           zIndex: 1, pointerEvents: 'none',
         }} />
       </div>

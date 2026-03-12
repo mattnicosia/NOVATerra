@@ -79,6 +79,7 @@ export default function CarbonBreakdownWidget() {
   const T = C.T;
   const dk = C.isDark;
   const ov = a => (dk ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`);
+  const isConcrete = C.noGlass && C.materialMode === "concrete";
   const { activeProject } = useDashboardData();
 
   const divisionTotals = activeProject?.divisionTotals || EMPTY_OBJ;
@@ -169,7 +170,7 @@ export default function CarbonBreakdownWidget() {
             color: C.textDim,
           }}
         >
-          <span style={{ color: C.green }}>TERRA</span> CARBON
+          <span style={{ color: isConcrete ? C.accent : C.green }}>TERRA</span> CARBON
         </div>
         {totalCO2e > 0 && (
           <div
@@ -233,8 +234,10 @@ export default function CarbonBreakdownWidget() {
                   width: "100%",
                   height: "100%",
                   borderRadius: 2,
-                  background: row.gradient,
-                  boxShadow: `0 0 8px ${row.shadow}`,
+                  background: isConcrete
+                    ? `linear-gradient(90deg, ${C.textDim}, ${C.textMuted})`
+                    : row.gradient,
+                  boxShadow: isConcrete ? "none" : `0 0 8px ${row.shadow}`,
                   transform: `scaleX(${barScales[i] || 0})`,
                   transformOrigin: "left",
                   transition: "transform 0.8s cubic-bezier(0.16,1,0.3,1)",

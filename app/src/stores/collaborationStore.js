@@ -67,8 +67,8 @@ export const useCollaborationStore = create((set, get) => ({
         .single();
 
       if (error) {
-        // Conflict — someone else holds the lock
-        if (error.code === "23505") {
+        // Conflict — someone else holds the lock (unique constraint or HTTP 409)
+        if (error.code === "23505" || error.code === "409" || error.message?.includes("409")) {
           // Fetch existing lock
           const { data: existing } = await supabase
             .from("estimate_locks")
@@ -400,17 +400,18 @@ export const useCollaborationStore = create((set, get) => ({
       clearInterval(_presenceInterval);
     }
 
-    // Unsubscribe channels
-    if (_lockChannel) {
-      try {
-        supabase?.removeChannel(_lockChannel);
-      } catch {}
-    }
-    if (_presenceChannel) {
-      try {
-        supabase?.removeChannel(_presenceChannel);
-      } catch {}
-    }
+    // Unsubscribe channels — delay slightly to let in-flight subscriptions settle
+    // This avoids "WebSocket closed before connection" warnings from Supabase
+    const cleanupChannels = () => {
+      if (_lockChannel) {
+        try { supabase?.removeChannel(_lockChannel); } catch {}
+      }
+      if (_presenceChannel) {
+        try { supabase?.removeChannel(_presenceChannel); } catch {}
+      }
+    };
+    // If channels are still connecting, give them 100ms to finish before tearing down
+    setTimeout(cleanupChannels, 100);
 
     // Release lock if we hold it
     if (isLockHolder && _currentEstimateId) {

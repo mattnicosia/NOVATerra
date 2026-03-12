@@ -6,8 +6,8 @@ import { useAuthStore } from "@/stores/authStore";
    ──────────────────────────────────────────────────────── */
 
 const FONT = "'Switzer', -apple-system, BlinkMacSystemFont, sans-serif";
-const ACCENT = "#7C5CFC";
-const ACCENT_DIM = "#6D28D9";
+const ACCENT = "#C83232";
+const ACCENT_DIM = "#5C1A1A";
 const GREEN = "#30D158";
 const RED = "#FF453A";
 const TEXT = "rgba(238,237,245,0.92)";
@@ -38,8 +38,8 @@ const keyframesCSS = `
   to { transform: rotateX(72deg) rotate(360deg); }
 }
 @keyframes loginPulseGlow {
-  0%, 100% { box-shadow: 0 0 40px rgba(139,92,246,0.25), 0 0 80px rgba(109,40,217,0.12); }
-  50% { box-shadow: 0 0 60px rgba(139,92,246,0.4), 0 0 120px rgba(109,40,217,0.2); }
+  0%, 100% { box-shadow: 0 0 40px rgba(200,50,50,0.25), 0 0 80px rgba(92,26,26,0.12); }
+  50% { box-shadow: 0 0 60px rgba(200,50,50,0.4), 0 0 120px rgba(92,26,26,0.2); }
 }
 @keyframes loginShimmer {
   0% { transform: translateX(-100%); }
@@ -193,7 +193,7 @@ function NovaOrbCSS({ size = 80 }) {
           position: "absolute",
           inset: -Math.round(s * 0.2),
           borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(139,92,246,0.14) 0%, rgba(139,92,246,0.04) 50%, transparent 70%)",
+          background: "radial-gradient(circle, rgba(200,50,50,0.14) 0%, rgba(200,50,50,0.04) 50%, transparent 70%)",
           animation: "loginBreathOrb 5s ease-in-out infinite",
         }}
       />
@@ -203,7 +203,7 @@ function NovaOrbCSS({ size = 80 }) {
           position: "absolute",
           inset: -Math.round(s * 0.07),
           borderRadius: "50%",
-          border: "1px solid rgba(139,92,246,0.15)",
+          border: "1px solid rgba(200,50,50,0.15)",
           animation: "loginSpinA 22s linear infinite",
         }}
       />
@@ -213,7 +213,7 @@ function NovaOrbCSS({ size = 80 }) {
           position: "absolute",
           inset: Math.round(s * 0.05),
           borderRadius: "50%",
-          border: "1px solid rgba(167,139,250,0.08)",
+          border: "1px solid rgba(180,70,70,0.08)",
           animation: "loginSpinB 15s linear infinite",
         }}
       />
@@ -223,7 +223,7 @@ function NovaOrbCSS({ size = 80 }) {
           position: "absolute",
           inset: -Math.round(s * 0.03),
           borderRadius: "50%",
-          border: "1px solid rgba(167,139,250,0.12)",
+          border: "1px solid rgba(180,70,70,0.12)",
           animation: "loginSpinC 34s linear infinite",
         }}
       />
@@ -235,11 +235,11 @@ function NovaOrbCSS({ size = 80 }) {
           borderRadius: "50%",
           position: "relative",
           background: [
-            "radial-gradient(circle at 50% 48%, rgba(255,255,255,0.85) 0%, rgba(200,160,255,0.5) 8%, rgba(120,60,220,0.4) 20%, transparent 40%)",
-            "radial-gradient(circle at 50% 50%, rgba(215,175,255,0.7) 0%, rgba(150,78,255,0.5) 18%, rgba(90,24,220,0.3) 35%, rgba(60,10,160,0.8) 55%)",
-            "radial-gradient(circle at 50% 50%, #18063C 0%, #0A031A 42%, #060210 82%, #020108 100%)",
+            "radial-gradient(circle at 50% 48%, rgba(255,255,255,0.85) 0%, rgba(255,160,160,0.5) 8%, rgba(200,60,60,0.4) 20%, transparent 40%)",
+            "radial-gradient(circle at 50% 50%, rgba(255,175,175,0.7) 0%, rgba(200,50,50,0.5) 18%, rgba(140,24,24,0.3) 35%, rgba(92,26,26,0.8) 55%)",
+            "radial-gradient(circle at 50% 50%, #2A0808 0%, #1A0505 42%, #100303 82%, #080101 100%)",
           ].join(", "),
-          boxShadow: "0 14px 40px rgba(109,40,217,0.35), 0 6px 18px rgba(0,0,0,0.55), 0 0 60px rgba(139,92,246,0.15)",
+          boxShadow: "0 14px 40px rgba(200,50,50,0.35), 0 6px 18px rgba(0,0,0,0.55), 0 0 60px rgba(200,50,50,0.15)",
           animation: "loginPulseGlow 4s ease-in-out infinite",
         }}
       >
@@ -249,7 +249,7 @@ function NovaOrbCSS({ size = 80 }) {
             position: "absolute",
             inset: 0,
             borderRadius: "50%",
-            background: "radial-gradient(circle, transparent 55%, rgba(2,1,8,0.7) 100%)",
+            background: "radial-gradient(circle, transparent 55%, rgba(8,1,1,0.7) 100%)",
           }}
         />
       </div>
@@ -258,7 +258,7 @@ function NovaOrbCSS({ size = 80 }) {
 }
 
 /* ── Construction silhouette — faint cityscape ────────── */
-const SKYLINE_SVG = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 200" fill="none" stroke="rgba(139,92,246,0.06)" stroke-width="1">
+const SKYLINE_SVG = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 200" fill="none" stroke="rgba(200,50,50,0.06)" stroke-width="1">
   <path d="M0,200 L0,140 L40,140 L40,100 L60,100 L60,80 L80,80 L80,100 L100,100 L100,140 L140,140 L140,120 L160,120 L160,90 L170,90 L170,40 L180,40 L180,90 L190,90 L190,120 L220,120 L220,140 L260,140 L260,110 L280,110 L280,60 L290,60 L290,50 L300,50 L300,60 L310,60 L310,110 L340,110 L340,140 L380,140 L380,130 L400,130 L400,70 L420,70 L420,130 L440,130 L440,140 L480,140 L480,100 L500,100 L500,45 L510,45 L510,35 L520,35 L520,45 L530,45 L530,100 L550,100 L550,140 L600,140 L600,120 L620,120 L620,55 L640,55 L640,120 L660,120 L660,140 L700,140 L700,90 L720,90 L720,65 L740,65 L740,90 L760,90 L760,140 L800,140 L800,110 L820,110 L820,75 L830,75 L830,30 L840,30 L840,75 L850,75 L850,110 L880,110 L880,140 L920,140 L920,130 L940,130 L940,85 L960,85 L960,130 L980,130 L980,140 L1020,140 L1020,100 L1040,100 L1040,60 L1060,60 L1060,100 L1080,100 L1080,140 L1120,140 L1120,120 L1140,120 L1140,80 L1160,80 L1160,120 L1180,120 L1180,140 L1200,140 L1200,200 Z"/>
   <line x1="510" y1="35" x2="510" y2="10"/>
   <line x1="830" y1="30" x2="830" y2="5"/>
@@ -294,7 +294,7 @@ const Shell = memo(function Shell({ children }) {
           width: 400,
           height: 400,
           borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(109,40,217,0.08) 0%, transparent 70%)",
+          background: "radial-gradient(circle, rgba(200,50,50,0.08) 0%, transparent 70%)",
           filter: "blur(80px)",
           pointerEvents: "none",
           animation: "loginDriftBlob 22s ease-in-out infinite",
@@ -308,7 +308,7 @@ const Shell = memo(function Shell({ children }) {
           width: 350,
           height: 350,
           borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(139,92,246,0.06) 0%, transparent 70%)",
+          background: "radial-gradient(circle, rgba(200,50,50,0.06) 0%, transparent 70%)",
           filter: "blur(60px)",
           pointerEvents: "none",
           animation: "loginDriftBlob 18s ease-in-out infinite reverse",
@@ -322,7 +322,7 @@ const Shell = memo(function Shell({ children }) {
           width: 250,
           height: 250,
           borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(167,139,250,0.05) 0%, transparent 70%)",
+          background: "radial-gradient(circle, rgba(180,70,70,0.05) 0%, transparent 70%)",
           filter: "blur(50px)",
           pointerEvents: "none",
           animation: "loginDriftBlob 26s ease-in-out infinite",
@@ -339,7 +339,7 @@ const Shell = memo(function Shell({ children }) {
           width: 500,
           height: 500,
           borderRadius: "50%",
-          background: `radial-gradient(ellipse, rgba(109,40,217,0.1) 0%, transparent 60%)`,
+          background: `radial-gradient(ellipse, rgba(200,50,50,0.1) 0%, transparent 60%)`,
           filter: "blur(60px)",
           pointerEvents: "none",
         }}
@@ -458,12 +458,12 @@ function LoginForm() {
             fontSize: 22,
             fontWeight: 700,
             letterSpacing: "0.06em",
-            color: "rgba(200,175,255,0.85)",
+            color: "rgba(200,100,100,0.85)",
             margin: "0 0 4px",
             fontFamily: "'Switzer', sans-serif",
           }}
         >
-          NOVATerra
+          ARTIFACT
         </h1>
         <p
           style={{

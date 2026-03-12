@@ -1,10 +1,10 @@
 import { useRef, useEffect, useState, memo } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
+import { useResponsive } from "@/hooks/useResponsive";
 import { useUiStore } from "@/stores/uiStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
-import NovaSceneLazy from "@/components/nova/NovaSceneLazy";
 import NovaTerraLogo from "@/components/shared/NovaTerraLogo";
 import { useNovaStore } from "@/stores/novaStore";
 import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
@@ -172,9 +172,8 @@ const NAV_ITEMS = [
   { key: "settings", path: "/settings", icon: NAV_ICONS.settings, label: "Settings" },
 ];
 
-/* ── Logo Portal — 28px NovaOrb with glow ring ── */
+/* ── Logo Portal — 28px video orb with glow ring ── */
 function LogoPortal({ isNova, accent }) {
-  const novaStatus = useNovaStore(s => s.status);
   return (
     <div
       style={{
@@ -184,11 +183,19 @@ function LogoPortal({ isNova, accent }) {
         overflow: "hidden",
         flexShrink: 0,
         boxShadow: isNova
-          ? "0 0 12px rgba(139,92,246,0.3), 0 0 24px rgba(109,40,217,0.15)"
+          ? "0 0 12px rgba(200,50,50,0.3), 0 0 24px rgba(92,26,26,0.15)"
           : `0 0 8px ${accent}30, 0 0 16px ${accent}14`,
       }}
     >
-      <NovaSceneLazy width={28} height={28} size={0.8} intensity={0.6} lightweight />
+      <video
+        src="/nova-orb.mp4"
+        poster="/nova-orb-poster.png"
+        autoPlay
+        loop
+        muted
+        playsInline
+        style={{ width: "130%", height: "130%", objectFit: "cover", display: "block", marginLeft: "-15%", marginTop: "-15%" }}
+      />
     </div>
   );
 }
@@ -545,6 +552,7 @@ function NovaHeader({ onDraftPanelToggle }) {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [companyMenuOpen, setCompanyMenuOpen] = useState(false);
   const draftPendingCount = useAutoResponseStore(s => s.getPendingCount());
+  const { isTablet } = useResponsive();
 
   // Company profile data
   const activeCompanyId = useUiStore(s => s.appSettings.activeCompanyId);
@@ -578,24 +586,30 @@ function NovaHeader({ onDraftPanelToggle }) {
   // Header — Apple Liquid Glass: nearly transparent bar, thin specular, no heavy shadow
   // Nero Nemesis: carbon fiber weave + neutral glass + thin bottom edge
   const isNero = C.neroMode;
-  const hBg = isNero
-    ? `${C.carbonTexture || ""}, linear-gradient(180deg, rgba(6,6,14,0.90) 0%, rgba(6,6,14,0.80) 100%)`.replace(
-        /^, /,
-        "",
-      )
-    : dk
-      ? `linear-gradient(180deg, rgba(2,2,6,0.95) 0%, rgba(60,36,120,0.14) 100%)`
-      : `linear-gradient(180deg, ${C.glassBg || "rgba(255,255,255,0.32)"} 0%, ${C.glassBg || "rgba(255,255,255,0.32)"} 100%)`;
-  const hShadow = isNero
-    ? ["inset 0 -1px 0 rgba(255,255,255,0.06)", "0 1px 12px rgba(0,0,0,0.40)"].join(", ")
-    : dk
-      ? [T.glass.specularLg, T.glass.edge, "0 1px 12px rgba(0,0,0,0.15)"].join(", ")
-      : "inset 0 -1px 0 rgba(255,255,255,0.5), 0 1px 4px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.03)";
-  const hBorderB = isNero
-    ? "rgba(255,255,255,0.06)"
-    : dk
-      ? T.glass.borderLight
-      : C.glassBorder || C.border || "rgba(0,0,0,0.08)";
+  const hBg = C.noGlass
+    ? C.bg1
+    : isNero
+      ? `${C.carbonTexture || ""}, linear-gradient(180deg, rgba(6,6,14,0.90) 0%, rgba(6,6,14,0.80) 100%)`.replace(
+          /^, /,
+          "",
+        )
+      : dk
+        ? `linear-gradient(180deg, rgba(2,2,6,0.95) 0%, rgba(60,36,120,0.14) 100%)`
+        : `linear-gradient(180deg, ${C.glassBg || "rgba(255,255,255,0.32)"} 0%, ${C.glassBg || "rgba(255,255,255,0.32)"} 100%)`;
+  const hShadow = C.noGlass
+    ? "none"
+    : isNero
+      ? ["inset 0 -1px 0 rgba(255,255,255,0.06)", "0 1px 12px rgba(0,0,0,0.40)"].join(", ")
+      : dk
+        ? [T.glass.specularLg, T.glass.edge, "0 1px 12px rgba(0,0,0,0.15)"].join(", ")
+        : "inset 0 -1px 0 rgba(255,255,255,0.5), 0 1px 4px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.03)";
+  const hBorderB = C.noGlass
+    ? C.border
+    : isNero
+      ? "rgba(255,255,255,0.06)"
+      : dk
+        ? T.glass.borderLight
+        : C.glassBorder || C.border || "rgba(0,0,0,0.08)";
 
   // Overlays — white-alpha on dark, black-alpha on light
   const ov = (darkA, lightA) => (dk ? `rgba(255,255,255,${darkA})` : `rgba(0,0,0,${lightA})`);
@@ -629,7 +643,7 @@ function NovaHeader({ onDraftPanelToggle }) {
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        padding: "0 28px",
+        padding: isTablet ? "0 14px" : "0 28px",
         background: hBg,
         boxShadow: hShadow,
         backdropFilter: T.glass.blur,
@@ -643,7 +657,7 @@ function NovaHeader({ onDraftPanelToggle }) {
     >
       {/* Left — Logo */}
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <NovaTerraLogo size={68} />
+        <NovaTerraLogo size={isTablet ? 50 : 66} />
       </div>
 
       {/* Center — Navigation: active tab = Liquid Glass pill */}
@@ -659,7 +673,7 @@ function NovaHeader({ onDraftPanelToggle }) {
               flexDirection: "column",
               alignItems: "center",
               gap: 3,
-              padding: "6px 20px",
+              padding: isTablet ? "6px 10px" : "6px 20px",
               borderRadius: 12,
               cursor: "pointer",
               position: "relative",
@@ -699,17 +713,19 @@ function NovaHeader({ onDraftPanelToggle }) {
             {({ isActive }) => (
               <>
                 <div style={{ width: 17, height: 17, flexShrink: 0 }}>{item.icon}</div>
-                <span
-                  style={{
-                    fontSize: 9.5,
-                    fontWeight: isActive ? 600 : 500,
-                    letterSpacing: "0.08em",
-                    textTransform: "uppercase",
-                    lineHeight: 1,
-                  }}
-                >
-                  {item.label}
-                </span>
+                {!isTablet && (
+                  <span
+                    style={{
+                      fontSize: 9.5,
+                      fontWeight: isActive ? 600 : 500,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                      lineHeight: 1,
+                    }}
+                  >
+                    {item.label}
+                  </span>
+                )}
                 {item.badge && (
                   <div
                     style={{

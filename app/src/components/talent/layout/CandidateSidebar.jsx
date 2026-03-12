@@ -201,7 +201,7 @@ export default function CandidateSidebar({ activePath }) {
               padding: `${T.space[1]}px ${T.space[2]}px ${T.space[3]}px`,
             }}
           >
-            NOVATerra
+            NOVA
           </div>
           {LOCKED_NAV.map((item, i) => (
             <div

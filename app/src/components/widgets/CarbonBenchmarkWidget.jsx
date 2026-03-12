@@ -54,9 +54,9 @@ function resolveType(bt) {
 
 function scoreColor(score, C) {
   if (score >= 75) return C.green;
-  if (score >= 50) return C.orange || "#F59E0B";
-  if (score >= 25) return "#F97316";
-  return "#EF4444";
+  if (score >= 50) return C.orange;
+  if (score >= 25) return C.orange;
+  return C.red;
 }
 
 function scoreLabel(score) {
@@ -151,7 +151,7 @@ export default function CarbonBenchmarkWidget() {
             color: C.textDim,
           }}
         >
-          <span style={{ color: C.green }}>TERRA</span> SCORE
+          <span style={{ color: C.noGlass ? C.accent : C.green }}>TERRA</span> SCORE
         </div>
         {hasData && (
           <div

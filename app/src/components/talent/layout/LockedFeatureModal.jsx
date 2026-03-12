@@ -103,7 +103,7 @@ export default function LockedFeatureModal({ isOpen, onClose, feature }) {
             marginTop: T.space[1],
           })}
         >
-          Explore NOVATerra
+          Explore NOVA
           <Ic d={I.externalLink} size={14} color="#fff" sw={2} />
         </button>
 

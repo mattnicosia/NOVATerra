@@ -89,13 +89,8 @@ export default function SubDashboardPage() {
             marginBottom: 32,
           }}
         >
-          <img src="/novaterra-nt.png" alt="NT" style={{ height: 32, width: 32, objectFit: "contain" }} />
           <div>
-            <img
-              src="/novaterra-wordmark.png"
-              alt="NOVATerra"
-              style={{ height: 18, objectFit: "contain", display: "block" }}
-            />
+            <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: "0.04em", color: C.text }}>NOVA</div>
             <div style={{ color: C.textDim, fontSize: 11, marginTop: 2 }}>Sub Dashboard</div>
           </div>
         </div>
@@ -328,7 +323,7 @@ export default function SubDashboardPage() {
 
         {/* Footer */}
         <div style={{ textAlign: "center", marginTop: 40, color: "#48484A", fontSize: 11 }}>
-          Powered by NOVA Estimating
+          Powered by NOVA
         </div>
       </div>
     </div>

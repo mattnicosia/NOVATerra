@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, lazy, Suspense } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useEstimatesStore } from "@/stores/estimatesStore";
@@ -23,6 +23,8 @@ import { runFullScan } from "@/utils/scanRunner";
 import { saveEstimate } from "@/hooks/usePersistence";
 import { handleFileUpload, autoLabelDrawings, autoDetectOutlines } from "@/utils/uploadPipeline";
 import ScanResultsModal from "@/components/planroom/ScanResultsModal";
+const DrawingOverlay = lazy(() => import("@/components/planroom/DrawingOverlay"));
+import Modal from "@/components/shared/Modal";
 import NovaOrb from "@/components/dashboard/NovaOrb";
 import NovaSceneLazy from "@/components/nova/NovaSceneLazy";
 import EmptyState from "@/components/shared/EmptyState";
@@ -175,6 +177,7 @@ export default function PlanRoomPage() {
   const [showScanModal, setShowScanModal] = useState(false);
   const [rescanning, setRescanning] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showOverlay, setShowOverlay] = useState(null); // { drawingA, drawingB }
   const fileInputRef = useRef(null);
   const isSetupMode = project.setupComplete === false;
   const hasProcessing = documents.some(d => d.processingStatus === "processing");
@@ -1013,7 +1016,7 @@ export default function PlanRoomPage() {
               }}
             />
             <span style={{ fontSize: 11, fontWeight: 600, color: C.accent }}>
-              NOVA is processing {processingDocs.length} document{processingDocs.length > 1 ? "s" : ""}...
+              ARTIFACT is processing {processingDocs.length} document{processingDocs.length > 1 ? "s" : ""}...
             </span>
             <span style={{ fontSize: 10, color: C.textDim, marginLeft: "auto" }}>
               Results will appear here automatically
@@ -1134,7 +1137,7 @@ export default function PlanRoomPage() {
               <Ic d={I.plans} size={18} color={C.accent} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: T.fontSize.xs, fontWeight: T.fontWeight.semibold, color: C.text }}>
-                  Upload drawing plans to run NOVA Discovery
+                  Upload drawing plans to run ARTIFACT Discovery
                 </div>
                 <div style={{ fontSize: 10, color: C.textDim, marginTop: 2 }}>
                   Specs and bid documents are loaded. Add your PDF drawing plans to detect schedules and generate a ROM.
@@ -1346,7 +1349,7 @@ export default function PlanRoomPage() {
                         {drawings.length} drawings ready for discovery
                       </div>
                       <div style={{ fontSize: 9, color: C.textDim, marginTop: 2 }}>
-                        NOVA will detect schedules, extract notes, and generate a rough order of magnitude estimate.
+                        ARTIFACT will detect schedules, extract notes, and generate a rough order of magnitude estimate.
                       </div>
                     </div>
                     <button
@@ -1729,7 +1732,7 @@ export default function PlanRoomPage() {
               </div>
             </div>
 
-            {/* ─── NOVA ROM Card ─── */}
+            {/* ─── ARTIFACT ROM Card ─── */}
             {scanResults && (
               <div
                 style={{
@@ -1752,7 +1755,7 @@ export default function PlanRoomPage() {
                     <span
                       style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.bold, color: C.purple || C.accent }}
                     >
-                      NOVA ROM
+                      ARTIFACT ROM
                     </span>
                   </div>
                   {scanResults.rom?.sfEstimated && (
@@ -2456,13 +2459,13 @@ export default function PlanRoomPage() {
               <BuildingParametersSection />
             </div>
 
-            {/* ─── NOVA Activity Log ─── */}
+            {/* ─── ARTIFACT Activity Log ─── */}
             {novaHistory.length > 0 && (
               <div style={{ ...card(C), padding: T.space[5], gridColumn: "1 / -1" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: T.space[2], marginBottom: T.space[3] }}>
                   <Ic d={I.ai} size={16} color={C.textMuted} />
                   <span style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.bold, color: C.textMuted }}>
-                    NOVA Activity Log
+                    ARTIFACT Activity Log
                   </span>
                 </div>
                 <div style={{ maxHeight: 160, overflowY: "auto" }}>
@@ -2566,7 +2569,7 @@ export default function PlanRoomPage() {
                     gap: 6,
                   }}
                 >
-                  <Ic d={I.ai} size={14} color={C.purple || C.accent} /> NOVA Scan Complete
+                  <Ic d={I.ai} size={14} color={C.purple || C.accent} /> ARTIFACT Scan Complete
                 </div>
                 <div style={{ fontSize: 10, color: C.textDim }}>
                   {scanResults.schedules?.length || 0} schedule{scanResults.schedules?.length !== 1 ? "s" : ""}
@@ -2578,6 +2581,36 @@ export default function PlanRoomPage() {
                 </div>
               </div>
               <div style={{ display: "flex", gap: 6 }}>
+                {/* Compare Revisions — only show if there are versioned drawings */}
+                {drawings.some(d => d.supersedes || d.supersededBy) && (
+                  <button
+                    onClick={() => {
+                      // Find first version pair
+                      const versioned = drawings.find(d => d.supersedes);
+                      if (versioned) {
+                        const oldDraw = drawings.find(d => d.id === versioned.supersedes);
+                        if (oldDraw) {
+                          setShowOverlay({ drawingA: oldDraw, drawingB: versioned });
+                          return;
+                        }
+                      }
+                      // Fallback: show first two drawings
+                      if (drawings.length >= 2) {
+                        setShowOverlay({ drawingA: drawings[0], drawingB: drawings[1] });
+                      }
+                    }}
+                    style={bt(C, {
+                      background: "transparent",
+                      border: `1px solid ${C.accent}40`,
+                      color: C.accent,
+                      padding: "6px 12px",
+                      fontSize: 10,
+                      fontWeight: 600,
+                    })}
+                  >
+                    <Ic d={I.layers || I.compare} size={10} color={C.accent} /> Compare
+                  </button>
+                )}
                 <button
                   onClick={() => setShowScanModal(true)}
                   style={bt(C, {
@@ -2620,6 +2653,19 @@ export default function PlanRoomPage() {
             showToast("Scan results saved");
           }}
         />
+      )}
+
+      {/* Drawing Revision Overlay */}
+      {showOverlay && (
+        <Modal extraWide onClose={() => setShowOverlay(null)}>
+          <div style={{ height: 600 }}>
+            <DrawingOverlay
+              drawingA={showOverlay.drawingA}
+              drawingB={showOverlay.drawingB}
+              onClose={() => setShowOverlay(null)}
+            />
+          </div>
+        </Modal>
       )}
     </div>
   );
@@ -2959,7 +3005,7 @@ function buildProjectNarrative(project, drawings, specs, activeLoc) {
     const docParts = [];
     if (drawings.length > 0) docParts.push(`${drawings.length} drawing${drawings.length > 1 ? "s" : ""}`);
     if (specs.length > 0) docParts.push(`${specs.length} specification section${specs.length > 1 ? "s" : ""}`);
-    parts.push("NOVA has analyzed " + docParts.join(" and ") + " for this project.");
+    parts.push("ARTIFACT has analyzed " + docParts.join(" and ") + " for this project.");
   }
 
   return parts.join(" ");

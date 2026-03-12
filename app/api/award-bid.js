@@ -198,7 +198,7 @@ function awardEmailHtml(gcCompany, packageName, subCompany) {
         We'll be in touch shortly with next steps regarding contract and scheduling.
       </p>
     </div>
-    <p style="color:#48484A;font-size:11px;text-align:center;margin-top:20px;">Sent via NOVA Estimating</p>
+    <p style="color:#48484A;font-size:11px;text-align:center;margin-top:20px;">Sent via NOVA</p>
   </div>
 </body></html>`;
 }
@@ -224,7 +224,7 @@ function regretEmailHtml(gcCompany, packageName, subCompany, feedback) {
         We value the relationship and look forward to future opportunities to work together.
       </p>
     </div>
-    <p style="color:#48484A;font-size:11px;text-align:center;margin-top:20px;">Sent via NOVA Estimating</p>
+    <p style="color:#48484A;font-size:11px;text-align:center;margin-top:20px;">Sent via NOVA</p>
   </div>
 </body></html>`;
 }

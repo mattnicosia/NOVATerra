@@ -5,8 +5,8 @@ export const BT_BRAND = {
   name: "BLDG Talent",
   tagline: "Verified Estimator Intelligence",
   poweredBy: "Powered by NOVA",
-  parent: "BLDG",
-  novaTerraName: "NOVATerra",
+  parent: "NOVA",
+  novaTerraName: "NOVA",
   novaTerraUrl: "https://app-nova-42373ca7.vercel.app",
   novaTerraTagline: "Construction Intelligence",
 };

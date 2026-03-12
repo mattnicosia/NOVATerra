@@ -292,7 +292,7 @@ function FooterLinks({ T, mode }) {
         </Link>
       )}
       <Link to="/" style={linkStyle(T)}>
-        Looking for <span style={{ color: BT_COLORS.primary }}>NOVATerra</span>?
+        Looking for <span style={{ color: BT_COLORS.primary }}>NOVA</span>?
       </Link>
     </div>
   );

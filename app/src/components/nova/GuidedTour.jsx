@@ -8,7 +8,7 @@ import useNovaVoice from "./useNovaVoice";
 import { VOICE_PRESETS } from "./voicePresets";
 import { getScript } from "@/utils/novaScriptOverrides";
 import { useNovaStore } from "@/stores/novaStore";
-import NovaSceneLazy from "@/components/nova/NovaSceneLazy";
+
 
 // ── Timer safety helpers (shared pattern from OnboardingSequence) ──
 function useTimerManager() {

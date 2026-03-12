@@ -747,7 +747,7 @@ export default function PortalPage() {
           >
             View all your bids &rarr;
           </a>
-          <div style={{ color: C.textDim, fontSize: 12 }}>Powered by NOVA Estimating</div>
+          <div style={{ color: C.textDim, fontSize: 12 }}>Powered by NOVA</div>
         </div>
       </div>
       <SpinStyle />
@@ -760,8 +760,7 @@ export default function PortalPage() {
 function LogoHeader() {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
-      <img src="/novaterra-nt.png" alt="NT" style={{ height: 32, width: 32, objectFit: "contain" }} />
-      <img src="/novaterra-wordmark.png" alt="NOVATerra" style={{ height: 20, objectFit: "contain" }} />
+      <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: "0.04em", color: "#E5E5EA" }}>NOVA</div>
     </div>
   );
 }

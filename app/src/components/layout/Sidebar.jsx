@@ -1,5 +1,5 @@
-import { memo } from "react";
-import { NavLink } from "react-router-dom";
+import { memo, useEffect } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useUiStore } from "@/stores/uiStore";
 import { useInboxStore } from "@/stores/inboxStore";
@@ -12,11 +12,12 @@ import Ic from "@/components/shared/Ic";
 import NovaTerraLogo from "@/components/shared/NovaTerraLogo";
 import { I } from "@/constants/icons";
 import { retryCloudSync } from "@/hooks/useCloudSync";
+import { useResponsive } from "@/hooks/useResponsive";
 
 const globalNav = [
   { key: "dashboard", path: "/", icon: I.dashboard, label: "Dashboard" },
   { key: "inbox", path: "/inbox", icon: I.inbox, label: "Inbox" },
-  { key: "core", path: "/core", icon: I.database, label: "NOVA Core" },
+  { key: "core", path: "/core", icon: I.database, label: "ARTIFACT Core" },
   { key: "intelligence", path: "/intelligence", icon: I.intelligence, label: "Intelligence" },
   { key: "contacts", path: "/contacts", icon: I.user, label: "People" },
   { key: "settings", path: "/settings", icon: I.settings, label: "Settings" },
@@ -28,6 +29,7 @@ function Sidebar() {
   const T = C.T;
   const open = useUiStore(s => s.sidebarOpen);
   const toggle = useUiStore(s => s.toggleSidebar);
+  const setSidebarOpen = useUiStore(s => s.setSidebarOpen);
   const inboxCount = useInboxStore(s => s.unreadCount);
   const user = useAuthStore(s => s.user);
   const signOut = useAuthStore(s => s.signOut);
@@ -36,7 +38,26 @@ function Sidebar() {
   // Hooks must be at top level — not inside conditionals or IIFEs
   const syncStatus = useUiStore(s => s.cloudSyncStatus);
   const syncLastAt = useUiStore(s => s.cloudSyncLastAt);
+  const { isTablet } = useResponsive();
+  const location = useLocation();
+
+  // Auto-collapse sidebar on tablet
+  useEffect(() => {
+    if (isTablet && open && setSidebarOpen) {
+      setSidebarOpen(false);
+    }
+  }, [isTablet]);
+
+  // Auto-close sidebar overlay on navigation (tablet)
+  useEffect(() => {
+    if (isTablet && open && setSidebarOpen) {
+      setSidebarOpen(false);
+    }
+  }, [location.pathname]);
+
   const w = open ? T.sidebar.expanded : T.sidebar.collapsed;
+  // On tablet: collapsed sidebar = 0 width (hidden), expanded = overlay
+  const tabletW = open ? T.sidebar.expanded : 0;
 
   const linkStyle = isActive => ({
     display: "flex",
@@ -92,12 +113,28 @@ function Sidebar() {
             : "Cloud sync";
   const isClickable = syncStatus === "error" || syncStatus === "partial";
 
+  const effectiveW = isTablet ? tabletW : w;
+
   return (
+    <>
+      {/* Tablet overlay backdrop — shown when sidebar is open on tablet */}
+      {isTablet && open && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.4)",
+            zIndex: T.z.overlay - 1,
+            transition: "opacity 200ms ease-out",
+          }}
+        />
+      )}
     <div
       data-tour="projects"
       style={{
-        width: w,
-        minWidth: w,
+        width: isTablet ? T.sidebar.expanded : w,
+        minWidth: isTablet ? T.sidebar.expanded : w,
         height: "100vh",
         background: C.neroMode ? `${C.carbonTexture || ""}, ${P.bg}`.replace(/^, /, "") : P.bg,
         borderRight: "none",
@@ -108,6 +145,16 @@ function Sidebar() {
         flexDirection: "column",
         transition: T.transition.slow,
         overflow: "hidden",
+        // Tablet: overlay mode — slide from left, positioned fixed
+        ...(isTablet
+          ? {
+              position: "fixed",
+              left: 0,
+              top: 0,
+              zIndex: T.z.overlay,
+              transform: open ? "translateX(0)" : "translateX(-100%)",
+            }
+          : {}),
       }}
     >
       {/* Logo + collapse toggle */}
@@ -129,7 +176,7 @@ function Sidebar() {
           }}
           onClick={!open ? toggle : undefined}
         >
-          <NovaTerraLogo size={open ? 68 : 40} />
+          <NovaTerraLogo size={open ? 51 : 30} />
         </div>
         {open && (
           <button
@@ -346,6 +393,7 @@ function Sidebar() {
         </div>
       )}
     </div>
+    </>
   );
 }
 

@@ -36,6 +36,7 @@ import LevelingView from "@/components/estimate/LevelingView";
 import GroupBar from "@/components/shared/GroupBar";
 import NovaOrb from "@/components/dashboard/NovaOrb";
 import TakeoffNOVAPanel from "@/components/takeoffs/TakeoffNOVAPanel";
+import CollaborationBar from "@/components/estimate/CollaborationBar";
 
 // ── Memoized item row — prevents re-rendering all 200+ rows on each keystroke ──
 const EstimateItemRow = memo(
@@ -476,8 +477,7 @@ export default function EstimatePage() {
   const getTotal = useCallback(item => useItemsStore.getState().getItemTotal(item), []);
   const getItemComputedQty = useCallback(item => {
     if (!item.formula || !item.formula.trim()) return nn(item.quantity);
-    const varArr = (item.variables || []).filter(v => v.key).map(v => ({ name: v.key, value: nn(v.value) }));
-    return evalFormula(item.formula, varArr, nn(item.quantity));
+    return evalFormula(item.formula, (item.variables || []).filter(v => v.key), nn(item.quantity));
   }, []);
 
   // Filter items — include sub-group items when parent group is selected
@@ -699,6 +699,9 @@ export default function EstimatePage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", animation: "fadeIn 0.15s ease-out" }}>
+      {/* Collaboration Bar */}
+      <CollaborationBar />
+
       {/* Zone 1: KPI Strip */}
       <EstimateKPIStrip />
 

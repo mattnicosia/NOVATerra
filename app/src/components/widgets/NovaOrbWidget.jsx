@@ -1,43 +1,24 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useUiStore } from "@/stores/uiStore";
-import { useDashboardData } from "@/hooks/useDashboardData";
-import NovaSceneLazy from "@/components/nova/NovaSceneLazy";
 
 /* ────────────────────────────────────────────────────────
-   NovaOrbWidget — orb + "Ask Nova" input
+   NovaOrbWidget — video orb + "Ask Nova" input
    ──────────────────────────────────────────────────────── */
-
-const nn = v => (typeof v === "number" && !isNaN(v) ? v : 0);
 
 export default function NovaOrbWidget() {
   const C = useTheme();
   const T = C.T;
   const dk = C.isDark;
   const ov = a => (dk ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`);
-  const orbRef = useRef(null);
   const setAiChatOpen = useUiStore(s => s.setAiChatOpen);
-  const { activeProject } = useDashboardData();
 
   const [askValue, setAskValue] = useState("");
   const [askFocused, setAskFocused] = useState(false);
 
-  const value = activeProject ? nn(activeProject.value) : 0;
-
-  useEffect(() => {
-    if (orbRef.current?.setValueTarget && value > 0) {
-      orbRef.current.setValueTarget(value);
-    }
-  }, [value]);
-
-  function handleOrbClick() {
-    orbRef.current?.exhale();
-  }
-
   function handleAskSubmit(e) {
     e.preventDefault();
     if (!askValue.trim()) return;
-    orbRef.current?.pulse();
     setAiChatOpen(true);
     setAskValue("");
   }
@@ -53,16 +34,34 @@ export default function NovaOrbWidget() {
         gap: 10,
       }}
     >
-      <NovaSceneLazy
-        ref={orbRef}
-        width={100}
-        height={100}
-        size={0.85}
-        intensity={0.7}
-        artifact
-        awaken={0.8}
-        onClick={handleOrbClick}
-      />
+      <div
+        style={{
+          width: 100,
+          height: 100,
+          borderRadius: "50%",
+          overflow: "hidden",
+          flexShrink: 0,
+          cursor: "pointer",
+        }}
+        onClick={() => setAiChatOpen(true)}
+      >
+        <video
+          src="/nova-orb.mp4"
+          poster="/nova-orb-poster.png"
+          autoPlay
+          loop
+          muted
+          playsInline
+          style={{
+            width: "140%",
+            height: "140%",
+            objectFit: "cover",
+            display: "block",
+            marginLeft: "-20%",
+            marginTop: "-20%",
+          }}
+        />
+      </div>
 
       <div style={{ textAlign: "center" }}>
         <div
@@ -88,8 +87,8 @@ export default function NovaOrbWidget() {
               width: 240,
               border: `1px solid ${askFocused ? `${C.accent}66` : C.border}`,
               background: askFocused ? `${C.accent}0D` : ov(0.025),
-              backdropFilter: "blur(20px)",
-              WebkitBackdropFilter: "blur(20px)",
+              backdropFilter: C.noGlass ? "none" : "blur(20px)",
+              WebkitBackdropFilter: C.noGlass ? "none" : "blur(20px)",
               boxShadow: askFocused ? `0 0 20px ${C.accent}26, 0 0 40px ${C.accent}0F` : "none",
               transition: "border-color 0.3s, background 0.3s, box-shadow 0.3s",
             }}

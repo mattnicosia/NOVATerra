@@ -62,17 +62,16 @@ const MARKET_DATA = {
   },
 };
 
-const BADGE_STYLES = {
-  up: { color: '#34D399', bg: 'rgba(52,211,153,0.1)', border: 'rgba(52,211,153,0.2)' },
-  down: { color: '#FB7185', bg: 'rgba(251,113,133,0.1)', border: 'rgba(251,113,133,0.2)' },
-};
-
 export default function MarketIntelWidget() {
   const C = useTheme();
   const T = C.T;
   const font = T.font.display;
   const isDk = C.isDark;
   const ov = (a) => isDk ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  const BADGE_STYLES = {
+    up: { color: C.green, bg: `${C.green}1A`, border: `${C.green}33` },
+    down: { color: C.red, bg: `${C.red}1A`, border: `${C.red}33` },
+  };
 
   const [activeTab, setActiveTab] = useState('Materials');
   const [activePeriod, setActivePeriod] = useState('QoQ');
@@ -84,13 +83,15 @@ export default function MarketIntelWidget() {
     textTransform: 'uppercase', color: C.textDim, fontFamily: font, margin: 0,
   };
 
-  const glassCardStyle = {
-    background: C.glassBg, borderRadius: 10, position: 'relative',
-    boxShadow: isDk
-      ? `0 2px 12px rgba(0,0,0,0.3), 0 1px 0 ${C.glassBorder} inset`
-      : `0 2px 8px rgba(0,0,0,0.06), 0 1px 0 ${C.glassBorder} inset`,
-    border: `1px solid ${C.glassBorder}`,
-  };
+  const glassCardStyle = C.noGlass
+    ? { background: C.bg2, borderRadius: 10, position: 'relative', border: `1px solid ${C.border}`, boxShadow: 'none' }
+    : {
+        background: C.glassBg, borderRadius: 10, position: 'relative',
+        boxShadow: isDk
+          ? `0 2px 12px rgba(0,0,0,0.3), 0 1px 0 ${C.glassBorder} inset`
+          : `0 2px 8px rgba(0,0,0,0.06), 0 1px 0 ${C.glassBorder} inset`,
+        border: `1px solid ${C.glassBorder}`,
+      };
 
   return (
     <div style={{ fontFamily: font, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>

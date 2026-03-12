@@ -74,8 +74,8 @@ function ProjectMenu({ x, y, onOpen, onDelete, onClose }) {
         padding: "4px 0",
         minWidth: 120,
         boxShadow: "0 8px 32px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.3)",
-        backdropFilter: "blur(20px)",
-        WebkitBackdropFilter: "blur(20px)",
+        backdropFilter: C.noGlass ? "none" : "blur(20px)",
+        WebkitBackdropFilter: C.noGlass ? "none" : "blur(20px)",
       }}
     >
       {[
@@ -136,7 +136,7 @@ function ConfirmDelete({ name, onConfirm, onCancel }) {
         alignItems: "center",
         justifyContent: "center",
         background: "rgba(0,0,0,0.5)",
-        backdropFilter: "blur(4px)",
+        backdropFilter: C.noGlass ? "none" : "blur(4px)",
       }}
     >
       <div

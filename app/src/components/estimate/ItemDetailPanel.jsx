@@ -5,7 +5,7 @@ import { useProjectStore } from "@/stores/projectStore";
 import { useDatabaseStore } from "@/stores/databaseStore";
 import { useUiStore } from "@/stores/uiStore";
 import { useSpecsStore } from "@/stores/specsStore";
-import { UNITS } from "@/constants/units";
+import { UNITS, BASE_UNITS, CONVERSIONS } from "@/constants/units";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { inp, nInp, bt } from "@/utils/styles";
@@ -154,7 +154,7 @@ export default function ItemDetailPanel({ itemId, onClose, onNavigate, panelWidt
   const computedQty = item.formula?.trim()
     ? evalFormula(
         item.formula,
-        (item.variables || []).filter(v => v.key).map(v => ({ name: v.key, value: nn(v.value) })),
+        (item.variables || []).filter(v => v.key),
         nn(item.quantity),
       )
     : nn(item.quantity);
@@ -368,7 +368,7 @@ export default function ItemDetailPanel({ itemId, onClose, onNavigate, panelWidt
         </div>
       </div>
 
-      {/* Quantity section */}
+      {/* Quantity + Unit section */}
       <div style={{ padding: `${T.space[3]}px ${T.space[4]}px`, borderBottom: `1px solid ${C.border}30` }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span
@@ -389,21 +389,104 @@ export default function ItemDetailPanel({ itemId, onClose, onNavigate, panelWidt
             placeholder="0"
             style={nInp(C, { flex: 1, padding: "5px 8px", fontSize: T.fontSize.base })}
           />
-          <select
-            value={item.unit}
-            onChange={e => updateItem(item.id, "unit", e.target.value)}
-            style={inp(C, { width: 70, padding: "5px 8px", fontSize: T.fontSize.sm })}
-          >
-            {UNITS.map(u => (
-              <option key={u} value={u}>
-                {u}
-              </option>
-            ))}
-          </select>
         </div>
+
+        {/* Base unit chips */}
+        <div style={{ display: "flex", gap: 6, marginTop: 8, paddingLeft: 78 }}>
+          {BASE_UNITS.map(u => {
+            const isBase = item.unit === u && !item._conversionKey;
+            const isConvFrom = CONVERSIONS[u]?.some(c => c.label === item._conversionKey);
+            const active = isBase || isConvFrom;
+            return (
+              <button
+                key={u}
+                onClick={() => {
+                  if (isBase) return;
+                  batchUpdateItem(item.id, { unit: u, formula: "", variables: [], _conversionKey: "" });
+                }}
+                style={{
+                  padding: "4px 12px",
+                  fontSize: T.fontSize.sm,
+                  fontWeight: 700,
+                  fontFamily: T.font.sans,
+                  border: `1.5px solid ${active ? C.accent : C.border}`,
+                  background: active ? `${C.accent}15` : "transparent",
+                  color: active ? C.accent : C.textDim,
+                  borderRadius: 6,
+                  cursor: isBase ? "default" : "pointer",
+                  transition: "all 0.12s",
+                }}
+              >
+                {u}
+              </button>
+            );
+          })}
+          {/* Fallback for non-base units (shows current unit if not EA/SF/LF and no conversion active) */}
+          {!BASE_UNITS.includes(item.unit) && !item._conversionKey && (
+            <select
+              value={item.unit}
+              onChange={e => batchUpdateItem(item.id, { unit: e.target.value, formula: "", variables: [], _conversionKey: "" })}
+              style={inp(C, { padding: "4px 8px", fontSize: T.fontSize.sm, borderRadius: 6 })}
+            >
+              {UNITS.filter(u => !BASE_UNITS.includes(u)).map(u => (
+                <option key={u} value={u}>{u}</option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        {/* Conversion chips — only show for LF and SF */}
+        {(() => {
+          const baseUnit = item._conversionKey
+            ? Object.keys(CONVERSIONS).find(k => CONVERSIONS[k].some(c => c.label === item._conversionKey))
+            : BASE_UNITS.includes(item.unit) ? item.unit : null;
+          const convs = baseUnit ? CONVERSIONS[baseUnit] : null;
+          if (!convs || convs.length === 0) return null;
+          return (
+            <div style={{ display: "flex", gap: 6, marginTop: 6, paddingLeft: 78 }}>
+              {convs.map(c => {
+                const active = item._conversionKey === c.label;
+                return (
+                  <button
+                    key={c.label}
+                    onClick={() => {
+                      if (active) {
+                        // Deselect — revert to base unit, clear formula
+                        batchUpdateItem(item.id, { unit: baseUnit, formula: "", variables: [], _conversionKey: "" });
+                      } else {
+                        // Apply conversion
+                        batchUpdateItem(item.id, {
+                          unit: c.target,
+                          formula: c.formula,
+                          variables: c.vars.map(v => ({ ...v })),
+                          _conversionKey: c.label,
+                        });
+                      }
+                    }}
+                    style={{
+                      padding: "3px 10px",
+                      fontSize: 11,
+                      fontWeight: 600,
+                      fontFamily: T.font.sans,
+                      border: `1px solid ${active ? C.cyan || C.accent : C.border}40`,
+                      background: active ? `${(C.cyan || C.accent)}12` : `${C.text}04`,
+                      color: active ? (C.cyan || C.accent) : C.textMuted,
+                      borderRadius: 5,
+                      cursor: "pointer",
+                      transition: "all 0.12s",
+                    }}
+                  >
+                    {c.label}
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })()}
+
         {item.formula && item.formula.trim() && (
-          <div style={{ marginTop: 4, paddingLeft: 78, fontSize: T.fontSize.xs, color: C.accent }}>
-            ={Math.round(computedQty * 100) / 100} (formula)
+          <div style={{ marginTop: 6, paddingLeft: 78, fontSize: T.fontSize.xs, color: C.accent, fontWeight: 600 }}>
+            = {Math.round(computedQty * 100) / 100} {item.unit}
           </div>
         )}
       </div>

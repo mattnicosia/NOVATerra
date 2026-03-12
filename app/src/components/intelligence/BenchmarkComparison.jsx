@@ -79,7 +79,7 @@ export default function BenchmarkComparison() {
             border: `1px solid ${confColor}30`,
           }}
         >
-          NOVA Confidence: {confidence} ({recordCount} records)
+          ARTIFACT Confidence: {confidence} ({recordCount} records)
         </div>
       </div>
 
@@ -111,7 +111,7 @@ export default function BenchmarkComparison() {
         {/* NOVA benchmark */}
         <div style={{ marginBottom: 14 }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-            <span style={{ fontSize: 10, fontWeight: 600, color: C.accent }}>NOVA Benchmark</span>
+            <span style={{ fontSize: 10, fontWeight: 600, color: C.accent }}>ARTIFACT Benchmark</span>
             <span style={{ fontSize: 10, fontWeight: 700, color: C.text, fontFamily: T.font.sans }}>
               ${industry.low} — ${industry.mid} — ${industry.high}/SF
             </span>
@@ -159,7 +159,7 @@ export default function BenchmarkComparison() {
               marginBottom: 8,
             }}
           >
-            NOVA Calibration — {BUILDING_TYPES.find(b => b.key === selectedType)?.label}
+            ARTIFACT Calibration — {BUILDING_TYPES.find(b => b.key === selectedType)?.label}
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
             {Object.entries(calibrationFactors)

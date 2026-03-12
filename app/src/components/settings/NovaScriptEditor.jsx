@@ -35,7 +35,7 @@ const SECTION_LABELS = {
 };
 
 const AUDIO_SLOTS = [
-  { key: "drone", label: "Background Drone", desc: "Ambient loop during NOVA sequences" },
+  { key: "drone", label: "Background Drone", desc: "Ambient loop during ARTIFACT sequences" },
   { key: "textPing", label: "Text Ping", desc: "Short sound on each text reveal" },
   { key: "activation", label: "Activation Chord", desc: "Rising chord at activation moments" },
 ];
@@ -635,10 +635,10 @@ export default function NovaScriptEditor() {
   };
 
   return (
-    <Sec title="NOVA Script Editor">
+    <Sec title="ARTIFACT Script Editor">
       {/* ── Description ── */}
       <div style={{ fontSize: 12, color: C.textDim, marginBottom: 12, lineHeight: 1.5 }}>
-        Edit what NOVA says, how long pauses last, and which voice/orb state to use. Changes save automatically and take
+        Edit what ARTIFACT says, how long pauses last, and which voice/orb state to use. Changes save automatically and take
         effect on next replay.
       </div>
 

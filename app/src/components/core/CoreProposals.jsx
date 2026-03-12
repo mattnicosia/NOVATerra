@@ -23,7 +23,7 @@ export default function CoreProposals() {
           <path d="M12 2l2.09 6.26L20 10l-4.69 3.98L16.91 20 12 16.27 7.09 20l1.6-6.02L4 10l5.91-1.74L12 2z"/>
         </svg>
         <span style={{ fontSize: 11.5, color: C.textMuted, lineHeight: 1.4 }}>
-          Upload proposals and historical bids to train NOVA's cost intelligence. Every proposal makes NOVA smarter at ROM estimates and pricing.
+          Upload proposals and historical bids to train ARTIFACT's cost intelligence. Every proposal makes ARTIFACT smarter at ROM estimates and pricing.
         </span>
       </div>
 

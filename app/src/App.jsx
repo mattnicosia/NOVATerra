@@ -8,6 +8,7 @@ import { useCloudSync } from "@/hooks/useCloudSync";
 import { useEmbeddingSync } from "@/hooks/useEmbeddingSync";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useAutoSnapshot } from "@/hooks/useAutoSnapshot";
+import * as nova from "@/utils/novaLogger";
 import useAutoResponseTimers from "@/hooks/useAutoResponseTimers";
 import { useActivityTracker } from "@/hooks/useActivityTracker";
 import { useAutoDiscovery } from "@/hooks/useAutoDiscovery";
@@ -47,6 +48,7 @@ const OnboardingSequence = lazy(() => import("@/components/nova/OnboardingSequen
 const NovaSignInSplash = lazy(() => import("@/components/nova/NovaSignInSplash"));
 const GuidedTour = lazy(() => import("@/components/nova/GuidedTour"));
 const ProgressiveSetup = lazy(() => import("@/components/nova/ProgressiveSetup"));
+const FeedbackWidget = lazy(() => import("@/components/beta/FeedbackWidget"));
 
 // ── Lazy-loaded pages — each becomes its own chunk, loaded on navigation ──
 const DashboardPage = lazy(() => import("@/pages/NovaDashboardPage"));
@@ -117,19 +119,37 @@ function EstimateLoader({ children }) {
   // Auto-snapshot: track estimate changes over time
   useAutoSnapshot(activeId);
 
+  const cloudSyncInProgress = useUiStore(s => s.cloudSyncInProgress);
+
   useEffect(() => {
     if (!persistenceLoaded || !id || activeId === id) return;
+    // If cloud sync is still running, wait — estimate data blobs may not be in IDB yet
+    if (cloudSyncInProgress) { setLoading(true); return; }
     setLoading(true);
     setLoadFailed(false);
-    loadEstimate(id).then(ok => {
-      setLoading(false);
+    nova.estimate.info(`Loading estimate ${id}`, { activeId, cloudSyncInProgress });
+    loadEstimate(id).then(async ok => {
       if (!ok) {
-        console.warn(`[EstimateLoader] Estimate ${id} not found — redirecting to dashboard`);
-        useUiStore.getState().showToast("Estimate not found — returning to dashboard", "error");
+        // Retry once after a short delay — cloud sync may still be settling
+        for (let attempt = 2; attempt <= 2; attempt++) {
+          nova.estimate.warn(`Attempt ${attempt-1} failed for ${id} — retrying...`, { estimateId: id, attempt });
+          await new Promise(r => setTimeout(r, 2000));
+          const retryOk = await loadEstimate(id);
+          if (retryOk) { setLoading(false); return; }
+        }
+        // All retries failed — orphaned index entry (metadata without data)
+        nova.orphan.error(`Estimate ${id} is orphaned — removing from index`, { estimateId: id });
+        useEstimatesStore.setState(state => ({
+          estimatesIndex: state.estimatesIndex.filter(e => e.id !== id),
+        }));
+        useUiStore.getState().showToast("Estimate data was lost — removed from list", "error");
         setLoadFailed(true);
+        setLoading(false);
+        return;
       }
+      setLoading(false);
     });
-  }, [id, activeId, persistenceLoaded]);
+  }, [id, activeId, persistenceLoaded, cloudSyncInProgress]);
 
   // Safety timeout: if stuck loading for >15s, bail to dashboard
   useEffect(() => {
@@ -137,7 +157,7 @@ function EstimateLoader({ children }) {
     const timer = setTimeout(() => {
       const stillStuck = !useEstimatesStore.getState().activeEstimateId && id;
       if (stillStuck) {
-        console.warn(`[EstimateLoader] Timed out loading estimate ${id}`);
+        nova.estimate.error(`Timed out loading estimate ${id}`, { estimateId: id, timeoutMs: 15000 });
         useUiStore.getState().showToast("Estimate load timed out — returning to dashboard", "error");
         setLoadFailed(true);
         setLoading(false);
@@ -155,7 +175,14 @@ function EstimateLoader({ children }) {
     collab.subscribeLockChanges(activeId);
     collab.subscribePresence(activeId);
 
+    // Release lock on tab close/refresh (best-effort via sendBeacon)
+    const handleUnload = () => {
+      collab.cleanup();
+    };
+    window.addEventListener("beforeunload", handleUnload);
+
     return () => {
+      window.removeEventListener("beforeunload", handleUnload);
       collab.cleanup();
     };
   }, [orgId, activeId]);
@@ -519,6 +546,7 @@ function FloatingThemePicker() {
     "clarity",
     "clean-light",
     "nero",
+    "shift5",
     ...CAR_PALETTE_IDS,
     ...LIGHT_PALETTE_IDS,
     ...ARTIFACT_PALETTE_IDS,
@@ -766,6 +794,7 @@ function ThemeCycleButton({ C }) {
     "clarity",
     "clean-light",
     "nero",
+    "shift5",
     ...CAR_PALETTE_IDS,
     ...LIGHT_PALETTE_IDS,
     ...ARTIFACT_PALETTE_IDS,
@@ -960,6 +989,7 @@ function AppContent() {
   useActivityTracker();
   useAutoDiscovery();
 
+  const persistenceLoaded = useUiStore(s => s.persistenceLoaded);
   const [showDraftPanel, setShowDraftPanel] = useState(false);
   const cmdPaletteOpen = useCommandPaletteStore(s => s.open);
   const aiChatOpen = useUiStore(s => s.aiChatOpen);
@@ -982,7 +1012,7 @@ function AppContent() {
     document.documentElement.classList.toggle("theme-light", !C.isDark);
     document.documentElement.classList.toggle("theme-dark", C.isDark);
     document.documentElement.classList.toggle("density-compact", density === "compact");
-    document.title = "NOVATerra";
+    document.title = "NOVA";
   }, [C.bg, C.text, C.isDark, C.noGlass, C.accent, selectedPalette, density]);
 
   return (
@@ -995,6 +1025,8 @@ function AppContent() {
         overflow: "hidden",
         background: C.bgTexture ? `${C.bgTexture}, ${C.bgGradient || C.bg}` : C.bgGradient || C.bg,
         position: "relative",
+        opacity: persistenceLoaded ? 1 : 0,
+        transition: "opacity 0.15s ease-in",
       }}
     >
       {/* Noise grain texture overlay — subtle film grain across all themes */}
@@ -1052,6 +1084,9 @@ function AppContent() {
         )}
         <ProjectTabBar />
         <FloatingThemePicker />
+        <Suspense fallback={null}>
+          <FeedbackWidget />
+        </Suspense>
         <div
           className="app-viewport"
           style={{ flex: 1, position: "relative", overflow: isDashboard ? "hidden" : "auto", scrollBehavior: "smooth" }}
@@ -1344,8 +1379,8 @@ function MobileGuard() {
           lineHeight: 1.6,
         }}
       >
-        NOVATerra is a professional estimating platform built for desktop workflows. Please open this app on a screen at
-        least 1024px wide for the best experience.
+        NOVA is a professional estimating platform built for desktop and tablet workflows. Please open this app on a
+        screen at least 700px wide for the best experience.
       </p>
       <p
         style={{
@@ -1354,7 +1389,7 @@ function MobileGuard() {
           marginTop: 24,
         }}
       >
-        Mobile support is coming soon.
+        Works best on iPad or desktop.
       </p>
     </div>
   );
@@ -1436,8 +1471,8 @@ export default function App() {
   // Show loading spinner while checking session
   if (loading) return <AuthLoading />;
 
-  // ── Mobile guard — NOVATerra requires a desktop viewport ──
-  if (typeof window !== "undefined" && window.innerWidth < 1024) {
+  // ── Mobile guard — NOVATerra requires tablet or larger (700px+) ──
+  if (typeof window !== "undefined" && window.innerWidth < 700) {
     return (
       <ThemeProvider>
         <MobileGuard />

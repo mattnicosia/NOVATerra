@@ -44,11 +44,11 @@ export function buildNovaEmailHtml({ heading, body, ctaUrl, ctaLabel, footerNote
     <div style="background:linear-gradient(135deg,rgba(124,92,252,0.15),rgba(191,90,242,0.08));border:1px solid rgba(124,92,252,0.25);border-radius:16px;padding:32px;margin-bottom:24px;">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
         <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#7C5CFC,#BF5AF2);display:flex;align-items:center;justify-content:center;">
-          <span style="color:white;font-weight:bold;font-size:16px;">N</span>
+          <span style="color:white;font-weight:bold;font-size:16px;">A</span>
         </div>
         <div>
-          <div style="color:#FFFFFF;font-weight:600;font-size:16px;">NOVA Estimating</div>
-          <div style="color:#8E8E93;font-size:12px;">Powered by NOVA</div>
+          <div style="color:#FFFFFF;font-weight:600;font-size:16px;">NOVA</div>
+          <div style="color:#8E8E93;font-size:12px;">Construction Intelligence</div>
         </div>
       </div>
 

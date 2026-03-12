@@ -144,9 +144,9 @@ export default function DashboardRightPanel() {
     display: 'flex',
     flexDirection: 'column',
     padding: '20px 16px 16px',
-    background: `linear-gradient(225deg, ${C.glassBgDark} 0%, ${C.glassBg} 50%, transparent 100%)`,
-    backdropFilter: 'blur(32px) saturate(1.4)',
-    boxShadow: `inset 1px 0 0 ${C.glassBorder}`,
+    background: C.noGlass ? C.bg1 : `linear-gradient(225deg, ${C.glassBgDark} 0%, ${C.glassBg} 50%, transparent 100%)`,
+    backdropFilter: C.noGlass ? 'none' : 'blur(32px) saturate(1.4)',
+    boxShadow: C.noGlass ? `inset 1px 0 0 ${C.border}` : `inset 1px 0 0 ${C.glassBorder}`,
     animation: 'fadeRight 0.8s cubic-bezier(0.16,1,0.3,1) 0.7s both',
     fontFamily: font,
     boxSizing: 'border-box',
@@ -163,7 +163,12 @@ export default function DashboardRightPanel() {
     margin: 0,
   };
 
-  const glassCardStyle = {
+  const glassCardStyle = C.noGlass ? {
+    background: C.bg2,
+    borderRadius: 10,
+    position: 'relative',
+    border: `1px solid ${C.border}`,
+  } : {
     background: C.glassBg,
     borderRadius: 10,
     position: 'relative',

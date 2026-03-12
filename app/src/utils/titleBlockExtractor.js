@@ -7,6 +7,7 @@
 
 import { callAnthropic, imageBlock } from "./ai";
 import { BUILDING_TYPES } from "@/constants/constructionTypes";
+import { novaPlans } from "@/nova/agents/plans";
 
 // ─── Title Block Extraction Prompt ─────────────────────────────────────
 function buildTitleBlockPrompt(sheetLabel, ocrText = "") {
@@ -79,9 +80,11 @@ export async function extractTitleBlockFields({ imgBase64, ocrText, sheetLabel }
 
   try {
     const prompt = buildTitleBlockPrompt(sheetLabel, ocrText);
+    const { systemPrompt: titleSys } = novaPlans.augmentDetectionPrompt(sheetLabel, ocrText);
 
     const result = await callAnthropic({
       max_tokens: 1500,
+      system: titleSys,
       messages: [
         {
           role: "user",

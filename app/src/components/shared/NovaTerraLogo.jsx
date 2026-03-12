@@ -1,25 +1,19 @@
-// NOVATerra Logo — uses the official transparent PNG wordmark
-// Gradient: magenta → purple → cyan → blue (geometric display font)
+// NOVA Logo — image-based wordmark
 // Usage: <NovaTerraLogo size={24} />
 
 export default function NovaTerraLogo({ size = 24, style }) {
-  // The PNG aspect ratio is roughly 3:1 (1128x376)
   const height = size;
+  // Original image is 1128×376 → aspect ratio ~3:1
   const width = height * 3;
 
   return (
     <img
-      src="/novaterra-wordmark.png"
-      alt="NOVATerra"
+      src="/nova-logo.png"
+      alt="NOVA"
+      width={width}
+      height={height}
+      style={{ display: "block", userSelect: "none", objectFit: "contain", ...style }}
       draggable={false}
-      style={{
-        height,
-        width,
-        objectFit: "contain",
-        display: "block",
-        userSelect: "none",
-        ...style,
-      }}
     />
   );
 }

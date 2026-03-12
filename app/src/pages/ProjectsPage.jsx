@@ -5,7 +5,7 @@ import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useUiStore } from "@/stores/uiStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useOrgStore } from "@/stores/orgStore";
-import { loadEstimate } from "@/hooks/usePersistence";
+import { loadEstimate, recoverFromCloud } from "@/hooks/usePersistence";
 import { supabase } from "@/utils/supabase";
 import Ic from "@/components/shared/Ic";
 import EmptyState from "@/components/shared/EmptyState";
@@ -808,15 +808,51 @@ export default function ProjectsPage() {
                   color={C.accent}
                 />
               ) : (
-                <EmptyState
-                  icon={I.estimate}
-                  title="No projects yet"
-                  subtitle="Create your first estimate to get started."
-                  action={handleNewEstimate}
-                  actionLabel="New Estimate"
-                  actionIcon={I.plus}
-                  color={C.accent}
-                />
+                <>
+                  <EmptyState
+                    icon={I.estimate}
+                    title="No projects yet"
+                    subtitle="Create your first estimate to get started."
+                    action={handleNewEstimate}
+                    actionLabel="New Estimate"
+                    actionIcon={I.plus}
+                    color={C.accent}
+                  />
+                  {supabase && (
+                    <div style={{ textAlign: "center", marginTop: -16 }}>
+                      <button
+                        onClick={async () => {
+                          try {
+                            useUiStore.getState().showToast("Recovering from cloud...", "info");
+                            const result = await recoverFromCloud();
+                            useUiStore.getState().showToast(
+                              `Recovered ${result.recovered} project(s) from cloud`,
+                              "success",
+                            );
+                          } catch (err) {
+                            useUiStore.getState().showToast(
+                              `Recovery failed: ${err.message}`,
+                              "error",
+                            );
+                          }
+                        }}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          fontSize: 11,
+                          color: C.accent,
+                          textDecoration: "underline",
+                          textDecorationColor: `${C.accent}40`,
+                          padding: "8px 16px",
+                          fontFamily: C.T.font.sans,
+                        }}
+                      >
+                        Recover projects from cloud
+                      </button>
+                    </div>
+                  )}
+                </>
               )
             ) : (
               <>

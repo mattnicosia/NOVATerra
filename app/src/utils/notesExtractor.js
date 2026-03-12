@@ -6,6 +6,7 @@
 // This module uses Claude to identify, classify, and extract all of it.
 
 import { callAnthropic, imageBlock } from './ai';
+import { novaPlans } from '@/nova/agents/plans';
 
 // ─── Note Categories ─────────────────────────────────────────────────
 export const NOTE_CATEGORIES = [
@@ -82,9 +83,11 @@ export async function extractDrawingNotes({ imgBase64, ocrText, sheetLabel }) {
 
   try {
     const prompt = buildNotesPrompt(sheetLabel, ocrText);
+    const { systemPrompt: notesSys } = novaPlans.augmentNotesPrompt();
 
     const result = await callAnthropic({
       max_tokens: 4000,
+      system: notesSys,
       messages: [{
         role: 'user',
         content: [
@@ -159,20 +162,143 @@ export function buildNotesContext(allDrawingNotes, maxChars = 6000) {
     return 0;
   });
 
-  // Build compact text block
-  const lines = ['DRAWING NOTES & SPECIFICATIONS:'];
+  // Build grouped text block for better downstream prompt context
+  const tradeGroups = groupNotesByTrade(allDrawingNotes);
+  if (tradeGroups.length === 0) return '';
+
+  const lines = ['DRAWING NOTES & SPECIFICATIONS (grouped by trade):'];
   let charCount = lines[0].length;
 
-  for (const note of relevantNotes) {
-    const csi = note.csiDivisions?.length ? ` [CSI: ${note.csiDivisions.join(',')}]` : '';
-    const line = `- [${note.estimatingRelevance.toUpperCase()}]${csi} ${note.text}`;
+  for (const { group, notes: gNotes } of tradeGroups) {
+    const header = `\n[${group}]`;
+    if (charCount + header.length > maxChars) break;
+    lines.push(header);
+    charCount += header.length;
 
-    if (charCount + line.length + 1 > maxChars) break;
-    lines.push(line);
-    charCount += line.length + 1;
+    for (const note of gNotes) {
+      if (note.estimatingRelevance === 'low') continue;
+      const csi = note.csiDivisions?.length ? ` [CSI: ${note.csiDivisions.join(',')}]` : '';
+      const line = `- [${note.estimatingRelevance.toUpperCase()}]${csi} ${note.text}`;
+      if (charCount + line.length + 1 > maxChars) break;
+      lines.push(line);
+      charCount += line.length + 1;
+    }
   }
 
   return lines.join('\n');
+}
+
+// ─── CSI Trade Groups ─────────────────────────────────────────────────
+// Maps CSI division codes to trade groups for hierarchical clustering.
+const CSI_TRADE_GROUPS = {
+  '01': 'General Requirements',
+  '02': 'Existing Conditions',
+  '03': 'Concrete',
+  '04': 'Masonry',
+  '05': 'Metals',
+  '06': 'Wood / Plastics / Composites',
+  '07': 'Thermal & Moisture Protection',
+  '08': 'Openings',
+  '09': 'Finishes',
+  '10': 'Specialties',
+  '11': 'Equipment',
+  '12': 'Furnishings',
+  '13': 'Special Construction',
+  '14': 'Conveying Equipment',
+  '21': 'Fire Suppression',
+  '22': 'Plumbing',
+  '23': 'HVAC',
+  '25': 'Integrated Automation',
+  '26': 'Electrical',
+  '27': 'Communications',
+  '28': 'Electronic Safety & Security',
+  '31': 'Earthwork',
+  '32': 'Exterior Improvements',
+  '33': 'Utilities',
+};
+
+// Map note categories to fallback trade groups when CSI isn't available
+const CATEGORY_TRADE_MAP = {
+  'general-notes':      'General Requirements',
+  'structural-notes':   'Structure',
+  'material-specs':     'Materials & Finishes',
+  'code-requirements':  'Code & Compliance',
+  'installation-notes': 'Installation Methods',
+  'legend':             'General Requirements',
+  'detail-callouts':    'Detail References',
+  'demolition-notes':   'Demolition',
+  'mep-notes':          'MEP',
+  'title-block':        'Project Info',
+};
+
+/**
+ * Group flat notes list into trade/system clusters for hierarchical display.
+ *
+ * Grouping priority:
+ * 1. CSI division → trade group (most reliable when available)
+ * 2. Note category → trade group (fallback)
+ *
+ * Returns groups sorted: high-relevance groups first, then alphabetical.
+ *
+ * @param {Array<{ sheetLabel: string, notes: Array, sheetSummary: string }>} allDrawingNotes
+ * @returns {Array<{ group: string, notes: Array, highCount: number, medCount: number }>}
+ */
+export function groupNotesByTrade(allDrawingNotes) {
+  if (!allDrawingNotes || allDrawingNotes.length === 0) return [];
+
+  // Flatten all notes with source sheet info
+  const flat = [];
+  allDrawingNotes.forEach(({ sheetLabel, notes }, di) => {
+    if (!notes) return;
+    notes.forEach((note, ni) => {
+      flat.push({ ...note, sheetLabel: sheetLabel || `Sheet ${di + 1}`, _key: `${di}-${ni}` });
+    });
+  });
+
+  if (flat.length === 0) return [];
+
+  // Assign each note to a trade group
+  const groups = {};
+  for (const note of flat) {
+    let group = null;
+
+    // 1. Try CSI division mapping
+    if (note.csiDivisions?.length > 0) {
+      const primaryDiv = note.csiDivisions[0];
+      group = CSI_TRADE_GROUPS[primaryDiv] || null;
+    }
+
+    // 2. Fallback to category mapping
+    if (!group && note.category) {
+      group = CATEGORY_TRADE_MAP[note.category] || 'Other';
+    }
+
+    if (!group) group = 'Other';
+
+    if (!groups[group]) groups[group] = [];
+    groups[group].push(note);
+  }
+
+  // Build sorted output
+  const result = Object.entries(groups).map(([group, notes]) => {
+    const highCount = notes.filter(n => n.estimatingRelevance === 'high').length;
+    const medCount = notes.filter(n => n.estimatingRelevance === 'medium').length;
+
+    // Sort notes within group: high → medium → low
+    const relOrder = { high: 0, medium: 1, low: 2 };
+    notes.sort((a, b) => (relOrder[a.estimatingRelevance] || 2) - (relOrder[b.estimatingRelevance] || 2));
+
+    return { group, notes, highCount, medCount };
+  });
+
+  // Sort groups: most high-relevance notes first, then alphabetical
+  result.sort((a, b) => {
+    if (b.highCount !== a.highCount) return b.highCount - a.highCount;
+    if (b.medCount !== a.medCount) return b.medCount - a.medCount;
+    return a.group.localeCompare(b.group);
+  });
+
+  return result;
 }
 
 // ─── Build Embedding Text for pgvector ───────────────────────────────

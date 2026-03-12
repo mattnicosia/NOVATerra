@@ -64,28 +64,37 @@ export default function WidgetWrapper({
       style={{
         height: "100%",
         borderRadius: T.radius.lg,
-        // Apple Liquid Glass — ghost-like on dark; palette-defined glass on light
-        background: isActive
-          ? dk
-            ? "rgba(255,255,255,0.06)"
-            : "rgba(255,255,255,0.85)"
-          : dk
-            ? T.glass.bg
-            : C.glassBg || "rgba(255,255,255,0.32)",
-        // PERF FIX: Use same blur level for both hover/normal — transitioning
-        // backdrop-filter is extremely expensive (forces GPU recomposition per frame).
-        backdropFilter: isActive ? undefined : T.glass.blur,
-        WebkitBackdropFilter: isActive ? undefined : T.glass.blur,
-        border: `${dk ? "0.5" : "1"}px solid ${
-          isActive
-            ? `${C.accent}4D`
-            : dk
-              ? hovered
-                ? T.glass.borderHover
-                : T.glass.border
-              : C.glassBorder || C.border || "rgba(0,0,0,0.08)"
-        }`,
-        boxShadow: glassShadow,
+        // noGlass: solid opaque cards. Glass: translucent with blur.
+        // Nova orb widget gets opaque black to hide video padding
+        background: widgetType === "nova-orb" && !isActive
+          ? "#050508"
+          : C.noGlass
+            ? (isActive ? C.bg2 : C.bg1)
+            : isActive
+              ? dk
+                ? "rgba(255,255,255,0.06)"
+                : "rgba(255,255,255,0.85)"
+              : dk
+                ? T.glass.bg
+                : C.glassBg || "rgba(255,255,255,0.32)",
+        backdropFilter: widgetType === "nova-orb" ? "none" : C.noGlass ? "none" : (isActive ? undefined : T.glass.blur),
+        WebkitBackdropFilter: widgetType === "nova-orb" ? "none" : C.noGlass ? "none" : (isActive ? undefined : T.glass.blur),
+        border: widgetType === "nova-orb" && !isActive
+          ? "0.5px solid rgba(255,255,255,0.06)"
+          : C.noGlass
+            ? `1px solid ${isActive ? `${C.accent}4D` : C.border}`
+            : `${dk ? "0.5" : "1"}px solid ${
+                isActive
+                  ? `${C.accent}4D`
+                  : dk
+                    ? hovered
+                      ? T.glass.borderHover
+                      : T.glass.border
+                    : C.glassBorder || C.border || "rgba(0,0,0,0.08)"
+              }`,
+        boxShadow: widgetType === "nova-orb" && !isActive
+          ? "inset 0 1px 0 rgba(255,255,255,0.06), inset 0 -2px 4px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.3), 0 1px 3px rgba(0,0,0,0.2)"
+          : C.noGlass ? "none" : glassShadow,
         display: "flex",
         flexDirection: "column",
         overflow: "visible",

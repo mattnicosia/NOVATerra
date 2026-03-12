@@ -430,6 +430,7 @@ export default function EstimatorSettingsPanel() {
   const revokeInvitation = useOrgStore(s => s.revokeInvitation);
 
   const [inviting, setInviting] = useState(null); // email currently being invited
+  const [inviteStatus, setInviteStatus] = useState(null); // { type: "success"|"error"|"warning", msg, email }
 
   // Load all invitations when org is available
   useEffect(() => {
@@ -512,8 +513,15 @@ export default function EstimatorSettingsPanel() {
     if (isNew && email && org && isManager) {
       const result = await sendEstimatorInvite(email, formName.trim());
       if (result?.error) {
-        console.warn("[invite]", result.error);
-        // Don't block — estimator was added locally even if invite fails
+        setInviteStatus({ type: "error", msg: `Estimator added but invite failed: ${result.error}`, email });
+      } else if (result?.emailFailed) {
+        setInviteStatus({
+          type: "warning",
+          msg: `Estimator added, invitation created, but email failed to send${result.emailError ? `: ${result.emailError}` : ""}`,
+          email,
+        });
+      } else {
+        setInviteStatus({ type: "success", msg: `Estimator added & invitation sent to ${email}`, email });
       }
     }
 
@@ -553,17 +561,28 @@ export default function EstimatorSettingsPanel() {
     return { status: "pending", inv };
   };
 
+  // Auto-clear invite status after 8 seconds
+  useEffect(() => {
+    if (!inviteStatus) return;
+    const t = setTimeout(() => setInviteStatus(null), 8000);
+    return () => clearTimeout(t);
+  }, [inviteStatus]);
+
   const handleInvite = async (email, name) => {
     if (!email || inviting) return;
     setInviting(email);
+    setInviteStatus(null);
     const result = await sendEstimatorInvite(email, name);
     if (result?.error) {
-      console.warn("[invite]", result.error);
-      alert(result.error);
+      setInviteStatus({ type: "error", msg: result.error, email });
     } else if (result?.emailFailed) {
-      alert(
-        `Invitation created for ${email} but the email could not be sent. The estimator can still join via the invite link in Settings.`,
-      );
+      setInviteStatus({
+        type: "warning",
+        msg: `Invitation created but email failed to send${result.emailError ? `: ${result.emailError}` : ""}. Check Resend domain verification.`,
+        email,
+      });
+    } else {
+      setInviteStatus({ type: "success", msg: `Invitation sent to ${email}`, email });
     }
     setInviting(null);
   };
@@ -571,13 +590,19 @@ export default function EstimatorSettingsPanel() {
   const handleResendInvite = async (email, name, oldInvitationId) => {
     if (!email || inviting) return;
     setInviting(email);
+    setInviteStatus(null);
     if (oldInvitationId) await revokeInvitation(oldInvitationId);
     const result = await sendEstimatorInvite(email, name);
     if (result?.error) {
-      console.warn("[invite resend]", result.error);
-      alert(result.error);
+      setInviteStatus({ type: "error", msg: result.error, email });
     } else if (result?.emailFailed) {
-      alert(`Invitation created for ${email} but the email could not be sent. Check email service configuration.`);
+      setInviteStatus({
+        type: "warning",
+        msg: `Invitation re-created but email failed${result.emailError ? `: ${result.emailError}` : ""}. Check Resend domain verification.`,
+        email,
+      });
+    } else {
+      setInviteStatus({ type: "success", msg: `Invitation resent to ${email}`, email });
     }
     setInviting(null);
   };
@@ -702,6 +727,55 @@ export default function EstimatorSettingsPanel() {
           <Ic d={I.plus} size={13} /> Add Estimator
         </button>
       </div>
+
+      {/* Invite Status Banner */}
+      {inviteStatus && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "8px 12px",
+            marginBottom: T.space[3],
+            borderRadius: T.radius.sm,
+            fontSize: 11,
+            fontWeight: 500,
+            background:
+              inviteStatus.type === "success" ? "rgba(52,211,153,0.12)"
+              : inviteStatus.type === "warning" ? "rgba(251,191,36,0.12)"
+              : "rgba(239,68,68,0.12)",
+            border: `1px solid ${
+              inviteStatus.type === "success" ? "rgba(52,211,153,0.3)"
+              : inviteStatus.type === "warning" ? "rgba(251,191,36,0.3)"
+              : "rgba(239,68,68,0.3)"
+            }`,
+            color:
+              inviteStatus.type === "success" ? "#34D399"
+              : inviteStatus.type === "warning" ? "#FBBF24"
+              : C.red,
+          }}
+        >
+          <span style={{ fontSize: 13 }}>
+            {inviteStatus.type === "success" ? "✓" : inviteStatus.type === "warning" ? "⚠" : "✕"}
+          </span>
+          <span style={{ flex: 1, lineHeight: 1.4 }}>{inviteStatus.msg}</span>
+          <button
+            onClick={() => setInviteStatus(null)}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "inherit",
+              opacity: 0.6,
+              fontSize: 14,
+              padding: "0 2px",
+              lineHeight: 1,
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* Estimator List */}
       {estimators.length === 0 && !showForm && (

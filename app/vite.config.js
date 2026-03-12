@@ -4,6 +4,9 @@ import path from "path";
 
 export default defineConfig({
   plugins: [react()],
+  define: {
+    "__BUILD_TS__": JSON.stringify(new Date().toISOString()),
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -15,6 +18,7 @@ export default defineConfig({
     setupFiles: [],
   },
   build: {
+    chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
         manualChunks: {
@@ -31,6 +35,8 @@ export default defineConfig({
           supabase: ["@supabase/supabase-js"],
           charts: ["recharts"],
           "framer-motion": ["framer-motion"],
+          // react-grid-layout — only used in NovaDashboardPage (check if installed)
+          // "grid-layout": ["react-grid-layout"],
         },
       },
     },

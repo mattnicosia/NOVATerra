@@ -12,16 +12,38 @@ if (import.meta.env.VITE_SENTRY_DSN) {
   Sentry.init({
     dsn: import.meta.env.VITE_SENTRY_DSN,
     environment: import.meta.env.MODE, // "development" or "production"
-    release: `novaterra@${import.meta.env.VITE_APP_VERSION || "0.1.0"}`,
+    release: `nova@${import.meta.env.VITE_APP_VERSION || "0.1.0"}`,
     integrations: [
       Sentry.browserTracingIntegration(),
       Sentry.replayIntegration({ maskAllText: false, blockAllMedia: false }),
     ],
     tracesSampleRate: import.meta.env.MODE === "production" ? 0.2 : 1.0,
-    replaysSessionSampleRate: 0.0, // Don't record normal sessions
+    replaysSessionSampleRate: 0.1, // Record 10% of normal sessions for health monitoring
     replaysOnErrorSampleRate: 1.0, // Always record error sessions
+    // Tag all events with build timestamp for version tracking
+    initialScope: {
+      tags: {
+        // eslint-disable-next-line no-undef
+        build: typeof __BUILD_TS__ !== "undefined" ? __BUILD_TS__ : "dev",
+      },
+    },
+    beforeSend(event) {
+      // Enrich events with NOVA category tags from breadcrumbs
+      const novaBreadcrumbs = (event.breadcrumbs || []).filter(b => b.category?.startsWith("data:") || b.category?.startsWith("estimate:") || b.category?.startsWith("ocr:"));
+      if (novaBreadcrumbs.length > 0) {
+        event.tags = event.tags || {};
+        event.tags["nova.last_category"] = novaBreadcrumbs[novaBreadcrumbs.length - 1].category;
+      }
+      return event;
+    },
   });
 }
+
+// ── Build version — log at boot for debugging cache issues ────
+// Vite `define` replaces bare identifiers (not string literals)
+// eslint-disable-next-line no-undef
+console.log("[NOVA] Build:", __BUILD_TS__);
+window.__NOVA_BUILD = __BUILD_TS__; // eslint-disable-line no-undef
 
 // ── Vercel Analytics (free Web Vitals + page views) ────────────
 injectAnalytics();

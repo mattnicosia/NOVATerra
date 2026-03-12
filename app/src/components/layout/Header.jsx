@@ -40,11 +40,13 @@ export default function Header() {
       style={{
         minHeight: T.header.height,
         padding: `0 ${T.space[6]}px`,
-        background: C.isDark
-          ? C.glassBg || "rgba(15,15,30,0.38)"
-          : `linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 50%), ${C.glassBg || "rgba(255,255,255,0.32)"}`,
-        backdropFilter: T.glass.blur,
-        WebkitBackdropFilter: T.glass.blur,
+        background: C.noGlass
+          ? C.bg1
+          : C.isDark
+            ? C.glassBg || "rgba(15,15,30,0.38)"
+            : `linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 50%), ${C.glassBg || "rgba(255,255,255,0.32)"}`,
+        backdropFilter: C.noGlass ? "none" : T.glass.blur,
+        WebkitBackdropFilter: C.noGlass ? "none" : T.glass.blur,
         borderBottom: `1px solid ${
           C.isDark ? T.glass.border || "rgba(255,255,255,0.12)" : C.glassBorder || C.border || "rgba(0,0,0,0.08)"
         }`,
@@ -115,7 +117,7 @@ export default function Header() {
           )}
           {!activeId && (
             <div style={{ animation: "fadeIn 0.3s ease-out" }}>
-              <NovaTerraLogo size={61} />
+              <NovaTerraLogo size={46} />
             </div>
           )}
         </div>

@@ -1,4 +1,4 @@
-// Design Tokens — Artifakt design system
+// Design Tokens — NOVA design system
 // Single source of truth for spacing, typography, radii, shadows, transitions
 
 export const T = {
@@ -59,10 +59,10 @@ export const T = {
     caps: 1.5,
   },
 
-  // Font families — Switzer (UI) + JetBrains Mono (data)
+  // Font families — Switzer everywhere (sole typeface)
   font: {
     sans: "'Switzer', -apple-system, BlinkMacSystemFont, sans-serif",
-    mono: "'JetBrains Mono', 'SF Mono', 'Cascadia Code', monospace",
+    mono: "'Switzer', -apple-system, BlinkMacSystemFont, sans-serif",
     display: "'Switzer', sans-serif",
   },
 

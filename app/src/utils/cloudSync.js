@@ -526,6 +526,63 @@ const withRetry = async (label, fn, retries = 2) => {
  */
 export const pushData = async (key, data) => {
   if (!isReady()) return;
+
+  // ─── DATA LOSS PREVENTION: Never push empty index to cloud ───
+  if (key === "index" && Array.isArray(data) && data.length === 0) {
+    console.error("[cloudSync] DATA LOSS PREVENTION: Refusing to push empty index to cloud.");
+    return;
+  }
+
+  // ─── DATA LOSS PREVENTION: High-water-mark guard ───
+  // Never push an index that is SHORTER than what's already in the cloud,
+  // unless the difference is exactly 1 (a single delete). This prevents
+  // stale/partial local state from overwriting a complete cloud index.
+  if (key === "index" && Array.isArray(data)) {
+    try {
+      const userId = getUserId();
+      const scope = getScope();
+      let cloudQuery = supabase
+        .from("user_data")
+        .select("data")
+        .eq("user_id", userId)
+        .eq("key", "index");
+      cloudQuery = scope?.org_id
+        ? cloudQuery.eq("org_id", scope.org_id)
+        : cloudQuery.is("org_id", null);
+      const { data: existing } = await cloudQuery.maybeSingle();
+      const cloudLen = Array.isArray(existing?.data) ? existing.data.length : 0;
+      // Allow shrinkage up to 50% (orphan cleanup can remove many entries at once).
+      // Only block if local is less than half of cloud — that's genuine data loss.
+      if (cloudLen > 2 && data.length < Math.ceil(cloudLen / 2)) {
+        console.error(
+          `[cloudSync] DATA LOSS PREVENTION: Refusing to push index with ${data.length} entries ` +
+          `(cloud has ${cloudLen}). This looks like data loss. Aborting push.`,
+        );
+        return;
+      }
+      // Also merge: if cloud has entries not in our local index, adopt them
+      // (but skip entries that were explicitly deleted by the user)
+      if (cloudLen > 0 && existing?.data) {
+        const localIds = new Set(data.map(e => e.id));
+        // Read deleted-IDs from localStorage to avoid resurrecting deleted estimates
+        let deletedIds = new Set();
+        try {
+          const userId2 = getUserId();
+          const lsRaw = localStorage.getItem(`bldg-deleted-ids-${userId2}`);
+          if (lsRaw) deletedIds = new Set(JSON.parse(lsRaw));
+        } catch { /* ignore */ }
+        const cloudOnly = existing.data.filter(e => !localIds.has(e.id) && !deletedIds.has(e.id));
+        if (cloudOnly.length > 0) {
+          console.log(`[cloudSync] INDEX MERGE: adopting ${cloudOnly.length} cloud-only entries before push`);
+          data = [...data, ...cloudOnly];
+        }
+      }
+    } catch (hwmErr) {
+      // If we can't check, log but allow the push (don't block on guard failure)
+      console.warn("[cloudSync] High-water-mark check failed:", hwmErr.message);
+    }
+  }
+
   markSyncing();
   try {
     await withRetry(`pushData("${key}")`, async () => {
@@ -751,6 +808,107 @@ export const pullData = async key => {
 };
 
 /**
+ * Pull data with an explicit org_id override (for recovery when org fetch failed).
+ * Bypasses getScope() and directly queries the given org.
+ */
+export const pullDataWithOrgId = async (key, orgId) => {
+  if (!isReady()) return null;
+  try {
+    let query = supabase.from("user_data").select("data").eq("user_id", getUserId()).eq("key", key);
+    query = orgId ? query.eq("org_id", orgId) : query.is("org_id", null);
+
+    const { data, error } = await query.maybeSingle();
+    if (error) throw error;
+    return data?.data || null;
+  } catch (err) {
+    console.warn(`[cloudSync] pullDataWithOrgId("${key}", "${orgId}") failed:`, err.message || err);
+    return null;
+  }
+};
+
+/**
+ * Pull all estimates with an explicit org_id override (for recovery).
+ */
+export const pullAllEstimatesWithOrgId = async (orgId) => {
+  if (!isReady()) return [];
+  try {
+    let query = supabase.from("user_estimates").select("estimate_id, data, user_id").is("deleted_at", null);
+    if (orgId) {
+      query = query.eq("org_id", orgId);
+    } else {
+      query = query.eq("user_id", getUserId()).is("org_id", null);
+    }
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    console.warn("[cloudSync] pullAllEstimatesWithOrgId() failed:", err.message || err);
+    return [];
+  }
+};
+
+/**
+ * EMERGENCY RECOVERY: Pull data ignoring org scope entirely.
+ * Queries ALL rows for this user+key (both solo and any org), returns the one
+ * with the most data. Used when org context is lost and normal pulls fail.
+ */
+export const pullDataAnyScope = async key => {
+  if (!isReady()) return null;
+  try {
+    // Query WITHOUT org_id filter — get ALL rows for this user+key
+    const { data, error } = await supabase
+      .from("user_data")
+      .select("data, org_id")
+      .eq("user_id", getUserId())
+      .eq("key", key);
+    if (error) throw error;
+    if (!data || data.length === 0) return null;
+
+    // Find the row with the most data (largest array or most keys)
+    let best = null;
+    let bestOrgId = null;
+    for (const row of data) {
+      const d = row.data;
+      const size = Array.isArray(d) ? d.length : (typeof d === "object" && d ? Object.keys(d).length : 0);
+      const bestSize = Array.isArray(best) ? best.length : (typeof best === "object" && best ? Object.keys(best).length : 0);
+      if (!best || size > bestSize) {
+        best = d;
+        bestOrgId = row.org_id;
+      }
+    }
+    console.log(`[cloudSync] pullDataAnyScope("${key}"): found ${data.length} rows, best has org_id=${bestOrgId}`);
+    // Side-effect: save discovered org_id for future recovery
+    if (bestOrgId) {
+      try { localStorage.setItem("bldg-last-org-id", bestOrgId); } catch {}
+    }
+    return best;
+  } catch (err) {
+    console.warn(`[cloudSync] pullDataAnyScope("${key}") failed:`, err.message || err);
+    return null;
+  }
+};
+
+/**
+ * EMERGENCY RECOVERY: Pull all estimates ignoring org scope.
+ * Returns all non-deleted estimates for this user across all orgs.
+ */
+export const pullAllEstimatesAnyScope = async () => {
+  if (!isReady()) return [];
+  try {
+    const { data, error } = await supabase
+      .from("user_estimates")
+      .select("estimate_id, data, user_id, org_id")
+      .eq("user_id", getUserId())
+      .is("deleted_at", null);
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    console.warn("[cloudSync] pullAllEstimatesAnyScope() failed:", err.message || err);
+    return [];
+  }
+};
+
+/**
  * Pull a key-value pair AND its updated_at timestamp.
  * Returns { data, updated_at } or null if not found.
  */
@@ -854,17 +1012,41 @@ export const pullEstimate = async estimateId => {
   if (!isReady()) return null;
   try {
     const scope = getScope();
+    const userId = getUserId();
     let query = supabase.from("user_estimates").select("data").eq("estimate_id", estimateId).is("deleted_at", null);
 
     if (scope?.org_id) {
       query = query.eq("org_id", scope.org_id);
     } else {
-      query = query.eq("user_id", getUserId()).is("org_id", null);
+      query = query.eq("user_id", userId).is("org_id", null);
     }
 
     const { data, error } = await query.maybeSingle();
     if (error) throw error;
-    return data?.data || null;
+    if (data?.data) return data.data;
+
+    // Fallback: if in org mode, also check solo-mode rows (pre-org-migration estimates)
+    if (scope?.org_id) {
+      console.log(`[cloudSync] pullEstimate: org query missed — trying solo fallback for ${estimateId}`);
+      const { data: soloData, error: soloErr } = await supabase
+        .from("user_estimates")
+        .select("data")
+        .eq("estimate_id", estimateId)
+        .eq("user_id", userId)
+        .is("org_id", null)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (!soloErr && soloData?.data) {
+        console.log(`[cloudSync] pullEstimate: found ${estimateId} in solo mode — migrating to org`);
+        // Migrate: push to org scope so future lookups work
+        try {
+          await supabase.from("user_estimates").update({ org_id: scope.org_id }).eq("estimate_id", estimateId).eq("user_id", userId).is("org_id", null);
+        } catch {}
+        return soloData.data;
+      }
+    }
+
+    return null;
   } catch (err) {
     console.warn(`[cloudSync] pullEstimate("${estimateId}") failed:`, err.message || err);
     return null;

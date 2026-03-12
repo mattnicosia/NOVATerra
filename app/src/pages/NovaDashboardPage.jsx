@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from "react";
+import React, { useState, useCallback, useRef, useEffect, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useWidgetLayoutSync } from "@/hooks/useWidgetLayoutSync";
@@ -15,6 +15,9 @@ import WidgetPickerModal from "@/components/widgets/WidgetPickerModal";
 import WidgetReplacePicker from "@/components/widgets/WidgetReplacePicker";
 import DashboardFooter from "@/components/dashboard/DashboardFooter";
 // CompanySwitcher removed — profile selection moved to NovaHeader dropdown
+
+// Sprint 4.3: Onboarding sequence — shown before dashboard on first visit
+const OnboardingSequence = lazy(() => import("@/components/onboarding/OnboardingSequence"));
 
 /* ────────────────────────────────────────────────────────
    NovaDashboardPage — widget-based dashboard
@@ -135,6 +138,19 @@ export default function NovaDashboardPage() {
     setReplaceTarget({ id, widgetType });
   }, []);
 
+  // Sprint 4.3: Show onboarding on first visit (before dashboard)
+  const onboardingDismissed = useUiStore(s => s.appSettings?.onboardingDismissed);
+  const showOnboarding =
+    !onboardingDismissed && !localStorage.getItem("nova_onboarding_complete");
+
+  if (showOnboarding) {
+    return (
+      <Suspense fallback={null}>
+        <OnboardingSequence />
+      </Suspense>
+    );
+  }
+
   return (
     <>
       <div
@@ -186,11 +202,13 @@ export default function NovaDashboardPage() {
                 position: "absolute",
                 bottom: 52,
                 right: 0,
-                background: dk
-                  ? "linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)"
-                  : "linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0.8) 100%)",
-                backdropFilter: "blur(32px) saturate(1.6)",
-                WebkitBackdropFilter: "blur(32px) saturate(1.6)",
+                background: C.noGlass
+                  ? C.bg2
+                  : dk
+                    ? "linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)"
+                    : "linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0.8) 100%)",
+                backdropFilter: C.noGlass ? "none" : "blur(32px) saturate(1.6)",
+                WebkitBackdropFilter: C.noGlass ? "none" : "blur(32px) saturate(1.6)",
                 border: `1px solid ${dk ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.12)"}`,
                 borderRadius: 14,
                 padding: "8px 6px",
@@ -396,17 +414,19 @@ function WidgetConfigModal({ widgetId, widgetType, onClose }) {
         alignItems: "center",
         justifyContent: "center",
         background: dk ? "rgba(0,0,0,0.55)" : "rgba(0,0,0,0.25)",
-        backdropFilter: "blur(8px)",
+        backdropFilter: C.noGlass ? "none" : "blur(8px)",
       }}
     >
       <div
         ref={ref}
         style={{
-          background: dk
-            ? "linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 100%)"
-            : "linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0.8) 100%)",
-          backdropFilter: "blur(40px) saturate(1.8)",
-          WebkitBackdropFilter: "blur(40px) saturate(1.8)",
+          background: C.noGlass
+            ? C.bg2
+            : dk
+              ? "linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 100%)"
+              : "linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0.8) 100%)",
+          backdropFilter: C.noGlass ? "none" : "blur(40px) saturate(1.8)",
+          WebkitBackdropFilter: C.noGlass ? "none" : "blur(40px) saturate(1.8)",
           border: `1px solid ${dk ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.08)"}`,
           borderRadius: 18,
           padding: "22px 24px",

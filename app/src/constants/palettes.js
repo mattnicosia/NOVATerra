@@ -973,13 +973,78 @@ export const PALETTES = [
     ],
   },
   // ═══════════════════════════════════════════════════════════════════════════
-  // Artifact Dark — Monumental concrete, stone architecture, muted warmth
+  // Shift5 — Military-tech brutalist, coral accent on dark grey
+  // Inspired by shift5.io: near-black cards on grey backdrop, grey lines/font
+  // as default state, bold coral accent appears ONLY on hover/click.
+  // Flat surfaces, no glass. Restrained. Technical. Tactical.
+  // ═══════════════════════════════════════════════════════════════════════════
+  {
+    id: "shift5",
+    name: "Shift5",
+    desc: "Military-tech brutalist — coral accent on dark grey",
+    preview: ["#0C0C0E", "#FF4F38", "#1A1A1E", "#666670", "#E8E8EC"],
+    variantLabels: ["Tactical"],
+    overrides: {
+      // ── Surfaces — dark cards floating on grey field ──
+      // Visual Board strategy: bgGradient is the GREY FIELD (app shell).
+      // bg/bg1 are the dark surfaces that float ON it.
+      // Delta: bgGradient(lum≈44) → bg1(lum≈24) = ~20 units of contrast.
+      bg: "#141418", // base chrome, nav bars, insets — darkest
+      bg1: "#18181E", // card surfaces — near-black, clearly darker than backdrop
+      bg2: "#1E1E24", // raised surfaces within cards
+      bg3: "#28282E", // hover states, elevated elements
+      // ── Borders — visible grey lines (Shift5 signature) ──
+      border: "rgba(255,255,255,0.12)", // clearly visible grey lines
+      borderLight: "rgba(255,255,255,0.07)",
+      borderAccent: "rgba(255,79,56,0.25)", // coral glow line — only hover/active
+      // ── Text — grey hierarchy, NOT white ──
+      text: "#E8E8EC", // primary — light grey, not pure white
+      textMuted: "rgba(232,232,236,0.50)", // secondary labels
+      textDim: "rgba(232,232,236,0.28)", // tertiary, captions
+      // ── Accent — Shift5 coral (hero color) ──
+      accent: "#FF4F38",
+      accentDim: "#CC3F2D",
+      accentBg: "rgba(255,79,56,0.08)",
+      accentAlt: "#FF6B57",
+      // ── Gradients ──
+      gradient: "linear-gradient(135deg, #FF4F38, #FF6B57)",
+      gradientSubtle: "linear-gradient(135deg, rgba(255,79,56,0.12), rgba(255,107,87,0.12))",
+      gradientText: "linear-gradient(135deg, #FF4F38, #FF6B57)",
+      // ── Semantic colors — monochromatic grey, Shift5 brutalist ──
+      // All semantic colors become grey at rest. Only accent (coral)
+      // provides color, and only on hover/click. Hex greys are safe
+      // for widgets that append alpha suffixes (${C.green}1A).
+      green:  "#9A9AA0",   // positive → warm grey
+      red:    "#FF4F38",   // danger → stays coral (= accent, brand unity)
+      blue:   "#7A7A82",   // info → medium grey
+      purple: "#6A6A72",   // category → dim grey
+      orange: "#8A8A92",   // warning → medium grey
+      cyan:   "#7A7A82",   // info alt → medium grey
+      yellow: "#8A8A92",   // caution → medium grey
+      // ── Sidebar ──
+      sidebarBg: "#101014",
+      // ── Glass (disabled — flat surfaces) ──
+      glassBg: "#18181E",
+      glassBorder: "rgba(255,255,255,0.12)",
+      glassBgDark: "#141418",
+      // ── Background — THE GREY FIELD ──
+      bgGradient: "#2C2C32", // the visible grey backdrop behind dark cards
+      // ── Flags ──
+      forceDark: true,
+      noGlass: true,
+      materialMode: "concrete",
+    },
+    variants: [null], // single dark variant
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // NOVA Dark — Monumental concrete, stone architecture, muted warmth
   // Inspired by brutalist galleries and ancient chambers.
   // Neutral grays with warm stone accent. No neon. No violet. Just material.
   // ═══════════════════════════════════════════════════════════════════════════
   {
     id: "artifact-dark",
-    name: "Artifact Dark",
+    name: "NOVA Dark",
     desc: "Monumental concrete — stone, shadow, warmth",
     preview: ["#111110", "#B0A698", "#1A1918", "#E4E0DB", "#242220"],
     variantLabels: ["Concrete"],
@@ -1022,13 +1087,13 @@ export const PALETTES = [
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Artifact Light — Warm concrete gallery, daylit stone surfaces
+  // NOVA Light — Warm concrete gallery, daylit stone surfaces
   // The light counterpart: polished concrete floors, diffused skylight,
   // sandstone walls. Same muted palette, inverted luminance.
   // ═══════════════════════════════════════════════════════════════════════════
   {
     id: "artifact-light",
-    name: "Artifact Light",
+    name: "NOVA Light",
     desc: "Daylit gallery — warm stone, soft light",
     preview: ["#E0DCD5", "#8A7E70", "#EAE6E0", "#28231E", "#D4CFC7"],
     variantLabels: ["Gallery"],
@@ -1105,7 +1170,7 @@ export const CAR_PALETTE_IDS = ["car-terzo", "car-720s", "car-visiondee", "car-a
 // Premium light palette IDs
 export const LIGHT_PALETTE_IDS = ["blueprint"];
 
-// Artifact palette IDs
+// NOVA palette IDs
 export const ARTIFACT_PALETTE_IDS = ["artifact-dark", "artifact-light"];
 
 // Chart colors

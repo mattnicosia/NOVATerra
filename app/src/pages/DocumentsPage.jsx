@@ -164,9 +164,20 @@ export default function DocumentsPage() {
   const addElement = useItemsStore(s => s.addElement);
   const items = useItemsStore(s => s.items);
 
+  // Documents store extras
+  const tagPalette = useDocumentsStore(s => s.tagPalette);
+  const transmittals = useDocumentsStore(s => s.transmittals);
+  const toggleDocTag = useDocumentsStore(s => s.toggleDocTag);
+  const addTag = useDocumentsStore(s => s.addTag);
+  const moveToFolder = useDocumentsStore(s => s.moveToFolder);
+  const addTransmittal = useDocumentsStore(s => s.addTransmittal);
+
   // Local state
   const [dragOver, setDragOver] = useState(false);
   const [showScanModal, setShowScanModal] = useState(false);
+  const [docSearch, setDocSearch] = useState("");
+  const [docFolderFilter, setDocFolderFilter] = useState(""); // "" = all
+  const [showTransmittalLog, setShowTransmittalLog] = useState(false);
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
 
@@ -1001,7 +1012,7 @@ Return ONLY a JSON object:
 
         // Step 1: Auto-label
         for (const { docId } of drawingDocIds) {
-          updateDocument(docId, { processingMessage: "NOVA labeling sheets..." });
+          updateDocument(docId, { processingMessage: "ARTIFACT labeling sheets..." });
         }
         try {
           const labelResult = await autoLabelDrawings(allNewDrawingIds);
@@ -1139,11 +1150,32 @@ Return ONLY a JSON object:
     }
   };
 
+  // ─── Filter documents ──────────────────────────────────────────────────
+  const searchLower = docSearch.toLowerCase();
+  const allFolders = [...new Set(documents.map(d => d.folder).filter(Boolean))].sort();
+  const filteredDocuments = documents.filter(d => {
+    // Skip superseded versions (show only latest)
+    if (d.replacedById) return false;
+    // Search filter
+    if (searchLower) {
+      const matchName = (d.filename || "").toLowerCase().includes(searchLower);
+      const matchFolder = (d.folder || "").toLowerCase().includes(searchLower);
+      const matchTags = (d.tags || []).some(tagId => {
+        const tag = tagPalette.find(t => t.id === tagId);
+        return tag?.name?.toLowerCase().includes(searchLower);
+      });
+      if (!matchName && !matchFolder && !matchTags) return false;
+    }
+    // Folder filter
+    if (docFolderFilter && (d.folder || "") !== docFolderFilter) return false;
+    return true;
+  });
+
   // ─── Group documents by type ───────────────────────────────────────────
-  const drawingDocs = documents.filter(d => d.docType === "drawing");
-  const specDocs = documents.filter(d => d.docType === "specification");
-  const generalDocs = documents.filter(d => d.docType === "general" || (!d.docType && d.source !== "rfp"));
-  const rfpDocs = documents.filter(d => d.source === "rfp" && d.docType !== "drawing" && d.docType !== "specification");
+  const drawingDocs = filteredDocuments.filter(d => d.docType === "drawing");
+  const specDocs = filteredDocuments.filter(d => d.docType === "specification");
+  const generalDocs = filteredDocuments.filter(d => d.docType === "general" || (!d.docType && d.source !== "rfp"));
+  const rfpDocs = filteredDocuments.filter(d => d.source === "rfp" && d.docType !== "drawing" && d.docType !== "specification");
   const hasProcessing = documents.some(d => d.processingStatus === "processing");
 
   // ─── Scan progress from scanStore ──────────────────────────────────────
@@ -1193,7 +1225,7 @@ Return ONLY a JSON object:
             Upload Your Construction Plans
           </h1>
           <p style={{ fontSize: 12, color: C.textDim, margin: 0, marginBottom: 28, lineHeight: 1.6 }}>
-            Drop your PDF plans below and NOVA will automatically extract project details, detect schedules, and
+            Drop your PDF plans below and ARTIFACT will automatically extract project details, detect schedules, and
             generate a rough order of magnitude estimate.
           </p>
 
@@ -1210,7 +1242,7 @@ Return ONLY a JSON object:
             >
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
                 <NovaOrb size={22} scheme="nova" />
-                <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>NOVA is analyzing your drawings...</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>ARTIFACT is analyzing your drawings...</div>
               </div>
               {scanProgress.phase && (
                 <div style={{ marginBottom: 8 }}>
@@ -1370,7 +1402,7 @@ Return ONLY a JSON object:
               fontFamily: T.font.sans,
             }}
           >
-            Upload project documents — NOVA automatically processes drawings and specifications.
+            Upload project documents — ARTIFACT automatically processes drawings and specifications.
           </p>
         </div>
         {/* Rescan button — re-runs NOVA pipeline on all existing drawings */}
@@ -1551,6 +1583,200 @@ Return ONLY a JSON object:
         </div>
       )}
 
+      {/* Search, filter, transmittal toolbar */}
+      {documents.length > 0 && (
+        <div
+          style={{
+            display: "flex",
+            gap: T.space[2],
+            alignItems: "center",
+            marginBottom: T.space[4],
+            flexWrap: "wrap",
+          }}
+        >
+          {/* Search input */}
+          <div style={{ position: "relative", flex: 1, minWidth: 180 }}>
+            <Ic
+              d={I.search}
+              size={13}
+              color={C.textDim}
+              style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }}
+            />
+            <input
+              type="text"
+              placeholder="Search documents..."
+              value={docSearch}
+              onChange={e => setDocSearch(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "7px 10px 7px 30px",
+                fontSize: 11,
+                border: `1px solid ${C.border}`,
+                borderRadius: T.radius.md,
+                background: C.bg2,
+                color: C.text,
+                fontFamily: T.font.sans,
+                outline: "none",
+              }}
+            />
+          </div>
+
+          {/* Folder filter */}
+          {allFolders.length > 0 && (
+            <select
+              value={docFolderFilter}
+              onChange={e => setDocFolderFilter(e.target.value)}
+              style={{
+                padding: "7px 10px",
+                fontSize: 11,
+                border: `1px solid ${C.border}`,
+                borderRadius: T.radius.md,
+                background: C.bg2,
+                color: C.text,
+                fontFamily: T.font.sans,
+                cursor: "pointer",
+              }}
+            >
+              <option value="">All folders</option>
+              {allFolders.map(f => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {/* Tag filter chips */}
+          {tagPalette.length > 0 && (
+            <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+              {tagPalette.map(tag => (
+                <button
+                  key={tag.id}
+                  onClick={() => setDocSearch(prev => (prev === tag.name ? "" : tag.name))}
+                  style={bt(C, {
+                    padding: "3px 8px",
+                    fontSize: 9,
+                    fontWeight: 600,
+                    background: docSearch === tag.name ? `${tag.color}20` : "transparent",
+                    color: docSearch === tag.name ? tag.color : C.textDim,
+                    border: `1px solid ${docSearch === tag.name ? tag.color + "40" : C.border}`,
+                    borderRadius: T.radius.full,
+                  })}
+                >
+                  {tag.name}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Transmittal log toggle */}
+          <button
+            onClick={() => setShowTransmittalLog(v => !v)}
+            style={bt(C, {
+              padding: "6px 12px",
+              fontSize: 10,
+              fontWeight: 600,
+              background: showTransmittalLog ? `${C.accent}12` : "transparent",
+              color: showTransmittalLog ? C.accent : C.textDim,
+              border: `1px solid ${showTransmittalLog ? C.accent + "40" : C.border}`,
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+            })}
+          >
+            <Ic d={I.send || I.inbox} size={11} color={showTransmittalLog ? C.accent : C.textDim} />
+            Transmittals{transmittals.length > 0 ? ` (${transmittals.length})` : ""}
+          </button>
+
+          {/* Doc count */}
+          <span style={{ fontSize: 10, color: C.textDim }}>
+            {filteredDocuments.length === documents.filter(d => !d.replacedById).length
+              ? `${filteredDocuments.length} docs`
+              : `${filteredDocuments.length} of ${documents.filter(d => !d.replacedById).length}`}
+          </span>
+        </div>
+      )}
+
+      {/* Transmittal Log Panel */}
+      {showTransmittalLog && (
+        <div
+          style={{
+            ...card(C),
+            padding: T.space[4],
+            marginBottom: T.space[4],
+            border: `1px solid ${C.accent}20`,
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: T.space[3] }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: C.text, display: "flex", alignItems: "center", gap: 6 }}>
+              <Ic d={I.send || I.inbox} size={14} color={C.accent} />
+              Transmittal Log
+            </div>
+            <button
+              onClick={() => {
+                const party = prompt("Company/person name:");
+                if (!party) return;
+                const method = prompt("Method (email, planroom, hand-delivery, ftp):", "email") || "email";
+                const notes = prompt("Notes (optional):", "") || "";
+                addTransmittal({ direction: "sent", party, method, notes, docIds: [] });
+                showToast("Transmittal logged");
+              }}
+              style={bt(C, {
+                padding: "4px 10px",
+                fontSize: 9,
+                fontWeight: 600,
+                background: C.accent,
+                color: "#fff",
+              })}
+            >
+              + Log Transmittal
+            </button>
+          </div>
+          {transmittals.length === 0 ? (
+            <div style={{ fontSize: 11, color: C.textDim, textAlign: "center", padding: T.space[4] }}>
+              No transmittals logged yet. Track when you send or receive project documents.
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {[...transmittals].reverse().map(t => (
+                <div
+                  key={t.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: T.space[3],
+                    padding: `${T.space[2]}px ${T.space[3]}px`,
+                    background: C.bg2,
+                    borderRadius: T.radius.sm,
+                    fontSize: 11,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 8,
+                      fontWeight: 700,
+                      padding: "2px 6px",
+                      borderRadius: T.radius.full,
+                      background: t.direction === "sent" ? `${C.blue}15` : `${C.green}15`,
+                      color: t.direction === "sent" ? C.blue : C.green,
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {t.direction}
+                  </span>
+                  <span style={{ fontWeight: 600, color: C.text }}>{t.party}</span>
+                  <span style={{ color: C.textDim, fontSize: 10 }}>via {t.method}</span>
+                  {t.notes && <span style={{ color: C.textDim, fontSize: 10, flex: 1 }}>— {t.notes}</span>}
+                  <span style={{ color: C.textDim, fontSize: 9, marginLeft: "auto" }}>
+                    {new Date(t.date).toLocaleDateString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Drawing documents */}
       {drawingDocs.length > 0 && (
         <DocSection title="Drawings" count={drawingDocs.length} icon={I.layers} color={C.blue} C={C} T={T}>
@@ -1562,6 +1788,7 @@ Return ONLY a JSON object:
               T={T}
               onRemove={() => removeDocument(doc.id)}
               onDownload={() => handleDownload(doc)}
+              tagPalette={tagPalette}
             />
           ))}
         </DocSection>
@@ -1585,6 +1812,7 @@ Return ONLY a JSON object:
               T={T}
               onRemove={() => removeDocument(doc.id)}
               onDownload={() => handleDownload(doc)}
+              tagPalette={tagPalette}
             />
           ))}
         </DocSection>
@@ -1601,6 +1829,7 @@ Return ONLY a JSON object:
               T={T}
               onRemove={() => removeDocument(doc.id)}
               onDownload={() => handleDownload(doc)}
+              tagPalette={tagPalette}
             />
           ))}
         </DocSection>
@@ -1617,6 +1846,7 @@ Return ONLY a JSON object:
               T={T}
               onRemove={() => removeDocument(doc.id)}
               onDownload={() => handleDownload(doc)}
+              tagPalette={tagPalette}
             />
           ))}
         </DocSection>
@@ -1671,7 +1901,7 @@ Return ONLY a JSON object:
                   gap: 6,
                 }}
               >
-                <Ic d={I.ai} size={14} color={C.purple || C.accent} /> NOVA Scan Complete
+                <Ic d={I.ai} size={14} color={C.purple || C.accent} /> ARTIFACT Scan Complete
               </div>
               <div style={{ fontSize: 10, color: C.textDim }}>
                 {scanResults.schedules?.length || 0} schedule{scanResults.schedules?.length !== 1 ? "s" : ""}
@@ -1740,8 +1970,11 @@ function DocSection({ title, count, icon, color, C, T, children }) {
 }
 
 // ─── Document row ─────────────────────────────────────────────────────────────
-function DocRow({ doc, C, T, onRemove, onDownload }) {
+function DocRow({ doc, C, T, onRemove, onDownload, tagPalette }) {
   const ext = doc.filename?.split(".").pop()?.toUpperCase() || "";
+  const docTags = (doc.tags || [])
+    .map(tid => (tagPalette || []).find(t => t.id === tid))
+    .filter(Boolean);
 
   return (
     <div
@@ -1776,7 +2009,7 @@ function DocRow({ doc, C, T, onRemove, onDownload }) {
 
       {/* File info */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: T.space[2] }}>
+        <div style={{ display: "flex", alignItems: "center", gap: T.space[2], flexWrap: "wrap" }}>
           <span
             style={{
               fontSize: T.fontSize.sm,
@@ -1790,12 +2023,55 @@ function DocRow({ doc, C, T, onRemove, onDownload }) {
             {doc.filename}
           </span>
           <TypeBadge docType={doc.docType} C={C} T={T} />
+          {(doc.version || 1) > 1 && (
+            <span
+              style={{
+                fontSize: 8,
+                fontWeight: 700,
+                padding: "1px 5px",
+                borderRadius: T.radius.full,
+                background: `${C.purple || C.accent}12`,
+                color: C.purple || C.accent,
+              }}
+            >
+              v{doc.version}
+            </span>
+          )}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: T.space[2], marginTop: 2 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: T.space[2], marginTop: 2, flexWrap: "wrap" }}>
           <span style={{ fontSize: T.fontSize.xs, color: C.textDim }}>
             {formatBytes(doc.size)}
             {doc.pageCount && ` · ${doc.pageCount} pages`}
           </span>
+          {doc.folder && (
+            <span
+              style={{
+                fontSize: 8,
+                padding: "1px 5px",
+                borderRadius: 3,
+                background: `${C.textDim}10`,
+                color: C.textDim,
+                fontWeight: 600,
+              }}
+            >
+              {doc.folder}
+            </span>
+          )}
+          {docTags.map(tag => (
+            <span
+              key={tag.id}
+              style={{
+                fontSize: 8,
+                padding: "1px 5px",
+                borderRadius: 3,
+                background: `${tag.color}15`,
+                color: tag.color,
+                fontWeight: 600,
+              }}
+            >
+              {tag.name}
+            </span>
+          ))}
           {doc.source === "rfp" && (
             <span
               style={{

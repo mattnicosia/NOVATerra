@@ -605,9 +605,9 @@ input[type="number"] {
   cursor: pointer;
 }
 
-/* ── Money cells — JetBrains Mono for tabular alignment ── */
+/* ── Money cells — Switzer with tabular alignment ── */
 .money-cell {
-  font-family: "JetBrains Mono", "SF Mono", "Cascadia Code", monospace;
+  font-family: "Switzer", -apple-system, BlinkMacSystemFont, sans-serif;
   font-feature-settings: "tnum";
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -1632,6 +1632,42 @@ button:disabled {
    (font -1px, spacing ×0.75, tighter line-height) via buildTokens()
    CSS class retained for any residual overrides
    ═══════════════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════════════
+   TABLET RESPONSIVE — iPad breakpoints (Sprint 5.1)
+   iPad is the field device. Core pages adapt for 700-1023px.
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 1023px) {
+  /* App viewport takes full width when sidebar is overlay */
+  .app-main {
+    width: 100% !important;
+  }
+
+  /* Reduce page padding on tablet */
+  .app-viewport {
+    padding-left: 0 !important;
+  }
+
+  /* Reduce scrollbar width for touch targets */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  /* Ensure touch-friendly tap targets */
+  button,
+  a,
+  [role="button"] {
+    min-height: 36px;
+    min-width: 36px;
+  }
+
+  /* Project tab bar: scroll horizontally if needed */
+  .project-tab-bar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
 
 /* ═══════════════════════════════════════════════════════════
    ACCESSIBILITY — Reduced motion support

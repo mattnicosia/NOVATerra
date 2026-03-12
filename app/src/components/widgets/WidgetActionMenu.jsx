@@ -60,11 +60,13 @@ export default function WidgetActionMenu({ widgetId, widgetType, currentW, onClo
       onClick={(e) => e.stopPropagation()}
       style={{
         position: 'absolute', top: 30, right: 4, zIndex: 1000,
-        background: dk
-          ? 'linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.04) 100%)'
-          : 'linear-gradient(145deg, rgba(255,255,255,0.97) 0%, rgba(255,255,255,0.92) 100%)',
-        backdropFilter: 'blur(40px) saturate(1.8)',
-        WebkitBackdropFilter: 'blur(40px) saturate(1.8)',
+        background: C.noGlass
+          ? C.bg2
+          : dk
+            ? 'linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.04) 100%)'
+            : 'linear-gradient(145deg, rgba(255,255,255,0.97) 0%, rgba(255,255,255,0.92) 100%)',
+        backdropFilter: C.noGlass ? 'none' : 'blur(40px) saturate(1.8)',
+        WebkitBackdropFilter: C.noGlass ? 'none' : 'blur(40px) saturate(1.8)',
         border: `1px solid ${dk ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)'}`,
         borderRadius: 12,
         padding: '10px 8px',

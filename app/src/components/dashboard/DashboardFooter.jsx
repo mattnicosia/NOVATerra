@@ -62,11 +62,13 @@ export default function DashboardFooter({ estimateCount = 0, lastModified = null
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      background: dk
-        ? 'linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%)'
-        : 'linear-gradient(180deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.55) 100%)',
-      backdropFilter: 'blur(40px) saturate(1.6)',
-      WebkitBackdropFilter: 'blur(40px) saturate(1.6)',
+      background: C.noGlass
+        ? C.bg1
+        : dk
+          ? 'linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%)'
+          : 'linear-gradient(180deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.55) 100%)',
+      backdropFilter: C.noGlass ? 'none' : 'blur(40px) saturate(1.6)',
+      WebkitBackdropFilter: C.noGlass ? 'none' : 'blur(40px) saturate(1.6)',
       borderTop: `1px solid ${dk ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}`,
       boxShadow: dk
         ? 'inset 0 1px 0 rgba(255,255,255,0.06), 0 -4px 16px rgba(0,0,0,0.2)'
@@ -92,7 +94,7 @@ export default function DashboardFooter({ estimateCount = 0, lastModified = null
             <span style={{ color: C.textMuted, marginLeft: 4 }}>{lastSync}</span>
             <span style={{ color: C.textDim, margin: '0 8px' }}>&middot;</span>
             <span style={{ color: C.textDim }}>Powered by</span>
-            <span style={{ color: C.textMuted, marginLeft: 4 }}>NOVA</span>
+            <span style={{ color: C.textMuted, marginLeft: 4 }}>ARTIFACT</span>
           </>
         )}
       </div>
@@ -141,16 +143,16 @@ export default function DashboardFooter({ estimateCount = 0, lastModified = null
               onClick={onShowPicker}
               style={{
                 ...ghostBtn,
-                borderColor: `${C.green}4D`,
-                color: C.green,
+                borderColor: `${C.accent}4D`,
+                color: C.accent,
               }}
               onMouseEnter={e => {
-                e.currentTarget.style.background = `${C.green}0D`;
-                e.currentTarget.style.borderColor = `${C.green}66`;
+                e.currentTarget.style.background = `${C.accent}0D`;
+                e.currentTarget.style.borderColor = `${C.accent}66`;
               }}
               onMouseLeave={e => {
                 e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.borderColor = `${C.green}4D`;
+                e.currentTarget.style.borderColor = `${C.accent}4D`;
               }}
             >+ Add Widget</button>
 

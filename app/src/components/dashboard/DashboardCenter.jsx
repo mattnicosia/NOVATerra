@@ -50,10 +50,9 @@ function formatCost(v) {
 }
 
 // ── glass card style (base — theme colors merged in component) ──
+// noGlass themes get solid backgrounds, zero blur
 const glassCardBase = {
   borderRadius: 14,
-  backdropFilter: "blur(18px)",
-  WebkitBackdropFilter: "blur(18px)",
   padding: "14px 18px",
 };
 
@@ -63,7 +62,9 @@ export default function DashboardCenter({ activeProject }) {
   const T = C.T;
   const dk = C.isDark;
   const ov = a => (dk ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`);
-  const glassCard = { ...glassCardBase, background: C.glassBg, border: `1px solid ${C.glassBorder}` };
+  const glassCard = C.noGlass
+    ? { ...glassCardBase, background: C.bg1, border: `1px solid ${C.border}` }
+    : { ...glassCardBase, backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)", background: C.glassBg, border: `1px solid ${C.glassBorder}` };
   const orbRef = useRef(null);
   const setAiChatOpen = useUiStore(s => s.setAiChatOpen);
   const selectedPalette = useUiStore(s => s.appSettings.selectedPalette);
@@ -197,7 +198,7 @@ export default function DashboardCenter({ activeProject }) {
             fontFamily: T.font.display,
           }}
         >
-          NOVA online
+          ARTIFACT online
         </div>
 
         <form onSubmit={handleAskSubmit} style={{ marginTop: 14 }}>
@@ -210,9 +211,9 @@ export default function DashboardCenter({ activeProject }) {
               borderRadius: 100,
               width: 260,
               border: `1px solid ${askFocused ? `${C.accent}66` : C.border}`,
-              background: askFocused ? `${C.accent}0D` : ov(0.025),
-              backdropFilter: "blur(20px)",
-              WebkitBackdropFilter: "blur(20px)",
+              background: askFocused ? `${C.accent}0D` : C.noGlass ? C.bg2 : ov(0.025),
+              backdropFilter: C.noGlass ? "none" : "blur(20px)",
+              WebkitBackdropFilter: C.noGlass ? "none" : "blur(20px)",
               boxShadow: askFocused ? `0 0 20px ${C.accent}26, 0 0 40px ${C.accent}0F` : "none",
               transition: "border-color 0.3s, background 0.3s, box-shadow 0.3s",
             }}

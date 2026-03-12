@@ -17,6 +17,10 @@ export const WIDGET_COMPONENTS = {
   "live-feed": lazy(() => import("./LiveFeedWidget")),
   spotify: lazy(() => import("./SpotifyWidget")),
   iframe: lazy(() => import("./IframeWidget")),
+  "estimate-health": lazy(() => import("./EstimateHealthWidget")),
+  "quick-actions": lazy(() => import("./QuickActionsWidget")),
+  "deadline-countdown": lazy(() => import("./DeadlineCountdownWidget")),
+  "nova-insights": lazy(() => import("./NovaInsightsWidget")),
   "carbon-breakdown": lazy(() => import("./CarbonBreakdownWidget")),
   "carbon-benchmark": lazy(() => import("./CarbonBenchmarkWidget")),
 };

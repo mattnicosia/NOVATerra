@@ -77,7 +77,7 @@ export default function AdminLayout() {
           </div>
           <div>
             <div style={{ fontSize: 14, fontWeight: 700, color: C.text, lineHeight: 1.2 }}>Admin</div>
-            <div style={{ fontSize: 10, color: C.textDim, fontWeight: 500 }}>NOVA Platform</div>
+            <div style={{ fontSize: 10, color: C.textDim, fontWeight: 500 }}>ARTIFACT Platform</div>
           </div>
         </div>
 

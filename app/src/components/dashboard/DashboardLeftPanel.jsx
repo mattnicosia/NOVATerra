@@ -173,7 +173,7 @@ function ConfirmDelete({ name, onConfirm, onCancel }) {
 /* ========== Component ========== */
 export default function DashboardLeftPanel({
   estimates = [], activeEstimateId, onSelectProject, onOpenProject, onDeleteProject,
-  onCreateEstimate, benchmarks = {},
+  onCreateEstimate, onRecoverFromCloud, benchmarks = {},
 }) {
   injectKeyframes();
 
@@ -234,9 +234,9 @@ export default function DashboardLeftPanel({
     display: 'flex',
     flexDirection: 'column',
     padding: '20px 16px 16px',
-    background: `linear-gradient(135deg, ${C.glassBgDark} 0%, ${C.glassBg} 50%, transparent 100%)`,
-    backdropFilter: 'blur(32px) saturate(1.4)',
-    boxShadow: `inset -1px 0 0 ${C.glassBorder}`,
+    background: C.noGlass ? C.bg1 : `linear-gradient(135deg, ${C.glassBgDark} 0%, ${C.glassBg} 50%, transparent 100%)`,
+    backdropFilter: C.noGlass ? 'none' : 'blur(32px) saturate(1.4)',
+    boxShadow: C.noGlass ? `inset -1px 0 0 ${C.border}` : `inset -1px 0 0 ${C.glassBorder}`,
     animation: 'fadeLeft 0.8s cubic-bezier(0.16,1,0.3,1) 0.7s both',
     fontFamily: font,
     boxSizing: 'border-box',
@@ -253,7 +253,13 @@ export default function DashboardLeftPanel({
     margin: 0,
   };
 
-  const glassCardStyle = {
+  const glassCardStyle = C.noGlass ? {
+    background: C.bg2,
+    borderRadius: 10,
+    padding: 6,
+    position: 'relative',
+    border: `1px solid ${C.border}`,
+  } : {
     background: C.glassBg,
     borderRadius: 10,
     padding: 6,
@@ -381,6 +387,14 @@ export default function DashboardLeftPanel({
             <div style={{ fontSize: 9.5, fontWeight: 400, color: C.textDim, fontFamily: font, marginTop: 4 }}>
               Create your first estimate below
             </div>
+            {onRecoverFromCloud && (
+              <div
+                onClick={onRecoverFromCloud}
+                style={{ fontSize: 9, color: C.accent, cursor: 'pointer', marginTop: 8, textDecoration: 'underline', textDecorationColor: `${C.accent}40` }}
+              >
+                Recover from cloud
+              </div>
+            )}
           </div>
         )}
       </div>

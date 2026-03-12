@@ -221,8 +221,12 @@ export const useEstimatesStore = create((set, get) => ({
     }
 
     // Cloud sync estimate data (non-blocking)
-    cloudSync.pushEstimate(id, data).catch(() => {});
-    cloudSync.pushData("index", idx).catch(() => {});
+    // Guard: skip if startup cloud sync hasn't finished yet (prevents race where
+    // a partial local index overwrites the complete cloud index)
+    if (!useUiStore.getState().cloudSyncInProgress) {
+      cloudSync.pushEstimate(id, data).catch(() => {});
+      cloudSync.pushData("index", idx).catch(() => {});
+    }
 
     return id;
   },
@@ -408,8 +412,10 @@ export const useEstimatesStore = create((set, get) => ({
     }
 
     // Cloud sync (non-blocking)
-    cloudSync.pushEstimate(newId, data).catch(() => {});
-    cloudSync.pushData("index", idx).catch(() => {});
+    if (!useUiStore.getState().cloudSyncInProgress) {
+      cloudSync.pushEstimate(newId, data).catch(() => {});
+      cloudSync.pushData("index", idx).catch(() => {});
+    }
 
     return newId;
   },
@@ -491,8 +497,10 @@ export const useEstimatesStore = create((set, get) => ({
     }
 
     // Cloud sync (non-blocking)
-    cloudSync.pushEstimate(id, data).catch(() => {});
-    cloudSync.pushData("index", idx).catch(() => {});
+    if (!useUiStore.getState().cloudSyncInProgress) {
+      cloudSync.pushEstimate(id, data).catch(() => {});
+      cloudSync.pushData("index", idx).catch(() => {});
+    }
 
     return id;
   },

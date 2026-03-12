@@ -5,7 +5,9 @@ import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { bt } from "@/utils/styles";
 import { SCHEDULE_TYPES } from "@/utils/scheduleParsers";
-import { NOTE_CATEGORIES } from "@/utils/notesExtractor";
+import { NOTE_CATEGORIES, groupNotesByTrade } from "@/utils/notesExtractor";
+import PredictiveTakeoffPanel from "@/components/planroom/PredictiveTakeoffPanel";
+import { generateTakeoffSuggestions } from "@/nova/predictive/generateSuggestions";
 
 const fmt = n => {
   if (!n && n !== 0) return "—";
@@ -20,11 +22,13 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
   const C = useTheme();
   const T = C.T;
   // Smart default tab: show the most useful tab based on what the scan found
+  // NOVA Takeoffs tab is the star — default to it when suggestions exist
   const [tab, setTab] = useState(() => {
     const hasSchedules = scanResults?.schedules?.length > 0 && scanResults.schedules.some(s => s.entries?.length > 0);
-    if (hasSchedules) return "schedules";
+    const hasRom = scanResults?.rom?.totals;
+    // Default to NOVA Takeoffs when we have schedule data or ROM (suggestions will be generated)
+    if (hasSchedules || hasRom) return "suggestions";
     if (scanResults?.lineItems?.length > 0) return "items";
-    if (scanResults?.rom?.totals) return "rom";
     if (scanResults?.drawingNotes?.some(dn => dn.notes?.length > 0)) return "notes";
     return "rom"; // fallback to ROM — it always runs
   });
@@ -39,6 +43,13 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
   // Notes state
   const [noteRelevanceFilter, setNoteRelevanceFilter] = useState({ high: true, medium: true, low: false });
   const [selectedNotes, setSelectedNotes] = useState(new Set());
+  const [notesViewMode, setNotesViewMode] = useState("grouped"); // "flat" | "grouped"
+  const [collapsedGroups, setCollapsedGroups] = useState(new Set());
+
+  // NOVA Predictive Takeoffs
+  const suggestions = useMemo(() => generateTakeoffSuggestions(scanResults), [scanResults]);
+  const [acceptedSuggestions, setAcceptedSuggestions] = useState([]);
+  const [rejectedSuggestions, setRejectedSuggestions] = useState(new Set());
 
   if (!scanResults) return null;
 
@@ -126,6 +137,7 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
         }}
       >
         {[
+          { k: "suggestions", l: "✦ NOVA Takeoffs", count: suggestions.length, accent: true },
           { k: "schedules", l: "Schedules", count: totalScheduleEntries },
           { k: "notes", l: "Notes", count: totalNotes },
           { k: "rom", l: "ROM Overview", count: null },
@@ -135,10 +147,13 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
             key={t.k}
             onClick={() => setTab(t.k)}
             style={bt(C, {
-              background: tab === t.k ? C.accent : "transparent",
-              color: tab === t.k ? "#fff" : C.textMuted,
+              background: tab === t.k
+                ? t.accent ? `linear-gradient(135deg, ${C.accent}, ${C.purple || C.accent})` : C.accent
+                : "transparent",
+              color: tab === t.k ? "#fff" : t.accent ? C.accent : C.textMuted,
               padding: "6px 16px",
               fontSize: 11,
+              fontWeight: t.accent ? 700 : 500,
               border: "none",
               borderRadius: T.radius.sm,
             })}
@@ -148,6 +163,30 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
           </button>
         ))}
       </div>
+
+      {/* ═══ TAB: NOVA Predictive Takeoffs ═══ */}
+      {tab === "suggestions" && (
+        <div style={{ maxHeight: 480, overflowY: "auto" }}>
+          {suggestions.length === 0 ? (
+            <div style={{ padding: 40, textAlign: "center", color: C.textDim, fontSize: 12 }}>
+              No predictive takeoff suggestions generated. Upload drawings with schedules for best results.
+            </div>
+          ) : (
+            <PredictiveTakeoffPanel
+              suggestions={suggestions}
+              onAccept={s => {
+                setAcceptedSuggestions(prev => [...prev, s]);
+              }}
+              onReject={s => {
+                setRejectedSuggestions(prev => new Set([...prev, s.id]));
+              }}
+              onAcceptAll={pending => {
+                setAcceptedSuggestions(prev => [...prev, ...pending]);
+              }}
+            />
+          )}
+        </div>
+      )}
 
       {/* ═══ TAB 1: Schedules ═══ */}
       {tab === "schedules" && (
@@ -176,10 +215,10 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
         </div>
       )}
 
-      {/* ═══ TAB: Notes (sorted by relevance) ═══ */}
+      {/* ═══ TAB: Notes (grouped by trade or flat) ═══ */}
       {tab === "notes" &&
         (() => {
-          // Flatten all notes with source sheet info, sorted by relevance
+          // Flatten all notes with source sheet info
           const relevanceOrder = { high: 0, medium: 1, low: 2 };
           const allNotes = [];
           drawingNotes
@@ -193,6 +232,9 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
             (a, b) => (relevanceOrder[a.estimatingRelevance] || 2) - (relevanceOrder[b.estimatingRelevance] || 2),
           );
 
+          // Grouped data
+          const tradeGroups = groupNotesByTrade(drawingNotes);
+
           const filteredNotes = allNotes.filter(n => noteRelevanceFilter[n.estimatingRelevance || "low"]);
 
           const toggleNote = key => {
@@ -204,10 +246,116 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
             });
           };
 
+          const toggleGroup = group => {
+            setCollapsedGroups(prev => {
+              const next = new Set(prev);
+              next.has(group) ? next.delete(group) : next.add(group);
+              return next;
+            });
+          };
+
           const handleAddNotes = () => {
             const notes = allNotes.filter(n => selectedNotes.has(n._key));
             if (onApplyNotes) onApplyNotes(notes);
             setSelectedNotes(new Set());
+          };
+
+          // Render a single note row (shared between flat + grouped)
+          const renderNote = note => {
+            const catConfig = NOTE_CATEGORIES.find(c => c.id === note.category);
+            const relColor =
+              note.estimatingRelevance === "high"
+                ? C.green
+                : note.estimatingRelevance === "medium"
+                  ? C.orange
+                  : C.textDim;
+            const isSelected = selectedNotes.has(note._key);
+            return (
+              <div
+                key={note._key}
+                onClick={() => toggleNote(note._key)}
+                style={{
+                  padding: "6px 12px",
+                  borderBottom: `1px solid ${C.bg2}`,
+                  display: "flex",
+                  gap: 8,
+                  alignItems: "flex-start",
+                  cursor: "pointer",
+                  background: isSelected ? `${C.green}08` : "transparent",
+                  borderLeft: `3px solid ${relColor}`,
+                }}
+              >
+                <div style={{ paddingTop: 2 }}>
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleNote(note._key)}
+                    onClick={e => e.stopPropagation()}
+                  />
+                </div>
+                <div
+                  style={{
+                    flexShrink: 0,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 3,
+                    minWidth: 80,
+                    paddingTop: 1,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 7,
+                      padding: "2px 5px",
+                      borderRadius: 3,
+                      fontWeight: 700,
+                      whiteSpace: "nowrap",
+                      background: `${catConfig?.color || C.accent}18`,
+                      color: catConfig?.color || C.accent,
+                    }}
+                  >
+                    {catConfig?.label || note.category}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 7,
+                      padding: "1px 4px",
+                      borderRadius: 2,
+                      fontWeight: 600,
+                      background: `${relColor}12`,
+                      color: relColor,
+                    }}
+                  >
+                    {note.estimatingRelevance}
+                  </span>
+                  <span style={{ fontSize: 7, color: C.textDim }}>{note.sheetLabel}</span>
+                </div>
+                <div style={{ flex: 1, fontSize: 10, color: C.text, lineHeight: 1.5 }}>
+                  {note.text}
+                  {note.csiDivisions?.length > 0 && (
+                    <div style={{ marginTop: 2 }}>
+                      {note.csiDivisions.map((div, i) => (
+                        <span
+                          key={i}
+                          style={{
+                            fontSize: 7,
+                            padding: "1px 4px",
+                            borderRadius: 2,
+                            background: `${C.accent}10`,
+                            color: C.accent,
+                            fontWeight: 600,
+                            fontFamily: T.font.sans,
+                            marginRight: 3,
+                          }}
+                        >
+                          CSI {div}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
           };
 
           return (
@@ -218,12 +366,31 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
                 </div>
               ) : (
                 <>
-                  {/* Relevance filter bar */}
+                  {/* Toolbar: view toggle + relevance filter + add button */}
                   <div
                     style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}
                   >
                     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                      <span style={{ fontSize: 9, color: C.textDim, fontWeight: 600 }}>Filter:</span>
+                      {/* View mode toggle */}
+                      {["grouped", "flat"].map(mode => (
+                        <button
+                          key={mode}
+                          onClick={() => setNotesViewMode(mode)}
+                          style={bt(C, {
+                            padding: "3px 10px",
+                            fontSize: 9,
+                            fontWeight: 600,
+                            background: notesViewMode === mode ? `${C.accent}18` : "transparent",
+                            color: notesViewMode === mode ? C.accent : C.textDim,
+                            border: `1px solid ${notesViewMode === mode ? C.accent + "40" : C.border}`,
+                            borderRadius: T.radius.full,
+                          })}
+                        >
+                          {mode === "grouped" ? "By Trade" : "Flat"}
+                        </button>
+                      ))}
+                      <span style={{ width: 1, height: 14, background: C.border, margin: "0 2px" }} />
+                      {/* Relevance filters */}
                       {[
                         { k: "high", l: "High", c: C.green },
                         { k: "medium", l: "Medium", c: C.orange },
@@ -263,108 +430,103 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
                   </div>
 
                   <div style={{ fontSize: 9, color: C.textDim, marginBottom: 6 }}>
-                    Showing {filteredNotes.length} of {allNotes.length} notes — sorted by estimating relevance
+                    {notesViewMode === "grouped"
+                      ? `${tradeGroups.length} trade groups · ${allNotes.length} total notes`
+                      : `Showing ${filteredNotes.length} of ${allNotes.length} notes — sorted by relevance`}
                   </div>
 
-                  {/* Notes list */}
-                  <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-                    {filteredNotes.map(note => {
-                      const catConfig = NOTE_CATEGORIES.find(c => c.id === note.category);
-                      const relColor =
-                        note.estimatingRelevance === "high"
-                          ? C.green
-                          : note.estimatingRelevance === "medium"
-                            ? C.orange
-                            : C.textDim;
-                      const isSelected = selectedNotes.has(note._key);
-                      return (
-                        <div
-                          key={note._key}
-                          onClick={() => toggleNote(note._key)}
-                          style={{
-                            padding: "6px 12px",
-                            borderBottom: `1px solid ${C.bg2}`,
-                            display: "flex",
-                            gap: 8,
-                            alignItems: "flex-start",
-                            cursor: "pointer",
-                            background: isSelected ? `${C.green}08` : "transparent",
-                            borderLeft: `3px solid ${relColor}`,
-                          }}
-                        >
-                          <div style={{ paddingTop: 2 }}>
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => toggleNote(note._key)}
-                              onClick={e => e.stopPropagation()}
-                            />
-                          </div>
+                  {/* ── Grouped View ── */}
+                  {notesViewMode === "grouped" && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {tradeGroups.map(({ group, notes: groupNotes, highCount, medCount }) => {
+                        const visibleNotes = groupNotes.filter(
+                          n => noteRelevanceFilter[n.estimatingRelevance || "low"],
+                        );
+                        if (visibleNotes.length === 0) return null;
+                        const isCollapsed = collapsedGroups.has(group);
+                        return (
                           <div
+                            key={group}
                             style={{
-                              flexShrink: 0,
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: 3,
-                              minWidth: 80,
-                              paddingTop: 1,
+                              border: `1px solid ${C.border}`,
+                              borderRadius: 8,
+                              overflow: "hidden",
                             }}
                           >
-                            <span
+                            {/* Group header */}
+                            <div
+                              onClick={() => toggleGroup(group)}
                               style={{
-                                fontSize: 7,
-                                padding: "2px 5px",
-                                borderRadius: 3,
-                                fontWeight: 700,
-                                whiteSpace: "nowrap",
-                                background: `${catConfig?.color || C.accent}18`,
-                                color: catConfig?.color || C.accent,
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                                padding: "7px 12px",
+                                cursor: "pointer",
+                                background: C.bg2,
+                                userSelect: "none",
                               }}
                             >
-                              {catConfig?.label || note.category}
-                            </span>
-                            <span
-                              style={{
-                                fontSize: 7,
-                                padding: "1px 4px",
-                                borderRadius: 2,
-                                fontWeight: 600,
-                                background: `${relColor}12`,
-                                color: relColor,
-                              }}
-                            >
-                              {note.estimatingRelevance}
-                            </span>
-                            <span style={{ fontSize: 7, color: C.textDim }}>{note.sheetLabel}</span>
-                          </div>
-                          <div style={{ flex: 1, fontSize: 10, color: C.text, lineHeight: 1.5 }}>
-                            {note.text}
-                            {note.csiDivisions?.length > 0 && (
-                              <div style={{ marginTop: 2 }}>
-                                {note.csiDivisions.map((div, i) => (
+                              <span
+                                style={{
+                                  fontSize: 8,
+                                  color: C.textDim,
+                                  transition: "transform 0.15s",
+                                  transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)",
+                                }}
+                              >
+                                ▼
+                              </span>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: C.text, flex: 1 }}>
+                                {group}
+                              </span>
+                              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                                {highCount > 0 && (
                                   <span
-                                    key={i}
                                     style={{
                                       fontSize: 7,
-                                      padding: "1px 4px",
-                                      borderRadius: 2,
-                                      background: `${C.accent}10`,
-                                      color: C.accent,
-                                      fontWeight: 600,
-                                      fontFamily: T.font.sans,
-                                      marginRight: 3,
+                                      padding: "1px 5px",
+                                      borderRadius: 3,
+                                      fontWeight: 700,
+                                      background: `${C.green}18`,
+                                      color: C.green,
                                     }}
                                   >
-                                    CSI {div}
+                                    {highCount} high
                                   </span>
-                                ))}
+                                )}
+                                {medCount > 0 && (
+                                  <span
+                                    style={{
+                                      fontSize: 7,
+                                      padding: "1px 5px",
+                                      borderRadius: 3,
+                                      fontWeight: 700,
+                                      background: `${C.orange}18`,
+                                      color: C.orange,
+                                    }}
+                                  >
+                                    {medCount} med
+                                  </span>
+                                )}
+                                <span style={{ fontSize: 8, color: C.textDim, fontWeight: 600 }}>
+                                  {visibleNotes.length}
+                                </span>
                               </div>
-                            )}
+                            </div>
+                            {/* Group notes */}
+                            {!isCollapsed && visibleNotes.map(renderNote)}
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* ── Flat View ── */}
+                  {notesViewMode === "flat" && (
+                    <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+                      {filteredNotes.map(renderNote)}
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -1015,6 +1177,40 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
           >
             Save Scan Only
           </button>
+          {acceptedSuggestions.length > 0 && (
+            <button
+              onClick={() => {
+                // Convert accepted suggestions to line item format and apply
+                const items = acceptedSuggestions.map(s => ({
+                  code: s.code,
+                  description: s.description,
+                  unit: s.unit,
+                  quantity: s.quantity || 1,
+                  material: s.estimatedCost?.material || 0,
+                  labor: s.estimatedCost?.labor || 0,
+                  equipment: s.estimatedCost?.equipment || 0,
+                  subcontractor: s.estimatedCost?.sub || 0,
+                  m: s.estimatedCost?.material || 0,
+                  l: s.estimatedCost?.labor || 0,
+                  e: s.estimatedCost?.equipment || 0,
+                  s: s.estimatedCost?.sub || 0,
+                  source: "nova-predictive",
+                  confidence: s.confidence,
+                }));
+                onApplyToEstimate(items);
+              }}
+              style={bt(C, {
+                background: `linear-gradient(135deg, ${C.purple || C.accent}, ${C.accent})`,
+                color: "#fff",
+                padding: "8px 16px",
+                fontSize: 11,
+                fontWeight: 600,
+                boxShadow: `0 2px 8px ${C.accent}30`,
+              })}
+            >
+              Apply {acceptedSuggestions.length} NOVA Suggestion{acceptedSuggestions.length !== 1 ? "s" : ""}
+            </button>
+          )}
           <button
             onClick={handleApply}
             disabled={selectedItems.size === 0}

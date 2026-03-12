@@ -10,6 +10,7 @@ import { resetAllStores, getDirtyEstimates, clearDirtyEstimate, clearAllDirtyEst
 import * as cloudSync from "@/utils/cloudSync";
 import { idbKey } from "@/utils/idbKey";
 import { useOrgStore } from "@/stores/orgStore";
+import * as nova from "@/utils/novaLogger";
 
 /**
  * Bidirectional cloud sync on every app startup.
@@ -36,7 +37,7 @@ export async function retryCloudSync() {
 }
 
 async function runCloudSync() {
-  console.log("[cloudSync] Starting bidirectional sync...");
+  nova.sync.info("Starting bidirectional sync...");
   useUiStore.getState().setCloudSyncStatus("syncing");
   useUiStore.setState({ cloudSyncInProgress: true });
 
@@ -55,12 +56,23 @@ async function runCloudSync() {
   }
 
   let failures = 0;
+  const MAX_RETRIES = 2;
   const trySync = async (label, fn) => {
-    try {
-      await fn();
-    } catch (err) {
-      failures++;
-      console.warn(`[cloudSync] ${label} failed:`, err.message || err);
+    for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
+      try {
+        await fn();
+        return; // Success
+      } catch (err) {
+        if (attempt <= MAX_RETRIES) {
+          // Exponential backoff: 1s, 2s
+          const delay = Math.pow(2, attempt - 1) * 1000;
+          nova.sync.warn(`${label} attempt ${attempt} failed — retrying in ${delay}ms`, { error: err, label, attempt });
+          await new Promise(r => setTimeout(r, delay));
+        } else {
+          failures++;
+          nova.sync.error(`${label} failed after ${MAX_RETRIES + 1} attempts`, { error: err, label });
+        }
+      }
     }
   };
 
@@ -68,7 +80,7 @@ async function runCloudSync() {
   await trySync("Dirty estimates", async () => {
     const dirtyIds = getDirtyEstimates();
     if (dirtyIds.length === 0) return;
-    console.log(`[cloudSync] Flushing ${dirtyIds.length} dirty estimate(s) from last session`);
+    nova.sync.info(`Flushing ${dirtyIds.length} dirty estimate(s) from last session`, { count: dirtyIds.length });
     for (const did of dirtyIds) {
       try {
         const raw = await storage.get(idbKey(`bldg-est-${did}`));
@@ -76,12 +88,13 @@ async function runCloudSync() {
           const data = JSON.parse(raw.value);
           await cloudSync.pushEstimate(did, data);
           clearDirtyEstimate(did);
-          console.log(`[cloudSync] Dirty estimate ${did} pushed successfully`);
+          nova.sync.info(`Dirty estimate ${did.slice(0, 8)} pushed successfully`);
         } else {
           clearDirtyEstimate(did); // Data gone, can't push
+          nova.orphan.warn(`Dirty estimate ${did.slice(0, 8)} has no IDB data — cleared from queue`);
         }
       } catch (err) {
-        console.warn(`[cloudSync] Failed to push dirty estimate ${did}:`, err.message);
+        nova.sync.warn(`Failed to push dirty estimate ${did.slice(0, 8)}`, { error: err });
       }
     }
   });
@@ -98,7 +111,7 @@ async function runCloudSync() {
   // so we must restore persistenceLoaded so auto-save and EstimateLoader work.
   if (!useUiStore.getState().persistenceLoaded) {
     useUiStore.getState().setPersistenceLoaded(true);
-    console.log("[cloudSync] Restored persistenceLoaded after user-switch recovery");
+    nova.sync.info("Restored persistenceLoaded after user-switch recovery");
   }
 
   if (failures === 0) {
@@ -106,17 +119,15 @@ async function runCloudSync() {
     useUiStore
       .getState()
       .setCloudSyncLastAt(new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }));
-    console.log("[cloudSync] Bidirectional sync complete.");
+    nova.sync.info("Bidirectional sync complete");
   } else if (failures <= 3) {
-    // Partial success — show warning state so user knows something didn't sync
     useUiStore.getState().setCloudSyncStatus("partial");
     useUiStore
       .getState()
       .setCloudSyncLastAt(new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }));
-    console.warn(`[cloudSync] Completed with ${failures}/6 failure(s).`);
+    nova.sync.warn(`Completed with ${failures}/6 failure(s)`, { failures });
   } else {
-    // Most or all sub-syncs failed — mark error
-    console.error(`[cloudSync] ${failures}/6 sync operations failed.`);
+    nova.sync.error(`${failures}/6 sync operations failed`, { failures });
     useUiStore.getState().setCloudSyncStatus("error");
   }
 
@@ -158,9 +169,9 @@ export function useCloudSync() {
           useUiStore.getState().setCloudSyncError("Session expired — please refresh");
           return;
         }
-        console.log("[cloudSync] Health check passed ✓");
+        nova.sync.info("Health check passed");
       } catch (err) {
-        console.error("[cloudSync] Health check failed:", err.message);
+        nova.sync.error("Health check failed", { error: err });
         useUiStore.getState().setCloudSyncStatus("error");
         useUiStore.getState().setCloudSyncError(err.message);
         return;
@@ -239,13 +250,22 @@ async function syncMasterData() {
   const cloudNewer = cloudTime > localTime;
   const merged = mergeMasterData(localMaster, cloudMaster, cloudNewer);
 
+  // Log the conflict resolution for debugging
+  nova.sync.conflict("Master data merge", {
+    winner: cloudNewer ? "cloud" : "local",
+    cloudTime: cloudTime ? new Date(cloudTime).toISOString() : "none",
+    localTime: localTime ? new Date(localTime).toISOString() : "none",
+    cloudProfiles: (cloudMaster.companyProfiles || []).length,
+    localProfiles: (localMaster.companyProfiles || []).length,
+    mergedProfiles: (merged.companyProfiles || []).length,
+  });
+
   // Apply merged data locally
   applyMasterData(merged);
   await storage.set(idbKey("bldg-master"), JSON.stringify(merged));
 
   // Push merged data to cloud so the other device gets it
   await cloudSync.pushData("master", merged);
-  console.log(`[cloudSync] Master: merged and pushed (${cloudNewer ? "cloud" : "local"} preferred on conflicts)`);
 }
 
 /**
@@ -536,6 +556,7 @@ async function syncEstimates() {
   // Re-read fresh state since we may have just added entries
   const finalIndex = useEstimatesStore.getState().estimatesIndex;
   let pushed = false;
+  const orphanIds = []; // index entries with no data anywhere
   for (const entry of finalIndex) {
     if (!cloudEstMap.has(entry.id) && !freshDeletedSet.has(entry.id)) {
       console.log(`[cloudSync] Estimates: pushing local estimate ${entry.id}`);
@@ -549,7 +570,45 @@ async function syncEstimates() {
         } // Skip corrupted
         await cloudSync.pushEstimate(entry.id, estData);
         pushed = true;
+      } else {
+        // No IDB data AND no cloud data — this is an orphaned index entry
+        console.warn(`[cloudSync] Estimate ${entry.id} has no data in IDB or cloud — marking as orphan`);
+        orphanIds.push(entry.id);
       }
+    }
+  }
+
+  // Remove orphaned index entries (metadata with no backing data)
+  if (orphanIds.length > 0) {
+    const orphanSet = new Set(orphanIds);
+    nova.orphan.cleaned(orphanIds.length, orphanIds);
+    useEstimatesStore.setState(state => ({
+      estimatesIndex: state.estimatesIndex.filter(e => !orphanSet.has(e.id)),
+    }));
+    // Persist cleaned index
+    const cleanedIdx = useEstimatesStore.getState().estimatesIndex;
+    await storage.set(idbKey("bldg-index"), JSON.stringify(cleanedIdx));
+    try {
+      const userId = useAuthStore.getState().user?.id;
+      if (userId) localStorage.setItem(`bldg-index-mirror-${userId}`, JSON.stringify(cleanedIdx));
+    } catch {}
+
+    // Add orphan IDs to deleted-IDs list so the data-loss guard knows about the reduction
+    // and cloud sync won't resurrect them from the cloud index
+    try {
+      const currentDeleted = await readDeletedIds();
+      const merged = [...new Set([...currentDeleted, ...orphanIds])];
+      await storage.set(idbKey("bldg-deleted-ids"), JSON.stringify(merged));
+      const userId = useAuthStore.getState().user?.id;
+      if (userId) localStorage.setItem(`bldg-deleted-ids-${userId}`, JSON.stringify(merged));
+      console.log(`[cloudSync] Added ${orphanIds.length} orphan(s) to deleted-IDs list`);
+    } catch {}
+
+    // Also soft-delete orphans in cloud so cloud index shrinks too
+    for (const oid of orphanIds) {
+      try {
+        await cloudSync.deleteEstimate(oid);
+      } catch {}
     }
   }
 

@@ -1857,13 +1857,13 @@ Where confidence is "high", "medium", or "low".`,
         );
         const countRadius = Math.max(30, 30 * zoomScale);
         const lineRadius = Math.max(12, 15 * zoomScale);
-        for (const to of takeoffs) {
-          for (const m of to.measurements || []) {
+        for (const hitTo of takeoffs) {
+          for (const m of hitTo.measurements || []) {
             if (m.sheetId !== selectedDrawingId) continue;
             if (m.type === "count") {
               const d = Math.sqrt((pt.x - m.points[0].x) ** 2 + (pt.y - m.points[0].y) ** 2);
               if (d < countRadius) {
-                setTkSelectedTakeoffId(to.id);
+                setTkSelectedTakeoffId(hitTo.id);
                 return;
               }
             } else if (m.type === "linear" && m.points.length >= 2) {
@@ -1879,7 +1879,7 @@ Where confidence is "high", "medium", or "low".`,
                 const proj = { x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) };
                 const dist = Math.sqrt((pt.x - proj.x) ** 2 + (pt.y - proj.y) ** 2);
                 if (dist < lineRadius) {
-                  setTkSelectedTakeoffId(to.id);
+                  setTkSelectedTakeoffId(hitTo.id);
                   return;
                 }
               }
@@ -1895,7 +1895,7 @@ Where confidence is "high", "medium", or "low".`,
                 if (yi > pt.y !== yj > pt.y && pt.x < ((xj - xi) * (pt.y - yi)) / (yj - yi) + xi) inside = !inside;
               }
               if (inside) {
-                setTkSelectedTakeoffId(to.id);
+                setTkSelectedTakeoffId(hitTo.id);
                 return;
               }
             }
@@ -3714,31 +3714,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
               >
                 Group
               </span>
-              <div style={{ display: "flex", gap: 0, background: C.bg2, borderRadius: 4, padding: 1 }}>
-                {[
-                  { key: "subdivision", label: "Sub" },
-                  { key: "division", label: "Div" },
-                  { key: "trade", label: "Trade" },
-                ].map(v => (
-                  <button
-                    key={v.key}
-                    onClick={() => setEstGroupBy(v.key)}
-                    style={{
-                      padding: "2px 7px",
-                      fontSize: 8,
-                      fontWeight: estGroupBy === v.key ? 700 : 500,
-                      background: estGroupBy === v.key ? C.accent : "transparent",
-                      color: estGroupBy === v.key ? "#fff" : C.textDim,
-                      border: "none",
-                      borderRadius: 3,
-                      cursor: "pointer",
-                      transition: "all 0.15s",
-                    }}
-                  >
-                    {v.label}
-                  </button>
-                ))}
-              </div>
+              {/* Sub/Div/Trade toggle removed — not wired to takeoff grouping */}
             </div>
           )}
 
@@ -3823,14 +3799,11 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                         background: C.bg2,
                       })}
                     >
-                      <optgroup label="Count (EA)">
+                      <optgroup label="Count">
                         <option value="EA">EA</option>
-                        <option value="SET">SET</option>
-                        <option value="PAIR">PAIR</option>
                       </optgroup>
                       <optgroup label="Linear">
                         <option value="LF">LF</option>
-                        <option value="VLF">VLF</option>
                       </optgroup>
                       <optgroup label="Area">
                         <option value="SF">SF</option>
@@ -3841,11 +3814,8 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                         <option value="CF">CF</option>
                       </optgroup>
                       <optgroup label="Other">
-                        <option value="TON">TON</option>
-                        <option value="GAL">GAL</option>
                         <option value="LS">LS</option>
-                        <option value="ROLL">ROLL</option>
-                        <option value="BAG">BAG</option>
+                        <option value="HR">HR</option>
                       </optgroup>
                     </select>
                     <div ref={plusMenuRef} style={{ position: "relative", flexShrink: 0 }}>
@@ -4605,9 +4575,11 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                     const noScale =
                                       hasMeasurements && measuredQty === null && unitToTool(to.unit) !== "count";
                                     const displayQty = hasMeasurements
-                                      ? measuredQty !== null
-                                        ? measuredQty
-                                        : null
+                                      ? (hasFormula && computedQty !== null)
+                                        ? computedQty
+                                        : measuredQty !== null
+                                          ? measuredQty
+                                          : null
                                       : nn(to.quantity) || null;
                                     const hasFormula = !!(to.formula && to.formula.trim());
                                     const hasVars = (to.variables || []).length > 0;
@@ -4770,7 +4742,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                 background: "transparent",
                                                 border: "1px solid transparent",
                                                 padding: "2px 4px",
-                                                fontSize: T.fontSize.base,
+                                                fontSize: T.fontSize.sm,
                                                 fontWeight: T.fontWeight.medium,
                                               })}
                                             />
@@ -4860,19 +4832,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                 })}
                                               />
                                             )}
-                                            {/* Tier 3: Formula result — whisper */}
-                                            {hasFormula && computedQty !== null && (
-                                              <div
-                                                style={{
-                                                  fontSize: 7,
-                                                  color: `${C.accent}90`,
-                                                  fontFamily: T.font.mono,
-                                                  paddingLeft: 2,
-                                                }}
-                                              >
-                                                ={Math.round(computedQty * 100) / 100}
-                                              </div>
-                                            )}
+                                            {/* Formula whisper removed — displayQty now shows computed result */}
                                           </div>
                                           {/* Tier 3: Unit — whisper */}
                                           <div style={{ width: 36 }} onClick={e => e.stopPropagation()}>
@@ -4893,21 +4853,22 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                 color: C.textDim,
                                               })}
                                             >
-                                              {UNITS.map(u => (
+                                              {["EA","LF","SF","SY","CY","CF","LS","HR"].map(u => (
                                                 <option key={u} value={u}>
                                                   {u}
                                                 </option>
                                               ))}
                                             </select>
                                           </div>
-                                          {/* Cost columns — Standard/Full tier */}
+                                          {/* Cost columns — Standard/Full tier, only when item is linked with cost */}
                                           {tkPanelTier !== "compact" &&
                                             (() => {
                                               const linkedItem = itemById[to.linkedItemId];
-                                              const itemTotal = linkedItem ? getItemTotal(linkedItem) : 0;
-                                              const itemQty = linkedItem ? nn(linkedItem.quantity) : 0;
+                                              if (!linkedItem) return null;
+                                              const itemTotal = getItemTotal(linkedItem);
+                                              const itemQty = nn(linkedItem.quantity);
                                               const unitCost = itemQty > 0 ? itemTotal / itemQty : 0;
-                                              const hasCost = itemTotal > 0;
+                                              if (itemTotal <= 0) return null;
                                               return (
                                                 <>
                                                   <div
@@ -4916,21 +4877,16 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                       textAlign: "right",
                                                       fontSize: 9,
                                                       fontFeatureSettings: "'tnum'",
-                                                      color: hasCost ? C.textDim : `${C.textDim}40`,
+                                                      color: C.textDim,
                                                       padding: "2px 2px",
                                                     }}
                                                     onClick={e => {
                                                       e.stopPropagation();
-                                                      if (linkedItem)
-                                                        setCostEditId(costEditId === to.id ? null : to.id);
+                                                      setCostEditId(costEditId === to.id ? null : to.id);
                                                     }}
-                                                    title={
-                                                      linkedItem
-                                                        ? `M: $${fmt2(nn(linkedItem.material))} · L: $${fmt2(nn(linkedItem.labor))} · E: $${fmt2(nn(linkedItem.equipment))} · S: $${fmt2(nn(linkedItem.subcontractor))}`
-                                                        : "No linked item"
-                                                    }
+                                                    title={`M: $${fmt2(nn(linkedItem.material))} · L: $${fmt2(nn(linkedItem.labor))} · E: $${fmt2(nn(linkedItem.equipment))} · S: $${fmt2(nn(linkedItem.subcontractor))}`}
                                                   >
-                                                    {hasCost ? `$${fmt2(unitCost)}` : "—"}
+                                                    ${fmt2(unitCost)}
                                                   </div>
                                                   <div
                                                     style={{
@@ -4939,16 +4895,15 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                       fontSize: 10,
                                                       fontWeight: 700,
                                                       fontFeatureSettings: "'tnum'",
-                                                      color: hasCost ? C.green : `${C.textDim}40`,
+                                                      color: C.green,
                                                       padding: "2px 2px",
                                                     }}
                                                     onClick={e => {
                                                       e.stopPropagation();
-                                                      if (linkedItem)
-                                                        setCostEditId(costEditId === to.id ? null : to.id);
+                                                      setCostEditId(costEditId === to.id ? null : to.id);
                                                     }}
                                                   >
-                                                    {hasCost ? fmt(itemTotal) : "—"}
+                                                    {fmt(itemTotal)}
                                                   </div>
                                                 </>
                                               );
@@ -4968,7 +4923,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                     onChange={e => {
                                                       updateTakeoff(to.id, "drawingRef", e.target.value);
                                                       const d = drawings.find(
-                                                        d => (d.sheetNumber || d.pageNumber) === e.target.value,
+                                                        d => (d.sheetNumber || d.pageNumber || d.id) === e.target.value,
                                                       );
                                                       if (d) {
                                                         setSelectedDrawingId(d.id);
@@ -5044,24 +4999,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                 </svg>
                                               </button>
                                             ) : null}
-                                            {totalMCount > 0 && (
-                                              <span
-                                                className={measureFlashId === to.id ? "badge-bump" : ""}
-                                                style={{
-                                                  fontSize: 7,
-                                                  fontWeight: T.fontWeight.bold,
-                                                  color: to.color,
-                                                  background: `${to.color}18`,
-                                                  borderRadius: 3,
-                                                  padding: "1px 3px",
-                                                  minWidth: 14,
-                                                  textAlign: "center",
-                                                  fontFeatureSettings: "'tnum'",
-                                                }}
-                                              >
-                                                {totalMCount}
-                                              </span>
-                                            )}
+                                            {/* Measurement count badge removed — unnecessary clutter */}
                                             {/* Hover-reveal: Formula, Auto-count, Duplicate, Delete */}
                                             <div
                                               className="tk-row-actions"

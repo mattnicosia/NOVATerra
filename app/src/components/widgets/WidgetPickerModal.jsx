@@ -81,14 +81,16 @@ export default function WidgetPickerModal({ onClose }) {
       position: 'fixed', inset: 0, zIndex: 10000,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       background: dk ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.25)',
-      backdropFilter: 'blur(8px)',
+      backdropFilter: C.noGlass ? 'none' : 'blur(8px)',
     }}>
       <div ref={ref} style={{
-        background: dk
-          ? 'linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 100%)'
-          : 'linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0.8) 100%)',
-        backdropFilter: 'blur(40px) saturate(1.8)',
-        WebkitBackdropFilter: 'blur(40px) saturate(1.8)',
+        background: C.noGlass
+          ? C.bg2
+          : dk
+            ? 'linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 100%)'
+            : 'linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0.8) 100%)',
+        backdropFilter: C.noGlass ? 'none' : 'blur(40px) saturate(1.8)',
+        WebkitBackdropFilter: C.noGlass ? 'none' : 'blur(40px) saturate(1.8)',
         border: `1px solid ${dk ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)'}`,
         borderRadius: 18, padding: '22px 24px', maxWidth: 420, width: '90%',
         boxShadow: dk
@@ -196,7 +198,7 @@ export default function WidgetPickerModal({ onClose }) {
                       <div key={w.typeId} style={{
                         display: 'flex', alignItems: 'center', gap: 10,
                         padding: '8px 10px', borderRadius: 8,
-                        background: ov(0.03), border: `1px solid ${C.glassBorder}`,
+                        background: ov(0.03), border: `1px solid ${C.noGlass ? C.border : C.glassBorder}`,
                         transition: 'background 0.15s',
                       }}>
                         <div style={{ flex: 1, minWidth: 0 }}>

@@ -53,16 +53,31 @@ export const useOrgStore = create((set, get) => ({
 
     const generation = get()._fetchGeneration;
 
-    try {
-      // Get active membership (user can belong to one org for now)
+    // Helper: single attempt to fetch org membership
+    const attemptFetch = async () => {
       const { data: memberRow, error: memErr } = await supabase
         .from("org_members")
         .select("*, organizations(*)")
         .eq("user_id", userId)
         .eq("active", true)
         .maybeSingle();
-
       if (memErr) throw memErr;
+      return memberRow;
+    };
+
+    try {
+      let memberRow = null;
+      try {
+        memberRow = await attemptFetch();
+      } catch (err1) {
+        // ─── RETRY ONCE on failure ───
+        // A transient network error here causes the app to load in solo mode,
+        // making all org-scoped data invisible. Retry once before giving up.
+        console.warn("[orgStore] fetchOrg attempt 1 failed, retrying:", err1.message);
+        await new Promise(r => setTimeout(r, 1500));
+        if (generation !== get()._fetchGeneration) return;
+        memberRow = await attemptFetch(); // throws if still failing
+      }
 
       // Stale check: if reset() was called while we were fetching, discard
       if (generation !== get()._fetchGeneration) return;
@@ -70,6 +85,8 @@ export const useOrgStore = create((set, get) => ({
       if (memberRow && memberRow.organizations) {
         const { organizations: orgData, ...mem } = memberRow;
         set({ org: orgData, membership: mem, orgReady: true });
+        // Persist org ID for recovery — survives IDB eviction
+        try { localStorage.setItem("bldg-last-org-id", orgData.id); } catch {}
 
         // If manager/owner, also load members + invitations
         if (mem.role === "owner" || mem.role === "manager") {
@@ -80,7 +97,7 @@ export const useOrgStore = create((set, get) => ({
         set({ org: null, membership: null, members: [], invitations: [], orgReady: true });
       }
     } catch (err) {
-      console.warn("[orgStore] fetchOrg failed:", err.message);
+      console.warn("[orgStore] fetchOrg failed after retry:", err.message);
       // Stale check
       if (generation !== get()._fetchGeneration) return;
       set({ org: null, membership: null, members: [], invitations: [], orgReady: true });
@@ -182,7 +199,7 @@ export const useOrgStore = create((set, get) => ({
       console.error("[orgStore] sendEstimatorInvite email failed:", err.message);
       get().fetchAllInvitations();
       get().fetchInvitations();
-      return { success: true, emailFailed: true };
+      return { success: true, emailFailed: true, emailError: err.message || "Network error" };
     }
   },
 

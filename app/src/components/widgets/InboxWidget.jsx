@@ -35,34 +35,14 @@ function rfpState(rfp, readIds) {
   return "unread";
 }
 
+// colorKey resolves to theme tokens inside the component so colors follow the active palette
 const STATE_CONFIG = {
-  unread: { accent: null, badge: null, badgeBg: null, badgeColor: null, bold: true, muted: false },
-  read: { accent: null, badge: null, badgeBg: null, badgeColor: null, bold: false, muted: false },
-  processing: {
-    accent: "#f59e0b",
-    badge: "Processing",
-    badgeBg: "#f59e0b20",
-    badgeColor: "#f59e0b",
-    bold: false,
-    muted: false,
-  },
-  processed: {
-    accent: "#22c55e",
-    badge: "Imported",
-    badgeBg: "#22c55e20",
-    badgeColor: "#22c55e",
-    bold: false,
-    muted: true,
-  },
-  rejected: {
-    accent: "#64748b",
-    badge: "Dismissed",
-    badgeBg: "#64748b20",
-    badgeColor: "#64748b",
-    bold: false,
-    muted: true,
-  },
-  error: { accent: "#ef4444", badge: "Error", badgeBg: "#ef444420", badgeColor: "#ef4444", bold: false, muted: false },
+  unread:     { colorKey: null,     badge: null,         bold: true,  muted: false },
+  read:       { colorKey: null,     badge: null,         bold: false, muted: false },
+  processing: { colorKey: "orange", badge: "Processing", bold: false, muted: false },
+  processed:  { colorKey: "green",  badge: "Imported",   bold: false, muted: true },
+  rejected:   { colorKey: "dim",    badge: "Dismissed",  bold: false, muted: true },
+  error:      { colorKey: "red",    badge: "Error",      bold: false, muted: false },
 };
 
 // Sort priority: unread first, then processing, read, processed, rejected, error
@@ -74,6 +54,11 @@ export default function InboxWidget() {
   const dk = C.isDark;
   const font = T.font.display;
   const navigate = useNavigate();
+  const resolveStateColor = (colorKey) => {
+    if (!colorKey) return null;
+    const map = { orange: C.orange, green: C.green, red: C.red, dim: C.textDim };
+    return map[colorKey] || C.textDim;
+  };
 
   const rfps = useInboxStore(s => s.rfps);
   const loading = useInboxStore(s => s.loading);
@@ -193,8 +178,8 @@ export default function InboxWidget() {
                 cursor: "pointer",
                 background: dk ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
                 border: `1px solid ${dk ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"}`,
-                borderLeft: st.accent
-                  ? `3px solid ${st.accent}`
+                borderLeft: resolveStateColor(st.colorKey)
+                  ? `3px solid ${resolveStateColor(st.colorKey)}`
                   : `1px solid ${dk ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"}`,
                 transition: "background 0.15s",
                 opacity: st.muted ? 0.6 : 1,
@@ -240,8 +225,8 @@ export default function InboxWidget() {
                       fontWeight: 600,
                       padding: "1px 5px",
                       borderRadius: 4,
-                      background: st.badgeBg,
-                      color: st.badgeColor,
+                      background: resolveStateColor(st.colorKey) ? `${resolveStateColor(st.colorKey)}20` : undefined,
+                      color: resolveStateColor(st.colorKey),
                       flexShrink: 0,
                       letterSpacing: "0.02em",
                       textTransform: "uppercase",

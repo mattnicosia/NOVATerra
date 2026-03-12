@@ -1,36 +1,20 @@
-import { useState, useEffect, useRef, useCallback, lazy, Suspense } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuthStore } from "@/stores/authStore";
 
-const NovaSceneLazy = lazy(() => import("@/components/nova/NovaSceneLazy"));
-
 /* ────────────────────────────────────────────────────────────────
-   LoginMockupPage — NOVACORE v17 Live Sphere Login
-
-   Layer stack (bottom → top):
-   1. <div>    — Dark void background + CSS atmosphere
-   2. <canvas> — Live NovaSceneLazy sphere (hero size, artifact shell)
-   3. <div>    — Glass login form
-
-   The sphere is the SAME real-time WebGL sphere used everywhere
-   in the app. On login, it starts dormant (dark obsidian monolith)
-   and awakens as the user interacts with the form:
-     email focus  → pre-awakening flicker
-     typing email → fracture phase (NOVA purple breaks through shell)
-     password     → shell dissolves, inner glow visible
-     sign-in      → full awakening + pulse + exhale → transition
+   LoginMockupPage — Clean black login
+   Stripped of all sphere/chamber graphics while we sort NOVACORE.
+   Pure black background, centered glass card.
    ──────────────────────────────────────────────────────────────── */
 
 const FONT = "'Switzer', -apple-system, BlinkMacSystemFont, sans-serif";
-const ACCENT = "#7C5CFC";
-const ACCENT_DIM = "#6D28D9";
+const ACCENT = "#C83232";
+const ACCENT_DIM = "#5C1A1A";
 const TEXT = "rgba(238,237,245,0.92)";
 const TEXT_MUTED = "rgba(238,237,245,0.50)";
 const TEXT_DIM = "rgba(238,237,245,0.28)";
 const BORDER = "rgba(255,255,255,0.10)";
 const INPUT_BG = "rgba(255,255,255,0.04)";
-
-// Hero sphere size — prominent but not overwhelming
-const HERO_SPHERE_SIZE = 180;
 
 const keyframesCSS = `
 @keyframes loginFadeUp {
@@ -41,196 +25,11 @@ const keyframesCSS = `
   from { opacity: 0; }
   to   { opacity: 1; }
 }
-@keyframes breatheOrb {
-  0%, 100% { transform: scale(1); opacity: 0.6; }
-  50% { transform: scale(1.15); opacity: 1; }
-}
 @keyframes glowPulse {
   0%, 100% { opacity: 0.5; width: 50px; }
   50% { opacity: 1; width: 70px; }
 }
-@keyframes dormantPulse {
-  0%, 100% { opacity: 0.15; }
-  50% { opacity: 0.35; }
-}
-@keyframes lightDrift {
-  0%   { transform: translate(0, 0) scale(1); }
-  100% { transform: translate(3%, 2%) scale(1.05); }
-}
 `;
-
-/* ═══════════════════════════════════════════════════════════════
-   AWAKENING STATE MACHINE
-   Drives sphere awakening based on form interaction.
-   ═══════════════════════════════════════════════════════════════ */
-
-function useAwakeningState() {
-  const [state, setState] = useState({
-    awaken: 0.28,
-    crystallize: 0.05,
-    intensity: 0.80,
-    phase: "dormant", // dormant | flickering | fracture | dissolving | alive | ascending
-  });
-  const sceneRef = useRef(null);
-  const targetRef = useRef({ awaken: 0.28, crystallize: 0.05, intensity: 0.80 });
-  const frameRef = useRef(null);
-
-  // Smooth interpolation loop — lerps current values toward targets
-  useEffect(() => {
-    const tick = () => {
-      const t = targetRef.current;
-      setState(prev => {
-        const lerp = (a, b, speed) => a + (b - a) * speed;
-        const spd = 0.04; // Slow, deliberate transition
-        const newAwaken = lerp(prev.awaken, t.awaken, spd);
-        const newCrystallize = lerp(prev.crystallize, t.crystallize, spd);
-        const newIntensity = lerp(prev.intensity, t.intensity, spd);
-
-        // Add subtle dormant breathing when in dormant/flickering phase (awaken < 0.25)
-        // Creates a living pulse — the monolith breathes
-        const breathe = prev.awaken < 0.35 ? 0.015 * Math.sin(Date.now() / 2500) : 0;
-
-        return {
-          ...prev,
-          awaken: Math.max(0, newAwaken + breathe),
-          crystallize: newCrystallize,
-          intensity: newIntensity,
-        };
-      });
-      frameRef.current = requestAnimationFrame(tick);
-    };
-    frameRef.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frameRef.current);
-  }, []);
-
-  // Phase transitions — set targets based on user interaction
-  const setPhase = useCallback(phase => {
-    setState(prev => ({ ...prev, phase }));
-
-    switch (phase) {
-      case "dormant":
-        // Visible dark monolith — cracks glow faintly, sphere shape reads at page scale
-        targetRef.current = { awaken: 0.28, crystallize: 0.05, intensity: 0.80 };
-        break;
-      case "flickering":
-        // Email field focused — pre-awakening flicker, something stirs
-        targetRef.current = { awaken: 0.32, crystallize: 0.08, intensity: 0.83 };
-        break;
-      case "fracture":
-        // Typing email — light breaks through cracks, Voronoi network lights up
-        targetRef.current = { awaken: 0.35, crystallize: 0.15, intensity: 0.80 };
-        break;
-      case "fracture-hold":
-        // Valid email entered — hold at fracture phase, waiting
-        targetRef.current = { awaken: 0.40, crystallize: 0.18, intensity: 0.82 };
-        break;
-      case "dissolving":
-        // Typing password — shell becoming translucent, inner glow visible
-        targetRef.current = { awaken: 0.55, crystallize: 0.25, intensity: 0.88 };
-        break;
-      case "alive":
-        // Sign-in enabled — sphere clearly alive and glowing, ready
-        targetRef.current = { awaken: 0.70, crystallize: 0.35, intensity: 0.95 };
-        break;
-      case "ascending":
-        // Sign-in clicked — full awakening, maximum power
-        targetRef.current = { awaken: 1.0, crystallize: 0.5, intensity: 1.2 };
-        // Trigger pulse + exhale on the sphere
-        if (sceneRef.current) {
-          try {
-            sceneRef.current.pulse?.();
-            sceneRef.current.exhale?.();
-          } catch (e) {
-            /* sphere ref might not have these */
-          }
-        }
-        break;
-      default:
-        break;
-    }
-  }, []);
-
-  return { state, setPhase, sceneRef };
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   DARK VOID BACKGROUND + CSS ATMOSPHERE
-   Multi-layer void: base gradient + overhead light cone + edge vignette
-   Creates depth without geometry (Path A+C: film still + CSS breath)
-   ═══════════════════════════════════════════════════════════════ */
-
-function VoidBackground() {
-  return (
-    <>
-      {/* Base: deep dark void */}
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 0,
-          background: "#06060F",
-        }}
-      />
-      {/* Overhead light cone — motivated by an unseen oculus above */}
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 1,
-          background: [
-            "radial-gradient(ellipse 45% 35% at 50% 18%,",
-            "rgba(30, 26, 52, 0.50) 0%,",
-            "rgba(16, 14, 30, 0.20) 40%,",
-            "transparent 70%)",
-          ].join(" "),
-          pointerEvents: "none",
-        }}
-      />
-      {/* Floor wash — faint ground-level ambient */}
-      <div
-        style={{
-          position: "fixed",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: "40%",
-          zIndex: 1,
-          background: [
-            "linear-gradient(to top,",
-            "rgba(12, 10, 22, 0.4) 0%,",
-            "transparent 100%)",
-          ].join(" "),
-          pointerEvents: "none",
-        }}
-      />
-      {/* Edge vignette — cinematic framing */}
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 1,
-          background: "radial-gradient(ellipse 80% 75% at 50% 42%, transparent 0%, rgba(4,4,10,0.55) 100%)",
-          pointerEvents: "none",
-        }}
-      />
-      {/* Slow drifting light — barely perceptible (Hodgin: "alive, not frozen") */}
-      <div
-        style={{
-          position: "fixed",
-          inset: "-20%",
-          zIndex: 1,
-          background: [
-            "radial-gradient(ellipse 30% 25% at 48% 22%,",
-            "rgba(60, 40, 100, 0.06) 0%,",
-            "transparent 60%)",
-          ].join(" "),
-          animation: "lightDrift 45s ease-in-out infinite alternate",
-          pointerEvents: "none",
-        }}
-      />
-    </>
-  );
-}
 
 /* ═══════════════════════════════════════════════════════════════
    STYLES
@@ -362,11 +161,10 @@ function PasswordInput({ value, onChange, placeholder, onFocusCb, ...rest }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   LOGIN FORM OVERLAY
-   Sphere hero image centered above the glass login card.
+   LOGIN FORM — centered on black
    ═══════════════════════════════════════════════════════════════ */
 
-function LoginOverlay({ setPhase, awakening, sceneRef }) {
+function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -375,8 +173,6 @@ function LoginOverlay({ setPhase, awakening, sceneRef }) {
   const [transitioning, setTransitioning] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [resetSent, setResetSent] = useState(false);
-  const prevEmailLen = useRef(0);
-  const prevPwLen = useRef(0);
 
   // Auth store
   const signInWithPassword = useAuthStore(s => s.signInWithPassword);
@@ -390,37 +186,9 @@ function LoginOverlay({ setPhase, awakening, sceneRef }) {
 
   // Stagger form entry
   useEffect(() => {
-    const t = setTimeout(() => setVisible(true), 800);
+    const t = setTimeout(() => setVisible(true), 300);
     return () => clearTimeout(t);
   }, []);
-
-  // Email state → awakening phase
-  useEffect(() => {
-    const isValidEmail = email.includes("@") && email.includes(".");
-    if (isValidEmail) {
-      setPhase("fracture-hold");
-    } else if (email.length > 0) {
-      setPhase("fracture");
-    }
-    prevEmailLen.current = email.length;
-  }, [email, setPhase]);
-
-  // Password state → awakening phase
-  useEffect(() => {
-    const isValidEmail = email.includes("@") && email.includes(".");
-    if (password.length > 0 && isValidEmail) {
-      setPhase(password.length >= 4 ? "alive" : "dissolving");
-    }
-    prevPwLen.current = password.length;
-  }, [password, email, setPhase]);
-
-  const handleEmailFocus = useCallback(() => {
-    if (email.length === 0) setPhase("flickering");
-  }, [email, setPhase]);
-
-  const handlePasswordFocus = useCallback(() => {
-    if (email.length > 0) setPhase("dissolving");
-  }, [email, setPhase]);
 
   // Mode switching — clears error, resets sub-states
   const switchMode = useCallback(
@@ -442,12 +210,10 @@ function LoginOverlay({ setPhase, awakening, sceneRef }) {
       const result = await signInWithPassword(email.trim(), password);
       setSubmitting(false);
       if (!result?.error) {
-        // Auth succeeded — trigger the ascension
-        setPhase("ascending");
         setTransitioning(true);
       }
     },
-    [email, password, signInWithPassword, setPhase],
+    [email, password, signInWithPassword],
   );
 
   const handleMagicLink = useCallback(
@@ -457,7 +223,6 @@ function LoginOverlay({ setPhase, awakening, sceneRef }) {
       setSubmitting(true);
       await signInWithMagicLink(email.trim());
       setSubmitting(false);
-      // authStore sets magicLinkSent=true → confirmation screen
     },
     [email, signInWithMagicLink],
   );
@@ -470,12 +235,10 @@ function LoginOverlay({ setPhase, awakening, sceneRef }) {
       const result = await signUpWithPassword(email.trim(), password, fullName.trim());
       setSubmitting(false);
       if (result?.success && !result?.confirmEmail) {
-        setPhase("ascending");
         setTransitioning(true);
       }
-      // If confirmEmail, authStore sets magicLinkSent → confirmation screen
     },
-    [email, password, fullName, signUpWithPassword, setPhase],
+    [email, password, fullName, signUpWithPassword],
   );
 
   const handleForgotPassword = useCallback(
@@ -506,69 +269,58 @@ function LoginOverlay({ setPhase, awakening, sceneRef }) {
     return (
       <div
         style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 10,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
+          maxWidth: 340,
+          textAlign: "center",
+          animation: "loginFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both",
         }}
       >
         <div
           style={{
-            maxWidth: 340,
-            textAlign: "center",
-            animation: "loginFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both",
+            width: 56,
+            height: 56,
+            borderRadius: "50%",
+            background: "rgba(48,209,88,0.12)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            margin: "0 auto 18px",
+            border: "1px solid rgba(48,209,88,0.25)",
           }}
         >
-          <div
-            style={{
-              width: 56,
-              height: 56,
-              borderRadius: "50%",
-              background: "rgba(48,209,88,0.12)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              margin: "0 auto 18px",
-              border: "1px solid rgba(48,209,88,0.25)",
-            }}
+          <svg
+            width={28}
+            height={28}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#30D158"
+            strokeWidth={2.5}
+            strokeLinecap="round"
           >
-            <svg
-              width={28}
-              height={28}
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#30D158"
-              strokeWidth={2.5}
-              strokeLinecap="round"
-            >
-              <path d="M20 6 9 17l-5-5" />
-            </svg>
-          </div>
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: TEXT, margin: "0 0 8px", fontFamily: FONT }}>
-            Check your email
-          </h2>
-          <p style={{ fontSize: 13, color: TEXT_MUTED, margin: "0 0 24px", lineHeight: 1.5, fontFamily: FONT }}>
-            We sent a {mode === "magic" ? "magic link" : "confirmation link"} to{" "}
-            <strong style={{ color: TEXT }}>{email}</strong>
-          </p>
-          <button
-            onClick={() => {
-              clearMagicLinkSent?.();
-              switchMode("password");
-            }}
-            style={{
-              ...submitBtnStyle(false),
-              maxWidth: 200,
-              margin: "0 auto",
-              background: "rgba(255,255,255,0.08)",
-              boxShadow: "none",
-            }}
-          >
-            Back to Sign In
-          </button>
+            <path d="M20 6 9 17l-5-5" />
+          </svg>
         </div>
+        <h2 style={{ fontSize: 18, fontWeight: 700, color: TEXT, margin: "0 0 8px", fontFamily: FONT }}>
+          Check your email
+        </h2>
+        <p style={{ fontSize: 13, color: TEXT_MUTED, margin: "0 0 24px", lineHeight: 1.5, fontFamily: FONT }}>
+          We sent a {mode === "magic" ? "magic link" : "confirmation link"} to{" "}
+          <strong style={{ color: TEXT }}>{email}</strong>
+        </p>
+        <button
+          onClick={() => {
+            clearMagicLinkSent?.();
+            switchMode("password");
+          }}
+          style={{
+            ...submitBtnStyle(false),
+            maxWidth: 200,
+            margin: "0 auto",
+            background: "rgba(255,255,255,0.08)",
+            boxShadow: "none",
+          }}
+        >
+          Back to Sign In
+        </button>
       </div>
     );
   }
@@ -577,69 +329,58 @@ function LoginOverlay({ setPhase, awakening, sceneRef }) {
     return (
       <div
         style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 10,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
+          maxWidth: 340,
+          textAlign: "center",
+          animation: "loginFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both",
         }}
       >
         <div
           style={{
-            maxWidth: 340,
-            textAlign: "center",
-            animation: "loginFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both",
+            width: 56,
+            height: 56,
+            borderRadius: "50%",
+            background: "rgba(124,92,252,0.12)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            margin: "0 auto 18px",
+            border: "1px solid rgba(124,92,252,0.25)",
           }}
         >
-          <div
-            style={{
-              width: 56,
-              height: 56,
-              borderRadius: "50%",
-              background: "rgba(124,92,252,0.12)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              margin: "0 auto 18px",
-              border: "1px solid rgba(124,92,252,0.25)",
-            }}
+          <svg
+            width={28}
+            height={28}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke={ACCENT}
+            strokeWidth={2}
+            strokeLinecap="round"
           >
-            <svg
-              width={28}
-              height={28}
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke={ACCENT}
-              strokeWidth={2}
-              strokeLinecap="round"
-            >
-              <rect x="3" y="5" width="18" height="14" rx="2" />
-              <path d="m3 7 9 6 9-6" />
-            </svg>
-          </div>
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: TEXT, margin: "0 0 8px", fontFamily: FONT }}>
-            Reset link sent
-          </h2>
-          <p style={{ fontSize: 13, color: TEXT_MUTED, margin: "0 0 24px", lineHeight: 1.5, fontFamily: FONT }}>
-            Check <strong style={{ color: TEXT }}>{email}</strong> for a password reset link
-          </p>
-          <button
-            onClick={() => {
-              setResetSent(false);
-              switchMode("password");
-            }}
-            style={{
-              ...submitBtnStyle(false),
-              maxWidth: 200,
-              margin: "0 auto",
-              background: "rgba(255,255,255,0.08)",
-              boxShadow: "none",
-            }}
-          >
-            Back to Sign In
-          </button>
+            <rect x="3" y="5" width="18" height="14" rx="2" />
+            <path d="m3 7 9 6 9-6" />
+          </svg>
         </div>
+        <h2 style={{ fontSize: 18, fontWeight: 700, color: TEXT, margin: "0 0 8px", fontFamily: FONT }}>
+          Reset link sent
+        </h2>
+        <p style={{ fontSize: 13, color: TEXT_MUTED, margin: "0 0 24px", lineHeight: 1.5, fontFamily: FONT }}>
+          Check <strong style={{ color: TEXT }}>{email}</strong> for a password reset link
+        </p>
+        <button
+          onClick={() => {
+            setResetSent(false);
+            switchMode("password");
+          }}
+          style={{
+            ...submitBtnStyle(false),
+            maxWidth: 200,
+            margin: "0 auto",
+            background: "rgba(255,255,255,0.08)",
+            boxShadow: "none",
+          }}
+        >
+          Back to Sign In
+        </button>
       </div>
     );
   }
@@ -688,360 +429,295 @@ function LoginOverlay({ setPhase, awakening, sceneRef }) {
 
       <div
         style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 10,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          pointerEvents: "none",
+          width: "100%",
+          maxWidth: 340,
+          animation: "loginFadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both",
         }}
       >
-        {/* Live NOVACORE sphere — dormant monolith → awakens with form interaction */}
+        {/* Brand */}
         <div
           style={{
-            flex: "1 1 auto",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            minHeight: 120,
-            pointerEvents: "none",
-            animation: "loginFadeIn 1.2s cubic-bezier(0.16, 1, 0.3, 1) both",
-            position: "relative",
+            textAlign: "center",
+            marginBottom: 18,
+            animation: "loginFadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both",
           }}
         >
-          {/* Ambient halo — gives the sphere a visible presence against the void.
-              Positioned absolutely and overflows parent to create soft atmospheric glow */}
+          {/* Subtle glow line */}
           <div
             style={{
-              position: "absolute",
-              width: HERO_SPHERE_SIZE * 1.8,
-              height: HERO_SPHERE_SIZE * 1.8,
-              borderRadius: "50%",
-              background: `radial-gradient(circle, rgba(100, 80, 180, ${0.15 + awakening.awaken * 0.18}) 0%, rgba(60, 40, 140, ${0.08 + awakening.awaken * 0.12}) 35%, transparent 65%)`,
-              filter: "blur(25px)",
-              pointerEvents: "none",
+              height: 1,
+              margin: "0 auto 16px",
+              background: `linear-gradient(90deg, transparent, ${ACCENT}50, transparent)`,
+              boxShadow: `0 0 12px ${ACCENT}30`,
+              animation: "glowPulse 5s ease-in-out infinite",
             }}
           />
-          <Suspense fallback={
-            <div style={{
-              width: HERO_SPHERE_SIZE,
-              height: HERO_SPHERE_SIZE,
-              borderRadius: "50%",
-              background: "radial-gradient(circle at 45% 40%, rgba(40,36,60,0.6) 0%, rgba(12,12,20,0.9) 60%, #08081A 100%)",
-            }} />
-          }>
-            <NovaSceneLazy
-              ref={sceneRef}
-              width={HERO_SPHERE_SIZE}
-              height={HERO_SPHERE_SIZE}
-              size={1.6}
-              intensity={awakening.intensity}
-              artifact
-              awaken={awakening.awaken}
-              crystallize={awakening.crystallize}
-              style={{ maxWidth: "100%", maxHeight: "100%" }}
-            />
-          </Suspense>
+          <h1
+            style={{
+              fontSize: 20,
+              fontWeight: 700,
+              letterSpacing: "0.06em",
+              color: "rgba(200,100,100,0.85)",
+              margin: "0 0 4px",
+              fontFamily: FONT,
+              textShadow: "0 2px 20px rgba(200,50,50,0.4)",
+            }}
+          >
+            NOVA
+          </h1>
+          <p
+            style={{
+              fontSize: 10,
+              fontWeight: 500,
+              letterSpacing: "0.16em",
+              color: "rgba(238,237,245,0.30)",
+              margin: 0,
+              textTransform: "uppercase",
+            }}
+          >
+            Construction Intelligence
+          </p>
         </div>
 
+        {/* Glass card */}
         <div
           style={{
-            width: "100%",
-            maxWidth: 340,
-            flexShrink: 0,
-            pointerEvents: "auto",
-            paddingBottom: "4vh",
-            animation: "loginFadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both",
+            background: "linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.015) 100%)",
+            backdropFilter: "blur(48px) saturate(1.6)",
+            WebkitBackdropFilter: "blur(48px) saturate(1.6)",
+            border: "1px solid rgba(255,255,255,0.07)",
+            borderRadius: 16,
+            padding: "20px 24px",
+            boxShadow: [
+              "0 24px 80px rgba(0,0,0,0.5)",
+              "0 8px 32px rgba(0,0,0,0.35)",
+              "inset 0 1px 0 rgba(255,255,255,0.05)",
+            ].join(", "),
+            animation: "loginFadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both",
           }}
         >
-          {/* Brand */}
-          <div
-            style={{
-              textAlign: "center",
-              marginBottom: 18,
-              animation: "loginFadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both",
-            }}
-          >
-            {/* Subtle glow line */}
-            <div
-              style={{
-                height: 1,
-                margin: "0 auto 16px",
-                background: `linear-gradient(90deg, transparent, ${ACCENT}50, transparent)`,
-                boxShadow: `0 0 12px ${ACCENT}30`,
-                animation: "glowPulse 5s ease-in-out infinite",
-              }}
-            />
-            <h1
-              style={{
-                fontSize: 20,
-                fontWeight: 700,
-                letterSpacing: "0.06em",
-                color: "rgba(200,175,255,0.85)",
-                margin: "0 0 4px",
-                fontFamily: FONT,
-                textShadow: "0 2px 20px rgba(109,40,217,0.4)",
-              }}
-            >
-              NOVATerra
-            </h1>
-            <p
-              style={{
-                fontSize: 10,
-                fontWeight: 500,
-                letterSpacing: "0.16em",
-                color: "rgba(238,237,245,0.30)",
-                margin: 0,
-                textTransform: "uppercase",
-              }}
-            >
-              Construction Intelligence
-            </p>
-          </div>
-
-          {/* Glass card */}
-          <div
-            style={{
-              background: "linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.015) 100%)",
-              backdropFilter: "blur(48px) saturate(1.6)",
-              WebkitBackdropFilter: "blur(48px) saturate(1.6)",
-              border: "1px solid rgba(255,255,255,0.07)",
-              borderRadius: 16,
-              padding: "20px 24px",
-              boxShadow: [
-                "0 24px 80px rgba(0,0,0,0.5)",
-                "0 8px 32px rgba(0,0,0,0.35)",
-                "inset 0 1px 0 rgba(255,255,255,0.05)",
-              ].join(", "),
-              animation: "loginFadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both",
-            }}
-          >
-            {/* Mode heading (signup / forgot) */}
-            {headingLabel && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-                <button
-                  type="button"
-                  onClick={() => switchMode("password")}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    padding: 2,
-                    display: "flex",
-                    alignItems: "center",
-                  }}
-                >
-                  <svg
-                    width={16}
-                    height={16}
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke={TEXT_MUTED}
-                    strokeWidth={2}
-                    strokeLinecap="round"
-                  >
-                    <path d="M19 12H5M12 19l-7-7 7-7" />
-                  </svg>
-                </button>
-                <span style={{ fontSize: 14, fontWeight: 600, color: TEXT, fontFamily: FONT }}>{headingLabel}</span>
-              </div>
-            )}
-
-            {/* Mode tabs (password / magic link) */}
-            {showTabs && (
-              <div
+          {/* Mode heading (signup / forgot) */}
+          {headingLabel && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+              <button
+                type="button"
+                onClick={() => switchMode("password")}
                 style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: 2,
                   display: "flex",
-                  background: "rgba(255,255,255,0.04)",
-                  borderRadius: 8,
-                  padding: 3,
-                  marginBottom: 18,
-                  gap: 2,
-                  border: "1px solid rgba(255,255,255,0.05)",
+                  alignItems: "center",
                 }}
               >
-                {[
-                  { key: "password", label: "Password" },
-                  { key: "magic", label: "Magic Link" },
-                ].map(tab => (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    onClick={() => switchMode(tab.key)}
-                    style={{
-                      flex: 1,
-                      padding: "7px 0",
-                      fontSize: 12,
-                      fontWeight: mode === tab.key ? 600 : 500,
-                      fontFamily: FONT,
-                      color: mode === tab.key ? TEXT : TEXT_MUTED,
-                      background: mode === tab.key ? "rgba(255,255,255,0.08)" : "transparent",
-                      border: "none",
-                      borderRadius: 7,
-                      cursor: "pointer",
-                      transition: "all 150ms ease-out",
-                      boxShadow: mode === tab.key ? "0 1px 4px rgba(0,0,0,0.3)" : "none",
-                    }}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
+                <svg
+                  width={16}
+                  height={16}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke={TEXT_MUTED}
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                >
+                  <path d="M19 12H5M12 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <span style={{ fontSize: 14, fontWeight: 600, color: TEXT, fontFamily: FONT }}>{headingLabel}</span>
+            </div>
+          )}
+
+          {/* Mode tabs (password / magic link) */}
+          {showTabs && (
+            <div
+              style={{
+                display: "flex",
+                background: "rgba(255,255,255,0.04)",
+                borderRadius: 8,
+                padding: 3,
+                marginBottom: 18,
+                gap: 2,
+                border: "1px solid rgba(255,255,255,0.05)",
+              }}
+            >
+              {[
+                { key: "password", label: "Password" },
+                { key: "magic", label: "Magic Link" },
+              ].map(tab => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => switchMode(tab.key)}
+                  style={{
+                    flex: 1,
+                    padding: "7px 0",
+                    fontSize: 12,
+                    fontWeight: mode === tab.key ? 600 : 500,
+                    fontFamily: FONT,
+                    color: mode === tab.key ? TEXT : TEXT_MUTED,
+                    background: mode === tab.key ? "rgba(255,255,255,0.08)" : "transparent",
+                    border: "none",
+                    borderRadius: 7,
+                    cursor: "pointer",
+                    transition: "all 150ms ease-out",
+                    boxShadow: mode === tab.key ? "0 1px 4px rgba(0,0,0,0.3)" : "none",
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit}>
+            {/* Full Name (signup only) */}
+            {showNameField && (
+              <>
+                <label style={labelStyle}>Full Name</label>
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={e => setFullName(e.target.value)}
+                  placeholder="Jane Smith"
+                  style={{ ...inputStyle, marginBottom: 14 }}
+                  onFocus={focusHandler}
+                  onBlur={blurHandler}
+                />
+              </>
+            )}
+
+            <label style={labelStyle}>Email Address</label>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="you@company.com"
+              autoFocus
+              style={{ ...inputStyle, marginBottom: showPasswordField ? 14 : 18 }}
+              onFocus={focusHandler}
+              onBlur={blurHandler}
+            />
+
+            {/* Password field (password + signup modes) */}
+            {showPasswordField && (
+              <>
+                <div
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}
+                >
+                  <label style={{ ...labelStyle, marginBottom: 0 }}>Password</label>
+                  {mode === "password" && (
+                    <button
+                      type="button"
+                      onClick={() => switchMode("forgot")}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        color: ACCENT,
+                        fontSize: 11,
+                        fontWeight: 500,
+                        fontFamily: FONT,
+                        padding: 0,
+                        opacity: 0.8,
+                      }}
+                    >
+                      Forgot?
+                    </button>
+                  )}
+                </div>
+                <div style={{ marginBottom: 18 }}>
+                  <PasswordInput
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder={mode === "signup" ? "Create a password" : "Enter your password"}
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Auth error */}
+            {authError && (
+              <div
+                style={{
+                  marginBottom: 12,
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  background: "rgba(255,69,58,0.08)",
+                  border: "1px solid rgba(255,69,58,0.18)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  animation: "loginFadeIn 0.3s ease-out both",
+                }}
+              >
+                <svg
+                  width={14}
+                  height={14}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#FF453A"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="15" y1="9" x2="9" y2="15" />
+                  <line x1="9" y1="9" x2="15" y2="15" />
+                </svg>
+                <span style={{ fontSize: 12, color: "#FF453A", fontFamily: FONT }}>{authError}</span>
               </div>
             )}
 
-            <form onSubmit={handleSubmit}>
-              {/* Full Name (signup only) */}
-              {showNameField && (
-                <>
-                  <label style={labelStyle}>Full Name</label>
-                  <input
-                    type="text"
-                    value={fullName}
-                    onChange={e => setFullName(e.target.value)}
-                    placeholder="Jane Smith"
-                    style={{ ...inputStyle, marginBottom: 14 }}
-                    onFocus={focusHandler}
-                    onBlur={blurHandler}
-                  />
-                </>
-              )}
+            <button
+              type="submit"
+              disabled={isFormDisabled || submitting}
+              style={submitBtnStyle(isFormDisabled || submitting)}
+            >
+              {submitLabel}
+            </button>
+          </form>
+        </div>
 
-              <label style={labelStyle}>Email Address</label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                onFocus={handleEmailFocus}
-                placeholder="you@company.com"
-                autoFocus
-                style={{ ...inputStyle, marginBottom: showPasswordField ? 14 : 18 }}
-                onBlur={blurHandler}
-              />
-
-              {/* Password field (password + signup modes) */}
-              {showPasswordField && (
-                <>
-                  <div
-                    style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}
-                  >
-                    <label style={{ ...labelStyle, marginBottom: 0 }}>Password</label>
-                    {mode === "password" && (
-                      <button
-                        type="button"
-                        onClick={() => switchMode("forgot")}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          cursor: "pointer",
-                          color: ACCENT,
-                          fontSize: 11,
-                          fontWeight: 500,
-                          fontFamily: FONT,
-                          padding: 0,
-                          opacity: 0.8,
-                        }}
-                      >
-                        Forgot?
-                      </button>
-                    )}
-                  </div>
-                  <div style={{ marginBottom: 18 }}>
-                    <PasswordInput
-                      value={password}
-                      onChange={e => setPassword(e.target.value)}
-                      placeholder={mode === "signup" ? "Create a password" : "Enter your password"}
-                      onFocusCb={handlePasswordFocus}
-                    />
-                  </div>
-                </>
-              )}
-
-              {/* Auth error */}
-              {authError && (
-                <div
-                  style={{
-                    marginBottom: 12,
-                    padding: "8px 12px",
-                    borderRadius: 8,
-                    background: "rgba(255,69,58,0.08)",
-                    border: "1px solid rgba(255,69,58,0.18)",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    animation: "loginFadeIn 0.3s ease-out both",
-                  }}
-                >
-                  <svg
-                    width={14}
-                    height={14}
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="#FF453A"
-                    strokeWidth={2}
-                    strokeLinecap="round"
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="15" y1="9" x2="9" y2="15" />
-                    <line x1="9" y1="9" x2="15" y2="15" />
-                  </svg>
-                  <span style={{ fontSize: 12, color: "#FF453A", fontFamily: FONT }}>{authError}</span>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={isFormDisabled || submitting}
-                style={submitBtnStyle(isFormDisabled || submitting)}
+        {/* Footer links */}
+        <div
+          style={{
+            textAlign: "center",
+            marginTop: 14,
+            animation: "loginFadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.35s both",
+          }}
+        >
+          {mode === "signup" ? (
+            <p style={{ fontSize: 12, color: "rgba(238,237,245,0.25)", margin: "0 0 12px" }}>
+              Already have an account?{" "}
+              <span
+                onClick={() => switchMode("password")}
+                style={{ color: ACCENT, fontWeight: 600, cursor: "pointer" }}
               >
-                {submitLabel}
-              </button>
-            </form>
-          </div>
-
-          {/* Footer links */}
-          <div
+                Sign in
+              </span>
+            </p>
+          ) : (
+            <p style={{ fontSize: 12, color: "rgba(238,237,245,0.25)", margin: "0 0 12px" }}>
+              Don't have an account?{" "}
+              <span
+                onClick={() => switchMode("signup")}
+                style={{ color: ACCENT, fontWeight: 600, cursor: "pointer" }}
+              >
+                Create one
+              </span>
+            </p>
+          )}
+          <p
             style={{
-              textAlign: "center",
-              marginTop: 14,
-              animation: "loginFadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.35s both",
+              fontSize: 9,
+              fontWeight: 500,
+              letterSpacing: "0.12em",
+              color: "rgba(238,237,245,0.15)",
+              margin: 0,
+              textTransform: "uppercase",
             }}
           >
-            {mode === "signup" ? (
-              <p style={{ fontSize: 12, color: "rgba(238,237,245,0.25)", margin: "0 0 12px" }}>
-                Already have an account?{" "}
-                <span
-                  onClick={() => switchMode("password")}
-                  style={{ color: ACCENT, fontWeight: 600, cursor: "pointer" }}
-                >
-                  Sign in
-                </span>
-              </p>
-            ) : (
-              <p style={{ fontSize: 12, color: "rgba(238,237,245,0.25)", margin: "0 0 12px" }}>
-                Don't have an account?{" "}
-                <span
-                  onClick={() => switchMode("signup")}
-                  style={{ color: ACCENT, fontWeight: 600, cursor: "pointer" }}
-                >
-                  Create one
-                </span>
-              </p>
-            )}
-            <p
-              style={{
-                fontSize: 9,
-                fontWeight: 500,
-                letterSpacing: "0.12em",
-                color: "rgba(238,237,245,0.15)",
-                margin: 0,
-                textTransform: "uppercase",
-              }}
-            >
-              Powered by NOVA
-            </p>
-          </div>
+            Powered by NOVA
+          </p>
         </div>
       </div>
     </>
@@ -1050,21 +726,24 @@ function LoginOverlay({ setPhase, awakening, sceneRef }) {
 
 /* ═══════════════════════════════════════════════════════════════
    MAIN EXPORT
-   Orchestrates all layers + awakening state machine.
+   Black background, centered login card.
    ═══════════════════════════════════════════════════════════════ */
 
 export default function LoginMockupPage() {
-  const { state, setPhase, sceneRef } = useAwakeningState();
-
   return (
-    <div style={{ width: "100vw", height: "100vh", overflow: "hidden", background: "#06060F" }}>
+    <div
+      style={{
+        width: "100vw",
+        height: "100vh",
+        overflow: "hidden",
+        background: "#000000",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
       <style>{keyframesCSS}</style>
-
-      {/* Layer 1: Dark void + CSS atmospheric layers */}
-      <VoidBackground />
-
-      {/* Layer 2 + 3: Live NOVACORE sphere + Glass login form */}
-      <LoginOverlay setPhase={setPhase} awakening={state} sceneRef={sceneRef} />
+      <LoginForm />
     </div>
   );
 }

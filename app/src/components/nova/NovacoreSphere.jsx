@@ -187,11 +187,16 @@ const NovacoreSphere = forwardRef(function NovacoreSphere(
     u.uVoice.value = lerp(u.uVoice.value, s.voice, 0.15);
     s.voice *= 0.92;
 
+    // ── Crystallize source — Priority: prop > novaStore scan > auto (Hodgin) ──
+    // v15: novaStore.crystallize drives crystallization during active scans/tasks
+    const storeCrystallize = useNovaStore.getState().crystallize;
+    const effectiveCrystallize = crystallize !== null ? crystallize : storeCrystallize;
+
     // ── Layer 5: Hodgin frost event — stochastic flash-freeze ──────
     // Brief moments (3-8s) where crystallization spikes to 0.8+, then slowly melts.
     // Random interval 45-90s. Creates genuine surprise — "did it just freeze?"
-    // Only in auto mode — manual override bypasses all temporal layers.
-    if (crystallize === null) {
+    // Only in auto mode — manual/scan override bypasses all temporal layers.
+    if (effectiveCrystallize === null) {
       s.frostNextTime -= delta;
       if (s.frostNextTime <= 0) {
         // FROST! Spike to 0.8-1.0
@@ -205,10 +210,10 @@ const NovacoreSphere = forwardRef(function NovacoreSphere(
     }
 
     // ── Phase-transition crystallization (Hodgin temporal layers) ──
-    // Manual override: crystallize/crystalLayers props bypass auto when non-null
-    if (crystallize !== null) {
-      // Manual control — direct set with smooth interpolation
-      u.uCrystallize.value = lerp(u.uCrystallize.value, crystallize, 1.0 - Math.exp(-3.0 * delta));
+
+    if (effectiveCrystallize !== null) {
+      // Manual/scan control — direct set with smooth interpolation
+      u.uCrystallize.value = lerp(u.uCrystallize.value, effectiveCrystallize, 1.0 - Math.exp(-3.0 * delta));
     } else {
       // Auto: Hodgin temporal layers
       // Layer 1: Geological crystallize drift — 2-3 min

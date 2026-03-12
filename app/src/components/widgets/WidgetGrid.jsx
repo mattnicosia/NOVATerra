@@ -258,8 +258,8 @@ export default function WidgetGrid({ onConfigure, onReplace }) {
           resizeHandles={["se", "s", "e"]}
           draggableHandle=".widget-drag-handle"
           compactType="vertical"
-          margin={[16, 16]}
-          containerPadding={[20, 20]}
+          margin={[10, 10]}
+          containerPadding={[12, 8]}
           useCSSTransforms
         >
           {currentItems.map(item => {

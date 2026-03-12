@@ -61,11 +61,11 @@ export default function WidgetPickerWidget() {
 
       <div style={{
         flex: 1, minHeight: 0, overflow: 'auto',
-        background: C.glassBg, borderRadius: 10, padding: 8,
-        boxShadow: dk
+        background: C.noGlass ? C.bg2 : C.glassBg, borderRadius: 10, padding: 8,
+        boxShadow: C.noGlass ? 'none' : dk
           ? `0 2px 12px rgba(0,0,0,0.3), 0 1px 0 ${C.glassBorder} inset`
           : `0 2px 8px rgba(0,0,0,0.06), 0 1px 0 ${C.glassBorder} inset`,
-        border: `1px solid ${C.glassBorder}`,
+        border: `1px solid ${C.noGlass ? C.border : C.glassBorder}`,
       }}>
         {categories.map(([catId, catMeta]) => {
           const widgets = widgetsByCategory[catId];

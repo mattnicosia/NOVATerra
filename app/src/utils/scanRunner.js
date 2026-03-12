@@ -38,6 +38,8 @@ import { runParameterDetection } from "@/utils/parameterDetectionEngine";
 import { extractDrawingNotes, buildNotesContext } from "@/utils/notesExtractor";
 import { extractTitleBlockFields, mapBuildingTypeKey, inferWorkType } from "@/utils/titleBlockExtractor";
 import { generateScopeOutline } from "@/utils/scopeOutlineGenerator";
+import { novaPlans } from "@/nova/agents/plans";
+import { useFirmMemoryStore } from "@/nova/learning/firmMemory";
 import { autoTradeFromCode } from "@/constants/tradeGroupings";
 import { renderPdfPage } from "@/utils/drawingUtils";
 import { saveEstimate } from "@/hooks/usePersistence";
@@ -164,8 +166,10 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
 
         const sheetLabel = d.sheetTitle || d.label || d.sheetNumber;
         const prompt = buildDetectionPrompt(sheetLabel, ocrText);
+        const { systemPrompt: detectionSys } = novaPlans.augmentDetectionPrompt(sheetLabel, ocrText);
         const result = await callAnthropic({
           max_tokens: 1000,
+          system: detectionSys,
           messages: [{ role: "user", content: [imageBlock(optimized.base64), { type: "text", text: prompt }] }],
         });
 
@@ -444,8 +448,10 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
           }
           const parsePrompt = buildParsePrompt(sched.type, cropOcrText, notesContext);
           if (!parsePrompt) return { ...sched, entries: [], error: "Unknown schedule type" };
+          const { systemPrompt: parseSys } = novaPlans.augmentParsePrompt(sched.type, cropOcrText);
           const result = await callAnthropic({
             max_tokens: 4000,
+            system: parseSys,
             messages: [{ role: "user", content: [imageBlock(cropBase64), { type: "text", text: parsePrompt }] }],
           });
           try {
@@ -810,6 +816,23 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
     };
     setScanResults(results);
     setScanProgress({ phase: null, current: 0, total: 0, message: "" });
+
+    // ── NOVA Firm Memory: learn patterns from this scan ──
+    try {
+      const proj = useProjectStore.getState().project;
+      const firmName = proj.architect || proj.engineer;
+      if (firmName) {
+        const firmKey = useFirmMemoryStore.getState().registerFirm(
+          { architect: proj.architect, engineer: proj.engineer },
+          proj.architect ? "architect" : "engineer",
+        );
+        if (firmKey) {
+          useFirmMemoryStore.getState().learnFromScan(firmKey, results);
+        }
+      }
+    } catch (e) {
+      console.warn("[scanRunner] Firm memory learning failed:", e);
+    }
 
     // Persist scan results to IndexedDB immediately
     // (auto-save doesn't watch scanResults, so we must save explicitly)

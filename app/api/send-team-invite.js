@@ -71,16 +71,16 @@ export default async function handler(req, res) {
     <div style="background:linear-gradient(135deg,rgba(124,92,252,0.15),rgba(191,90,242,0.08));border:1px solid rgba(124,92,252,0.25);border-radius:16px;padding:32px;margin-bottom:24px;">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
         <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#7C5CFC,#BF5AF2);display:flex;align-items:center;justify-content:center;">
-          <span style="color:white;font-weight:bold;font-size:16px;">N</span>
+          <span style="color:white;font-weight:bold;font-size:16px;">A</span>
         </div>
         <div>
-          <div style="color:#FFFFFF;font-weight:600;font-size:16px;">NOVATerra</div>
+          <div style="color:#FFFFFF;font-weight:600;font-size:16px;">NOVA</div>
           <div style="color:#8E8E93;font-size:12px;">Team Invitation</div>
         </div>
       </div>
 
       <h1 style="color:#FFFFFF;font-size:22px;font-weight:600;margin:0 0 8px;">You're invited to join ${escapeHtml(orgName)}</h1>
-      <p style="color:#CCCCCC;font-size:15px;margin:0 0 24px;">${escapeHtml(inviterName)} has invited you to join their estimating team on NOVATerra.</p>
+      <p style="color:#CCCCCC;font-size:15px;margin:0 0 24px;">${escapeHtml(inviterName)} has invited you to join their estimating team on NOVA.</p>
 
       <div style="background:rgba(255,255,255,0.06);border-radius:12px;padding:20px;margin-bottom:20px;">
         <div style="color:#7C5CFC;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Organization</div>
@@ -106,9 +106,9 @@ export default async function handler(req, res) {
     console.log(`[send-team-invite] Sending from="${fromEmail}" to="${inv.email}" signupUrl="${signupUrl}"`);
     const resend = new Resend(apiKey);
     const { data: emailData, error: emailError } = await resend.emails.send({
-      from: `NOVATerra <${fromEmail}>`,
+      from: `NOVA <${fromEmail}>`,
       to: [inv.email],
-      subject: `You're invited to join ${orgName} on NOVATerra`,
+      subject: `You're invited to join ${orgName} on NOVA`,
       html,
     });
 

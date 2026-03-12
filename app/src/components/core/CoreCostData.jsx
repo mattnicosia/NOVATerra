@@ -131,7 +131,7 @@ export default function CoreCostData() {
           <path d={I.database} />
         </svg>
         <span style={{ fontSize: 11, color: C.textMuted, lineHeight: 1.4 }}>
-          User-created cost items and imports are auto-embedded into NOVA's intelligence. Items from the seed database
+          User-created cost items and imports are auto-embedded into ARTIFACT's intelligence. Items from the seed database
           are not shown here.
         </span>
       </div>
