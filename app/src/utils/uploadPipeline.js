@@ -18,6 +18,18 @@ import { matchScaleKey, renderPdfPage, classifyFile, isDuplicateFile } from "@/u
 import { detectBuildingOutline, outlineToFeet, computePolygonArea } from "@/utils/outlineDetector";
 import { runFullScan } from "@/utils/scanRunner";
 
+// ─── Infer drawing view type from sheet title ──────────────────────────────
+export function inferViewType(title) {
+  const t = (title || "");
+  if (/\belevation\b/i.test(t)) return "elevation";
+  if (/\bsection\b/i.test(t)) return "section";
+  if (/\bdetail\b/i.test(t)) return "detail";
+  const isPlan = /\b(plan|floor|level|layout)\b/i.test(t);
+  const exclude = /\b(roof\s*plan|site\s*plan|foundation|reflected|ceiling|framing)\b/i.test(t);
+  if (isPlan && !exclude) return "plan";
+  return null;
+}
+
 // ─── Compress large image during import ─────────────────────────────────────
 function compressImportImage(dataUrl, maxDim = 4096, quality = 0.85) {
   return new Promise(resolve => {
@@ -204,6 +216,9 @@ export async function autoLabelDrawings(drawingIds) {
         if (parsed.title && !d.sheetTitle) {
           useDrawingsStore.getState().updateDrawing(d.id, "sheetTitle", parsed.title);
           count++;
+          // Infer and persist view type from title
+          const vt = inferViewType(parsed.title);
+          if (vt) useDrawingsStore.getState().updateDrawing(d.id, "viewType", vt);
         }
         if (parsed.scale) {
           const scaleKey = matchScaleKey(parsed.scale);

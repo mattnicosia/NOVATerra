@@ -26,9 +26,11 @@ import {
 import { useModuleStore } from "@/stores/moduleStore";
 import { useModelStore } from "@/stores/modelStore";
 import { outlineToFeet, detectBuildingOutline, ensureDrawingImage } from "@/utils/outlineDetector";
+import { inferViewType } from "@/utils/uploadPipeline";
 import { MODULE_LIST, MODULES } from "@/constants/modules";
 import ModulePanel from "@/components/takeoffs/ModulePanel";
 import TakeoffDimensionEngine from "@/components/takeoffs/TakeoffDimensionEngine";
+import FormulaExpressionRow from "@/components/takeoffs/FormulaExpressionRow";
 import TakeoffCommandPalette from "@/components/takeoffs/TakeoffCommandPalette";
 import GroupBar from "@/components/shared/GroupBar";
 import { extractPageData, isExtracted } from "@/utils/pdfExtractor";
@@ -288,6 +290,17 @@ export default function TakeoffsPage() {
       useTakeoffsStore.getState().setTkPanelTier(savedTier);
       if (savedTier === "estimate") useTakeoffsStore.getState().setTkPanelOpen(false);
     }
+  }, []);
+
+  // One-time migration: infer viewType for existing drawings from sheetTitle
+  useEffect(() => {
+    const ds = useDrawingsStore.getState();
+    ds.drawings.forEach(d => {
+      if (d.sheetTitle && !d.viewType) {
+        const vt = inferViewType(d.sheetTitle);
+        if (vt) ds.updateDrawing(d.id, "viewType", vt);
+      }
+    });
   }, []);
 
   // Persist selected drawing to sessionStorage so refresh returns to same page
@@ -5066,20 +5079,37 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                 onClick={() => setTkShowVars(tkShowVars === to.id ? null : to.id)}
                                                 title="Variables & Formula"
                                                 style={{
-                                                  width: 20,
-                                                  height: 20,
-                                                  border: "none",
-                                                  background: hasVars || hasFormula ? `${C.accent}18` : "transparent",
-                                                  color: hasVars || hasFormula ? C.accent : C.textDim,
-                                                  borderRadius: 3,
+                                                  minWidth: 24,
+                                                  height: 22,
+                                                  padding: hasFormula ? "0 5px" : "0 4px",
+                                                  border: hasFormula
+                                                    ? `1px solid ${C.accent}40`
+                                                    : `1px solid ${C.border}`,
+                                                  background: hasFormula
+                                                    ? `${C.accent}15`
+                                                    : C.bg2,
+                                                  color: hasFormula ? C.accent : C.textMuted,
+                                                  borderRadius: 5,
                                                   display: "flex",
                                                   alignItems: "center",
                                                   justifyContent: "center",
-                                                  fontSize: 10,
+                                                  fontSize: hasFormula ? 9 : 11,
                                                   fontWeight: 700,
+                                                  gap: 1,
+                                                  transition: T.transition.fast,
+                                                  boxShadow: hasFormula ? (T.shadow.glowAccent || "none") : "none",
                                                 }}
                                               >
-                                                ƒ
+                                                {(() => {
+                                                  if (!hasFormula) return "ƒ";
+                                                  const vars = to.variables || [];
+                                                  const hVar = vars.find(v => (v.key || "").toLowerCase() === "height");
+                                                  if (hVar) return `×${hVar.value}'`;
+                                                  const fVar = vars.find(v => (v.key || "").toLowerCase() === "factor");
+                                                  if (fVar) return `×${fVar.value}`;
+                                                  if (vars.length > 0) return `ƒ=`;
+                                                  return "ƒ";
+                                                })()}
                                               </button>
                                               {unitToTool(to.unit) === "count" && selectedDrawing?.data && (
                                                 <button
@@ -5466,6 +5496,18 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                             })()}
                                         </div>
 
+                                        {/* Inline formula expression — visible when formula is active */}
+                                        {hasFormula && computedQty !== null && displayQty !== null && tkShowVars !== to.id && (
+                                          <FormulaExpressionRow
+                                            takeoff={to}
+                                            measuredQty={displayQty}
+                                            computedQty={computedQty}
+                                            updateTakeoff={updateTakeoff}
+                                            C={C}
+                                            T={T}
+                                          />
+                                        )}
+
                                         {/* Dimension Engine */}
                                         {tkShowVars === to.id && (
                                           <TakeoffDimensionEngine
@@ -5477,6 +5519,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                             computeMeasurementValue={computeMeasurementValue}
                                             selectedDrawingId={selectedDrawingId}
                                             removeMeasurement={removeMeasurement}
+                                            drawingViewType={selectedDrawing?.viewType || null}
                                           />
                                         )}
                                       </div>

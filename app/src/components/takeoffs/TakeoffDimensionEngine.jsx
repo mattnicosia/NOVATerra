@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
@@ -196,14 +196,36 @@ export default function TakeoffDimensionEngine({
   computeMeasurementValue,
   selectedDrawingId,
   removeMeasurement,
+  drawingViewType,
 }) {
   const C = useTheme();
   const T = C.T;
-  const [scenarioCat, setScenarioCat] = useState("General");
 
   const variables = takeoff.variables || [];
   const formula = takeoff.formula || "";
   const hasFormula = !!(formula && formula.trim());
+
+  // Context detection: LF measurement on a plan-view drawing → suggest Height
+  const isLF = ["LF", "VLF"].includes((takeoff.unit || "").toUpperCase());
+  const isPlanView = drawingViewType === "plan";
+  const suggestHeight = isLF && isPlanView && !hasFormula && variables.length === 0;
+
+  const [scenarioCat, setScenarioCat] = useState(isLF && isPlanView ? "Masonry" : "General");
+
+  // Auto-add Height variable when context suggests it (one-time on open)
+  const contextApplied = useRef(false);
+  useEffect(() => {
+    if (suggestHeight && !contextApplied.current) {
+      contextApplied.current = true;
+      const dt = DIMENSION_TYPES.find(d => d.key === "Height");
+      if (dt) {
+        const fresh = takeoff.variables || [];
+        if (!fresh.some(v => v.key && v.key.toLowerCase() === "height")) {
+          updateTakeoff(takeoff.id, "variables", [...fresh, { key: dt.key, value: dt.value }]);
+        }
+      }
+    }
+  }, [suggestHeight]);
   const totalMCount = (measurements || []).length;
   const accentColor = C.cyan || C.accent;
 
@@ -349,6 +371,26 @@ export default function TakeoffDimensionEngine({
           <div style={{ fontSize: 9, color: C.orange, fontWeight: 600, marginLeft: 8 }}>Set scale to see result</div>
         )}
       </div>
+
+      {/* Context hint for plan view + LF */}
+      {isLF && isPlanView && !hasFormula && (
+        <div style={{
+          fontSize: 9,
+          color: C.accent,
+          fontWeight: 500,
+          marginBottom: 8,
+          padding: "5px 8px",
+          background: `${C.accent}08`,
+          borderRadius: 6,
+          border: `1px solid ${C.accent}15`,
+          display: "flex",
+          alignItems: "center",
+          gap: 5,
+        }}>
+          <span style={{ fontSize: 12 }}>📐</span>
+          Plan view detected — apply <strong style={{ margin: "0 3px" }}>LF → SF Wall</strong> below to convert
+        </div>
+      )}
 
       {/* Dimension Cards */}
       <div style={{ marginBottom: 10 }}>
@@ -525,12 +567,19 @@ export default function TakeoffDimensionEngine({
                 padding: "3px 9px",
                 fontSize: 9,
                 fontWeight: 600,
-                border: `1px solid ${C.accent}30`,
-                background: `${C.accent}06`,
+                border: isLF && isPlanView && s.label === "LF → SF Wall"
+                  ? `1px solid ${C.accent}60`
+                  : `1px solid ${C.accent}30`,
+                background: isLF && isPlanView && s.label === "LF → SF Wall"
+                  ? `${C.accent}18`
+                  : `${C.accent}06`,
                 color: C.accent,
                 borderRadius: 5,
                 cursor: "pointer",
                 transition: "all 0.12s ease-out",
+                boxShadow: isLF && isPlanView && s.label === "LF → SF Wall"
+                  ? `0 0 8px ${C.accent}25`
+                  : "none",
               }}
             >
               {s.label}
