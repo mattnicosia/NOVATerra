@@ -1622,10 +1622,8 @@ IMPORTANT:
       const currentActiveTakeoffId = freshState.tkActiveTakeoffId;
       const currentTool = freshState.tkTool;
 
-      // Auto-engage selected takeoff if idle (so canvas is always ready for takeoffs)
-      if (currentMeasureState === "idle" && freshState.tkSelectedTakeoffId && !currentActiveTakeoffId) {
-        engageMeasuring(freshState.tkSelectedTakeoffId);
-      }
+      // Selected takeoff shows its points but does NOT auto-start measuring.
+      // User must click the play button or press Enter to start measuring.
 
       const rect = canvasRef.current.getBoundingClientRect();
       const cx = (e.clientX - rect.left) * (canvasRef.current.width / rect.width);
