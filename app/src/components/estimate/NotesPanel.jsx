@@ -2,15 +2,12 @@ import { useState } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useSpecsStore } from "@/stores/specsStore";
 import { useItemsStore } from "@/stores/itemsStore";
-import { useProjectStore } from "@/stores/projectStore";
-import { useDrawingsStore } from "@/stores/drawingsStore";
 import { useUiStore } from "@/stores/uiStore";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { inp, bt } from "@/utils/styles";
 import { nn, fmt2 } from "@/utils/format";
 import { hasAllowance, getAllowanceFields, getItemAllowanceTotal, generateAllowanceNote } from "@/utils/allowances";
-import { callAnthropicStream, buildProjectContext } from "@/utils/ai";
 
 export default function NotesPanel({ inline = false }) {
   const C = useTheme();
@@ -28,116 +25,10 @@ export default function NotesPanel({ inline = false }) {
   const setShowNotesPanel = useUiStore(s => s.setShowNotesPanel);
   const showToast = useUiStore(s => s.showToast);
 
-  const project = useProjectStore(s => s.project);
-  const specs = useSpecsStore(s => s.specs);
-  const drawings = useDrawingsStore(s => s.drawings);
   const [tab, setTab] = useState("exclusions");
   const allowanceItems = items.filter(hasAllowance);
   const catColors = { note: C.green, clarification: C.blue, qualification: C.purple };
 
-  // AI RFI Generator
-  const [rfiLoading, setRfiLoading] = useState(false);
-  const [rfis, setRfis] = useState([]);
-  const [rfiStream, setRfiStream] = useState("");
-
-  const generateRFIs = async () => {
-    setRfiLoading(true);
-    setRfis([]);
-    setRfiStream("");
-    try {
-      const context = buildProjectContext({ project, items, specs, drawings });
-      const fullText = await callAnthropicStream({
-        max_tokens: 3000,
-        system: `You are a senior construction estimator reviewing project documents for ambiguities, conflicts, and missing information that would require Requests for Information (RFIs) before bidding.
-
-You analyze specs, drawings, and estimate items to find:
-- Conflicts between spec sections and drawings
-- Missing dimensions, details, or specifications
-- Ambiguous material/product specifications
-- Unclear scope boundaries between trades
-- Missing or incomplete finish schedules
-- Structural/architectural coordination issues
-- Code compliance questions`,
-        messages: [
-          {
-            role: "user",
-            content: `Review this project for potential RFIs. Identify issues that need clarification before an accurate bid can be submitted.
-
-${context}
-
-For each RFI, provide:
-1. A professional subject line
-2. The question/concern
-3. Which spec section or drawing sheet is referenced
-4. Why this matters for pricing
-
-Format each RFI as:
-**RFI #X: [Subject]**
-Reference: [Spec section or Sheet #]
-[Question text - professional tone suitable for sending to architect]
-Impact: [How this affects the bid]
-
-Generate 5-10 RFIs, prioritized by impact on bid accuracy.`,
-          },
-        ],
-        onText: t => setRfiStream(t),
-      });
-      setRfiStream("");
-      // Parse the RFIs from the text
-      const rfiBlocks = fullText.split(/\*\*RFI #\d+/).filter(b => b.trim());
-      const parsed = rfiBlocks
-        .map((block, i) => {
-          const subjectMatch = block.match(/:\s*(.+?)\*\*/);
-          const refMatch = block.match(/Reference:\s*(.+?)(?:\n|$)/);
-          const impactMatch = block.match(/Impact:\s*(.+?)(?:\n|$)/);
-          const lines = block
-            .split("\n")
-            .filter(l => l.trim() && !l.startsWith("**") && !l.startsWith("Reference:") && !l.startsWith("Impact:"));
-          return {
-            id: i + 1,
-            subject: subjectMatch?.[1]?.trim() || `RFI ${i + 1}`,
-            reference: refMatch?.[1]?.trim() || "",
-            question: lines.join("\n").trim(),
-            impact: impactMatch?.[1]?.trim() || "",
-          };
-        })
-        .filter(r => r.subject && r.question);
-      setRfis(
-        parsed.length > 0
-          ? parsed
-          : [{ id: 1, subject: "Review Complete", reference: "", question: fullText, impact: "" }],
-      );
-    } catch (err) {
-      showToast(`RFI error: ${err.message}`, "error");
-    } finally {
-      setRfiLoading(false);
-    }
-  };
-
-  const copyRFI = rfi => {
-    const text = `RFI #${rfi.id}: ${rfi.subject}\nReference: ${rfi.reference}\n\n${rfi.question}\n\nImpact: ${rfi.impact}`;
-    navigator.clipboard.writeText(text);
-    showToast("RFI copied to clipboard");
-  };
-
-  const copyAllRFIs = () => {
-    const text = rfis
-      .map(r => `RFI #${r.id}: ${r.subject}\nReference: ${r.reference}\n\n${r.question}\n\nImpact: ${r.impact}`)
-      .join("\n\n---\n\n");
-    navigator.clipboard.writeText(text);
-    showToast(`${rfis.length} RFIs copied to clipboard`);
-  };
-
-  const addRFIToClarifications = rfi => {
-    addClarification("clarification");
-    // Get the newly added clarification and update its text
-    setTimeout(() => {
-      const allClars = useSpecsStore.getState().clarifications;
-      const last = allClars[allClars.length - 1];
-      if (last) updateClarification(last.id, "text", `RFI: ${rfi.subject}\nRef: ${rfi.reference}\n${rfi.question}`);
-    }, 50);
-    showToast("Added to clarifications");
-  };
 
   const handleCopyAllowances = () => {
     const text = allowanceItems.map((it, i) => `${i + 1}. ${generateAllowanceNote(it)}`).join("\n");
@@ -220,7 +111,6 @@ Generate 5-10 RFIs, prioritized by impact on bid accuracy.`,
           {[
             { key: "allowances", label: "Allowances", count: allowanceItems.length, color: C.orange },
             { key: "notes", label: "Notes", count: clarifications.length, color: C.blue },
-            { key: "rfis", label: "RFIs", count: rfis.length, color: C.accent },
             { key: "exclusions", label: "Exclusions", count: exclusions.length, color: C.purple },
           ].map(t => (
             <button
@@ -488,198 +378,6 @@ Generate 5-10 RFIs, prioritized by impact on bid accuracy.`,
             </div>
           )}
 
-          {/* RFI TAB */}
-          {tab === "rfis" && (
-            <div>
-              <div
-                style={{
-                  marginBottom: 10,
-                  padding: "10px 12px",
-                  background: `${C.accent}06`,
-                  borderRadius: 6,
-                  border: `1px solid ${C.accent}15`,
-                }}
-              >
-                <div style={{ fontSize: 11, color: C.text, lineHeight: 1.5, marginBottom: 8 }}>
-                  AI analyzes your specs, drawings, and estimate for ambiguities, conflicts, and missing information —
-                  then generates professional RFIs ready to send to the architect.
-                </div>
-                <button
-                  onClick={generateRFIs}
-                  disabled={rfiLoading}
-                  style={bt(C, {
-                    width: "100%",
-                    padding: "8px 0",
-                    fontSize: 12,
-                    fontWeight: 700,
-                    background: rfiLoading ? C.bg3 : `linear-gradient(135deg, ${C.accent}, ${C.purple || C.accent})`,
-                    color: rfiLoading ? C.textDim : "#fff",
-                    boxShadow: rfiLoading ? "none" : `0 2px 8px ${C.accent}30`,
-                  })}
-                >
-                  {rfiLoading ? (
-                    <>
-                      <span
-                        style={{
-                          display: "inline-block",
-                          width: 12,
-                          height: 12,
-                          border: "2px solid #fff3",
-                          borderTop: "2px solid #fff",
-                          borderRadius: "50%",
-                          animation: "spin 0.8s linear infinite",
-                          marginRight: 6,
-                        }}
-                      />{" "}
-                      Analyzing Project...
-                    </>
-                  ) : (
-                    <>
-                      <Ic d={I.ai} size={13} color="#fff" /> Generate RFIs
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {/* Streaming text while generating */}
-              {rfiLoading && rfiStream && (
-                <div
-                  style={{
-                    padding: 10,
-                    fontSize: 11,
-                    color: C.textDim,
-                    lineHeight: 1.6,
-                    background: C.bg,
-                    borderRadius: 6,
-                    border: `1px solid ${C.border}`,
-                    whiteSpace: "pre-wrap",
-                    maxHeight: 200,
-                    overflowY: "auto",
-                  }}
-                >
-                  {rfiStream}
-                  <span
-                    style={{
-                      display: "inline-block",
-                      width: 4,
-                      height: 12,
-                      background: C.accent,
-                      borderRadius: 1,
-                      animation: "pulse 0.8s infinite",
-                      verticalAlign: "text-bottom",
-                      marginLeft: 2,
-                    }}
-                  />
-                </div>
-              )}
-
-              {/* Generated RFIs */}
-              {rfis.length > 0 && (
-                <>
-                  <div
-                    style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}
-                  >
-                    <span style={{ fontSize: 11, fontWeight: 700, color: C.accent }}>{rfis.length} RFIs Generated</span>
-                    <button
-                      onClick={copyAllRFIs}
-                      style={bt(C, {
-                        background: `${C.accent}12`,
-                        border: `1px solid ${C.accent}30`,
-                        color: C.accent,
-                        padding: "3px 10px",
-                        fontSize: 9,
-                        fontWeight: 600,
-                      })}
-                    >
-                      <Ic d={I.copy} size={9} color={C.accent} /> Copy All
-                    </button>
-                  </div>
-                  {rfis.map(rfi => (
-                    <div
-                      key={rfi.id}
-                      style={{
-                        marginBottom: 10,
-                        borderLeft: `3px solid ${C.accent}`,
-                        padding: "8px 10px",
-                        background: `${C.accent}04`,
-                        borderRadius: 4,
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "flex-start",
-                          marginBottom: 4,
-                        }}
-                      >
-                        <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>
-                          RFI #{rfi.id}: {rfi.subject}
-                        </div>
-                      </div>
-                      {rfi.reference && (
-                        <div
-                          style={{
-                            fontSize: 10,
-                            color: C.purple,
-                            fontWeight: 600,
-                            marginBottom: 4,
-                            fontFamily: T.font.sans,
-                          }}
-                        >
-                          Ref: {rfi.reference}
-                        </div>
-                      )}
-                      <div
-                        style={{
-                          fontSize: 11,
-                          color: C.text,
-                          lineHeight: 1.5,
-                          whiteSpace: "pre-wrap",
-                          marginBottom: 4,
-                        }}
-                      >
-                        {rfi.question}
-                      </div>
-                      {rfi.impact && (
-                        <div style={{ fontSize: 10, color: C.orange, fontWeight: 500, fontStyle: "italic" }}>
-                          Impact: {rfi.impact}
-                        </div>
-                      )}
-                      <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
-                        <button
-                          onClick={() => copyRFI(rfi)}
-                          title="Copy to clipboard"
-                          style={bt(C, {
-                            background: "transparent",
-                            border: `1px solid ${C.border}`,
-                            color: C.textMuted,
-                            padding: "2px 8px",
-                            fontSize: 9,
-                          })}
-                        >
-                          <Ic d={I.copy} size={8} /> Copy
-                        </button>
-                        <button
-                          onClick={() => addRFIToClarifications(rfi)}
-                          title="Add to clarifications"
-                          style={bt(C, {
-                            background: "transparent",
-                            border: `1px solid ${C.blue}30`,
-                            color: C.blue,
-                            padding: "2px 8px",
-                            fontSize: 9,
-                          })}
-                        >
-                          <Ic d={I.plus} size={8} /> To Notes
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </>
-              )}
-            </div>
-          )}
         </div>
 
         <style>{`

@@ -65,10 +65,7 @@ export default function WidgetWrapper({
         height: "100%",
         borderRadius: T.radius.lg,
         // noGlass: solid opaque cards. Glass: translucent with blur.
-        // Nova orb widget gets opaque black to hide video padding
-        background: widgetType === "nova-orb" && !isActive
-          ? "#050508"
-          : C.noGlass
+        background: C.noGlass
             ? (isActive ? C.bg2 : C.bg1)
             : isActive
               ? dk
@@ -77,11 +74,9 @@ export default function WidgetWrapper({
               : dk
                 ? T.glass.bg
                 : C.glassBg || "rgba(255,255,255,0.32)",
-        backdropFilter: widgetType === "nova-orb" ? "none" : C.noGlass ? "none" : (isActive ? undefined : T.glass.blur),
-        WebkitBackdropFilter: widgetType === "nova-orb" ? "none" : C.noGlass ? "none" : (isActive ? undefined : T.glass.blur),
-        border: widgetType === "nova-orb" && !isActive
-          ? "0.5px solid rgba(255,255,255,0.06)"
-          : C.noGlass
+        backdropFilter: C.noGlass ? "none" : (isActive ? undefined : T.glass.blur),
+        WebkitBackdropFilter: C.noGlass ? "none" : (isActive ? undefined : T.glass.blur),
+        border: C.noGlass
             ? `1px solid ${isActive ? `${C.accent}4D` : C.border}`
             : `${dk ? "0.5" : "1"}px solid ${
                 isActive
@@ -92,9 +87,7 @@ export default function WidgetWrapper({
                       : T.glass.border
                     : C.glassBorder || C.border || "rgba(0,0,0,0.08)"
               }`,
-        boxShadow: widgetType === "nova-orb" && !isActive
-          ? "inset 0 1px 0 rgba(255,255,255,0.06), inset 0 -2px 4px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.3), 0 1px 3px rgba(0,0,0,0.2)"
-          : C.noGlass ? "none" : glassShadow,
+        boxShadow: C.noGlass ? "none" : glassShadow,
         display: "flex",
         flexDirection: "column",
         overflow: "visible",

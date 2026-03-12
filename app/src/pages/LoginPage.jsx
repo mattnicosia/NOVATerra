@@ -453,18 +453,18 @@ function LoginForm() {
 
       {/* Brand */}
       <div style={{ textAlign: "center", marginBottom: 28 }}>
-        <h1
+        <img
+          src="/nova-logo-cut.svg"
+          alt="NOVA"
           style={{
-            fontSize: 22,
-            fontWeight: 700,
-            letterSpacing: "0.06em",
-            color: "rgba(200,100,100,0.85)",
-            margin: "0 0 4px",
-            fontFamily: "'Switzer', sans-serif",
+            height: 32,
+            objectFit: "contain",
+            display: "block",
+            margin: "0 auto 6px",
+            userSelect: "none",
           }}
-        >
-          ARTIFACT
-        </h1>
+          draggable={false}
+        />
         <p
           style={{
             fontSize: 12,

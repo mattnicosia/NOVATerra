@@ -8,8 +8,10 @@ import Ic from "@/components/shared/Ic";
 import CompanySwitcher from "@/components/shared/CompanySwitcher";
 import EmptyState from "@/components/shared/EmptyState";
 import TradeMultiSelect, { TradeBadge } from "@/components/contacts/TradeMultiSelect";
+import SubImportModal from "@/components/contacts/SubImportModal";
 import { I } from "@/constants/icons";
 import { inp, bt, card, sectionLabel } from "@/utils/styles";
+import { callAnthropicStream } from "@/utils/ai";
 import {
   TRADE_GROUPINGS,
   TRADE_MAP,
@@ -46,6 +48,9 @@ export default function ContactsPage() {
   const [showNewCompanyModal, setShowNewCompanyModal] = useState(false);
   const [tradeFilter, setTradeFilter] = useState([]);
   const [expandedSubId, setExpandedSubId] = useState(null);
+  const [showSubImport, setShowSubImport] = useState(false);
+  const [novaCatLoading, setNovaCatLoading] = useState(false);
+  const [novaCatProgress, setNovaCatProgress] = useState("");
 
   const companyTag = activeCompanyId === "__all__" ? "" : activeCompanyId;
   const clients = getContactsForCompany("clients", activeCompanyId);
@@ -65,6 +70,72 @@ export default function ContactsPage() {
     subcontractors: subcontractors.length,
   };
   const totalContacts = Object.values(counts).reduce((a, b) => a + b, 0);
+
+  // ── NOVA Batch Categorize uncategorized subs ──
+  const TRADE_KEYS = TRADE_GROUPINGS.map(t => t.key);
+  const uncategorizedSubs = useMemo(
+    () => subcontractors.filter(s => !s.trades || s.trades.length === 0),
+    [subcontractors],
+  );
+
+  const novaBatchCategorize = async () => {
+    if (uncategorizedSubs.length === 0) { showToast("All subs already have trades assigned"); return; }
+    setNovaCatLoading(true);
+    const tradeKeyList = TRADE_GROUPINGS.map(t => `${t.key} (${t.label})`).join(", ");
+    const BATCH_SIZE = 80;
+    let totalMatched = 0;
+
+    try {
+      for (let start = 0; start < uncategorizedSubs.length; start += BATCH_SIZE) {
+        const batch = uncategorizedSubs.slice(start, start + BATCH_SIZE);
+        const batchNum = Math.floor(start / BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(uncategorizedSubs.length / BATCH_SIZE);
+        setNovaCatProgress(`Batch ${batchNum}/${totalBatches} (${start + batch.length}/${uncategorizedSubs.length})`);
+
+        const companyList = batch.map((s, i) => `${i + 1}. ${s.company}`).join("\n");
+        const fullText = await callAnthropicStream({
+          max_tokens: 4000,
+          system: `You categorize construction subcontractors and vendors by trade based on their company name. Use ONLY these trade keys: ${tradeKeyList}.
+
+For each company, infer the most likely trade(s) from the company name. Most companies have 1-2 trades. If the name is ambiguous, pick the most likely.
+
+Format each result as:
+COMPANY: [exact company name as given]
+TRADES: [trade_key1, trade_key2]`,
+          messages: [{ role: "user", content: `Categorize these construction companies by trade:\n\n${companyList}` }],
+          onText: () => {},
+        });
+
+        // Parse AI results
+        const aiBlocks = fullText.split(/COMPANY:\s*/i).filter(b => b.trim());
+        const aiMap = {};
+        aiBlocks.forEach(block => {
+          const lines = block.split("\n");
+          const name = (lines[0] || "").trim();
+          const tradesLine = lines.find(l => /^TRADES:/i.test(l.trim())) || "";
+          const tradeStr = tradesLine.replace(/^TRADES:\s*/i, "").trim();
+          const trades = tradeStr.split(/[,\s]+/).map(t => t.trim().toLowerCase()).filter(t => TRADE_KEYS.includes(t));
+          if (name && trades.length > 0) aiMap[name.toLowerCase()] = trades;
+        });
+
+        // Apply to store
+        batch.forEach(sub => {
+          const matched = aiMap[sub.company.toLowerCase()];
+          if (matched) {
+            updateMasterItem("subcontractors", sub.id, "trades", matched);
+            totalMatched++;
+          }
+        });
+      }
+
+      showToast(`NOVA categorized ${totalMatched} of ${uncategorizedSubs.length} subs`);
+    } catch (err) {
+      showToast(`NOVA error: ${err.message}`, "error");
+    } finally {
+      setNovaCatLoading(false);
+      setNovaCatProgress("");
+    }
+  };
 
   // ── Get all items for current tab ──
   const getAllItems = () => {
@@ -395,6 +466,56 @@ export default function ContactsPage() {
                 <Ic d={I.search} size={12} color={C.textDim} />
               </div>
             </div>
+            {activeTab === "subcontractors" && (
+              <>
+              <button
+                onClick={() => setShowSubImport(true)}
+                className="ghost-btn"
+                style={bt(C, {
+                  background: `${accent}10`,
+                  color: accent,
+                  padding: "6px 14px",
+                  borderRadius: T.radius.sm,
+                  border: `1px solid ${accent}25`,
+                  fontSize: 12,
+                  fontWeight: 600,
+                })}
+              >
+                <Ic d={I.upload || I.plus} size={12} color={accent} /> Import Subs
+              </button>
+              {uncategorizedSubs.length > 0 && (
+                <button
+                  onClick={novaBatchCategorize}
+                  disabled={novaCatLoading}
+                  className="ghost-btn"
+                  style={bt(C, {
+                    background: novaCatLoading ? C.bg3 : `linear-gradient(135deg, ${accent}12, ${C.purple || accent}12)`,
+                    color: accent,
+                    padding: "6px 14px",
+                    borderRadius: T.radius.sm,
+                    border: `1px solid ${accent}25`,
+                    fontSize: 12,
+                    fontWeight: 600,
+                  })}
+                >
+                  {novaCatLoading ? (
+                    <>
+                      <span style={{
+                        display: "inline-block", width: 10, height: 10,
+                        border: `2px solid ${accent}40`, borderTop: `2px solid ${accent}`,
+                        borderRadius: "50%", animation: "spin 0.8s linear infinite", marginRight: 4,
+                      }} />
+                      {novaCatProgress || "Categorizing..."}
+                    </>
+                  ) : (
+                    <>
+                      <Ic d={I.ai} size={12} color={accent} /> NOVA Categorize ({uncategorizedSubs.length})
+                    </>
+                  )}
+                </button>
+              )}
+              </>
+            )}
             <button
               onClick={handleAddNew}
               className="accent-btn"
@@ -688,6 +809,14 @@ export default function ContactsPage() {
           People data saves automatically and persists across all estimates.
         </div>
       </div>
+
+      {/* Sub Import modal */}
+      {showSubImport && (
+        <SubImportModal
+          onClose={() => setShowSubImport(false)}
+          companyProfileId={companyTag}
+        />
+      )}
 
       {/* New Company modal */}
       {showNewCompanyModal && (

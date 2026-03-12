@@ -140,6 +140,18 @@ export const useMasterDataStore = create((set, get) => ({
       },
     })),
 
+  // Bulk add subcontractors (single state update for N items)
+  addBulkSubs: subs =>
+    set(s => ({
+      masterData: {
+        ...s.masterData,
+        subcontractors: [
+          ...(s.masterData.subcontractors || []),
+          ...subs.map(sub => ({ id: uid(), ...sub })),
+        ],
+      },
+    })),
+
   addJobType: name =>
     set(s => ({
       masterData: {

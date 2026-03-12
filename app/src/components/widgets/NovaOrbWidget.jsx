@@ -59,6 +59,7 @@ export default function NovaOrbWidget() {
             display: "block",
             marginLeft: "-20%",
             marginTop: "-20%",
+            mixBlendMode: "screen",
           }}
         />
       </div>

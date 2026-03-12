@@ -1,14 +1,14 @@
-// NOVA Logo — image-based wordmark
+// NOVA Logo — image-based wordmark with cut-through
 // Usage: <NovaTerraLogo size={24} />
 
 export default function NovaTerraLogo({ size = 24, style }) {
   const height = size;
-  // Original image is 1128×376 → aspect ratio ~3:1
-  const width = height * 3;
+  // SVG viewBox is 520×140 → aspect ratio ~3.7:1
+  const width = Math.round(height * 3.7);
 
   return (
     <img
-      src="/nova-logo.png"
+      src="/nova-logo-cut.svg"
       alt="NOVA"
       width={width}
       height={height}

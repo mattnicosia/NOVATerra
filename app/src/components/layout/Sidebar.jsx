@@ -176,7 +176,7 @@ function Sidebar() {
           }}
           onClick={!open ? toggle : undefined}
         >
-          <NovaTerraLogo size={open ? 51 : 30} />
+          <NovaTerraLogo size={open ? 26 : 15} />
         </div>
         {open && (
           <button

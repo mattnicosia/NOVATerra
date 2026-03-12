@@ -137,7 +137,10 @@ async function runCloudSync() {
   // One-time background migration: re-push estimates with blobs so they
   // get uploaded to Supabase Storage. Estimates created before the blob
   // sync feature were pushed with blobs stripped and never uploaded.
-  runBlobMigration().catch(err => console.warn("[cloudSync] Blob migration failed:", err));
+  // Delay to avoid overlapping with the dirty-estimate flush above.
+  setTimeout(() => {
+    runBlobMigration().catch(err => console.warn("[cloudSync] Blob migration failed:", err));
+  }, 5000);
 }
 
 export function useCloudSync() {

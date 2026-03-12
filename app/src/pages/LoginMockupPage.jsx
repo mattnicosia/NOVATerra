@@ -452,19 +452,19 @@ function LoginForm() {
               animation: "glowPulse 5s ease-in-out infinite",
             }}
           />
-          <h1
+          <img
+            src="/nova-logo-cut.svg"
+            alt="NOVA"
             style={{
-              fontSize: 20,
-              fontWeight: 700,
-              letterSpacing: "0.06em",
-              color: "rgba(200,100,100,0.85)",
-              margin: "0 0 4px",
-              fontFamily: FONT,
-              textShadow: "0 2px 20px rgba(200,50,50,0.4)",
+              height: 28,
+              objectFit: "contain",
+              display: "block",
+              margin: "0 auto 2px",
+              userSelect: "none",
+              filter: "drop-shadow(0 2px 20px rgba(200,50,50,0.4))",
             }}
-          >
-            NOVA
-          </h1>
+            draggable={false}
+          />
           <p
             style={{
               fontSize: 10,

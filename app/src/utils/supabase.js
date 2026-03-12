@@ -6,14 +6,16 @@ const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || "").replace(/
 
 // Frontend Supabase client — uses the public anon key (safe to expose)
 // Returns null if env vars are not configured (graceful degradation)
-// Global fetch timeout: abort requests after 10s to prevent hanging when Supabase is down
+// Global fetch timeout: 60s for storage/blob operations, 15s for everything else
 export const supabase =
   supabaseUrl && supabaseAnonKey
     ? createClient(supabaseUrl, supabaseAnonKey, {
         global: {
           fetch: (url, options = {}) => {
+            const isStorage = typeof url === "string" && (url.includes("/storage/") || url.includes("/object/"));
+            const ms = isStorage ? 60000 : 15000;
             const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 10000);
+            const timeout = setTimeout(() => controller.abort(), ms);
             return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timeout));
           },
         },

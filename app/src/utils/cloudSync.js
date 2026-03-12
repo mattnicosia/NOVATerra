@@ -155,11 +155,23 @@ const compressImage = (dataUrl, maxDim = 4096, quality = 0.82) => {
 const uploadBlob = async (path, dataUrl) => {
   if (!dataUrl || !supabase) return null;
   try {
-    // 1. Compress large images before upload
-    const compressed = await compressImage(dataUrl);
+    let blob;
 
-    // 2. Convert to Blob
-    const blob = await dataUrlToBlob(compressed);
+    // Handle non-string values (Blob, ArrayBuffer, Uint8Array) — skip compression
+    if (dataUrl instanceof Blob) {
+      blob = dataUrl;
+    } else if (dataUrl instanceof ArrayBuffer || dataUrl instanceof Uint8Array) {
+      blob = new Blob([dataUrl], { type: "application/octet-stream" });
+    } else if (typeof dataUrl !== "string") {
+      console.warn(`[cloudSync] uploadBlob("${path}") — unexpected type: ${typeof dataUrl}`);
+      return null;
+    } else {
+      // 1. Compress large images before upload
+      const compressed = await compressImage(dataUrl);
+
+      // 2. Convert to Blob
+      blob = await dataUrlToBlob(compressed);
+    }
     if (!blob || blob.size < MIN_VALID_BLOB_BYTES) {
       console.warn(`[cloudSync] Blob conversion produced invalid result (${blob?.size || 0} bytes)`);
       return null;

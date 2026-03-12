@@ -9,3 +9,5 @@ dist
 .vercel
 .env*.local
 blender/renders/
+.env.local.check
+.env.vercel-prod

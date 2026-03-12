@@ -36,10 +36,11 @@ import { exportEstimateXlsx } from "@/utils/exportXlsx";
 import EstimateKPIStrip from "@/components/estimate/EstimateKPIStrip";
 import DivisionNavigator from "@/components/estimate/DivisionNavigator";
 import LevelingView from "@/components/estimate/LevelingView";
-import GroupBar from "@/components/shared/GroupBar";
 import NovaOrb from "@/components/dashboard/NovaOrb";
 import TakeoffNOVAPanel from "@/components/takeoffs/TakeoffNOVAPanel";
 import CollaborationBar from "@/components/estimate/CollaborationBar";
+import ScenariosPanel from "@/components/estimate/ScenariosPanel";
+import RFIPanel from "@/components/estimate/RFIPanel";
 
 // ── Memoized item row — prevents re-rendering all 200+ rows on each keystroke ──
 const EstimateItemRow = memo(
@@ -338,8 +339,9 @@ export default function EstimatePage() {
   const [selectedItemId, setSelectedItemId] = useState(null);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showNova, setShowNova] = useState(false);
   const [clearConfirm, setClearConfirm] = useState(0); // 0 = idle, 1 = first confirm, 2 = second confirm
-  const [leftPanelTab, setLeftPanelTab] = useState("divisions"); // "divisions" | "notes" | "nova"
+  const [leftPanelTab, setLeftPanelTab] = useState("estimate"); // "estimate" | "scenarios" | "notes" | "rfis"
   const [leftPanelWidth, setLeftPanelWidth] = useState(() => {
     try {
       return parseInt(sessionStorage.getItem("bldg-estLeftWidth")) || 200;
@@ -710,11 +712,6 @@ export default function EstimatePage() {
       {/* Zone 1: KPI Strip */}
       <EstimateKPIStrip />
 
-      {/* Group Bar (bid context tabs) */}
-      <div style={{ padding: `0 ${T.space[5]}px`, flexShrink: 0 }}>
-        <GroupBar />
-      </div>
-
       {/* Zone 2+3: Navigator + Grid + Detail */}
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         {/* Left Panel — Divisions / Notes tab switch */}
@@ -737,16 +734,17 @@ export default function EstimatePage() {
             }}
           >
             {[
-              { key: "divisions", label: "Divisions" },
+              { key: "estimate", label: "Estimate" },
+              { key: "scenarios", label: "Scenarios" },
               { key: "notes", label: "Notes", count: (exclusions?.length || 0) + (clarifications?.length || 0) },
-              { key: "nova", label: null, isNova: true },
+              { key: "rfis", label: "RFIs" },
             ].map(t => (
               <button
                 key={t.key}
                 onClick={() => setLeftPanelTab(t.key)}
                 style={{
-                  flex: t.isNova ? "0 0 auto" : 1,
-                  padding: t.isNova ? "4px 8px" : "6px 4px",
+                  flex: 1,
+                  padding: "6px 4px",
                   fontSize: 9,
                   fontWeight: leftPanelTab === t.key ? 700 : 500,
                   border: "none",
@@ -760,43 +758,39 @@ export default function EstimatePage() {
                       : "transparent",
                   color: leftPanelTab === t.key ? C.text : C.textDim,
                   borderBottom: leftPanelTab === t.key ? `2px solid ${C.accent}` : "2px solid transparent",
-                  textTransform: t.isNova ? "none" : "uppercase",
-                  letterSpacing: t.isNova ? 0 : 0.8,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.8,
                   transition: "all 0.15s",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                 }}
               >
-                {t.isNova ? (
-                  <NovaOrb size={16} />
-                ) : (
-                  <>
-                    {t.label}
-                    {t.count > 0 && (
-                      <span
-                        style={{
-                          fontSize: 8,
-                          background: `${C.accent}20`,
-                          padding: "1px 4px",
-                          borderRadius: 6,
-                          marginLeft: 3,
-                        }}
-                      >
-                        {t.count}
-                      </span>
-                    )}
-                  </>
+                {t.label}
+                {t.count > 0 && (
+                  <span
+                    style={{
+                      fontSize: 8,
+                      background: `${C.accent}20`,
+                      padding: "1px 4px",
+                      borderRadius: 6,
+                      marginLeft: 3,
+                    }}
+                  >
+                    {t.count}
+                  </span>
                 )}
               </button>
             ))}
           </div>
           {/* Tab content */}
           <div style={{ flex: 1, overflow: "hidden" }}>
-            {leftPanelTab === "divisions" ? (
+            {leftPanelTab === "estimate" ? (
               <DivisionNavigator activeDivision={estDivision} onSelectDivision={setEstDivision} />
-            ) : leftPanelTab === "nova" ? (
-              <TakeoffNOVAPanel />
+            ) : leftPanelTab === "scenarios" ? (
+              <ScenariosPanel />
+            ) : leftPanelTab === "rfis" ? (
+              <RFIPanel />
             ) : (
               <NotesPanel inline />
             )}
@@ -1211,6 +1205,20 @@ export default function EstimatePage() {
               })}
             >
               <Ic d={I.clock || I.calendar} size={12} color={showHistory ? C.accent : C.textMuted} /> History
+            </button>
+            <button
+              className="ghost-btn"
+              onClick={() => setShowNova(v => !v)}
+              title="NOVA AI Assistant"
+              style={bt(C, {
+                background: showNova ? `${C.accent}12` : "transparent",
+                border: `1px solid ${showNova ? C.accent + "30" : C.border}`,
+                padding: "4px 8px",
+                display: "flex",
+                alignItems: "center",
+              })}
+            >
+              <NovaOrb size={16} />
             </button>
             <button
               className="ghost-btn"
@@ -1788,6 +1796,53 @@ export default function EstimatePage() {
         />
       )}
       {showScopeGenerate && <AIScopeGenerateModal onClose={() => setShowScopeGenerate(false)} />}
+
+      {/* NOVA AI sidebar */}
+      {showNova && (
+        <>
+          <div
+            onClick={() => setShowNova(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.15)",
+              zIndex: 99,
+            }}
+          />
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              right: 0,
+              bottom: 0,
+              width: 340,
+              zIndex: 100,
+              background: C.bg1,
+              borderLeft: `1px solid ${C.border}`,
+              boxShadow: "-8px 0 24px rgba(0,0,0,0.15)",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: `1px solid ${C.border}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <NovaOrb size={18} />
+                <span style={{ fontSize: 13, fontWeight: 700, color: C.text, fontFamily: T.font.sans }}>NOVA</span>
+              </div>
+              <button
+                onClick={() => setShowNova(false)}
+                style={{ background: "transparent", border: "none", cursor: "pointer", padding: 4 }}
+              >
+                <Ic d={I.close || I.x} size={14} color={C.textDim} />
+              </button>
+            </div>
+            <div style={{ flex: 1, overflow: "hidden" }}>
+              <TakeoffNOVAPanel />
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Version History sidebar */}
       {showHistory && (

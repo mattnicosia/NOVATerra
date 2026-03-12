@@ -94,7 +94,7 @@ export default function DashboardFooter({ estimateCount = 0, lastModified = null
             <span style={{ color: C.textMuted, marginLeft: 4 }}>{lastSync}</span>
             <span style={{ color: C.textDim, margin: '0 8px' }}>&middot;</span>
             <span style={{ color: C.textDim }}>Powered by</span>
-            <span style={{ color: C.textMuted, marginLeft: 4 }}>ARTIFACT</span>
+            <span style={{ color: C.textMuted, marginLeft: 4 }}>NOVA</span>
           </>
         )}
       </div>

@@ -45,14 +45,28 @@ export default async function handler(req, res) {
 
     const email = payload.email;
 
-    // Fetch all invitations for this email
+    // Fetch all invitations for this email, joining through to estimate/project + org
     const { data: invitations, error: invErr } = await supabaseAdmin
       .from("bid_invitations")
-      .select("*, bid_packages(id, name, due_date, status, scope_items)")
+      .select(`
+        *,
+        bid_packages(
+          id, name, due_date, status, scope_items, estimate_id, org_id,
+          user_estimates(project_name),
+          organizations(name)
+        )
+      `)
       .ilike("sub_email", email)
       .order("created_at", { ascending: false });
 
     if (invErr) throw invErr;
+
+    // Extract GC company name from the first invitation's org (they're all from the same system)
+    let gcCompany = "";
+    for (const inv of invitations || []) {
+      const orgName = inv.bid_packages?.organizations?.name;
+      if (orgName) { gcCompany = orgName; break; }
+    }
 
     // Build response
     const items = (invitations || []).map(inv => {
@@ -60,6 +74,7 @@ export default async function handler(req, res) {
       return {
         id: inv.id,
         packageName: pkg?.name || "Unknown Package",
+        projectName: pkg?.user_estimates?.project_name || "",
         dueDate: pkg?.due_date,
         status: inv.status,
         sentAt: inv.sent_at,
@@ -79,6 +94,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       email,
+      gcCompany,
       invitations: items,
       stats: { total, submitted, won, winRate },
     });

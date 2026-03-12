@@ -14,6 +14,11 @@ export const useBidLevelingStore = create((set, get) => ({
   dragItemId: null,
   dragOverSk: null,
 
+  // Editable leveling — GC overrides & cherry-pick selections
+  overrides: {},       // { "divKey-subIdx": number }
+  selections: {},      // { divKey: subIdx | null } — which sub is selected per division
+  editingCell: null,   // { divKey, subIdx } — currently editing cell
+
   setSubBidSubs: v => set({ subBidSubs: v }),
   setBidTotals: v => set({ bidTotals: v }),
   setBidCells: v => set({ bidCells: v }),
@@ -25,6 +30,37 @@ export const useBidLevelingStore = create((set, get) => ({
   setShowBidPanel: v => set({ showBidPanel: v }),
   setDragItemId: v => set({ dragItemId: v }),
   setDragOverSk: v => set({ dragOverSk: v }),
+
+  // Override actions
+  setOverride: (divKey, subIdx, amount) =>
+    set(s => ({ overrides: { ...s.overrides, [`${divKey}-${subIdx}`]: amount } })),
+  clearOverride: (divKey, subIdx) =>
+    set(s => {
+      const next = { ...s.overrides };
+      delete next[`${divKey}-${subIdx}`];
+      return { overrides: next };
+    }),
+
+  // Selection actions (cherry-pick per division)
+  setDivisionSelection: (divKey, subIdx) =>
+    set(s => ({ selections: { ...s.selections, [divKey]: subIdx } })),
+  clearDivisionSelection: divKey =>
+    set(s => {
+      const next = { ...s.selections };
+      delete next[divKey];
+      return { selections: next };
+    }),
+  toggleDivisionSelection: (divKey, subIdx) =>
+    set(s => {
+      const current = s.selections[divKey];
+      return { selections: { ...s.selections, [divKey]: current === subIdx ? null : subIdx } };
+    }),
+  initSelectionsFromBest: divBest =>
+    set({ selections: { ...divBest } }),
+
+  // Editing cell
+  setEditingCell: cell => set({ editingCell: cell }),
+  clearEditingCell: () => set({ editingCell: null }),
 
   addLinkedSub: () =>
     set(s => ({

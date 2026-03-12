@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useBidPackagesStore } from "@/stores/bidPackagesStore";
+import { useBidLevelingStore } from "@/stores/bidLevelingStore";
 import { useItemsStore } from "@/stores/itemsStore";
 import { analyzeGaps, normalizeCSI } from "@/utils/scopeGapEngine";
 import { CSI } from "@/constants/csi";
@@ -32,6 +33,50 @@ const fmtK = v => {
 
 const pct = v => (v != null ? `${v}%` : "—");
 
+/* ── Inline editable cell for GC overrides ──────────── */
+function EditableCell({ value, onSave, onCancel, onTab, accentColor }) {
+  const inputRef = useRef(null);
+  const [localVal, setLocalVal] = useState(value > 0 ? String(Math.round(value)) : "");
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, []);
+
+  const commit = () => {
+    const num = parseFloat(localVal.replace(/[,$]/g, ""));
+    onSave(isNaN(num) ? 0 : num);
+  };
+
+  return (
+    <input
+      ref={inputRef}
+      value={localVal}
+      onChange={e => setLocalVal(e.target.value)}
+      onBlur={commit}
+      onKeyDown={e => {
+        if (e.key === "Enter") { e.preventDefault(); commit(); }
+        if (e.key === "Escape") { e.preventDefault(); onCancel(); }
+        if (e.key === "Tab") { e.preventDefault(); commit(); onTab(e.shiftKey); }
+      }}
+      onClick={e => e.stopPropagation()}
+      style={{
+        width: 60,
+        padding: "2px 4px",
+        border: `1.5px solid ${accentColor}`,
+        borderRadius: 4,
+        background: `${accentColor}0D`,
+        color: accentColor,
+        fontSize: 11,
+        fontFamily: "monospace",
+        fontWeight: 700,
+        textAlign: "center",
+        outline: "none",
+      }}
+    />
+  );
+}
+
 export default function BidLevelingGrid({ onViewProposal, onAward }) {
   const C = useTheme();
   const T = C.T;
@@ -39,10 +84,23 @@ export default function BidLevelingGrid({ onViewProposal, onAward }) {
   const invitations = useBidPackagesStore(s => s.invitations);
   const proposals = useBidPackagesStore(s => s.proposals);
   const items = useItemsStore(s => s.items);
+
+  // Editable leveling store
+  const overrides = useBidLevelingStore(s => s.overrides);
+  const selections = useBidLevelingStore(s => s.selections);
+  const editingCell = useBidLevelingStore(s => s.editingCell);
+  const setOverride = useBidLevelingStore(s => s.setOverride);
+  const clearOverride = useBidLevelingStore(s => s.clearOverride);
+  const toggleDivisionSelection = useBidLevelingStore(s => s.toggleDivisionSelection);
+  const initSelectionsFromBest = useBidLevelingStore(s => s.initSelectionsFromBest);
+  const setEditingCell = useBidLevelingStore(s => s.setEditingCell);
+  const clearEditingCell = useBidLevelingStore(s => s.clearEditingCell);
+
   const [expandedDivs, setExpandedDivs] = useState(new Set());
   const [sortBy, setSortBy] = useState("adjusted"); // "adjusted" | "bid" | "coverage" | "name"
   const [hoveredCol, setHoveredCol] = useState(null);
   const [hoveredRow, setHoveredRow] = useState(null);
+  const [selectionsInitialized, setSelectionsInitialized] = useState(false);
 
   // Build the unified matrix from all packages + proposals
   const matrix = useMemo(() => {
@@ -176,6 +234,32 @@ export default function BidLevelingGrid({ onViewProposal, onAward }) {
       return next;
     });
   };
+
+  // Auto-init selections from divBest on first matrix load
+  useEffect(() => {
+    if (matrix && !selectionsInitialized && Object.keys(selections).length === 0) {
+      initSelectionsFromBest(matrix.divBest);
+      setSelectionsInitialized(true);
+    }
+  }, [matrix, selectionsInitialized, selections, initSelectionsFromBest]);
+
+  // Compute cherry-picked "Selected Total" from selections + overrides
+  const selectedTotal = useMemo(() => {
+    if (!matrix) return 0;
+    let total = 0;
+    for (const div of matrix.divisions) {
+      const selIdx = selections[div];
+      if (selIdx == null || selIdx < 0 || selIdx >= matrix.subColumns.length) continue;
+      const overrideKey = `${div}-${selIdx}`;
+      const overrideVal = overrides[overrideKey];
+      if (overrideVal != null) {
+        total += Number(overrideVal) || 0;
+      } else {
+        total += matrix.subColumns[selIdx].divData[div]?.amount || 0;
+      }
+    }
+    return total;
+  }, [matrix, selections, overrides]);
 
   if (!matrix) {
     return (
@@ -524,54 +608,110 @@ export default function BidLevelingGrid({ onViewProposal, onAward }) {
                       {divData.total > 0 ? fmtK(Math.round(divData.total)) : "—"}
                     </td>
 
-                    {/* Sub bid cells */}
+                    {/* Sub bid cells — editable + selectable */}
                     {subColumns.map((sub, i) => {
                       const dd = sub.divData[div];
                       const cs = cellBg[dd.status];
                       const isBest = i === bestColIdx;
+                      const isSelected = selections[div] === i;
+                      const overrideKey = `${div}-${i}`;
+                      const overrideVal = overrides[overrideKey];
+                      const isEditing = editingCell?.divKey === div && editingCell?.subIdx === i;
+                      const displayAmount = overrideVal != null ? overrideVal : dd.amount;
 
                       return (
                         <td
                           key={sub.id}
                           onMouseEnter={() => setHoveredCol(i)}
                           onMouseLeave={() => setHoveredCol(null)}
+                          onClick={() => {
+                            if (!isEditing && dd.status !== "missing") {
+                              setEditingCell({ divKey: div, subIdx: i });
+                            }
+                          }}
                           style={{
-                            padding: "6px 10px",
+                            padding: "4px 6px",
                             borderBottom: `1px solid ${C.border}15`,
                             borderLeft: `1px solid ${C.border}10`,
                             textAlign: "center",
+                            cursor: dd.status === "missing" ? "default" : "pointer",
                             background:
-                              hoveredCol === i || hoveredRow === div
-                                ? `${C.accent}06`
-                                : i === recommendedIdx
-                                  ? "rgba(124,92,252,0.02)"
-                                  : cs.bg,
+                              isSelected
+                                ? `${C.accent}12`
+                                : hoveredCol === i || hoveredRow === div
+                                  ? `${C.accent}06`
+                                  : i === recommendedIdx
+                                    ? "rgba(124,92,252,0.02)"
+                                    : cs.bg,
+                            outline: isSelected ? `1.5px solid ${C.accent}40` : "none",
+                            outlineOffset: -1,
                             transition: "background 100ms",
+                            position: "relative",
                           }}
                         >
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
-                            {statusDot(dd.status)}
-                            <span
+                            {/* Selection radio */}
+                            <div
+                              onClick={e => {
+                                e.stopPropagation();
+                                toggleDivisionSelection(div, i);
+                              }}
                               style={{
-                                color: dd.status === "missing" ? "#FF453A" : cs.text,
-                                fontSize: 11,
-                                fontFamily: "monospace",
-                                fontWeight: isBest ? 700 : 400,
+                                width: 12,
+                                height: 12,
+                                borderRadius: "50%",
+                                border: `1.5px solid ${isSelected ? C.accent : C.textDim}`,
+                                background: isSelected ? C.accent : "transparent",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                cursor: "pointer",
+                                flexShrink: 0,
+                                transition: "all 150ms",
                               }}
                             >
-                              {dd.status === "missing" ? "GAP" : dd.amount > 0 ? fmtK(dd.amount) : "—"}
-                            </span>
-                            {isBest && dd.amount > 0 && (
-                              <span
-                                style={{
-                                  fontSize: 8,
-                                  fontWeight: 700,
-                                  color: "#30D158",
-                                  textTransform: "uppercase",
+                              {isSelected && (
+                                <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#fff" }} />
+                              )}
+                            </div>
+                            {isEditing ? (
+                              <EditableCell
+                                value={displayAmount}
+                                onSave={val => {
+                                  if (val !== dd.amount) setOverride(div, i, val);
+                                  else clearOverride(div, i);
+                                  clearEditingCell();
                                 }}
-                              >
-                                ★
-                              </span>
+                                onCancel={clearEditingCell}
+                                onTab={shift => {
+                                  // Navigate to next/prev sub column
+                                  const nextIdx = shift ? Math.max(0, i - 1) : Math.min(subColumns.length - 1, i + 1);
+                                  if (nextIdx !== i) setEditingCell({ divKey: div, subIdx: nextIdx });
+                                  else clearEditingCell();
+                                }}
+                                accentColor={C.accent}
+                              />
+                            ) : (
+                              <>
+                                {statusDot(dd.status)}
+                                <span
+                                  style={{
+                                    color: overrideVal != null ? C.accent : dd.status === "missing" ? "#FF453A" : cs.text,
+                                    fontSize: 11,
+                                    fontFamily: "monospace",
+                                    fontWeight: isBest || overrideVal != null ? 700 : 400,
+                                    fontStyle: overrideVal != null ? "italic" : "normal",
+                                    textDecoration: overrideVal != null ? `underline ${C.accent}40` : "none",
+                                  }}
+                                >
+                                  {dd.status === "missing" ? "GAP" : displayAmount > 0 ? fmtK(displayAmount) : "—"}
+                                </span>
+                                {isBest && dd.amount > 0 && !overrideVal && (
+                                  <span style={{ fontSize: 8, fontWeight: 700, color: "#30D158", textTransform: "uppercase" }}>
+                                    ★
+                                  </span>
+                                )}
+                              </>
                             )}
                           </div>
                         </td>
@@ -791,6 +931,99 @@ export default function BidLevelingGrid({ onViewProposal, onAward }) {
                     )}
                   </td>
                 ))}
+              </tr>
+              {/* ── Selected Total (cherry-pick composite) ──────── */}
+              <tr style={{ background: `${C.accent}06` }}>
+                <td
+                  style={{
+                    position: "sticky",
+                    left: 0,
+                    zIndex: 2,
+                    padding: "12px 14px",
+                    background: C.bg || "#1C1C1E",
+                    color: "#30D158",
+                    fontWeight: 700,
+                    fontSize: 13,
+                    borderTop: `2px solid ${C.accent}30`,
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <Ic d={I.check || "M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"} size={14} color="#30D158" />
+                    Selected Total
+                  </div>
+                  <div style={{ fontSize: 9, fontWeight: 500, color: C.textDim, marginTop: 2 }}>
+                    Cherry-picked best per division
+                  </div>
+                </td>
+                <td
+                  style={{
+                    padding: "12px 10px",
+                    textAlign: "right",
+                    fontFamily: "monospace",
+                    color: C.textMuted,
+                    fontSize: 11,
+                    borderTop: `2px solid ${C.accent}30`,
+                  }}
+                >
+                  {estimateGrandTotal > 0 ? fmt(Math.round(estimateGrandTotal)) : "—"}
+                </td>
+                {subColumns.map((sub, i) => {
+                  // Count how many divisions this sub is selected for
+                  const selectedDivCount = divisions.filter(d => selections[d] === i).length;
+                  return (
+                    <td
+                      key={sub.id}
+                      style={{
+                        padding: "12px 10px",
+                        textAlign: "center",
+                        borderLeft: `1px solid ${C.border}10`,
+                        borderTop: `2px solid ${C.accent}30`,
+                        background: selectedDivCount > 0 ? `${C.accent}08` : "transparent",
+                      }}
+                    >
+                      {selectedDivCount > 0 && (
+                        <div
+                          style={{
+                            fontSize: 9,
+                            color: C.textMuted,
+                            marginBottom: 2,
+                          }}
+                        >
+                          {selectedDivCount} div{selectedDivCount > 1 ? "s" : ""}
+                        </div>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+
+              {/* Grand selected total */}
+              <tr>
+                <td
+                  colSpan={2}
+                  style={{
+                    position: "sticky",
+                    left: 0,
+                    zIndex: 2,
+                    padding: "10px 14px",
+                    background: C.bg || "#1C1C1E",
+                    textAlign: "right",
+                  }}
+                >
+                  <span style={{ color: "#30D158", fontWeight: 700, fontSize: 15, fontFamily: "monospace" }}>
+                    {selectedTotal > 0 ? fmt(Math.round(selectedTotal)) : "—"}
+                  </span>
+                  {selectedTotal > 0 && subColumns[recommendedIdx]?.adjustedCost > 0 && (
+                    <div style={{ fontSize: 10, color: C.textMuted, marginTop: 2 }}>
+                      {selectedTotal < subColumns[recommendedIdx].adjustedCost
+                        ? `${fmtK(subColumns[recommendedIdx].adjustedCost - selectedTotal)} less than best single sub`
+                        : selectedTotal > subColumns[recommendedIdx].adjustedCost
+                          ? `${fmtK(selectedTotal - subColumns[recommendedIdx].adjustedCost)} more than best single sub`
+                          : "Same as best single sub"}
+                    </div>
+                  )}
+                </td>
+                <td colSpan={subColumns.length} style={{ borderTop: "none" }} />
               </tr>
             </tbody>
           </table>

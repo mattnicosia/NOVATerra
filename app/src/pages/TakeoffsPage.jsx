@@ -4922,12 +4922,12 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                     value={to.drawingRef}
                                                     onChange={e => {
                                                       updateTakeoff(to.id, "drawingRef", e.target.value);
-                                                      const d = drawings.find(
-                                                        d => (d.sheetNumber || d.pageNumber || d.id) === e.target.value,
+                                                      const dd = drawings.find(
+                                                        dr => (dr.sheetNumber || dr.pageNumber || dr.id) === e.target.value,
                                                       );
-                                                      if (d) {
-                                                        setSelectedDrawingId(d.id);
-                                                        if (d.type === "pdf" && d.data) renderPdfPage(d);
+                                                      if (dd) {
+                                                        setSelectedDrawingId(dd.id);
+                                                        if (dd.type === "pdf" && dd.data) renderPdfPage(dd);
                                                       }
                                                     }}
                                                     style={inp(C, {
@@ -4947,8 +4947,8 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                 );
                                               }
                                               const labels = mSheets.map(sid => {
-                                                const d = drawings.find(d => d.id === sid);
-                                                return d ? d.sheetNumber || d.pageNumber || "?" : "?";
+                                                const dr = drawings.find(dd => dd.id === sid);
+                                                return dr ? dr.sheetNumber || dr.pageNumber || "?" : "?";
                                               });
                                               return (
                                                 <div
@@ -5925,7 +5925,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                 <div
                   ref={compactStripRef}
                   className="hide-scrollbar"
-                  style={{ display: "flex", gap: 3, overflowX: "auto", flex: 1, minWidth: 0, padding: "2px 0" }}
+                  style={{ display: "flex", gap: 4, overflowX: "auto", flex: 1, minWidth: 0, padding: "2px 0" }}
                 >
                   {drawings.length === 0 ? (
                     <div style={{ fontSize: 10, color: C.textDim, padding: "4px 8px", fontStyle: "italic" }}>
@@ -5936,7 +5936,6 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                       const thumb = d.type === "pdf" ? pdfCanvases[d.id] : d.data;
                       const isAct = selectedDrawingId === d.id;
                       const hasMeas = takeoffs.some(to => (to.measurements || []).some(m => m.sheetId === d.id));
-                      const labelBg = isAct ? `${C.accent}D0` : hasMeas ? `${C.accent}90` : "rgba(0,0,0,0.65)";
                       return (
                         <div
                           key={d.id}
@@ -5948,8 +5947,8 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                           }}
                           title={`${d.sheetNumber || d.pageNumber || "?"} — ${d.sheetTitle || d.label || ""}`}
                           style={{
-                            width: 48,
-                            height: 32,
+                            width: 60,
+                            height: 40,
                             flexShrink: 0,
                             borderRadius: 4,
                             overflow: "hidden",
@@ -5957,8 +5956,14 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                             position: "relative",
                             border: isAct
                               ? `2px solid ${C.accent}`
-                              : `1px solid ${C.isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.10)"}`,
-                            boxShadow: isAct ? `0 0 8px ${C.accent}30` : "none",
+                              : hasMeas
+                                ? `1.5px solid ${C.accent}60`
+                                : `1px solid ${C.isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.10)"}`,
+                            boxShadow: isAct
+                              ? `0 0 8px ${C.accent}30`
+                              : hasMeas
+                                ? `0 0 6px ${C.accent}18`
+                                : "none",
                             background: C.bg2,
                           }}
                         >
@@ -5975,12 +5980,23 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",
-                                fontSize: 7,
+                                fontSize: 8,
                                 color: C.textDim,
                               }}
                             >
                               {d.sheetNumber || "?"}
                             </div>
+                          )}
+                          {/* Takeoff-complete tint overlay */}
+                          {hasMeas && !isAct && (
+                            <div
+                              style={{
+                                position: "absolute",
+                                inset: 0,
+                                background: `${C.accent}18`,
+                                pointerEvents: "none",
+                              }}
+                            />
                           )}
                           <div
                             style={{
@@ -5989,12 +6005,12 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                               left: 0,
                               right: 0,
                               padding: "0 2px",
-                              background: labelBg,
-                              fontSize: 6,
+                              background: isAct ? `${C.accent}D0` : hasMeas ? `${C.accent}90` : "rgba(0,0,0,0.55)",
+                              fontSize: 7,
                               fontWeight: 700,
                               color: "#fff",
                               textAlign: "center",
-                              lineHeight: "12px",
+                              lineHeight: "14px",
                               whiteSpace: "nowrap",
                               overflow: "hidden",
                               textOverflow: "ellipsis",
@@ -7340,23 +7356,6 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
-
-            {/* Sheet info bar */}
-            {selectedDrawing && (
-              <div
-                style={{
-                  padding: "3px 10px",
-                  borderBottom: `1px solid ${C.border}`,
-                  fontSize: 9,
-                  color: C.textDim,
-                  background: C.bg,
-                }}
-              >
-                {selectedDrawing.sheetNumber || selectedDrawing.pageNumber || "—"} |{" "}
-                {selectedDrawing.sheetTitle || selectedDrawing.label || "Untitled"} | Rev{" "}
-                {selectedDrawing.revision || "0"}
               </div>
             )}
 

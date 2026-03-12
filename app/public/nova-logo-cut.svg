@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 140" fill="none">
+  <defs>
+    <linearGradient id="ng" x1="0" y1="0" x2="520" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4A1515"/>
+      <stop offset="0.35" stop-color="#8B2020"/>
+      <stop offset="0.65" stop-color="#C83232"/>
+      <stop offset="1" stop-color="#D04040"/>
+    </linearGradient>
+    <clipPath id="cuts">
+      <rect x="0" y="0" width="520" height="62"/>
+      <rect x="0" y="72" width="520" height="68"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#cuts)">
+    <text x="260" y="112" text-anchor="middle" font-family="'DM Sans', 'Arial Black', Impact, sans-serif" font-size="130" font-weight="800" letter-spacing="14" fill="url(#ng)">NOVA</text>
+  </g>
+</svg>
