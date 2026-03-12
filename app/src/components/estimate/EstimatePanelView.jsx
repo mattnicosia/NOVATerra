@@ -11,6 +11,9 @@ import { UNITS } from "@/constants/units";
 import { inp, nInp, moneyCell } from "@/utils/styles";
 import { nn, fmt, fmt2, formatCurrency } from "@/utils/format";
 import { getTradeLabel, getTradeSortOrder } from "@/constants/tradeGroupings";
+import { VIRTUAL_THRESHOLD } from "@/hooks/useVirtualList";
+import Ic from "@/components/shared/Ic";
+import { I } from "@/constants/icons";
 import LevelingView from "@/components/estimate/LevelingView";
 
 function EstimatePanelView({ onSelectItem, selectedItemId }) {
@@ -278,7 +281,10 @@ function EstimatePanelView({ onSelectItem, selectedItemId }) {
 
                   {/* Item rows */}
                   {isExpanded &&
-                    skItems.map((item, rowIdx) => {
+                    (() => {
+                      const capped = skItems.length > VIRTUAL_THRESHOLD && !expandedDivs.has(`${gk}::__full__`);
+                      const displayList = capped ? skItems.slice(0, VIRTUAL_THRESHOLD) : skItems;
+                      const rows = displayList.map((item, rowIdx) => {
                       const lt = getItemTotal(item);
                       const isSelected = selectedItemId === item.id;
                       const isOddRow = rowIdx % 2 === 1;
@@ -415,7 +421,32 @@ function EstimatePanelView({ onSelectItem, selectedItemId }) {
                           <div style={moneyCell(C, lt, { width: 70, fontSize: 10, padding: "2px 2px" })}>{fmt(lt)}</div>
                         </div>
                       );
-                    })}
+                    });
+                    if (capped) {
+                      rows.push(
+                        <div
+                          key="__show-all__"
+                          onClick={() => toggleExpandedDiv(`${gk}::__full__`)}
+                          className="ghost-btn"
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 6,
+                            padding: "5px 8px",
+                            fontSize: 10,
+                            color: C.accent,
+                            cursor: "pointer",
+                            borderTop: `1px solid ${C.border}20`,
+                          }}
+                        >
+                          <Ic i={I.chevronDown} s={9} c={C.accent} />
+                          Show all {skItems.length} items ({skItems.length - VIRTUAL_THRESHOLD} more)
+                        </div>,
+                      );
+                    }
+                    return rows;
+                    })()}
                 </div>
               );
             })}

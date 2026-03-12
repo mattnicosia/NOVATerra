@@ -11,6 +11,7 @@ import { autoDirective } from "@/utils/directives";
 import { autoTradeFromCode } from "@/constants/tradeGroupings";
 import { parseCSV } from "@/utils/csvParser";
 import { parseXLSX } from "@/utils/xlsxParser";
+import { isBluebeamXml, parseBluebeamXml } from "@/utils/bluebeamXmlParser";
 import { OMNI_FIELDS, suggestColumnMappings, heuristicMapping, applyMappings } from "@/utils/csvColumnMapper";
 import NovaOrb from "@/components/dashboard/NovaOrb";
 import Modal from "@/components/shared/Modal";
@@ -125,6 +126,9 @@ export default function CsvImportModal({ onClose, mode }) {
         if (isExcelFile(file, buffer)) {
           // Excel file → use XLSX parser
           parsed = parseXLSX(buffer);
+        } else if (file.name.toLowerCase().endsWith(".xml") || isBluebeamXml(buffer)) {
+          // Bluebeam XML → use XML parser
+          parsed = parseBluebeamXml(buffer);
         } else {
           // CSV/TSV → decode text and use CSV parser
           const text = decodeFile(buffer);
@@ -294,7 +298,7 @@ export default function CsvImportModal({ onClose, mode }) {
         <div>
           <div style={{ fontSize: T.fontSize.lg, fontWeight: T.fontWeight.bold, color: C.text }}>Import Estimate</div>
           <div style={{ fontSize: T.fontSize.sm, color: C.textMuted }}>
-            {mode === "new" ? "Create a new estimate from Excel or CSV" : "Add items from Excel or CSV"}
+            {mode === "new" ? "Create a new estimate from Excel, CSV, or Bluebeam XML" : "Add items from Excel, CSV, or Bluebeam XML"}
           </div>
         </div>
       </div>
@@ -325,13 +329,13 @@ export default function CsvImportModal({ onClose, mode }) {
               Drop a file here, or <span style={{ color: C.accent, fontWeight: T.fontWeight.semibold }}>browse</span>
             </div>
             <div style={{ fontSize: T.fontSize.xs, color: C.textDim, marginTop: T.space[1] }}>
-              Supports .xlsx, .xls, and .csv exports from ProEst, Sage, Excel, or any estimating software
+              Supports .xlsx, .xls, .csv, and Bluebeam .xml exports from ProEst, Sage, STACK, Excel, or any estimating software
             </div>
           </div>
           <input
             ref={fileRef}
             type="file"
-            accept=".csv,.tsv,.txt,.xlsx,.xls,.xlsm"
+            accept=".csv,.tsv,.txt,.xlsx,.xls,.xlsm,.xml"
             onChange={onFileChange}
             style={{ display: "none" }}
           />

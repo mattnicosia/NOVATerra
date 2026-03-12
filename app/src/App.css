@@ -1638,6 +1638,8 @@ button:disabled {
    iPad is the field device. Core pages adapt for 700-1023px.
    ═══════════════════════════════════════════════════════════ */
 @media (max-width: 1023px) {
+  /* ── Layout Shell ─────────────────────────────────── */
+
   /* App viewport takes full width when sidebar is overlay */
   .app-main {
     width: 100% !important;
@@ -1666,6 +1668,94 @@ button:disabled {
   .project-tab-bar {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+  }
+
+  /* ── Estimate Page ────────────────────────────────── */
+
+  /* Make estimate rows stack better on narrow widths */
+  .est-row {
+    font-size: 11px;
+  }
+
+  .est-col {
+    min-width: unset !important;
+  }
+
+  /* ── Dashboard ────────────────────────────────────── */
+
+  /* KPI grid: 3 columns instead of 5 */
+  .blueprint-grid .kpi-grid,
+  .blueprint-grid [style*="repeat(5"] {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  /* ── Nav Items / Group Headers ────────────────────── */
+
+  .nav-item {
+    min-height: 38px;
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+  }
+
+  /* ── Ghost Buttons ────────────────────────────────── */
+
+  .ghost-btn {
+    min-height: 38px;
+    padding: 8px 12px !important;
+  }
+
+  /* ── Modals ───────────────────────────────────────── */
+
+  /* Modals should be wider on tablet to use available space */
+  .modal-overlay > div {
+    max-width: 90vw !important;
+    max-height: 85vh !important;
+  }
+
+  /* ── Tables / Data Grids ──────────────────────────── */
+
+  /* Horizontal scroll for wide tables */
+  .table-scroll-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ── Input Fields ─────────────────────────────────── */
+
+  /* Prevent iOS zoom on focus (font-size <16px triggers zoom) */
+  input[type="text"],
+  input[type="number"],
+  input[type="search"],
+  input[type="email"],
+  select,
+  textarea {
+    font-size: max(16px, inherit) !important;
+  }
+}
+
+/* ── Smaller tablets / iPad Mini portrait ──────────── */
+@media (max-width: 768px) {
+  /* Tighter page padding */
+  .app-viewport {
+    padding: 0 !important;
+  }
+
+  /* Shrink estimate column text */
+  .est-row {
+    font-size: 10px;
+    gap: 2px !important;
+  }
+
+  /* Stack nav items more densely */
+  .nav-item {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+
+  /* Dashboard KPIs: 2 columns */
+  .blueprint-grid .kpi-grid,
+  .blueprint-grid [style*="repeat(5"] {
+    grid-template-columns: repeat(2, 1fr) !important;
   }
 }
 

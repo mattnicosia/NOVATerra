@@ -28,6 +28,7 @@ import SendToDbModal from "@/components/estimate/SendToDbModal";
 import BidIntelModal from "@/components/estimate/BidIntelModal";
 import CsvImportModal from "@/components/import/CsvImportModal";
 import CostValidationPanel from "@/components/estimate/CostValidationPanel";
+import { VIRTUAL_THRESHOLD } from "@/hooks/useVirtualList";
 import AIScopeGenerateModal from "@/components/estimate/AIScopeGenerateModal";
 import { exportEstimateXlsx } from "@/utils/exportXlsx";
 import EstimateKPIStrip from "@/components/estimate/EstimateKPIStrip";
@@ -1481,9 +1482,13 @@ export default function EstimatePage() {
                       {/* Item rows — supports nested sub-groups when estGroupBy2 is set */}
                       {isExpanded &&
                         (() => {
-                          // Render function for a list of items
-                          const renderItems = (itemList, rowOffset = 0) =>
-                            itemList.map((item, rowIdx) => {
+                          // Render function for a list of items.
+                          // Large groups (>VIRTUAL_THRESHOLD) are initially capped to prevent
+                          // DOM node explosion. User can expand to see all.
+                          const renderItems = (itemList, rowOffset = 0) => {
+                            const capped = itemList.length > VIRTUAL_THRESHOLD && !expandedDivs.has(`${gk}::__full__`);
+                            const displayList = capped ? itemList.slice(0, VIRTUAL_THRESHOLD) : itemList;
+                            const rendered = displayList.map((item, rowIdx) => {
                               const lt = getTotal(item);
                               const gi = itemIndexMap[item.id] || 0;
                               if (!itemTotalKeys.current[item.id]) itemTotalKeys.current[item.id] = { val: lt, k: 0 };
@@ -1517,6 +1522,32 @@ export default function EstimatePage() {
                                 />
                               );
                             });
+
+                            if (capped) {
+                              rendered.push(
+                                <div
+                                  key="__show-all__"
+                                  onClick={() => toggleDiv(`${gk}::__full__`)}
+                                  className="ghost-btn"
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    gap: 6,
+                                    padding: "6px 12px",
+                                    fontSize: 11,
+                                    color: C.accent,
+                                    cursor: "pointer",
+                                    borderTop: `1px solid ${C.border}20`,
+                                  }}
+                                >
+                                  <Ic i={I.chevronDown} s={10} c={C.accent} />
+                                  Show all {itemList.length} items ({itemList.length - VIRTUAL_THRESHOLD} more)
+                                </div>,
+                              );
+                            }
+                            return rendered;
+                          };
 
                           // Nested sub-groups
                           if (group.subGroups) {
