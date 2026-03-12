@@ -104,6 +104,9 @@ function MyProfileSection({ C, T }) {
   const updateProfile = useOrgStore(s => s.updateProfile);
   const [editingName, setEditingName] = useState(false);
   const [displayName, setDisplayName] = useState(membership?.display_name || "");
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [newEmail, setNewEmail] = useState(user?.email || "");
+  const [emailStatus, setEmailStatus] = useState(""); // "pending", "success", "error"
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -116,6 +119,17 @@ function MyProfileSection({ C, T }) {
     const res = await updateProfile({ display_name: trimmed });
     if (!res.error) setEditingName(false);
     else setError(res.error);
+  };
+
+  const handleSaveEmail = async () => {
+    const trimmed = newEmail.trim().toLowerCase();
+    if (!trimmed || trimmed === user?.email) { setEditingEmail(false); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) { setError("Invalid email address"); return; }
+    setEmailStatus("pending");
+    setError("");
+    const { error: err } = await supabase.auth.updateUser({ email: trimmed });
+    if (err) { setError(err.message); setEmailStatus("error"); }
+    else { setEmailStatus("success"); setEditingEmail(false); }
   };
 
   return (
@@ -181,8 +195,46 @@ function MyProfileSection({ C, T }) {
               </button>
             </div>
           )}
-          <div style={{ fontSize: 9, color: C.textDim, textTransform: "uppercase", marginTop: 2 }}>
-            {membership?.role} {user?.email && `· ${user.email}`}
+          <div style={{ fontSize: 9, color: C.textDim, marginTop: 2 }}>
+            <span style={{ textTransform: "uppercase" }}>{membership?.role}</span>
+            {editingEmail ? (
+              <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 4 }}>
+                <input
+                  value={newEmail}
+                  onChange={e => setNewEmail(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") handleSaveEmail();
+                    if (e.key === "Escape") { setEditingEmail(false); setNewEmail(user?.email || ""); }
+                  }}
+                  autoFocus
+                  placeholder="new@email.com"
+                  style={{ ...inp(C), fontSize: 11, padding: "3px 8px", flex: 1, textTransform: "none" }}
+                />
+                <button
+                  onClick={handleSaveEmail}
+                  disabled={emailStatus === "pending"}
+                  style={{ ...bt(C), fontSize: 9, padding: "3px 10px", background: C.accent, color: "#fff", opacity: emailStatus === "pending" ? 0.6 : 1 }}
+                >
+                  {emailStatus === "pending" ? "..." : "Save"}
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 1 }}>
+                <span style={{ textTransform: "none", color: C.textMuted }}>{user?.email || "No email"}</span>
+                <button
+                  onClick={() => { setNewEmail(user?.email || ""); setEditingEmail(true); setEmailStatus(""); setError(""); }}
+                  style={{ background: "none", border: "none", cursor: "pointer", padding: 2 }}
+                  aria-label="Change email"
+                >
+                  <Ic d={I.edit} size={9} color={C.textDim} />
+                </button>
+              </div>
+            )}
+            {emailStatus === "success" && (
+              <div style={{ fontSize: 9, color: C.green, marginTop: 3 }}>
+                Confirmation sent to both addresses. Check your inbox to verify.
+              </div>
+            )}
           </div>
         </div>
         <div style={{ display: "flex", gap: 3, flexWrap: "wrap", maxWidth: 130 }}>
