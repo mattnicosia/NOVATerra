@@ -17,7 +17,7 @@ export default function DeadlineCountdownWidget() {
   const dk = C.isDark;
   const ov = (a) => dk ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
   const navigate = useNavigate();
-  const estimates = useEstimatesStore(s => s.estimates);
+  const estimates = useEstimatesStore(s => s.estimatesIndex);
 
   const upcoming = useMemo(() => {
     return estimates

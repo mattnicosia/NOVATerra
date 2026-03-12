@@ -1,5 +1,4 @@
 import React, { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import Ic from "@/components/shared/Ic";
@@ -15,7 +14,7 @@ export default function EstimateHealthWidget() {
   const T = C.T;
   const dk = C.isDark;
   const ov = (a) => dk ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
-  const estimates = useEstimatesStore(s => s.estimates);
+  const estimates = useEstimatesStore(s => s.estimatesIndex);
 
   const stats = useMemo(() => {
     const active = estimates.filter(e => e.status === "Bidding" || e.status === "Submitted");
