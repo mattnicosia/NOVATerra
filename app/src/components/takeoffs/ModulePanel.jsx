@@ -1227,23 +1227,32 @@ export default function ModulePanel({
             ▼
           </span>
 
-          {/* Editable label — shows spec-based auto-name as placeholder */}
-          <input
-            value={catInst.label}
-            placeholder={displayLabel}
-            onChange={e => renameCategoryInstance(activeModule, cat.id, catInst.id, e.target.value)}
-            onClick={e => e.stopPropagation()}
-            style={{
-              width: 80,
-              fontSize: 10,
-              fontWeight: 700,
-              color: catInst.label ? matColor : C.textMuted,
-              background: "transparent",
-              border: "none",
-              outline: "none",
-              padding: 0,
-            }}
-          />
+          {/* Editable label — click to name, shows spec-based auto-name as placeholder */}
+          <div style={{ display: "flex", alignItems: "center", gap: 3, flex: 1, minWidth: 0 }}>
+            <input
+              value={catInst.label}
+              placeholder={displayLabel}
+              onChange={e => renameCategoryInstance(activeModule, cat.id, catInst.id, e.target.value)}
+              onClick={e => e.stopPropagation()}
+              title="Click to name this type"
+              style={{
+                flex: 1,
+                minWidth: 0,
+                maxWidth: 140,
+                fontSize: 11,
+                fontWeight: 700,
+                color: catInst.label ? matColor : C.textDim,
+                background: "transparent",
+                border: `1px dashed ${catInst.label ? "transparent" : `${C.border}`}`,
+                borderRadius: 3,
+                outline: "none",
+                padding: "1px 4px",
+              }}
+            />
+            {!catInst.label && (
+              <Ic d={I.edit} size={8} color={C.textDim} />
+            )}
+          </div>
 
           {/* Unit badge */}
           {drivingItem && (

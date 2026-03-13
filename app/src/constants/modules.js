@@ -177,6 +177,7 @@ export const MODULES = {
         id: "fnd-walls",
         name: "Foundation Walls",
         type: "measurement",
+        multiInstance: true,
         drivingItemId: "fnd-walls",
         mirrorSource: { categoryId: "strip-footings", label: "Same as Footings" },
         specs: [
@@ -394,6 +395,7 @@ export const MODULES = {
         id: "slab-on-grade",
         name: "Slab on Grade",
         type: "measurement",
+        multiInstance: true,
         drivingItemId: "slab-area",
         specs: [
           {
@@ -5427,6 +5429,7 @@ export const MODULES = {
         id: "earthwork",
         name: "Earthwork",
         type: "measurement",
+        multiInstance: true,
         drivingItemId: "site-area",
         specs: [
           {
@@ -6013,6 +6016,7 @@ export const MODULES = {
         id: "landscaping",
         name: "Landscaping",
         type: "measurement",
+        multiInstance: true,
         drivingItemId: "land-area",
         specs: [
           {
@@ -6149,6 +6153,7 @@ export const MODULES = {
         id: "plumbing-rough",
         name: "Plumbing Rough-In",
         type: "measurement",
+        multiInstance: true,
         drivingItemId: "plumb-fixtures",
         specs: [
           {
@@ -6223,6 +6228,7 @@ export const MODULES = {
         id: "hvac",
         name: "HVAC",
         type: "measurement",
+        multiInstance: true,
         drivingItemId: "hvac-area",
         specs: [
           {
@@ -6333,6 +6339,7 @@ export const MODULES = {
         id: "electrical",
         name: "Electrical",
         type: "measurement",
+        multiInstance: true,
         drivingItemId: "elec-area",
         specs: [
           {
@@ -6477,6 +6484,7 @@ export const MODULES = {
         id: "fire-protection",
         name: "Fire Protection",
         type: "measurement",
+        multiInstance: true,
         drivingItemId: "fp-area",
         specs: [
           {
