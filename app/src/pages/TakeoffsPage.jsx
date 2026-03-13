@@ -27,6 +27,7 @@ import {
 import DetailOverlay from "@/components/takeoffs/DetailOverlay";
 import { useModuleStore } from "@/stores/moduleStore";
 import { useModelStore } from "@/stores/modelStore";
+import { useUndoStore } from "@/stores/undoStore";
 import { outlineToFeet, detectBuildingOutline, ensureDrawingImage } from "@/utils/outlineDetector";
 import { inferViewType } from "@/utils/uploadPipeline";
 import { MODULE_LIST, MODULES } from "@/constants/modules";
@@ -200,15 +201,56 @@ export default function TakeoffsPage() {
   useEffect(() => { buildSheetIndex(); }, [drawings.length]);
 
   // Scan current drawing for section/elevation/detail references
-  const handleScanReferences = useCallback(async () => {
-    if (!selectedDrawingId || refScanLoading) return;
-    const drawing = drawings.find(d => d.id === selectedDrawingId);
+  // Gets image from pdfCanvases (for PDFs) or drawing.data, with fallback to on-screen canvas.
+  // Downscales large images to stay under Vercel's 4.5 MB body limit.
+  const handleScanReferences = useCallback(async (drawingIdOverride) => {
+    const dId = drawingIdOverride || selectedDrawingId;
+    if (!dId || refScanLoading) return;
+    const drawing = drawings.find(d => d.id === dId);
     if (!drawing) return;
-    setRefScanLoading(selectedDrawingId);
+    setRefScanLoading(dId);
     try {
-      const imgData = drawing.type === "pdf" ? (pdfCanvases[drawing.id] || drawing.data) : drawing.data;
+      // 1. Get the best available image source
+      let imgData = null;
+      // For PDFs, always prefer the rendered canvas image (JPEG data URL)
+      if (drawing.type === "pdf") {
+        imgData = pdfCanvases[drawing.id];
+      }
+      // For images or if PDF canvas not ready, use drawing.data
+      if (!imgData && drawing.data) {
+        imgData = drawing.data;
+      }
+      // Last resort: grab from the visible canvas element
+      if (!imgData && canvasRef.current) {
+        imgData = canvasRef.current.toDataURL("image/jpeg", 0.7);
+      }
+      if (!imgData) {
+        showToast("Drawing image not available yet", "error");
+        return;
+      }
+
+      // 2. Downscale if the base64 payload is too large (>3.5 MB)
+      const b64Length = imgData.length;
+      if (b64Length > 3_500_000) {
+        const img = new Image();
+        const loaded = new Promise((res, rej) => { img.onload = res; img.onerror = rej; });
+        img.src = imgData;
+        await loaded;
+        const maxDim = 2000;
+        let w = img.naturalWidth, h = img.naturalHeight;
+        if (w > maxDim || h > maxDim) {
+          const ratio = Math.min(maxDim / w, maxDim / h);
+          w = Math.round(w * ratio);
+          h = Math.round(h * ratio);
+        }
+        const c = document.createElement("canvas");
+        c.width = w; c.height = h;
+        c.getContext("2d").drawImage(img, 0, 0, w, h);
+        imgData = c.toDataURL("image/jpeg", 0.85);
+      }
+
       const refs = await detectSheetReferences(imgData);
-      setDetectedReferences(selectedDrawingId, refs);
+      setDetectedReferences(dId, refs);
       showToast(`Found ${refs.length} reference${refs.length !== 1 ? "s" : ""}`, "success");
     } catch (err) {
       console.error("[ScanRefs]", err);
@@ -217,6 +259,35 @@ export default function TakeoffsPage() {
       setRefScanLoading(null);
     }
   }, [selectedDrawingId, refScanLoading, drawings, pdfCanvases]);
+
+  // Auto-scan references when switching to a drawing that hasn't been scanned yet.
+  // Uses a ref-based approach to avoid effect cleanup killing the pending scan.
+  const scannedDrawingsRef = useRef(new Set());
+  const autoScanTimerRef = useRef(null);
+  const handleScanRef = useRef(handleScanReferences);
+  handleScanRef.current = handleScanReferences;
+
+  useEffect(() => {
+    if (!selectedDrawingId) return;
+    // Already scanned (with results) or already attempted
+    const store = useDrawingsStore.getState();
+    if (store.detectedReferences[selectedDrawingId]?.length > 0) return;
+    if (store.refScanLoading) return;
+    if (scannedDrawingsRef.current.has(selectedDrawingId)) return;
+    // Need an image source — for PDFs wait until pdfCanvas is ready
+    const drawing = drawings.find(d => d.id === selectedDrawingId);
+    if (!drawing) return;
+    if (drawing.type === "pdf" && !pdfCanvases[drawing.id] && !canvasRef.current) return;
+    if (drawing.type === "image" && !drawing.data && !canvasRef.current) return;
+
+    scannedDrawingsRef.current.add(selectedDrawingId);
+    // Clear any previous timer
+    if (autoScanTimerRef.current) clearTimeout(autoScanTimerRef.current);
+    const dId = selectedDrawingId;
+    autoScanTimerRef.current = setTimeout(() => {
+      handleScanRef.current(dId);
+    }, 2000);
+  }, [selectedDrawingId, pdfCanvases, drawings]);
 
   // Measurement engine — scale conversion, distance/area calculations, formula evaluation
   const {
@@ -1871,28 +1942,8 @@ Where confidence is "high", "medium", or "low".`,
       }
 
       if (currentMeasureState !== "measuring" || !currentActiveTakeoffId) {
-        // Auto-engage: if a takeoff is selected but not engaged, clicking the canvas starts measuring
-        const selectedId = freshState.tkSelectedTakeoffId;
-        if (selectedId && selectedDrawingId) {
-          const selTo = freshState.takeoffs.find(t => t.id === selectedId);
-          if (selTo) {
-            engageMeasuring(selectedId);
-            // Use this click as the first measurement point
-            const tool = unitToTool(selTo.unit);
-            if (tool === "count") {
-              addMeasurement(selectedId, {
-                type: "count",
-                points: [pt],
-                value: 1,
-                sheetId: selectedDrawingId,
-                color: selTo.color,
-              });
-            } else {
-              setTkActivePoints([pt]);
-            }
-            return;
-          }
-        }
+        // In select mode, clicking on canvas only hit-tests existing measurements.
+        // User must explicitly arm/engage measuring via the Play button — no auto-engage.
 
         // Hit-test: click on existing measurement → select that takeoff
         // Scale thresholds by inverse zoom so they stay consistent in screen pixels
@@ -1945,6 +1996,10 @@ Where confidence is "high", "medium", or "low".`,
               }
             }
           }
+        }
+        // Clicked empty canvas — deselect
+        if (freshState.tkSelectedTakeoffId) {
+          setTkSelectedTakeoffId(null);
         }
         return;
       }
@@ -2251,7 +2306,7 @@ Where confidence is "high", "medium", or "low".`,
         tkPanning.current = false;
         document.body.style.cursor = "";
         document.body.style.userSelect = "";
-        if (e.button === 2 && !didMove && (tkMeasureState === "measuring" || tkMeasureState === "paused")) {
+        if (e.button === 2 && !didMove) {
           setTkContextMenu({ x: e.clientX, y: e.clientY });
         }
       }
@@ -3425,7 +3480,9 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                     boxShadow: "0 1px 0 rgba(0,0,0,0.2)",
                   };
 
-                  /* ── MODE GROUP: Select ── */
+                  /* ── MODE GROUP: Select + Undo ── */
+                  const undoState = useUndoStore.getState();
+                  const canUndo = undoState.canUndo();
                   const modeTools = [
                     {
                       id: "select",
@@ -3441,6 +3498,25 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                         <svg {...ico(isSelecting)}>
                           <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z" />
                           <path d="M13 13l6 6" />
+                        </svg>
+                      ),
+                    },
+                    {
+                      id: "undo",
+                      label: canUndo ? "Undo" : "Nothing to undo",
+                      active: false,
+                      action: () => {
+                        const actionName = useUndoStore.getState().undo();
+                        if (actionName) {
+                          const toast = useUiStore.getState().showToast;
+                          toast(`Undone: ${actionName}`, "info");
+                        }
+                      },
+                      disabled: !canUndo,
+                      icon: (
+                        <svg {...ico(false)} style={{ opacity: canUndo ? 1 : 0.35 }}>
+                          <path d="M1 4v6h6" />
+                          <path d="M3.51 15a9 9 0 105.64-12.36L1 10" />
                         </svg>
                       ),
                     },
@@ -3556,10 +3632,11 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                         className="icon-btn rail-btn"
                         title={t.label}
                         onClick={t.action || undefined}
+                        disabled={t.disabled}
                         style={{
                           ...railBtn(t.active),
-                          opacity: t.soon && !t.action ? 0.45 : 1,
-                          cursor: t.soon && !t.action ? "default" : "pointer",
+                          opacity: (t.soon && !t.action) || t.disabled ? 0.45 : 1,
+                          cursor: (t.soon && !t.action) || t.disabled ? "default" : "pointer",
                         }}
                       >
                         {t.icon}
@@ -6413,8 +6490,8 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                   <>
                     <div style={{ width: 1, height: 20, background: C.border, margin: "0 2px" }} />
                     <button
-                      onClick={handleScanReferences}
-                      disabled={refScanLoading === selectedDrawingId}
+                      onClick={() => handleScanReferences()}
+                      disabled={!!refScanLoading}
                       title="AI detects section/elevation/detail callout symbols"
                       style={{
                         padding: "3px 8px", fontSize: 9, fontWeight: 600,
@@ -8201,115 +8278,205 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                 <DetailOverlay drawingId={detailOverlayId} onClose={() => setDetailOverlayId(null)} />
               )}
 
-              {/* Floating specs card — shows module specs during measuring */}
-              {tkMeasureState === "measuring" &&
-                tkActiveTakeoffId &&
-                (() => {
+              {/* Floating specs card — shows when measuring OR when module is active */}
+              {(() => {
+                let cat = null;
+                let ci = null;
+                let accentColor = C.accent;
+
+                if (tkMeasureState === "measuring" && tkActiveTakeoffId) {
+                  // During measuring — find instance from active takeoff
                   const to = takeoffs.find(t => t.id === tkActiveTakeoffId);
                   if (!to?.linkedItemId) return null;
-                  // Find the module/category/instance that owns this takeoff
+                  accentColor = to.color || C.accent;
                   for (const modId of Object.keys(moduleInstances)) {
                     const inst = moduleInstances[modId];
                     const mod = MODULES[modId];
                     if (!mod || !inst) continue;
-                    for (const cat of mod.categories) {
-                      if (!cat.multiInstance) continue;
-                      const catInstances = inst.categoryInstances?.[cat.id] || [];
-                      for (const ci of catInstances) {
-                        const linked = ci.itemTakeoffIds || {};
+                    for (const c of mod.categories) {
+                      if (!c.multiInstance) continue;
+                      const catInstances = inst.categoryInstances?.[c.id] || [];
+                      for (const cInst of catInstances) {
+                        const linked = cInst.itemTakeoffIds || {};
                         if (Object.values(linked).includes(to.id)) {
-                          // Found it — render compact specs card
-                          const material =
-                            ci.specs?.Material || cat.specs?.find(s => s.id === "Material")?.default || "";
-                          const keySpecs = cat.specs
-                            .filter(
-                              s =>
-                                s.id !== "Material" &&
-                                (!s.condition ||
-                                  (() => {
-                                    const ctx = { ...ci.specs };
-                                    cat.specs.forEach(ss => {
-                                      if (ctx[ss.id] === undefined) ctx[ss.id] = ss.default;
-                                    });
-                                    return evalCondition(s.condition, ctx);
-                                  })()),
-                            )
-                            .slice(0, 4)
-                            .map(s => ({ label: s.label, value: ci.specs?.[s.id] || s.default, unit: s.unit }));
-                          return (
-                            <div
-                              style={{
-                                position: "absolute",
-                                top: 10,
-                                left: 10,
-                                zIndex: 30,
-                                width: 200,
-                                background: `${C.bg1}E8`,
-                                backdropFilter: "blur(8px)",
-                                border: `1px solid ${C.border}`,
-                                borderRadius: 8,
-                                boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
-                                padding: "8px 10px",
-                                pointerEvents: "auto",
-                                transition: "opacity 0.2s",
-                                fontSize: 9,
-                              }}
-                            >
-                              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                                <div
-                                  style={{ width: 8, height: 8, borderRadius: "50%", background: to.color || C.accent }}
-                                />
-                                <span
-                                  style={{
-                                    fontWeight: 700,
-                                    color: C.text,
-                                    fontSize: 10,
-                                    flex: 1,
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                    whiteSpace: "nowrap",
-                                  }}
-                                >
-                                  {ci.label || cat.name}
-                                </span>
-                                <span
-                                  style={{
-                                    fontSize: 8,
-                                    fontWeight: 600,
-                                    color: "#fff",
-                                    background: to.color || C.accent,
-                                    padding: "1px 5px",
-                                    borderRadius: 3,
-                                  }}
-                                >
-                                  {material}
-                                </span>
-                              </div>
-                              {keySpecs.map((s, i) => (
-                                <div
-                                  key={i}
-                                  style={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    padding: "2px 0",
-                                    borderTop: i === 0 ? `1px solid ${C.border}40` : "none",
-                                  }}
-                                >
-                                  <span style={{ color: C.textDim, fontSize: 8 }}>{s.label}</span>
-                                  <span style={{ fontWeight: 600, color: C.text, fontFamily: T.font.sans }}>
-                                    {s.value}
-                                    {s.unit ? ` ${s.unit}` : ""}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          );
+                          cat = c; ci = cInst; break;
                         }
+                      }
+                      if (ci) break;
+                    }
+                    if (ci) break;
+                  }
+                } else if (activeModule) {
+                  // Module is active but not measuring — show first category instance that exists
+                  const mod = MODULES[activeModule];
+                  const inst = moduleInstances[activeModule];
+                  if (mod && inst) {
+                    for (const c of mod.categories) {
+                      if (!c.multiInstance) continue;
+                      const catInstances = inst.categoryInstances?.[c.id] || [];
+                      if (catInstances.length > 0) {
+                        cat = c; ci = catInstances[0]; break;
                       }
                     }
                   }
-                  return null;
-                })()}
+                }
+
+                if (!cat || !ci) return null;
+
+                const material =
+                  ci.specs?.Material || cat.specs?.find(s => s.id === "Material")?.default || "";
+                const keySpecs = cat.specs
+                  .filter(
+                    s =>
+                      s.id !== "Material" &&
+                      (!s.condition ||
+                        (() => {
+                          const ctx = { ...ci.specs };
+                          cat.specs.forEach(ss => {
+                            if (ctx[ss.id] === undefined) ctx[ss.id] = ss.default;
+                          });
+                          return evalCondition(s.condition, ctx);
+                        })()),
+                  )
+                  .slice(0, 4)
+                  .map(s => ({ label: s.label, value: ci.specs?.[s.id] || s.default, unit: s.unit }));
+
+                // Drawing references for this page
+                const refs = selectedDrawingId ? (detectedReferences[selectedDrawingId] || []) : [];
+                const typeColors = { section: "#10B981", elevation: "#6366F1", detail: "#F59E0B" };
+
+                return (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 10,
+                      left: 10,
+                      zIndex: 30,
+                      width: 210,
+                      background: `${C.bg1}E8`,
+                      backdropFilter: "blur(8px)",
+                      border: `1px solid ${C.border}`,
+                      borderRadius: 8,
+                      boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
+                      padding: "8px 10px",
+                      pointerEvents: "auto",
+                      transition: "opacity 0.2s",
+                      fontSize: 9,
+                    }}
+                  >
+                    {/* Header — type name + material badge */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                      <div
+                        style={{ width: 8, height: 8, borderRadius: "50%", background: accentColor, flexShrink: 0 }}
+                      />
+                      <span
+                        style={{
+                          fontWeight: 700,
+                          color: C.text,
+                          fontSize: 10,
+                          flex: 1,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {ci.label || cat.name}
+                      </span>
+                      {material && (
+                        <span
+                          style={{
+                            fontSize: 8,
+                            fontWeight: 600,
+                            color: "#fff",
+                            background: accentColor,
+                            padding: "1px 5px",
+                            borderRadius: 3,
+                            flexShrink: 0,
+                          }}
+                        >
+                          {material}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Key specs */}
+                    {keySpecs.map((s, i) => (
+                      <div
+                        key={i}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          padding: "2px 0",
+                          borderTop: i === 0 ? `1px solid ${C.border}40` : "none",
+                        }}
+                      >
+                        <span style={{ color: C.textDim, fontSize: 8 }}>{s.label}</span>
+                        <span style={{ fontWeight: 600, color: C.text, fontFamily: T.font.sans }}>
+                          {s.value}
+                          {s.unit ? ` ${s.unit}` : ""}
+                        </span>
+                      </div>
+                    ))}
+
+                    {/* Drawing references — sections/elevations/details on this sheet */}
+                    {refs.length > 0 && (
+                      <div style={{ marginTop: 6, borderTop: `1px solid ${C.border}40`, paddingTop: 5 }}>
+                        <div style={{ fontSize: 8, fontWeight: 600, color: C.textDim, marginBottom: 4, letterSpacing: 0.3, textTransform: "uppercase" }}>
+                          References
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 3, maxHeight: 90, overflowY: "auto" }}>
+                          {refs.slice(0, 5).map((ref, ri) => {
+                            const targetDId = sheetIndex[ref.targetSheet] || sheetIndex[ref.targetSheet?.replace(/[-\s]/g, "")];
+                            const targetDrawing = targetDId ? drawings.find(d => d.id === targetDId) : null;
+                            const thumbSrc = targetDrawing
+                              ? targetDrawing.type === "pdf" ? pdfCanvases[targetDrawing.id] : targetDrawing.data
+                              : null;
+                            const badgeColor = typeColors[ref.type] || C.accent;
+                            return (
+                              <div
+                                key={ri}
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  if (targetDId) {
+                                    setDetailOverlayId(targetDId);
+                                  }
+                                }}
+                                style={{
+                                  display: "flex", alignItems: "center", gap: 5, cursor: targetDId ? "pointer" : "default",
+                                  padding: "2px 4px", borderRadius: 4,
+                                  background: `${badgeColor}10`,
+                                }}
+                              >
+                                <div style={{ width: 6, height: 6, borderRadius: "50%", background: badgeColor, flexShrink: 0 }} />
+                                {thumbSrc && (
+                                  <img
+                                    src={thumbSrc}
+                                    alt=""
+                                    style={{ width: 24, height: 18, objectFit: "cover", borderRadius: 2, border: `1px solid ${C.border}`, flexShrink: 0 }}
+                                  />
+                                )}
+                                <div style={{ flex: 1, overflow: "hidden" }}>
+                                  <div style={{ fontSize: 8, fontWeight: 600, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                    {ref.label}
+                                  </div>
+                                  <div style={{ fontSize: 7, color: C.textDim }}>
+                                    {ref.type} → {ref.targetSheet || "?"}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                          {refs.length > 5 && (
+                            <div style={{ fontSize: 7, color: C.textDim, textAlign: "center" }}>
+                              +{refs.length - 5} more
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* (Prediction approval strip moved to unified HUD above toolbar) */}
 
@@ -8378,179 +8545,122 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                 </div>
               )}
 
-              {/* Right-click context menu */}
-              {tkContextMenu && (
-                <>
-                  <div onClick={() => setTkContextMenu(null)} style={{ position: "fixed", inset: 0, zIndex: 199 }} />
-                  <div
-                    style={{
-                      position: "fixed",
-                      left: tkContextMenu.x,
-                      top: tkContextMenu.y,
-                      zIndex: 200,
-                      background: C.bg1,
-                      border: `1px solid ${C.border}`,
-                      borderRadius: 6,
-                      boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
-                      minWidth: 160,
-                      overflow: "hidden",
+              {/* Right-click context menu — available in any mode */}
+              {tkContextMenu && (() => {
+                const isMeasuring = tkMeasureState === "measuring" || tkMeasureState === "paused";
+                const hasSelectedTakeoff = !!tkSelectedTakeoffId;
+                const selectedTo = hasSelectedTakeoff ? takeoffs.find(t => t.id === tkSelectedTakeoffId) : null;
+                const ctxCanUndo = useUndoStore.getState().canUndo();
+                const menuItemStyle = (color) => ({
+                  padding: "7px 12px", fontSize: 10, cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: 8, color,
+                  borderBottom: `1px solid ${C.bg2}`,
+                });
+                const ctxIcon = (d, color, size = 12) => (
+                  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d={d} />
+                  </svg>
+                );
+                return (
+                  <>
+                    <div onClick={() => setTkContextMenu(null)} style={{ position: "fixed", inset: 0, zIndex: 199 }} />
+                    <div style={{
+                      position: "fixed", left: tkContextMenu.x, top: tkContextMenu.y, zIndex: 200,
+                      background: C.bg1, border: `1px solid ${C.border}`, borderRadius: 6,
+                      boxShadow: "0 8px 24px rgba(0,0,0,0.35)", minWidth: 170, overflow: "hidden",
                       animation: "fadeIn 0.1s",
-                    }}
-                  >
-                    {tkActivePoints.length > 0 && (
-                      <div
-                        className="nav-item"
-                        onClick={() => {
-                          setTkActivePoints(tkActivePoints.slice(0, -1));
-                          setTkContextMenu(null);
-                        }}
-                        style={{
-                          padding: "7px 12px",
-                          fontSize: 10,
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          color: C.text,
-                          borderBottom: `1px solid ${C.bg2}`,
-                        }}
-                      >
-                        <svg
-                          width="12"
-                          height="12"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke={C.textMuted}
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M1 4v6h6 M3.51 15a9 9 0 105.64-12.36L1 10" />
-                        </svg>
-                        Undo Last Point
-                      </div>
-                    )}
-                    {tkActivePoints.length >= 2 && tkTool === "linear" && (
-                      <div
-                        className="nav-item"
-                        onClick={() => {
+                    }}>
+                      {/* ── MEASURING ACTIONS ── */}
+                      {isMeasuring && tkActivePoints.length > 0 && (
+                        <div className="nav-item" onClick={() => { setTkActivePoints(tkActivePoints.slice(0, -1)); setTkContextMenu(null); }}
+                          style={menuItemStyle(C.text)}>
+                          {ctxIcon("M1 4v6h6 M3.51 15a9 9 0 105.64-12.36L1 10", C.textMuted)}
+                          Undo Last Point
+                        </div>
+                      )}
+                      {isMeasuring && tkActivePoints.length >= 2 && tkTool === "linear" && (
+                        <div className="nav-item" onClick={() => {
                           const to = takeoffs.find(t => t.id === tkActiveTakeoffId);
                           if (to && tkActivePoints.length >= 2) {
-                            addMeasurement(tkActiveTakeoffId, {
-                              type: "linear",
-                              points: [...tkActivePoints],
-                              value: 0,
-                              sheetId: selectedDrawingId,
-                              color: to.color,
-                            });
+                            addMeasurement(tkActiveTakeoffId, { type: "linear", points: [...tkActivePoints], value: 0, sheetId: selectedDrawingId, color: to.color });
                           }
-                          pauseMeasuring();
-                          setTkContextMenu(null);
-                        }}
-                        style={{
-                          padding: "7px 12px",
-                          fontSize: 10,
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          color: C.accent,
-                          borderBottom: `1px solid ${C.bg2}`,
-                        }}
-                      >
-                        <Ic d={I.check} size={12} color={C.accent} /> Finish Segment
-                      </div>
-                    )}
-                    {tkActivePoints.length >= 3 && tkTool === "area" && (
-                      <div
-                        className="nav-item"
-                        onClick={() => {
+                          pauseMeasuring(); setTkContextMenu(null);
+                        }} style={menuItemStyle(C.accent)}>
+                          <Ic d={I.check} size={12} color={C.accent} /> Finish Segment
+                        </div>
+                      )}
+                      {isMeasuring && tkActivePoints.length >= 3 && tkTool === "area" && (
+                        <div className="nav-item" onClick={() => {
                           const to = takeoffs.find(t => t.id === tkActiveTakeoffId);
                           if (to && tkActivePoints.length >= 3) {
-                            addMeasurement(tkActiveTakeoffId, {
-                              type: "area",
-                              points: [...tkActivePoints],
-                              value: 0,
-                              sheetId: selectedDrawingId,
-                              color: to.color,
-                            });
+                            addMeasurement(tkActiveTakeoffId, { type: "area", points: [...tkActivePoints], value: 0, sheetId: selectedDrawingId, color: to.color });
                           }
-                          pauseMeasuring();
-                          setTkContextMenu(null);
-                        }}
-                        style={{
-                          padding: "7px 12px",
-                          fontSize: 10,
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          color: C.accent,
-                          borderBottom: `1px solid ${C.bg2}`,
-                        }}
-                      >
-                        <Ic d={I.check} size={12} color={C.accent} /> Close & Finish Area
-                      </div>
-                    )}
-                    <div
-                      className="nav-item"
-                      onClick={() => {
-                        setSnapAngleOn(v => !v);
-                        setTkContextMenu(null);
-                      }}
-                      style={{
-                        padding: "7px 12px",
-                        fontSize: 10,
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        color: snapAngleOn ? C.accent : C.text,
-                        borderBottom: `1px solid ${C.bg2}`,
-                      }}
-                    >
-                      <svg
-                        width="12"
-                        height="12"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke={snapAngleOn ? C.accent : C.textMuted}
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
-                        <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-                        <line x1="12" y1="22.08" x2="12" y2="12" />
-                      </svg>
-                      Snap Angle {snapAngleOn ? "✓ ON" : "OFF"}
+                          pauseMeasuring(); setTkContextMenu(null);
+                        }} style={menuItemStyle(C.accent)}>
+                          <Ic d={I.check} size={12} color={C.accent} /> Close & Finish Area
+                        </div>
+                      )}
+                      {isMeasuring && (
+                        <>
+                          <div className="nav-item" onClick={() => { setSnapAngleOn(v => !v); setTkContextMenu(null); }}
+                            style={menuItemStyle(snapAngleOn ? C.accent : C.text)}>
+                            {ctxIcon("M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z", snapAngleOn ? C.accent : C.textMuted)}
+                            Snap Angle {snapAngleOn ? "✓" : ""}
+                          </div>
+                          <div className="nav-item" onClick={() => { stopMeasuring(); setTkContextMenu(null); }}
+                            style={{ ...menuItemStyle(C.red), borderBottom: "none", borderTop: `1px solid ${C.border}`, fontWeight: 600 }}>
+                            <svg width="10" height="10" viewBox="0 0 10 10" fill={C.red}><rect width="10" height="10" rx="1.5" /></svg>
+                            Stop Measuring
+                          </div>
+                        </>
+                      )}
+
+                      {/* ── GENERAL ACTIONS (always available) ── */}
+                      {!isMeasuring && (
+                        <>
+                          {/* Undo */}
+                          <div className="nav-item" onClick={() => {
+                            if (ctxCanUndo) {
+                              const actionName = useUndoStore.getState().undo();
+                              if (actionName) useUiStore.getState().showToast(`Undone: ${actionName}`, "info");
+                            }
+                            setTkContextMenu(null);
+                          }} style={{ ...menuItemStyle(ctxCanUndo ? C.text : C.textMuted), opacity: ctxCanUndo ? 1 : 0.5 }}>
+                            {ctxIcon("M1 4v6h6 M3.51 15a9 9 0 105.64-12.36L1 10", ctxCanUndo ? C.textMuted : C.bg2)}
+                            Undo
+                          </div>
+
+                          {/* Delete Selected Takeoff */}
+                          {selectedTo && (
+                            <div className="nav-item" onClick={() => {
+                              removeTakeoff(selectedTo.id);
+                              setTkSelectedTakeoffId(null);
+                              setTkContextMenu(null);
+                            }} style={{ ...menuItemStyle(C.red), fontWeight: 500 }}>
+                              {ctxIcon("M12 2a10 10 0 100 20 10 10 0 000-20z M15 9l-6 6 M9 9l6 6", C.red)}
+                              Delete "{selectedTo.description || "Takeoff"}"
+                            </div>
+                          )}
+
+                          {/* Snap Angle toggle */}
+                          <div className="nav-item" onClick={() => { setSnapAngleOn(v => !v); setTkContextMenu(null); }}
+                            style={menuItemStyle(snapAngleOn ? C.accent : C.text)}>
+                            {ctxIcon("M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z", snapAngleOn ? C.accent : C.textMuted)}
+                            Snap Angle {snapAngleOn ? "✓" : ""}
+                          </div>
+
+                          {/* Labels toggle */}
+                          <div className="nav-item" onClick={() => { setShowMeasureLabels(v => !v); setTkContextMenu(null); }}
+                            style={{ ...menuItemStyle(showMeasureLabels ? C.accent : C.text), borderBottom: "none" }}>
+                            {ctxIcon("M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z", showMeasureLabels ? C.accent : C.textMuted)}
+                            Labels {showMeasureLabels ? "✓" : ""}
+                          </div>
+                        </>
+                      )}
                     </div>
-                    <div
-                      className="nav-item"
-                      onClick={() => {
-                        stopMeasuring();
-                        setTkContextMenu(null);
-                      }}
-                      style={{
-                        padding: "8px 12px",
-                        fontSize: 10,
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        color: C.red,
-                        borderTop: `1px solid ${C.border}`,
-                      }}
-                    >
-                      <svg width="10" height="10" viewBox="0 0 10 10" fill={C.red}>
-                        <rect width="10" height="10" rx="1.5" />
-                      </svg>
-                      Stop Measuring
-                    </div>
-                  </div>
-                </>
-              )}
+                  </>
+                );
+              })()}
             </div>
           </>
         )}

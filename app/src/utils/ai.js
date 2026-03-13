@@ -663,7 +663,6 @@ export async function detectSheetReferences(base64ImageData) {
     ? base64ImageData.match(/data:([^;]+)/)?.[1] || "image/jpeg"
     : "image/jpeg";
   const rawB64 = isDataUrl ? base64ImageData.split(",")[1] : base64ImageData;
-
   const resp = await callAnthropic({
     max_tokens: 4000,
     messages: [
@@ -676,29 +675,57 @@ export async function detectSheetReferences(base64ImageData) {
           },
           {
             type: "text",
-            text: `Analyze this construction drawing and find ALL section cut symbols, elevation markers, and detail callout symbols. These are typically circles or other shapes with a number on top and a sheet number on the bottom (like "1/A501" meaning detail 1 on sheet A501, or "A/S-201" meaning section A on sheet S-201).
+            text: `You are a construction blueprint reader. Scan this drawing sheet for CROSS-REFERENCE MARKERS ONLY — symbols that point to drawings on other sheets (or the same sheet).
 
-Return a JSON array of objects. Each object should have:
-- "label": the full callout text (e.g., "1/A501", "A/S-201", "3")
-- "targetSheet": the referenced sheet number (e.g., "A501", "S-201"). If no sheet ref, use ""
-- "type": one of "section", "elevation", "detail"
+DETECT ONLY THESE 5 MARKER TYPES:
+
+1. **SECTION MARKER** — A dashed or dash-dot CUT LINE drawn across the plan with a CIRCLE (bubble) at each end. The circle is split by a horizontal line: top half = section ID (letter or number), bottom half = sheet number. Triangular arrows at the line endpoints show viewing direction. Example: bubble shows "A" over "A3" meaning Section A on sheet A3.
+
+2. **DETAIL MARKER** — A dashed BOUNDARY (circle, rectangle, or cloud shape) drawn around a specific area of the drawing, with a LEADER LINE extending to a reference BUBBLE. The bubble is split by a horizontal line: top = detail ID, bottom = sheet number. Example: bubble shows "3" over "A5" meaning Detail 3 on sheet A5.
+
+3. **EXTERIOR ELEVATION MARKER** — A circle split by a horizontal line with an ARROW pointing outward toward a building face. Top = elevation number, bottom = sheet number. Placed on floor plans pointing toward the face being documented.
+
+4. **INTERIOR ELEVATION MARKER** — A SQUARE with X-diagonal lines and a CENTER CIRCLE, with up to 4 arrows pointing toward room walls. Each quadrant is numbered. Sheet reference in or near the symbol.
+
+5. **MATCH LINE** — A heavy bold line across the plan with TEXT LABELS on each side indicating continuation sheets (e.g., "SEE A1.1" / "CONT A1.2").
+
+CRITICAL — DO NOT DETECT ANY OF THESE (these are NOT cross-references):
+- Column grid bubbles (circles on grid lines with single letter/number — coordinate system, not sheet refs)
+- View titles or drawing titles (text like "FOUNDATION PLAN", "TYPICAL WALL SECTION")
+- Legend items or keynotes
+- North arrows
+- Door/window tags (D1, W2 etc.)
+- Spot elevations (diamond + height value)
+- Revision clouds/deltas
+- Break lines (zigzag or S-curve)
+- Wall type tags (circle with single letter on a wall)
+- Title block text, sheet labels, firm names
+- Any text label that is NOT inside a divided reference bubble
+
+BUBBLE FORMAT: Real cross-reference bubbles are circles split by a horizontal line with a number/letter ABOVE and a sheet number BELOW. Bottom may show "/" (same sheet) or "SIM" (similar). A circle with just ONE number/letter and NO dividing line is likely a grid bubble or tag — NOT a cross-reference.
+
+Return a JSON array. Each object:
+- "label": the callout text as read from the bubble (e.g., "A/A3", "3/A5", "2/A4")
+- "targetSheet": the sheet number from the bottom of the bubble (e.g., "A3", "S-201", "/" for same sheet, "" if unclear)
+- "type": one of "section", "detail", "elevation", "interior-elevation", "match-line"
 - "xPct": approximate X position as percentage of image width (0-100)
 - "yPct": approximate Y position as percentage of image height (0-100)
 
-Only return the JSON array, no other text. If no references found, return [].`,
+Return ONLY the JSON array, no other text. If no cross-reference markers are found, return []. It is better to return [] than to return false positives.`,
           },
         ],
       },
     ],
   });
 
-  const text = resp?.content?.[0]?.text || "[]";
+  // callAnthropic returns a plain string (all content blocks joined), not the raw API object
+  const text = (typeof resp === "string" ? resp : resp?.content?.[0]?.text) || "[]";
   try {
     const clean = text.replace(/```json?\s*/g, "").replace(/```/g, "").trim();
     const parsed = JSON.parse(clean);
     return Array.isArray(parsed) ? parsed : [];
   } catch {
-    console.warn("[detectSheetReferences] Failed to parse:", text);
+    console.warn("[detectSheetReferences] Failed to parse:", text.substring(0, 200));
     return [];
   }
 }

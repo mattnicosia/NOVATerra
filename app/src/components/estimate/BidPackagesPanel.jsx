@@ -476,26 +476,6 @@ export default function BidPackagesPanel({ onCreateNew, onViewProposal, onCompar
                 >
                   Subcontractors ({pkgInvites.length})
                 </div>
-                {pkgInvites.length === 0 && onInviteSubs && pkg.status !== "awarded" && pkg.status !== "closed" && (
-                  <button
-                    onClick={() => onInviteSubs(pkg)}
-                    style={{
-                      width: "100%",
-                      padding: "16px",
-                      borderRadius: 8,
-                      border: `1px dashed ${C.accent}40`,
-                      background: `${C.accent}06`,
-                      color: C.accent,
-                      fontSize: 13,
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      fontFamily: "inherit",
-                      marginBottom: 8,
-                    }}
-                  >
-                    + Invite Subs to This Package
-                  </button>
-                )}
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   {pkgInvites.map(inv => (
                     <InvitationRow
