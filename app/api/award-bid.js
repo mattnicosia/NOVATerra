@@ -228,6 +228,29 @@ export default async function handler(req, res) {
       await Promise.allSettled(feedbackPromises);
     }
 
+    // Update sub_pool reputation metrics (non-blocking)
+    for (const inv of invitations) {
+      if (!inv.sub_email) continue;
+      const isWinner = inv.id === winnerInvitationId;
+      const parsed = proposalCache?.[inv.id];
+      // Compute coverage score from proposal data
+      let coverageScore = null;
+      if (parsed?.lineItems && estimateItems.length > 0) {
+        const estDivs = new Set(estimateItems.map(it => (it.code || "").split(".")[0]).filter(Boolean));
+        const propDivs = new Set((parsed.lineItems || []).map(li => (li.csiCode || "").split(".")[0]).filter(Boolean));
+        const covered = [...estDivs].filter(d => propDivs.has(d)).length;
+        coverageScore = estDivs.size > 0 ? Math.round((covered / estDivs.size) * 100) : null;
+      }
+      supabaseAdmin
+        .rpc("update_sub_pool_on_award", {
+          p_email: inv.sub_email,
+          p_trade: inv.sub_trade || "",
+          p_is_winner: isWinner,
+          p_coverage_score: coverageScore,
+        })
+        .catch(err => console.warn("[award-bid] sub_pool reputation update failed:", err.message));
+    }
+
     console.log(`[award-bid] Package=${packageId} awarded to ${winner.sub_company}`);
     return res.status(200).json({ status: "awarded", winnerId: winnerInvitationId });
   } catch (err) {

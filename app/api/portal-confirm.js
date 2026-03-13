@@ -23,7 +23,7 @@ export default async function handler(req, res) {
     // Verify token + proposal ownership
     const { data: inv, error: invErr } = await supabaseAdmin
       .from("bid_invitations")
-      .select("id, package_id, user_id, sub_company, sub_contact, sub_email, sub_trade")
+      .select("id, package_id, user_id, sub_company, sub_contact, sub_email, sub_trade, created_at")
       .eq("token", token)
       .single();
 
@@ -79,14 +79,19 @@ export default async function handler(req, res) {
       console.warn("[portal-confirm] Sub pool upsert failed:", poolErr.message);
     }
 
-    // Increment proposal count for existing sub_pool entry
+    // Update sub_pool reputation metrics
+    const responseHours = inv.created_at
+      ? (Date.now() - new Date(inv.created_at).getTime()) / 3_600_000
+      : null;
     await supabaseAdmin
-      .rpc("increment_sub_pool_count", {
+      .rpc("update_sub_pool_on_submission", {
         p_email: inv.sub_email,
-        p_trade: inv.sub_trade,
+        p_trade: inv.sub_trade || "",
+        p_response_hours: responseHours ? Math.round(responseHours * 100) / 100 : 0,
+        p_bid_amount: bidAmount ? parseFloat(bidAmount) || 0 : 0,
       })
-      .catch(() => {
-        // RPC may not exist yet — not critical
+      .catch(err => {
+        console.warn("[portal-confirm] Sub pool reputation update failed:", err.message);
       });
 
     // Trigger AI parsing asynchronously via the parse-proposal endpoint
