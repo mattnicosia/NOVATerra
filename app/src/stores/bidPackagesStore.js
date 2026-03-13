@@ -7,6 +7,7 @@ export const useBidPackagesStore = create((set, get) => ({
   invitations: {}, // keyed by packageId → invitation[]
   proposals: {}, // keyed by invitationId → proposal
   scopeGapResults: {}, // keyed by invitationId → gap report cache
+  subResponseIntents: {}, // keyed by invitationId → { intent, reason, respondedAt }
   activeBidPackageId: null,
   bidPackagePresets: [],
 
@@ -15,6 +16,7 @@ export const useBidPackagesStore = create((set, get) => ({
   setInvitations: v => set({ invitations: v }),
   setProposals: v => set({ proposals: v }),
   setScopeGapResults: v => set({ scopeGapResults: v }),
+  setSubResponseIntents: v => set({ subResponseIntents: v }),
   setActiveBidPackageId: v => set({ activeBidPackageId: v }),
   setBidPackagePresets: v => set({ bidPackagePresets: v }),
 
@@ -109,6 +111,54 @@ export const useBidPackagesStore = create((set, get) => ({
           : s.proposals[invitationId],
       },
     })),
+
+  // ── Sub Response Intents ──
+  setSubResponseIntent: (invId, intent, reason) =>
+    set(s => ({
+      subResponseIntents: {
+        ...s.subResponseIntents,
+        [invId]: { intent, reason: reason || null, respondedAt: new Date().toISOString() },
+      },
+    })),
+
+  // Hydrate intents from server invitation data
+  hydrateIntentsFromInvitations: () => {
+    const { invitations } = get();
+    const intents = {};
+    for (const pkgInvites of Object.values(invitations)) {
+      for (const inv of pkgInvites) {
+        if (inv.intent) {
+          intents[inv.id] = { intent: inv.intent, reason: inv.intent_reason || null, respondedAt: inv.intent_at || null };
+        }
+      }
+    }
+    set({ subResponseIntents: intents });
+  },
+
+  getPackageResponseStats: packageId => {
+    const invites = get().invitations[packageId] || [];
+    const intents = get().subResponseIntents;
+    let bidding = 0, reviewing = 0, pass = 0, noResponse = 0, submitted = 0;
+    for (const inv of invites) {
+      if (["submitted", "parsed", "awarded"].includes(inv.status)) { submitted++; continue; }
+      const ri = intents[inv.id];
+      if (ri?.intent === "bidding") bidding++;
+      else if (ri?.intent === "reviewing") reviewing++;
+      else if (ri?.intent === "pass") pass++;
+      else noResponse++;
+    }
+    return { bidding, reviewing, pass, noResponse, submitted, total: invites.length };
+  },
+
+  // Total exposure caught across all packages
+  getTotalExposureCaught: () => {
+    const results = get().scopeGapResults;
+    let total = 0;
+    for (const r of Object.values(results)) {
+      total += r?.totalExposure || 0;
+    }
+    return total;
+  },
 
   // ── Helpers ──
   getPackageById: id => get().bidPackages.find(p => p.id === id),

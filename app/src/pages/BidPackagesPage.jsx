@@ -14,7 +14,7 @@ import BidPackagesPanel from "@/components/estimate/BidPackagesPanel";
 import BidLevelingGrid from "@/components/estimate/BidLevelingGrid";
 import CreateBidPackageModal from "@/components/estimate/CreateBidPackageModal";
 import AutoBidPackageReview from "@/components/estimate/AutoBidPackageReview";
-import BidTrackingStrip from "@/components/estimate/BidTrackingStrip";
+import SubResponseBoard from "@/components/estimate/SubResponseBoard";
 import ProposalDetailModal from "@/components/estimate/ProposalDetailModal";
 import ProposalComparisonMatrix from "@/components/estimate/ProposalComparisonMatrix";
 import AwardBidModal from "@/components/estimate/AwardBidModal";
@@ -112,8 +112,18 @@ export default function BidPackagesPage() {
                 openedAt: inv.opened_at,
                 submittedAt: inv.submitted_at,
                 token: inv.token,
+                intent: inv.intent,
+                intentReason: inv.intent_reason,
+                intentAt: inv.intent_at,
               }));
               useBidPackagesStore.getState().setPackageInvitations(pkg.id, invites);
+
+              // Hydrate intent data into subResponseIntents
+              for (const inv of invites) {
+                if (inv.intent) {
+                  useBidPackagesStore.getState().setSubResponseIntent(inv.id, inv.intent, inv.intentReason);
+                }
+              }
 
               // ── Auto-response triggers: detect status transitions ──
               const pj = useProjectStore.getState().project;
@@ -296,8 +306,8 @@ export default function BidPackagesPage() {
         </div>
       )}
 
-      {/* Bid Tracking KPIs */}
-      {view === "packages" && bidPackages.length > 0 && <BidTrackingStrip />}
+      {/* Live Response Dashboard */}
+      {view === "packages" && bidPackages.length > 0 && <SubResponseBoard />}
 
       {/* Content: Packages or Leveling */}
       {view === "packages" ? (

@@ -116,6 +116,16 @@ export const useMasterDataStore = create((set, get) => ({
 
   setMasterData: v => set({ masterData: v }),
 
+  toggleSubPreferred: subId =>
+    set(s => ({
+      masterData: {
+        ...s.masterData,
+        subcontractors: (s.masterData.subcontractors || []).map(sub =>
+          sub.id === subId ? { ...sub, preferred: !sub.preferred } : sub,
+        ),
+      },
+    })),
+
   addMasterItem: (category, item) =>
     set(s => ({
       masterData: {

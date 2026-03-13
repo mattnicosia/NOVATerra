@@ -28,6 +28,15 @@ export default function PortalPage() {
   const [submitted, setSubmitted] = useState(false);
   const [dragOver, setDragOver] = useState(false);
 
+  // Intent state
+  const [intent, setIntent] = useState(null); // "bidding" | "reviewing" | "pass" | null
+  const [intentLoading, setIntentLoading] = useState(false);
+  const [passReason, setPassReason] = useState(null);
+  const [showPassReasons, setShowPassReasons] = useState(false);
+
+  // Post-loss feedback
+  const [feedbackData, setFeedbackData] = useState(null);
+
   // Structured bid form
   const [bidAmount, setBidAmount] = useState("");
   const [subInclusions, setSubInclusions] = useState("");
@@ -67,6 +76,49 @@ export default function PortalPage() {
       }
     })();
   }, [token]);
+
+  // Hydrate intent from invitation data
+  useEffect(() => {
+    if (!data?.invitation) return;
+    if (data.invitation.intent) setIntent(data.invitation.intent);
+  }, [data]);
+
+  // Fetch post-loss feedback for not_awarded/awarded invitations
+  useEffect(() => {
+    if (!token || !data?.invitation) return;
+    const st = data.invitation.status;
+    if (st !== "not_awarded" && st !== "awarded") return;
+    (async () => {
+      try {
+        const resp = await fetch(`/api/portal-feedback?token=${token}`);
+        if (resp.ok) {
+          const fb = await resp.json();
+          setFeedbackData(fb);
+        }
+      } catch (_) {}
+    })();
+  }, [token, data]);
+
+  // Submit intent to server
+  const submitIntent = useCallback(
+    async (intentVal, reason) => {
+      if (!token || intentLoading) return;
+      setIntentLoading(true);
+      try {
+        const resp = await fetch("/api/portal-intent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token, intent: intentVal, reason: reason || undefined }),
+        });
+        if (resp.ok) {
+          setIntent(intentVal);
+          if (intentVal === "pass") setPassReason(reason);
+        }
+      } catch (_) {}
+      setIntentLoading(false);
+    },
+    [token, intentLoading],
+  );
 
   const handleUpload = useCallback(
     async file => {
@@ -468,7 +520,146 @@ export default function PortalPage() {
           </div>
         )}
 
-        {/* Upload Zone / Submitted State */}
+        {/* Intent Section — Three-Button Response */}
+        {invitation && !["submitted", "parsed", "awarded", "not_awarded"].includes(invitation.status) && !submitted && !isPastDue && (
+          <div style={cardStyle}>
+            <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, color: C.textMuted, marginBottom: 12 }}>
+              Your Response
+            </div>
+            {intent === "pass" ? (
+              <div style={{ textAlign: "center", padding: "24px 0" }}>
+                <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(142,142,147,0.15)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+                  <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 6L6 18M6 6l12 12" />
+                  </svg>
+                </div>
+                <h3 style={{ color: C.text, fontSize: 16, fontWeight: 600, margin: "0 0 6px" }}>Thanks for letting us know</h3>
+                <p style={{ color: C.textMuted, fontSize: 13, margin: 0 }}>
+                  {passReason ? `Reason: ${passReason}` : "You've passed on this package."}
+                </p>
+              </div>
+            ) : showPassReasons ? (
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 10 }}>Why are you passing?</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {["At capacity", "Not my scope", "Timeline conflict", "Not interested"].map(r => (
+                    <button
+                      key={r}
+                      onClick={() => { setShowPassReasons(false); submitIntent("pass", r); }}
+                      disabled={intentLoading}
+                      style={{ padding: "10px 14px", borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.text, fontSize: 13, cursor: "pointer", textAlign: "left", fontFamily: "'Switzer', sans-serif", transition: "all 150ms" }}
+                      onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setShowPassReasons(false)}
+                    style={{ padding: "8px 14px", border: "none", background: "transparent", color: C.textDim, fontSize: 12, cursor: "pointer", textAlign: "center", fontFamily: "'Switzer', sans-serif" }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                {[
+                  { key: "bidding", label: "Bidding", color: C.green, icon: "M20 6L9 17l-5-5" },
+                  { key: "reviewing", label: "Reviewing", color: C.orange, icon: "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z M12 9v0 M12 9a3 3 0 100 6 3 3 0 000-6z" },
+                  { key: "pass", label: "Pass", color: C.textMuted, icon: "M18 6L6 18M6 6l12 12" },
+                ].map(opt => {
+                  const active = intent === opt.key;
+                  return (
+                    <button
+                      key={opt.key}
+                      onClick={() => opt.key === "pass" ? setShowPassReasons(true) : submitIntent(opt.key)}
+                      disabled={intentLoading}
+                      style={{
+                        padding: "14px 8px",
+                        borderRadius: 10,
+                        border: `1.5px solid ${active ? opt.color : C.border}`,
+                        background: active ? `${opt.color}15` : "rgba(255,255,255,0.03)",
+                        color: active ? opt.color : C.text,
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 6,
+                        transition: "all 200ms",
+                        fontFamily: "'Switzer', sans-serif",
+                        opacity: intentLoading ? 0.6 : 1,
+                      }}
+                      onMouseEnter={e => { if (!active) e.currentTarget.style.borderColor = opt.color + "60"; }}
+                      onMouseLeave={e => { if (!active) e.currentTarget.style.borderColor = C.border; }}
+                    >
+                      <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={active ? opt.color : C.textDim} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                        <path d={opt.icon} />
+                      </svg>
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Post-Loss Feedback Display */}
+        {invitation?.status === "not_awarded" && (
+          <div style={cardStyle}>
+            <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, color: C.textMuted, marginBottom: 16 }}>
+              Bid Results &amp; Feedback
+            </div>
+            <div style={{ textAlign: "center", marginBottom: 20 }}>
+              <div style={{ fontSize: 14, color: C.textMuted, marginBottom: 4 }}>This package has been awarded to another subcontractor.</div>
+              <div style={{ fontSize: 13, color: C.textDim }}>Thank you for your proposal.</div>
+            </div>
+            {feedbackData?.feedback && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
+                {feedbackData.feedback.coverage_pct != null && (
+                  <div style={{ padding: "14px 12px", borderRadius: 10, background: "rgba(124,92,252,0.06)", border: "1px solid rgba(124,92,252,0.15)", textAlign: "center" }}>
+                    <div style={{ fontSize: 22, fontWeight: 700, color: C.accent }}>{feedbackData.feedback.coverage_pct}%</div>
+                    <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>Scope Coverage</div>
+                  </div>
+                )}
+                {feedbackData.feedback.exclusion_count != null && (
+                  <div style={{ padding: "14px 12px", borderRadius: 10, background: "rgba(255,159,10,0.06)", border: "1px solid rgba(255,159,10,0.15)", textAlign: "center" }}>
+                    <div style={{ fontSize: 22, fontWeight: 700, color: C.orange }}>{feedbackData.feedback.exclusion_count}</div>
+                    <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>Exclusions Noted</div>
+                  </div>
+                )}
+                {feedbackData.feedback.price_quartile != null && (
+                  <div style={{ padding: "14px 12px", borderRadius: 10, background: "rgba(48,209,88,0.06)", border: "1px solid rgba(48,209,88,0.15)", textAlign: "center" }}>
+                    <div style={{ fontSize: 22, fontWeight: 700, color: C.green }}>Q{feedbackData.feedback.price_quartile}</div>
+                    <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>Price Quartile of {feedbackData.feedback.total_proposals}</div>
+                  </div>
+                )}
+              </div>
+            )}
+            {feedbackData?.feedback?.exclusion_list?.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, marginBottom: 6 }}>Exclusion Gaps Identified</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {feedbackData.feedback.exclusion_list.map((ex, i) => (
+                    <span key={i} style={{ padding: "4px 10px", borderRadius: 6, background: "rgba(255,159,10,0.08)", border: "1px solid rgba(255,159,10,0.15)", color: C.orange, fontSize: 12 }}>{ex}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {feedbackData?.feedbackNotes && (
+              <div style={{ padding: "12px 16px", borderRadius: 10, borderLeft: `3px solid ${C.accent}`, background: "rgba(124,92,252,0.04)" }}>
+                <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, color: C.accent, marginBottom: 4 }}>Feedback</div>
+                <p style={{ fontSize: 13, color: C.text, lineHeight: 1.6, margin: 0 }}>{feedbackData.feedbackNotes}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Upload Zone / Submitted State — hidden when passed or not_awarded */}
+        {intent !== "pass" && invitation?.status !== "not_awarded" && invitation?.status !== "awarded" && (
         <div style={cardStyle}>
           {submitted ? (
             <div style={{ textAlign: "center", padding: "40px 0" }}>
@@ -731,6 +922,7 @@ export default function PortalPage() {
             </>
           )}
         </div>
+        )}
 
         {/* Footer */}
         <div style={{ textAlign: "center", padding: "24px 0 40px" }}>

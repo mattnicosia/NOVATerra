@@ -23,6 +23,7 @@ import { TradeBadge } from "@/components/contacts/TradeMultiSelect";
 import { CSI } from "@/constants/csi";
 import { generateScopeSheet } from "@/utils/scopeSheetGenerator";
 import { callAnthropic } from "@/utils/ai";
+import { preSendScopeAnalysis } from "@/utils/preSendAnalysis";
 
 const STEPS = [
   { key: "scope", label: "Select Scope", icon: I.estimate },
@@ -42,6 +43,7 @@ export default function CreateBidPackageModal({ onClose }) {
   const drawings = useDrawingsStore(s => s.drawings);
   const subs = useMasterDataStore(s => s.masterData.subcontractors);
   const addMasterItem = useMasterDataStore(s => s.addMasterItem);
+  const toggleSubPreferred = useMasterDataStore(s => s.toggleSubPreferred);
   const estimateId = useEstimatesStore(s => s.activeEstimateId);
   const project = useProjectStore(s => s.project);
   const addBidPackage = useBidPackagesStore(s => s.addBidPackage);
@@ -902,55 +904,82 @@ export default function CreateBidPackageModal({ onClose }) {
               </p>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                {filteredSubs.map(sub => {
+                {/* Preferred subs section header */}
+                {filteredSubs.some(s => s.preferred) && (
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#FF9F0A", textTransform: "uppercase", letterSpacing: 0.5, padding: "6px 0 2px" }}>
+                    Your Preferred
+                  </div>
+                )}
+                {[...filteredSubs].sort((a, b) => (b.preferred ? 1 : 0) - (a.preferred ? 1 : 0)).map((sub, idx, arr) => {
                   const sel = selectedSubs.includes(sub.id);
                   const isMatch = matchedSubIds.has(sub.id);
+                  // Insert divider between preferred and non-preferred
+                  const showDivider = idx > 0 && arr[idx - 1]?.preferred && !sub.preferred;
                   return (
-                    <div
-                      key={sub.id}
-                      onClick={() => toggleSub(sub.id)}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                        padding: "10px 12px",
-                        borderRadius: 8,
-                        cursor: "pointer",
-                        background: sel ? `${C.accent}10` : "rgba(255,255,255,0.03)",
-                        border: `1px solid ${sel ? C.accent + "40" : isMatch ? C.green + "30" : "transparent"}`,
-                        transition: "all 150ms",
-                      }}
-                    >
-                      <div style={checkboxStyle(sel)}>{sel && <Ic d={I.check} size={10} color="#fff" />}</div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ color: C.text, fontSize: 13, fontWeight: 500 }}>
-                            {sub.company || "Unknown Company"}
-                          </span>
-                          {isMatch && (
-                            <span
-                              style={{
-                                fontSize: 8,
-                                fontWeight: 700,
-                                color: C.green,
-                                background: `${C.green}15`,
-                                padding: "1px 5px",
-                                borderRadius: 4,
-                              }}
-                            >
-                              MATCH
+                    <div key={sub.id}>
+                      {showDivider && (
+                        <div style={{ fontSize: 10, fontWeight: 700, color: C.textMuted, textTransform: "uppercase", letterSpacing: 0.5, padding: "8px 0 2px", borderTop: `1px solid ${C.border}`, marginTop: 4 }}>
+                          All Subs
+                        </div>
+                      )}
+                      <div
+                        onClick={() => toggleSub(sub.id)}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          padding: "10px 12px",
+                          borderRadius: 8,
+                          cursor: "pointer",
+                          background: sel ? `${C.accent}10` : "rgba(255,255,255,0.03)",
+                          border: `1px solid ${sel ? C.accent + "40" : isMatch ? C.green + "30" : "transparent"}`,
+                          transition: "all 150ms",
+                        }}
+                      >
+                        <div style={checkboxStyle(sel)}>{sel && <Ic d={I.check} size={10} color="#fff" />}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ color: C.text, fontSize: 13, fontWeight: 500 }}>
+                              {sub.company || "Unknown Company"}
                             </span>
-                          )}
+                            {sub.preferred && (
+                              <span style={{ fontSize: 8, fontWeight: 700, color: "#FF9F0A", background: "rgba(255,159,10,0.12)", padding: "1px 5px", borderRadius: 4 }}>
+                                PREFERRED
+                              </span>
+                            )}
+                            {isMatch && (
+                              <span
+                                style={{
+                                  fontSize: 8,
+                                  fontWeight: 700,
+                                  color: C.green,
+                                  background: `${C.green}15`,
+                                  padding: "1px 5px",
+                                  borderRadius: 4,
+                                }}
+                              >
+                                MATCH
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2, flexWrap: "wrap" }}>
+                            {(sub.trades || []).slice(0, 3).map(tk => (
+                              <TradeBadge key={tk} tradeKey={tk} size="xs" />
+                            ))}
+                            {(sub.trades || []).length > 3 && (
+                              <span style={{ fontSize: 9, color: C.textDim }}>+{(sub.trades || []).length - 3}</span>
+                            )}
+                            {sub.contact && <span style={{ color: C.textDim, fontSize: 10 }}> · {sub.contact}</span>}
+                          </div>
                         </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2, flexWrap: "wrap" }}>
-                          {(sub.trades || []).slice(0, 3).map(tk => (
-                            <TradeBadge key={tk} tradeKey={tk} size="xs" />
-                          ))}
-                          {(sub.trades || []).length > 3 && (
-                            <span style={{ fontSize: 9, color: C.textDim }}>+{(sub.trades || []).length - 3}</span>
-                          )}
-                          {sub.contact && <span style={{ color: C.textDim, fontSize: 10 }}> · {sub.contact}</span>}
-                        </div>
+                        {/* Star toggle for preferred */}
+                        <button
+                          onClick={e => { e.stopPropagation(); toggleSubPreferred(sub.id); }}
+                          style={{ background: "none", border: "none", cursor: "pointer", padding: 4, fontSize: 16, color: sub.preferred ? "#FF9F0A" : C.textDim, transition: "color 150ms" }}
+                          title={sub.preferred ? "Remove from preferred" : "Mark as preferred"}
+                        >
+                          {sub.preferred ? "★" : "☆"}
+                        </button>
                       </div>
                     </div>
                   );
@@ -1063,6 +1092,43 @@ export default function CreateBidPackageModal({ onClose }) {
               />
               {coverMessage && <ReviewRow label="Cover Message" value={coverMessage} />}
             </div>
+
+            {/* Pre-Send Scope Warnings */}
+            {(() => {
+              const selectedEstItems = items.filter(i => selectedItems.includes(i.id));
+              const warnings = preSendScopeAnalysis(selectedEstItems, project?.jobType);
+              if (warnings.length === 0) return null;
+              return (
+                <div
+                  style={{
+                    marginTop: 16,
+                    padding: "14px 16px",
+                    borderRadius: 10,
+                    background: "rgba(255,159,10,0.06)",
+                    border: "1px solid rgba(255,159,10,0.2)",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                    <Ic d={I.warn} size={14} color="#FF9F0A" />
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "#FF9F0A" }}>
+                      NOVA flagged {warnings.length} division{warnings.length !== 1 ? "s" : ""} commonly excluded for {project?.jobType || "commercial"} projects
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {warnings.map((w, i) => (
+                      <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, color: C.textMuted, lineHeight: 1.5 }}>
+                        <span style={{ color: w.riskLevel === "high" ? "#FF453A" : "#FF9F0A", fontWeight: 700, flexShrink: 0, fontSize: 10, marginTop: 2 }}>
+                          {w.riskLevel === "high" ? "HIGH" : "MED"}
+                        </span>
+                        <span>
+                          <strong style={{ color: C.text }}>{w.division} {w.divisionName}</strong> — {w.warning}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Save as Template */}
             <button

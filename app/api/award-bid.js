@@ -109,45 +109,104 @@ export default async function handler(req, res) {
         })
         .catch(err => console.warn("[award-bid] Winner email failed:", err));
 
+      // Collect all bid totals for price quartile calculation
+      const allBidTotals = [];
+      const proposalCache = {};
+      for (const inv of invitations) {
+        const { data: prop } = await supabaseAdmin
+          .from("bid_proposals")
+          .select("parsed_data")
+          .eq("invitation_id", inv.id)
+          .maybeSingle();
+        if (prop?.parsed_data?.totalBid) {
+          allBidTotals.push(prop.parsed_data.totalBid);
+          proposalCache[inv.id] = prop.parsed_data;
+        }
+      }
+      allBidTotals.sort((a, b) => a - b);
+
+      // Helper: compute price quartile (1=lowest, 4=highest)
+      const getQuartile = bid => {
+        if (!bid || allBidTotals.length === 0) return null;
+        const idx = allBidTotals.indexOf(bid);
+        if (idx === -1) return null;
+        const pct = idx / allBidTotals.length;
+        if (pct < 0.25) return 1;
+        if (pct < 0.5) return 2;
+        if (pct < 0.75) return 3;
+        return 4;
+      };
+
+      // Get estimate items for scope gap computation
+      let estimateItems = [];
+      try {
+        const scopeItems = pkg.scope_items;
+        if (Array.isArray(scopeItems)) estimateItems = scopeItems;
+      } catch (_) { /* ignore */ }
+
       // Generate feedback for all losers in parallel, then send emails
       const feedbackPromises = losers
         .filter(l => l.sub_email)
         .map(async loser => {
           let feedback = "";
-          if (anthropicKey) {
-            try {
-              const { data: proposal } = await supabaseAdmin
-                .from("bid_proposals")
-                .select("parsed_data")
-                .eq("invitation_id", loser.id)
-                .single();
+          const parsedData = proposalCache[loser.id];
 
-              if (proposal?.parsed_data) {
-                const client = new Anthropic({ apiKey: anthropicKey });
-                const resp = await client.messages.create({
-                  model: "claude-sonnet-4-20250514",
-                  max_tokens: 200,
-                  system:
-                    "Write 2-3 sentences of constructive, professional feedback for a subcontractor who was not awarded a bid. Be specific but kind. Do not mention the winning sub or their price.",
-                  messages: [
-                    {
-                      role: "user",
-                      content: `Project: ${pkg.name}\nSub: ${loser.sub_company}\nTheir bid total: $${proposal.parsed_data.totalBid || "N/A"}\nExclusions: ${(proposal.parsed_data.exclusions || []).join(", ") || "None noted"}\nQualifications: ${(proposal.parsed_data.qualifications || []).join(", ") || "None noted"}`,
-                    },
-                  ],
-                });
-                feedback = resp.content?.[0]?.text || "";
-              }
+          // Compute structured post-loss feedback
+          let postLossFeedback = null;
+          if (parsedData) {
+            const exclusionList = parsedData.exclusions || [];
+            // Simplified coverage: count divisions covered vs total estimate divisions
+            const estimateDivisions = new Set();
+            const proposalDivisions = new Set();
+            for (const it of estimateItems) {
+              if (it.code) estimateDivisions.add(it.code.split(".")[0]);
+            }
+            for (const li of (parsedData.lineItems || [])) {
+              if (li.csiCode) proposalDivisions.add(li.csiCode.split(".")[0]);
+            }
+            const coveredCount = [...estimateDivisions].filter(d => proposalDivisions.has(d)).length;
+            const coveragePct = estimateDivisions.size > 0 ? Math.round((coveredCount / estimateDivisions.size) * 100) : null;
+
+            postLossFeedback = {
+              coverage_pct: coveragePct,
+              exclusion_count: exclusionList.length,
+              exclusion_list: exclusionList.slice(0, 10), // cap at 10
+              price_quartile: getQuartile(parsedData.totalBid),
+              total_proposals: allBidTotals.length,
+            };
+          }
+
+          if (anthropicKey && parsedData) {
+            try {
+              const client = new Anthropic({ apiKey: anthropicKey });
+              const resp = await client.messages.create({
+                model: "claude-sonnet-4-20250514",
+                max_tokens: 200,
+                system:
+                  "Write 2-3 sentences of constructive, professional feedback for a subcontractor who was not awarded a bid. Be specific but kind. Do not mention the winning sub or their price.",
+                messages: [
+                  {
+                    role: "user",
+                    content: `Project: ${pkg.name}\nSub: ${loser.sub_company}\nTheir bid total: $${parsedData.totalBid || "N/A"}\nExclusions: ${(parsedData.exclusions || []).join(", ") || "None noted"}\nQualifications: ${(parsedData.qualifications || []).join(", ") || "None noted"}`,
+                  },
+                ],
+              });
+              feedback = resp.content?.[0]?.text || "";
+              if (postLossFeedback) postLossFeedback.ai_narrative = feedback;
             } catch (aiErr) {
               console.warn("[award-bid] AI feedback failed for", loser.sub_email, aiErr.message);
             }
           }
 
-          // Save feedback
-          if (feedback) {
+          // Save feedback + structured post-loss data
+          const updateFields = {};
+          if (feedback) updateFields.feedback_notes = feedback;
+          if (postLossFeedback) updateFields.post_loss_feedback = postLossFeedback;
+
+          if (Object.keys(updateFields).length > 0) {
             supabaseAdmin
               .from("bid_invitations")
-              .update({ feedback_notes: feedback })
+              .update(updateFields)
               .eq("id", loser.id)
               .then(({ error }) => {
                 if (error) console.warn("[award-bid] Save feedback failed:", error);

@@ -30,17 +30,23 @@ const OPENED_SET = new Set(["opened", "downloaded"]);
 const SUBMITTED_SET = new Set(["submitted", "parsed", "awarded", "not_awarded"]);
 
 function ResponseProgressBar({ invites }) {
+  const subResponseIntents = useBidPackagesStore(s => s.subResponseIntents);
   if (!invites || invites.length === 0) return null;
   const total = invites.length;
   let sentOnly = 0;
   let opened = 0;
   let submitted = 0;
+  let bidding = 0;
+  let reviewing = 0;
   for (const inv of invites) {
+    const intent = subResponseIntents?.[inv.id]?.intent;
     if (SUBMITTED_SET.has(inv.status)) submitted++;
+    else if (intent === "bidding") bidding++;
+    else if (intent === "reviewing") reviewing++;
     else if (OPENED_SET.has(inv.status)) opened++;
     else if (inv.status === "sent") sentOnly++;
   }
-  const active = sentOnly + opened + submitted;
+  const active = sentOnly + opened + submitted + bidding + reviewing;
   if (active === 0) return null;
   return (
     <div
@@ -52,13 +58,19 @@ function ResponseProgressBar({ invites }) {
         background: "rgba(255,255,255,0.06)",
         marginBottom: 8,
       }}
-      title={`${submitted} submitted · ${opened} opened · ${sentOnly} awaiting`}
+      title={`${submitted} submitted · ${bidding} bidding · ${reviewing} reviewing · ${opened} opened · ${sentOnly} awaiting`}
     >
       {submitted > 0 && (
-        <div style={{ width: `${(submitted / total) * 100}%`, background: "#30D158", transition: "width 300ms" }} />
+        <div style={{ width: `${(submitted / total) * 100}%`, background: "#BF5AF2", transition: "width 300ms" }} />
+      )}
+      {bidding > 0 && (
+        <div style={{ width: `${(bidding / total) * 100}%`, background: "#30D158", transition: "width 300ms" }} />
+      )}
+      {reviewing > 0 && (
+        <div style={{ width: `${(reviewing / total) * 100}%`, background: "#FF9F0A", transition: "width 300ms" }} />
       )}
       {opened > 0 && (
-        <div style={{ width: `${(opened / total) * 100}%`, background: "#FF9F0A", transition: "width 300ms" }} />
+        <div style={{ width: `${(opened / total) * 100}%`, background: "#64D2FF", transition: "width 300ms" }} />
       )}
       {sentOnly > 0 && (
         <div style={{ width: `${(sentOnly / total) * 100}%`, background: "#8E8E93", transition: "width 300ms" }} />
@@ -74,8 +86,39 @@ const fmtShort = v => {
   return `$${Math.round(v)}`;
 };
 
+const INTENT_BADGE = {
+  bidding: { color: "#30D158", label: "Bidding", pulse: true },
+  reviewing: { color: "#FF9F0A", label: "Reviewing", pulse: false },
+  pass: { color: "#8E8E93", label: "Passed", pulse: false },
+};
+
+function IntentBadge({ intent, reason }) {
+  const cfg = INTENT_BADGE[intent];
+  if (!cfg) return null;
+  return (
+    <span
+      title={intent === "pass" && reason ? `Reason: ${reason}` : undefined}
+      style={{
+        background: `${cfg.color}15`,
+        color: cfg.color,
+        padding: "1px 6px",
+        borderRadius: 4,
+        fontSize: 9,
+        fontWeight: 700,
+        textTransform: "uppercase",
+        letterSpacing: 0.3,
+        ...(cfg.pulse ? { animation: "intentPulse 2s ease-in-out infinite" } : {}),
+      }}
+    >
+      {cfg.label}
+    </span>
+  );
+}
+
 function InvitationRow({ inv, proposal, gapReport, onResend, onViewProposal }) {
   const C = useTheme();
+  const subResponseIntents = useBidPackagesStore(s => s.subResponseIntents);
+  const intentData = subResponseIntents?.[inv.id];
   const hasProposal = proposal?.parsedData && Object.keys(proposal.parsedData).length > 0;
   const pd = hasProposal ? proposal.parsedData : null;
   const score = gapReport?.coverageScore;
@@ -130,6 +173,7 @@ function InvitationRow({ inv, proposal, gapReport, onResend, onViewProposal }) {
         </div>
       )}
 
+      {intentData?.intent && <IntentBadge intent={intentData.intent} reason={intentData.reason} />}
       <StatusPill status={inv.status} />
       {hasProposal && onViewProposal && (
         <button
