@@ -1,11 +1,10 @@
 /**
- * useSessionAwareness — Multi-device session indicator via Supabase Presence
+ * useSessionAwareness — Multi-device session detection + single-session enforcement
  *
- * Shows when the same account is open on other devices/tabs (informational only).
- * Uses Supabase Realtime Presence channels — no database tables needed.
- *
- * Each tab joins a user-scoped presence channel with its own tabId.
- * On presence sync, other tabs' device info is surfaced in uiStore.otherSessions.
+ * Two responsibilities:
+ * 1. INFORMATIONAL: Shows when the same account is open on other devices/tabs via Supabase Presence
+ * 2. ENFORCEMENT: Polls DB to verify this session is still active. If another device signs in,
+ *    this session auto-signs-out within 30s (or immediately on tab refocus).
  */
 
 import { useEffect, useRef } from "react";
@@ -40,9 +39,40 @@ function getDeviceInfo() {
   return { device, browser };
 }
 
+// ── Session enforcement: check if this tab's token matches the DB ──
+async function checkSessionValid(userId) {
+  if (!supabase || !userId) return true;
+  const localToken = sessionStorage.getItem("bldg-session-token");
+  if (!localToken) return true; // No token yet (first load, table doesn't exist)
+
+  try {
+    const { data, error } = await supabase
+      .from("user_active_session")
+      .select("session_token")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    // Table doesn't exist (42P01) or no row = allow (graceful degradation)
+    if (error) {
+      if (error.code === "42P01") return true; // table not created yet
+      console.warn("[sessionAwareness] check error:", error.message);
+      return true;
+    }
+    if (!data) return true; // No row = no enforcement
+
+    // If DB token doesn't match ours, another device took over
+    return data.session_token === localToken;
+  } catch (err) {
+    console.warn("[sessionAwareness] checkSessionValid failed:", err.message);
+    return true; // Network error = don't kick user out
+  }
+}
+
 export function useSessionAwareness() {
   const user = useAuthStore(s => s.user);
   const channelRef = useRef(null);
+  const intervalRef = useRef(null);
+  const kickedRef = useRef(false); // prevent double-signout
 
   useEffect(() => {
     if (!supabase || !user) return;
@@ -51,6 +81,7 @@ export function useSessionAwareness() {
     const tabId = getTabId();
     const { device, browser } = getDeviceInfo();
 
+    // ── 1. INFORMATIONAL: Presence channel for multi-device awareness ──
     const channel = supabase.channel(`user-session-${userId}`, {
       config: { presence: { key: tabId } },
     });
@@ -87,14 +118,49 @@ export function useSessionAwareness() {
 
     channelRef.current = channel;
 
+    // ── 2. ENFORCEMENT: Poll DB every 30s to verify this session is still active ──
+    const kickSession = () => {
+      if (kickedRef.current) return;
+      kickedRef.current = true;
+      console.warn("[sessionAwareness] Session superseded by another device — signing out");
+      // Show alert so user knows why they were signed out
+      setTimeout(() => {
+        alert("You've been signed out because your account was accessed from another device.");
+      }, 100);
+      useAuthStore.getState().signOut();
+    };
+
+    const runCheck = async () => {
+      const valid = await checkSessionValid(userId);
+      if (!valid) kickSession();
+    };
+
+    // Poll every 30 seconds
+    intervalRef.current = setInterval(runCheck, 30000);
+
+    // Also check immediately when tab regains focus
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        runCheck();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    // ── Cleanup ──
     return () => {
-      // Clear other sessions on unmount
+      // Stop polling
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      document.removeEventListener("visibilitychange", onVisibility);
+
+      // Clear presence
       useUiStore.getState().setOtherSessions([]);
 
       const ch = channelRef.current;
       channelRef.current = null;
       if (ch) {
-        // Untrack first, then remove channel
         ch.untrack().then(() => {
           setTimeout(() => {
             try { supabase?.removeChannel(ch); } catch {}
