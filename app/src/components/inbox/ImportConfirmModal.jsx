@@ -567,7 +567,7 @@ export default function ImportConfirmModal({
                   style={bt(C, { padding: "10px 28px", background: C.accent, color: "#fff", fontSize: T.fontSize.sm })}
                   onClick={() => {
                     if (destination === "bidPackages") {
-                      window.__importNav?.(`/estimate/${createdEstimateId}/bids`);
+                      window.__importNav?.(`/estimate/${createdEstimateId}/network`);
                     } else {
                       window.__importNav?.(`/estimate/${createdEstimateId}/info`);
                     }

@@ -116,57 +116,72 @@ export function previewNovaTool(toolName, toolInput) {
     case "add_line_items": {
       const rawItems = toolInput?.items;
       const items = Array.isArray(rawItems) ? rawItems : rawItems ? [rawItems] : [];
-      return items.filter(ni => ni.description).map(ni => ({
-        type: "add",
-        description: ni.description,
-        code: ni.code || "",
-        division: ni.division || divFromCode(ni.code) || "",
-        quantity: nn(ni.quantity) || 1,
-        unit: ni.unit || "EA",
-        material: nn(ni.material),
-        labor: nn(ni.labor),
-        equipment: nn(ni.equipment),
-        subcontractor: nn(ni.subcontractor),
-        specSection: ni.specSection || "",
-        notes: ni.notes || "",
-        _raw: ni,
-      }));
+      return items
+        .filter(ni => ni.description)
+        .map(ni => ({
+          type: "add",
+          description: ni.description,
+          code: ni.code || "",
+          division: ni.division || divFromCode(ni.code) || "",
+          quantity: nn(ni.quantity) || 1,
+          unit: ni.unit || "EA",
+          material: nn(ni.material),
+          labor: nn(ni.labor),
+          equipment: nn(ni.equipment),
+          subcontractor: nn(ni.subcontractor),
+          specSection: ni.specSection || "",
+          notes: ni.notes || "",
+          _raw: ni,
+        }));
     }
     case "update_line_items": {
       const rawUpdates = toolInput?.updates;
       const updates = Array.isArray(rawUpdates) ? rawUpdates : rawUpdates ? [rawUpdates] : [];
-      return updates.map(upd => {
-        const item = store.items.find(i => i.id === upd.item_id);
-        if (!item) return { type: "update", itemId: upd.item_id, notFound: true, _raw: upd };
-        const changes = {};
-        const costFields = ["material", "labor", "equipment", "subcontractor"];
-        const stringFields = ["code", "description", "division", "trade", "unit", "notes", "drawingRef", "specSection", "specText", "bidContext"];
-        for (const f of [...stringFields, ...costFields, "quantity"]) {
-          if (upd[f] === undefined) continue;
-          let val = upd[f];
-          if (costFields.includes(f)) val = clampCost(val);
-          if (f === "quantity") val = clampQty(val);
-          if (val !== item[f]) changes[f] = { before: item[f], after: val };
-        }
-        return {
-          type: "update",
-          itemId: upd.item_id,
-          description: item.description,
-          code: item.code,
-          changes,
-          _raw: upd,
-        };
-      }).filter(p => !p.notFound && Object.keys(p.changes || {}).length > 0);
+      return updates
+        .map(upd => {
+          const item = store.items.find(i => i.id === upd.item_id);
+          if (!item) return { type: "update", itemId: upd.item_id, notFound: true, _raw: upd };
+          const changes = {};
+          const costFields = ["material", "labor", "equipment", "subcontractor"];
+          const stringFields = [
+            "code",
+            "description",
+            "division",
+            "trade",
+            "unit",
+            "notes",
+            "drawingRef",
+            "specSection",
+            "specText",
+            "bidContext",
+          ];
+          for (const f of [...stringFields, ...costFields, "quantity"]) {
+            if (upd[f] === undefined) continue;
+            let val = upd[f];
+            if (costFields.includes(f)) val = clampCost(val);
+            if (f === "quantity") val = clampQty(val);
+            if (val !== item[f]) changes[f] = { before: item[f], after: val };
+          }
+          return {
+            type: "update",
+            itemId: upd.item_id,
+            description: item.description,
+            code: item.code,
+            changes,
+            _raw: upd,
+          };
+        })
+        .filter(p => !p.notFound && Object.keys(p.changes || {}).length > 0);
     }
     case "remove_line_items": {
       const rawIds = toolInput?.item_ids;
       const ids = Array.isArray(rawIds) ? rawIds : rawIds ? [rawIds] : [];
-      return [...new Set(ids)].map(id => {
-        const item = store.items.find(i => i.id === id);
-        return item
-          ? { type: "remove", itemId: id, description: item.description, code: item.code }
-          : null;
-      }).filter(Boolean);
+      return [...new Set(ids)]
+        .map(id => {
+          const item = store.items.find(i => i.id === id);
+          return item ? { type: "remove", itemId: id, description: item.description, code: item.code } : null;
+        })
+        .filter(Boolean);
     }
     default:
       return [];

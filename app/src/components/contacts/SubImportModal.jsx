@@ -84,19 +84,21 @@ Only include actual construction companies, vendors, or subcontractors. Skip gen
       .split("\n")
       .map(l => l.trim())
       .filter(l => l);
-    const parsed = lines.map(line => {
-      // Try pipe-delimited first, then comma
-      const delim = line.includes("|") ? "|" : ",";
-      const parts = line.split(delim).map(p => p.trim());
-      return {
-        company: parts[0] || "",
-        contact: parts[1] || "",
-        email: parts[2] || "",
-        phone: parts[3] || "",
-        trades: [],
-        tradeSource: "none",
-      };
-    }).filter(r => r.company);
+    const parsed = lines
+      .map(line => {
+        // Try pipe-delimited first, then comma
+        const delim = line.includes("|") ? "|" : ",";
+        const parts = line.split(delim).map(p => p.trim());
+        return {
+          company: parts[0] || "",
+          contact: parts[1] || "",
+          email: parts[2] || "",
+          phone: parts[3] || "",
+          trades: [],
+          tradeSource: "none",
+        };
+      })
+      .filter(r => r.company);
     applyFuzzyTrades(parsed);
     setRows(parsed);
     setSelected(new Set(parsed.map((_, i) => i).filter(i => !isDuplicate(parsed[i].company))));
@@ -148,8 +150,14 @@ Only include actual construction companies, vendors, or subcontractors. Skip gen
     const reader = new FileReader();
     reader.onload = ev => {
       const text = ev.target.result;
-      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l);
-      if (lines.length < 2) { showToast("CSV appears empty", "error"); return; }
+      const lines = text
+        .split(/\r?\n/)
+        .map(l => l.trim())
+        .filter(l => l);
+      if (lines.length < 2) {
+        showToast("CSV appears empty", "error");
+        return;
+      }
 
       // Detect delimiter: tab, semicolon, or comma
       const headerLine = lines[0];
@@ -157,7 +165,7 @@ Only include actual construction companies, vendors, or subcontractors. Skip gen
       const headers = parseCSVRow(headerLine, delim).map(h => h.toLowerCase());
 
       // Priority-based column detection — try exact/specific matches first
-      const findCol = (pats) => {
+      const findCol = pats => {
         for (const pat of pats) {
           const idx = headers.findIndex(h => pat.test(h));
           if (idx !== -1) return idx;
@@ -166,37 +174,40 @@ Only include actual construction companies, vendors, or subcontractors. Skip gen
       };
 
       const colIdx = {
-        company:  findCol([/^company$/i, /\bcompany\b/i, /\bfirm\b/i]),
-        contact:  findCol([/^contact$/i, /\bcontact\b/i, /^first\s*name$/i, /\bfirst\s*name\b/i]),
+        company: findCol([/^company$/i, /\bcompany\b/i, /\bfirm\b/i]),
+        contact: findCol([/^contact$/i, /\bcontact\b/i, /^first\s*name$/i, /\bfirst\s*name\b/i]),
         lastName: findCol([/^last\s*name$/i, /\blast\s*name\b/i]),
-        email:    findCol([/\bemail\b/i, /\be-mail\b/i]),
-        phone:    findCol([/\bbusiness\s*phone\b/i, /\bphone\b/i, /\btel\b/i, /\bmobile\b/i]),
-        trade:    findCol([/^trade/i, /\btrade/i, /\bscope\b/i, /\bdivision\b/i, /\bspecialt/i]),
+        email: findCol([/\bemail\b/i, /\be-mail\b/i]),
+        phone: findCol([/\bbusiness\s*phone\b/i, /\bphone\b/i, /\btel\b/i, /\bmobile\b/i]),
+        trade: findCol([/^trade/i, /\btrade/i, /\bscope\b/i, /\bdivision\b/i, /\bspecialt/i]),
       };
       // If no company column found, use first column
       if (colIdx.company === -1) colIdx.company = 0;
 
-      const parsed = lines.slice(1).map(line => {
-        const cols = parseCSVRow(line, delim);
-        const rawTrade = colIdx.trade >= 0 ? cols[colIdx.trade] || "" : "";
-        // Combine first + last name for contact if both columns exist
-        let contact = colIdx.contact >= 0 ? cols[colIdx.contact] || "" : "";
-        if (colIdx.lastName >= 0 && cols[colIdx.lastName] && cols[colIdx.lastName] !== ".") {
-          const last = cols[colIdx.lastName] || "";
-          contact = contact ? `${contact} ${last}`.trim() : last;
-        }
-        // Clean up placeholder dots in contact names
-        if (contact === ".") contact = "";
-        return {
-          company: cols[colIdx.company] || "",
-          contact,
-          email: colIdx.email >= 0 ? cols[colIdx.email] || "" : "",
-          phone: colIdx.phone >= 0 ? cols[colIdx.phone] || "" : "",
-          trades: [],
-          rawTrade,
-          tradeSource: "none",
-        };
-      }).filter(r => r.company);
+      const parsed = lines
+        .slice(1)
+        .map(line => {
+          const cols = parseCSVRow(line, delim);
+          const rawTrade = colIdx.trade >= 0 ? cols[colIdx.trade] || "" : "";
+          // Combine first + last name for contact if both columns exist
+          let contact = colIdx.contact >= 0 ? cols[colIdx.contact] || "" : "";
+          if (colIdx.lastName >= 0 && cols[colIdx.lastName] && cols[colIdx.lastName] !== ".") {
+            const last = cols[colIdx.lastName] || "";
+            contact = contact ? `${contact} ${last}`.trim() : last;
+          }
+          // Clean up placeholder dots in contact names
+          if (contact === ".") contact = "";
+          return {
+            company: cols[colIdx.company] || "",
+            contact,
+            email: colIdx.email >= 0 ? cols[colIdx.email] || "" : "",
+            phone: colIdx.phone >= 0 ? cols[colIdx.phone] || "" : "",
+            trades: [],
+            rawTrade,
+            tradeSource: "none",
+          };
+        })
+        .filter(r => r.company);
 
       applyFuzzyTrades(parsed);
       setRows(parsed);
@@ -224,20 +235,32 @@ Only include actual construction companies, vendors, or subcontractors. Skip gen
   // ── Parse COMPANY blocks from AI output ─────────────────────────────
   const parseCompanyBlocks = text => {
     const blocks = text.split(/COMPANY:\s*/i).filter(b => b.trim());
-    return blocks.map(block => {
-      const lines = block.split("\n");
-      const company = (lines[0] || "").trim();
-      const contact = (lines.find(l => /^CONTACT:/i.test(l.trim())) || "").replace(/^CONTACT:\s*/i, "").trim();
-      const email = (lines.find(l => /^EMAIL:/i.test(l.trim())) || "").replace(/^EMAIL:\s*/i, "").trim();
-      const phone = (lines.find(l => /^PHONE:/i.test(l.trim())) || "").replace(/^PHONE:\s*/i, "").trim();
-      return { company, contact, email: email === "empty" ? "" : email, phone: phone === "empty" ? "" : phone, trades: [], tradeSource: "none" };
-    }).filter(r => r.company && r.company !== "empty");
+    return blocks
+      .map(block => {
+        const lines = block.split("\n");
+        const company = (lines[0] || "").trim();
+        const contact = (lines.find(l => /^CONTACT:/i.test(l.trim())) || "").replace(/^CONTACT:\s*/i, "").trim();
+        const email = (lines.find(l => /^EMAIL:/i.test(l.trim())) || "").replace(/^EMAIL:\s*/i, "").trim();
+        const phone = (lines.find(l => /^PHONE:/i.test(l.trim())) || "").replace(/^PHONE:\s*/i, "").trim();
+        return {
+          company,
+          contact,
+          email: email === "empty" ? "" : email,
+          phone: phone === "empty" ? "" : phone,
+          trades: [],
+          tradeSource: "none",
+        };
+      })
+      .filter(r => r.company && r.company !== "empty");
   };
 
   // ── NOVA Categorize unmatched ───────────────────────────────────────
   const novaCategorize = async () => {
     const unmatched = rows.filter((r, i) => selected.has(i) && r.trades.length === 0);
-    if (unmatched.length === 0) { showToast("All companies already have trades"); return; }
+    if (unmatched.length === 0) {
+      showToast("All companies already have trades");
+      return;
+    }
 
     setNovaLoading(true);
     try {
@@ -348,9 +371,10 @@ TRADES: [trade_key1, trade_key2]`,
     }));
 
     addBulkSubs(subs);
-    const msg = dupes.length > 0
-      ? `Imported ${fresh.length} subs (${dupes.length} duplicates skipped)`
-      : `Imported ${fresh.length} subcontractors`;
+    const msg =
+      dupes.length > 0
+        ? `Imported ${fresh.length} subs (${dupes.length} duplicates skipped)`
+        : `Imported ${fresh.length} subcontractors`;
     showToast(msg);
     onClose();
   };
@@ -368,7 +392,15 @@ TRADES: [trade_key1, trade_key2]`,
 
   return (
     <div
-      style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center" }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 1000,
+        background: "rgba(0,0,0,0.5)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
       onClick={onClose}
     >
       <div
@@ -386,9 +418,22 @@ TRADES: [trade_key1, trade_key2]`,
         }}
       >
         {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: `1px solid ${C.border}` }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: C.text, fontFamily: T.font.sans }}>Import Subcontractors</div>
-          <button onClick={onClose} style={{ background: "transparent", border: "none", cursor: "pointer", padding: 4 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "16px 20px",
+            borderBottom: `1px solid ${C.border}`,
+          }}
+        >
+          <div style={{ fontSize: 15, fontWeight: 700, color: C.text, fontFamily: T.font.sans }}>
+            Import Subcontractors
+          </div>
+          <button
+            onClick={onClose}
+            style={{ background: "transparent", border: "none", cursor: "pointer", padding: 4 }}
+          >
             <Ic d={I.x} size={16} color={C.textDim} />
           </button>
         </div>
@@ -398,7 +443,11 @@ TRADES: [trade_key1, trade_key2]`,
           {modes.map(m => (
             <button
               key={m.key}
-              onClick={() => { setMode(m.key); setRows([]); setRawText(""); }}
+              onClick={() => {
+                setMode(m.key);
+                setRows([]);
+                setRawText("");
+              }}
               style={bt(C, {
                 padding: "5px 12px",
                 fontSize: 11,
@@ -427,7 +476,9 @@ TRADES: [trade_key1, trade_key2]`,
                 onChange={handleCSV}
                 style={{ fontSize: 12, fontFamily: T.font.sans, color: C.text }}
               />
-              <span style={{ fontSize: 10, color: C.textDim }}>CSV with headers: company, contact, email, phone, trade</span>
+              <span style={{ fontSize: 10, color: C.textDim }}>
+                CSV with headers: company, contact, email, phone, trade
+              </span>
             </div>
           ) : (
             <>
@@ -467,11 +518,18 @@ TRADES: [trade_key1, trade_key2]`,
                 >
                   {parseLoading ? (
                     <>
-                      <span style={{
-                        display: "inline-block", width: 10, height: 10,
-                        border: "2px solid #fff3", borderTop: "2px solid #fff",
-                        borderRadius: "50%", animation: "spin 0.8s linear infinite", marginRight: 6,
-                      }} />
+                      <span
+                        style={{
+                          display: "inline-block",
+                          width: 10,
+                          height: 10,
+                          border: "2px solid #fff3",
+                          borderTop: "2px solid #fff",
+                          borderRadius: "50%",
+                          animation: "spin 0.8s linear infinite",
+                          marginRight: 6,
+                        }}
+                      />
                       {mode === "freeform" ? "NOVA Parsing..." : "Parsing..."}
                     </>
                   ) : (
@@ -487,19 +545,22 @@ TRADES: [trade_key1, trade_key2]`,
         {rows.length > 0 && (
           <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
             {/* Stats bar */}
-            <div style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "6px 20px", borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`,
-              background: dk ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)", flexShrink: 0,
-            }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "6px 20px",
+                borderTop: `1px solid ${C.border}`,
+                borderBottom: `1px solid ${C.border}`,
+                background: dk ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
+                flexShrink: 0,
+              }}
+            >
               <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 10, fontFamily: T.font.sans }}>
                 <span style={{ color: C.text, fontWeight: 600 }}>{rows.length} found</span>
-                {dupCount > 0 && (
-                  <span style={{ color: "#E67E22", fontWeight: 600 }}>{dupCount} duplicates</span>
-                )}
-                {unmatchedCount > 0 && (
-                  <span style={{ color: C.textDim }}>{unmatchedCount} need trades</span>
-                )}
+                {dupCount > 0 && <span style={{ color: "#E67E22", fontWeight: 600 }}>{dupCount} duplicates</span>}
+                {unmatchedCount > 0 && <span style={{ color: C.textDim }}>{unmatchedCount} need trades</span>}
               </div>
               {unmatchedCount > 0 && (
                 <button
@@ -509,7 +570,9 @@ TRADES: [trade_key1, trade_key2]`,
                     padding: "4px 10px",
                     fontSize: 10,
                     fontWeight: 600,
-                    background: novaLoading ? C.bg3 : `linear-gradient(135deg, ${C.accent}15, ${C.purple || C.accent}15)`,
+                    background: novaLoading
+                      ? C.bg3
+                      : `linear-gradient(135deg, ${C.accent}15, ${C.purple || C.accent}15)`,
                     border: `1px solid ${C.accent}25`,
                     color: C.accent,
                     cursor: novaLoading ? "default" : "pointer",
@@ -519,11 +582,18 @@ TRADES: [trade_key1, trade_key2]`,
                 >
                   {novaLoading ? (
                     <>
-                      <span style={{
-                        display: "inline-block", width: 8, height: 8,
-                        border: `1.5px solid ${C.accent}40`, borderTop: `1.5px solid ${C.accent}`,
-                        borderRadius: "50%", animation: "spin 0.8s linear infinite", marginRight: 4,
-                      }} />
+                      <span
+                        style={{
+                          display: "inline-block",
+                          width: 8,
+                          height: 8,
+                          border: `1.5px solid ${C.accent}40`,
+                          borderTop: `1.5px solid ${C.accent}`,
+                          borderRadius: "50%",
+                          animation: "spin 0.8s linear infinite",
+                          marginRight: 4,
+                        }}
+                      />
                       Categorizing...
                     </>
                   ) : (
@@ -536,30 +606,38 @@ TRADES: [trade_key1, trade_key2]`,
             </div>
 
             {/* Table header */}
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "28px 1fr 120px 140px 120px",
-              gap: 0,
-              padding: "4px 20px",
-              fontSize: 9,
-              fontWeight: 700,
-              color: C.textDim,
-              textTransform: "uppercase",
-              letterSpacing: 0.5,
-              fontFamily: T.font.sans,
-              borderBottom: `1px solid ${C.border}`,
-              flexShrink: 0,
-            }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "28px 1fr 120px 140px 120px",
+                gap: 0,
+                padding: "4px 20px",
+                fontSize: 9,
+                fontWeight: 700,
+                color: C.textDim,
+                textTransform: "uppercase",
+                letterSpacing: 0.5,
+                fontFamily: T.font.sans,
+                borderBottom: `1px solid ${C.border}`,
+                flexShrink: 0,
+              }}
+            >
               <span
                 onClick={toggleAll}
                 style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
               >
-                <span style={{
-                  width: 12, height: 12, borderRadius: 2,
-                  border: `1.5px solid ${selected.size === rows.length ? C.accent : C.border}`,
-                  background: selected.size === rows.length ? C.accent : "transparent",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
+                <span
+                  style={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: 2,
+                    border: `1.5px solid ${selected.size === rows.length ? C.accent : C.border}`,
+                    background: selected.size === rows.length ? C.accent : "transparent",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
                   {selected.size === rows.length && <Ic d={I.check} size={7} color="#fff" />}
                 </span>
               </span>
@@ -597,35 +675,80 @@ TRADES: [trade_key1, trade_key2]`,
                   >
                     {/* Checkbox */}
                     <span style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{
-                        width: 12, height: 12, borderRadius: 2,
-                        border: `1.5px solid ${isSelected ? C.accent : C.border}`,
-                        background: isSelected ? C.accent : "transparent",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        transition: "all 0.15s",
-                      }}>
+                      <span
+                        style={{
+                          width: 12,
+                          height: 12,
+                          borderRadius: 2,
+                          border: `1.5px solid ${isSelected ? C.accent : C.border}`,
+                          background: isSelected ? C.accent : "transparent",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          transition: "all 0.15s",
+                        }}
+                      >
                         {isSelected && <Ic d={I.check} size={7} color="#fff" />}
                       </span>
                     </span>
 
                     {/* Company */}
-                    <span style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 8 }}>
+                    <span
+                      style={{
+                        fontWeight: 600,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        paddingRight: 8,
+                      }}
+                    >
                       {r.company}
-                      {dup && <span style={{ fontSize: 8, color: "#E67E22", marginLeft: 4, fontWeight: 500, textDecoration: "none" }}>(dup)</span>}
+                      {dup && (
+                        <span
+                          style={{
+                            fontSize: 8,
+                            color: "#E67E22",
+                            marginLeft: 4,
+                            fontWeight: 500,
+                            textDecoration: "none",
+                          }}
+                        >
+                          (dup)
+                        </span>
+                      )}
                     </span>
 
                     {/* Contact */}
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: C.textDim, fontSize: 10 }}>
+                    <span
+                      style={{
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        color: C.textDim,
+                        fontSize: 10,
+                      }}
+                    >
                       {r.contact}
                     </span>
 
                     {/* Email */}
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: C.textDim, fontSize: 10 }}>
+                    <span
+                      style={{
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        color: C.textDim,
+                        fontSize: 10,
+                      }}
+                    >
                       {r.email}
                     </span>
 
                     {/* Trades */}
-                    <span style={{ display: "flex", flexWrap: "wrap", gap: 2, alignItems: "center" }} onClick={e => e.stopPropagation()}>
+                    <span
+                      style={{ display: "flex", flexWrap: "wrap", gap: 2, alignItems: "center" }}
+                      onClick={e => e.stopPropagation()}
+                    >
                       {r.trades.length > 0 ? (
                         r.trades.map(tk => (
                           <span
@@ -637,7 +760,8 @@ TRADES: [trade_key1, trade_key2]`,
                               fontWeight: 600,
                               padding: "1px 5px",
                               borderRadius: 4,
-                              background: r.tradeSource === "nova" ? `${C.accent}15` : `${TRADE_COLORS[tk] || C.accent}18`,
+                              background:
+                                r.tradeSource === "nova" ? `${C.accent}15` : `${TRADE_COLORS[tk] || C.accent}18`,
                               color: r.tradeSource === "nova" ? C.accent : TRADE_COLORS[tk] || C.text,
                               border: r.tradeSource === "nova" ? `1px solid ${C.accent}30` : "none",
                               cursor: "pointer",
@@ -660,10 +784,16 @@ TRADES: [trade_key1, trade_key2]`,
         )}
 
         {/* Footer */}
-        <div style={{
-          display: "flex", justifyContent: "flex-end", gap: 8,
-          padding: "12px 20px", borderTop: `1px solid ${C.border}`, flexShrink: 0,
-        }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 8,
+            padding: "12px 20px",
+            borderTop: `1px solid ${C.border}`,
+            flexShrink: 0,
+          }}
+        >
           <button
             onClick={onClose}
             style={bt(C, {

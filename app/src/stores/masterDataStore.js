@@ -155,10 +155,7 @@ export const useMasterDataStore = create((set, get) => ({
     set(s => ({
       masterData: {
         ...s.masterData,
-        subcontractors: [
-          ...(s.masterData.subcontractors || []),
-          ...subs.map(sub => ({ id: uid(), ...sub })),
-        ],
+        subcontractors: [...(s.masterData.subcontractors || []), ...subs.map(sub => ({ id: uid(), ...sub }))],
       },
     })),
 

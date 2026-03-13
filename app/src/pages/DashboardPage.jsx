@@ -19,6 +19,7 @@ import NewEstimateModal from "@/components/shared/NewEstimateModal";
 import NovaTerraLogo from "@/components/shared/NovaTerraLogo";
 import DashboardWidgets from "@/components/dashboard/DashboardWidgets";
 import OnboardingSequence from "@/components/onboarding/OnboardingSequence";
+import { useBidPackagesStore } from "@/stores/bidPackagesStore";
 
 const STATUSES = ["All", "Bidding", "Submitted", "Won", "Lost", "On Hold", "Cancelled"];
 
@@ -75,6 +76,16 @@ export default function DashboardPage() {
   const pending = companyEstimates.filter(e => e.status === "Submitted").length;
   const lost = companyEstimates.filter(e => e.status === "Lost").length;
   const winRate = won + lost > 0 ? ((won / (won + lost)) * 100).toFixed(0) + "%" : "N/A";
+
+  // Save Counter — total exposure caught across all bid packages
+  const scopeGapResults = useBidPackagesStore(s => s.scopeGapResults);
+  const exposureCaught = useMemo(() => {
+    let total = 0;
+    for (const r of Object.values(scopeGapResults || {})) {
+      total += r?.totalExposure || 0;
+    }
+    return total;
+  }, [scopeGapResults]);
 
   // Pipeline breakdown — scoped to active company
   const statusCounts = {};
@@ -155,6 +166,76 @@ export default function DashboardPage() {
       >
         Estimates
       </h1>
+
+      {/* Save Counter Hero */}
+      {exposureCaught > 0 ? (
+        <div
+          style={{
+            ...card(C),
+            marginBottom: T.space[5],
+            padding: "16px 20px",
+            borderLeft: `3px solid ${C.accent}`,
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            background: `linear-gradient(135deg, rgba(124,92,252,0.06), rgba(191,90,242,0.03))`,
+          }}
+        >
+          <div
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 12,
+              background: "rgba(124,92,252,0.12)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <Ic d={I.shield || I.check} size={22} color={C.accent} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 24, fontWeight: T.fontWeight.heavy, color: C.accent, letterSpacing: -0.5 }}>
+              {fmt(exposureCaught)}
+            </div>
+            <div style={{ fontSize: 12, color: C.textMuted, marginTop: 1 }}>
+              Scope exposure identified by NOVA across all bids
+            </div>
+          </div>
+          <div
+            style={{
+              padding: "4px 10px",
+              borderRadius: 6,
+              background: "rgba(124,92,252,0.1)",
+              color: C.accent,
+              fontSize: 10,
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: 0.5,
+            }}
+          >
+            Save Counter
+          </div>
+        </div>
+      ) : (
+        <div
+          style={{
+            ...card(C),
+            marginBottom: T.space[5],
+            padding: "14px 20px",
+            borderLeft: `3px solid ${C.border}`,
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+          }}
+        >
+          <Ic d={I.shield || I.check} size={18} color={C.textDim} />
+          <span style={{ fontSize: 12, color: C.textDim }}>
+            Send your first bid package to start catching scope gaps
+          </span>
+        </div>
+      )}
 
       {/* KPI Row */}
       <div
@@ -237,9 +318,7 @@ export default function DashboardPage() {
       )}
 
       {/* Dashboard Widgets — Health, Quick Actions, Deadlines, NOVA Insights */}
-      {companyEstimates.length > 0 && (
-        <DashboardWidgets estimates={companyEstimates} />
-      )}
+      {companyEstimates.length > 0 && <DashboardWidgets estimates={companyEstimates} />}
 
       {/* Upcoming Deadlines — staggered rows */}
       {upcoming.length > 0 && (
@@ -423,15 +502,11 @@ export default function DashboardPage() {
                       try {
                         useUiStore.getState().showToast("Recovering from cloud...", "info");
                         const result = await recoverFromCloud();
-                        useUiStore.getState().showToast(
-                          `Recovered ${result.recovered} project(s) from cloud`,
-                          "success",
-                        );
+                        useUiStore
+                          .getState()
+                          .showToast(`Recovered ${result.recovered} project(s) from cloud`, "success");
                       } catch (err) {
-                        useUiStore.getState().showToast(
-                          `Recovery failed: ${err.message}`,
-                          "error",
-                        );
+                        useUiStore.getState().showToast(`Recovery failed: ${err.message}`, "error");
                       }
                     }}
                     style={{

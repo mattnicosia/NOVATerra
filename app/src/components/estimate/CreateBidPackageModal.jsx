@@ -23,7 +23,7 @@ import { TradeBadge } from "@/components/contacts/TradeMultiSelect";
 import { CSI } from "@/constants/csi";
 import { generateScopeSheet } from "@/utils/scopeSheetGenerator";
 import { callAnthropic } from "@/utils/ai";
-import { preSendScopeAnalysis } from "@/utils/preSendAnalysis";
+import { enhancedPreSendAnalysis } from "@/utils/preSendAnalysis";
 
 const STEPS = [
   { key: "scope", label: "Select Scope", icon: I.estimate },
@@ -906,84 +906,128 @@ export default function CreateBidPackageModal({ onClose }) {
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 {/* Preferred subs section header */}
                 {filteredSubs.some(s => s.preferred) && (
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#FF9F0A", textTransform: "uppercase", letterSpacing: 0.5, padding: "6px 0 2px" }}>
+                  <div
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      color: "#FF9F0A",
+                      textTransform: "uppercase",
+                      letterSpacing: 0.5,
+                      padding: "6px 0 2px",
+                    }}
+                  >
                     Your Preferred
                   </div>
                 )}
-                {[...filteredSubs].sort((a, b) => (b.preferred ? 1 : 0) - (a.preferred ? 1 : 0)).map((sub, idx, arr) => {
-                  const sel = selectedSubs.includes(sub.id);
-                  const isMatch = matchedSubIds.has(sub.id);
-                  // Insert divider between preferred and non-preferred
-                  const showDivider = idx > 0 && arr[idx - 1]?.preferred && !sub.preferred;
-                  return (
-                    <div key={sub.id}>
-                      {showDivider && (
-                        <div style={{ fontSize: 10, fontWeight: 700, color: C.textMuted, textTransform: "uppercase", letterSpacing: 0.5, padding: "8px 0 2px", borderTop: `1px solid ${C.border}`, marginTop: 4 }}>
-                          All Subs
-                        </div>
-                      )}
-                      <div
-                        onClick={() => toggleSub(sub.id)}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 10,
-                          padding: "10px 12px",
-                          borderRadius: 8,
-                          cursor: "pointer",
-                          background: sel ? `${C.accent}10` : "rgba(255,255,255,0.03)",
-                          border: `1px solid ${sel ? C.accent + "40" : isMatch ? C.green + "30" : "transparent"}`,
-                          transition: "all 150ms",
-                        }}
-                      >
-                        <div style={checkboxStyle(sel)}>{sel && <Ic d={I.check} size={10} color="#fff" />}</div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            <span style={{ color: C.text, fontSize: 13, fontWeight: 500 }}>
-                              {sub.company || "Unknown Company"}
-                            </span>
-                            {sub.preferred && (
-                              <span style={{ fontSize: 8, fontWeight: 700, color: "#FF9F0A", background: "rgba(255,159,10,0.12)", padding: "1px 5px", borderRadius: 4 }}>
-                                PREFERRED
-                              </span>
-                            )}
-                            {isMatch && (
-                              <span
-                                style={{
-                                  fontSize: 8,
-                                  fontWeight: 700,
-                                  color: C.green,
-                                  background: `${C.green}15`,
-                                  padding: "1px 5px",
-                                  borderRadius: 4,
-                                }}
-                              >
-                                MATCH
-                              </span>
-                            )}
+                {[...filteredSubs]
+                  .sort((a, b) => (b.preferred ? 1 : 0) - (a.preferred ? 1 : 0))
+                  .map((sub, idx, arr) => {
+                    const sel = selectedSubs.includes(sub.id);
+                    const isMatch = matchedSubIds.has(sub.id);
+                    // Insert divider between preferred and non-preferred
+                    const showDivider = idx > 0 && arr[idx - 1]?.preferred && !sub.preferred;
+                    return (
+                      <div key={sub.id}>
+                        {showDivider && (
+                          <div
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              color: C.textMuted,
+                              textTransform: "uppercase",
+                              letterSpacing: 0.5,
+                              padding: "8px 0 2px",
+                              borderTop: `1px solid ${C.border}`,
+                              marginTop: 4,
+                            }}
+                          >
+                            All Subs
                           </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2, flexWrap: "wrap" }}>
-                            {(sub.trades || []).slice(0, 3).map(tk => (
-                              <TradeBadge key={tk} tradeKey={tk} size="xs" />
-                            ))}
-                            {(sub.trades || []).length > 3 && (
-                              <span style={{ fontSize: 9, color: C.textDim }}>+{(sub.trades || []).length - 3}</span>
-                            )}
-                            {sub.contact && <span style={{ color: C.textDim, fontSize: 10 }}> · {sub.contact}</span>}
-                          </div>
-                        </div>
-                        {/* Star toggle for preferred */}
-                        <button
-                          onClick={e => { e.stopPropagation(); toggleSubPreferred(sub.id); }}
-                          style={{ background: "none", border: "none", cursor: "pointer", padding: 4, fontSize: 16, color: sub.preferred ? "#FF9F0A" : C.textDim, transition: "color 150ms" }}
-                          title={sub.preferred ? "Remove from preferred" : "Mark as preferred"}
+                        )}
+                        <div
+                          onClick={() => toggleSub(sub.id)}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                            padding: "10px 12px",
+                            borderRadius: 8,
+                            cursor: "pointer",
+                            background: sel ? `${C.accent}10` : "rgba(255,255,255,0.03)",
+                            border: `1px solid ${sel ? C.accent + "40" : isMatch ? C.green + "30" : "transparent"}`,
+                            transition: "all 150ms",
+                          }}
                         >
-                          {sub.preferred ? "★" : "☆"}
-                        </button>
+                          <div style={checkboxStyle(sel)}>{sel && <Ic d={I.check} size={10} color="#fff" />}</div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <span style={{ color: C.text, fontSize: 13, fontWeight: 500 }}>
+                                {sub.company || "Unknown Company"}
+                              </span>
+                              {sub.preferred && (
+                                <span
+                                  style={{
+                                    fontSize: 8,
+                                    fontWeight: 700,
+                                    color: "#FF9F0A",
+                                    background: "rgba(255,159,10,0.12)",
+                                    padding: "1px 5px",
+                                    borderRadius: 4,
+                                  }}
+                                >
+                                  PREFERRED
+                                </span>
+                              )}
+                              {isMatch && (
+                                <span
+                                  style={{
+                                    fontSize: 8,
+                                    fontWeight: 700,
+                                    color: C.green,
+                                    background: `${C.green}15`,
+                                    padding: "1px 5px",
+                                    borderRadius: 4,
+                                  }}
+                                >
+                                  MATCH
+                                </span>
+                              )}
+                            </div>
+                            <div
+                              style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2, flexWrap: "wrap" }}
+                            >
+                              {(sub.trades || []).slice(0, 3).map(tk => (
+                                <TradeBadge key={tk} tradeKey={tk} size="xs" />
+                              ))}
+                              {(sub.trades || []).length > 3 && (
+                                <span style={{ fontSize: 9, color: C.textDim }}>+{(sub.trades || []).length - 3}</span>
+                              )}
+                              {sub.contact && <span style={{ color: C.textDim, fontSize: 10 }}> · {sub.contact}</span>}
+                            </div>
+                          </div>
+                          {/* Star toggle for preferred */}
+                          <button
+                            onClick={e => {
+                              e.stopPropagation();
+                              toggleSubPreferred(sub.id);
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              padding: 4,
+                              fontSize: 16,
+                              color: sub.preferred ? "#FF9F0A" : C.textDim,
+                              transition: "color 150ms",
+                            }}
+                            title={sub.preferred ? "Remove from preferred" : "Mark as preferred"}
+                          >
+                            {sub.preferred ? "★" : "☆"}
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
               </div>
             )}
           </div>
@@ -1093,11 +1137,13 @@ export default function CreateBidPackageModal({ onClose }) {
               {coverMessage && <ReviewRow label="Cover Message" value={coverMessage} />}
             </div>
 
-            {/* Pre-Send Scope Warnings */}
+            {/* Pre-Send Scope Warnings (static + historical) */}
             {(() => {
               const selectedEstItems = items.filter(i => selectedItems.includes(i.id));
-              const warnings = preSendScopeAnalysis(selectedEstItems, project?.jobType);
+              const allProposals = useBidPackagesStore.getState().proposals;
+              const warnings = enhancedPreSendAnalysis(selectedEstItems, project?.jobType, allProposals);
               if (warnings.length === 0) return null;
+              const historicalCount = warnings.filter(w => w.source === "historical").length;
               return (
                 <div
                   style={{
@@ -1111,21 +1157,64 @@ export default function CreateBidPackageModal({ onClose }) {
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                     <Ic d={I.warn} size={14} color="#FF9F0A" />
                     <span style={{ fontSize: 12, fontWeight: 700, color: "#FF9F0A" }}>
-                      NOVA flagged {warnings.length} division{warnings.length !== 1 ? "s" : ""} commonly excluded for {project?.jobType || "commercial"} projects
+                      NOVA flagged {warnings.length} division{warnings.length !== 1 ? "s" : ""} for{" "}
+                      {project?.jobType || "commercial"} projects
                     </span>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                     {warnings.map((w, i) => (
-                      <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, color: C.textMuted, lineHeight: 1.5 }}>
-                        <span style={{ color: w.riskLevel === "high" ? "#FF453A" : "#FF9F0A", fontWeight: 700, flexShrink: 0, fontSize: 10, marginTop: 2 }}>
+                      <div
+                        key={i}
+                        style={{
+                          display: "flex",
+                          alignItems: "flex-start",
+                          gap: 8,
+                          fontSize: 12,
+                          color: C.textMuted,
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        <span
+                          style={{
+                            color: w.riskLevel === "high" ? "#FF453A" : "#FF9F0A",
+                            fontWeight: 700,
+                            flexShrink: 0,
+                            fontSize: 10,
+                            marginTop: 2,
+                          }}
+                        >
                           {w.riskLevel === "high" ? "HIGH" : "MED"}
                         </span>
                         <span>
-                          <strong style={{ color: C.text }}>{w.division} {w.divisionName}</strong> — {w.warning}
+                          <strong style={{ color: C.text }}>
+                            {w.division} {w.divisionName}
+                          </strong>{" "}
+                          — {w.warning}
+                          {w.source === "historical" && (
+                            <span
+                              style={{
+                                marginLeft: 6,
+                                padding: "1px 6px",
+                                borderRadius: 4,
+                                background: "rgba(255,214,10,0.12)",
+                                color: "#FFD60A",
+                                fontSize: 10,
+                                fontWeight: 700,
+                              }}
+                            >
+                              FROM YOUR BID HISTORY
+                            </span>
+                          )}
                         </span>
                       </div>
                     ))}
                   </div>
+                  {historicalCount > 0 && (
+                    <div style={{ marginTop: 8, fontSize: 11, color: C.textDim }}>
+                      {historicalCount} warning{historicalCount !== 1 ? "s" : ""} based on patterns in your past bid
+                      data
+                    </div>
+                  )}
                 </div>
               );
             })()}

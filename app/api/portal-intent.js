@@ -48,10 +48,7 @@ export default async function handler(req, res) {
       intent_at: new Date().toISOString(),
     };
 
-    const { error: updateErr } = await supabaseAdmin
-      .from("bid_invitations")
-      .update(updates)
-      .eq("id", inv.id);
+    const { error: updateErr } = await supabaseAdmin.from("bid_invitations").update(updates).eq("id", inv.id);
 
     if (updateErr) {
       console.error("Intent update error:", updateErr);

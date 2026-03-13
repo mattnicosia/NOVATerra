@@ -79,7 +79,10 @@ export default function ContactsPage() {
   );
 
   const novaBatchCategorize = async () => {
-    if (uncategorizedSubs.length === 0) { showToast("All subs already have trades assigned"); return; }
+    if (uncategorizedSubs.length === 0) {
+      showToast("All subs already have trades assigned");
+      return;
+    }
     setNovaCatLoading(true);
     const tradeKeyList = TRADE_GROUPINGS.map(t => `${t.key} (${t.label})`).join(", ");
     const BATCH_SIZE = 80;
@@ -114,7 +117,10 @@ TRADES: [trade_key1, trade_key2]`,
           const name = (lines[0] || "").trim();
           const tradesLine = lines.find(l => /^TRADES:/i.test(l.trim())) || "";
           const tradeStr = tradesLine.replace(/^TRADES:\s*/i, "").trim();
-          const trades = tradeStr.split(/[,\s]+/).map(t => t.trim().toLowerCase()).filter(t => TRADE_KEYS.includes(t));
+          const trades = tradeStr
+            .split(/[,\s]+/)
+            .map(t => t.trim().toLowerCase())
+            .filter(t => TRADE_KEYS.includes(t));
           if (name && trades.length > 0) aiMap[name.toLowerCase()] = trades;
         });
 
@@ -468,28 +474,11 @@ TRADES: [trade_key1, trade_key2]`,
             </div>
             {activeTab === "subcontractors" && (
               <>
-              <button
-                onClick={() => setShowSubImport(true)}
-                className="ghost-btn"
-                style={bt(C, {
-                  background: `${accent}10`,
-                  color: accent,
-                  padding: "6px 14px",
-                  borderRadius: T.radius.sm,
-                  border: `1px solid ${accent}25`,
-                  fontSize: 12,
-                  fontWeight: 600,
-                })}
-              >
-                <Ic d={I.upload || I.plus} size={12} color={accent} /> Import Subs
-              </button>
-              {uncategorizedSubs.length > 0 && (
                 <button
-                  onClick={novaBatchCategorize}
-                  disabled={novaCatLoading}
+                  onClick={() => setShowSubImport(true)}
                   className="ghost-btn"
                   style={bt(C, {
-                    background: novaCatLoading ? C.bg3 : `linear-gradient(135deg, ${accent}12, ${C.purple || accent}12)`,
+                    background: `${accent}10`,
                     color: accent,
                     padding: "6px 14px",
                     borderRadius: T.radius.sm,
@@ -498,22 +487,48 @@ TRADES: [trade_key1, trade_key2]`,
                     fontWeight: 600,
                   })}
                 >
-                  {novaCatLoading ? (
-                    <>
-                      <span style={{
-                        display: "inline-block", width: 10, height: 10,
-                        border: `2px solid ${accent}40`, borderTop: `2px solid ${accent}`,
-                        borderRadius: "50%", animation: "spin 0.8s linear infinite", marginRight: 4,
-                      }} />
-                      {novaCatProgress || "Categorizing..."}
-                    </>
-                  ) : (
-                    <>
-                      <Ic d={I.ai} size={12} color={accent} /> NOVA Categorize ({uncategorizedSubs.length})
-                    </>
-                  )}
+                  <Ic d={I.upload || I.plus} size={12} color={accent} /> Import Subs
                 </button>
-              )}
+                {uncategorizedSubs.length > 0 && (
+                  <button
+                    onClick={novaBatchCategorize}
+                    disabled={novaCatLoading}
+                    className="ghost-btn"
+                    style={bt(C, {
+                      background: novaCatLoading
+                        ? C.bg3
+                        : `linear-gradient(135deg, ${accent}12, ${C.purple || accent}12)`,
+                      color: accent,
+                      padding: "6px 14px",
+                      borderRadius: T.radius.sm,
+                      border: `1px solid ${accent}25`,
+                      fontSize: 12,
+                      fontWeight: 600,
+                    })}
+                  >
+                    {novaCatLoading ? (
+                      <>
+                        <span
+                          style={{
+                            display: "inline-block",
+                            width: 10,
+                            height: 10,
+                            border: `2px solid ${accent}40`,
+                            borderTop: `2px solid ${accent}`,
+                            borderRadius: "50%",
+                            animation: "spin 0.8s linear infinite",
+                            marginRight: 4,
+                          }}
+                        />
+                        {novaCatProgress || "Categorizing..."}
+                      </>
+                    ) : (
+                      <>
+                        <Ic d={I.ai} size={12} color={accent} /> NOVA Categorize ({uncategorizedSubs.length})
+                      </>
+                    )}
+                  </button>
+                )}
               </>
             )}
             <button
@@ -811,12 +826,7 @@ TRADES: [trade_key1, trade_key2]`,
       </div>
 
       {/* Sub Import modal */}
-      {showSubImport && (
-        <SubImportModal
-          onClose={() => setShowSubImport(false)}
-          companyProfileId={companyTag}
-        />
-      )}
+      {showSubImport && <SubImportModal onClose={() => setShowSubImport(false)} companyProfileId={companyTag} />}
 
       {/* New Company modal */}
       {showNewCompanyModal && (

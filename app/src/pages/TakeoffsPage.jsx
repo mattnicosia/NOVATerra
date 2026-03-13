@@ -228,13 +228,19 @@ export default function TakeoffsPage() {
   const [checkDimMode, setCheckDimMode] = useState(false);
   const checkDimRef = useRef(false);
   // Labels visibility toggle
-  const [showMeasureLabels, setShowMeasureLabels] = useState(() => sessionStorage.getItem("bldg-showLabels") !== "false");
+  const [showMeasureLabels, setShowMeasureLabels] = useState(
+    () => sessionStorage.getItem("bldg-showLabels") !== "false",
+  );
   useEffect(() => {
     snapAngleOnRef.current = snapAngleOn;
     sessionStorage.setItem("bldg-snapAngle", snapAngleOn);
   }, [snapAngleOn]);
-  useEffect(() => { checkDimRef.current = checkDimMode; }, [checkDimMode]);
-  useEffect(() => { sessionStorage.setItem("bldg-showLabels", showMeasureLabels); }, [showMeasureLabels]);
+  useEffect(() => {
+    checkDimRef.current = checkDimMode;
+  }, [checkDimMode]);
+  useEffect(() => {
+    sessionStorage.setItem("bldg-showLabels", showMeasureLabels);
+  }, [showMeasureLabels]);
 
   // Cleanup RAF cursor on unmount
   useEffect(
@@ -3252,11 +3258,9 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
           border: `1px solid ${C.isDark ? "rgba(255,255,255,0.12)" : C.border}`,
           borderRadius: 6,
           padding: "5px 12px",
-          boxShadow: [
-            T.shadow.lg || "0 8px 24px rgba(0,0,0,0.35)",
-            T.glass.specularSm,
-            T.glass.edge,
-          ].filter(Boolean).join(", "),
+          boxShadow: [T.shadow.lg || "0 8px 24px rgba(0,0,0,0.35)", T.glass.specularSm, T.glass.edge]
+            .filter(Boolean)
+            .join(", "),
           backdropFilter: T.glass.blurLight || "blur(12px)",
           WebkitBackdropFilter: T.glass.blurLight || "blur(12px)",
           opacity: 0,
@@ -3266,166 +3270,280 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
         };
         return (
           <div style={{ width: RAIL_W, flexShrink: 0, position: "relative", zIndex: 40 }}>
-          {/* Floating rail pill — top aligned with GroupBar, bottom at screen midpoint */}
-          <div
-            style={{
-              position: "absolute",
-              top: 78,
-              left: 2,
-              width: RAIL_W - 4,
-              bottom: 20,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              paddingTop: 10,
-              paddingBottom: 10,
-              gap: 8,
-              background: C.sidebarBg || C.bg1,
-              backgroundImage: `linear-gradient(180deg, rgba(255,255,255,0.06) 0%, transparent 25%, transparent 85%, rgba(0,0,0,0.06) 100%)`,
-              border: `1px solid ${C.isDark ? "rgba(255,255,255,0.10)" : C.border}`,
-              borderRadius: 14,
-              boxShadow: [
-                "0 4px 24px rgba(0,0,0,0.45)",
-                "0 2px 8px rgba(0,0,0,0.30)",
-                T.glass.specular,
-                T.glass.innerDepth,
-                T.glass.specularBottom,
-                T.glass.edge,
-              ].filter(Boolean).join(", "),
-              backdropFilter: T.glass.blurLight || "blur(12px)",
-              WebkitBackdropFilter: T.glass.blurLight || "blur(12px)",
-              transition: "top 0.2s ease-out",
-            }}
-          >
-            {/* View cycle button */}
-            <div className="rail-btn-wrap" style={{ position: "relative", display: "flex", alignItems: "center" }}>
-              <button
-                className="icon-btn rail-btn"
-                title={`${current.label} → ${nextMode.label}`}
-                onClick={cycleTier}
-                style={{
-                  width: 28,
-                  height: 28,
-                  border: `1px solid ${current.bars > 0 ? (C.accent + "50") : (C.isDark ? "rgba(255,255,255,0.12)" : C.border)}`,
-                  background: current.bars > 0 ? (C.accent + "18") : (C.isDark ? "rgba(255,255,255,0.06)" : C.bg2),
-                  borderRadius: 6,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 1.5,
-                  padding: 0,
-                  flexShrink: 0,
-                  boxShadow: [
-                    T.shadow.sm,
-                    T.glass.specularSm,
-                    current.bars > 0 ? `0 0 8px ${C.accent}20` : null,
-                  ].filter(Boolean).join(", "),
-                }}
-              >
-                {current.bars === 0 ? (
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="3" width="7" height="18" rx="1" />
-                    <path d="M14 3h7M14 9h7M14 15h5" />
-                  </svg>
-                ) : (
-                  Array.from({ length: current.bars }).map((_, i) => (
-                    <div key={i} style={{ width: 2.5, height: 10, borderRadius: 1, background: C.accent }} />
-                  ))
-                )}
-              </button>
-              <span className="rail-label" style={railLabelStyle}>{current.label}</span>
+            {/* Floating rail pill — top aligned with GroupBar, bottom at screen midpoint */}
+            <div
+              style={{
+                position: "absolute",
+                top: 78,
+                left: 2,
+                width: RAIL_W - 4,
+                bottom: 20,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                paddingTop: 10,
+                paddingBottom: 10,
+                gap: 8,
+                background: C.sidebarBg || C.bg1,
+                backgroundImage: `linear-gradient(180deg, rgba(255,255,255,0.06) 0%, transparent 25%, transparent 85%, rgba(0,0,0,0.06) 100%)`,
+                border: `1px solid ${C.isDark ? "rgba(255,255,255,0.10)" : C.border}`,
+                borderRadius: 14,
+                boxShadow: [
+                  "0 4px 24px rgba(0,0,0,0.45)",
+                  "0 2px 8px rgba(0,0,0,0.30)",
+                  T.glass.specular,
+                  T.glass.innerDepth,
+                  T.glass.specularBottom,
+                  T.glass.edge,
+                ]
+                  .filter(Boolean)
+                  .join(", "),
+                backdropFilter: T.glass.blurLight || "blur(12px)",
+                WebkitBackdropFilter: T.glass.blurLight || "blur(12px)",
+                transition: "top 0.2s ease-out",
+              }}
+            >
+              {/* View cycle button */}
+              <div className="rail-btn-wrap" style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                <button
+                  className="icon-btn rail-btn"
+                  title={`${current.label} → ${nextMode.label}`}
+                  onClick={cycleTier}
+                  style={{
+                    width: 28,
+                    height: 28,
+                    border: `1px solid ${current.bars > 0 ? C.accent + "50" : C.isDark ? "rgba(255,255,255,0.12)" : C.border}`,
+                    background: current.bars > 0 ? C.accent + "18" : C.isDark ? "rgba(255,255,255,0.06)" : C.bg2,
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 1.5,
+                    padding: 0,
+                    flexShrink: 0,
+                    boxShadow: [T.shadow.sm, T.glass.specularSm, current.bars > 0 ? `0 0 8px ${C.accent}20` : null]
+                      .filter(Boolean)
+                      .join(", "),
+                  }}
+                >
+                  {current.bars === 0 ? (
+                    <svg
+                      width="13"
+                      height="13"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke={C.textMuted}
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect x="3" y="3" width="7" height="18" rx="1" />
+                      <path d="M14 3h7M14 9h7M14 15h5" />
+                    </svg>
+                  ) : (
+                    Array.from({ length: current.bars }).map((_, i) => (
+                      <div key={i} style={{ width: 2.5, height: 10, borderRadius: 1, background: C.accent }} />
+                    ))
+                  )}
+                </button>
+                <span className="rail-label" style={railLabelStyle}>
+                  {current.label}
+                </span>
+              </div>
+
+              {/* ── Tools — organized by Jony's 4-group layout ── */}
+              {tkPanelTier !== "estimate" &&
+                (() => {
+                  const isSelecting = tkMeasureState === "idle" && !checkDimMode && tkTool !== "calibrate";
+                  const railBtn = active => ({
+                    width: 28,
+                    height: 28,
+                    border: `1px solid ${active ? C.accent + "50" : C.isDark ? "rgba(255,255,255,0.12)" : C.border}`,
+                    background: active ? C.accent + "18" : C.isDark ? "rgba(255,255,255,0.06)" : C.bg2,
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: 0,
+                    flexShrink: 0,
+                    boxShadow: [T.shadow.sm, T.glass.specularSm, active ? `0 0 8px ${C.accent}20` : null]
+                      .filter(Boolean)
+                      .join(", "),
+                  });
+                  const ico = active => ({
+                    width: 13,
+                    height: 13,
+                    viewBox: "0 0 24 24",
+                    fill: "none",
+                    stroke: active ? C.accent : C.textMuted,
+                    strokeWidth: "2",
+                    strokeLinecap: "round",
+                    strokeLinejoin: "round",
+                  });
+                  const sepStyle = {
+                    width: 20,
+                    height: 1,
+                    background: C.isDark ? "rgba(255,255,255,0.08)" : C.border,
+                    flexShrink: 0,
+                    boxShadow: "0 1px 0 rgba(0,0,0,0.2)",
+                  };
+
+                  /* ── MODE GROUP: Select ── */
+                  const modeTools = [
+                    {
+                      id: "select",
+                      label: "Select",
+                      active: isSelecting,
+                      action: () => {
+                        setCheckDimMode(false);
+                        setTkTool("select");
+                        setTkMeasureState("idle");
+                        setTkActivePoints([]);
+                      },
+                      icon: (
+                        <svg {...ico(isSelecting)}>
+                          <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z" />
+                          <path d="M13 13l6 6" />
+                        </svg>
+                      ),
+                    },
+                  ];
+
+                  /* ── ACTIVE TOOLS: Snap, Labels, Check Dim ── */
+                  const activeTools = [
+                    {
+                      id: "snap",
+                      label: snapAngleOn ? "Snap ON" : "Snap Angle",
+                      active: snapAngleOn,
+                      action: () => setSnapAngleOn(v => !v),
+                      icon: (
+                        <svg {...ico(snapAngleOn)}>
+                          <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
+                          <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                          <line x1="12" y1="22.08" x2="12" y2="12" />
+                        </svg>
+                      ),
+                    },
+                    {
+                      id: "labels",
+                      label: showMeasureLabels ? "Labels ON" : "Labels OFF",
+                      active: showMeasureLabels,
+                      action: () => setShowMeasureLabels(v => !v),
+                      icon: (
+                        <svg {...ico(showMeasureLabels)}>
+                          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                        </svg>
+                      ),
+                    },
+                    {
+                      id: "checkdim",
+                      label: checkDimMode ? "Check Dim ON" : "Check Dim",
+                      active: checkDimMode,
+                      action: () => {
+                        setCheckDimMode(v => !v);
+                        if (!checkDimMode) {
+                          setTkTool("linear");
+                          setTkMeasureState("idle");
+                          setTkActivePoints([]);
+                          setTkActiveTakeoffId(null);
+                        } else {
+                          setTkTool("select");
+                        }
+                      },
+                      icon: (
+                        <svg {...ico(checkDimMode)}>
+                          <path d="M2 20h20 M2 20V4 M6 16V8 M10 16V6 M14 16v-4 M18 16V8" />
+                        </svg>
+                      ),
+                    },
+                  ];
+
+                  /* ── AI/SMART TOOLS: AutoCount, Compare, Cut ── */
+                  const aiTools = [
+                    {
+                      id: "autocount",
+                      label: tkAutoCount ? "Counting..." : "AutoCount",
+                      active: !!tkAutoCount,
+                      action: () => {
+                        if (tkAutoCount) {
+                          setTkAutoCount(null);
+                        } else {
+                          const selId = useTakeoffsStore.getState().tkSelectedTakeoffId;
+                          if (selId) setTkAutoCount({ phase: "select", takeoffId: selId });
+                          else {
+                            const toast = useUiStore.getState().showToast;
+                            toast("Select a takeoff first", "warning");
+                          }
+                        }
+                      },
+                      icon: (
+                        <svg {...ico(!!tkAutoCount)}>
+                          <circle cx="12" cy="12" r="10" />
+                          <path d="M12 8v8 M8 12h8" />
+                        </svg>
+                      ),
+                    },
+                    {
+                      id: "compare",
+                      label: "Compare",
+                      soon: true,
+                      icon: (
+                        <svg {...ico(false)}>
+                          <rect x="2" y="3" width="8" height="8" rx="1" />
+                          <rect x="14" y="13" width="8" height="8" rx="1" />
+                          <path d="M7 11v2a2 2 0 002 2h2 M17 13v-2a2 2 0 00-2-2h-2" />
+                        </svg>
+                      ),
+                    },
+                    {
+                      id: "cut",
+                      label: "Cut / Subtract",
+                      soon: true,
+                      icon: (
+                        <svg {...ico(false)}>
+                          <circle cx="8" cy="12" r="6" />
+                          <circle cx="16" cy="12" r="6" />
+                          <path d="M12 8v8" />
+                        </svg>
+                      ),
+                    },
+                  ];
+
+                  const renderBtn = t => (
+                    <div
+                      key={t.id}
+                      className="rail-btn-wrap"
+                      style={{ position: "relative", display: "flex", alignItems: "center" }}
+                    >
+                      <button
+                        className="icon-btn rail-btn"
+                        title={t.label}
+                        onClick={t.action || undefined}
+                        style={{
+                          ...railBtn(t.active),
+                          opacity: t.soon && !t.action ? 0.45 : 1,
+                          cursor: t.soon && !t.action ? "default" : "pointer",
+                        }}
+                      >
+                        {t.icon}
+                      </button>
+                      <span className="rail-label" style={railLabelStyle}>
+                        {t.label}
+                      </span>
+                    </div>
+                  );
+
+                  return [
+                    ...modeTools.map(renderBtn),
+                    <div key="sep-1" style={sepStyle} />,
+                    ...activeTools.map(renderBtn),
+                    <div key="sep-2" style={sepStyle} />,
+                    ...aiTools.map(renderBtn),
+                  ];
+                })()}
             </div>
-
-            {/* ── Tools — organized by Jony's 4-group layout ── */}
-            {tkPanelTier !== "estimate" && (() => {
-              const isSelecting = tkMeasureState === "idle" && !checkDimMode && tkTool !== "calibrate";
-              const railBtn = (active) => ({
-                width: 28, height: 28,
-                border: `1px solid ${active ? (C.accent + "50") : (C.isDark ? "rgba(255,255,255,0.12)" : C.border)}`,
-                background: active ? (C.accent + "18") : (C.isDark ? "rgba(255,255,255,0.06)" : C.bg2),
-                borderRadius: 6, cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                padding: 0, flexShrink: 0,
-                boxShadow: [T.shadow.sm, T.glass.specularSm, active ? `0 0 8px ${C.accent}20` : null].filter(Boolean).join(", "),
-              });
-              const ico = (active) => ({ width: 13, height: 13, viewBox: "0 0 24 24", fill: "none", stroke: active ? C.accent : C.textMuted, strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" });
-              const sepStyle = { width: 20, height: 1, background: C.isDark ? "rgba(255,255,255,0.08)" : C.border, flexShrink: 0, boxShadow: "0 1px 0 rgba(0,0,0,0.2)" };
-
-              /* ── MODE GROUP: Select ── */
-              const modeTools = [
-                { id: "select", label: "Select", active: isSelecting,
-                  action: () => {
-                    setCheckDimMode(false);
-                    setTkTool("select");
-                    setTkMeasureState("idle");
-                    setTkActivePoints([]);
-                  },
-                  icon: <svg {...ico(isSelecting)}><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z" /><path d="M13 13l6 6" /></svg> },
-              ];
-
-              /* ── ACTIVE TOOLS: Snap, Labels, Check Dim ── */
-              const activeTools = [
-                { id: "snap", label: snapAngleOn ? "Snap ON" : "Snap Angle", active: snapAngleOn, action: () => setSnapAngleOn(v => !v),
-                  icon: <svg {...ico(snapAngleOn)}><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" /></svg> },
-                { id: "labels", label: showMeasureLabels ? "Labels ON" : "Labels OFF", active: showMeasureLabels,
-                  action: () => setShowMeasureLabels(v => !v),
-                  icon: <svg {...ico(showMeasureLabels)}><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg> },
-                { id: "checkdim", label: checkDimMode ? "Check Dim ON" : "Check Dim", active: checkDimMode,
-                  action: () => {
-                    setCheckDimMode(v => !v);
-                    if (!checkDimMode) { setTkTool("linear"); setTkMeasureState("idle"); setTkActivePoints([]); setTkActiveTakeoffId(null); }
-                    else { setTkTool("select"); }
-                  },
-                  icon: <svg {...ico(checkDimMode)}><path d="M2 20h20 M2 20V4 M6 16V8 M10 16V6 M14 16v-4 M18 16V8" /></svg> },
-              ];
-
-              /* ── AI/SMART TOOLS: AutoCount, Compare, Cut ── */
-              const aiTools = [
-                { id: "autocount", label: tkAutoCount ? "Counting..." : "AutoCount",
-                  active: !!tkAutoCount,
-                  action: () => {
-                    if (tkAutoCount) { setTkAutoCount(null); }
-                    else {
-                      const selId = useTakeoffsStore.getState().tkSelectedTakeoffId;
-                      if (selId) setTkAutoCount({ phase: "select", takeoffId: selId });
-                      else { const toast = useUiStore.getState().showToast; toast("Select a takeoff first", "warning"); }
-                    }
-                  },
-                  icon: <svg {...ico(!!tkAutoCount)}><circle cx="12" cy="12" r="10" /><path d="M12 8v8 M8 12h8" /></svg> },
-                { id: "compare", label: "Compare", soon: true,
-                  icon: <svg {...ico(false)}><rect x="2" y="3" width="8" height="8" rx="1" /><rect x="14" y="13" width="8" height="8" rx="1" /><path d="M7 11v2a2 2 0 002 2h2 M17 13v-2a2 2 0 00-2-2h-2" /></svg> },
-                { id: "cut", label: "Cut / Subtract", soon: true,
-                  icon: <svg {...ico(false)}><circle cx="8" cy="12" r="6" /><circle cx="16" cy="12" r="6" /><path d="M12 8v8" /></svg> },
-              ];
-
-              const renderBtn = (t) => (
-                <div key={t.id} className="rail-btn-wrap" style={{ position: "relative", display: "flex", alignItems: "center" }}>
-                  <button
-                    className="icon-btn rail-btn"
-                    title={t.label}
-                    onClick={t.action || undefined}
-                    style={{
-                      ...railBtn(t.active),
-                      opacity: t.soon && !t.action ? 0.45 : 1,
-                      cursor: t.soon && !t.action ? "default" : "pointer",
-                    }}
-                  >
-                    {t.icon}
-                  </button>
-                  <span className="rail-label" style={railLabelStyle}>{t.label}</span>
-                </div>
-              );
-
-              return [
-                ...modeTools.map(renderBtn),
-                <div key="sep-1" style={sepStyle} />,
-                ...activeTools.map(renderBtn),
-                <div key="sep-2" style={sepStyle} />,
-                ...aiTools.map(renderBtn),
-              ];
-            })()}
-          </div>
           </div>
         );
       })()}
@@ -3506,7 +3624,11 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                       padding: "3px 6px",
                       fontSize: 9,
                       fontWeight: 600,
-                      background: isActive ? (t.key === "nova" ? "linear-gradient(135deg, #7C5CFC, #6D28D9)" : C.accent) : "transparent",
+                      background: isActive
+                        ? t.key === "nova"
+                          ? "linear-gradient(135deg, #7C5CFC, #6D28D9)"
+                          : C.accent
+                        : "transparent",
                       color: isActive ? "#fff" : C.textDim,
                       border: "none",
                       borderRadius: 4,
@@ -3699,11 +3821,17 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
             const isFull = tkPanelTier === "full";
             const tabContent = isNonEstTab ? (
               leftPanelTab === "notes" ? (
-                <div style={{ flex: 1, overflowY: "auto" }}><NotesPanel inline /></div>
+                <div style={{ flex: 1, overflowY: "auto" }}>
+                  <NotesPanel inline />
+                </div>
               ) : leftPanelTab === "scenarios" ? (
-                <div style={{ flex: 1, overflowY: "auto" }}><ScenariosPanel /></div>
+                <div style={{ flex: 1, overflowY: "auto" }}>
+                  <ScenariosPanel />
+                </div>
               ) : leftPanelTab === "rfis" ? (
-                <div style={{ flex: 1, overflowY: "auto" }}><RFIPanel /></div>
+                <div style={{ flex: 1, overflowY: "auto" }}>
+                  <RFIPanel />
+                </div>
               ) : leftPanelTab === "nova" ? (
                 <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
                   <TakeoffNOVAPanel
@@ -3713,6 +3841,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                     runPdfScheduleScan={runPdfScheduleScan}
                     crossSheetScan={crossSheetScan}
                     setCrossSheetScan={setCrossSheetScan}
+                    context={tkPanelTier === "full" || tkPanelTier === "estimate" ? "estimate" : "takeoff"}
                   />
                 </div>
               ) : null
@@ -3724,311 +3853,410 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
             // Non-estimate tab WITH full tier → render in left column of split
             // OR estimate tab → render takeoff list in left column of split
             return (
-            <>
-              {/* Full tier: split layout with estimate grid on right */}
-              <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }}>
-                {/* Left column: takeoff list OR tab content (full width in compact/standard, fixed 350px in full) */}
-                {isNonEstTab && isFull ? (
-                  <div
-                    style={{
-                      width: 350,
-                      flexShrink: 0,
-                      display: "flex",
-                      flexDirection: "column",
-                      overflow: "hidden",
-                      borderRight: `1px solid ${C.border}`,
-                    }}
-                  >
-                    {tabContent}
-                  </div>
-                ) : (
-                <div
-                  style={{
-                    width: tkPanelTier === "full" ? 350 : "100%",
-                    flexShrink: 0,
-                    display: "flex",
-                    flexDirection: "column",
-                    overflow: "hidden",
-                    borderRight: tkPanelTier === "full" ? `1px solid ${C.border}` : "none",
-                  }}
-                >
-                  {/* Search bar */}
-                  <div
-                    style={{
-                      padding: "6px 10px",
-                      borderBottom: `1px solid ${C.border}`,
-                      display: "flex",
-                      gap: 6,
-                      alignItems: "center",
-                      position: "relative",
-                    }}
-                  >
-                    <div style={{ position: "relative", flex: 1 }}>
-                      <input
-                        value={tkNewInput}
-                        onChange={e => setTkNewInput(e.target.value)}
-                        onKeyDown={e => {
-                          if (e.key === "Enter" && tkNewInput.trim()) {
-                            // Smart Enter: NOVA single → add AI-priced, DB match → add first hit, else freeform
-                            if (aiLookup?.result?.type === "single") {
-                              addTakeoffFromAI(aiLookup.result);
-                            } else if (aiLookup?.result?.type === "multi") {
-                              insertAIGroupIntoTakeoffs(aiLookup.result);
-                            } else if (tkDbResults.length > 0 && tkDbResults[0]._type === "item") {
-                              addTakeoffFromDb(tkDbResults[0]);
-                            } else if (tkDbResults.length > 0 && tkDbResults[0]._type === "assembly") {
-                              insertAssemblyIntoTakeoffs(tkDbResults[0]);
-                            } else {
-                              addTakeoffFreeform(tkNewInput);
-                            }
-                          }
-                        }}
-                        placeholder="Search or type item · Enter ⏎ to add · Tab ↹ navigate"
-                        style={inp(C, { paddingLeft: 28, fontSize: 11, padding: "7px 10px 7px 28px" })}
-                      />
-                      <div style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)" }}>
-                        <Ic d={I.search} size={12} color={C.textDim} />
-                      </div>
-                    </div>
-                    <select
-                      value={tkNewUnit}
-                      onChange={e => setTkNewUnit(e.target.value)}
-                      title="Measurement type"
-                      style={inp(C, {
-                        width: 56,
-                        padding: "5px 2px",
-                        fontSize: 9,
-                        fontWeight: 600,
-                        textAlign: "center",
+              <>
+                {/* Full tier: split layout with estimate grid on right */}
+                <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }}>
+                  {/* Left column: takeoff list OR tab content (full width in compact/standard, fixed 350px in full) */}
+                  {isNonEstTab && isFull ? (
+                    <div
+                      style={{
+                        width: 350,
                         flexShrink: 0,
-                        color: ["EA", "SET", "PAIR"].includes(tkNewUnit)
-                          ? C.green
-                          : ["LF", "VLF"].includes(tkNewUnit)
-                            ? C.blue
-                            : C.accent,
-                        background: C.bg2,
-                      })}
+                        display: "flex",
+                        flexDirection: "column",
+                        overflow: "hidden",
+                        borderRight: `1px solid ${C.border}`,
+                      }}
                     >
-                      <optgroup label="Count">
-                        <option value="EA">EA</option>
-                      </optgroup>
-                      <optgroup label="Linear">
-                        <option value="LF">LF</option>
-                      </optgroup>
-                      <optgroup label="Area">
-                        <option value="SF">SF</option>
-                        <option value="SY">SY</option>
-                      </optgroup>
-                      <optgroup label="Volume">
-                        <option value="CY">CY</option>
-                        <option value="CF">CF</option>
-                      </optgroup>
-                      <optgroup label="Other">
-                        <option value="LS">LS</option>
-                        <option value="HR">HR</option>
-                      </optgroup>
-                    </select>
-                    <div ref={plusMenuRef} style={{ position: "relative", flexShrink: 0 }}>
-                      <button
-                        className="accent-btn"
-                        onClick={() => {
-                          if (tkNewInput.trim()) setPlusMenuOpen(v => !v);
-                        }}
-                        disabled={!tkNewInput.trim()}
-                        title="Add item"
-                        style={bt(C, {
-                          background: tkNewInput.trim() ? C.accent : C.bg3,
-                          color: tkNewInput.trim() ? "#fff" : C.textDim,
-                          padding: "5px 8px",
-                        })}
-                      >
-                        <Ic d={I.plus} size={12} color={tkNewInput.trim() ? "#fff" : C.textDim} sw={2.5} />
-                      </button>
-                      {plusMenuOpen && tkNewInput.trim() && (
-                        <div
-                          style={{
-                            position: "absolute",
-                            right: 0,
-                            top: "calc(100% + 4px)",
-                            zIndex: 60,
-                            background: C.bg1,
-                            border: `1px solid ${C.border}`,
-                            borderRadius: 8,
-                            boxShadow: "0 4px 20px rgba(0,0,0,0.30)",
-                            minWidth: 210,
-                            overflow: "hidden",
-                          }}
-                        >
-                          <div
-                            className="nav-item"
-                            onClick={() => {
-                              addTakeoffFreeform(tkNewInput);
-                              setPlusMenuOpen(false);
-                            }}
-                            style={{
-                              padding: "8px 12px",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 8,
-                              cursor: "pointer",
-                              borderBottom: `1px solid ${C.border}`,
-                            }}
-                          >
-                            <Ic d={I.plus} size={11} color={C.textDim} sw={2} />
-                            <div>
-                              <div style={{ fontSize: 11, fontWeight: 600, color: C.text }}>Add as freeform</div>
-                              <div style={{ fontSize: 9, color: C.textDim }}>No pricing — measure only</div>
-                            </div>
-                          </div>
-                          <div
-                            className="nav-item"
-                            onClick={() => {
-                              lookupItemWithNova(tkNewInput);
-                              setPlusMenuOpen(false);
-                            }}
-                            style={{
-                              padding: "8px 12px",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 8,
-                              cursor: "pointer",
-                            }}
-                          >
-                            <Ic d={I.ai} size={11} color={C.accent} />
-                            <div>
-                              <div style={{ fontSize: 11, fontWeight: 600, color: C.accent }}>Ask NOVA to price</div>
-                              <div style={{ fontSize: 9, color: C.textDim }}>Get code, description & pricing</div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
+                      {tabContent}
                     </div>
-                    {/* DB + Assembly search dropdown — show when there's input (for freeform/NOVA options) */}
-                    {tkNewInput.trim() && (
+                  ) : (
+                    <div
+                      style={{
+                        width: tkPanelTier === "full" ? 350 : "100%",
+                        flexShrink: 0,
+                        display: "flex",
+                        flexDirection: "column",
+                        overflow: "hidden",
+                        borderRight: tkPanelTier === "full" ? `1px solid ${C.border}` : "none",
+                      }}
+                    >
+                      {/* Search bar */}
                       <div
                         style={{
-                          position: "absolute",
-                          left: 10,
-                          right: 10,
-                          top: "100%",
-                          zIndex: 50,
-                          background: C.bg1,
-                          border: `1px solid ${C.border}`,
-                          borderRadius: "0 0 6px 6px",
-                          boxShadow: "0 4px 16px rgba(0,0,0,0.30)",
-                          maxHeight: 380,
-                          overflowY: "auto",
+                          padding: "6px 10px",
+                          borderBottom: `1px solid ${C.border}`,
+                          display: "flex",
+                          gap: 6,
+                          alignItems: "center",
+                          position: "relative",
                         }}
                       >
-                        {tkDbResults.some(r => r._type === "assembly") && (
-                          <>
+                        <div style={{ position: "relative", flex: 1 }}>
+                          <input
+                            value={tkNewInput}
+                            onChange={e => setTkNewInput(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === "Enter" && tkNewInput.trim()) {
+                                // Smart Enter: NOVA single → add AI-priced, DB match → add first hit, else freeform
+                                if (aiLookup?.result?.type === "single") {
+                                  addTakeoffFromAI(aiLookup.result);
+                                } else if (aiLookup?.result?.type === "multi") {
+                                  insertAIGroupIntoTakeoffs(aiLookup.result);
+                                } else if (tkDbResults.length > 0 && tkDbResults[0]._type === "item") {
+                                  addTakeoffFromDb(tkDbResults[0]);
+                                } else if (tkDbResults.length > 0 && tkDbResults[0]._type === "assembly") {
+                                  insertAssemblyIntoTakeoffs(tkDbResults[0]);
+                                } else {
+                                  addTakeoffFreeform(tkNewInput);
+                                }
+                              }
+                            }}
+                            placeholder="Search or type item · Enter ⏎ to add · Tab ↹ navigate"
+                            style={inp(C, { paddingLeft: 28, fontSize: 11, padding: "7px 10px 7px 28px" })}
+                          />
+                          <div style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)" }}>
+                            <Ic d={I.search} size={12} color={C.textDim} />
+                          </div>
+                        </div>
+                        <select
+                          value={tkNewUnit}
+                          onChange={e => setTkNewUnit(e.target.value)}
+                          title="Measurement type"
+                          style={inp(C, {
+                            width: 56,
+                            padding: "5px 2px",
+                            fontSize: 9,
+                            fontWeight: 600,
+                            textAlign: "center",
+                            flexShrink: 0,
+                            color: ["EA", "SET", "PAIR"].includes(tkNewUnit)
+                              ? C.green
+                              : ["LF", "VLF"].includes(tkNewUnit)
+                                ? C.blue
+                                : C.accent,
+                            background: C.bg2,
+                          })}
+                        >
+                          <optgroup label="Count">
+                            <option value="EA">EA</option>
+                          </optgroup>
+                          <optgroup label="Linear">
+                            <option value="LF">LF</option>
+                          </optgroup>
+                          <optgroup label="Area">
+                            <option value="SF">SF</option>
+                            <option value="SY">SY</option>
+                          </optgroup>
+                          <optgroup label="Volume">
+                            <option value="CY">CY</option>
+                            <option value="CF">CF</option>
+                          </optgroup>
+                          <optgroup label="Other">
+                            <option value="LS">LS</option>
+                            <option value="HR">HR</option>
+                          </optgroup>
+                        </select>
+                        <div ref={plusMenuRef} style={{ position: "relative", flexShrink: 0 }}>
+                          <button
+                            className="accent-btn"
+                            onClick={() => {
+                              if (tkNewInput.trim()) setPlusMenuOpen(v => !v);
+                            }}
+                            disabled={!tkNewInput.trim()}
+                            title="Add item"
+                            style={bt(C, {
+                              background: tkNewInput.trim() ? C.accent : C.bg3,
+                              color: tkNewInput.trim() ? "#fff" : C.textDim,
+                              padding: "5px 8px",
+                            })}
+                          >
+                            <Ic d={I.plus} size={12} color={tkNewInput.trim() ? "#fff" : C.textDim} sw={2.5} />
+                          </button>
+                          {plusMenuOpen && tkNewInput.trim() && (
                             <div
                               style={{
-                                padding: "4px 8px",
-                                fontSize: 8,
-                                fontWeight: 600,
-                                color: C.textDim,
-                                textTransform: "uppercase",
-                                letterSpacing: 0.8,
-                                borderBottom: `1px solid ${C.border}`,
-                                background: C.bg2,
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 4,
+                                position: "absolute",
+                                right: 0,
+                                top: "calc(100% + 4px)",
+                                zIndex: 60,
+                                background: C.bg1,
+                                border: `1px solid ${C.border}`,
+                                borderRadius: 8,
+                                boxShadow: "0 4px 20px rgba(0,0,0,0.30)",
+                                minWidth: 210,
+                                overflow: "hidden",
                               }}
                             >
-                              <Ic d={I.assembly} size={10} color={C.accent} /> Assemblies
-                            </div>
-                            {tkDbResults
-                              .filter(r => r._type === "assembly")
-                              .map(asm => {
-                                const totalPer = asm.elements.reduce(
-                                  (s, el) => s + (nn(el.m) + nn(el.l) + nn(el.e)) * nn(el.factor),
-                                  0,
-                                );
-                                return (
-                                  <div
-                                    key={asm.id}
-                                    className="nav-item"
-                                    onClick={() => insertAssemblyIntoTakeoffs(asm)}
-                                    style={{
-                                      padding: "6px 10px",
-                                      display: "flex",
-                                      alignItems: "center",
-                                      gap: 8,
-                                      borderBottom: `1px solid ${C.bg}`,
-                                      cursor: "pointer",
-                                    }}
-                                  >
-                                    <Ic d={I.assembly} size={12} color={C.accent} />
-                                    <span
-                                      style={{
-                                        flex: 1,
-                                        fontSize: 11,
-                                        fontWeight: 600,
-                                        color: C.text,
-                                        overflow: "hidden",
-                                        textOverflow: "ellipsis",
-                                        whiteSpace: "nowrap",
-                                      }}
-                                    >
-                                      {asm.name}
-                                    </span>
-                                    <span
-                                      style={{
-                                        fontSize: 8,
-                                        color: C.textMuted,
-                                        background: C.bg2,
-                                        padding: "1px 6px",
-                                        borderRadius: 8,
-                                      }}
-                                    >
-                                      {asm.elements.length} items
-                                    </span>
-                                    <span
-                                      style={{
-                                        fontFamily: T.font.sans,
-                                        fontSize: 9,
-                                        color: C.accent,
-                                        fontWeight: 600,
-                                      }}
-                                    >
-                                      {fmt2(totalPer)}
-                                    </span>
+                              <div
+                                className="nav-item"
+                                onClick={() => {
+                                  addTakeoffFreeform(tkNewInput);
+                                  setPlusMenuOpen(false);
+                                }}
+                                style={{
+                                  padding: "8px 12px",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 8,
+                                  cursor: "pointer",
+                                  borderBottom: `1px solid ${C.border}`,
+                                }}
+                              >
+                                <Ic d={I.plus} size={11} color={C.textDim} sw={2} />
+                                <div>
+                                  <div style={{ fontSize: 11, fontWeight: 600, color: C.text }}>Add as freeform</div>
+                                  <div style={{ fontSize: 9, color: C.textDim }}>No pricing — measure only</div>
+                                </div>
+                              </div>
+                              <div
+                                className="nav-item"
+                                onClick={() => {
+                                  lookupItemWithNova(tkNewInput);
+                                  setPlusMenuOpen(false);
+                                }}
+                                style={{
+                                  padding: "8px 12px",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 8,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                <Ic d={I.ai} size={11} color={C.accent} />
+                                <div>
+                                  <div style={{ fontSize: 11, fontWeight: 600, color: C.accent }}>
+                                    Ask NOVA to price
                                   </div>
-                                );
-                              })}
-                          </>
-                        )}
-                        {tkDbResults.some(r => r._type === "item") && (
-                          <>
-                            <div
-                              style={{
-                                padding: "4px 8px",
-                                fontSize: 8,
-                                fontWeight: 600,
-                                color: C.textDim,
-                                textTransform: "uppercase",
-                                letterSpacing: 0.8,
-                                borderBottom: `1px solid ${C.border}`,
-                                background: C.bg2,
-                              }}
-                            >
-                              Database Items
+                                  <div style={{ fontSize: 9, color: C.textDim }}>Get code, description & pricing</div>
+                                </div>
+                              </div>
                             </div>
-                            {tkDbResults
-                              .filter(r => r._type === "item")
-                              .map(el => (
+                          )}
+                        </div>
+                        {/* DB + Assembly search dropdown — show when there's input (for freeform/NOVA options) */}
+                        {tkNewInput.trim() && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              left: 10,
+                              right: 10,
+                              top: "100%",
+                              zIndex: 50,
+                              background: C.bg1,
+                              border: `1px solid ${C.border}`,
+                              borderRadius: "0 0 6px 6px",
+                              boxShadow: "0 4px 16px rgba(0,0,0,0.30)",
+                              maxHeight: 380,
+                              overflowY: "auto",
+                            }}
+                          >
+                            {tkDbResults.some(r => r._type === "assembly") && (
+                              <>
                                 <div
-                                  key={el.id}
+                                  style={{
+                                    padding: "4px 8px",
+                                    fontSize: 8,
+                                    fontWeight: 600,
+                                    color: C.textDim,
+                                    textTransform: "uppercase",
+                                    letterSpacing: 0.8,
+                                    borderBottom: `1px solid ${C.border}`,
+                                    background: C.bg2,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                  }}
+                                >
+                                  <Ic d={I.assembly} size={10} color={C.accent} /> Assemblies
+                                </div>
+                                {tkDbResults
+                                  .filter(r => r._type === "assembly")
+                                  .map(asm => {
+                                    const totalPer = asm.elements.reduce(
+                                      (s, el) => s + (nn(el.m) + nn(el.l) + nn(el.e)) * nn(el.factor),
+                                      0,
+                                    );
+                                    return (
+                                      <div
+                                        key={asm.id}
+                                        className="nav-item"
+                                        onClick={() => insertAssemblyIntoTakeoffs(asm)}
+                                        style={{
+                                          padding: "6px 10px",
+                                          display: "flex",
+                                          alignItems: "center",
+                                          gap: 8,
+                                          borderBottom: `1px solid ${C.bg}`,
+                                          cursor: "pointer",
+                                        }}
+                                      >
+                                        <Ic d={I.assembly} size={12} color={C.accent} />
+                                        <span
+                                          style={{
+                                            flex: 1,
+                                            fontSize: 11,
+                                            fontWeight: 600,
+                                            color: C.text,
+                                            overflow: "hidden",
+                                            textOverflow: "ellipsis",
+                                            whiteSpace: "nowrap",
+                                          }}
+                                        >
+                                          {asm.name}
+                                        </span>
+                                        <span
+                                          style={{
+                                            fontSize: 8,
+                                            color: C.textMuted,
+                                            background: C.bg2,
+                                            padding: "1px 6px",
+                                            borderRadius: 8,
+                                          }}
+                                        >
+                                          {asm.elements.length} items
+                                        </span>
+                                        <span
+                                          style={{
+                                            fontFamily: T.font.sans,
+                                            fontSize: 9,
+                                            color: C.accent,
+                                            fontWeight: 600,
+                                          }}
+                                        >
+                                          {fmt2(totalPer)}
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
+                              </>
+                            )}
+                            {tkDbResults.some(r => r._type === "item") && (
+                              <>
+                                <div
+                                  style={{
+                                    padding: "4px 8px",
+                                    fontSize: 8,
+                                    fontWeight: 600,
+                                    color: C.textDim,
+                                    textTransform: "uppercase",
+                                    letterSpacing: 0.8,
+                                    borderBottom: `1px solid ${C.border}`,
+                                    background: C.bg2,
+                                  }}
+                                >
+                                  Database Items
+                                </div>
+                                {tkDbResults
+                                  .filter(r => r._type === "item")
+                                  .map(el => (
+                                    <div
+                                      key={el.id}
+                                      className="nav-item"
+                                      onClick={() => addTakeoffFromDb(el)}
+                                      style={{
+                                        padding: "6px 10px",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 8,
+                                        borderBottom: `1px solid ${C.bg}`,
+                                        cursor: "pointer",
+                                      }}
+                                    >
+                                      <span
+                                        style={{
+                                          fontFamily: T.font.sans,
+                                          fontSize: 9,
+                                          color: C.purple,
+                                          fontWeight: 600,
+                                          minWidth: 60,
+                                        }}
+                                      >
+                                        {el.code}
+                                      </span>
+                                      <span
+                                        style={{
+                                          flex: 1,
+                                          fontSize: 11,
+                                          color: C.text,
+                                          overflow: "hidden",
+                                          textOverflow: "ellipsis",
+                                          whiteSpace: "nowrap",
+                                        }}
+                                      >
+                                        {el.name}
+                                      </span>
+                                      <span style={{ fontSize: 9, color: C.textDim }}>/{el.unit}</span>
+                                      <span
+                                        style={{
+                                          fontFamily: T.font.sans,
+                                          fontSize: 9,
+                                          color: C.accent,
+                                          fontWeight: 600,
+                                        }}
+                                      >
+                                        {fmt2(nn(el.material) + nn(el.labor) + nn(el.equipment))}
+                                      </span>
+                                    </div>
+                                  ))}
+                              </>
+                            )}
+                            {/* NOVA AI Results Section */}
+                            {aiLookup === "loading" && (
+                              <div
+                                style={{
+                                  padding: "10px 10px",
+                                  borderTop: `1px solid ${C.border}`,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 8,
+                                  background: `${C.accent}06`,
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    width: 14,
+                                    height: 14,
+                                    border: `2px solid ${C.border}`,
+                                    borderTopColor: C.accent,
+                                    borderRadius: "50%",
+                                    animation: "spin 0.8s linear infinite",
+                                    display: "inline-block",
+                                    flexShrink: 0,
+                                  }}
+                                />
+                                <span style={{ fontSize: 10, color: C.textDim, fontWeight: 500 }}>
+                                  NOVA is thinking...
+                                </span>
+                              </div>
+                            )}
+                            {aiLookup?.result?.type === "single" && (
+                              <div style={{ borderTop: `1px solid ${C.border}` }}>
+                                <div
+                                  style={{
+                                    padding: "4px 8px",
+                                    fontSize: 8,
+                                    fontWeight: 600,
+                                    color: C.accent,
+                                    textTransform: "uppercase",
+                                    letterSpacing: 0.8,
+                                    borderBottom: `1px solid ${C.border}`,
+                                    background: `${C.accent}08`,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                  }}
+                                >
+                                  <Ic d={I.ai} size={10} color={C.accent} /> NOVA Suggestion
+                                </div>
+                                <div
                                   className="nav-item"
-                                  onClick={() => addTakeoffFromDb(el)}
+                                  onClick={() => addTakeoffFromAI(aiLookup.result)}
                                   style={{
                                     padding: "6px 10px",
                                     display: "flex",
                                     alignItems: "center",
                                     gap: 8,
-                                    borderBottom: `1px solid ${C.bg}`,
                                     cursor: "pointer",
                                   }}
                                 >
@@ -4041,1774 +4269,1712 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                       minWidth: 60,
                                     }}
                                   >
-                                    {el.code}
+                                    {aiLookup.result.code}
                                   </span>
                                   <span
                                     style={{
                                       flex: 1,
                                       fontSize: 11,
                                       color: C.text,
+                                      fontWeight: 500,
                                       overflow: "hidden",
                                       textOverflow: "ellipsis",
                                       whiteSpace: "nowrap",
                                     }}
                                   >
-                                    {el.name}
+                                    {aiLookup.result.description}
                                   </span>
-                                  <span style={{ fontSize: 9, color: C.textDim }}>/{el.unit}</span>
+                                  <span style={{ fontSize: 9, color: C.textDim }}>/{aiLookup.result.unit}</span>
                                   <span
                                     style={{
                                       fontFamily: T.font.sans,
                                       fontSize: 9,
-                                      color: C.accent,
+                                      color: C.green,
                                       fontWeight: 600,
                                     }}
                                   >
-                                    {fmt2(nn(el.material) + nn(el.labor) + nn(el.equipment))}
+                                    {fmt2(
+                                      nn(aiLookup.result.material) +
+                                        nn(aiLookup.result.labor) +
+                                        nn(aiLookup.result.equipment) +
+                                        nn(aiLookup.result.subcontractor),
+                                    )}
                                   </span>
                                 </div>
-                              ))}
-                          </>
-                        )}
-                        {/* NOVA AI Results Section */}
-                        {aiLookup === "loading" && (
-                          <div
-                            style={{
-                              padding: "10px 10px",
-                              borderTop: `1px solid ${C.border}`,
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 8,
-                              background: `${C.accent}06`,
-                            }}
-                          >
-                            <span
-                              style={{
-                                width: 14,
-                                height: 14,
-                                border: `2px solid ${C.border}`,
-                                borderTopColor: C.accent,
-                                borderRadius: "50%",
-                                animation: "spin 0.8s linear infinite",
-                                display: "inline-block",
-                                flexShrink: 0,
-                              }}
-                            />
-                            <span style={{ fontSize: 10, color: C.textDim, fontWeight: 500 }}>NOVA is thinking...</span>
-                          </div>
-                        )}
-                        {aiLookup?.result?.type === "single" && (
-                          <div style={{ borderTop: `1px solid ${C.border}` }}>
-                            <div
-                              style={{
-                                padding: "4px 8px",
-                                fontSize: 8,
-                                fontWeight: 600,
-                                color: C.accent,
-                                textTransform: "uppercase",
-                                letterSpacing: 0.8,
-                                borderBottom: `1px solid ${C.border}`,
-                                background: `${C.accent}08`,
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 4,
-                              }}
-                            >
-                              <Ic d={I.ai} size={10} color={C.accent} /> NOVA Suggestion
-                            </div>
-                            <div
-                              className="nav-item"
-                              onClick={() => addTakeoffFromAI(aiLookup.result)}
-                              style={{
-                                padding: "6px 10px",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 8,
-                                cursor: "pointer",
-                              }}
-                            >
-                              <span
-                                style={{
-                                  fontFamily: T.font.sans,
-                                  fontSize: 9,
-                                  color: C.purple,
-                                  fontWeight: 600,
-                                  minWidth: 60,
-                                }}
-                              >
-                                {aiLookup.result.code}
-                              </span>
-                              <span
-                                style={{
-                                  flex: 1,
-                                  fontSize: 11,
-                                  color: C.text,
-                                  fontWeight: 500,
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                {aiLookup.result.description}
-                              </span>
-                              <span style={{ fontSize: 9, color: C.textDim }}>/{aiLookup.result.unit}</span>
-                              <span
-                                style={{
-                                  fontFamily: T.font.sans,
-                                  fontSize: 9,
-                                  color: C.green,
-                                  fontWeight: 600,
-                                }}
-                              >
-                                {fmt2(
-                                  nn(aiLookup.result.material) +
-                                    nn(aiLookup.result.labor) +
-                                    nn(aiLookup.result.equipment) +
-                                    nn(aiLookup.result.subcontractor),
-                                )}
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                        {aiLookup?.result?.type === "multi" && (
-                          <div style={{ borderTop: `1px solid ${C.border}` }}>
-                            <div
-                              style={{
-                                padding: "4px 8px",
-                                fontSize: 8,
-                                fontWeight: 600,
-                                color: C.accent,
-                                textTransform: "uppercase",
-                                letterSpacing: 0.8,
-                                borderBottom: `1px solid ${C.border}`,
-                                background: `${C.accent}08`,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                              }}
-                            >
-                              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                <Ic d={I.ai} size={10} color={C.accent} /> NOVA: {aiLookup.result.groupName} (
-                                {aiLookup.result.items.length} parts)
-                              </span>
-                            </div>
-                            {aiLookup.result.items.map((item, idx) => (
-                              <div
-                                key={idx}
-                                className="nav-item"
-                                onClick={() => addTakeoffFromAI(item)}
-                                style={{
-                                  padding: "4px 10px",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 8,
-                                  cursor: "pointer",
-                                  borderBottom: idx < aiLookup.result.items.length - 1 ? `1px solid ${C.bg2}` : "none",
-                                }}
-                              >
-                                <span
+                              </div>
+                            )}
+                            {aiLookup?.result?.type === "multi" && (
+                              <div style={{ borderTop: `1px solid ${C.border}` }}>
+                                <div
                                   style={{
-                                    fontFamily: T.font.sans,
+                                    padding: "4px 8px",
                                     fontSize: 8,
-                                    color: C.purple,
                                     fontWeight: 600,
-                                    minWidth: 55,
-                                  }}
-                                >
-                                  {item.code}
-                                </span>
-                                <span
-                                  style={{
-                                    flex: 1,
-                                    fontSize: 10,
-                                    color: C.text,
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                    whiteSpace: "nowrap",
-                                  }}
-                                >
-                                  {item.description}
-                                </span>
-                                <span style={{ fontSize: 8, color: C.textDim }}>/{item.unit}</span>
-                                <span
-                                  style={{
-                                    fontFamily: T.font.sans,
-                                    fontSize: 8,
-                                    color: C.green,
-                                    fontWeight: 600,
-                                  }}
-                                >
-                                  {fmt2(
-                                    nn(item.material) + nn(item.labor) + nn(item.equipment) + nn(item.subcontractor),
-                                  )}
-                                </span>
-                              </div>
-                            ))}
-                            <div
-                              style={{
-                                display: "flex",
-                                gap: 4,
-                                padding: "4px 10px",
-                                borderTop: `1px solid ${C.border}`,
-                              }}
-                            >
-                              <div
-                                className="nav-item"
-                                onClick={() => insertAIGroupIntoTakeoffs(aiLookup.result)}
-                                style={{
-                                  flex: 1,
-                                  padding: "5px 8px",
-                                  textAlign: "center",
-                                  cursor: "pointer",
-                                  fontSize: 10,
-                                  fontWeight: 600,
-                                  color: "#fff",
-                                  background: C.accent,
-                                  borderRadius: 4,
-                                }}
-                              >
-                                Add All as Group
-                              </div>
-                              <div
-                                className="nav-item"
-                                onClick={() => addTakeoffFromAIAsSingle(aiLookup.result)}
-                                style={{
-                                  flex: 1,
-                                  padding: "5px 8px",
-                                  textAlign: "center",
-                                  cursor: "pointer",
-                                  fontSize: 10,
-                                  fontWeight: 500,
-                                  color: C.textDim,
-                                  background: C.bg3,
-                                  borderRadius: 4,
-                                }}
-                              >
-                                Add as single line
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        {aiLookup?.error && (
-                          <div
-                            style={{
-                              padding: "6px 10px",
-                              borderTop: `1px solid ${C.border}`,
-                              background: `rgba(231,76,60,0.06)`,
-                            }}
-                          >
-                            <div style={{ fontSize: 10, color: "#E74C3C", marginBottom: 4 }}>{aiLookup.error}</div>
-                            <span
-                              className="nav-item"
-                              onClick={() => lookupItemWithNova(tkNewInput)}
-                              style={{ fontSize: 9, color: C.accent, cursor: "pointer", fontWeight: 600 }}
-                            >
-                              Retry
-                            </span>
-                          </div>
-                        )}
-                        {/* Footer: Freeform option */}
-                        <div style={{ borderTop: `1px solid ${C.border}` }}>
-                          <div
-                            className="nav-item"
-                            onClick={() => addTakeoffFreeform(tkNewInput)}
-                            style={{
-                              padding: "5px 10px",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 6,
-                              cursor: "pointer",
-                              color: C.textDim,
-                              fontSize: 10,
-                              fontWeight: 500,
-                            }}
-                          >
-                            <Ic d={I.plus} size={10} color={C.textDim} sw={2} /> Add "{tkNewInput}" as freeform (no
-                            pricing)
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Module selector — hidden when filtering to "This Page" */}
-                  {pageFilter !== "page" && (
-                    <div style={{ padding: "8px 10px 8px", borderBottom: `1px solid ${C.border}` }}>
-                      {/* All / Modules toggle — equal visual weight */}
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: 0,
-                          background: C.bg2,
-                          borderRadius: 5,
-                          padding: 2,
-                          marginBottom: activeModule ? 7 : 0,
-                        }}
-                      >
-                        <button
-                          onClick={() => setActiveModule(null)}
-                          style={{
-                            flex: 1,
-                            padding: "4px 0",
-                            fontSize: 10,
-                            fontWeight: 600,
-                            background: !activeModule ? C.accent : "transparent",
-                            color: !activeModule ? "#fff" : C.textDim,
-                            border: "none",
-                            borderRadius: 4,
-                            cursor: "pointer",
-                            transition: "all 0.15s",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            gap: 4,
-                          }}
-                        >
-                          <svg
-                            width="10"
-                            height="10"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke={!activeModule ? "#fff" : C.textDim}
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                          >
-                            <path d="M8 6h13 M8 12h13 M8 18h13 M3 6h.01 M3 12h.01 M3 18h.01" />
-                          </svg>
-                          All
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (activeModule) return; // already in module mode
-                            const last = lastModuleRef.current || MODULE_LIST.find(b => b.available)?.id || null;
-                            if (last) setActiveModule(last);
-                          }}
-                          style={{
-                            flex: 1,
-                            padding: "4px 0",
-                            fontSize: 10,
-                            fontWeight: 600,
-                            background: activeModule ? C.accent : "transparent",
-                            color: activeModule ? "#fff" : C.textDim,
-                            border: "none",
-                            borderRadius: 4,
-                            cursor: "pointer",
-                            transition: "all 0.15s",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            gap: 4,
-                          }}
-                        >
-                          <svg
-                            width="10"
-                            height="10"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke={activeModule ? "#fff" : C.textDim}
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                          >
-                            <rect x="3" y="3" width="7" height="7" />
-                            <rect x="14" y="3" width="7" height="7" />
-                            <rect x="3" y="14" width="7" height="7" />
-                            <rect x="14" y="14" width="7" height="7" />
-                          </svg>
-                          Modules
-                        </button>
-                      </div>
-                      {/* Module pills — only when in module mode */}
-                      {activeModule && (
-                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
-                          {MODULE_LIST.map(b => {
-                            const isActive = activeModule === b.id;
-                            return (
-                              <button
-                                key={b.id}
-                                onClick={() => b.available && setActiveModule(b.id)}
-                                style={{
-                                  padding: "3px 9px",
-                                  fontSize: 9,
-                                  fontWeight: 600,
-                                  border: `1px solid ${isActive ? C.accent + "60" : C.border}`,
-                                  background: isActive ? C.accent + "15" : "transparent",
-                                  color: isActive ? C.accent : b.available ? C.textMuted : C.textDimmer,
-                                  borderRadius: 4,
-                                  cursor: b.available ? "pointer" : "default",
-                                  opacity: b.available ? 1 : 0.4,
-                                  transition: "all 0.15s",
-                                }}
-                                title={b.available ? `${b.name} Module` : `${b.name} Module (Coming Soon)`}
-                              >
-                                {b.name}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Module panel + takeoff list — slide transition */}
-                  <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
-                    <div
-                      style={{
-                        display: "flex",
-                        width: "200%",
-                        height: "100%",
-                        transform: `translateX(${activeModule && pageFilter !== "page" ? "-50%" : "0"})`,
-                        transition: "transform 0.2s ease",
-                      }}
-                    >
-                      {/* Takeoff list (left) */}
-                      <div style={{ width: "50%", height: "100%", overflowY: "auto", padding: "0 8px 8px" }}>
-                        {Object.entries(takeoffGroups).map(([group, tos]) => {
-                          const isGroupCollapsed = !!collapsedGroups[group];
-                          return (
-                            <div
-                              key={group}
-                              style={{
-                                marginBottom: T.space[3],
-                                background: C.isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
-                                backdropFilter: "blur(20px)",
-                                WebkitBackdropFilter: "blur(20px)",
-                                border: `1px solid ${C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.08)"}`,
-                                borderRadius: T.radius.md,
-                                overflow: "hidden",
-                                boxShadow: T.shadow.sm,
-                                transition: T.transition.base,
-                              }}
-                            >
-                              {/* Card header */}
-                              <div
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "space-between",
-                                  padding: `${T.space[2]}px ${T.space[3]}px`,
-                                  background: C.isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
-                                  borderBottom: isGroupCollapsed
-                                    ? "none"
-                                    : `1px solid ${C.isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"}`,
-                                  borderLeft: group !== "Ungrouped" ? `3px solid ${C.accent}` : "3px solid transparent",
-                                }}
-                              >
-                                <div style={{ display: "flex", alignItems: "center", gap: T.space[2], minWidth: 0 }}>
-                                  <Ic d={group === "Ungrouped" ? I.layers : I.assembly} size={12} color={C.accent} />
-                                  <span
-                                    style={{
-                                      fontSize: T.fontSize.sm,
-                                      fontWeight: T.fontWeight.semibold,
-                                      color: C.text,
-                                      letterSpacing: -0.2,
-                                      whiteSpace: "nowrap",
-                                      overflow: "hidden",
-                                      textOverflow: "ellipsis",
-                                    }}
-                                  >
-                                    {group}
-                                  </span>
-                                  <span
-                                    style={{
-                                      fontSize: 9,
-                                      color: C.textDim,
-                                      fontWeight: T.fontWeight.medium,
-                                      flexShrink: 0,
-                                    }}
-                                  >
-                                    {tos.length}
-                                  </span>
-                                </div>
-                                <button
-                                  onClick={() => toggleGroupCollapse(group)}
-                                  style={{
-                                    background: "none",
-                                    border: "none",
-                                    cursor: "pointer",
-                                    padding: 4,
+                                    color: C.accent,
+                                    textTransform: "uppercase",
+                                    letterSpacing: 0.8,
+                                    borderBottom: `1px solid ${C.border}`,
+                                    background: `${C.accent}08`,
                                     display: "flex",
                                     alignItems: "center",
-                                    borderRadius: T.radius.sm,
-                                    flexShrink: 0,
+                                    justifyContent: "space-between",
                                   }}
                                 >
-                                  <Ic
-                                    d={I.chevron}
-                                    size={10}
-                                    color={C.textDim}
+                                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                    <Ic d={I.ai} size={10} color={C.accent} /> NOVA: {aiLookup.result.groupName} (
+                                    {aiLookup.result.items.length} parts)
+                                  </span>
+                                </div>
+                                {aiLookup.result.items.map((item, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="nav-item"
+                                    onClick={() => addTakeoffFromAI(item)}
                                     style={{
-                                      transform: isGroupCollapsed ? "rotate(-90deg)" : "rotate(90deg)",
-                                      transition: "transform 0.2s cubic-bezier(0.25,0.1,0.25,1)",
+                                      padding: "4px 10px",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 8,
+                                      cursor: "pointer",
+                                      borderBottom:
+                                        idx < aiLookup.result.items.length - 1 ? `1px solid ${C.bg2}` : "none",
                                     }}
-                                  />
-                                </button>
+                                  >
+                                    <span
+                                      style={{
+                                        fontFamily: T.font.sans,
+                                        fontSize: 8,
+                                        color: C.purple,
+                                        fontWeight: 600,
+                                        minWidth: 55,
+                                      }}
+                                    >
+                                      {item.code}
+                                    </span>
+                                    <span
+                                      style={{
+                                        flex: 1,
+                                        fontSize: 10,
+                                        color: C.text,
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                        whiteSpace: "nowrap",
+                                      }}
+                                    >
+                                      {item.description}
+                                    </span>
+                                    <span style={{ fontSize: 8, color: C.textDim }}>/{item.unit}</span>
+                                    <span
+                                      style={{
+                                        fontFamily: T.font.sans,
+                                        fontSize: 8,
+                                        color: C.green,
+                                        fontWeight: 600,
+                                      }}
+                                    >
+                                      {fmt2(
+                                        nn(item.material) +
+                                          nn(item.labor) +
+                                          nn(item.equipment) +
+                                          nn(item.subcontractor),
+                                      )}
+                                    </span>
+                                  </div>
+                                ))}
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    gap: 4,
+                                    padding: "4px 10px",
+                                    borderTop: `1px solid ${C.border}`,
+                                  }}
+                                >
+                                  <div
+                                    className="nav-item"
+                                    onClick={() => insertAIGroupIntoTakeoffs(aiLookup.result)}
+                                    style={{
+                                      flex: 1,
+                                      padding: "5px 8px",
+                                      textAlign: "center",
+                                      cursor: "pointer",
+                                      fontSize: 10,
+                                      fontWeight: 600,
+                                      color: "#fff",
+                                      background: C.accent,
+                                      borderRadius: 4,
+                                    }}
+                                  >
+                                    Add All as Group
+                                  </div>
+                                  <div
+                                    className="nav-item"
+                                    onClick={() => addTakeoffFromAIAsSingle(aiLookup.result)}
+                                    style={{
+                                      flex: 1,
+                                      padding: "5px 8px",
+                                      textAlign: "center",
+                                      cursor: "pointer",
+                                      fontSize: 10,
+                                      fontWeight: 500,
+                                      color: C.textDim,
+                                      background: C.bg3,
+                                      borderRadius: 4,
+                                    }}
+                                  >
+                                    Add as single line
+                                  </div>
+                                </div>
                               </div>
-                              {!isGroupCollapsed && (
-                                <>
+                            )}
+                            {aiLookup?.error && (
+                              <div
+                                style={{
+                                  padding: "6px 10px",
+                                  borderTop: `1px solid ${C.border}`,
+                                  background: `rgba(231,76,60,0.06)`,
+                                }}
+                              >
+                                <div style={{ fontSize: 10, color: "#E74C3C", marginBottom: 4 }}>{aiLookup.error}</div>
+                                <span
+                                  className="nav-item"
+                                  onClick={() => lookupItemWithNova(tkNewInput)}
+                                  style={{ fontSize: 9, color: C.accent, cursor: "pointer", fontWeight: 600 }}
+                                >
+                                  Retry
+                                </span>
+                              </div>
+                            )}
+                            {/* Footer: Freeform option */}
+                            <div style={{ borderTop: `1px solid ${C.border}` }}>
+                              <div
+                                className="nav-item"
+                                onClick={() => addTakeoffFreeform(tkNewInput)}
+                                style={{
+                                  padding: "5px 10px",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 6,
+                                  cursor: "pointer",
+                                  color: C.textDim,
+                                  fontSize: 10,
+                                  fontWeight: 500,
+                                }}
+                              >
+                                <Ic d={I.plus} size={10} color={C.textDim} sw={2} /> Add "{tkNewInput}" as freeform (no
+                                pricing)
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Module selector — hidden when filtering to "This Page" */}
+                      {pageFilter !== "page" && (
+                        <div style={{ padding: "8px 10px 8px", borderBottom: `1px solid ${C.border}` }}>
+                          {/* All / Modules toggle — equal visual weight */}
+                          <div
+                            style={{
+                              display: "flex",
+                              gap: 0,
+                              background: C.bg2,
+                              borderRadius: 5,
+                              padding: 2,
+                              marginBottom: activeModule ? 7 : 0,
+                            }}
+                          >
+                            <button
+                              onClick={() => setActiveModule(null)}
+                              style={{
+                                flex: 1,
+                                padding: "4px 0",
+                                fontSize: 10,
+                                fontWeight: 600,
+                                background: !activeModule ? C.accent : "transparent",
+                                color: !activeModule ? "#fff" : C.textDim,
+                                border: "none",
+                                borderRadius: 4,
+                                cursor: "pointer",
+                                transition: "all 0.15s",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 4,
+                              }}
+                            >
+                              <svg
+                                width="10"
+                                height="10"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke={!activeModule ? "#fff" : C.textDim}
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                              >
+                                <path d="M8 6h13 M8 12h13 M8 18h13 M3 6h.01 M3 12h.01 M3 18h.01" />
+                              </svg>
+                              All
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (activeModule) return; // already in module mode
+                                const last = lastModuleRef.current || MODULE_LIST.find(b => b.available)?.id || null;
+                                if (last) setActiveModule(last);
+                              }}
+                              style={{
+                                flex: 1,
+                                padding: "4px 0",
+                                fontSize: 10,
+                                fontWeight: 600,
+                                background: activeModule ? C.accent : "transparent",
+                                color: activeModule ? "#fff" : C.textDim,
+                                border: "none",
+                                borderRadius: 4,
+                                cursor: "pointer",
+                                transition: "all 0.15s",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 4,
+                              }}
+                            >
+                              <svg
+                                width="10"
+                                height="10"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke={activeModule ? "#fff" : C.textDim}
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                              >
+                                <rect x="3" y="3" width="7" height="7" />
+                                <rect x="14" y="3" width="7" height="7" />
+                                <rect x="3" y="14" width="7" height="7" />
+                                <rect x="14" y="14" width="7" height="7" />
+                              </svg>
+                              Modules
+                            </button>
+                          </div>
+                          {/* Module pills — only when in module mode */}
+                          {activeModule && (
+                            <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+                              {MODULE_LIST.map(b => {
+                                const isActive = activeModule === b.id;
+                                return (
+                                  <button
+                                    key={b.id}
+                                    onClick={() => b.available && setActiveModule(b.id)}
+                                    style={{
+                                      padding: "3px 9px",
+                                      fontSize: 9,
+                                      fontWeight: 600,
+                                      border: `1px solid ${isActive ? C.accent + "60" : C.border}`,
+                                      background: isActive ? C.accent + "15" : "transparent",
+                                      color: isActive ? C.accent : b.available ? C.textMuted : C.textDimmer,
+                                      borderRadius: 4,
+                                      cursor: b.available ? "pointer" : "default",
+                                      opacity: b.available ? 1 : 0.4,
+                                      transition: "all 0.15s",
+                                    }}
+                                    title={b.available ? `${b.name} Module` : `${b.name} Module (Coming Soon)`}
+                                  >
+                                    {b.name}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Module panel + takeoff list — slide transition */}
+                      <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            width: "200%",
+                            height: "100%",
+                            transform: `translateX(${activeModule && pageFilter !== "page" ? "-50%" : "0"})`,
+                            transition: "transform 0.2s ease",
+                          }}
+                        >
+                          {/* Takeoff list (left) */}
+                          <div style={{ width: "50%", height: "100%", overflowY: "auto", padding: "0 8px 8px" }}>
+                            {Object.entries(takeoffGroups).map(([group, tos]) => {
+                              const isGroupCollapsed = !!collapsedGroups[group];
+                              return (
+                                <div
+                                  key={group}
+                                  style={{
+                                    marginBottom: T.space[3],
+                                    background: C.isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
+                                    backdropFilter: "blur(20px)",
+                                    WebkitBackdropFilter: "blur(20px)",
+                                    border: `1px solid ${C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.08)"}`,
+                                    borderRadius: T.radius.md,
+                                    overflow: "hidden",
+                                    boxShadow: T.shadow.sm,
+                                    transition: T.transition.base,
+                                  }}
+                                >
+                                  {/* Card header */}
                                   <div
                                     style={{
                                       display: "flex",
                                       alignItems: "center",
-                                      gap: 4,
-                                      padding: `${T.space[1]}px ${T.space[3]}px`,
-                                      fontSize: 8,
-                                      fontWeight: T.fontWeight.semibold,
-                                      color: C.textDim,
-                                      textTransform: "uppercase",
-                                      letterSpacing: 0.6,
-                                      borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.04)"}`,
+                                      justifyContent: "space-between",
+                                      padding: `${T.space[2]}px ${T.space[3]}px`,
+                                      background: C.isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+                                      borderBottom: isGroupCollapsed
+                                        ? "none"
+                                        : `1px solid ${C.isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"}`,
+                                      borderLeft:
+                                        group !== "Ungrouped" ? `3px solid ${C.accent}` : "3px solid transparent",
                                     }}
                                   >
-                                    <div style={{ width: 12 }}></div>
-                                    <div style={{ flex: 2, minWidth: 80 }}>Description</div>
-                                    <div style={{ width: 55, textAlign: "right" }}>Qty</div>
-                                    <div style={{ width: 36 }}>Unit</div>
-                                    {tkPanelTier !== "compact" && (
-                                      <>
-                                        <div style={{ width: 55, textAlign: "right" }}>$/Unit</div>
-                                        <div style={{ width: 65, textAlign: "right" }}>Total</div>
-                                      </>
-                                    )}
-                                    <div style={{ width: 50 }}>Sheet</div>
-                                    <div style={{ width: 52 }}></div>
+                                    <div
+                                      style={{ display: "flex", alignItems: "center", gap: T.space[2], minWidth: 0 }}
+                                    >
+                                      <Ic
+                                        d={group === "Ungrouped" ? I.layers : I.assembly}
+                                        size={12}
+                                        color={C.accent}
+                                      />
+                                      <span
+                                        style={{
+                                          fontSize: T.fontSize.sm,
+                                          fontWeight: T.fontWeight.semibold,
+                                          color: C.text,
+                                          letterSpacing: -0.2,
+                                          whiteSpace: "nowrap",
+                                          overflow: "hidden",
+                                          textOverflow: "ellipsis",
+                                        }}
+                                      >
+                                        {group}
+                                      </span>
+                                      <span
+                                        style={{
+                                          fontSize: 9,
+                                          color: C.textDim,
+                                          fontWeight: T.fontWeight.medium,
+                                          flexShrink: 0,
+                                        }}
+                                      >
+                                        {tos.length}
+                                      </span>
+                                    </div>
+                                    <button
+                                      onClick={() => toggleGroupCollapse(group)}
+                                      style={{
+                                        background: "none",
+                                        border: "none",
+                                        cursor: "pointer",
+                                        padding: 4,
+                                        display: "flex",
+                                        alignItems: "center",
+                                        borderRadius: T.radius.sm,
+                                        flexShrink: 0,
+                                      }}
+                                    >
+                                      <Ic
+                                        d={I.chevron}
+                                        size={10}
+                                        color={C.textDim}
+                                        style={{
+                                          transform: isGroupCollapsed ? "rotate(-90deg)" : "rotate(90deg)",
+                                          transition: "transform 0.2s cubic-bezier(0.25,0.1,0.25,1)",
+                                        }}
+                                      />
+                                    </button>
                                   </div>
-                                  {tos.map(to => {
-                                    const isActive = tkActiveTakeoffId === to.id;
-                                    const isSelected = tkSelectedTakeoffId === to.id || isActive;
-                                    const isMeasuring =
-                                      isActive && (tkMeasureState === "measuring" || tkMeasureState === "paused");
-                                    const isPaused = isActive && tkMeasureState === "paused";
-                                    const totalMCount = (to.measurements || []).length;
-                                    const computedQty = getComputedQty(to);
-                                    const measuredQty = getMeasuredQty(to);
-                                    const hasMeasurements = (to.measurements || []).length > 0;
-                                    const noScale =
-                                      hasMeasurements && measuredQty === null && unitToTool(to.unit) !== "count";
-                                    const hasFormula = !!(to.formula && to.formula.trim());
-                                    const displayQty = hasMeasurements
-                                      ? (hasFormula && computedQty !== null)
-                                        ? computedQty
-                                        : measuredQty !== null
-                                          ? measuredQty
-                                          : null
-                                      : nn(to.quantity) || null;
-                                    const hasVars = (to.variables || []).length > 0;
-                                    const ctrlBtnS = {
-                                      width: 20,
-                                      height: 20,
-                                      border: "none",
-                                      background: "transparent",
-                                      borderRadius: 3,
-                                      display: "flex",
-                                      alignItems: "center",
-                                      justifyContent: "center",
-                                      cursor: "pointer",
-                                    };
-                                    return (
-                                      <div key={to.id} data-takeoff-id={to.id}>
-                                        <div
-                                          className={`row${to._aiCosts ? " nova-priced" : ""}${isSelected ? " row-selected" : ""}${isMeasuring ? " row-measuring" : ""}`}
-                                          draggable
-                                          onDragStart={() => {
-                                            tkDragTakeoff.current = to.id;
-                                          }}
-                                          onDragEnter={() => {
-                                            tkDragOverTakeoff.current = to.id;
-                                          }}
-                                          onDragEnd={tkDragReorder}
-                                          onDragOver={e => e.preventDefault()}
-                                          onClick={() => {
-                                            // Single click = select only (never auto-start measuring)
-                                            setTkSelectedTakeoffId(to.id);
-                                          }}
-                                          style={{
-                                            "--rc": to.color,
-                                            position: "relative",
-                                            zIndex: isSelected && !isMeasuring ? 2 : undefined,
-                                            display: "flex",
-                                            alignItems: "center",
-                                            gap: 4,
-                                            padding: `${T.space[1]}px ${T.space[2]}px`,
-                                            borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.04)"}`,
-                                            cursor: "grab",
-                                            background: isMeasuring
-                                              ? `${to.color}18`
-                                              : isSelected
-                                                ? `${to.color}0A`
-                                                : "transparent",
-                                            borderLeft: isMeasuring
-                                              ? `3px solid ${to.color}`
-                                              : isSelected
-                                                ? `3px solid ${to.color}80`
-                                                : "3px solid transparent",
-                                            boxShadow: isMeasuring ? `inset 0 0 0 1px ${to.color}30` : "none",
-                                            transition: "background 100ms ease-out",
-                                          }}
-                                        >
-                                          {/* Play / Pause / Resume — left of color for faster engage */}
-                                          <div
-                                            style={{
-                                              width: 20,
-                                              flexShrink: 0,
-                                              display: "flex",
-                                              alignItems: "center",
-                                              justifyContent: "center",
-                                            }}
-                                            onClick={e => e.stopPropagation()}
-                                          >
-                                            {isActive && tkMeasureState === "measuring" ? (
-                                              <button
-                                                className="icon-btn"
-                                                onClick={() => pauseMeasuring()}
-                                                title="Pause"
-                                                style={ctrlBtnS}
-                                              >
-                                                <svg width="10" height="10" viewBox="0 0 10 10" fill={to.color}>
-                                                  <rect x="1" y="1" width="3" height="8" rx="0.5" />
-                                                  <rect x="6" y="1" width="3" height="8" rx="0.5" />
-                                                </svg>
-                                              </button>
-                                            ) : isPaused ? (
-                                              <button
-                                                className="icon-btn"
-                                                onClick={() => setTkMeasureState("measuring")}
-                                                title="Resume"
-                                                style={ctrlBtnS}
-                                              >
-                                                <svg width="10" height="10" viewBox="0 0 10 10" fill={to.color}>
-                                                  <polygon points="2,1 9,5 2,9" />
-                                                </svg>
-                                              </button>
-                                            ) : (
-                                              <button
-                                                className="icon-btn"
-                                                onClick={() => engageMeasuring(to.id)}
-                                                title="Start measuring"
-                                                style={{ ...ctrlBtnS, opacity: selectedDrawing?.data ? 1 : 0.3 }}
-                                                disabled={!selectedDrawing?.data}
-                                              >
-                                                <svg
-                                                  width="10"
-                                                  height="10"
-                                                  viewBox="0 0 10 10"
-                                                  fill={selectedDrawing?.data ? to.color : C.textDim}
-                                                >
-                                                  <polygon points="2,1 9,5 2,9" />
-                                                </svg>
-                                              </button>
-                                            )}
-                                          </div>
-                                          <div
-                                            style={{
-                                              width: 10,
-                                              height: 10,
-                                              borderRadius: 2,
-                                              background: to.color,
-                                              flexShrink: 0,
-                                              cursor: "pointer",
-                                              position: "relative",
-                                            }}
-                                            onClick={e => {
-                                              e.stopPropagation();
-                                              e.currentTarget.querySelector("input")?.click();
-                                            }}
-                                          >
-                                            {isMeasuring && (
-                                              <div
-                                                style={{
-                                                  position: "absolute",
-                                                  inset: -2,
-                                                  borderRadius: 3,
-                                                  border: `2px solid ${to.color}`,
-                                                  animation: "pulse 1.5s infinite",
-                                                }}
-                                              />
-                                            )}
-                                            <input
-                                              type="color"
-                                              value={to.color}
-                                              onChange={e => updateTakeoff(to.id, "color", e.target.value)}
-                                              onClick={e => e.stopPropagation()}
-                                              style={{
-                                                position: "absolute",
-                                                opacity: 0,
-                                                width: 0,
-                                                height: 0,
-                                                top: 0,
-                                                left: 0,
+                                  {!isGroupCollapsed && (
+                                    <>
+                                      <div
+                                        style={{
+                                          display: "flex",
+                                          alignItems: "center",
+                                          gap: 4,
+                                          padding: `${T.space[1]}px ${T.space[3]}px`,
+                                          fontSize: 8,
+                                          fontWeight: T.fontWeight.semibold,
+                                          color: C.textDim,
+                                          textTransform: "uppercase",
+                                          letterSpacing: 0.6,
+                                          borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.04)"}`,
+                                        }}
+                                      >
+                                        <div style={{ width: 12 }}></div>
+                                        <div style={{ flex: 2, minWidth: 80 }}>Description</div>
+                                        <div style={{ width: 55, textAlign: "right" }}>Qty</div>
+                                        <div style={{ width: 36 }}>Unit</div>
+                                        {tkPanelTier !== "compact" && (
+                                          <>
+                                            <div style={{ width: 55, textAlign: "right" }}>$/Unit</div>
+                                            <div style={{ width: 65, textAlign: "right" }}>Total</div>
+                                          </>
+                                        )}
+                                        <div style={{ width: 50 }}>Sheet</div>
+                                        <div style={{ width: 52 }}></div>
+                                      </div>
+                                      {tos.map(to => {
+                                        const isActive = tkActiveTakeoffId === to.id;
+                                        const isSelected = tkSelectedTakeoffId === to.id || isActive;
+                                        const isMeasuring =
+                                          isActive && (tkMeasureState === "measuring" || tkMeasureState === "paused");
+                                        const isPaused = isActive && tkMeasureState === "paused";
+                                        const totalMCount = (to.measurements || []).length;
+                                        const computedQty = getComputedQty(to);
+                                        const measuredQty = getMeasuredQty(to);
+                                        const hasMeasurements = (to.measurements || []).length > 0;
+                                        const noScale =
+                                          hasMeasurements && measuredQty === null && unitToTool(to.unit) !== "count";
+                                        const hasFormula = !!(to.formula && to.formula.trim());
+                                        const displayQty = hasMeasurements
+                                          ? hasFormula && computedQty !== null
+                                            ? computedQty
+                                            : measuredQty !== null
+                                              ? measuredQty
+                                              : null
+                                          : nn(to.quantity) || null;
+                                        const hasVars = (to.variables || []).length > 0;
+                                        const ctrlBtnS = {
+                                          width: 20,
+                                          height: 20,
+                                          border: "none",
+                                          background: "transparent",
+                                          borderRadius: 3,
+                                          display: "flex",
+                                          alignItems: "center",
+                                          justifyContent: "center",
+                                          cursor: "pointer",
+                                        };
+                                        return (
+                                          <div key={to.id} data-takeoff-id={to.id}>
+                                            <div
+                                              className={`row${to._aiCosts ? " nova-priced" : ""}${isSelected ? " row-selected" : ""}${isMeasuring ? " row-measuring" : ""}`}
+                                              draggable
+                                              onDragStart={() => {
+                                                tkDragTakeoff.current = to.id;
                                               }}
-                                            />
-                                          </div>
-                                          {/* Tier 1: Description — LOUD */}
-                                          <div
-                                            style={{ flex: 2, minWidth: 80, minHeight: 0 }}
-                                            onClick={e => e.stopPropagation()}
-                                          >
-                                            <input
-                                              value={to.description}
-                                              onChange={e => updateTakeoff(to.id, "description", e.target.value)}
-                                              placeholder="Description..."
-                                              style={inp(C, {
-                                                background: "transparent",
-                                                border: "1px solid transparent",
-                                                padding: "2px 4px",
-                                                fontSize: T.fontSize.sm,
-                                                fontWeight: T.fontWeight.medium,
-                                              })}
-                                            />
-                                            {/* Tier 2: Code/NOVA badge — medium */}
-                                            {(to.code || to._aiCosts) && (
+                                              onDragEnter={() => {
+                                                tkDragOverTakeoff.current = to.id;
+                                              }}
+                                              onDragEnd={tkDragReorder}
+                                              onDragOver={e => e.preventDefault()}
+                                              onClick={() => {
+                                                // Single click = select only (never auto-start measuring)
+                                                setTkSelectedTakeoffId(to.id);
+                                              }}
+                                              style={{
+                                                "--rc": to.color,
+                                                position: "relative",
+                                                zIndex: isSelected && !isMeasuring ? 2 : undefined,
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: 4,
+                                                padding: `${T.space[1]}px ${T.space[2]}px`,
+                                                borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.04)"}`,
+                                                cursor: "grab",
+                                                background: isMeasuring
+                                                  ? `${to.color}18`
+                                                  : isSelected
+                                                    ? `${to.color}0A`
+                                                    : "transparent",
+                                                borderLeft: isMeasuring
+                                                  ? `3px solid ${to.color}`
+                                                  : isSelected
+                                                    ? `3px solid ${to.color}80`
+                                                    : "3px solid transparent",
+                                                boxShadow: isMeasuring ? `inset 0 0 0 1px ${to.color}30` : "none",
+                                                transition: "background 100ms ease-out",
+                                              }}
+                                            >
+                                              {/* Play / Pause / Resume — left of color for faster engage */}
                                               <div
                                                 style={{
-                                                  fontSize: 8,
-                                                  color: `${C.purple}B0`,
-                                                  fontFamily: T.font.mono,
-                                                  paddingLeft: 4,
+                                                  width: 20,
+                                                  flexShrink: 0,
                                                   display: "flex",
                                                   alignItems: "center",
-                                                  gap: 3,
-                                                  lineHeight: 1.2,
-                                                  ...truncate(),
+                                                  justifyContent: "center",
                                                 }}
+                                                onClick={e => e.stopPropagation()}
                                               >
-                                                {to.code || ""}
-                                                {to._aiCosts && (
-                                                  <span
-                                                    style={{
-                                                      color: C.accent,
-                                                      fontSize: 7,
-                                                      fontWeight: T.fontWeight.bold,
-                                                      display: "inline-flex",
-                                                      alignItems: "center",
-                                                      gap: 2,
-                                                      background: `${C.accent}0A`,
-                                                      padding: "0 3px",
-                                                      borderRadius: 2,
-                                                    }}
-                                                    title={`NOVA: M $${fmt2(to._aiCosts.material)} · L $${fmt2(to._aiCosts.labor)} · E $${fmt2(to._aiCosts.equipment)}`}
+                                                {isActive && tkMeasureState === "measuring" ? (
+                                                  <button
+                                                    className="icon-btn"
+                                                    onClick={() => pauseMeasuring()}
+                                                    title="Pause"
+                                                    style={ctrlBtnS}
                                                   >
-                                                    ✦ NOVA
-                                                  </span>
+                                                    <svg width="10" height="10" viewBox="0 0 10 10" fill={to.color}>
+                                                      <rect x="1" y="1" width="3" height="8" rx="0.5" />
+                                                      <rect x="6" y="1" width="3" height="8" rx="0.5" />
+                                                    </svg>
+                                                  </button>
+                                                ) : isPaused ? (
+                                                  <button
+                                                    className="icon-btn"
+                                                    onClick={() => setTkMeasureState("measuring")}
+                                                    title="Resume"
+                                                    style={ctrlBtnS}
+                                                  >
+                                                    <svg width="10" height="10" viewBox="0 0 10 10" fill={to.color}>
+                                                      <polygon points="2,1 9,5 2,9" />
+                                                    </svg>
+                                                  </button>
+                                                ) : (
+                                                  <button
+                                                    className="icon-btn"
+                                                    onClick={() => engageMeasuring(to.id)}
+                                                    title="Start measuring"
+                                                    style={{ ...ctrlBtnS, opacity: selectedDrawing?.data ? 1 : 0.3 }}
+                                                    disabled={!selectedDrawing?.data}
+                                                  >
+                                                    <svg
+                                                      width="10"
+                                                      height="10"
+                                                      viewBox="0 0 10 10"
+                                                      fill={selectedDrawing?.data ? to.color : C.textDim}
+                                                    >
+                                                      <polygon points="2,1 9,5 2,9" />
+                                                    </svg>
+                                                  </button>
                                                 )}
                                               </div>
-                                            )}
-                                          </div>
-                                          {/* Tier 1: Qty — LOUD */}
-                                          <div style={{ width: 55 }} onClick={e => e.stopPropagation()}>
-                                            {hasMeasurements ? (
-                                              noScale ? (
-                                                <div
-                                                  style={{
-                                                    fontSize: 8,
-                                                    color: C.orange,
-                                                    fontWeight: T.fontWeight.semibold,
-                                                    padding: "2px 4px",
-                                                    cursor: "help",
-                                                  }}
-                                                  title="Set a scale to see quantities"
-                                                >
-                                                  ⚠ Scale
-                                                </div>
-                                              ) : (
-                                                <div
-                                                  className={measureFlashId === to.id ? "measure-complete" : ""}
-                                                  style={{
-                                                    "--rc": to.color,
-                                                    fontSize: T.fontSize.base,
-                                                    fontWeight: T.fontWeight.heavy || 800,
-                                                    color: measureFlashId === to.id ? to.color : C.text,
-                                                    padding: "2px 4px",
-                                                    fontFamily: T.font.mono,
-                                                    fontFeatureSettings: "'tnum'",
-                                                    borderRadius: 3,
-                                                    transition: "color 300ms ease",
-                                                  }}
-                                                >
-                                                  {displayQty}
-                                                </div>
-                                              )
-                                            ) : (
-                                              <input
-                                                type="number"
-                                                value={to.quantity}
-                                                onChange={e => updateTakeoff(to.id, "quantity", e.target.value)}
-                                                placeholder="0"
-                                                style={nInp(C, {
-                                                  background: "transparent",
-                                                  border: "1px solid transparent",
-                                                  padding: "2px 4px",
-                                                  fontSize: T.fontSize.base,
-                                                  fontWeight: T.fontWeight.bold,
-                                                })}
-                                              />
-                                            )}
-                                            {/* Formula whisper removed — displayQty now shows computed result */}
-                                          </div>
-                                          {/* Tier 3: Unit — whisper */}
-                                          <div style={{ width: 36 }} onClick={e => e.stopPropagation()}>
-                                            <select
-                                              value={to.unit}
-                                              onChange={e => {
-                                                updateTakeoff(to.id, "unit", e.target.value);
-                                                if (tkActiveTakeoffId === to.id) {
-                                                  setTkTool(unitToTool(e.target.value));
-                                                  setTkActivePoints([]);
-                                                }
-                                              }}
-                                              style={inp(C, {
-                                                background: "transparent",
-                                                border: "1px solid transparent",
-                                                padding: "2px 1px",
-                                                fontSize: 8,
-                                                color: C.textDim,
-                                              })}
-                                            >
-                                              {["EA","LF","SF","SY","CY","CF","LS","HR"].map(u => (
-                                                <option key={u} value={u}>
-                                                  {u}
-                                                </option>
-                                              ))}
-                                            </select>
-                                          </div>
-                                          {/* Cost columns — Standard/Full tier, only when item is linked with cost */}
-                                          {tkPanelTier !== "compact" &&
-                                            (() => {
-                                              const linkedItem = itemById[to.linkedItemId];
-                                              if (!linkedItem) return null;
-                                              const itemTotal = getItemTotal(linkedItem);
-                                              const itemQty = nn(linkedItem.quantity);
-                                              const unitCost = itemQty > 0 ? itemTotal / itemQty : 0;
-                                              if (itemTotal <= 0) return null;
-                                              return (
-                                                <>
-                                                  <div
-                                                    style={{
-                                                      width: 55,
-                                                      textAlign: "right",
-                                                      fontSize: 9,
-                                                      fontFeatureSettings: "'tnum'",
-                                                      color: C.textDim,
-                                                      padding: "2px 2px",
-                                                    }}
-                                                    onClick={e => {
-                                                      e.stopPropagation();
-                                                      setCostEditId(costEditId === to.id ? null : to.id);
-                                                    }}
-                                                    title={`M: $${fmt2(nn(linkedItem.material))} · L: $${fmt2(nn(linkedItem.labor))} · E: $${fmt2(nn(linkedItem.equipment))} · S: $${fmt2(nn(linkedItem.subcontractor))}`}
-                                                  >
-                                                    ${fmt2(unitCost)}
-                                                  </div>
-                                                  <div
-                                                    style={{
-                                                      width: 65,
-                                                      textAlign: "right",
-                                                      fontSize: 10,
-                                                      fontWeight: 700,
-                                                      fontFeatureSettings: "'tnum'",
-                                                      color: C.green,
-                                                      padding: "2px 2px",
-                                                    }}
-                                                    onClick={e => {
-                                                      e.stopPropagation();
-                                                      setCostEditId(costEditId === to.id ? null : to.id);
-                                                    }}
-                                                  >
-                                                    {fmt(itemTotal)}
-                                                  </div>
-                                                </>
-                                              );
-                                            })()}
-                                          <div
-                                            style={{ width: 50, overflow: "hidden" }}
-                                            onClick={e => e.stopPropagation()}
-                                          >
-                                            {(() => {
-                                              const mSheets = [
-                                                ...new Set((to.measurements || []).map(m => m.sheetId).filter(Boolean)),
-                                              ];
-                                              if (mSheets.length === 0) {
-                                                return (
-                                                  <select
-                                                    value={to.drawingRef}
-                                                    onChange={e => {
-                                                      updateTakeoff(to.id, "drawingRef", e.target.value);
-                                                      const dd = drawings.find(
-                                                        dr => (dr.sheetNumber || dr.pageNumber || dr.id) === e.target.value,
-                                                      );
-                                                      if (dd) {
-                                                        setSelectedDrawingId(dd.id);
-                                                        if (dd.type === "pdf" && dd.data) renderPdfPage(dd);
-                                                      }
-                                                    }}
-                                                    style={inp(C, {
-                                                      background: "transparent",
-                                                      border: "1px solid transparent",
-                                                      padding: "2px 1px",
-                                                      fontSize: 8,
-                                                    })}
-                                                  >
-                                                    <option value="">—</option>
-                                                    {drawings.map(d => (
-                                                      <option key={d.id} value={d.sheetNumber || d.pageNumber || d.id}>
-                                                        {d.sheetNumber || d.pageNumber || "?"}
-                                                      </option>
-                                                    ))}
-                                                  </select>
-                                                );
-                                              }
-                                              const labels = mSheets.map(sid => {
-                                                const dr = drawings.find(dd => dd.id === sid);
-                                                return dr ? dr.sheetNumber || dr.pageNumber || "?" : "?";
-                                              });
-                                              return (
-                                                <div
-                                                  title={`Measured on: ${labels.join(", ")}`}
-                                                  style={{
-                                                    fontSize: 8,
-                                                    color: C.accent,
-                                                    fontWeight: 600,
-                                                    padding: "2px 2px",
-                                                    cursor: "pointer",
-                                                    whiteSpace: "nowrap",
-                                                    overflow: "hidden",
-                                                    textOverflow: "ellipsis",
-                                                  }}
-                                                  onClick={() => {
-                                                    const d = drawings.find(d => d.id === mSheets[0]);
-                                                    if (d) {
-                                                      setSelectedDrawingId(d.id);
-                                                      if (d.type === "pdf" && d.data) renderPdfPage(d);
-                                                    }
-                                                  }}
-                                                >
-                                                  {labels.join(",")}
-                                                </div>
-                                              );
-                                            })()}
-                                          </div>
-                                          <div
-                                            style={{
-                                              width: 52,
-                                              display: "flex",
-                                              gap: 2,
-                                              flexWrap: "wrap",
-                                              alignItems: "center",
-                                            }}
-                                            onClick={e => e.stopPropagation()}
-                                          >
-                                            {/* Always visible: Stop button + measurement count */}
-                                            {(isActive && tkMeasureState === "measuring") || isPaused ? (
-                                              <button
-                                                className="icon-btn"
-                                                onClick={() => stopMeasuring()}
-                                                title="Stop"
-                                                style={ctrlBtnS}
-                                              >
-                                                <svg width="8" height="8" viewBox="0 0 8 8" fill={C.red}>
-                                                  <rect width="8" height="8" rx="1" />
-                                                </svg>
-                                              </button>
-                                            ) : null}
-                                            {/* Measurement count badge removed — unnecessary clutter */}
-                                            {/* Hover-reveal: Formula, Auto-count, Duplicate, Delete */}
-                                            <div
-                                              className="tk-row-actions"
-                                              style={{
-                                                display: "flex",
-                                                gap: 2,
-                                                flexWrap: "wrap",
-                                                alignItems: "center",
-                                              }}
-                                            >
-                                              <button
-                                                className="icon-btn"
-                                                onClick={() => setTkShowVars(tkShowVars === to.id ? null : to.id)}
-                                                title="Variables & Formula"
+                                              <div
                                                 style={{
-                                                  minWidth: 24,
-                                                  height: 22,
-                                                  padding: hasFormula ? "0 5px" : "0 4px",
-                                                  border: hasFormula
-                                                    ? `1px solid ${C.accent}40`
-                                                    : `1px solid ${C.border}`,
-                                                  background: hasFormula
-                                                    ? `${C.accent}15`
-                                                    : C.bg2,
-                                                  color: hasFormula ? C.accent : C.textMuted,
-                                                  borderRadius: 5,
-                                                  display: "flex",
-                                                  alignItems: "center",
-                                                  justifyContent: "center",
-                                                  fontSize: hasFormula ? 9 : 11,
-                                                  fontWeight: 700,
-                                                  gap: 1,
-                                                  transition: T.transition.fast,
-                                                  boxShadow: hasFormula ? (T.shadow.glowAccent || "none") : "none",
+                                                  width: 10,
+                                                  height: 10,
+                                                  borderRadius: 2,
+                                                  background: to.color,
+                                                  flexShrink: 0,
+                                                  cursor: "pointer",
+                                                  position: "relative",
+                                                }}
+                                                onClick={e => {
+                                                  e.stopPropagation();
+                                                  e.currentTarget.querySelector("input")?.click();
                                                 }}
                                               >
-                                                {(() => {
-                                                  if (!hasFormula) return "ƒ";
-                                                  const vars = to.variables || [];
-                                                  const hVar = vars.find(v => (v.key || "").toLowerCase() === "height");
-                                                  if (hVar) return `×${hVar.value}'`;
-                                                  const fVar = vars.find(v => (v.key || "").toLowerCase() === "factor");
-                                                  if (fVar) return `×${fVar.value}`;
-                                                  if (vars.length > 0) return `ƒ=`;
-                                                  return "ƒ";
-                                                })()}
-                                              </button>
-                                              {unitToTool(to.unit) === "count" && selectedDrawing?.data && (
-                                                <button
-                                                  className="icon-btn"
-                                                  onClick={e => {
-                                                    e.stopPropagation();
-                                                    startAutoCount(to.id);
-                                                  }}
-                                                  title="Auto Count"
-                                                  style={{
-                                                    width: 20,
-                                                    height: 20,
-                                                    border: "none",
-                                                    background:
-                                                      tkAutoCount?.takeoffId === to.id
-                                                        ? "rgba(168,126,230,0.2)"
-                                                        : "transparent",
-                                                    color: C.purple,
-                                                    borderRadius: 3,
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    justifyContent: "center",
-                                                  }}
-                                                >
-                                                  <svg
-                                                    width="12"
-                                                    height="12"
-                                                    viewBox="0 0 24 24"
-                                                    fill="none"
-                                                    stroke={C.purple}
-                                                    strokeWidth="2.5"
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                  >
-                                                    <path d="M12 20V10 M18 20v-4 M6 20v-6" />
-                                                  </svg>
-                                                </button>
-                                              )}
-                                              <button
-                                                className="icon-btn"
-                                                onClick={() => {
-                                                  const nt = {
-                                                    ...takeoffs.find(t => t.id === to.id),
-                                                    id: uid(),
-                                                    linkedItemId: "",
-                                                    measurements: [],
-                                                  };
-                                                  setTakeoffs([...takeoffs, nt]);
-                                                }}
-                                                title="Duplicate"
-                                                style={{
-                                                  width: 20,
-                                                  height: 20,
-                                                  border: "none",
-                                                  background: "transparent",
-                                                  color: C.textDim,
-                                                  borderRadius: 3,
-                                                  display: "flex",
-                                                  alignItems: "center",
-                                                  justifyContent: "center",
-                                                }}
-                                              >
-                                                <Ic d={I.copy} size={10} />
-                                              </button>
-                                              <button
-                                                className="icon-btn"
-                                                onClick={() => removeTakeoff(to.id)}
-                                                title="Delete"
-                                                style={{
-                                                  width: 20,
-                                                  height: 20,
-                                                  border: "none",
-                                                  background: "transparent",
-                                                  color: C.red,
-                                                  borderRadius: 3,
-                                                  display: "flex",
-                                                  alignItems: "center",
-                                                  justifyContent: "center",
-                                                }}
-                                              >
-                                                <Ic d={I.trash} size={10} />
-                                              </button>
-                                            </div>
-                                          </div>
-                                          {/* Floating controls popover — absolute positioned, no layout shift */}
-                                          {isSelected && !isMeasuring && (
-                                            <div
-                                              style={{
-                                                position: "absolute",
-                                                top: "100%",
-                                                left: 0,
-                                                right: 0,
-                                                zIndex: T.z.dropdown,
-                                                padding: "8px 10px 8px 27px",
-                                                background: `linear-gradient(180deg, ${C.bg1}, ${C.bg2}30)`,
-                                                border: `1px solid ${C.border}`,
-                                                borderTop: "none",
-                                                borderRadius: "0 0 8px 8px",
-                                                boxShadow: T.shadow.md,
-                                                display: "flex",
-                                                flexDirection: "column",
-                                                gap: 5,
-                                              }}
-                                              onClick={e => e.stopPropagation()}
-                                            >
-                                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                                <span
-                                                  style={{
-                                                    fontSize: 7,
-                                                    color: C.textDim,
-                                                    fontWeight: 700,
-                                                    textTransform: "uppercase",
-                                                    letterSpacing: 0.5,
-                                                    minWidth: 28,
-                                                  }}
-                                                >
-                                                  Color
-                                                </span>
-                                                <div style={{ display: "flex", gap: 3 }}>
-                                                  {TO_COLORS.map(c => (
-                                                    <div
-                                                      key={c}
-                                                      onClick={() => updateTakeoff(to.id, "color", c)}
-                                                      style={{
-                                                        width: 14,
-                                                        height: 14,
-                                                        borderRadius: 3,
-                                                        background: c,
-                                                        cursor: "pointer",
-                                                        border:
-                                                          to.color === c ? "2px solid #fff" : "1px solid transparent",
-                                                        boxShadow:
-                                                          to.color === c ? `0 0 0 1px ${c}, 0 0 6px ${c}40` : "none",
-                                                        transition: "all 100ms",
-                                                      }}
-                                                    />
-                                                  ))}
-                                                  <div
-                                                    style={{
-                                                      position: "relative",
-                                                      width: 14,
-                                                      height: 14,
-                                                      borderRadius: 3,
-                                                      background: `conic-gradient(red, yellow, lime, cyan, blue, magenta, red)`,
-                                                      cursor: "pointer",
-                                                    }}
-                                                    onClick={e => {
-                                                      e.stopPropagation();
-                                                      e.currentTarget.querySelector("input")?.click();
-                                                    }}
-                                                  >
-                                                    <input
-                                                      type="color"
-                                                      value={to.color}
-                                                      onChange={e => updateTakeoff(to.id, "color", e.target.value)}
-                                                      onClick={e => e.stopPropagation()}
-                                                      style={{
-                                                        position: "absolute",
-                                                        opacity: 0,
-                                                        width: 0,
-                                                        height: 0,
-                                                        top: 0,
-                                                        left: 0,
-                                                      }}
-                                                    />
-                                                  </div>
-                                                </div>
-                                              </div>
-                                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                                <span
-                                                  style={{
-                                                    fontSize: 7,
-                                                    color: C.textDim,
-                                                    fontWeight: 700,
-                                                    textTransform: "uppercase",
-                                                    letterSpacing: 0.5,
-                                                    minWidth: 28,
-                                                  }}
-                                                >
-                                                  Stroke
-                                                </span>
-                                                <input
-                                                  type="range"
-                                                  min="1"
-                                                  max="10"
-                                                  step="1"
-                                                  value={to.strokeWidth ?? 3}
-                                                  onChange={e =>
-                                                    updateTakeoff(to.id, "strokeWidth", Number(e.target.value))
-                                                  }
-                                                  style={{
-                                                    width: 70,
-                                                    height: 3,
-                                                    accentColor: to.color,
-                                                    cursor: "pointer",
-                                                  }}
-                                                />
-                                                <span
-                                                  style={{
-                                                    fontSize: 8,
-                                                    color: C.textDim,
-                                                    fontFamily: T.font.sans,
-                                                    minWidth: 18,
-                                                  }}
-                                                >
-                                                  {to.strokeWidth ?? 3}px
-                                                </span>
-                                              </div>
-                                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                                <span
-                                                  style={{
-                                                    fontSize: 7,
-                                                    color: C.textDim,
-                                                    fontWeight: 700,
-                                                    textTransform: "uppercase",
-                                                    letterSpacing: 0.5,
-                                                    minWidth: 28,
-                                                  }}
-                                                >
-                                                  Fill
-                                                </span>
-                                                <input
-                                                  type="range"
-                                                  min="5"
-                                                  max="100"
-                                                  step="5"
-                                                  value={to.fillOpacity ?? 20}
-                                                  onChange={e =>
-                                                    updateTakeoff(to.id, "fillOpacity", Number(e.target.value))
-                                                  }
-                                                  style={{
-                                                    width: 70,
-                                                    height: 3,
-                                                    accentColor: to.color,
-                                                    cursor: "pointer",
-                                                  }}
-                                                />
-                                                <span
-                                                  style={{
-                                                    fontSize: 8,
-                                                    color: C.textDim,
-                                                    fontFamily: T.font.sans,
-                                                    minWidth: 24,
-                                                  }}
-                                                >
-                                                  {to.fillOpacity ?? 20}%
-                                                </span>
-                                              </div>
-                                            </div>
-                                          )}
-                                          {/* Inline cost edit popover — Standard/Full tier */}
-                                          {costEditId === to.id &&
-                                            tkPanelTier !== "compact" &&
-                                            (() => {
-                                              const li = itemById[to.linkedItemId];
-                                              if (!li)
-                                                return (
+                                                {isMeasuring && (
                                                   <div
                                                     style={{
                                                       position: "absolute",
-                                                      top: "100%",
-                                                      left: 0,
-                                                      right: 0,
-                                                      zIndex: T.z.dropdown + 1,
-                                                      padding: "8px 12px",
-                                                      background: C.bg1,
-                                                      border: `1px solid ${C.border}`,
-                                                      borderRadius: "0 0 8px 8px",
-                                                      boxShadow: T.shadow.md,
-                                                      fontSize: 9,
-                                                      color: C.textDim,
+                                                      inset: -2,
+                                                      borderRadius: 3,
+                                                      border: `2px solid ${to.color}`,
+                                                      animation: "pulse 1.5s infinite",
                                                     }}
-                                                    onClick={e => e.stopPropagation()}
+                                                  />
+                                                )}
+                                                <input
+                                                  type="color"
+                                                  value={to.color}
+                                                  onChange={e => updateTakeoff(to.id, "color", e.target.value)}
+                                                  onClick={e => e.stopPropagation()}
+                                                  style={{
+                                                    position: "absolute",
+                                                    opacity: 0,
+                                                    width: 0,
+                                                    height: 0,
+                                                    top: 0,
+                                                    left: 0,
+                                                  }}
+                                                />
+                                              </div>
+                                              {/* Tier 1: Description — LOUD */}
+                                              <div
+                                                style={{ flex: 2, minWidth: 80, minHeight: 0 }}
+                                                onClick={e => e.stopPropagation()}
+                                              >
+                                                <input
+                                                  value={to.description}
+                                                  onChange={e => updateTakeoff(to.id, "description", e.target.value)}
+                                                  placeholder="Description..."
+                                                  style={inp(C, {
+                                                    background: "transparent",
+                                                    border: "1px solid transparent",
+                                                    padding: "2px 4px",
+                                                    fontSize: T.fontSize.sm,
+                                                    fontWeight: T.fontWeight.medium,
+                                                  })}
+                                                />
+                                                {/* Tier 2: Code/NOVA badge — medium */}
+                                                {(to.code || to._aiCosts) && (
+                                                  <div
+                                                    style={{
+                                                      fontSize: 8,
+                                                      color: `${C.purple}B0`,
+                                                      fontFamily: T.font.mono,
+                                                      paddingLeft: 4,
+                                                      display: "flex",
+                                                      alignItems: "center",
+                                                      gap: 3,
+                                                      lineHeight: 1.2,
+                                                      ...truncate(),
+                                                    }}
                                                   >
-                                                    No linked estimate item yet
+                                                    {to.code || ""}
+                                                    {to._aiCosts && (
+                                                      <span
+                                                        style={{
+                                                          color: C.accent,
+                                                          fontSize: 7,
+                                                          fontWeight: T.fontWeight.bold,
+                                                          display: "inline-flex",
+                                                          alignItems: "center",
+                                                          gap: 2,
+                                                          background: `${C.accent}0A`,
+                                                          padding: "0 3px",
+                                                          borderRadius: 2,
+                                                        }}
+                                                        title={`NOVA: M $${fmt2(to._aiCosts.material)} · L $${fmt2(to._aiCosts.labor)} · E $${fmt2(to._aiCosts.equipment)}`}
+                                                      >
+                                                        ✦ NOVA
+                                                      </span>
+                                                    )}
                                                   </div>
-                                                );
-                                              const upd = (field, val) =>
-                                                useItemsStore.getState().updateItem(li.id, field, Number(val) || 0);
-                                              const costFields = [
-                                                { key: "material", label: "Material", short: "M" },
-                                                { key: "labor", label: "Labor", short: "L" },
-                                                { key: "equipment", label: "Equipment", short: "E" },
-                                                { key: "subcontractor", label: "Sub", short: "S" },
-                                              ];
-                                              return (
+                                                )}
+                                              </div>
+                                              {/* Tier 1: Qty — LOUD */}
+                                              <div style={{ width: 55 }} onClick={e => e.stopPropagation()}>
+                                                {hasMeasurements ? (
+                                                  noScale ? (
+                                                    <div
+                                                      style={{
+                                                        fontSize: 8,
+                                                        color: C.orange,
+                                                        fontWeight: T.fontWeight.semibold,
+                                                        padding: "2px 4px",
+                                                        cursor: "help",
+                                                      }}
+                                                      title="Set a scale to see quantities"
+                                                    >
+                                                      ⚠ Scale
+                                                    </div>
+                                                  ) : (
+                                                    <div
+                                                      className={measureFlashId === to.id ? "measure-complete" : ""}
+                                                      style={{
+                                                        "--rc": to.color,
+                                                        fontSize: T.fontSize.base,
+                                                        fontWeight: T.fontWeight.heavy || 800,
+                                                        color: measureFlashId === to.id ? to.color : C.text,
+                                                        padding: "2px 4px",
+                                                        fontFamily: T.font.mono,
+                                                        fontFeatureSettings: "'tnum'",
+                                                        borderRadius: 3,
+                                                        transition: "color 300ms ease",
+                                                      }}
+                                                    >
+                                                      {displayQty}
+                                                    </div>
+                                                  )
+                                                ) : (
+                                                  <input
+                                                    type="number"
+                                                    value={to.quantity}
+                                                    onChange={e => updateTakeoff(to.id, "quantity", e.target.value)}
+                                                    placeholder="0"
+                                                    style={nInp(C, {
+                                                      background: "transparent",
+                                                      border: "1px solid transparent",
+                                                      padding: "2px 4px",
+                                                      fontSize: T.fontSize.base,
+                                                      fontWeight: T.fontWeight.bold,
+                                                    })}
+                                                  />
+                                                )}
+                                                {/* Formula whisper removed — displayQty now shows computed result */}
+                                              </div>
+                                              {/* Tier 3: Unit — whisper */}
+                                              <div style={{ width: 36 }} onClick={e => e.stopPropagation()}>
+                                                <select
+                                                  value={to.unit}
+                                                  onChange={e => {
+                                                    updateTakeoff(to.id, "unit", e.target.value);
+                                                    if (tkActiveTakeoffId === to.id) {
+                                                      setTkTool(unitToTool(e.target.value));
+                                                      setTkActivePoints([]);
+                                                    }
+                                                  }}
+                                                  style={inp(C, {
+                                                    background: "transparent",
+                                                    border: "1px solid transparent",
+                                                    padding: "2px 1px",
+                                                    fontSize: 8,
+                                                    color: C.textDim,
+                                                  })}
+                                                >
+                                                  {["EA", "LF", "SF", "SY", "CY", "CF", "LS", "HR"].map(u => (
+                                                    <option key={u} value={u}>
+                                                      {u}
+                                                    </option>
+                                                  ))}
+                                                </select>
+                                              </div>
+                                              {/* Cost columns — Standard/Full tier, only when item is linked with cost */}
+                                              {tkPanelTier !== "compact" &&
+                                                (() => {
+                                                  const linkedItem = itemById[to.linkedItemId];
+                                                  if (!linkedItem) return null;
+                                                  const itemTotal = getItemTotal(linkedItem);
+                                                  const itemQty = nn(linkedItem.quantity);
+                                                  const unitCost = itemQty > 0 ? itemTotal / itemQty : 0;
+                                                  if (itemTotal <= 0) return null;
+                                                  return (
+                                                    <>
+                                                      <div
+                                                        style={{
+                                                          width: 55,
+                                                          textAlign: "right",
+                                                          fontSize: 9,
+                                                          fontFeatureSettings: "'tnum'",
+                                                          color: C.textDim,
+                                                          padding: "2px 2px",
+                                                        }}
+                                                        onClick={e => {
+                                                          e.stopPropagation();
+                                                          setCostEditId(costEditId === to.id ? null : to.id);
+                                                        }}
+                                                        title={`M: $${fmt2(nn(linkedItem.material))} · L: $${fmt2(nn(linkedItem.labor))} · E: $${fmt2(nn(linkedItem.equipment))} · S: $${fmt2(nn(linkedItem.subcontractor))}`}
+                                                      >
+                                                        ${fmt2(unitCost)}
+                                                      </div>
+                                                      <div
+                                                        style={{
+                                                          width: 65,
+                                                          textAlign: "right",
+                                                          fontSize: 10,
+                                                          fontWeight: 700,
+                                                          fontFeatureSettings: "'tnum'",
+                                                          color: C.green,
+                                                          padding: "2px 2px",
+                                                        }}
+                                                        onClick={e => {
+                                                          e.stopPropagation();
+                                                          setCostEditId(costEditId === to.id ? null : to.id);
+                                                        }}
+                                                      >
+                                                        {fmt(itemTotal)}
+                                                      </div>
+                                                    </>
+                                                  );
+                                                })()}
+                                              <div
+                                                style={{ width: 50, overflow: "hidden" }}
+                                                onClick={e => e.stopPropagation()}
+                                              >
+                                                {(() => {
+                                                  const mSheets = [
+                                                    ...new Set(
+                                                      (to.measurements || []).map(m => m.sheetId).filter(Boolean),
+                                                    ),
+                                                  ];
+                                                  if (mSheets.length === 0) {
+                                                    return (
+                                                      <select
+                                                        value={to.drawingRef}
+                                                        onChange={e => {
+                                                          updateTakeoff(to.id, "drawingRef", e.target.value);
+                                                          const dd = drawings.find(
+                                                            dr =>
+                                                              (dr.sheetNumber || dr.pageNumber || dr.id) ===
+                                                              e.target.value,
+                                                          );
+                                                          if (dd) {
+                                                            setSelectedDrawingId(dd.id);
+                                                            if (dd.type === "pdf" && dd.data) renderPdfPage(dd);
+                                                          }
+                                                        }}
+                                                        style={inp(C, {
+                                                          background: "transparent",
+                                                          border: "1px solid transparent",
+                                                          padding: "2px 1px",
+                                                          fontSize: 8,
+                                                        })}
+                                                      >
+                                                        <option value="">—</option>
+                                                        {drawings.map(d => (
+                                                          <option
+                                                            key={d.id}
+                                                            value={d.sheetNumber || d.pageNumber || d.id}
+                                                          >
+                                                            {d.sheetNumber || d.pageNumber || "?"}
+                                                          </option>
+                                                        ))}
+                                                      </select>
+                                                    );
+                                                  }
+                                                  const labels = mSheets.map(sid => {
+                                                    const dr = drawings.find(dd => dd.id === sid);
+                                                    return dr ? dr.sheetNumber || dr.pageNumber || "?" : "?";
+                                                  });
+                                                  return (
+                                                    <div
+                                                      title={`Measured on: ${labels.join(", ")}`}
+                                                      style={{
+                                                        fontSize: 8,
+                                                        color: C.accent,
+                                                        fontWeight: 600,
+                                                        padding: "2px 2px",
+                                                        cursor: "pointer",
+                                                        whiteSpace: "nowrap",
+                                                        overflow: "hidden",
+                                                        textOverflow: "ellipsis",
+                                                      }}
+                                                      onClick={() => {
+                                                        const d = drawings.find(d => d.id === mSheets[0]);
+                                                        if (d) {
+                                                          setSelectedDrawingId(d.id);
+                                                          if (d.type === "pdf" && d.data) renderPdfPage(d);
+                                                        }
+                                                      }}
+                                                    >
+                                                      {labels.join(",")}
+                                                    </div>
+                                                  );
+                                                })()}
+                                              </div>
+                                              <div
+                                                style={{
+                                                  width: 52,
+                                                  display: "flex",
+                                                  gap: 2,
+                                                  flexWrap: "wrap",
+                                                  alignItems: "center",
+                                                }}
+                                                onClick={e => e.stopPropagation()}
+                                              >
+                                                {/* Always visible: Stop button + measurement count */}
+                                                {(isActive && tkMeasureState === "measuring") || isPaused ? (
+                                                  <button
+                                                    className="icon-btn"
+                                                    onClick={() => stopMeasuring()}
+                                                    title="Stop"
+                                                    style={ctrlBtnS}
+                                                  >
+                                                    <svg width="8" height="8" viewBox="0 0 8 8" fill={C.red}>
+                                                      <rect width="8" height="8" rx="1" />
+                                                    </svg>
+                                                  </button>
+                                                ) : null}
+                                                {/* Measurement count badge removed — unnecessary clutter */}
+                                                {/* Hover-reveal: Formula, Auto-count, Duplicate, Delete */}
+                                                <div
+                                                  className="tk-row-actions"
+                                                  style={{
+                                                    display: "flex",
+                                                    gap: 2,
+                                                    flexWrap: "wrap",
+                                                    alignItems: "center",
+                                                  }}
+                                                >
+                                                  <button
+                                                    className="icon-btn"
+                                                    onClick={() => setTkShowVars(tkShowVars === to.id ? null : to.id)}
+                                                    title="Variables & Formula"
+                                                    style={{
+                                                      minWidth: 24,
+                                                      height: 22,
+                                                      padding: hasFormula ? "0 5px" : "0 4px",
+                                                      border: hasFormula
+                                                        ? `1px solid ${C.accent}40`
+                                                        : `1px solid ${C.border}`,
+                                                      background: hasFormula ? `${C.accent}15` : C.bg2,
+                                                      color: hasFormula ? C.accent : C.textMuted,
+                                                      borderRadius: 5,
+                                                      display: "flex",
+                                                      alignItems: "center",
+                                                      justifyContent: "center",
+                                                      fontSize: hasFormula ? 9 : 11,
+                                                      fontWeight: 700,
+                                                      gap: 1,
+                                                      transition: T.transition.fast,
+                                                      boxShadow: hasFormula ? T.shadow.glowAccent || "none" : "none",
+                                                    }}
+                                                  >
+                                                    {(() => {
+                                                      if (!hasFormula) return "ƒ";
+                                                      const vars = to.variables || [];
+                                                      const hVar = vars.find(
+                                                        v => (v.key || "").toLowerCase() === "height",
+                                                      );
+                                                      if (hVar) return `×${hVar.value}'`;
+                                                      const fVar = vars.find(
+                                                        v => (v.key || "").toLowerCase() === "factor",
+                                                      );
+                                                      if (fVar) return `×${fVar.value}`;
+                                                      if (vars.length > 0) return `ƒ=`;
+                                                      return "ƒ";
+                                                    })()}
+                                                  </button>
+                                                  {unitToTool(to.unit) === "count" && selectedDrawing?.data && (
+                                                    <button
+                                                      className="icon-btn"
+                                                      onClick={e => {
+                                                        e.stopPropagation();
+                                                        startAutoCount(to.id);
+                                                      }}
+                                                      title="Auto Count"
+                                                      style={{
+                                                        width: 20,
+                                                        height: 20,
+                                                        border: "none",
+                                                        background:
+                                                          tkAutoCount?.takeoffId === to.id
+                                                            ? "rgba(168,126,230,0.2)"
+                                                            : "transparent",
+                                                        color: C.purple,
+                                                        borderRadius: 3,
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        justifyContent: "center",
+                                                      }}
+                                                    >
+                                                      <svg
+                                                        width="12"
+                                                        height="12"
+                                                        viewBox="0 0 24 24"
+                                                        fill="none"
+                                                        stroke={C.purple}
+                                                        strokeWidth="2.5"
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                      >
+                                                        <path d="M12 20V10 M18 20v-4 M6 20v-6" />
+                                                      </svg>
+                                                    </button>
+                                                  )}
+                                                  <button
+                                                    className="icon-btn"
+                                                    onClick={() => {
+                                                      const nt = {
+                                                        ...takeoffs.find(t => t.id === to.id),
+                                                        id: uid(),
+                                                        linkedItemId: "",
+                                                        measurements: [],
+                                                      };
+                                                      setTakeoffs([...takeoffs, nt]);
+                                                    }}
+                                                    title="Duplicate"
+                                                    style={{
+                                                      width: 20,
+                                                      height: 20,
+                                                      border: "none",
+                                                      background: "transparent",
+                                                      color: C.textDim,
+                                                      borderRadius: 3,
+                                                      display: "flex",
+                                                      alignItems: "center",
+                                                      justifyContent: "center",
+                                                    }}
+                                                  >
+                                                    <Ic d={I.copy} size={10} />
+                                                  </button>
+                                                  <button
+                                                    className="icon-btn"
+                                                    onClick={() => removeTakeoff(to.id)}
+                                                    title="Delete"
+                                                    style={{
+                                                      width: 20,
+                                                      height: 20,
+                                                      border: "none",
+                                                      background: "transparent",
+                                                      color: C.red,
+                                                      borderRadius: 3,
+                                                      display: "flex",
+                                                      alignItems: "center",
+                                                      justifyContent: "center",
+                                                    }}
+                                                  >
+                                                    <Ic d={I.trash} size={10} />
+                                                  </button>
+                                                </div>
+                                              </div>
+                                              {/* Floating controls popover — absolute positioned, no layout shift */}
+                                              {isSelected && !isMeasuring && (
                                                 <div
                                                   style={{
                                                     position: "absolute",
                                                     top: "100%",
                                                     left: 0,
                                                     right: 0,
-                                                    zIndex: T.z.dropdown + 1,
-                                                    padding: "8px 10px",
+                                                    zIndex: T.z.dropdown,
+                                                    padding: "8px 10px 8px 27px",
                                                     background: `linear-gradient(180deg, ${C.bg1}, ${C.bg2}30)`,
-                                                    border: `1px solid ${C.accent}30`,
+                                                    border: `1px solid ${C.border}`,
                                                     borderTop: "none",
                                                     borderRadius: "0 0 8px 8px",
                                                     boxShadow: T.shadow.md,
+                                                    display: "flex",
+                                                    flexDirection: "column",
+                                                    gap: 5,
                                                   }}
                                                   onClick={e => e.stopPropagation()}
                                                 >
-                                                  <div
-                                                    style={{
-                                                      fontSize: 8,
-                                                      fontWeight: 700,
-                                                      color: C.accent,
-                                                      textTransform: "uppercase",
-                                                      letterSpacing: 0.8,
-                                                      marginBottom: 4,
-                                                    }}
-                                                  >
-                                                    Unit Costs
-                                                  </div>
-                                                  <div
-                                                    style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}
-                                                  >
-                                                    {costFields.map(f => (
-                                                      <div
-                                                        key={f.key}
-                                                        style={{ display: "flex", alignItems: "center", gap: 4 }}
-                                                      >
-                                                        <span
-                                                          style={{
-                                                            fontSize: 8,
-                                                            color: C.textDim,
-                                                            fontWeight: 600,
-                                                            width: 12,
-                                                          }}
-                                                        >
-                                                          {f.short}
-                                                        </span>
-                                                        <input
-                                                          type="number"
-                                                          value={nn(li[f.key]) || ""}
-                                                          onChange={e => upd(f.key, e.target.value)}
-                                                          placeholder="0"
-                                                          style={nInp(C, {
-                                                            background: C.bg2,
-                                                            border: `1px solid ${C.border}`,
-                                                            padding: "3px 5px",
-                                                            fontSize: 10,
-                                                            fontWeight: 600,
-                                                            borderRadius: 4,
-                                                            width: "100%",
-                                                            fontFeatureSettings: "'tnum'",
-                                                          })}
-                                                        />
-                                                      </div>
-                                                    ))}
-                                                  </div>
-                                                  <div
-                                                    style={{
-                                                      display: "flex",
-                                                      justifyContent: "space-between",
-                                                      alignItems: "center",
-                                                      marginTop: 4,
-                                                      paddingTop: 4,
-                                                      borderTop: `1px solid ${C.border}`,
-                                                    }}
-                                                  >
-                                                    <span style={{ fontSize: 8, color: C.textDim }}>
-                                                      Total:{" "}
-                                                      <strong style={{ color: C.green }}>
-                                                        {fmt(getItemTotal(li))}
-                                                      </strong>
-                                                    </span>
-                                                    <button
-                                                      onClick={() => setCostEditId(null)}
+                                                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                                    <span
                                                       style={{
-                                                        fontSize: 8,
-                                                        color: C.accent,
-                                                        background: "none",
-                                                        border: "none",
-                                                        cursor: "pointer",
-                                                        fontWeight: 600,
+                                                        fontSize: 7,
+                                                        color: C.textDim,
+                                                        fontWeight: 700,
+                                                        textTransform: "uppercase",
+                                                        letterSpacing: 0.5,
+                                                        minWidth: 28,
                                                       }}
                                                     >
-                                                      Done
-                                                    </button>
+                                                      Color
+                                                    </span>
+                                                    <div style={{ display: "flex", gap: 3 }}>
+                                                      {TO_COLORS.map(c => (
+                                                        <div
+                                                          key={c}
+                                                          onClick={() => updateTakeoff(to.id, "color", c)}
+                                                          style={{
+                                                            width: 14,
+                                                            height: 14,
+                                                            borderRadius: 3,
+                                                            background: c,
+                                                            cursor: "pointer",
+                                                            border:
+                                                              to.color === c
+                                                                ? "2px solid #fff"
+                                                                : "1px solid transparent",
+                                                            boxShadow:
+                                                              to.color === c
+                                                                ? `0 0 0 1px ${c}, 0 0 6px ${c}40`
+                                                                : "none",
+                                                            transition: "all 100ms",
+                                                          }}
+                                                        />
+                                                      ))}
+                                                      <div
+                                                        style={{
+                                                          position: "relative",
+                                                          width: 14,
+                                                          height: 14,
+                                                          borderRadius: 3,
+                                                          background: `conic-gradient(red, yellow, lime, cyan, blue, magenta, red)`,
+                                                          cursor: "pointer",
+                                                        }}
+                                                        onClick={e => {
+                                                          e.stopPropagation();
+                                                          e.currentTarget.querySelector("input")?.click();
+                                                        }}
+                                                      >
+                                                        <input
+                                                          type="color"
+                                                          value={to.color}
+                                                          onChange={e => updateTakeoff(to.id, "color", e.target.value)}
+                                                          onClick={e => e.stopPropagation()}
+                                                          style={{
+                                                            position: "absolute",
+                                                            opacity: 0,
+                                                            width: 0,
+                                                            height: 0,
+                                                            top: 0,
+                                                            left: 0,
+                                                          }}
+                                                        />
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                                    <span
+                                                      style={{
+                                                        fontSize: 7,
+                                                        color: C.textDim,
+                                                        fontWeight: 700,
+                                                        textTransform: "uppercase",
+                                                        letterSpacing: 0.5,
+                                                        minWidth: 28,
+                                                      }}
+                                                    >
+                                                      Stroke
+                                                    </span>
+                                                    <input
+                                                      type="range"
+                                                      min="1"
+                                                      max="10"
+                                                      step="1"
+                                                      value={to.strokeWidth ?? 3}
+                                                      onChange={e =>
+                                                        updateTakeoff(to.id, "strokeWidth", Number(e.target.value))
+                                                      }
+                                                      style={{
+                                                        width: 70,
+                                                        height: 3,
+                                                        accentColor: to.color,
+                                                        cursor: "pointer",
+                                                      }}
+                                                    />
+                                                    <span
+                                                      style={{
+                                                        fontSize: 8,
+                                                        color: C.textDim,
+                                                        fontFamily: T.font.sans,
+                                                        minWidth: 18,
+                                                      }}
+                                                    >
+                                                      {to.strokeWidth ?? 3}px
+                                                    </span>
+                                                  </div>
+                                                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                                    <span
+                                                      style={{
+                                                        fontSize: 7,
+                                                        color: C.textDim,
+                                                        fontWeight: 700,
+                                                        textTransform: "uppercase",
+                                                        letterSpacing: 0.5,
+                                                        minWidth: 28,
+                                                      }}
+                                                    >
+                                                      Fill
+                                                    </span>
+                                                    <input
+                                                      type="range"
+                                                      min="5"
+                                                      max="100"
+                                                      step="5"
+                                                      value={to.fillOpacity ?? 20}
+                                                      onChange={e =>
+                                                        updateTakeoff(to.id, "fillOpacity", Number(e.target.value))
+                                                      }
+                                                      style={{
+                                                        width: 70,
+                                                        height: 3,
+                                                        accentColor: to.color,
+                                                        cursor: "pointer",
+                                                      }}
+                                                    />
+                                                    <span
+                                                      style={{
+                                                        fontSize: 8,
+                                                        color: C.textDim,
+                                                        fontFamily: T.font.sans,
+                                                        minWidth: 24,
+                                                      }}
+                                                    >
+                                                      {to.fillOpacity ?? 20}%
+                                                    </span>
                                                   </div>
                                                 </div>
-                                              );
-                                            })()}
-                                        </div>
+                                              )}
+                                              {/* Inline cost edit popover — Standard/Full tier */}
+                                              {costEditId === to.id &&
+                                                tkPanelTier !== "compact" &&
+                                                (() => {
+                                                  const li = itemById[to.linkedItemId];
+                                                  if (!li)
+                                                    return (
+                                                      <div
+                                                        style={{
+                                                          position: "absolute",
+                                                          top: "100%",
+                                                          left: 0,
+                                                          right: 0,
+                                                          zIndex: T.z.dropdown + 1,
+                                                          padding: "8px 12px",
+                                                          background: C.bg1,
+                                                          border: `1px solid ${C.border}`,
+                                                          borderRadius: "0 0 8px 8px",
+                                                          boxShadow: T.shadow.md,
+                                                          fontSize: 9,
+                                                          color: C.textDim,
+                                                        }}
+                                                        onClick={e => e.stopPropagation()}
+                                                      >
+                                                        No linked estimate item yet
+                                                      </div>
+                                                    );
+                                                  const upd = (field, val) =>
+                                                    useItemsStore.getState().updateItem(li.id, field, Number(val) || 0);
+                                                  const costFields = [
+                                                    { key: "material", label: "Material", short: "M" },
+                                                    { key: "labor", label: "Labor", short: "L" },
+                                                    { key: "equipment", label: "Equipment", short: "E" },
+                                                    { key: "subcontractor", label: "Sub", short: "S" },
+                                                  ];
+                                                  return (
+                                                    <div
+                                                      style={{
+                                                        position: "absolute",
+                                                        top: "100%",
+                                                        left: 0,
+                                                        right: 0,
+                                                        zIndex: T.z.dropdown + 1,
+                                                        padding: "8px 10px",
+                                                        background: `linear-gradient(180deg, ${C.bg1}, ${C.bg2}30)`,
+                                                        border: `1px solid ${C.accent}30`,
+                                                        borderTop: "none",
+                                                        borderRadius: "0 0 8px 8px",
+                                                        boxShadow: T.shadow.md,
+                                                      }}
+                                                      onClick={e => e.stopPropagation()}
+                                                    >
+                                                      <div
+                                                        style={{
+                                                          fontSize: 8,
+                                                          fontWeight: 700,
+                                                          color: C.accent,
+                                                          textTransform: "uppercase",
+                                                          letterSpacing: 0.8,
+                                                          marginBottom: 4,
+                                                        }}
+                                                      >
+                                                        Unit Costs
+                                                      </div>
+                                                      <div
+                                                        style={{
+                                                          display: "grid",
+                                                          gridTemplateColumns: "1fr 1fr",
+                                                          gap: 4,
+                                                        }}
+                                                      >
+                                                        {costFields.map(f => (
+                                                          <div
+                                                            key={f.key}
+                                                            style={{ display: "flex", alignItems: "center", gap: 4 }}
+                                                          >
+                                                            <span
+                                                              style={{
+                                                                fontSize: 8,
+                                                                color: C.textDim,
+                                                                fontWeight: 600,
+                                                                width: 12,
+                                                              }}
+                                                            >
+                                                              {f.short}
+                                                            </span>
+                                                            <input
+                                                              type="number"
+                                                              value={nn(li[f.key]) || ""}
+                                                              onChange={e => upd(f.key, e.target.value)}
+                                                              placeholder="0"
+                                                              style={nInp(C, {
+                                                                background: C.bg2,
+                                                                border: `1px solid ${C.border}`,
+                                                                padding: "3px 5px",
+                                                                fontSize: 10,
+                                                                fontWeight: 600,
+                                                                borderRadius: 4,
+                                                                width: "100%",
+                                                                fontFeatureSettings: "'tnum'",
+                                                              })}
+                                                            />
+                                                          </div>
+                                                        ))}
+                                                      </div>
+                                                      <div
+                                                        style={{
+                                                          display: "flex",
+                                                          justifyContent: "space-between",
+                                                          alignItems: "center",
+                                                          marginTop: 4,
+                                                          paddingTop: 4,
+                                                          borderTop: `1px solid ${C.border}`,
+                                                        }}
+                                                      >
+                                                        <span style={{ fontSize: 8, color: C.textDim }}>
+                                                          Total:{" "}
+                                                          <strong style={{ color: C.green }}>
+                                                            {fmt(getItemTotal(li))}
+                                                          </strong>
+                                                        </span>
+                                                        <button
+                                                          onClick={() => setCostEditId(null)}
+                                                          style={{
+                                                            fontSize: 8,
+                                                            color: C.accent,
+                                                            background: "none",
+                                                            border: "none",
+                                                            cursor: "pointer",
+                                                            fontWeight: 600,
+                                                          }}
+                                                        >
+                                                          Done
+                                                        </button>
+                                                      </div>
+                                                    </div>
+                                                  );
+                                                })()}
+                                            </div>
 
-                                        {/* Inline formula expression — visible when formula is active */}
-                                        {hasFormula && computedQty !== null && displayQty !== null && tkShowVars !== to.id && (
-                                          <FormulaExpressionRow
-                                            takeoff={to}
-                                            measuredQty={displayQty}
-                                            computedQty={computedQty}
-                                            updateTakeoff={updateTakeoff}
-                                            C={C}
-                                            T={T}
-                                          />
-                                        )}
+                                            {/* Inline formula expression — visible when formula is active */}
+                                            {hasFormula &&
+                                              computedQty !== null &&
+                                              displayQty !== null &&
+                                              tkShowVars !== to.id && (
+                                                <FormulaExpressionRow
+                                                  takeoff={to}
+                                                  measuredQty={displayQty}
+                                                  computedQty={computedQty}
+                                                  updateTakeoff={updateTakeoff}
+                                                  C={C}
+                                                  T={T}
+                                                />
+                                              )}
 
-                                        {/* Dimension Engine */}
-                                        {tkShowVars === to.id && (
-                                          <TakeoffDimensionEngine
-                                            takeoff={to}
-                                            updateTakeoff={updateTakeoff}
-                                            measuredQty={measuredQty}
-                                            computedQty={computedQty}
-                                            measurements={to.measurements || []}
-                                            computeMeasurementValue={computeMeasurementValue}
-                                            selectedDrawingId={selectedDrawingId}
-                                            removeMeasurement={removeMeasurement}
-                                            drawingViewType={selectedDrawing?.viewType || null}
-                                          />
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                  <button
-                                    className="ghost-btn"
-                                    onClick={() => addTakeoff(group)}
-                                    style={{
-                                      display: "flex",
-                                      alignItems: "center",
-                                      gap: T.space[1],
-                                      width: "100%",
-                                      padding: `${T.space[2]}px ${T.space[3]}px`,
-                                      background: "transparent",
-                                      color: C.textDim,
-                                      cursor: "pointer",
-                                      fontSize: T.fontSize.xs,
-                                      fontWeight: T.fontWeight.medium,
-                                      border: "none",
-                                      borderTop: `1px solid ${C.isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.04)"}`,
-                                    }}
-                                  >
-                                    <Ic d={I.plus} size={9} /> Add item
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          );
-                        })}
+                                            {/* Dimension Engine */}
+                                            {tkShowVars === to.id && (
+                                              <TakeoffDimensionEngine
+                                                takeoff={to}
+                                                updateTakeoff={updateTakeoff}
+                                                measuredQty={measuredQty}
+                                                computedQty={computedQty}
+                                                measurements={to.measurements || []}
+                                                computeMeasurementValue={computeMeasurementValue}
+                                                selectedDrawingId={selectedDrawingId}
+                                                removeMeasurement={removeMeasurement}
+                                                drawingViewType={selectedDrawing?.viewType || null}
+                                              />
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                      <button
+                                        className="ghost-btn"
+                                        onClick={() => addTakeoff(group)}
+                                        style={{
+                                          display: "flex",
+                                          alignItems: "center",
+                                          gap: T.space[1],
+                                          width: "100%",
+                                          padding: `${T.space[2]}px ${T.space[3]}px`,
+                                          background: "transparent",
+                                          color: C.textDim,
+                                          cursor: "pointer",
+                                          fontSize: T.fontSize.xs,
+                                          fontWeight: T.fontWeight.medium,
+                                          border: "none",
+                                          borderTop: `1px solid ${C.isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.04)"}`,
+                                        }}
+                                      >
+                                        <Ic d={I.plus} size={9} /> Add item
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              );
+                            })}
 
-                        {takeoffs.length === 0 && (
+                            {takeoffs.length === 0 && (
+                              <div
+                                style={{
+                                  textAlign: "center",
+                                  padding: `${T.space[8]}px ${T.space[5]}px`,
+                                  borderRadius: T.radius.lg,
+                                  marginTop: T.space[3],
+                                  background: `linear-gradient(180deg, ${C.accent}06, transparent)`,
+                                  position: "relative",
+                                  overflow: "hidden",
+                                }}
+                              >
+                                {/* Decorative rings */}
+                                <div
+                                  style={{
+                                    position: "absolute",
+                                    top: -20,
+                                    left: "50%",
+                                    transform: "translateX(-50%)",
+                                    width: 120,
+                                    height: 120,
+                                    borderRadius: "50%",
+                                    border: `1px solid ${C.accent}08`,
+                                    animation: "breathe 4s ease-in-out infinite",
+                                  }}
+                                />
+                                <div
+                                  style={{
+                                    position: "absolute",
+                                    top: -10,
+                                    left: "50%",
+                                    transform: "translateX(-50%)",
+                                    width: 100,
+                                    height: 100,
+                                    borderRadius: "50%",
+                                    border: `1px solid ${C.accent}12`,
+                                    animation: "breathe 4s ease-in-out infinite 0.5s",
+                                  }}
+                                />
+                                <div
+                                  style={{
+                                    width: 56,
+                                    height: 56,
+                                    borderRadius: T.radius.full,
+                                    margin: "0 auto",
+                                    marginBottom: T.space[3],
+                                    position: "relative",
+                                    background: `linear-gradient(135deg, ${C.accent}18, ${C.accent}06)`,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    boxShadow: `0 0 24px ${C.accent}12`,
+                                  }}
+                                >
+                                  <Ic d={I.ruler} size={24} color={C.accent} sw={1.7} />
+                                </div>
+                                <div
+                                  style={{
+                                    fontSize: T.fontSize.md,
+                                    fontWeight: T.fontWeight.bold,
+                                    color: C.text,
+                                    marginBottom: T.space[1],
+                                  }}
+                                >
+                                  Ready to measure
+                                </div>
+                                <div
+                                  style={{
+                                    fontSize: T.fontSize.sm,
+                                    color: C.textMuted,
+                                    lineHeight: 1.5,
+                                    maxWidth: 220,
+                                    margin: "0 auto",
+                                  }}
+                                >
+                                  Search for a scope item above, or type any description and press Enter to start.
+                                </div>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    justifyContent: "center",
+                                    gap: 12,
+                                    marginTop: T.space[4],
+                                    fontSize: 8,
+                                    color: C.textDim,
+                                  }}
+                                >
+                                  <span>⏎ Add item</span>
+                                  <span>↹ Navigate</span>
+                                  <span>⌘K Palette</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          {/* ModulePanel (right — slides in when active, hidden when "This Page") */}
+                          <div style={{ width: "50%", height: "100%", overflowY: "auto" }}>
+                            {pageFilter !== "page" && (
+                              <ModulePanel
+                                engageMeasuring={engageMeasuring}
+                                selectedDrawingId={selectedDrawingId}
+                                addTakeoff={addTakeoff}
+                                updateTakeoff={updateTakeoff}
+                                removeTakeoff={removeTakeoff}
+                                pageFilter={pageFilter}
+                                onDetectWallSchedule={runWallScheduleDetection}
+                                wallScheduleLoading={wallSchedule.loading}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* AI Scope Suggestions */}
+                      {tkScopeSuggestions && (
+                        <div
+                          style={{
+                            borderTop: `2px solid ${C.accent}`,
+                            maxHeight: 260,
+                            overflowY: "auto",
+                            background: C.bg,
+                          }}
+                        >
                           <div
                             style={{
-                              textAlign: "center",
-                              padding: `${T.space[8]}px ${T.space[5]}px`,
-                              borderRadius: T.radius.lg,
-                              marginTop: T.space[3],
-                              background: `linear-gradient(180deg, ${C.accent}06, transparent)`,
-                              position: "relative",
-                              overflow: "hidden",
+                              padding: "6px 10px",
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              borderBottom: `1px solid ${C.border}`,
+                              position: "sticky",
+                              top: 0,
+                              background: C.bg,
+                              zIndex: 2,
                             }}
                           >
-                            {/* Decorative rings */}
-                            <div
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <Ic d={I.ai} size={12} color={C.accent} />
+                              <span style={{ fontSize: 10, fontWeight: 700, color: C.accent }}>Scope Suggestions</span>
+                              {tkScopeSuggestions.loading && (
+                                <span style={{ fontSize: 9, color: C.textDim, fontStyle: "italic" }}>Analyzing...</span>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => setTkScopeSuggestions(null)}
                               style={{
-                                position: "absolute",
-                                top: -20,
-                                left: "50%",
-                                transform: "translateX(-50%)",
-                                width: 120,
-                                height: 120,
-                                borderRadius: "50%",
-                                border: `1px solid ${C.accent}08`,
-                                animation: "breathe 4s ease-in-out infinite",
-                              }}
-                            />
-                            <div
-                              style={{
-                                position: "absolute",
-                                top: -10,
-                                left: "50%",
-                                transform: "translateX(-50%)",
-                                width: 100,
-                                height: 100,
-                                borderRadius: "50%",
-                                border: `1px solid ${C.accent}12`,
-                                animation: "breathe 4s ease-in-out infinite 0.5s",
-                              }}
-                            />
-                            <div
-                              style={{
-                                width: 56,
-                                height: 56,
-                                borderRadius: T.radius.full,
-                                margin: "0 auto",
-                                marginBottom: T.space[3],
-                                position: "relative",
-                                background: `linear-gradient(135deg, ${C.accent}18, ${C.accent}06)`,
+                                width: 16,
+                                height: 16,
+                                border: "none",
+                                background: "transparent",
+                                color: C.textDim,
+                                cursor: "pointer",
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",
-                                boxShadow: `0 0 24px ${C.accent}12`,
                               }}
                             >
-                              <Ic d={I.ruler} size={24} color={C.accent} sw={1.7} />
-                            </div>
-                            <div
-                              style={{
-                                fontSize: T.fontSize.md,
-                                fontWeight: T.fontWeight.bold,
-                                color: C.text,
-                                marginBottom: T.space[1],
-                              }}
-                            >
-                              Ready to measure
-                            </div>
-                            <div
-                              style={{
-                                fontSize: T.fontSize.sm,
-                                color: C.textMuted,
-                                lineHeight: 1.5,
-                                maxWidth: 220,
-                                margin: "0 auto",
-                              }}
-                            >
-                              Search for a scope item above, or type any description and press Enter to start.
-                            </div>
-                            <div
-                              style={{
-                                display: "flex",
-                                justifyContent: "center",
-                                gap: 12,
-                                marginTop: T.space[4],
-                                fontSize: 8,
-                                color: C.textDim,
-                              }}
-                            >
-                              <span>⏎ Add item</span>
-                              <span>↹ Navigate</span>
-                              <span>⌘K Palette</span>
-                            </div>
+                              <Ic d={I.x} size={9} />
+                            </button>
                           </div>
-                        )}
-                      </div>
-                      {/* ModulePanel (right — slides in when active, hidden when "This Page") */}
-                      <div style={{ width: "50%", height: "100%", overflowY: "auto" }}>
-                        {pageFilter !== "page" && (
-                          <ModulePanel
-                            engageMeasuring={engageMeasuring}
-                            selectedDrawingId={selectedDrawingId}
-                            addTakeoff={addTakeoff}
-                            updateTakeoff={updateTakeoff}
-                            removeTakeoff={removeTakeoff}
-                            pageFilter={pageFilter}
-                            onDetectWallSchedule={runWallScheduleDetection}
-                            wallScheduleLoading={wallSchedule.loading}
-                          />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* AI Scope Suggestions */}
-                  {tkScopeSuggestions && (
-                    <div
-                      style={{
-                        borderTop: `2px solid ${C.accent}`,
-                        maxHeight: 260,
-                        overflowY: "auto",
-                        background: C.bg,
-                      }}
-                    >
-                      <div
-                        style={{
-                          padding: "6px 10px",
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          borderBottom: `1px solid ${C.border}`,
-                          position: "sticky",
-                          top: 0,
-                          background: C.bg,
-                          zIndex: 2,
-                        }}
-                      >
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <Ic d={I.ai} size={12} color={C.accent} />
-                          <span style={{ fontSize: 10, fontWeight: 700, color: C.accent }}>Scope Suggestions</span>
                           {tkScopeSuggestions.loading && (
-                            <span style={{ fontSize: 9, color: C.textDim, fontStyle: "italic" }}>Analyzing...</span>
+                            <div style={{ padding: 20, textAlign: "center" }}>
+                              <div
+                                style={{
+                                  width: 20,
+                                  height: 20,
+                                  border: `2px solid ${C.border}`,
+                                  borderTopColor: C.accent,
+                                  borderRadius: "50%",
+                                  animation: "spin 0.8s linear infinite",
+                                  margin: "0 auto 8px",
+                                }}
+                              />
+                              <div style={{ fontSize: 10, color: C.textDim }}>
+                                AI is reviewing your scope for gaps...
+                              </div>
+                            </div>
+                          )}
+                          {!tkScopeSuggestions.loading && tkScopeSuggestions.items.length === 0 && (
+                            <div style={{ padding: 16, textAlign: "center", fontSize: 10, color: C.textDim }}>
+                              No suggestions — your scope looks comprehensive.
+                            </div>
+                          )}
+                          {tkScopeSuggestions.items.map((sg, i) => (
+                            <div
+                              key={i}
+                              style={{
+                                padding: "6px 10px",
+                                borderBottom: `1px solid ${C.bg2}`,
+                                display: "flex",
+                                gap: 8,
+                                alignItems: "flex-start",
+                              }}
+                            >
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 11, fontWeight: 600, color: C.text }}>{sg.name}</div>
+                                <div style={{ fontSize: 9, color: C.textMuted, lineHeight: 1.4, marginTop: 1 }}>
+                                  {sg.desc}
+                                </div>
+                                {sg.code && (
+                                  <span style={{ fontSize: 8, fontFamily: T.font.sans, color: C.purple }}>
+                                    {sg.code}
+                                  </span>
+                                )}
+                              </div>
+                              <div style={{ display: "flex", gap: 3, flexShrink: 0, paddingTop: 2 }}>
+                                <button
+                                  onClick={() => {
+                                    addTakeoff("", sg.name, sg.unit || "SF", sg.code || "");
+                                    setTkScopeSuggestions({
+                                      ...tkScopeSuggestions,
+                                      items: tkScopeSuggestions.items.filter((_, j) => j !== i),
+                                    });
+                                    showToast(`Added: ${sg.name}`);
+                                  }}
+                                  title="Add to takeoffs"
+                                  style={bt(C, {
+                                    padding: "3px 8px",
+                                    fontSize: 8,
+                                    fontWeight: 600,
+                                    background: C.accent,
+                                    color: "#fff",
+                                    borderRadius: 3,
+                                  })}
+                                >
+                                  + Add
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    setTkScopeSuggestions({
+                                      ...tkScopeSuggestions,
+                                      items: tkScopeSuggestions.items.filter((_, j) => j !== i),
+                                    })
+                                  }
+                                  title="Dismiss"
+                                  style={bt(C, {
+                                    padding: "3px 6px",
+                                    fontSize: 8,
+                                    background: "transparent",
+                                    border: `1px solid ${C.border}`,
+                                    color: C.textDim,
+                                    borderRadius: 3,
+                                  })}
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Footer */}
+                      {takeoffs.length > 0 && (
+                        <div
+                          style={{
+                            padding: "5px 12px",
+                            borderTop: `1px solid ${C.border}`,
+                            display: "flex",
+                            justifyContent: "center",
+                            alignItems: "center",
+                            gap: 8,
+                            fontSize: 10,
+                          }}
+                        >
+                          <span style={{ color: C.textMuted }}>
+                            <strong style={{ color: C.text }}>{takeoffs.length}</strong> items
+                            {takeoffs.reduce((s, t) => (t.measurements || []).length + s, 0) > 0 && (
+                              <>
+                                {" "}
+                                ·{" "}
+                                <strong style={{ color: C.accent }}>
+                                  {takeoffs.reduce((s, t) => (t.measurements || []).length + s, 0)}
+                                </strong>{" "}
+                                measurements
+                              </>
+                            )}
+                          </span>
+                          {tkPanelTier !== "compact" && getTotals().grand > 0 && (
+                            <span
+                              style={{
+                                color: C.green,
+                                fontWeight: 700,
+                                fontFamily: T.font.sans,
+                                fontFeatureSettings: "'tnum'",
+                              }}
+                            >
+                              {fmt(getTotals().grand)}
+                            </span>
                           )}
                         </div>
-                        <button
-                          onClick={() => setTkScopeSuggestions(null)}
-                          style={{
-                            width: 16,
-                            height: 16,
-                            border: "none",
-                            background: "transparent",
-                            color: C.textDim,
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                        >
-                          <Ic d={I.x} size={9} />
-                        </button>
-                      </div>
-                      {tkScopeSuggestions.loading && (
-                        <div style={{ padding: 20, textAlign: "center" }}>
-                          <div
-                            style={{
-                              width: 20,
-                              height: 20,
-                              border: `2px solid ${C.border}`,
-                              borderTopColor: C.accent,
-                              borderRadius: "50%",
-                              animation: "spin 0.8s linear infinite",
-                              margin: "0 auto 8px",
-                            }}
-                          />
-                          <div style={{ fontSize: 10, color: C.textDim }}>AI is reviewing your scope for gaps...</div>
-                        </div>
                       )}
-                      {!tkScopeSuggestions.loading && tkScopeSuggestions.items.length === 0 && (
-                        <div style={{ padding: 16, textAlign: "center", fontSize: 10, color: C.textDim }}>
-                          No suggestions — your scope looks comprehensive.
-                        </div>
-                      )}
-                      {tkScopeSuggestions.items.map((sg, i) => (
-                        <div
-                          key={i}
-                          style={{
-                            padding: "6px 10px",
-                            borderBottom: `1px solid ${C.bg2}`,
-                            display: "flex",
-                            gap: 8,
-                            alignItems: "flex-start",
-                          }}
-                        >
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 11, fontWeight: 600, color: C.text }}>{sg.name}</div>
-                            <div style={{ fontSize: 9, color: C.textMuted, lineHeight: 1.4, marginTop: 1 }}>
-                              {sg.desc}
-                            </div>
-                            {sg.code && (
-                              <span style={{ fontSize: 8, fontFamily: T.font.sans, color: C.purple }}>
-                                {sg.code}
-                              </span>
-                            )}
-                          </div>
-                          <div style={{ display: "flex", gap: 3, flexShrink: 0, paddingTop: 2 }}>
-                            <button
-                              onClick={() => {
-                                addTakeoff("", sg.name, sg.unit || "SF", sg.code || "");
-                                setTkScopeSuggestions({
-                                  ...tkScopeSuggestions,
-                                  items: tkScopeSuggestions.items.filter((_, j) => j !== i),
-                                });
-                                showToast(`Added: ${sg.name}`);
-                              }}
-                              title="Add to takeoffs"
-                              style={bt(C, {
-                                padding: "3px 8px",
-                                fontSize: 8,
-                                fontWeight: 600,
-                                background: C.accent,
-                                color: "#fff",
-                                borderRadius: 3,
-                              })}
-                            >
-                              + Add
-                            </button>
-                            <button
-                              onClick={() =>
-                                setTkScopeSuggestions({
-                                  ...tkScopeSuggestions,
-                                  items: tkScopeSuggestions.items.filter((_, j) => j !== i),
-                                })
-                              }
-                              title="Dismiss"
-                              style={bt(C, {
-                                padding: "3px 6px",
-                                fontSize: 8,
-                                background: "transparent",
-                                border: `1px solid ${C.border}`,
-                                color: C.textDim,
-                                borderRadius: 3,
-                              })}
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        </div>
-                      ))}
                     </div>
                   )}
 
-                  {/* Footer */}
-                  {takeoffs.length > 0 && (
-                    <div
-                      style={{
-                        padding: "5px 12px",
-                        borderTop: `1px solid ${C.border}`,
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        gap: 8,
-                        fontSize: 10,
-                      }}
-                    >
-                      <span style={{ color: C.textMuted }}>
-                        <strong style={{ color: C.text }}>{takeoffs.length}</strong> items
-                        {takeoffs.reduce((s, t) => (t.measurements || []).length + s, 0) > 0 && (
-                          <>
-                            {" "}
-                            ·{" "}
-                            <strong style={{ color: C.accent }}>
-                              {takeoffs.reduce((s, t) => (t.measurements || []).length + s, 0)}
-                            </strong>{" "}
-                            measurements
-                          </>
-                        )}
-                      </span>
-                      {tkPanelTier !== "compact" && getTotals().grand > 0 && (
-                        <span
-                          style={{
-                            color: C.green,
-                            fontWeight: 700,
-                            fontFamily: T.font.sans,
-                            fontFeatureSettings: "'tnum'",
-                          }}
-                        >
-                          {fmt(getTotals().grand)}
-                        </span>
-                      )}
+                  {/* Right column: Estimate grid — Full tier only */}
+                  {tkPanelTier === "full" && (
+                    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
+                      <Suspense
+                        fallback={
+                          <div style={{ padding: 20, textAlign: "center", fontSize: 10, color: C.textDim }}>
+                            Loading estimate...
+                          </div>
+                        }
+                      >
+                        <EstimatePanelView
+                          onSelectItem={id => setEstSelectedItemId(prev => (prev === id ? null : id))}
+                          selectedItemId={estSelectedItemId}
+                        />
+                      </Suspense>
                     </div>
                   )}
                 </div>
-                )}
-
-                {/* Right column: Estimate grid — Full tier only */}
-                {tkPanelTier === "full" && (
-                  <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
-                    <Suspense
-                      fallback={
-                        <div style={{ padding: 20, textAlign: "center", fontSize: 10, color: C.textDim }}>
-                          Loading estimate...
-                        </div>
-                      }
-                    >
-                      <EstimatePanelView
-                        onSelectItem={id => setEstSelectedItemId(prev => (prev === id ? null : id))}
-                        selectedItemId={estSelectedItemId}
-                      />
-                    </Suspense>
-                  </div>
-                )}
-              </div>
-              {/* end flex split container */}
-            </>
+                {/* end flex split container */}
+              </>
             );
           })()}
 
@@ -5970,11 +6136,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                               : hasMeas
                                 ? `1.5px solid ${C.accent}60`
                                 : `1px solid ${C.isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.10)"}`,
-                            boxShadow: isAct
-                              ? `0 0 8px ${C.accent}30`
-                              : hasMeas
-                                ? `0 0 6px ${C.accent}18`
-                                : "none",
+                            boxShadow: isAct ? `0 0 8px ${C.accent}30` : hasMeas ? `0 0 6px ${C.accent}18` : "none",
                             background: C.bg2,
                           }}
                         >
@@ -6537,7 +6699,10 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                     {/* NOVA Vision — compact HUD badge switches to NOVA tab */}
                     {hudPredictions && pending.length > 0 && !tkPredRefining && (
                       <button
-                        onClick={() => { setLeftPanelTab("nova"); setShowNotesPanel(false); }}
+                        onClick={() => {
+                          setLeftPanelTab("nova");
+                          setShowNotesPanel(false);
+                        }}
                         style={bt(C, {
                           marginLeft: "auto",
                           background: "linear-gradient(135deg, #6366F115, #8B5CF615)",
@@ -6628,7 +6793,10 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                     )}
                     <div style={{ flex: 1 }} />
                     <button
-                      onClick={() => { setLeftPanelTab("nova"); setShowNotesPanel(false); }}
+                      onClick={() => {
+                        setLeftPanelTab("nova");
+                        setShowNotesPanel(false);
+                      }}
                       style={bt(C, {
                         background: `${predColor}15`,
                         color: predColor,

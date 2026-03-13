@@ -48,14 +48,16 @@ export default async function handler(req, res) {
     // Fetch all invitations for this email, joining through to estimate/project + org
     const { data: invitations, error: invErr } = await supabaseAdmin
       .from("bid_invitations")
-      .select(`
+      .select(
+        `
         *,
         bid_packages(
           id, name, due_date, status, scope_items, estimate_id, org_id,
           user_estimates(project_name),
           organizations(name)
         )
-      `)
+      `,
+      )
       .ilike("sub_email", email)
       .order("created_at", { ascending: false });
 
@@ -65,7 +67,10 @@ export default async function handler(req, res) {
     let gcCompany = "";
     for (const inv of invitations || []) {
       const orgName = inv.bid_packages?.organizations?.name;
-      if (orgName) { gcCompany = orgName; break; }
+      if (orgName) {
+        gcCompany = orgName;
+        break;
+      }
     }
 
     // Build response

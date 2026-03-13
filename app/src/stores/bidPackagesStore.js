@@ -128,7 +128,11 @@ export const useBidPackagesStore = create((set, get) => ({
     for (const pkgInvites of Object.values(invitations)) {
       for (const inv of pkgInvites) {
         if (inv.intent) {
-          intents[inv.id] = { intent: inv.intent, reason: inv.intent_reason || null, respondedAt: inv.intent_at || null };
+          intents[inv.id] = {
+            intent: inv.intent,
+            reason: inv.intent_reason || null,
+            respondedAt: inv.intent_at || null,
+          };
         }
       }
     }
@@ -138,9 +142,16 @@ export const useBidPackagesStore = create((set, get) => ({
   getPackageResponseStats: packageId => {
     const invites = get().invitations[packageId] || [];
     const intents = get().subResponseIntents;
-    let bidding = 0, reviewing = 0, pass = 0, noResponse = 0, submitted = 0;
+    let bidding = 0,
+      reviewing = 0,
+      pass = 0,
+      noResponse = 0,
+      submitted = 0;
     for (const inv of invites) {
-      if (["submitted", "parsed", "awarded"].includes(inv.status)) { submitted++; continue; }
+      if (["submitted", "parsed", "awarded"].includes(inv.status)) {
+        submitted++;
+        continue;
+      }
       const ri = intents[inv.id];
       if (ri?.intent === "bidding") bidding++;
       else if (ri?.intent === "reviewing") reviewing++;

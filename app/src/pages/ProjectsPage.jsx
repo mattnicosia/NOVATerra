@@ -824,15 +824,11 @@ export default function ProjectsPage() {
                           try {
                             useUiStore.getState().showToast("Recovering from cloud...", "info");
                             const result = await recoverFromCloud();
-                            useUiStore.getState().showToast(
-                              `Recovered ${result.recovered} project(s) from cloud`,
-                              "success",
-                            );
+                            useUiStore
+                              .getState()
+                              .showToast(`Recovered ${result.recovered} project(s) from cloud`, "success");
                           } catch (err) {
-                            useUiStore.getState().showToast(
-                              `Recovery failed: ${err.message}`,
-                              "error",
-                            );
+                            useUiStore.getState().showToast(`Recovery failed: ${err.message}`, "error");
                           }
                         }}
                         style={{

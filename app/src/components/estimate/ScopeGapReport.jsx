@@ -404,6 +404,58 @@ export default function ScopeGapReport({ estimateItems, parsedProposal, projectN
         </GapSection>
       )}
 
+      {/* Alternates */}
+      {parsedProposal?.alternates?.length > 0 && (
+        <GapSection
+          title="Alternates"
+          subtitle={`${parsedProposal.alternates.length} alternate${parsedProposal.alternates.length !== 1 ? "s" : ""} included in proposal`}
+          icon={I.layers || I.estimate}
+          color="#BF5AF2"
+          expanded={expandedSection === "alternates"}
+          onToggle={() => setExpandedSection(expandedSection === "alternates" ? null : "alternates")}
+          C={C}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {parsedProposal.alternates.map((alt, i) => {
+              const isAdd = alt.type === "add" || alt.type === "Add";
+              return (
+                <div
+                  key={i}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "8px 12px",
+                    borderRadius: 6,
+                    background: "rgba(255,255,255,0.03)",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span
+                      style={{
+                        background: isAdd ? "#30D15820" : "#FF453A20",
+                        color: isAdd ? "#30D158" : "#FF453A",
+                        padding: "1px 6px",
+                        borderRadius: 4,
+                        fontSize: 10,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {isAdd ? "ADD" : "DEDUCT"}
+                    </span>
+                    <span style={{ color: C.text, fontSize: 13 }}>{alt.description}</span>
+                  </div>
+                  <span style={{ color: isAdd ? "#30D158" : "#FF453A", fontWeight: 600, fontSize: 13 }}>
+                    {isAdd ? "+" : "−"}
+                    {alt.amount ? fmt(Math.abs(alt.amount)) : "—"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </GapSection>
+      )}
+
       {/* AI Analysis */}
       <div
         style={{

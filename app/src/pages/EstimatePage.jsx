@@ -483,7 +483,11 @@ export default function EstimatePage() {
   const getTotal = useCallback(item => useItemsStore.getState().getItemTotal(item), []);
   const getItemComputedQty = useCallback(item => {
     if (!item.formula || !item.formula.trim()) return nn(item.quantity);
-    return evalFormula(item.formula, (item.variables || []).filter(v => v.key), nn(item.quantity));
+    return evalFormula(
+      item.formula,
+      (item.variables || []).filter(v => v.key),
+      nn(item.quantity),
+    );
   }, []);
 
   // Filter items — include sub-group items when parent group is selected
@@ -1860,10 +1864,7 @@ export default function EstimatePage() {
               overflow: "hidden",
             }}
           >
-            <VersionHistoryPanel
-              estimateId={activeEstimateId}
-              onClose={() => setShowHistory(false)}
-            />
+            <VersionHistoryPanel estimateId={activeEstimateId} onClose={() => setShowHistory(false)} />
           </div>
         </>
       )}

@@ -55,9 +55,19 @@ function EditableCell({ value, onSave, onCancel, onTab, accentColor }) {
       onChange={e => setLocalVal(e.target.value)}
       onBlur={commit}
       onKeyDown={e => {
-        if (e.key === "Enter") { e.preventDefault(); commit(); }
-        if (e.key === "Escape") { e.preventDefault(); onCancel(); }
-        if (e.key === "Tab") { e.preventDefault(); commit(); onTab(e.shiftKey); }
+        if (e.key === "Enter") {
+          e.preventDefault();
+          commit();
+        }
+        if (e.key === "Escape") {
+          e.preventDefault();
+          onCancel();
+        }
+        if (e.key === "Tab") {
+          e.preventDefault();
+          commit();
+          onTab(e.shiftKey);
+        }
       }}
       onClick={e => e.stopPropagation()}
       style={{
@@ -100,6 +110,7 @@ export default function BidLevelingGrid({ onViewProposal, onAward }) {
   const [sortBy, setSortBy] = useState("adjusted"); // "adjusted" | "bid" | "coverage" | "name"
   const [hoveredCol, setHoveredCol] = useState(null);
   const [hoveredRow, setHoveredRow] = useState(null);
+  const [showAlternates, setShowAlternates] = useState(false);
   const [selectionsInitialized, setSelectionsInitialized] = useState(false);
 
   // Build the unified matrix from all packages + proposals
@@ -226,6 +237,33 @@ export default function BidLevelingGrid({ onViewProposal, onAward }) {
 
     return { divisions, estimateDivisions, estimateGrandTotal, subColumns: sorted, recommendedIdx, divBest };
   }, [items, bidPackages, invitations, proposals, sortBy]);
+
+  // Alternates matrix: extract from parsed proposals
+  const alternatesData = useMemo(() => {
+    if (!subColumns || subColumns.length === 0) return { rows: [], hasAny: false };
+
+    // Collect all alternates from each sub
+    const altsByDesc = {}; // normalized desc → { desc, subs: { colIdx: { amount, type } } }
+
+    for (let colIdx = 0; colIdx < subColumns.length; colIdx++) {
+      const sub = subColumns[colIdx];
+      const alts = sub.parsedData?.alternates || [];
+      for (const alt of alts) {
+        if (!alt.description) continue;
+        const key = alt.description.toLowerCase().trim();
+        if (!altsByDesc[key]) {
+          altsByDesc[key] = { description: alt.description, subs: {} };
+        }
+        altsByDesc[key].subs[colIdx] = {
+          amount: alt.amount || 0,
+          type: alt.type || "add",
+        };
+      }
+    }
+
+    const rows = Object.values(altsByDesc);
+    return { rows, hasAny: rows.length > 0 };
+  }, [subColumns]);
 
   const toggleDiv = div => {
     setExpandedDivs(prev => {
@@ -376,6 +414,29 @@ export default function BidLevelingGrid({ onViewProposal, onAward }) {
             </button>
           ))}
         </div>
+
+        {/* Alternates toggle */}
+        {alternatesData.hasAny && (
+          <button
+            onClick={() => setShowAlternates(!showAlternates)}
+            style={{
+              background: showAlternates ? `${C.accent}15` : "transparent",
+              color: showAlternates ? C.accent : C.textMuted,
+              border: `1px solid ${showAlternates ? `${C.accent}30` : C.border}`,
+              borderRadius: 6,
+              padding: "3px 10px",
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            <Ic d={I.layers || I.estimate} size={11} color={showAlternates ? C.accent : C.textMuted} />
+            Alternates ({alternatesData.rows.length})
+          </button>
+        )}
       </div>
 
       {/* Grid */}
@@ -635,14 +696,13 @@ export default function BidLevelingGrid({ onViewProposal, onAward }) {
                             borderLeft: `1px solid ${C.border}10`,
                             textAlign: "center",
                             cursor: dd.status === "missing" ? "default" : "pointer",
-                            background:
-                              isSelected
-                                ? `${C.accent}12`
-                                : hoveredCol === i || hoveredRow === div
-                                  ? `${C.accent}06`
-                                  : i === recommendedIdx
-                                    ? "rgba(124,92,252,0.02)"
-                                    : cs.bg,
+                            background: isSelected
+                              ? `${C.accent}12`
+                              : hoveredCol === i || hoveredRow === div
+                                ? `${C.accent}06`
+                                : i === recommendedIdx
+                                  ? "rgba(124,92,252,0.02)"
+                                  : cs.bg,
                             outline: isSelected ? `1.5px solid ${C.accent}40` : "none",
                             outlineOffset: -1,
                             transition: "background 100ms",
@@ -696,7 +756,8 @@ export default function BidLevelingGrid({ onViewProposal, onAward }) {
                                 {statusDot(dd.status)}
                                 <span
                                   style={{
-                                    color: overrideVal != null ? C.accent : dd.status === "missing" ? "#FF453A" : cs.text,
+                                    color:
+                                      overrideVal != null ? C.accent : dd.status === "missing" ? "#FF453A" : cs.text,
                                     fontSize: 11,
                                     fontFamily: "monospace",
                                     fontWeight: isBest || overrideVal != null ? 700 : 400,
@@ -707,7 +768,14 @@ export default function BidLevelingGrid({ onViewProposal, onAward }) {
                                   {dd.status === "missing" ? "GAP" : displayAmount > 0 ? fmtK(displayAmount) : "—"}
                                 </span>
                                 {isBest && dd.amount > 0 && !overrideVal && (
-                                  <span style={{ fontSize: 8, fontWeight: 700, color: "#30D158", textTransform: "uppercase" }}>
+                                  <span
+                                    style={{
+                                      fontSize: 8,
+                                      fontWeight: 700,
+                                      color: "#30D158",
+                                      textTransform: "uppercase",
+                                    }}
+                                  >
                                     ★
                                   </span>
                                 )}
@@ -1128,6 +1196,120 @@ export default function BidLevelingGrid({ onViewProposal, onAward }) {
           </div>
         ))}
       </div>
+
+      {/* Alternates Section */}
+      {showAlternates && alternatesData.hasAny && (
+        <div
+          style={{
+            marginTop: 12,
+            borderRadius: T.radius.lg,
+            border: `1px solid ${C.border}`,
+            overflow: "hidden",
+            background: C.cardBg || C.glassBg || "rgba(255,255,255,0.02)",
+          }}
+        >
+          {/* Alternates header row */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: `200px repeat(${subColumns.length}, 1fr)`,
+              borderBottom: `1px solid ${C.border}`,
+              background: "rgba(124,92,252,0.04)",
+            }}
+          >
+            <div
+              style={{
+                padding: "8px 12px",
+                fontSize: 11,
+                fontWeight: 700,
+                color: C.accent,
+                textTransform: "uppercase",
+                letterSpacing: 0.5,
+              }}
+            >
+              Alternates
+            </div>
+            {subColumns.map((sub, ci) => (
+              <div
+                key={ci}
+                style={{
+                  padding: "8px 6px",
+                  fontSize: 10,
+                  fontWeight: 600,
+                  color: C.textMuted,
+                  textAlign: "right",
+                  borderLeft: `1px solid ${C.border}`,
+                }}
+              >
+                {sub.name}
+              </div>
+            ))}
+          </div>
+
+          {/* Alternate rows */}
+          {alternatesData.rows.map((row, ri) => (
+            <div
+              key={ri}
+              style={{
+                display: "grid",
+                gridTemplateColumns: `200px repeat(${subColumns.length}, 1fr)`,
+                borderBottom: ri < alternatesData.rows.length - 1 ? `1px solid ${C.border}` : "none",
+              }}
+            >
+              <div
+                style={{
+                  padding: "6px 12px",
+                  fontSize: 12,
+                  color: C.text,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {row.description}
+                </span>
+              </div>
+              {subColumns.map((_, ci) => {
+                const cell = row.subs[ci];
+                if (!cell) {
+                  return (
+                    <div
+                      key={ci}
+                      style={{
+                        padding: "6px 8px",
+                        textAlign: "right",
+                        color: C.textDim,
+                        fontSize: 12,
+                        borderLeft: `1px solid ${C.border}`,
+                      }}
+                    >
+                      —
+                    </div>
+                  );
+                }
+                const isAdd = cell.type === "add" || cell.type === "Add";
+                return (
+                  <div
+                    key={ci}
+                    style={{
+                      padding: "6px 8px",
+                      textAlign: "right",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      borderLeft: `1px solid ${C.border}`,
+                      color: isAdd ? "#30D158" : "#FF453A",
+                    }}
+                  >
+                    {isAdd ? "+" : "−"}
+                    {fmt(Math.abs(cell.amount))}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

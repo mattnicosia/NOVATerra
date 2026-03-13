@@ -26,7 +26,7 @@ const ROUTE_TO_STAGE = {
   takeoffs: "estimate",
   alternates: "estimate",
   sov: "estimate",
-  bids: "bid",
+  network: "network",
   reports: "propose",
   insights: null,
 };

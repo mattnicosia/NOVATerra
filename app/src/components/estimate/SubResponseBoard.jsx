@@ -14,7 +14,7 @@ const COLUMNS = [
   { key: "submitted", label: "Submitted", color: "#BF5AF2", icon: I.send },
 ];
 
-const OPENED_STATUSES = new Set(["opened", "downloaded", "submitted", "parsed", "awarded", "not_awarded"]);
+const OPENED_STATUSES = new Set(["opened", "downloaded"]);
 const SUBMITTED_STATUSES = new Set(["submitted", "parsed", "awarded", "not_awarded"]);
 
 function SubCard({ inv, color }) {
@@ -47,12 +47,8 @@ function SubCard({ inv, color }) {
         {name}
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
-        {trade && (
-          <span style={{ color: C.textDim, fontSize: 10 }}>{trade}</span>
-        )}
-        {ago && (
-          <span style={{ color: C.textDim, fontSize: 10 }}>{ago}</span>
-        )}
+        {trade && <span style={{ color: C.textDim, fontSize: 10 }}>{trade}</span>}
+        {ago && <span style={{ color: C.textDim, fontSize: 10 }}>{ago}</span>}
       </div>
     </div>
   );
@@ -129,9 +125,7 @@ export default function SubResponseBoard() {
       if (report?.totalExposure) exposureCaught += report.totalExposure;
     }
 
-    const avgResponseHrs = responseTimeCount > 0
-      ? Math.round(responseTimeSum / responseTimeCount / 3600000)
-      : null;
+    const avgResponseHrs = responseTimeCount > 0 ? Math.round(responseTimeSum / responseTimeCount / 3600000) : null;
 
     return {
       columns: cols,
@@ -167,7 +161,15 @@ export default function SubResponseBoard() {
             >
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                 <Ic d={col.icon} size={12} color={col.color} />
-                <span style={{ fontSize: 11, fontWeight: 700, color: col.color, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: col.color,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5,
+                  }}
+                >
                   {col.label}
                 </span>
                 <span
@@ -212,7 +214,8 @@ export default function SubResponseBoard() {
           <span style={{ fontWeight: 600 }}>{passed.length} Passed</span>
           {passed.slice(0, 3).map(p => (
             <span key={p.id} style={{ marginLeft: 8, fontSize: 11 }}>
-              {p.subCompany || p.sub_company}{p.passReason ? ` (${p.passReason})` : ""}
+              {p.subCompany || p.sub_company}
+              {p.passReason ? ` (${p.passReason})` : ""}
             </span>
           ))}
           {passed.length > 3 && <span style={{ marginLeft: 8, fontSize: 11 }}>+{passed.length - 3} more</span>}
@@ -234,10 +237,7 @@ export default function SubResponseBoard() {
           value={kpis.exposureCaught > 0 ? fmtCurrency(kpis.exposureCaught) : "$0"}
           accent
         />
-        <KPICard
-          label="Avg Response Time"
-          value={kpis.avgResponseHrs != null ? `${kpis.avgResponseHrs}h` : "—"}
-        />
+        <KPICard label="Avg Response Time" value={kpis.avgResponseHrs != null ? `${kpis.avgResponseHrs}h` : "—"} />
       </div>
     </div>
   );
@@ -256,13 +256,15 @@ function KPICard({ label, value, accent }) {
       }}
     >
       <div style={{ fontSize: 18, fontWeight: 700, color: accent ? C.accent : C.text }}>{value}</div>
-      <div style={{ fontSize: 10, color: C.textMuted, marginTop: 2, textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</div>
+      <div style={{ fontSize: 10, color: C.textMuted, marginTop: 2, textTransform: "uppercase", letterSpacing: 0.5 }}>
+        {label}
+      </div>
     </div>
   );
 }
 
 function fmtCurrency(v) {
   if (v >= 1000000) return `$${(v / 1000000).toFixed(1)}M`;
-  if (v >= 1000) return `$${Math.round(v / 1000).toLocaleString()}K`;
+  if (v >= 100000) return `$${Math.round(v / 1000).toLocaleString()}K`;
   return `$${Math.round(v).toLocaleString()}`;
 }

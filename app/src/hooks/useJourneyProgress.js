@@ -2,7 +2,7 @@
 // Journey Progress — Computes completion state for the 5 bid lifecycle stages
 // Used by JourneyStrip for visual progress. Reads from existing stores only.
 //
-// Stages: Discover → Define → Estimate → Bid → Propose
+// Stages: Discover → Define → Estimate → Network → Propose
 // Completion criteria are "meaningful" per Chamath — not just visiting a page.
 // ═══════════════════════════════════════════════════════════════════════════════
 import { useMemo, useRef } from "react";
@@ -58,9 +58,9 @@ export function useJourneyProgress() {
         complete: itemCount >= 5,
       },
       {
-        key: "bid",
-        label: "Bid",
-        path: "bids",
+        key: "network",
+        label: "Network",
+        path: "network",
         complete: bidPackages.length > 0 && hasInvitations,
       },
       {

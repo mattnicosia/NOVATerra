@@ -128,9 +128,8 @@ export default async function handler(req, res) {
       // Helper: compute price quartile (1=lowest, 4=highest)
       const getQuartile = bid => {
         if (!bid || allBidTotals.length === 0) return null;
-        const idx = allBidTotals.indexOf(bid);
-        if (idx === -1) return null;
-        const pct = idx / allBidTotals.length;
+        const belowOrEqual = allBidTotals.filter(b => b <= bid).length;
+        const pct = (belowOrEqual - 1) / Math.max(allBidTotals.length - 1, 1);
         if (pct < 0.25) return 1;
         if (pct < 0.5) return 2;
         if (pct < 0.75) return 3;
@@ -142,7 +141,9 @@ export default async function handler(req, res) {
       try {
         const scopeItems = pkg.scope_items;
         if (Array.isArray(scopeItems)) estimateItems = scopeItems;
-      } catch (_) { /* ignore */ }
+      } catch (_) {
+        /* ignore */
+      }
 
       // Generate feedback for all losers in parallel, then send emails
       const feedbackPromises = losers
@@ -161,11 +162,12 @@ export default async function handler(req, res) {
             for (const it of estimateItems) {
               if (it.code) estimateDivisions.add(it.code.split(".")[0]);
             }
-            for (const li of (parsedData.lineItems || [])) {
+            for (const li of parsedData.lineItems || []) {
               if (li.csiCode) proposalDivisions.add(li.csiCode.split(".")[0]);
             }
             const coveredCount = [...estimateDivisions].filter(d => proposalDivisions.has(d)).length;
-            const coveragePct = estimateDivisions.size > 0 ? Math.round((coveredCount / estimateDivisions.size) * 100) : null;
+            const coveragePct =
+              estimateDivisions.size > 0 ? Math.round((coveredCount / estimateDivisions.size) * 100) : null;
 
             postLossFeedback = {
               coverage_pct: coveragePct,
@@ -204,13 +206,11 @@ export default async function handler(req, res) {
           if (postLossFeedback) updateFields.post_loss_feedback = postLossFeedback;
 
           if (Object.keys(updateFields).length > 0) {
-            supabaseAdmin
+            const { error: fbErr } = await supabaseAdmin
               .from("bid_invitations")
               .update(updateFields)
-              .eq("id", loser.id)
-              .then(({ error }) => {
-                if (error) console.warn("[award-bid] Save feedback failed:", error);
-              });
+              .eq("id", loser.id);
+            if (fbErr) console.warn("[award-bid] Save feedback failed:", fbErr);
           }
 
           // Send regret email

@@ -194,7 +194,14 @@ function LogoPortal({ isNova, accent }) {
         loop
         muted
         playsInline
-        style={{ width: "130%", height: "130%", objectFit: "cover", display: "block", marginLeft: "-15%", marginTop: "-15%" }}
+        style={{
+          width: "130%",
+          height: "130%",
+          objectFit: "cover",
+          display: "block",
+          marginLeft: "-15%",
+          marginTop: "-15%",
+        }}
       />
     </div>
   );
@@ -657,7 +664,7 @@ function NovaHeader({ onDraftPanelToggle }) {
     >
       {/* Left — Logo */}
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <NovaTerraLogo size={isTablet ? 32 : 43} />
+        <NovaTerraLogo size={isTablet ? 26 : 34} />
       </div>
 
       {/* Center — Navigation: active tab = Liquid Glass pill */}

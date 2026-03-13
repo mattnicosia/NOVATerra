@@ -44,7 +44,8 @@ function dueIn(dateStr) {
   const now = new Date();
   const diffMs = due - now;
   const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-  if (diffDays < 0) return { text: `${Math.abs(diffDays)} day${Math.abs(diffDays) > 1 ? "s" : ""} overdue`, overdue: true };
+  if (diffDays < 0)
+    return { text: `${Math.abs(diffDays)} day${Math.abs(diffDays) > 1 ? "s" : ""} overdue`, overdue: true };
   if (diffDays === 0) return { text: "Due today", overdue: false };
   if (diffDays === 1) return { text: "Due tomorrow", overdue: false };
   return { text: `Due in ${diffDays} days`, overdue: false };
@@ -364,9 +365,7 @@ export default function SubDashboardPage() {
                   <div
                     key={inv.id}
                     style={{
-                      background: isOverdue
-                        ? "rgba(255,69,58,0.04)"
-                        : "rgba(255,255,255,0.04)",
+                      background: isOverdue ? "rgba(255,69,58,0.04)" : "rgba(255,255,255,0.04)",
                       border: `1px solid ${isOverdue ? "rgba(255,69,58,0.15)" : C.border}`,
                       borderRadius: 12,
                       padding: "14px 16px",
@@ -401,16 +400,18 @@ export default function SubDashboardPage() {
                         {/* Timeline row */}
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
                           {inv.sentAt && (
-                            <span style={{ color: C.textDim, fontSize: 11 }}>
-                              Sent {timeAgo(inv.sentAt)}
-                            </span>
+                            <span style={{ color: C.textDim, fontSize: 11 }}>Sent {timeAgo(inv.sentAt)}</span>
                           )}
                           {inv.dueDate && due && (
                             <>
                               <span style={{ color: C.textDim, fontSize: 11 }}>·</span>
                               <span
                                 style={{
-                                  color: isOverdue ? C.red : due.text.includes("today") || due.text.includes("tomorrow") ? C.orange : C.textDim,
+                                  color: isOverdue
+                                    ? C.red
+                                    : due.text.includes("today") || due.text.includes("tomorrow")
+                                      ? C.orange
+                                      : C.textDim,
                                   fontSize: 11,
                                   fontWeight: isOverdue ? 600 : 400,
                                 }}
@@ -500,7 +501,13 @@ export default function SubDashboardPage() {
                         }}
                       >
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                          <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          <path
+                            d="M5 12h14M12 5l7 7-7 7"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
                         </svg>
                         Open Portal
                       </a>
@@ -521,7 +528,13 @@ export default function SubDashboardPage() {
                       >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                           <circle cx="12" cy="12" r="10" fill="rgba(48,209,88,0.15)" />
-                          <path d="M8 12l3 3 5-5" stroke="#30D158" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          <path
+                            d="M8 12l3 3 5-5"
+                            stroke="#30D158"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
                         </svg>
                         Awarded to you
                       </div>
@@ -570,9 +583,7 @@ export default function SubDashboardPage() {
         )}
 
         {/* Footer */}
-        <div style={{ textAlign: "center", marginTop: 40, color: "#48484A", fontSize: 11 }}>
-          Powered by NOVA
-        </div>
+        <div style={{ textAlign: "center", marginTop: 40, color: "#48484A", fontSize: 11 }}>Powered by NOVA</div>
       </div>
 
       {/* Animations */}

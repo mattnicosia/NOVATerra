@@ -698,10 +698,7 @@ function LoginForm() {
           ) : (
             <p style={{ fontSize: 12, color: "rgba(238,237,245,0.25)", margin: "0 0 12px" }}>
               Don't have an account?{" "}
-              <span
-                onClick={() => switchMode("signup")}
-                style={{ color: ACCENT, fontWeight: 600, cursor: "pointer" }}
-              >
+              <span onClick={() => switchMode("signup")} style={{ color: ACCENT, fontWeight: 600, cursor: "pointer" }}>
                 Create one
               </span>
             </p>

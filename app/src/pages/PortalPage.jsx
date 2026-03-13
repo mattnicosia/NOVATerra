@@ -37,6 +37,11 @@ export default function PortalPage() {
   // Post-loss feedback
   const [feedbackData, setFeedbackData] = useState(null);
 
+  // Coverage analysis (post-upload)
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState(null);
+  const [proposalIdForCoverage, setProposalIdForCoverage] = useState(null);
+
   // Structured bid form
   const [bidAmount, setBidAmount] = useState("");
   const [subInclusions, setSubInclusions] = useState("");
@@ -95,7 +100,9 @@ export default function PortalPage() {
           const fb = await resp.json();
           setFeedbackData(fb);
         }
-      } catch (_) {}
+      } catch (_) {
+        /* feedback fetch non-critical */
+      }
     })();
   }, [token, data]);
 
@@ -199,6 +206,8 @@ export default function PortalPage() {
 
         setUploadProgress(100);
         setSubmitted(true);
+        setProposalIdForCoverage(proposalId);
+        setAnalyzing(true);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -207,6 +216,39 @@ export default function PortalPage() {
     },
     [token],
   );
+
+  // Coverage polling after upload
+  useEffect(() => {
+    if (!analyzing || !token || !proposalIdForCoverage) return;
+    let attempts = 0;
+    const maxAttempts = 10;
+    const interval = setInterval(async () => {
+      attempts++;
+      try {
+        const resp = await fetch(`/api/portal-coverage?token=${token}&proposalId=${proposalIdForCoverage}`);
+        if (!resp.ok) {
+          clearInterval(interval);
+          setAnalyzing(false);
+          return;
+        }
+        const data = await resp.json();
+        if (data.status === "ready") {
+          clearInterval(interval);
+          setAnalysisResult(data);
+          setAnalyzing(false);
+        } else if (attempts >= maxAttempts) {
+          clearInterval(interval);
+          setAnalyzing(false);
+        }
+      } catch (_) {
+        if (attempts >= maxAttempts) {
+          clearInterval(interval);
+          setAnalyzing(false);
+        }
+      }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [analyzing, token, proposalIdForCoverage]);
 
   const handleDrop = useCallback(
     e => {
@@ -521,191 +563,11 @@ export default function PortalPage() {
         )}
 
         {/* Intent Section — Three-Button Response */}
-        {invitation && !["submitted", "parsed", "awarded", "not_awarded"].includes(invitation.status) && !submitted && !isPastDue && (
-          <div style={cardStyle}>
-            <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, color: C.textMuted, marginBottom: 12 }}>
-              Your Response
-            </div>
-            {intent === "pass" ? (
-              <div style={{ textAlign: "center", padding: "24px 0" }}>
-                <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(142,142,147,0.15)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
-                  <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M18 6L6 18M6 6l12 12" />
-                  </svg>
-                </div>
-                <h3 style={{ color: C.text, fontSize: 16, fontWeight: 600, margin: "0 0 6px" }}>Thanks for letting us know</h3>
-                <p style={{ color: C.textMuted, fontSize: 13, margin: 0 }}>
-                  {passReason ? `Reason: ${passReason}` : "You've passed on this package."}
-                </p>
-              </div>
-            ) : showPassReasons ? (
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 10 }}>Why are you passing?</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {["At capacity", "Not my scope", "Timeline conflict", "Not interested"].map(r => (
-                    <button
-                      key={r}
-                      onClick={() => { setShowPassReasons(false); submitIntent("pass", r); }}
-                      disabled={intentLoading}
-                      style={{ padding: "10px 14px", borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.text, fontSize: 13, cursor: "pointer", textAlign: "left", fontFamily: "'Switzer', sans-serif", transition: "all 150ms" }}
-                      onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
-                    >
-                      {r}
-                    </button>
-                  ))}
-                  <button
-                    onClick={() => setShowPassReasons(false)}
-                    style={{ padding: "8px 14px", border: "none", background: "transparent", color: C.textDim, fontSize: 12, cursor: "pointer", textAlign: "center", fontFamily: "'Switzer', sans-serif" }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                {[
-                  { key: "bidding", label: "Bidding", color: C.green, icon: "M20 6L9 17l-5-5" },
-                  { key: "reviewing", label: "Reviewing", color: C.orange, icon: "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z M12 9v0 M12 9a3 3 0 100 6 3 3 0 000-6z" },
-                  { key: "pass", label: "Pass", color: C.textMuted, icon: "M18 6L6 18M6 6l12 12" },
-                ].map(opt => {
-                  const active = intent === opt.key;
-                  return (
-                    <button
-                      key={opt.key}
-                      onClick={() => opt.key === "pass" ? setShowPassReasons(true) : submitIntent(opt.key)}
-                      disabled={intentLoading}
-                      style={{
-                        padding: "14px 8px",
-                        borderRadius: 10,
-                        border: `1.5px solid ${active ? opt.color : C.border}`,
-                        background: active ? `${opt.color}15` : "rgba(255,255,255,0.03)",
-                        color: active ? opt.color : C.text,
-                        fontSize: 13,
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        gap: 6,
-                        transition: "all 200ms",
-                        fontFamily: "'Switzer', sans-serif",
-                        opacity: intentLoading ? 0.6 : 1,
-                      }}
-                      onMouseEnter={e => { if (!active) e.currentTarget.style.borderColor = opt.color + "60"; }}
-                      onMouseLeave={e => { if (!active) e.currentTarget.style.borderColor = C.border; }}
-                    >
-                      <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={active ? opt.color : C.textDim} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                        <path d={opt.icon} />
-                      </svg>
-                      {opt.label}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Post-Loss Feedback Display */}
-        {invitation?.status === "not_awarded" && (
-          <div style={cardStyle}>
-            <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, color: C.textMuted, marginBottom: 16 }}>
-              Bid Results &amp; Feedback
-            </div>
-            <div style={{ textAlign: "center", marginBottom: 20 }}>
-              <div style={{ fontSize: 14, color: C.textMuted, marginBottom: 4 }}>This package has been awarded to another subcontractor.</div>
-              <div style={{ fontSize: 13, color: C.textDim }}>Thank you for your proposal.</div>
-            </div>
-            {feedbackData?.feedback && (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
-                {feedbackData.feedback.coverage_pct != null && (
-                  <div style={{ padding: "14px 12px", borderRadius: 10, background: "rgba(124,92,252,0.06)", border: "1px solid rgba(124,92,252,0.15)", textAlign: "center" }}>
-                    <div style={{ fontSize: 22, fontWeight: 700, color: C.accent }}>{feedbackData.feedback.coverage_pct}%</div>
-                    <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>Scope Coverage</div>
-                  </div>
-                )}
-                {feedbackData.feedback.exclusion_count != null && (
-                  <div style={{ padding: "14px 12px", borderRadius: 10, background: "rgba(255,159,10,0.06)", border: "1px solid rgba(255,159,10,0.15)", textAlign: "center" }}>
-                    <div style={{ fontSize: 22, fontWeight: 700, color: C.orange }}>{feedbackData.feedback.exclusion_count}</div>
-                    <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>Exclusions Noted</div>
-                  </div>
-                )}
-                {feedbackData.feedback.price_quartile != null && (
-                  <div style={{ padding: "14px 12px", borderRadius: 10, background: "rgba(48,209,88,0.06)", border: "1px solid rgba(48,209,88,0.15)", textAlign: "center" }}>
-                    <div style={{ fontSize: 22, fontWeight: 700, color: C.green }}>Q{feedbackData.feedback.price_quartile}</div>
-                    <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>Price Quartile of {feedbackData.feedback.total_proposals}</div>
-                  </div>
-                )}
-              </div>
-            )}
-            {feedbackData?.feedback?.exclusion_list?.length > 0 && (
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, marginBottom: 6 }}>Exclusion Gaps Identified</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {feedbackData.feedback.exclusion_list.map((ex, i) => (
-                    <span key={i} style={{ padding: "4px 10px", borderRadius: 6, background: "rgba(255,159,10,0.08)", border: "1px solid rgba(255,159,10,0.15)", color: C.orange, fontSize: 12 }}>{ex}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {feedbackData?.feedbackNotes && (
-              <div style={{ padding: "12px 16px", borderRadius: 10, borderLeft: `3px solid ${C.accent}`, background: "rgba(124,92,252,0.04)" }}>
-                <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, color: C.accent, marginBottom: 4 }}>Feedback</div>
-                <p style={{ fontSize: 13, color: C.text, lineHeight: 1.6, margin: 0 }}>{feedbackData.feedbackNotes}</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Upload Zone / Submitted State — hidden when passed or not_awarded */}
-        {intent !== "pass" && invitation?.status !== "not_awarded" && invitation?.status !== "awarded" && (
-        <div style={cardStyle}>
-          {submitted ? (
-            <div style={{ textAlign: "center", padding: "40px 0" }}>
-              <div
-                style={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: "50%",
-                  background: "rgba(48,209,88,0.15)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  margin: "0 auto 16px",
-                }}
-              >
-                <svg
-                  width={32}
-                  height={32}
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke={C.green}
-                  strokeWidth={2.5}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M20 6L9 17l-5-5" />
-                </svg>
-              </div>
-              <h3 style={{ color: C.text, fontSize: 20, fontWeight: 600, margin: "0 0 8px" }}>Proposal Submitted</h3>
-              <p style={{ color: C.textMuted, fontSize: 14, lineHeight: 1.5 }}>
-                Your proposal has been received and is being processed.
-                <br />
-                The general contractor will be notified.
-              </p>
-            </div>
-          ) : isPastDue ? (
-            <div style={{ textAlign: "center", padding: "40px 0" }}>
-              <h3 style={{ color: C.red, fontSize: 18, fontWeight: 600, margin: "0 0 8px" }}>
-                This bid has passed its due date
-              </h3>
-              <p style={{ color: C.textMuted, fontSize: 14 }}>
-                Contact the general contractor if you'd like to submit a late proposal.
-              </p>
-            </div>
-          ) : (
-            <>
+        {invitation &&
+          !["submitted", "parsed", "awarded", "not_awarded"].includes(invitation.status) &&
+          !submitted &&
+          !isPastDue && (
+            <div style={cardStyle}>
               <div
                 style={{
                   fontSize: 12,
@@ -716,212 +578,690 @@ export default function PortalPage() {
                   marginBottom: 12,
                 }}
               >
-                Submit Your Proposal
+                Your Response
               </div>
+              {intent === "pass" ? (
+                <div style={{ textAlign: "center", padding: "24px 0" }}>
+                  <div
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: "50%",
+                      background: "rgba(142,142,147,0.15)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      margin: "0 auto 12px",
+                    }}
+                  >
+                    <svg
+                      width={24}
+                      height={24}
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke={C.textMuted}
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M18 6L6 18M6 6l12 12" />
+                    </svg>
+                  </div>
+                  <h3 style={{ color: C.text, fontSize: 16, fontWeight: 600, margin: "0 0 6px" }}>
+                    Thanks for letting us know
+                  </h3>
+                  <p style={{ color: C.textMuted, fontSize: 13, margin: 0 }}>
+                    {passReason ? `Reason: ${passReason}` : "You've passed on this package."}
+                  </p>
+                </div>
+              ) : showPassReasons ? (
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 10 }}>
+                    Why are you passing?
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {["At capacity", "Not my scope", "Timeline conflict", "Not interested"].map(r => (
+                      <button
+                        key={r}
+                        onClick={() => {
+                          setShowPassReasons(false);
+                          submitIntent("pass", r);
+                        }}
+                        disabled={intentLoading}
+                        style={{
+                          padding: "10px 14px",
+                          borderRadius: 8,
+                          border: `1px solid ${C.border}`,
+                          background: "rgba(255,255,255,0.04)",
+                          color: C.text,
+                          fontSize: 13,
+                          cursor: "pointer",
+                          textAlign: "left",
+                          fontFamily: "'Switzer', sans-serif",
+                          transition: "all 150ms",
+                        }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.background = "rgba(255,255,255,0.08)";
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+                        }}
+                      >
+                        {r}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => setShowPassReasons(false)}
+                      style={{
+                        padding: "8px 14px",
+                        border: "none",
+                        background: "transparent",
+                        color: C.textDim,
+                        fontSize: 12,
+                        cursor: "pointer",
+                        textAlign: "center",
+                        fontFamily: "'Switzer', sans-serif",
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                  {[
+                    { key: "bidding", label: "Bidding", color: C.green, icon: "M20 6L9 17l-5-5" },
+                    {
+                      key: "reviewing",
+                      label: "Reviewing",
+                      color: C.orange,
+                      icon: "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z M12 9v0 M12 9a3 3 0 100 6 3 3 0 000-6z",
+                    },
+                    { key: "pass", label: "Pass", color: C.textMuted, icon: "M18 6L6 18M6 6l12 12" },
+                  ].map(opt => {
+                    const active = intent === opt.key;
+                    return (
+                      <button
+                        key={opt.key}
+                        onClick={() => (opt.key === "pass" ? setShowPassReasons(true) : submitIntent(opt.key))}
+                        disabled={intentLoading}
+                        style={{
+                          padding: "14px 8px",
+                          borderRadius: 10,
+                          border: `1.5px solid ${active ? opt.color : C.border}`,
+                          background: active ? `${opt.color}15` : "rgba(255,255,255,0.03)",
+                          color: active ? opt.color : C.text,
+                          fontSize: 13,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          gap: 6,
+                          transition: "all 200ms",
+                          fontFamily: "'Switzer', sans-serif",
+                          opacity: intentLoading ? 0.5 : 1,
+                          pointerEvents: intentLoading ? "none" : "auto",
+                        }}
+                        onMouseEnter={e => {
+                          if (!active) e.currentTarget.style.borderColor = opt.color + "60";
+                        }}
+                        onMouseLeave={e => {
+                          if (!active) e.currentTarget.style.borderColor = C.border;
+                        }}
+                      >
+                        <svg
+                          width={18}
+                          height={18}
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke={active ? opt.color : C.textDim}
+                          strokeWidth={2}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d={opt.icon} />
+                        </svg>
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
-              {error && (
+        {/* Post-Award Feedback Display (winners + losers) */}
+        {(invitation?.status === "not_awarded" || invitation?.status === "awarded") && (
+          <div style={cardStyle}>
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: 0.5,
+                color: C.textMuted,
+                marginBottom: 16,
+              }}
+            >
+              {invitation.status === "awarded" ? "Congratulations — You Won!" : "Bid Results & Feedback"}
+            </div>
+            <div style={{ textAlign: "center", marginBottom: 20 }}>
+              {invitation.status === "awarded" ? (
+                <>
+                  <div style={{ fontSize: 14, color: C.green, marginBottom: 4 }}>
+                    Your proposal has been selected for this package.
+                  </div>
+                  <div style={{ fontSize: 13, color: C.textDim }}>The GC will be in touch with next steps.</div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: 14, color: C.textMuted, marginBottom: 4 }}>
+                    This package has been awarded to another subcontractor.
+                  </div>
+                  <div style={{ fontSize: 13, color: C.textDim }}>Thank you for your proposal.</div>
+                </>
+              )}
+            </div>
+            {feedbackData?.feedback && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
+                {feedbackData.feedback.coverage_pct != null && (
+                  <div
+                    style={{
+                      padding: "14px 12px",
+                      borderRadius: 10,
+                      background: "rgba(124,92,252,0.06)",
+                      border: "1px solid rgba(124,92,252,0.15)",
+                      textAlign: "center",
+                    }}
+                  >
+                    <div style={{ fontSize: 22, fontWeight: 700, color: C.accent }}>
+                      {feedbackData.feedback.coverage_pct}%
+                    </div>
+                    <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>Scope Coverage</div>
+                  </div>
+                )}
+                {feedbackData.feedback.exclusion_count != null && (
+                  <div
+                    style={{
+                      padding: "14px 12px",
+                      borderRadius: 10,
+                      background: "rgba(255,159,10,0.06)",
+                      border: "1px solid rgba(255,159,10,0.15)",
+                      textAlign: "center",
+                    }}
+                  >
+                    <div style={{ fontSize: 22, fontWeight: 700, color: C.orange }}>
+                      {feedbackData.feedback.exclusion_count}
+                    </div>
+                    <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>Exclusions Noted</div>
+                  </div>
+                )}
+                {feedbackData.feedback.price_quartile != null && (
+                  <div
+                    style={{
+                      padding: "14px 12px",
+                      borderRadius: 10,
+                      background: "rgba(48,209,88,0.06)",
+                      border: "1px solid rgba(48,209,88,0.15)",
+                      textAlign: "center",
+                    }}
+                  >
+                    <div style={{ fontSize: 22, fontWeight: 700, color: C.green }}>
+                      Q{feedbackData.feedback.price_quartile}
+                    </div>
+                    <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>
+                      Price Quartile of {feedbackData.feedback.total_proposals}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            {feedbackData?.feedback?.exclusion_list?.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, marginBottom: 6 }}>
+                  Exclusion Gaps Identified
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {feedbackData.feedback.exclusion_list.map((ex, i) => (
+                    <span
+                      key={i}
+                      style={{
+                        padding: "4px 10px",
+                        borderRadius: 6,
+                        background: "rgba(255,159,10,0.08)",
+                        border: "1px solid rgba(255,159,10,0.15)",
+                        color: C.orange,
+                        fontSize: 12,
+                      }}
+                    >
+                      {ex}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {feedbackData?.feedbackNotes && (
+              <div
+                style={{
+                  padding: "12px 16px",
+                  borderRadius: 10,
+                  borderLeft: `3px solid ${C.accent}`,
+                  background: "rgba(124,92,252,0.04)",
+                }}
+              >
                 <div
                   style={{
-                    padding: "10px 14px",
-                    borderRadius: 8,
-                    background: "rgba(255,69,58,0.1)",
-                    border: "1px solid rgba(255,69,58,0.2)",
-                    color: C.red,
-                    fontSize: 13,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5,
+                    color: C.accent,
+                    marginBottom: 4,
+                  }}
+                >
+                  Feedback
+                </div>
+                <p style={{ fontSize: 13, color: C.text, lineHeight: 1.6, margin: 0 }}>{feedbackData.feedbackNotes}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Upload Zone / Submitted State — hidden when passed or not_awarded */}
+        {intent !== "pass" && invitation?.status !== "not_awarded" && invitation?.status !== "awarded" && (
+          <div style={cardStyle}>
+            {submitted ? (
+              <div style={{ padding: "32px 0" }}>
+                <div style={{ textAlign: "center" }}>
+                  <div
+                    style={{
+                      width: 64,
+                      height: 64,
+                      borderRadius: "50%",
+                      background: "rgba(48,209,88,0.15)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      margin: "0 auto 16px",
+                    }}
+                  >
+                    <svg
+                      width={32}
+                      height={32}
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke={C.green}
+                      strokeWidth={2.5}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M20 6L9 17l-5-5" />
+                    </svg>
+                  </div>
+                  <h3 style={{ color: C.text, fontSize: 20, fontWeight: 600, margin: "0 0 8px" }}>
+                    Proposal Submitted
+                  </h3>
+                  <p style={{ color: C.textMuted, fontSize: 14, lineHeight: 1.5, margin: "0 0 20px" }}>
+                    Your proposal has been received. The general contractor will be notified.
+                  </p>
+                </div>
+
+                {/* Coverage Analysis */}
+                {analyzing && (
+                  <div style={{ textAlign: "center", padding: "16px 0" }}>
+                    <div
+                      style={{
+                        width: 28,
+                        height: 28,
+                        border: `3px solid ${C.border}`,
+                        borderTopColor: C.accent,
+                        borderRadius: "50%",
+                        animation: "spin 1s linear infinite",
+                        margin: "0 auto 10px",
+                      }}
+                    />
+                    <div style={{ fontSize: 13, color: C.accent, fontWeight: 600 }}>
+                      NOVA is analyzing your proposal...
+                    </div>
+                    <div style={{ fontSize: 12, color: C.textDim, marginTop: 4 }}>
+                      Checking scope coverage against requested items
+                    </div>
+                  </div>
+                )}
+
+                {analysisResult && (
+                  <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginTop: 4 }}>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 600,
+                        textTransform: "uppercase",
+                        letterSpacing: 0.5,
+                        color: C.textMuted,
+                        marginBottom: 12,
+                      }}
+                    >
+                      Scope Coverage Analysis
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+                      <div
+                        style={{
+                          padding: "14px 12px",
+                          borderRadius: 10,
+                          background: `rgba(${analysisResult.coverageScore >= 80 ? "48,209,88" : analysisResult.coverageScore >= 50 ? "255,159,10" : "255,69,58"},0.06)`,
+                          border: `1px solid rgba(${analysisResult.coverageScore >= 80 ? "48,209,88" : analysisResult.coverageScore >= 50 ? "255,159,10" : "255,69,58"},0.15)`,
+                          textAlign: "center",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 28,
+                            fontWeight: 700,
+                            color:
+                              analysisResult.coverageScore >= 80
+                                ? C.green
+                                : analysisResult.coverageScore >= 50
+                                  ? C.orange
+                                  : C.red,
+                          }}
+                        >
+                          {analysisResult.coverageScore}%
+                        </div>
+                        <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>Scope Coverage</div>
+                      </div>
+                      <div
+                        style={{
+                          padding: "14px 12px",
+                          borderRadius: 10,
+                          background: "rgba(124,92,252,0.06)",
+                          border: "1px solid rgba(124,92,252,0.15)",
+                          textAlign: "center",
+                        }}
+                      >
+                        <div style={{ fontSize: 28, fontWeight: 700, color: C.accent }}>
+                          {analysisResult.coveredDivisions}/{analysisResult.totalDivisions}
+                        </div>
+                        <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>Divisions Covered</div>
+                      </div>
+                    </div>
+
+                    {analysisResult.missingDivisions?.length > 0 && (
+                      <div style={{ marginBottom: 16 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: C.textMuted, marginBottom: 6 }}>
+                          Missing Divisions
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                          {analysisResult.missingDivisions.map((d, i) => (
+                            <span
+                              key={i}
+                              style={{
+                                padding: "4px 10px",
+                                borderRadius: 6,
+                                background: "rgba(255,159,10,0.08)",
+                                border: "1px solid rgba(255,159,10,0.15)",
+                                color: C.orange,
+                                fontSize: 12,
+                              }}
+                            >
+                              {d.division} {d.divisionName}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {analysisResult.exclusionCount > 0 && (
+                      <div style={{ fontSize: 12, color: C.textDim, padding: "8px 0" }}>
+                        {analysisResult.exclusionCount} exclusion{analysisResult.exclusionCount !== 1 ? "s" : ""} noted
+                        in your proposal
+                      </div>
+                    )}
+
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: C.textDim,
+                        lineHeight: 1.5,
+                        marginTop: 8,
+                        padding: "10px 12px",
+                        borderRadius: 8,
+                        background: "rgba(255,255,255,0.02)",
+                      }}
+                    >
+                      This analysis shows how your bid aligns with the requested scope. Consider addressing any gaps
+                      before the due date by submitting a revised proposal.
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : isPastDue ? (
+              <div style={{ textAlign: "center", padding: "40px 0" }}>
+                <h3 style={{ color: C.red, fontSize: 18, fontWeight: 600, margin: "0 0 8px" }}>
+                  This bid has passed its due date
+                </h3>
+                <p style={{ color: C.textMuted, fontSize: 14 }}>
+                  Contact the general contractor if you'd like to submit a late proposal.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5,
+                    color: C.textMuted,
                     marginBottom: 12,
                   }}
                 >
-                  {error}
+                  Submit Your Proposal
                 </div>
-              )}
 
-              {/* Structured Bid Form */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
-                <div>
-                  <label
-                    style={{ color: C.textMuted, fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}
+                {error && (
+                  <div
+                    style={{
+                      padding: "10px 14px",
+                      borderRadius: 8,
+                      background: "rgba(255,69,58,0.1)",
+                      border: "1px solid rgba(255,69,58,0.2)",
+                      color: C.red,
+                      fontSize: 13,
+                      marginBottom: 12,
+                    }}
                   >
-                    Bid Amount
-                  </label>
-                  <div style={{ position: "relative" }}>
-                    <span
-                      style={{
-                        position: "absolute",
-                        left: 12,
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        color: C.textDim,
-                        fontSize: 15,
-                        fontWeight: 600,
-                      }}
-                    >
-                      $
-                    </span>
-                    <input
-                      type="text"
-                      value={bidAmount}
-                      onChange={e => setBidAmount(e.target.value)}
-                      placeholder="0"
-                      style={{
-                        width: "100%",
-                        boxSizing: "border-box",
-                        padding: "12px 14px 12px 28px",
-                        borderRadius: 10,
-                        border: `1px solid ${C.border}`,
-                        background: "rgba(255,255,255,0.04)",
-                        color: C.text,
-                        fontSize: 18,
-                        fontWeight: 600,
-                        outline: "none",
-                        fontFamily: "'Switzer', sans-serif",
-                      }}
-                    />
+                    {error}
                   </div>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  <div>
-                    <label
-                      style={{ color: C.textMuted, fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}
-                    >
-                      Key Inclusions <span style={{ fontWeight: 400 }}>(optional)</span>
-                    </label>
-                    <textarea
-                      value={subInclusions}
-                      onChange={e => setSubInclusions(e.target.value)}
-                      placeholder="What's included in your bid..."
-                      rows={3}
-                      style={{
-                        width: "100%",
-                        boxSizing: "border-box",
-                        padding: "10px 12px",
-                        borderRadius: 8,
-                        border: `1px solid ${C.border}`,
-                        background: "rgba(255,255,255,0.04)",
-                        color: C.text,
-                        fontSize: 13,
-                        resize: "vertical",
-                        outline: "none",
-                        fontFamily: "'Switzer', sans-serif",
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label
-                      style={{ color: C.textMuted, fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}
-                    >
-                      Key Exclusions <span style={{ fontWeight: 400 }}>(optional)</span>
-                    </label>
-                    <textarea
-                      value={subExclusions}
-                      onChange={e => setSubExclusions(e.target.value)}
-                      placeholder="What's NOT included..."
-                      rows={3}
-                      style={{
-                        width: "100%",
-                        boxSizing: "border-box",
-                        padding: "10px 12px",
-                        borderRadius: 8,
-                        border: `1px solid ${C.border}`,
-                        background: "rgba(255,255,255,0.04)",
-                        color: C.text,
-                        fontSize: 13,
-                        resize: "vertical",
-                        outline: "none",
-                        fontFamily: "'Switzer', sans-serif",
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
+                )}
 
-              <div
-                style={{
-                  fontSize: 12,
-                  fontWeight: 600,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.5,
-                  color: C.textMuted,
-                  marginBottom: 8,
-                }}
-              >
-                Upload Proposal Document
-              </div>
-              <div
-                onDragOver={e => {
-                  e.preventDefault();
-                  setDragOver(true);
-                }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={handleDrop}
-                style={{
-                  border: `2px dashed ${dragOver ? C.accent : C.border}`,
-                  borderRadius: 14,
-                  padding: "40px 24px",
-                  textAlign: "center",
-                  cursor: "pointer",
-                  background: dragOver ? "rgba(124,92,252,0.06)" : "transparent",
-                  transition: "all 200ms",
-                }}
-                onClick={() => document.getElementById("portal-file-input").click()}
-              >
-                {uploading ? (
-                  <>
-                    <div
-                      style={{
-                        width: "80%",
-                        height: 6,
-                        borderRadius: 3,
-                        background: C.border,
-                        margin: "0 auto 12px",
-                        overflow: "hidden",
-                      }}
+                {/* Structured Bid Form */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
+                  <div>
+                    <label
+                      style={{ color: C.textMuted, fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}
                     >
-                      <div
+                      Bid Amount
+                    </label>
+                    <div style={{ position: "relative" }}>
+                      <span
                         style={{
-                          width: `${uploadProgress}%`,
-                          height: "100%",
-                          borderRadius: 3,
-                          background: `linear-gradient(90deg, ${C.accent}, ${C.accentGlow})`,
-                          transition: "width 300ms ease-out",
+                          position: "absolute",
+                          left: 12,
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          color: C.textDim,
+                          fontSize: 15,
+                          fontWeight: 600,
+                        }}
+                      >
+                        $
+                      </span>
+                      <input
+                        type="text"
+                        value={bidAmount}
+                        onChange={e => setBidAmount(e.target.value)}
+                        placeholder="0"
+                        style={{
+                          width: "100%",
+                          boxSizing: "border-box",
+                          padding: "12px 14px 12px 28px",
+                          borderRadius: 10,
+                          border: `1px solid ${C.border}`,
+                          background: "rgba(255,255,255,0.04)",
+                          color: C.text,
+                          fontSize: 18,
+                          fontWeight: 600,
+                          outline: "none",
+                          fontFamily: "'Switzer', sans-serif",
                         }}
                       />
                     </div>
-                    <p style={{ color: C.textMuted, fontSize: 14, margin: 0 }}>Uploading... {uploadProgress}%</p>
-                  </>
-                ) : (
-                  <>
-                    <svg
-                      width={40}
-                      height={40}
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke={C.accent}
-                      strokeWidth={1.5}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      style={{ marginBottom: 12 }}
-                    >
-                      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4 M17 8l-5-5-5 5 M12 3v12" />
-                    </svg>
-                    <p style={{ color: C.text, fontSize: 15, fontWeight: 600, margin: "0 0 4px" }}>
-                      Drop your proposal here
-                    </p>
-                    <p style={{ color: C.textMuted, fontSize: 13, margin: 0 }}>
-                      or click to browse — PDF, JPG, PNG, or XLSX (50MB max)
-                    </p>
-                  </>
-                )}
-              </div>
-              <input
-                id="portal-file-input"
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png,.xlsx"
-                onChange={handleFileInput}
-                style={{ display: "none" }}
-              />
-            </>
-          )}
-        </div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    <div>
+                      <label
+                        style={{ color: C.textMuted, fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}
+                      >
+                        Key Inclusions <span style={{ fontWeight: 400 }}>(optional)</span>
+                      </label>
+                      <textarea
+                        value={subInclusions}
+                        onChange={e => setSubInclusions(e.target.value)}
+                        placeholder="What's included in your bid..."
+                        rows={3}
+                        style={{
+                          width: "100%",
+                          boxSizing: "border-box",
+                          padding: "10px 12px",
+                          borderRadius: 8,
+                          border: `1px solid ${C.border}`,
+                          background: "rgba(255,255,255,0.04)",
+                          color: C.text,
+                          fontSize: 13,
+                          resize: "vertical",
+                          outline: "none",
+                          fontFamily: "'Switzer', sans-serif",
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label
+                        style={{ color: C.textMuted, fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}
+                      >
+                        Key Exclusions <span style={{ fontWeight: 400 }}>(optional)</span>
+                      </label>
+                      <textarea
+                        value={subExclusions}
+                        onChange={e => setSubExclusions(e.target.value)}
+                        placeholder="What's NOT included..."
+                        rows={3}
+                        style={{
+                          width: "100%",
+                          boxSizing: "border-box",
+                          padding: "10px 12px",
+                          borderRadius: 8,
+                          border: `1px solid ${C.border}`,
+                          background: "rgba(255,255,255,0.04)",
+                          color: C.text,
+                          fontSize: 13,
+                          resize: "vertical",
+                          outline: "none",
+                          fontFamily: "'Switzer', sans-serif",
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5,
+                    color: C.textMuted,
+                    marginBottom: 8,
+                  }}
+                >
+                  Upload Proposal Document
+                </div>
+                <div
+                  onDragOver={e => {
+                    e.preventDefault();
+                    setDragOver(true);
+                  }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={handleDrop}
+                  style={{
+                    border: `2px dashed ${dragOver ? C.accent : C.border}`,
+                    borderRadius: 14,
+                    padding: "40px 24px",
+                    textAlign: "center",
+                    cursor: "pointer",
+                    background: dragOver ? "rgba(124,92,252,0.06)" : "transparent",
+                    transition: "all 200ms",
+                  }}
+                  onClick={() => document.getElementById("portal-file-input").click()}
+                >
+                  {uploading ? (
+                    <>
+                      <div
+                        style={{
+                          width: "80%",
+                          height: 6,
+                          borderRadius: 3,
+                          background: C.border,
+                          margin: "0 auto 12px",
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: `${uploadProgress}%`,
+                            height: "100%",
+                            borderRadius: 3,
+                            background: `linear-gradient(90deg, ${C.accent}, ${C.accentGlow})`,
+                            transition: "width 300ms ease-out",
+                          }}
+                        />
+                      </div>
+                      <p style={{ color: C.textMuted, fontSize: 14, margin: 0 }}>Uploading... {uploadProgress}%</p>
+                    </>
+                  ) : (
+                    <>
+                      <svg
+                        width={40}
+                        height={40}
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke={C.accent}
+                        strokeWidth={1.5}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        style={{ marginBottom: 12 }}
+                      >
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4 M17 8l-5-5-5 5 M12 3v12" />
+                      </svg>
+                      <p style={{ color: C.text, fontSize: 15, fontWeight: 600, margin: "0 0 4px" }}>
+                        Drop your proposal here
+                      </p>
+                      <p style={{ color: C.textMuted, fontSize: 13, margin: 0 }}>
+                        or click to browse — PDF, JPG, PNG, or XLSX (50MB max)
+                      </p>
+                    </>
+                  )}
+                </div>
+                <input
+                  id="portal-file-input"
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.xlsx"
+                  onChange={handleFileInput}
+                  style={{ display: "none" }}
+                />
+              </>
+            )}
+          </div>
         )}
 
         {/* Footer */}
