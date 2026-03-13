@@ -40,6 +40,7 @@ const markSynced = () => {
   useUiStore
     .getState()
     .setCloudSyncLastAt(new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }));
+  useUiStore.setState({ cloudSyncLastFullAt: new Date().toISOString() });
 };
 
 const markError = msg => {
@@ -563,14 +564,8 @@ export const pushData = async (key, data) => {
     try {
       const userId = getUserId();
       const scope = getScope();
-      let cloudQuery = supabase
-        .from("user_data")
-        .select("data")
-        .eq("user_id", userId)
-        .eq("key", "index");
-      cloudQuery = scope?.org_id
-        ? cloudQuery.eq("org_id", scope.org_id)
-        : cloudQuery.is("org_id", null);
+      let cloudQuery = supabase.from("user_data").select("data").eq("user_id", userId).eq("key", "index");
+      cloudQuery = scope?.org_id ? cloudQuery.eq("org_id", scope.org_id) : cloudQuery.is("org_id", null);
       const { data: existing } = await cloudQuery.maybeSingle();
       const cloudLen = Array.isArray(existing?.data) ? existing.data.length : 0;
       // Allow shrinkage up to 50% (orphan cleanup can remove many entries at once).
@@ -578,7 +573,7 @@ export const pushData = async (key, data) => {
       if (cloudLen > 2 && data.length < Math.ceil(cloudLen / 2)) {
         console.error(
           `[cloudSync] DATA LOSS PREVENTION: Refusing to push index with ${data.length} entries ` +
-          `(cloud has ${cloudLen}). This looks like data loss. Aborting push.`,
+            `(cloud has ${cloudLen}). This looks like data loss. Aborting push.`,
         );
         return;
       }
@@ -592,7 +587,9 @@ export const pushData = async (key, data) => {
           const userId2 = getUserId();
           const lsRaw = localStorage.getItem(`bldg-deleted-ids-${userId2}`);
           if (lsRaw) deletedIds = new Set(JSON.parse(lsRaw));
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
         const cloudOnly = existing.data.filter(e => !localIds.has(e.id) && !deletedIds.has(e.id));
         if (cloudOnly.length > 0) {
           console.log(`[cloudSync] INDEX MERGE: adopting ${cloudOnly.length} cloud-only entries before push`);
@@ -851,7 +848,7 @@ export const pullDataWithOrgId = async (key, orgId) => {
 /**
  * Pull all estimates with an explicit org_id override (for recovery).
  */
-export const pullAllEstimatesWithOrgId = async (orgId) => {
+export const pullAllEstimatesWithOrgId = async orgId => {
   if (!isReady()) return [];
   try {
     let query = supabase.from("user_estimates").select("estimate_id, data, user_id").is("deleted_at", null);
@@ -891,8 +888,12 @@ export const pullDataAnyScope = async key => {
     let bestOrgId = null;
     for (const row of data) {
       const d = row.data;
-      const size = Array.isArray(d) ? d.length : (typeof d === "object" && d ? Object.keys(d).length : 0);
-      const bestSize = Array.isArray(best) ? best.length : (typeof best === "object" && best ? Object.keys(best).length : 0);
+      const size = Array.isArray(d) ? d.length : typeof d === "object" && d ? Object.keys(d).length : 0;
+      const bestSize = Array.isArray(best)
+        ? best.length
+        : typeof best === "object" && best
+          ? Object.keys(best).length
+          : 0;
       if (!best || size > bestSize) {
         best = d;
         bestOrgId = row.org_id;
@@ -901,7 +902,9 @@ export const pullDataAnyScope = async key => {
     console.log(`[cloudSync] pullDataAnyScope("${key}"): found ${data.length} rows, best has org_id=${bestOrgId}`);
     // Side-effect: save discovered org_id for future recovery
     if (bestOrgId) {
-      try { localStorage.setItem("bldg-last-org-id", bestOrgId); } catch {}
+      try {
+        localStorage.setItem("bldg-last-org-id", bestOrgId);
+      } catch {}
     }
     return best;
   } catch (err) {
@@ -1063,7 +1066,12 @@ export const pullEstimate = async estimateId => {
         console.log(`[cloudSync] pullEstimate: found ${estimateId} in solo mode — migrating to org`);
         // Migrate: push to org scope so future lookups work
         try {
-          await supabase.from("user_estimates").update({ org_id: scope.org_id }).eq("estimate_id", estimateId).eq("user_id", userId).is("org_id", null);
+          await supabase
+            .from("user_estimates")
+            .update({ org_id: scope.org_id })
+            .eq("estimate_id", estimateId)
+            .eq("user_id", userId)
+            .is("org_id", null);
         } catch {}
         return soloData.data;
       }
@@ -1100,3 +1108,141 @@ export const pullAllEstimates = async () => {
     return [];
   }
 };
+
+// ---------- Realtime sync helpers ----------
+// These are used by useRealtimeSync to apply incoming changes from other devices.
+
+/**
+ * Pull a single estimate from cloud, hydrate blobs, write to IDB, and
+ * optionally reload into Zustand stores if it's the active estimate.
+ * Returns the hydrated data or null on failure.
+ */
+export const pullAndApplyEstimate = async estimateId => {
+  if (!isReady()) return null;
+  try {
+    let cloudData = await pullEstimate(estimateId);
+    if (!cloudData) return null;
+
+    // Hydrate blobs (drawings, documents, specPdf)
+    cloudData = await hydrateBlobs(cloudData);
+    delete cloudData._hydrationStats;
+
+    // Write to IDB
+    const { storage } = await import("@/utils/storage");
+    const { idbKey } = await import("@/utils/idbKey");
+    await storage.set(idbKey(`bldg-est-${estimateId}`), JSON.stringify(cloudData));
+
+    // If this is the active estimate, reload into stores
+    const { useEstimatesStore } = await import("@/stores/estimatesStore");
+    const activeId = useEstimatesStore.getState().activeEstimateId;
+    if (activeId === estimateId) {
+      await _reloadActiveEstimate(cloudData);
+    }
+
+    return cloudData;
+  } catch (err) {
+    console.warn(`[cloudSync] pullAndApplyEstimate("${estimateId}") failed:`, err.message || err);
+    return null;
+  }
+};
+
+/**
+ * Pull a data key from cloud and apply to the correct Zustand store + IDB.
+ * Handles: master, settings, assemblies, index, calendar, user-elements, etc.
+ */
+export const pullAndApplyData = async key => {
+  if (!isReady()) return null;
+  try {
+    const result = await pullData(key);
+    if (!result) return null;
+
+    const { storage } = await import("@/utils/storage");
+    const { idbKey } = await import("@/utils/idbKey");
+
+    // Write to IDB
+    await storage.set(idbKey(`bldg-${key}`), JSON.stringify(result));
+
+    // Apply to the appropriate Zustand store
+    await _applyDataToStore(key, result);
+
+    return result;
+  } catch (err) {
+    console.warn(`[cloudSync] pullAndApplyData("${key}") failed:`, err.message || err);
+    return null;
+  }
+};
+
+/** Reload the currently active estimate's stores from fresh data */
+async function _reloadActiveEstimate(data) {
+  try {
+    const { useProjectStore } = await import("@/stores/projectStore");
+    const { useItemsStore } = await import("@/stores/itemsStore");
+    const { useDrawingsStore } = await import("@/stores/drawingsStore");
+    const { useTakeoffsStore } = await import("@/stores/takeoffsStore");
+    const { useSpecsStore } = await import("@/stores/specsStore");
+    const { useGroupsStore } = await import("@/stores/groupsStore");
+    const { useBidLevelingStore } = await import("@/stores/bidLevelingStore");
+    const { useAlternatesStore } = await import("@/stores/alternatesStore");
+    const { useCorrespondenceStore } = await import("@/stores/correspondenceStore");
+    const { useModuleStore } = await import("@/stores/moduleStore");
+    const { useBidPackagesStore } = await import("@/stores/bidPackagesStore");
+
+    if (data.project) useProjectStore.getState().setProject(data.project);
+    if (data.items !== undefined) useItemsStore.getState().setItems(data.items || []);
+    if (data.markup !== undefined) useItemsStore.getState().setMarkup(data.markup);
+    if (data.markupOrder) useItemsStore.getState().setMarkupOrder(data.markupOrder);
+    if (data.drawings) useDrawingsStore.getState().setDrawings(data.drawings);
+    if (data.takeoffs) useTakeoffsStore.getState().setTakeoffs(data.takeoffs);
+    if (data.specs) useSpecsStore.getState().setSpecs(data.specs);
+    if (data.exclusions) useSpecsStore.getState().setExclusions(data.exclusions);
+    if (data.clarifications) useSpecsStore.getState().setClarifications(data.clarifications);
+    if (data.groups) useGroupsStore.getState().setGroups(data.groups);
+    if (data.bidLeveling) useBidLevelingStore.getState().setBidLeveling(data.bidLeveling);
+    if (data.alternates) useAlternatesStore.getState().setAlternates(data.alternates);
+    if (data.correspondence) useCorrespondenceStore.getState().setCorrespondence(data.correspondence);
+    if (data.modules) useModuleStore.getState().setModules(data.modules);
+    if (data.bidPackages) useBidPackagesStore.getState().setBidPackages(data.bidPackages);
+
+    console.log("[cloudSync] Active estimate reloaded from Realtime update");
+    useUiStore.getState().showToast("Estimate updated from another device", "info");
+  } catch (err) {
+    console.warn("[cloudSync] _reloadActiveEstimate failed:", err.message);
+  }
+}
+
+/** Apply pulled data to the correct Zustand store by key name */
+async function _applyDataToStore(key, data) {
+  try {
+    if (key === "master") {
+      const { useMasterDataStore } = await import("@/stores/masterDataStore");
+      if (data.companyProfiles) useMasterDataStore.getState().setCompanyProfiles(data.companyProfiles);
+      if (data.contacts) useMasterDataStore.getState().setContacts(data.contacts);
+      if (data.companyInfo) useMasterDataStore.getState().setCompanyInfo(data.companyInfo);
+    } else if (key === "settings") {
+      useUiStore.getState().setAppSettings(data);
+    } else if (key === "assemblies") {
+      const { useDatabaseStore } = await import("@/stores/databaseStore");
+      useDatabaseStore.getState().setAssemblies(data);
+    } else if (key === "calendar") {
+      const { useCalendarStore } = await import("@/stores/calendarStore");
+      useCalendarStore.getState().setTasks(data);
+    } else if (key === "user-elements") {
+      const { useDatabaseStore } = await import("@/stores/databaseStore");
+      useDatabaseStore.getState().loadUserElements(data);
+    } else if (key === "index") {
+      // Merge into estimates index additively (never replace)
+      const { useEstimatesStore } = await import("@/stores/estimatesStore");
+      const currentIndex = useEstimatesStore.getState().estimatesIndex;
+      const currentIds = new Set(currentIndex.map(e => e.id));
+      const newEntries = (Array.isArray(data) ? data : []).filter(e => !currentIds.has(e.id));
+      if (newEntries.length > 0) {
+        useEstimatesStore.setState(s => ({
+          estimatesIndex: [...s.estimatesIndex, ...newEntries],
+        }));
+      }
+    }
+    console.log(`[cloudSync] Applied Realtime data for key "${key}"`);
+  } catch (err) {
+    console.warn(`[cloudSync] _applyDataToStore("${key}") failed:`, err.message);
+  }
+}

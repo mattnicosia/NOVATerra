@@ -81,9 +81,13 @@ export const useUiStore = create((set, get) => ({
 
   // Cloud sync status
   cloudSyncStatus: "idle", // "idle" | "syncing" | "synced" | "error"
-  cloudSyncLastAt: null, // timestamp string
+  cloudSyncLastAt: null, // timestamp string (formatted, e.g. "2:45 PM")
+  cloudSyncLastFullAt: null, // ISO string for relative time calculations
   cloudSyncError: null, // error message string (for debug)
   cloudSyncInProgress: false, // true while startup sync is running — blocks auto-save cloud pushes
+
+  // Multi-device session awareness
+  otherSessions: [], // [{ device, browser, lastSeen }]
 
   // Value engineering
   veLoading: false,
@@ -136,6 +140,7 @@ export const useUiStore = create((set, get) => ({
     set({ cloudSyncStatus: status, ...(status !== "error" ? { cloudSyncError: null } : {}) }),
   setCloudSyncLastAt: ts => set({ cloudSyncLastAt: ts }),
   setCloudSyncError: msg => set({ cloudSyncError: msg }),
+  setOtherSessions: v => set({ otherSessions: v }),
 
   setVeLoading: v => set({ veLoading: v }),
   setVeSuggestions: v => set({ veSuggestions: v }),

@@ -5,6 +5,8 @@ import { usePersistenceLoad, loadEstimate } from "@/hooks/usePersistence";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { useTakeoffSync } from "@/hooks/useTakeoffSync";
 import { useCloudSync } from "@/hooks/useCloudSync";
+import { useRealtimeSync } from "@/hooks/useRealtimeSync";
+import { useSessionAwareness } from "@/hooks/useSessionAwareness";
 import { useEmbeddingSync } from "@/hooks/useEmbeddingSync";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useAutoSnapshot } from "@/hooks/useAutoSnapshot";
@@ -29,7 +31,7 @@ import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 import { CAR_PALETTE_IDS, LIGHT_PALETTE_IDS, ARTIFACT_PALETTE_IDS, PALETTES } from "@/constants/palettes";
 import { NOISE_GRAIN } from "@/constants/textures";
 import NovaHeader from "@/components/layout/NovaHeader";
-import { useJourneyProgress } from "@/hooks/useJourneyProgress";
+import EstimateJourneyBar from "@/components/layout/EstimateJourneyBar";
 import Toast from "@/components/layout/Toast";
 import PageTransition from "@/components/ambient/PageTransition";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
@@ -124,7 +126,10 @@ function EstimateLoader({ children }) {
   useEffect(() => {
     if (!persistenceLoaded || !id || activeId === id) return;
     // If cloud sync is still running, wait — estimate data blobs may not be in IDB yet
-    if (cloudSyncInProgress) { setLoading(true); return; }
+    if (cloudSyncInProgress) {
+      setLoading(true);
+      return;
+    }
     setLoading(true);
     setLoadFailed(false);
     nova.estimate.info(`Loading estimate ${id}`, { activeId, cloudSyncInProgress });
@@ -132,10 +137,13 @@ function EstimateLoader({ children }) {
       if (!ok) {
         // Retry once after a short delay — cloud sync may still be settling
         for (let attempt = 2; attempt <= 2; attempt++) {
-          nova.estimate.warn(`Attempt ${attempt-1} failed for ${id} — retrying...`, { estimateId: id, attempt });
+          nova.estimate.warn(`Attempt ${attempt - 1} failed for ${id} — retrying...`, { estimateId: id, attempt });
           await new Promise(r => setTimeout(r, 2000));
           const retryOk = await loadEstimate(id);
-          if (retryOk) { setLoading(false); return; }
+          if (retryOk) {
+            setLoading(false);
+            return;
+          }
         }
         // All retries failed — orphaned index entry (metadata without data)
         nova.orphan.error(`Estimate ${id} is orphaned — removing from index`, { estimateId: id });
@@ -224,14 +232,7 @@ function EstimateLoader({ children }) {
   return children;
 }
 
-const PROJECT_TABS = [
-  { key: "info", path: "info", label: "Info", stageKey: "define" },
-  { key: "plans", path: "plans", label: "Discovery", stageKey: "discover" },
-  { key: "takeoffs", path: "takeoffs", label: "Estimate", stageKey: "estimate" },
-  { key: "bids", path: "bids", label: "Bids", stageKey: "bid" },
-  { key: "reports", path: "reports", label: "Reports", stageKey: "propose" },
-  { key: "insights", path: "insights", label: "Insights", stageKey: null },
-];
+/* PROJECT_TABS removed — navigation moved to EstimateJourneyBar */
 
 /* ── Takeoffs header controls: mode button + NOVA orb ── */
 function TakeoffsHeaderControls({ C }) {
@@ -277,263 +278,7 @@ function TakeoffsHeaderControls({ C }) {
   );
 }
 
-// ─── Keyframes for pill completion animation ────────────────────────────────
-const PILL_KEYFRAMES = `
-@keyframes pillPulse {
-  0%    { transform: scale(1); }
-  40%   { transform: scale(1.06); }
-  70%   { transform: scale(1.02); }
-  100%  { transform: scale(1); }
-}
-`;
-
-function ProjectTabBar() {
-  const C = useTheme();
-  const T = C.T;
-  const dk = C.isDark;
-  const location = useLocation();
-  const navigate = useNavigate();
-  const activeId = useEstimatesStore(s => s.activeEstimateId);
-  const setupComplete = useProjectStore(s => s.project.setupComplete);
-  const project = useProjectStore(s => s.project);
-  const getCompanyInfo = useMasterDataStore(s => s.getCompanyInfo);
-  const companyInfo = getCompanyInfo(project.companyProfileId);
-  const companyInitial = (companyInfo?.name || "?")[0].toUpperCase();
-  const { stages, justCompleted } = useJourneyProgress();
-
-  const [animatingKeys, setAnimatingKeys] = useState({});
-  const [hoveredKey, setHoveredKey] = useState(null);
-
-  // ── Completion animation lifecycle ──
-  useEffect(() => {
-    const keys = Object.keys(justCompleted);
-    if (keys.length === 0) return;
-    setAnimatingKeys(prev => {
-      const next = { ...prev };
-      keys.forEach(k => {
-        next[k] = true;
-      });
-      return next;
-    });
-    const timer = setTimeout(() => {
-      setAnimatingKeys(prev => {
-        const next = { ...prev };
-        keys.forEach(k => {
-          delete next[k];
-        });
-        return next;
-      });
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [justCompleted]);
-
-  // Only show on /estimate/:id/* routes
-  if (!activeId || !location.pathname.startsWith("/estimate/")) return null;
-
-  // Hide tab bar during document-first onboarding
-  if (setupComplete === false) return null;
-
-  // Determine active tab
-  const activeTab = PROJECT_TABS.find(t => location.pathname.includes(`/${t.path}`)) || PROJECT_TABS[0];
-
-  // Build stage completion lookup
-  const stageMap = {};
-  stages.forEach(s => {
-    stageMap[s.key] = s.complete;
-  });
-
-  return (
-    <>
-      <style>{PILL_KEYFRAMES}</style>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 4,
-          padding: `0 ${T.space[6]}px`,
-          height: 40,
-          minHeight: 40,
-          background: C.bg,
-          borderBottom: `1px solid ${C.border}`,
-          fontFamily: T.font.sans,
-        }}
-      >
-        {/* Project indicator — company logo + project name */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            paddingRight: 12,
-            marginRight: 4,
-            borderRight: `1px solid ${C.border}`,
-            flexShrink: 0,
-          }}
-        >
-          {companyInfo?.logo ? (
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 26,
-                height: 26,
-                borderRadius: 6,
-                flexShrink: 0,
-                background: dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.03)",
-                border: dk ? "1px solid rgba(255,255,255,0.10)" : "1px solid rgba(0,0,0,0.04)",
-                overflow: "hidden",
-              }}
-            >
-              <img
-                src={companyInfo.logo}
-                alt=""
-                style={{
-                  maxHeight: 20,
-                  maxWidth: 20,
-                  objectFit: "contain",
-                }}
-              />
-            </div>
-          ) : (
-            <div
-              style={{
-                width: 26,
-                height: 26,
-                borderRadius: 6,
-                background: `${C.accent}18`,
-                border: `1px solid ${C.accent}30`,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 11,
-                fontWeight: 700,
-                color: C.accent,
-                flexShrink: 0,
-              }}
-            >
-              {companyInitial}
-            </div>
-          )}
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              color: C.text,
-              maxWidth: 160,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {project.name || "Untitled"}
-          </span>
-        </div>
-
-        {/* ── Journey pill tabs with workflow arrows ── */}
-        <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
-          {PROJECT_TABS.map((tab, i) => {
-            const isActive = tab.key === activeTab.key;
-            const isComplete = !isActive && tab.stageKey && !!stageMap[tab.stageKey];
-            const isAnimating = tab.stageKey && !!animatingKeys[tab.stageKey];
-            const isHovered = hoveredKey === tab.key && !isActive;
-
-            // Arrow between pills — the left pill's completion state determines arrow brightness
-            const prevTab = i > 0 ? PROJECT_TABS[i - 1] : null;
-            const prevComplete = prevTab?.stageKey && !!stageMap[prevTab.stageKey];
-            const prevIsActive = prevTab?.key === activeTab.key;
-            const arrowTraveled = prevComplete || prevIsActive;
-
-            // ── Pill style by state ──
-            const basePill = {
-              height: 26,
-              borderRadius: 13,
-              padding: "0 14px",
-              fontSize: 11,
-              fontWeight: isActive ? 600 : 500,
-              cursor: "pointer",
-              border: "none",
-              outline: "none",
-              whiteSpace: "nowrap",
-              fontFamily: T.font.sans,
-              transition: "all 200ms ease",
-              flexShrink: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            };
-
-            let pillStyle;
-
-            if (isActive) {
-              pillStyle = {
-                ...basePill,
-                background: C.accent,
-                color: "#fff",
-                boxShadow: `0 0 0 1px ${C.accent}15, 0 0 8px ${C.accent}25`,
-              };
-            } else if (isComplete) {
-              pillStyle = {
-                ...basePill,
-                background: isHovered ? `${C.green}20` : `${C.green}12`,
-                color: C.text,
-                border: `1px solid ${C.green}30`,
-                animation: isAnimating ? "pillPulse 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275)" : undefined,
-              };
-            } else {
-              pillStyle = {
-                ...basePill,
-                background: isHovered ? C.bg2 : "transparent",
-                color: isHovered ? C.textMuted : C.textDim,
-                border: `1px solid ${isHovered ? `${C.text}18` : `${C.border}`}`,
-              };
-            }
-
-            return (
-              <Fragment key={tab.key}>
-                {/* Workflow arrow */}
-                {i > 0 && (
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    style={{
-                      flexShrink: 0,
-                      margin: "0 2px",
-                      transition: "opacity 200ms ease",
-                    }}
-                  >
-                    <path
-                      d="M6 3.5L10.5 8L6 12.5"
-                      stroke={arrowTraveled ? C.accent : C.textDim}
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      opacity={arrowTraveled ? 0.5 : 0.3}
-                    />
-                  </svg>
-                )}
-                <button
-                  onClick={() => navigate(`/estimate/${activeId}/${tab.path}`)}
-                  onMouseEnter={() => setHoveredKey(tab.key)}
-                  onMouseLeave={() => setHoveredKey(null)}
-                  style={pillStyle}
-                >
-                  {tab.label}
-                </button>
-              </Fragment>
-            );
-          })}
-        </div>
-
-        {/* Takeoffs controls removed — mode label was unnecessary */}
-
-        <div style={{ flex: 1 }} />
-      </div>
-    </>
-  );
-}
+/* ProjectTabBar + PILL_KEYFRAMES removed — replaced by EstimateJourneyBar */
 
 /* ── Floating theme picker — fixed bottom-right, always visible ── */
 function FloatingThemePicker() {
@@ -985,6 +730,8 @@ function AppContent() {
   useAutoSave();
   useTakeoffSync();
   useCloudSync();
+  useRealtimeSync();
+  useSessionAwareness();
   useEmbeddingSync();
   useKeyboardShortcuts();
   useAutoResponseTimers();
@@ -1084,7 +831,7 @@ function AppContent() {
             <DraftApprovalPanel open={showDraftPanel} onClose={() => setShowDraftPanel(false)} />
           </Suspense>
         )}
-        <ProjectTabBar />
+        <EstimateJourneyBar />
         <FloatingThemePicker />
         <Suspense fallback={null}>
           <FeedbackWidget />
@@ -1207,15 +954,17 @@ function AppContent() {
                   }
                 />
                 <Route
-                  path="/estimate/:id/bids"
+                  path="/estimate/:id/network"
                   element={
                     <EstimateLoader>
-                      <PageErrorBoundary pageName="Bid Packages">
+                      <PageErrorBoundary pageName="NOVA Network">
                         <BidPackagesPage />
                       </PageErrorBoundary>
                     </EstimateLoader>
                   }
                 />
+                {/* Backward compat: old /bids URLs redirect to /network */}
+                <Route path="/estimate/:id/bids" element={<Navigate to="../network" replace />} />
                 <Route
                   path="/estimate/:id/insights"
                   element={
@@ -1263,7 +1012,9 @@ function AppContent() {
       )}
       {/* NovaCursor — scoped to drawing canvas only (deactivates in estimate mode).
           Throttled to ~30fps to minimize GPU overhead. */}
-      <Suspense fallback={null}><NovaCursor /></Suspense>
+      <Suspense fallback={null}>
+        <NovaCursor />
+      </Suspense>
     </div>
   );
 }
