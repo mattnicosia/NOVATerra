@@ -39,6 +39,9 @@ export default function ModulePanel({
   const setCatInstanceSpec = useModuleStore(s => s.setCatInstanceSpec);
   const linkCatInstanceItem = useModuleStore(s => s.linkCatInstanceItem);
   const setCatInstanceItemStatus = useModuleStore(s => s.setCatInstanceItemStatus);
+  const removeModule = useModuleStore(s => s.removeModule);
+  const collapseAllCategories = useModuleStore(s => s.collapseAllCategories);
+  const expandAllCategories = useModuleStore(s => s.expandAllCategories);
 
   // Collapsed wall type instances (local UI state)
   const [collapsedInstances, setCollapsedInstances] = useState(new Set());
@@ -699,7 +702,7 @@ export default function ModulePanel({
             {hasQty ? (qty >= 1000 ? Math.round(qty).toLocaleString() : Math.round(qty * 100) / 100) : "—"}
           </span>
         )}
-        <span style={{ fontSize: 8, color: C.textDim, width: 28, textAlign: "left", flexShrink: 0 }}>{item.unit}</span>
+        <span style={{ fontSize: 9, color: C.textMuted, width: 28, textAlign: "left", flexShrink: 0 }}>{item.unit}</span>
         {/* Delete linked takeoff (resets to pending without excluding) */}
         {toId && hasQty && !isExcluded && (
           <button
@@ -709,8 +712,8 @@ export default function ModulePanel({
             }}
             title="Delete takeoff"
             style={{
-              width: 14,
-              height: 14,
+              width: 20,
+              height: 20,
               border: "none",
               background: "transparent",
               color: C.red,
@@ -724,7 +727,7 @@ export default function ModulePanel({
               opacity: 0.5,
             }}
           >
-            <Ic d={I.trash} size={7} />
+            <Ic d={I.xCircle} size={11} />
           </button>
         )}
         <button
@@ -786,7 +789,7 @@ export default function ModulePanel({
             style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 72, flex: "1 1 72px", maxWidth: 120 }}
           >
             <label
-              style={{ fontSize: 8, fontWeight: 600, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.3 }}
+              style={{ fontSize: 10, fontWeight: 600, color: C.textMuted, textTransform: "uppercase", letterSpacing: 0.3 }}
             >
               {spec.label} {spec.unit && <span style={{ color: C.textDimmer }}>({spec.unit})</span>}
             </label>
@@ -1151,6 +1154,29 @@ export default function ModulePanel({
     Grating: "#6366F1",
   };
 
+  // Helper: compute spec-based display name for a type instance
+  const computeAutoLabel = (cat, catInst) => {
+    if (catInst.label && catInst.label.trim()) return catInst.label;
+    // Build label from key dimension specs
+    const dimKeys = ["Width", "Depth", "Length", "Height", "Diameter", "Size", "StudSize"];
+    const dims = [];
+    const specs = cat.specs || [];
+    for (const s of specs) {
+      if (dimKeys.some(k => s.id.endsWith(k) || s.id === k)) {
+        const val = catInst.specs?.[s.id] ?? s.default;
+        if (val != null && val !== "") dims.push(String(val));
+      }
+    }
+    // Also check Material
+    const matVal = catInst.specs?.Material;
+    if (dims.length > 0) {
+      const dimStr = dims.join("\u00d7"); // ×
+      return matVal ? `${dimStr} ${matVal}` : dimStr;
+    }
+    if (matVal) return matVal;
+    return cat.name;
+  };
+
   // Helper: render a single multi-instance block
   const renderInstance = (cat, catInst, catInstances) => {
     const drivingItem = cat.items.find(i => i.id === cat.drivingItemId);
@@ -1161,6 +1187,7 @@ export default function ModulePanel({
     const isMeasuring = drivingToId && tkActiveTakeoffId === drivingToId;
     const derivedItems = cat.items.filter(i => i.type !== "driving");
     const isCollapsed = collapsedInstances.has(catInst.id);
+    const displayLabel = computeAutoLabel(cat, catInst);
 
     // Resolve material color from instance specs (fallback to category specs defaults)
     const materialSpec = cat.specs?.find(s => s.id === "Material");
@@ -1200,16 +1227,17 @@ export default function ModulePanel({
             ▼
           </span>
 
-          {/* Editable label */}
+          {/* Editable label — shows spec-based auto-name as placeholder */}
           <input
             value={catInst.label}
+            placeholder={displayLabel}
             onChange={e => renameCategoryInstance(activeModule, cat.id, catInst.id, e.target.value)}
             onClick={e => e.stopPropagation()}
             style={{
-              width: 60,
+              width: 80,
               fontSize: 10,
               fontWeight: 700,
-              color: matColor,
+              color: catInst.label ? matColor : C.textMuted,
               background: "transparent",
               border: "none",
               outline: "none",
@@ -1221,11 +1249,11 @@ export default function ModulePanel({
           {drivingItem && (
             <span
               style={{
-                fontSize: 7,
+                fontSize: 9,
                 fontWeight: 600,
-                color: C.textDim,
+                color: C.textMuted,
                 background: `${C.text}10`,
-                padding: "1px 3px",
+                padding: "1px 4px",
                 borderRadius: 2,
               }}
             >
@@ -1255,7 +1283,7 @@ export default function ModulePanel({
                 borderRadius: 3,
                 cursor: selectedDrawingId ? "pointer" : "not-allowed",
                 padding: "2px 6px",
-                fontSize: 8,
+                fontSize: 9,
                 fontWeight: 700,
                 letterSpacing: 0.3,
                 background: isMeasuring ? C.accent : drivingQty > 0 ? `${C.green}20` : `${C.accent}15`,
@@ -1276,8 +1304,8 @@ export default function ModulePanel({
               }}
               title="Delete measurement"
               style={{
-                width: 16,
-                height: 16,
+                width: 22,
+                height: 22,
                 border: "none",
                 background: "transparent",
                 color: C.red,
@@ -1289,7 +1317,7 @@ export default function ModulePanel({
                 opacity: 0.6,
               }}
             >
-              <Ic d={I.trash} size={8} />
+              <Ic d={I.xCircle} size={12} />
             </button>
           )}
 
@@ -1307,8 +1335,8 @@ export default function ModulePanel({
               }}
               title="Remove type"
               style={{
-                width: 14,
-                height: 14,
+                width: 22,
+                height: 22,
                 border: "none",
                 background: "transparent",
                 color: C.red,
@@ -1320,7 +1348,7 @@ export default function ModulePanel({
                 opacity: 0.6,
               }}
             >
-              <Ic d={I.trash} size={8} />
+              <Ic d={I.xCircle} size={12} />
             </button>
           )}
         </div>
@@ -1482,6 +1510,44 @@ export default function ModulePanel({
                 {wallScheduleLoading ? "Scanning..." : "AI Wall Schedule"}
               </button>
             )}
+            {/* Delete entire module */}
+            <button
+              onClick={e => {
+                e.stopPropagation();
+                if (confirm(`Remove ${moduleDef.name} module and all its measurements?`)) {
+                  // Remove all linked takeoffs first
+                  const instData = instances[activeModule];
+                  if (instData) {
+                    Object.values(instData.itemTakeoffIds || {}).forEach(toId => {
+                      if (toId) removeTakeoff(toId);
+                    });
+                    Object.values(instData.categoryInstances || {}).forEach(cats => {
+                      (cats || []).forEach(ci => {
+                        Object.values(ci.itemTakeoffIds || {}).forEach(toId => {
+                          if (toId) removeTakeoff(toId);
+                        });
+                      });
+                    });
+                  }
+                  removeModule(activeModule);
+                }
+              }}
+              title="Delete module"
+              style={{
+                width: 22,
+                height: 22,
+                border: "none",
+                background: `${C.red}15`,
+                color: C.red,
+                borderRadius: 4,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+              }}
+            >
+              <Ic d={I.xCircle} size={12} color={C.red} />
+            </button>
             <button
               onClick={e => {
                 e.stopPropagation();
@@ -1504,6 +1570,32 @@ export default function ModulePanel({
               <Ic d={I.x} size={10} color={C.textDim} />
             </button>
           </div>
+        </div>
+        {/* Collapse/Expand All toolbar */}
+        <div style={{ display: "flex", gap: 8, padding: "4px 12px 0" }}>
+          <button
+            onClick={() => expandAllCategories(activeModule)}
+            style={{
+              border: "none", background: "transparent", color: C.textMuted, cursor: "pointer",
+              fontSize: 9, fontWeight: 600, padding: "2px 0", display: "flex", alignItems: "center", gap: 3,
+            }}
+          >
+            <span style={{ fontSize: 7 }}>&#9660;</span> Expand All
+          </button>
+          <button
+            onClick={() => {
+              collapseAllCategories(activeModule);
+              setCollapsedInstances(new Set(
+                Object.values(inst.categoryInstances || {}).flat().map(ci => ci.id)
+              ));
+            }}
+            style={{
+              border: "none", background: "transparent", color: C.textMuted, cursor: "pointer",
+              fontSize: 9, fontWeight: 600, padding: "2px 0", display: "flex", alignItems: "center", gap: 3,
+            }}
+          >
+            <span style={{ fontSize: 7 }}>&#9650;</span> Collapse All
+          </button>
         </div>
       </div>
 
@@ -1553,9 +1645,9 @@ export default function ModulePanel({
                       <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{cat.name}</span>
                       <span
                         style={{
-                          fontSize: 8,
+                          fontSize: 9,
                           fontWeight: 600,
-                          color: C.textDim,
+                          color: C.textMuted,
                           background: `${C.text}10`,
                           padding: "1px 4px",
                           borderRadius: 3,
@@ -1565,31 +1657,38 @@ export default function ModulePanel({
                       </span>
                     </div>
                   </div>
-                  <button
-                    onClick={e => {
-                      e.stopPropagation();
-                      addCategoryInstance(activeModule, cat.id);
-                    }}
-                    title="Add footing type"
-                    style={{
-                      border: "none",
-                      borderRadius: 3,
-                      cursor: "pointer",
-                      padding: "2px 8px",
-                      fontSize: 9,
-                      fontWeight: 700,
-                      background: `${C.accent}15`,
-                      color: C.accent,
-                    }}
-                  >
-                    + Type
-                  </button>
                 </div>
 
-                {/* Instances */}
+                {/* Instances + Add Type button below */}
                 {isExpanded && (
                   <div style={{ padding: "4px 0" }}>
                     {catInstances.map(catInst => renderInstance(cat, catInst, catInstances))}
+                    {/* + Add Type — positioned below instances for natural downward flow */}
+                    <button
+                      onClick={e => {
+                        e.stopPropagation();
+                        addCategoryInstance(activeModule, cat.id);
+                      }}
+                      title="Add type"
+                      style={{
+                        width: "calc(100% - 16px)",
+                        margin: "4px 8px",
+                        padding: "6px 0",
+                        border: `1.5px dashed ${C.accent}40`,
+                        borderRadius: 5,
+                        background: "transparent",
+                        color: C.accent,
+                        cursor: "pointer",
+                        fontSize: 10,
+                        fontWeight: 700,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 4,
+                      }}
+                    >
+                      <Ic d={I.plus} size={10} color={C.accent} /> Add Type
+                    </button>
                   </div>
                 )}
               </div>

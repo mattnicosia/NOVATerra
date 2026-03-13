@@ -22,7 +22,9 @@ import {
   imageBlock,
   cropImageRegion,
   buildProjectContext,
+  detectSheetReferences,
 } from "@/utils/ai";
+import DetailOverlay from "@/components/takeoffs/DetailOverlay";
 import { useModuleStore } from "@/stores/moduleStore";
 import { useModelStore } from "@/stores/modelStore";
 import { outlineToFeet, detectBuildingOutline, ensureDrawingImage } from "@/utils/outlineDetector";
@@ -99,6 +101,12 @@ export default function TakeoffsPage() {
   const setDrawingScales = useDrawingsStore(s => s.setDrawingScales);
   const drawingDpi = useDrawingsStore(s => s.drawingDpi);
   const setDrawingDpi = useDrawingsStore(s => s.setDrawingDpi);
+  const sheetIndex = useDrawingsStore(s => s.sheetIndex);
+  const buildSheetIndex = useDrawingsStore(s => s.buildSheetIndex);
+  const detectedReferences = useDrawingsStore(s => s.detectedReferences);
+  const setDetectedReferences = useDrawingsStore(s => s.setDetectedReferences);
+  const refScanLoading = useDrawingsStore(s => s.refScanLoading);
+  const setRefScanLoading = useDrawingsStore(s => s.setRefScanLoading);
 
   // Takeoffs store
   const takeoffs = useTakeoffsStore(s => s.takeoffs);
@@ -182,6 +190,33 @@ export default function TakeoffsPage() {
   const setTkPredRefining = useTakeoffsStore(s => s.setTkPredRefining);
   const tkNovaPanelOpen = useTakeoffsStore(s => s.tkNovaPanelOpen);
   const setTkNovaPanelOpen = useTakeoffsStore(s => s.setTkNovaPanelOpen);
+
+  // Detail overlay & reference detection
+  const [detailOverlayId, setDetailOverlayId] = useState(null);
+  const [refPopover, setRefPopover] = useState(null); // { ref, x, y } for click popover
+  const [hoveredRef, setHoveredRef] = useState(null); // hovered reference for tooltip
+
+  // Build sheet index when drawings change
+  useEffect(() => { buildSheetIndex(); }, [drawings.length]);
+
+  // Scan current drawing for section/elevation/detail references
+  const handleScanReferences = useCallback(async () => {
+    if (!selectedDrawingId || refScanLoading) return;
+    const drawing = drawings.find(d => d.id === selectedDrawingId);
+    if (!drawing) return;
+    setRefScanLoading(selectedDrawingId);
+    try {
+      const imgData = drawing.type === "pdf" ? (pdfCanvases[drawing.id] || drawing.data) : drawing.data;
+      const refs = await detectSheetReferences(imgData);
+      setDetectedReferences(selectedDrawingId, refs);
+      showToast(`Found ${refs.length} reference${refs.length !== 1 ? "s" : ""}`, "success");
+    } catch (err) {
+      console.error("[ScanRefs]", err);
+      showToast("Reference scan failed", "error");
+    } finally {
+      setRefScanLoading(null);
+    }
+  }, [selectedDrawingId, refScanLoading, drawings, pdfCanvases]);
 
   // Measurement engine — scale conversion, distance/area calculations, formula evaluation
   const {
@@ -3604,14 +3639,19 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
             }}
           >
             {/* Panel mode tabs: Est | Scen | Notes | RFIs | NOVA */}
-            <div style={{ display: "flex", gap: 0, background: C.bg2, borderRadius: 5, padding: 2 }}>
-              {[
+            {(() => {
+              const allTabs = [
                 { key: "estimate", label: "Est", icon: I.ruler },
                 { key: "scenarios", label: "Scenarios", icon: I.layers },
                 { key: "notes", label: "Notes", icon: I.report },
                 { key: "rfis", label: "RFIs", icon: I.send },
                 { key: "nova", label: "NOVA", icon: I.ai },
-              ].map(t => {
+              ];
+              const isEstimateTier = tkPanelTier === "estimate";
+              const row1 = isEstimateTier ? allTabs.slice(0, 3) : allTabs;
+              const row2 = isEstimateTier ? [allTabs[4], allTabs[3]] : []; // NOVA first, then RFIs
+
+              const renderTab = t => {
                 const isActive = leftPanelTab === t.key;
                 return (
                   <button
@@ -3621,8 +3661,8 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                       setShowNotesPanel(t.key === "notes");
                     }}
                     style={{
-                      padding: "3px 6px",
-                      fontSize: 9,
+                      padding: isEstimateTier ? "5px 12px" : "5px 10px",
+                      fontSize: 12,
                       fontWeight: 600,
                       background: isActive
                         ? t.key === "nova"
@@ -3630,20 +3670,33 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                           : C.accent
                         : "transparent",
                       color: isActive ? "#fff" : C.textDim,
-                      border: "none",
-                      borderRadius: 4,
+                      border: isActive ? "none" : `1px solid ${C.border}`,
+                      borderRadius: 999,
                       cursor: "pointer",
                       transition: "all 0.15s",
                       display: "flex",
                       alignItems: "center",
-                      gap: 3,
+                      gap: 4,
                     }}
                   >
-                    <Ic d={t.icon} size={8} color={isActive ? "#fff" : C.textDim} /> {t.label}
+                    <Ic d={t.icon} size={11} color={isActive ? "#fff" : C.textDim} /> {t.label}
                   </button>
                 );
-              })}
-            </div>
+              };
+
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <div style={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+                    {row1.map(renderTab)}
+                  </div>
+                  {row2.length > 0 && (
+                    <div style={{ display: "flex", gap: 2 }}>
+                      {row2.map(renderTab)}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             {/* Takeoffs sub-filters (only when Estimate tab active) */}
             {leftPanelTab === "estimate" && (
               <div style={{ display: "flex", gap: 2, background: C.bg2, borderRadius: 4, padding: 2 }}>
@@ -3669,7 +3722,6 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                 <button
                   onClick={() => {
                     setPageFilter("page");
-                    setActiveModule(null);
                     setTkVisibility("page");
                   }}
                   style={{
@@ -6356,6 +6408,35 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                     )}
                   </>
                 )}
+                {/* Scan References button */}
+                {selectedDrawing && (
+                  <>
+                    <div style={{ width: 1, height: 20, background: C.border, margin: "0 2px" }} />
+                    <button
+                      onClick={handleScanReferences}
+                      disabled={refScanLoading === selectedDrawingId}
+                      title="AI detects section/elevation/detail callout symbols"
+                      style={{
+                        padding: "3px 8px", fontSize: 9, fontWeight: 600,
+                        border: `1px solid ${C.accent}40`, background: `${C.accent}10`,
+                        color: refScanLoading ? C.textDim : C.accent,
+                        borderRadius: 4, cursor: refScanLoading ? "default" : "pointer",
+                        display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap",
+                      }}
+                    >
+                      <Ic d={I.search} size={9} color={refScanLoading ? C.textDim : C.accent} />
+                      {refScanLoading === selectedDrawingId ? "Scanning..." : "Scan Refs"}
+                      {detectedReferences[selectedDrawingId]?.length > 0 && !refScanLoading && (
+                        <span style={{
+                          fontSize: 8, fontWeight: 700, background: C.accent, color: "#fff",
+                          borderRadius: 99, padding: "0 4px", minWidth: 14, textAlign: "center",
+                        }}>
+                          {detectedReferences[selectedDrawingId].length}
+                        </span>
+                      )}
+                    </button>
+                  </>
+                )}
                 {/* Undo last point button — visible during active measurement */}
                 {tkActivePoints.length > 0 && (
                   <button
@@ -7988,7 +8069,136 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                       pointerEvents: "none",
                     }}
                   />
+                  {/* ── Sheet Reference Badges ── */}
+                  {selectedDrawingId && detectedReferences[selectedDrawingId]?.length > 0 && (
+                    detectedReferences[selectedDrawingId].map((ref, ri) => {
+                      const targetDId = sheetIndex[ref.targetSheet] || sheetIndex[ref.targetSheet?.replace(/[-\s]/g, "")];
+                      const targetDrawing = targetDId ? drawings.find(d => d.id === targetDId) : null;
+                      const thumbSrc = targetDrawing
+                        ? targetDrawing.type === "pdf" ? pdfCanvases[targetDrawing.id] : targetDrawing.data
+                        : null;
+                      const isHovered = hoveredRef === ri;
+                      const typeColors = { section: "#10B981", elevation: "#6366F1", detail: "#F59E0B" };
+                      const badgeColor = typeColors[ref.type] || C.accent;
+
+                      return (
+                        <div
+                          key={ri}
+                          onMouseEnter={() => setHoveredRef(ri)}
+                          onMouseLeave={() => setHoveredRef(null)}
+                          onClick={e => {
+                            e.stopPropagation();
+                            setRefPopover(refPopover?.idx === ri ? null : { idx: ri, ref, targetDId, x: e.clientX, y: e.clientY });
+                          }}
+                          style={{
+                            position: "absolute",
+                            left: `${ref.xPct}%`, top: `${ref.yPct}%`,
+                            transform: "translate(-50%, -50%)",
+                            width: 22, height: 22, borderRadius: "50%",
+                            background: badgeColor, border: "2px solid #fff",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            cursor: "pointer", zIndex: 20, pointerEvents: "auto",
+                            boxShadow: isHovered ? `0 0 0 3px ${badgeColor}40` : "0 1px 4px rgba(0,0,0,0.3)",
+                            transition: "box-shadow 0.15s",
+                          }}
+                        >
+                          <span style={{ fontSize: 8, fontWeight: 800, color: "#fff" }}>
+                            {ref.type === "section" ? "S" : ref.type === "elevation" ? "E" : "D"}
+                          </span>
+
+                          {/* Hover tooltip */}
+                          {isHovered && (
+                            <div style={{
+                              position: "absolute", bottom: "calc(100% + 8px)", left: "50%",
+                              transform: "translateX(-50%)", zIndex: 30, pointerEvents: "none",
+                              background: C.bg, border: `1px solid ${C.border}`,
+                              borderRadius: 6, padding: 6, boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
+                              minWidth: 140, maxWidth: 220,
+                            }}>
+                              <div style={{ fontSize: 9, fontWeight: 700, color: badgeColor, marginBottom: 2 }}>
+                                {ref.type?.toUpperCase()} — {ref.label}
+                              </div>
+                              {targetDrawing && (
+                                <div style={{ fontSize: 9, color: C.textMuted, marginBottom: 4 }}>
+                                  {targetDrawing.sheetNumber} {targetDrawing.sheetTitle || ""}
+                                </div>
+                              )}
+                              {thumbSrc && (
+                                <img src={thumbSrc} alt="" style={{ width: "100%", height: 80, objectFit: "contain", borderRadius: 3, background: "#111" }} />
+                              )}
+                              {!targetDrawing && (
+                                <div style={{ fontSize: 8, color: C.textDim }}>Sheet {ref.targetSheet} not in set</div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
+              )}
+
+              {/* Reference click popover */}
+              {refPopover && (() => {
+                const { ref, targetDId } = refPopover;
+                return (
+                  <div
+                    style={{
+                      position: "fixed", left: refPopover.x, top: refPopover.y,
+                      zIndex: 60, background: C.bg, border: `1px solid ${C.border}`,
+                      borderRadius: 8, padding: 6, boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
+                      display: "flex", flexDirection: "column", gap: 4, minWidth: 140,
+                    }}
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <div style={{ fontSize: 10, fontWeight: 700, color: C.text, padding: "2px 4px" }}>
+                      {ref.label} — {ref.type}
+                    </div>
+                    {targetDId && (
+                      <>
+                        <button
+                          onClick={() => { setSelectedDrawingId(targetDId); setRefPopover(null); }}
+                          style={{
+                            padding: "5px 8px", fontSize: 10, fontWeight: 600,
+                            background: `${C.accent}12`, border: `1px solid ${C.accent}30`,
+                            color: C.accent, borderRadius: 5, cursor: "pointer", textAlign: "left",
+                          }}
+                        >
+                          Open Page
+                        </button>
+                        <button
+                          onClick={() => { setDetailOverlayId(targetDId); setRefPopover(null); }}
+                          style={{
+                            padding: "5px 8px", fontSize: 10, fontWeight: 600,
+                            background: `${C.accent}08`, border: `1px solid ${C.border}`,
+                            color: C.text, borderRadius: 5, cursor: "pointer", textAlign: "left",
+                          }}
+                        >
+                          Plot Here
+                        </button>
+                      </>
+                    )}
+                    {!targetDId && (
+                      <div style={{ padding: "4px", fontSize: 9, color: C.textDim }}>
+                        Sheet {ref.targetSheet} not in drawing set
+                      </div>
+                    )}
+                    <button
+                      onClick={() => setRefPopover(null)}
+                      style={{
+                        padding: "3px 8px", fontSize: 9, background: "transparent",
+                        border: "none", color: C.textDim, cursor: "pointer", textAlign: "left",
+                      }}
+                    >
+                      Close
+                    </button>
+                  </div>
+                );
+              })()}
+
+              {/* Detail Overlay — floating resizable panel showing referenced drawing */}
+              {detailOverlayId && (
+                <DetailOverlay drawingId={detailOverlayId} onClose={() => setDetailOverlayId(null)} />
               )}
 
               {/* Floating specs card — shows module specs during measuring */}

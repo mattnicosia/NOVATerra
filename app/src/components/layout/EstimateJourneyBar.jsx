@@ -30,7 +30,7 @@ const JOURNEY_STAGES = [
   },
   {
     key: "define",
-    label: "Define",
+    label: "Info",
     defaultPath: "info",
     subTabs: [{ key: "info", label: "Project Info", path: "info" }],
   },
@@ -52,7 +52,7 @@ const JOURNEY_STAGES = [
   },
   {
     key: "propose",
-    label: "Propose",
+    label: "Reports",
     defaultPath: "reports",
     subTabs: [
       { key: "reports", label: "Reports", path: "reports" },

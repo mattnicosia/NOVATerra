@@ -49,7 +49,7 @@ function getDefaultCategoryInstances(moduleId) {
     catInst[cat.id] = [
       {
         id: _uid(),
-        label: "Type A",
+        label: "",
         specs: getDefaultCatSpecs(cat),
         itemTakeoffIds: {},
         itemStatus: {},
@@ -143,7 +143,6 @@ export const useModuleStore = create((set, get) => ({
       const cat = mod?.categories.find(c => c.id === catId);
       if (!cat?.multiInstance) return {};
       const existing = inst.categoryInstances?.[catId] || [];
-      const letter = String.fromCharCode(65 + existing.length); // A, B, C...
       return {
         moduleInstances: {
           ...s.moduleInstances,
@@ -155,7 +154,7 @@ export const useModuleStore = create((set, get) => ({
                 ...existing,
                 {
                   id: _uid(),
-                  label: `Type ${letter}`,
+                  label: "",
                   specs: getDefaultCatSpecs(cat),
                   itemTakeoffIds: {},
                   itemStatus: {},
@@ -277,6 +276,48 @@ export const useModuleStore = create((set, get) => ({
         },
       },
     })),
+
+  // Remove module entirely (delete all state, deactivate)
+  removeModule: moduleId =>
+    set(s => {
+      const next = { ...s.moduleInstances };
+      delete next[moduleId];
+      return {
+        activeModule: s.activeModule === moduleId ? null : s.activeModule,
+        moduleInstances: next,
+      };
+    }),
+
+  // Collapse/expand all categories in a module
+  collapseAllCategories: moduleId =>
+    set(s => {
+      const inst = ensureInstance(s, moduleId);
+      const expanded = {};
+      Object.keys(inst.expandedCategories).forEach(k => (expanded[k] = false));
+      // Also set any un-tracked categories to false
+      const mod = MODULES[moduleId];
+      if (mod) mod.categories.forEach(c => (expanded[c.id] = false));
+      return {
+        moduleInstances: {
+          ...s.moduleInstances,
+          [moduleId]: { ...inst, expandedCategories: expanded },
+        },
+      };
+    }),
+
+  expandAllCategories: moduleId =>
+    set(s => {
+      const inst = ensureInstance(s, moduleId);
+      const expanded = {};
+      const mod = MODULES[moduleId];
+      if (mod) mod.categories.forEach(c => (expanded[c.id] = true));
+      return {
+        moduleInstances: {
+          ...s.moduleInstances,
+          [moduleId]: { ...inst, expandedCategories: expanded },
+        },
+      };
+    }),
 }));
 
 // Migration: convert old flat data to categoryInstances format
@@ -314,7 +355,7 @@ export function migrateModuleInstances(instances) {
       categoryInstances[cat.id] = [
         {
           id: _uid(),
-          label: "Type A",
+          label: "",
           specs: instanceSpecs,
           itemTakeoffIds: instanceItemTakeoffIds,
           itemStatus: instanceItemStatus,

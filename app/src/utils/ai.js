@@ -653,3 +653,52 @@ export async function segmentedOCR(base64Image, imgWidth, imgHeight) {
     return { text: fallback.text, quadrantTexts: [fallback.text], blocks: fallback.blocks };
   }
 }
+
+// ── Sheet Reference Detection ─────────────────────────────────────
+// Sends a drawing image to Claude to detect section/elevation/detail callout symbols.
+// Returns array of { label, targetSheet, type, xPct, yPct } with percentage positions.
+export async function detectSheetReferences(base64ImageData) {
+  const isDataUrl = base64ImageData.startsWith("data:");
+  const mediaType = isDataUrl
+    ? base64ImageData.match(/data:([^;]+)/)?.[1] || "image/jpeg"
+    : "image/jpeg";
+  const rawB64 = isDataUrl ? base64ImageData.split(",")[1] : base64ImageData;
+
+  const resp = await callAnthropic({
+    max_tokens: 4000,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: { type: "base64", media_type: mediaType, data: rawB64 },
+          },
+          {
+            type: "text",
+            text: `Analyze this construction drawing and find ALL section cut symbols, elevation markers, and detail callout symbols. These are typically circles or other shapes with a number on top and a sheet number on the bottom (like "1/A501" meaning detail 1 on sheet A501, or "A/S-201" meaning section A on sheet S-201).
+
+Return a JSON array of objects. Each object should have:
+- "label": the full callout text (e.g., "1/A501", "A/S-201", "3")
+- "targetSheet": the referenced sheet number (e.g., "A501", "S-201"). If no sheet ref, use ""
+- "type": one of "section", "elevation", "detail"
+- "xPct": approximate X position as percentage of image width (0-100)
+- "yPct": approximate Y position as percentage of image height (0-100)
+
+Only return the JSON array, no other text. If no references found, return [].`,
+          },
+        ],
+      },
+    ],
+  });
+
+  const text = resp?.content?.[0]?.text || "[]";
+  try {
+    const clean = text.replace(/```json?\s*/g, "").replace(/```/g, "").trim();
+    const parsed = JSON.parse(clean);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    console.warn("[detectSheetReferences] Failed to parse:", text);
+    return [];
+  }
+}

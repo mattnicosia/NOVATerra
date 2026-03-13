@@ -8,6 +8,9 @@ export const useDrawingsStore = create((set, get) => ({
   drawingScales: {},
   drawingDpi: {},
   previewDrawingId: null,
+  sheetIndex: {}, // { "A501": drawingId, "S-201": drawingId }
+  detectedReferences: {}, // { [drawingId]: [{ label, targetSheet, type, xPct, yPct }] }
+  refScanLoading: null, // drawingId currently being scanned
   smartLabelMode: false,
   smartLabelRegion: null,
   smartLabelDragging: null,
@@ -20,6 +23,23 @@ export const useDrawingsStore = create((set, get) => ({
   setDrawingScales: v => set({ drawingScales: v }),
   setDrawingDpi: v => set({ drawingDpi: v }),
   setPreviewDrawingId: v => set({ previewDrawingId: v }),
+  setDetectedReferences: (drawingId, refs) =>
+    set(s => ({ detectedReferences: { ...s.detectedReferences, [drawingId]: refs } })),
+  setRefScanLoading: v => set({ refScanLoading: v }),
+  // Build sheet index from all drawings' sheetNumber fields
+  buildSheetIndex: () =>
+    set(s => {
+      const idx = {};
+      s.drawings.forEach(d => {
+        if (d.sheetNumber && !d.superseded) {
+          // Normalize: strip dashes, spaces for fuzzy matching
+          idx[d.sheetNumber] = d.id;
+          const clean = d.sheetNumber.replace(/[-\s]/g, "");
+          if (clean !== d.sheetNumber) idx[clean] = d.id;
+        }
+      });
+      return { sheetIndex: idx };
+    }),
   setSmartLabelMode: v => set({ smartLabelMode: v }),
   setSmartLabelRegion: v => set({ smartLabelRegion: v }),
   setSmartLabelDragging: v => set({ smartLabelDragging: v }),

@@ -43,6 +43,7 @@ export const MODULES = {
         id: "strip-footings",
         name: "Continuous Footings",
         type: "measurement",
+        multiInstance: true,
         drivingItemId: "strip-ftg",
         specs: [
           {
