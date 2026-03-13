@@ -675,43 +675,26 @@ export async function detectSheetReferences(base64ImageData) {
           },
           {
             type: "text",
-            text: `You are a construction blueprint reader. Scan this drawing sheet for CROSS-REFERENCE MARKERS ONLY — symbols that point to drawings on other sheets (or the same sheet).
+            text: `Find cross-reference markers on this construction drawing. Return [] if none found. Accuracy is critical — returning [] is ALWAYS better than a false positive.
 
-DETECT ONLY THESE 5 MARKER TYPES:
+THE ONE RULE: A real cross-reference marker has a CIRCLE DIVIDED BY A HORIZONTAL LINE into two halves. Top half = ID (letter/number). Bottom half = SHEET NUMBER (like "A3", "S2", "A5.1"). If you cannot read a sheet number in the bottom half, it is NOT a cross-reference.
 
-1. **SECTION MARKER** — A dashed or dash-dot CUT LINE drawn across the plan with a CIRCLE (bubble) at each end. The circle is split by a horizontal line: top half = section ID (letter or number), bottom half = sheet number. Triangular arrows at the line endpoints show viewing direction. Example: bubble shows "A" over "A3" meaning Section A on sheet A3.
+THREE TYPES TO FIND:
+- SECTION: Divided circle at the end of a dashed cut line crossing the drawing. Has directional arrow.
+- DETAIL: Divided circle connected by a leader line to a dashed boundary around an area.
+- ELEVATION: Divided circle with an arrow pointing toward a building face.
 
-2. **DETAIL MARKER** — A dashed BOUNDARY (circle, rectangle, or cloud shape) drawn around a specific area of the drawing, with a LEADER LINE extending to a reference BUBBLE. The bubble is split by a horizontal line: top = detail ID, bottom = sheet number. Example: bubble shows "3" over "A5" meaning Detail 3 on sheet A5.
+NOT CROSS-REFERENCES (ignore all of these):
+- Grid bubbles: circles with ONE letter/number, NO dividing line, sitting on grid lines
+- View titles, drawing titles, any text below a drawing
+- Door/window tags, wall type tags, room tags, keynotes
+- North arrows, spot elevations, revision deltas, break lines
+- Title block text, legend items, scale notations
+- ANY circle that does not have a horizontal dividing line with a sheet number below it
 
-3. **EXTERIOR ELEVATION MARKER** — A circle split by a horizontal line with an ARROW pointing outward toward a building face. Top = elevation number, bottom = sheet number. Placed on floor plans pointing toward the face being documented.
+Return JSON array. Each object: "label" (e.g. "A/A3"), "targetSheet" (e.g. "A3"), "type" ("section"/"detail"/"elevation"), "xPct" (0-100), "yPct" (0-100).
 
-4. **INTERIOR ELEVATION MARKER** — A SQUARE with X-diagonal lines and a CENTER CIRCLE, with up to 4 arrows pointing toward room walls. Each quadrant is numbered. Sheet reference in or near the symbol.
-
-5. **MATCH LINE** — A heavy bold line across the plan with TEXT LABELS on each side indicating continuation sheets (e.g., "SEE A1.1" / "CONT A1.2").
-
-CRITICAL — DO NOT DETECT ANY OF THESE (these are NOT cross-references):
-- Column grid bubbles (circles on grid lines with single letter/number — coordinate system, not sheet refs)
-- View titles or drawing titles (text like "FOUNDATION PLAN", "TYPICAL WALL SECTION")
-- Legend items or keynotes
-- North arrows
-- Door/window tags (D1, W2 etc.)
-- Spot elevations (diamond + height value)
-- Revision clouds/deltas
-- Break lines (zigzag or S-curve)
-- Wall type tags (circle with single letter on a wall)
-- Title block text, sheet labels, firm names
-- Any text label that is NOT inside a divided reference bubble
-
-BUBBLE FORMAT: Real cross-reference bubbles are circles split by a horizontal line with a number/letter ABOVE and a sheet number BELOW. Bottom may show "/" (same sheet) or "SIM" (similar). A circle with just ONE number/letter and NO dividing line is likely a grid bubble or tag — NOT a cross-reference.
-
-Return a JSON array. Each object:
-- "label": the callout text as read from the bubble (e.g., "A/A3", "3/A5", "2/A4")
-- "targetSheet": the sheet number from the bottom of the bubble (e.g., "A3", "S-201", "/" for same sheet, "" if unclear)
-- "type": one of "section", "detail", "elevation", "interior-elevation", "match-line"
-- "xPct": approximate X position as percentage of image width (0-100)
-- "yPct": approximate Y position as percentage of image height (0-100)
-
-Return ONLY the JSON array, no other text. If no cross-reference markers are found, return []. It is better to return [] than to return false positives.`,
+JSON array only, no other text. Default to [].`,
           },
         ],
       },
