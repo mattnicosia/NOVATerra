@@ -657,7 +657,7 @@ function NovaHeader({ onDraftPanelToggle }) {
     >
       {/* Left — Logo */}
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <NovaTerraLogo size={isTablet ? 50 : 66} />
+        <NovaTerraLogo size={isTablet ? 32 : 43} />
       </div>
 
       {/* Center — Navigation: active tab = Liquid Glass pill */}

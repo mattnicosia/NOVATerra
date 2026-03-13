@@ -151,18 +151,20 @@ function EstimateLoader({ children }) {
     });
   }, [id, activeId, persistenceLoaded, cloudSyncInProgress]);
 
-  // Safety timeout: if stuck loading for >15s, bail to dashboard
+  // Safety timeout: if stuck loading, bail to dashboard
+  // Allow 45s for estimates with large drawings that need blob hydration
   useEffect(() => {
     if (!loading && persistenceLoaded) return;
+    const LOAD_TIMEOUT = 45000;
     const timer = setTimeout(() => {
       const stillStuck = !useEstimatesStore.getState().activeEstimateId && id;
       if (stillStuck) {
-        nova.estimate.error(`Timed out loading estimate ${id}`, { estimateId: id, timeoutMs: 15000 });
+        nova.estimate.error(`Timed out loading estimate ${id}`, { estimateId: id, timeoutMs: LOAD_TIMEOUT });
         useUiStore.getState().showToast("Estimate load timed out — returning to dashboard", "error");
         setLoadFailed(true);
         setLoading(false);
       }
-    }, 15000);
+    }, LOAD_TIMEOUT);
     return () => clearTimeout(timer);
   }, [loading, persistenceLoaded, id]);
 

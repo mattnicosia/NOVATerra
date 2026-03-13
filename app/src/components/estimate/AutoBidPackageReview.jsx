@@ -53,6 +53,8 @@ export default function AutoBidPackageReview({ proposals, onClose }) {
   const [coverEditId, setCoverEditId] = useState(null);
   const [sending, setSending] = useState(false);
   const [progress, setProgress] = useState(null);
+  const [subSearchId, setSubSearchId] = useState(null); // which package is browsing all subs
+  const [subSearchQuery, setSubSearchQuery] = useState("");
 
   // Derived
   const enabledPkgs = useMemo(() => packages.filter(p => p.enabled), [packages]);
@@ -519,17 +521,43 @@ export default function AutoBidPackageReview({ proposals, onClose }) {
                         {/* Subcontractors */}
                         <div
                           style={{
-                            fontSize: T.fontSize.xs,
-                            fontWeight: T.fontWeight.semibold,
-                            color: C.textDim,
-                            textTransform: "uppercase",
-                            letterSpacing: "0.05em",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
                             marginBottom: T.space[2],
                           }}
                         >
-                          Subcontractors ({pkg.subIds.length})
+                          <div
+                            style={{
+                              fontSize: T.fontSize.xs,
+                              fontWeight: T.fontWeight.semibold,
+                              color: C.textDim,
+                              textTransform: "uppercase",
+                              letterSpacing: "0.05em",
+                            }}
+                          >
+                            Subcontractors ({pkg.subIds.length})
+                          </div>
+                          <button
+                            onClick={() => {
+                              setSubSearchId(subSearchId === pkg.id ? null : pkg.id);
+                              setSubSearchQuery("");
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              fontSize: T.fontSize.xs,
+                              color: C.accent,
+                              fontWeight: T.fontWeight.medium,
+                            }}
+                          >
+                            {subSearchId === pkg.id ? "Done" : "+ Browse All"}
+                          </button>
                         </div>
-                        {pkgSubs.length === 0 ? (
+
+                        {/* Selected subs */}
+                        {pkg.subIds.length === 0 && subSearchId !== pkg.id ? (
                           <div
                             style={{
                               fontSize: T.fontSize.xs,
@@ -539,37 +567,111 @@ export default function AutoBidPackageReview({ proposals, onClose }) {
                               background: "#f59e0b10",
                             }}
                           >
-                            No subs matched — this package won't be sent
+                            No subs matched — click "+ Browse All" to add subs
                           </div>
                         ) : (
                           <div style={{ maxHeight: 100, overflowY: "auto" }}>
-                            {pkgSubs.map(s => {
-                              const checked = pkg.subIds.includes(s.id);
-                              return (
-                                <div
-                                  key={s.id}
-                                  onClick={() => toggleSub(pkg.id, s.id)}
-                                  style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: T.space[2],
-                                    padding: "2px 0",
-                                    cursor: "pointer",
-                                    fontSize: T.fontSize.xs,
-                                    color: checked ? C.text : C.textDim,
-                                  }}
-                                >
-                                  <div style={checkbox(checked)}>
-                                    {checked && <Ic d={I.check} size={10} color="#fff" sw={2.5} />}
-                                  </div>
-                                  <Ic d={I.user} size={11} color={C.textDim} />
-                                  <span>{s.company || s.contact || "Unknown"}</span>
-                                  {s.email && <span style={{ color: C.textDim, marginLeft: "auto" }}>{s.email}</span>}
+                            {subs.filter(s => pkg.subIds.includes(s.id)).map(s => (
+                              <div
+                                key={s.id}
+                                onClick={() => toggleSub(pkg.id, s.id)}
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: T.space[2],
+                                  padding: "2px 0",
+                                  cursor: "pointer",
+                                  fontSize: T.fontSize.xs,
+                                  color: C.text,
+                                }}
+                              >
+                                <div style={checkbox(true)}>
+                                  <Ic d={I.check} size={10} color="#fff" sw={2.5} />
                                 </div>
-                              );
-                            })}
+                                <Ic d={I.user} size={11} color={C.textDim} />
+                                <span>{s.company || s.contact || "Unknown"}</span>
+                                {s.email && <span style={{ color: C.textDim, marginLeft: "auto", fontSize: 10 }}>{s.email}</span>}
+                              </div>
+                            ))}
                           </div>
                         )}
+
+                        {/* Browse All Subs search panel */}
+                        {subSearchId === pkg.id && (() => {
+                          const q = subSearchQuery.toLowerCase();
+                          const browseSubs = q
+                            ? subs.filter(s =>
+                                !pkg.subIds.includes(s.id) &&
+                                ((s.company || "").toLowerCase().includes(q) ||
+                                 (s.contact || "").toLowerCase().includes(q) ||
+                                 (s.trades || []).some(tk => (TRADE_MAP[tk]?.label || tk).toLowerCase().includes(q)))
+                              )
+                            : subs.filter(s => !pkg.subIds.includes(s.id)).slice(0, 20);
+                          return (
+                            <div style={{
+                              marginTop: T.space[2],
+                              padding: T.space[2],
+                              borderRadius: T.radius.sm,
+                              background: C.isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+                              border: `1px solid ${C.border}`,
+                            }}>
+                              <input
+                                autoFocus
+                                placeholder="Search by company, contact, or trade..."
+                                value={subSearchQuery}
+                                onChange={e => setSubSearchQuery(e.target.value)}
+                                style={{
+                                  ...inp(C),
+                                  width: "100%",
+                                  padding: "4px 8px",
+                                  fontSize: T.fontSize.xs,
+                                  marginBottom: T.space[2],
+                                }}
+                              />
+                              <div style={{ maxHeight: 140, overflowY: "auto" }}>
+                                {browseSubs.length === 0 ? (
+                                  <div style={{ fontSize: T.fontSize.xs, color: C.textDim, padding: 4 }}>
+                                    {q ? "No matching subs" : "All subs already added"}
+                                  </div>
+                                ) : (
+                                  browseSubs.slice(0, 50).map(s => (
+                                    <div
+                                      key={s.id}
+                                      onClick={() => toggleSub(pkg.id, s.id)}
+                                      style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: T.space[2],
+                                        padding: "3px 0",
+                                        cursor: "pointer",
+                                        fontSize: T.fontSize.xs,
+                                        color: C.textDim,
+                                      }}
+                                    >
+                                      <div style={checkbox(false)} />
+                                      <span style={{ fontWeight: 500, color: C.text }}>{s.company || "Unknown"}</span>
+                                      {(s.trades || []).slice(0, 2).map(tk => (
+                                        <span key={tk} style={{
+                                          fontSize: 9, padding: "0 4px", borderRadius: 3,
+                                          background: `${TRADE_COLORS[tk] || C.accent}18`,
+                                          color: TRADE_COLORS[tk] || C.textDim,
+                                        }}>
+                                          {(TRADE_MAP[tk]?.label || tk).split(" ")[0]}
+                                        </span>
+                                      ))}
+                                      {s.email && <span style={{ marginLeft: "auto", fontSize: 10 }}>{s.email}</span>}
+                                    </div>
+                                  ))
+                                )}
+                                {!q && subs.filter(s => !pkg.subIds.includes(s.id)).length > 20 && (
+                                  <div style={{ fontSize: 10, color: C.textDim, padding: "4px 0", fontStyle: "italic" }}>
+                                    Type to search {subs.filter(s => !pkg.subIds.includes(s.id)).length} subs...
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
 

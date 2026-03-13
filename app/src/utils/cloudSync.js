@@ -396,42 +396,52 @@ export const hydrateBlobs = async data => {
   let hydrated_count = 0;
   let failed_count = 0;
 
-  // Download drawing blobs
+  // Concurrency-limited mapper — runs at most `limit` tasks at a time
+  const mapWithLimit = async (arr, limit, fn) => {
+    const results = new Array(arr.length);
+    let idx = 0;
+    const run = async () => {
+      while (idx < arr.length) {
+        const i = idx++;
+        results[i] = await fn(arr[i], i);
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(limit, arr.length) }, () => run()));
+    return results;
+  };
+
+  // Download drawing blobs (max 2 concurrent to avoid network saturation)
   if (Array.isArray(hydrated.drawings)) {
-    hydrated.drawings = await Promise.all(
-      hydrated.drawings.map(async d => {
-        if (!d._cloudBlobStripped || !d.storagePath || d.data) return d;
-        const dataUrl = await downloadBlob(d.storagePath);
-        if (!dataUrl) {
-          failed_count++;
-          console.warn(
-            `[cloudSync] Failed to hydrate drawing "${d.id}" from "${d.storagePath}" — KEEPING markers for retry`,
-          );
-          // KEEP _cloudBlobStripped + storagePath so we can retry later.
-          // Previous code stripped them, permanently losing the recovery path.
-          return d;
-        }
-        hydrated_count++;
-        return { ...d, data: dataUrl };
-      }),
-    );
+    hydrated.drawings = await mapWithLimit(hydrated.drawings, 2, async d => {
+      if (!d._cloudBlobStripped || !d.storagePath || d.data) return d;
+      const dataUrl = await downloadBlob(d.storagePath);
+      if (!dataUrl) {
+        failed_count++;
+        console.warn(
+          `[cloudSync] Failed to hydrate drawing "${d.id}" from "${d.storagePath}" — KEEPING markers for retry`,
+        );
+        // KEEP _cloudBlobStripped + storagePath so we can retry later.
+        // Previous code stripped them, permanently losing the recovery path.
+        return d;
+      }
+      hydrated_count++;
+      return { ...d, data: dataUrl };
+    });
   }
 
-  // Download document blobs
+  // Download document blobs (max 2 concurrent)
   if (Array.isArray(hydrated.documents)) {
-    hydrated.documents = await Promise.all(
-      hydrated.documents.map(async d => {
-        if (!d._cloudBlobStripped || !d.storagePath || d.data) return d;
-        const dataUrl = await downloadBlob(d.storagePath);
-        if (!dataUrl) {
-          failed_count++;
-          // KEEP markers for retry — don't destroy the recovery path
-          return d;
-        }
-        hydrated_count++;
-        return { ...d, data: dataUrl };
-      }),
-    );
+    hydrated.documents = await mapWithLimit(hydrated.documents, 2, async d => {
+      if (!d._cloudBlobStripped || !d.storagePath || d.data) return d;
+      const dataUrl = await downloadBlob(d.storagePath);
+      if (!dataUrl) {
+        failed_count++;
+        // KEEP markers for retry — don't destroy the recovery path
+        return d;
+      }
+      hydrated_count++;
+      return { ...d, data: dataUrl };
+    });
   }
 
   // Download spec PDF
@@ -972,7 +982,8 @@ export const pullAllEstimatesWithMeta = async () => {
   if (!isReady()) return [];
   try {
     const scope = getScope();
-    let query = supabase.from("user_estimates").select("estimate_id, data, updated_at, user_id").is("deleted_at", null);
+    // Lightweight query: only metadata, NOT the full data column (avoids statement timeout on large orgs)
+    let query = supabase.from("user_estimates").select("estimate_id, updated_at, user_id").is("deleted_at", null);
 
     if (scope?.org_id) {
       query = query.eq("org_id", scope.org_id);
@@ -1003,7 +1014,7 @@ export const pullAllEstimatesSoloFallback = async () => {
   try {
     const { data, error } = await supabase
       .from("user_estimates")
-      .select("estimate_id, data, updated_at, user_id")
+      .select("estimate_id, updated_at, user_id")
       .is("deleted_at", null)
       .eq("user_id", getUserId())
       .is("org_id", null);

@@ -420,11 +420,12 @@ async function syncEstimates() {
     const existsLocally = idbIndexMap.has(ce.estimate_id);
 
     if (!existsLocally) {
-      // ── New estimate from cloud — pull it ──
+      // ── New estimate from cloud — fetch full data on demand ──
       console.log(`[cloudSync] Estimates: caching cloud estimate ${ce.estimate_id} to IDB`);
-      let estData = ce.data;
+      let estData = await cloudSync.pullEstimate(ce.estimate_id);
+      if (!estData) continue; // Failed to fetch — skip
       try {
-        estData = await cloudSync.hydrateBlobs(ce.data);
+        estData = await cloudSync.hydrateBlobs(estData);
       } catch {}
       await storage.set(idbKey(`bldg-est-${ce.estimate_id}`), JSON.stringify(estData));
       const cloudEntry = cloudIndexMap.get(ce.estimate_id);
@@ -445,15 +446,16 @@ async function syncEstimates() {
           }
         } catch {}
 
-        // Cloud is newer — overwrite local with cloud data
+        // Cloud is newer — fetch full data and overwrite local
         // Also handle case where local has no _savedAt (legacy data before this fix)
         if (cloudTime > localTime) {
           console.log(
             `[cloudSync] Estimates: cloud is newer for ${ce.estimate_id} (cloud: ${ce.updated_at}, local _savedAt: ${localTime ? new Date(localTime).toISOString() : "none"}) — overwriting local`,
           );
-          let estData = ce.data;
+          let estData = await cloudSync.pullEstimate(ce.estimate_id);
+          if (!estData) continue; // Failed to fetch — skip
           try {
-            estData = await cloudSync.hydrateBlobs(ce.data);
+            estData = await cloudSync.hydrateBlobs(estData);
           } catch {}
           // Stamp with _savedAt so future comparisons work
           estData._savedAt = ce.updated_at;

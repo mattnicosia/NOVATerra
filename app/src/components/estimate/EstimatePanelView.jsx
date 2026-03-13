@@ -1,20 +1,78 @@
 /**
  * EstimatePanelView — Lightweight estimate grid for TakeoffsPage Full tier panel.
- * Renders grouped items with inline cost editing, same data sources as EstimatePage.
+ * Renders grouped items with inline cost editing, Source column, NOVA tint, and sorting.
  */
-import { useMemo, useState, useCallback, memo } from "react";
+import { useMemo, useState, memo } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useItemsStore } from "@/stores/itemsStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { useUiStore } from "@/stores/uiStore";
 import { UNITS } from "@/constants/units";
 import { inp, nInp, moneyCell } from "@/utils/styles";
-import { nn, fmt, fmt2, formatCurrency } from "@/utils/format";
+import { nn, fmt, formatCurrency } from "@/utils/format";
 import { getTradeLabel, getTradeSortOrder } from "@/constants/tradeGroupings";
 import { VIRTUAL_THRESHOLD } from "@/hooks/useVirtualList";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import LevelingView from "@/components/estimate/LevelingView";
+
+// ── Source pill color mapping ──
+const SOURCE_COLORS = {
+  user: null,       // no pill for user-entered
+  nova: "accent",   // purple/accent
+  scan: "accent",   // same as NOVA
+  database: "grey",
+  core: "grey",
+  sub: "blue",
+  web: "green",
+};
+
+function getSourceLabel(item) {
+  const src = item?.source;
+  if (!src || !src.category || src.category === "user") return null;
+  return src.label || src.category.toUpperCase();
+}
+
+function getSourceCategory(item) {
+  return item?.source?.category || "user";
+}
+
+function SourcePill({ item, C }) {
+  const label = getSourceLabel(item);
+  if (!label) return null;
+
+  const cat = getSourceCategory(item);
+  const colorKey = SOURCE_COLORS[cat] || "grey";
+  const color =
+    colorKey === "accent" ? C.accent :
+    colorKey === "blue" ? (C.blue || "#3B82F6") :
+    colorKey === "green" ? (C.green || "#10B981") :
+    (C.textDim);
+
+  return (
+    <span
+      title={`Source: ${label}`}
+      style={{
+        fontSize: 7,
+        fontWeight: 700,
+        color,
+        background: `${color}15`,
+        border: `1px solid ${color}20`,
+        padding: "1px 5px",
+        borderRadius: 4,
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        maxWidth: 60,
+        display: "inline-block",
+        lineHeight: 1.4,
+        letterSpacing: 0.2,
+      }}
+    >
+      {label}
+    </span>
+  );
+}
 
 function EstimatePanelView({ onSelectItem, selectedItemId }) {
   const C = useTheme();
@@ -24,6 +82,7 @@ function EstimatePanelView({ onSelectItem, selectedItemId }) {
   const updateItem = useItemsStore(s => s.updateItem);
   const getItemTotal = useItemsStore(s => s.getItemTotal);
   const getTotals = useItemsStore(s => s.getTotals);
+  const markNovaReviewed = useItemsStore(s => s.markNovaReviewed);
 
   const getActiveCodes = useProjectStore(s => s.getActiveCodes);
   const activeCodes = getActiveCodes();
@@ -51,6 +110,15 @@ function EstimatePanelView({ onSelectItem, selectedItemId }) {
           ? "level"
           : "scope";
   const isPricing = viewMode === "detail";
+
+  // ── NOVA proposed count (for badge) ──
+  const novaCount = useMemo(() => items.filter(i => i.novaProposed).length, [items]);
+
+  // ── Detect if Source column should show (any non-user source exists) ──
+  const hasSourceData = useMemo(
+    () => items.some(i => i.source && i.source.category && i.source.category !== "user"),
+    [items],
+  );
 
   // Filter items
   const filteredItems = useMemo(() => {
@@ -83,7 +151,10 @@ function EstimatePanelView({ onSelectItem, selectedItemId }) {
     const groups = {};
     filteredItems.forEach(item => {
       let key;
-      if (estGroupBy === "trade") key = getTradeLabel(item);
+      if (estGroupBy === "source") {
+        // Group by source category
+        key = getSourceLabel(item) || "User";
+      } else if (estGroupBy === "trade") key = getTradeLabel(item);
       else if (estGroupBy === "division") {
         const rawDiv = item.division || "";
         key = rawDiv.includes(" - ") ? rawDiv : divFromCode(rawDiv) || rawDiv || "Unassigned";
@@ -118,6 +189,9 @@ function EstimatePanelView({ onSelectItem, selectedItemId }) {
   };
 
   const totals = getTotals();
+
+  // ── Source sort order for grouping ──
+  const SOURCE_SORT = { nova: 0, scan: 0, web: 1, core: 2, database: 3, sub: 4, user: 5 };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
@@ -158,6 +232,24 @@ function EstimatePanelView({ onSelectItem, selectedItemId }) {
             </button>
           ))}
         </div>
+        {/* Group by — includes Source option */}
+        <select
+          value={estGroupBy || "trade"}
+          onChange={e => setEstGroupBy(e.target.value)}
+          style={inp(C, {
+            background: C.bg2,
+            border: `1px solid ${C.border}`,
+            padding: "2px 4px",
+            fontSize: 8,
+            borderRadius: 4,
+            width: 70,
+          })}
+        >
+          <option value="trade">Trade</option>
+          <option value="division">Division</option>
+          <option value="subdivision">Sub-Div</option>
+          <option value="source">Source</option>
+        </select>
         {/* Search */}
         <input
           value={estSearch || ""}
@@ -173,6 +265,23 @@ function EstimatePanelView({ onSelectItem, selectedItemId }) {
             minWidth: 60,
           })}
         />
+        {/* NOVA proposed count badge */}
+        {novaCount > 0 && (
+          <span
+            style={{
+              fontSize: 7,
+              fontWeight: 800,
+              color: "#fff",
+              background: C.accent,
+              borderRadius: 6,
+              padding: "2px 6px",
+              lineHeight: 1.3,
+              flexShrink: 0,
+            }}
+          >
+            {novaCount} NOVA
+          </span>
+        )}
       </div>
 
       {/* Grid or Leveling */}
@@ -276,6 +385,7 @@ function EstimatePanelView({ onSelectItem, selectedItemId }) {
                         </>
                       )}
                       <div style={{ width: 70, textAlign: "right" }}>Total</div>
+                      {hasSourceData && <div style={{ width: 60, textAlign: "center" }}>Source</div>}
                     </div>
                   )}
 
@@ -289,21 +399,33 @@ function EstimatePanelView({ onSelectItem, selectedItemId }) {
                       const isSelected = selectedItemId === item.id;
                       const isOddRow = rowIdx % 2 === 1;
                       const isZeroTotal = !lt;
+                      const isNova = !!item.novaProposed;
+
+                      // Row background: NOVA tint takes priority, then selection, then alternating
+                      const rowBg = isSelected
+                        ? `${C.accent}12`
+                        : isNova
+                          ? `${C.accent}05`
+                          : isOddRow
+                            ? C.isDark ? "rgba(255,255,255,0.025)" : "rgba(0,0,0,0.025)"
+                            : "transparent";
+
+                      const hoverBg = isNova ? `${C.accent}08` : `${C.accent}08`;
+                      const restBg = isNova
+                        ? `${C.accent}05`
+                        : isOddRow
+                          ? C.isDark ? "rgba(255,255,255,0.025)" : "rgba(0,0,0,0.025)"
+                          : "transparent";
 
                       return (
                         <div
                           key={item.id}
                           onClick={() => onSelectItem?.(item.id)}
                           onMouseEnter={e => {
-                            if (!isSelected) e.currentTarget.style.background = `${C.accent}08`;
+                            if (!isSelected) e.currentTarget.style.background = hoverBg;
                           }}
                           onMouseLeave={e => {
-                            if (!isSelected)
-                              e.currentTarget.style.background = isOddRow
-                                ? C.isDark
-                                  ? "rgba(255,255,255,0.025)"
-                                  : "rgba(0,0,0,0.025)"
-                                : "transparent";
+                            if (!isSelected) e.currentTarget.style.background = restBg;
                           }}
                           style={{
                             display: "flex",
@@ -311,16 +433,12 @@ function EstimatePanelView({ onSelectItem, selectedItemId }) {
                             gap: 3,
                             padding: "4px 6px",
                             borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.05)"}`,
-                            background: isSelected
-                              ? `${C.accent}12`
-                              : isOddRow
-                                ? C.isDark
-                                  ? "rgba(255,255,255,0.025)"
-                                  : "rgba(0,0,0,0.025)"
-                                : "transparent",
+                            background: rowBg,
                             borderLeft: isSelected
                               ? `3px solid ${C.accent}`
-                              : `3px solid ${isZeroTotal ? "transparent" : C.accent + "20"}`,
+                              : isNova
+                                ? `3px solid ${C.accent}30`
+                                : `3px solid ${isZeroTotal ? "transparent" : C.accent + "20"}`,
                             cursor: "pointer",
                             transition: "background 100ms ease-out",
                           }}
@@ -419,6 +537,39 @@ function EstimatePanelView({ onSelectItem, selectedItemId }) {
                             })}
                           {/* Total */}
                           <div style={moneyCell(C, lt, { width: 70, fontSize: 10, padding: "2px 2px" })}>{fmt(lt)}</div>
+                          {/* Source pill */}
+                          {hasSourceData && (
+                            <div style={{ width: 60, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              <SourcePill item={item} C={C} />
+                              {/* Review checkmark for NOVA items */}
+                              {isNova && (
+                                <button
+                                  title="Mark as reviewed"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    markNovaReviewed(item.id);
+                                  }}
+                                  style={{
+                                    marginLeft: 2,
+                                    width: 14,
+                                    height: 14,
+                                    borderRadius: 3,
+                                    border: `1px solid ${C.accent}30`,
+                                    background: "transparent",
+                                    color: C.accent,
+                                    cursor: "pointer",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    flexShrink: 0,
+                                    padding: 0,
+                                  }}
+                                >
+                                  <Ic d={I.check} size={8} color={C.accent} sw={2.5} />
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </div>
                       );
                     });

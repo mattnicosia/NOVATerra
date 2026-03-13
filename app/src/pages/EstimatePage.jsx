@@ -36,7 +36,6 @@ import { exportEstimateXlsx } from "@/utils/exportXlsx";
 import EstimateKPIStrip from "@/components/estimate/EstimateKPIStrip";
 import DivisionNavigator from "@/components/estimate/DivisionNavigator";
 import LevelingView from "@/components/estimate/LevelingView";
-import NovaOrb from "@/components/dashboard/NovaOrb";
 import TakeoffNOVAPanel from "@/components/takeoffs/TakeoffNOVAPanel";
 import CollaborationBar from "@/components/estimate/CollaborationBar";
 import ScenariosPanel from "@/components/estimate/ScenariosPanel";
@@ -344,9 +343,9 @@ export default function EstimatePage() {
   const [leftPanelTab, setLeftPanelTab] = useState("estimate"); // "estimate" | "scenarios" | "notes" | "rfis"
   const [leftPanelWidth, setLeftPanelWidth] = useState(() => {
     try {
-      return parseInt(sessionStorage.getItem("bldg-estLeftWidth")) || 200;
+      return parseInt(sessionStorage.getItem("bldg-estLeftWidth")) || 230;
     } catch {
-      return 200;
+      return 230;
     }
   });
   const addMenuRef = useRef(null);
@@ -1213,12 +1212,15 @@ export default function EstimatePage() {
               style={bt(C, {
                 background: showNova ? `${C.accent}12` : "transparent",
                 border: `1px solid ${showNova ? C.accent + "30" : C.border}`,
-                padding: "4px 8px",
+                color: showNova ? C.accent : C.textMuted,
+                padding: "5px 10px",
+                fontSize: 10,
                 display: "flex",
                 alignItems: "center",
+                gap: 4,
               })}
             >
-              <NovaOrb size={16} />
+              <Ic d={I.ai} size={12} color={showNova ? C.accent : C.textMuted} /> NOVA
             </button>
             <button
               className="ghost-btn"
@@ -1825,21 +1827,7 @@ export default function EstimatePage() {
               overflow: "hidden",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: `1px solid ${C.border}` }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <NovaOrb size={18} />
-                <span style={{ fontSize: 13, fontWeight: 700, color: C.text, fontFamily: T.font.sans }}>NOVA</span>
-              </div>
-              <button
-                onClick={() => setShowNova(false)}
-                style={{ background: "transparent", border: "none", cursor: "pointer", padding: 4 }}
-              >
-                <Ic d={I.close || I.x} size={14} color={C.textDim} />
-              </button>
-            </div>
-            <div style={{ flex: 1, overflow: "hidden" }}>
-              <TakeoffNOVAPanel />
-            </div>
+            <TakeoffNOVAPanel context="estimate" />
           </div>
         </>
       )}

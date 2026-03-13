@@ -117,7 +117,7 @@ export default function Header() {
           )}
           {!activeId && (
             <div style={{ animation: "fadeIn 0.3s ease-out" }}>
-              <NovaTerraLogo size={46} />
+              <NovaTerraLogo size={30} />
             </div>
           )}
         </div>

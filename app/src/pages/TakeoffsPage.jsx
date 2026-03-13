@@ -49,6 +49,8 @@ const EstimatePanelView = lazy(() => import("@/components/estimate/EstimatePanel
 const EstimatePage = lazy(() => import("@/pages/EstimatePage"));
 const ItemDetailPanel = lazy(() => import("@/components/estimate/ItemDetailPanel"));
 import NotesPanel from "@/components/estimate/NotesPanel";
+import ScenariosPanel from "@/components/estimate/ScenariosPanel";
+import RFIPanel from "@/components/estimate/RFIPanel";
 import { MessageBubble, ActionCards, QUICK_ACTIONS } from "@/components/ai/AIChatPanel";
 import { NOVA_TOOLS, executeNovaTool } from "@/utils/novaTools";
 import TakeoffNOVAPanel from "@/components/takeoffs/TakeoffNOVAPanel";
@@ -259,6 +261,8 @@ export default function TakeoffsPage() {
   const [pageFilter, setPageFilter] = useState(() => sessionStorage.getItem("bldg-pageFilter") || "all");
   // Panel mode: "auto" = collapse on measure/reopen on stop, "open" = always open, "closed" = always closed
   const [tkPanelMode, setTkPanelMode] = useState("open");
+  // Left panel tab: matches EstimatePage tabs (estimate | scenarios | notes | rfis)
+  const [leftPanelTab, setLeftPanelTab] = useState("estimate");
 
   // Persist pageFilter to sessionStorage
   useEffect(() => {
@@ -3481,49 +3485,45 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
               gap: 8,
             }}
           >
-            {/* Panel mode tabs: Takeoffs | Notes */}
+            {/* Panel mode tabs: Est | Scen | Notes | RFIs | NOVA */}
             <div style={{ display: "flex", gap: 0, background: C.bg2, borderRadius: 5, padding: 2 }}>
-              <button
-                onClick={() => setShowNotesPanel(false)}
-                style={{
-                  padding: "3px 10px",
-                  fontSize: 11,
-                  fontWeight: 600,
-                  background: !showNotesPanel ? C.accent : "transparent",
-                  color: !showNotesPanel ? "#fff" : C.textDim,
-                  border: "none",
-                  borderRadius: 4,
-                  cursor: "pointer",
-                  transition: "all 0.15s",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 4,
-                }}
-              >
-                <Ic d={I.ruler} size={10} color={!showNotesPanel ? "#fff" : C.textDim} /> Estimate
-              </button>
-              <button
-                onClick={() => setShowNotesPanel(true)}
-                style={{
-                  padding: "3px 10px",
-                  fontSize: 11,
-                  fontWeight: 600,
-                  background: showNotesPanel ? C.accent : "transparent",
-                  color: showNotesPanel ? "#fff" : C.textDim,
-                  border: "none",
-                  borderRadius: 4,
-                  cursor: "pointer",
-                  transition: "all 0.15s",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 4,
-                }}
-              >
-                <Ic d={I.report} size={10} color={showNotesPanel ? "#fff" : C.textDim} /> Notes
-              </button>
+              {[
+                { key: "estimate", label: "Est", icon: I.ruler },
+                { key: "scenarios", label: "Scenarios", icon: I.layers },
+                { key: "notes", label: "Notes", icon: I.report },
+                { key: "rfis", label: "RFIs", icon: I.send },
+                { key: "nova", label: "NOVA", icon: I.ai },
+              ].map(t => {
+                const isActive = leftPanelTab === t.key;
+                return (
+                  <button
+                    key={t.key}
+                    onClick={() => {
+                      setLeftPanelTab(t.key);
+                      setShowNotesPanel(t.key === "notes");
+                    }}
+                    style={{
+                      padding: "3px 6px",
+                      fontSize: 9,
+                      fontWeight: 600,
+                      background: isActive ? (t.key === "nova" ? "linear-gradient(135deg, #7C5CFC, #6D28D9)" : C.accent) : "transparent",
+                      color: isActive ? "#fff" : C.textDim,
+                      border: "none",
+                      borderRadius: 4,
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 3,
+                    }}
+                  >
+                    <Ic d={t.icon} size={8} color={isActive ? "#fff" : C.textDim} /> {t.label}
+                  </button>
+                );
+              })}
             </div>
-            {/* Takeoffs sub-filters (only when Takeoffs tab active) */}
-            {!showNotesPanel && (
+            {/* Takeoffs sub-filters (only when Estimate tab active) */}
+            {leftPanelTab === "estimate" && (
               <div style={{ display: "flex", gap: 2, background: C.bg2, borderRadius: 4, padding: 2 }}>
                 <button
                   onClick={() => {
@@ -3568,7 +3568,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
             )}
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
               {/* Tier cycling button is now in the toolbar above */}
-              {!showNotesPanel && (
+              {leftPanelTab === "estimate" && (
                 <button
                   className="icon-btn"
                   onClick={() => {
@@ -3692,41 +3692,56 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
             </div>
           </div>
 
-          {/* GroupBy toggle — Standard/Full tier */}
-          {tkPanelTier !== "compact" && !showNotesPanel && (
-            <div
-              style={{
-                padding: "3px 12px 4px",
-                borderBottom: `1px solid ${C.border}`,
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 8,
-                  color: C.textDim,
-                  fontWeight: 600,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.6,
-                }}
-              >
-                Group
-              </span>
-              {/* Sub/Div/Trade toggle removed — not wired to takeoff grouping */}
-            </div>
-          )}
+          {(() => {
+            // Non-estimate tabs: in "full" tier, render in left column only (keep estimate grid on right).
+            // In standard/compact, render full width since there's no split.
+            const isNonEstTab = leftPanelTab !== "estimate";
+            const isFull = tkPanelTier === "full";
+            const tabContent = isNonEstTab ? (
+              leftPanelTab === "notes" ? (
+                <div style={{ flex: 1, overflowY: "auto" }}><NotesPanel inline /></div>
+              ) : leftPanelTab === "scenarios" ? (
+                <div style={{ flex: 1, overflowY: "auto" }}><ScenariosPanel /></div>
+              ) : leftPanelTab === "rfis" ? (
+                <div style={{ flex: 1, overflowY: "auto" }}><RFIPanel /></div>
+              ) : leftPanelTab === "nova" ? (
+                <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+                  <TakeoffNOVAPanel
+                    aiDrawingAnalysis={aiDrawingAnalysis}
+                    pdfSchedules={pdfSchedules}
+                    runDrawingAnalysis={runDrawingAnalysis}
+                    runPdfScheduleScan={runPdfScheduleScan}
+                    crossSheetScan={crossSheetScan}
+                    setCrossSheetScan={setCrossSheetScan}
+                  />
+                </div>
+              ) : null
+            ) : null;
 
-          {showNotesPanel ? (
-            <div style={{ flex: 1, overflowY: "auto" }}>
-              <NotesPanel inline />
-            </div>
-          ) : (
+            // Non-estimate tab WITHOUT full tier → take full panel (no split)
+            if (isNonEstTab && !isFull) return tabContent;
+
+            // Non-estimate tab WITH full tier → render in left column of split
+            // OR estimate tab → render takeoff list in left column of split
+            return (
             <>
               {/* Full tier: split layout with estimate grid on right */}
               <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }}>
-                {/* Left column: takeoff list (full width in compact/standard, fixed 350px in full) */}
+                {/* Left column: takeoff list OR tab content (full width in compact/standard, fixed 350px in full) */}
+                {isNonEstTab && isFull ? (
+                  <div
+                    style={{
+                      width: 350,
+                      flexShrink: 0,
+                      display: "flex",
+                      flexDirection: "column",
+                      overflow: "hidden",
+                      borderRight: `1px solid ${C.border}`,
+                    }}
+                  >
+                    {tabContent}
+                  </div>
+                ) : (
                 <div
                   style={{
                     width: tkPanelTier === "full" ? 350 : "100%",
@@ -3737,11 +3752,6 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                     borderRight: tkPanelTier === "full" ? `1px solid ${C.border}` : "none",
                   }}
                 >
-                  {/* Group Bar (bid context tabs) */}
-                  <div style={{ padding: "4px 8px", borderBottom: `1px solid ${C.border}` }}>
-                    <GroupBar />
-                  </div>
-
                   {/* Search bar */}
                   <div
                     style={{
@@ -4574,6 +4584,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                     const hasMeasurements = (to.measurements || []).length > 0;
                                     const noScale =
                                       hasMeasurements && measuredQty === null && unitToTool(to.unit) !== "count";
+                                    const hasFormula = !!(to.formula && to.formula.trim());
                                     const displayQty = hasMeasurements
                                       ? (hasFormula && computedQty !== null)
                                         ? computedQty
@@ -4581,7 +4592,6 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                           ? measuredQty
                                           : null
                                       : nn(to.quantity) || null;
-                                    const hasFormula = !!(to.formula && to.formula.trim());
                                     const hasVars = (to.variables || []).length > 0;
                                     const ctrlBtnS = {
                                       width: 20,
@@ -5777,7 +5787,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                     </div>
                   )}
                 </div>
-                {/* end left column */}
+                )}
 
                 {/* Right column: Estimate grid — Full tier only */}
                 {tkPanelTier === "full" && (
@@ -5799,7 +5809,8 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
               </div>
               {/* end flex split container */}
             </>
-          )}
+            );
+          })()}
 
           {/* Drag handle — right edge of panel */}
           <div
@@ -6523,10 +6534,10 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                       {tkMeasureState === "measuring" ? "click to measure" : "paused"}
                     </span>
 
-                    {/* NOVA Vision — compact HUD badge toggles right panel */}
+                    {/* NOVA Vision — compact HUD badge switches to NOVA tab */}
                     {hudPredictions && pending.length > 0 && !tkPredRefining && (
                       <button
-                        onClick={() => setTkNovaPanelOpen(v => !v)}
+                        onClick={() => { setLeftPanelTab("nova"); setShowNotesPanel(false); }}
                         style={bt(C, {
                           marginLeft: "auto",
                           background: "linear-gradient(135deg, #6366F115, #8B5CF615)",
@@ -6539,7 +6550,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                         })}
                       >
                         <span style={{ fontSize: 7, fontWeight: 800, letterSpacing: 0.5 }}>NOVA</span> {pending.length}{" "}
-                        {tkNovaPanelOpen ? "◂" : "▸"}
+                        {leftPanelTab === "nova" ? "◂" : "▸"}
                       </button>
                     )}
                     {hudPredictions && tkPredRefining && (
@@ -6617,7 +6628,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                     )}
                     <div style={{ flex: 1 }} />
                     <button
-                      onClick={() => setTkNovaPanelOpen(v => !v)}
+                      onClick={() => { setLeftPanelTab("nova"); setShowNotesPanel(false); }}
                       style={bt(C, {
                         background: `${predColor}15`,
                         color: predColor,
@@ -6628,7 +6639,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                         borderRadius: 3,
                       })}
                     >
-                      {tkNovaPanelOpen ? "Hide Panel ◂" : `Review ${pending.length} ▸`}
+                      {leftPanelTab === "nova" ? "Hide Panel ◂" : `Review ${pending.length} ▸`}
                     </button>
                     <button
                       onClick={handleDismiss}
@@ -8167,17 +8178,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
         )}
       </div>
 
-      {/* ═══ Unified NOVA Right Panel — Vision / Tools / Chat (hidden in estimate mode) ═══ */}
-      {tkPanelTier !== "estimate" && tkNovaPanelOpen && (
-        <TakeoffNOVAPanel
-          aiDrawingAnalysis={aiDrawingAnalysis}
-          pdfSchedules={pdfSchedules}
-          runDrawingAnalysis={runDrawingAnalysis}
-          runPdfScheduleScan={runPdfScheduleScan}
-          crossSheetScan={crossSheetScan}
-          setCrossSheetScan={setCrossSheetScan}
-        />
-      )}
+      {/* NOVA panel now lives in the left panel tabs — no longer rendered as right panel */}
 
       {/* Takeoff Command Palette (Cmd+K) */}
       <TakeoffCommandPalette

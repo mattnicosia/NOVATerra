@@ -178,6 +178,8 @@ export const useItemsStore = create((set, get) => ({
       locationLocked: false,
       subItems: preset?.subItems || [],
       bidContext: bidContext || "base",
+      source: preset?.source || { category: "user", label: "" },
+      novaProposed: preset?.novaProposed || false,
     };
     set(s => ({ items: [...s.items, newItem] }));
     useUndoStore.getState().push({
@@ -202,11 +204,11 @@ export const useItemsStore = create((set, get) => ({
     if (_lastEdit.timer) clearTimeout(_lastEdit.timer);
     _lastEdit.timer = setTimeout(() => _flushEditUndo(get, set), 1500);
 
-    // Apply the change
+    // Apply the change — manual edits clear novaProposed (user takes ownership)
     set(s => ({
       items: s.items.map(it => {
         if (it.id !== id) return it;
-        const updated = { ...it, [field]: value };
+        const updated = { ...it, [field]: value, novaProposed: false };
         if (field === "directive") {
           updated.directiveOverride = !!value;
         }
@@ -283,6 +285,25 @@ export const useItemsStore = create((set, get) => ({
       timestamp: Date.now(),
     });
   },
+
+  // ── NOVA Source & Review ──
+  // Mark one or more items as reviewed (clears novaProposed tint)
+  markNovaReviewed: ids => {
+    const idSet = new Set(Array.isArray(ids) ? ids : [ids]);
+    set(s => ({
+      items: s.items.map(it => (idSet.has(it.id) ? { ...it, novaProposed: false } : it)),
+    }));
+  },
+
+  // Set the source metadata on an item { category, label }
+  setItemSource: (id, source) => {
+    set(s => ({
+      items: s.items.map(it => (it.id === id ? { ...it, source } : it)),
+    }));
+  },
+
+  // Get count of NOVA-proposed items that haven't been reviewed
+  getNovaProposedCount: () => get().items.filter(it => it.novaProposed).length,
 
   removeItem: id => {
     const items = get().items;

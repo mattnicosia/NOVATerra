@@ -625,38 +625,6 @@ export default function ProjectsPage() {
             })}
           </div>
           <div style={{ display: "flex", gap: T.space[2], alignItems: "center" }}>
-            {/* Due This Week toggle */}
-            {dueThisWeekCount > 0 && (
-              <button
-                onClick={() => setDueThisWeek(v => !v)}
-                style={{
-                  ...bt(C),
-                  padding: "6px 12px",
-                  fontSize: 11,
-                  borderRadius: T.radius.sm,
-                  background: dueThisWeek ? "#FBBF2418" : "transparent",
-                  color: dueThisWeek ? "#FBBF24" : C.textMuted,
-                  border: `1px solid ${dueThisWeek ? "#FBBF2440" : C.border}`,
-                  fontWeight: dueThisWeek ? 600 : 400,
-                }}
-              >
-                Due This Week
-                <span
-                  style={{
-                    fontSize: 9,
-                    fontWeight: 700,
-                    padding: "1px 5px",
-                    borderRadius: 8,
-                    marginLeft: 4,
-                    background: dueThisWeek ? "#FBBF2425" : `${C.textDim}15`,
-                    color: dueThisWeek ? "#FBBF24" : C.textDim,
-                  }}
-                >
-                  {dueThisWeekCount}
-                </span>
-              </button>
-            )}
-
             {/* View toggle */}
             <div
               style={{
@@ -782,6 +750,37 @@ export default function ProjectsPage() {
                   </svg>
                 </button>
               </>
+            )}
+            {/* Due This Week toggle — far right */}
+            {dueThisWeekCount > 0 && (
+              <button
+                onClick={() => setDueThisWeek(v => !v)}
+                style={{
+                  ...bt(C),
+                  padding: "6px 12px",
+                  fontSize: 11,
+                  borderRadius: T.radius.sm,
+                  background: dueThisWeek ? "#FBBF2418" : "transparent",
+                  color: dueThisWeek ? "#FBBF24" : C.textMuted,
+                  border: `1px solid ${dueThisWeek ? "#FBBF2440" : C.border}`,
+                  fontWeight: dueThisWeek ? 600 : 400,
+                }}
+              >
+                Due This Week
+                <span
+                  style={{
+                    fontSize: 9,
+                    fontWeight: 700,
+                    padding: "1px 5px",
+                    borderRadius: 8,
+                    marginLeft: 4,
+                    background: dueThisWeek ? "#FBBF2425" : `${C.textDim}15`,
+                    color: dueThisWeek ? "#FBBF24" : C.textDim,
+                  }}
+                >
+                  {dueThisWeekCount}
+                </span>
+              </button>
             )}
           </div>
         </div>

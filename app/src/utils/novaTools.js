@@ -105,6 +105,74 @@ export const NOVA_TOOLS = [
   },
 ];
 
+// ── Preview — returns structured proposal data without executing ──────
+
+export function previewNovaTool(toolName, toolInput) {
+  const store = useItemsStore.getState();
+  const projectStore = useProjectStore.getState();
+  const divFromCode = projectStore.divFromCode;
+
+  switch (toolName) {
+    case "add_line_items": {
+      const rawItems = toolInput?.items;
+      const items = Array.isArray(rawItems) ? rawItems : rawItems ? [rawItems] : [];
+      return items.filter(ni => ni.description).map(ni => ({
+        type: "add",
+        description: ni.description,
+        code: ni.code || "",
+        division: ni.division || divFromCode(ni.code) || "",
+        quantity: nn(ni.quantity) || 1,
+        unit: ni.unit || "EA",
+        material: nn(ni.material),
+        labor: nn(ni.labor),
+        equipment: nn(ni.equipment),
+        subcontractor: nn(ni.subcontractor),
+        specSection: ni.specSection || "",
+        notes: ni.notes || "",
+        _raw: ni,
+      }));
+    }
+    case "update_line_items": {
+      const rawUpdates = toolInput?.updates;
+      const updates = Array.isArray(rawUpdates) ? rawUpdates : rawUpdates ? [rawUpdates] : [];
+      return updates.map(upd => {
+        const item = store.items.find(i => i.id === upd.item_id);
+        if (!item) return { type: "update", itemId: upd.item_id, notFound: true, _raw: upd };
+        const changes = {};
+        const costFields = ["material", "labor", "equipment", "subcontractor"];
+        const stringFields = ["code", "description", "division", "trade", "unit", "notes", "drawingRef", "specSection", "specText", "bidContext"];
+        for (const f of [...stringFields, ...costFields, "quantity"]) {
+          if (upd[f] === undefined) continue;
+          let val = upd[f];
+          if (costFields.includes(f)) val = clampCost(val);
+          if (f === "quantity") val = clampQty(val);
+          if (val !== item[f]) changes[f] = { before: item[f], after: val };
+        }
+        return {
+          type: "update",
+          itemId: upd.item_id,
+          description: item.description,
+          code: item.code,
+          changes,
+          _raw: upd,
+        };
+      }).filter(p => !p.notFound && Object.keys(p.changes || {}).length > 0);
+    }
+    case "remove_line_items": {
+      const rawIds = toolInput?.item_ids;
+      const ids = Array.isArray(rawIds) ? rawIds : rawIds ? [rawIds] : [];
+      return [...new Set(ids)].map(id => {
+        const item = store.items.find(i => i.id === id);
+        return item
+          ? { type: "remove", itemId: id, description: item.description, code: item.code }
+          : null;
+      }).filter(Boolean);
+    }
+    default:
+      return [];
+  }
+}
+
 // ── Validation Helpers ────────────────────────────────────────────────
 
 function clampCost(v) {
@@ -193,7 +261,11 @@ export function executeNovaTool(toolName, toolInput) {
         }
 
         // Use batch update — applies all fields at once, recalculates directive once
-        store.batchUpdateItem(upd.item_id, changes);
+        // Include source + novaProposed when flagged (from approval queue)
+        const batchFields = { ...changes };
+        if (upd._novaProposed !== undefined) batchFields.novaProposed = upd._novaProposed;
+        if (upd._source) batchFields.source = upd._source;
+        store.batchUpdateItem(upd.item_id, batchFields);
         changeCount++;
 
         results.push({
@@ -240,6 +312,8 @@ export function executeNovaTool(toolName, toolInput) {
             notes: ni.notes || "",
             drawingRef: ni.drawingRef || "",
             specSection: ni.specSection || "",
+            source: ni._source || { category: "nova", label: "NOVA" },
+            novaProposed: ni._novaProposed !== undefined ? ni._novaProposed : true,
           },
           ni.bidContext || "base",
         );
