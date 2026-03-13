@@ -4,6 +4,7 @@
 // ══════════════════════════════════════════════════════════════════════
 
 import { loadPdfJs } from "./pdf";
+import { pdfRawCache } from "./uploadPipeline";
 
 // ── Cache (per drawing ID) ──────────────────────────────────────────
 const cache = new Map();
@@ -66,11 +67,23 @@ function applyMatrix(m, x, y) {
   return [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
 }
 
+// ── Load a PDF page from raw cache (for pre-rendered drawings) ──────
+async function loadPageFromCache(drawing) {
+  const buf = pdfRawCache.get(drawing.fileName);
+  if (!buf) return null;
+  await loadPdfJs();
+  const pdf = await window.pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
+  const page = await pdf.getPage(drawing.pdfPage || 1);
+  const viewport = page.getViewport({ scale: 1.5 });
+  return { page, viewport, pdf };
+}
+
 // ── Load a PDF page from a drawing object ───────────────────────────
-// Returns null for pdfPreRendered drawings (data is JPEG, not raw PDF).
+// For pdfPreRendered drawings, tries the raw cache first.
 async function loadPage(drawing) {
-  // Pre-rendered pages don't have raw PDF data — can't extract text/vectors
-  if (drawing.pdfPreRendered) return null;
+  if (drawing.pdfPreRendered) {
+    return loadPageFromCache(drawing); // try raw cache; returns null if not cached
+  }
   await loadPdfJs();
   const resp = await fetch(`data:application/pdf;base64,${drawing.data}`);
   const buf = await resp.arrayBuffer();
@@ -575,4 +588,120 @@ export function findPlanTagInstances(extractedData, tag) {
   // Use pre-computed schedule regions from extractPageData when available
   const scheduleRegions = extractedData.scheduleRegions || detectScheduleRegions(extractedData);
   return allInstances.filter(inst => !isInScheduleRegion(inst.x, inst.y, scheduleRegions));
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// CROSS-REFERENCE MARKER DETECTION — from PDF text positions
+// Finds section/detail/elevation markers by clustering vertically-
+// adjacent text pairs: ID on top, sheet number on bottom.
+// Returns shape matching detectedReferences: { label, targetSheet, type, xPct, yPct }
+// ══════════════════════════════════════════════════════════════════════
+export async function detectMarkersFromText(drawing) {
+  // Load the page directly so we have the viewport dimensions
+  const loaded = await loadPage(drawing);
+  if (!loaded) return []; // no raw PDF available (cache miss or raster)
+  const { page, viewport } = loaded;
+
+  // Extract text items
+  const textContent = await page.getTextContent();
+  const items = [];
+  for (const item of textContent.items) {
+    if (!item.str || !item.str.trim()) continue;
+    const tx = item.transform;
+    const [canvasX, canvasY] = window.pdfjsLib.Util.transform(viewport.transform, [tx[4], tx[5]]) || [0, 0];
+    const fontSize = Math.sqrt(tx[2] * tx[2] + tx[3] * tx[3]) || Math.abs(tx[0]);
+    items.push({
+      text: item.str.trim(),
+      x: canvasX,
+      y: canvasY,
+      fontSize: fontSize * viewport.scale,
+    });
+  }
+
+  if (!items.length) return [];
+
+  const vpW = viewport.width;
+  const vpH = viewport.height;
+
+  // Sheet number patterns: A3, S-201, A5.1, M1, E-3, A1.02, etc.
+  const sheetPattern = /^[A-Z]{1,2}[-.]?\d{1,3}([-.]\d{1,2})?$/i;
+
+  // Detail/section ID patterns: 1, A, 2A, A1, etc. (short labels)
+  const idPattern = /^[A-Z0-9]{1,3}$/i;
+
+  // Exclude items that are clearly NOT reference markers:
+  // - Items in title blocks (bottom ~8% or right ~15% of page)
+  // - Items with very large font (titles, headings)
+  // - Items with very small font (fine print, notes)
+  const titleBlockMinY = vpH * 0.92;
+  const titleBlockMinX = vpW * 0.85;
+  const maxFontSize = 14 * viewport.scale; // markers are typically small text
+  const minFontSize = 3 * viewport.scale;
+
+  const isInTitleBlock = (x, y) => y > titleBlockMinY || (x > titleBlockMinX && y > vpH * 0.7);
+  const isBadFont = (fs) => fs > maxFontSize || fs < minFontSize;
+
+  // Find text items that look like sheet numbers
+  const sheetCandidates = items.filter(t =>
+    sheetPattern.test(t.text) &&
+    !isInTitleBlock(t.x, t.y) &&
+    !isBadFont(t.fontSize),
+  );
+
+  const markers = [];
+  const usedItems = new Set();
+
+  for (const sheet of sheetCandidates) {
+    if (usedItems.has(sheet)) continue;
+
+    // Look for an ID label ABOVE this sheet number (within ~2.5x font height)
+    const maxGap = (sheet.fontSize || 12) * 2.5;
+
+    const nearby = items.filter(t => {
+      if (t === sheet || usedItems.has(t)) return false;
+      if (!idPattern.test(t.text)) return false;
+      if (isInTitleBlock(t.x, t.y)) return false;
+      if (isBadFont(t.fontSize)) return false;
+      // Must be roughly above (smaller Y in canvas coords = higher on page)
+      const dy = sheet.y - t.y;
+      if (dy < 0 || dy > maxGap) return false;
+      // Must be horizontally close
+      const dx = Math.abs(sheet.x - t.x);
+      return dx < maxGap;
+    });
+
+    if (nearby.length > 0) {
+      // Pick the closest one
+      const best = nearby.sort((a, b) =>
+        Math.hypot(a.x - sheet.x, a.y - sheet.y) -
+        Math.hypot(b.x - sheet.x, b.y - sheet.y),
+      )[0];
+
+      usedItems.add(sheet);
+      usedItems.add(best);
+
+      const sheetText = sheet.text;
+      const idText = best.text;
+
+      // Heuristic type detection from sheet prefix
+      let type = "detail";
+      const prefix = sheetText.replace(/[-.\d]/g, "").toUpperCase();
+      if (prefix === "S" || prefix === "ST") type = "section";
+      // Elevation markers less common in text — default to detail
+
+      // Position as percentage of viewport
+      const midX = (sheet.x + best.x) / 2;
+      const midY = (sheet.y + best.y) / 2;
+
+      markers.push({
+        label: `${idText}/${sheetText}`,
+        targetSheet: sheetText,
+        type,
+        xPct: Math.max(0, Math.min(100, (midX / vpW) * 100)),
+        yPct: Math.max(0, Math.min(100, (midY / vpH) * 100)),
+      });
+    }
+  }
+
+  return markers;
 }

@@ -36,7 +36,7 @@ import TakeoffDimensionEngine from "@/components/takeoffs/TakeoffDimensionEngine
 import FormulaExpressionRow from "@/components/takeoffs/FormulaExpressionRow";
 import TakeoffCommandPalette from "@/components/takeoffs/TakeoffCommandPalette";
 import GroupBar from "@/components/shared/GroupBar";
-import { extractPageData, isExtracted } from "@/utils/pdfExtractor";
+import { extractPageData, isExtracted, detectMarkersFromText } from "@/utils/pdfExtractor";
 import {
   runSmartPredictions,
   scanAllSheets,
@@ -249,7 +249,12 @@ export default function TakeoffsPage() {
         imgData = c.toDataURL("image/jpeg", 0.85);
       }
 
-      const refs = await detectSheetReferences(imgData);
+      // Try vector/text extraction first (fast, no API call, accurate for native PDFs)
+      let refs = await detectMarkersFromText(drawing);
+      if (refs.length === 0) {
+        // Fallback: VLM detection (for scanned/raster PDFs or if raw cache unavailable)
+        refs = await detectSheetReferences(imgData);
+      }
       setDetectedReferences(dId, refs);
       showToast(`Found ${refs.length} reference${refs.length !== 1 ? "s" : ""}`, "success");
     } catch (err) {

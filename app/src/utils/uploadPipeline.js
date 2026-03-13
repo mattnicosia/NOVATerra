@@ -18,6 +18,10 @@ import { matchScaleKey, renderPdfPage, classifyFile, isDuplicateFile } from "@/u
 import { detectBuildingOutline, outlineToFeet, computePolygonArea } from "@/utils/outlineDetector";
 import { runFullScan } from "@/utils/scanRunner";
 
+// Cache raw PDF arrayBuffers for vector/text extraction (keyed by fileName)
+// Lives for the session — PDFs from previous sessions won't be cached.
+export const pdfRawCache = new Map();
+
 // ─── Infer drawing view type from sheet title ──────────────────────────────
 export function inferViewType(title) {
   const t = (title || "");
@@ -96,6 +100,7 @@ export async function extractDrawingPages(file) {
 
   // ── PDF: render each page to JPEG instead of storing raw PDF base64 ──
   const arrayBuffer = await file.arrayBuffer();
+  pdfRawCache.set(file.name, arrayBuffer); // preserve raw PDF for vector/text extraction
   await loadPdfJs();
   const pdf = await window.pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
   const numPages = pdf.numPages;

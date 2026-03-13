@@ -227,9 +227,23 @@ export default function CreateBidPackageModal({ onClose }) {
         }),
       });
 
+      const respData = await resp.json().catch(() => ({}));
       if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
-        throw new Error(err.error || "Failed to create bid package");
+        throw new Error(respData.error || "Failed to create bid package");
+      }
+
+      // Sync the server-generated UUID back to the local store
+      // (local uses short random ID, server uses UUID — must match for invitations to work)
+      const serverPkg = respData.package;
+      if (serverPkg?.id && serverPkg.id !== pkgId) {
+        const store = useBidPackagesStore.getState();
+        store.setBidPackages(
+          store.bidPackages.map(p => (p.id === pkgId ? { ...p, id: serverPkg.id } : p)),
+        );
+        // Also update activeBidPackageId if it was set to the local ID
+        if (store.activeBidPackageId === pkgId) {
+          store.setActiveBidPackageId(serverPkg.id);
+        }
       }
 
       showToast("Package created — invite subs when ready", "success");
