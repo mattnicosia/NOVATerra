@@ -217,7 +217,7 @@ function InvitationRow({ inv, proposal, gapReport, onResend, onViewProposal }) {
   );
 }
 
-export default function BidPackagesPanel({ onCreateNew, onViewProposal, onCompare, onAward, onClose: onClosePackage }) {
+export default function BidPackagesPanel({ onCreateNew, onViewProposal, onCompare, onAward, onClose: onClosePackage, onInviteSubs }) {
   const C = useTheme();
   const T = C.T;
   const bidPackages = useBidPackagesStore(s => s.bidPackages);
@@ -476,6 +476,26 @@ export default function BidPackagesPanel({ onCreateNew, onViewProposal, onCompar
                 >
                   Subcontractors ({pkgInvites.length})
                 </div>
+                {pkgInvites.length === 0 && onInviteSubs && pkg.status !== "awarded" && pkg.status !== "closed" && (
+                  <button
+                    onClick={() => onInviteSubs(pkg)}
+                    style={{
+                      width: "100%",
+                      padding: "16px",
+                      borderRadius: 8,
+                      border: `1px dashed ${C.accent}40`,
+                      background: `${C.accent}06`,
+                      color: C.accent,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                      marginBottom: 8,
+                    }}
+                  >
+                    + Invite Subs to This Package
+                  </button>
+                )}
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   {pkgInvites.map(inv => (
                     <InvitationRow
@@ -503,7 +523,32 @@ export default function BidPackagesPanel({ onCreateNew, onViewProposal, onCompar
                       inv.status === "sent" && inv.sentAt && (now - new Date(inv.sentAt).getTime()) / 3600000 >= 72,
                   );
                   return (
-                    <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                    <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+                      {/* Invite Subs — primary action for packages */}
+                      {onInviteSubs && pkg.status !== "awarded" && pkg.status !== "closed" && (
+                        <button
+                          onClick={() => onInviteSubs(pkg)}
+                          style={{
+                            flex: 1,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 6,
+                            background: `linear-gradient(135deg, ${C.accent}15, #BF5AF215)`,
+                            border: `1px solid ${C.accent}30`,
+                            color: C.accent,
+                            borderRadius: 8,
+                            padding: "8px 16px",
+                            fontSize: 12,
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            fontFamily: "inherit",
+                          }}
+                        >
+                          <Ic d={I.user} size={13} color={C.accent} />
+                          + Invite Subs
+                        </button>
+                      )}
                       {parsedProposals.length >= 2 && onCompare && (
                         <button
                           onClick={() => onCompare(pkg, parsedProposals)}

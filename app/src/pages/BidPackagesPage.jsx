@@ -17,9 +17,11 @@ import SubResponseBoard from "@/components/estimate/SubResponseBoard";
 import ProposalDetailModal from "@/components/estimate/ProposalDetailModal";
 import ProposalComparisonMatrix from "@/components/estimate/ProposalComparisonMatrix";
 import AwardBidModal from "@/components/estimate/AwardBidModal";
+import InviteSubsModal from "@/components/estimate/InviteSubsModal";
 import EmptyState from "@/components/shared/EmptyState";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
+import { autoTradeFromCode } from "@/constants/tradeGroupings";
 
 const SUBMITTED_STATUSES = new Set(["submitted", "parsed", "awarded", "not_awarded"]);
 const OVERDUE_MS = 72 * 3600 * 1000; // 72 hours
@@ -43,6 +45,7 @@ export default function BidPackagesPage() {
   const [selectedProposal, setSelectedProposal] = useState(null);
   const [compareData, setCompareData] = useState(null);
   const [awardPkg, setAwardPkg] = useState(null);
+  const [invitePkg, setInvitePkg] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [autoHover, setAutoHover] = useState(false);
 
@@ -420,6 +423,7 @@ export default function BidPackagesPage() {
             onViewProposal={proposal => setSelectedProposal(proposal)}
             onCompare={(pkg, proposals) => setCompareData({ pkg, proposals })}
             onAward={pkg => setAwardPkg(pkg)}
+            onInviteSubs={pkg => setInvitePkg(pkg)}
           />
         </>
       )}
@@ -453,6 +457,25 @@ export default function BidPackagesPage() {
         />
       )}
       {awardPkg && <AwardBidModal bidPackage={awardPkg} onClose={() => setAwardPkg(null)} />}
+      {invitePkg && (
+        <InviteSubsModal
+          packageId={invitePkg.id}
+          packageName={invitePkg.name}
+          selectedTrades={(() => {
+            const trades = new Set();
+            for (const si of invitePkg.scopeItems || []) {
+              const item = estimateItems.find(i => i.id === si.id);
+              if (item) {
+                const trade = item.trade || autoTradeFromCode(item.code);
+                if (trade) trades.add(trade);
+              }
+            }
+            return trades;
+          })()}
+          existingEmails={(allInvitations[invitePkg.id] || []).map(inv => (inv.subEmail || inv.sub_email || "").toLowerCase()).filter(Boolean)}
+          onClose={() => setInvitePkg(null)}
+        />
+      )}
 
       {/* Spin animation */}
       <style>{`

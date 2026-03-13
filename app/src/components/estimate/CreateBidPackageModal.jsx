@@ -2,7 +2,6 @@ import { useState, useMemo } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useItemsStore } from "@/stores/itemsStore";
 import { useDrawingsStore } from "@/stores/drawingsStore";
-import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { useBidPackagesStore } from "@/stores/bidPackagesStore";
@@ -15,22 +14,16 @@ import {
   getTradeLabel,
   getTradeSortOrder,
   autoTradeFromCode,
-  TRADE_GROUPINGS,
   TRADE_MAP,
-  TRADE_COLORS,
 } from "@/constants/tradeGroupings";
-import { TradeBadge, default as TradeMultiSelect } from "@/components/contacts/TradeMultiSelect";
 import { CSI } from "@/constants/csi";
 import { generateScopeSheet } from "@/utils/scopeSheetGenerator";
 import { callAnthropic } from "@/utils/ai";
-import { enhancedPreSendAnalysis } from "@/utils/preSendAnalysis";
 
 const STEPS = [
+  { key: "details", label: "Details", icon: I.edit },
   { key: "scope", label: "Select Scope", icon: I.estimate },
   { key: "drawings", label: "Select Drawings", icon: I.plans },
-  { key: "subs", label: "Select Subs", icon: I.user },
-  { key: "details", label: "Details", icon: I.edit },
-  { key: "review", label: "Review & Send", icon: I.send },
 ];
 
 export default function CreateBidPackageModal({ onClose }) {
@@ -41,13 +34,9 @@ export default function CreateBidPackageModal({ onClose }) {
   // Store data
   const items = useItemsStore(s => s.items);
   const drawings = useDrawingsStore(s => s.drawings);
-  const subs = useMasterDataStore(s => s.masterData.subcontractors);
-  const addMasterItem = useMasterDataStore(s => s.addMasterItem);
-  const toggleSubPreferred = useMasterDataStore(s => s.toggleSubPreferred);
   const estimateId = useEstimatesStore(s => s.activeEstimateId);
   const project = useProjectStore(s => s.project);
   const addBidPackage = useBidPackagesStore(s => s.addBidPackage);
-  const setPackageInvitations = useBidPackagesStore(s => s.setPackageInvitations);
   const presets = useBidPackagesStore(s => s.bidPackagePresets);
   const addPreset = useBidPackagesStore(s => s.addPreset);
   const user = useAuthStore(s => s.user);
@@ -56,92 +45,16 @@ export default function CreateBidPackageModal({ onClose }) {
   // Form state
   const [selectedItems, setSelectedItems] = useState([]);
   const [selectedDrawings, setSelectedDrawings] = useState(() => drawings.map(d => d.id));
-  const [selectedSubs, setSelectedSubs] = useState([]);
   const [packageName, setPackageName] = useState("RFP - " + (project.name || ""));
   const [dueDate, setDueDate] = useState(project.bidDue || "");
   const [coverMessage, setCoverMessage] = useState("");
-  const [sending, setSending] = useState(false);
-  const [subSearch, setSubSearch] = useState("");
+  const [creating, setCreating] = useState(false);
   const [groupMode, setGroupMode] = useState("trade");
-  const [autoSelectedSubs, setAutoSelectedSubs] = useState(false);
-  const [showAddSub, setShowAddSub] = useState(false);
-  const [newSub, setNewSub] = useState({ company: "", trades: [], contact: "", email: "", phone: "" });
   const [showPresetPicker, setShowPresetPicker] = useState(false);
   const [aiInfilling, setAiInfilling] = useState(false);
 
-  // NOVA Network state
-  const [subTab, setSubTab] = useState("contacts");
-  const [networkSubs, setNetworkSubs] = useState([]);
-  const [networkLoading, setNetworkLoading] = useState(false);
-  const [networkError, setNetworkError] = useState(null);
-  const [selectedNetworkSubs, setSelectedNetworkSubs] = useState([]);
-  const [networkFetched, setNetworkFetched] = useState(false);
-
-  const fetchNetworkSubs = async () => {
-    if (networkFetched) return;
-    setNetworkLoading(true);
-    setNetworkError(null);
-    try {
-      const token = useAuthStore.getState().session?.access_token;
-      if (!token) throw new Error("Not authenticated");
-      const params = new URLSearchParams();
-      // Send selected trades for filtering
-      const tradeLabels = [...selectedTrades].filter(t => TRADE_MAP[t]?.label).map(t => TRADE_MAP[t].label);
-      if (tradeLabels.length > 0) params.set("trades", tradeLabels.join(","));
-      // Send local contact emails for dedup
-      const localEmails = subs.filter(s => s.email).map(s => s.email.toLowerCase());
-      if (localEmails.length > 0) params.set("exclude_emails", localEmails.join(","));
-      params.set("limit", "100");
-
-      const resp = await fetch(`/api/sub-pool?${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!resp.ok) throw new Error("Failed to fetch network subs");
-      const { subs: pool } = await resp.json();
-      // Client-side dedup safety net
-      const localEmailSet = new Set(localEmails);
-      const deduped = (pool || []).filter(s => !localEmailSet.has((s.email || "").toLowerCase()));
-      setNetworkSubs(deduped);
-      setNetworkFetched(true);
-    } catch (err) {
-      console.error("[NOVA Network] Fetch error:", err);
-      setNetworkError(err.message);
-    } finally {
-      setNetworkLoading(false);
-    }
-  };
-
-  const toggleNetworkSub = email => {
-    setSelectedNetworkSubs(prev =>
-      prev.includes(email) ? prev.filter(e => e !== email) : [...prev, email],
-    );
-  };
-
-  const addNetworkSubToContacts = sub => {
-    addMasterItem("subcontractors", {
-      company: sub.company || "",
-      contact: sub.contact || "",
-      email: sub.email || "",
-      phone: sub.phone || "",
-      trades: sub.trade ? [sub.trade] : [],
-      notes: "Added from NOVA Network",
-      rating: "",
-      markets: [sub.market || ""],
-      insuranceExpiry: "",
-      bondingCapacity: "",
-      emr: "",
-      certifications: [],
-      yearsInBusiness: "",
-      licenseNo: "",
-      website: "",
-      address: "",
-    });
-    showToast(`${sub.company || sub.email} added to contacts`);
-  };
-
   const handleLoadPreset = async preset => {
     setShowPresetPicker(false);
-    // Apply scope filter — match trade keys to items
     if (preset.scopeFilter?.selectedTradeKeys?.length > 0) {
       const tradeKeys = new Set(preset.scopeFilter.selectedTradeKeys);
       const matched = items
@@ -153,11 +66,9 @@ export default function CreateBidPackageModal({ onClose }) {
       if (matched.length > 0) setSelectedItems(matched);
       if (preset.scopeFilter.groupMode) setGroupMode(preset.scopeFilter.groupMode);
     }
-    // Apply drawing filter
     if (preset.drawingFilter?.strategy === "all") {
       setSelectedDrawings(drawings.map(d => d.id));
     }
-    // Apply name template
     if (preset.defaultNameTemplate) {
       setPackageName(
         preset.defaultNameTemplate
@@ -165,7 +76,6 @@ export default function CreateBidPackageModal({ onClose }) {
           .replace(/\{\{dueDate\}\}/g, project.bidDue || ""),
       );
     }
-    // AI infill cover message
     if (preset.coverMessageTemplate) {
       setAiInfilling(true);
       try {
@@ -185,7 +95,6 @@ export default function CreateBidPackageModal({ onClose }) {
         const text = result?.content?.[0]?.text || preset.coverMessageTemplate;
         setCoverMessage(text);
       } catch {
-        // Fallback: basic substitution
         setCoverMessage(
           preset.coverMessageTemplate
             .replace(/\{\{projectName\}\}/g, project.name || "")
@@ -216,24 +125,6 @@ export default function CreateBidPackageModal({ onClose }) {
     showToast("Saved as template for future use");
   };
 
-  // Derive selected trades/divisions from scope selection for auto-matching subs
-  const selectedTrades = useMemo(() => {
-    const trades = new Set();
-    const selectedSet = new Set(selectedItems);
-    for (const item of items) {
-      if (!selectedSet.has(item.id)) continue;
-      const trade = item.trade || autoTradeFromCode(item.code);
-      if (trade) trades.add(trade);
-      // Also collect division names for fuzzy matching
-      const div = item.division || item.code?.slice(0, 2);
-      if (div) {
-        const divName = CSI[div]?.name;
-        if (divName) trades.add(divName.toLowerCase());
-      }
-    }
-    return trades;
-  }, [selectedItems, items]);
-
   // Group items by the active grouping mode
   const groups = useMemo(() => {
     const map = {};
@@ -250,7 +141,6 @@ export default function CreateBidPackageModal({ onClose }) {
         label = `${key} — ${subName || "Unknown"}`;
         sort = key;
       } else {
-        // division mode (original behavior)
         key = item.division || item.code?.slice(0, 2) || "00";
         label = item.divisionLabel || CSI[key]?.name || `Division ${key}`;
         sort = key;
@@ -264,24 +154,6 @@ export default function CreateBidPackageModal({ onClose }) {
         : String(a.sort).localeCompare(String(b.sort)),
     );
   }, [items, groupMode]);
-
-  // Filter subs by search
-  const filteredSubs = useMemo(() => {
-    if (!subSearch) return subs;
-    const q = subSearch.toLowerCase();
-    return subs.filter(
-      s =>
-        (s.company || "").toLowerCase().includes(q) ||
-        (s.trades || []).some(tk => (TRADE_MAP[tk]?.label || tk).toLowerCase().includes(q)) ||
-        (s.contact || "").toLowerCase().includes(q),
-    );
-  }, [subs, subSearch]);
-
-  // Auto-match subs by trades matching selected scope
-  const matchedSubIds = useMemo(() => {
-    if (selectedTrades.size === 0) return new Set();
-    return new Set(subs.filter(s => (s.trades || []).some(tk => selectedTrades.has(tk))).map(s => s.id));
-  }, [subs, selectedTrades]);
 
   const toggleItem = itemId => {
     setSelectedItems(prev => (prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]));
@@ -304,21 +176,14 @@ export default function CreateBidPackageModal({ onClose }) {
     );
   };
 
-  const toggleSub = subId => {
-    setSelectedSubs(prev => (prev.includes(subId) ? prev.filter(id => id !== subId) : [...prev, subId]));
-  };
-
-  const handleSend = async () => {
+  // ── Create Package (no invitations) ──
+  const handleCreate = async () => {
     if (!packageName.trim()) {
       showToast("Please enter a package name", "error");
       return;
     }
-    if (selectedSubs.length === 0 && selectedNetworkSubs.length === 0) {
-      showToast("Please select at least one subcontractor", "error");
-      return;
-    }
 
-    setSending(true);
+    setCreating(true);
     try {
       const selectedEstItems = items.filter(i => selectedItems.includes(i.id));
       const scopeItems = selectedEstItems.map(i => ({
@@ -328,26 +193,6 @@ export default function CreateBidPackageModal({ onClose }) {
         division: i.division,
       }));
       const scopeSheet = generateScopeSheet(selectedEstItems, CSI);
-
-      const localSubsToInvite = subs
-        .filter(s => selectedSubs.includes(s.id))
-        .map(s => ({
-          company: s.company,
-          contact: s.contact,
-          email: s.email,
-          phone: s.phone,
-          trade: (s.trades || []).map(tk => TRADE_MAP[tk]?.label || tk).join(", ") || s._legacyTrade || "",
-        }));
-      const networkSubsToInvite = networkSubs
-        .filter(s => selectedNetworkSubs.includes(s.email))
-        .map(s => ({
-          company: s.company || "",
-          contact: s.contact || "",
-          email: s.email,
-          phone: s.phone || "",
-          trade: s.trade || "",
-        }));
-      const subsToInvite = [...localSubsToInvite, ...networkSubsToInvite];
 
       // Create package in store (local-first)
       const pkgId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -362,19 +207,7 @@ export default function CreateBidPackageModal({ onClose }) {
         dueDate: dueDate || null,
       });
 
-      // Create local invitations
-      const localInvites = subsToInvite.map(sub => ({
-        id: Math.random().toString(36).slice(2, 11),
-        subCompany: sub.company,
-        subContact: sub.contact,
-        subEmail: sub.email,
-        subPhone: sub.phone,
-        subTrade: sub.trade || "",
-        status: "pending",
-      }));
-      setPackageInvitations(pkgId, localInvites);
-
-      // Call API to create in Supabase + generate tokens
+      // Create on server
       const token = useAuthStore.getState().session?.access_token;
       const resp = await fetch("/api/bid-package", {
         method: "POST",
@@ -390,7 +223,7 @@ export default function CreateBidPackageModal({ onClose }) {
           drawingIds: selectedDrawings,
           coverMessage,
           dueDate: dueDate || null,
-          subs: subsToInvite,
+          subs: [], // No invitations — subs added separately
         }),
       });
 
@@ -399,47 +232,18 @@ export default function CreateBidPackageModal({ onClose }) {
         throw new Error(err.error || "Failed to create bid package");
       }
 
-      const { package: serverPkg, invitations: serverInvites } = await resp.json();
-
-      // Send invite emails — await all, track failures
-      const sendResults = await Promise.allSettled(
-        serverInvites.map(inv =>
-          fetch("/api/send-bid-invite", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              invitationId: inv.id,
-              packageId: serverPkg.id,
-            }),
-          }).then(r => {
-            if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          }),
-        ),
-      );
-
-      const failed = sendResults.filter(r => r.status === "rejected").length;
-      const sent = sendResults.length - failed;
-      if (failed > 0) {
-        showToast(`Sent to ${sent} sub${sent !== 1 ? "s" : ""}, ${failed} failed to send`, "warning");
-      } else {
-        showToast(`Bid package sent to ${sent} sub${sent !== 1 ? "s" : ""}`, "success");
-      }
+      showToast("Package created — invite subs when ready", "success");
       onClose();
     } catch (err) {
       console.error("Create bid package error:", err);
       showToast(err.message || "Failed to create bid package", "error");
     } finally {
-      setSending(false);
+      setCreating(false);
     }
   };
 
   const canNext = () => {
-    if (step === 0) return selectedItems.length > 0;
-    if (step === 2) return selectedSubs.length > 0 || selectedNetworkSubs.length > 0;
-    if (step === 3) return packageName.trim().length > 0;
+    if (step === 0) return packageName.trim().length > 0;
     return true;
   };
 
@@ -504,9 +308,14 @@ export default function CreateBidPackageModal({ onClose }) {
 
       {/* Step Content */}
       <div style={{ minHeight: 340, maxHeight: 440, overflowY: "auto" }}>
-        {/* Step 1: Select Scope */}
+        {/* Step 1: Details */}
         {step === 0 && (
           <div>
+            <h3 style={{ color: C.text, fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Package Details</h3>
+            <p style={{ color: C.textMuted, fontSize: 13, margin: "0 0 16px" }}>
+              Name your package and set the due date. You'll invite subs after creating it.
+            </p>
+
             {/* Template picker */}
             {presets.length > 0 && !showPresetPicker && (
               <button
@@ -600,6 +409,42 @@ export default function CreateBidPackageModal({ onClose }) {
               </div>
             )}
 
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ color: C.textMuted, fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>
+                Package Name *
+              </label>
+              <input
+                value={packageName}
+                onChange={e => setPackageName(e.target.value)}
+                placeholder="e.g., RFP - MEP Bid Package"
+                autoFocus
+                style={inputStyle}
+              />
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ color: C.textMuted, fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>
+                Due Date
+              </label>
+              <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} style={inputStyle} />
+            </div>
+            <div>
+              <label style={{ color: C.textMuted, fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>
+                Cover Message (optional)
+              </label>
+              <textarea
+                value={coverMessage}
+                onChange={e => setCoverMessage(e.target.value)}
+                placeholder="Add any special instructions or notes for the subs..."
+                rows={4}
+                style={{ ...inputStyle, resize: "vertical" }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Select Scope */}
+        {step === 1 && (
+          <div>
             <h3 style={{ color: C.text, fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Select Scope Items</h3>
             <p style={{ color: C.textMuted, fontSize: 13, margin: "0 0 12px" }}>
               Choose scope items to include in this bid package.
@@ -697,11 +542,45 @@ export default function CreateBidPackageModal({ onClose }) {
                 No items in this estimate yet. Add line items first.
               </p>
             )}
+
+            {/* Scope summary preview */}
+            {selectedItems.length > 0 &&
+              (() => {
+                const scopeSheet = generateScopeSheet(
+                  items.filter(i => selectedItems.includes(i.id)),
+                  CSI,
+                );
+                return scopeSheet.divisions.length > 0 ? (
+                  <div style={{ marginTop: 12 }}>
+                    <label
+                      style={{ color: C.textMuted, fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6 }}
+                    >
+                      Scope Summary (auto-generated, included in invite)
+                    </label>
+                    <div
+                      style={{
+                        maxHeight: 140,
+                        overflowY: "auto",
+                        padding: "12px 14px",
+                        borderRadius: 10,
+                        background: "rgba(255,255,255,0.03)",
+                        border: `1px solid ${C.border}`,
+                        fontSize: 12,
+                        color: C.textMuted,
+                        whiteSpace: "pre-wrap",
+                        lineHeight: 1.6,
+                      }}
+                    >
+                      {scopeSheet.plainText}
+                    </div>
+                  </div>
+                ) : null;
+              })()}
           </div>
         )}
 
-        {/* Step 2: Select Drawings */}
-        {step === 1 && (
+        {/* Step 3: Select Drawings */}
+        {step === 2 && (
           <div>
             <h3 style={{ color: C.text, fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Select Drawings</h3>
             <p style={{ color: C.textMuted, fontSize: 13, margin: "0 0 16px" }}>
@@ -779,671 +658,6 @@ export default function CreateBidPackageModal({ onClose }) {
                 </div>
               </>
             )}
-          </div>
-        )}
-
-        {/* Step 3: Select Subs */}
-        {step === 2 && (
-          <div>
-            <h3 style={{ color: C.text, fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Select Subcontractors</h3>
-            <p style={{ color: C.textMuted, fontSize: 13, margin: "0 0 12px" }}>
-              Choose which subs to invite. They'll receive an email with a link to view details and submit a proposal.
-            </p>
-
-            {/* Tab Bar: Your Subs / NOVA Network */}
-            <div style={{ display: "flex", gap: 0, marginBottom: 14, borderBottom: `1px solid ${C.border}` }}>
-              {[
-                { key: "contacts", label: `Your Subs (${subs.length})` },
-                { key: "network", label: "NOVA Network" },
-              ].map(tab => (
-                <button
-                  key={tab.key}
-                  onClick={() => {
-                    setSubTab(tab.key);
-                    if (tab.key === "network" && !networkFetched) fetchNetworkSubs();
-                  }}
-                  style={{
-                    padding: "8px 16px",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    border: "none",
-                    borderBottom: `2px solid ${subTab === tab.key ? C.accent : "transparent"}`,
-                    background: "none",
-                    color: subTab === tab.key ? C.accent : C.textMuted,
-                    transition: "all 150ms",
-                    fontFamily: T.font.sans,
-                  }}
-                >
-                  {tab.label}
-                  {tab.key === "network" && selectedNetworkSubs.length > 0 && (
-                    <span style={{
-                      marginLeft: 6,
-                      background: C.accent,
-                      color: "#fff",
-                      borderRadius: 8,
-                      padding: "1px 6px",
-                      fontSize: 9,
-                      fontWeight: 700,
-                    }}>
-                      {selectedNetworkSubs.length}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-
-            {/* Your Subs Tab */}
-            {subTab === "contacts" && (
-              <>
-                <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-                  <input
-                    placeholder="Search subs..."
-                    value={subSearch}
-                    onChange={e => setSubSearch(e.target.value)}
-                    style={{ ...inputStyle, flex: 1 }}
-                  />
-                  <button
-                    onClick={() => {
-                      const allIds = filteredSubs.map(s => s.id);
-                      const allSelected = allIds.every(id => selectedSubs.includes(id));
-                      if (allSelected) {
-                        setSelectedSubs(prev => prev.filter(id => !allIds.includes(id)));
-                      } else {
-                        setSelectedSubs(prev => [...new Set([...prev, ...allIds])]);
-                      }
-                    }}
-                    style={{
-                      background: "none",
-                      border: `1px solid ${C.border}`,
-                      color: C.accent,
-                      borderRadius: 8,
-                      padding: "0 12px",
-                      fontSize: 11,
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {filteredSubs.every(s => selectedSubs.includes(s.id)) ? "Deselect All" : "Select All"}
-                  </button>
-                </div>
-
-                {/* Inline Add Sub */}
-                <div style={{ marginBottom: 12 }}>
-                  {!showAddSub ? (
-                    <button
-                      onClick={() => setShowAddSub(true)}
-                      style={{
-                        background: "none",
-                        border: `1px dashed ${C.border}`,
-                        color: C.accent,
-                        borderRadius: 8,
-                        padding: "8px 14px",
-                        fontSize: 11,
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        width: "100%",
-                        fontFamily: T.font.sans,
-                      }}
-                    >
-                      + Add New Sub
-                    </button>
-                  ) : (
-                    <div
-                      style={{
-                        padding: 12,
-                        borderRadius: 10,
-                        background: "rgba(255,255,255,0.04)",
-                        border: `1px solid ${C.accent}30`,
-                      }}
-                    >
-                      <div style={{ fontSize: 12, fontWeight: 600, color: C.text, marginBottom: 8 }}>New Subcontractor</div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                        <input
-                          placeholder="Company *"
-                          value={newSub.company}
-                          onChange={e => setNewSub(p => ({ ...p, company: e.target.value }))}
-                          autoFocus
-                          style={inputStyle}
-                        />
-                        <div style={{ display: "flex", alignItems: "center" }}>
-                          <TradeMultiSelect
-                            value={newSub.trades || []}
-                            onChange={trades => setNewSub(p => ({ ...p, trades }))}
-                            compact
-                            placeholder="Add trade..."
-                          />
-                        </div>
-                        <input
-                          placeholder="Contact Name"
-                          value={newSub.contact}
-                          onChange={e => setNewSub(p => ({ ...p, contact: e.target.value }))}
-                          style={inputStyle}
-                        />
-                        <input
-                          placeholder="Email"
-                          value={newSub.email}
-                          onChange={e => setNewSub(p => ({ ...p, email: e.target.value }))}
-                          style={inputStyle}
-                        />
-                        <input
-                          placeholder="Phone"
-                          value={newSub.phone}
-                          onChange={e => setNewSub(p => ({ ...p, phone: e.target.value }))}
-                          style={inputStyle}
-                        />
-                      </div>
-                      <div style={{ display: "flex", gap: 6, marginTop: 8, justifyContent: "flex-end" }}>
-                        <button
-                          onClick={() => {
-                            setShowAddSub(false);
-                            setNewSub({ company: "", trades: [], contact: "", email: "", phone: "" });
-                          }}
-                          style={{
-                            background: "none",
-                            border: `1px solid ${C.border}`,
-                            color: C.textMuted,
-                            borderRadius: 6,
-                            padding: "5px 12px",
-                            fontSize: 11,
-                            cursor: "pointer",
-                            fontFamily: T.font.sans,
-                          }}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (!newSub.company.trim()) {
-                              showToast("Company name is required", "error");
-                              return;
-                            }
-                            addMasterItem("subcontractors", {
-                              ...newSub,
-                              notes: "",
-                              rating: "",
-                              markets: [],
-                              insuranceExpiry: "",
-                              bondingCapacity: "",
-                              emr: "",
-                              certifications: [],
-                              yearsInBusiness: "",
-                              licenseNo: "",
-                              website: "",
-                              address: "",
-                            });
-                            const updatedSubs = useMasterDataStore.getState().masterData.subcontractors;
-                            const created = updatedSubs[updatedSubs.length - 1];
-                            if (created) setSelectedSubs(prev => [...prev, created.id]);
-                            showToast(`${newSub.company} added and selected`);
-                            setNewSub({ company: "", trades: [], contact: "", email: "", phone: "" });
-                            setShowAddSub(false);
-                          }}
-                          disabled={!newSub.company.trim()}
-                          style={{
-                            background: newSub.company.trim() ? C.accent : C.bg2,
-                            color: newSub.company.trim() ? "#fff" : C.textDim,
-                            border: "none",
-                            borderRadius: 6,
-                            padding: "5px 14px",
-                            fontSize: 11,
-                            fontWeight: 600,
-                            cursor: newSub.company.trim() ? "pointer" : "not-allowed",
-                            fontFamily: T.font.sans,
-                          }}
-                        >
-                          Add & Select
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Auto-select matching subs */}
-                {matchedSubIds.size > 0 && !autoSelectedSubs && (
-                  <button
-                    onClick={() => {
-                      setSelectedSubs(prev => [...new Set([...prev, ...matchedSubIds])]);
-                      setAutoSelectedSubs(true);
-                    }}
-                    style={{
-                      background: `${C.accent}10`,
-                      border: `1px solid ${C.accent}30`,
-                      color: C.accent,
-                      borderRadius: 8,
-                      padding: "8px 14px",
-                      fontSize: 11,
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      width: "100%",
-                      marginBottom: 12,
-                      fontFamily: T.font.sans,
-                    }}
-                  >
-                    Auto-select {matchedSubIds.size} matching sub{matchedSubIds.size !== 1 ? "s" : ""} for selected scope
-                  </button>
-                )}
-
-                {filteredSubs.length === 0 ? (
-                  <p style={{ color: C.textDim, fontSize: 13, textAlign: "center", padding: 40 }}>
-                    {subs.length === 0 ? "No subcontractors yet. Try the NOVA Network tab to discover subs." : "No matches found."}
-                  </p>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    {/* Preferred subs section header */}
-                    {filteredSubs.some(s => s.preferred) && (
-                      <div
-                        style={{
-                          fontSize: 10,
-                          fontWeight: 700,
-                          color: "#FF9F0A",
-                          textTransform: "uppercase",
-                          letterSpacing: 0.5,
-                          padding: "6px 0 2px",
-                        }}
-                      >
-                        Your Preferred
-                      </div>
-                    )}
-                    {[...filteredSubs]
-                      .sort((a, b) => (b.preferred ? 1 : 0) - (a.preferred ? 1 : 0))
-                      .map((sub, idx, arr) => {
-                        const sel = selectedSubs.includes(sub.id);
-                        const isMatch = matchedSubIds.has(sub.id);
-                        const showDivider = idx > 0 && arr[idx - 1]?.preferred && !sub.preferred;
-                        return (
-                          <div key={sub.id}>
-                            {showDivider && (
-                              <div
-                                style={{
-                                  fontSize: 10,
-                                  fontWeight: 700,
-                                  color: C.textMuted,
-                                  textTransform: "uppercase",
-                                  letterSpacing: 0.5,
-                                  padding: "8px 0 2px",
-                                  borderTop: `1px solid ${C.border}`,
-                                  marginTop: 4,
-                                }}
-                              >
-                                All Subs
-                              </div>
-                            )}
-                            <div
-                              onClick={() => toggleSub(sub.id)}
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 10,
-                                padding: "10px 12px",
-                                borderRadius: 8,
-                                cursor: "pointer",
-                                background: sel ? `${C.accent}10` : "rgba(255,255,255,0.03)",
-                                border: `1px solid ${sel ? C.accent + "40" : isMatch ? C.green + "30" : "transparent"}`,
-                                transition: "all 150ms",
-                              }}
-                            >
-                              <div style={checkboxStyle(sel)}>{sel && <Ic d={I.check} size={10} color="#fff" />}</div>
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                  <span style={{ color: C.text, fontSize: 13, fontWeight: 500 }}>
-                                    {sub.company || "Unknown Company"}
-                                  </span>
-                                  {sub.preferred && (
-                                    <span style={{ fontSize: 8, fontWeight: 700, color: "#FF9F0A", background: "rgba(255,159,10,0.12)", padding: "1px 5px", borderRadius: 4 }}>
-                                      PREFERRED
-                                    </span>
-                                  )}
-                                  {isMatch && (
-                                    <span style={{ fontSize: 8, fontWeight: 700, color: C.green, background: `${C.green}15`, padding: "1px 5px", borderRadius: 4 }}>
-                                      MATCH
-                                    </span>
-                                  )}
-                                </div>
-                                <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2, flexWrap: "wrap" }}>
-                                  {(sub.trades || []).slice(0, 3).map(tk => (
-                                    <TradeBadge key={tk} tradeKey={tk} size="xs" />
-                                  ))}
-                                  {(sub.trades || []).length > 3 && (
-                                    <span style={{ fontSize: 9, color: C.textDim }}>+{(sub.trades || []).length - 3}</span>
-                                  )}
-                                  {sub.contact && <span style={{ color: C.textDim, fontSize: 10 }}> · {sub.contact}</span>}
-                                </div>
-                              </div>
-                              <button
-                                onClick={e => { e.stopPropagation(); toggleSubPreferred(sub.id); }}
-                                style={{ background: "none", border: "none", cursor: "pointer", padding: 4, fontSize: 16, color: sub.preferred ? "#FF9F0A" : C.textDim, transition: "color 150ms" }}
-                                title={sub.preferred ? "Remove from preferred" : "Mark as preferred"}
-                              >
-                                {sub.preferred ? "★" : "☆"}
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* NOVA Network Tab */}
-            {subTab === "network" && (
-              <>
-                {networkLoading && (
-                  <div style={{ textAlign: "center", padding: 40 }}>
-                    <div style={{ fontSize: 13, color: C.accent, fontWeight: 500 }}>Searching NOVA Network...</div>
-                    <div style={{ fontSize: 11, color: C.textDim, marginTop: 6 }}>Finding subs that match your scope</div>
-                  </div>
-                )}
-
-                {networkError && (
-                  <div style={{ textAlign: "center", padding: 40 }}>
-                    <div style={{ fontSize: 13, color: "#FF453A", fontWeight: 500 }}>{networkError}</div>
-                    <button
-                      onClick={() => { setNetworkFetched(false); fetchNetworkSubs(); }}
-                      style={{ marginTop: 8, background: "none", border: `1px solid ${C.border}`, color: C.accent, borderRadius: 6, padding: "5px 12px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: T.font.sans }}
-                    >
-                      Retry
-                    </button>
-                  </div>
-                )}
-
-                {!networkLoading && !networkError && networkSubs.length === 0 && networkFetched && (
-                  <div style={{ textAlign: "center", padding: 40 }}>
-                    <div style={{ fontSize: 13, color: C.textDim }}>No network subs found for your selected trades.</div>
-                    <div style={{ fontSize: 11, color: C.textDim, marginTop: 4 }}>
-                      As subs submit proposals across NOVATerra, they'll appear here ranked by reputation.
-                    </div>
-                  </div>
-                )}
-
-                {!networkLoading && !networkError && networkSubs.length > 0 && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: C.textMuted, textTransform: "uppercase", letterSpacing: 0.5, padding: "2px 0 6px", display: "flex", justifyContent: "space-between" }}>
-                      <span>{networkSubs.length} subs found — sorted by reputation</span>
-                      {selectedNetworkSubs.length > 0 && (
-                        <span style={{ color: C.accent }}>{selectedNetworkSubs.length} selected</span>
-                      )}
-                    </div>
-                    {networkSubs.map(ns => {
-                      const sel = selectedNetworkSubs.includes(ns.email);
-                      const proposals = ns.proposal_count || 0;
-                      const winRate = ns._winRate;
-                      const coverage = ns.avg_coverage_score;
-                      const responseHrs = ns.avg_response_hours;
-                      return (
-                        <div
-                          key={ns.email}
-                          onClick={() => toggleNetworkSub(ns.email)}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 10,
-                            padding: "10px 12px",
-                            borderRadius: 8,
-                            cursor: "pointer",
-                            background: sel ? `${C.accent}10` : "rgba(255,255,255,0.03)",
-                            border: `1px solid ${sel ? C.accent + "40" : "transparent"}`,
-                            transition: "all 150ms",
-                          }}
-                        >
-                          <div style={checkboxStyle(sel)}>{sel && <Ic d={I.check} size={10} color="#fff" />}</div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <span style={{ color: C.text, fontSize: 13, fontWeight: 500 }}>
-                                {ns.company || ns.email}
-                              </span>
-                              {ns.trade && (
-                                <span style={{ fontSize: 9, fontWeight: 600, color: C.textDim, background: "rgba(255,255,255,0.06)", padding: "1px 6px", borderRadius: 4 }}>
-                                  {ns.trade}
-                                </span>
-                              )}
-                            </div>
-                            {/* Reputation badges */}
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
-                              {proposals > 0 && (
-                                <span style={{ fontSize: 9, color: C.textDim, display: "flex", alignItems: "center", gap: 3 }}>
-                                  <span style={{ color: C.accent, fontWeight: 700 }}>{proposals}</span> proposal{proposals !== 1 ? "s" : ""}
-                                </span>
-                              )}
-                              {winRate != null && (
-                                <span style={{ fontSize: 9, color: C.textDim, display: "flex", alignItems: "center", gap: 3 }}>
-                                  <span style={{ color: winRate >= 50 ? "#30D158" : winRate >= 25 ? "#FF9F0A" : C.textDim, fontWeight: 700 }}>{winRate}%</span> win rate
-                                </span>
-                              )}
-                              {coverage != null && coverage > 0 && (
-                                <span style={{ fontSize: 9, color: C.textDim, display: "flex", alignItems: "center", gap: 3 }}>
-                                  <span style={{ color: coverage >= 80 ? "#30D158" : coverage >= 50 ? "#FF9F0A" : C.textDim, fontWeight: 700 }}>{Math.round(coverage)}%</span> coverage
-                                </span>
-                              )}
-                              {responseHrs != null && responseHrs < 48 && (
-                                <span style={{ fontSize: 9, color: C.textDim, display: "flex", alignItems: "center", gap: 3 }}>
-                                  <span style={{ color: responseHrs <= 24 ? "#30D158" : "#FF9F0A", fontWeight: 700 }}>
-                                    {responseHrs < 1 ? "<1h" : responseHrs < 24 ? `${Math.round(responseHrs)}h` : `${Math.round(responseHrs / 24)}d`}
-                                  </span> avg response
-                                </span>
-                              )}
-                              {ns.contact && <span style={{ color: C.textDim, fontSize: 9 }}> · {ns.contact}</span>}
-                            </div>
-                          </div>
-                          {/* Add to contacts button */}
-                          <button
-                            onClick={e => { e.stopPropagation(); addNetworkSubToContacts(ns); }}
-                            style={{
-                              background: "none",
-                              border: `1px solid ${C.border}`,
-                              color: C.textDim,
-                              borderRadius: 6,
-                              padding: "3px 8px",
-                              fontSize: 9,
-                              fontWeight: 600,
-                              cursor: "pointer",
-                              whiteSpace: "nowrap",
-                              fontFamily: T.font.sans,
-                              transition: "all 150ms",
-                            }}
-                            onMouseEnter={e => { e.currentTarget.style.borderColor = C.accent; e.currentTarget.style.color = C.accent; }}
-                            onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textDim; }}
-                            title="Add to your contacts"
-                          >
-                            + Contacts
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        )}
-
-        {/* Step 4: Details */}
-        {step === 3 && (
-          <div>
-            <h3 style={{ color: C.text, fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Package Details</h3>
-            <p style={{ color: C.textMuted, fontSize: 13, margin: "0 0 16px" }}>
-              Set the name, due date, and optional cover message.
-            </p>
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ color: C.textMuted, fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>
-                Package Name *
-              </label>
-              <input
-                value={packageName}
-                onChange={e => setPackageName(e.target.value)}
-                placeholder="e.g., RFP - MEP Bid Package"
-                style={inputStyle}
-              />
-            </div>
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ color: C.textMuted, fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>
-                Due Date
-              </label>
-              <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} style={inputStyle} />
-            </div>
-            <div>
-              <label style={{ color: C.textMuted, fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>
-                Cover Message (optional)
-              </label>
-              <textarea
-                value={coverMessage}
-                onChange={e => setCoverMessage(e.target.value)}
-                placeholder="Add any special instructions or notes for the subs..."
-                rows={4}
-                style={{ ...inputStyle, resize: "vertical" }}
-              />
-            </div>
-
-            {/* Auto-generated scope sheet preview */}
-            {selectedItems.length > 0 &&
-              (() => {
-                const scopeSheet = generateScopeSheet(
-                  items.filter(i => selectedItems.includes(i.id)),
-                  CSI,
-                );
-                return scopeSheet.divisions.length > 0 ? (
-                  <div style={{ marginTop: 16 }}>
-                    <label
-                      style={{ color: C.textMuted, fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6 }}
-                    >
-                      Scope Summary (auto-generated, included in invite)
-                    </label>
-                    <div
-                      style={{
-                        maxHeight: 180,
-                        overflowY: "auto",
-                        padding: "12px 14px",
-                        borderRadius: 10,
-                        background: "rgba(255,255,255,0.03)",
-                        border: `1px solid ${C.border}`,
-                        fontSize: 12,
-                        color: C.textMuted,
-                        whiteSpace: "pre-wrap",
-                        lineHeight: 1.6,
-                      }}
-                    >
-                      {scopeSheet.plainText}
-                    </div>
-                  </div>
-                ) : null;
-              })()}
-          </div>
-        )}
-
-        {/* Step 5: Review */}
-        {step === 4 && (
-          <div>
-            <h3 style={{ color: C.text, fontSize: 16, fontWeight: 600, margin: "0 0 16px" }}>Review & Send</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <ReviewRow label="Package Name" value={packageName} />
-              <ReviewRow
-                label="Due Date"
-                value={
-                  dueDate
-                    ? new Date(dueDate + "T12:00:00").toLocaleDateString("en-US", {
-                        weekday: "short",
-                        month: "long",
-                        day: "numeric",
-                        year: "numeric",
-                      })
-                    : "None"
-                }
-              />
-              <ReviewRow label="Scope Items" value={`${selectedItems.length} items selected`} />
-              <ReviewRow label="Drawings" value={`${selectedDrawings.length} drawings included`} />
-              <ReviewRow
-                label="Subcontractors"
-                value={[
-                  ...subs.filter(s => selectedSubs.includes(s.id)).map(s => s.company || s.email),
-                  ...networkSubs.filter(s => selectedNetworkSubs.includes(s.email)).map(s => (s.company || s.email) + " (Network)"),
-                ].join(", ")}
-              />
-              {coverMessage && <ReviewRow label="Cover Message" value={coverMessage} />}
-            </div>
-
-            {/* Pre-Send Scope Warnings (static + historical) */}
-            {(() => {
-              const selectedEstItems = items.filter(i => selectedItems.includes(i.id));
-              const allProposals = useBidPackagesStore.getState().proposals;
-              const warnings = enhancedPreSendAnalysis(selectedEstItems, project?.jobType, allProposals);
-              if (warnings.length === 0) return null;
-              const historicalCount = warnings.filter(w => w.source === "historical").length;
-              return (
-                <div
-                  style={{
-                    marginTop: 16,
-                    padding: "14px 16px",
-                    borderRadius: 10,
-                    background: "rgba(255,159,10,0.06)",
-                    border: "1px solid rgba(255,159,10,0.2)",
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-                    <Ic d={I.warn} size={14} color="#FF9F0A" />
-                    <span style={{ fontSize: 12, fontWeight: 700, color: "#FF9F0A" }}>
-                      NOVA flagged {warnings.length} division{warnings.length !== 1 ? "s" : ""} for{" "}
-                      {project?.jobType || "commercial"} projects
-                    </span>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    {warnings.map((w, i) => (
-                      <div
-                        key={i}
-                        style={{
-                          display: "flex",
-                          alignItems: "flex-start",
-                          gap: 8,
-                          fontSize: 12,
-                          color: C.textMuted,
-                          lineHeight: 1.5,
-                        }}
-                      >
-                        <span
-                          style={{
-                            color: w.riskLevel === "high" ? "#FF453A" : "#FF9F0A",
-                            fontWeight: 700,
-                            flexShrink: 0,
-                            fontSize: 10,
-                            marginTop: 2,
-                          }}
-                        >
-                          {w.riskLevel === "high" ? "HIGH" : "MED"}
-                        </span>
-                        <span>
-                          <strong style={{ color: C.text }}>
-                            {w.division} {w.divisionName}
-                          </strong>{" "}
-                          — {w.warning}
-                          {w.source === "historical" && (
-                            <span
-                              style={{
-                                marginLeft: 6,
-                                padding: "1px 6px",
-                                borderRadius: 4,
-                                background: "rgba(255,214,10,0.12)",
-                                color: "#FFD60A",
-                                fontSize: 10,
-                                fontWeight: 700,
-                              }}
-                            >
-                              FROM YOUR BID HISTORY
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                  {historicalCount > 0 && (
-                    <div style={{ marginTop: 8, fontSize: 11, color: C.textDim }}>
-                      {historicalCount} warning{historicalCount !== 1 ? "s" : ""} based on patterns in your past bid
-                      data
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
 
             {/* Save as Template */}
             <button
@@ -1494,15 +708,17 @@ export default function CreateBidPackageModal({ onClose }) {
             fontSize: 13,
             fontWeight: 600,
             cursor: "pointer",
+            fontFamily: T.font.sans,
           }}
         >
           {step === 0 ? "Cancel" : "Back"}
         </button>
 
         <div style={{ display: "flex", gap: 8 }}>
-          {step === 1 && selectedDrawings.length === 0 && (
+          {step === 2 && selectedDrawings.length === 0 && (
             <button
-              onClick={() => setStep(step + 1)}
+              onClick={handleCreate}
+              disabled={creating}
               style={{
                 background: "none",
                 border: "none",
@@ -1510,29 +726,15 @@ export default function CreateBidPackageModal({ onClose }) {
                 fontSize: 13,
                 cursor: "pointer",
                 fontWeight: 500,
+                fontFamily: T.font.sans,
               }}
             >
-              Skip
+              Skip & Create
             </button>
           )}
           <button
-            onClick={
-              step === 4
-                ? handleSend
-                : () => {
-                    const next = step + 1;
-                    // Auto-select subs by trade match when entering step 3
-                    if (next === 2 && !autoSelectedSubs && selectedTrades.size > 0) {
-                      const matched = subs.filter(s => (s.trades || []).some(tk => selectedTrades.has(tk)));
-                      if (matched.length > 0) {
-                        setSelectedSubs(prev => [...new Set([...prev, ...matched.map(s => s.id)])]);
-                      }
-                      setAutoSelectedSubs(true);
-                    }
-                    setStep(next);
-                  }
-            }
-            disabled={!canNext() || sending}
+            onClick={step === 2 ? handleCreate : () => setStep(step + 1)}
+            disabled={!canNext() || creating}
             style={{
               background: canNext() ? `linear-gradient(135deg, ${C.accent}, #BF5AF2)` : C.border,
               color: canNext() ? "#fff" : C.textDim,
@@ -1542,31 +744,14 @@ export default function CreateBidPackageModal({ onClose }) {
               fontSize: 13,
               fontWeight: 600,
               cursor: canNext() ? "pointer" : "not-allowed",
-              opacity: sending ? 0.6 : 1,
+              opacity: creating ? 0.6 : 1,
+              fontFamily: T.font.sans,
             }}
           >
-            {sending ? "Sending..." : step === 4 ? "Send Invitations" : "Next"}
+            {creating ? "Creating..." : step === 2 ? "Create Package" : "Next"}
           </button>
         </div>
       </div>
     </Modal>
-  );
-}
-
-function ReviewRow({ label, value }) {
-  const C = useTheme();
-  return (
-    <div
-      style={{
-        display: "flex",
-        gap: 12,
-        padding: "8px 12px",
-        borderRadius: 8,
-        background: "rgba(255,255,255,0.03)",
-      }}
-    >
-      <div style={{ color: C.textMuted, fontSize: 12, fontWeight: 600, minWidth: 120 }}>{label}</div>
-      <div style={{ color: C.text, fontSize: 13, flex: 1, lineHeight: 1.5 }}>{value}</div>
-    </div>
   );
 }
