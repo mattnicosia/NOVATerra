@@ -798,6 +798,33 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
       }
     }
 
+    // ── Phase 4: Scope Narratives ──────────────────────────────────
+    checkAbort();
+    setScanProgress({ phase: "narratives", current: 0, total: 1, message: "Generating scope narratives..." });
+    useNovaStore.getState().updateProgress(92, "Generating scope narratives...");
+
+    try {
+      const { generateScopeNarratives } = await import("./scopeNarrativeGenerator");
+      const narrativeProject = useProjectStore.getState().project;
+      const hasRenderings = useDrawingsStore.getState().drawings.some(d => d.isRendering);
+
+      const narratives = await generateScopeNarratives(
+        { schedules: validSchedules, rom: augmentedROM, lineItems: scheduleLineItems },
+        narrativeProject,
+        {
+          isRendering: hasRenderings,
+          onProgress: (tk, idx, total) => {
+            setScanProgress({ phase: "narratives", current: idx, total, message: `Scope: ${tk}...` });
+          },
+        },
+      );
+
+      useScanStore.getState().setScopeNarratives(narratives);
+      console.log(`[Scan] Phase 4: Generated ${narratives.length} scope narratives`);
+    } catch (err) {
+      console.warn("[Scan] Phase 4 scope narratives failed (non-blocking):", err.message);
+    }
+
     const results = {
       schedules: validSchedules.map(s => ({
         type: s.type,

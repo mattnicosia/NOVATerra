@@ -8,6 +8,7 @@ import { useDrawingsStore } from "@/stores/drawingsStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useUiStore } from "@/stores/uiStore";
+import { useScanStore } from "@/stores/scanStore";
 import { fireAutoResponse } from "@/utils/autoResponseEngine";
 import { generateBidPackageProposals, generateCoverMessages } from "@/utils/bidPackageAutoGenerator";
 import BidPackagesPanel from "@/components/estimate/BidPackagesPanel";
@@ -53,6 +54,8 @@ export default function BidPackagesPage() {
   const [showAutoReview, setShowAutoReview] = useState(false);
   const [autoProposals, setAutoProposals] = useState(null);
   const [autoGenerating, setAutoGenerating] = useState(false);
+  const [novaAnalyzing, setNovaAnalyzing] = useState(false);
+  const [analyzeHover, setAnalyzeHover] = useState(false);
 
   const handleAutoGenerate = async () => {
     if (autoGenerating) return;
@@ -77,7 +80,19 @@ export default function BidPackagesPage() {
         showToast(`${unassignedCount} item${unassignedCount > 1 ? "s" : ""} could not be assigned to a trade`, "info");
       }
       const messages = await generateCoverMessages(proposals, project || {});
-      const enriched = proposals.map((p, i) => ({ ...p, coverMessage: messages[i] || "" }));
+
+      // Merge scope narratives into cover messages
+      const scopeNarratives = useScanStore.getState().scopeNarratives || [];
+      const enriched = proposals.map((p, i) => {
+        const narrative = scopeNarratives.find(n => n.tradeKey === p.tradeKey);
+        let coverMessage = messages[i] || "";
+        if (narrative?.narrative) {
+          coverMessage = coverMessage
+            ? `${coverMessage}\n\n--- Scope of Work ---\n\n${narrative.narrative}`
+            : narrative.narrative;
+        }
+        return { ...p, coverMessage };
+      });
       setAutoProposals(enriched);
       setShowAutoReview(true);
     } catch (err) {
@@ -85,6 +100,77 @@ export default function BidPackagesPage() {
       showToast("Auto-generation failed — try again", "error");
     } finally {
       setAutoGenerating(false);
+    }
+  };
+
+  // ── NOVA Analyze: full scan → narratives → bid packages ──
+  const handleNovaAnalyze = async () => {
+    if (novaAnalyzing || autoGenerating) return;
+    const scanResults = useScanStore.getState().scanResults;
+    if (!scanResults) {
+      showToast("Upload drawings in Plan Room first, then run NOVA Analyze", "warn");
+      return;
+    }
+
+    setNovaAnalyzing(true);
+    try {
+      // Step 1: Generate scope narratives if not already done
+      let narratives = useScanStore.getState().scopeNarratives || [];
+      if (narratives.length === 0) {
+        showToast("Generating scope narratives...", "info");
+        const { generateScopeNarratives } = await import("@/utils/scopeNarrativeGenerator");
+        const hasRenderings = (drawings || []).some(d => d.isRendering);
+        narratives = await generateScopeNarratives(scanResults, project || {}, {
+          isRendering: hasRenderings,
+        });
+        useScanStore.getState().setScopeNarratives(narratives);
+      }
+
+      // Step 2: Generate bid packages (same as handleAutoGenerate)
+      const items = estimateItems || [];
+      if (items.length === 0) {
+        showToast("No scope items found — run scan first to generate scope", "warn");
+        setNovaAnalyzing(false);
+        return;
+      }
+
+      const { proposals, unassignedCount } = generateBidPackageProposals({
+        items,
+        drawings: drawings || [],
+        subs: subs || [],
+        project: project || {},
+      });
+
+      if (proposals.length === 0) {
+        showToast("No trade-assigned items found — check CSI codes", "warn");
+        setNovaAnalyzing(false);
+        return;
+      }
+      if (unassignedCount > 0) {
+        showToast(`${unassignedCount} item${unassignedCount > 1 ? "s" : ""} could not be assigned to a trade`, "info");
+      }
+
+      // Step 3: Generate cover messages + merge narratives
+      const messages = await generateCoverMessages(proposals, project || {});
+      const scopeNarratives = useScanStore.getState().scopeNarratives || [];
+      const enriched = proposals.map((p, i) => {
+        const narrative = scopeNarratives.find(n => n.tradeKey === p.tradeKey);
+        let coverMessage = messages[i] || "";
+        if (narrative?.narrative) {
+          coverMessage = coverMessage
+            ? `${coverMessage}\n\n--- Scope of Work ---\n\n${narrative.narrative}`
+            : narrative.narrative;
+        }
+        return { ...p, coverMessage };
+      });
+
+      setAutoProposals(enriched);
+      setShowAutoReview(true);
+    } catch (err) {
+      console.error("[NOVA Analyze] Failed:", err);
+      showToast("NOVA Analyze failed — try again", "error");
+    } finally {
+      setNovaAnalyzing(false);
     }
   };
 
@@ -197,9 +283,7 @@ export default function BidPackagesPage() {
   const activePackages = bidPackages.filter(p => p.status !== "draft" && p.status !== "closed");
 
   // Coverage health color
-  const healthColor =
-    coverage.responseRate >= 70 ? "#30D158" :
-    coverage.responseRate >= 40 ? "#FF9F0A" : "#FF453A";
+  const healthColor = coverage.responseRate >= 70 ? "#30D158" : coverage.responseRate >= 40 ? "#FF9F0A" : "#FF453A";
 
   return (
     <div
@@ -238,6 +322,42 @@ export default function BidPackagesPage() {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {/* NOVA Analyze — full pipeline button */}
+          <button
+            onClick={handleNovaAnalyze}
+            disabled={novaAnalyzing || autoGenerating}
+            onMouseEnter={() => setAnalyzeHover(true)}
+            onMouseLeave={() => setAnalyzeHover(false)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              background: novaAnalyzing
+                ? "rgba(255,255,255,0.05)"
+                : analyzeHover
+                  ? `linear-gradient(135deg, ${C.accent}20, #BF5AF220)`
+                  : "rgba(255,255,255,0.03)",
+              border: `1px solid ${analyzeHover && !novaAnalyzing ? C.accent + "60" : C.border}`,
+              color: novaAnalyzing ? C.textDim : analyzeHover ? C.accent : C.textMuted,
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: novaAnalyzing ? "default" : "pointer",
+              opacity: novaAnalyzing ? 0.6 : 1,
+              padding: "7px 14px",
+              borderRadius: T.radius.sm,
+              transition: T.transition.fast,
+              fontFamily: T.font.sans,
+            }}
+          >
+            <Ic
+              d={I.ai}
+              size={14}
+              color={novaAnalyzing ? C.textDim : analyzeHover ? C.accent : C.textMuted}
+              style={novaAnalyzing ? { animation: "spin 1s linear infinite" } : {}}
+            />
+            {novaAnalyzing ? "Analyzing..." : "NOVA Analyze"}
+          </button>
+
           {/* Auto-Generate — demoted text link */}
           <button
             onClick={handleAutoGenerate}
@@ -327,30 +447,66 @@ export default function BidPackagesPage() {
             style={{
               textAlign: "center",
               marginTop: -12,
-              fontSize: 12,
-              color: C.textMuted,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 10,
               animation: "staggerFadeUp 500ms cubic-bezier(0.16,1,0.3,1) 500ms both",
             }}
           >
-            or{" "}
+            {/* NOVA Analyze — prominent CTA for full pipeline */}
             <button
-              onClick={handleAutoGenerate}
-              disabled={autoGenerating}
+              onClick={handleNovaAnalyze}
+              disabled={novaAnalyzing || autoGenerating}
               style={{
-                background: "none",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                background: novaAnalyzing
+                  ? "rgba(255,255,255,0.05)"
+                  : `linear-gradient(135deg, ${C.accent}, #BF5AF2)`,
+                color: novaAnalyzing ? C.textDim : "#fff",
                 border: "none",
-                color: C.accent,
-                fontSize: 12,
-                fontWeight: 500,
-                cursor: autoGenerating ? "default" : "pointer",
-                padding: 0,
+                borderRadius: T.radius.sm,
+                padding: "10px 22px",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: novaAnalyzing ? "default" : "pointer",
                 fontFamily: T.font.sans,
-                textDecoration: "underline",
-                textUnderlineOffset: 2,
+                boxShadow: novaAnalyzing ? "none" : `0 2px 16px ${C.accent}40`,
+                transition: T.transition.fast,
               }}
             >
-              {autoGenerating ? "generating..." : "auto-generate from your scope"}
+              <Ic
+                d={I.ai}
+                size={15}
+                color={novaAnalyzing ? C.textDim : "#fff"}
+                style={novaAnalyzing ? { animation: "spin 1s linear infinite" } : {}}
+              />
+              {novaAnalyzing ? "Analyzing..." : "NOVA Analyze & Generate RFPs"}
             </button>
+
+            <span style={{ fontSize: 12, color: C.textMuted }}>
+              or{" "}
+              <button
+                onClick={handleAutoGenerate}
+                disabled={autoGenerating}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: C.accent,
+                  fontSize: 12,
+                  fontWeight: 500,
+                  cursor: autoGenerating ? "default" : "pointer",
+                  padding: 0,
+                  fontFamily: T.font.sans,
+                  textDecoration: "underline",
+                  textUnderlineOffset: 2,
+                }}
+              >
+                {autoGenerating ? "generating..." : "auto-generate from your scope"}
+              </button>
+            </span>
           </div>
         </>
       )}
@@ -472,7 +628,9 @@ export default function BidPackagesPage() {
             }
             return trades;
           })()}
-          existingEmails={(allInvitations[invitePkg.id] || []).map(inv => (inv.subEmail || inv.sub_email || "").toLowerCase()).filter(Boolean)}
+          existingEmails={(allInvitations[invitePkg.id] || [])
+            .map(inv => (inv.subEmail || inv.sub_email || "").toLowerCase())
+            .filter(Boolean)}
           onClose={() => setInvitePkg(null)}
         />
       )}
