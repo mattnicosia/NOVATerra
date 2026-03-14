@@ -15,6 +15,7 @@ import { bt, inp, card as cardStyle } from "@/utils/styles";
 import { TRADE_MAP, TRADE_COLORS } from "@/constants/tradeGroupings";
 import { CSI } from "@/constants/csi";
 import { generateScopeSheet } from "@/utils/scopeSheetGenerator";
+import { callAnthropic } from "@/utils/ai";
 
 /* ────────────────────────────────────────────────────────
    AutoBidPackageReview — Card-based review/approval UI
@@ -55,6 +56,39 @@ export default function AutoBidPackageReview({ proposals, onClose }) {
   const [progress, setProgress] = useState(null);
   const [subSearchId, setSubSearchId] = useState(null); // which package is browsing all subs
   const [subSearchQuery, setSubSearchQuery] = useState("");
+  const [generatingCoverId, setGeneratingCoverId] = useState(null);
+
+  const handleNovaWriteCover = async (pkg) => {
+    setGeneratingCoverId(pkg.id);
+    try {
+      const result = await callAnthropic({
+        max_tokens: 500,
+        system: `You are NOVA, an AI assistant for a general contractor writing RFP cover messages to subcontractors. Write a brief, professional cover message.
+
+The message should:
+- Be 3-5 sentences
+- Reference the project name and specific trade/scope
+- Mention due date if provided
+- Be direct and professional (GC-to-sub tone)
+- Do NOT include greetings or sign-offs`,
+        messages: [{
+          role: "user",
+          content: `Project: ${project.name || "Untitled"}
+Trade Package: ${pkg.name}
+Due Date: ${pkg.dueDate || project.bidDue || "TBD"}
+Items: ${pkg.items.slice(0, 8).map(i => i.description || i.code).join(", ")}
+
+Write a professional RFP cover message.`
+        }],
+        temperature: 0.4,
+      });
+      const text = result?.content?.[0]?.text || "";
+      if (text) updatePkg(pkg.id, { coverMessage: text.trim() });
+    } catch (err) {
+      console.error("[NOVA Write] Failed:", err);
+    }
+    setGeneratingCoverId(null);
+  };
 
   // Derived
   const enabledPkgs = useMemo(() => packages.filter(p => p.enabled), [packages]);
@@ -135,32 +169,7 @@ export default function AutoBidPackageReview({ proposals, onClose }) {
             trade: (s.trades || []).map(tk => TRADE_MAP[tk]?.label || tk).join(", ") || "",
           }));
 
-        // Create local package
-        const pkgId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-        addBidPackage({
-          id: pkgId,
-          estimateId,
-          name: pkg.name,
-          scopeItems,
-          scopeSheet: scopeSheet.plainText,
-          drawingIds: pkg.drawingIds,
-          coverMessage: pkg.coverMessage,
-          dueDate: pkg.dueDate || null,
-        });
-
-        // Create local invitations
-        const localInvites = subsToInvite.map(sub => ({
-          id: Math.random().toString(36).slice(2, 11),
-          subCompany: sub.company,
-          subContact: sub.contact,
-          subEmail: sub.email,
-          subPhone: sub.phone,
-          subTrade: sub.trade,
-          status: "pending",
-        }));
-        setPackageInvitations(pkgId, localInvites);
-
-        // Create on server
+        // Create on server FIRST to get the UUID
         const resp = await fetch("/api/bid-package", {
           method: "POST",
           headers: {
@@ -179,9 +188,38 @@ export default function AutoBidPackageReview({ proposals, onClose }) {
           }),
         });
 
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        if (!resp.ok) {
+          const errData = await resp.json().catch(() => ({}));
+          throw new Error(errData.error || `HTTP ${resp.status}`);
+        }
 
         const { package: serverPkg, invitations: serverInvites } = await resp.json();
+        const pkgId = serverPkg.id;
+
+        // Add to local store with server-generated UUID
+        addBidPackage({
+          id: pkgId,
+          estimateId,
+          name: pkg.name,
+          scopeItems,
+          scopeSheet: scopeSheet.plainText,
+          drawingIds: pkg.drawingIds,
+          coverMessage: pkg.coverMessage,
+          dueDate: pkg.dueDate || null,
+        });
+
+        // Store server invitations locally
+        const localInvites = serverInvites.map(inv => ({
+          id: inv.id,
+          subCompany: inv.sub_company,
+          subContact: inv.sub_contact,
+          subEmail: inv.sub_email,
+          subPhone: inv.sub_phone,
+          subTrade: inv.sub_trade,
+          status: inv.status,
+          sentAt: inv.sent_at,
+        }));
+        setPackageInvitations(pkgId, localInvites);
 
         // Send invite emails
         await Promise.allSettled(
@@ -194,7 +232,7 @@ export default function AutoBidPackageReview({ proposals, onClose }) {
               },
               body: JSON.stringify({
                 invitationId: inv.id,
-                packageId: serverPkg.id,
+                packageId: pkgId,
               }),
             }),
           ),
@@ -715,19 +753,36 @@ export default function AutoBidPackageReview({ proposals, onClose }) {
                         >
                           Cover Message
                         </div>
-                        <button
-                          onClick={() => setCoverEditId(coverEditId === pkg.id ? null : pkg.id)}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            cursor: "pointer",
-                            fontSize: T.fontSize.xs,
-                            color: C.accent,
-                            fontWeight: T.fontWeight.medium,
-                          }}
-                        >
-                          {coverEditId === pkg.id ? "Done" : "Edit"}
-                        </button>
+                        <div style={{ display: "flex", gap: T.space[2] }}>
+                          <button
+                            onClick={() => handleNovaWriteCover(pkg)}
+                            disabled={generatingCoverId === pkg.id}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              cursor: generatingCoverId === pkg.id ? "not-allowed" : "pointer",
+                              fontSize: T.fontSize.xs,
+                              color: C.accent,
+                              fontWeight: T.fontWeight.medium,
+                              opacity: generatingCoverId === pkg.id ? 0.5 : 1,
+                            }}
+                          >
+                            {generatingCoverId === pkg.id ? "Generating..." : "\u2726 NOVA Write"}
+                          </button>
+                          <button
+                            onClick={() => setCoverEditId(coverEditId === pkg.id ? null : pkg.id)}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              fontSize: T.fontSize.xs,
+                              color: C.accent,
+                              fontWeight: T.fontWeight.medium,
+                            }}
+                          >
+                            {coverEditId === pkg.id ? "Done" : "Edit"}
+                          </button>
+                        </div>
                       </div>
                       {coverEditId === pkg.id ? (
                         <textarea

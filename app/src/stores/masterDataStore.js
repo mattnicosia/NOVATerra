@@ -95,7 +95,7 @@ export const useMasterDataStore = create((set, get) => ({
       "Parking Structure",
     ],
     bidDeliveryTypes: ["Email", "Sealed & Delivered", "Both", "Online Portal"],
-    bidTypes: ["Hard Bid", "Negotiated", "Design-Build", "CM at Risk", "GMP"],
+    bidTypes: ["Hard Bid", "Negotiated", "Design-Build", "CM at Risk", "GMP", "Budget"],
     companyInfo: {
       name: "",
       address: "",

@@ -167,7 +167,7 @@ export function generateBidPackageProposals({ items, drawings, subs, project }) 
       id: uid(),
       tradeKey,
       mergedTradeKeys: mergedKeys,
-      name: buildPackageName(tradeKey, mergedKeys),
+      name: `${project?.name || "Project"} — ${buildPackageName(tradeKey, mergedKeys)}`,
       items: tradeItems,
       itemIds: tradeItems.map(i => i.id),
       drawingIds: matchedDrawings.map(d => d.id),

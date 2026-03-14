@@ -24,7 +24,7 @@ export const pdfRawCache = new Map();
 
 // ─── Infer drawing view type from sheet title ──────────────────────────────
 export function inferViewType(title) {
-  const t = (title || "");
+  const t = title || "";
   if (/\belevation\b/i.test(t)) return "elevation";
   if (/\bsection\b/i.test(t)) return "section";
   if (/\bdetail\b/i.test(t)) return "detail";
@@ -66,7 +66,7 @@ function compressImportImage(dataUrl, maxDim = 4096, quality = 0.85) {
 // PDF pages are rendered to JPEG at import time (scale 1.5 = ~108 DPI).
 // This eliminates the N×M problem where raw PDF base64 was duplicated per page,
 // reducing a 50MB PDF × 20 pages from ~1.34GB of JSON to ~8MB of JPEGs.
-export async function extractDrawingPages(file) {
+export async function extractDrawingPages(file, options = {}) {
   const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
 
   if (!isPdf) {
@@ -92,6 +92,9 @@ export async function extractDrawingPages(file) {
       uploadDate: nowStr(),
       pdfPage: null,
       totalPdfPages: null,
+      isRendering: !!options.isRendering,
+      renderingScale: "",
+      renderingNotes: "",
     };
     const cur = useDrawingsStore.getState().drawings;
     useDrawingsStore.getState().setDrawings([...cur, d]);
@@ -131,6 +134,9 @@ export async function extractDrawingPages(file) {
         uploadDate: nowStr(),
         pdfPage: p,
         totalPdfPages: numPages,
+        isRendering: !!options.isRendering,
+        renderingScale: "",
+        renderingNotes: "",
       };
 
       // Progressive: add each page to store immediately so UI shows pages appearing
@@ -968,7 +974,7 @@ export async function handleFileUpload(files, options = {}) {
   const drawingDocIds = [];
   for (const { file, docId } of classified.drawing) {
     try {
-      const drawingIds = await extractDrawingPages(file);
+      const drawingIds = await extractDrawingPages(file, { isRendering: options.isRendering });
       useDocumentsStore.getState().updateDocument(docId, {
         processingMessage: `${drawingIds.length} pages extracted — labeling...`,
         pageCount: drawingIds.length,

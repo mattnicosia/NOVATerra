@@ -82,6 +82,7 @@ export const DELIVERY_METHODS = [
   { key: "cost-plus", label: "Cost-Plus" },
   { key: "design-build", label: "Design-Build" },
   { key: "gmp", label: "GMP" },
+  { key: "budget", label: "Budget" },
 ];
 
 // ─── Lookup Helpers ───────────────────────────────────────────

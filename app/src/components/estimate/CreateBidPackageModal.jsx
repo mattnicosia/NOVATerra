@@ -10,12 +10,7 @@ import { useUiStore } from "@/stores/uiStore";
 import Modal from "@/components/shared/Modal";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
-import {
-  getTradeLabel,
-  getTradeSortOrder,
-  autoTradeFromCode,
-  TRADE_MAP,
-} from "@/constants/tradeGroupings";
+import { getTradeLabel, getTradeSortOrder, autoTradeFromCode, TRADE_MAP } from "@/constants/tradeGroupings";
 import { CSI } from "@/constants/csi";
 import { generateScopeSheet } from "@/utils/scopeSheetGenerator";
 import { callAnthropic } from "@/utils/ai";
@@ -52,6 +47,43 @@ export default function CreateBidPackageModal({ onClose }) {
   const [groupMode, setGroupMode] = useState("trade");
   const [showPresetPicker, setShowPresetPicker] = useState(false);
   const [aiInfilling, setAiInfilling] = useState(false);
+  const [generating, setGenerating] = useState(false);
+
+  const handleNovaWrite = async () => {
+    setGenerating(true);
+    try {
+      const result = await callAnthropic({
+        max_tokens: 500,
+        system: `You are NOVA, an AI assistant for a general contractor writing RFP cover messages to subcontractors. Write a brief, professional cover message for a bid package.
+
+The message should:
+- Be 3-5 sentences
+- Reference the project name and specific trade/scope
+- Mention due date if provided
+- Be direct and professional (GC-to-sub tone)
+- Include any relevant project context (SF, location, job type)
+- Do NOT include greetings or sign-offs — those are in the email template`,
+        messages: [{
+          role: "user",
+          content: `Project: ${project.name || "Untitled"}
+Package: ${packageName}
+Due Date: ${dueDate || project.bidDue || "TBD"}
+Job Type: ${project.jobType || "Commercial"}
+Location: ${project.address || "Not specified"}
+SF: ${project.projectSF || "Not specified"}
+Selected scope items: ${items.filter(i => selectedItems.includes(i.id)).slice(0, 10).map(i => i.description || i.code).join(", ")}
+
+Write a professional RFP cover message for this bid package.`
+        }],
+        temperature: 0.4,
+      });
+      const text = result?.content?.[0]?.text || "";
+      if (text) setCoverMessage(text.trim());
+    } catch (err) {
+      console.error("[NOVA Write] Failed:", err);
+    }
+    setGenerating(false);
+  };
 
   const handleLoadPreset = async preset => {
     setShowPresetPicker(false);
@@ -194,20 +226,7 @@ export default function CreateBidPackageModal({ onClose }) {
       }));
       const scopeSheet = generateScopeSheet(selectedEstItems, CSI);
 
-      // Create package in store (local-first)
-      const pkgId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-      addBidPackage({
-        id: pkgId,
-        estimateId,
-        name: packageName,
-        scopeItems,
-        scopeSheet: scopeSheet.plainText,
-        drawingIds: selectedDrawings,
-        coverMessage,
-        dueDate: dueDate || null,
-      });
-
-      // Create on server
+      // Create on server FIRST to get the UUID (bid_packages.id is UUID in Supabase)
       const token = useAuthStore.getState().session?.access_token;
       const resp = await fetch("/api/bid-package", {
         method: "POST",
@@ -232,19 +251,20 @@ export default function CreateBidPackageModal({ onClose }) {
         throw new Error(respData.error || "Failed to create bid package");
       }
 
-      // Sync the server-generated UUID back to the local store
-      // (local uses short random ID, server uses UUID — must match for invitations to work)
+      // Use the server-generated UUID as the local ID (must match for invitations to work)
       const serverPkg = respData.package;
-      if (serverPkg?.id && serverPkg.id !== pkgId) {
-        const store = useBidPackagesStore.getState();
-        store.setBidPackages(
-          store.bidPackages.map(p => (p.id === pkgId ? { ...p, id: serverPkg.id } : p)),
-        );
-        // Also update activeBidPackageId if it was set to the local ID
-        if (store.activeBidPackageId === pkgId) {
-          store.setActiveBidPackageId(serverPkg.id);
-        }
-      }
+      const pkgId = serverPkg?.id || Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+      addBidPackage({
+        id: pkgId,
+        estimateId,
+        name: packageName,
+        scopeItems,
+        scopeSheet: scopeSheet.plainText,
+        drawingIds: selectedDrawings,
+        coverMessage,
+        dueDate: dueDate || null,
+      });
 
       showToast("Package created — invite subs when ready", "success");
       onClose();
@@ -442,9 +462,28 @@ export default function CreateBidPackageModal({ onClose }) {
               <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} style={inputStyle} />
             </div>
             <div>
-              <label style={{ color: C.textMuted, fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>
-                Cover Message (optional)
-              </label>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                <label style={{ color: C.textMuted, fontSize: 12, fontWeight: 600 }}>
+                  Cover Message (optional)
+                </label>
+                <button
+                  onClick={handleNovaWrite}
+                  disabled={generating}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: generating ? "not-allowed" : "pointer",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: C.accent,
+                    fontFamily: T.font.sans,
+                    opacity: generating ? 0.5 : 1,
+                    padding: "2px 6px",
+                  }}
+                >
+                  {generating ? "Generating..." : "\u2726 NOVA Write"}
+                </button>
+              </div>
               <textarea
                 value={coverMessage}
                 onChange={e => setCoverMessage(e.target.value)}

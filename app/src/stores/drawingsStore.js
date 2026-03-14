@@ -48,7 +48,16 @@ export const useDrawingsStore = create((set, get) => ({
 
   addDrawing: drawing =>
     set(s => ({
-      drawings: [...s.drawings, { id: uid(), ...drawing }],
+      drawings: [
+        ...s.drawings,
+        {
+          id: uid(),
+          isRendering: false,
+          renderingScale: "",
+          renderingNotes: "",
+          ...drawing,
+        },
+      ],
     })),
 
   updateDrawing: (id, field, value) =>

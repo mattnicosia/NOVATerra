@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, lazy, Suspense } from "react";
+import React, { useState, useRef, useCallback, useEffect, lazy, Suspense } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useEstimatesStore } from "@/stores/estimatesStore";
@@ -178,6 +178,7 @@ export default function PlanRoomPage() {
   const [rescanning, setRescanning] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showOverlay, setShowOverlay] = useState(null); // { drawingA, drawingB }
+  const [uploadAsRendering, setUploadAsRendering] = useState(false);
   const fileInputRef = useRef(null);
   const isSetupMode = project.setupComplete === false;
   const hasProcessing = documents.some(d => d.processingStatus === "processing");
@@ -223,8 +224,11 @@ export default function PlanRoomPage() {
   const handleUpload = useCallback(
     async files => {
       setUploadExpanded(false);
+      const isRendering = uploadAsRendering;
+      if (isRendering) setUploadAsRendering(false); // reset after use
       await handleFileUpload(files, {
         showToast,
+        isRendering,
         onScanComplete: () => setShowScanModal(true),
         onBidInfoReady: () => {
           // Auto-advance to Project Info when bid info is extracted
@@ -233,7 +237,7 @@ export default function PlanRoomPage() {
         },
       });
     },
-    [showToast, navigate],
+    [showToast, navigate, uploadAsRendering],
   );
 
   // Rescan handler
@@ -553,6 +557,32 @@ export default function PlanRoomPage() {
               />
             </div>
           )}
+          {/* Rendering checkbox — below upload zone */}
+          {!isProcessing && (
+            <label
+              onClick={e => e.stopPropagation()}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                fontSize: 11,
+                color: uploadAsRendering ? "#f59e0b" : C.textDim,
+                cursor: "pointer",
+                padding: "6px 0",
+                marginBottom: 4,
+                justifyContent: "center",
+                transition: "color 0.15s",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={uploadAsRendering}
+                onChange={e => setUploadAsRendering(e.target.checked)}
+                style={{ accentColor: "#f59e0b", cursor: "pointer" }}
+              />
+              These are renderings / concept images (not construction documents)
+            </label>
+          )}
           {!isProcessing && (
             <button
               onClick={handleSkip}
@@ -779,6 +809,29 @@ export default function PlanRoomPage() {
                 e.target.value = "";
               }}
             />
+            {/* Rendering toggle for normal-mode upload */}
+            <label
+              onClick={e => e.stopPropagation()}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: 10,
+                color: uploadAsRendering ? "#f59e0b" : C.textDim,
+                cursor: "pointer",
+                marginTop: 8,
+                justifyContent: "center",
+                transition: "color 0.15s",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={uploadAsRendering}
+                onChange={e => setUploadAsRendering(e.target.checked)}
+                style={{ accentColor: "#f59e0b", cursor: "pointer" }}
+              />
+              Renderings / concept images (not construction docs)
+            </label>
           </div>
         ) : (
           <button
@@ -2024,8 +2077,8 @@ export default function PlanRoomPage() {
                       return (labels[prefix] || "Other") === activeDiscipline;
                     })
                     .map(d => (
+                  <React.Fragment key={d.id}>
                     <div
-                      key={d.id}
                       className="nav-item"
                       style={{
                         display: "flex",
@@ -2038,8 +2091,16 @@ export default function PlanRoomPage() {
                         transition: "background 0.15s",
                         cursor: "pointer",
                       }}
-                      onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}06`)}
-                      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.background = `${C.accent}06`;
+                        const rToggle = e.currentTarget.querySelector(".rendering-toggle");
+                        if (rToggle) rToggle.style.opacity = "1";
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.background = "transparent";
+                        const rToggle = e.currentTarget.querySelector(".rendering-toggle");
+                        if (rToggle && !d.isRendering) rToggle.style.opacity = "0";
+                      }}
                     >
                       {/* Thumbnail — click to preview */}
                       <div
@@ -2138,6 +2199,20 @@ export default function PlanRoomPage() {
                           e.target.style.background = "transparent";
                         }}
                       />
+                      {d.isRendering && (
+                        <span
+                          style={{
+                            fontSize: 8,
+                            fontWeight: 600,
+                            color: "#f59e0b",
+                            background: "#f59e0b18",
+                            padding: "1px 5px",
+                            borderRadius: 3,
+                          }}
+                        >
+                          RENDERING
+                        </span>
+                      )}
                       {outlines[d.id] && (
                         <span
                           style={{
@@ -2157,7 +2232,98 @@ export default function PlanRoomPage() {
                           {getScaleLabel(drawingScales[d.id])}
                         </span>
                       )}
+                      {/* Rendering toggle */}
+                      <span
+                        title={d.isRendering ? "Marked as rendering — click to unmark" : "Mark as rendering (not construction docs)"}
+                        onClick={e => {
+                          e.stopPropagation();
+                          const ds = useDrawingsStore.getState();
+                          ds.updateDrawing(d.id, "isRendering", !d.isRendering);
+                        }}
+                        style={{
+                          fontSize: 8,
+                          fontWeight: 500,
+                          color: d.isRendering ? "#f59e0b" : C.textDim,
+                          cursor: "pointer",
+                          opacity: d.isRendering ? 1 : 0,
+                          transition: "opacity 0.15s",
+                          padding: "1px 4px",
+                          borderRadius: 3,
+                          border: `1px solid ${d.isRendering ? "#f59e0b40" : "transparent"}`,
+                          flexShrink: 0,
+                        }}
+                        className="rendering-toggle"
+                      >
+                        R
+                      </span>
                     </div>
+                    {/* Rendering detail row */}
+                    {d.isRendering && (
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          paddingLeft: 56,
+                          paddingBottom: 3,
+                        }}
+                      >
+                        <input
+                          value={d.renderingScale || ""}
+                          placeholder="Scale (e.g. NTS)"
+                          onChange={e => useDrawingsStore.getState().updateDrawing(d.id, "renderingScale", e.target.value)}
+                          onClick={e => e.stopPropagation()}
+                          style={{
+                            fontSize: 9,
+                            color: "#f59e0b",
+                            background: "transparent",
+                            border: `1px solid transparent`,
+                            borderRadius: 3,
+                            padding: "1px 4px",
+                            outline: "none",
+                            width: 80,
+                            fontWeight: 500,
+                            transition: "border-color 0.15s, background 0.15s",
+                          }}
+                          onFocus={e => {
+                            e.target.style.borderColor = "#f59e0b40";
+                            e.target.style.background = "#f59e0b06";
+                          }}
+                          onBlur={e => {
+                            e.target.style.borderColor = "transparent";
+                            e.target.style.background = "transparent";
+                          }}
+                        />
+                        <input
+                          value={d.renderingNotes || ""}
+                          placeholder="Notes..."
+                          onChange={e => useDrawingsStore.getState().updateDrawing(d.id, "renderingNotes", e.target.value)}
+                          onClick={e => e.stopPropagation()}
+                          style={{
+                            fontSize: 9,
+                            color: C.textDim,
+                            background: "transparent",
+                            border: `1px solid transparent`,
+                            borderRadius: 3,
+                            padding: "1px 4px",
+                            outline: "none",
+                            flex: 1,
+                            minWidth: 0,
+                            fontStyle: "italic",
+                            transition: "border-color 0.15s, background 0.15s",
+                          }}
+                          onFocus={e => {
+                            e.target.style.borderColor = C.border;
+                            e.target.style.background = `${C.accent}06`;
+                          }}
+                          onBlur={e => {
+                            e.target.style.borderColor = "transparent";
+                            e.target.style.background = "transparent";
+                          }}
+                        />
+                      </div>
+                    )}
+                  </React.Fragment>
                   ))}
                 </div>
                 {!drawingsExpanded && drawings.length > 8 && (
@@ -2217,6 +2383,31 @@ export default function PlanRoomPage() {
                   >
                     <span style={{ fontSize: 13, fontWeight: 700, color: C.accent }}>{d.sheetNumber || "—"}</span>
                     <span style={{ fontSize: 12, color: "#fff", opacity: 0.8 }}>{d.sheetTitle || d.label || "Untitled"}</span>
+                    {d.isRendering && (
+                      <span
+                        style={{
+                          fontSize: 9,
+                          fontWeight: 600,
+                          color: "#f59e0b",
+                          background: "#f59e0b20",
+                          padding: "2px 8px",
+                          borderRadius: 4,
+                          marginLeft: 6,
+                        }}
+                      >
+                        RENDERING
+                      </span>
+                    )}
+                    {d.isRendering && d.renderingScale && (
+                      <span style={{ fontSize: 10, color: "#f59e0b", fontWeight: 500, marginLeft: 4, opacity: 0.8 }}>
+                        {d.renderingScale}
+                      </span>
+                    )}
+                    {d.isRendering && d.renderingNotes && (
+                      <span style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", fontStyle: "italic", marginLeft: 4 }}>
+                        {d.renderingNotes}
+                      </span>
+                    )}
                     {drawingScales[d.id] && (
                       <span style={{ fontSize: 10, color: C.green, fontWeight: 500, marginLeft: 8 }}>
                         {getScaleLabel(drawingScales[d.id])}
