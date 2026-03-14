@@ -92,6 +92,13 @@ const AdminUserDetail = lazy(() => import("@/pages/admin/AdminUserDetail"));
 const AdminEstimatesPage = lazy(() => import("@/pages/admin/AdminEstimatesPage"));
 const AdminEstimateDetail = lazy(() => import("@/pages/admin/AdminEstimateDetail"));
 const AdminEmbeddingsPage = lazy(() => import("@/pages/admin/AdminEmbeddingsPage"));
+// NOVA Core admin panels (Sprint 1)
+const AdminHealthPage = lazy(() => import("@/pages/admin/AdminHealthPage"));
+const AdminQueuePage = lazy(() => import("@/pages/admin/AdminQueuePage"));
+const AdminOrgsPage = lazy(() => import("@/pages/admin/AdminOrgsPage"));
+const AdminPipelinePage = lazy(() => import("@/pages/admin/AdminPipelinePage"));
+const AdminIntelligencePage = lazy(() => import("@/pages/admin/AdminIntelligencePage"));
+const AdminLogPage = lazy(() => import("@/pages/admin/AdminLogPage"));
 
 // Admin guard — checks if the current user's email is in the admin whitelist
 function AdminGuard({ children }) {
@@ -992,6 +999,13 @@ function AppContent() {
                   <Route path="estimates" element={<AdminEstimatesPage />} />
                   <Route path="estimates/:userId/:estimateId" element={<AdminEstimateDetail />} />
                   <Route path="embeddings" element={<AdminEmbeddingsPage />} />
+                  {/* NOVA Core panels (Sprint 1) */}
+                  <Route path="health" element={<AdminHealthPage />} />
+                  <Route path="queue" element={<AdminQueuePage />} />
+                  <Route path="orgs" element={<AdminOrgsPage />} />
+                  <Route path="pipeline" element={<AdminPipelinePage />} />
+                  <Route path="intelligence" element={<AdminIntelligencePage />} />
+                  <Route path="log" element={<AdminLogPage />} />
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
