@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { authenticateApiKey, checkRateLimit } from '../../src/lib/nova-core/apiAuth'
 import { logApiUsage } from '../../src/lib/nova-core/apiUsage'
+import { getTrialStatus } from '../../src/lib/nova-core/trialGuard'
 import { fetchBenchmark } from '../../src/lib/nova-core/benchmarkHelper'
 
 const CSI_CODE_REGEX = /^\d{2}\.\d{3}$/
@@ -13,6 +14,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const keyCtx = await authenticateApiKey(req.headers.authorization ?? null)
   if (!keyCtx) return res.status(401).json({ error: 'Invalid or missing API key' })
+
+  const trial = await getTrialStatus(keyCtx.orgId)
+  if (trial.expired) {
+    return res.status(402).json({
+      error: 'Trial expired',
+      message: 'Your 21-day free trial has ended. Subscribe to continue.',
+      upgrade_url: (process.env.VERCEL_URL || '') + '/admin/billing',
+    })
+  }
 
   const rateCheck = await checkRateLimit(keyCtx.apiKeyId, keyCtx.rateLimitRpm, keyCtx.rateLimitRpd)
   if (!rateCheck.allowed) {

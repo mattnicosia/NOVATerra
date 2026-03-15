@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
 import { authenticateApiKey, checkRateLimit } from '../../src/lib/nova-core/apiAuth'
 import { logApiUsage } from '../../src/lib/nova-core/apiUsage'
+import { getTrialStatus } from '../../src/lib/nova-core/trialGuard'
 
 const CSI_CODE_REGEX = /^\d{2}\.\d{3}$/
 const TREES_KG_CO2_PER_YEAR = 21.77
@@ -27,6 +28,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const keyCtx = await authenticateApiKey(req.headers.authorization ?? null)
   if (!keyCtx) return res.status(401).json({ error: 'Invalid or missing API key' })
+
+  const trial = await getTrialStatus(keyCtx.orgId)
+  if (trial.expired) {
+    return res.status(402).json({
+      error: 'Trial expired',
+      message: 'Your 21-day free trial has ended. Subscribe to continue.',
+      upgrade_url: (process.env.VERCEL_URL || '') + '/admin/billing',
+    })
+  }
 
   // Enterprise plan gate — before rate limit
   if (keyCtx.plan !== 'enterprise') {
