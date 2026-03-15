@@ -12,9 +12,11 @@ const NAV = [
   { to: "/admin/queue", label: "Queue", icon: I.inbox },
   { to: "/admin/pipeline", label: "Pipeline", icon: I.layers },
   { to: "/admin/log", label: "Log", icon: I.clock },
+  { to: "/admin/bid-leveling", label: "Bid Leveling", icon: I.bid },
+  { to: "/admin/orgs", label: "Orgs", icon: I.assembly },
+  { to: "/admin/parser", label: "Parser", icon: I.ai },
   { to: "/admin/intelligence", label: "Intelligence", icon: I.insights },
   { to: "/admin/carbon", label: "Carbon", icon: I.change },
-  { to: "/admin/orgs", label: "Orgs", icon: I.assembly },
 ];
 
 export default function AdminLayout() {
