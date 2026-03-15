@@ -19,6 +19,7 @@ const NAV = [
   { to: "/admin/parser", label: "Parser", icon: I.ai },
   { to: "/admin/intelligence", label: "Intelligence", icon: I.insights },
   { to: "/admin/carbon", label: "Carbon", icon: I.change },
+  { to: "/admin/analytics", label: "Analytics", icon: I.insights },
 ];
 
 export default function AdminLayout() {

@@ -109,6 +109,7 @@ const AdminBidLevelingPage = lazy(() => import("@/pages/admin/AdminBidLevelingPa
 const AdminUploadPage = lazy(() => import("@/pages/admin/AdminUploadPage"));
 const AdminParserPage = lazy(() => import("@/pages/admin/AdminParserPage"));
 const AdminBillingPage = lazy(() => import("@/pages/admin/AdminBillingPage"));
+const AdminAnalyticsPage = lazy(() => import("@/pages/admin/AdminAnalyticsPage"));
 
 // Admin guard — checks if the current user's email is in the admin whitelist
 function AdminGuard({ children }) {
@@ -1026,6 +1027,7 @@ function AppContent() {
                   <Route path="upload" element={<AdminUploadPage />} />
                   <Route path="parser" element={<AdminParserPage />} />
                   <Route path="billing" element={<AdminBillingPage />} />
+                  <Route path="analytics" element={<AdminAnalyticsPage />} />
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
