@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { checkAndFlagOverage } from './billingHelper'
 
 function getServiceClient() {
   const url = process.env.NOVA_CORE_SUPABASE_URL
@@ -40,6 +41,8 @@ export function logApiUsage(params: UsageLogParams): void {
         p_key_id: params.apiKeyId,
         p_org_id: params.orgId,
       })
+
+      checkAndFlagOverage(params.orgId, params.apiKeyId)
     } catch (err) {
       console.error('[NOVA API Usage] Logging failed (non-fatal):', err)
     }
