@@ -31,7 +31,12 @@ function getDeviceInfo() {
 }
 
 // ── Write active session token to DB (enforces single-session) ──
+// Track whether the write succeeded — if not, enforcement must be skipped
+let sessionWriteSucceeded = false;
+export function getSessionWriteSucceeded() { return sessionWriteSucceeded; }
+
 async function writeSessionToken(userId) {
+  sessionWriteSucceeded = false;
   if (!supabase || !userId) return;
   try {
     // Reuse existing token from this tab (survives page reload within same tab)
@@ -43,7 +48,7 @@ async function writeSessionToken(userId) {
       sessionStorage.setItem("bldg-session-token", token);
     }
     const { device, browser } = getDeviceInfo();
-    await supabase.from("user_active_session").upsert(
+    const { error } = await supabase.from("user_active_session").upsert(
       {
         user_id: userId,
         session_token: token,
@@ -53,6 +58,11 @@ async function writeSessionToken(userId) {
       },
       { onConflict: "user_id" },
     );
+    if (error) {
+      console.warn("[auth] writeSessionToken DB error:", error.message);
+      return;
+    }
+    sessionWriteSucceeded = true;
     console.log("[auth] Session token written:", token.slice(0, 8) + "...");
   } catch (err) {
     // Non-fatal — table may not exist yet (42P01)
