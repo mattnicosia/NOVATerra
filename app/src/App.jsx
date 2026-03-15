@@ -78,6 +78,8 @@ const SubSubmitPage = lazy(() => import("@/pages/SubSubmitPage"));
 const LivingProposalPage = lazy(() => import("@/pages/LivingProposalPage"));
 const SubDashboardPage = lazy(() => import("@/pages/SubDashboardPage"));
 const ResourcePage = lazy(() => import("@/pages/ResourcePage"));
+const PublicIntelligencePage = lazy(() => import("@/pages/PublicIntelligencePage"));
+const SignupPage = lazy(() => import("@/pages/SignupPage"));
 
 // BLDG Talent + ROM pages (lazy-loaded, role-gated — existing users never download these)
 const RomPage = lazy(() => import("@/pages/RomPage"));
@@ -1317,6 +1319,24 @@ export default function App() {
     return (
       <Suspense fallback={<AuthLoading />}>
         <LoginMockupPage />
+      </Suspense>
+    );
+  }
+
+  // Public intelligence dashboard — /intelligence (no auth, lead capture)
+  if (window.location.pathname === "/intelligence") {
+    return (
+      <Suspense fallback={<AuthLoading />}>
+        <PublicIntelligencePage />
+      </Suspense>
+    );
+  }
+
+  // Signup page — /signup (no auth, account creation)
+  if (window.location.pathname === "/signup") {
+    return (
+      <Suspense fallback={<AuthLoading />}>
+        <SignupPage />
       </Suspense>
     );
   }
