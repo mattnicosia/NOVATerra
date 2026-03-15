@@ -15,6 +15,7 @@ const NAV = [
   { to: "/admin/bid-leveling", label: "Bid Leveling", icon: I.bid },
   { to: "/admin/upload", label: "Upload", icon: I.upload },
   { to: "/admin/orgs", label: "Orgs", icon: I.assembly },
+  { to: "/admin/billing", label: "Billing", icon: I.dollar },
   { to: "/admin/parser", label: "Parser", icon: I.ai },
   { to: "/admin/intelligence", label: "Intelligence", icon: I.insights },
   { to: "/admin/carbon", label: "Carbon", icon: I.change },
