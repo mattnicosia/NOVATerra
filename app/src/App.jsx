@@ -74,6 +74,7 @@ const CorePage = lazy(() => import("@/pages/CorePage"));
 const BidPackagesPage = lazy(() => import("@/pages/BidPackagesPage"));
 const BusinessDashboardPage = lazy(() => import("@/pages/BusinessDashboardPage"));
 const PortalPage = lazy(() => import("@/pages/PortalPage"));
+const LivingProposalPage = lazy(() => import("@/pages/LivingProposalPage"));
 const SubDashboardPage = lazy(() => import("@/pages/SubDashboardPage"));
 const ResourcePage = lazy(() => import("@/pages/ResourcePage"));
 
@@ -100,6 +101,10 @@ const AdminPipelinePage = lazy(() => import("@/pages/admin/AdminPipelinePage"));
 const AdminIntelligencePage = lazy(() => import("@/pages/admin/AdminIntelligencePage"));
 const AdminLogPage = lazy(() => import("@/pages/admin/AdminLogPage"));
 const AdminCarbonPage = lazy(() => import("@/pages/admin/AdminCarbonPage"));
+// NOVA Core admin panels (Sprint 5)
+const AdminBidLevelingPage = lazy(() => import("@/pages/admin/AdminBidLevelingPage"));
+const AdminUploadPage = lazy(() => import("@/pages/admin/AdminUploadPage"));
+const AdminParserPage = lazy(() => import("@/pages/admin/AdminParserPage"));
 
 // Admin guard — checks if the current user's email is in the admin whitelist
 function AdminGuard({ children }) {
@@ -1012,6 +1017,10 @@ function AppContent() {
                   <Route path="intelligence" element={<AdminIntelligencePage />} />
                   <Route path="log" element={<AdminLogPage />} />
                   <Route path="carbon" element={<AdminCarbonPage />} />
+                  {/* NOVA Core panels (Sprint 5) */}
+                  <Route path="bid-leveling" element={<AdminBidLevelingPage />} />
+                  <Route path="upload" element={<AdminUploadPage />} />
+                  <Route path="parser" element={<AdminParserPage />} />
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
@@ -1258,6 +1267,15 @@ export default function App() {
     return (
       <Suspense fallback={<AuthLoading />}>
         <PortalPage />
+      </Suspense>
+    );
+  }
+
+  // Living Proposal — public, no auth, white-labeled proposal viewer
+  if (window.location.pathname.startsWith("/p/")) {
+    return (
+      <Suspense fallback={<AuthLoading />}>
+        <LivingProposalPage />
       </Suspense>
     );
   }

@@ -13,6 +13,7 @@ const NAV = [
   { to: "/admin/pipeline", label: "Pipeline", icon: I.layers },
   { to: "/admin/log", label: "Log", icon: I.clock },
   { to: "/admin/bid-leveling", label: "Bid Leveling", icon: I.bid },
+  { to: "/admin/upload", label: "Upload", icon: I.upload },
   { to: "/admin/orgs", label: "Orgs", icon: I.assembly },
   { to: "/admin/parser", label: "Parser", icon: I.ai },
   { to: "/admin/intelligence", label: "Intelligence", icon: I.insights },
