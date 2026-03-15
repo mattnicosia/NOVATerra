@@ -98,6 +98,33 @@
     },
     "api/send-team-invite.js": {
       "maxDuration": 15
+    },
+    "api/living-proposal.js": {
+      "maxDuration": 15
+    },
+    "api/living-proposal-create.js": {
+      "maxDuration": 15
+    },
+    "api/living-proposal-publish.js": {
+      "maxDuration": 15
+    },
+    "api/living-proposal-comment.js": {
+      "maxDuration": 15
+    },
+    "api/living-proposal-alternate.js": {
+      "maxDuration": 15
+    },
+    "api/living-proposal-beacon.js": {
+      "maxDuration": 15
+    },
+    "api/living-proposal-analytics.js": {
+      "maxDuration": 15
+    },
+    "api/nova-core/portal-lookup.ts": {
+      "maxDuration": 10
+    },
+    "api/nova-core/portal-submit.ts": {
+      "maxDuration": 30
     }
   },
   "rewrites": [

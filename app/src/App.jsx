@@ -74,6 +74,7 @@ const CorePage = lazy(() => import("@/pages/CorePage"));
 const BidPackagesPage = lazy(() => import("@/pages/BidPackagesPage"));
 const BusinessDashboardPage = lazy(() => import("@/pages/BusinessDashboardPage"));
 const PortalPage = lazy(() => import("@/pages/PortalPage"));
+const SubSubmitPage = lazy(() => import("@/pages/SubSubmitPage"));
 const LivingProposalPage = lazy(() => import("@/pages/LivingProposalPage"));
 const SubDashboardPage = lazy(() => import("@/pages/SubDashboardPage"));
 const ResourcePage = lazy(() => import("@/pages/ResourcePage"));
@@ -1259,6 +1260,15 @@ export default function App() {
       <ThemeProvider>
         <MobileGuard />
       </ThemeProvider>
+    );
+  }
+
+  // Sub proposal submission portal — /portal?gc=<orgId> (public, no auth)
+  if (window.location.pathname === "/portal" && window.location.search.includes("gc=")) {
+    return (
+      <Suspense fallback={<AuthLoading />}>
+        <SubSubmitPage />
+      </Suspense>
     );
   }
 
