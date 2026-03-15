@@ -139,7 +139,11 @@ export default function ScheduleOfValuesPage() {
         key = getSubKey(item);
         const dc = key.split(".")[0];
         const customLbl = subKeyLabels[key];
-        label = customLbl ? `${key} \u2014 ${customLbl}` : `${key} \u2014 ${activeCodes[dc]?.subs?.[key] || activeCodes[dc]?.name || key}`;
+        // Try exact match, then strip trailing zeros (e.g. 06.2000→06.200, 01.0050→01.005→01.05)
+        const subs = activeCodes[dc]?.subs || {};
+        let subName = subs[key];
+        if (!subName) { let k = key; while (!subName && k.length > dc.length + 2 && k.endsWith("0")) { k = k.slice(0, -1); subName = subs[k]; } }
+        label = customLbl ? `${key} \u2014 ${customLbl}` : `${key} \u2014 ${subName || activeCodes[dc]?.name || key}`;
       } else {
         key = item.division || "Unassigned";
         label = key;
