@@ -980,6 +980,67 @@ export const PALETTES = [
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // Shift5B — Shift5 brutalist chassis, lighter tab/text hierarchy
+  // Same dark card system + coral accent, but #BEBEBE mid-grey lifts
+  // inactive text, borders, and semantic colors so the UI breathes more.
+  // Active tabs pop harder against the brighter neutral field.
+  // ═══════════════════════════════════════════════════════════════════════════
+  {
+    id: "shift5b",
+    name: "Shift5B",
+    desc: "Military-tech brutalist — lighter grey field, coral accent",
+    preview: ["#0C0C0E", "#FF4F38", "#1A1A1E", "#BEBEBE", "#F0F0F0"],
+    variantLabels: ["Tactical"],
+    overrides: {
+      // ── Surfaces — same dark cards, slightly lifted backdrop ──
+      bg: "#141418",
+      bg1: "#1C1C22",       // cards lifted slightly vs Shift5 (#18181E)
+      bg2: "#242428",       // raised surfaces — more visible separation
+      bg3: "#2E2E34",       // hover states
+      // ── Borders — brighter grey lines for more definition ──
+      border: "rgba(255,255,255,0.16)",
+      borderLight: "rgba(255,255,255,0.09)",
+      borderAccent: "rgba(255,79,56,0.28)",
+      // ── Text — #BEBEBE mid-grey as the secondary/tab resting state ──
+      text: "#F0F0F0",           // primary — near-white, brighter than Shift5
+      textMuted: "#BEBEBE",      // tabs, secondary labels — the signature lift
+      textDim: "#808088",        // tertiary, captions — still recedes
+      // ── Accent — same Shift5 coral ──
+      accent: "#FF4F38",
+      accentDim: "#CC3F2D",
+      accentBg: "rgba(255,79,56,0.10)",
+      accentAlt: "#FF6B57",
+      // ── Gradients ──
+      gradient: "linear-gradient(135deg, #FF4F38, #FF6B57)",
+      gradientSubtle: "linear-gradient(135deg, rgba(255,79,56,0.14), rgba(255,107,87,0.14))",
+      gradientText: "linear-gradient(135deg, #FF4F38, #FF6B57)",
+      // ── Semantic colors — lifted from pure grey to readable mid-tones ──
+      // Warmer than Shift5's flat greys but still restrained.
+      // Hex values safe for alpha suffix appending.
+      green:  "#A8A8AE",   // positive — warm light grey
+      red:    "#FF4F38",    // danger → coral (brand unity)
+      blue:   "#9898A0",    // info → lifted grey
+      purple: "#888890",    // category → mid grey
+      orange: "#A0A0A8",    // warning → light grey
+      cyan:   "#9898A0",    // info alt → lifted grey
+      yellow: "#A0A0A8",    // caution → light grey
+      // ── Sidebar ──
+      sidebarBg: "#121216",
+      // ── Glass (disabled — flat surfaces) ──
+      glassBg: "#1C1C22",
+      glassBorder: "rgba(255,255,255,0.16)",
+      glassBgDark: "#161618",
+      // ── Background — lighter grey field for more card contrast ──
+      bgGradient: "#363640",  // lifted from Shift5's #2C2C32
+      // ── Flags ──
+      forceDark: true,
+      noGlass: true,
+      materialMode: "concrete",
+    },
+    variants: [null],
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // Arancio — Shift5 brutalist chassis with Lamborghini Arancio Borealis accent
   // Same flat concrete surfaces, monochromatic grey semantics, zero-radius cards.
   // Coral swapped for #FF8700 warm amber-orange throughout.
