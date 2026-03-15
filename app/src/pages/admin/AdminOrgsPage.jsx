@@ -294,11 +294,16 @@ function OrgDetailView({ orgId, onBack }) {
   const [org, setOrg] = useState(null);
   const [keys, setKeys] = useState([]);
   const [proposals, setProposals] = useState([]);
+  const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [newKeyModal, setNewKeyModal] = useState(null);
   const [upgrading, setUpgrading] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [showInviteForm, setShowInviteForm] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState("member");
+  const [inviting, setInviting] = useState(false);
 
   const fetchDetail = useCallback(async () => {
     setLoading(true);
@@ -387,6 +392,13 @@ function OrgDetailView({ orgId, onBack }) {
       } catch {
         // Non-critical
       }
+
+      try {
+        const membersData = await apiFetch(`/org-members?org_id=${orgId}`);
+        setMembers(membersData.members || []);
+      } catch {
+        // Non-critical
+      }
     };
     fetchExtra();
   }, [org, orgId]);
@@ -450,6 +462,47 @@ function OrgDetailView({ orgId, onBack }) {
       );
     } catch (err) {
       alert("Revoke failed: " + err.message);
+    }
+  };
+
+  const handleInvite = async (e) => {
+    e.preventDefault();
+    if (!inviteEmail.trim()) return;
+    setInviting(true);
+    try {
+      await apiFetch("/invite-member", {
+        method: "POST",
+        body: JSON.stringify({ org_id: orgId, email: inviteEmail.trim(), role: inviteRole }),
+      });
+      setInviteEmail("");
+      setInviteRole("member");
+      setShowInviteForm(false);
+      // Refresh members
+      const membersData = await apiFetch(`/org-members?org_id=${orgId}`);
+      setMembers(membersData.members || []);
+    } catch (err) {
+      alert("Failed to invite: " + err.message);
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  const handleRemoveMember = async (memberId) => {
+    if (!confirm("Remove this member? They will lose access.")) return;
+    try {
+      // Soft-delete: we'll call a PATCH or use direct supabase call
+      // For now, use the org-members endpoint pattern — but we need to implement removal
+      // We'll do it via the invite-member endpoint pattern or inline
+      // Simplest: fetch with DELETE-like semantics via POST
+      // Actually, let's just do it via the existing admin pattern
+      await apiFetch(`/org-members?org_id=${orgId}&member_id=${memberId}`, {
+        method: "DELETE",
+      });
+      setMembers((prev) =>
+        prev.map((m) => (m.id === memberId ? { ...m, active: false } : m))
+      );
+    } catch (err) {
+      alert("Remove failed: " + err.message);
     }
   };
 
@@ -739,6 +792,182 @@ function OrgDetailView({ orgId, onBack }) {
           </div>
         </>
       )}
+
+      {/* Team Members section */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <h2 style={sectionHead}>Team Members</h2>
+        <button
+          onClick={() => setShowInviteForm(!showInviteForm)}
+          style={{
+            padding: "7px 14px",
+            borderRadius: T.radius.sm,
+            border: `1px solid ${C.border}`,
+            background: "transparent",
+            color: C.text,
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: "pointer",
+            fontFamily: T.font.sans,
+          }}
+        >
+          Invite Member
+        </button>
+      </div>
+
+      {/* Invite form */}
+      {showInviteForm && (
+        <form
+          onSubmit={handleInvite}
+          style={{
+            ...card(C),
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            padding: 16,
+          }}
+        >
+          <input
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value)}
+            placeholder="Email address"
+            type="email"
+            style={{
+              flex: 1,
+              padding: "8px 12px",
+              borderRadius: T.radius.sm,
+              border: `1px solid ${C.border}`,
+              background: C.inputBg || "#0D0D0C",
+              color: C.text,
+              fontSize: 13,
+              fontFamily: T.font.sans,
+              outline: "none",
+            }}
+          />
+          <select
+            value={inviteRole}
+            onChange={(e) => setInviteRole(e.target.value)}
+            style={{
+              padding: "8px 12px",
+              borderRadius: T.radius.sm,
+              border: `1px solid ${C.border}`,
+              background: C.inputBg || "#0D0D0C",
+              color: C.text,
+              fontSize: 13,
+              fontFamily: T.font.sans,
+              outline: "none",
+            }}
+          >
+            <option value="member">Member</option>
+            <option value="admin">Admin</option>
+          </select>
+          <button
+            type="submit"
+            disabled={inviting || !inviteEmail.trim()}
+            style={{
+              padding: "8px 20px",
+              borderRadius: T.radius.sm,
+              border: "none",
+              background: inviting ? C.border : C.accent,
+              color: "#fff",
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: inviting ? "not-allowed" : "pointer",
+              fontFamily: T.font.sans,
+            }}
+          >
+            {inviting ? "Sending…" : "Send Invite"}
+          </button>
+        </form>
+      )}
+
+      {/* Members table */}
+      {members.length === 0 ? (
+        <div
+          style={{
+            ...card(C),
+            padding: 32,
+            textAlign: "center",
+            color: C.textMuted,
+            fontSize: 13,
+          }}
+        >
+          No team members yet
+        </div>
+      ) : (
+        <div style={{ ...card(C), overflow: "hidden", padding: 0 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th style={headCell}>Email</th>
+                <th style={headCell}>Role</th>
+                <th style={headCell}>Status</th>
+                <th style={headCell}>Invited</th>
+                <th style={headCell}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {members.map((m) => {
+                const isActive = !!m.accepted_at;
+                const statusColor = isActive ? "#22C55E" : "#F59E0B";
+                const statusLabel = isActive ? "Active" : "Pending";
+                return (
+                  <tr key={m.id}>
+                    <td style={{ ...cellStyle, fontWeight: 500 }}>{m.email}</td>
+                    <td style={{ ...cellStyle, textTransform: "capitalize" }}>{m.role}</td>
+                    <td style={cellStyle}>
+                      <span
+                        style={{
+                          display: "inline-block",
+                          padding: "3px 10px",
+                          borderRadius: 12,
+                          fontSize: 11,
+                          fontWeight: 600,
+                          color: statusColor,
+                          background: `${statusColor}18`,
+                        }}
+                      >
+                        {statusLabel}
+                      </span>
+                    </td>
+                    <td style={{ ...cellStyle, fontSize: 12, color: C.textMuted }}>
+                      {m.invited_at ? new Date(m.invited_at).toLocaleDateString() : "—"}
+                    </td>
+                    <td style={cellStyle}>
+                      {m.active && (
+                        <button
+                          onClick={() => handleRemoveMember(m.id)}
+                          style={{
+                            padding: "4px 10px",
+                            borderRadius: T.radius.sm,
+                            border: `1px solid #EF4444`,
+                            background: "transparent",
+                            color: "#EF4444",
+                            fontSize: 11,
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            fontFamily: T.font.sans,
+                          }}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Seat usage note */}
+      <div style={{ fontSize: 12, color: C.textMuted, padding: "0 2px" }}>
+        {org.is_paying
+          ? `${members.filter((m) => m.active).length} of ${org.seat_count || 0} seats used · $${(members.filter((m) => m.active).length * 299).toLocaleString()}/mo`
+          : org.is_demo
+            ? "Demo account — unlimited members"
+            : "Trial account — add seats when you subscribe"}
+      </div>
 
       {/* ── New Key Modal ── */}
       {newKeyModal && (
