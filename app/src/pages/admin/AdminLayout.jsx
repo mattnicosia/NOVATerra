@@ -8,6 +8,13 @@ const NAV = [
   { to: "/admin/users", label: "Users", icon: I.user },
   { to: "/admin/estimates", label: "Estimates", icon: I.estimate },
   { to: "/admin/embeddings", label: "Embeddings", icon: I.intelligence },
+  { to: "/admin/health", label: "Health", icon: I.shield },
+  { to: "/admin/queue", label: "Queue", icon: I.inbox },
+  { to: "/admin/pipeline", label: "Pipeline", icon: I.layers },
+  { to: "/admin/log", label: "Log", icon: I.clock },
+  { to: "/admin/intelligence", label: "Intelligence", icon: I.insights },
+  { to: "/admin/carbon", label: "Carbon", icon: I.change },
+  { to: "/admin/orgs", label: "Orgs", icon: I.assembly },
 ];
 
 export default function AdminLayout() {
@@ -77,7 +84,7 @@ export default function AdminLayout() {
           </div>
           <div>
             <div style={{ fontSize: 14, fontWeight: 700, color: C.text, lineHeight: 1.2 }}>Admin</div>
-            <div style={{ fontSize: 10, color: C.textDim, fontWeight: 500 }}>ARTIFACT Platform</div>
+            <div style={{ fontSize: 10, color: C.textDim, fontWeight: 500 }}>NOVA Platform</div>
           </div>
         </div>
 

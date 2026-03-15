@@ -156,9 +156,9 @@ export default function CoreSources() {
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Header */}
       <div>
-        <h3 style={{ fontSize: 14, fontWeight: 600, color: C.text, margin: "0 0 4px" }}>Data Sources Feeding ARTIFACT</h3>
+        <h3 style={{ fontSize: 14, fontWeight: 600, color: C.text, margin: "0 0 4px" }}>Data Sources Feeding NOVA</h3>
         <p style={{ fontSize: 11.5, color: C.textMuted, margin: 0 }}>
-          ARTIFACT automatically learns from your data. Every element, proposal, and drawing note is embedded for semantic
+          NOVA automatically learns from your data. Every element, proposal, and drawing note is embedded for semantic
           intelligence.
         </p>
       </div>
@@ -244,19 +244,19 @@ export default function CoreSources() {
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <ComingSoonCard
             title="Specification Sections"
-            description="Upload spec books and ARTIFACT will learn scope requirements, material specs, and performance criteria."
+            description="Upload spec books and NOVA will learn scope requirements, material specs, and performance criteria."
             C={C}
             T={T}
           />
           <ComingSoonCard
             title="Contracts & Change Orders"
-            description="Feed contract documents to help ARTIFACT understand pricing structures and scope negotiation patterns."
+            description="Feed contract documents to help NOVA understand pricing structures and scope negotiation patterns."
             C={C}
             T={T}
           />
           <ComingSoonCard
             title="Vendor Catalogs & Price Lists"
-            description="Import manufacturer pricing to keep ARTIFACT's material costs current with real market data."
+            description="Import manufacturer pricing to keep NOVA's material costs current with real market data."
             C={C}
             T={T}
           />

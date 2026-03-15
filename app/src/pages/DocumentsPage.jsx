@@ -1012,7 +1012,7 @@ Return ONLY a JSON object:
 
         // Step 1: Auto-label
         for (const { docId } of drawingDocIds) {
-          updateDocument(docId, { processingMessage: "ARTIFACT labeling sheets..." });
+          updateDocument(docId, { processingMessage: "NOVA labeling sheets..." });
         }
         try {
           const labelResult = await autoLabelDrawings(allNewDrawingIds);
@@ -1225,7 +1225,7 @@ Return ONLY a JSON object:
             Upload Your Construction Plans
           </h1>
           <p style={{ fontSize: 12, color: C.textDim, margin: 0, marginBottom: 28, lineHeight: 1.6 }}>
-            Drop your PDF plans below and ARTIFACT will automatically extract project details, detect schedules, and
+            Drop your PDF plans below and NOVA will automatically extract project details, detect schedules, and
             generate a rough order of magnitude estimate.
           </p>
 
@@ -1242,7 +1242,7 @@ Return ONLY a JSON object:
             >
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
                 <NovaOrb size={22} scheme="nova" />
-                <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>ARTIFACT is analyzing your drawings...</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>NOVA is analyzing your drawings...</div>
               </div>
               {scanProgress.phase && (
                 <div style={{ marginBottom: 8 }}>
@@ -1402,7 +1402,7 @@ Return ONLY a JSON object:
               fontFamily: T.font.sans,
             }}
           >
-            Upload project documents — ARTIFACT automatically processes drawings and specifications.
+            Upload project documents — NOVA automatically processes drawings and specifications.
           </p>
         </div>
         {/* Rescan button — re-runs NOVA pipeline on all existing drawings */}
@@ -1901,7 +1901,7 @@ Return ONLY a JSON object:
                   gap: 6,
                 }}
               >
-                <Ic d={I.ai} size={14} color={C.purple || C.accent} /> ARTIFACT Scan Complete
+                <Ic d={I.ai} size={14} color={C.purple || C.accent} /> NOVA Scan Complete
               </div>
               <div style={{ fontSize: 10, color: C.textDim }}>
                 {scanResults.schedules?.length || 0} schedule{scanResults.schedules?.length !== 1 ? "s" : ""}

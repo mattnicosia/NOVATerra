@@ -25,17 +25,26 @@ function getTabId() {
 // Detect device and browser from user agent
 function getDeviceInfo() {
   const ua = navigator.userAgent;
-  const device = ua.includes("Mac") ? "Mac"
-    : ua.includes("Windows") ? "Windows"
-    : ua.includes("Linux") ? "Linux"
-    : ua.includes("iPhone") || ua.includes("iPad") ? "iOS"
-    : ua.includes("Android") ? "Android"
-    : "Device";
-  const browser = ua.includes("Edg/") ? "Edge"
-    : ua.includes("Chrome") ? "Chrome"
-    : ua.includes("Firefox") ? "Firefox"
-    : ua.includes("Safari") ? "Safari"
-    : "Browser";
+  const device = ua.includes("Mac")
+    ? "Mac"
+    : ua.includes("Windows")
+      ? "Windows"
+      : ua.includes("Linux")
+        ? "Linux"
+        : ua.includes("iPhone") || ua.includes("iPad")
+          ? "iOS"
+          : ua.includes("Android")
+            ? "Android"
+            : "Device";
+  const browser = ua.includes("Edg/")
+    ? "Edge"
+    : ua.includes("Chrome")
+      ? "Chrome"
+      : ua.includes("Firefox")
+        ? "Firefox"
+        : ua.includes("Safari")
+          ? "Safari"
+          : "Browser";
   return { device, browser };
 }
 
@@ -161,15 +170,21 @@ export function useSessionAwareness() {
       const ch = channelRef.current;
       channelRef.current = null;
       if (ch) {
-        ch.untrack().then(() => {
-          setTimeout(() => {
-            try { supabase?.removeChannel(ch); } catch {}
-          }, 100);
-        }).catch(() => {
-          setTimeout(() => {
-            try { supabase?.removeChannel(ch); } catch {}
-          }, 100);
-        });
+        ch.untrack()
+          .then(() => {
+            setTimeout(() => {
+              try {
+                supabase?.removeChannel(ch);
+              } catch {}
+            }, 100);
+          })
+          .catch(() => {
+            setTimeout(() => {
+              try {
+                supabase?.removeChannel(ch);
+              } catch {}
+            }, 100);
+          });
       }
     };
   }, [user]);

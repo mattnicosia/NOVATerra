@@ -22,12 +22,27 @@ import { TEMPLATE_MAP, resolveTemplateItems } from "@/constants/seedTemplates";
 import { autoDirective } from "@/utils/directives";
 import { autoTradeFromCode } from "@/constants/tradeGroupings";
 
+// ═══ NUCLEAR ZOMBIE GUARD ═══
+// In-memory set of deleted estimate IDs. Populated on delete + startup hydration.
+// A Zustand subscriber watches estimatesIndex — ANY write from ANY code path
+// (setEstimatesIndex, setState, functional setState) is intercepted and filtered.
+// This makes resurrection physically impossible regardless of which code path runs.
+const _deletedIds = new Set();
+
+/** Mark an ID as permanently deleted (in-memory guard). */
+export const markDeleted = id => { _deletedIds.add(id); };
+
+/** Hydrate the in-memory guard from an array of IDs (called on startup). */
+export const hydrateDeletedIds = ids => {
+  if (Array.isArray(ids)) ids.forEach(id => _deletedIds.add(id));
+};
+
 export const useEstimatesStore = create((set, get) => ({
   estimatesIndex: [],
   activeEstimateId: null,
   draftId: null, // Non-null when estimate is a draft (not yet persisted to DB)
 
-  setEstimatesIndex: v => set({ estimatesIndex: v }),
+  setEstimatesIndex: v => set({ estimatesIndex: Array.isArray(v) ? v : [] }),
   setActiveEstimateId: v => set({ activeEstimateId: v }),
   clearDraft: () => set({ draftId: null }),
 
@@ -343,6 +358,9 @@ export const useEstimatesStore = create((set, get) => ({
   },
 
   deleteEstimate: async id => {
+    // STEP 0: In-memory guard — instant, synchronous, no async dependency
+    _deletedIds.add(id);
+
     // STEP 1: Track deleted-ID FIRST — crash-safe. If app dies after this but
     // before index removal, the ID is recorded and cloud sync won't resurrect it.
     try {
@@ -430,6 +448,18 @@ export const useEstimatesStore = create((set, get) => ({
       if (!changed) return s;
       return { estimatesIndex: s.estimatesIndex.map(e => (e.id === id ? { ...e, ...updates } : e)) };
     });
+    // Persist index to IDB + localStorage mirror immediately.
+    // Without this, status changes (e.g. "Trash") only live in memory
+    // and are lost on refresh — causing "deleted" estimates to reappear.
+    const idx = get().estimatesIndex;
+    const idxJson = JSON.stringify(idx);
+    storage.set(idbKey("bldg-index"), idxJson).catch(() => {});
+    try {
+      const userId = useAuthStore.getState().user?.id;
+      if (userId) localStorage.setItem(`bldg-index-mirror-${userId}`, idxJson);
+    } catch { /* quota */ }
+    // Push to cloud (non-blocking)
+    cloudSync.pushData("index", idx).catch(() => {});
   },
 
   assignEstimate: (estimateId, userIds) => {
@@ -505,3 +535,28 @@ export const useEstimatesStore = create((set, get) => ({
     return id;
   },
 }));
+
+// ═══ ZOMBIE GUARD SUBSCRIBER ═══
+// Watches ALL writes to estimatesIndex — if a permanently-deleted ID appears,
+// immediately strips it. Defense-in-depth against any resurrection code path.
+let _guardActive = false;
+useEstimatesStore.subscribe((state) => {
+  const index = state.estimatesIndex;
+  if (!Array.isArray(index)) return;
+
+  if (_guardActive || _deletedIds.size === 0) return;
+  const hasZombie = index.some(e => _deletedIds.has(e.id));
+  if (hasZombie) {
+    _guardActive = true;
+    const zombieIds = index.filter(e => _deletedIds.has(e.id)).map(e => e.id);
+    const filtered = index.filter(e => !_deletedIds.has(e.id));
+    console.error(
+      `[ZOMBIE GUARD] INTERCEPTED ${zombieIds.length} zombie(s): ${zombieIds.join(", ")}`
+    );
+    console.trace("[ZOMBIE GUARD] Resurrection stack trace");
+    useEstimatesStore.setState({ estimatesIndex: filtered });
+    _guardActive = false;
+    _lastIndexLen = filtered.length;
+  }
+});
+

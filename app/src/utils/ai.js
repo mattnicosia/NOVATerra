@@ -631,7 +631,10 @@ export async function segmentedOCR(base64Image, imgWidth, imgHeight) {
     // OCR quadrants sequentially to avoid hammering the endpoint
     const ocrResults = [];
     for (let i = 0; i < croppedImages.length; i++) {
-      if (!croppedImages[i]) { ocrResults.push({ text: "", blocks: [] }); continue; }
+      if (!croppedImages[i]) {
+        ocrResults.push({ text: "", blocks: [] });
+        continue;
+      }
       console.log(`[OCR-SEG] Running OCR on quadrant ${quadrants[i].label}...`);
       ocrResults.push(await runOCR(croppedImages[i]));
     }
@@ -659,9 +662,7 @@ export async function segmentedOCR(base64Image, imgWidth, imgHeight) {
 // Returns array of { label, targetSheet, type, xPct, yPct } with percentage positions.
 export async function detectSheetReferences(base64ImageData) {
   const isDataUrl = base64ImageData.startsWith("data:");
-  const mediaType = isDataUrl
-    ? base64ImageData.match(/data:([^;]+)/)?.[1] || "image/jpeg"
-    : "image/jpeg";
+  const mediaType = isDataUrl ? base64ImageData.match(/data:([^;]+)/)?.[1] || "image/jpeg" : "image/jpeg";
   const rawB64 = isDataUrl ? base64ImageData.split(",")[1] : base64ImageData;
   const resp = await callAnthropic({
     max_tokens: 4000,
@@ -704,7 +705,10 @@ JSON array only, no other text. Default to [].`,
   // callAnthropic returns a plain string (all content blocks joined), not the raw API object
   const text = (typeof resp === "string" ? resp : resp?.content?.[0]?.text) || "[]";
   try {
-    const clean = text.replace(/```json?\s*/g, "").replace(/```/g, "").trim();
+    const clean = text
+      .replace(/```json?\s*/g, "")
+      .replace(/```/g, "")
+      .trim();
     const parsed = JSON.parse(clean);
     return Array.isArray(parsed) ? parsed : [];
   } catch {

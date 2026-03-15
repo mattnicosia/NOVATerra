@@ -36,10 +36,7 @@ export default function InviteSubsModal({ packageId, packageName, selectedTrades
   const [newSub, setNewSub] = useState({ company: "", trades: [], contact: "", email: "", phone: "" });
 
   // Normalize existing emails for dedup
-  const existingEmailSet = useMemo(
-    () => new Set((existingEmails || []).map(e => e.toLowerCase())),
-    [existingEmails],
-  );
+  const existingEmailSet = useMemo(() => new Set((existingEmails || []).map(e => e.toLowerCase())), [existingEmails]);
 
   // Filter subs: exclude already-invited emails
   const availableSubs = useMemo(
@@ -62,9 +59,7 @@ export default function InviteSubsModal({ packageId, packageName, selectedTrades
   // Auto-match subs by trades matching selected scope
   const matchedSubIds = useMemo(() => {
     if (!selectedTrades || selectedTrades.size === 0) return new Set();
-    return new Set(
-      availableSubs.filter(s => (s.trades || []).some(tk => selectedTrades.has(tk))).map(s => s.id),
-    );
+    return new Set(availableSubs.filter(s => (s.trades || []).some(tk => selectedTrades.has(tk))).map(s => s.id));
   }, [availableSubs, selectedTrades]);
 
   // Auto-select matching subs on mount
@@ -83,9 +78,7 @@ export default function InviteSubsModal({ packageId, packageName, selectedTrades
       if (!token) throw new Error("Not authenticated");
       const params = new URLSearchParams();
       // Send selected trades for filtering
-      const tradeLabels = [...(selectedTrades || [])]
-        .filter(t => TRADE_MAP[t]?.label)
-        .map(t => TRADE_MAP[t].label);
+      const tradeLabels = [...(selectedTrades || [])].filter(t => TRADE_MAP[t]?.label).map(t => TRADE_MAP[t].label);
       if (tradeLabels.length > 0) params.set("trades", tradeLabels.join(","));
       // Exclude already-invited emails AND local contact emails
       const localEmails = subs.filter(s => s.email).map(s => s.email.toLowerCase());
@@ -116,9 +109,7 @@ export default function InviteSubsModal({ packageId, packageName, selectedTrades
   };
 
   const toggleNetworkSub = email => {
-    setSelectedNetworkSubs(prev =>
-      prev.includes(email) ? prev.filter(e => e !== email) : [...prev, email],
-    );
+    setSelectedNetworkSubs(prev => (prev.includes(email) ? prev.filter(e => e !== email) : [...prev, email]));
   };
 
   const addNetworkSubToContacts = sub => {
@@ -253,12 +244,10 @@ export default function InviteSubsModal({ packageId, packageName, selectedTrades
   return (
     <Modal onClose={onClose} wide>
       {/* Header */}
-      <h3 style={{ color: C.text, fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>
-        Invite Subcontractors
-      </h3>
+      <h3 style={{ color: C.text, fontSize: 16, fontWeight: 600, margin: "0 0 4px" }}>Invite Subcontractors</h3>
       <p style={{ color: C.textMuted, fontSize: 13, margin: "0 0 16px" }}>
-        Add subs to <strong style={{ color: C.text }}>{packageName}</strong>. They'll receive an email
-        with a link to view details and submit a proposal.
+        Add subs to <strong style={{ color: C.text }}>{packageName}</strong>. They'll receive an email with a link to
+        view details and submit a proposal.
       </p>
 
       {/* Tab Bar */}
@@ -373,9 +362,7 @@ export default function InviteSubsModal({ packageId, packageName, selectedTrades
                     border: `1px solid ${C.accent}30`,
                   }}
                 >
-                  <div style={{ fontSize: 12, fontWeight: 600, color: C.text, marginBottom: 8 }}>
-                    New Subcontractor
-                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: C.text, marginBottom: 8 }}>New Subcontractor</div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                     <input
                       placeholder="Company *"
@@ -495,8 +482,7 @@ export default function InviteSubsModal({ packageId, packageName, selectedTrades
                   fontFamily: T.font.sans,
                 }}
               >
-                Auto-select {matchedSubIds.size} matching sub{matchedSubIds.size !== 1 ? "s" : ""} for
-                selected scope
+                Auto-select {matchedSubIds.size} matching sub{matchedSubIds.size !== 1 ? "s" : ""} for selected scope
               </button>
             )}
 
@@ -561,9 +547,7 @@ export default function InviteSubsModal({ packageId, packageName, selectedTrades
                             transition: "all 150ms",
                           }}
                         >
-                          <div style={checkboxStyle(sel)}>
-                            {sel && <Ic d={I.check} size={10} color="#fff" />}
-                          </div>
+                          <div style={checkboxStyle(sel)}>{sel && <Ic d={I.check} size={10} color="#fff" />}</div>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                               <span style={{ color: C.text, fontSize: 13, fontWeight: 500 }}>
@@ -611,13 +595,9 @@ export default function InviteSubsModal({ packageId, packageName, selectedTrades
                                 <TradeBadge key={tk} tradeKey={tk} size="xs" />
                               ))}
                               {(sub.trades || []).length > 3 && (
-                                <span style={{ fontSize: 9, color: C.textDim }}>
-                                  +{(sub.trades || []).length - 3}
-                                </span>
+                                <span style={{ fontSize: 9, color: C.textDim }}>+{(sub.trades || []).length - 3}</span>
                               )}
-                              {sub.contact && (
-                                <span style={{ color: C.textDim, fontSize: 10 }}> · {sub.contact}</span>
-                              )}
+                              {sub.contact && <span style={{ color: C.textDim, fontSize: 10 }}> · {sub.contact}</span>}
                             </div>
                           </div>
                           <button
@@ -652,12 +632,8 @@ export default function InviteSubsModal({ packageId, packageName, selectedTrades
           <>
             {networkLoading && (
               <div style={{ textAlign: "center", padding: 40 }}>
-                <div style={{ fontSize: 13, color: C.accent, fontWeight: 500 }}>
-                  Searching NOVA Network...
-                </div>
-                <div style={{ fontSize: 11, color: C.textDim, marginTop: 6 }}>
-                  Finding subs that match your scope
-                </div>
+                <div style={{ fontSize: 13, color: C.accent, fontWeight: 500 }}>Searching NOVA Network...</div>
+                <div style={{ fontSize: 11, color: C.textDim, marginTop: 6 }}>Finding subs that match your scope</div>
               </div>
             )}
 
@@ -689,9 +665,7 @@ export default function InviteSubsModal({ packageId, packageName, selectedTrades
 
             {!networkLoading && !networkError && networkSubs.length === 0 && networkFetched && (
               <div style={{ textAlign: "center", padding: 40 }}>
-                <div style={{ fontSize: 13, color: C.textDim }}>
-                  No network subs found for your selected trades.
-                </div>
+                <div style={{ fontSize: 13, color: C.textDim }}>No network subs found for your selected trades.</div>
                 <div style={{ fontSize: 11, color: C.textDim, marginTop: 4 }}>
                   As subs submit proposals across NOVATerra, they'll appear here ranked by reputation.
                 </div>
@@ -739,14 +713,10 @@ export default function InviteSubsModal({ packageId, packageName, selectedTrades
                         transition: "all 150ms",
                       }}
                     >
-                      <div style={checkboxStyle(sel)}>
-                        {sel && <Ic d={I.check} size={10} color="#fff" />}
-                      </div>
+                      <div style={checkboxStyle(sel)}>{sel && <Ic d={I.check} size={10} color="#fff" />}</div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ color: C.text, fontSize: 13, fontWeight: 500 }}>
-                            {ns.company || ns.email}
-                          </span>
+                          <span style={{ color: C.text, fontSize: 13, fontWeight: 500 }}>{ns.company || ns.email}</span>
                           {ns.trade && (
                             <span
                               style={{
@@ -782,8 +752,8 @@ export default function InviteSubsModal({ packageId, packageName, selectedTrades
                                 gap: 3,
                               }}
                             >
-                              <span style={{ color: C.accent, fontWeight: 700 }}>{proposals}</span>{" "}
-                              proposal{proposals !== 1 ? "s" : ""}
+                              <span style={{ color: C.accent, fontWeight: 700 }}>{proposals}</span> proposal
+                              {proposals !== 1 ? "s" : ""}
                             </span>
                           )}
                           {winRate != null && (
@@ -798,8 +768,7 @@ export default function InviteSubsModal({ packageId, packageName, selectedTrades
                             >
                               <span
                                 style={{
-                                  color:
-                                    winRate >= 50 ? "#30D158" : winRate >= 25 ? "#FF9F0A" : C.textDim,
+                                  color: winRate >= 50 ? "#30D158" : winRate >= 25 ? "#FF9F0A" : C.textDim,
                                   fontWeight: 700,
                                 }}
                               >
@@ -820,12 +789,7 @@ export default function InviteSubsModal({ packageId, packageName, selectedTrades
                             >
                               <span
                                 style={{
-                                  color:
-                                    coverage >= 80
-                                      ? "#30D158"
-                                      : coverage >= 50
-                                        ? "#FF9F0A"
-                                        : C.textDim,
+                                  color: coverage >= 80 ? "#30D158" : coverage >= 50 ? "#FF9F0A" : C.textDim,
                                   fontWeight: 700,
                                 }}
                               >
@@ -859,9 +823,7 @@ export default function InviteSubsModal({ packageId, packageName, selectedTrades
                               avg response
                             </span>
                           )}
-                          {ns.contact && (
-                            <span style={{ color: C.textDim, fontSize: 9 }}> · {ns.contact}</span>
-                          )}
+                          {ns.contact && <span style={{ color: C.textDim, fontSize: 9 }}> · {ns.contact}</span>}
                         </div>
                       </div>
                       {/* Add to contacts button */}
@@ -906,9 +868,7 @@ export default function InviteSubsModal({ packageId, packageName, selectedTrades
 
       {/* Cover message */}
       <div style={{ marginTop: 16 }}>
-        <label
-          style={{ color: C.textMuted, fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}
-        >
+        <label style={{ color: C.textMuted, fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>
           Cover Message (optional)
         </label>
         <textarea
@@ -951,10 +911,7 @@ export default function InviteSubsModal({ packageId, packageName, selectedTrades
           onClick={handleSend}
           disabled={totalSelected === 0 || sending}
           style={{
-            background:
-              totalSelected > 0
-                ? `linear-gradient(135deg, ${C.accent}, #BF5AF2)`
-                : C.border,
+            background: totalSelected > 0 ? `linear-gradient(135deg, ${C.accent}, #BF5AF2)` : C.border,
             color: totalSelected > 0 ? "#fff" : C.textDim,
             border: "none",
             borderRadius: 8,

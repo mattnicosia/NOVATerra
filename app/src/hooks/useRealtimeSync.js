@@ -55,12 +55,8 @@ export function useRealtimeSync() {
     // In org mode: filter by org_id. In solo mode: filter by user_id + org_id IS NULL.
     // Note: Supabase Realtime postgres_changes filter only supports eq, not is.null.
     // For solo mode, we filter client-side.
-    const filterEstimates = orgId
-      ? `org_id=eq.${orgId}`
-      : `user_id=eq.${userId}`;
-    const filterData = orgId
-      ? `org_id=eq.${orgId}`
-      : `user_id=eq.${userId}`;
+    const filterEstimates = orgId ? `org_id=eq.${orgId}` : `user_id=eq.${userId}`;
+    const filterData = orgId ? `org_id=eq.${orgId}` : `user_id=eq.${userId}`;
 
     // ── Channel: user_estimates ──
     const estChannel = supabase
@@ -196,7 +192,9 @@ export function useRealtimeSync() {
       channelsRef.current = [];
       setTimeout(() => {
         for (const ch of channels) {
-          try { supabase?.removeChannel(ch); } catch {}
+          try {
+            supabase?.removeChannel(ch);
+          } catch {}
         }
       }, 100);
     };

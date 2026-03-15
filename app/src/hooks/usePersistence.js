@@ -328,6 +328,10 @@ export function usePersistenceLoad() {
               }
             }
             deletedSet = new Set(delIds);
+            // Hydrate the in-memory zombie guard so ALL future setEstimatesIndex
+            // calls are automatically filtered — nuclear defense against resurrection.
+            const { hydrateDeletedIds } = await import("@/stores/estimatesStore");
+            hydrateDeletedIds(delIds);
           } catch {
             /* proceed without filter if read fails */
           }
@@ -1496,13 +1500,34 @@ export async function saveEstimate(overrideId) {
       if (mirrorRaw) {
         const mirrorParsed = JSON.parse(mirrorRaw);
         if (Array.isArray(mirrorParsed) && mirrorParsed.length > 0) {
-          console.error(
-            `[saveEstimate] DATA LOSS PREVENTION: Refusing to save empty index — localStorage mirror has ${mirrorParsed.length} estimates. Recovering...`,
-          );
-          // Recover from mirror instead of overwriting
-          useEstimatesStore.getState().setEstimatesIndex(mirrorParsed);
-          await storage.set(idbKey("bldg-index"), mirrorRaw);
-          return; // Abort this save — data recovered
+          // CRITICAL: Filter deleted IDs before recovering — otherwise this
+          // guard resurrects deliberately-deleted estimates from the mirror.
+          let filtered = mirrorParsed;
+          try {
+            const delRaw = await storage.get(idbKey("bldg-deleted-ids"));
+            let delIds = delRaw ? JSON.parse(delRaw.value) : [];
+            const lsKey = `bldg-deleted-ids-${userId || "anon"}`;
+            const lsDelRaw = localStorage.getItem(lsKey);
+            if (lsDelRaw) {
+              const lsDel = JSON.parse(lsDelRaw);
+              for (const d of lsDel) { if (!delIds.includes(d)) delIds.push(d); }
+            }
+            if (delIds.length > 0) {
+              const delSet = new Set(delIds);
+              filtered = mirrorParsed.filter(e => !delSet.has(e.id));
+            }
+          } catch { /* proceed with unfiltered */ }
+          if (filtered.length === 0) {
+            console.log("[saveEstimate] DLP guard: mirror entries are all deleted — not recovering");
+          } else {
+            console.error(
+              `[saveEstimate] DATA LOSS PREVENTION: Refusing to save empty index — localStorage mirror has ${filtered.length} estimates (${mirrorParsed.length - filtered.length} deleted filtered). Recovering...`,
+            );
+            // Recover from mirror instead of overwriting
+            useEstimatesStore.getState().setEstimatesIndex(filtered);
+            await storage.set(idbKey("bldg-index"), JSON.stringify(filtered));
+          }
+          return; // Abort this save — data recovered (or all deleted)
         }
       }
     }
@@ -1554,12 +1579,26 @@ export async function saveEstimate(overrideId) {
 // Save master data
 export async function saveMasterData() {
   const master = useMasterDataStore.getState().masterData;
+
+  // Guard: never push a clearly empty/reset master to cloud — this would wipe
+  // company profiles, contacts, proposals, etc. that exist on the server.
+  const hasContent =
+    (master.companyProfiles?.length > 0) ||
+    (master.companyInfo?.name) ||
+    (master.clients?.length > 0) ||
+    (master.subcontractors?.length > 0) ||
+    (master.historicalProposals?.length > 0);
+
   const ok = await storage.set(idbKey("bldg-master"), JSON.stringify(master));
   if (!ok) {
     useUiStore.getState().showToast("Failed to save company data", "error");
   }
 
-  // Cloud push (non-blocking)
+  // Cloud push (non-blocking) — skip if master looks empty to avoid wiping cloud data
+  if (!hasContent) {
+    console.warn("[saveMasterData] Skipping cloud push — master data appears empty/reset");
+    return;
+  }
   cloudSync.pushData("master", master).catch(err => {
     console.warn("[usePersistence] Cloud push failed for master:", err?.message);
   });

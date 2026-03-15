@@ -702,7 +702,9 @@ export default function ModulePanel({
             {hasQty ? (qty >= 1000 ? Math.round(qty).toLocaleString() : Math.round(qty * 100) / 100) : "—"}
           </span>
         )}
-        <span style={{ fontSize: 9, color: C.textMuted, width: 28, textAlign: "left", flexShrink: 0 }}>{item.unit}</span>
+        <span style={{ fontSize: 9, color: C.textMuted, width: 28, textAlign: "left", flexShrink: 0 }}>
+          {item.unit}
+        </span>
         {/* Delete linked takeoff (resets to pending without excluding) */}
         {toId && hasQty && !isExcluded && (
           <button
@@ -789,7 +791,13 @@ export default function ModulePanel({
             style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 72, flex: "1 1 72px", maxWidth: 120 }}
           >
             <label
-              style={{ fontSize: 10, fontWeight: 600, color: C.textMuted, textTransform: "uppercase", letterSpacing: 0.3 }}
+              style={{
+                fontSize: 10,
+                fontWeight: 600,
+                color: C.textMuted,
+                textTransform: "uppercase",
+                letterSpacing: 0.3,
+              }}
             >
               {spec.label} {spec.unit && <span style={{ color: C.textDimmer }}>({spec.unit})</span>}
             </label>
@@ -1249,9 +1257,7 @@ export default function ModulePanel({
                 padding: "1px 4px",
               }}
             />
-            {!catInst.label && (
-              <Ic d={I.edit} size={8} color={C.textDim} />
-            )}
+            {!catInst.label && <Ic d={I.edit} size={8} color={C.textDim} />}
           </div>
 
           {/* Unit badge */}
@@ -1585,8 +1591,16 @@ export default function ModulePanel({
           <button
             onClick={() => expandAllCategories(activeModule)}
             style={{
-              border: "none", background: "transparent", color: C.textMuted, cursor: "pointer",
-              fontSize: 9, fontWeight: 600, padding: "2px 0", display: "flex", alignItems: "center", gap: 3,
+              border: "none",
+              background: "transparent",
+              color: C.textMuted,
+              cursor: "pointer",
+              fontSize: 9,
+              fontWeight: 600,
+              padding: "2px 0",
+              display: "flex",
+              alignItems: "center",
+              gap: 3,
             }}
           >
             <span style={{ fontSize: 7 }}>&#9660;</span> Expand All
@@ -1594,13 +1608,25 @@ export default function ModulePanel({
           <button
             onClick={() => {
               collapseAllCategories(activeModule);
-              setCollapsedInstances(new Set(
-                Object.values(inst.categoryInstances || {}).flat().map(ci => ci.id)
-              ));
+              setCollapsedInstances(
+                new Set(
+                  Object.values(inst.categoryInstances || {})
+                    .flat()
+                    .map(ci => ci.id),
+                ),
+              );
             }}
             style={{
-              border: "none", background: "transparent", color: C.textMuted, cursor: "pointer",
-              fontSize: 9, fontWeight: 600, padding: "2px 0", display: "flex", alignItems: "center", gap: 3,
+              border: "none",
+              background: "transparent",
+              color: C.textMuted,
+              cursor: "pointer",
+              fontSize: 9,
+              fontWeight: 600,
+              padding: "2px 0",
+              display: "flex",
+              alignItems: "center",
+              gap: 3,
             }}
           >
             <span style={{ fontSize: 7 }}>&#9650;</span> Collapse All

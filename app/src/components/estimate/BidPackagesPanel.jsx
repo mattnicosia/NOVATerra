@@ -115,7 +115,7 @@ function IntentBadge({ intent, reason }) {
   );
 }
 
-function InvitationRow({ inv, proposal, gapReport, onResend, onViewProposal }) {
+function InvitationRow({ inv, proposal, gapReport, onResend, onViewProposal, onRemove }) {
   const C = useTheme();
   const subResponseIntents = useBidPackagesStore(s => s.subResponseIntents);
   const intentData = subResponseIntents?.[inv.id];
@@ -195,29 +195,67 @@ function InvitationRow({ inv, proposal, gapReport, onResend, onViewProposal }) {
         </button>
       )}
       {(inv.status === "sent" || inv.status === "pending") && (
-        <button
-          onClick={() => onResend(inv)}
-          style={{
-            background: "none",
-            border: "none",
-            color: C.accent,
-            cursor: "pointer",
-            fontSize: 11,
-            fontWeight: 600,
-            padding: "4px 8px",
-            borderRadius: 6,
-          }}
-          onMouseEnter={e => (e.currentTarget.style.background = "rgba(124,92,252,0.12)")}
-          onMouseLeave={e => (e.currentTarget.style.background = "none")}
-        >
-          Resend
-        </button>
+        <>
+          <button
+            onClick={() => onResend(inv)}
+            style={{
+              background: "none",
+              border: "none",
+              color: C.accent,
+              cursor: "pointer",
+              fontSize: 11,
+              fontWeight: 600,
+              padding: "4px 8px",
+              borderRadius: 6,
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = "rgba(124,92,252,0.12)")}
+            onMouseLeave={e => (e.currentTarget.style.background = "none")}
+          >
+            Resend
+          </button>
+          {onRemove && (
+            <button
+              onClick={e => {
+                e.stopPropagation();
+                onRemove(inv);
+              }}
+              style={{
+                background: "none",
+                border: "none",
+                color: C.textDim,
+                cursor: "pointer",
+                fontSize: 11,
+                fontWeight: 600,
+                padding: "4px 6px",
+                borderRadius: 6,
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = "rgba(255,69,58,0.12)";
+                e.currentTarget.style.color = "#FF453A";
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = "none";
+                e.currentTarget.style.color = C.textDim;
+              }}
+              title="Remove this sub from the package"
+            >
+              ✕
+            </button>
+          )}
+        </>
       )}
     </div>
   );
 }
 
-export default function BidPackagesPanel({ onCreateNew, onViewProposal, onCompare, onAward, onClose: onClosePackage, onInviteSubs }) {
+export default function BidPackagesPanel({
+  onCreateNew,
+  onViewProposal,
+  onCompare,
+  onAward,
+  onClose: onClosePackage,
+  onInviteSubs,
+}) {
   const C = useTheme();
   const T = C.T;
   const bidPackages = useBidPackagesStore(s => s.bidPackages);
@@ -239,7 +277,32 @@ export default function BidPackagesPanel({ onCreateNew, onViewProposal, onCompar
     return reports;
   }, [proposals, items]);
 
+  const removeInvitation = useBidPackagesStore(s => s.removeInvitation);
   const showToast = useUiStore(s => s.showToast);
+
+  const handleRemoveInvitation = async (pkgId, inv) => {
+    if (
+      !window.confirm(`Remove ${inv.subCompany || inv.sub_company || inv.subEmail || inv.sub_email} from this package?`)
+    )
+      return;
+    try {
+      const token = useAuthStore.getState().session?.access_token;
+      const resp = await fetch("/api/bid-invitation", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ invitationId: inv.id }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to remove");
+      }
+      removeInvitation(pkgId, inv.id);
+      showToast("Sub removed from package", "success");
+    } catch (err) {
+      console.error("Remove invitation error:", err);
+      showToast(err.message || "Failed to remove sub", "error");
+    }
+  };
 
   const handleResend = async inv => {
     try {
@@ -484,6 +547,11 @@ export default function BidPackagesPanel({ onCreateNew, onViewProposal, onCompar
                       proposal={proposals[inv.id]}
                       gapReport={gapReports[inv.id]}
                       onResend={handleResend}
+                      onRemove={
+                        pkg.status !== "awarded" && pkg.status !== "closed"
+                          ? removedInv => handleRemoveInvitation(pkg.id, removedInv)
+                          : undefined
+                      }
                       onViewProposal={
                         onViewProposal ? p => onViewProposal({ ...p, _packageName: pkg.name }) : undefined
                       }
@@ -525,8 +593,7 @@ export default function BidPackagesPanel({ onCreateNew, onViewProposal, onCompar
                             fontFamily: "inherit",
                           }}
                         >
-                          <Ic d={I.user} size={13} color={C.accent} />
-                          + Invite Subs
+                          <Ic d={I.user} size={13} color={C.accent} />+ Invite Subs
                         </button>
                       )}
                       {parsedProposals.length >= 2 && onCompare && (

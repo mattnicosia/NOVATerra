@@ -550,14 +550,19 @@ export const useItemsStore = create((set, get) => ({
 
     // Ordered markup calculation — each markup either compounds on running subtotal or uses base direct
     // Skip inactive markups (active defaults to true for backward compatibility)
+    // Supports both percentage ("pct"/undefined) and flat dollar ("flat") types
     let running = direct;
     const order = markupOrder || DEFAULT_MARKUP_ORDER;
     order.forEach(mo => {
       if (mo.active === false) return;
-      const pct = nn(markup[mo.key]);
-      if (pct === 0) return;
-      const base = mo.compound ? running : direct;
-      running += (base * pct) / 100;
+      const val = nn(markup[mo.key]);
+      if (val === 0) return;
+      if (mo.type === "flat") {
+        running += val;
+      } else {
+        const base = mo.compound ? running : direct;
+        running += (base * val) / 100;
+      }
     });
 
     let grand = running;

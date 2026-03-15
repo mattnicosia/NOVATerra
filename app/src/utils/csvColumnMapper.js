@@ -155,6 +155,151 @@ function parseNumber(str) {
 
 /** Strings that indicate a summary/total row to skip */
 const SKIP_PATTERNS = /^\s*(total|subtotal|grand\s*total|sub-total|sum|──|—-)\b/i;
+/** Also skip rows ENDING with " Total" (ProEst section/division totals) */
+const SKIP_SUFFIX = /\bTotal\s*$/i;
+
+// ─── ProEst Detection & Preprocessing ────────────────────────────────
+
+/**
+ * Detect if parsed data is a ProEst "Estimate Unit Costs" export.
+ * Signature: 4 columns [Description, Quantity, Unit Cost, Total]
+ * with combined qty+unit in Quantity column (e.g., "287.71 LF").
+ */
+export function detectProEst(headers, rows) {
+  if (!headers || headers.length < 3 || headers.length > 5) return false;
+  const h = headers.map(s => String(s).toLowerCase().trim());
+  const hasDesc = h.some(c => c === "description");
+  const hasQty = h.some(c => c === "quantity");
+  const hasCost = h.some(c => c.includes("unit cost") || c.includes("unit price"));
+  if (!hasDesc || !hasQty || !hasCost) return false;
+
+  // Verify combined qty+unit pattern in data rows
+  const qtyIdx = h.findIndex(c => c === "quantity");
+  let combinedCount = 0;
+  for (const row of rows.slice(0, 30)) {
+    const val = String(row[qtyIdx] ?? "").trim();
+    if (/^\d+[\d,.]*\s+[A-Z]{1,5}$/i.test(val)) combinedCount++;
+  }
+  return combinedCount >= 3;
+}
+
+/**
+ * Preprocess a ProEst export into normalized NOVATerra-compatible columns.
+ * - Splits combined "287.71 LF" → separate Quantity and Unit columns
+ * - Extracts division/sub-division codes from header rows
+ * - Skips total/subtotal rows and division headers
+ * - Carries current division + code context down to each line item
+ */
+export function preprocessProEst(headers, rows) {
+  const newHeaders = ["Description", "Code", "Division", "Quantity", "Unit", "Material"];
+  const newRows = [];
+
+  const h = headers.map(s => String(s).toLowerCase().trim());
+  const descIdx = h.findIndex(c => c === "description");
+  const qtyIdx = h.findIndex(c => c === "quantity");
+  const unitCostIdx = h.findIndex(c => c.includes("unit cost") || c.includes("unit price"));
+
+  let curDivision = "";
+  let curCode = "";
+
+  for (const row of rows) {
+    const desc = String(row[descIdx] ?? "").trim();
+    if (!desc) continue;
+
+    const qtyRaw = String(row[qtyIdx] ?? "").trim();
+    const unitCost = row[unitCostIdx];
+
+    // Skip total/subtotal rows (empty qty + description ending in "Total")
+    if (!qtyRaw && SKIP_SUFFIX.test(desc)) continue;
+    if (SKIP_PATTERNS.test(desc)) continue;
+
+    // Division header: "01 General Requirements " — 2-digit code, no qty data
+    const divMatch = desc.match(/^(\d{2})\s+(.+)/);
+    if (divMatch && !qtyRaw) {
+      curDivision = divMatch[2].trim();
+      curCode = "";
+      continue;
+    }
+
+    // Sub-division header: "03.1000 Concrete" — code with decimal, no qty data
+    const subMatch = desc.match(/^(\d{2}\.\d{3,4})\s+(.+)/);
+    if (subMatch && !qtyRaw) {
+      curCode = subMatch[1];
+      continue;
+    }
+
+    // Split combined qty+unit: "287.71 LF" → qty=287.71, unit="LF"
+    let qty = "";
+    let unit = "";
+    const splitMatch = qtyRaw.match(/^([\d,.]+)\s+([A-Za-z/²³]+)$/);
+    if (splitMatch) {
+      qty = splitMatch[1];
+      unit = splitMatch[2];
+    } else {
+      qty = qtyRaw;
+    }
+
+    newRows.push([desc, curCode, curDivision, qty, unit, unitCost ?? ""]);
+  }
+
+  return { headers: newHeaders, rows: newRows };
+}
+
+/**
+ * Extract markup percentages from a ProEst Summary sheet.
+ * The Summary sheet has rows like:
+ *   ["Overhead & Profit (12.5%)", "12.5000%"]
+ *   ["Material", "10.0000%"]
+ *   ["Insurance", ""]
+ *
+ * Returns a markup object compatible with itemsStore.markup structure,
+ * plus which keys should be activated in markupOrder.
+ */
+export function extractProEstMarkups(summaryRows) {
+  if (!summaryRows || summaryRows.length === 0) return null;
+
+  const markup = {};
+  const activate = [];
+
+  for (const row of summaryRows) {
+    const label = String(row[0] ?? "").trim().toLowerCase();
+    const rawPct = String(row[1] ?? "").trim();
+
+    // Parse percentage value: "12.5000%" → 12.5
+    const pctMatch = rawPct.match(/([\d.]+)\s*%/);
+    if (!pctMatch) continue;
+    const pct = parseFloat(pctMatch[1]);
+    if (isNaN(pct) || pct === 0) continue;
+
+    if (label.includes("overhead") && label.includes("profit")) {
+      markup.overheadAndProfit = pct;
+      activate.push("overheadAndProfit");
+    } else if (label === "insurance") {
+      markup.insurance = pct;
+      activate.push("insurance");
+    } else if (label.includes("contingency")) {
+      markup.contingency = pct;
+      activate.push("contingency");
+    } else if (label.includes("general conditions")) {
+      markup.generalConditions = pct;
+      activate.push("generalConditions");
+    } else if (label === "overhead") {
+      markup.overhead = pct;
+      activate.push("overhead");
+    } else if (label === "profit") {
+      markup.profit = pct;
+      activate.push("profit");
+    } else if (label === "fee") {
+      markup.fee = pct;
+      activate.push("fee");
+    }
+    // Material/Labor/SubContractor/Other markups are ProEst-specific category
+    // markups that don't map to NOVATerra's flat markup chain — skip them
+  }
+
+  if (Object.keys(markup).length === 0) return null;
+  return { markup, activate };
+}
 
 /**
  * Transform CSV rows into item presets using confirmed column mappings.
@@ -183,7 +328,7 @@ export function applyMappings(mappings, headers, rows, options = {}) {
     const descIdx = fieldToIdx["description"];
     const desc = descIdx !== undefined ? (row[descIdx] || "").trim() : "";
 
-    if (!desc || SKIP_PATTERNS.test(desc)) {
+    if (!desc || SKIP_PATTERNS.test(desc) || SKIP_SUFFIX.test(desc)) {
       skipped++;
       continue;
     }

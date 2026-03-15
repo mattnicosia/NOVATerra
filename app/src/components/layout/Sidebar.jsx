@@ -17,7 +17,7 @@ import { useResponsive } from "@/hooks/useResponsive";
 const globalNav = [
   { key: "dashboard", path: "/", icon: I.dashboard, label: "Dashboard" },
   { key: "inbox", path: "/inbox", icon: I.inbox, label: "Inbox" },
-  { key: "core", path: "/core", icon: I.database, label: "ARTIFACT Core" },
+  { key: "core", path: "/core", icon: I.database, label: "NOVA Core" },
   { key: "intelligence", path: "/intelligence", icon: I.intelligence, label: "Intelligence" },
   { key: "contacts", path: "/contacts", icon: I.user, label: "People" },
   { key: "settings", path: "/settings", icon: I.settings, label: "Settings" },
@@ -187,7 +187,7 @@ function Sidebar() {
             }}
             onClick={!open ? toggle : undefined}
           >
-            <NovaTerraLogo size={open ? 17 : 10} />
+            <NovaTerraLogo size={open ? 14 : 8} />
           </div>
           {open && (
             <button
@@ -328,7 +328,10 @@ function Sidebar() {
               {open && <span style={{ fontSize: 9, color: statusColor, fontWeight: 500 }}>{statusLabel}</span>}
               {open && syncStatus !== "syncing" && (
                 <span
-                  onClick={e => { e.stopPropagation(); retryCloudSync(); }}
+                  onClick={e => {
+                    e.stopPropagation();
+                    retryCloudSync();
+                  }}
                   style={{
                     fontSize: 8,
                     color: P.textDim,

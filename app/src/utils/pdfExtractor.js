@@ -639,13 +639,11 @@ export async function detectMarkersFromText(drawing) {
   const minFontSize = 3 * viewport.scale;
 
   const isInTitleBlock = (x, y) => y > titleBlockMinY || (x > titleBlockMinX && y > vpH * 0.7);
-  const isBadFont = (fs) => fs > maxFontSize || fs < minFontSize;
+  const isBadFont = fs => fs > maxFontSize || fs < minFontSize;
 
   // Find text items that look like sheet numbers
-  const sheetCandidates = items.filter(t =>
-    sheetPattern.test(t.text) &&
-    !isInTitleBlock(t.x, t.y) &&
-    !isBadFont(t.fontSize),
+  const sheetCandidates = items.filter(
+    t => sheetPattern.test(t.text) && !isInTitleBlock(t.x, t.y) && !isBadFont(t.fontSize),
   );
 
   const markers = [];
@@ -672,9 +670,8 @@ export async function detectMarkersFromText(drawing) {
 
     if (nearby.length > 0) {
       // Pick the closest one
-      const best = nearby.sort((a, b) =>
-        Math.hypot(a.x - sheet.x, a.y - sheet.y) -
-        Math.hypot(b.x - sheet.x, b.y - sheet.y),
+      const best = nearby.sort(
+        (a, b) => Math.hypot(a.x - sheet.x, a.y - sheet.y) - Math.hypot(b.x - sheet.x, b.y - sheet.y),
       )[0];
 
       usedItems.add(sheet);

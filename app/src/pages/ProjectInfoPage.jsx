@@ -22,6 +22,8 @@ import { useCorrespondenceStore } from "@/stores/correspondenceStore";
 import { resolveLocationFactors, getAllLocations } from "@/constants/locationFactors";
 import { suggestEstimatedHours } from "@/utils/hoursEstimator";
 import { supabase } from "@/utils/supabase";
+import { syncCompletedEstimate } from "@/lib/nova-core/completionSync";
+import { useItemsStore } from "@/stores/itemsStore";
 
 /* ── Completion calculator ── */
 const ALL_FIELDS = [
@@ -281,6 +283,21 @@ export default function ProjectInfoPage() {
 
   const handleSave = async () => {
     if (!activeEstimateId) return;
+
+    // ── Require a unique estimate number before finalizing ──
+    const trimmedEstNum = (project.estimateNumber || "").trim();
+    if (!trimmedEstNum) {
+      setEstNumError("Estimate number is required before saving");
+      return;
+    }
+    const allEstimates = useEstimatesStore.getState().estimatesIndex;
+    // Exclude trashed estimates from duplicate check
+    const dupEst = allEstimates.find(e => e.estimateNumber === trimmedEstNum && e.id !== activeEstimateId && e.status !== "Trash");
+    if (dupEst) {
+      setEstNumError(`Estimate #${trimmedEstNum} already exists ("${dupEst.name}")`);
+      return;
+    }
+
     const isDraft = draftId && activeEstimateId === draftId;
     if (isDraft) {
       clearDraft();
@@ -309,16 +326,50 @@ export default function ProjectInfoPage() {
     navigate(`/estimate/${activeEstimateId}/plans`);
   };
 
-  const up = (field, value) => setProject({ ...project, [field]: value });
+  const up = (field, value) => {
+    setProject({ ...project, [field]: value });
+
+    // NOVA Core: sync when status changes to Won
+    if (field === "status" && value === "Won") {
+      console.log("[ProjectInfoPage] Won detected, firing NOVA Core sync");
+      const orgId = useOrgStore.getState().org?.id;
+      if (orgId && activeEstimateId) {
+        // Also update the index entry so Projects page reflects the change
+        updateIndexEntry(activeEstimateId, { status: "Won" });
+
+        const items = useItemsStore.getState().items;
+        const currentProject = { ...project, status: "Won" };
+        const estEntry = estimatesIndex.find(e => e.id === activeEstimateId);
+        syncCompletedEstimate({
+          estimateId: activeEstimateId,
+          estimateIndex: estEntry || { id: activeEstimateId, grandTotal: project.grandTotal },
+          project: currentProject,
+          items,
+          outcomeMetadata: {
+            contractAmount: project.grandTotal || estEntry?.grandTotal || 0,
+            awardDate: new Date().toISOString().slice(0, 10),
+          },
+          orgId,
+        }).then(() => {
+          console.log("[ProjectInfoPage] NOVA Core sync complete");
+        }).catch(err => {
+          console.error("[ProjectInfoPage] NOVA Core sync failed:", err);
+        });
+      } else {
+        console.warn("[ProjectInfoPage] Won but missing orgId or estimateId — sync skipped");
+      }
+    }
+  };
 
   const validateEstimateNumber = val => {
     const trimmed = (val || "").trim();
     if (!trimmed) {
-      setEstNumError("");
+      setEstNumError("Estimate number is required");
       return;
     }
     const all = useEstimatesStore.getState().estimatesIndex;
-    const dup = all.find(e => e.estimateNumber === trimmed && e.id !== activeEstimateId);
+    // Exclude trashed estimates from duplicate check
+    const dup = all.find(e => e.estimateNumber === trimmed && e.id !== activeEstimateId && e.status !== "Trash");
     if (dup) {
       setEstNumError(`Estimate #${trimmed} already exists ("${dup.name}")`);
       up("estimateNumber", prevEstNumRef.current);
@@ -464,7 +515,7 @@ export default function ProjectInfoPage() {
         {/* ── Project Details ── */}
         <Sec title="Project Details" icon={SECTION_ICONS["Project Details"]}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
-            <Fld label="Estimate Number">
+            <Fld label={<>Estimate Number <span style={{ color: C.red || "#f44" }}>*</span></>}>
               <input
                 value={project.estimateNumber || ""}
                 onFocus={() => {
@@ -476,9 +527,9 @@ export default function ProjectInfoPage() {
                 }}
                 onBlur={e => validateEstimateNumber(e.target.value)}
                 placeholder="e.g. EST-2026-001"
-                style={inp(C, estNumError ? { borderColor: C.red } : {})}
+                style={inp(C, estNumError ? { borderColor: C.red || "#f44" } : {})}
               />
-              {estNumError && <div style={{ fontSize: 10, color: C.red, marginTop: 2 }}>{estNumError}</div>}
+              {estNumError && <div style={{ fontSize: 10, color: C.red || "#f44", marginTop: 2 }}>{estNumError}</div>}
               {autoTag("estimateNumber")}
             </Fld>
             <Fld label="Project Name">

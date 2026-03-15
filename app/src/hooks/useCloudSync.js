@@ -477,7 +477,13 @@ async function syncEstimates() {
   // If any existing estimates were updated from cloud, reload them into stores
   if (updatedFromCloud.length > 0) {
     console.log(`[cloudSync] Estimates: ${updatedFromCloud.length} estimate(s) updated from cloud — refreshing stores`);
-    // Update IDB index with merged entries
+    // CRITICAL: Filter deleted entries from idbIndexMap before writing back to IDB.
+    // Without this, the full IDB snapshot (which may still contain deleted entries)
+    // gets persisted back, causing zombie resurrection on next refresh.
+    for (const delId of initialDeletedIds) {
+      idbIndexMap.delete(delId);
+    }
+    // Update IDB index with merged entries (deleted entries now purged)
     const mergedIndex = Array.from(idbIndexMap.values());
     await storage.set(idbKey("bldg-index"), JSON.stringify(mergedIndex));
 

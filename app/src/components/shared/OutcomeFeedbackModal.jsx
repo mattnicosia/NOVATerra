@@ -15,8 +15,13 @@ export default function OutcomeFeedbackModal({ estimate, status, onSave, onSkip 
   const T = C.T;
   const isWon = status === "Won";
 
-  const [contractAmount, setContractAmount] = useState("");
-  const [awardDate, setAwardDate] = useState("");
+  // Pre-fill: current estimate total as contract amount, today as award date
+  const [contractAmount, setContractAmount] = useState(
+    estimate?.grandTotal ? String(estimate.grandTotal) : ""
+  );
+  const [awardDate, setAwardDate] = useState(
+    isWon ? new Date().toISOString().slice(0, 10) : ""
+  );
   const [competitor, setCompetitor] = useState("");
   const [lostReason, setLostReason] = useState("Price");
   const [notes, setNotes] = useState("");
@@ -32,7 +37,7 @@ export default function OutcomeFeedbackModal({ estimate, status, onSave, onSkip 
   const handleSave = () => {
     const amount = parseFloat(contractAmount.replace(/[^0-9.]/g, ""));
     onSave({
-      contractAmount: amount || 0,
+      contractAmount: amount || estimate?.grandTotal || 0,
       competitor: isWon ? "" : competitor,
       lostReason: isWon ? "" : lostReason,
       awardDate: isWon ? awardDate : "",

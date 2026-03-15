@@ -100,7 +100,7 @@ export default function AdminDashboard() {
       {/* Header */}
       <div>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: C.text, margin: 0 }}>Platform Overview</h1>
-        <p style={{ fontSize: 12, color: C.textMuted, margin: "4px 0 0" }}>ARTIFACT Admin Dashboard</p>
+        <p style={{ fontSize: 12, color: C.textMuted, margin: "4px 0 0" }}>NOVA Admin Dashboard</p>
       </div>
 
       {/* KPI Cards */}

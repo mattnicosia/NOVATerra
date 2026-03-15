@@ -69,16 +69,22 @@ export default function ScheduleOfValuesPage() {
     });
     const direct = material + labor + equipment + sub;
 
-    // Ordered markup calculation
+    // Ordered markup calculation — skip inactive, support flat type
     let running = direct;
     const markupAmounts = {};
     markupOrder.forEach(mo => {
-      const pct = nn(markup[mo.key]);
-      if (pct === 0) { markupAmounts[mo.key] = 0; return; }
-      const base = mo.compound ? running : direct;
-      const amt = base * pct / 100;
-      markupAmounts[mo.key] = amt;
-      running += amt;
+      if (mo.active === false) { markupAmounts[mo.key] = 0; return; }
+      const val = nn(markup[mo.key]);
+      if (val === 0) { markupAmounts[mo.key] = 0; return; }
+      if (mo.type === "flat") {
+        markupAmounts[mo.key] = val;
+        running += val;
+      } else {
+        const base = mo.compound ? running : direct;
+        const amt = base * val / 100;
+        markupAmounts[mo.key] = amt;
+        running += amt;
+      }
     });
     const subtotal = running;
 
@@ -101,15 +107,19 @@ export default function ScheduleOfValuesPage() {
     const catMkup = { material: 1 + nn(sovCatMarkup.material) / 100, labor: 1 + nn(sovCatMarkup.labor) / 100, equipment: 1 + nn(sovCatMarkup.equipment) / 100, sub: 1 + nn(sovCatMarkup.sub) / 100 };
     const hasCatMkup = Object.values(sovCatMarkup).some(v => nn(v) !== 0);
     // Compute effective markup factor from direct to post-standard-markups
-    // Use the same ordered logic: compound items multiply running total, non-compound add from base
+    // Skip inactive markups, handle flat amounts separately (distributed proportionally)
     let mkupRunning = 1; // represents multiplier from direct
+    let flatMarkupTotal = 0;
     markupOrder.forEach(mo => {
-      const pct = nn(markup[mo.key]);
-      if (pct === 0) return;
-      if (mo.compound) {
-        mkupRunning *= (1 + pct / 100);
+      if (mo.active === false) return;
+      const val = nn(markup[mo.key]);
+      if (val === 0) return;
+      if (mo.type === "flat") {
+        flatMarkupTotal += val;
+      } else if (mo.compound) {
+        mkupRunning *= (1 + val / 100);
       } else {
-        mkupRunning += pct / 100;
+        mkupRunning += val / 100;
       }
     });
     const mkupFactor = mkupRunning;
@@ -171,9 +181,9 @@ export default function ScheduleOfValuesPage() {
     const rowData = sortedGroups.map(([key, g]) => {
       const adjMat = g.material * catMkup.material, adjLab = g.labor * catMkup.labor, adjEqp = g.equipment * catMkup.equipment, adjSub = g.sub * catMkup.sub;
       const direct = adjMat + adjLab + adjEqp + adjSub;
-      const marked = direct * mkupFactor;
-      const afterCustomPct = marked * (1 + customPctFactor);
       const shareRatio = grandDirectPreCalc > 0 ? direct / grandDirectPreCalc : 0;
+      const marked = direct * mkupFactor + (flatMarkupTotal * shareRatio);
+      const afterCustomPct = marked * (1 + customPctFactor);
       const afterCustom = afterCustomPct + (customFlatTotal * shareRatio);
       const withBondTax = afterCustom * bondFactor * taxFactor;
       grandDirect += direct; grandMarkup += afterCustom; grandTotal += withBondTax;
@@ -308,8 +318,8 @@ export default function ScheduleOfValuesPage() {
             )}
           </div>
           <div style={{ display: "flex", gap: 8, fontSize: 10, color: C.textDim, flexWrap: "wrap" }}>
-            <span>{markupOrder.map(mo => `${mo.label} ${markup[mo.key] || 0}%${mo.compound ? "★" : ""}`).join(" → ")}</span>
-            {markupOrder.some(mo => mo.compound) && <span style={{ color: C.accent }}>★ = compounded</span>}
+            <span>{markupOrder.filter(mo => mo.active !== false).map(mo => `${mo.label} ${markup[mo.key] || 0}${mo.type === "flat" ? "$" : "%"}${mo.compound && mo.type !== "flat" ? "★" : ""}`).join(" → ")}</span>
+            {markupOrder.some(mo => mo.active !== false && mo.compound && mo.type !== "flat") && <span style={{ color: C.accent }}>★ = compounded</span>}
           </div>
         </div>
       </DBlock>
@@ -317,58 +327,129 @@ export default function ScheduleOfValuesPage() {
 
     "markup": (
       <DBlock key="markup" id="markup" title="Markup & Adjustments">
-        <div style={{ fontSize: 9, fontWeight: 600, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8 }}>Standard Markups — drag to reorder</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 10 }}>
-          {markupOrder.map((mo, idx) => {
-            const moColors = { overhead: C.blue, profit: C.green, contingency: C.orange, generalConditions: C.cyan, insurance: C.purple, fee: C.red };
-            const moColor = moColors[mo.key] || C.textDim;
-            const amt = estimateTotals.markupAmounts?.[mo.key] || 0;
-            return (
-              <div key={mo.key} draggable
-                onDragStart={e => { e.stopPropagation(); e.dataTransfer.effectAllowed = "move"; sovDragItem.current = `mkup-${idx}`; }}
-                onDragOver={e => { e.stopPropagation(); e.preventDefault(); }}
-                onDrop={e => {
-                  e.stopPropagation(); e.preventDefault();
-                  const fromStr = sovDragItem.current;
-                  if (!fromStr?.startsWith("mkup-")) return;
-                  const from = parseInt(fromStr.split("-")[1]);
-                  if (from === idx) return;
-                  const next = [...markupOrder];
-                  const [moved] = next.splice(from, 1);
-                  next.splice(idx, 0, moved);
-                  setMarkupOrder(next);
-                  sovDragItem.current = null;
-                }}
-                onDragEnd={e => { e.stopPropagation(); sovDragItem.current = null; }}
-                style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 8px", background: C.bg, borderRadius: 4, border: `1px solid ${C.border}`, cursor: "grab" }}>
-                <svg width="8" height="12" viewBox="0 0 10 14" fill={C.textDim} style={{ opacity: 0.4, flexShrink: 0 }}>
-                  <circle cx="3" cy="2" r="1.2" /><circle cx="7" cy="2" r="1.2" />
-                  <circle cx="3" cy="7" r="1.2" /><circle cx="7" cy="7" r="1.2" />
-                  <circle cx="3" cy="12" r="1.2" /><circle cx="7" cy="12" r="1.2" />
-                </svg>
-                <span style={{ fontSize: 10, fontWeight: 600, color: moColor, minWidth: 90 }}>{mo.label}</span>
-                <input type="number" value={markup[mo.key]} onChange={e => setMarkup({ ...markup, [mo.key]: e.target.value })}
-                  onClick={e => e.stopPropagation()}
-                  style={nInp(C, { width: 60, padding: "4px 6px", fontSize: 12, fontWeight: 600 })} />
-                <span style={{ fontSize: 10, color: C.textDim }}>%</span>
-                <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", padding: "2px 6px", borderRadius: 3, background: mo.compound ? `${C.accent}18` : "transparent", border: `1px solid ${mo.compound ? C.accent + '50' : C.border}`, marginLeft: 4 }}
-                  onClick={e => e.stopPropagation()}>
-                  <input type="checkbox" checked={mo.compound || false}
-                    onChange={e => { const next = [...markupOrder]; next[idx] = { ...next[idx], compound: e.target.checked }; setMarkupOrder(next); }}
-                    style={{ width: 11, height: 11, accentColor: C.accent }} />
-                  <span style={{ fontSize: 8, fontWeight: 600, color: mo.compound ? C.accent : C.textDim }}>Compound</span>
-                </label>
-                {nn(markup[mo.key]) > 0 && <span style={{ marginLeft: "auto", fontSize: 10, color: moColor, fontWeight: 600, fontFeatureSettings: "'tnum'" }}>{fmt(amt)}</span>}
+        {(() => {
+          const moColors = { overhead: C.blue, profit: C.green, contingency: C.orange, generalConditions: C.cyan, insurance: C.purple, fee: C.red };
+          const activeItems = markupOrder.filter(mo => mo.active !== false);
+          const inactiveItems = markupOrder.filter(mo => mo.active === false);
+
+          const toggleActive = key => {
+            const next = markupOrder.map(mo => mo.key === key ? { ...mo, active: mo.active === false ? true : false } : mo);
+            setMarkupOrder(next);
+          };
+
+          const handleActiveMarkupDrop = (targetActiveIdx) => {
+            const fromStr = sovDragItem.current;
+            if (!fromStr?.startsWith("mkup-")) return;
+            const from = parseInt(fromStr.split("-")[1]);
+            if (from === targetActiveIdx) return;
+            const newActive = activeItems.filter((_, i) => i !== from);
+            newActive.splice(targetActiveIdx, 0, activeItems[from]);
+            setMarkupOrder([...newActive, ...inactiveItems]);
+            sovDragItem.current = null;
+          };
+
+          const ToggleSwitch = ({ active, onToggle }) => (
+            <div onClick={e => { e.stopPropagation(); e.preventDefault(); onToggle(); }}
+              onMouseDown={e => e.stopPropagation()} onDragStart={e => { e.preventDefault(); e.stopPropagation(); }} draggable={false}
+              style={{ width: 28, height: 16, borderRadius: 8, cursor: "pointer", position: "relative", background: active ? C.green : C.bg3, border: `1px solid ${active ? C.green : C.border}`, transition: "background 0.2s", flexShrink: 0 }}>
+              <div style={{ width: 12, height: 12, borderRadius: "50%", background: "#fff", position: "absolute", top: 1, left: active ? 14 : 1, transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+            </div>
+          );
+
+          return (
+            <>
+              {/* Active section */}
+              <div style={{ fontSize: 9, fontWeight: 700, color: C.accent, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.green, boxShadow: `0 0 6px ${C.green}60` }} />
+                Active ({activeItems.length}) — drag to reorder
               </div>
-            );
-          })}
-        </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 12 }}>
+                {activeItems.map((mo, idx) => {
+                  const moColor = moColors[mo.key] || C.textDim;
+                  const amt = estimateTotals.markupAmounts?.[mo.key] || 0;
+                  const isFlat = mo.type === "flat";
+                  return (
+                    <div key={mo.key} draggable
+                      onDragStart={e => { e.stopPropagation(); e.dataTransfer.effectAllowed = "move"; sovDragItem.current = `mkup-${idx}`; }}
+                      onDragOver={e => { e.stopPropagation(); e.preventDefault(); }}
+                      onDrop={e => { e.stopPropagation(); e.preventDefault(); handleActiveMarkupDrop(idx); }}
+                      onDragEnd={e => { e.stopPropagation(); sovDragItem.current = null; }}
+                      style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 8px", background: C.bg, borderRadius: 4, border: `1px solid ${C.border}`, cursor: "grab" }}>
+                      <ToggleSwitch active={true} onToggle={() => toggleActive(mo.key)} />
+                      <svg width="8" height="12" viewBox="0 0 10 14" fill={C.textDim} style={{ opacity: 0.4, flexShrink: 0 }}>
+                        <circle cx="3" cy="2" r="1.2" /><circle cx="7" cy="2" r="1.2" />
+                        <circle cx="3" cy="7" r="1.2" /><circle cx="7" cy="7" r="1.2" />
+                        <circle cx="3" cy="12" r="1.2" /><circle cx="7" cy="12" r="1.2" />
+                      </svg>
+                      <div style={{ width: 18, height: 18, borderRadius: "50%", background: `${moColor}20`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: moColor, flexShrink: 0 }}>{idx + 1}</div>
+                      <span style={{ fontSize: 10, fontWeight: 600, color: moColor, minWidth: 90 }}>{mo.label}</span>
+                      <LocalInput type="number" value={markup[mo.key]} onCommit={v => setMarkup({ ...markup, [mo.key]: v })}
+                        onClick={e => e.stopPropagation()}
+                        style={nInp(C, { width: 70, padding: "4px 6px", fontSize: 12, fontWeight: 600 })} />
+                      <select value={mo.type || "pct"} onChange={e => { const next = markupOrder.map(m => m.key === mo.key ? { ...m, type: e.target.value } : m); setMarkupOrder(next); }}
+                        onClick={e => e.stopPropagation()}
+                        style={inp(C, { width: 44, padding: "3px 2px", fontSize: 10 })}>
+                        <option value="pct">%</option>
+                        <option value="flat">$</option>
+                      </select>
+                      {!isFlat && (
+                        <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", padding: "2px 6px", borderRadius: 3, background: mo.compound ? `${C.accent}18` : "transparent", border: `1px solid ${mo.compound ? C.accent + '50' : C.border}` }}
+                          onClick={e => e.stopPropagation()}>
+                          <input type="checkbox" checked={mo.compound || false}
+                            onChange={e => { const next = markupOrder.map(m => m.key === mo.key ? { ...m, compound: e.target.checked } : m); setMarkupOrder(next); }}
+                            style={{ width: 11, height: 11, accentColor: C.accent }} />
+                          <span style={{ fontSize: 8, fontWeight: 600, color: mo.compound ? C.accent : C.textDim }}>Compound</span>
+                        </label>
+                      )}
+                      {nn(markup[mo.key]) > 0 && <span style={{ marginLeft: "auto", fontSize: 10, color: moColor, fontWeight: 600, fontFeatureSettings: "'tnum'" }}>{fmt(amt)}</span>}
+                    </div>
+                  );
+                })}
+                {activeItems.length === 0 && (
+                  <div style={{ padding: "10px 16px", borderRadius: 6, border: `1px dashed ${C.border}`, color: C.textDim, fontSize: 11, textAlign: "center" }}>
+                    No active markups — toggle items on below
+                  </div>
+                )}
+              </div>
+
+              {/* Inactive section */}
+              <div style={{ fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.textDim, opacity: 0.4 }} />
+                Inactive ({inactiveItems.length})
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 12 }}>
+                {inactiveItems.map(mo => {
+                  const moColor = moColors[mo.key] || C.textDim;
+                  return (
+                    <div key={mo.key} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 8px", background: C.bg2, borderRadius: 4, border: `1px dashed ${C.border}`, opacity: 0.55, userSelect: "none" }}>
+                      <ToggleSwitch active={false} onToggle={() => toggleActive(mo.key)} />
+                      <span style={{ fontSize: 10, fontWeight: 600, color: C.textDim, minWidth: 90 }}>{mo.label}</span>
+                      <LocalInput type="number" value={markup[mo.key]} onCommit={v => setMarkup({ ...markup, [mo.key]: v })}
+                        placeholder="0" style={nInp(C, { width: 70, padding: "4px 6px", fontSize: 12, fontWeight: 600 })} />
+                      <select value={mo.type || "pct"} onChange={e => { const next = markupOrder.map(m => m.key === mo.key ? { ...m, type: e.target.value } : m); setMarkupOrder(next); }}
+                        style={inp(C, { width: 44, padding: "3px 2px", fontSize: 10 })}>
+                        <option value="pct">%</option>
+                        <option value="flat">$</option>
+                      </select>
+                    </div>
+                  );
+                })}
+                {inactiveItems.length === 0 && (
+                  <div style={{ padding: "8px 16px", borderRadius: 6, border: `1px dashed ${C.border}`, color: C.textDim, fontSize: 11, textAlign: "center" }}>
+                    All markups are active
+                  </div>
+                )}
+              </div>
+            </>
+          );
+        })()}
+
         {/* Bond & Tax */}
         <div style={{ display: "flex", gap: 8, alignItems: "flex-end", marginBottom: 10 }}>
           {[{ k: "bond", l: "Bond", c: C.textMuted }, { k: "tax", l: "Tax", c: C.textDim }].map(m => (
             <div key={m.k} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               <span style={{ fontSize: 9, color: m.c, fontWeight: 600 }}>{m.l} %</span>
-              <input type="number" value={markup[m.k]} onChange={e => setMarkup({ ...markup, [m.k]: e.target.value })} style={nInp(C, { width: 72, padding: "6px 8px", fontSize: 13, fontWeight: 600 })} />
+              <LocalInput type="number" value={markup[m.k]} onCommit={v => setMarkup({ ...markup, [m.k]: v })} style={nInp(C, { width: 72, padding: "6px 8px", fontSize: 13, fontWeight: 600 })} />
             </div>
           ))}
         </div>

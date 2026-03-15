@@ -54,7 +54,7 @@ export default function NovaMarketBrief({ contextData }) {
             marginBottom: 6,
           }}
         >
-          ARTIFACT Market Brief
+          NOVA Market Brief
         </div>
 
         {novaBrief.text ? (

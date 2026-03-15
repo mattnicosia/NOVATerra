@@ -19,6 +19,10 @@
 import { createClient } from '@supabase/supabase-js';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const SUPABASE_URL = process.env.NOVA_CORE_SUPABASE_URL || process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 const SUPABASE_SERVICE_KEY = process.env.NOVA_CORE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -129,11 +133,16 @@ async function main() {
   report.row_counts['null_fields'] = 'deferred';
   console.log('  Deferred — user-data tables not yet created.\n');
 
-  // ── Check 4: labor_rates count ──
-  console.log('Check 4: DOL import volume...');
+  // ── Check 4: labor_rates coverage quality ──
+  // Three coverage checks replace the old row-count threshold.
+  // The original 10,000-row target was based on the DOL SCA county-level API
+  // which was deprecated. BLS OEWS provides metro+state level data — fewer
+  // rows but full geographic coverage. These checks measure actual quality.
+  console.log('Check 4: Labor rates coverage...');
   let laborRatesTotal = 0;
-  let laborRatesDol = 0;
-  let laborRatesBls = 0;
+  let tradesCovered = 0;
+  let statesCovered = 0;
+  let metrosCovered = 0;
 
   try {
     const { count: totalCount, error: totalErr } = await supabase
@@ -144,47 +153,72 @@ async function main() {
       laborRatesTotal = totalCount;
     }
 
-    const { count: dolCount, error: dolErr } = await supabase
-      .from('labor_rates')
-      .select('*', { count: 'exact', head: true })
-      .eq('source', 'dol_sca');
+    // Check 4a: All 19 trades must have at least 1 record
+    // Use paginated fetch to avoid Supabase default 1000-row cap
+    const allTradeIds = new Set<string>();
+    const allStates = new Set<string>();
+    const allMetros = new Set<string>();
+    let offset = 0;
+    const pageSize = 1000;
+    let hasMore = true;
 
-    if (!dolErr && dolCount !== null) {
-      laborRatesDol = dolCount;
+    while (hasMore) {
+      const { data: page, error: pageErr } = await supabase
+        .from('labor_rates')
+        .select('trade_id, state, metro_area')
+        .range(offset, offset + pageSize - 1);
+
+      if (pageErr || !page || page.length === 0) {
+        hasMore = false;
+        break;
+      }
+
+      for (const row of page) {
+        allTradeIds.add(row.trade_id);
+        allStates.add(row.state);
+        allMetros.add(row.metro_area);
+      }
+
+      offset += pageSize;
+      if (page.length < pageSize) hasMore = false;
     }
 
-    const { count: blsCount, error: blsErr } = await supabase
-      .from('labor_rates')
-      .select('*', { count: 'exact', head: true })
-      .eq('source', 'bls_oews');
-
-    if (!blsErr && blsCount !== null) {
-      laborRatesBls = blsCount;
-    }
+    tradesCovered = allTradeIds.size;
+    statesCovered = allStates.size;
+    metrosCovered = allMetros.size;
   } catch {
-    report.warnings.push('labor_rates table not accessible — DOL import check deferred.');
+    report.warnings.push('labor_rates table not accessible — coverage check deferred.');
   }
 
   report.row_counts['labor_rates_total'] = laborRatesTotal;
-  report.row_counts['labor_rates_dol_sca'] = laborRatesDol;
-  report.row_counts['labor_rates_bls_oews'] = laborRatesBls;
+  report.row_counts['labor_rates_trades_covered'] = tradesCovered;
+  report.row_counts['labor_rates_states_covered'] = statesCovered;
+  report.row_counts['labor_rates_metros_covered'] = metrosCovered;
 
-  if (laborRatesTotal < 10000) {
-    // Only a critical failure if the table exists and has too few records
-    if (laborRatesTotal === 0) {
-      report.warnings.push(`labor_rates has 0 records. DOL import may not have run yet.`);
-    } else {
-      report.critical_failures.push(`labor_rates has only ${laborRatesTotal} records (need >= 10,000).`);
+  if (laborRatesTotal === 0) {
+    report.warnings.push('labor_rates has 0 records. BLS import may not have run yet.');
+  } else {
+    if (tradesCovered < 19) {
+      report.critical_failures.push(`labor_rates covers ${tradesCovered}/19 trades (need all 19).`);
+    }
+    if (statesCovered < 40) {
+      report.critical_failures.push(`labor_rates covers ${statesCovered} states (need >= 40).`);
+    }
+    if (metrosCovered < 200) {
+      report.critical_failures.push(`labor_rates covers ${metrosCovered} metro areas (need >= 200).`);
     }
   }
-  console.log(`  labor_rates total: ${laborRatesTotal} | dol_sca: ${laborRatesDol} | bls_oews: ${laborRatesBls}\n`);
 
-  // ── Check 5: BLS cross-validation ──
-  // Only a warning, not a blocker
-  if (laborRatesDol > 0 && laborRatesBls > 0) {
-    // Check divergence > 15% between DOL and BLS
-    // This is a spot check — full validation is manual
-    report.warnings.push('BLS cross-validation: manual spot-check required on divergent records.');
+  console.log(`  Total records: ${laborRatesTotal}`);
+  console.log(`  Trades covered: ${tradesCovered}/19${tradesCovered >= 19 ? ' ✓' : ' ✗'}`);
+  console.log(`  States covered: ${statesCovered}${statesCovered >= 40 ? ' ✓' : ' ✗'}`);
+  console.log(`  Metro areas covered: ${metrosCovered}${metrosCovered >= 200 ? ' ✓' : ' ✗'}\n`);
+
+  // ── Check 5: BLS data quality spot-check ──
+  // Informational only — confirms data looks reasonable
+  if (laborRatesTotal > 0) {
+    console.log('Check 5: Data quality spot-check...');
+    console.log('  Source: BLS OEWS (DOL SCA API deprecated)\n');
   }
 
   // ── Check 6: All 8 backbone tables have at least 1 row ──

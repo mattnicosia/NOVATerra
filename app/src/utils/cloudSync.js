@@ -1231,14 +1231,38 @@ async function _applyDataToStore(key, data) {
       useDatabaseStore.getState().loadUserElements(data);
     } else if (key === "index") {
       // Merge into estimates index additively (never replace)
+      // CRITICAL: Filter against deleted-ids to prevent zombie resurrection
       const { useEstimatesStore } = await import("@/stores/estimatesStore");
+
+      // Load deleted-ids from IDB + localStorage (same pattern as usePersistence.js)
+      let deletedIds = new Set();
+      try {
+        const { storage } = await import("@/utils/storage");
+        const { idbKey } = await import("@/utils/idbKey");
+        const delRaw = await storage.get(idbKey("bldg-deleted-ids"));
+        const idbDeleted = delRaw ? JSON.parse(delRaw.value || delRaw) : [];
+        if (Array.isArray(idbDeleted)) idbDeleted.forEach(id => deletedIds.add(id));
+      } catch (_) {}
+      try {
+        const userId = getUserId();
+        const lsKey = `bldg-deleted-ids-${userId || "anon"}`;
+        const lsRaw = localStorage.getItem(lsKey);
+        if (lsRaw) {
+          const lsDeleted = JSON.parse(lsRaw);
+          if (Array.isArray(lsDeleted)) lsDeleted.forEach(id => deletedIds.add(id));
+        }
+      } catch (_) {}
+
       const currentIndex = useEstimatesStore.getState().estimatesIndex;
       const currentIds = new Set(currentIndex.map(e => e.id));
-      const newEntries = (Array.isArray(data) ? data : []).filter(e => !currentIds.has(e.id));
+      const newEntries = (Array.isArray(data) ? data : []).filter(
+        e => !currentIds.has(e.id) && !deletedIds.has(e.id)
+      );
       if (newEntries.length > 0) {
         useEstimatesStore.setState(s => ({
           estimatesIndex: [...s.estimatesIndex, ...newEntries],
         }));
+        console.log(`[cloudSync] Index merge: added ${newEntries.length}, blocked ${deletedIds.size} deleted`);
       }
     }
     console.log(`[cloudSync] Applied Realtime data for key "${key}"`);

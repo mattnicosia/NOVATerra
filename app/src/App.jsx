@@ -99,6 +99,7 @@ const AdminOrgsPage = lazy(() => import("@/pages/admin/AdminOrgsPage"));
 const AdminPipelinePage = lazy(() => import("@/pages/admin/AdminPipelinePage"));
 const AdminIntelligencePage = lazy(() => import("@/pages/admin/AdminIntelligencePage"));
 const AdminLogPage = lazy(() => import("@/pages/admin/AdminLogPage"));
+const AdminCarbonPage = lazy(() => import("@/pages/admin/AdminCarbonPage"));
 
 // Admin guard — checks if the current user's email is in the admin whitelist
 function AdminGuard({ children }) {
@@ -301,6 +302,8 @@ function FloatingThemePicker() {
     "clean-light",
     "nero",
     "shift5",
+    "arancio",
+    "terzo",
     ...CAR_PALETTE_IDS,
     ...LIGHT_PALETTE_IDS,
     ...ARTIFACT_PALETTE_IDS,
@@ -549,6 +552,8 @@ function ThemeCycleButton({ C }) {
     "clean-light",
     "nero",
     "shift5",
+    "arancio",
+    "terzo",
     ...CAR_PALETTE_IDS,
     ...LIGHT_PALETTE_IDS,
     ...ARTIFACT_PALETTE_IDS,
@@ -1006,6 +1011,7 @@ function AppContent() {
                   <Route path="pipeline" element={<AdminPipelinePage />} />
                   <Route path="intelligence" element={<AdminIntelligencePage />} />
                   <Route path="log" element={<AdminLogPage />} />
+                  <Route path="carbon" element={<AdminCarbonPage />} />
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

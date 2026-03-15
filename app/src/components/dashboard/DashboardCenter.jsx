@@ -198,7 +198,7 @@ export default function DashboardCenter({ activeProject }) {
             fontFamily: T.font.display,
           }}
         >
-          ARTIFACT online
+          NOVA online
         </div>
 
         <form onSubmit={handleAskSubmit} style={{ marginTop: 14 }}>

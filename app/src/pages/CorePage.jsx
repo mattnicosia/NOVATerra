@@ -145,7 +145,7 @@ export default function CorePage() {
                 gap: 8,
               }}
             >
-              ARTIFACT Core
+              NOVA Core
               <span
                 style={{
                   fontSize: 10,
@@ -169,7 +169,7 @@ export default function CorePage() {
                 lineHeight: 1.4,
               }}
             >
-              Your data feeds ARTIFACT's intelligence. Upload proposals, track costs, and grow smarter with every project.
+              Your data feeds NOVA's intelligence. Upload proposals, track costs, and grow smarter with every project.
             </p>
           </div>
         </div>

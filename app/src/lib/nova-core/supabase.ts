@@ -8,17 +8,24 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { NovaCoreTables } from './types';
 
+// Vite exposes env vars via import.meta.env, NOT process.env (browser context)
 const supabaseUrl = (
-  (import.meta as any).env?.NOVA_CORE_SUPABASE_URL ||
+  (import.meta as any).env?.VITE_NOVA_CORE_SUPABASE_URL ||
   (import.meta as any).env?.VITE_SUPABASE_URL ||
   ''
 ).replace(/\\n/g, '').replace(/\n/g, '').trim();
 
 const supabaseAnonKey = (
-  (import.meta as any).env?.NOVA_CORE_SUPABASE_ANON_KEY ||
+  (import.meta as any).env?.VITE_NOVA_CORE_SUPABASE_ANON_KEY ||
   (import.meta as any).env?.VITE_SUPABASE_ANON_KEY ||
   ''
 ).replace(/\\n/g, '').replace(/\n/g, '').trim();
+
+// Debug: log client initialization status in dev
+if ((import.meta as any).env?.DEV) {
+  console.log('[NOVA Core] supabaseUrl:', supabaseUrl ? 'SET' : 'MISSING');
+  console.log('[NOVA Core] supabaseAnonKey:', supabaseAnonKey ? 'SET' : 'MISSING');
+}
 
 export const novaCoreClient: SupabaseClient | null =
   supabaseUrl && supabaseAnonKey

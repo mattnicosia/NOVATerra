@@ -21,6 +21,38 @@ export default async function handler(req, res) {
   const user = await verifyUser(req);
   if (!user) return res.status(401).json({ error: "Unauthorized" });
 
+  // ── DELETE: Remove an invitation ──
+  if (req.method === "DELETE") {
+    const { invitationId } = req.body || {};
+    if (!invitationId) return res.status(400).json({ error: "Missing invitationId" });
+
+    try {
+      // Verify invitation belongs to user's package
+      const { data: inv, error: invErr } = await supabaseAdmin
+        .from("bid_invitations")
+        .select("id, user_id, package_id, status")
+        .eq("id", invitationId)
+        .single();
+
+      if (invErr || !inv) return res.status(404).json({ error: "Invitation not found" });
+      if (inv.user_id !== user.id) return res.status(403).json({ error: "Not authorized" });
+
+      // Only allow removing pending/sent invitations (not submitted/awarded)
+      if (["submitted", "parsed", "awarded"].includes(inv.status)) {
+        return res.status(400).json({ error: "Cannot remove invitation after proposal submitted" });
+      }
+
+      const { error: delErr } = await supabaseAdmin.from("bid_invitations").delete().eq("id", invitationId);
+      if (delErr) throw delErr;
+
+      console.log(`[bid-invitation] Removed invitation=${invitationId} from package=${inv.package_id}`);
+      return res.status(200).json({ removed: invitationId });
+    } catch (err) {
+      console.error("[bid-invitation] Delete error:", err);
+      return res.status(500).json({ error: err.message || "Failed to remove invitation" });
+    }
+  }
+
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -60,10 +92,7 @@ export default async function handler(req, res) {
       status: "pending",
     }));
 
-    const { data: invData, error: invError } = await supabaseAdmin
-      .from("bid_invitations")
-      .insert(inviteRows)
-      .select();
+    const { data: invData, error: invError } = await supabaseAdmin.from("bid_invitations").insert(inviteRows).select();
 
     if (invError) throw invError;
 

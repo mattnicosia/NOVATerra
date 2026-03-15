@@ -23,7 +23,7 @@ export default async function handler(req, res) {
   const user = await verifyUser(req);
   if (!user) return res.status(401).json({ error: "Unauthorized" });
 
-  const { packageId, winnerInvitationId, notes } = req.body || {};
+  const { packageId, winnerInvitationId, notes: _notes } = req.body || {};
   if (!packageId || !winnerInvitationId) {
     return res.status(400).json({ error: "Missing packageId or winnerInvitationId" });
   }
@@ -95,6 +95,42 @@ export default async function handler(req, res) {
       .eq("id", packageId);
     if (pkgUpdateErr) throw pkgUpdateErr;
 
+    // Collect all bid totals for price quartile calculation
+    const allBidTotals = [];
+    const proposalCache = {};
+    for (const inv of invitations) {
+      const { data: prop } = await supabaseAdmin
+        .from("bid_proposals")
+        .select("parsed_data")
+        .eq("invitation_id", inv.id)
+        .maybeSingle();
+      if (prop?.parsed_data?.totalBid) {
+        allBidTotals.push(prop.parsed_data.totalBid);
+        proposalCache[inv.id] = prop.parsed_data;
+      }
+    }
+    allBidTotals.sort((a, b) => a - b);
+
+    // Helper: compute price quartile (1=lowest, 4=highest)
+    const getQuartile = bid => {
+      if (!bid || allBidTotals.length === 0) return null;
+      const belowOrEqual = allBidTotals.filter(b => b <= bid).length;
+      const pct = (belowOrEqual - 1) / Math.max(allBidTotals.length - 1, 1);
+      if (pct < 0.25) return 1;
+      if (pct < 0.5) return 2;
+      if (pct < 0.75) return 3;
+      return 4;
+    };
+
+    // Get estimate items for scope gap computation
+    let estimateItems = [];
+    try {
+      const scopeItems = pkg.scope_items;
+      if (Array.isArray(scopeItems)) estimateItems = scopeItems;
+    } catch (_) {
+      /* ignore */
+    }
+
     // Send emails (non-blocking)
     if (apiKey) {
       const resend = new Resend(apiKey);
@@ -108,42 +144,6 @@ export default async function handler(req, res) {
           html: awardEmailHtml(gcCompany, pkg.name, winner.sub_company || winner.sub_contact),
         })
         .catch(err => console.warn("[award-bid] Winner email failed:", err));
-
-      // Collect all bid totals for price quartile calculation
-      const allBidTotals = [];
-      const proposalCache = {};
-      for (const inv of invitations) {
-        const { data: prop } = await supabaseAdmin
-          .from("bid_proposals")
-          .select("parsed_data")
-          .eq("invitation_id", inv.id)
-          .maybeSingle();
-        if (prop?.parsed_data?.totalBid) {
-          allBidTotals.push(prop.parsed_data.totalBid);
-          proposalCache[inv.id] = prop.parsed_data;
-        }
-      }
-      allBidTotals.sort((a, b) => a - b);
-
-      // Helper: compute price quartile (1=lowest, 4=highest)
-      const getQuartile = bid => {
-        if (!bid || allBidTotals.length === 0) return null;
-        const belowOrEqual = allBidTotals.filter(b => b <= bid).length;
-        const pct = (belowOrEqual - 1) / Math.max(allBidTotals.length - 1, 1);
-        if (pct < 0.25) return 1;
-        if (pct < 0.5) return 2;
-        if (pct < 0.75) return 3;
-        return 4;
-      };
-
-      // Get estimate items for scope gap computation
-      let estimateItems = [];
-      try {
-        const scopeItems = pkg.scope_items;
-        if (Array.isArray(scopeItems)) estimateItems = scopeItems;
-      } catch (_) {
-        /* ignore */
-      }
 
       // Generate feedback for all losers in parallel, then send emails
       const feedbackPromises = losers

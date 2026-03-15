@@ -1,10 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useAuthStore } from '@/stores/authStore';
 
 // Lightweight fetch wrapper for admin API calls
-// Attaches the user's JWT for server-side verifyAdmin() check
+// Auth via nova_admin_token cookie (set by /api/admin/auth)
 export function useAdminFetch(endpoint, options = {}) {
-  const session = useAuthStore(s => s.session);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -14,16 +12,14 @@ export function useAdminFetch(endpoint, options = {}) {
   const url = `/api/admin/${endpoint}${paramStr ? `?${paramStr}` : ''}`;
 
   const fetchData = useCallback(async () => {
-    if (skip || !session?.access_token) {
+    if (skip) {
       setLoading(false);
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
+      const res = await fetch(url, { credentials: 'same-origin' });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || `HTTP ${res.status}`);
@@ -36,7 +32,7 @@ export function useAdminFetch(endpoint, options = {}) {
     } finally {
       setLoading(false);
     }
-  }, [url, session?.access_token, skip]);
+  }, [url, skip]);
 
   useEffect(() => {
     fetchData();
@@ -47,13 +43,9 @@ export function useAdminFetch(endpoint, options = {}) {
 
 // One-shot admin fetch (non-hook, for imperative calls)
 export async function adminFetch(endpoint, params = {}) {
-  const session = useAuthStore.getState().session;
-  if (!session?.access_token) throw new Error("Not authenticated");
   const paramStr = new URLSearchParams(params).toString();
   const url = `/api/admin/${endpoint}${paramStr ? `?${paramStr}` : ''}`;
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${session.access_token}` },
-  });
+  const res = await fetch(url, { credentials: 'same-origin' });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || `HTTP ${res.status}`);

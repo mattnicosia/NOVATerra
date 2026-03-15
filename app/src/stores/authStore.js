@@ -7,17 +7,26 @@ import { useOrgStore } from "@/stores/orgStore";
 // ── Device info for session tracking ──
 function getDeviceInfo() {
   const ua = navigator.userAgent;
-  const device = ua.includes("Mac") ? "Mac"
-    : ua.includes("Windows") ? "Windows"
-    : ua.includes("Linux") ? "Linux"
-    : ua.includes("iPhone") || ua.includes("iPad") ? "iOS"
-    : ua.includes("Android") ? "Android"
-    : "Device";
-  const browser = ua.includes("Edg/") ? "Edge"
-    : ua.includes("Chrome") ? "Chrome"
-    : ua.includes("Firefox") ? "Firefox"
-    : ua.includes("Safari") ? "Safari"
-    : "Browser";
+  const device = ua.includes("Mac")
+    ? "Mac"
+    : ua.includes("Windows")
+      ? "Windows"
+      : ua.includes("Linux")
+        ? "Linux"
+        : ua.includes("iPhone") || ua.includes("iPad")
+          ? "iOS"
+          : ua.includes("Android")
+            ? "Android"
+            : "Device";
+  const browser = ua.includes("Edg/")
+    ? "Edge"
+    : ua.includes("Chrome")
+      ? "Chrome"
+      : ua.includes("Firefox")
+        ? "Firefox"
+        : ua.includes("Safari")
+          ? "Safari"
+          : "Browser";
   return { device, browser };
 }
 
@@ -25,16 +34,25 @@ function getDeviceInfo() {
 async function writeSessionToken(userId) {
   if (!supabase || !userId) return;
   try {
-    const token = crypto.randomUUID();
-    sessionStorage.setItem("bldg-session-token", token);
+    // Reuse existing token from this tab (survives page reload within same tab)
+    // Only generate a new token on first login — prevents session enforcement
+    // from kicking us out on navigation-triggered reinit
+    let token = sessionStorage.getItem("bldg-session-token");
+    if (!token) {
+      token = crypto.randomUUID();
+      sessionStorage.setItem("bldg-session-token", token);
+    }
     const { device, browser } = getDeviceInfo();
-    await supabase.from("user_active_session").upsert({
-      user_id: userId,
-      session_token: token,
-      device,
-      browser,
-      created_at: new Date().toISOString(),
-    }, { onConflict: "user_id" });
+    await supabase.from("user_active_session").upsert(
+      {
+        user_id: userId,
+        session_token: token,
+        device,
+        browser,
+        created_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" },
+    );
     console.log("[auth] Session token written:", token.slice(0, 8) + "...");
   } catch (err) {
     // Non-fatal — table may not exist yet (42P01)

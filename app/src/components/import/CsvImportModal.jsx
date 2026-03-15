@@ -10,9 +10,9 @@ import { uid } from "@/utils/format";
 import { autoDirective } from "@/utils/directives";
 import { autoTradeFromCode } from "@/constants/tradeGroupings";
 import { parseCSV } from "@/utils/csvParser";
-import { parseXLSX } from "@/utils/xlsxParser";
+import { parseXLSX, getXLSXSheet } from "@/utils/xlsxParser";
 import { isBluebeamXml, parseBluebeamXml } from "@/utils/bluebeamXmlParser";
-import { OMNI_FIELDS, suggestColumnMappings, heuristicMapping, applyMappings } from "@/utils/csvColumnMapper";
+import { OMNI_FIELDS, suggestColumnMappings, heuristicMapping, applyMappings, detectProEst, preprocessProEst, extractProEstMarkups } from "@/utils/csvColumnMapper";
 import NovaOrb from "@/components/dashboard/NovaOrb";
 import Modal from "@/components/shared/Modal";
 import Ic from "@/components/shared/Ic";
@@ -55,6 +55,9 @@ export default function CsvImportModal({ onClose, mode }) {
 
   // Import progress
   const [importing, setImporting] = useState(false);
+
+  // ProEst markup extraction
+  const [proEstMarkups, setProEstMarkups] = useState(null);
 
   // ─── File Handling ──────────────────────────────────────────────
 
@@ -139,6 +142,23 @@ export default function CsvImportModal({ onClose, mode }) {
           useUiStore.getState().showToast("Could not parse file — no headers found", "error");
           return;
         }
+
+        // ── ProEst detection: preprocess combined qty+unit, extract divisions ──
+        let isProEst = false;
+        if (detectProEst(parsed.headers, parsed.rows)) {
+          isProEst = true;
+          parsed = preprocessProEst(parsed.headers, parsed.rows);
+
+          // Extract markups from Summary sheet (XLSX only)
+          if (isExcelFile(file, buffer)) {
+            const summaryRows = getXLSXSheet(buffer, "Summary");
+            if (summaryRows) {
+              const mkResult = extractProEstMarkups(summaryRows);
+              if (mkResult) setProEstMarkups(mkResult);
+            }
+          }
+        }
+
         setFileName(file.name);
         setHeaders(parsed.headers);
         setRows(parsed.rows);
@@ -146,14 +166,28 @@ export default function CsvImportModal({ onClose, mode }) {
 
         // Auto-map columns
         setStep("mapping");
-        setAiLoading(true);
-        try {
-          const suggested = await suggestColumnMappings(null, parsed.headers, parsed.rows.slice(0, 5));
-          setMappings(suggested);
-        } catch {
-          setMappings(heuristicMapping(parsed.headers));
-        } finally {
-          setAiLoading(false);
+
+        if (isProEst) {
+          // ProEst preprocessor already normalized columns — use deterministic mapping
+          setMappings({
+            Description: "description",
+            Code: "code",
+            Division: "division",
+            Quantity: "quantity",
+            Unit: "unit",
+            Material: "material",
+          });
+          useUiStore.getState().showToast("ProEst format detected — columns auto-mapped", "success");
+        } else {
+          setAiLoading(true);
+          try {
+            const suggested = await suggestColumnMappings(null, parsed.headers, parsed.rows.slice(0, 5));
+            setMappings(suggested);
+          } catch {
+            setMappings(heuristicMapping(parsed.headers));
+          } finally {
+            setAiLoading(false);
+          }
         }
       };
       reader.readAsArrayBuffer(file);
@@ -248,6 +282,18 @@ export default function CsvImportModal({ onClose, mode }) {
 
         useItemsStore.getState().setItems(newItems);
 
+        // Apply ProEst markups if extracted from Summary sheet
+        if (proEstMarkups) {
+          const store = useItemsStore.getState();
+          store.setMarkup({ ...store.markup, ...proEstMarkups.markup });
+          // Activate the relevant markup rows in markupOrder
+          store.setMarkupOrder(
+            store.markupOrder.map(mo =>
+              proEstMarkups.activate.includes(mo.key) ? { ...mo, active: true } : mo,
+            ),
+          );
+        }
+
         useEstimatesStore.getState().updateIndexEntry(id, {
           name: estName,
           client: estClient,
@@ -260,6 +306,18 @@ export default function CsvImportModal({ onClose, mode }) {
         // Append mode
         const current = useItemsStore.getState().items;
         useItemsStore.getState().setItems([...current, ...newItems]);
+
+        // Apply ProEst markups even in append mode (overwrite current markups)
+        if (proEstMarkups) {
+          const store = useItemsStore.getState();
+          store.setMarkup({ ...store.markup, ...proEstMarkups.markup });
+          store.setMarkupOrder(
+            store.markupOrder.map(mo =>
+              proEstMarkups.activate.includes(mo.key) ? { ...mo, active: true } : mo,
+            ),
+          );
+        }
+
         onClose();
       }
 
@@ -390,7 +448,7 @@ export default function CsvImportModal({ onClose, mode }) {
                 color: C.accent,
               }}
             >
-              <NovaOrb size={18} scheme="nova" /> ARTIFACT is mapping your columns...
+              <NovaOrb size={18} scheme="nova" /> NOVA is mapping your columns...
             </div>
           )}
 

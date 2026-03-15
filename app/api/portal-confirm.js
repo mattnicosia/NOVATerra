@@ -80,9 +80,7 @@ export default async function handler(req, res) {
     }
 
     // Update sub_pool reputation metrics
-    const responseHours = inv.created_at
-      ? (Date.now() - new Date(inv.created_at).getTime()) / 3_600_000
-      : null;
+    const responseHours = inv.created_at ? (Date.now() - new Date(inv.created_at).getTime()) / 3_600_000 : null;
     await supabaseAdmin
       .rpc("update_sub_pool_on_submission", {
         p_email: inv.sub_email,

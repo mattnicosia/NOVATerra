@@ -676,64 +676,6 @@ export const PALETTES = [
     variants: [null],
   },
 
-  // ━━━ 720S — McLaren, Papaya Orange, surgical British ━━━
-  // Heritage papaya orange on cool gray architecture. Teardrop cabin.
-  // British engineering: precise, cool, technical. Orange is controlled fire.
-  // Clean separation between surface layers, like the car's monocoque.
-  {
-    id: "car-720s",
-    name: "720S",
-    desc: "McLaren — Papaya Orange, British precision",
-    preview: ["#0A0C10", "#FF6B00", "#141820", "#1E222C", "#FFF5EB"],
-    variantLabels: ["Papaya"],
-    overrides: {
-      bg: "#08090E", // cool dark (British gray undertone)
-      bg1: "#0E1018", // cool dark surface
-      bg2: "#161A22", // raised cool gray
-      bg3: "#1E222C", // elevated
-      border: "rgba(255,107,0,0.08)",
-      borderLight: "rgba(255,255,255,0.05)",
-      borderAccent: "rgba(255,107,0,0.30)",
-      text: "#F5F5F8", // cool white
-      textMuted: "rgba(245,245,248,0.55)",
-      textDim: "rgba(245,245,248,0.28)",
-      accent: "#FF6B00", // Papaya Orange
-      accentDim: "#CC5500",
-      accentBg: hR("#FF6B00", 0.08),
-      accentAlt: "#FF9640",
-      gradient: "linear-gradient(135deg, #FF6B00, #FF9640)",
-      gradientSubtle: `linear-gradient(135deg, ${hR("#FF6B00", 0.1)}, ${hR("#FF9640", 0.1)})`,
-      gradientText: "linear-gradient(135deg, #FF6B00, #FF9640)",
-      green: "#30D158",
-      red: "#FF453A",
-      blue: "#0A84FF",
-      purple: "#BF5AF2",
-      orange: "#FF6B00",
-      cyan: "#5AC8FA",
-      yellow: "#FFD60A",
-      sidebarBg: "rgba(8,9,14,0.97)",
-      glassBg: "rgba(22,26,34,0.78)",
-      glassBorder: "rgba(255,107,0,0.06)",
-      glassBgDark: "rgba(8,9,14,0.92)",
-      textureMode: true,
-      bgGradient: [
-        // Fine engineering grid — technical drawing precision
-        "repeating-linear-gradient(0deg, rgba(255,107,0,0.018) 0 1px, transparent 1px 8px)",
-        "repeating-linear-gradient(90deg, rgba(255,107,0,0.018) 0 1px, transparent 1px 8px)",
-        // Major grid lines — structural monocoque (every 40px)
-        "repeating-linear-gradient(0deg, rgba(255,107,0,0.03) 0 1px, transparent 1px 40px)",
-        "repeating-linear-gradient(90deg, rgba(255,107,0,0.03) 0 1px, transparent 1px 40px)",
-        // Papaya accent — dihedral door light catch (upper right)
-        "radial-gradient(ellipse at 70% 15%, rgba(255,107,0,0.10) 0%, rgba(255,107,0,0.02) 30%, transparent 50%)",
-        // Secondary papaya glow — lower center (under-body aero glow)
-        "radial-gradient(ellipse at 45% 90%, rgba(255,107,0,0.06) 0%, transparent 40%)",
-        "#08090E",
-      ].join(", "),
-      forceDark: true,
-    },
-    variants: [null],
-  },
-
   // ━━━ 11. i VISION DEE — BMW concept, white futuristic ━━━
   // All-white body. E-Ink panels. Shy-tech. Digital Soul.
   // Ultra-minimal LIGHT theme. Clean whites, whisper-thin borders.
@@ -1038,6 +980,121 @@ export const PALETTES = [
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // Arancio — Shift5 brutalist chassis with Lamborghini Arancio Borealis accent
+  // Same flat concrete surfaces, monochromatic grey semantics, zero-radius cards.
+  // Coral swapped for #FF8700 warm amber-orange throughout.
+  // ═══════════════════════════════════════════════════════════════════════════
+  {
+    id: "arancio",
+    name: "Arancio",
+    desc: "Military-tech brutalist — Arancio Borealis accent on dark grey",
+    preview: ["#0C0C0E", "#FF8700", "#1A1A1E", "#666670", "#E8E8EC"],
+    variantLabels: ["Tactical"],
+    overrides: {
+      // ── Surfaces — same Shift5 dark card system ──
+      bg: "#141418",
+      bg1: "#18181E",
+      bg2: "#1E1E24",
+      bg3: "#28282E",
+      // ── Borders ──
+      border: "rgba(255,255,255,0.12)",
+      borderLight: "rgba(255,255,255,0.07)",
+      borderAccent: "rgba(255,135,0,0.25)",
+      // ── Text ──
+      text: "#E8E8EC",
+      textMuted: "rgba(232,232,236,0.50)",
+      textDim: "rgba(232,232,236,0.28)",
+      // ── Accent — Arancio Borealis ──
+      accent: "#FF8700",
+      accentDim: "#CC6C00",
+      accentBg: "rgba(255,135,0,0.08)",
+      accentAlt: "#FFA033",
+      // ── Gradients ──
+      gradient: "linear-gradient(135deg, #FF8700, #FFA033)",
+      gradientSubtle: "linear-gradient(135deg, rgba(255,135,0,0.12), rgba(255,160,51,0.12))",
+      gradientText: "linear-gradient(135deg, #FF8700, #FFA033)",
+      // ── Semantic colors — monochromatic grey, brutalist ──
+      green:  "#9A9AA0",
+      red:    "#FF8700",   // danger → stays accent (brand unity)
+      blue:   "#7A7A82",
+      purple: "#6A6A72",
+      orange: "#8A8A92",
+      cyan:   "#7A7A82",
+      yellow: "#8A8A92",
+      // ── Sidebar ──
+      sidebarBg: "#101014",
+      // ── Glass (disabled — flat surfaces) ──
+      glassBg: "#18181E",
+      glassBorder: "rgba(255,255,255,0.12)",
+      glassBgDark: "#141418",
+      // ── Background — THE GREY FIELD ──
+      bgGradient: "#2C2C32",
+      // ── Flags ──
+      forceDark: true,
+      noGlass: true,
+      materialMode: "concrete",
+    },
+    variants: [null], // single dark variant
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Terzo — burnt crimson-orange from the Terzo Millennio dark render.
+  // Same Shift5 brutalist chassis: flat, noGlass, concrete, monochromatic grey.
+  // ═══════════════════════════════════════════════════════════════════════════
+  {
+    id: "terzo",
+    name: "Terzo",
+    desc: "Military-tech brutalist — burnt crimson-orange accent on dark grey",
+    preview: ["#0C0C0E", "#E04A1A", "#1A1A1E", "#666670", "#E8E8EC"],
+    variantLabels: ["Tactical"],
+    overrides: {
+      // ── Surfaces — same Shift5 dark card system ──
+      bg: "#141418",
+      bg1: "#18181E",
+      bg2: "#1E1E24",
+      bg3: "#28282E",
+      // ── Borders ──
+      border: "rgba(255,255,255,0.12)",
+      borderLight: "rgba(255,255,255,0.07)",
+      borderAccent: "rgba(224,74,26,0.25)",
+      // ── Text ──
+      text: "#E8E8EC",
+      textMuted: "rgba(232,232,236,0.50)",
+      textDim: "rgba(232,232,236,0.28)",
+      // ── Accent — Terzo burnt crimson-orange ──
+      accent: "#E04A1A",
+      accentDim: "#B33B15",
+      accentBg: "rgba(224,74,26,0.08)",
+      accentAlt: "#F06030",
+      // ── Gradients ──
+      gradient: "linear-gradient(135deg, #E04A1A, #F06030)",
+      gradientSubtle: "linear-gradient(135deg, rgba(224,74,26,0.12), rgba(240,96,48,0.12))",
+      gradientText: "linear-gradient(135deg, #E04A1A, #F06030)",
+      // ── Semantic colors — monochromatic grey, brutalist ──
+      green:  "#9A9AA0",
+      red:    "#E04A1A",   // danger → stays accent (brand unity)
+      blue:   "#7A7A82",
+      purple: "#6A6A72",
+      orange: "#8A8A92",
+      cyan:   "#7A7A82",
+      yellow: "#8A8A92",
+      // ── Sidebar ──
+      sidebarBg: "#101014",
+      // ── Glass (disabled — flat surfaces) ──
+      glassBg: "#18181E",
+      glassBorder: "rgba(255,255,255,0.12)",
+      glassBgDark: "#141418",
+      // ── Background — THE GREY FIELD ──
+      bgGradient: "#2C2C32",
+      // ── Flags ──
+      forceDark: true,
+      noGlass: true,
+      materialMode: "concrete",
+    },
+    variants: [null], // single dark variant
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // NOVA Dark — Monumental concrete, stone architecture, muted warmth
   // Inspired by brutalist galleries and ancient chambers.
   // Neutral grays with warm stone accent. No neon. No violet. Just material.
@@ -1165,7 +1222,7 @@ export const PALETTES = [
 ];
 
 // Car palette IDs for cycling
-export const CAR_PALETTE_IDS = ["car-terzo", "car-720s", "car-visiondee", "car-amgone"];
+export const CAR_PALETTE_IDS = ["car-terzo", "car-visiondee", "car-amgone"];
 
 // Premium light palette IDs
 export const LIGHT_PALETTE_IDS = ["blueprint"];

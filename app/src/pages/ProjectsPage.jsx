@@ -13,6 +13,9 @@ import CompanySwitcher from "@/components/shared/CompanySwitcher";
 import NewEstimateModal from "@/components/shared/NewEstimateModal";
 import CompletionSummary from "@/components/shared/CompletionSummary";
 import OutcomeFeedbackModal from "@/components/shared/OutcomeFeedbackModal";
+import { syncCompletedEstimate } from "@/lib/nova-core/completionSync";
+import { useItemsStore } from "@/stores/itemsStore";
+import { useProjectStore } from "@/stores/projectStore";
 import { I } from "@/constants/icons";
 import { inp, bt, card, statusBadge, moneyCell } from "@/utils/styles";
 import { fmt } from "@/utils/format";
@@ -764,6 +767,7 @@ export default function ProjectsPage() {
                   color: dueThisWeek ? "#FBBF24" : C.textMuted,
                   border: `1px solid ${dueThisWeek ? "#FBBF2440" : C.border}`,
                   fontWeight: dueThisWeek ? 600 : 400,
+                  whiteSpace: "nowrap",
                 }}
               >
                 Due This Week
@@ -1436,9 +1440,45 @@ export default function ProjectsPage() {
           estimate={outcomeEst.estimate}
           status={outcomeEst.status}
           onSave={outcome => {
-            updateIndexEntry(outcomeEst.estimate.id, { outcomeMetadata: outcome });
+            const est = outcomeEst.estimate;
+            const estStatus = outcomeEst.status;
+            updateIndexEntry(est.id, { outcomeMetadata: outcome });
             showToast("Outcome saved");
             setOutcomeEst(null);
+
+            // NOVA Core: sync completed estimate when Won
+            if (estStatus === "Won") {
+              console.log("[ProjectsPage] Won detected, firing sync", { estId: est.id, estOrgId: est.orgId, storeOrgId: useOrgStore.getState().org?.id });
+              const orgId = est.orgId || useOrgStore.getState().org?.id;
+              if (orgId) {
+                // Load estimate data for line items (async, non-blocking)
+                loadEstimate(est.id).then(() => {
+                  const items = useItemsStore.getState().items;
+                  const project = useProjectStore.getState();
+                  syncCompletedEstimate({
+                    estimateId: est.id,
+                    estimateIndex: est,
+                    project,
+                    items,
+                    outcomeMetadata: outcome,
+                    orgId,
+                  }).catch(err => console.error("[ProjectsPage] NOVA Core sync failed:", err));
+                }).catch((loadErr) => {
+                  console.warn("[ProjectsPage] loadEstimate failed, syncing without items:", loadErr);
+                  // If we can't load, sync with index data only (no line items)
+                  syncCompletedEstimate({
+                    estimateId: est.id,
+                    estimateIndex: est,
+                    project: {},
+                    items: [],
+                    outcomeMetadata: outcome,
+                    orgId,
+                  }).catch(err => console.error("[ProjectsPage] NOVA Core sync failed:", err));
+                });
+              } else {
+                console.warn("[ProjectsPage] Won but no orgId — sync skipped");
+              }
+            }
           }}
           onSkip={() => setOutcomeEst(null)}
         />

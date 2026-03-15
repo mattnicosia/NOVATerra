@@ -44,3 +44,18 @@ export function parseXLSX(buffer) {
     return { headers: [], rows: [] };
   }
 }
+
+/**
+ * Extract rows from a named sheet in an XLSX workbook.
+ * Returns raw array-of-arrays, or null if the sheet doesn't exist.
+ */
+export function getXLSXSheet(buffer, sheetName) {
+  try {
+    const workbook = read(buffer, { type: 'array' });
+    const sheet = workbook.Sheets[sheetName];
+    if (!sheet) return null;
+    return utils.sheet_to_json(sheet, { header: 1, raw: true, defval: "" });
+  } catch {
+    return null;
+  }
+}

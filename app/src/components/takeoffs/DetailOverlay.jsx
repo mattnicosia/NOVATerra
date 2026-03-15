@@ -18,39 +18,38 @@ export default function DetailOverlay({ drawingId, onClose }) {
   const pdfCanvases = useDrawingsStore(s => s.pdfCanvases);
 
   const drawing = drawings.find(d => d.id === drawingId);
-  const imgSrc = drawing
-    ? drawing.type === "pdf"
-      ? pdfCanvases[drawing.id] || drawing.data
-      : drawing.data
-    : null;
+  const imgSrc = drawing ? (drawing.type === "pdf" ? pdfCanvases[drawing.id] || drawing.data : drawing.data) : null;
 
   const [size, setSize] = useState({ w: DEFAULT_W, h: DEFAULT_H });
   const dragRef = useRef(null);
 
-  const onResizeStart = useCallback(e => {
-    e.preventDefault();
-    e.stopPropagation();
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const startW = size.w;
-    const startH = size.h;
+  const onResizeStart = useCallback(
+    e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const startW = size.w;
+      const startH = size.h;
 
-    const onMove = ev => {
-      // Dragging bottom-left: decrease X = increase width, increase Y = increase height
-      const dx = startX - ev.clientX;
-      const dy = ev.clientY - startY;
-      setSize({
-        w: Math.max(MIN_SIZE, Math.min(MAX_SIZE, startW + dx)),
-        h: Math.max(MIN_SIZE, Math.min(MAX_SIZE, startH + dy)),
-      });
-    };
-    const onUp = () => {
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
-    };
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
-  }, [size]);
+      const onMove = ev => {
+        // Dragging bottom-left: decrease X = increase width, increase Y = increase height
+        const dx = startX - ev.clientX;
+        const dy = ev.clientY - startY;
+        setSize({
+          w: Math.max(MIN_SIZE, Math.min(MAX_SIZE, startW + dx)),
+          h: Math.max(MIN_SIZE, Math.min(MAX_SIZE, startH + dy)),
+        });
+      };
+      const onUp = () => {
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
+      };
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
+    },
+    [size],
+  );
 
   if (!drawing || !imgSrc) return null;
 
@@ -84,14 +83,30 @@ export default function DetailOverlay({ drawingId, onClose }) {
           flexShrink: 0,
         }}
       >
-        <span style={{ fontSize: 11, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            color: C.text,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
           {drawing.sheetNumber || ""} {drawing.sheetTitle || drawing.label || "Detail"}
         </span>
         <button
           onClick={onClose}
           style={{
-            width: 20, height: 20, border: "none", background: "transparent",
-            color: C.textDim, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+            width: 20,
+            height: 20,
+            border: "none",
+            background: "transparent",
+            color: C.textDim,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
           <Ic d={I.x} size={10} color={C.textDim} />
