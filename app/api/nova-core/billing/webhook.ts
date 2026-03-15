@@ -122,6 +122,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .from('stripe_subscriptions')
           .update({ status: 'past_due' })
           .eq('stripe_customer_id', invoice.customer)
+
+        try {
+          const { data: org } = await supabase
+            .from('organizations')
+            .select('billing_email, name')
+            .eq('stripe_customer_id', invoice.customer)
+            .single()
+
+          if (org?.billing_email) {
+            await fetch('https://api.postmarkapp.com/email', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Postmark-Server-Token': process.env.POSTMARK_SERVER_TOKEN!,
+              },
+              body: JSON.stringify({
+                From: 'billing@novaterra.ai',
+                FromName: 'NOVATerra Billing',
+                To: org.billing_email,
+                Subject: 'Action required — payment failed for your NOVA Core subscription',
+                TextBody: `Your recent payment failed. Please update your payment method:\n\n${process.env.VERCEL_URL || 'https://app-nova-42373ca7.vercel.app'}/admin/billing\n\nIf you need help, reply to this email.`,
+              }),
+            })
+          }
+        } catch (e) {
+          console.error('[NOVA Billing] Failed to send payment failure email:', e)
+        }
         break
       }
     }
