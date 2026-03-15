@@ -139,8 +139,10 @@ const EstimateItemRow = memo(
             color: item.code ? C.text : C.textDim,
             fontFeatureSettings: "'tnum'",
           }}
+          title={item.code ? subFromCode(item.code) : ""}
         >
           {item.code || "\u2014"}
+          {item.code && <div style={{ fontSize: 8, fontWeight: 400, color: C.textDim, lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 82 }}>{subFromCode(item.code)}</div>}
         </div>
         {/* Description */}
         <div className="est-col" style={{ flex: 1, minWidth: 160 }}>
@@ -278,6 +280,7 @@ export default function EstimatePage() {
   const activeCodes = getActiveCodes();
   const getDivisions = useProjectStore(s => s.getDivisions);
   const divFromCode = useProjectStore(s => s.divFromCode);
+  const subFromCode = useProjectStore(s => s.subFromCode);
   const DIVISIONS = getDivisions();
 
   const activeEstimateId = useEstimatesStore(s => s.activeEstimateId);

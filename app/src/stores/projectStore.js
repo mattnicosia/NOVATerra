@@ -253,7 +253,12 @@ export const useProjectStore = create((set, get) => ({
     const dc = parts[0],
       sk = `${parts[0]}.${parts[1]}`;
     const codes = get().getActiveCodes();
-    return codes[dc]?.subs?.[sk] || sk;
+    const subs = codes[dc]?.subs || {};
+    // Try exact, then strip trailing zeros, then truncate to find nearest parent
+    let name = subs[sk];
+    if (!name) { let k = sk; while (!name && k.length > dc.length + 2 && k.endsWith("0")) { k = k.slice(0, -1); name = subs[k]; } }
+    if (!name) { let k = sk; while (!name && k.length > dc.length + 2) { k = k.slice(0, -1); name = subs[k]; } }
+    return name || sk;
   },
 
   // Check if a division code belongs to custom codes (for delete/edit permissions)
