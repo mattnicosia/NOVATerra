@@ -35,7 +35,7 @@ import { useReviewStore } from "@/stores/reviewStore";
 const STATUS_COLORS = {
   Qualifying: "#F59E0B",
   Bidding: "#A78BFA",
-  Submitted: "#60A5FA",
+  Pending: "#60A5FA",
   Won: "#34D399",
   Lost: "#FB7185",
   "On Hold": "#FBBF24",
@@ -2933,7 +2933,7 @@ function ScheduleSettings({ C, T }) {
           style={{
             position: "absolute",
             top: "calc(100% + 6px)",
-            right: 0,
+            left: 0,
             background: C.bg1,
             border: `1px solid ${C.border}`,
             borderRadius: T.radius.md,

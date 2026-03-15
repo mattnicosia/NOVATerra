@@ -104,20 +104,12 @@ export default function NovaCursor() {
     // PERF: Uses transform3d instead of left/top (GPU compositor, no layout thrash).
     // Caches nearest prediction to skip recalc when predictions haven't changed.
     // Throttled to ~30fps via frame-skip flag to reduce GPU overhead.
-    let frameSkip = false;
     let cachedNearestX = 0;
     let cachedNearestY = 0;
     let cachedNearestDist = Infinity;
     let lastPreds = null;
 
     const loop = () => {
-      // Throttle to ~30fps — skip every other frame
-      frameSkip = !frameSkip;
-      if (frameSkip) {
-        animRef.current = requestAnimationFrame(loop);
-        return;
-      }
-
       let targetX = mxRef.current;
       let targetY = myRef.current;
 
@@ -166,8 +158,8 @@ export default function NovaCursor() {
       }
 
       // Lerp ring toward target — GPU-composited via transform3d
-      rxRef.current += (targetX - rxRef.current) * 0.1;
-      ryRef.current += (targetY - ryRef.current) * 0.1;
+      rxRef.current += (targetX - rxRef.current) * 0.25;
+      ryRef.current += (targetY - ryRef.current) * 0.25;
       ring.style.transform = `translate3d(${rxRef.current}px, ${ryRef.current}px, 0) translate(-50%, -50%)`;
 
       animRef.current = requestAnimationFrame(loop);

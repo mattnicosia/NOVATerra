@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useProjectStore } from "@/stores/projectStore";
@@ -24,6 +24,8 @@ import { suggestEstimatedHours } from "@/utils/hoursEstimator";
 import { supabase } from "@/utils/supabase";
 import { syncCompletedEstimate } from "@/lib/nova-core/completionSync";
 import { useItemsStore } from "@/stores/itemsStore";
+import { useBidLevelingStore } from "@/stores/bidLevelingStore";
+const ReengageSubsPanel = lazy(() => import("@/components/estimate/ReengageSubsPanel"));
 
 /* ── Completion calculator ── */
 const ALL_FIELDS = [
@@ -235,6 +237,29 @@ export default function ProjectInfoPage() {
   const [estNumError, setEstNumError] = useState("");
   const prevEstNumRef = useRef("");
 
+  // Estimates index + current entry (must be declared before revision workflow uses them)
+  const estimatesIndex = useEstimatesStore(s => s.estimatesIndex);
+  const currentEntry = useMemo(
+    () => estimatesIndex.find(e => e.id === activeEstimateId),
+    [estimatesIndex, activeEstimateId],
+  );
+
+  // Revision workflow
+  const createRevision = useEstimatesStore(s => s.createRevision);
+  const getRevisionChain = useEstimatesStore(s => s.getRevisionChain);
+  const [revisionModalOpen, setRevisionModalOpen] = useState(false);
+  const [revisionReason, setRevisionReason] = useState("");
+  const [creatingRevision, setCreatingRevision] = useState(false);
+  const revisionChain = useMemo(
+    () => (activeEstimateId ? getRevisionChain(activeEstimateId) : []),
+    [estimatesIndex, activeEstimateId],
+  );
+  const isRevision = !!(currentEntry?.parentEstimateId);
+  const hasRevisions = revisionChain.length > 1;
+  const preferredSubs = useBidLevelingStore(s => s.preferredSubs);
+  const hasPreferredSubs = Object.keys(preferredSubs).length > 0;
+  const [showReengage, setShowReengage] = useState(true);
+
   // Correspondences
   const correspondences = useCorrespondenceStore(s => s.correspondences);
   const addCorrespondence = useCorrespondenceStore(s => s.addCorrespondence);
@@ -245,11 +270,6 @@ export default function ProjectInfoPage() {
   // Communications timeline — linked emails from inbox
   const [commEmails, setCommEmails] = useState([]);
   const [commLoading, setCommLoading] = useState(false);
-  const estimatesIndex = useEstimatesStore(s => s.estimatesIndex);
-  const currentEntry = useMemo(
-    () => estimatesIndex.find(e => e.id === activeEstimateId),
-    [estimatesIndex, activeEstimateId],
-  );
   const sourceRfpId = currentEntry?.sourceRfpId || "";
   const emailCount = currentEntry?.emailCount || 0;
 
@@ -384,6 +404,30 @@ export default function ProjectInfoPage() {
     setHoursSuggestion(result);
   };
 
+  const handleCreateRevision = async () => {
+    if (!activeEstimateId || creatingRevision) return;
+    setCreatingRevision(true);
+    try {
+      // Save current estimate first so all latest changes are captured
+      await saveEstimate();
+
+      const result = await createRevision(activeEstimateId, {
+        revisionReason: revisionReason.trim(),
+      });
+      if (result) {
+        showToast(`Revision ${result.revisionNumber} created`);
+        setRevisionModalOpen(false);
+        setRevisionReason("");
+        // Navigate to the new revision
+        navigate(`/estimate/${result.id}/project-info`);
+      }
+    } catch (err) {
+      showToast(`Failed to create revision: ${err.message}`, "error");
+    } finally {
+      setCreatingRevision(false);
+    }
+  };
+
   const handleQuickAdd = () => {
     if (!quickAddValue.trim()) return;
     const m = quickAddModal;
@@ -512,6 +556,100 @@ export default function ProjectInfoPage() {
           <div />
         </div>
 
+        {/* ── Revision Banner (shown when this is a revision or has revisions) ── */}
+        {(isRevision || hasRevisions) && (
+          <div
+            style={{
+              background: `${C.accent}10`,
+              border: `1px solid ${C.accent}30`,
+              borderRadius: 8,
+              padding: "12px 16px",
+              marginBottom: 16,
+            }}
+          >
+            {isRevision && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: hasRevisions ? 10 : 0 }}>
+                <Ic d={I.refresh} size={14} color={C.accent} sw={2} />
+                <span style={{ fontSize: 12, fontWeight: 600, color: C.accent }}>
+                  Revision {currentEntry?.revisionNumber || "?"}
+                </span>
+                {currentEntry?.revisionReason && (
+                  <span style={{ fontSize: 11, color: C.textMuted, marginLeft: 4 }}>
+                    — {currentEntry.revisionReason}
+                  </span>
+                )}
+                <button
+                  onClick={() => {
+                    const parentId = currentEntry?.parentEstimateId;
+                    if (parentId) navigate(`/estimate/${parentId}/project-info`);
+                  }}
+                  style={{
+                    marginLeft: "auto",
+                    fontSize: 10,
+                    fontWeight: 600,
+                    color: C.accent,
+                    background: "transparent",
+                    border: `1px solid ${C.accent}40`,
+                    borderRadius: 4,
+                    padding: "3px 10px",
+                    cursor: "pointer",
+                  }}
+                >
+                  View Original
+                </button>
+              </div>
+            )}
+            {hasRevisions && (
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 600, color: C.textMuted, marginBottom: 6, letterSpacing: "0.04em" }}>
+                  REVISION HISTORY
+                </div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {revisionChain.map(rev => {
+                    const isCurrent = rev.id === activeEstimateId;
+                    const label = rev.revisionNumber === 0 || !rev.parentEstimateId
+                      ? "Original"
+                      : `Rev ${rev.revisionNumber}`;
+                    return (
+                      <button
+                        key={rev.id}
+                        onClick={() => {
+                          if (!isCurrent) navigate(`/estimate/${rev.id}/project-info`);
+                        }}
+                        style={{
+                          fontSize: 11,
+                          fontWeight: isCurrent ? 700 : 500,
+                          color: isCurrent ? "#fff" : C.text,
+                          background: isCurrent ? C.accent : C.bg2,
+                          border: `1px solid ${isCurrent ? C.accent : C.border}`,
+                          borderRadius: 5,
+                          padding: "4px 12px",
+                          cursor: isCurrent ? "default" : "pointer",
+                          opacity: isCurrent ? 1 : 0.8,
+                          transition: "all 0.15s",
+                        }}
+                        title={rev.revisionReason || label}
+                      >
+                        {label}
+                        <span style={{ fontSize: 9, marginLeft: 4, opacity: 0.7 }}>
+                          {rev.status}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Re-engage Preferred Subs (on revisions with preferred subs) ── */}
+        {isRevision && hasPreferredSubs && showReengage && (
+          <Suspense fallback={null}>
+            <ReengageSubsPanel onClose={() => setShowReengage(false)} />
+          </Suspense>
+        )}
+
         {/* ── Project Details ── */}
         <Sec title="Project Details" icon={SECTION_ICONS["Project Details"]}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
@@ -571,7 +709,7 @@ export default function ProjectInfoPage() {
                 <option>Active</option>
                 <option>Qualifying</option>
                 <option>Bidding</option>
-                <option>Submitted</option>
+                <option>Pending</option>
                 <option>Won</option>
                 <option>Lost</option>
                 <option>On Hold</option>
@@ -1288,8 +1426,8 @@ export default function ProjectInfoPage() {
           </div>
         </Sec>
 
-        {/* Correspondences — only for Submitted/Won, hidden until first one added */}
-        {(correspondences.length > 0 || project.status === "Submitted" || project.status === "Won") && (
+        {/* Correspondences — only for Pending/Won, hidden until first one added */}
+        {(correspondences.length > 0 || project.status === "Pending" || project.status === "Won") && (
           <Sec
             title={`Correspondences${correspondences.length > 0 ? ` (${correspondences.length})` : ""}`}
             icon={
@@ -1804,16 +1942,35 @@ export default function ProjectInfoPage() {
           />
         </Fld>
 
-        {/* Save Button */}
+        {/* Save Button + Create Revision */}
         <div
           style={{
             display: "flex",
             justifyContent: "flex-end",
+            alignItems: "center",
+            gap: 10,
             marginTop: 20,
             paddingTop: 16,
             borderTop: `1px solid ${C.border}`,
           }}
         >
+          {/* Create Revision — only on non-draft, non-Trash estimates */}
+          {!draftId && project.status !== "Trash" && (
+            <button
+              onClick={() => setRevisionModalOpen(true)}
+              style={bt(C, {
+                background: "transparent",
+                color: C.accent,
+                border: `1px solid ${C.accent}50`,
+                padding: "10px 20px",
+                fontSize: 13,
+                fontWeight: 600,
+                borderRadius: 6,
+              })}
+            >
+              <Ic d={I.copy} size={14} color={C.accent} sw={2} /> Create Revision
+            </button>
+          )}
           <button
             className="accent-btn"
             onClick={handleSave}
@@ -1830,6 +1987,58 @@ export default function ProjectInfoPage() {
           </button>
         </div>
       </div>
+
+      {/* Create Revision Modal */}
+      {revisionModalOpen && (
+        <Modal onClose={() => { setRevisionModalOpen(false); setRevisionReason(""); }}>
+          <div style={{ maxWidth: 480 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: C.text, marginBottom: 4 }}>
+              Create Revision
+            </div>
+            <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 16, lineHeight: 1.5 }}>
+              This creates a full copy of the current estimate — all line items, markup, sub leveling,
+              alternates, and bid data are carried forward. The original estimate is preserved.
+            </p>
+            <Fld label="Revision Reason (optional)">
+              <textarea
+                autoFocus
+                value={revisionReason}
+                onChange={e => setRevisionReason(e.target.value)}
+                placeholder="e.g. Owner requested value engineering, scope reduction for Phase 2, alternate materials..."
+                rows={3}
+                style={inp(C, { resize: "vertical", lineHeight: 1.5, fontSize: 12 })}
+              />
+            </Fld>
+            {isRevision && (
+              <div style={{ fontSize: 11, color: C.accent, marginTop: 8, padding: "6px 10px", background: `${C.accent}10`, borderRadius: 5 }}>
+                This is already Revision {currentEntry?.revisionNumber}. The new revision will be Rev {(currentEntry?.revisionNumber || 0) + 1}.
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 20 }}>
+              <button
+                onClick={() => { setRevisionModalOpen(false); setRevisionReason(""); }}
+                style={bt(C, { background: C.bg2, color: C.textMuted, padding: "9px 18px", fontSize: 12 })}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateRevision}
+                disabled={creatingRevision}
+                style={bt(C, {
+                  background: C.accent,
+                  color: "#fff",
+                  padding: "9px 18px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  opacity: creatingRevision ? 0.6 : 1,
+                })}
+              >
+                {creatingRevision ? "Creating..." : "Create Revision"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {/* Quick Add Modal */}
       {quickAddModal && (

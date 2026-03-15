@@ -36,6 +36,28 @@ export default function InsightsPage() {
 
   return (
     <div style={pageContainer(C)}>
+      {/* Coming Soon banner */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          padding: "10px 16px",
+          marginBottom: T.space[4],
+          background: `${C.accent}10`,
+          border: `1px solid ${C.accent}25`,
+          borderRadius: T.radius.md,
+          fontSize: 12,
+          fontWeight: 600,
+          color: C.accent,
+          fontFamily: T.font.sans,
+          letterSpacing: "0.03em",
+        }}
+      >
+        Coming Soon — Insights is under active development
+      </div>
+
       {/* Tab Header */}
       <div style={{ display: "flex", alignItems: "center", gap: T.space[3], marginBottom: T.space[6] }}>
         <div

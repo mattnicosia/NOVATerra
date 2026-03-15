@@ -23,16 +23,16 @@ import { fmt } from "@/utils/format";
 // ─── Stage → sub-tab mapping ─────────────────────────────────────────────────
 const JOURNEY_STAGES = [
   {
-    key: "discover",
-    label: "Discover",
-    defaultPath: "plans",
-    subTabs: [{ key: "plans", label: "Plans", path: "plans" }],
-  },
-  {
     key: "define",
     label: "Info",
     defaultPath: "info",
     subTabs: [{ key: "info", label: "Project Info", path: "info" }],
+  },
+  {
+    key: "discover",
+    label: "Discover",
+    defaultPath: "plans",
+    subTabs: [{ key: "plans", label: "Plans", path: "plans" }],
   },
   {
     key: "estimate",
@@ -54,10 +54,13 @@ const JOURNEY_STAGES = [
     key: "propose",
     label: "Reports",
     defaultPath: "reports",
-    subTabs: [
-      { key: "reports", label: "Reports", path: "reports" },
-      { key: "insights", label: "Insights", path: "insights" },
-    ],
+    subTabs: [],
+  },
+  {
+    key: "insights",
+    label: "Insights",
+    defaultPath: "insights",
+    subTabs: [],
   },
 ];
 
@@ -394,50 +397,47 @@ export default function EstimateJourneyBar() {
                 const prevIsActive = prevStage && prevStage.key === activeStageKey;
                 const connectorTraveled = prevComplete || prevIsActive;
 
-                // Circle style by state
-                const circleSize = 20;
-                let circleStyle = {
-                  width: circleSize,
-                  height: circleSize,
-                  borderRadius: "50%",
+                // Pill style by state
+                let pillStyle = {
+                  height: 24,
+                  padding: "0 12px",
+                  borderRadius: 12,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
+                  gap: 4,
                   transition: "all 200ms ease",
                   flexShrink: 0,
                   cursor: "pointer",
+                  fontSize: 10,
+                  fontWeight: 600,
+                  fontFamily: T.font.sans,
+                  letterSpacing: "0.02em",
+                  whiteSpace: "nowrap",
                 };
 
                 if (isActive) {
-                  circleStyle = {
-                    ...circleStyle,
+                  pillStyle = {
+                    ...pillStyle,
                     background: C.accent,
+                    color: "#fff",
                     boxShadow: `0 0 0 1px ${C.accent}15, 0 0 8px ${C.accent}30`,
                   };
                 } else if (isComplete) {
-                  circleStyle = {
-                    ...circleStyle,
-                    background: `${C.green}B3`,
+                  pillStyle = {
+                    ...pillStyle,
+                    background: `${C.green}20`,
+                    color: C.green,
                     animation: isAnimating ? "jbCompletePulse 400ms cubic-bezier(0.175,0.885,0.32,1.275)" : undefined,
                   };
                 } else {
-                  circleStyle = {
-                    ...circleStyle,
+                  pillStyle = {
+                    ...pillStyle,
                     background: "transparent",
-                    border: `1.5px solid ${isHovered ? `${C.text}50` : `${C.textDim}40`}`,
+                    border: `1.5px solid ${isHovered ? `${C.text}30` : `${C.textDim}25`}`,
+                    color: isHovered ? C.textMuted : C.textDim,
                   };
                 }
-
-                // Label style
-                const labelStyle = {
-                  fontSize: 9,
-                  letterSpacing: "0.02em",
-                  whiteSpace: "nowrap",
-                  fontWeight: isActive ? 600 : 500,
-                  color: isActive ? C.text : isComplete ? C.textMuted : isHovered ? C.textMuted : C.textDim,
-                  transition: "color 150ms ease",
-                  marginTop: 2,
-                };
 
                 return (
                   <Fragment key={stage.key}>
@@ -473,36 +473,16 @@ export default function EstimateJourneyBar() {
                       </div>
                     )}
 
-                    {/* Node */}
+                    {/* Node — pill */}
                     <div
                       onClick={() => handleStageClick(stage)}
                       onMouseEnter={() => setHoveredStage(stage.key)}
                       onMouseLeave={() => setHoveredStage(null)}
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        gap: 0,
-                        cursor: "pointer",
-                        flexShrink: 0,
-                        padding: "0 2px",
-                      }}
-                      title={compact ? `${stage.label}${isComplete ? " ✓" : ""}` : undefined}
+                      style={pillStyle}
+                      title={`${stage.label}${isComplete ? " ✓" : ""}`}
                     >
-                      <div style={circleStyle}>
-                        {isComplete && !isActive && <Checkmark animate={isAnimating} />}
-                        {isActive && (
-                          <div
-                            style={{
-                              width: 6,
-                              height: 6,
-                              borderRadius: "50%",
-                              background: "rgba(255,255,255,0.9)",
-                            }}
-                          />
-                        )}
-                      </div>
-                      {!compact && <span style={labelStyle}>{stage.label}</span>}
+                      {isComplete && !isActive && <Checkmark animate={isAnimating} />}
+                      {stage.label}
                     </div>
                   </Fragment>
                 );

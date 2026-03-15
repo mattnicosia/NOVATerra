@@ -21,7 +21,7 @@ import DashboardWidgets from "@/components/dashboard/DashboardWidgets";
 import OnboardingSequence from "@/components/onboarding/OnboardingSequence";
 import { useBidPackagesStore } from "@/stores/bidPackagesStore";
 
-const STATUSES = ["All", "Bidding", "Submitted", "Won", "Lost", "On Hold", "Cancelled"];
+const STATUSES = ["All", "Bidding", "Pending", "Won", "Lost", "On Hold", "Cancelled"];
 
 export default function DashboardPage() {
   const C = useTheme();
@@ -52,7 +52,7 @@ export default function DashboardPage() {
   const step1Done = !!companyName;
   const step2Done = true; // Cost DB has seed data
   const step3Done = companyEstimates.length > 0;
-  const showOnboarding = !onboardingDismissed && companyEstimates.length === 0;
+  const showOnboarding = !onboardingDismissed && !localStorage.getItem("nova_onboarding_complete") && companyEstimates.length === 0;
 
   const filtered = useMemo(() => {
     let list = companyEstimates;
@@ -68,12 +68,12 @@ export default function DashboardPage() {
   }, [companyEstimates, statusFilter, search]);
 
   // KPI calculations — scoped to active company
-  const active = companyEstimates.filter(e => e.status === "Bidding" || e.status === "Submitted").length;
+  const active = companyEstimates.filter(e => e.status === "Bidding" || e.status === "Pending").length;
   const pipeline = companyEstimates
-    .filter(e => e.status === "Bidding" || e.status === "Submitted")
+    .filter(e => e.status === "Bidding" || e.status === "Pending")
     .reduce((s, e) => s + nn(e.grandTotal), 0);
   const won = companyEstimates.filter(e => e.status === "Won").length;
-  const pending = companyEstimates.filter(e => e.status === "Submitted").length;
+  const pending = companyEstimates.filter(e => e.status === "Pending").length;
   const lost = companyEstimates.filter(e => e.status === "Lost").length;
   const winRate = won + lost > 0 ? ((won / (won + lost)) * 100).toFixed(0) + "%" : "N/A";
 
@@ -96,7 +96,7 @@ export default function DashboardPage() {
 
   // Upcoming deadlines — scoped to active company
   const upcoming = companyEstimates
-    .filter(e => e.bidDue && (e.status === "Bidding" || e.status === "Submitted"))
+    .filter(e => e.bidDue && (e.status === "Bidding" || e.status === "Pending"))
     .sort((a, b) => new Date(a.bidDue) - new Date(b.bidDue))
     .slice(0, 5);
 
@@ -126,7 +126,7 @@ export default function DashboardPage() {
     switch (s) {
       case "Bidding":
         return C.accent;
-      case "Submitted":
+      case "Pending":
         return C.orange;
       case "Won":
         return C.green;

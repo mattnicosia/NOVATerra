@@ -1065,41 +1065,8 @@ function AuthLoading() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif",
       }}
-    >
-      <div style={{ textAlign: "center" }}>
-        <div
-          style={{
-            width: 48,
-            height: 48,
-            borderRadius: 12,
-            background: "linear-gradient(135deg, #7C5CFC, #BF5AF2)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            margin: "0 auto 16px",
-            animation: "pulse 1.5s infinite ease-in-out",
-          }}
-        >
-          <svg
-            width={24}
-            height={24}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="#fff"
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M2 20h20" />
-            <path d="M5 20V8l7-5 7 5v12" />
-            <path d="M9 20v-6h6v6" />
-          </svg>
-        </div>
-        <p style={{ fontSize: 14, color: "#8E8E93", fontWeight: 500 }}>Loading...</p>
-      </div>
-    </div>
+    />
   );
 }
 
