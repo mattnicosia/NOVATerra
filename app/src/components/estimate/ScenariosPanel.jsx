@@ -1,6 +1,6 @@
 /**
- * ScenariosPanel — Tree-based scenario/alternate/breakout organizer.
- * Replaces the horizontal GroupBar with a vertical tree in the left panel.
+ * ScenariosPanel — Connected-pills scenario/alternate/breakout organizer.
+ * Single view with SVG connector lines showing parent-child hierarchy.
  * Features: template menu, NOVA AI suggestions, drag-drop reparent, context menu.
  */
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
@@ -122,7 +122,6 @@ export default function ScenariosPanel() {
   const specs = useSpecsStore(s => s.specs);
   const drawings = useDrawingsStore(s => s.drawings);
 
-  const [viewMode, setViewMode] = useState("pills");
   const [collapsed, setCollapsed] = useState({});
   const [editingId, setEditingId] = useState(null);
   const [editingName, setEditingName] = useState("");
@@ -230,7 +229,6 @@ export default function ScenariosPanel() {
   const handleTemplateSelect = tmpl => {
     setShowAddMenu(false);
     if (tmpl.multi) {
-      // Create parent + children
       const parentId = addGroup(tmpl.name, tmpl.type, null);
       tmpl.multi.forEach(child => {
         addGroup(child.name, child.type, parentId);
@@ -285,7 +283,6 @@ Prioritize by likelihood the architect/owner will request these.`,
         onText: t => setNovaStream(t),
       });
       setNovaStream("");
-      // Parse suggestions
       const blocks = fullText.split(/\*\*SCENARIO:/).filter(b => b.trim());
       const parsed = blocks
         .map(block => {
@@ -302,7 +299,6 @@ Prioritize by likelihood the architect/owner will request these.`,
         })
         .filter(s => s.name);
       setNovaSuggestions(parsed);
-      // Auto-select all
       setSelectedSuggestions(new Set(parsed.map((_, i) => i)));
     } catch (err) {
       showToast(`NOVA error: ${err.message}`, "error");
@@ -429,224 +425,167 @@ Prioritize by likelihood the architect/owner will request these.`,
     [],
   );
 
-  // ── Render a pill (for pill view) ─────────────────────────────────
-  const renderPill = (node) => {
+  // ── Render a single pill ────────────────────────────────────────────
+  const renderSinglePill = (node) => {
     const isActive = activeGroupId === node.id;
     const count = getCount(node.id);
     const tc = typeColor(node.type);
-    const hasChildren = node.children && node.children.length > 0;
     const childIds = new Set([node.id, ...(node.children || []).map(c => c.id)]);
     const totals = getScenarioTotals(childIds);
+    const isDragTarget = dragOver === node.id;
+    const isDragging = dragId === node.id;
 
     return (
-      <div key={node.id} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        {/* Main pill */}
-        <div
-          onClick={() => setActiveGroupId(node.id)}
-          onContextMenu={e => handleContextMenu(e, node)}
-          onDoubleClick={() => { setEditingId(node.id); setEditingName(node.name); }}
-          style={{
-            display: "inline-flex", alignItems: "center", gap: 5,
-            padding: "5px 10px", borderRadius: 16, cursor: "pointer",
-            background: isActive ? `${tc}20` : dk ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)",
-            border: isActive ? `1.5px solid ${tc}` : `1.5px solid ${dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
-            transition: "all 0.15s", whiteSpace: "nowrap", position: "relative",
-          }}
-        >
-          {/* Type dot */}
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: tc, flexShrink: 0 }} />
+      <div
+        key={node.id}
+        onClick={() => setActiveGroupId(node.id)}
+        onContextMenu={e => handleContextMenu(e, node)}
+        onDoubleClick={() => { setEditingId(node.id); setEditingName(node.name); }}
+        draggable={node.id !== "base"}
+        onDragStart={e => handleDragStart(e, node.id)}
+        onDragOver={e => handleDragOverNode(e, node.id)}
+        onDragLeave={handleDragLeave}
+        onDrop={e => handleDropOnNode(e, node.id)}
+        onDragEnd={handleDragEnd}
+        style={{
+          display: "inline-flex", alignItems: "center", gap: 5,
+          padding: "5px 10px", borderRadius: 16, cursor: "pointer",
+          background: isActive ? `${tc}20` : dk ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)",
+          border: isActive ? `1.5px solid ${tc}` : `1.5px solid ${dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
+          transition: "all 0.15s", whiteSpace: "nowrap", position: "relative",
+          opacity: isDragging ? 0.4 : 1,
+          outline: isDragTarget ? `1.5px dashed ${C.accent}60` : "none",
+        }}
+      >
+        {/* Type dot */}
+        <span style={{ width: 6, height: 6, borderRadius: "50%", background: tc, flexShrink: 0 }} />
 
-          {/* Name */}
-          {editingId === node.id ? (
-            <input
-              ref={editRef}
-              value={editingName}
-              onChange={e => setEditingName(e.target.value)}
-              onBlur={commitEdit}
-              onKeyDown={e => {
-                if (e.key === "Enter") commitEdit();
-                if (e.key === "Escape") { setEditingId(null); setEditingName(""); }
-              }}
-              onClick={e => e.stopPropagation()}
-              style={{
-                background: "transparent", border: "none", outline: "none",
-                color: C.text, fontSize: 10, fontWeight: 600, fontFamily: T.font.sans,
-                padding: 0, width: Math.max(40, editingName.length * 6),
-              }}
-            />
-          ) : (
-            <span style={{ fontSize: 10, fontWeight: isActive ? 700 : 600, color: isActive ? tc : C.text, fontFamily: T.font.sans }}>
-              {node.name}
-            </span>
-          )}
-
-          {/* Total with markups */}
-          {totals.grand > 0 && (
-            <span style={{
-              fontSize: 8, fontWeight: 600, fontFamily: T.font.sans, opacity: 0.7,
-              color: node.type === "deduct" ? "#E67E22" : node.type === "add" ? "#27AE60" : C.textDim,
-            }}>
-              {node.type === "deduct" ? "−" : "+"}${formatCompact(totals.grand)}
-            </span>
-          )}
-
-          {/* Count */}
-          <span style={{
-            fontSize: 8, opacity: 0.5, background: dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
-            padding: "0px 4px", borderRadius: 6,
-          }}>
-            {count}
+        {/* Name */}
+        {editingId === node.id ? (
+          <input
+            ref={editRef}
+            value={editingName}
+            onChange={e => setEditingName(e.target.value)}
+            onBlur={commitEdit}
+            onKeyDown={e => {
+              if (e.key === "Enter") commitEdit();
+              if (e.key === "Escape") { setEditingId(null); setEditingName(""); }
+            }}
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: "transparent", border: "none", outline: "none",
+              color: C.text, fontSize: 10, fontWeight: 600, fontFamily: T.font.sans,
+              padding: 0, width: Math.max(40, editingName.length * 6),
+            }}
+          />
+        ) : (
+          <span style={{ fontSize: 10, fontWeight: isActive ? 700 : 600, color: isActive ? tc : C.text, fontFamily: T.font.sans }}>
+            {node.name}
           </span>
+        )}
 
-          {/* Delete × on hover */}
-          {node.id !== "base" && (
-            <span
-              className="scenario-add-child"
-              onClick={e => { e.stopPropagation(); handleDelete(node); }}
-              style={{ opacity: 0, cursor: "pointer", display: "flex", alignItems: "center", marginLeft: -2, transition: "opacity 0.15s" }}
-              title="Delete scenario"
-            >
-              <Ic d={I.x} size={8} color={C.red || "#E74C3C"} />
-            </span>
-          )}
-        </div>
+        {/* Total with markups */}
+        {totals.grand > 0 && (
+          <span style={{
+            fontSize: 8, fontWeight: 600, fontFamily: T.font.sans, opacity: 0.7,
+            color: node.type === "deduct" ? "#E67E22" : node.type === "add" ? "#27AE60" : C.textDim,
+          }}>
+            {node.type === "deduct" ? "\u2212" : "+"}${formatCompact(totals.grand)}
+          </span>
+        )}
 
-        {/* Child pills — rendered adjacent (side-by-side) inside parent */}
-        {hasChildren && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, paddingLeft: 12 }}>
-            {node.children.map(child => renderPill(child))}
-          </div>
+        {/* Count */}
+        <span style={{
+          fontSize: 8, opacity: 0.5, background: dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+          padding: "0px 4px", borderRadius: 6,
+        }}>
+          {count}
+        </span>
+
+        {/* Delete x on hover */}
+        {node.id !== "base" && (
+          <span
+            className="scenario-add-child"
+            onClick={e => { e.stopPropagation(); handleDelete(node); }}
+            style={{ opacity: 0, cursor: "pointer", display: "flex", alignItems: "center", marginLeft: -2, transition: "opacity 0.15s" }}
+            title="Delete scenario"
+          >
+            <Ic d={I.x} size={8} color={C.red || "#E74C3C"} />
+          </span>
         )}
       </div>
     );
   };
 
-  // ── Render a tree node ──────────────────────────────────────────────
-  const renderNode = (node, depth = 0) => {
-    const isActive = activeGroupId === node.id;
-    const isEditing = editingId === node.id;
-    const count = getCount(node.id);
+  // ── Render connected pills recursively ──────────────────────────────
+  const renderConnectedPills = (node) => {
     const hasChildren = node.children && node.children.length > 0;
     const isCollapsed = collapsed[node.id];
-    const isDragTarget = dragOver === node.id;
-    const isDragging = dragId === node.id;
 
     return (
-      <div key={node.id} style={{ opacity: isDragging ? 0.4 : 1 }}>
-        <div
-          onClick={() => { if (!isEditing) setActiveGroupId(node.id); }}
-          onContextMenu={e => handleContextMenu(e, node)}
-          onDoubleClick={() => {
-            setEditingId(node.id);
-            setEditingName(node.name);
-          }}
-          draggable={node.id !== "base"}
-          onDragStart={e => handleDragStart(e, node.id)}
-          onDragOver={e => handleDragOverNode(e, node.id)}
-          onDragLeave={handleDragLeave}
-          onDrop={e => handleDropOnNode(e, node.id)}
-          onDragEnd={handleDragEnd}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-            padding: "5px 8px",
-            paddingLeft: 8 + depth * 16,
-            cursor: "pointer",
-            fontSize: 11,
-            fontWeight: isActive ? 700 : 500,
-            fontFamily: T.font.sans,
-            color: isActive ? C.text : C.textDim,
-            background: isActive
-              ? dk ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.25)"
-              : isDragTarget
-                ? `${C.accent}12`
-                : "transparent",
-            borderLeft: isActive ? `2px solid ${C.accent}` : "2px solid transparent",
-            borderRadius: `0 ${T.radius.sm}px ${T.radius.sm}px 0`,
-            transition: "all 0.15s ease",
-            outline: isDragTarget ? `1px dashed ${C.accent}60` : "none",
-          }}
-        >
-          {/* Chevron */}
-          <span
-            onClick={e => { e.stopPropagation(); if (hasChildren) toggleCollapse(node.id); }}
-            style={{
-              width: 14, height: 14, display: "flex", alignItems: "center", justifyContent: "center",
-              flexShrink: 0, opacity: hasChildren ? 0.6 : 0,
-              transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)",
-              transition: "transform 0.15s", cursor: hasChildren ? "pointer" : "default",
-            }}
-          >
-            <Ic d={I.chevronDown} size={10} color={C.textDim} />
-          </span>
-
-          {/* Type dot */}
-          {node.type !== "base" && (
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: typeColor(node.type), flexShrink: 0, opacity: 0.8 }} />
-          )}
-
-          {/* Name */}
-          {isEditing ? (
-            <input
-              ref={editRef}
-              value={editingName}
-              onChange={e => setEditingName(e.target.value)}
-              onBlur={commitEdit}
-              onKeyDown={e => {
-                if (e.key === "Enter") commitEdit();
-                if (e.key === "Escape") { setEditingId(null); setEditingName(""); }
-              }}
-              onClick={e => e.stopPropagation()}
-              style={{
-                flex: 1, background: "transparent", border: "none", outline: "none",
-                color: C.text, fontSize: 11, fontWeight: 600, fontFamily: T.font.sans, padding: 0, minWidth: 0,
-              }}
-            />
-          ) : (
-            <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {node.name}
-            </span>
-          )}
-
-          {/* Count badge */}
-          <span style={{
-            fontSize: 9, opacity: 0.6, fontWeight: 500,
-            background: dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
-            padding: "1px 5px", borderRadius: 8, minWidth: 16, textAlign: "center", flexShrink: 0,
-          }}>
-            {count}
-          </span>
-
-          {/* Quick-add child */}
-          <span
-            className="scenario-add-child"
-            onClick={e => { e.stopPropagation(); handleAdd(node.id); }}
-            style={{ opacity: 0, cursor: "pointer", display: "flex", alignItems: "center", flexShrink: 0, padding: "0 2px", transition: "opacity 0.15s" }}
-            title="Add child scenario"
-          >
-            <Ic d={I.plus} size={9} color={C.textDim} />
-          </span>
-
-          {/* Delete — visible on hover for non-base scenarios */}
-          {node.id !== "base" && node.type !== "base" && (
+      <div key={node.id} style={{ display: "flex", flexDirection: "column" }}>
+        {/* The pill itself */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          {renderSinglePill(node)}
+          {/* Collapse toggle for nodes with children */}
+          {hasChildren && (
             <span
-              className="scenario-add-child"
-              onClick={e => {
-                e.stopPropagation();
-                handleDelete(node);
+              onClick={e => { e.stopPropagation(); toggleCollapse(node.id); }}
+              style={{
+                width: 14, height: 14, display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", opacity: 0.5, flexShrink: 0,
+                transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)",
+                transition: "transform 0.15s",
               }}
-              style={{ opacity: 0, cursor: "pointer", display: "flex", alignItems: "center", flexShrink: 0, padding: "0 2px", transition: "opacity 0.15s" }}
-              title="Delete scenario"
             >
-              <Ic d={I.x} size={9} color={C.red || "#E74C3C"} />
+              <Ic d={I.chevronDown} size={8} color={C.textDim} />
             </span>
           )}
         </div>
 
-        {/* Children */}
+        {/* Children with connector lines */}
         {hasChildren && !isCollapsed && (
-          <div>{node.children.map(child => renderNode(child, depth + 1))}</div>
+          <div style={{ position: "relative", paddingLeft: 20, marginTop: 0 }}>
+            {/* Vertical connector line from parent down to last child */}
+            <div style={{
+              position: "absolute",
+              left: 8,
+              top: 0,
+              bottom: node.children.length > 1 ? 14 : 14,
+              width: 1,
+              background: C.border,
+              borderRadius: 1,
+            }} />
+
+            {node.children.map((child, idx) => (
+              <div key={child.id} style={{ position: "relative", marginTop: 6 }}>
+                {/* Horizontal connector line from vertical line to pill */}
+                <div style={{
+                  position: "absolute",
+                  left: -12,
+                  top: 14,
+                  width: 12,
+                  height: 1,
+                  background: C.border,
+                  borderRadius: 1,
+                }} />
+                {/* Small rounded corner where vertical meets horizontal */}
+                <div style={{
+                  position: "absolute",
+                  left: -13,
+                  top: 10,
+                  width: 5,
+                  height: 5,
+                  borderLeft: `1px solid ${C.border}`,
+                  borderBottom: `1px solid ${C.border}`,
+                  borderRadius: "0 0 0 3px",
+                  borderTop: "none",
+                  borderRight: "none",
+                }} />
+                {renderConnectedPills(child)}
+              </div>
+            ))}
+          </div>
         )}
       </div>
     );
@@ -764,7 +703,6 @@ Prioritize by likelihood the architect/owner will request these.`,
 
                 {SCENARIO_TEMPLATES.map(cat => (
                   <div key={cat.category}>
-                    {/* Category header */}
                     <div style={{
                       padding: "6px 12px 3px",
                       fontSize: 9,
@@ -847,7 +785,6 @@ Prioritize by likelihood the architect/owner will request these.`,
                     transition: "background 0.15s",
                   }}
                 >
-                  {/* Checkbox */}
                   <span style={{
                     width: 14, height: 14, borderRadius: 3, flexShrink: 0, marginTop: 1,
                     border: `1.5px solid ${selectedSuggestions.has(i) ? C.accent : C.border}`,
@@ -903,40 +840,23 @@ Prioritize by likelihood the architect/owner will request these.`,
         </div>
       )}
 
-      {/* View toggle: Pills | Tree */}
-      <div style={{
-        display: "flex", gap: 2, padding: "4px 10px 2px", flexShrink: 0,
-      }}>
-        {["pills", "tree"].map(v => (
-          <button
-            key={v}
-            onClick={() => setViewMode(v)}
-            style={{
-              ...bt(C),
-              padding: "2px 8px", fontSize: 9, fontWeight: 600,
-              background: viewMode === v ? `${C.accent}18` : "transparent",
-              color: viewMode === v ? C.accent : C.textDim,
-              border: viewMode === v ? `1px solid ${C.accent}30` : `1px solid transparent`,
-              borderRadius: 8, cursor: "pointer", fontFamily: T.font.sans,
-              textTransform: "capitalize",
-            }}
-          >
-            {v}
-          </button>
-        ))}
-      </div>
-
-      {/* Pills view */}
-      {viewMode === "pills" && (
-        <div style={{ flex: 1, overflowY: "auto", padding: "8px 10px" }}>
-          {/* Base bid pill */}
-          {(() => {
-            const base = groups.find(g => g.id === "base");
-            if (!base) return null;
-            const baseTotals = getScenarioTotals("base");
-            return (
+      {/* Connected pills view */}
+      <div
+        style={{ flex: 1, overflowY: "auto", padding: "8px 10px" }}
+        onDragOver={e => { e.preventDefault(); setDragOver("__root__"); }}
+        onDrop={e => handleDropOnNode(e, "__root__")}
+        onDragLeave={handleDragLeave}
+      >
+        {/* Base bid pill — always at top */}
+        {(() => {
+          const baseNode = tree.find(n => n.id === "base");
+          if (!baseNode) return null;
+          const baseTotals = getScenarioTotals("base");
+          return (
+            <div style={{ marginBottom: 8 }}>
               <div
                 onClick={() => setActiveGroupId("base")}
+                onContextMenu={e => handleContextMenu(e, baseNode)}
                 style={{
                   display: "inline-flex", alignItems: "center", gap: 6,
                   padding: "6px 12px", borderRadius: 20, cursor: "pointer",
@@ -944,7 +864,7 @@ Prioritize by likelihood the architect/owner will request these.`,
                     ? `${C.accent}20`
                     : dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
                   border: activeGroupId === "base" ? `1.5px solid ${C.accent}` : `1.5px solid transparent`,
-                  transition: "all 0.15s", marginBottom: 8,
+                  transition: "all 0.15s",
                 }}
               >
                 <span style={{ fontSize: 11, fontWeight: 700, color: activeGroupId === "base" ? C.accent : C.text, fontFamily: T.font.sans }}>
@@ -959,59 +879,87 @@ Prioritize by likelihood the architect/owner will request these.`,
                   {baseTotals.count}
                 </span>
               </div>
-            );
-          })()}
-
-          {/* Scenario pills — flex-wrap for side-by-side layout */}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "flex-start" }}>
-            {tree.filter(n => n.id !== "base").map(node => renderPill(node))}
-          </div>
-
-          {/* Totals summary with markup */}
-          {groups.length > 1 && (
-            <div style={{
-              marginTop: 12, padding: "8px 10px", borderRadius: T.radius.sm,
-              background: dk ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
-              border: `1px solid ${dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`,
-            }}>
-              <div style={{ fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 4, fontFamily: T.font.sans }}>
-                All Scenarios (with markups)
-              </div>
-              {groups.filter(g => g.id !== "base").map(g => {
-                const ids = new Set([g.id, ...groups.filter(c => c.parentId === g.id).map(c => c.id)]);
-                const t = getScenarioTotals(ids);
-                if (t.count === 0) return null;
-                return (
-                  <div key={g.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "2px 0" }}>
-                    <span style={{ fontSize: 10, color: C.text, fontFamily: T.font.sans, display: "flex", alignItems: "center", gap: 4 }}>
-                      <span style={{ width: 5, height: 5, borderRadius: "50%", background: typeColor(g.type) }} />
-                      {g.name}
-                    </span>
-                    <span style={{
-                      fontSize: 10, fontWeight: 600, fontFamily: T.font.sans,
-                      color: g.type === "deduct" ? "#E67E22" : g.type === "add" ? "#27AE60" : C.text,
-                    }}>
-                      {g.type === "deduct" ? "−" : g.type === "add" ? "+" : ""}${formatCompact(t.grand)}
-                    </span>
-                  </div>
-                );
-              })}
             </div>
-          )}
-        </div>
-      )}
+          );
+        })()}
 
-      {/* Tree view */}
-      {viewMode === "tree" && (
-        <div
-          style={{ flex: 1, overflowY: "auto", padding: "4px 0" }}
-          onDragOver={e => { e.preventDefault(); setDragOver("__root__"); }}
-          onDrop={e => handleDropOnNode(e, "__root__")}
-          onDragLeave={handleDragLeave}
-        >
-          {tree.map(node => renderNode(node, 0))}
-        </div>
-      )}
+        {/* Scenario pills with connector lines */}
+        {tree.filter(n => n.id !== "base").length > 0 && (
+          <div style={{ position: "relative", paddingLeft: 20 }}>
+            {/* Vertical connector line from base down */}
+            <div style={{
+              position: "absolute",
+              left: 8,
+              top: 0,
+              bottom: 14,
+              width: 1,
+              background: C.border,
+              borderRadius: 1,
+            }} />
+
+            {tree.filter(n => n.id !== "base").map((node, idx) => (
+              <div key={node.id} style={{ position: "relative", marginTop: idx === 0 ? 0 : 6 }}>
+                {/* Horizontal connector from vertical line to pill */}
+                <div style={{
+                  position: "absolute",
+                  left: -12,
+                  top: 14,
+                  width: 12,
+                  height: 1,
+                  background: C.border,
+                  borderRadius: 1,
+                }} />
+                {/* Rounded corner */}
+                <div style={{
+                  position: "absolute",
+                  left: -13,
+                  top: 10,
+                  width: 5,
+                  height: 5,
+                  borderLeft: `1px solid ${C.border}`,
+                  borderBottom: `1px solid ${C.border}`,
+                  borderRadius: "0 0 0 3px",
+                  borderTop: "none",
+                  borderRight: "none",
+                }} />
+                {renderConnectedPills(node)}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* All Scenarios (with markups) summary */}
+        {groups.length > 1 && (
+          <div style={{
+            marginTop: 12, padding: "8px 10px", borderRadius: T.radius.sm,
+            background: dk ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+            border: `1px solid ${dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`,
+          }}>
+            <div style={{ fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 4, fontFamily: T.font.sans }}>
+              All Scenarios (with markups)
+            </div>
+            {groups.filter(g => g.id !== "base").map(g => {
+              const ids = new Set([g.id, ...groups.filter(c => c.parentId === g.id).map(c => c.id)]);
+              const t = getScenarioTotals(ids);
+              if (t.count === 0) return null;
+              return (
+                <div key={g.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "2px 0" }}>
+                  <span style={{ fontSize: 10, color: C.text, fontFamily: T.font.sans, display: "flex", alignItems: "center", gap: 4 }}>
+                    <span style={{ width: 5, height: 5, borderRadius: "50%", background: typeColor(g.type) }} />
+                    {g.name}
+                  </span>
+                  <span style={{
+                    fontSize: 10, fontWeight: 600, fontFamily: T.font.sans,
+                    color: g.type === "deduct" ? "#E67E22" : g.type === "add" ? "#27AE60" : C.text,
+                  }}>
+                    {g.type === "deduct" ? "\u2212" : g.type === "add" ? "+" : ""}${formatCompact(t.grand)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {/* Hover styles */}
       <style>{`

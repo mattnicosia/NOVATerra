@@ -31,7 +31,7 @@ const CATEGORY_ORDER = [
   { key: DISCOVERY_CATEGORIES.OTHER, label: "Other" },
 ];
 
-export default function DiscoveryPanel({ onNavigateToSheet }) {
+export default function DiscoveryPanel({ onNavigateToSheet, context = "discovery" }) {
   const C = useTheme();
   const T = C.T;
   const [showDismissed, setShowDismissed] = useState(false);
@@ -205,6 +205,16 @@ export default function DiscoveryPanel({ onNavigateToSheet }) {
   // ── No results yet ──────────────────────────────────────────────────────────
   if (scanStatus === "idle" && discoveryIndex.length === 0) {
     if (drawings.length === 0) return null; // No drawings uploaded yet
+    // In takeoffs context, don't prompt full scan — just show a compact message
+    if (context === "takeoffs") {
+      return (
+        <div style={{ padding: T.space[3], textAlign: "center" }}>
+          <span style={{ fontSize: 10, color: C.textDim }}>
+            No discovery items yet. Run a scan from the Discovery page to find takeoff elements.
+          </span>
+        </div>
+      );
+    }
     return (
       <div style={{ ...card(C), padding: T.space[4], marginBottom: T.space[3] }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>

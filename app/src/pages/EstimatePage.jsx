@@ -755,8 +755,8 @@ export default function EstimatePage() {
                 onClick={() => setLeftPanelTab(t.key)}
                 style={{
                   flex: 1,
-                  padding: "6px 4px",
-                  fontSize: 9,
+                  padding: "4px 3px",
+                  fontSize: 7,
                   fontWeight: leftPanelTab === t.key ? 700 : 500,
                   border: "none",
                   cursor: "pointer",

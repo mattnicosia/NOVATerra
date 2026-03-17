@@ -514,6 +514,9 @@ export default function TakeoffsPage() {
   // + button mini-menu state
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const plusMenuRef = useRef(null);
+  const [actionMenuId, setActionMenuId] = useState(null); // which takeoff row's "more" menu is open
+  const [actionConfirm, setActionConfirm] = useState(null); // "delete" | "clear" — two-step confirm
+  const actionMenuRef = useRef(null);
 
   // Close plus menu on outside click
   useEffect(() => {
@@ -524,6 +527,19 @@ export default function TakeoffsPage() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [plusMenuOpen]);
+
+  // Close action menu on outside click
+  useEffect(() => {
+    if (!actionMenuId) return;
+    const handler = e => {
+      if (actionMenuRef.current && !actionMenuRef.current.contains(e.target)) {
+        setActionMenuId(null);
+        setActionConfirm(null);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [actionMenuId]);
 
   // Cmd+K: open Takeoff Command Palette (capture phase to intercept global)
   useEffect(() => {
@@ -4028,8 +4044,8 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                       setShowNotesPanel(t.key === "notes");
                     }}
                     style={{
-                      padding: isEstimateTier ? "5px 12px" : "5px 10px",
-                      fontSize: 12,
+                      padding: isEstimateTier ? "3px 10px" : "3px 8px",
+                      fontSize: 10,
                       fontWeight: 600,
                       background: isActive
                         ? t.key === "nova"
@@ -4249,6 +4265,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                 <div style={{ flex: 1, overflowY: "auto", padding: 8 }}>
                   <Suspense fallback={<div style={{ padding: 16, color: C.textDim, fontSize: 12 }}>Loading...</div>}>
                     <DiscoveryPanel
+                      context="takeoffs"
                       onNavigateToSheet={drawingId => {
                         useDrawingsStore.getState().setSelectedDrawingId(drawingId);
                       }}
@@ -5136,7 +5153,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                             <div style={{ width: 65, textAlign: "right" }}>Total</div>
                                           </>
                                         )}
-                                        <div style={{ width: 52 }}></div>
+                                        <div style={{ width: 44 }}></div>
                                       </div>
                                       {tos.map(to => {
                                         const isActive = tkActiveTakeoffId === to.id;
@@ -5332,7 +5349,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                     background: "transparent",
                                                     border: "1px solid transparent",
                                                     padding: "2px 4px",
-                                                    fontSize: 11,
+                                                    fontSize: 10,
                                                     fontWeight: T.fontWeight.medium,
                                                   })}
                                                 />
@@ -5394,8 +5411,8 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                       className={measureFlashId === to.id ? "measure-complete" : ""}
                                                       style={{
                                                         "--rc": to.color,
-                                                        fontSize: 12,
-                                                        fontWeight: 800,
+                                                        fontSize: 10,
+                                                        fontWeight: 700,
                                                         color: measureFlashId === to.id ? to.color : C.text,
                                                         padding: "2px 4px",
                                                         fontFamily: T.font.mono,
@@ -5417,7 +5434,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                       background: "transparent",
                                                       border: "1px solid transparent",
                                                       padding: "2px 4px",
-                                                      fontSize: 12,
+                                                      fontSize: 10,
                                                       fontWeight: 700,
                                                     })}
                                                   />
@@ -5507,22 +5524,20 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                               {/* Sheet column removed — sheet info accessible via detail overlay */}
                                               <div
                                                 style={{
-                                                  width: 52,
+                                                  width: 44,
                                                   display: "flex",
                                                   gap: 2,
-                                                  flexWrap: "wrap",
                                                   alignItems: "center",
+                                                  position: "relative",
                                                 }}
                                                 onClick={e => e.stopPropagation()}
                                               >
-                                                {/* Stop button moved to play/pause cluster */}
-                                                {/* Hover-reveal: Formula, Auto-count, Duplicate, Delete */}
+                                                {/* Formula button — always visible (shows state) */}
                                                 <div
                                                   className="tk-row-actions"
                                                   style={{
                                                     display: "flex",
                                                     gap: 2,
-                                                    flexWrap: "wrap",
                                                     alignItems: "center",
                                                   }}
                                                 >
@@ -5565,114 +5580,201 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                       return "ƒ";
                                                     })()}
                                                   </button>
-                                                  {unitToTool(to.unit) === "count" && selectedDrawing?.data && (
-                                                    <button
-                                                      className="icon-btn"
-                                                      onClick={e => {
-                                                        e.stopPropagation();
-                                                        startAutoCount(to.id);
-                                                      }}
-                                                      title="Auto Count"
-                                                      style={{
-                                                        width: 20,
-                                                        height: 20,
-                                                        border: "none",
-                                                        background:
-                                                          tkAutoCount?.takeoffId === to.id
-                                                            ? "rgba(168,126,230,0.2)"
-                                                            : "transparent",
-                                                        color: C.purple,
-                                                        borderRadius: 3,
-                                                        display: "flex",
-                                                        alignItems: "center",
-                                                        justifyContent: "center",
-                                                      }}
-                                                    >
-                                                      <svg
-                                                        width="12"
-                                                        height="12"
-                                                        viewBox="0 0 24 24"
-                                                        fill="none"
-                                                        stroke={C.purple}
-                                                        strokeWidth="2.5"
-                                                        strokeLinecap="round"
-                                                        strokeLinejoin="round"
-                                                      >
-                                                        <path d="M12 20V10 M18 20v-4 M6 20v-6" />
-                                                      </svg>
-                                                    </button>
-                                                  )}
+                                                  {/* More actions button */}
                                                   <button
                                                     className="icon-btn"
-                                                    onClick={() => {
-                                                      const nt = {
-                                                        ...takeoffs.find(t => t.id === to.id),
-                                                        id: uid(),
-                                                        linkedItemId: "",
-                                                        measurements: [],
-                                                      };
-                                                      setTakeoffs([...takeoffs, nt]);
+                                                    onClick={e => {
+                                                      e.stopPropagation();
+                                                      setActionMenuId(actionMenuId === to.id ? null : to.id);
+                                                      setActionConfirm(null);
                                                     }}
-                                                    title="Duplicate"
+                                                    title="More actions"
                                                     style={{
                                                       width: 20,
                                                       height: 20,
                                                       border: "none",
-                                                      background: "transparent",
-                                                      color: C.textDim,
+                                                      background: actionMenuId === to.id ? `${C.accent}18` : "transparent",
+                                                      color: actionMenuId === to.id ? C.accent : C.textDim,
                                                       borderRadius: 3,
                                                       display: "flex",
                                                       alignItems: "center",
                                                       justifyContent: "center",
+                                                      fontSize: 14,
+                                                      fontWeight: 700,
+                                                      letterSpacing: 1,
+                                                      transition: "transform 0.15s ease",
+                                                      cursor: "pointer",
                                                     }}
+                                                    onMouseEnter={e => (e.currentTarget.style.transform = "scale(1.1)")}
+                                                    onMouseLeave={e => (e.currentTarget.style.transform = "scale(1)")}
                                                   >
-                                                    <Ic d={I.copy} size={10} />
-                                                  </button>
-                                                  {/* Clear measurements (keep item) */}
-                                                  {(to.measurements || []).length > 0 && (
-                                                    <button
-                                                      className="icon-btn"
-                                                      onClick={() => {
-                                                        useTakeoffsStore.getState().clearMeasurements(to.id);
-                                                        useUiStore.getState().showToast(`Cleared ${(to.measurements || []).length} measurements`);
-                                                      }}
-                                                      title="Clear measurements"
-                                                      style={{
-                                                        width: 20,
-                                                        height: 20,
-                                                        border: "none",
-                                                        background: "transparent",
-                                                        color: C.orange,
-                                                        borderRadius: 3,
-                                                        display: "flex",
-                                                        alignItems: "center",
-                                                        justifyContent: "center",
-                                                      }}
-                                                    >
-                                                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                                                        <path d="M3 6h18M8 6V4h8v2M10 11v6M14 11v6" />
-                                                      </svg>
-                                                    </button>
-                                                  )}
-                                                  <button
-                                                    className="icon-btn"
-                                                    onClick={() => removeTakeoff(to.id)}
-                                                    title="Delete"
-                                                    style={{
-                                                      width: 20,
-                                                      height: 20,
-                                                      border: "none",
-                                                      background: "transparent",
-                                                      color: C.red,
-                                                      borderRadius: 3,
-                                                      display: "flex",
-                                                      alignItems: "center",
-                                                      justifyContent: "center",
-                                                    }}
-                                                  >
-                                                    <Ic d={I.trash} size={10} />
+                                                    ⋯
                                                   </button>
                                                 </div>
+                                                {/* Floating action menu */}
+                                                {actionMenuId === to.id && (
+                                                  <div
+                                                    ref={actionMenuRef}
+                                                    style={{
+                                                      position: "absolute",
+                                                      top: "100%",
+                                                      right: 0,
+                                                      zIndex: T.z.dropdown + 1,
+                                                      marginTop: 4,
+                                                      minWidth: 170,
+                                                      background: C.bg1,
+                                                      border: `1px solid ${C.border}`,
+                                                      borderRadius: 8,
+                                                      boxShadow: T.shadow.lg,
+                                                      padding: "4px 0",
+                                                      overflow: "hidden",
+                                                    }}
+                                                    onClick={e => e.stopPropagation()}
+                                                  >
+                                                    {/* Auto Count — conditional */}
+                                                    {unitToTool(to.unit) === "count" && selectedDrawing?.data && (
+                                                      <button
+                                                        onClick={() => {
+                                                          startAutoCount(to.id);
+                                                          setActionMenuId(null);
+                                                          setActionConfirm(null);
+                                                        }}
+                                                        style={{
+                                                          width: "100%",
+                                                          padding: "7px 12px",
+                                                          border: "none",
+                                                          background: "transparent",
+                                                          color: C.text,
+                                                          display: "flex",
+                                                          alignItems: "center",
+                                                          gap: 8,
+                                                          fontSize: 12,
+                                                          cursor: "pointer",
+                                                          transition: T.transition.fast,
+                                                        }}
+                                                        onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}10`)}
+                                                        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                                                      >
+                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.purple} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                          <path d="M12 20V10 M18 20v-4 M6 20v-6" />
+                                                        </svg>
+                                                        <span style={{ color: C.purple }}>Auto Count</span>
+                                                      </button>
+                                                    )}
+                                                    {/* Duplicate */}
+                                                    <button
+                                                      onClick={() => {
+                                                        const nt = {
+                                                          ...takeoffs.find(t => t.id === to.id),
+                                                          id: uid(),
+                                                          linkedItemId: "",
+                                                          measurements: [],
+                                                        };
+                                                        setTakeoffs([...takeoffs, nt]);
+                                                        setActionMenuId(null);
+                                                        setActionConfirm(null);
+                                                      }}
+                                                      style={{
+                                                        width: "100%",
+                                                        padding: "7px 12px",
+                                                        border: "none",
+                                                        background: "transparent",
+                                                        color: C.text,
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        gap: 8,
+                                                        fontSize: 12,
+                                                        cursor: "pointer",
+                                                        transition: T.transition.fast,
+                                                      }}
+                                                      onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}10`)}
+                                                      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                                                    >
+                                                      <Ic d={I.copy} size={11} color={C.textDim} />
+                                                      <span>Duplicate</span>
+                                                    </button>
+                                                    {/* Clear Measurements — conditional, two-step confirm */}
+                                                    {(to.measurements || []).length > 0 && (
+                                                      <button
+                                                        onClick={() => {
+                                                          if (actionConfirm === "clear") {
+                                                            const cnt = (to.measurements || []).length;
+                                                            useTakeoffsStore.getState().clearMeasurements(to.id);
+                                                            useUiStore.getState().showToast(`Cleared ${cnt} measurements`);
+                                                            setActionMenuId(null);
+                                                            setActionConfirm(null);
+                                                          } else {
+                                                            setActionConfirm("clear");
+                                                          }
+                                                        }}
+                                                        style={{
+                                                          width: "100%",
+                                                          padding: "7px 12px",
+                                                          border: "none",
+                                                          background: actionConfirm === "clear" ? `${C.orange}15` : "transparent",
+                                                          color: C.orange,
+                                                          display: "flex",
+                                                          alignItems: "center",
+                                                          gap: 8,
+                                                          fontSize: 12,
+                                                          cursor: "pointer",
+                                                          transition: T.transition.fast,
+                                                        }}
+                                                        onMouseEnter={e => {
+                                                          if (actionConfirm !== "clear") e.currentTarget.style.background = `${C.orange}10`;
+                                                        }}
+                                                        onMouseLeave={e => {
+                                                          if (actionConfirm !== "clear") e.currentTarget.style.background = "transparent";
+                                                        }}
+                                                      >
+                                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                                                          <path d="M3 6h18M8 6V4h8v2M10 11v6M14 11v6" />
+                                                        </svg>
+                                                        <span>
+                                                          {actionConfirm === "clear"
+                                                            ? `Clear ${(to.measurements || []).length} measurements?`
+                                                            : `Clear (${(to.measurements || []).length})`}
+                                                        </span>
+                                                      </button>
+                                                    )}
+                                                    {/* Separator */}
+                                                    <div style={{ height: 1, background: C.border, margin: "4px 8px" }} />
+                                                    {/* Delete — two-step confirm */}
+                                                    <button
+                                                      onClick={() => {
+                                                        if (actionConfirm === "delete") {
+                                                          removeTakeoff(to.id);
+                                                          setActionMenuId(null);
+                                                          setActionConfirm(null);
+                                                        } else {
+                                                          setActionConfirm("delete");
+                                                        }
+                                                      }}
+                                                      style={{
+                                                        width: "100%",
+                                                        padding: "7px 12px",
+                                                        border: "none",
+                                                        background: actionConfirm === "delete" ? `${C.red}15` : "transparent",
+                                                        color: C.red,
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        gap: 8,
+                                                        fontSize: 12,
+                                                        cursor: "pointer",
+                                                        transition: T.transition.fast,
+                                                      }}
+                                                      onMouseEnter={e => {
+                                                        if (actionConfirm !== "delete") e.currentTarget.style.background = `${C.red}10`;
+                                                      }}
+                                                      onMouseLeave={e => {
+                                                        if (actionConfirm !== "delete") e.currentTarget.style.background = "transparent";
+                                                      }}
+                                                    >
+                                                      <Ic d={I.trash} size={11} color={C.red} />
+                                                      <span>{actionConfirm === "delete" ? "Delete — are you sure?" : "Delete"}</span>
+                                                    </button>
+                                                  </div>
+                                                )}
                                               </div>
                                               {/* Floating controls popover — absolute positioned, no layout shift */}
                                               {isSelected && !isMeasuring && (

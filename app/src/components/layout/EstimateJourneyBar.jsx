@@ -395,9 +395,9 @@ export default function EstimateJourneyBar() {
 
                 // Pill style by state — compact sizing
                 let pillStyle = {
-                  height: 20,
-                  padding: "0 9px",
-                  borderRadius: 10,
+                  height: 21,
+                  padding: "0 10px",
+                  borderRadius: 11,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -405,7 +405,7 @@ export default function EstimateJourneyBar() {
                   transition: "all 200ms ease",
                   flexShrink: 0,
                   cursor: "pointer",
-                  fontSize: 9,
+                  fontSize: 10,
                   fontWeight: 600,
                   fontFamily: T.font.sans,
                   letterSpacing: "0.02em",
