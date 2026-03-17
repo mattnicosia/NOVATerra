@@ -79,6 +79,8 @@ export default function TakeoffsPage() {
   const T = C.T;
   const showToast = useUiStore(s => s.showToast);
   const activeGroupId = useUiStore(s => s.activeGroupId);
+  const revisionImpact = useUiStore(s => s.revisionImpact);
+  const dismissRevisionImpact = useUiStore(s => s.dismissRevisionImpact);
   const showNotesPanel = useUiStore(s => s.showNotesPanel);
   const setShowNotesPanel = useUiStore(s => s.setShowNotesPanel);
   const estGroupBy = useUiStore(s => s.estGroupBy);
@@ -342,6 +344,8 @@ export default function TakeoffsPage() {
   const tkTransformRef = useRef(null); // ref for transform div (zoom-to-cursor offset)
   const predScanAnimRef = useRef(null); // RAF handle for scan wave animation
   const predScanPhaseRef = useRef(0); // animation phase (0–1, repeating pulse)
+  const predScanGenRef = useRef(0); // generation counter — prevents stale async results
+  const predScanKeyRef = useRef(""); // tracks which takeoff+drawing combo is being scanned
   const snapAngleOnRef = useRef(false); // snap angle toggle (persistent, not keyboard-dependent)
 
   // Snap angle toggle — persistent state + ref mirror
@@ -516,6 +520,7 @@ export default function TakeoffsPage() {
   const plusMenuRef = useRef(null);
   const [actionMenuId, setActionMenuId] = useState(null); // which takeoff row's "more" menu is open
   const [actionConfirm, setActionConfirm] = useState(null); // "delete" | "clear" — two-step confirm
+  const [actionMenuPos, setActionMenuPos] = useState(null); // { top, right } for fixed positioning
   const actionMenuRef = useRef(null);
 
   // Close plus menu on outside click
@@ -555,6 +560,10 @@ export default function TakeoffsPage() {
   }, []);
 
   // Derived
+  const revisionAffectedIds = useMemo(() => {
+    if (!revisionImpact?.sheets) return new Set();
+    return new Set(revisionImpact.sheets.flatMap(s => s.affectedTakeoffs.map(t => t.id)));
+  }, [revisionImpact]);
   const selectedDrawing = useMemo(() => drawings.find(d => d.id === selectedDrawingId), [drawings, selectedDrawingId]);
   const filteredTakeoffs = useMemo(() => {
     const byGroup = takeoffs.filter(t => (t.bidContext || "base") === activeGroupId);
@@ -1801,11 +1810,6 @@ IMPORTANT:
       const currentActiveTakeoffId = freshState.tkActiveTakeoffId;
       const currentTool = freshState.tkTool;
 
-      // DEBUG: Show state on EVERY click (before measuring gate)
-      const _dbgDwg = useDrawingsStore.getState();
-      const _dbgDrawing = _dbgDwg.drawings.find(d => d.id === _dbgDwg.selectedDrawingId);
-      document.title = `ST=${currentMeasureState} TK=${!!currentActiveTakeoffId} TOOL=${currentTool} DWG=${_dbgDrawing?.type||'none'}/${!!_dbgDrawing?.data}`;
-
       // Selected takeoff shows its points but does NOT auto-start measuring.
       // User must click the play button or press Enter to start measuring.
 
@@ -1866,8 +1870,9 @@ IMPORTANT:
 
       const triggerCountPredictions = (clickPt, to) => {
         const { tkPredictions: preds } = useTakeoffsStore.getState();
-        document.title = `PRED: preds=${!!preds} desc="${to?.description?.slice(0,20)}"`;
-        if (!preds) {
+        const hasPreds = preds && preds.predictions && preds.predictions.length > 0;
+        document.title = `PRED: hasPreds=${hasPreds} desc="${to?.description?.slice(0,20)}"`;
+        if (!hasPreds) {
           const currentDrawingId = useDrawingsStore.getState().selectedDrawingId;
           const drawing = useDrawingsStore.getState().drawings.find(d => d.id === currentDrawingId);
           document.title = `PRED: dwg=${!!drawing} type=${drawing?.type} data=${!!drawing?.data} raw=${!!drawing?.pdfRawBase64} preR=${!!drawing?.pdfPreRendered}`;
@@ -2575,16 +2580,24 @@ Where confidence is "high", "medium", or "low".`,
     setTkPan({ x: 0, y: 0 });
   }, [selectedDrawingId, setTkPan]);
 
-  // Clear + proactively trigger predictions when switching takeoff items or sheets
-  // Only fires when actively measuring (not idle/selected-but-not-measuring)
+  // Proactively trigger predictions when switching takeoff items or sheets.
+  // CRITICAL: Only depends on takeoffId + drawingId (NOT tkMeasureState).
+  // Previous bug: tkMeasureState in deps caused this to re-fire on every state change,
+  // calling clearPredictions() and wiping in-flight async results.
   useEffect(() => {
-    clearPredictions();
+    const scanKey = `${tkActiveTakeoffId}::${selectedDrawingId}`;
+
+    // Only clear predictions when the takeoff or drawing ACTUALLY changed
+    if (scanKey !== predScanKeyRef.current) {
+      clearPredictions();
+      predScanKeyRef.current = scanKey;
+    }
+
     if (!tkActiveTakeoffId || !selectedDrawingId) return;
 
     // Guard: only trigger predictions when actively measuring
     const currentMeasureState = useTakeoffsStore.getState().tkMeasureState;
     if (currentMeasureState !== "measuring" && currentMeasureState !== "paused") {
-      document.title = `PROACTIVE: blocked state=${currentMeasureState}`;
       return;
     }
 
@@ -2592,11 +2605,12 @@ Where confidence is "high", "medium", or "low".`,
     if (!to) return;
     const drawing = useDrawingsStore.getState().drawings.find(d => d.id === selectedDrawingId);
     if (!drawing || drawing.type !== "pdf" || !drawing.data) {
-      document.title = `PROACTIVE: no-dwg type=${drawing?.type} data=${!!drawing?.data} raw=${!!drawing?.pdfRawBase64}`;
+      console.log(`[NOVA] Proactive scan blocked: type=${drawing?.type} data=${!!drawing?.data}`);
       return;
     }
 
-    document.title = `PROACTIVE: running for "${to.description?.slice(0,20)}" type=${drawing.type}`;
+    // Increment generation counter — prevents stale async results from being applied
+    const gen = ++predScanGenRef.current;
 
     const measureType = unitToTool(to.unit);
 
@@ -2611,23 +2625,23 @@ Where confidence is "high", "medium", or "low".`,
       clickPt = c ? { x: c.width / 2, y: c.height / 2 } : { x: 500, y: 400 };
     }
 
-    console.log("[NOVA] Proactive scan:", to.description, measureType, "at", clickPt);
+    console.log("[NOVA] Proactive scan gen=" + gen + ":", to.description, measureType, "at", clickPt);
+    showToast(`✦ NOVA scanning for "${to.description?.slice(0, 30)}"...`, "info");
     runSmartPredictions(drawing, to, measureType, clickPt)
       .then(result => {
-        console.log(
-          "[NOVA] Result:",
-          result.source,
-          result.strategy,
-          result.tag,
-          result.predictions.length,
-          "predictions",
-          result.message || "",
-        );
-        // Double-check: takeoff must still be active AND result must be for this takeoff
+        // Stale check: if generation changed, a newer scan superseded this one
+        if (predScanGenRef.current !== gen) {
+          console.log("[NOVA] Stale result gen=" + gen + " (current=" + predScanGenRef.current + "), discarding");
+          return;
+        }
+        console.log("[NOVA] Result gen=" + gen + ":", result.source, result.strategy, result.tag, result.predictions.length, "predictions", result.message || "");
+
+        // Double-check: takeoff must still be active
         const currentActiveId = useTakeoffsStore.getState().tkActiveTakeoffId;
         if (currentActiveId !== tkActiveTakeoffId) return;
-        if (result.takeoffId && result.takeoffId !== tkActiveTakeoffId) return;
+
         if (result.predictions.length > 0) {
+          document.title = `NOVA: ${result.predictions.length} predictions found!`;
           setTkPredictions({
             tag: result.tag,
             predictions: result.predictions,
@@ -2638,27 +2652,21 @@ Where confidence is "high", "medium", or "low".`,
             takeoffId: result.takeoffId,
           });
           initPredContext(result.tag, result.source, result.confidence);
-        } else if (result.message) {
-          // Store the message so NOVA panel can show contextual guidance
-          setTkPredictions({
-            tag: null,
-            predictions: [],
-            scanning: false,
-            totalInstances: 0,
-            source: "none",
-            strategy: result.strategy,
-            message: result.message,
-            takeoffId: result.takeoffId,
-          });
-          // Show repair toast once per session when raw PDF is missing
+          showToast(`✦ Found ${result.predictions.length} "${result.tag || "items"}" — review predictions`, "success");
+        } else {
+          console.log("[NOVA] Proactive scan returned 0 predictions:", result.message || result.strategy);
           if (result.needsRepair && !window._novaRepairToastShown) {
             window._novaRepairToastShown = true;
             showToast("Drop the original PDF onto the drawing to enable NOVA predictions", "info");
           }
         }
       })
-      .catch(err => console.warn("Proactive prediction failed:", err));
-  }, [tkActiveTakeoffId, selectedDrawingId, tkMeasureState]);
+      .catch(err => {
+        if (predScanGenRef.current !== gen) return; // stale — ignore
+        console.warn("Proactive prediction failed:", err);
+        document.title = `NOVA: scan failed — ${err.message?.slice(0, 30)}`;
+      });
+  }, [tkActiveTakeoffId, selectedDrawingId]);
 
   // Auto-scroll filmstrip to active drawing
   useEffect(() => {
@@ -2913,7 +2921,10 @@ Where confidence is "high", "medium", or "low".`,
           ctx.globalAlpha = Math.min(pulse, localPhase > 0 ? 1 : 0);
         }
 
-        if (pred.type === "count" || pred.type === "wall-tag") {
+        // Vision predictions always have a single `point` — render as dot marker
+        // regardless of type (count, linear, area). Multi-point predictions (wall, area
+        // with points array) use their own specialized renderers below.
+        if (pred.point && (pred.type === "count" || pred.type === "wall-tag" || pred.type === "linear" || (pred.type === "area" && !pred.points))) {
           const p = pred.point;
           const sz = isAccepted ? 16 : ghostSize;
           ctx.translate(p.x, p.y);
@@ -3564,45 +3575,122 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
   };
 
   // ─── RENDER ─────────────────────────
-  // DEBUG: visible state for prediction pipeline
-  const _dbgDwgState = useDrawingsStore.getState();
-  const _dbgDwgObj = _dbgDwgState.drawings.find(d => d.id === selectedDrawingId);
-  const _dbgCacheHit = _dbgDwgObj?.fileName ? pdfRawCache.has(_dbgDwgObj.fileName) : false;
-  const _dbgCacheBuf = _dbgCacheHit ? pdfRawCache.get(_dbgDwgObj.fileName) : null;
-  const _dbgBufSize = _dbgCacheBuf ? `${(_dbgCacheBuf.byteLength / 1024 / 1024).toFixed(1)}MB` : "0";
-  const _dbgPreds = tkPredictions;
-  const _dbgInfo = tkMeasureState === "measuring"
-    ? `ST=measuring CACHE=${_dbgCacheHit} BUF=${_dbgBufSize} PREDS=${_dbgPreds?.predictions?.length ?? "null"} STRAT=${_dbgPreds?.strategy || "—"} MSG=${_dbgPreds?.message?.slice(0,80) || "none"}`
-    : `preR=${!!_dbgDwgObj?.pdfPreRendered} CACHE=${_dbgCacheHit} BUF=${_dbgBufSize} fn=${_dbgDwgObj?.fileName || "none"}`;
 
   return (
     <div style={{ display: "flex", gap: 0, height: "calc(100vh - 120px)", position: "relative" }}>
-      {/* DEBUG OVERLAY — remove after debugging */}
-      <div style={{
-        position: "fixed", top: 0, left: "50%", transform: "translateX(-50%)",
-        zIndex: 99999, background: "#ff0066", color: "#fff", padding: "6px 18px",
-        fontSize: 13, fontWeight: 700, borderRadius: "0 0 8px 8px", fontFamily: "monospace",
-        whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 12,
-      }}>
-        <span style={{ pointerEvents: "none" }}>{_dbgInfo}</span>
-        {_dbgDwgObj?.pdfPreRendered && (
-          <label style={{
-            pointerEvents: "auto", cursor: "pointer", background: "#fff", color: "#ff0066",
-            padding: "2px 10px", borderRadius: 4, fontSize: 12, fontWeight: 800,
+      {/* ── Revision Impact Card ── */}
+      {revisionImpact && revisionImpact.summary.totalRevisedSheets > 0 && (
+        <div style={{
+          position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)",
+          zIndex: 9000, width: "min(480px, 90%)",
+          background: C.isDark ? "rgba(20,20,25,0.97)" : "rgba(255,255,255,0.97)",
+          border: `1.5px solid #F59E0B60`,
+          borderRadius: 12, padding: "16px 20px",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.3), 0 0 0 1px rgba(245,158,11,0.1)",
+          fontFamily: T.font.sans,
+          backdropFilter: "blur(12px)",
+        }}>
+          {/* Header */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 16 }}>⚠️</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "#F59E0B" }}>
+                Revision Detected
+              </span>
+            </div>
+            <button
+              onClick={dismissRevisionImpact}
+              style={{
+                background: "none", border: "none", cursor: "pointer",
+                color: C.textDim, fontSize: 16, padding: 4,
+              }}
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Summary line */}
+          <div style={{
+            fontSize: 11, color: C.text, lineHeight: 1.6, marginBottom: 12,
+            padding: "8px 12px", borderRadius: 8,
+            background: C.isDark ? "rgba(245,158,11,0.08)" : "rgba(245,158,11,0.06)",
+            border: `1px solid ${C.isDark ? "rgba(245,158,11,0.15)" : "rgba(245,158,11,0.12)"}`,
           }}>
-            REPAIR PDF
-            <input type="file" accept=".pdf" style={{ display: "none" }} onChange={e => {
-              const f = e.target.files?.[0];
-              if (!f) return;
-              repairRawPdf(f).then(count => {
-                useUiStore.getState().showToast(count > 0 ? `Repaired ${count} drawings — predictions enabled!` : "No matching drawings found", count > 0 ? "success" : "error");
-              }).catch(err => {
-                useUiStore.getState().showToast("Repair failed: " + err.message, "error");
-              });
-            }} />
-          </label>
-        )}
-      </div>
+            <strong>{revisionImpact.summary.totalRevisedSheets}</strong> sheet{revisionImpact.summary.totalRevisedSheets > 1 ? "s" : ""} revised
+            {revisionImpact.summary.totalAffectedItems > 0 ? (
+              <>
+                {" → "}<strong style={{ color: "#F59E0B" }}>{revisionImpact.summary.totalAffectedItems}</strong> takeoff item{revisionImpact.summary.totalAffectedItems > 1 ? "s" : ""} affected
+                {revisionImpact.summary.affectedDivisions.length > 0 && (
+                  <> {" → "}Div {revisionImpact.summary.affectedDivisions.join(", ")}</>
+                )}
+              </>
+            ) : (
+              <> — no takeoff items affected yet</>
+            )}
+          </div>
+
+          {/* Sheet details */}
+          {revisionImpact.sheets.length > 0 && (
+            <div style={{ maxHeight: 180, overflowY: "auto", marginBottom: 12 }}>
+              {revisionImpact.sheets.map((sheet, i) => (
+                <div key={i} style={{
+                  padding: "6px 0",
+                  borderBottom: i < revisionImpact.sheets.length - 1 ? `1px solid ${C.isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"}` : "none",
+                }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: C.text, marginBottom: 3 }}>
+                    {sheet.sheetNumber} — {sheet.sheetTitle}
+                    <span style={{ fontWeight: 400, color: C.textDim, marginLeft: 6 }}>
+                      Rev {sheet.oldRevision} → {sheet.newRevision}
+                    </span>
+                  </div>
+                  {sheet.affectedTakeoffs.map(t => (
+                    <div key={t.id} style={{
+                      fontSize: 9, color: C.textDim, paddingLeft: 12,
+                      display: "flex", justifyContent: "space-between", lineHeight: 1.8,
+                    }}>
+                      <span style={{ color: C.text }}>{t.description}</span>
+                      <span style={{ color: "#F59E0B", fontWeight: 600, whiteSpace: "nowrap", marginLeft: 8 }}>
+                        {t.measurementCount} meas. ({t.exposurePercent}% exposure)
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Actions */}
+          <div style={{ display: "flex", gap: 8 }}>
+            {revisionImpact.sheets.length > 0 && revisionImpact.sheets[0]?.newDrawingId && (
+              <button
+                onClick={() => {
+                  const newId = revisionImpact.sheets[0].newDrawingId;
+                  setSelectedDrawingId(newId);
+                  dismissRevisionImpact();
+                }}
+                style={{
+                  flex: 1, padding: "7px 12px", borderRadius: 6,
+                  background: "#F59E0B", color: "#000", border: "none",
+                  fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: T.font.sans,
+                }}
+              >
+                Review Revised Sheets
+              </button>
+            )}
+            <button
+              onClick={dismissRevisionImpact}
+              style={{
+                flex: 1, padding: "7px 12px", borderRadius: 6,
+                background: "transparent", color: C.textDim,
+                border: `1px solid ${C.isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`,
+                fontSize: 10, fontWeight: 600, cursor: "pointer", fontFamily: T.font.sans,
+              }}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
       {/* ── Vertical Control Rail ── */}
       {(() => {
         const modes = [
@@ -5051,7 +5139,6 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                     WebkitBackdropFilter: "blur(20px)",
                                     border: `1px solid ${C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.08)"}`,
                                     borderRadius: T.radius.md,
-                                    overflow: "hidden",
                                     boxShadow: T.shadow.sm,
                                     transition: T.transition.base,
                                   }}
@@ -5161,6 +5248,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                         const isMeasuring =
                                           isActive && (tkMeasureState === "measuring" || tkMeasureState === "paused");
                                         const isPaused = isActive && tkMeasureState === "paused";
+                                        const isRevisionAffected = revisionAffectedIds.has(to.id);
                                         const totalMCount = (to.measurements || []).length;
                                         const computedQty = getComputedQty(to);
                                         const measuredQty = getMeasuredQty(to);
@@ -5218,12 +5306,16 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                   ? `${to.color}18`
                                                   : isSelected
                                                     ? `${to.color}0A`
-                                                    : "transparent",
+                                                    : isRevisionAffected
+                                                      ? "rgba(245,158,11,0.06)"
+                                                      : "transparent",
                                                 borderLeft: isMeasuring
                                                   ? `3px solid ${to.color}`
-                                                  : isSelected
-                                                    ? `3px solid ${to.color}80`
-                                                    : "3px solid transparent",
+                                                  : isRevisionAffected && !isSelected
+                                                    ? "3px solid #F59E0B"
+                                                    : isSelected
+                                                      ? `3px solid ${to.color}80`
+                                                      : "3px solid transparent",
                                                 boxShadow: isMeasuring ? `inset 0 0 0 1px ${to.color}30` : "none",
                                                 transition: "background 100ms ease-out",
                                               }}
@@ -5585,7 +5677,13 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                     className="icon-btn"
                                                     onClick={e => {
                                                       e.stopPropagation();
-                                                      setActionMenuId(actionMenuId === to.id ? null : to.id);
+                                                      if (actionMenuId === to.id) {
+                                                        setActionMenuId(null);
+                                                      } else {
+                                                        const rect = e.currentTarget.getBoundingClientRect();
+                                                        setActionMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+                                                        setActionMenuId(to.id);
+                                                      }
                                                       setActionConfirm(null);
                                                     }}
                                                     title="More actions"
@@ -5616,11 +5714,10 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                   <div
                                                     ref={actionMenuRef}
                                                     style={{
-                                                      position: "absolute",
-                                                      top: "100%",
-                                                      right: 0,
-                                                      zIndex: T.z.dropdown + 1,
-                                                      marginTop: 4,
+                                                      position: "fixed",
+                                                      top: actionMenuPos?.top || 0,
+                                                      right: actionMenuPos?.right || 0,
+                                                      zIndex: 9999,
                                                       minWidth: 170,
                                                       background: C.bg1,
                                                       border: `1px solid ${C.border}`,
@@ -6641,6 +6738,30 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                               }}
                             >
                               {d.sheetNumber || "?"}
+                            </div>
+                          )}
+                          {/* Revision badge */}
+                          {d.supersedes && (
+                            <div style={{
+                              position: "absolute", top: 1, right: 1,
+                              fontSize: 6, fontWeight: 800, fontFamily: T.font.sans,
+                              padding: "0 3px", borderRadius: 3, lineHeight: "12px",
+                              background: "#F59E0B", color: "#000",
+                            }}>
+                              Rev {d.revision || ""}
+                            </div>
+                          )}
+                          {/* Superseded overlay */}
+                          {d.superseded && (
+                            <div style={{
+                              position: "absolute", inset: 0,
+                              background: "rgba(0,0,0,0.45)",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              pointerEvents: "none",
+                            }}>
+                              <span style={{ fontSize: 6, color: "#F59E0B", fontWeight: 700, fontFamily: T.font.sans }}>
+                                SUPERSEDED
+                              </span>
                             </div>
                           )}
                           {/* Takeoff-complete tint overlay */}

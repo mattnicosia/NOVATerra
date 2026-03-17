@@ -50,6 +50,10 @@ export const useUiStore = create((set, get) => ({
     workWeek: "mon-fri", // "mon-fri" | "mon-sat"
   },
 
+  // Revision Detection (transient — not persisted)
+  revisionReport: null,   // Array from detectRevisions(): [{ oldDrawingId, newDrawingId, sheetNumber, ... }]
+  revisionImpact: null,   // Object from analyzeRevisionImpact(): { sheets, summary }
+
   // AI Chat
   aiChatOpen: false,
   aiChatMessages: [],
@@ -102,6 +106,10 @@ export const useUiStore = create((set, get) => ({
     set({ toast: { msg, type } });
     setTimeout(() => set({ toast: null }), 3100);
   },
+
+  setRevisionReport: v => set({ revisionReport: v }),
+  setRevisionImpact: v => set({ revisionImpact: v }),
+  dismissRevisionImpact: () => set({ revisionReport: null, revisionImpact: null }),
 
   setShowNotesPanel: v => set({ showNotesPanel: v }),
   setAiChatOpen: v => set({ aiChatOpen: v }),

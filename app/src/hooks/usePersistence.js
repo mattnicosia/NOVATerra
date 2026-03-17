@@ -1279,6 +1279,9 @@ export async function loadEstimate(id) {
     }
     if (data.subdivisionLlm) useSubdivisionStore.getState().setLlmRefinements(data.subdivisionLlm);
 
+    // Clear NOVA chat from previous estimate
+    useUiStore.getState().setAiChatMessages([]);
+
     useEstimatesStore.getState().setActiveEstimateId(id);
     return true;
   } catch (e) {

@@ -33,47 +33,79 @@ async function runVisionPredictions(drawing, takeoff, measurementType, clickPoin
   let imageData = drawing.data;
   if (!imageData) return null;
 
+  // Load image to get dimensions
+  const img = document.createElement("img");
+  await new Promise((resolve, reject) => {
+    img.onload = () => resolve(true);
+    img.onerror = () => reject(new Error("Image load failed"));
+    img.src = imageData;
+  });
+  const origW = img.naturalWidth;
+  const origH = img.naturalHeight;
+
+  // Resize for Claude Vision. Too small = can't see symbols. Too large = exceeds API limits.
+  // 2000px is the sweet spot: visible symbols, ~1.5MB base64.
+  const MAX_DIM = 2000;
+  if (origW > MAX_DIM || origH > MAX_DIM) {
+    try {
+      const scale = MAX_DIM / Math.max(origW, origH);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(origW * scale);
+      canvas.height = Math.round(origH * scale);
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      imageData = canvas.toDataURL("image/jpeg", 0.9);
+      console.log(`[NOVA Vision] Resized ${origW}x${origH} → ${canvas.width}x${canvas.height}`);
+    } catch (e) {
+      console.warn("[NOVA Vision] Resize failed, using original:", e.message);
+    }
+  }
+
   // Strip data URL prefix to get raw base64
   const base64 = imageData.includes(",") ? imageData.split(",")[1] : imageData;
   if (!base64 || base64.length < 100) return null;
 
   const isCount = measurementType === "count";
   const isLinear = measurementType === "linear";
-  const isArea = measurementType === "area";
 
-  const systemPrompt = `You are NOVA, an expert construction estimating AI that reads architectural and engineering drawings. You identify specific elements for quantity takeoffs.
+  const systemPrompt = `You are NOVA, an expert construction plan reader for quantity takeoffs. You identify and PRECISELY locate specific elements on architectural/engineering drawings.
 
-You understand construction drawing conventions:
-- Lighting fixtures appear as standardized symbols: circles, squares, rectangles, or specialized shapes repeated throughout floor plans. Common symbols: ⊕ (recessed can), ◻ (surface mount), fluorescent fixtures (long rectangles), exit signs (arrows), etc.
-- Door swings shown as arcs. Door tags like "D1", "D2" in circles/hexagons.
-- Window tags like "W1", "W2". Windows shown as parallel lines in walls.
-- Plumbing fixtures: toilets, sinks, urinals shown as standardized plan-view symbols.
-- Equipment: mechanical units, panels, etc. shown with specific symbols and tags.
-- Tags/callouts are typically short text in circles, diamonds, hexagons, or triangles pointing to elements.
-- The same symbol repeated multiple times = multiple instances of the same element.
+Construction drawing conventions you know:
+- Lighting: recessed cans (circles with X or cross), surface mounts (squares), fluorescents (long thin rectangles), exit signs, sconces. On reflected ceiling plans (RCP), fixtures appear as distinct repeated symbols.
+- Doors: arc swings with tags (D1, D2) in circles/hexagons near the opening.
+- Windows: parallel lines in walls with tags (W1, W2).
+- Plumbing: toilets (elongated ovals), sinks (small rectangles at walls), urinals.
+- Equipment: mechanical units, electrical panels — shown with specific symbols and tags.
+- Tags/callouts: short text in circles, diamonds, hexagons, or triangles.
 
-CRITICAL: Return ONLY valid JSON. No markdown, no explanation, no code blocks. Be thorough — count EVERY instance, even if there are many.`;
+CRITICAL RULES:
+1. Return ONLY valid JSON — no markdown, no explanation, no code blocks.
+2. x and y are PERCENTAGES (0-100) from the left edge and top edge of the image.
+3. Be PRECISE — place each location at the EXACT CENTER of the symbol/element, not in approximate areas.
+4. Only mark locations where you can SEE an actual symbol or element. Do NOT guess or interpolate positions.
+5. If you cannot clearly identify the element, return {"found":0,"locations":[],"confidence":0,"notes":"Cannot identify element"}`;
 
   const userPrompt = isCount
-    ? `Look at this construction drawing carefully. Find ALL instances of: "${description}"
+    ? `Find ALL instances of "${description}" on this construction drawing.
 
-Scan the ENTIRE drawing systematically — top to bottom, left to right. Look for repeated symbols, tags, or callouts that represent "${description}". On lighting/electrical plans, look for the specific fixture symbol that repeats. Count EVERY one.
+INSTRUCTIONS:
+1. First, identify what SYMBOL represents "${description}" on this drawing. Look for a repeated small symbol/icon.
+2. Scan the ENTIRE drawing methodically — every room, corridor, and space.
+3. For EACH instance, mark the EXACT CENTER of that symbol as x,y percentages (0-100).
+4. Only include locations where you can clearly see the symbol. Do not guess.
 
-Return JSON:
-{"found":<total count>,"locations":[{"x":<0-100 % from left>,"y":<0-100 % from top>,"label":"<what you see>"}],"confidence":<0-1>,"notes":"<observations>"}`
+Return JSON: {"found":<count>,"locations":[{"x":<0-100>,"y":<0-100>,"label":"<room or area>"}],"confidence":<0-1>,"notes":"<what symbol you identified>"}`
     : isLinear
-    ? `Look at this construction drawing. Identify all locations where "${description}" would need to be measured as a linear quantity (length/run).
+    ? `Find all runs/segments of "${description}" on this construction drawing.
 
-Look for walls, edges, runs, or boundaries where this material/element would be installed. Mark the START of each distinct run.
+Mark the START POINT of each distinct run as x,y percentages (0-100). Only mark clearly visible elements.
 
-Return JSON:
-{"found":<number of runs>,"locations":[{"x":<0-100 % from left>,"y":<0-100 % from top>,"label":"<description of run>"}],"confidence":<0-1>,"notes":"<observations>"}`
-    : `Look at this construction drawing. Identify all areas/regions where "${description}" would be measured.
+Return JSON: {"found":<count>,"locations":[{"x":<0-100>,"y":<0-100>,"label":"<description>"}],"confidence":<0-1>,"notes":"<observations>"}`
+    : `Find all areas/regions where "${description}" would be applied on this construction drawing.
 
-Look for rooms, zones, or bounded areas where this material/finish would be applied. Mark the CENTER of each distinct area.
+Mark the CENTER of each distinct area as x,y percentages (0-100). Only mark clearly visible regions.
 
-Return JSON:
-{"found":<number of areas>,"locations":[{"x":<0-100 % from left>,"y":<0-100 % from top>,"label":"<room/area name>"}],"confidence":<0-1>,"notes":"<observations>"}`;
+Return JSON: {"found":<count>,"locations":[{"x":<0-100>,"y":<0-100>,"label":"<room name>"}],"confidence":<0-1>,"notes":"<observations>"}`;
 
   try {
     console.log(`[NOVA Vision] Analyzing "${description}" on drawing ${drawing.id} (page ${drawing.pdfPage || 1})`);
@@ -91,8 +123,8 @@ Return JSON:
       temperature: 0.1,
     });
 
-    // Parse response
-    const text = resp?.content?.[0]?.text || "";
+    // Parse response — callAnthropic returns a plain string (not structured object)
+    const text = typeof resp === "string" ? resp : (resp?.content?.[0]?.text || "");
     console.log(`[NOVA Vision] Raw response:`, text.slice(0, 300));
 
     // Extract JSON from response (handle markdown code blocks if present)
@@ -109,20 +141,32 @@ Return JSON:
       return { predictions: [], message: `NOVA Vision: ${json?.notes || "No instances found on this page"}`, source: "vision" };
     }
 
-    // Convert percentage coordinates to canvas pixel coordinates
-    // The drawing image was rendered at scale 1.5 from PDF
-    const img = new Image();
-    const imgDims = await new Promise(resolve => {
-      img.onload = () => resolve({ w: img.width, h: img.height });
-      img.onerror = () => resolve({ w: 1200, h: 900 }); // fallback
-      img.src = imageData;
-    });
+    // Convert 0-100 percentage coordinates to canvas pixel coordinates
+    // Canvas coords = original drawing image dimensions (origW x origH from above)
+    // Claude returns 0-100 percentages as instructed. Auto-detect if it returns 0-1 instead.
+    const allX = json.locations.map(l => l.x);
+    const allY = json.locations.map(l => l.y);
+    const maxCoord = Math.max(...allX, ...allY);
+
+    let normX, normY;
+    if (maxCoord <= 1.05) {
+      // 0-1 fractional format (Claude ignored our 0-100 instruction)
+      console.log("[NOVA Vision] Coords in 0-1 fractional → mapping to", origW, "x", origH);
+      normX = (x) => x * origW;
+      normY = (y) => y * origH;
+    } else {
+      // 0-100 percentage format (expected)
+      console.log("[NOVA Vision] Coords in 0-100% → mapping to", origW, "x", origH);
+      normX = (x) => (x / 100) * origW;
+      normY = (y) => (y / 100) * origH;
+    }
 
     const predictions = json.locations.map((loc, i) => ({
       id: `vision-${drawing.id}-${i}`,
+      type: measurementType || "count",
       point: {
-        x: (loc.x / 100) * imgDims.w,
-        y: (loc.y / 100) * imgDims.h,
+        x: normX(loc.x),
+        y: normY(loc.y),
       },
       tag: description,
       label: loc.label || description,
@@ -130,7 +174,7 @@ Return JSON:
       source: "vision",
     }));
 
-    console.log(`[NOVA Vision] Found ${predictions.length} predictions with confidence ${json.confidence}`);
+    console.log(`[NOVA Vision] Found ${predictions.length} predictions, imgDims=${imgDims.w}x${imgDims.h}, sample coords:`, predictions.slice(0,3).map(p => `(${Math.round(p.point.x)},${Math.round(p.point.y)})`));
     return {
       predictions,
       tag: description,
@@ -1003,9 +1047,31 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
 
   // Step 2: Classify takeoff strategy (use warm cache if available)
   const strategy = warm?.strategy || classifyTakeoffStrategy(description);
-  const _tagCount = data.items ? data.items.filter(i => isLikelyTag(i.str || i.text)).length : 0;
+  const _tagCount = data.text ? data.text.filter(i => isLikelyTag(i.text)).length : 0;
   console.log("[NOVA] Strategy:", strategy, "for", JSON.stringify(description), "measureType:", measurementType, warm ? "(warm)" : "",
-    "| textLen:", data.text?.length, "items:", data.items?.length, "tags:", _tagCount);
+    "| textItems:", data.text?.length, "tags:", _tagCount,
+    "| sampleText:", data.text?.slice(0, 5).map(t => t.text));
+
+  // ── SPARSE TEXT shortcut: skip tag/geometry → go straight to Vision ──
+  // CAD PDFs with SHX fonts (AutoCAD/Revit) produce very few extractable text items
+  // because SHX glyphs are vector paths, not text objects. When text is sparse (<50 items)
+  // AND has no recognizable tags, tag-based prediction will fail. Use Vision directly.
+  if (_tagCount === 0 && (data.text?.length || 0) < 50 && drawing.data && strategy === "tag-based") {
+    console.log(`[NOVA] Sparse text detected (${data.text?.length} items, 0 tags) — fast-tracking to Vision for "${description}"`);
+    document.title = `NOVA: vision scan "${description?.slice(0,15)}..."`;
+    try {
+      const visionResult = await runVisionPredictions(drawing, takeoff, measurementType, clickPoint);
+      if (visionResult && visionResult.predictions?.length > 0) {
+        document.title = `NOVA: found ${visionResult.predictions.length} via vision`;
+        return { ...visionResult, extractionStats: data.stats, takeoffId: takeoff.id, strategy: "vision" };
+      }
+      document.title = `NOVA: vision found 0 — ${visionResult?.message?.slice(0,30) || "no matches"}`;
+    } catch (err) {
+      console.warn("[NOVA] Vision fast-track failed:", err.message);
+      document.title = `NOVA: vision error ${err.message?.slice(0,25)}`;
+    }
+    // If vision also fails, continue with normal pipeline (geometry might still help)
+  }
 
   // ── SURFACE strategies: geometry only, NO tag detection ──
   // Surface items (siding, stucco, drywall, paint) must NEVER use tag detection.
@@ -1294,13 +1360,35 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
     }
   }
 
-  // Phase 4: Vision API fallback would go here (future implementation)
+  // Phase 4: Vision fallback — tag/geometry detection failed
+  // Common cause: CAD PDFs with SHX fonts produce sparse text (pdf.js can't
+  // extract custom AutoCAD/Revit fonts). Vision analysis reads the image instead.
   const _txtLen = data.text?.length || 0;
-  const _itemCount = data.items?.length || 0;
-  const _tagItems = data.items ? data.items.filter(i => isLikelyTag(i.str || i.text)) : [];
+  const _tagItems = data.text ? data.text.filter(i => isLikelyTag(i.text)) : [];
   const _nearTag = nearestTag ? `near="${nearestTag.text}"` : "near=NONE";
-  console.log("[NOVA] Final fallthrough:", _nearTag, "txtLen:", _txtLen, "items:", _itemCount, "tags:", _tagItems.length,
-    "sampleTags:", _tagItems.slice(0, 8).map(t => t.str || t.text));
+  console.log("[NOVA] Final fallthrough:", _nearTag, "txtLen:", _txtLen, "tags:", _tagItems.length,
+    "sampleText:", data.text?.slice(0, 8).map(t => t.text));
+
+  // If we have drawing image data, try vision before giving up
+  if (drawing.data) {
+    console.log(`[NOVA] Sparse text (${_txtLen} items, ${_tagItems.length} tags) — trying Vision fallback for "${description}"`);
+    document.title = `NOVA: vision scan "${description?.slice(0,15)}..."`;
+    try {
+      const visionResult = await runVisionPredictions(drawing, takeoff, measurementType, clickPoint);
+      console.log(`[NOVA] Vision result:`, visionResult?.predictions?.length, "predictions", visionResult?.message);
+      document.title = `NOVA: vision=${visionResult?.predictions?.length || 0} preds`;
+      if (visionResult && visionResult.predictions?.length > 0) {
+        return { ...visionResult, extractionStats: data.stats, takeoffId: takeoff.id, strategy };
+      }
+    } catch (err) {
+      console.warn("[NOVA] Vision fallback failed:", err.message);
+      document.title = `NOVA: vision FAILED ${err.message?.slice(0,30)}`;
+    }
+  } else {
+    console.log("[NOVA] No drawing.data — cannot attempt vision fallback");
+    document.title = `NOVA: no image data for vision`;
+  }
+
   return {
     tag: null,
     predictions: [],
@@ -1309,7 +1397,7 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
     extractionStats: data.stats,
     strategy,
     takeoffId: takeoff.id,
-    message: `txt=${_txtLen} items=${_itemCount} tags=${_tagItems.length} ${_nearTag} strat=${strategy}`,
+    message: `txt=${_txtLen} tags=${_tagItems.length} ${_nearTag} strat=${strategy} — no predictions from text/geometry/vision`,
   };
 }
 

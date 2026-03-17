@@ -352,6 +352,9 @@ export const useEstimatesStore = create((set, get) => ({
     useModuleStore.getState().setActiveModule(null);
     useScanStore.getState().clearScan();
 
+    // Clear NOVA chat from previous estimate
+    useUiStore.getState().setAiChatMessages([]);
+
     // Set active ID last — EstimateLoader checks activeId === id to skip DB load
     set({ activeEstimateId: id, draftId: id });
 

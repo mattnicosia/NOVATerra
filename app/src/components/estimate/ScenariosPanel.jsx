@@ -78,6 +78,14 @@ const SCENARIO_TEMPLATES = [
     ],
   },
   {
+    category: "Revisions",
+    items: [
+      { name: "Addendum", type: "revision", desc: "Track scope changes from a drawing addendum" },
+      { name: "Bulletin", type: "revision", desc: "Track pricing request from a post-contract bulletin" },
+      { name: "ASI", type: "revision", desc: "Track clarifications from an ASI (no cost impact expected)" },
+    ],
+  },
+  {
     category: "Other",
     items: [
       { name: "Allowance Items", type: "add", desc: "Items carried as allowances pending final selection" },
@@ -417,6 +425,8 @@ Prioritize by likelihood the architect/owner will request these.`,
   const typeColor = type => {
     if (type === "add") return "#27AE60";
     if (type === "deduct") return "#E67E22";
+    if (type === "revision") return "#F59E0B"; // amber
+    if (type === "breakout") return C.textDim;
     return C.accent;
   };
 
@@ -449,12 +459,16 @@ Prioritize by likelihood the architect/owner will request these.`,
         onDragEnd={handleDragEnd}
         style={{
           display: "inline-flex", alignItems: "center", gap: 5,
-          padding: "5px 10px", borderRadius: 16, cursor: "pointer",
-          background: isActive ? `${tc}20` : dk ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)",
-          border: isActive ? `1.5px solid ${tc}` : `1.5px solid ${dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
+          padding: "5px 10px", borderRadius: 16,
+          cursor: node.id !== "base" ? (isDragging ? "grabbing" : "grab") : "pointer",
+          background: isDragTarget ? `${C.accent}18` : isActive ? `${tc}20` : dk ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)",
+          border: isDragTarget ? `1.5px dashed ${C.accent}`
+            : node.type === "breakout" ? `1.5px dashed ${isActive ? tc : dk ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.12)"}`
+            : isActive ? `1.5px solid ${tc}` : `1.5px solid ${dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
           transition: "all 0.15s", whiteSpace: "nowrap", position: "relative",
-          opacity: isDragging ? 0.4 : 1,
-          outline: isDragTarget ? `1.5px dashed ${C.accent}60` : "none",
+          opacity: isDragging ? 0.35 : 1,
+          transform: isDragTarget ? "scale(1.04)" : isDragging ? "scale(0.95)" : "scale(1)",
+          boxShadow: isDragTarget ? `0 0 8px ${C.accent}30` : "none",
         }}
       >
         {/* Type dot */}
@@ -488,9 +502,21 @@ Prioritize by likelihood the architect/owner will request these.`,
         {totals.grand > 0 && (
           <span style={{
             fontSize: 8, fontWeight: 600, fontFamily: T.font.sans, opacity: 0.7,
-            color: node.type === "deduct" ? "#E67E22" : node.type === "add" ? "#27AE60" : C.textDim,
+            color: node.type === "deduct" ? "#E67E22" : node.type === "add" ? "#27AE60" : node.type === "revision" ? "#F59E0B" : C.textDim,
           }}>
-            {node.type === "deduct" ? "\u2212" : "+"}${formatCompact(totals.grand)}
+            {node.type === "breakout" ? "" : node.type === "deduct" ? "\u2212" : node.type === "revision" ? "Δ " : "+"}${formatCompact(totals.grand)}
+            {node.type === "breakout" ? " (incl.)" : ""}
+          </span>
+        )}
+        {/* Revision status badge */}
+        {node.type === "revision" && (
+          <span style={{
+            fontSize: 7, fontWeight: 700, fontFamily: T.font.sans,
+            padding: "1px 4px", borderRadius: 4,
+            background: node.accepted ? "#27AE6030" : "#F59E0B25",
+            color: node.accepted ? "#27AE60" : "#F59E0B",
+          }}>
+            {node.accepted ? "✓ Applied" : "Pending"}
           </span>
         )}
 
@@ -842,7 +868,13 @@ Prioritize by likelihood the architect/owner will request these.`,
 
       {/* Connected pills view */}
       <div
-        style={{ flex: 1, overflowY: "auto", padding: "8px 10px" }}
+        style={{
+          flex: 1, overflowY: "auto", padding: "8px 10px",
+          outline: dragOver === "__root__" ? `1.5px dashed ${C.accent}40` : "none",
+          outlineOffset: -2,
+          borderRadius: 6,
+          transition: "outline 0.15s",
+        }}
         onDragOver={e => { e.preventDefault(); setDragOver("__root__"); }}
         onDrop={e => handleDropOnNode(e, "__root__")}
         onDragLeave={handleDragLeave}
@@ -857,13 +889,16 @@ Prioritize by likelihood the architect/owner will request these.`,
               <div
                 onClick={() => setActiveGroupId("base")}
                 onContextMenu={e => handleContextMenu(e, baseNode)}
+                onDragOver={e => { e.preventDefault(); if (dragId) setDragOver("base"); }}
+                onDragLeave={handleDragLeave}
+                onDrop={e => handleDropOnNode(e, "base")}
                 style={{
                   display: "inline-flex", alignItems: "center", gap: 6,
                   padding: "6px 12px", borderRadius: 20, cursor: "pointer",
                   background: activeGroupId === "base"
                     ? `${C.accent}20`
-                    : dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
-                  border: activeGroupId === "base" ? `1.5px solid ${C.accent}` : `1.5px solid transparent`,
+                    : dragOver === "base" ? `${C.accent}12` : dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+                  border: activeGroupId === "base" ? `1.5px solid ${C.accent}` : dragOver === "base" ? `1.5px dashed ${C.accent}60` : `1.5px solid transparent`,
                   transition: "all 0.15s",
                 }}
               >

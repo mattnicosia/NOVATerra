@@ -11,6 +11,8 @@ import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useNovaStore } from "@/stores/novaStore";
 import { useModelStore } from "@/stores/modelStore";
 import { useUiStore } from "@/stores/uiStore";
+import { useGroupsStore } from "@/stores/groupsStore";
+import { useTakeoffsStore } from "@/stores/takeoffsStore";
 import { uid, nowStr } from "@/utils/format";
 import { callAnthropic, optimizeImageForAI, imageBlock } from "@/utils/ai";
 import { loadPdfJs } from "@/utils/pdf";
@@ -278,6 +280,126 @@ export async function repairRawPdf(file) {
   }
 }
 
+// ─── Revision Detection ─────────────────────────────────────────────────────
+// After autoLabel completes, check if any newly labeled drawings match existing
+// sheets — indicating a revision/addendum upload.
+
+function isHigherRevision(oldRev, newRev) {
+  if (!newRev) return false;
+  if (!oldRev) return true; // any revision > no revision
+  const oNum = parseInt(oldRev, 10);
+  const nNum = parseInt(newRev, 10);
+  // Both numeric
+  if (!isNaN(oNum) && !isNaN(nNum)) return nNum > oNum;
+  // Both alpha
+  if (isNaN(oNum) && isNaN(nNum)) return newRev.toUpperCase() > oldRev.toUpperCase();
+  // Mixed: numeric old + alpha new (post-IFC transition) or vice versa
+  return true;
+}
+
+export function detectRevisions(newDrawingIds) {
+  const ds = useDrawingsStore.getState();
+  const allDrawings = ds.drawings;
+
+  // Build a local sheet index from NON-superseded, NON-new drawings
+  const newIdSet = new Set(newDrawingIds);
+  const sheetIdx = {};
+  allDrawings.forEach(d => {
+    if (d.sheetNumber && !d.superseded && !newIdSet.has(d.id)) {
+      sheetIdx[d.sheetNumber] = d.id;
+      const clean = d.sheetNumber.replace(/[-\s]/g, "");
+      if (clean !== d.sheetNumber) sheetIdx[clean] = d.id;
+    }
+  });
+
+  const report = [];
+  for (const newId of newDrawingIds) {
+    const newDwg = allDrawings.find(d => d.id === newId);
+    if (!newDwg || !newDwg.sheetNumber) continue;
+
+    const existingId = sheetIdx[newDwg.sheetNumber]
+      || sheetIdx[newDwg.sheetNumber.replace(/[-\s]/g, "")];
+    if (!existingId) continue;
+
+    const existing = allDrawings.find(d => d.id === existingId);
+    if (!existing || existing.superseded) continue;
+
+    // Only flag as revision if revision number is higher (or old has none)
+    if (!isHigherRevision(existing.revision, newDwg.revision)) continue;
+
+    // Supersede the old drawing
+    ds.supersedeDrawing(existing.id, newDwg.id, newDwg.addendumNumber || null);
+
+    report.push({
+      oldDrawingId: existing.id,
+      newDrawingId: newDwg.id,
+      sheetNumber: newDwg.sheetNumber,
+      sheetTitle: newDwg.sheetTitle || newDwg.label || "",
+      oldRevision: existing.revision || "0",
+      newRevision: newDwg.revision || "?",
+      revisionDate: newDwg.revisionDate || null,
+      description: newDwg.revisionDescription || null,
+    });
+  }
+
+  return report;
+}
+
+// ─── Revision Impact Analysis ───────────────────────────────────────────────
+// Given a revision report, find all takeoffs with measurements on superseded drawings.
+
+export function analyzeRevisionImpact(revisionReport) {
+  const { takeoffs } = useTakeoffsStore.getState();
+  const groups = useGroupsStore.getState().groups;
+  const impact = [];
+
+  for (const rev of revisionReport) {
+    const affectedTakeoffs = takeoffs.filter(t =>
+      (t.measurements || []).some(m => m.sheetId === rev.oldDrawingId),
+    );
+
+    if (affectedTakeoffs.length > 0) {
+      impact.push({
+        ...rev,
+        affectedTakeoffs: affectedTakeoffs.map(t => {
+          const onSheet = (t.measurements || []).filter(m => m.sheetId === rev.oldDrawingId).length;
+          const total = (t.measurements || []).length;
+          return {
+            id: t.id,
+            description: t.description,
+            unit: t.unit,
+            group: t.group,
+            groupName: groups.find(g => g.id === t.group)?.name || "Base Bid",
+            divisionCode: (t.code || "").split(" ")[0] || null,
+            measurementCount: onSheet,
+            totalMeasurements: total,
+            exposurePercent: Math.round((onSheet / Math.max(total, 1)) * 100),
+          };
+        }),
+      });
+    }
+  }
+
+  const totalAffectedItems = new Set(impact.flatMap(i => i.affectedTakeoffs.map(t => t.id))).size;
+  const affectedDivisions = [...new Set(
+    impact.flatMap(i => i.affectedTakeoffs.map(t => t.divisionCode).filter(Boolean)),
+  )].sort();
+  const affectedGroups = [...new Set(
+    impact.flatMap(i => i.affectedTakeoffs.map(t => t.groupName).filter(Boolean)),
+  )];
+
+  return {
+    sheets: impact,
+    summary: {
+      totalRevisedSheets: revisionReport.length,
+      sheetsWithImpact: impact.length,
+      totalAffectedItems,
+      affectedDivisions,
+      affectedGroups,
+    },
+  };
+}
+
 // ─── Auto-label drawings via AI ─────────────────────────────────────────────
 export async function autoLabelDrawings(drawingIds) {
   const allDrawings = useDrawingsStore.getState().drawings;
@@ -319,12 +441,12 @@ export async function autoLabelDrawings(drawingIds) {
       // Extract metadata from first 3 sheets until we have architect + projectName
       const needsMetadata = !metadataComplete && i < 3;
       const labelPrompt = needsMetadata
-        ? `This is a construction blueprint/drawing. Carefully examine the ENTIRE drawing, especially:\n- The TITLE BLOCK (bottom-right corner) — this contains the architect/design firm name, project name, sheet info\n- The COVER SHEET info (if this is a cover/title page) — look for a project directory listing consultants\n- Any STAMPS, SEALS, or LOGOS — architect firms typically have their logo/name prominently displayed\n\nThe architect/design firm is usually the MOST PROMINENT firm name in the title block. It often includes words like "Architects", "Architecture", "Design", "Planning", "A/E", "Associates", or "Group". Their name, address, and license number typically appear together. Do NOT confuse the architect with the structural engineer, MEP engineer, or owner/client.\n\nOn cover sheets, look for a "Project Directory", "Project Team", or "Consultants" section that lists Architect, Structural Engineer, MEP Engineer, etc.\n\nFind and return:\n1. Sheet number — formatted like A-100, A-100.00, S-201, M-001, E-100, L-001, etc.\n2. Sheet title — e.g. "FIRST FLOOR PLAN", "COVER SHEET", etc.\n3. Scale — exactly as shown (e.g. 1/4" = 1'-0"). Use the primary/plan scale if multiple shown.\n4. Project name — the full project name\n5. Architect — the architect or design firm name (the PRIMARY design firm, not engineers)\n6. Client/Owner — the client or building owner name\n7. Address — the project street address, city, state\n8. Project number — the project/job number\n9. Engineer — the structural or MEP engineer firm name\n\nReturn ONLY a JSON object like: {"number":"A-100.00","title":"FIRST FLOOR PLAN","scale":"1/4\\" = 1'-0\\"","projectName":"RIVERSIDE APARTMENTS","architect":"Smith & Associates Architects","client":"ABC Development Corp","address":"123 Main St, Portland, OR 97201","projectNumber":"2024-0156","engineer":"XYZ Engineering"}\nIf you can't read a field, use null for that field.`
-        : `This is a construction blueprint/drawing. Look at the title block (usually bottom-right corner) and anywhere on the drawing for scale information.\n\nFind and return:\n1. Sheet number — usually formatted like A-100, A-100.00, S-201, M-001, E-100, L-001, etc.\n2. Sheet title — the drawing name like "FIRST FLOOR PLAN", "FOUNDATION PLAN", etc.\n3. Scale — the drawing scale, written exactly as shown on the drawing (e.g. 1/4" = 1'-0", 1/8" = 1'-0", 1" = 20', 1:100, etc.). Look in the title block, scale bar, or near individual plan views. If multiple scales are shown, use the primary/plan scale (usually the largest view).\n\nReturn ONLY a JSON object like: {"number":"A-100.00","title":"FIRST FLOOR PLAN","scale":"1/4\\" = 1'-0\\""}\nIf you can't read a field, use null for that field.`;
+        ? `This is a construction blueprint/drawing. Carefully examine the ENTIRE drawing, especially:\n- The TITLE BLOCK (bottom-right corner) — this contains the architect/design firm name, project name, sheet info\n- The COVER SHEET info (if this is a cover/title page) — look for a project directory listing consultants\n- Any STAMPS, SEALS, or LOGOS — architect firms typically have their logo/name prominently displayed\n\nThe architect/design firm is usually the MOST PROMINENT firm name in the title block. It often includes words like "Architects", "Architecture", "Design", "Planning", "A/E", "Associates", or "Group". Their name, address, and license number typically appear together. Do NOT confuse the architect with the structural engineer, MEP engineer, or owner/client.\n\nOn cover sheets, look for a "Project Directory", "Project Team", or "Consultants" section that lists Architect, Structural Engineer, MEP Engineer, etc.\n\nFind and return:\n1. Sheet number — formatted like A-100, A-100.00, S-201, M-001, E-100, L-001, etc.\n2. Sheet title — e.g. "FIRST FLOOR PLAN", "COVER SHEET", etc.\n3. Scale — exactly as shown (e.g. 1/4" = 1'-0"). Use the primary/plan scale if multiple shown.\n4. Project name — the full project name\n5. Architect — the architect or design firm name (the PRIMARY design firm, not engineers)\n6. Client/Owner — the client or building owner name\n7. Address — the project street address, city, state\n8. Project number — the project/job number\n9. Engineer — the structural or MEP engineer firm name\n\nAlso check the REVISION BLOCK (usually a small table in the title block area) for:\n10. Revision number — the LATEST/highest revision entry (e.g. "0", "A", "3", "C", "Rev 2")\n11. Revision date — the date of the latest revision\n12. Revision description — brief description (e.g. "Electrical revisions per addendum #2")\n13. Issued for — the drawing issue status if shown (e.g. "IFC", "IFB", "Permit", "Construction", "Bid", "Review")\n\nReturn ONLY a JSON object like: {"number":"A-100.00","title":"FIRST FLOOR PLAN","scale":"1/4\\" = 1'-0\\"","projectName":"RIVERSIDE APARTMENTS","architect":"Smith & Associates Architects","client":"ABC Development Corp","address":"123 Main St, Portland, OR 97201","projectNumber":"2024-0156","engineer":"XYZ Engineering","revision":"2","revisionDate":"2026-03-10","revisionDescription":"Addendum #2 — revised electrical","issuedFor":"IFC"}\nIf you can't read a field, use null for that field.`
+        : `This is a construction blueprint/drawing. Look at the title block (usually bottom-right corner) and anywhere on the drawing for scale information.\n\nFind and return:\n1. Sheet number — usually formatted like A-100, A-100.00, S-201, M-001, E-100, L-001, etc.\n2. Sheet title — the drawing name like "FIRST FLOOR PLAN", "FOUNDATION PLAN", etc.\n3. Scale — the drawing scale, written exactly as shown on the drawing (e.g. 1/4" = 1'-0", 1/8" = 1'-0", 1" = 20', 1:100, etc.). Look in the title block, scale bar, or near individual plan views. If multiple scales are shown, use the primary/plan scale (usually the largest view).\n4. Revision — the latest/highest revision number from the revision block table (e.g. "0", "A", "3"). Return null if no revision block visible.\n5. Issued for — the drawing issue status if shown (e.g. "IFC", "IFB", "Permit", "Construction"). Return null if not shown.\n\nReturn ONLY a JSON object like: {"number":"A-100.00","title":"FIRST FLOOR PLAN","scale":"1/4\\" = 1'-0\\"","revision":"2","issuedFor":"IFC"}\nIf you can't read a field, use null for that field.`;
 
       const optimized = await optimizeImageForAI(imgData, needsMetadata ? 1600 : 1200);
       const text = await callAnthropic({
-        max_tokens: needsMetadata ? 600 : 300,
+        max_tokens: needsMetadata ? 700 : 400,
         messages: [
           {
             role: "user",
@@ -361,6 +483,20 @@ export async function autoLabelDrawings(drawingIds) {
           } else if (!scaleKey) {
             useDrawingsStore.getState().updateDrawing(d.id, "detectedScale", parsed.scale);
           }
+        }
+
+        // Extract revision metadata from title block
+        if (parsed.revision != null) {
+          useDrawingsStore.getState().updateDrawing(d.id, "revision", String(parsed.revision));
+        }
+        if (parsed.revisionDate) {
+          useDrawingsStore.getState().updateDrawing(d.id, "revisionDate", parsed.revisionDate);
+        }
+        if (parsed.revisionDescription) {
+          useDrawingsStore.getState().updateDrawing(d.id, "revisionDescription", parsed.revisionDescription);
+        }
+        if (parsed.issuedFor) {
+          useDrawingsStore.getState().updateDrawing(d.id, "issuedFor", parsed.issuedFor);
         }
 
         // Extract project metadata from title block (tries up to 3 sheets)
@@ -524,9 +660,48 @@ export async function autoLabelDrawings(drawingIds) {
     /* inference non-critical */
   }
 
+  // ── Revision Detection (post-label) ──────────────────────────────
+  // Check if any newly labeled drawings match existing sheets by sheet number,
+  // indicating this is an addendum/revision upload.
+  let revisionReport = [];
+  try {
+    if (drawingIds && drawingIds.length > 0) {
+      revisionReport = detectRevisions(drawingIds);
+      if (revisionReport.length > 0) {
+        // Analyze impact on existing takeoffs
+        const impact = analyzeRevisionImpact(revisionReport);
+        useUiStore.getState().setRevisionReport(revisionReport);
+        useUiStore.getState().setRevisionImpact(impact);
+
+        // Auto-create a revision scenario group
+        const addNum = revisionReport[0]?.description?.match(/addendum\s*#?(\d+)/i)?.[1]
+          || revisionReport[0]?.newRevision || "?";
+        const revGroupId = useGroupsStore.getState().addGroup(
+          `Addendum ${addNum}`,
+          "revision",
+        );
+        // Store revision metadata on the group
+        useGroupsStore.getState().updateGroup(revGroupId, "description",
+          `${revisionReport.length} sheet${revisionReport.length > 1 ? "s" : ""} revised — ${impact.summary.totalAffectedItems} takeoff items affected`,
+        );
+        useGroupsStore.getState().updateGroup(revGroupId, "revisionReport", revisionReport);
+        useGroupsStore.getState().updateGroup(revGroupId, "addendumNumber", addNum);
+
+        // Notify user
+        const msg = impact.summary.totalAffectedItems > 0
+          ? `Revision detected: ${revisionReport.length} sheet${revisionReport.length > 1 ? "s" : ""} revised → ${impact.summary.totalAffectedItems} takeoff items affected`
+          : `Revision detected: ${revisionReport.length} sheet${revisionReport.length > 1 ? "s" : ""} revised (no takeoff items affected yet)`;
+        useUiStore.getState().showToast(msg, "info");
+        useNovaStore.getState().notify(msg, "info");
+      }
+    }
+  } catch {
+    /* revision detection non-critical */
+  }
+
   useDrawingsStore.getState().setAiLabelLoading(false);
   useDrawingsStore.getState().setAutoLabelProgress(null);
-  return { count, scaleCount };
+  return { count, scaleCount, revisionReport };
 }
 
 // ─── Auto-detect building outlines ──────────────────────────────────────────
