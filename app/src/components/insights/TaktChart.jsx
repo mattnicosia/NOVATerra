@@ -14,7 +14,6 @@ const ZONE_H = 80; // Height per zone row
 
 export default function TaktChart() {
   const C = useTheme();
-  const T = C.T;
   const activities = useScheduleStore(s => s.activities);
   const zones = useScheduleStore(s => s.zones);
   const selectedId = useScheduleStore(s => s.selectedActivityId);

@@ -21,13 +21,7 @@ import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { inp, nInp, bt } from "@/utils/styles";
 import PdfPreviewPanel from "@/components/costHistory/PdfPreviewPanel";
-import {
-  MARKUP_TAXONOMY,
-  MARKUP_CATEGORIES,
-  MARKUP_PRESETS,
-  classifyMarkup,
-  getMarkupCategory,
-} from "@/constants/markupTaxonomy";
+import { MARKUP_TAXONOMY, MARKUP_CATEGORIES, classifyMarkup, getMarkupCategory } from "@/constants/markupTaxonomy";
 
 // Re-export for backward compat
 export { MARKUP_PRESETS } from "@/constants/markupTaxonomy";
@@ -640,9 +634,7 @@ export default function CostHistoryEntryForm({ onClose, onSave, initial, mode = 
               background: form.divisions[d.code] ? `${C.accent}08` : "transparent",
             }}
           >
-            <span
-              style={{ fontSize: 9, fontWeight: 700, color: C.textDim, fontFamily: T.font.sans, width: 18 }}
-            >
+            <span style={{ fontSize: 9, fontWeight: 700, color: C.textDim, fontFamily: T.font.sans, width: 18 }}>
               {d.code}
             </span>
             <span

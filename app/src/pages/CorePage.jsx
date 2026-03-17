@@ -2,7 +2,6 @@ import { Component, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useCoreStore } from "@/stores/coreStore";
-import { useUiStore } from "@/stores/uiStore";
 import CompanySwitcher from "@/components/shared/CompanySwitcher";
 import CoreNav from "@/components/core/CoreNav";
 import CoreOverview from "@/components/core/CoreOverview";
@@ -38,7 +37,14 @@ class TabErrorBoundary extends Component {
         <div style={{ fontSize: 14, fontWeight: 600, color: "#F87171", marginBottom: 8 }}>
           This tab encountered an error
         </div>
-        <div style={{ fontSize: 11, color: "#999", marginBottom: 16, fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif" }}>
+        <div
+          style={{
+            fontSize: 11,
+            color: "#999",
+            marginBottom: 16,
+            fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif",
+          }}
+        >
           {this.state.error?.message || "Unknown error"}
         </div>
         <button
@@ -63,7 +69,6 @@ class TabErrorBoundary extends Component {
 
 export default function CorePage() {
   const C = useTheme();
-  const T = C.T;
   const activeTab = useCoreStore(s => s.activeTab);
   const setActiveTab = useCoreStore(s => s.setActiveTab);
   const [searchParams] = useSearchParams();
@@ -72,7 +77,8 @@ export default function CorePage() {
   useEffect(() => {
     const tab = searchParams.get("tab");
     if (tab && tab !== activeTab) setActiveTab(tab);
-  }, [searchParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]); // only sync on URL param change, not on activeTab
 
   const tabContent = {
     overview: (
@@ -145,7 +151,7 @@ export default function CorePage() {
                 gap: 8,
               }}
             >
-              NOVA Core
+              ARTIFACT Core
               <span
                 style={{
                   fontSize: 10,
@@ -169,7 +175,8 @@ export default function CorePage() {
                 lineHeight: 1.4,
               }}
             >
-              Your data feeds NOVA's intelligence. Upload proposals, track costs, and grow smarter with every project.
+              Your data feeds ARTIFACT's intelligence. Upload proposals, track costs, and grow smarter with every
+              project.
             </p>
           </div>
         </div>

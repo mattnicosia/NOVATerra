@@ -7,7 +7,6 @@ import { T } from "@/utils/designTokens";
 import { useAuthStore } from "@/stores/authStore";
 import { useRomStore } from "@/stores/romStore";
 import { generateBaselineROM } from "@/utils/romEngine";
-import { inp, accentButton } from "@/utils/styles";
 import RomResult from "@/components/rom/RomResult";
 import RomUpsell from "@/components/rom/RomUpsell";
 
@@ -44,8 +43,7 @@ const ui = {
    SIGNUP — Two fields, one button. Nothing else.
    ════════════════════════════════════════════════════════════════ */
 function RomSignup() {
-  const C = useTheme();
-  const T = C.T;
+  useTheme(); // subscribe to theme context
   const signUp = useAuthStore(s => s.signUpWithPassword);
   const signIn = useAuthStore(s => s.signInWithPassword);
 
@@ -384,7 +382,7 @@ function RomPageInner() {
           }}
         >
           <div style={{ ...display(18), fontWeight: 500, color: "rgba(238,237,245,0.5)", letterSpacing: -0.3 }}>
-            NOVA
+            ARTIFACT
           </div>
           <div
             style={{

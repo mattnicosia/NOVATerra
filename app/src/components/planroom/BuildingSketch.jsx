@@ -149,7 +149,6 @@ export default function BuildingSketch({ outlines, floorAssignments, floors, pro
       const h = (floorData[i]?.height || 12) * Y_SCALE;
       elevs.push(elevs[elevs.length - 1] + h);
     }
-    const totalH = elevs[elevs.length - 1];
     const realH = elevs.reduce((_, __, idx) => {
       if (idx === 0) return 0;
       return _ + (floorData[idx - 1]?.height || 12);

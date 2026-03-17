@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import Modal from "@/components/shared/Modal";
 import CalendarPicker from "@/components/shared/CalendarPicker";
@@ -7,7 +7,6 @@ import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { inp, bt } from "@/utils/styles";
 import { useMasterDataStore } from "@/stores/masterDataStore";
-import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useUiStore } from "@/stores/uiStore";
 import { WORK_TYPES } from "@/constants/constructionTypes";
 
@@ -52,32 +51,6 @@ export default function ImportConfirmModal({
 
   // Track which destination the user chose
   const [destination, setDestination] = useState(null);
-
-  // Project assignment — new project vs existing project
-  const [assignMode, setAssignMode] = useState("new"); // "new" | "existing"
-  const [selectedEstimateId, setSelectedEstimateId] = useState("");
-  const [projectSearch, setProjectSearch] = useState("");
-  const estimatesIndex = useEstimatesStore(s => s.estimatesIndex);
-
-  // Filter estimates for the project picker — active projects only, sorted by recency
-  const availableProjects = useMemo(() => {
-    const active = estimatesIndex.filter(
-      e => e.status !== "Closed" && e.status !== "Lost" && e.status !== "Archived",
-    );
-    // Filter by search
-    const q = projectSearch.toLowerCase().trim();
-    const filtered = q
-      ? active.filter(
-          e =>
-            (e.name || "").toLowerCase().includes(q) ||
-            (e.client || "").toLowerCase().includes(q) ||
-            (e.estimateNumber || "").toLowerCase().includes(q),
-        )
-      : active;
-    return filtered.sort((a, b) => (b.lastModified || "").localeCompare(a.lastModified || ""));
-  }, [estimatesIndex, projectSearch]);
-
-  const selectedProject = assignMode === "existing" ? estimatesIndex.find(e => e.id === selectedEstimateId) : null;
 
   // Editable fields — user can override before import
   const [fields, setFields] = useState({
@@ -132,13 +105,7 @@ export default function ImportConfirmModal({
 
   const handleCreate = dest => {
     setDestination(dest);
-    onConfirm({
-      fields,
-      destination: dest,
-      profileId: selectedProfileId,
-      assignMode,
-      existingEstimateId: assignMode === "existing" ? selectedEstimateId : null,
-    });
+    onConfirm({ fields, destination: dest, profileId: selectedProfileId });
   };
 
   return (
@@ -164,23 +131,19 @@ export default function ImportConfirmModal({
               {isProcessing
                 ? isAddendum
                   ? `Importing Addendum #${addendumNumber || ""}`
-                  : assignMode === "existing"
-                    ? "Adding to Project"
-                    : "Importing Estimate"
+                  : "Importing Estimate"
                 : isAddendum
                   ? `Import Addendum #${addendumNumber || ""}`
-                  : "Import RFP"}
+                  : "Import RFP as Estimate"}
             </div>
             <div style={{ fontSize: T.fontSize.sm, color: C.textMuted }}>
               {isProcessing
                 ? isAddendum
                   ? "Adding new documents to the existing estimate..."
-                  : assignMode === "existing"
-                    ? `Merging documents into ${selectedProject?.name || "existing project"}...`
-                    : "Processing your documents and creating the estimate..."
+                  : "Processing your documents and creating the estimate..."
                 : isAddendum
                   ? `Adding to: ${parentProjectName || "existing project"}`
-                  : "Create a new project or add to an existing one"}
+                  : "Review and edit project details before creating the estimate"}
             </div>
           </div>
         </div>
@@ -254,203 +217,8 @@ export default function ImportConfirmModal({
               </div>
             ) : (
               <>
-                {/* ── Project Assignment ── */}
-                <div style={{ marginBottom: T.space[4] }}>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: T.fontSize.xs,
-                      color: C.textDim,
-                      fontWeight: T.fontWeight.semibold,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
-                      marginBottom: 6,
-                    }}
-                  >
-                    Assign To
-                  </label>
-                  <div style={{ display: "flex", gap: 0, borderRadius: T.radius.sm, overflow: "hidden", border: `1px solid ${C.border}`, marginBottom: T.space[3] }}>
-                    <button
-                      onClick={() => { setAssignMode("new"); setSelectedEstimateId(""); }}
-                      style={{
-                        flex: 1,
-                        padding: "8px 14px",
-                        fontSize: T.fontSize.sm,
-                        fontWeight: assignMode === "new" ? T.fontWeight.bold : T.fontWeight.medium,
-                        background: assignMode === "new"
-                          ? (C.isDark ? `${C.accent}18` : `${C.accent}12`)
-                          : "transparent",
-                        color: assignMode === "new" ? C.accent : C.textMuted,
-                        border: "none",
-                        borderRight: `1px solid ${C.border}`,
-                        cursor: "pointer",
-                        fontFamily: T.font.sans,
-                        transition: "all 0.15s",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 6,
-                      }}
-                    >
-                      <Ic d={I.plus} size={12} color={assignMode === "new" ? C.accent : C.textMuted} />
-                      New Project
-                    </button>
-                    <button
-                      onClick={() => setAssignMode("existing")}
-                      style={{
-                        flex: 1,
-                        padding: "8px 14px",
-                        fontSize: T.fontSize.sm,
-                        fontWeight: assignMode === "existing" ? T.fontWeight.bold : T.fontWeight.medium,
-                        background: assignMode === "existing"
-                          ? (C.isDark ? `${C.accent}18` : `${C.accent}12`)
-                          : "transparent",
-                        color: assignMode === "existing" ? C.accent : C.textMuted,
-                        border: "none",
-                        cursor: "pointer",
-                        fontFamily: T.font.sans,
-                        transition: "all 0.15s",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 6,
-                      }}
-                    >
-                      <Ic d={I.folder || I.plans} size={12} color={assignMode === "existing" ? C.accent : C.textMuted} />
-                      Existing Project
-                    </button>
-                  </div>
-
-                  {/* Existing project picker */}
-                  {assignMode === "existing" && (
-                    <div>
-                      {/* Search */}
-                      <div style={{ position: "relative", marginBottom: T.space[2] }}>
-                        <input
-                          placeholder="Search projects by name, client, or number..."
-                          value={projectSearch}
-                          onChange={e => setProjectSearch(e.target.value)}
-                          style={inp(C, { paddingLeft: 30, fontSize: T.fontSize.sm })}
-                        />
-                        <div style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)" }}>
-                          <Ic d={I.search} size={12} color={C.textDim} />
-                        </div>
-                      </div>
-
-                      {/* Project list */}
-                      <div
-                        style={{
-                          maxHeight: 180,
-                          overflowY: "auto",
-                          border: `1px solid ${C.border}`,
-                          borderRadius: T.radius.sm,
-                          background: C.isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.01)",
-                        }}
-                      >
-                        {availableProjects.length === 0 ? (
-                          <div style={{ padding: T.space[4], textAlign: "center", fontSize: T.fontSize.sm, color: C.textDim }}>
-                            {projectSearch ? "No matching projects" : "No active projects"}
-                          </div>
-                        ) : (
-                          availableProjects.map(est => {
-                            const isSelected = selectedEstimateId === est.id;
-                            return (
-                              <div
-                                key={est.id}
-                                onClick={() => setSelectedEstimateId(est.id)}
-                                style={{
-                                  padding: "8px 12px",
-                                  cursor: "pointer",
-                                  background: isSelected
-                                    ? (C.isDark ? `${C.accent}15` : `${C.accent}10`)
-                                    : "transparent",
-                                  borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"}`,
-                                  borderLeft: isSelected ? `3px solid ${C.accent}` : "3px solid transparent",
-                                  transition: "all 0.1s",
-                                  display: "flex",
-                                  justifyContent: "space-between",
-                                  alignItems: "center",
-                                }}
-                                onMouseEnter={e => {
-                                  if (!isSelected) e.currentTarget.style.background = C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.02)";
-                                }}
-                                onMouseLeave={e => {
-                                  if (!isSelected) e.currentTarget.style.background = "transparent";
-                                }}
-                              >
-                                <div style={{ minWidth: 0 }}>
-                                  <div
-                                    style={{
-                                      fontSize: T.fontSize.sm,
-                                      fontWeight: isSelected ? T.fontWeight.bold : T.fontWeight.medium,
-                                      color: isSelected ? C.accent : C.text,
-                                      overflow: "hidden",
-                                      textOverflow: "ellipsis",
-                                      whiteSpace: "nowrap",
-                                    }}
-                                  >
-                                    {est.name || "Untitled"}
-                                  </div>
-                                  <div style={{ fontSize: T.fontSize.xs, color: C.textDim, display: "flex", gap: 8 }}>
-                                    {est.client && <span>{est.client}</span>}
-                                    {est.estimateNumber && <span>#{est.estimateNumber}</span>}
-                                    {est.bidDue && <span>Due: {est.bidDue}</span>}
-                                  </div>
-                                </div>
-                                <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                                  {est.status && (
-                                    <span
-                                      style={{
-                                        fontSize: 9,
-                                        padding: "2px 6px",
-                                        borderRadius: T.radius.full,
-                                        background: est.status === "Bidding" ? "#22c55e18" : est.status === "Won" ? "#8b5cf618" : `${C.textDim}18`,
-                                        color: est.status === "Bidding" ? "#22c55e" : est.status === "Won" ? "#8b5cf6" : C.textDim,
-                                        fontWeight: T.fontWeight.semibold,
-                                      }}
-                                    >
-                                      {est.status}
-                                    </span>
-                                  )}
-                                  {isSelected && <Ic d={I.check} size={14} color={C.accent} sw={2.5} />}
-                                </div>
-                              </div>
-                            );
-                          })
-                        )}
-                      </div>
-
-                      {/* Selected project confirmation */}
-                      {selectedProject && (
-                        <div
-                          style={{
-                            marginTop: T.space[2],
-                            padding: T.space[3],
-                            borderRadius: T.radius.sm,
-                            background: C.isDark ? `${C.accent}08` : `${C.accent}06`,
-                            border: `1px solid ${C.accent}25`,
-                            display: "flex",
-                            alignItems: "center",
-                            gap: T.space[3],
-                          }}
-                        >
-                          <Ic d={I.check} size={14} color={C.accent} sw={2} />
-                          <div>
-                            <div style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.semibold, color: C.text }}>
-                              Email & attachments will be added to "{selectedProject.name}"
-                            </div>
-                            <div style={{ fontSize: T.fontSize.xs, color: C.textMuted }}>
-                              Documents will be merged into the existing project.
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Normal mode: editable fields (only when creating new) */}
-                {assignMode === "new" && <div
+                {/* Normal mode: editable fields */}
+                <div
                   style={{
                     display: "grid",
                     gridTemplateColumns: "1fr 1fr",
@@ -504,13 +272,13 @@ export default function ImportConfirmModal({
                       )}
                     </div>
                   ))}
-                </div>}
+                </div>
 
-                {/* Bid Intelligence Panel — show for new projects only */}
-                {assignMode === "new" && <BidIntelligencePanel parsedData={pd} editedFields={fields} />}
+                {/* Bid Intelligence Panel */}
+                <BidIntelligencePanel parsedData={pd} editedFields={fields} />
 
                 {/* Bid Requirements — read-only display from parsed data */}
-                {assignMode === "new" && (() => {
+                {(() => {
                   const br = pd.bidRequirements || {};
                   const reqs = Object.entries(br)
                     .filter(([k, v]) => v && k !== "other")
@@ -661,21 +429,6 @@ export default function ImportConfirmModal({
                 >
                   <Ic d={I.download} size={14} color="#fff" />
                   Import Addendum
-                </button>
-              ) : assignMode === "existing" ? (
-                <button
-                  disabled={!selectedEstimateId}
-                  style={bt(C, {
-                    padding: "8px 20px",
-                    background: selectedEstimateId ? C.accent : C.bg2,
-                    color: selectedEstimateId ? "#fff" : C.textDim,
-                    opacity: selectedEstimateId ? 1 : 0.5,
-                    cursor: selectedEstimateId ? "pointer" : "not-allowed",
-                  })}
-                  onClick={() => selectedEstimateId && handleCreate("existing")}
-                >
-                  <Ic d={I.download} size={14} color={selectedEstimateId ? "#fff" : C.textDim} />
-                  Add to Project
                 </button>
               ) : (
                 <>

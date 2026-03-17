@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useCallback, useRef, memo } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useProjectStore } from "@/stores/projectStore";
 import { useItemsStore } from "@/stores/itemsStore";
@@ -8,274 +8,26 @@ import { useSpecsStore } from "@/stores/specsStore";
 import { useUiStore } from "@/stores/uiStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useGroupsStore } from "@/stores/groupsStore";
-import { UNITS } from "@/constants/units";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
-import { inp, nInp, bt, moneyCell } from "@/utils/styles";
-import { nn, fmt, fmt2, titleCase, formatCurrency, parseCurrency } from "@/utils/format";
-import { evalFormula } from "@/utils/formula";
+import { inp, bt } from "@/utils/styles";
+import { nn, fmt, titleCase } from "@/utils/format";
 import { getTradeLabel, getTradeSortOrder, getTradeKeyFromLabel } from "@/constants/tradeGroupings";
-import { callAnthropic } from "@/utils/ai";
-import { hasAllowance, getAllowanceFields, getItemAllowanceTotal, generateAllowanceNote } from "@/utils/allowances";
 import { resolveLocationFactors, METRO_AREAS } from "@/constants/locationFactors";
-import { CARBON_TRADE_DEFAULTS } from "@/constants/embodiedCarbonDb";
-import { formatCarbon } from "@/utils/carbonEngine";
-import DatabasePickerModal from "@/components/estimate/DatabasePickerModal";
-import AssemblyPickerModal from "@/components/estimate/AssemblyPickerModal";
 import NotesPanel from "@/components/estimate/NotesPanel";
-import AIPricingModal from "@/components/estimate/AIPricingModal";
 import EmptyState from "@/components/shared/EmptyState";
-import SendToDbModal from "@/components/estimate/SendToDbModal";
-import BidIntelModal from "@/components/estimate/BidIntelModal";
-import CsvImportModal from "@/components/import/CsvImportModal";
 import CostValidationPanel from "@/components/estimate/CostValidationPanel";
-import VersionHistoryPanel from "@/components/estimate/VersionHistoryPanel";
 import { VIRTUAL_THRESHOLD } from "@/hooks/useVirtualList";
-import AIScopeGenerateModal from "@/components/estimate/AIScopeGenerateModal";
 import { exportEstimateXlsx } from "@/utils/exportXlsx";
 import EstimateKPIStrip from "@/components/estimate/EstimateKPIStrip";
 import DivisionNavigator from "@/components/estimate/DivisionNavigator";
 import LevelingView from "@/components/estimate/LevelingView";
-import TakeoffNOVAPanel from "@/components/takeoffs/TakeoffNOVAPanel";
 import CollaborationBar from "@/components/estimate/CollaborationBar";
 import ScenariosPanel from "@/components/estimate/ScenariosPanel";
 import RFIPanel from "@/components/estimate/RFIPanel";
-
-// ── Memoized item row — prevents re-rendering all 200+ rows on each keystroke ──
-const EstimateItemRow = memo(
-  function EstimateItemRow({
-    item,
-    rowIdx,
-    globalIndex,
-    lineTotal,
-    animKey,
-    isSelected,
-    isDragging,
-    isOddRow,
-    isPricing,
-    focusedField,
-    C,
-    T,
-    updateItem,
-    onDragStart,
-    onDragEnd,
-    onRowClick,
-    onFocusCostCell,
-    onBlurCostCell,
-  }) {
-    const isZeroTotal = lineTotal === 0 || lineTotal === null || lineTotal === undefined;
-
-    return (
-      <div
-        className="est-row"
-        data-item-id={item.id}
-        onClick={() => onRowClick(item.id)}
-        onMouseEnter={e => {
-          if (!isDragging && !isSelected) {
-            if (C.estRowHoverShadow) {
-              e.currentTarget.style.boxShadow = C.estRowHoverShadow;
-              e.currentTarget.style.background = "rgba(255,255,255,0.02)";
-            } else {
-              e.currentTarget.style.background = `${C.accent}08`;
-            }
-          }
-        }}
-        onMouseLeave={e => {
-          if (!isSelected) {
-            e.currentTarget.style.boxShadow = "none";
-            const oddBg = C.estRowOddBg || (C.isDark ? "rgba(255,255,255,0.025)" : "rgba(0,0,0,0.025)");
-            e.currentTarget.style.background = isOddRow ? oddBg : "transparent";
-          }
-        }}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 4,
-          padding: "7px 8px 7px 10px",
-          borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.05)"}`,
-          background: isSelected
-            ? (C.estRowSelectedBg || `${C.accent}12`)
-            : isOddRow
-              ? (C.estRowOddBg || (C.isDark ? "rgba(255,255,255,0.025)" : "rgba(0,0,0,0.025)"))
-              : "transparent",
-          borderLeft: isSelected
-            ? `3px solid ${C.accent}`
-            : `3px solid ${isZeroTotal ? "transparent" : C.accent + "20"}`,
-          boxShadow: isSelected ? (C.estRowSelectedShadow || "none") : "none",
-          opacity: isDragging ? 0.4 : 1,
-          transition: "background 150ms ease-out, box-shadow 200ms ease-out",
-          cursor: "pointer",
-        }}
-      >
-        {/* Drag handle + index */}
-        <div
-          className="est-col"
-          draggable
-          onDragStart={e => {
-            e.stopPropagation();
-            onDragStart(item.id);
-            e.dataTransfer.effectAllowed = "move";
-            e.dataTransfer.setData("text/plain", item.id);
-          }}
-          onDragEnd={onDragEnd}
-          onClick={e => e.stopPropagation()}
-          style={{
-            width: 32,
-            fontSize: T.fontSize.sm,
-            color: C.textDim,
-            fontFeatureSettings: "'tnum'",
-            cursor: "grab",
-            display: "flex",
-            alignItems: "center",
-            gap: 2,
-          }}
-          title="Drag to reorder"
-        >
-          <Ic d={I.move} size={9} color={C.textDim} />
-          <span>{globalIndex}</span>
-        </div>
-        {/* Code */}
-        <div
-          className="est-col"
-          style={{
-            width: 82,
-            fontSize: T.fontSize.sm,
-            fontWeight: T.fontWeight.semibold,
-            color: item.code ? C.text : C.textDim,
-            fontFeatureSettings: "'tnum'",
-          }}
-          title={item.code ? subFromCode(item.code) : ""}
-        >
-          {item.code || "\u2014"}
-          {item.code && <div style={{ fontSize: 8, fontWeight: 400, color: C.textDim, lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 82 }}>{subFromCode(item.code)}</div>}
-        </div>
-        {/* Description */}
-        <div className="est-col" style={{ flex: 1, minWidth: 160 }}>
-          <input
-            value={item.description}
-            onChange={e => {
-              e.stopPropagation();
-              updateItem(item.id, "description", e.target.value);
-            }}
-            onClick={e => e.stopPropagation()}
-            placeholder="Description..."
-            style={inp(C, {
-              background: "transparent",
-              border: "1px solid transparent",
-              padding: "3px 4px",
-              fontSize: T.fontSize.sm,
-            })}
-          />
-          {hasAllowance(item) && (
-            <span
-              style={{
-                fontSize: 9,
-                color: C.orange,
-                fontWeight: T.fontWeight.bold,
-                marginLeft: 4,
-              }}
-            >
-              ALLOW
-            </span>
-          )}
-        </div>
-        {/* Qty */}
-        <div className="est-col" style={{ width: 60 }}>
-          <input
-            type="number"
-            value={item.quantity}
-            onChange={e => {
-              e.stopPropagation();
-              updateItem(item.id, "quantity", e.target.value);
-            }}
-            onClick={e => e.stopPropagation()}
-            placeholder="0"
-            style={nInp(C, {
-              background: "transparent",
-              border: "1px solid transparent",
-              padding: "3px 2px",
-              fontSize: T.fontSize.sm,
-            })}
-          />
-        </div>
-        {/* Unit */}
-        <div className="est-col" style={{ width: 42 }}>
-          <select
-            value={item.unit}
-            onChange={e => {
-              e.stopPropagation();
-              updateItem(item.id, "unit", e.target.value);
-            }}
-            onClick={e => e.stopPropagation()}
-            style={inp(C, {
-              background: "transparent",
-              border: "1px solid transparent",
-              padding: "3px 0",
-              fontSize: T.fontSize.sm,
-            })}
-          >
-            {UNITS.map(u => (
-              <option key={u} value={u}>
-                {u}
-              </option>
-            ))}
-          </select>
-        </div>
-        {/* Pricing columns */}
-        {isPricing &&
-          ["material", "labor", "equipment", "subcontractor"].map(f => {
-            const isFocused = focusedField === f;
-            const rawVal = item[f];
-            const displayVal = isFocused ? rawVal : nn(rawVal) ? formatCurrency(rawVal) : rawVal;
-            return (
-              <div className="est-col" key={f} style={{ width: 72, textAlign: "right" }}>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={displayVal}
-                  onFocus={() => onFocusCostCell(`${item.id}-${f}`)}
-                  onBlur={onBlurCostCell}
-                  onChange={e => updateItem(item.id, f, e.target.value.replace(/[$,]/g, ""))}
-                  onClick={e => e.stopPropagation()}
-                  placeholder="0.00"
-                  style={nInp(C, {
-                    background: "transparent",
-                    border: "1px solid transparent",
-                    padding: "3px 2px",
-                    fontSize: T.fontSize.sm,
-                    textAlign: "right",
-                  })}
-                />
-              </div>
-            );
-          })}
-        {/* Total */}
-        <div
-          key={`${item.id}-t-${animKey}`}
-          className="est-col"
-          style={moneyCell(C, lineTotal, {
-            width: 90,
-            paddingTop: 2,
-            fontSize: T.fontSize.base,
-            animation: animKey > 0 ? "lineFlash 400ms ease-out" : "none",
-          })}
-        >
-          {fmt(lineTotal)}
-        </div>
-      </div>
-    );
-  },
-  (prev, next) =>
-    prev.item === next.item &&
-    prev.lineTotal === next.lineTotal &&
-    prev.animKey === next.animKey &&
-    prev.isSelected === next.isSelected &&
-    prev.isDragging === next.isDragging &&
-    prev.focusedField === next.focusedField &&
-    prev.isPricing === next.isPricing &&
-    prev.globalIndex === next.globalIndex &&
-    prev.C === next.C,
-);
+import EstimateItemRow from "@/components/estimate/EstimateItemRow";
+import EstimateTotalsBar from "@/components/estimate/EstimateTotalsBar";
+import EstimateModals from "@/components/estimate/EstimateModals";
 
 export default function EstimatePage() {
   const C = useTheme();
@@ -293,19 +45,9 @@ export default function EstimatePage() {
   const setItems = useItemsStore(s => s.setItems);
   const addElement = useItemsStore(s => s.addElement);
   const updateItem = useItemsStore(s => s.updateItem);
-  const removeItem = useItemsStore(s => s.removeItem);
-  const duplicateItem = useItemsStore(s => s.duplicateItem);
-  const getItemTotal = useItemsStore(s => s.getItemTotal);
   const getTotals = useItemsStore(s => s.getTotals);
   const markup = useItemsStore(s => s.markup);
 
-  const elements = useDatabaseStore(s => s.elements);
-
-  const subBidSubs = useBidLevelingStore(s => s.subBidSubs);
-  const bidTotals = useBidLevelingStore(s => s.bidTotals);
-  const bidCells = useBidLevelingStore(s => s.bidCells);
-  const bidSelections = useBidLevelingStore(s => s.bidSelections);
-  const linkedSubs = useBidLevelingStore(s => s.linkedSubs);
   const dragItemId = useBidLevelingStore(s => s.dragItemId);
   const setDragItemId = useBidLevelingStore(s => s.setDragItemId);
   const dragOverSk = useBidLevelingStore(s => s.dragOverSk);
@@ -326,11 +68,8 @@ export default function EstimatePage() {
   const toggleExpandedDiv = useUiStore(s => s.toggleExpandedDiv);
   const setExpandedDivs = useUiStore(s => s.setExpandedDivs);
   const estViewMode = useUiStore(s => s.estViewMode);
-  const setEstViewMode = useUiStore(s => s.setEstViewMode);
   const showToast = useUiStore(s => s.showToast);
   const activeGroupId = useUiStore(s => s.activeGroupId);
-  const pricingModal = useUiStore(s => s.pricingModal);
-  const setPricingModal = useUiStore(s => s.setPricingModal);
   const appSettings = useUiStore(s => s.appSettings);
   const setPickerForItemId = useDatabaseStore(s => s.setPickerForItemId);
   const project = useProjectStore(s => s.project);
@@ -381,7 +120,9 @@ export default function EstimatePage() {
       document.body.style.userSelect = "";
       try {
         sessionStorage.setItem("bldg-estLeftWidth", String(leftWidthRef.current));
-      } catch {}
+      } catch {
+        /* sessionStorage unavailable */
+      }
     };
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
@@ -489,15 +230,6 @@ export default function EstimatePage() {
 
   // Stable total helper
   const getTotal = useCallback(item => useItemsStore.getState().getItemTotal(item), []);
-  const getItemComputedQty = useCallback(item => {
-    if (!item.formula || !item.formula.trim()) return nn(item.quantity);
-    return evalFormula(
-      item.formula,
-      (item.variables || []).filter(v => v.key),
-      nn(item.quantity),
-    );
-  }, []);
-
   // Filter items — include sub-group items when parent group is selected
   const activeGroupIds = useMemo(() => {
     const ids = new Set([activeGroupId]);
@@ -524,7 +256,7 @@ export default function EstimatePage() {
       );
     }
     return list;
-  }, [items, estDivision, estSearch, activeGroupId]);
+  }, [items, estDivision, estSearch, activeGroupIds, divFromCode]);
 
   // Item index map
   const itemIndexMap = useMemo(() => {
@@ -589,7 +321,7 @@ export default function EstimatePage() {
       t[gk] = { count: g.items.length, total: g.items.reduce((s, i) => s + getTotal(i), 0) };
     });
     return t;
-  }, [groupedItems]);
+  }, [groupedItems, getTotal]);
 
   // Pre-sort groups
   const sortedGroups = useMemo(() => {
@@ -656,13 +388,17 @@ export default function EstimatePage() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  // Count of items with incomplete division labels — drives auto-fix effect
+  const incompleteDivCount = items.filter(i => {
+    const d = i.division;
+    return d && d !== "Unassigned" && (!d.includes(" - ") || !d.split(" - ")[1]?.trim());
+  }).length;
+
   // Normalize division codes — catches both bare codes ("07") and incomplete labels ("07 - ")
   useEffect(() => {
     const isIncomplete = div => {
       if (!div || div === "Unassigned") return false;
-      // Bare code with no dash (e.g. "07")
       if (!div.includes(" - ")) return true;
-      // Has dash but no name after it (e.g. "07 - " or "07 -")
       const afterDash = div.split(" - ")[1];
       if (!afterDash || !afterDash.trim()) return true;
       return false;
@@ -676,27 +412,8 @@ export default function EstimatePage() {
       return full && full !== i.division ? { ...i, division: full } : i;
     });
     if (fixed.some((f, idx) => f !== items[idx])) setItems(fixed);
-  }, [
-    items.length,
-    items.filter(i => {
-      const d = i.division;
-      return d && d !== "Unassigned" && (!d.includes(" - ") || !d.split(" - ")[1]?.trim());
-    }).length,
-  ]);
-
-  // Detail panel navigation
-  const handleDetailNavigate = useCallback(
-    direction => {
-      if (!selectedItemId) return;
-      const idx = filteredItems.findIndex(i => i.id === selectedItemId);
-      if (idx === -1) return;
-      const nextIdx = idx + direction;
-      if (nextIdx >= 0 && nextIdx < filteredItems.length) {
-        setSelectedItemId(filteredItems[nextIdx].id);
-      }
-    },
-    [selectedItemId, filteredItems],
-  );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- divFromCode/setItems are stable Zustand actions; items tracked via length+incompleteDivCount to avoid loops
+  }, [items.length, incompleteDivCount]);
 
   // Flat item list for row click
   const handleRowClick = useCallback(itemId => {
@@ -763,12 +480,15 @@ export default function EstimatePage() {
                   fontFamily: T.font.sans,
                   background:
                     leftPanelTab === t.key
-                      ? (C.estTabActiveBg || (C.isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.20)"))
+                      ? C.estTabActiveBg || (C.isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.20)")
                       : "transparent",
                   color: leftPanelTab === t.key ? C.text : C.textDim,
-                  borderBottom: leftPanelTab === t.key
-                    ? (C.estTabActiveBorder !== undefined ? C.estTabActiveBorder : `2px solid ${C.accent}`)
-                    : "2px solid transparent",
+                  borderBottom:
+                    leftPanelTab === t.key
+                      ? C.estTabActiveBorder !== undefined
+                        ? C.estTabActiveBorder
+                        : `2px solid ${C.accent}`
+                      : "2px solid transparent",
                   borderRadius: leftPanelTab === t.key && C.estTabActiveRadius ? C.estTabActiveRadius : 0,
                   textTransform: "uppercase",
                   letterSpacing: 0.8,
@@ -1356,7 +1076,16 @@ export default function EstimatePage() {
           {viewMode === "level" ? (
             <LevelingView />
           ) : (
-            <div style={{ flex: 1, overflowY: "auto", overflowX: "auto", minHeight: 0, background: C.estGridBg || "transparent" }} className="blueprint-grid">
+            <div
+              style={{
+                flex: 1,
+                overflowY: "auto",
+                overflowX: "auto",
+                minHeight: 0,
+                background: C.estGridBg || "transparent",
+              }}
+              className="blueprint-grid"
+            >
               <div style={{ padding: `${T.space[3]}px ${T.space[5]}px` }}>
                 <CostValidationPanel items={items} />
 
@@ -1560,6 +1289,7 @@ export default function EstimatePage() {
                                   onRowClick={handleRowClick}
                                   onFocusCostCell={setFocusedCostCell}
                                   onBlurCostCell={handleBlurCostCell}
+                                  subFromCode={subFromCode}
                                 />
                               );
                             });
@@ -1740,143 +1470,33 @@ export default function EstimatePage() {
 
           {/* Totals bar — grand total dominates */}
           {items.length > 0 && (
-            <div
-              style={{
-                padding: "8px 20px",
-                borderTop: `1px solid ${C.border}`,
-                background: `linear-gradient(180deg, ${C.bg1}, ${C.bg2}40)`,
-                flexShrink: 0,
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                flexWrap: "wrap",
-                gap: 8,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "baseline", gap: 16 }}>
-                <span style={{ fontSize: 10, color: C.textDim, fontWeight: 500 }}>
-                  Direct{" "}
-                  <span
-                    style={{
-                      color: C.textMuted,
-                      fontFamily: T.font.sans,
-                      fontFeatureSettings: "'tnum'",
-                      fontWeight: 600,
-                    }}
-                  >
-                    {fmt(totals.direct)}
-                  </span>
-                </span>
-                <span style={{ fontSize: 10, color: C.textDim, fontWeight: 500 }}>{filteredItems.length} items</span>
-              </div>
-              <span
-                ref={grandTotalRef}
-                style={{
-                  fontSize: T.fontSize["2xl"] || 28,
-                  fontWeight: 800,
-                  fontFeatureSettings: "'tnum'",
-                  fontFamily: T.font.sans,
-                  display: "inline-block",
-                  letterSpacing: -0.5,
-                  ...(C.isDark && C.gradient
-                    ? {
-                        background: C.gradient,
-                        WebkitBackgroundClip: "text",
-                        WebkitTextFillColor: "transparent",
-                        backgroundClip: "text",
-                      }
-                    : { color: C.accent }),
-                }}
-              >
-                {fmt(totals.grand)}
-              </span>
-            </div>
+            <EstimateTotalsBar totals={totals} filteredItemCount={filteredItems.length} grandTotalRef={grandTotalRef} />
           )}
         </div>
 
         {/* Right panel removed — item details handled inline */}
       </div>
 
-      {/* Modals */}
-      <DatabasePickerModal />
-      <AIPricingModal />
-      {sendToDbItem && <SendToDbModal item={sendToDbItem} onClose={() => setSendToDbItem(null)} />}
-      {bidIntelOpen && <BidIntelModal onClose={() => setBidIntelOpen(false)} />}
-      {csvImportOpen && <CsvImportModal onClose={() => setCsvImportOpen(false)} mode="append" />}
-      {showAssemblyPicker && (
-        <AssemblyPickerModal
-          onClose={() => setShowAssemblyPicker(false)}
-          onInsertAssembly={handleInsertAssembly}
-          onInsertItem={handleInsertDbItem}
-        />
-      )}
-      {showScopeGenerate && <AIScopeGenerateModal onClose={() => setShowScopeGenerate(false)} />}
-
-      {/* NOVA AI sidebar */}
-      {showNova && (
-        <>
-          <div
-            onClick={() => setShowNova(false)}
-            style={{
-              position: "fixed",
-              inset: 0,
-              background: "rgba(0,0,0,0.15)",
-              zIndex: 99,
-            }}
-          />
-          <div
-            style={{
-              position: "fixed",
-              top: 0,
-              right: 0,
-              bottom: 0,
-              width: 340,
-              zIndex: 100,
-              background: C.bg1,
-              borderLeft: `1px solid ${C.border}`,
-              boxShadow: "-8px 0 24px rgba(0,0,0,0.15)",
-              display: "flex",
-              flexDirection: "column",
-              overflow: "hidden",
-            }}
-          >
-            <TakeoffNOVAPanel context="estimate" />
-          </div>
-        </>
-      )}
-
-      {/* Version History sidebar */}
-      {showHistory && (
-        <>
-          <div
-            onClick={() => setShowHistory(false)}
-            style={{
-              position: "fixed",
-              inset: 0,
-              background: "rgba(0,0,0,0.15)",
-              zIndex: 99,
-            }}
-          />
-          <div
-            style={{
-              position: "fixed",
-              top: 0,
-              right: 0,
-              bottom: 0,
-              width: 340,
-              zIndex: 100,
-              background: C.bg1,
-              borderLeft: `1px solid ${C.border}`,
-              boxShadow: "-8px 0 24px rgba(0,0,0,0.15)",
-              display: "flex",
-              flexDirection: "column",
-              overflow: "hidden",
-            }}
-          >
-            <VersionHistoryPanel estimateId={activeEstimateId} onClose={() => setShowHistory(false)} />
-          </div>
-        </>
-      )}
+      {/* Modals + sidebars */}
+      <EstimateModals
+        sendToDbItem={sendToDbItem}
+        setSendToDbItem={setSendToDbItem}
+        bidIntelOpen={bidIntelOpen}
+        setBidIntelOpen={setBidIntelOpen}
+        csvImportOpen={csvImportOpen}
+        setCsvImportOpen={setCsvImportOpen}
+        showAssemblyPicker={showAssemblyPicker}
+        setShowAssemblyPicker={setShowAssemblyPicker}
+        showScopeGenerate={showScopeGenerate}
+        setShowScopeGenerate={setShowScopeGenerate}
+        handleInsertAssembly={handleInsertAssembly}
+        handleInsertDbItem={handleInsertDbItem}
+        showNova={showNova}
+        setShowNova={setShowNova}
+        showHistory={showHistory}
+        setShowHistory={setShowHistory}
+        activeEstimateId={activeEstimateId}
+      />
     </div>
   );
 }

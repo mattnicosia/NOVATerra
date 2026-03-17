@@ -18,8 +18,6 @@ import ProposalBuilder from '@/components/proposal/ProposalBuilder';
 import { getTradeLabel, getTradeSortOrder } from '@/constants/tradeGroupings';
 import SendProposalModal from '@/components/reports/SendProposalModal';
 import { exportEstimateXlsx } from '@/utils/exportXlsx';
-import { lazy, Suspense } from 'react';
-const PublishPanel = lazy(() => import('@/components/proposals/PublishPanel'));
 
 export default function ReportsPage() {
   const C = useTheme();
@@ -41,7 +39,6 @@ export default function ReportsPage() {
   const reportType = useReportsStore(s => s.reportType);
   const setReportType = useReportsStore(s => s.setReportType);
   const [sendModalOpen, setSendModalOpen] = useState(false);
-  const [publishOpen, setPublishOpen] = useState(false);
   const sectionOrder = useReportsStore(s => s.sectionOrder);
   const sectionVisibility = useReportsStore(s => s.sectionVisibility);
   const activeEstimateId = useEstimatesStore(s => s.activeEstimateId);
@@ -203,14 +200,9 @@ export default function ReportsPage() {
             <Ic d={I.download} size={13} color={C.textMuted} sw={1.5} /> XLSX
           </button>
           {(reportType === "proposal" || reportType === "sov") && (
-            <>
-              <button className="accent-btn" onClick={() => setSendModalOpen(true)} style={bt(C, { background: C.green, color: "#fff", padding: "7px 14px", fontSize: 11 })}>
-                <Ic d={I.send} size={13} color="#fff" sw={1.5} /> Email
-              </button>
-              <button className="accent-btn" onClick={() => setPublishOpen(true)} style={bt(C, { background: "linear-gradient(135deg, #7C5CFC, #BF5AF2)", color: "#fff", padding: "7px 14px", fontSize: 11 })}>
-                <Ic d={I.link || I.send} size={13} color="#fff" sw={1.5} /> Living Proposal
-              </button>
-            </>
+            <button className="accent-btn" onClick={() => setSendModalOpen(true)} style={bt(C, { background: C.green, color: "#fff", padding: "7px 14px", fontSize: 11 })}>
+              <Ic d={I.send} size={13} color="#fff" sw={1.5} /> Email
+            </button>
           )}
           <button className="accent-btn" onClick={exportCSV} style={bt(C, { background: C.accent, color: "#fff", padding: "7px 14px", fontSize: 11 })}>
             <Ic d={I.download} size={13} color="#fff" sw={2} /> Export CSV
@@ -642,13 +634,6 @@ export default function ReportsPage() {
       {/* Send Proposal Modal */}
       {sendModalOpen && (
         <SendProposalModal onClose={() => setSendModalOpen(false)} totals={totals} reportType={reportType} />
-      )}
-
-      {/* Living Proposal Publish Panel */}
-      {publishOpen && (
-        <Suspense fallback={null}>
-          <PublishPanel onClose={() => setPublishOpen(false)} />
-        </Suspense>
       )}
     </div>
   );

@@ -3,7 +3,7 @@ import { uid, today } from "@/utils/format";
 
 const now = new Date();
 
-export const useCalendarStore = create((set, get) => ({
+export const useCalendarStore = create((set, _get) => ({
   // User-created tasks
   tasks: [],
 

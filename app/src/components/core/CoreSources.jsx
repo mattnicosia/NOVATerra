@@ -7,7 +7,6 @@ import { useDatabaseStore } from "@/stores/databaseStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useDrawingsStore } from "@/stores/drawingsStore";
 import { useSubdivisionStore } from "@/stores/subdivisionStore";
-import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 
 function SourceCard({ icon, iconColor, title, count, description, status, C, T }) {
@@ -66,9 +65,7 @@ function SourceCard({ icon, iconColor, title, count, description, status, C, T }
             {status === "active" ? "Active" : "Pending"}
           </span>
         </div>
-        <div
-          style={{ fontSize: 22, fontWeight: 700, color: C.text, fontFamily: T.font.sans, marginBottom: 4 }}
-        >
+        <div style={{ fontSize: 22, fontWeight: 700, color: C.text, fontFamily: T.font.sans, marginBottom: 4 }}>
           {count.toLocaleString()}
         </div>
         <p style={{ fontSize: 11, color: C.textMuted, margin: 0, lineHeight: 1.5 }}>{description}</p>
@@ -156,10 +153,12 @@ export default function CoreSources() {
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Header */}
       <div>
-        <h3 style={{ fontSize: 14, fontWeight: 600, color: C.text, margin: "0 0 4px" }}>Data Sources Feeding NOVA</h3>
+        <h3 style={{ fontSize: 14, fontWeight: 600, color: C.text, margin: "0 0 4px" }}>
+          Data Sources Feeding ARTIFACT
+        </h3>
         <p style={{ fontSize: 11.5, color: C.textMuted, margin: 0 }}>
-          NOVA automatically learns from your data. Every element, proposal, and drawing note is embedded for semantic
-          intelligence.
+          ARTIFACT automatically learns from your data. Every element, proposal, and drawing note is embedded for
+          semantic intelligence.
         </p>
       </div>
 
@@ -244,19 +243,19 @@ export default function CoreSources() {
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <ComingSoonCard
             title="Specification Sections"
-            description="Upload spec books and NOVA will learn scope requirements, material specs, and performance criteria."
+            description="Upload spec books and ARTIFACT will learn scope requirements, material specs, and performance criteria."
             C={C}
             T={T}
           />
           <ComingSoonCard
             title="Contracts & Change Orders"
-            description="Feed contract documents to help NOVA understand pricing structures and scope negotiation patterns."
+            description="Feed contract documents to help ARTIFACT understand pricing structures and scope negotiation patterns."
             C={C}
             T={T}
           />
           <ComingSoonCard
             title="Vendor Catalogs & Price Lists"
-            description="Import manufacturer pricing to keep NOVA's material costs current with real market data."
+            description="Import manufacturer pricing to keep ARTIFACT's material costs current with real market data."
             C={C}
             T={T}
           />

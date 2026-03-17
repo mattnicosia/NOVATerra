@@ -7,7 +7,6 @@ import { I } from "@/constants/icons";
 
 export default function CompanySwitcher() {
   const C = useTheme();
-  const T = C.T;
   const activeCompanyId = useUiStore(s => s.appSettings.activeCompanyId);
   const updateSetting = useUiStore(s => s.updateSetting);
   const companyInfo = useMasterDataStore(s => s.masterData.companyInfo);

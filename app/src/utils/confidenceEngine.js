@@ -66,7 +66,7 @@ export function blendSubdivisionCost({ baseline, userHistorical, llmEstimate, co
 
 // ─── Full subdivision breakdown for a ROM division ────────────────
 export function computeSubdivisionBreakdown({
-  divisionCode,
+  divisionCode: _divisionCode,
   divisionData, // { perSF: {low,mid,high}, total: {low,mid,high} }
   baselineSubdivisions, // from subdivisionBenchmarks
   userOverrides, // user manual overrides
@@ -156,7 +156,7 @@ export function computeSubdivisionCalibration(predictedSubdivisions, actualItems
   });
 
   const calibration = {};
-  Object.entries(predictedSubdivisions || {}).forEach(([divCode, subs]) => {
+  Object.entries(predictedSubdivisions || {}).forEach(([_divCode, subs]) => {
     (subs || []).forEach(sub => {
       const predicted = sub.total?.mid || 0;
       const actual = actualBySubCode[sub.code] || 0;

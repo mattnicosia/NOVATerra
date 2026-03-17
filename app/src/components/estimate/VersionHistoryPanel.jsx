@@ -6,7 +6,6 @@ import { useTheme } from "@/hooks/useTheme";
 import { useSnapshotsStore } from "@/stores/snapshotsStore";
 import { useItemsStore } from "@/stores/itemsStore";
 import { useProjectStore } from "@/stores/projectStore";
-import { useEstimatesStore } from "@/stores/estimatesStore";
 import { captureManualSnapshot } from "@/hooks/useAutoSnapshot";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
@@ -61,7 +60,7 @@ export default function VersionHistoryPanel({ estimateId, onClose }) {
     captureManualSnapshot(estimateId, label || `Snapshot ${snapshots.length + 1}`);
   };
 
-  const handleStartRename = (snap) => {
+  const handleStartRename = snap => {
     setRenaming(snap.id);
     setRenameValue(snap.label || "");
   };
@@ -150,7 +149,8 @@ export default function VersionHistoryPanel({ estimateId, onClose }) {
       <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4 }}>
         {allSnaps.length === 0 && (
           <div style={{ padding: T.space[5], textAlign: "center", color: C.textDim, fontSize: 11 }}>
-            No snapshots yet. Snapshots are captured automatically when your estimate changes significantly, or create one manually.
+            No snapshots yet. Snapshots are captured automatically when your estimate changes significantly, or create
+            one manually.
           </div>
         )}
         {[...allSnaps].reverse().map((snap, i) => {
@@ -303,7 +303,11 @@ export default function VersionHistoryPanel({ estimateId, onClose }) {
                         alert("This snapshot was created before restore support was added. No item data available.");
                         return;
                       }
-                      if (confirm(`Restore to "${snap.label || snap.dateStr}"? Your current state will be saved as a snapshot first.`)) {
+                      if (
+                        confirm(
+                          `Restore to "${snap.label || snap.dateStr}"? Your current state will be saved as a snapshot first.`,
+                        )
+                      ) {
                         const result = restoreSnapshot(estimateId, snap.id);
                         if (result.ok) onClose?.();
                       }
@@ -381,9 +385,7 @@ export default function VersionHistoryPanel({ estimateId, onClose }) {
                     color: d.val > 0 ? C.red : d.val < 0 ? C.green : C.textDim,
                   }}
                 >
-                  {d.isCurrency === false
-                    ? (d.val > 0 ? "+" : "") + d.val
-                    : (d.val > 0 ? "+" : "") + fmt(d.val)}
+                  {d.isCurrency === false ? (d.val > 0 ? "+" : "") + d.val : (d.val > 0 ? "+" : "") + fmt(d.val)}
                   {d.pc !== undefined && d.pc !== 0 && (
                     <span style={{ fontSize: 8, marginLeft: 3 }}>({pct(d.pc)})</span>
                   )}

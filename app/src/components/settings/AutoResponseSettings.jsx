@@ -1,8 +1,6 @@
 // Auto-Response Settings — toggle triggers, view status
 import { useTheme } from "@/hooks/useTheme";
 import { useAutoResponseStore, TRIGGER_TYPES } from "@/stores/autoResponseStore";
-import Ic from "@/components/shared/Ic";
-import { I } from "@/constants/icons";
 
 const TRIGGER_ORDER = [
   "portalOpened",
@@ -29,8 +27,8 @@ export default function AutoResponseSettings() {
     <div style={{ fontFamily: T.font.sans }}>
       {/* Description */}
       <p style={{ fontSize: 12, color: C.textDim, margin: "0 0 16px", lineHeight: 1.5 }}>
-        NOVA automatically drafts email responses when subcontractors interact with your bid packages. All drafts are
-        queued for your review before sending.
+        ARTIFACT automatically drafts email responses when subcontractors interact with your bid packages. All drafts
+        are queued for your review before sending.
       </p>
 
       {/* Stats row */}

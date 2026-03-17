@@ -20,7 +20,6 @@ import { bt, pageContainer, card, sectionLabel } from "@/utils/styles";
 import { titleCase, uid } from "@/utils/format";
 import { loadPdfJs } from "@/utils/pdf";
 import { runFullScan } from "@/utils/scanRunner";
-import { pdfRawCache, savePdfRawToIDB } from "@/utils/uploadPipeline";
 
 const API_BASE = import.meta.env.DEV ? "https://app-nova-42373ca7.vercel.app" : "";
 
@@ -91,6 +90,7 @@ export default function InboxPage() {
     fetchSenderEmails().then(setSenderEmails);
     const unsub = subscribeToRfps();
     return unsub;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Expose navigate for ImportConfirmModal CTA
@@ -217,219 +217,12 @@ export default function InboxPage() {
     return updated;
   }, []);
 
-  // ── Assign to Existing Project Flow ──────────────────────────────────────
-  // Merges RFP attachments/drawings into an existing estimate
-  const handleAssignToExisting = async ({ existingEstimateId, profileId: selectedProfileId }) => {
+  const handleImportConfirm = async ({
+    fields: editedFields,
+    destination: _destination,
+    profileId: selectedProfileId,
+  }) => {
     if (!importRfpData) return;
-    setImporting(true);
-    setFailedCloudLinks([]);
-
-    let steps = [{ label: "Loading project...", status: "active" }];
-    setProgressSteps(steps);
-
-    try {
-      // Load the target estimate into stores
-      await loadEstimate(existingEstimateId);
-      steps = setStep(steps, 0, "done", "Project loaded");
-
-      // Import RFP via API (gets attachments, plan links, contacts)
-      const apiStepIdx = steps.length;
-      steps = [...steps, { label: "Processing email...", status: "active" }];
-      setProgressSteps(steps);
-
-      const profileId =
-        selectedProfileId != null ? selectedProfileId : activeCompanyId === "__all__" ? "" : activeCompanyId;
-      const result = await importRfp(importRfpData.id, profileId);
-      if (!result) throw new Error("Import failed");
-      steps = setStep(steps, apiStepIdx, "done", "Email processed");
-
-      // Get auth session
-      const session = supabase ? (await supabase.auth.getSession()).data.session : null;
-      const authHeaders = session ? { Authorization: `Bearer ${session.access_token}` } : {};
-
-      // Email PDF attachments
-      const emailPdfAtts = (importRfpData.attachments || []).filter(
-        a => a.contentType === "application/pdf" || a.filename?.toLowerCase().endsWith(".pdf"),
-      );
-
-      // Cloud download step
-      const cloudLinks = result.planLinks || [];
-      let cloudPdfAtts = [];
-      let cloudStoragePaths = [];
-
-      if (cloudLinks.length > 0) {
-        const cloudStepIdx = steps.length;
-        steps = [...steps, { label: `Downloading ${cloudLinks.length} cloud file${cloudLinks.length > 1 ? "s" : ""}...`, status: "active" }];
-        setProgressSteps(steps);
-
-        try {
-          const cloudResp = await fetch(`${API_BASE}/api/fetch-cloud-files`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", ...authHeaders },
-            body: JSON.stringify({ planLinks: cloudLinks, rfpId: importRfpData.id, existingFilenames: emailPdfAtts.map(a => a.filename) }),
-          });
-          if (cloudResp.ok) {
-            const cloudResult = await cloudResp.json();
-            for (const cf of cloudResult.files || []) {
-              if (cf.storagePath) cloudStoragePaths.push(cf.storagePath);
-              const isPdf = cf.contentType === "application/pdf" || cf.filename?.toLowerCase().endsWith(".pdf");
-              if (isPdf) {
-                cloudPdfAtts.push({
-                  filename: cf.filename, downloadPath: cf.storagePath, proxyToken: cf.proxyToken || null,
-                  contentType: cf.contentType, size: cf.size, source: "cloud", provider: cf.provider,
-                });
-              }
-            }
-            if (cloudResult.errors?.length > 0) setFailedCloudLinks(cloudResult.errors);
-          }
-          steps = setStep(steps, cloudStepIdx, "done", "Cloud files downloaded");
-        } catch (err) {
-          console.error("Cloud download error:", err);
-          steps = setStep(steps, cloudStepIdx || steps.length - 1, "done", "Cloud download failed");
-        }
-      }
-
-      // Process PDFs into drawings
-      const allPdfAtts = [...emailPdfAtts, ...cloudPdfAtts];
-      if (allPdfAtts.length > 0) {
-        const pdfStepIdx = steps.length;
-        steps = [...steps, { label: `Processing ${allPdfAtts.length} PDF${allPdfAtts.length > 1 ? "s" : ""}...`, status: "active" }];
-        setProgressSteps(steps);
-
-        try {
-          await loadPdfJs();
-          const newDrawings = [];
-          let totalPages = 0;
-
-          for (const att of allPdfAtts) {
-            try {
-              const url = att.proxyToken
-                ? `${API_BASE}/api/proxy-cloud-file?token=${encodeURIComponent(att.proxyToken)}`
-                : `${API_BASE}/api/attachment?path=${encodeURIComponent(att.downloadPath)}`;
-              const resp = await fetch(url, { headers: authHeaders });
-              if (!resp.ok) continue;
-              const buffer = await resp.arrayBuffer();
-              const pdf = await window.pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
-              // Cache raw PDF for text/vector extraction (predictive takeoffs)
-              pdfRawCache.set(att.filename, buffer.slice(0));
-              savePdfRawToIDB(att.filename, buffer.slice(0)).catch(() => {});
-              for (let p = 1; p <= pdf.numPages; p++) {
-                const pg = await pdf.getPage(p);
-                const vp = pg.getViewport({ scale: 1.5 });
-                const canvas = document.createElement("canvas");
-                canvas.width = vp.width;
-                canvas.height = vp.height;
-                await pg.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise;
-                newDrawings.push({
-                  id: uid(), label: `${att.filename.replace(/\.pdf$/i, "")}-Pg${p}`,
-                  sheetNumber: "", sheetTitle: "", revision: "0", type: "pdf", pdfPreRendered: true,
-                  data: canvas.toDataURL("image/jpeg", 0.85), fileName: att.filename,
-                  uploadDate: new Date().toISOString(), pdfPage: p, totalPdfPages: pdf.numPages,
-                  ...(att.source === "cloud" ? { source: "cloud", provider: att.provider } : {}),
-                });
-              }
-              totalPages += pdf.numPages;
-              steps = setStep(steps, pdfStepIdx, "active", `Processing PDFs... ${att.filename} (${pdf.numPages} pages)`);
-            } catch (err) {
-              console.error(`Failed to load PDF: ${att.filename}`, err);
-            }
-          }
-
-          // Merge new drawings into existing drawings store
-          if (newDrawings.length > 0) {
-            const existingDrawings = useDrawingsStore.getState().drawings || [];
-            useDrawingsStore.getState().setDrawings([...existingDrawings, ...newDrawings]);
-          }
-          steps = setStep(steps, pdfStepIdx, "done", `${allPdfAtts.length} PDF${allPdfAtts.length > 1 ? "s" : ""} processed (${totalPages} pages)`);
-        } catch (err) {
-          console.error("PDF processing error:", err);
-        }
-      }
-
-      // Cleanup cloud temp files
-      if (cloudStoragePaths.length > 0) {
-        try {
-          await fetch(`${API_BASE}/api/cleanup-cloud-files`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", ...authHeaders },
-            body: JSON.stringify({ paths: cloudStoragePaths }),
-          });
-        } catch {}
-      }
-
-      // Save/persist changes
-      const saveStepIdx = steps.length;
-      steps = [...steps, { label: "Saving to project...", status: "active" }];
-      setProgressSteps(steps);
-
-      // Link RFP to existing estimate in Supabase
-      try {
-        const session2 = supabase ? (await supabase.auth.getSession()).data.session : null;
-        if (session2) {
-          fetch(`${API_BASE}/api/link-rfp`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${session2.access_token}` },
-            body: JSON.stringify({ rfpId: importRfpData.id, estimateId: existingEstimateId }),
-          }).catch(err => console.error("[assign] link-rfp failed:", err.message));
-        }
-      } catch {}
-
-      // Update index entry with email count bump
-      const idx = useEstimatesStore.getState().estimatesIndex.find(e => e.id === existingEstimateId);
-      if (idx) {
-        useEstimatesStore.getState().updateIndexEntry(existingEstimateId, {
-          emailCount: (idx.emailCount || 0) + 1,
-          lastEmailAt: new Date().toISOString(),
-          sourceRfpId: idx.sourceRfpId || importRfpData.id,
-        });
-      }
-
-      steps = setStep(steps, saveStepIdx, "done", "Saved to project");
-
-      // Run NOVA discovery on new drawings
-      const existingDrawings2 = useDrawingsStore.getState().drawings || [];
-      if (existingDrawings2.length > 0) {
-        const discoveryStepIdx = steps.length;
-        steps = [...steps, { label: "Running NOVA Discovery...", status: "active" }];
-        setProgressSteps(steps);
-        try {
-          await runFullScan({
-            onComplete: () => {
-              steps = setStep(steps, discoveryStepIdx, "done", "Discovery complete!");
-              setProgressSteps([...steps]);
-            },
-            onError: msg => {
-              steps = setStep(steps, discoveryStepIdx, "done", `Discovery: ${msg || "skipped"}`);
-              setProgressSteps([...steps]);
-            },
-          });
-        } catch {
-          steps = setStep(steps, discoveryStepIdx, "done", "Discovery skipped");
-        }
-      }
-
-      setCreatedEstimateId(existingEstimateId);
-      setImportComplete(true);
-      setImporting(false);
-      showToast("Email added to existing project!");
-      fetchRfps();
-    } catch (err) {
-      showToast("Failed to assign: " + err.message);
-      setImporting(false);
-      setImportRfpData(null);
-      setProgressSteps([]);
-      setImportComplete(false);
-    }
-  };
-
-  const handleImportConfirm = async ({ fields: editedFields, destination, profileId: selectedProfileId, assignMode, existingEstimateId }) => {
-    if (!importRfpData) return;
-
-    // Route to existing-project merge flow
-    if (assignMode === "existing" && existingEstimateId) {
-      return handleAssignToExisting({ existingEstimateId, profileId: selectedProfileId });
-    }
-
     setImporting(true);
     setFailedCloudLinks([]);
 
@@ -630,14 +423,6 @@ export default function InboxPage() {
               const buffer = await resp.arrayBuffer();
               const pdf = await window.pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
 
-              // Cache raw PDF for text/vector extraction (predictive takeoffs)
-              // In-memory cache for same-session use
-              pdfRawCache.set(att.filename, buffer.slice(0));
-              // Persist to separate IDB key (one copy per PDF, not per page)
-              savePdfRawToIDB(att.filename, buffer.slice(0)).catch(err =>
-                console.warn("[InboxPage] Failed to persist raw PDF to IDB:", err.message)
-              );
-
               // Render each page to JPEG instead of storing raw PDF base64 per page
               for (let p = 1; p <= pdf.numPages; p++) {
                 const pg = await pdf.getPage(p);
@@ -739,7 +524,9 @@ export default function InboxPage() {
             body: JSON.stringify({ rfpId: importRfpData.id, estimateId: estId }),
           }).catch(err => console.error("[import] link-rfp failed:", err.message));
         }
-      } catch {}
+      } catch {
+        /* non-critical */
+      }
 
       steps = setStep(steps, saveStepIdx, "done", "Estimate saved");
 
@@ -978,9 +765,6 @@ export default function InboxPage() {
               if (!resp.ok) continue;
               const buffer = await resp.arrayBuffer();
               const pdf = await window.pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
-              // Cache raw PDF for text/vector extraction (predictive takeoffs)
-              pdfRawCache.set(att.filename, buffer.slice(0));
-              savePdfRawToIDB(att.filename, buffer.slice(0)).catch(() => {});
               // Render each page to JPEG instead of storing raw PDF base64 per page
               for (let p = 1; p <= pdf.numPages; p++) {
                 const pg = await pdf.getPage(p);
@@ -1040,14 +824,15 @@ export default function InboxPage() {
             headers: { "Content-Type": "application/json", ...authHeaders },
             body: JSON.stringify({ paths: cloudStoragePaths }),
           });
-        } catch {}
+        } catch {
+          /* non-critical */
+        }
       }
 
       // Save estimate (the drawings store already updated, trigger a save)
       steps = setStep(steps, saveStepIdx, "active", "Merging into estimate...");
       // Re-save the estimate with updated drawings
       const estStore = useEstimatesStore.getState();
-      const drawingsStore = useDrawingsStore.getState();
       (await estStore.saveCurrentEstimate?.()) || (await loadEstimate(parentEstimateId));
       steps = setStep(steps, saveStepIdx, "done", `Addendum #${addendumNumber} merged`);
 
@@ -1061,7 +846,9 @@ export default function InboxPage() {
           estimateId: parentEstimateId,
           color: "#FF9500",
         });
-      } catch {}
+      } catch {
+        /* non-critical */
+      }
 
       // Discovery on new drawings
       if (hasPdfs) {
@@ -1276,37 +1063,34 @@ export default function InboxPage() {
             </div>
           </div>
         ) : filter === "threaded" && projectGroups ? (
-          // ── "By Project" grouped view — compact rows inside project cards ──────
+          // ── "By Project" grouped view ──────────────────────────────────
           projectGroups.map((group, gi) => (
             <div
               key={gi}
               style={{
+                ...card(C),
                 marginBottom: T.space[4],
-                border: `1px solid ${C.isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
-                borderRadius: T.radius.lg,
                 overflow: "hidden",
-                background: C.isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.01)",
               }}
             >
-              {/* Project group header — integrated into card */}
+              {/* Project group header */}
               <div
                 style={{
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  padding: `${T.space[2]} ${T.space[3]}`,
-                  background: C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
-                  borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`,
+                  padding: `${T.space[3]} ${T.space[4]}`,
+                  borderBottom: `1px solid ${C.border}30`,
+                  background: group.hasUnread ? `${C.accent}08` : "transparent",
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: T.space[2] }}>
                   {group.hasUnread && (
-                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.accent, flexShrink: 0 }} />
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: C.accent, flexShrink: 0 }} />
                   )}
-                  <Ic d={I.folder || I.plans} size={14} color={group.hasUnread ? C.accent : C.textDim} />
                   <span
                     style={{
-                      fontSize: T.fontSize.sm,
+                      fontSize: T.fontSize.base,
                       fontWeight: T.fontWeight.bold,
                       color: C.text,
                     }}
@@ -1315,55 +1099,115 @@ export default function InboxPage() {
                   </span>
                   <span
                     style={{
-                      fontSize: 10,
+                      fontSize: T.fontSize.xs,
                       fontWeight: T.fontWeight.semibold,
-                      padding: "1px 6px",
+                      padding: "1px 8px",
                       borderRadius: T.radius.full,
-                      background: C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
-                      color: C.textMuted,
+                      background: `${C.accent}15`,
+                      color: C.accent,
                     }}
                   >
-                    {group.emails.length}
+                    {group.emails.length} email{group.emails.length !== 1 ? "s" : ""}
                   </span>
                 </div>
                 {group.estimateId && (
                   <button
                     style={bt(C, {
-                      padding: "2px 10px",
-                      fontSize: 10,
+                      padding: "3px 10px",
+                      fontSize: T.fontSize.xs,
                       background: "transparent",
                       color: C.accent,
                       border: `1px solid ${C.accent}30`,
                     })}
-                    onClick={() => navigate(`/estimate/${group.estimateId}/info`)}
+                    onClick={() => navigate(`/info`)}
                   >
                     Open Project
                   </button>
                 )}
               </div>
-              {/* Compact email rows within group */}
-              <div>
-                {group.emails.map(rfp => (
-                  <RfpCard
+              {/* Email list within group */}
+              {group.emails.map(rfp => {
+                const cls = CLASSIFICATION_LABELS[rfp.classification] || CLASSIFICATION_LABELS.other;
+                const isUnread = (rfp.status === "parsed" || rfp.status === "pending") && !readIds.includes(rfp.id);
+                return (
+                  <div
                     key={rfp.id}
-                    rfp={rfp}
-                    compact
-                    isUnread={(rfp.status === "parsed" || rfp.status === "pending") && !readIds.includes(rfp.id)}
-                    onView={handleView}
-                    onImport={handleImport}
-                    onDismiss={dismissRfp}
-                    onRetry={async id => {
-                      const result = await retryParse(id);
-                      if (result.success) {
-                        showToast("Re-parsed successfully!");
-                        fetchRfps();
-                      } else if (result.error) {
-                        showToast("Parse failed: " + result.error);
-                      }
+                    onClick={() => handleView(rfp)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: T.space[3],
+                      padding: `${T.space[2]} ${T.space[4]}`,
+                      borderBottom: `1px solid ${C.border}15`,
+                      cursor: "pointer",
+                      transition: T.transition.fast,
+                      background: isUnread ? `${C.accent}04` : "transparent",
                     }}
-                  />
-                ))}
-              </div>
+                    onMouseOver={e => (e.currentTarget.style.background = `${C.accent}08`)}
+                    onMouseOut={e => (e.currentTarget.style.background = isUnread ? `${C.accent}04` : "transparent")}
+                  >
+                    {isUnread && (
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.accent, flexShrink: 0 }} />
+                    )}
+                    {/* Classification badge */}
+                    <span
+                      style={{
+                        fontSize: 9,
+                        fontWeight: T.fontWeight.semibold,
+                        padding: "1px 6px",
+                        borderRadius: T.radius.sm,
+                        background: `${cls.color}18`,
+                        color: cls.color,
+                        flexShrink: 0,
+                        minWidth: 50,
+                        textAlign: "center",
+                      }}
+                    >
+                      {rfp.addendum_number ? `Add. #${rfp.addendum_number}` : cls.label}
+                    </span>
+                    {/* Subject */}
+                    <span
+                      style={{
+                        flex: 1,
+                        fontSize: T.fontSize.sm,
+                        fontWeight: isUnread ? T.fontWeight.semibold : T.fontWeight.normal,
+                        color: C.text,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {rfp.subject || "(no subject)"}
+                    </span>
+                    {/* Sender + time */}
+                    <span style={{ fontSize: T.fontSize.xs, color: C.textDim, flexShrink: 0 }}>
+                      {rfp.sender_name || rfp.sender_email?.split("@")[0]}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: T.fontSize.xs,
+                        color: C.textDim,
+                        flexShrink: 0,
+                        minWidth: 40,
+                        textAlign: "right",
+                      }}
+                    >
+                      {rfp.received_at
+                        ? (() => {
+                            const diff = Math.floor((Date.now() - new Date(rfp.received_at)) / 1000);
+                            if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+                            if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+                            if (diff < 604800) return `${Math.floor(diff / 86400)}d`;
+                            return new Date(rfp.received_at).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                            });
+                          })()
+                        : ""}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           ))
         ) : (

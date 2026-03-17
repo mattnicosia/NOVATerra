@@ -7,7 +7,6 @@ import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 
 function Section({ title, icon, color, children, C }) {
-  const T = C.T;
   return (
     <div style={{ ...card(C), padding: "18px 22px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
@@ -156,9 +155,7 @@ export default function AdminUserDetail() {
             }}
           >
             <span style={{ fontSize: 10, color: C.textMuted, fontWeight: 500 }}>{s.label}</span>
-            <span style={{ fontSize: 22, fontWeight: 700, color: s.color, fontFamily: T.font.sans }}>
-              {s.value}
-            </span>
+            <span style={{ fontSize: 22, fontWeight: 700, color: s.color, fontFamily: T.font.sans }}>{s.value}</span>
           </div>
         ))}
       </div>

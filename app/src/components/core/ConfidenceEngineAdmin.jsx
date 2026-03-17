@@ -5,9 +5,9 @@ import { useState } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuthStore } from "@/stores/authStore";
 import { useSubdivisionStore } from "@/stores/subdivisionStore";
-import { DEFAULT_ENGINE_CONFIG } from "@/utils/confidenceEngine";
+// DEFAULT_ENGINE_CONFIG available from confidenceEngine if needed
 
-function SliderRow({ label, value, onChange, min = 0, max = 1, step = 0.01, C, T, suffix = "%" }) {
+function SliderRow({ label, value, onChange, min = 0, max = 1, step = 0.01, C, _T, suffix = "%" }) {
   const display = suffix === "%" ? (value * 100).toFixed(0) + "%" : value;
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 12, minHeight: 32 }}>

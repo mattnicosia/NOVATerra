@@ -5,7 +5,7 @@ import { useProjectStore } from "@/stores/projectStore";
 import { useUiStore } from "@/stores/uiStore";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
-import { inp, nInp, bt } from "@/utils/styles";
+import { nInp, bt } from "@/utils/styles";
 import { nn, fmt, fmt2, titleCase } from "@/utils/format";
 
 export default function AssemblyCard({ asm, onDelete }) {
@@ -87,9 +87,7 @@ export default function AssemblyCard({ asm, onDelete }) {
             {asm.description} &bull; {asm.elements.length} elements
           </div>
         </div>
-        <div style={{ fontFamily: T.font.sans, fontSize: 10, color: C.purple, fontWeight: 600 }}>
-          {asm.code}
-        </div>
+        <div style={{ fontFamily: T.font.sans, fontSize: 10, color: C.purple, fontWeight: 600 }}>{asm.code}</div>
         <div style={{ fontFamily: T.font.sans, fontSize: 13, fontWeight: 700, color: C.accent }}>
           {fmt2(totalPer)}
           <span style={{ fontSize: 9, color: C.textDim }}>/unit</span>
@@ -173,9 +171,7 @@ export default function AssemblyCard({ asm, onDelete }) {
                   <span style={{ textAlign: "right", fontFamily: T.font.sans, color: C.orange }}>
                     {fmt2(nn(el.e) * nn(el.factor))}
                   </span>
-                  <span style={{ textAlign: "right", fontFamily: T.font.sans, fontWeight: 600 }}>
-                    {fmt2(elTotal)}
-                  </span>
+                  <span style={{ textAlign: "right", fontFamily: T.font.sans, fontWeight: 600 }}>{fmt2(elTotal)}</span>
                 </div>
               );
             })}

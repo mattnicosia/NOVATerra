@@ -1,6 +1,6 @@
 // RomUpsell — CTA section below ROM result, driving users into NOVATerra proposal flow
 import { useTheme } from "@/hooks/useTheme";
-import { T } from "@/utils/designTokens";
+// design tokens accessed via useTheme()
 import { card, accentButton } from "@/utils/styles";
 import { useRomStore } from "@/stores/romStore";
 
@@ -33,7 +33,9 @@ export default function RomUpsell() {
           createdAt: new Date().toISOString(),
         }),
       );
-    } catch {}
+    } catch {
+      /* non-critical */
+    }
     // Navigate to main app — DashboardPage will detect rom_prefill and create an estimate
     window.location.href = "/";
   }

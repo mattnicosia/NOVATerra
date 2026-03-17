@@ -1,9 +1,7 @@
-import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
-import { useEstimatesStore } from "@/stores/estimatesStore";
 
 /* ────────────────────────────────────────────────────────
    QuickActionsWidget — One-click: new estimate, upload plans, import CSV, settings
@@ -14,7 +12,7 @@ export default function QuickActionsWidget() {
   const C = useTheme();
   const T = C.T;
   const dk = C.isDark;
-  const ov = (a) => dk ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  const ov = a => (dk ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`);
   const navigate = useNavigate();
 
   const actions = [
@@ -22,18 +20,14 @@ export default function QuickActionsWidget() {
       label: "New Estimate",
       icon: I.estimate,
       color: C.accent,
-      action: () => navigate("/"),
+      action: () => navigate("/dashboard"),
       desc: "Start a fresh estimate",
     },
     {
       label: "Upload Plans",
       icon: I.upload,
       color: C.green,
-      action: () => {
-        const idx = useEstimatesStore.getState().estimatesIndex;
-        const active = idx.find(e => e.status === "Bidding" || e.status === "Pending") || idx[0];
-        navigate(active ? `/estimate/${active.id}/documents` : "/");
-      },
+      action: () => navigate("/planroom"),
       desc: "Scan drawings with NOVA",
     },
     {
@@ -54,18 +48,20 @@ export default function QuickActionsWidget() {
 
   return (
     <div style={{ padding: "14px 16px", height: "100%", display: "flex", flexDirection: "column" }}>
-      <div style={{
-        fontSize: 8.5,
-        fontWeight: 700,
-        letterSpacing: "0.14em",
-        textTransform: "uppercase",
-        color: ov(0.4),
-        fontFamily: T.font.display,
-        marginBottom: 10,
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-      }}>
+      <div
+        style={{
+          fontSize: 8.5,
+          fontWeight: 700,
+          letterSpacing: "0.14em",
+          textTransform: "uppercase",
+          color: ov(0.4),
+          fontFamily: T.font.display,
+          marginBottom: 10,
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+        }}
+      >
         <Ic d={I.grid} size={11} color={C.accent} />
         Quick Actions
       </div>

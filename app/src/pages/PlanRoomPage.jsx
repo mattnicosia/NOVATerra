@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect, lazy, Suspense } from "react";
+import { useState, useRef, useCallback, useEffect, lazy } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useEstimatesStore } from "@/stores/estimatesStore";
@@ -23,19 +23,14 @@ import { runFullScan } from "@/utils/scanRunner";
 import { saveEstimate } from "@/hooks/usePersistence";
 import { handleFileUpload, autoLabelDrawings, autoDetectOutlines } from "@/utils/uploadPipeline";
 import ScanResultsModal from "@/components/planroom/ScanResultsModal";
+import CompactDocList from "@/components/planroom/CompactDocList";
+import FactorBar from "@/components/planroom/FactorBar";
 const DrawingOverlay = lazy(() => import("@/components/planroom/DrawingOverlay"));
 import Modal from "@/components/shared/Modal";
 import NovaOrb from "@/components/dashboard/NovaOrb";
 import NovaSceneLazy from "@/components/nova/NovaSceneLazy";
-import EmptyState from "@/components/shared/EmptyState";
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-function formatBytes(bytes) {
-  if (!bytes || bytes === 0) return "";
-  if (bytes < 1024) return bytes + " B";
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
-}
+// EmptyState available for future use
+// import EmptyState from "@/components/shared/EmptyState";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Discovery Page — Combined upload + findings dashboard
@@ -104,7 +99,7 @@ export default function PlanRoomPage() {
   // Location factors (for inline geography in Project Summary)
   const zip = project.zipCode;
   const locRaw = zip && zip.length >= 3 ? resolveLocationFactors(zip) : null;
-  const hasMetro = locRaw && locRaw.source !== "none";
+  const _hasMetro = locRaw && locRaw.source !== "none";
   const manualMetro = project.locationMetroId ? METRO_AREAS.find(m => m.id === project.locationMetroId) : null;
   const activeLoc = manualMetro
     ? {
@@ -178,7 +173,6 @@ export default function PlanRoomPage() {
   const [rescanning, setRescanning] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showOverlay, setShowOverlay] = useState(null); // { drawingA, drawingB }
-  const [uploadAsRendering, setUploadAsRendering] = useState(false);
   const fileInputRef = useRef(null);
   const isSetupMode = project.setupComplete === false;
   const hasProcessing = documents.some(d => d.processingStatus === "processing");
@@ -224,11 +218,8 @@ export default function PlanRoomPage() {
   const handleUpload = useCallback(
     async files => {
       setUploadExpanded(false);
-      const isRendering = uploadAsRendering;
-      if (isRendering) setUploadAsRendering(false); // reset after use
       await handleFileUpload(files, {
         showToast,
-        isRendering,
         onScanComplete: () => setShowScanModal(true),
         onBidInfoReady: () => {
           // Auto-advance to Project Info when bid info is extracted
@@ -237,7 +228,7 @@ export default function PlanRoomPage() {
         },
       });
     },
-    [showToast, navigate, uploadAsRendering],
+    [showToast, navigate],
   );
 
   // Rescan handler
@@ -557,32 +548,6 @@ export default function PlanRoomPage() {
               />
             </div>
           )}
-          {/* Rendering checkbox — below upload zone */}
-          {!isProcessing && (
-            <label
-              onClick={e => e.stopPropagation()}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                fontSize: 11,
-                color: uploadAsRendering ? "#f59e0b" : C.textDim,
-                cursor: "pointer",
-                padding: "6px 0",
-                marginBottom: 4,
-                justifyContent: "center",
-                transition: "color 0.15s",
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={uploadAsRendering}
-                onChange={e => setUploadAsRendering(e.target.checked)}
-                style={{ accentColor: "#f59e0b", cursor: "pointer" }}
-              />
-              These are renderings / concept images (not construction documents)
-            </label>
-          )}
           {!isProcessing && (
             <button
               onClick={handleSkip}
@@ -809,29 +774,6 @@ export default function PlanRoomPage() {
                 e.target.value = "";
               }}
             />
-            {/* Rendering toggle for normal-mode upload */}
-            <label
-              onClick={e => e.stopPropagation()}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                fontSize: 10,
-                color: uploadAsRendering ? "#f59e0b" : C.textDim,
-                cursor: "pointer",
-                marginTop: 8,
-                justifyContent: "center",
-                transition: "color 0.15s",
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={uploadAsRendering}
-                onChange={e => setUploadAsRendering(e.target.checked)}
-                style={{ accentColor: "#f59e0b", cursor: "pointer" }}
-              />
-              Renderings / concept images (not construction docs)
-            </label>
           </div>
         ) : (
           <button
@@ -1069,7 +1011,7 @@ export default function PlanRoomPage() {
               }}
             />
             <span style={{ fontSize: 11, fontWeight: 600, color: C.accent }}>
-              NOVA is processing {processingDocs.length} document{processingDocs.length > 1 ? "s" : ""}...
+              ARTIFACT is processing {processingDocs.length} document{processingDocs.length > 1 ? "s" : ""}...
             </span>
             <span style={{ fontSize: 10, color: C.textDim, marginLeft: "auto" }}>
               Results will appear here automatically
@@ -1190,7 +1132,7 @@ export default function PlanRoomPage() {
               <Ic d={I.plans} size={18} color={C.accent} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: T.fontSize.xs, fontWeight: T.fontWeight.semibold, color: C.text }}>
-                  Upload drawing plans to run NOVA Discovery
+                  Upload drawing plans to run ARTIFACT Discovery
                 </div>
                 <div style={{ fontSize: 10, color: C.textDim, marginTop: 2 }}>
                   Specs and bid documents are loaded. Add your PDF drawing plans to detect schedules and generate a ROM.
@@ -1261,11 +1203,22 @@ export default function PlanRoomPage() {
                   const pct = Math.round((done / steps.length) * 100);
                   return (
                     <div style={{ marginBottom: T.space[3] }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                        <span style={{ fontSize: 10, fontWeight: 600, color: C.textMuted }}>
-                          Discovery Progress
-                        </span>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: done === steps.length ? (C.green || "#22c55e") : C.accent }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          marginBottom: 4,
+                        }}
+                      >
+                        <span style={{ fontSize: 10, fontWeight: 600, color: C.textMuted }}>Discovery Progress</span>
+                        <span
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 700,
+                            color: done === steps.length ? C.green || "#22c55e" : C.accent,
+                          }}
+                        >
                           {done}/{steps.length} — {pct}%
                         </span>
                       </div>
@@ -1283,9 +1236,10 @@ export default function PlanRoomPage() {
                             height: "100%",
                             borderRadius: 3,
                             width: `${pct}%`,
-                            background: done === steps.length
-                              ? `linear-gradient(90deg, ${C.green || "#22c55e"}, ${C.green || "#22c55e"}cc)`
-                              : `linear-gradient(90deg, ${C.accent}, ${C.purple || C.accent})`,
+                            background:
+                              done === steps.length
+                                ? `linear-gradient(90deg, ${C.green || "#22c55e"}, ${C.green || "#22c55e"}cc)`
+                                : `linear-gradient(90deg, ${C.accent}, ${C.purple || C.accent})`,
                             transition: "width 0.4s ease",
                           }}
                         />
@@ -1402,7 +1356,7 @@ export default function PlanRoomPage() {
                         {drawings.length} drawings ready for discovery
                       </div>
                       <div style={{ fontSize: 9, color: C.textDim, marginTop: 2 }}>
-                        NOVA will detect schedules, extract notes, and generate a rough order of magnitude estimate.
+                        ARTIFACT will detect schedules, extract notes, and generate a rough order of magnitude estimate.
                       </div>
                     </div>
                     <button
@@ -1785,7 +1739,7 @@ export default function PlanRoomPage() {
               </div>
             </div>
 
-            {/* ─── NOVA ROM Card ─── */}
+            {/* ─── ARTIFACT ROM Card ─── */}
             {scanResults && (
               <div
                 style={{
@@ -1808,7 +1762,7 @@ export default function PlanRoomPage() {
                     <span
                       style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.bold, color: C.purple || C.accent }}
                     >
-                      NOVA ROM
+                      ARTIFACT ROM
                     </span>
                   </div>
                   {scanResults.rom?.sfEstimated && (
@@ -2024,7 +1978,10 @@ export default function PlanRoomPage() {
                 {Object.keys(disciplines).length > 1 && (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: T.space[2] }}>
                     <button
-                      onClick={e => { e.stopPropagation(); setActiveDiscipline(null); }}
+                      onClick={e => {
+                        e.stopPropagation();
+                        setActiveDiscipline(null);
+                      }}
                       style={{
                         padding: "2px 8px",
                         borderRadius: T.radius.full,
@@ -2043,7 +2000,10 @@ export default function PlanRoomPage() {
                       .map(([name, count]) => (
                         <button
                           key={name}
-                          onClick={e => { e.stopPropagation(); setActiveDiscipline(activeDiscipline === name ? null : name); }}
+                          onClick={e => {
+                            e.stopPropagation();
+                            setActiveDiscipline(activeDiscipline === name ? null : name);
+                          }}
                           style={{
                             padding: "2px 8px",
                             borderRadius: T.radius.full,
@@ -2073,221 +2033,104 @@ export default function PlanRoomPage() {
                       if (!activeDiscipline) return true;
                       const num = d.sheetNumber || "";
                       const prefix = num.match(/^([A-Z])/i)?.[1]?.toUpperCase() || "?";
-                      const labels = { A: "Architectural", S: "Structural", M: "Mechanical", E: "Electrical", P: "Plumbing", L: "Landscape", C: "Civil", G: "General" };
+                      const labels = {
+                        A: "Architectural",
+                        S: "Structural",
+                        M: "Mechanical",
+                        E: "Electrical",
+                        P: "Plumbing",
+                        L: "Landscape",
+                        C: "Civil",
+                        G: "General",
+                      };
                       return (labels[prefix] || "Other") === activeDiscipline;
                     })
                     .map(d => (
-                  <React.Fragment key={d.id}>
-                    <div
-                      className="nav-item"
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: T.space[2],
-                        padding: "5px 4px",
-                        borderBottom: `1px solid ${C.border}08`,
-                        fontSize: T.fontSize.xs,
-                        borderRadius: 4,
-                        transition: "background 0.15s",
-                        cursor: "pointer",
-                      }}
-                      onMouseEnter={e => {
-                        e.currentTarget.style.background = `${C.accent}06`;
-                        const rToggle = e.currentTarget.querySelector(".rendering-toggle");
-                        if (rToggle) rToggle.style.opacity = "1";
-                      }}
-                      onMouseLeave={e => {
-                        e.currentTarget.style.background = "transparent";
-                        const rToggle = e.currentTarget.querySelector(".rendering-toggle");
-                        if (rToggle && !d.isRendering) rToggle.style.opacity = "0";
-                      }}
-                    >
-                      {/* Thumbnail — click to preview */}
                       <div
-                        onClick={() => setPreviewDrawingId(d.id)}
-                        title="Click to preview"
-                        style={{
-                          width: 48,
-                          height: 32,
-                          borderRadius: 3,
-                          overflow: "hidden",
-                          background: C.bg2,
-                          flexShrink: 0,
-                          cursor: "pointer",
-                          border: `1px solid ${C.border}20`,
-                          transition: "border-color 0.15s, box-shadow 0.15s",
-                        }}
-                        onMouseEnter={e => {
-                          e.currentTarget.style.borderColor = C.accent + "50";
-                          e.currentTarget.style.boxShadow = `0 0 6px ${C.accent}20`;
-                        }}
-                        onMouseLeave={e => {
-                          e.currentTarget.style.borderColor = C.border + "20";
-                          e.currentTarget.style.boxShadow = "none";
-                        }}
-                      >
-                        {pdfCanvases[d.id] ? (
-                          <img src={pdfCanvases[d.id]} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                        ) : d.type === "image" && d.data ? (
-                          <img src={d.data} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                        ) : (
-                          <span
-                            style={{
-                              fontSize: 7,
-                              color: C.textDim,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              height: "100%",
-                            }}
-                          >
-                            PDF
-                          </span>
-                        )}
-                      </div>
-                      <input
-                        value={d.sheetNumber || ""}
-                        placeholder="—"
-                        onChange={e => useDrawingsStore.getState().updateDrawing(d.id, "sheetNumber", e.target.value)}
-                        onClick={e => e.stopPropagation()}
-                        style={{
-                          fontFamily: T.font.sans,
-                          fontWeight: 700,
-                          color: C.accent,
-                          width: 70,
-                          fontSize: 10,
-                          background: "transparent",
-                          border: `1px solid transparent`,
-                          borderRadius: 3,
-                          padding: "2px 4px",
-                          outline: "none",
-                          flexShrink: 0,
-                          transition: "border-color 0.15s, background 0.15s",
-                        }}
-                        onFocus={e => {
-                          e.target.style.borderColor = C.accent + "4D";
-                          e.target.style.background = `${C.accent}06`;
-                        }}
-                        onBlur={e => {
-                          e.target.style.borderColor = "transparent";
-                          e.target.style.background = "transparent";
-                        }}
-                      />
-                      <input
-                        value={d.sheetTitle || ""}
-                        placeholder={d.label || "Untitled"}
-                        onChange={e => useDrawingsStore.getState().updateDrawing(d.id, "sheetTitle", e.target.value)}
-                        onClick={e => e.stopPropagation()}
-                        style={{
-                          flex: 1,
-                          color: C.text,
-                          fontSize: 10,
-                          background: "transparent",
-                          border: `1px solid transparent`,
-                          borderRadius: 3,
-                          padding: "2px 4px",
-                          outline: "none",
-                          minWidth: 0,
-                          transition: "border-color 0.15s, background 0.15s",
-                        }}
-                        onFocus={e => {
-                          e.target.style.borderColor = C.border;
-                          e.target.style.background = `${C.accent}06`;
-                        }}
-                        onBlur={e => {
-                          e.target.style.borderColor = "transparent";
-                          e.target.style.background = "transparent";
-                        }}
-                      />
-                      {d.isRendering && (
-                        <span
-                          style={{
-                            fontSize: 8,
-                            fontWeight: 600,
-                            color: "#f59e0b",
-                            background: "#f59e0b18",
-                            padding: "1px 5px",
-                            borderRadius: 3,
-                          }}
-                        >
-                          RENDERING
-                        </span>
-                      )}
-                      {outlines[d.id] && (
-                        <span
-                          style={{
-                            fontSize: 8,
-                            fontWeight: 600,
-                            color: C.green,
-                            background: `${C.green}12`,
-                            padding: "1px 5px",
-                            borderRadius: 3,
-                          }}
-                        >
-                          OUTLINE
-                        </span>
-                      )}
-                      {drawingScales[d.id] && (
-                        <span style={{ fontSize: 9, color: C.green, fontWeight: 500 }}>
-                          {getScaleLabel(drawingScales[d.id])}
-                        </span>
-                      )}
-                      {/* Rendering toggle */}
-                      <span
-                        title={d.isRendering ? "Marked as rendering — click to unmark" : "Mark as rendering (not construction docs)"}
-                        onClick={e => {
-                          e.stopPropagation();
-                          const ds = useDrawingsStore.getState();
-                          ds.updateDrawing(d.id, "isRendering", !d.isRendering);
-                        }}
-                        style={{
-                          fontSize: 8,
-                          fontWeight: 500,
-                          color: d.isRendering ? "#f59e0b" : C.textDim,
-                          cursor: "pointer",
-                          opacity: d.isRendering ? 1 : 0,
-                          transition: "opacity 0.15s",
-                          padding: "1px 4px",
-                          borderRadius: 3,
-                          border: `1px solid ${d.isRendering ? "#f59e0b40" : "transparent"}`,
-                          flexShrink: 0,
-                        }}
-                        className="rendering-toggle"
-                      >
-                        R
-                      </span>
-                    </div>
-                    {/* Rendering detail row */}
-                    {d.isRendering && (
-                      <div
+                        key={d.id}
+                        className="nav-item"
                         style={{
                           display: "flex",
                           alignItems: "center",
-                          gap: 6,
-                          paddingLeft: 56,
-                          paddingBottom: 3,
+                          gap: T.space[2],
+                          padding: "5px 4px",
+                          borderBottom: `1px solid ${C.border}08`,
+                          fontSize: T.fontSize.xs,
+                          borderRadius: 4,
+                          transition: "background 0.15s",
+                          cursor: "pointer",
                         }}
+                        onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}06`)}
+                        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                       >
+                        {/* Thumbnail — click to preview */}
+                        <div
+                          onClick={() => setPreviewDrawingId(d.id)}
+                          title="Click to preview"
+                          style={{
+                            width: 48,
+                            height: 32,
+                            borderRadius: 3,
+                            overflow: "hidden",
+                            background: C.bg2,
+                            flexShrink: 0,
+                            cursor: "pointer",
+                            border: `1px solid ${C.border}20`,
+                            transition: "border-color 0.15s, box-shadow 0.15s",
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.borderColor = C.accent + "50";
+                            e.currentTarget.style.boxShadow = `0 0 6px ${C.accent}20`;
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.borderColor = C.border + "20";
+                            e.currentTarget.style.boxShadow = "none";
+                          }}
+                        >
+                          {pdfCanvases[d.id] ? (
+                            <img
+                              src={pdfCanvases[d.id]}
+                              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                            />
+                          ) : d.type === "image" && d.data ? (
+                            <img src={d.data} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          ) : (
+                            <span
+                              style={{
+                                fontSize: 7,
+                                color: C.textDim,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                height: "100%",
+                              }}
+                            >
+                              PDF
+                            </span>
+                          )}
+                        </div>
                         <input
-                          value={d.renderingScale || ""}
-                          placeholder="Scale (e.g. NTS)"
-                          onChange={e => useDrawingsStore.getState().updateDrawing(d.id, "renderingScale", e.target.value)}
+                          value={d.sheetNumber || ""}
+                          placeholder="—"
+                          onChange={e => useDrawingsStore.getState().updateDrawing(d.id, "sheetNumber", e.target.value)}
                           onClick={e => e.stopPropagation()}
                           style={{
-                            fontSize: 9,
-                            color: "#f59e0b",
+                            fontFamily: T.font.sans,
+                            fontWeight: 700,
+                            color: C.accent,
+                            width: 70,
+                            fontSize: 10,
                             background: "transparent",
                             border: `1px solid transparent`,
                             borderRadius: 3,
-                            padding: "1px 4px",
+                            padding: "2px 4px",
                             outline: "none",
-                            width: 80,
-                            fontWeight: 500,
+                            flexShrink: 0,
                             transition: "border-color 0.15s, background 0.15s",
                           }}
                           onFocus={e => {
-                            e.target.style.borderColor = "#f59e0b40";
-                            e.target.style.background = "#f59e0b06";
+                            e.target.style.borderColor = C.accent + "4D";
+                            e.target.style.background = `${C.accent}06`;
                           }}
                           onBlur={e => {
                             e.target.style.borderColor = "transparent";
@@ -2295,21 +2138,20 @@ export default function PlanRoomPage() {
                           }}
                         />
                         <input
-                          value={d.renderingNotes || ""}
-                          placeholder="Notes..."
-                          onChange={e => useDrawingsStore.getState().updateDrawing(d.id, "renderingNotes", e.target.value)}
+                          value={d.sheetTitle || ""}
+                          placeholder={d.label || "Untitled"}
+                          onChange={e => useDrawingsStore.getState().updateDrawing(d.id, "sheetTitle", e.target.value)}
                           onClick={e => e.stopPropagation()}
                           style={{
-                            fontSize: 9,
-                            color: C.textDim,
+                            flex: 1,
+                            color: C.text,
+                            fontSize: 10,
                             background: "transparent",
                             border: `1px solid transparent`,
                             borderRadius: 3,
-                            padding: "1px 4px",
+                            padding: "2px 4px",
                             outline: "none",
-                            flex: 1,
                             minWidth: 0,
-                            fontStyle: "italic",
                             transition: "border-color 0.15s, background 0.15s",
                           }}
                           onFocus={e => {
@@ -2321,10 +2163,27 @@ export default function PlanRoomPage() {
                             e.target.style.background = "transparent";
                           }}
                         />
+                        {outlines[d.id] && (
+                          <span
+                            style={{
+                              fontSize: 8,
+                              fontWeight: 600,
+                              color: C.green,
+                              background: `${C.green}12`,
+                              padding: "1px 5px",
+                              borderRadius: 3,
+                            }}
+                          >
+                            OUTLINE
+                          </span>
+                        )}
+                        {drawingScales[d.id] && (
+                          <span style={{ fontSize: 9, color: C.green, fontWeight: 500 }}>
+                            {getScaleLabel(drawingScales[d.id])}
+                          </span>
+                        )}
                       </div>
-                    )}
-                  </React.Fragment>
-                  ))}
+                    ))}
                 </div>
                 {!drawingsExpanded && drawings.length > 8 && (
                   <div
@@ -2346,165 +2205,146 @@ export default function PlanRoomPage() {
             )}
 
             {/* ─── Drawing Lightbox Preview ─── */}
-            {previewDrawingId && (() => {
-              const d = drawings.find(dr => dr.id === previewDrawingId);
-              if (!d) return null;
-              const imgSrc = pdfCanvases[d.id] || (d.type === "image" ? d.data : null);
-              return (
-                <div
-                  onClick={() => setPreviewDrawingId(null)}
-                  onKeyDown={e => e.key === "Escape" && setPreviewDrawingId(null)}
-                  style={{
-                    position: "fixed",
-                    inset: 0,
-                    zIndex: 9999,
-                    background: "rgba(0,0,0,0.85)",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    cursor: "pointer",
-                    animation: "fadeIn 0.15s ease-out",
-                  }}
-                >
-                  {/* Header with sheet info */}
+            {previewDrawingId &&
+              (() => {
+                const d = drawings.find(dr => dr.id === previewDrawingId);
+                if (!d) return null;
+                const imgSrc = pdfCanvases[d.id] || (d.type === "image" ? d.data : null);
+                return (
                   <div
-                    onClick={e => e.stopPropagation()}
+                    onClick={() => setPreviewDrawingId(null)}
+                    onKeyDown={e => e.key === "Escape" && setPreviewDrawingId(null)}
                     style={{
+                      position: "fixed",
+                      inset: 0,
+                      zIndex: 9999,
+                      background: "rgba(0,0,0,0.85)",
                       display: "flex",
+                      flexDirection: "column",
                       alignItems: "center",
-                      gap: 12,
-                      padding: "10px 20px",
-                      marginBottom: 8,
-                      background: "rgba(255,255,255,0.06)",
-                      borderRadius: T.radius.md,
-                      backdropFilter: "blur(12px)",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      animation: "fadeIn 0.15s ease-out",
                     }}
                   >
-                    <span style={{ fontSize: 13, fontWeight: 700, color: C.accent }}>{d.sheetNumber || "—"}</span>
-                    <span style={{ fontSize: 12, color: "#fff", opacity: 0.8 }}>{d.sheetTitle || d.label || "Untitled"}</span>
-                    {d.isRendering && (
-                      <span
-                        style={{
-                          fontSize: 9,
-                          fontWeight: 600,
-                          color: "#f59e0b",
-                          background: "#f59e0b20",
-                          padding: "2px 8px",
-                          borderRadius: 4,
-                          marginLeft: 6,
-                        }}
-                      >
-                        RENDERING
-                      </span>
-                    )}
-                    {d.isRendering && d.renderingScale && (
-                      <span style={{ fontSize: 10, color: "#f59e0b", fontWeight: 500, marginLeft: 4, opacity: 0.8 }}>
-                        {d.renderingScale}
-                      </span>
-                    )}
-                    {d.isRendering && d.renderingNotes && (
-                      <span style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", fontStyle: "italic", marginLeft: 4 }}>
-                        {d.renderingNotes}
-                      </span>
-                    )}
-                    {drawingScales[d.id] && (
-                      <span style={{ fontSize: 10, color: C.green, fontWeight: 500, marginLeft: 8 }}>
-                        {getScaleLabel(drawingScales[d.id])}
-                      </span>
-                    )}
-                    <div style={{ flex: 1 }} />
-                    {/* Nav: prev/next */}
-                    <button
-                      onClick={e => {
-                        e.stopPropagation();
-                        const idx = drawings.findIndex(dr => dr.id === previewDrawingId);
-                        if (idx > 0) setPreviewDrawingId(drawings[idx - 1].id);
-                      }}
-                      style={{
-                        background: "rgba(255,255,255,0.08)",
-                        border: "1px solid rgba(255,255,255,0.15)",
-                        color: "#fff",
-                        fontSize: 14,
-                        padding: "4px 10px",
-                        borderRadius: 4,
-                        cursor: "pointer",
-                      }}
-                    >
-                      ‹
-                    </button>
-                    <span style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>
-                      {drawings.findIndex(dr => dr.id === previewDrawingId) + 1} / {drawings.length}
-                    </span>
-                    <button
-                      onClick={e => {
-                        e.stopPropagation();
-                        const idx = drawings.findIndex(dr => dr.id === previewDrawingId);
-                        if (idx < drawings.length - 1) setPreviewDrawingId(drawings[idx + 1].id);
-                      }}
-                      style={{
-                        background: "rgba(255,255,255,0.08)",
-                        border: "1px solid rgba(255,255,255,0.15)",
-                        color: "#fff",
-                        fontSize: 14,
-                        padding: "4px 10px",
-                        borderRadius: 4,
-                        cursor: "pointer",
-                      }}
-                    >
-                      ›
-                    </button>
-                    <button
-                      onClick={e => { e.stopPropagation(); setPreviewDrawingId(null); }}
-                      style={{
-                        background: "rgba(255,255,255,0.08)",
-                        border: "1px solid rgba(255,255,255,0.15)",
-                        color: "#fff",
-                        fontSize: 12,
-                        padding: "4px 10px",
-                        borderRadius: 4,
-                        cursor: "pointer",
-                        marginLeft: 8,
-                      }}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  {/* Drawing image */}
-                  {imgSrc ? (
-                    <img
-                      src={imgSrc}
-                      onClick={e => e.stopPropagation()}
-                      style={{
-                        maxWidth: "90vw",
-                        maxHeight: "80vh",
-                        objectFit: "contain",
-                        borderRadius: T.radius.md,
-                        boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
-                        cursor: "default",
-                      }}
-                    />
-                  ) : (
+                    {/* Header with sheet info */}
                     <div
                       onClick={e => e.stopPropagation()}
                       style={{
-                        width: 300,
-                        height: 200,
                         display: "flex",
                         alignItems: "center",
-                        justifyContent: "center",
+                        gap: 12,
+                        padding: "10px 20px",
+                        marginBottom: 8,
                         background: "rgba(255,255,255,0.06)",
                         borderRadius: T.radius.md,
-                        color: "rgba(255,255,255,0.4)",
-                        fontSize: 13,
+                        backdropFilter: "blur(12px)",
                       }}
                     >
-                      No preview available
+                      <span style={{ fontSize: 13, fontWeight: 700, color: C.accent }}>{d.sheetNumber || "—"}</span>
+                      <span style={{ fontSize: 12, color: "#fff", opacity: 0.8 }}>
+                        {d.sheetTitle || d.label || "Untitled"}
+                      </span>
+                      {drawingScales[d.id] && (
+                        <span style={{ fontSize: 10, color: C.green, fontWeight: 500, marginLeft: 8 }}>
+                          {getScaleLabel(drawingScales[d.id])}
+                        </span>
+                      )}
+                      <div style={{ flex: 1 }} />
+                      {/* Nav: prev/next */}
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          const idx = drawings.findIndex(dr => dr.id === previewDrawingId);
+                          if (idx > 0) setPreviewDrawingId(drawings[idx - 1].id);
+                        }}
+                        style={{
+                          background: "rgba(255,255,255,0.08)",
+                          border: "1px solid rgba(255,255,255,0.15)",
+                          color: "#fff",
+                          fontSize: 14,
+                          padding: "4px 10px",
+                          borderRadius: 4,
+                          cursor: "pointer",
+                        }}
+                      >
+                        ‹
+                      </button>
+                      <span style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>
+                        {drawings.findIndex(dr => dr.id === previewDrawingId) + 1} / {drawings.length}
+                      </span>
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          const idx = drawings.findIndex(dr => dr.id === previewDrawingId);
+                          if (idx < drawings.length - 1) setPreviewDrawingId(drawings[idx + 1].id);
+                        }}
+                        style={{
+                          background: "rgba(255,255,255,0.08)",
+                          border: "1px solid rgba(255,255,255,0.15)",
+                          color: "#fff",
+                          fontSize: 14,
+                          padding: "4px 10px",
+                          borderRadius: 4,
+                          cursor: "pointer",
+                        }}
+                      >
+                        ›
+                      </button>
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          setPreviewDrawingId(null);
+                        }}
+                        style={{
+                          background: "rgba(255,255,255,0.08)",
+                          border: "1px solid rgba(255,255,255,0.15)",
+                          color: "#fff",
+                          fontSize: 12,
+                          padding: "4px 10px",
+                          borderRadius: 4,
+                          cursor: "pointer",
+                          marginLeft: 8,
+                        }}
+                      >
+                        ✕
+                      </button>
                     </div>
-                  )}
-                </div>
-              );
-            })()}
+                    {/* Drawing image */}
+                    {imgSrc ? (
+                      <img
+                        src={imgSrc}
+                        onClick={e => e.stopPropagation()}
+                        style={{
+                          maxWidth: "90vw",
+                          maxHeight: "80vh",
+                          objectFit: "contain",
+                          borderRadius: T.radius.md,
+                          boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+                          cursor: "default",
+                        }}
+                      />
+                    ) : (
+                      <div
+                        onClick={e => e.stopPropagation()}
+                        style={{
+                          width: 300,
+                          height: 200,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          background: "rgba(255,255,255,0.06)",
+                          borderRadius: T.radius.md,
+                          color: "rgba(255,255,255,0.4)",
+                          fontSize: 13,
+                        }}
+                      >
+                        No preview available
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
             {/* ─── Specifications Card ─── */}
             {specs.length > 0 && (
@@ -2650,13 +2490,13 @@ export default function PlanRoomPage() {
               <BuildingParametersSection />
             </div>
 
-            {/* ─── NOVA Activity Log ─── */}
+            {/* ─── ARTIFACT Activity Log ─── */}
             {novaHistory.length > 0 && (
               <div style={{ ...card(C), padding: T.space[5], gridColumn: "1 / -1" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: T.space[2], marginBottom: T.space[3] }}>
                   <Ic d={I.ai} size={16} color={C.textMuted} />
                   <span style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.bold, color: C.textMuted }}>
-                    NOVA Activity Log
+                    ARTIFACT Activity Log
                   </span>
                 </div>
                 <div style={{ maxHeight: 160, overflowY: "auto" }}>
@@ -2676,9 +2516,7 @@ export default function PlanRoomPage() {
                         }}
                       >
                         <Ic d={I.check} size={10} color={C.green} />
-                        <span
-                          style={{ color: C.textDim, fontFamily: T.font.sans, fontSize: 9, minWidth: 60 }}
-                        >
+                        <span style={{ color: C.textDim, fontFamily: T.font.sans, fontSize: 9, minWidth: 60 }}>
                           {new Date(h.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         </span>
                         <span
@@ -2760,7 +2598,7 @@ export default function PlanRoomPage() {
                     gap: 6,
                   }}
                 >
-                  <Ic d={I.ai} size={14} color={C.purple || C.accent} /> NOVA Scan Complete
+                  <Ic d={I.ai} size={14} color={C.purple || C.accent} /> ARTIFACT Scan Complete
                 </div>
                 <div style={{ fontSize: 10, color: C.textDim }}>
                   {scanResults.schedules?.length || 0} schedule{scanResults.schedules?.length !== 1 ? "s" : ""}
@@ -2858,177 +2696,6 @@ export default function PlanRoomPage() {
           </div>
         </Modal>
       )}
-    </div>
-  );
-}
-
-// ─── Compact document list (inline in Discovery) ─────────────────────────────
-function CompactDocList({ drawingDocs, specDocs, generalDocs, onRemove, C, T }) {
-  const [expanded, setExpanded] = useState(false);
-  const allDocs = [...drawingDocs, ...specDocs, ...generalDocs];
-  if (allDocs.length === 0) return null;
-  const preview = expanded ? allDocs : allDocs.slice(0, 4);
-
-  return (
-    <div style={{ marginBottom: T.space[4], ...card(C), padding: 0, overflow: "hidden" }}>
-      <div
-        style={{
-          padding: `${T.space[2]}px ${T.space[3]}px`,
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          borderBottom: `1px solid ${C.border}08`,
-        }}
-      >
-        <Ic d={I.folder} size={12} color={C.textMuted} />
-        <span
-          style={{
-            fontSize: 10,
-            fontWeight: 600,
-            color: C.textMuted,
-            textTransform: "uppercase",
-            letterSpacing: "0.04em",
-          }}
-        >
-          Uploaded Files
-        </span>
-        {drawingDocs.length > 0 && (
-          <span style={{ fontSize: 9, color: C.blue, fontWeight: 500 }}>
-            {drawingDocs.length} drawing{drawingDocs.length !== 1 ? "s" : ""}
-          </span>
-        )}
-        {specDocs.length > 0 && (
-          <span style={{ fontSize: 9, color: C.purple || C.accent, fontWeight: 500 }}>
-            {specDocs.length} spec{specDocs.length !== 1 ? "s" : ""}
-          </span>
-        )}
-        {generalDocs.length > 0 && (
-          <span style={{ fontSize: 9, color: C.textDim, fontWeight: 500 }}>{generalDocs.length} other</span>
-        )}
-      </div>
-      {preview.map(doc => (
-        <div
-          key={doc.id}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: T.space[2],
-            padding: `4px ${T.space[3]}px`,
-            borderBottom: `1px solid ${C.border}06`,
-            fontSize: 11,
-          }}
-        >
-          <span
-            style={{
-              fontSize: 8,
-              fontWeight: 700,
-              color:
-                doc.docType === "drawing" ? C.blue : doc.docType === "specification" ? C.purple || C.accent : C.textDim,
-              textTransform: "uppercase",
-              minWidth: 30,
-            }}
-          >
-            {doc.docType === "drawing" ? "DWG" : doc.docType === "specification" ? "SPEC" : "DOC"}
-          </span>
-          <span style={{ flex: 1, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {doc.filename}
-          </span>
-          <span style={{ fontSize: 9, color: C.textDim }}>{formatBytes(doc.size)}</span>
-          {doc.processingStatus === "processing" && (
-            <span
-              style={{
-                display: "inline-block",
-                width: 8,
-                height: 8,
-                border: `2px solid ${C.accent}40`,
-                borderTop: `2px solid ${C.accent}`,
-                borderRadius: "50%",
-                animation: "spin 0.8s linear infinite",
-              }}
-            />
-          )}
-          {doc.processingStatus === "complete" && <Ic d={I.check} size={10} color={C.green} />}
-          <button
-            onClick={() => onRemove(doc.id)}
-            style={{ background: "transparent", border: "none", cursor: "pointer", padding: 2, opacity: 0.4 }}
-            onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
-            onMouseLeave={e => (e.currentTarget.style.opacity = "0.4")}
-          >
-            <Ic d={I.trash} size={10} color={C.textDim} />
-          </button>
-        </div>
-      ))}
-      {allDocs.length > 4 && !expanded && (
-        <div
-          onClick={() => setExpanded(true)}
-          style={{
-            padding: "4px 0",
-            textAlign: "center",
-            fontSize: 10,
-            color: C.accent,
-            cursor: "pointer",
-            fontWeight: 600,
-          }}
-        >
-          Show all {allDocs.length} files
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Factor bar (used in Project Summary for cost index) ─────────────────────
-function FactorBar({ label, value, color, C }) {
-  const T = C.T;
-  const pct = Math.min(Math.max((value - 0.6) / 0.8, 0), 1) * 100;
-  const natPct = ((1.0 - 0.6) / 0.8) * 100;
-  return (
-    <div style={{ marginBottom: 6 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
-        <span
-          style={{
-            fontSize: 9,
-            fontWeight: 600,
-            color: C.textDim,
-            textTransform: "uppercase",
-            letterSpacing: "0.04em",
-          }}
-        >
-          {label}
-        </span>
-        <span
-          style={{
-            fontSize: 11,
-            fontWeight: 700,
-            color: value > 1.05 ? C.orange : value < 0.95 ? C.green : C.text,
-            fontFamily: T.font.sans,
-          }}
-        >
-          {value.toFixed(2)}×
-        </span>
-      </div>
-      <div style={{ height: 6, background: C.bg2, borderRadius: 3, overflow: "hidden", position: "relative" }}>
-        <div
-          style={{
-            position: "absolute",
-            left: `${natPct}%`,
-            top: 0,
-            width: 1,
-            height: 6,
-            background: `${C.textDim}40`,
-            zIndex: 1,
-          }}
-        />
-        <div
-          style={{
-            height: "100%",
-            borderRadius: 3,
-            background: `linear-gradient(90deg, ${color}60, ${color})`,
-            width: `${pct}%`,
-            transition: "width 0.5s ease",
-          }}
-        />
-      </div>
     </div>
   );
 }
@@ -3196,7 +2863,7 @@ function buildProjectNarrative(project, drawings, specs, activeLoc) {
     const docParts = [];
     if (drawings.length > 0) docParts.push(`${drawings.length} drawing${drawings.length > 1 ? "s" : ""}`);
     if (specs.length > 0) docParts.push(`${specs.length} specification section${specs.length > 1 ? "s" : ""}`);
-    parts.push("NOVA has analyzed " + docParts.join(" and ") + " for this project.");
+    parts.push("ARTIFACT has analyzed " + docParts.join(" and ") + " for this project.");
   }
 
   return parts.join(" ");

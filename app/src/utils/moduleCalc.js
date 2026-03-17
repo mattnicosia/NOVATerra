@@ -1,9 +1,9 @@
 // Module calculation engine
 // Evaluates formulas and conditions for Smart Assembly Modules
 // Generic — works for any module defined in modules.js
-import { nn } from '@/utils/format';
-import { parseRebarSpec, REBAR_WEIGHTS } from '@/constants/modules';
-import { getMeasuredQtyCtx } from '@/utils/measurementCalc';
+import { nn } from "@/utils/format";
+import { parseRebarSpec } from "@/constants/modules";
+import { getMeasuredQtyCtx } from "@/utils/measurementCalc";
 
 // ── Performance: cached regex objects per variable key ──────
 const _regexCache = new Map();
@@ -21,18 +21,18 @@ function getCachedRegex(key) {
 // Called per-instance since each wall type has its own specs
 function computeFramingContext(ctx, specs) {
   // Parse EstSpacing: "12\" OC" → 12
-  const spacingMatch = (specs.EstSpacing || "12\" OC").match(/(\d+)/);
+  const spacingMatch = (specs.EstSpacing || '12" OC').match(/(\d+)/);
   ctx.EstSpacingNum = spacingMatch ? parseInt(spacingMatch[1]) : 12;
 
   // Parse TopPlates: "Single"=1, "Double"=2, "Triple"=3
-  const plateMap = { "Single": 1, "Double": 2, "Triple": 3 };
+  const plateMap = { Single: 1, Double: 2, Triple: 3 };
   ctx.TopPlateCount = plateMap[specs.TopPlates] || 2;
 
   // Parse BotPlates: "Single"=1, "Double"=2
   ctx.BotPlateCount = plateMap[specs.BotPlates] || 1;
 
   // Parse sheet sizes: "4x10" → area = 40
-  const parseSheet = (sheetSpec) => {
+  const parseSheet = sheetSpec => {
     const m = String(sheetSpec || "4x8").match(/(\d+)x(\d+)/);
     const w = m ? parseInt(m[1]) : 4;
     const h = m ? parseInt(m[2]) : 8;
@@ -46,15 +46,15 @@ function computeFramingContext(ctx, specs) {
   ctx.DwLayerCount = parseInt(specs.DwLayers) || 1;
 
   // Parse DwFinish: "Level 4" → 1.0, "Level 5" → 1.5 (skim coat = 50% more compound)
-  ctx.DwFinishMult = (specs.DwFinish === "Level 5") ? 1.5 : 1;
+  ctx.DwFinishMult = specs.DwFinish === "Level 5" ? 1.5 : 1;
 
   // Drywall effective height: use DwHeight if > 0, otherwise fall back to WallHeight
   const dwH = parseFloat(specs.DwHeight);
-  ctx.DwHeightEff = (dwH && dwH > 0) ? dwH : (parseFloat(specs.WallHeight) || 9);
+  ctx.DwHeightEff = dwH && dwH > 0 ? dwH : parseFloat(specs.WallHeight) || 9;
 
   // ── Metal Stud context parsing ──
   // Parse MSSpacing: "16\" OC" → 16
-  const msSpacingMatch = (specs.MSSpacing || "16\" OC").match(/(\d+)/);
+  const msSpacingMatch = (specs.MSSpacing || '16" OC').match(/(\d+)/);
   ctx.MSSpacingNum = msSpacingMatch ? parseInt(msSpacingMatch[1]) : 16;
 
   // Track count: "Top & Bottom"=2, "Top Only"=1, "Bottom Only"=1
@@ -62,12 +62,12 @@ function computeFramingContext(ctx, specs) {
   ctx.MSTrackCount = trackMap[specs.MSTrack] || 2;
 
   // Bridging rows: "None"=0, "Mid-Height"=1, "Third Points"=2
-  const bridgeMap = { "None": 0, "Mid-Height": 1, "Third Points": 2 };
+  const bridgeMap = { None: 0, "Mid-Height": 1, "Third Points": 2 };
   ctx.MSBridgingRows = bridgeMap[specs.MSBridging] || 0;
 
   // ── CMU-specific context parsing ──
   // Parse CMUWidth: "8\"" → 8
-  const cmuWMatch = (specs.CMUWidth || "8\"").match(/(\d+)/);
+  const cmuWMatch = (specs.CMUWidth || '8"').match(/(\d+)/);
   ctx.CMUWidthNum = cmuWMatch ? parseInt(cmuWMatch[1]) : 8;
 
   // Vertical rebar — reuse existing parseRebarSpec
@@ -86,8 +86,8 @@ function computeFramingContext(ctx, specs) {
   const hSpec = specs.CMUHorizReinf || "None";
   if (hSpec.includes("every course")) ctx.CMUHorizCourseMult = 1.5;
   else if (hSpec.includes("2 courses")) ctx.CMUHorizCourseMult = 0.75;
-  else if (hSpec.includes("48\"")) ctx.CMUHorizCourseMult = 0.25;
-  else if (hSpec.includes("24\"")) ctx.CMUHorizCourseMult = 0.5;
+  else if (hSpec.includes('48"')) ctx.CMUHorizCourseMult = 0.25;
+  else if (hSpec.includes('24"')) ctx.CMUHorizCourseMult = 0.5;
   else ctx.CMUHorizCourseMult = 0;
 
   // Grout — CY per SF of wall face (scaled by block width relative to 8")
@@ -106,7 +106,7 @@ function computeFramingContext(ctx, specs) {
 
   // ── Concrete (Cast-in-Place) context parsing ──
   // Parse wall thickness: "8\"" → 8
-  const concThickMatch = (specs.ConcThickness || "8\"").match(/(\d+)/);
+  const concThickMatch = (specs.ConcThickness || '8"').match(/(\d+)/);
   ctx.ConcThickNum = concThickMatch ? parseInt(concThickMatch[1]) : 8;
 
   // CY of concrete per SF of wall face (thickness / 12 / 27, with 5% waste)
@@ -137,7 +137,7 @@ function computeFramingContext(ctx, specs) {
 
   // ── ICF (Insulated Concrete Forms) context parsing ──
   // Parse core width: "8\"" → 8
-  const icfCoreMatch = (specs.ICFCoreWidth || "8\"").match(/(\d+)/);
+  const icfCoreMatch = (specs.ICFCoreWidth || '8"').match(/(\d+)/);
   ctx.ICFCoreNum = icfCoreMatch ? parseInt(icfCoreMatch[1]) : 8;
 
   // CY of concrete per SF of wall face (core width / 12 / 27, with 5% waste)
@@ -165,7 +165,7 @@ function computeFramingContext(ctx, specs) {
 
   // ── Tilt-Up context parsing ──
   // Panel thickness: "5-1/2\"" → 5.5, "7-1/4\"" → 7.25, "9-1/4\"" → 9.25
-  const tuThick = specs.TiltThickness || "5-1/2\"";
+  const tuThick = specs.TiltThickness || '5-1/2"';
   if (tuThick.includes("5-1/2")) ctx.TiltThickNum = 5.5;
   else if (tuThick.includes("7-1/4")) ctx.TiltThickNum = 7.25;
   else if (tuThick.includes("9-1/4")) ctx.TiltThickNum = 9.25;
@@ -176,7 +176,7 @@ function computeFramingContext(ctx, specs) {
 
   // ── Precast context parsing ──
   // Panel thickness: "6\"" → 6, "8\"" → 8
-  const pcThickMatch = (specs.PrecastThickness || "8\"").match(/(\d+)/);
+  const pcThickMatch = (specs.PrecastThickness || '8"').match(/(\d+)/);
   ctx.PrecastThickNum = pcThickMatch ? parseInt(pcThickMatch[1]) : 8;
 
   // Connections per LF (approx 1 per 15 LF panel width)
@@ -184,7 +184,7 @@ function computeFramingContext(ctx, specs) {
 
   // ── SIP context parsing ──
   // Panel thickness: "4-1/2\"" → 4.5, "6-1/2\"" → 6.5, etc.
-  const sipThick = specs.SIPThickness || "6-1/2\"";
+  const sipThick = specs.SIPThickness || '6-1/2"';
   if (sipThick.includes("4-1/2")) ctx.SIPThickNum = 4.5;
   else if (sipThick.includes("6-1/2")) ctx.SIPThickNum = 6.5;
   else if (sipThick.includes("8-1/4")) ctx.SIPThickNum = 8.25;
@@ -193,11 +193,11 @@ function computeFramingContext(ctx, specs) {
 
   // ── 3D Printed context parsing ──
   // Wall thickness: "6\"" → 6
-  const printThickMatch = (specs.PrintThickness || "8\"").match(/(\d+)/);
+  const printThickMatch = (specs.PrintThickness || '8"').match(/(\d+)/);
   ctx.PrintThickNum = printThickMatch ? parseInt(printThickMatch[1]) : 8;
 
   // CF of print material per SF of wall face (thickness / 12, with 10% waste for layering)
-  ctx.PrintCFPerSF = (ctx.PrintThickNum / 12) * 1.10;
+  ctx.PrintCFPerSF = (ctx.PrintThickNum / 12) * 1.1;
 
   // ══════════════════════════════════════════════════════════════
   // FLOORS MODULE — context parsing
@@ -205,12 +205,12 @@ function computeFramingContext(ctx, specs) {
 
   // ── Wood Framing (floors) ──
   // Joist spacing: "16\" OC" → 16
-  const flrSpacingMatch = (specs.FlrJoistSpacing || "16\" OC").match(/(\d+)/);
+  const flrSpacingMatch = (specs.FlrJoistSpacing || '16" OC').match(/(\d+)/);
   ctx.FlrJoistSpacingNum = flrSpacingMatch ? parseInt(flrSpacingMatch[1]) : 16;
   ctx.FlrJoistLFPerSF = 12 / ctx.FlrJoistSpacingNum;
 
   // ── Wood Trusses (floors) ──
-  const trussSpacingMatch = (specs.TrussSpacing || "24\" OC").match(/(\d+)/);
+  const trussSpacingMatch = (specs.TrussSpacing || '24" OC').match(/(\d+)/);
   ctx.TrussSpacingNum = trussSpacingMatch ? parseInt(trussSpacingMatch[1]) : 24;
   ctx.TrussLFPerSF = 12 / ctx.TrussSpacingNum;
 
@@ -219,13 +219,11 @@ function computeFramingContext(ctx, specs) {
   const deckFillSpec = specs.DeckConcFill || "None";
   const deckFillMatch = deckFillSpec.match(/([\d.]+)/);
   ctx.DeckConcFillDepth = deckFillMatch ? parseFloat(deckFillMatch[1]) : 0;
-  ctx.DeckConcCYPerSF = ctx.DeckConcFillDepth > 0
-    ? (ctx.DeckConcFillDepth / 12 / 27) * 1.05
-    : 0;
+  ctx.DeckConcCYPerSF = ctx.DeckConcFillDepth > 0 ? (ctx.DeckConcFillDepth / 12 / 27) * 1.05 : 0;
   ctx.DeckShearStudsPerSF = 0.5;
 
   // ── Concrete on Deck (floors) ──
-  const elevSlabMatch = (specs.ElevSlabThick || "6\"").match(/(\d+)/);
+  const elevSlabMatch = (specs.ElevSlabThick || '6"').match(/(\d+)/);
   ctx.ElevSlabThickNum = elevSlabMatch ? parseInt(elevSlabMatch[1]) : 6;
   ctx.ElevSlabCYPerSF = (ctx.ElevSlabThickNum / 12 / 27) * 1.05;
 
@@ -253,9 +251,7 @@ function computeFramingContext(ctx, specs) {
   const pcToppingSpec = specs.PlankTopping || "None";
   const pcToppingMatch = pcToppingSpec.match(/([\d.]+)/);
   ctx.PlankToppingDepth = pcToppingMatch ? parseFloat(pcToppingMatch[1]) : 0;
-  ctx.PlankToppingCYPerSF = ctx.PlankToppingDepth > 0
-    ? (ctx.PlankToppingDepth / 12 / 27) * 1.05
-    : 0;
+  ctx.PlankToppingCYPerSF = ctx.PlankToppingDepth > 0 ? (ctx.PlankToppingDepth / 12 / 27) * 1.05 : 0;
   ctx.PlankJointSpacing = 48; // 4' plank width
 
   // ── CLT (floors) ──
@@ -263,7 +259,7 @@ function computeFramingContext(ctx, specs) {
 
   // ── Finish waste factors ──
   const ft = specs.FlrFinishType || "";
-  if (ft.includes("Tile") || ft.includes("Terrazzo")) ctx.FinishWaste = 1.10;
+  if (ft.includes("Tile") || ft.includes("Terrazzo")) ctx.FinishWaste = 1.1;
   else if (ft.includes("Hardwood")) ctx.FinishWaste = 1.08;
   else ctx.FinishWaste = 1.05;
 
@@ -283,7 +279,7 @@ function computeFramingContext(ctx, specs) {
   }
 
   // ── Wood Trusses (roof) ──
-  const roofTrussSpMatch = (specs.RoofTrussSpacing || "24\" OC").match(/(\d+)/);
+  const roofTrussSpMatch = (specs.RoofTrussSpacing || '24" OC').match(/(\d+)/);
   ctx.RoofTrussSpacingNum = roofTrussSpMatch ? parseInt(roofTrussSpMatch[1]) : 24;
   // Trusses are EA — quantity driven by building length / spacing
   // Using perimeter approximation: RoofSF / average span * (12 / spacing)
@@ -291,7 +287,7 @@ function computeFramingContext(ctx, specs) {
   ctx.RoofTrussPerSF = 12 / (ctx.RoofTrussSpacingNum * 12); // 1 truss per (spacing_ft) per LF of run
 
   // ── Wood Rafters (roof) ──
-  const rafterSpMatch = (specs.RafterSpacing || "16\" OC").match(/(\d+)/);
+  const rafterSpMatch = (specs.RafterSpacing || '16" OC').match(/(\d+)/);
   ctx.RafterSpacingNum = rafterSpMatch ? parseInt(rafterSpMatch[1]) : 16;
   ctx.RafterLFPerSF = 12 / ctx.RafterSpacingNum;
 
@@ -304,14 +300,12 @@ function computeFramingContext(ctx, specs) {
   const precastRoofTopping = specs.PrecastRoofTopping || "None";
   const precastRoofTopMatch = precastRoofTopping.match(/([\d.]+)/);
   ctx.PrecastRoofToppingDepth = precastRoofTopMatch ? parseFloat(precastRoofTopMatch[1]) : 0;
-  ctx.PrecastRoofToppingCYPerSF = ctx.PrecastRoofToppingDepth > 0
-    ? (ctx.PrecastRoofToppingDepth / 12 / 27) * 1.05
-    : 0;
+  ctx.PrecastRoofToppingCYPerSF = ctx.PrecastRoofToppingDepth > 0 ? (ctx.PrecastRoofToppingDepth / 12 / 27) * 1.05 : 0;
 
   // ── Roof Finish waste factors ──
   const rfType = specs.RoofFinishType || "";
   if (rfType.includes("Tile") || rfType.includes("Slate")) ctx.RoofFinishWaste = 1.15;
-  else if (rfType.includes("Shingles")) ctx.RoofFinishWaste = 1.10;
+  else if (rfType.includes("Shingles")) ctx.RoofFinishWaste = 1.1;
   else ctx.RoofFinishWaste = 1.05; // membranes, metal
 
   // ── Gutter downspout factor ──
@@ -411,9 +405,7 @@ function computeSteelContext(ctx, specs) {
   const compSpec = specs.CompositeType || "None";
   const compMatch = compSpec.match(/([\d.]+)/);
   ctx.CompositeFillDepth = compMatch ? parseFloat(compMatch[1]) : 0;
-  ctx.CompositeCYPerSF = ctx.CompositeFillDepth > 0
-    ? (ctx.CompositeFillDepth / 12 / 27) * 1.05
-    : 0;
+  ctx.CompositeCYPerSF = ctx.CompositeFillDepth > 0 ? (ctx.CompositeFillDepth / 12 / 27) * 1.05 : 0;
   ctx.DeckShearStudsPerSF = 0.5;
 }
 
@@ -521,7 +513,14 @@ function resolveDrivingQty(itemId, itemTakeoffIds, takeoffs, scaleCtx) {
 // Enhanced version that handles multi-instance categories
 // Returns: { itemId: { qty, active } } for single-instance items
 //   PLUS: { "instanceId:itemId": { qty, active } } for multi-instance items
-export function computeAllDerivedWithInstances(moduleDef, globalSpecs, takeoffs, globalItemTakeoffIds, categoryInstances, scaleCtx) {
+export function computeAllDerivedWithInstances(
+  moduleDef,
+  globalSpecs,
+  takeoffs,
+  globalItemTakeoffIds,
+  categoryInstances,
+  scaleCtx,
+) {
   const results = {};
 
   // Build base context from global specs + all global driving items
@@ -535,7 +534,9 @@ export function computeAllDerivedWithInstances(moduleDef, globalSpecs, takeoffs,
 
     // Build spec defaults map from category definition so conditions always resolve
     const specDefaults = {};
-    (cat.specs || []).forEach(s => { if (s.default !== undefined) specDefaults[s.id] = s.default; });
+    (cat.specs || []).forEach(s => {
+      if (s.default !== undefined) specDefaults[s.id] = s.default;
+    });
 
     instances.forEach(catInst => {
       // Merge: global itemTakeoffIds + instance itemTakeoffIds (instance wins)
@@ -568,7 +569,9 @@ export function computeAllDerivedWithInstances(moduleDef, globalSpecs, takeoffs,
     // Exterior walls: 1 side (interior face gets drywall)
     const extCat = moduleDef.categories.find(c => c.id === "ext-walls");
     const extDefaults = {};
-    (extCat?.specs || []).forEach(s => { if (s.default !== undefined) extDefaults[s.id] = s.default; });
+    (extCat?.specs || []).forEach(s => {
+      if (s.default !== undefined) extDefaults[s.id] = s.default;
+    });
     const extInstances = categoryInstances?.["ext-walls"] || [];
     extInstances.forEach(catInst => {
       const mergedIds = { ...globalItemTakeoffIds, ...catInst.itemTakeoffIds };
@@ -576,14 +579,16 @@ export function computeAllDerivedWithInstances(moduleDef, globalSpecs, takeoffs,
       if (mergedSpecs.DwType === "None") return; // skip if drywall disabled
       const extLF = resolveDrivingQty("ext-wall-lf", mergedIds, takeoffs, scaleCtx);
       const dwH = parseFloat(mergedSpecs.DwHeight);
-      const dwHeightEff = (dwH && dwH > 0) ? dwH : nn(mergedSpecs.WallHeight);
+      const dwHeightEff = dwH && dwH > 0 ? dwH : nn(mergedSpecs.WallHeight);
       totalDwSF += extLF * dwHeightEff;
     });
 
     // Interior walls: 2 sides (both faces get drywall)
     const intCat = moduleDef.categories.find(c => c.id === "int-walls");
     const intDefaults = {};
-    (intCat?.specs || []).forEach(s => { if (s.default !== undefined) intDefaults[s.id] = s.default; });
+    (intCat?.specs || []).forEach(s => {
+      if (s.default !== undefined) intDefaults[s.id] = s.default;
+    });
     const intInstances = categoryInstances?.["int-walls"] || [];
     intInstances.forEach(catInst => {
       const mergedIds = { ...globalItemTakeoffIds, ...catInst.itemTakeoffIds };
@@ -591,7 +596,7 @@ export function computeAllDerivedWithInstances(moduleDef, globalSpecs, takeoffs,
       if (mergedSpecs.DwType === "None") return; // skip if drywall disabled
       const intLF = resolveDrivingQty("int-wall-lf", mergedIds, takeoffs, scaleCtx);
       const dwH = parseFloat(mergedSpecs.DwHeight);
-      const dwHeightEff = (dwH && dwH > 0) ? dwH : nn(mergedSpecs.WallHeight);
+      const dwHeightEff = dwH && dwH > 0 ? dwH : nn(mergedSpecs.WallHeight);
       totalDwSF += intLF * dwHeightEff * 2;
     });
 

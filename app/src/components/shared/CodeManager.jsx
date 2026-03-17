@@ -12,7 +12,6 @@ export default function CodeManager({ onClose }) {
   const T = C.T;
 
   const codeSystem = useProjectStore(s => s.codeSystem);
-  const customCodes = useProjectStore(s => s.customCodes);
   const getActiveCodes = useProjectStore(s => s.getActiveCodes);
   const isCustomDivision = useProjectStore(s => s.isCustomDivision);
   const isCustomSubdivision = useProjectStore(s => s.isCustomSubdivision);
@@ -30,8 +29,11 @@ export default function CodeManager({ onClose }) {
   const sysName = CODE_SYSTEMS[codeSystem]?.name || codeSystem;
 
   // Hidden codes for current system
-  const allBaseCodes = CODE_SYSTEMS[codeSystem]?.codes || {};
-  const hidden = hiddenCodes[codeSystem] || { divisions: [], subdivisions: [] };
+  const allBaseCodes = useMemo(() => CODE_SYSTEMS[codeSystem]?.codes || {}, [codeSystem]);
+  const hidden = useMemo(
+    () => hiddenCodes[codeSystem] || { divisions: [], subdivisions: [] },
+    [hiddenCodes, codeSystem],
+  );
   const hiddenDivCount = hidden.divisions.length;
   const hiddenSubCount = hidden.subdivisions.length;
   const totalHidden = hiddenDivCount + hiddenSubCount;
@@ -51,7 +53,8 @@ export default function CodeManager({ onClose }) {
   const [filter, setFilter] = useState("");
   const [showHidden, setShowHidden] = useState(false);
 
-  const customCodesForSystem = customCodes[codeSystem] || {};
+  // customCodes available per-system (used by addCustomCode/removeCustomCode)
+  // const customCodesForSystem = customCodes[codeSystem] || {};
 
   // Build full code list including hidden divisions when showHidden is on
   const allCodes = useMemo(() => {

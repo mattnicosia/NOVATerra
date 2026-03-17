@@ -48,21 +48,52 @@ export const SCHEDULE_TYPES = [
     id: "lighting-fixture",
     label: "Lighting Fixture Schedule",
     keywords: ["lighting fixture", "lighting schedule", "luminaire schedule", "light fixture"],
-    outputFields: ["mark", "description", "lamp_type", "wattage", "voltage", "mounting", "dimming", "emergency", "circuit", "quantity"],
+    outputFields: [
+      "mark",
+      "description",
+      "lamp_type",
+      "wattage",
+      "voltage",
+      "mounting",
+      "dimming",
+      "emergency",
+      "circuit",
+      "quantity",
+    ],
     csiDivisions: ["26"],
   },
   {
     id: "mechanical-equipment",
     label: "Mechanical Equipment Schedule",
     keywords: ["mechanical equipment", "HVAC schedule", "mechanical schedule", "AHU schedule", "RTU schedule"],
-    outputFields: ["mark", "description", "type", "capacity_tons_cfm", "voltage", "phase", "refrigerant", "ductwork", "controls", "quantity"],
+    outputFields: [
+      "mark",
+      "description",
+      "type",
+      "capacity_tons_cfm",
+      "voltage",
+      "phase",
+      "refrigerant",
+      "ductwork",
+      "controls",
+      "quantity",
+    ],
     csiDivisions: ["23"],
   },
   {
     id: "finish-detail",
     label: "Finish Detail Schedule",
     keywords: ["finish detail", "material schedule", "finish material", "color schedule"],
-    outputFields: ["material_type", "manufacturer", "product", "color", "pattern", "thickness", "application_area", "notes"],
+    outputFields: [
+      "material_type",
+      "manufacturer",
+      "product",
+      "color",
+      "pattern",
+      "thickness",
+      "application_area",
+      "notes",
+    ],
     csiDivisions: ["09"],
   },
 ];
@@ -74,7 +105,7 @@ export function buildDetectionPrompt(drawingLabel, ocrText = null) {
 
   const ocrSection = ocrText
     ? `\n\nOCR-EXTRACTED TEXT FROM THIS DRAWING:\n"""\n${ocrText.slice(0, 4000)}\n"""\n\nUse this extracted text to confirm schedule table locations, titles, and column headers. The OCR text is a reliable source for text that may be small or hard to read in the image.`
-    : '';
+    : "";
 
   return `You are analyzing a construction drawing sheet${drawingLabel ? ` labeled "${drawingLabel}"` : ""}.
 
@@ -122,17 +153,17 @@ export function buildParsePrompt(scheduleType, ocrText = null, notesContext = nu
 - material: Primary framing material (e.g., "Metal Stud", "Wood Stud", "CMU", "Concrete")
 - height: Wall height in feet (number only, e.g., 10, 12, 9.5). If shown as feet-inches like 10'-0", convert to decimal feet.
 - gauge: Metal stud gauge if specified (e.g., "20 ga", "16 ga"). Use null if wood or masonry.
-- studs: Stud size and spacing as shown (e.g., "3-5/8\" @ 16\" o.c.", "2x4 @ 16\" o.c.")
+- studs: Stud size and spacing as shown (e.g., "3-5/8" @ 16" o.c.", "2x4 @ 16" o.c.")
 - insulation: Insulation type and R-value (e.g., "R-13 Batt", "R-19 Rigid", "None")
-- drywall: Drywall layers and type (e.g., "1 layer 5/8\" Type X each side", "(2) layers 5/8\" Type X")
-- finish: Surface finish description (e.g., "Level 4 Paint", "Ceramic Tile to 48\"", "FRP")
+- drywall: Drywall layers and type (e.g., "1 layer 5/8" Type X each side", "(2) layers 5/8" Type X")
+- finish: Surface finish description (e.g., "Level 4 Paint", "Ceramic Tile to 48"", "FRP")
 
 CRITICAL: The typeLabel must be the exact text shown on the drawing for the wall type identifier. If the schedule shows types as "A", "B", "C", use those exact letters. If it shows "WP-1", "WP-2", use those exact codes. Do NOT use generic labels like "Type 1" unless that is literally what the drawing shows.`,
 
-    "door": `For each door in the schedule, extract:
+    door: `For each door in the schedule, extract:
 - mark: Door mark/number (e.g., "101", "A", "D-1")
-- width: Door width (e.g., "3'-0\"", "36\"")
-- height: Door height (e.g., "7'-0\"", "84\"")
+- width: Door width (e.g., "3'-0"", "36"")
+- height: Door height (e.g., "7'-0"", "84"")
 - type: Door type (e.g., "Flush", "Panel", "Hollow Metal")
 - material: Door material (e.g., "Wood", "Hollow Metal", "Aluminum/Glass")
 - frame: Frame type (e.g., "HM", "Wood", "Aluminum")
@@ -140,7 +171,7 @@ CRITICAL: The typeLabel must be the exact text shown on the drawing for the wall
 - fire_rating: Fire rating if shown (e.g., "20 min", "90 min", "None")
 - quantity: Number of this door type if shown in a "Qty", "Count", or "No." column. Use null if not shown.`,
 
-    "window": `For each window in the schedule, extract:
+    window: `For each window in the schedule, extract:
 - mark: Window mark/type (e.g., "W-1", "A", "101")
 - width: Window width
 - height: Window height
@@ -150,7 +181,7 @@ CRITICAL: The typeLabel must be the exact text shown on the drawing for the wall
 - operation: Operation type (e.g., "Fixed", "Operable", "Awning")
 - quantity: Number of this window type if shown in a "Qty", "Count", or "No." column. Use null if not shown.`,
 
-    "finish": `For each room/area row, extract:
+    finish: `For each room/area row, extract:
 - room: Room name or number (e.g., "101 - Office", "Corridor")
 - floor: Floor finish (e.g., "VCT", "Carpet", "Ceramic Tile")
 - base: Base finish (e.g., "Rubber", "Wood", "Ceramic")
@@ -163,11 +194,11 @@ CRITICAL: The typeLabel must be the exact text shown on the drawing for the wall
 - fixture_type: Type of fixture (e.g., "Water Closet", "Lavatory", "Floor Drain")
 - manufacturer: Manufacturer name if shown
 - model: Model number if shown
-- supply: Supply connection size and type (e.g., "1/2\" CW", "3/4\" HW+CW")
-- waste: Waste connection size (e.g., "4\" DWV", "2\" P-trap")
+- supply: Supply connection size and type (e.g., "1/2" CW", "3/4" HW+CW")
+- waste: Waste connection size (e.g., "4" DWV", "2" P-trap")
 - quantity: Number of this fixture if shown in a "Qty", "Count", or "No." column. Use null if not shown.`,
 
-    "equipment": `For each equipment item, extract:
+    equipment: `For each equipment item, extract:
 - mark: Equipment mark/number (e.g., "E-1", "KE-101")
 - description: Equipment description (e.g., "Walk-in Cooler", "Range Hood")
 - size: Physical dimensions if shown
@@ -178,7 +209,7 @@ CRITICAL: The typeLabel must be the exact text shown on the drawing for the wall
 
     "lighting-fixture": `For each lighting fixture type, extract:
 - mark: Fixture type/mark (e.g., "A", "F1", "L-1")
-- description: Fixture description (e.g., "2x4 Recessed Troffer", "6\" LED Downlight")
+- description: Fixture description (e.g., "2x4 Recessed Troffer", "6" LED Downlight")
 - lamp_type: Lamp type (e.g., "LED", "Fluorescent T8", "HID")
 - wattage: Wattage or power consumption
 - voltage: Voltage (e.g., "120V", "277V")
@@ -222,56 +253,60 @@ IMPORTANT:
 - If a cell spans multiple rows, apply the value to all applicable rows
 
 Return ONLY a JSON array of objects with these fields: ${fieldList}
-If you cannot parse the schedule, return [].${ocrText ? `\n\nOCR-EXTRACTED TEXT FROM THIS SCHEDULE TABLE:\n"""\n${ocrText.slice(0, 6000)}\n"""\n\nUse this OCR text as a reliable source for cell values, especially small text, abbreviations, and dimension values that may be hard to read from the image alone. Cross-reference what you see in the image with this OCR text for maximum accuracy.` : ''}${notesContext ? `\n\n${notesContext}\n\nUSE THESE DRAWING NOTES to fill in missing or incomplete schedule fields. For example:\n- If notes specify "All doors shall be HM unless noted", apply "Hollow Metal" as default door material\n- If notes specify insulation requirements, apply to wall types missing insulation info\n- If notes specify fire ratings for certain areas, apply to relevant entries\n- If notes mention specific manufacturers or standards, include that context` : ''}`;
+If you cannot parse the schedule, return [].${ocrText ? `\n\nOCR-EXTRACTED TEXT FROM THIS SCHEDULE TABLE:\n"""\n${ocrText.slice(0, 6000)}\n"""\n\nUse this OCR text as a reliable source for cell values, especially small text, abbreviations, and dimension values that may be hard to read from the image alone. Cross-reference what you see in the image with this OCR text for maximum accuracy.` : ""}${notesContext ? `\n\n${notesContext}\n\nUSE THESE DRAWING NOTES to fill in missing or incomplete schedule fields. For example:\n- If notes specify "All doors shall be HM unless noted", apply "Hollow Metal" as default door material\n- If notes specify insulation requirements, apply to wall types missing insulation info\n- If notes specify fire ratings for certain areas, apply to relevant entries\n- If notes mention specific manufacturers or standards, include that context` : ""}`;
 }
 
 // ─── Data Normalization ───────────────────────────────────────────────
 export function normalizeScheduleData(type, rawData) {
   if (!Array.isArray(rawData)) return [];
 
-  return rawData.map(entry => {
-    const cleaned = {};
-    const typeConfig = SCHEDULE_TYPES.find(t => t.id === type);
-    if (!typeConfig) return entry;
+  return rawData
+    .map(entry => {
+      const cleaned = {};
+      const typeConfig = SCHEDULE_TYPES.find(t => t.id === type);
+      if (!typeConfig) return entry;
 
-    // Ensure all expected fields exist
-    typeConfig.outputFields.forEach(field => {
-      cleaned[field] = entry[field] ?? null;
-    });
+      // Ensure all expected fields exist
+      typeConfig.outputFields.forEach(field => {
+        cleaned[field] = entry[field] ?? null;
+      });
 
-    // Type-specific normalization
-    if (type === "wall-types") {
-      // Normalize height to number
-      if (cleaned.height && typeof cleaned.height === "string") {
-        const match = cleaned.height.match(/(\d+(?:\.\d+)?)/);
-        if (match) cleaned.height = parseFloat(match[1]);
+      // Type-specific normalization
+      if (type === "wall-types") {
+        // Normalize height to number
+        if (cleaned.height && typeof cleaned.height === "string") {
+          const match = cleaned.height.match(/(\d+(?:\.\d+)?)/);
+          if (match) cleaned.height = parseFloat(match[1]);
+        }
       }
-    }
 
-    if (type === "door" || type === "window") {
-      // Keep dimension strings as-is for display, they'll be parsed at cost-matching time
-    }
+      if (type === "door" || type === "window") {
+        // Keep dimension strings as-is for display, they'll be parsed at cost-matching time
+      }
 
-    return cleaned;
-  }).filter(entry => {
-    // Remove completely empty entries
-    const typeConfig = SCHEDULE_TYPES.find(t => t.id === type);
-    return typeConfig.outputFields.some(f => entry[f] != null && entry[f] !== "");
-  });
+      return cleaned;
+    })
+    .filter(entry => {
+      // Remove completely empty entries
+      const typeConfig = SCHEDULE_TYPES.find(t => t.id === type);
+      return typeConfig.outputFields.some(f => entry[f] != null && entry[f] !== "");
+    });
 }
 
 // ─── Pass 2.3: Floor Plan Counting Prompt ─────────────────────────────
 // Sent with floor plan images to count how many of each mark appear
 export function buildCountingPrompt(marksByType, ocrText = null) {
-  const sections = Object.entries(marksByType).map(([scheduleType, marks]) => {
-    const typeConfig = SCHEDULE_TYPES.find(t => t.id === scheduleType);
-    const label = typeConfig?.label || scheduleType;
-    return `${label} marks: ${marks.map(m => `"${m}"`).join(", ")}`;
-  }).join("\n");
+  const sections = Object.entries(marksByType)
+    .map(([scheduleType, marks]) => {
+      const typeConfig = SCHEDULE_TYPES.find(t => t.id === scheduleType);
+      const label = typeConfig?.label || scheduleType;
+      return `${label} marks: ${marks.map(m => `"${m}"`).join(", ")}`;
+    })
+    .join("\n");
 
   const ocrSection = ocrText
     ? `\n\nOCR-EXTRACTED TEXT FROM THIS FLOOR PLAN:\n"""\n${ocrText.slice(0, 4000)}\n"""\n\nUse this OCR text to help locate and confirm mark labels that may be small or hard to read in the image.`
-    : '';
+    : "";
 
   return `You are analyzing an architectural FLOOR PLAN drawing. Count how many times each of the following schedule marks/symbols appear on this plan.
 

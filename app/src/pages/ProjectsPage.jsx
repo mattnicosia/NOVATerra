@@ -13,9 +13,6 @@ import CompanySwitcher from "@/components/shared/CompanySwitcher";
 import NewEstimateModal from "@/components/shared/NewEstimateModal";
 import CompletionSummary from "@/components/shared/CompletionSummary";
 import OutcomeFeedbackModal from "@/components/shared/OutcomeFeedbackModal";
-import { syncCompletedEstimate } from "@/lib/nova-core/completionSync";
-import { useItemsStore } from "@/stores/itemsStore";
-import { useProjectStore } from "@/stores/projectStore";
 import { I } from "@/constants/icons";
 import { inp, bt, card, statusBadge, moneyCell } from "@/utils/styles";
 import { fmt } from "@/utils/format";
@@ -24,7 +21,7 @@ const STATUS_TABS = [
   { key: "all", label: "All" },
   { key: "Qualifying", label: "Qualifying" },
   { key: "Bidding", label: "Bidding" },
-  { key: "Pending", label: "Pending" },
+  { key: "Submitted", label: "Submitted" },
   { key: "Won", label: "Won" },
   { key: "Lost", label: "Lost" },
   { key: "On Hold", label: "On Hold" },
@@ -51,7 +48,7 @@ const STATUS_COLORS = {
   Trash: "#8E8E93",
 };
 
-const STATUS_ORDER = ["Qualifying", "Bidding", "Pending", "Won", "Lost", "On Hold", "Draft"];
+const STATUS_ORDER = ["Qualifying", "Bidding", "Submitted", "Won", "Lost", "On Hold", "Draft"];
 
 /* ── Helper: is date within this week (Mon–Sun)? ── */
 function isDueThisWeek(dateStr) {
@@ -70,7 +67,7 @@ function isDueThisWeek(dateStr) {
 }
 
 /* ── Inline status dropdown ── */
-function StatusDropdown({ currentStatus, onSelect, onClose, C, T }) {
+function StatusDropdown({ currentStatus, onSelect, onClose, C, T: _T }) {
   const ref = useRef(null);
   useEffect(() => {
     const handler = e => {
@@ -167,7 +164,16 @@ function PresenceDots({ viewers, C }) {
 }
 
 /* ── Kanban Card ── */
-function KanbanCard({ est, C, T, navigate, onStatusChange, onDuplicate, onDelete, viewers }) {
+function KanbanCard({
+  est,
+  C,
+  T,
+  navigate,
+  onStatusChange: _onStatusChange,
+  onDuplicate: _onDuplicate,
+  onDelete: _onDelete,
+  viewers,
+}) {
   const sc = STATUS_COLORS[est.status] || STATUS_COLORS.Draft;
   return (
     <div
@@ -237,21 +243,6 @@ function KanbanCard({ est, C, T, navigate, onStatusChange, onDuplicate, onDelete
             LOST
           </span>
         )}
-        {est.parentEstimateId && (
-          <span
-            style={{
-              fontSize: 8,
-              fontWeight: 700,
-              color: C.accent,
-              background: `${C.accent}15`,
-              padding: "1px 5px",
-              borderRadius: 3,
-              flexShrink: 0,
-            }}
-          >
-            REV {est.revisionNumber || "?"}
-          </span>
-        )}
       </div>
       {est.estimateNumber && (
         <div style={{ fontSize: 9, color: C.accent, fontWeight: 500, marginBottom: 2 }}>#{est.estimateNumber}</div>
@@ -274,7 +265,6 @@ export default function ProjectsPage() {
   const T = C.T;
   const navigate = useNavigate();
   const estimatesIndex = useEstimatesStore(s => s.estimatesIndex);
-  const createEstimate = useEstimatesStore(s => s.createEstimate);
   const deleteEstimate = useEstimatesStore(s => s.deleteEstimate);
   const duplicateEstimate = useEstimatesStore(s => s.duplicateEstimate);
   const updateIndexEntry = useEstimatesStore(s => s.updateIndexEntry);
@@ -483,7 +473,7 @@ export default function ProjectsPage() {
       const est = estimatesIndex.find(e => e.id === estId);
       if (!est) return;
 
-      if (newStatus === "Pending") {
+      if (newStatus === "Submitted") {
         setCompletionEst(est);
       } else if (newStatus === "Won" || newStatus === "Lost") {
         setOutcomeEst({ estimate: est, status: newStatus });
@@ -782,7 +772,6 @@ export default function ProjectsPage() {
                   color: dueThisWeek ? "#FBBF24" : C.textMuted,
                   border: `1px solid ${dueThisWeek ? "#FBBF2440" : C.border}`,
                   fontWeight: dueThisWeek ? 600 : 400,
-                  whiteSpace: "nowrap",
                 }}
               >
                 Due This Week
@@ -1455,45 +1444,9 @@ export default function ProjectsPage() {
           estimate={outcomeEst.estimate}
           status={outcomeEst.status}
           onSave={outcome => {
-            const est = outcomeEst.estimate;
-            const estStatus = outcomeEst.status;
-            updateIndexEntry(est.id, { outcomeMetadata: outcome });
+            updateIndexEntry(outcomeEst.estimate.id, { outcomeMetadata: outcome });
             showToast("Outcome saved");
             setOutcomeEst(null);
-
-            // NOVA Core: sync completed estimate when Won
-            if (estStatus === "Won") {
-              console.log("[ProjectsPage] Won detected, firing sync", { estId: est.id, estOrgId: est.orgId, storeOrgId: useOrgStore.getState().org?.id });
-              const orgId = est.orgId || useOrgStore.getState().org?.id;
-              if (orgId) {
-                // Load estimate data for line items (async, non-blocking)
-                loadEstimate(est.id).then(() => {
-                  const items = useItemsStore.getState().items;
-                  const project = useProjectStore.getState();
-                  syncCompletedEstimate({
-                    estimateId: est.id,
-                    estimateIndex: est,
-                    project,
-                    items,
-                    outcomeMetadata: outcome,
-                    orgId,
-                  }).catch(err => console.error("[ProjectsPage] NOVA Core sync failed:", err));
-                }).catch((loadErr) => {
-                  console.warn("[ProjectsPage] loadEstimate failed, syncing without items:", loadErr);
-                  // If we can't load, sync with index data only (no line items)
-                  syncCompletedEstimate({
-                    estimateId: est.id,
-                    estimateIndex: est,
-                    project: {},
-                    items: [],
-                    outcomeMetadata: outcome,
-                    orgId,
-                  }).catch(err => console.error("[ProjectsPage] NOVA Core sync failed:", err));
-                });
-              } else {
-                console.warn("[ProjectsPage] Won but no orgId — sync skipped");
-              }
-            }
           }}
           onSkip={() => setOutcomeEst(null)}
         />

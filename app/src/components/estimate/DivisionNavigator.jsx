@@ -43,6 +43,7 @@ export default function DivisionNavigator({ activeDivision, onSelectDivision }) 
                 : "empty",
       }))
       .sort((a, b) => a.code.localeCompare(b.code));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items]);
 
   const totalItems = items.length;

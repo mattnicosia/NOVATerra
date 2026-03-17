@@ -253,7 +253,7 @@ export function ThemeProvider({ children }) {
       const shellBg = value.bgGradient || bg; // app shell uses bgGradient (grey field) if set
       const bg1 = value.bg1 || "#FFFFFF";
       const border = value.border || "#D1D1D6";
-      const text = value.text || "#1D1D1F";
+      const _text = value.text || "#1D1D1F";
       const isDark = value.isDark;
 
       const existing = document.getElementById(STYLE_ID);

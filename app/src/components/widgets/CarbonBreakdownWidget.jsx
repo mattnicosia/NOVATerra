@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { CARBON_TRADE_DEFAULTS } from "@/constants/embodiedCarbonDb";
@@ -234,9 +234,7 @@ export default function CarbonBreakdownWidget() {
                   width: "100%",
                   height: "100%",
                   borderRadius: 2,
-                  background: isConcrete
-                    ? `linear-gradient(90deg, ${C.textDim}, ${C.textMuted})`
-                    : row.gradient,
+                  background: isConcrete ? `linear-gradient(90deg, ${C.textDim}, ${C.textMuted})` : row.gradient,
                   boxShadow: isConcrete ? "none" : `0 0 8px ${row.shadow}`,
                   transform: `scaleX(${barScales[i] || 0})`,
                   transformOrigin: "left",

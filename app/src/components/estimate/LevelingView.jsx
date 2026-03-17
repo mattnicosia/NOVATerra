@@ -7,7 +7,7 @@ import { useProjectStore } from "@/stores/projectStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
-import { inp, nInp, bt } from "@/utils/styles";
+// styles utils available if needed: inp, nInp, bt
 import { nn, fmt, pct } from "@/utils/format";
 import { TRADE_MAP } from "@/constants/tradeGroupings";
 
@@ -135,7 +135,7 @@ function CellContextMenu({ pos, item, currentStatus, getItemTotal, onSelect, onC
 /* ─── Sub Autocomplete — CRM-backed search with inline add ─── */
 function SubAutocomplete({ newSubName, setNewSubName, newSubRef, onSelect, onCancel, C }) {
   const T = C.T;
-  const subs = useMasterDataStore(s => s.masterData.subcontractors) || [];
+  const masterSubs = useMasterDataStore(s => s.masterData.subcontractors);
   const addMasterItem = useMasterDataStore(s => s.addMasterItem);
   const [showDropdown, setShowDropdown] = useState(true);
   const [showNewForm, setShowNewForm] = useState(false);
@@ -144,9 +144,10 @@ function SubAutocomplete({ newSubName, setNewSubName, newSubRef, onSelect, onCan
 
   // Filter subs by search term
   const filtered = useMemo(() => {
-    if (!newSubName.trim()) return subs.slice(0, 8);
+    const list = masterSubs || [];
+    if (!newSubName.trim()) return list.slice(0, 8);
     const q = newSubName.toLowerCase();
-    return subs
+    return list
       .filter(
         s =>
           (s.company || "").toLowerCase().includes(q) ||
@@ -156,7 +157,7 @@ function SubAutocomplete({ newSubName, setNewSubName, newSubRef, onSelect, onCan
           (s.contact || "").toLowerCase().includes(q),
       )
       .slice(0, 8);
-  }, [newSubName, subs]);
+  }, [newSubName, masterSubs]);
 
   const handleSelectExisting = sub => {
     onSelect(sub.company);
@@ -778,7 +779,6 @@ export default function LevelingView() {
   const bidTotals = useBidLevelingStore(s => s.bidTotals);
   const setBidTotals = useBidLevelingStore(s => s.setBidTotals);
   const bidCells = useBidLevelingStore(s => s.bidCells);
-  const setBidCells = useBidLevelingStore(s => s.setBidCells);
   const bidSelections = useBidLevelingStore(s => s.bidSelections);
   const setBidSelections = useBidLevelingStore(s => s.setBidSelections);
   const linkedSubs = useBidLevelingStore(s => s.linkedSubs);
@@ -819,6 +819,8 @@ export default function LevelingView() {
       groups[sk].total += getItemTotal(item);
     });
     return Object.values(groups).sort((a, b) => a.sk.localeCompare(b.sk));
+    // getItemTotal is a stable Zustand selector
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items]);
 
   // Collect ALL subs across all subdivisions for column headers
@@ -939,6 +941,8 @@ export default function LevelingView() {
 
   const totalBidValue = useMemo(
     () => subdivisions.reduce((sum, sub) => sum + getSelectedBidValue(sub.sk), 0),
+    // getSelectedBidValue deps already listed explicitly
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [subdivisions, bidSelections, bidCells, bidTotals, subBidSubs, linkedSubs],
   );
 
@@ -1279,11 +1283,11 @@ function SubdivisionGroup({
   isCollapsed,
   C,
   T,
-  subColWidth,
+  _subColWidth,
   getCell,
-  getCellComputedValue,
+  _getCellComputedValue,
   saveCell,
-  saveCellWithStatus,
+  _saveCellWithStatus,
   setCellMenu,
   getHighlight,
   getItemTotal,
@@ -1291,8 +1295,8 @@ function SubdivisionGroup({
   getSkSubTotal,
   getSelectedBidValue,
   setBidSelection,
-  setBidTotals,
-  bidTotals,
+  _setBidTotals,
+  _bidTotals,
   autoCarry,
   onToggle,
   onAddSub,
@@ -1303,7 +1307,7 @@ function SubdivisionGroup({
   onConfirmAddSub,
   onCancelAddSub,
   skLinked,
-  linkedSubs,
+  _linkedSubs,
 }) {
   const selVal = getSelectedBidValue(sub.sk);
   const totalCols = 6 + allSubs.length + 1; // fixed + internal + subs + add btn

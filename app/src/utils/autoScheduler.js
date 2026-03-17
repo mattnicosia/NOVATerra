@@ -41,7 +41,7 @@ function subtractWeekdays(fromDate, n) {
 export function autoSchedule(estimates, estimators, settings = {}) {
   const {
     effectiveHoursPerDay = 5.95,
-    specialtiesMap = new Map(),
+    specialtiesMap: _specialtiesMap = new Map(),
     complexityMultipliers = { light: 0.8, normal: 1.0, heavy: 1.3 },
     allEstimates = [],
     mode = "all",
@@ -54,7 +54,7 @@ export function autoSchedule(estimates, estimators, settings = {}) {
 
   // Only schedule active estimates with due dates
   const eligible = estimates.filter(
-    e => ["Bidding", "Pending"].includes(e.status) && e.bidDue && e.estimatedHours > 0,
+    e => ["Bidding", "Submitted"].includes(e.status) && e.bidDue && e.estimatedHours > 0,
   );
 
   // Determine which estimators participate

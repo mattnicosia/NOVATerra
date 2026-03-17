@@ -123,9 +123,7 @@ export function generateTakeoffSuggestions(scanResults) {
   // ── Source 2: Line items from scan (schedule-derived items with costs) ──
   lineItems.forEach(li => {
     // Skip if we already have a suggestion with matching code + description
-    const isDuplicate = suggestions.some(
-      s => s.code === li.code && s.description === li.description,
-    );
+    const isDuplicate = suggestions.some(s => s.code === li.code && s.description === li.description);
     if (isDuplicate) return;
 
     const div = li.code?.split(".")[0] || "";
@@ -185,27 +183,19 @@ function buildScheduleDescription(schedType, entry) {
 
   switch (schedType) {
     case "door":
-      return [
-        mark ? `Door ${mark}` : "Door",
-        type,
-        material,
-        desc,
-      ].filter(Boolean).join(" — ").slice(0, 120);
+      return [mark ? `Door ${mark}` : "Door", type, material, desc].filter(Boolean).join(" — ").slice(0, 120);
 
     case "window":
-      return [
-        mark ? `Window ${mark}` : "Window",
-        type,
-        entry.size || "",
-        material,
-      ].filter(Boolean).join(" — ").slice(0, 120);
+      return [mark ? `Window ${mark}` : "Window", type, entry.size || "", material]
+        .filter(Boolean)
+        .join(" — ")
+        .slice(0, 120);
 
     case "wall-types":
-      return [
-        mark ? `Wall Type ${mark}` : "Wall Type",
-        desc || type,
-        entry.thickness ? `${entry.thickness} thick` : "",
-      ].filter(Boolean).join(" — ").slice(0, 120);
+      return [mark ? `Wall Type ${mark}` : "Wall Type", desc || type, entry.thickness ? `${entry.thickness} thick` : ""]
+        .filter(Boolean)
+        .join(" — ")
+        .slice(0, 120);
 
     case "finish":
       return [
@@ -215,40 +205,34 @@ function buildScheduleDescription(schedType, entry) {
         entry.floor ? `Floor: ${entry.floor}` : "",
         entry.walls ? `Walls: ${entry.walls}` : "",
         entry.ceiling ? `Ceil: ${entry.ceiling}` : "",
-      ].filter(Boolean).join(" — ").slice(0, 120);
+      ]
+        .filter(Boolean)
+        .join(" — ")
+        .slice(0, 120);
 
     case "plumbing-fixture":
-      return [
-        mark ? `Plumb ${mark}` : "Plumbing Fixture",
-        desc || type,
-        entry.manufacturer || "",
-      ].filter(Boolean).join(" — ").slice(0, 120);
+      return [mark ? `Plumb ${mark}` : "Plumbing Fixture", desc || type, entry.manufacturer || ""]
+        .filter(Boolean)
+        .join(" — ")
+        .slice(0, 120);
 
     case "equipment":
-      return [
-        mark ? `Equip ${mark}` : "Equipment",
-        desc || type,
-      ].filter(Boolean).join(" — ").slice(0, 120);
+      return [mark ? `Equip ${mark}` : "Equipment", desc || type].filter(Boolean).join(" — ").slice(0, 120);
 
     case "lighting-fixture":
-      return [
-        mark ? `Light ${mark}` : "Lighting Fixture",
-        desc || type,
-        entry.lamp || entry.wattage || "",
-      ].filter(Boolean).join(" — ").slice(0, 120);
+      return [mark ? `Light ${mark}` : "Lighting Fixture", desc || type, entry.lamp || entry.wattage || ""]
+        .filter(Boolean)
+        .join(" — ")
+        .slice(0, 120);
 
     case "mechanical-equipment":
-      return [
-        mark ? `Mech ${mark}` : "Mechanical Equipment",
-        desc || type,
-        entry.capacity || "",
-      ].filter(Boolean).join(" — ").slice(0, 120);
+      return [mark ? `Mech ${mark}` : "Mechanical Equipment", desc || type, entry.capacity || ""]
+        .filter(Boolean)
+        .join(" — ")
+        .slice(0, 120);
 
     case "finish-detail":
-      return [
-        mark ? `Finish Detail ${mark}` : "Finish Detail",
-        desc || type,
-      ].filter(Boolean).join(" — ").slice(0, 120);
+      return [mark ? `Finish Detail ${mark}` : "Finish Detail", desc || type].filter(Boolean).join(" — ").slice(0, 120);
 
     default:
       return desc || type || `${schedType} item`;
@@ -268,17 +252,18 @@ function buildCode(division, schedType, entry) {
   if (entry.code) return entry.code;
   if (!division) return "";
 
-  const subCode = {
-    door: "100",
-    window: "500",
-    "wall-types": "200",
-    finish: "300",
-    "plumbing-fixture": "100",
-    equipment: "100",
-    "lighting-fixture": "500",
-    "mechanical-equipment": "300",
-    "finish-detail": "900",
-  }[schedType] || "000";
+  const subCode =
+    {
+      door: "100",
+      window: "500",
+      "wall-types": "200",
+      finish: "300",
+      "plumbing-fixture": "100",
+      equipment: "100",
+      "lighting-fixture": "500",
+      "mechanical-equipment": "300",
+      "finish-detail": "900",
+    }[schedType] || "000";
 
   return `${division}.${subCode}`;
 }
@@ -303,7 +288,7 @@ function buildScheduleReasoning(schedType, entry, sched) {
 }
 
 // ── Cost estimation from ROM data ─────────────────────────────────
-function estimateCostFromRom(rom, division, quantity, unit) {
+function estimateCostFromRom(rom, division, quantity, _unit) {
   if (!rom?.divisions?.[division]) return null;
 
   const divData = rom.divisions[division];
@@ -312,10 +297,10 @@ function estimateCostFromRom(rom, division, quantity, unit) {
 
   // Rough split: 40% material, 35% labor, 10% equipment, 15% sub
   return {
-    material: Math.round(midTotal * 0.4 / Math.max(quantity, 1)),
-    labor: Math.round(midTotal * 0.35 / Math.max(quantity, 1)),
-    equipment: Math.round(midTotal * 0.1 / Math.max(quantity, 1)),
-    sub: Math.round(midTotal * 0.15 / Math.max(quantity, 1)),
+    material: Math.round((midTotal * 0.4) / Math.max(quantity, 1)),
+    labor: Math.round((midTotal * 0.35) / Math.max(quantity, 1)),
+    equipment: Math.round((midTotal * 0.1) / Math.max(quantity, 1)),
+    sub: Math.round((midTotal * 0.15) / Math.max(quantity, 1)),
   };
 }
 

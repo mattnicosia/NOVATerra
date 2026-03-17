@@ -34,7 +34,6 @@ const neroGlassStyle = (C, tier = "md") => {
 export { neroGlassStyle, neroCarbon };
 
 export const inp = (C, overrides) => {
-  const tokens = C.T || T;
   return {
     background: C.neroMode ? "rgba(0,0,0,0.35)" : C.isDark ? "rgba(0,0,0,0.25)" : "rgba(255,255,255,0.45)",
     border: `1px solid ${C.isDark ? C.glassBorder || C.border : C.glassBorder || C.border || "rgba(0,0,0,0.12)"}`,
@@ -303,15 +302,13 @@ export const mono = () => ({
 });
 
 // Page container — transparent so gradient shows through
-export const pageContainer = C => ({
+export const pageContainer = _C => ({
   padding: T.space[8],
   minHeight: "100%",
 });
 
 // Gradient accent button — Liquid Glass glow on light
 export const accentButton = (C, overrides) => {
-  const tokens = C.T || T;
-
   // ── NERO: Accent glow + sm-tier glass specular ──
   if (C.neroMode) {
     const ng = (C.T || T).neroGlass?.sm || {};

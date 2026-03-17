@@ -111,6 +111,7 @@ const NovacoreSphere = forwardRef(function NovacoreSphere(
       uCorePalC: { value: CORE_PAL.c },
       uCorePalD: { value: CORE_PAL.d },
     }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- uniforms created once; values updated imperatively in useFrame
     [],
   );
 
@@ -125,6 +126,7 @@ const NovacoreSphere = forwardRef(function NovacoreSphere(
       uNovaGlow: { value: new THREE.Vector3(0.1, 0.18, 0.9) }, // v11.5b: blue glow matching blue star body
       uCoreGlow: { value: new THREE.Vector3(0.95, 0.6, 0.12) },
     }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- uniforms created once; values updated imperatively in useFrame
     [],
   );
 

@@ -17,7 +17,6 @@ const fmt = v =>
 
 export default function ProposalDetailModal({ proposal, onClose, estimateItems, projectName, packageName }) {
   const C = useTheme();
-  const T = C.T;
   const [activeTab, setActiveTab] = useState("details");
   const [downloading, setDownloading] = useState(false);
 

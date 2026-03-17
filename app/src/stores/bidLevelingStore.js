@@ -1,7 +1,7 @@
 import { create } from "zustand";
-import { uid, nn } from "@/utils/format";
+import { uid } from "@/utils/format";
 
-export const useBidLevelingStore = create((set, get) => ({
+export const useBidLevelingStore = create((set, _get) => ({
   subBidSubs: {},
   bidTotals: {},
   bidCells: {},
@@ -18,7 +18,6 @@ export const useBidLevelingStore = create((set, get) => ({
   overrides: {}, // { "divKey-subIdx": number }
   selections: {}, // { divKey: subIdx | null } — which sub is selected per division
   editingCell: null, // { divKey, subIdx } — currently editing cell
-  preferredSubs: {}, // { trade: { subId, subName, totalBid } } — one preferred per trade
 
   setSubBidSubs: v => set({ subBidSubs: v }),
   setBidTotals: v => set({ bidTotals: v }),
@@ -60,27 +59,6 @@ export const useBidLevelingStore = create((set, get) => ({
   // Editing cell
   setEditingCell: cell => set({ editingCell: cell }),
   clearEditingCell: () => set({ editingCell: null }),
-
-  // Preferred subs — one per trade for revision re-engagement
-  setPreferredSubs: v => set({ preferredSubs: v || {} }),
-  setPreferredSub: (trade, subInfo) =>
-    set(s => ({ preferredSubs: { ...s.preferredSubs, [trade]: subInfo } })),
-  removePreferredSub: trade =>
-    set(s => {
-      const next = { ...s.preferredSubs };
-      delete next[trade];
-      return { preferredSubs: next };
-    }),
-  togglePreferredSub: (trade, subInfo) =>
-    set(s => {
-      const current = s.preferredSubs[trade];
-      if (current && current.subId === subInfo.subId) {
-        const next = { ...s.preferredSubs };
-        delete next[trade];
-        return { preferredSubs: next };
-      }
-      return { preferredSubs: { ...s.preferredSubs, [trade]: subInfo } };
-    }),
 
   addLinkedSub: () =>
     set(s => ({

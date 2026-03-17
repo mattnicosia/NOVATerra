@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useWidgetStore } from "@/stores/widgetStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -19,11 +19,10 @@ function timeAgo(dateStr) {
   return `${diffDays}d ago`;
 }
 
-export default function DashboardFooter({ estimateCount = 0, lastModified = null, onShowPicker }) {
+export default function DashboardFooter({ estimateCount: _estimateCount = 0, lastModified = null, onShowPicker }) {
   const C = useTheme();
   const T = C.T;
   const dk = C.isDark;
-  const ov = a => (dk ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`);
 
   const editMode = useWidgetStore(s => s.editMode);
   const toggleEditMode = useWidgetStore(s => s.toggleEditMode);

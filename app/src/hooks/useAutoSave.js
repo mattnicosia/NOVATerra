@@ -27,7 +27,6 @@ import { useDatabaseStore } from "@/stores/databaseStore";
 import { useModuleStore } from "@/stores/moduleStore";
 import { useCalendarStore } from "@/stores/calendarStore";
 import { useGroupsStore } from "@/stores/groupsStore";
-import { useDiscoveryStore } from "@/stores/discoveryStore";
 import { useBidPackagesStore } from "@/stores/bidPackagesStore";
 import { useAutoResponseStore } from "@/stores/autoResponseStore";
 import { useSubdivisionStore } from "@/stores/subdivisionStore";
@@ -104,7 +103,6 @@ export function useAutoSave() {
       useModuleStore.subscribe(scheduleEstSave),
       useGroupsStore.subscribe(scheduleEstSave),
       useBidPackagesStore.subscribe(scheduleEstSave),
-      useDiscoveryStore.subscribe(scheduleEstSave),
       useDrawingsStore.subscribe(scheduleDrawSave),
       // Flush pending save for outgoing estimate, then cancel timers
       useEstimatesStore.subscribe((state, prev) => {

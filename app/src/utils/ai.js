@@ -51,7 +51,7 @@ async function forceRefreshToken() {
 
 // ─── CORE: Non-streaming call ────────────────────────────────────
 export async function callAnthropic({
-  apiKey,
+  apiKey: _apiKey,
   model = DEFAULT_MODEL,
   max_tokens = 1000,
   messages,
@@ -124,7 +124,9 @@ export async function callAnthropic({
         let errBody = null;
         try {
           errBody = await resp.json();
-        } catch {}
+        } catch {
+          /* non-critical */
+        }
         const serverMsg = errBody?.error?.message || errBody?.error || "";
         const errType = errBody?.error?.type || "";
         console.error(`[AI] HTTP ${status} ${errType}:`, serverMsg, errBody);
@@ -161,7 +163,7 @@ export async function callAnthropic({
 
 // ─── CORE: Streaming call ────────────────────────────────────────
 export async function callAnthropicStream({
-  apiKey,
+  apiKey: _apiKey,
   model = DEFAULT_MODEL,
   max_tokens = 1000,
   messages,
@@ -214,7 +216,9 @@ export async function callAnthropicStream({
     let errBody = null;
     try {
       errBody = await resp.json();
-    } catch {}
+    } catch {
+      /* non-critical */
+    }
     const serverMsg = errBody?.error?.message || errBody?.error || "";
     if (status === 401) throw new Error("Session expired — please sign in again.");
     if (status === 413) throw new Error(`Request too large (${status}): file may exceed API size limit`);
@@ -539,7 +543,7 @@ export function deduplicateOCRText(quadrantTexts) {
   // Keep all lines, but skip duplicates that appear across quadrant boundaries
   const emittedCrossQuadrant = new Set();
   const result = [];
-  for (const { key, original, qi } of allLines) {
+  for (const { key, original, qi: _qi } of allLines) {
     const quadrants = linesByQuadrant.get(key);
     if (quadrants.size > 1) {
       // Line appears in multiple quadrants — overlap artifact, emit only once

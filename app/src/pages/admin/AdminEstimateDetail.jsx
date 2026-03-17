@@ -3,8 +3,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useAdminFetch } from "@/hooks/useAdminFetch";
 import { card } from "@/utils/styles";
-import Ic from "@/components/shared/Ic";
-import { I } from "@/constants/icons";
 
 export default function AdminEstimateDetail() {
   const { userId, estimateId } = useParams();
@@ -126,9 +124,7 @@ export default function AdminEstimateDetail() {
             }}
           >
             <div style={{ fontSize: 10, color: C.textMuted, marginBottom: 4 }}>{s.label}</div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: s.color, fontFamily: T.font.sans }}>
-              {s.value}
-            </div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: s.color, fontFamily: T.font.sans }}>{s.value}</div>
           </div>
         ))}
       </div>
@@ -176,9 +172,7 @@ export default function AdminEstimateDetail() {
                 <span style={{ textAlign: "right", color: C.textDim, fontFamily: T.font.sans }}>
                   {item.quantity ?? "—"}
                 </span>
-                <span
-                  style={{ textAlign: "right", color: C.text, fontFamily: T.font.sans, fontWeight: 500 }}
-                >
+                <span style={{ textAlign: "right", color: C.text, fontFamily: T.font.sans, fontWeight: 500 }}>
                   {item.total ? `$${Math.round(item.total).toLocaleString()}` : "—"}
                 </span>
               </div>

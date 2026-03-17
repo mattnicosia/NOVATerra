@@ -106,7 +106,6 @@ export function BarChart({
 // data: [number], height: number, color: string
 export function Spark({ data, height = 24, color, width }) {
   const C = useTheme();
-  const T = C.T;
   if (!data || data.length === 0) return null;
   const c = color || C.accent;
   const maxVal = Math.max(...data);
@@ -140,7 +139,6 @@ export function Spark({ data, height = 24, color, width }) {
 // Shows low-mid-high range with optional marker
 export function RangeBar({ low, mid, high, marker, color, markerColor, markerLabel, height = 6 }) {
   const C = useTheme();
-  const T = C.T;
   const c = color || C.accent;
   const max = high * 1.1; // 10% padding
   const lowPct = (low / max) * 100;
@@ -282,7 +280,6 @@ export function Ring({ segments, size = 80, thickness = 8, centerLabel, centerVa
 // ── Gradient Bar (horizontal) ──
 export function GradientBar({ pct, color, height = 4, glow }) {
   const C = useTheme();
-  const T = C.T;
   return (
     <div style={{ height, borderRadius: height / 2, background: C.bg2, flex: 1, position: "relative" }}>
       <div

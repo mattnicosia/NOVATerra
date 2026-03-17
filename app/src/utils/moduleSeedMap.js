@@ -375,12 +375,12 @@ function findMSSize(gaugeRow, size) {
   if (!gaugeRow) return null;
   if (gaugeRow[size]) return gaugeRow[size];
   // Parse numeric inches for closest match
-  const numMatch = size.match(/([\d\-\/]+)/);
+  const numMatch = size.match(/([\d\-/]+)/);
   const sizeNum = numMatch ? parseFloat(numMatch[1].replace(/-/, ".").replace(/\//, ".")) : 0;
   let bestId = null,
     bestDelta = Infinity;
   for (const [k, v] of Object.entries(gaugeRow)) {
-    const km = k.match(/([\d\-\/]+)/);
+    const km = k.match(/([\d\-/]+)/);
     const kn = km ? parseFloat(km[1].replace(/-/, ".").replace(/\//, ".")) : 0;
     const delta = Math.abs(kn - sizeNum);
     if (delta < bestDelta) {

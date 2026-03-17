@@ -1,7 +1,7 @@
-import { create } from 'zustand';
-import { uid } from '@/utils/format';
+import { create } from "zustand";
+import { uid } from "@/utils/format";
 
-export const useSpecsStore = create((set, get) => ({
+export const useSpecsStore = create((set, _get) => ({
   specs: [],
   specPdf: null,
   specViewPage: null,
@@ -10,43 +10,51 @@ export const useSpecsStore = create((set, get) => ({
   clarifications: [],
   aiExclusionLoading: false,
 
-  setSpecs: (v) => set({ specs: v }),
-  setSpecPdf: (v) => set({ specPdf: v }),
-  setSpecViewPage: (v) => set({ specViewPage: v }),
-  setSpecParseLoading: (v) => set({ specParseLoading: v }),
-  setExclusions: (v) => set({ exclusions: v }),
-  setClarifications: (v) => set({ clarifications: v }),
-  setAiExclusionLoading: (v) => set({ aiExclusionLoading: v }),
+  setSpecs: v => set({ specs: v }),
+  setSpecPdf: v => set({ specPdf: v }),
+  setSpecViewPage: v => set({ specViewPage: v }),
+  setSpecParseLoading: v => set({ specParseLoading: v }),
+  setExclusions: v => set({ exclusions: v }),
+  setClarifications: v => set({ clarifications: v }),
+  setAiExclusionLoading: v => set({ aiExclusionLoading: v }),
 
-  addSpec: (spec) => set(s => ({
-    specs: [...s.specs, { id: uid(), ...spec }],
-  })),
+  addSpec: spec =>
+    set(s => ({
+      specs: [...s.specs, { id: uid(), ...spec }],
+    })),
 
-  updateSpec: (id, field, value) => set(s => ({
-    specs: s.specs.map(sp => sp.id === id ? { ...sp, [field]: value } : sp),
-  })),
+  updateSpec: (id, field, value) =>
+    set(s => ({
+      specs: s.specs.map(sp => (sp.id === id ? { ...sp, [field]: value } : sp)),
+    })),
 
-  removeSpec: (id) => set(s => ({
-    specs: s.specs.filter(sp => sp.id !== id),
-  })),
+  removeSpec: id =>
+    set(s => ({
+      specs: s.specs.filter(sp => sp.id !== id),
+    })),
 
-  addExclusion: (exclusion) => set(s => ({
-    exclusions: [...s.exclusions, { id: uid(), ...exclusion }],
-  })),
+  addExclusion: exclusion =>
+    set(s => ({
+      exclusions: [...s.exclusions, { id: uid(), ...exclusion }],
+    })),
 
-  removeExclusion: (id) => set(s => ({
-    exclusions: s.exclusions.filter(e => e.id !== id),
-  })),
+  removeExclusion: id =>
+    set(s => ({
+      exclusions: s.exclusions.filter(e => e.id !== id),
+    })),
 
-  addClarification: (category, text) => set(s => ({
-    clarifications: [...s.clarifications, { id: uid(), text: text || "", category: category || "" }],
-  })),
+  addClarification: (category, text) =>
+    set(s => ({
+      clarifications: [...s.clarifications, { id: uid(), text: text || "", category: category || "" }],
+    })),
 
-  updateClarification: (id, field, value) => set(s => ({
-    clarifications: s.clarifications.map(c => c.id === id ? { ...c, [field]: value } : c),
-  })),
+  updateClarification: (id, field, value) =>
+    set(s => ({
+      clarifications: s.clarifications.map(c => (c.id === id ? { ...c, [field]: value } : c)),
+    })),
 
-  removeClarification: (id) => set(s => ({
-    clarifications: s.clarifications.filter(c => c.id !== id),
-  })),
+  removeClarification: id =>
+    set(s => ({
+      clarifications: s.clarifications.filter(c => c.id !== id),
+    })),
 }));

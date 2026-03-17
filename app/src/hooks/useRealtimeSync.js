@@ -171,15 +171,17 @@ export function useRealtimeSync() {
     document.addEventListener("visibilitychange", handleVisibility);
 
     // ── Cleanup ──
+    // Copy ref values before cleanup runs (React refs may change by cleanup time)
+    const timers = throttleTimersRef.current;
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibility);
 
       // Clear throttle timers
-      for (const timer of throttleTimersRef.current.values()) {
+      for (const timer of timers.values()) {
         clearTimeout(timer);
       }
-      throttleTimersRef.current.clear();
+      timers.clear();
 
       // Clear reconnect timer
       if (reconnectTimerRef.current) {
@@ -194,7 +196,9 @@ export function useRealtimeSync() {
         for (const ch of channels) {
           try {
             supabase?.removeChannel(ch);
-          } catch {}
+          } catch {
+            /* channel cleanup non-critical */
+          }
         }
       }, 100);
     };
@@ -245,7 +249,9 @@ async function _handleEstimateChange(payload) {
       try {
         await storage.set(idbKey("bldg-index"), JSON.stringify(filtered));
         await storage.delete(idbKey(`bldg-est-${estimateId}`));
-      } catch {}
+      } catch {
+        /* IDB cleanup non-critical */
+      }
     }
     return;
   }
@@ -271,7 +277,9 @@ async function _handleEstimateChange(payload) {
       try {
         const updatedIndex = [...currentIndex, indexEntry];
         await storage.set(idbKey("bldg-index"), JSON.stringify(updatedIndex));
-      } catch {}
+      } catch {
+        /* IDB index update non-critical */
+      }
     }
   }
 }

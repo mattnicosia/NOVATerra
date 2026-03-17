@@ -173,7 +173,7 @@ const NAV_ITEMS = [
 ];
 
 /* ── Logo Portal — 28px video orb with glow ring ── */
-function LogoPortal({ isNova, accent }) {
+function _LogoPortal({ isNova, accent }) {
   return (
     <div
       style={{
@@ -400,7 +400,6 @@ function CompanyDropdown({ onClose }) {
       ? "0 8px 32px rgba(0,0,0,0.5), 0 0 1px rgba(255,255,255,0.1)"
       : "0 8px 32px rgba(0,0,0,0.12), 0 0 1px rgba(0,0,0,0.06)";
   const ddBlur = isNeroDd ? ngMd.blur || "blur(16px) saturate(150%)" : "blur(32px)";
-  const ddDivider = dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
   const ddHover = isNeroDd ? "rgba(255,255,255,0.06)" : dk ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)";
   const ddText = dk ? "rgba(238,237,245,0.82)" : "rgba(0,0,0,0.78)";
   const ddTextDim = dk ? "rgba(238,237,245,0.45)" : "rgba(0,0,0,0.40)";
@@ -624,7 +623,7 @@ function NovaHeader({ onDraftPanelToggle }) {
   // Nav colors
   const navActive = dk ? "#FFFFFF" : C.text;
   const navInactive = C.textMuted;
-  const navHover = dk ? "rgba(238,237,245,0.85)" : C.text;
+  const _navHover = dk ? "rgba(238,237,245,0.85)" : C.text;
 
   // Button colors (search pill, AI chat, notifications)
   const btnDim = C.textDim;
@@ -635,8 +634,8 @@ function NovaHeader({ onDraftPanelToggle }) {
   const accentDim = C.accentDim;
 
   // Logo
-  const logoText = dk ? "rgba(238,237,245,0.9)" : C.text;
-  const logoV = isNova ? "#A78BFA" : accent;
+  const _logoText = dk ? "rgba(238,237,245,0.9)" : C.text;
+  const _logoV = isNova ? "#A78BFA" : accent;
 
   // Toggle
   const tglActive = dk ? "#FFFFFF" : C.text;

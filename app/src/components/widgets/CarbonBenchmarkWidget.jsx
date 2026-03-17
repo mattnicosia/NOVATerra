@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { CARBON_BENCHMARKS, CARBON_TRADE_DEFAULTS } from "@/constants/embodiedCarbonDb";

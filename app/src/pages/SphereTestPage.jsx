@@ -79,7 +79,7 @@ function ControlSection({ title, children }) {
   );
 }
 
-function ToggleButton({ active, onClick, label, activeColor }) {
+function ToggleButton({ active, onClick, _label, activeColor }) {
   return (
     <button
       onClick={onClick}

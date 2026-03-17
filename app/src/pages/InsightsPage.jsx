@@ -5,9 +5,9 @@ import { useProjectStore } from "@/stores/projectStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useSnapshotsStore } from "@/stores/snapshotsStore";
 
-import { getTradeLabel, getTradeSortOrder, TRADE_MAP } from "@/constants/tradeGroupings";
-import { fmt, nn } from "@/utils/format";
-import { bt, card, sectionLabel, pageContainer, accentButton } from "@/utils/styles";
+import { TRADE_MAP } from "@/constants/tradeGroupings";
+import { fmt } from "@/utils/format";
+import { bt, card, sectionLabel, pageContainer } from "@/utils/styles";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 
@@ -36,28 +36,6 @@ export default function InsightsPage() {
 
   return (
     <div style={pageContainer(C)}>
-      {/* Coming Soon banner */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 8,
-          padding: "10px 16px",
-          marginBottom: T.space[4],
-          background: `${C.accent}10`,
-          border: `1px solid ${C.accent}25`,
-          borderRadius: T.radius.md,
-          fontSize: 12,
-          fontWeight: 600,
-          color: C.accent,
-          fontFamily: T.font.sans,
-          letterSpacing: "0.03em",
-        }}
-      >
-        Coming Soon — Insights is under active development
-      </div>
-
       {/* Tab Header */}
       <div style={{ display: "flex", alignItems: "center", gap: T.space[3], marginBottom: T.space[6] }}>
         <div
@@ -167,14 +145,12 @@ function CompareTab() {
   const items = useItemsStore(s => s.items);
   const getTotals = useItemsStore(s => s.getTotals);
   const project = useProjectStore(s => s.project);
-  const estimates = useEstimatesStore(s => s.estimates);
-
   // Direct state access with stable fallback
   const snapshots = useSnapshotsStore(s => s.snapshots[estimateId] ?? EMPTY_SNAPS);
   const computeDelta = useSnapshotsStore(s => s.computeDelta);
   const buildLive = useSnapshotsStore(s => s.buildLiveSnapshot);
 
-  const [compareMode, setCompareMode] = useState("snapshot"); // "snapshot" | "estimate"
+  const [_compareMode, _setCompareMode] = useState("snapshot"); // "snapshot" | "estimate"
   const [selectedA, setSelectedA] = useState("");
   const [selectedB, setSelectedB] = useState("_live");
 
@@ -346,6 +322,8 @@ function CompareTab() {
 // SHARED COMPONENTS
 // ────────────────────────────────────────────────────────────
 
+// Reserved for upcoming snapshot comparison UI
+// eslint-disable-next-line no-unused-vars
 function DeltaPanel({ delta, snapLabel }) {
   const C = useTheme();
   const T = C.T;

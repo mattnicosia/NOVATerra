@@ -86,7 +86,11 @@ export const useOrgStore = create((set, get) => ({
         const { organizations: orgData, ...mem } = memberRow;
         set({ org: orgData, membership: mem, orgReady: true });
         // Persist org ID for recovery — survives IDB eviction
-        try { localStorage.setItem("bldg-last-org-id", orgData.id); } catch {}
+        try {
+          localStorage.setItem("bldg-last-org-id", orgData.id);
+        } catch {
+          /* non-critical */
+        }
 
         // If manager/owner, also load members + invitations
         if (mem.role === "owner" || mem.role === "manager") {
@@ -165,7 +169,7 @@ export const useOrgStore = create((set, get) => ({
   },
 
   // ── Send estimator invitation (create record + send email) ──
-  sendEstimatorInvite: async (email, displayName) => {
+  sendEstimatorInvite: async (email, _displayName) => {
     // 1. Create invitation via existing inviteMember (role = "estimator")
     const result = await get().inviteMember(email, "estimator");
     if (result.error) return result;

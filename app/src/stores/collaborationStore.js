@@ -256,7 +256,9 @@ export const useCollaborationStore = create((set, get) => ({
           .eq("estimate_id", estimateId)
           .eq("org_id", orgId)
           .eq("user_id", userId);
-      } catch {}
+      } catch {
+        /* non-critical */
+      }
     }, PRESENCE_HEARTBEAT_MS);
 
     set({ _presenceInterval: presInterval });
@@ -323,7 +325,9 @@ export const useCollaborationStore = create((set, get) => ({
     if (_lockChannel) {
       try {
         supabase.removeChannel(_lockChannel);
-      } catch {}
+      } catch {
+        /* non-critical */
+      }
     }
 
     const channel = supabase
@@ -370,7 +374,9 @@ export const useCollaborationStore = create((set, get) => ({
     if (_presenceChannel) {
       try {
         supabase.removeChannel(_presenceChannel);
-      } catch {}
+      } catch {
+        /* non-critical */
+      }
     }
 
     const channel = supabase
@@ -404,10 +410,18 @@ export const useCollaborationStore = create((set, get) => ({
     // This avoids "WebSocket closed before connection" warnings from Supabase
     const cleanupChannels = () => {
       if (_lockChannel) {
-        try { supabase?.removeChannel(_lockChannel); } catch {}
+        try {
+          supabase?.removeChannel(_lockChannel);
+        } catch {
+          /* non-critical */
+        }
       }
       if (_presenceChannel) {
-        try { supabase?.removeChannel(_presenceChannel); } catch {}
+        try {
+          supabase?.removeChannel(_presenceChannel);
+        } catch {
+          /* non-critical */
+        }
       }
     };
     // If channels are still connecting, give them 100ms to finish before tearing down

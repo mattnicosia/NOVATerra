@@ -1,6 +1,6 @@
 // DetailOverlay — Resizable floating panel showing a referenced drawing detail
 // Pinned to top-right of the drawing area. User can resize by dragging bottom-left corner.
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useDrawingsStore } from "@/stores/drawingsStore";
 import Ic from "@/components/shared/Ic";

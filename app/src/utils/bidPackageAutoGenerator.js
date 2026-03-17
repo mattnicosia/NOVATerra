@@ -93,7 +93,7 @@ function mergeSmallTrades(groups, threshold = 3, mergeMap = DEFAULT_MERGE_MAP) {
 function getSheetPrefix(drawing) {
   const label = (drawing.label || drawing.sheetNumber || drawing.name || "").toUpperCase();
   // Match: "FP1.01" → "FP", "A1.01" → "A", "E2.01" → "E", "S-101" → "S"
-  const m = label.match(/^([A-Z]{1,2})[\d\-\.]/);
+  const m = label.match(/^([A-Z]{1,2})[\d\-.]/);
   return m ? m[1] : null;
 }
 
@@ -167,7 +167,7 @@ export function generateBidPackageProposals({ items, drawings, subs, project }) 
       id: uid(),
       tradeKey,
       mergedTradeKeys: mergedKeys,
-      name: `${project?.name || "Project"} — ${buildPackageName(tradeKey, mergedKeys)}`,
+      name: buildPackageName(tradeKey, mergedKeys),
       items: tradeItems,
       itemIds: tradeItems.map(i => i.id),
       drawingIds: matchedDrawings.map(d => d.id),

@@ -56,7 +56,7 @@ export default function ProjectPulseWidget() {
     () => ({
       Won: C.green,
       Bidding: C.blue,
-      Pending: C.blue,
+      Submitted: C.blue,
       "On Hold": C.orange,
       Lost: C.textDim,
       Cancelled: C.textDim,

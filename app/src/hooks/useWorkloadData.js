@@ -107,30 +107,35 @@ export function useWorkloadData(dateRange) {
   const orgMembers = useOrgStore(s => s.members);
   const orgInvitations = useOrgStore(s => s.invitations);
   const orgMode = useOrgStore(s => !!s.org);
-  const masterEstimators = useMasterDataStore(s => s.masterData?.estimators) || DEFAULT_ESTIMATORS;
-  const estimators = orgMode
-    ? [
-        // Active org members
-        ...orgMembers
-          .filter(m => m.active !== false)
-          .map((m, i) => ({
-            id: m.id,
-            name: m.display_name || m.email?.split("@")[0] || "Unknown",
-            color: m.color || TEAM_COLORS[i % TEAM_COLORS.length],
-          })),
-        // Pending invitations (not yet accepted)
-        ...(orgInvitations || [])
-          .filter(inv => !inv.accepted_at && new Date(inv.expires_at) > new Date())
-          .filter(inv => !orgMembers.some(m => m.email === inv.email))
-          .map((inv, i) => ({
-            id: `invite-${inv.id}`,
-            name: inv.email?.split("@")[0] || "Invited",
-            color: TEAM_COLORS[(orgMembers.length + i) % TEAM_COLORS.length],
-            pending: true,
-            email: inv.email,
-          })),
-      ]
-    : masterEstimators;
+  const rawMasterEstimators = useMasterDataStore(s => s.masterData?.estimators);
+  const masterEstimators = useMemo(() => rawMasterEstimators || DEFAULT_ESTIMATORS, [rawMasterEstimators]);
+  const estimators = useMemo(
+    () =>
+      orgMode
+        ? [
+            // Active org members
+            ...orgMembers
+              .filter(m => m.active !== false)
+              .map((m, i) => ({
+                id: m.id,
+                name: m.display_name || m.email?.split("@")[0] || "Unknown",
+                color: m.color || TEAM_COLORS[i % TEAM_COLORS.length],
+              })),
+            // Pending invitations (not yet accepted)
+            ...(orgInvitations || [])
+              .filter(inv => !inv.accepted_at && new Date(inv.expires_at) > new Date())
+              .filter(inv => !orgMembers.some(m => m.email === inv.email))
+              .map((inv, i) => ({
+                id: `invite-${inv.id}`,
+                name: inv.email?.split("@")[0] || "Invited",
+                color: TEAM_COLORS[(orgMembers.length + i) % TEAM_COLORS.length],
+                pending: true,
+                email: inv.email,
+              })),
+          ]
+        : masterEstimators,
+    [orgMode, orgMembers, orgInvitations, masterEstimators],
+  );
 
   return useMemo(() => {
     const today = new Date();
@@ -145,7 +150,7 @@ export function useWorkloadData(dateRange) {
 
     // Filter active estimates with scheduling data
     const active = estimatesIndex.filter(e => {
-      if (!["Bidding", "Pending"].includes(e.status)) return false;
+      if (!["Bidding", "Submitted"].includes(e.status)) return false;
       if (activeCompanyId !== "__all__" && e.companyProfileId !== activeCompanyId) return false;
       if (!e.bidDue) return false;
       return true;

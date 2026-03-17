@@ -31,24 +31,13 @@ function getDeviceInfo() {
 }
 
 // ── Write active session token to DB (enforces single-session) ──
-// Track whether the write succeeded — if not, enforcement must be skipped
-let sessionWriteSucceeded = false;
-export function getSessionWriteSucceeded() { return sessionWriteSucceeded; }
-
 async function writeSessionToken(userId) {
-  sessionWriteSucceeded = false;
   if (!supabase || !userId) return;
   try {
-    // Reuse existing token from this tab (survives page reload within same tab)
-    // Only generate a new token on first login — prevents session enforcement
-    // from kicking us out on navigation-triggered reinit
-    let token = sessionStorage.getItem("bldg-session-token");
-    if (!token) {
-      token = crypto.randomUUID();
-      sessionStorage.setItem("bldg-session-token", token);
-    }
+    const token = crypto.randomUUID();
+    sessionStorage.setItem("bldg-session-token", token);
     const { device, browser } = getDeviceInfo();
-    const { error } = await supabase.from("user_active_session").upsert(
+    await supabase.from("user_active_session").upsert(
       {
         user_id: userId,
         session_token: token,
@@ -58,11 +47,6 @@ async function writeSessionToken(userId) {
       },
       { onConflict: "user_id" },
     );
-    if (error) {
-      console.warn("[auth] writeSessionToken DB error:", error.message);
-      return;
-    }
-    sessionWriteSucceeded = true;
     console.log("[auth] Session token written:", token.slice(0, 8) + "...");
   } catch (err) {
     // Non-fatal — table may not exist yet (42P01)
@@ -272,10 +256,10 @@ export const useAuthStore = create((set, get) => ({
 
     // ── Safety: push current data to cloud before wiping local ──
     try {
-      const { useUiStore } = await import("@/stores/uiStore");
+      await import("@/stores/uiStore");
       const { useEstimatesStore } = await import("@/stores/estimatesStore");
       const { saveEstimate, saveMasterData } = await import("@/hooks/usePersistence");
-      const cloudSync = await import("@/utils/cloudSync");
+      await import("@/utils/cloudSync");
 
       const activeId = useEstimatesStore.getState().activeEstimateId;
       if (activeId) {
@@ -298,7 +282,9 @@ export const useAuthStore = create((set, get) => ({
       if (userId) {
         await supabase.from("user_active_session").delete().eq("user_id", userId);
       }
-    } catch {}
+    } catch {
+      /* session cleanup non-critical */
+    }
     sessionStorage.removeItem("bldg-session-token");
 
     await supabase.auth.signOut();

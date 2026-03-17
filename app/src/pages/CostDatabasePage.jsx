@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Virtuoso } from "react-virtuoso";
 import { useTheme } from "@/hooks/useTheme";
 import { useProjectStore } from "@/stores/projectStore";
@@ -6,7 +6,7 @@ import { useDatabaseStore } from "@/stores/databaseStore";
 import { useItemsStore } from "@/stores/itemsStore";
 import { useUiStore } from "@/stores/uiStore";
 import { CODE_SYSTEMS } from "@/constants/codeSystems";
-import { TRADE_GROUPINGS, TRADE_MAP, getTradeLabel } from "@/constants/tradeGroupings";
+import { TRADE_GROUPINGS } from "@/constants/tradeGroupings";
 import { UNITS } from "@/constants/units";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import Ic from "@/components/shared/Ic";
@@ -22,9 +22,9 @@ import CsvImportPreviewModal from "@/components/database/CsvImportPreviewModal";
 import { exportUserElementsCsv } from "@/utils/csvExport";
 import EmptyState from "@/components/shared/EmptyState";
 import { useSubdivisionStore } from "@/stores/subdivisionStore";
-import { SUBDIVISION_BENCHMARKS, DEFAULT_SUBDIVISIONS } from "@/constants/subdivisionBenchmarks";
+import { SUBDIVISION_BENCHMARKS } from "@/constants/subdivisionBenchmarks";
 import { getConfidenceTier } from "@/utils/confidenceEngine";
-import { generateSubdivisionBreakdown, generateAllSubdivisions } from "@/utils/subdivisionAI";
+import { generateSubdivisionBreakdown } from "@/utils/subdivisionAI";
 import { CSI } from "@/constants/csi";
 
 const BUILDING_TYPE_OPTIONS = [
@@ -1358,7 +1358,7 @@ export default function CostDatabasePage({ embedded = false }) {
                   const canConfirm = moveCode && moveCode !== movingEl.code;
                   // Build filtered subdivision chips
                   const chips = Object.entries(activeCodes)
-                    .flatMap(([dc, div]) =>
+                    .flatMap(([_dc, div]) =>
                       Object.entries(div.subs || {})
                         .filter(([sk]) => !moveCode || sk.startsWith(moveCode.split(".")[0]))
                         .slice(0, 12)
@@ -1417,7 +1417,7 @@ export default function CostDatabasePage({ embedded = false }) {
                         }}
                       />
                       <div style={{ display: "flex", gap: 3, flex: 1, overflow: "hidden", flexWrap: "wrap" }}>
-                        {chips.map(({ sk, name }) => (
+                        {chips.map(({ sk, name: _name }) => (
                           <button
                             key={sk}
                             onClick={() => setMoveCode(sk)}
@@ -2529,7 +2529,7 @@ export default function CostDatabasePage({ embedded = false }) {
                           </div>
                           {items
                             .sort((a, b) => (a.code || "").localeCompare(b.code || ""))
-                            .map((el, i) => (
+                            .map((el, _i) => (
                               <div
                                 key={el.id}
                                 style={{

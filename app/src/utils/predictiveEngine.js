@@ -8,26 +8,22 @@ import {
   findNearestTag,
   findAdjacentText,
   findPlanTagInstances,
-  isExtracted,
   isLikelyTag,
   detectScheduleRegions,
   isInScheduleRegion,
   getScheduleRegions,
-} from './pdfExtractor';
+} from "./pdfExtractor";
 
-import {
-  analyzeDrawingGeometry,
-  generateAutoMeasurements,
-} from './geometryEngine';
+import { analyzeDrawingGeometry, generateAutoMeasurements } from "./geometryEngine";
 
-import { pdfRawCache } from './uploadPipeline';
-import { callAnthropic, imageBlock } from './ai';
+import { pdfRawCache } from "./uploadPipeline";
+import { callAnthropic, imageBlock } from "./ai";
 
 // ══════════════════════════════════════════════════════════════════════
 // VISION-BASED PREDICTIONS — fallback for scanned/raster PDFs
 // Sends drawing image to Claude vision to identify elements visually
 // ══════════════════════════════════════════════════════════════════════
-async function runVisionPredictions(drawing, takeoff, measurementType, clickPoint) {
+async function runVisionPredictions(drawing, takeoff, measurementType, _clickPoint) {
   const description = takeoff.description || "";
   // Get the JPEG image data from the drawing
   let imageData = drawing.data;
@@ -96,12 +92,12 @@ INSTRUCTIONS:
 
 Return JSON: {"found":<count>,"locations":[{"x":<0-100>,"y":<0-100>,"label":"<room or area>"}],"confidence":<0-1>,"notes":"<what symbol you identified>"}`
     : isLinear
-    ? `Find all runs/segments of "${description}" on this construction drawing.
+      ? `Find all runs/segments of "${description}" on this construction drawing.
 
 Mark the START POINT of each distinct run as x,y percentages (0-100). Only mark clearly visible elements.
 
 Return JSON: {"found":<count>,"locations":[{"x":<0-100>,"y":<0-100>,"label":"<description>"}],"confidence":<0-1>,"notes":"<observations>"}`
-    : `Find all areas/regions where "${description}" would be applied on this construction drawing.
+      : `Find all areas/regions where "${description}" would be applied on this construction drawing.
 
 Mark the CENTER of each distinct area as x,y percentages (0-100). Only mark clearly visible regions.
 
@@ -112,19 +108,18 @@ Return JSON: {"found":<count>,"locations":[{"x":<0-100>,"y":<0-100>,"label":"<ro
     const resp = await callAnthropic({
       model: "claude-sonnet-4-20250514",
       max_tokens: 4000,
-      messages: [{
-        role: "user",
-        content: [
-          imageBlock(base64),
-          { type: "text", text: userPrompt },
-        ],
-      }],
+      messages: [
+        {
+          role: "user",
+          content: [imageBlock(base64), { type: "text", text: userPrompt }],
+        },
+      ],
       system: systemPrompt,
       temperature: 0.1,
     });
 
     // Parse response — callAnthropic returns a plain string (not structured object)
-    const text = typeof resp === "string" ? resp : (resp?.content?.[0]?.text || "");
+    const text = typeof resp === "string" ? resp : resp?.content?.[0]?.text || "";
     console.log(`[NOVA Vision] Raw response:`, text.slice(0, 300));
 
     // Extract JSON from response (handle markdown code blocks if present)
@@ -138,7 +133,11 @@ Return JSON: {"found":<count>,"locations":[{"x":<0-100>,"y":<0-100>,"label":"<ro
     }
 
     if (!json || !json.locations || json.locations.length === 0) {
-      return { predictions: [], message: `NOVA Vision: ${json?.notes || "No instances found on this page"}`, source: "vision" };
+      return {
+        predictions: [],
+        message: `NOVA Vision: ${json?.notes || "No instances found on this page"}`,
+        source: "vision",
+      };
     }
 
     // Convert 0-100 percentage coordinates to canvas pixel coordinates
@@ -152,13 +151,13 @@ Return JSON: {"found":<count>,"locations":[{"x":<0-100>,"y":<0-100>,"label":"<ro
     if (maxCoord <= 1.05) {
       // 0-1 fractional format (Claude ignored our 0-100 instruction)
       console.log("[NOVA Vision] Coords in 0-1 fractional → mapping to", origW, "x", origH);
-      normX = (x) => x * origW;
-      normY = (y) => y * origH;
+      normX = x => x * origW;
+      normY = y => y * origH;
     } else {
       // 0-100 percentage format (expected)
       console.log("[NOVA Vision] Coords in 0-100% → mapping to", origW, "x", origH);
-      normX = (x) => (x / 100) * origW;
-      normY = (y) => (y / 100) * origH;
+      normX = x => (x / 100) * origW;
+      normY = y => (y / 100) * origH;
     }
 
     const predictions = json.locations.map((loc, i) => ({
@@ -174,7 +173,10 @@ Return JSON: {"found":<count>,"locations":[{"x":<0-100>,"y":<0-100>,"label":"<ro
       source: "vision",
     }));
 
-    console.log(`[NOVA Vision] Found ${predictions.length} predictions, dims=${origW}x${origH}, sample coords:`, predictions.slice(0,3).map(p => `(${Math.round(p.point.x)},${Math.round(p.point.y)})`));
+    console.log(
+      `[NOVA Vision] Found ${predictions.length} predictions, dims=${origW}x${origH}, sample coords:`,
+      predictions.slice(0, 3).map(p => `(${Math.round(p.point.x)},${Math.round(p.point.y)})`),
+    );
     return {
       predictions,
       tag: description,
@@ -205,14 +207,21 @@ export function recordPredictionFeedback(tag, strategy, accepted) {
   if (!tag) return;
   const key = `${tag.toUpperCase()}::${strategy || "tag-based"}`;
   const entry = _learningRecord.get(key) || { accepts: 0, rejects: 0, lastUsed: 0 };
-  if (accepted) entry.accepts++; else entry.rejects++;
+  if (accepted) entry.accepts++;
+  else entry.rejects++;
   entry.lastUsed = Date.now();
   _learningRecord.set(key, entry);
 
   // LRU eviction: cap at 50 entries
   if (_learningRecord.size > 50) {
-    let oldest = null, oldestKey = null;
-    _learningRecord.forEach((v, k) => { if (!oldest || v.lastUsed < oldest) { oldest = v.lastUsed; oldestKey = k; } });
+    let oldest = null,
+      oldestKey = null;
+    _learningRecord.forEach((v, k) => {
+      if (!oldest || v.lastUsed < oldest) {
+        oldest = v.lastUsed;
+        oldestKey = k;
+      }
+    });
     if (oldestKey) _learningRecord.delete(oldestKey);
   }
 }
@@ -227,7 +236,7 @@ export function getLearningMultiplier(tag, strategy) {
   const entry = _learningRecord.get(key);
   if (!entry) return 1.0;
   entry.lastUsed = Date.now(); // LRU: refresh on access
-  if ((entry.accepts + entry.rejects) < 2) return 1.0; // Not enough data
+  if (entry.accepts + entry.rejects < 2) return 1.0; // Not enough data
   const total = entry.accepts + entry.rejects;
   const ratio = entry.accepts / total;
   // Map ratio: 0% → 0.7x, 50% → 1.0x, 100% → 1.2x
@@ -241,8 +250,14 @@ const _warmCache = new Map(); // key: `${drawingId}::${description}` → { strat
 
 function _warmCacheEvict() {
   if (_warmCache.size <= 5) return;
-  let oldest = null, oldestKey = null;
-  _warmCache.forEach((v, k) => { if (!oldest || v.timestamp < oldest) { oldest = v.timestamp; oldestKey = k; } });
+  let oldest = null,
+    oldestKey = null;
+  _warmCache.forEach((v, k) => {
+    if (!oldest || v.timestamp < oldest) {
+      oldest = v.timestamp;
+      oldestKey = k;
+    }
+  });
   if (oldestKey) _warmCache.delete(oldestKey);
 }
 
@@ -307,14 +322,52 @@ export function getWarmData(drawingId, description) {
 // not plan-area tags. This catches schedules missed by region detection.
 // ══════════════════════════════════════════════════════════════════════
 const SCHEDULE_HEADER_WORDS = new Set([
-  'SCHEDULE', 'LEGEND', 'KEY', 'SPECIFICATIONS', 'SPEC',
-  'ABBREVIATIONS', 'MARK', 'TYPE', 'SIZE', 'DESCRIPTION', 'MANUFACTURER',
-  'MODEL', 'QUANTITY', 'QTY', 'REMARKS', 'HEIGHT', 'WIDTH', 'THICKNESS',
-  'RATING', 'FINISH', 'MATERIAL', 'CATALOG', 'CAT#', 'SERIES',
-  'HARDWARE', 'GLASS', 'FRAME', 'COLOR', 'GAUGE',
-  'HEAD', 'JAMB', 'SILL', 'LOUVER', 'CFM', 'BTU', 'VOLTS', 'AMPS',
-  'WATTS', 'HP', 'RPM', 'GPM', 'MOUNTING', 'LOCATION',
-  'FIXTURE', 'EQUIPMENT', 'SYMBOL',
+  "SCHEDULE",
+  "LEGEND",
+  "KEY",
+  "SPECIFICATIONS",
+  "SPEC",
+  "ABBREVIATIONS",
+  "MARK",
+  "TYPE",
+  "SIZE",
+  "DESCRIPTION",
+  "MANUFACTURER",
+  "MODEL",
+  "QUANTITY",
+  "QTY",
+  "REMARKS",
+  "HEIGHT",
+  "WIDTH",
+  "THICKNESS",
+  "RATING",
+  "FINISH",
+  "MATERIAL",
+  "CATALOG",
+  "CAT#",
+  "SERIES",
+  "HARDWARE",
+  "GLASS",
+  "FRAME",
+  "COLOR",
+  "GAUGE",
+  "HEAD",
+  "JAMB",
+  "SILL",
+  "LOUVER",
+  "CFM",
+  "BTU",
+  "VOLTS",
+  "AMPS",
+  "WATTS",
+  "HP",
+  "RPM",
+  "GPM",
+  "MOUNTING",
+  "LOCATION",
+  "FIXTURE",
+  "EQUIPMENT",
+  "SYMBOL",
 ]);
 
 /**
@@ -336,7 +389,7 @@ function findScheduleHeaderPositions(textItems) {
  * Check if a text item is near a schedule header keyword.
  * Tags within ~100px vertically of schedule headers are likely schedule entries.
  */
-function isNearScheduleHeader(item, headerPositions, radius = 100) {
+function isNearScheduleHeader(item, headerPositions, _radius = 100) {
   for (const hp of headerPositions) {
     // Check horizontal overlap (same column region) AND vertical proximity (below header only)
     const dx = Math.abs(item.x - hp.x);
@@ -410,35 +463,121 @@ const ABBREV_MAP = {
 // Exterior surface items — measured by area/linear along building exterior.
 // These have no plan tags; they relate to exterior walls, not rooms or openings.
 const EXTERIOR_SURFACE_TERMS = [
-  "siding", "cladding", "sheathing", "stucco", "eifs", "dryvit", "hardie",
-  "lap", "board and batten", "vinyl", "fiber cement", "metal panel",
-  "rain screen", "rainscreen", "facade", "veneer", "brick veneer",
-  "stone veneer", "waterproofing", "weather barrier", "house wrap",
-  "tyvek", "vapor barrier", "air barrier", "flashing", "soffit", "fascia",
-  "exterior trim", "cornice", "exterior finish", "exterior paint",
-  "exterior coating", "exterior insulation",
+  "siding",
+  "cladding",
+  "sheathing",
+  "stucco",
+  "eifs",
+  "dryvit",
+  "hardie",
+  "lap",
+  "board and batten",
+  "vinyl",
+  "fiber cement",
+  "metal panel",
+  "rain screen",
+  "rainscreen",
+  "facade",
+  "veneer",
+  "brick veneer",
+  "stone veneer",
+  "waterproofing",
+  "weather barrier",
+  "house wrap",
+  "tyvek",
+  "vapor barrier",
+  "air barrier",
+  "flashing",
+  "soffit",
+  "fascia",
+  "exterior trim",
+  "cornice",
+  "exterior finish",
+  "exterior paint",
+  "exterior coating",
+  "exterior insulation",
 ];
 
 // Interior surface items — measured by area on interior walls/ceilings
 const INTERIOR_SURFACE_TERMS = [
-  "drywall", "gypsum", "gyp", "gwb", "gypsum wallboard", "gypboard", "gyp bd",
-  "plaster", "paint", "primer", "texture",
-  "wallpaper", "wainscot", "paneling", "tile", "backsplash", "acoustic",
-  "ceiling tile", "ceiling grid", "suspended ceiling", "drop ceiling", "act",
-  "interior finish", "interior paint", "interior coating", "interior trim",
-  "base trim", "base molding", "chair rail", "crown molding",
-  "flooring", "hardwood", "carpet", "lvp", "vinyl plank", "vinyl tile",
-  "lvt", "laminate", "epoxy floor", "epoxy coating", "polished concrete",
-  "terrazzo", "rubber flooring", "sheet vinyl", "vct", "porcelain tile",
-  "ceramic tile", "wood floor", "bamboo", "cork floor", "linoleum",
+  "drywall",
+  "gypsum",
+  "gyp",
+  "gwb",
+  "gypsum wallboard",
+  "gypboard",
+  "gyp bd",
+  "plaster",
+  "paint",
+  "primer",
+  "texture",
+  "wallpaper",
+  "wainscot",
+  "paneling",
+  "tile",
+  "backsplash",
+  "acoustic",
+  "ceiling tile",
+  "ceiling grid",
+  "suspended ceiling",
+  "drop ceiling",
+  "act",
+  "interior finish",
+  "interior paint",
+  "interior coating",
+  "interior trim",
+  "base trim",
+  "base molding",
+  "chair rail",
+  "crown molding",
+  "flooring",
+  "hardwood",
+  "carpet",
+  "lvp",
+  "vinyl plank",
+  "vinyl tile",
+  "lvt",
+  "laminate",
+  "epoxy floor",
+  "epoxy coating",
+  "polished concrete",
+  "terrazzo",
+  "rubber flooring",
+  "sheet vinyl",
+  "vct",
+  "porcelain tile",
+  "ceramic tile",
+  "wood floor",
+  "bamboo",
+  "cork floor",
+  "linoleum",
 ];
 
 // Structural items that relate to geometry (walls, floors)
 const STRUCTURAL_GEOMETRY_TERMS = [
-  "wall", "partition", "framing", "stud", "plate", "header", "joist",
-  "rafter", "truss", "beam", "column", "footing", "foundation",
-  "slab", "floor", "roof", "deck", "shear wall", "bracing",
-  "blocking", "furring", "insulation", "batt",
+  "wall",
+  "partition",
+  "framing",
+  "stud",
+  "plate",
+  "header",
+  "joist",
+  "rafter",
+  "truss",
+  "beam",
+  "column",
+  "footing",
+  "foundation",
+  "slab",
+  "floor",
+  "roof",
+  "deck",
+  "shear wall",
+  "bracing",
+  "blocking",
+  "furring",
+  "insulation",
+  "batt",
 ];
 
 /**
@@ -467,7 +606,7 @@ export function scoreTagRelevance(tagText, description) {
   if (!tagText || !description) return 0;
   const tag = tagText.trim().toUpperCase();
   const desc = description.toUpperCase();
-  const descWords = desc.split(/[\s,\-\/]+/).filter(Boolean);
+  const descWords = desc.split(/[\s,\-/]+/).filter(Boolean);
 
   // Exact: tag text literally appears in description (or vice versa)
   // For short tags (1-2 chars), require whole-word match to avoid false positives
@@ -533,14 +672,14 @@ export function detectDifferentiator(extractedData, tagX, tagY, description) {
   if (adjacent.length === 0) return null;
 
   const desc = description.toUpperCase();
-  const descWords = desc.split(/[\s,\-\/]+/).filter(Boolean);
+  const descWords = desc.split(/[\s,\-/]+/).filter(Boolean);
 
   // Known differentiator patterns
   const diffPatterns = [
-    /^[DSTMQ]$/i,                 // Single-letter type codes: D=Duplex, S=Single, T=Triplex
-    /^[0-9]BR$/i,                 // Bedroom counts: 1BR, 2BR, 3BR
-    /^[A-Z]$/i,                   // Single letter type codes
-    /^[A-Z][0-9]$/i,              // Type + number: A1, B2
+    /^[DSTMQ]$/i, // Single-letter type codes: D=Duplex, S=Single, T=Triplex
+    /^[0-9]BR$/i, // Bedroom counts: 1BR, 2BR, 3BR
+    /^[A-Z]$/i, // Single letter type codes
+    /^[A-Z][0-9]$/i, // Type + number: A1, B2
   ];
 
   for (const adj of adjacent) {
@@ -716,9 +855,10 @@ function detectWallSegment(lines, tagX, tagY, searchRadius = 150) {
       Math.hypot(primaryLine.x1 - bestParallel.x2, primaryLine.y1 - bestParallel.y2) +
       Math.hypot(primaryLine.x2 - bestParallel.x1, primaryLine.y2 - bestParallel.y1);
     // If flipped endpoints are closer, swap the parallel line's endpoints
-    const p = flipDirDist < sameDirDist
-      ? { x1: bestParallel.x2, y1: bestParallel.y2, x2: bestParallel.x1, y2: bestParallel.y1 }
-      : bestParallel;
+    const p =
+      flipDirDist < sameDirDist
+        ? { x1: bestParallel.x2, y1: bestParallel.y2, x2: bestParallel.x1, y2: bestParallel.y1 }
+        : bestParallel;
     // Centerline between the two parallel lines
     return {
       type: "wall",
@@ -746,108 +886,13 @@ function detectWallSegment(lines, tagX, tagY, searchRadius = 150) {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// CONNECTED WALL TRACING
-// From a starting wall segment, trace connected wall segments that share endpoints
-// ══════════════════════════════════════════════════════════════════════
-function traceConnectedWalls(lines, startSegment, maxGap = 15) {
-  const segments = [startSegment];
-  const used = new Set();
-  // Use rounded keys to handle floating-point precision issues
-  const lineKey = l => `${Math.round(l.x1)},${Math.round(l.y1)},${Math.round(l.x2)},${Math.round(l.y2)}`;
-  used.add(lineKey(startSegment.sourceLines?.[0] || { x1: startSegment.points[0].x, y1: startSegment.points[0].y, x2: startSegment.points[1].x, y2: startSegment.points[1].y }));
-
-  let changed = true;
-  while (changed) {
-    changed = false;
-
-    // Try to extend from the end (tail)
-    const lastSeg = segments[segments.length - 1];
-    const endPt = lastSeg.points[lastSeg.points.length - 1];
-    const nearEnd = findNearbyLines(lines, endPt.x, endPt.y, maxGap);
-    for (const line of nearEnd) {
-      const key = lineKey(line);
-      if (used.has(key)) continue;
-      if (line.length < 20) continue;
-
-      const d1 = Math.sqrt((line.x1 - endPt.x) ** 2 + (line.y1 - endPt.y) ** 2);
-      const d2 = Math.sqrt((line.x2 - endPt.x) ** 2 + (line.y2 - endPt.y) ** 2);
-
-      if (d1 < maxGap) {
-        segments.push({
-          type: "wall",
-          points: [{ x: line.x1, y: line.y1 }, { x: line.x2, y: line.y2 }],
-          confidence: 0.75,
-          sourceLines: [line],
-        });
-        used.add(key);
-        changed = true;
-        break;
-      } else if (d2 < maxGap) {
-        segments.push({
-          type: "wall",
-          points: [{ x: line.x2, y: line.y2 }, { x: line.x1, y: line.y1 }],
-          confidence: 0.75,
-          sourceLines: [line],
-        });
-        used.add(key);
-        changed = true;
-        break;
-      }
-    }
-
-    // Try to extend from the beginning (head)
-    const firstSeg = segments[0];
-    const startPt = firstSeg.points[0];
-    const nearStart = findNearbyLines(lines, startPt.x, startPt.y, maxGap);
-    for (const line of nearStart) {
-      const key = lineKey(line);
-      if (used.has(key)) continue;
-      if (line.length < 20) continue;
-
-      const d1 = Math.sqrt((line.x1 - startPt.x) ** 2 + (line.y1 - startPt.y) ** 2);
-      const d2 = Math.sqrt((line.x2 - startPt.x) ** 2 + (line.y2 - startPt.y) ** 2);
-
-      if (d2 < maxGap) {
-        // line.x2,y2 is near our start — prepend with line going x1→x2 (so x2 end connects to us)
-        segments.unshift({
-          type: "wall",
-          points: [{ x: line.x1, y: line.y1 }, { x: line.x2, y: line.y2 }],
-          confidence: 0.75,
-          sourceLines: [line],
-        });
-        used.add(key);
-        changed = true;
-        break;
-      } else if (d1 < maxGap) {
-        // line.x1,y1 is near our start — prepend reversed so the far end is first
-        segments.unshift({
-          type: "wall",
-          points: [{ x: line.x2, y: line.y2 }, { x: line.x1, y: line.y1 }],
-          confidence: 0.75,
-          sourceLines: [line],
-        });
-        used.add(key);
-        changed = true;
-        break;
-      }
-    }
-  }
-
-  // Merge all segment points into one polyline
-  const allPoints = [segments[0].points[0]];
-  for (const seg of segments) {
-    allPoints.push(seg.points[seg.points.length - 1]);
-  }
-
-  return allPoints;
-}
-
-// ══════════════════════════════════════════════════════════════════════
 // PREDICTION GENERATORS
 // ══════════════════════════════════════════════════════════════════════
 
 let _predictionId = 0;
-function nextPredId() { return `pred-${++_predictionId}-${Date.now().toString(36)}`; }
+function nextPredId() {
+  return `pred-${++_predictionId}-${Date.now().toString(36)}`;
+}
 
 /**
  * Generate count predictions (fixtures, devices, footings, etc.)
@@ -860,9 +905,7 @@ export function predictCounts(extractedData, tag, excludePositions = [], takeoff
   return instances
     .filter(inst => {
       // Skip if too close to an existing measurement
-      return !excludePositions.some(p =>
-        Math.sqrt((p.x - inst.x) ** 2 + (p.y - inst.y) ** 2) < 40
-      );
+      return !excludePositions.some(p => Math.sqrt((p.x - inst.x) ** 2 + (p.y - inst.y) ** 2) < 40);
     })
     .map(inst => {
       let confidence = 0.92;
@@ -892,14 +935,18 @@ export function predictCounts(extractedData, tag, excludePositions = [], takeoff
  * Each tag instance → detect wall geometry → trace wall segment
  * @param {string} takeoffDescription - Description of the active takeoff for differentiator detection
  */
-export function predictWalls(extractedData, tag, existingMeasurement = null, excludePositions = [], takeoffDescription = "") {
+export function predictWalls(
+  extractedData,
+  tag,
+  _existingMeasurement = null,
+  excludePositions = [],
+  takeoffDescription = "",
+) {
   const instances = findPlanTagInstances(extractedData, tag);
 
   return instances
     .filter(inst => {
-      return !excludePositions.some(p =>
-        Math.sqrt((p.x - inst.x) ** 2 + (p.y - inst.y) ** 2) < 40
-      );
+      return !excludePositions.some(p => Math.sqrt((p.x - inst.x) ** 2 + (p.y - inst.y) ** 2) < 40);
     })
     .map(inst => {
       let differentiator = null;
@@ -907,7 +954,9 @@ export function predictWalls(extractedData, tag, existingMeasurement = null, exc
         differentiator = detectDifferentiator(extractedData, inst.x, inst.y, takeoffDescription);
       }
       const confMod = differentiator ? differentiator.confidenceModifier : 1;
-      const diffMeta = differentiator ? { differentiator: { text: differentiator.text, matches: differentiator.matches } } : {};
+      const diffMeta = differentiator
+        ? { differentiator: { text: differentiator.text, matches: differentiator.matches } }
+        : {};
 
       const segment = detectWallSegment(extractedData.lines, inst.x, inst.y);
       if (!segment) {
@@ -963,9 +1012,7 @@ export function predictAreas(geometryResult, drawingId, excludePositions = [], t
   return geometryResult.rooms
     .filter(room => {
       // Skip rooms whose centroid is near an existing measurement
-      return !excludePositions.some(p =>
-        Math.sqrt((p.x - room.centroid.x) ** 2 + (p.y - room.centroid.y) ** 2) < 60
-      );
+      return !excludePositions.some(p => Math.sqrt((p.x - room.centroid.x) ** 2 + (p.y - room.centroid.y) ** 2) < 60);
     })
     .map(room => {
       const label = geometryResult.roomLabels.find(rl => rl.roomId === room.id);
@@ -1014,16 +1061,35 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
   const warm = getWarmData(drawing.id, description);
   let data;
   try {
-    data = warm?.data || await extractPageData(drawing);
+    data = warm?.data || (await extractPageData(drawing));
   } catch (err) {
     console.warn("[NOVA] extractPageData failed:", err.message);
-    return { tag: null, predictions: [], source: "none", confidence: 0, extractionStats: {}, totalInstances: 0, strategy: "general", message: `PDF extraction failed: ${err.message}` };
+    return {
+      tag: null,
+      predictions: [],
+      source: "none",
+      confidence: 0,
+      extractionStats: {},
+      totalInstances: 0,
+      strategy: "general",
+      message: `PDF extraction failed: ${err.message}`,
+    };
   }
   if (!data || !data.text || (Array.isArray(data.text) && data.text.length === 0)) {
     const hasCachedRaw = drawing.fileName && pdfRawCache.has(drawing.fileName);
     const needsRepair = drawing.pdfPreRendered && !drawing.pdfRawBase64 && !hasCachedRaw;
     if (needsRepair) {
-      return { tag: null, predictions: [], source: "none", confidence: 0, extractionStats: {}, totalInstances: 0, strategy: "general", message: "Drop the original PDF onto the drawing to enable NOVA predictions (raw PDF data missing)", needsRepair };
+      return {
+        tag: null,
+        predictions: [],
+        source: "none",
+        confidence: 0,
+        extractionStats: {},
+        totalInstances: 0,
+        strategy: "general",
+        message: "Drop the original PDF onto the drawing to enable NOVA predictions (raw PDF data missing)",
+        needsRepair,
+      };
     }
     // Phase 3: Vision fallback — send image to Claude for visual identification
     if (drawing.data) {
@@ -1037,8 +1103,17 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
         console.warn("[NOVA] Vision fallback failed:", err.message);
       }
     }
-    const stats = data?._stats || {};
-    return { tag: null, predictions: [], source: "none", confidence: 0, extractionStats: {}, totalInstances: 0, strategy: "general", message: `No text pg${drawing.pdfPage || 1} — vision unavailable` };
+    const _stats = data?._stats || {};
+    return {
+      tag: null,
+      predictions: [],
+      source: "none",
+      confidence: 0,
+      extractionStats: {},
+      totalInstances: 0,
+      strategy: "general",
+      message: `No text pg${drawing.pdfPage || 1} — vision unavailable`,
+    };
   }
 
   const existingPositions = (takeoff.measurements || [])
@@ -1048,27 +1123,37 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
   // Step 2: Classify takeoff strategy (use warm cache if available)
   const strategy = warm?.strategy || classifyTakeoffStrategy(description);
   const _tagCount = data.text ? data.text.filter(i => isLikelyTag(i.text)).length : 0;
-  console.log("[NOVA] Strategy:", strategy, "for", JSON.stringify(description), "measureType:", measurementType, warm ? "(warm)" : "",
-    "| textItems:", data.text?.length, "tags:", _tagCount,
-    "| sampleText:", data.text?.slice(0, 5).map(t => t.text));
+  console.log(
+    "[NOVA] Strategy:",
+    strategy,
+    "for",
+    JSON.stringify(description),
+    "measureType:",
+    measurementType,
+    warm ? "(warm)" : "",
+    "| textItems:",
+    data.text?.length,
+    "tags:",
+    _tagCount,
+    "| sampleText:",
+    data.text?.slice(0, 5).map(t => t.text),
+  );
 
   // ── SPARSE TEXT shortcut: skip tag/geometry → go straight to Vision ──
   // CAD PDFs with SHX fonts (AutoCAD/Revit) produce very few extractable text items
   // because SHX glyphs are vector paths, not text objects. When text is sparse (<50 items)
   // AND has no recognizable tags, tag-based prediction will fail. Use Vision directly.
   if (_tagCount === 0 && (data.text?.length || 0) < 50 && drawing.data && strategy === "tag-based") {
-    console.log(`[NOVA] Sparse text detected (${data.text?.length} items, 0 tags) — fast-tracking to Vision for "${description}"`);
-    document.title = `NOVA: vision scan "${description?.slice(0,15)}..."`;
+    console.log(
+      `[NOVA] Sparse text detected (${data.text?.length} items, 0 tags) — fast-tracking to Vision for "${description}"`,
+    );
     try {
       const visionResult = await runVisionPredictions(drawing, takeoff, measurementType, clickPoint);
       if (visionResult && visionResult.predictions?.length > 0) {
-        document.title = `NOVA: found ${visionResult.predictions.length} via vision`;
         return { ...visionResult, extractionStats: data.stats, takeoffId: takeoff.id, strategy: "vision" };
       }
-      document.title = `NOVA: vision found 0 — ${visionResult?.message?.slice(0,30) || "no matches"}`;
     } catch (err) {
       console.warn("[NOVA] Vision fast-track failed:", err.message);
-      document.title = `NOVA: vision error ${err.message?.slice(0,25)}`;
     }
     // If vision also fails, continue with normal pipeline (geometry might still help)
   }
@@ -1084,7 +1169,9 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
 
       if ((measurementType === "linear" || measurementType === "area") && geometry.walls.length > 0) {
         const wallMeasurements = generateAutoMeasurements(geometry, drawing.id, {
-          includeWalls: true, includeRooms: false, includeOpenings: false,
+          includeWalls: true,
+          includeRooms: false,
+          includeOpenings: false,
         });
         const predictions = wallMeasurements
           .filter(m => {
@@ -1093,9 +1180,9 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
             const dist = Math.sqrt((centerX - clickPoint.x) ** 2 + (centerY - clickPoint.y) ** 2);
             return dist < 600;
           })
-          .filter(m => !existingPositions.some(p =>
-            Math.sqrt((p.x - m.points[0].x) ** 2 + (p.y - m.points[0].y) ** 2) < 40
-          ))
+          .filter(
+            m => !existingPositions.some(p => Math.sqrt((p.x - m.points[0].x) ** 2 + (p.y - m.points[0].y) ** 2) < 40),
+          )
           .map(m => ({
             id: nextPredId(),
             type: "wall",
@@ -1150,9 +1237,10 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
       extractionStats: data.stats,
       strategy,
       takeoffId: takeoff.id,
-      message: strategy === "exterior-surface"
-        ? `NOVA recognizes "${description}" as an exterior surface. Automatic predictions for surfaces require drawing geometry or future vision analysis. Measure manually for now.`
-        : `NOVA recognizes "${description}" as an interior surface. Automatic predictions for surfaces require room geometry or future vision analysis. Measure manually for now.`,
+      message:
+        strategy === "exterior-surface"
+          ? `NOVA recognizes "${description}" as an exterior surface. Automatic predictions for surfaces require drawing geometry or future vision analysis. Measure manually for now.`
+          : `NOVA recognizes "${description}" as an interior surface. Automatic predictions for surfaces require room geometry or future vision analysis. Measure manually for now.`,
     };
   }
 
@@ -1162,16 +1250,21 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
   if (warm?.tagScores && warm.tagScores.size > 0 && description) {
     // Fast path: use pre-scored tags from warm cache
     const scheduleRegions = warm.scheduleRegions || getScheduleRegions(drawing.id) || detectScheduleRegions(data);
-    let bestTag = null, bestScore = 0;
-    for (const item of (warm.allTags || [])) {
+    let bestTag = null,
+      bestScore = 0;
+    for (const item of warm.allTags || []) {
       if (isInScheduleRegion(item.x, item.y, scheduleRegions)) continue;
-      const dx = item.x - clickPoint.x, dy = item.y - clickPoint.y;
+      const dx = item.x - clickPoint.x,
+        dy = item.y - clickPoint.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
       if (dist > 300) continue;
       const relevance = warm.tagScores.get(item.text) || 0;
       if (relevance < 0.5) continue;
       const score = relevance * (1 - dist / 400);
-      if (score > bestScore) { bestScore = score; bestTag = { ...item, distance: dist, relevance }; }
+      if (score > bestScore) {
+        bestScore = score;
+        bestTag = { ...item, distance: dist, relevance };
+      }
     }
     // Also check nearest within tight radius (even if score lower)
     if (!bestTag) {
@@ -1241,12 +1334,13 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
   // Works even without tags — analyzes vector geometry
   // Allow geometry for: structural items, items with wall/room/floor in name,
   // or items with no description (generic fallback)
-  const descRelatesToGeometry = !description
-    || strategy === "structural"
-    || scoreTagRelevance("Wall", description) >= 0.3
-    || scoreTagRelevance("Room", description) >= 0.3
-    || scoreTagRelevance("Floor", description) >= 0.3
-    || scoreTagRelevance("Ceiling", description) >= 0.3;
+  const descRelatesToGeometry =
+    !description ||
+    strategy === "structural" ||
+    scoreTagRelevance("Wall", description) >= 0.3 ||
+    scoreTagRelevance("Room", description) >= 0.3 ||
+    scoreTagRelevance("Floor", description) >= 0.3 ||
+    scoreTagRelevance("Ceiling", description) >= 0.3;
 
   if ((measurementType === "linear" || measurementType === "area") && descRelatesToGeometry) {
     try {
@@ -1255,7 +1349,9 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
       if (measurementType === "linear" && geometry.walls.length > 0) {
         // Find walls near the click point and generate wall predictions
         const wallMeasurements = generateAutoMeasurements(geometry, drawing.id, {
-          includeWalls: true, includeRooms: false, includeOpenings: false,
+          includeWalls: true,
+          includeRooms: false,
+          includeOpenings: false,
         });
         const predictions = wallMeasurements
           .filter(m => {
@@ -1266,8 +1362,8 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
             return dist < 500; // Wide radius for wall chains
           })
           .filter(m => {
-            return !existingPositions.some(p =>
-              Math.sqrt((p.x - m.points[0].x) ** 2 + (p.y - m.points[0].y) ** 2) < 40
+            return !existingPositions.some(
+              p => Math.sqrt((p.x - m.points[0].x) ** 2 + (p.y - m.points[0].y) ** 2) < 40,
             );
           })
           .map(m => ({
@@ -1329,9 +1425,7 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
               const relevance = scoreTagRelevance(openingLabel, description);
               if (relevance < 0.15) return false;
             }
-            return !existingPositions.some(p =>
-              Math.sqrt((p.x - o.position.x) ** 2 + (p.y - o.position.y) ** 2) < 40
-            );
+            return !existingPositions.some(p => Math.sqrt((p.x - o.position.x) ** 2 + (p.y - o.position.y) ** 2) < 40);
           })
           .map(o => ({
             id: nextPredId(),
@@ -1366,27 +1460,33 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
   const _txtLen = data.text?.length || 0;
   const _tagItems = data.text ? data.text.filter(i => isLikelyTag(i.text)) : [];
   const _nearTag = nearestTag ? `near="${nearestTag.text}"` : "near=NONE";
-  console.log("[NOVA] Final fallthrough:", _nearTag, "txtLen:", _txtLen, "tags:", _tagItems.length,
-    "sampleText:", data.text?.slice(0, 8).map(t => t.text));
+  console.log(
+    "[NOVA] Final fallthrough:",
+    _nearTag,
+    "txtLen:",
+    _txtLen,
+    "tags:",
+    _tagItems.length,
+    "sampleText:",
+    data.text?.slice(0, 8).map(t => t.text),
+  );
 
   // If we have drawing image data, try vision before giving up
   if (drawing.data) {
-    console.log(`[NOVA] Sparse text (${_txtLen} items, ${_tagItems.length} tags) — trying Vision fallback for "${description}"`);
-    document.title = `NOVA: vision scan "${description?.slice(0,15)}..."`;
+    console.log(
+      `[NOVA] Sparse text (${_txtLen} items, ${_tagItems.length} tags) — trying Vision fallback for "${description}"`,
+    );
     try {
       const visionResult = await runVisionPredictions(drawing, takeoff, measurementType, clickPoint);
       console.log(`[NOVA] Vision result:`, visionResult?.predictions?.length, "predictions", visionResult?.message);
-      document.title = `NOVA: vision=${visionResult?.predictions?.length || 0} preds`;
       if (visionResult && visionResult.predictions?.length > 0) {
         return { ...visionResult, extractionStats: data.stats, takeoffId: takeoff.id, strategy };
       }
     } catch (err) {
       console.warn("[NOVA] Vision fallback failed:", err.message);
-      document.title = `NOVA: vision FAILED ${err.message?.slice(0,30)}`;
     }
   } else {
     console.log("[NOVA] No drawing.data — cannot attempt vision fallback");
-    document.title = `NOVA: no image data for vision`;
   }
 
   return {
@@ -1468,7 +1568,7 @@ export function findNearbyPrediction(predictions, point, acceptedIds, rejectedId
 /**
  * Cross-sheet scanning — find tag instances across all drawings
  */
-export async function scanAllSheets(drawings, tag, measurementType) {
+export async function scanAllSheets(drawings, tag, _measurementType) {
   const results = [];
 
   for (const drawing of drawings) {

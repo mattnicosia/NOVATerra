@@ -55,7 +55,7 @@ export const QUICK_ACTIONS = [
 export default function AIChatPanel() {
   const C = useTheme();
   const P = C.panel; // dark theme for chat
-  const T = C.T;
+  const _T = C.T;
   const open = useUiStore(s => s.aiChatOpen);
   const setOpen = useUiStore(s => s.setAiChatOpen);
   const messages = useUiStore(s => s.aiChatMessages);
@@ -131,7 +131,7 @@ export default function AIChatPanel() {
         const allTextParts = [];
         const allToolResults = [];
         let round = 0;
-        let lastResponse = null;
+        let _lastResponse = null;
 
         while (round < MAX_TOOL_ROUNDS) {
           round++;
@@ -160,7 +160,7 @@ export default function AIChatPanel() {
           }
 
           if (!response?.content) break;
-          lastResponse = response;
+          _lastResponse = response;
 
           // Extract text and tool calls from this round
           const textParts = [];

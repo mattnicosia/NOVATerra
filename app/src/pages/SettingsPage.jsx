@@ -49,7 +49,7 @@ export default function SettingsPage() {
     fee: C.red,
   };
 
-  const handleMarkupDrop = targetIdx => {
+  const _handleMarkupDrop = targetIdx => {
     if (dragMarkupIdx === null || dragMarkupIdx === targetIdx) return;
     const current = [...(appSettings.defaultMarkupOrder || DEFAULT_MARKUP_ORDER)];
     const [moved] = current.splice(dragMarkupIdx, 1);
@@ -58,8 +58,8 @@ export default function SettingsPage() {
     setDragMarkupIdx(null);
   };
 
-  const [senderEmails, setSenderEmails] = useState([]);
-  const [newSenderEmail, setNewSenderEmail] = useState("");
+  const [_senderEmails, _setSenderEmails] = useState([]);
+  const [_newSenderEmail, _setNewSenderEmail] = useState("");
 
   const handleLogoUpload = async file => {
     try {
@@ -78,7 +78,7 @@ export default function SettingsPage() {
       setSettingsSaved(true);
       showToast("Settings saved");
       setTimeout(() => setSettingsSaved(false), 2000);
-    } catch (e) {
+    } catch {
       showToast("Failed to save settings", "error");
     }
   };
@@ -382,7 +382,7 @@ export default function SettingsPage() {
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 16 }}>
                   {inactiveItems.map(mo => {
-                    const color = markupColors[mo.key] || C.textDim;
+                    const _color = markupColors[mo.key] || C.textDim;
                     return (
                       <div
                         key={mo.key}
@@ -512,7 +512,7 @@ export default function SettingsPage() {
               <strong>Current estimate</strong> order:{" "}
               {markupOrder
                 .filter(mo => mo.active !== false)
-                .map((mo, i) => `${mo.label} ${markup[mo.key] || 0}%${mo.compound ? "★" : ""}`)
+                .map((mo, _i) => `${mo.label} ${markup[mo.key] || 0}%${mo.compound ? "★" : ""}`)
                 .join(" → ")}{" "}
               | Bond {markup.bond || 0}% | Tax {markup.tax || 0}%
               {markupOrder.some(mo => mo.compound && mo.active !== false) && (
@@ -743,7 +743,7 @@ export default function SettingsPage() {
                 <a
                   href="https://fred.stlouisfed.org/docs/api/api_key.html"
                   target="_blank"
-                  rel="noopener"
+                  rel="noopener noreferrer"
                   style={{ color: C.accent, fontWeight: 500, textDecoration: "none" }}
                 >
                   fred.stlouisfed.org
@@ -876,13 +876,21 @@ export default function SettingsPage() {
 }
 
 // Company Profiles management section
-function CompanyProfilesSection({ C, T, masterData, showToast, logoFileRef, handleLogoUpload, updateCompanyInfo }) {
+function CompanyProfilesSection({
+  C,
+  T,
+  masterData,
+  showToast,
+  logoFileRef: _logoFileRef,
+  handleLogoUpload: _handleLogoUpload,
+  updateCompanyInfo,
+}) {
   const addProfile = useMasterDataStore(s => s.addCompanyProfile);
   const updateProfile = useMasterDataStore(s => s.updateCompanyProfile);
   const removeProfile = useMasterDataStore(s => s.removeCompanyProfile);
   const profiles = masterData.companyProfiles || [];
   const [editingProfileId, setEditingProfileId] = useState(null); // null = default, or profile id
-  const [showNewForm, setShowNewForm] = useState(false);
+  const [_showNewForm, setShowNewForm] = useState(false);
   const profileLogoRef = useRef(null);
 
   // The profile currently being edited
@@ -1470,6 +1478,7 @@ function EmailInboxSection({ C, T, showToast }) {
 
   useEffect(() => {
     fetchSenderEmails().then(setSenderEmails);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Zustand action is stable; run once on mount
   }, []);
 
   const handleAddSender = async () => {

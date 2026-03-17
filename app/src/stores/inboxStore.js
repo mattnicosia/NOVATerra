@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { supabase } from "@/utils/supabase";
-import { useAuthStore } from "./authStore";
+// useAuthStore available if needed for auth state
+// import { useAuthStore } from "./authStore";
 
 // API base URL — uses Vercel in dev, relative path in production
 const API_BASE = import.meta.env.DEV ? "https://app-nova-42373ca7.vercel.app" : "";
@@ -30,7 +31,9 @@ export const useInboxStore = create((set, get) => ({
     try {
       const raw = localStorage.getItem(READ_IDS_KEY);
       if (raw) set({ readIds: JSON.parse(raw) });
-    } catch {}
+    } catch {
+      /* localStorage parse non-critical */
+    }
   },
 
   // Mark an RFP as read
@@ -41,7 +44,9 @@ export const useInboxStore = create((set, get) => ({
     set({ readIds: updated });
     try {
       localStorage.setItem(READ_IDS_KEY, JSON.stringify(updated));
-    } catch {}
+    } catch {
+      /* localStorage write non-critical */
+    }
     // Recalculate unread count
     const rfps = get().rfps;
     set({
@@ -100,7 +105,9 @@ export const useInboxStore = create((set, get) => ({
           reconnectTimeout = setTimeout(() => {
             try {
               supabase.removeChannel(channel);
-            } catch {}
+            } catch {
+              /* channel removal non-critical */
+            }
             get().subscribeToRfps();
           }, 5000);
         }

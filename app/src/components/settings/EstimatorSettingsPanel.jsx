@@ -8,7 +8,7 @@ import { useAllEstimatorStats } from "@/hooks/useEstimatorStats";
 import { supabase } from "@/utils/supabase";
 import { computeEstimatorExperience } from "@/utils/estimatorExperience";
 import { inp, bt, cardSolid } from "@/utils/styles";
-import { uid } from "@/utils/format";
+
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import Avatar from "@/components/shared/Avatar";
@@ -20,7 +20,7 @@ function getInitials(name) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-function ExperiencePills({ estimatorName, estimates, C, T }) {
+function ExperiencePills({ estimatorName, estimates, C, _T }) {
   const exp = useMemo(() => computeEstimatorExperience(estimates, estimatorName), [estimates, estimatorName]);
   if (!exp || exp.jobTypes.length === 0) return null;
   const top3 = exp.jobTypes.slice(0, 3);
@@ -123,13 +123,24 @@ function MyProfileSection({ C, T }) {
 
   const handleSaveEmail = async () => {
     const trimmed = newEmail.trim().toLowerCase();
-    if (!trimmed || trimmed === user?.email) { setEditingEmail(false); return; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) { setError("Invalid email address"); return; }
+    if (!trimmed || trimmed === user?.email) {
+      setEditingEmail(false);
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setError("Invalid email address");
+      return;
+    }
     setEmailStatus("pending");
     setError("");
     const { error: err } = await supabase.auth.updateUser({ email: trimmed });
-    if (err) { setError(err.message); setEmailStatus("error"); }
-    else { setEmailStatus("success"); setEditingEmail(false); }
+    if (err) {
+      setError(err.message);
+      setEmailStatus("error");
+    } else {
+      setEmailStatus("success");
+      setEditingEmail(false);
+    }
   };
 
   return (
@@ -204,7 +215,10 @@ function MyProfileSection({ C, T }) {
                   onChange={e => setNewEmail(e.target.value)}
                   onKeyDown={e => {
                     if (e.key === "Enter") handleSaveEmail();
-                    if (e.key === "Escape") { setEditingEmail(false); setNewEmail(user?.email || ""); }
+                    if (e.key === "Escape") {
+                      setEditingEmail(false);
+                      setNewEmail(user?.email || "");
+                    }
                   }}
                   autoFocus
                   placeholder="new@email.com"
@@ -213,7 +227,14 @@ function MyProfileSection({ C, T }) {
                 <button
                   onClick={handleSaveEmail}
                   disabled={emailStatus === "pending"}
-                  style={{ ...bt(C), fontSize: 9, padding: "3px 10px", background: C.accent, color: "#fff", opacity: emailStatus === "pending" ? 0.6 : 1 }}
+                  style={{
+                    ...bt(C),
+                    fontSize: 9,
+                    padding: "3px 10px",
+                    background: C.accent,
+                    color: "#fff",
+                    opacity: emailStatus === "pending" ? 0.6 : 1,
+                  }}
                 >
                   {emailStatus === "pending" ? "..." : "Save"}
                 </button>
@@ -222,7 +243,12 @@ function MyProfileSection({ C, T }) {
               <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 1 }}>
                 <span style={{ textTransform: "none", color: C.textMuted }}>{user?.email || "No email"}</span>
                 <button
-                  onClick={() => { setNewEmail(user?.email || ""); setEditingEmail(true); setEmailStatus(""); setError(""); }}
+                  onClick={() => {
+                    setNewEmail(user?.email || "");
+                    setEditingEmail(true);
+                    setEmailStatus("");
+                    setError("");
+                  }}
                   style={{ background: "none", border: "none", cursor: "pointer", padding: 2 }}
                   aria-label="Change email"
                 >
@@ -609,7 +635,7 @@ export default function EstimatorSettingsPanel() {
 
   // Compute active project counts per estimator
   const getEstimatorStats = name => {
-    const active = estimatesIndex.filter(e => e.estimator === name && ["Bidding", "Pending"].includes(e.status));
+    const active = estimatesIndex.filter(e => e.estimator === name && ["Bidding", "Submitted"].includes(e.status));
     const totalHours = active.reduce((s, e) => s + (Number(e.estimatedHours) || 0), 0);
     const hoursLogged = active.reduce((s, e) => s + (e.timerTotalMs || 0) / 3600000, 0);
     return { activeCount: active.length, totalHours, hoursLogged: Math.round(hoursLogged * 10) / 10 };
@@ -626,7 +652,7 @@ export default function EstimatorSettingsPanel() {
     const totalDays = 30;
 
     const active = estimatesIndex.filter(
-      e => e.estimator === estimatorName && ["Bidding", "Pending"].includes(e.status) && e.bidDue,
+      e => e.estimator === estimatorName && ["Bidding", "Submitted"].includes(e.status) && e.bidDue,
     );
 
     const bars = active.map(est => {
@@ -678,7 +704,7 @@ export default function EstimatorSettingsPanel() {
               height: 7,
               borderRadius: 3,
               background: color,
-              opacity: bar.status === "Pending" ? 0.5 : 0.8,
+              opacity: bar.status === "Submitted" ? 0.5 : 0.8,
             }}
           />
         ))}
@@ -741,18 +767,19 @@ export default function EstimatorSettingsPanel() {
             fontSize: 11,
             fontWeight: 500,
             background:
-              inviteStatus.type === "success" ? "rgba(52,211,153,0.12)"
-              : inviteStatus.type === "warning" ? "rgba(251,191,36,0.12)"
-              : "rgba(239,68,68,0.12)",
+              inviteStatus.type === "success"
+                ? "rgba(52,211,153,0.12)"
+                : inviteStatus.type === "warning"
+                  ? "rgba(251,191,36,0.12)"
+                  : "rgba(239,68,68,0.12)",
             border: `1px solid ${
-              inviteStatus.type === "success" ? "rgba(52,211,153,0.3)"
-              : inviteStatus.type === "warning" ? "rgba(251,191,36,0.3)"
-              : "rgba(239,68,68,0.3)"
+              inviteStatus.type === "success"
+                ? "rgba(52,211,153,0.3)"
+                : inviteStatus.type === "warning"
+                  ? "rgba(251,191,36,0.3)"
+                  : "rgba(239,68,68,0.3)"
             }`,
-            color:
-              inviteStatus.type === "success" ? "#34D399"
-              : inviteStatus.type === "warning" ? "#FBBF24"
-              : C.red,
+            color: inviteStatus.type === "success" ? "#34D399" : inviteStatus.type === "warning" ? "#FBBF24" : C.red,
           }}
         >
           <span style={{ fontSize: 13 }}>

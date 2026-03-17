@@ -60,7 +60,7 @@ function LoginForm() {
   };
 
   return (
-    <div style={pageStyle}>
+    <div style={pageStyle(T)}>
       <div style={cardContainerStyle(T)}>
         <BrandHeader T={T} />
 
@@ -262,7 +262,7 @@ function FooterLinks({ T }) {
 }
 
 // ── Styles ──
-const pageStyle = {
+const pageStyle = T => ({
   minHeight: "100vh",
   display: "flex",
   alignItems: "center",
@@ -270,7 +270,7 @@ const pageStyle = {
   background: "linear-gradient(180deg, #06060C 0%, #0C0B14 50%, #12101C 100%)",
   fontFamily: T.font.sans,
   padding: 20,
-};
+});
 
 const cardContainerStyle = T => ({
   width: "100%",

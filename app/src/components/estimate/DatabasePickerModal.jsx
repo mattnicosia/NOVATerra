@@ -1,19 +1,18 @@
-import { useState, useMemo } from 'react';
-import { useTheme } from '@/hooks/useTheme';
-import { useDatabaseStore } from '@/stores/databaseStore';
-import { useItemsStore } from '@/stores/itemsStore';
-import { useProjectStore } from '@/stores/projectStore';
-import { useUiStore } from '@/stores/uiStore';
-import { UNITS } from '@/constants/units';
-import Modal from '@/components/shared/Modal';
-import Ic from '@/components/shared/Ic';
-import { I } from '@/constants/icons';
-import { inp, nInp, bt } from '@/utils/styles';
-import { nn, fmt, titleCase } from '@/utils/format';
+import { useState, useMemo } from "react";
+import { useTheme } from "@/hooks/useTheme";
+import { useDatabaseStore } from "@/stores/databaseStore";
+import { useItemsStore } from "@/stores/itemsStore";
+import { useProjectStore } from "@/stores/projectStore";
+import { useUiStore } from "@/stores/uiStore";
+import { UNITS } from "@/constants/units";
+import Modal from "@/components/shared/Modal";
+import Ic from "@/components/shared/Ic";
+import { I } from "@/constants/icons";
+import { inp, bt } from "@/utils/styles";
+import { nn, fmt, titleCase } from "@/utils/format";
 
 export default function DatabasePickerModal() {
   const C = useTheme();
-  const T = C.T;
   const elements = useDatabaseStore(s => s.elements);
   const pickerForItemId = useDatabaseStore(s => s.pickerForItemId);
   const setPickerForItemId = useDatabaseStore(s => s.setPickerForItemId);
@@ -32,7 +31,7 @@ export default function DatabasePickerModal() {
   const [customName, setCustomName] = useState("");
   const [customUnit, setCustomUnit] = useState("EA");
 
-  const toggleDiv = (dc) => {
+  const toggleDiv = dc => {
     setExpandedDivs(prev => {
       const next = new Set(prev);
       next.has(dc) ? next.delete(dc) : next.add(dc);
@@ -68,17 +67,14 @@ export default function DatabasePickerModal() {
     let list = elements;
     if (search) {
       const q = search.toLowerCase();
-      list = list.filter(e =>
-        (e.code || "").toLowerCase().includes(q) ||
-        (e.name || "").toLowerCase().includes(q)
-      );
+      list = list.filter(e => (e.code || "").toLowerCase().includes(q) || (e.name || "").toLowerCase().includes(q));
     } else if (selectedSub) {
       list = list.filter(e => e.code && e.code.startsWith(selectedSub));
     }
     return list.sort((a, b) => (a.code || "").localeCompare(b.code || "")).slice(0, 120);
   }, [elements, search, selectedSub]);
 
-  const handlePick = (el) => {
+  const handlePick = el => {
     const id = pickerForItemId;
     if (!id) return;
     updateItem(id, "code", el.code || "");
@@ -125,7 +121,10 @@ export default function DatabasePickerModal() {
         <h3 style={{ fontSize: 15, fontWeight: 700, color: C.text, margin: 0 }}>
           <Ic d={I.database} size={16} color={C.purple} /> Select from Cost Database
         </h3>
-        <button onClick={() => setPickerForItemId(null)} style={{ border: "none", background: "transparent", color: C.textDim, cursor: "pointer" }}>
+        <button
+          onClick={() => setPickerForItemId(null)}
+          style={{ border: "none", background: "transparent", color: C.textDim, cursor: "pointer" }}
+        >
           <Ic d={I.x} size={16} />
         </button>
       </div>
@@ -133,35 +132,123 @@ export default function DatabasePickerModal() {
       {/* Two-panel layout */}
       <div style={{ display: "flex", gap: 0, height: 440 }}>
         {/* Left sidebar: Division tree */}
-        <div style={{ width: 240, minWidth: 240, borderRight: `1px solid ${C.border}`, overflowY: "auto", paddingRight: 4 }}>
-          <div className="nav-item" onClick={() => { setSelectedSub(null); setSearch(""); }}
-            style={{ padding: "6px 10px", borderRadius: 4, fontSize: 11, fontWeight: 600, color: !selectedSub && !search ? C.accent : C.textMuted, background: !selectedSub && !search ? C.accentBg : "transparent", marginBottom: 2, cursor: "pointer" }}>
+        <div
+          style={{
+            width: 240,
+            minWidth: 240,
+            borderRight: `1px solid ${C.border}`,
+            overflowY: "auto",
+            paddingRight: 4,
+          }}
+        >
+          <div
+            className="nav-item"
+            onClick={() => {
+              setSelectedSub(null);
+              setSearch("");
+            }}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 4,
+              fontSize: 11,
+              fontWeight: 600,
+              color: !selectedSub && !search ? C.accent : C.textMuted,
+              background: !selectedSub && !search ? C.accentBg : "transparent",
+              marginBottom: 2,
+              cursor: "pointer",
+            }}
+          >
             All Items ({elements.length})
           </div>
-          {Object.entries(dbTree).sort(([a], [b]) => a.localeCompare(b)).map(([dc, div]) => (
-            <div key={dc}>
-              <div className="nav-item" onClick={() => toggleDiv(dc)}
-                style={{ padding: "6px 10px", borderRadius: 4, display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 600, color: div.count > 0 ? C.text : C.textMuted, cursor: "pointer" }}>
-                <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke={C.textDim} strokeWidth="1.5" style={{ transform: expandedDivs.has(dc) ? "rotate(90deg)" : "rotate(0)", transition: "transform 0.15s", flexShrink: 0 }}><path d="M2 0.5l3.5 3.5L2 7.5" /></svg>
-                <Ic d={I.folder} size={12} color={div.count > 0 ? C.accent : C.textDim} />
-                <span style={{ fontFeatureSettings: "'tnum'", fontSize: 10, minWidth: 18 }}>{dc}</span>
-                <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{div.name}</span>
-                {div.count > 0 && <span style={{ fontSize: 9, color: C.accent, fontWeight: 600 }}>{div.count}</span>}
+          {Object.entries(dbTree)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([dc, div]) => (
+              <div key={dc}>
+                <div
+                  className="nav-item"
+                  onClick={() => toggleDiv(dc)}
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: 4,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: div.count > 0 ? C.text : C.textMuted,
+                    cursor: "pointer",
+                  }}
+                >
+                  <svg
+                    width="8"
+                    height="8"
+                    viewBox="0 0 8 8"
+                    fill="none"
+                    stroke={C.textDim}
+                    strokeWidth="1.5"
+                    style={{
+                      transform: expandedDivs.has(dc) ? "rotate(90deg)" : "rotate(0)",
+                      transition: "transform 0.15s",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <path d="M2 0.5l3.5 3.5L2 7.5" />
+                  </svg>
+                  <Ic d={I.folder} size={12} color={div.count > 0 ? C.accent : C.textDim} />
+                  <span style={{ fontFeatureSettings: "'tnum'", fontSize: 10, minWidth: 18 }}>{dc}</span>
+                  <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {div.name}
+                  </span>
+                  {div.count > 0 && <span style={{ fontSize: 9, color: C.accent, fontWeight: 600 }}>{div.count}</span>}
+                </div>
+                {expandedDivs.has(dc) &&
+                  Object.entries(div.subs)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([subKey, sub]) => {
+                      const isActive = selectedSub === subKey;
+                      const hasItems = sub.count > 0;
+                      return (
+                        <div
+                          key={subKey}
+                          className="nav-item"
+                          onClick={() => {
+                            setSelectedSub(subKey);
+                            setSearch("");
+                          }}
+                          style={{
+                            padding: "5px 10px 5px 34px",
+                            borderRadius: 4,
+                            fontSize: 10,
+                            color: isActive ? C.accent : hasItems ? C.text : C.textDim,
+                            background: isActive ? C.accentBg : "transparent",
+                            fontWeight: isActive ? 600 : hasItems ? 500 : 400,
+                            display: "flex",
+                            gap: 6,
+                            alignItems: "center",
+                            cursor: "pointer",
+                            opacity: isActive || hasItems ? 1 : 0.7,
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontFeatureSettings: "'tnum'",
+                              fontSize: 9,
+                              color: isActive ? C.accent : hasItems ? C.textMuted : C.textDim,
+                            }}
+                          >
+                            {subKey}
+                          </span>
+                          <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {sub.name}
+                          </span>
+                          {hasItems && (
+                            <span style={{ fontSize: 9, color: C.accent, fontWeight: 600 }}>{sub.count}</span>
+                          )}
+                        </div>
+                      );
+                    })}
               </div>
-              {expandedDivs.has(dc) && Object.entries(div.subs).sort(([a], [b]) => a.localeCompare(b)).map(([subKey, sub]) => {
-                const isActive = selectedSub === subKey;
-                const hasItems = sub.count > 0;
-                return (
-                  <div key={subKey} className="nav-item" onClick={() => { setSelectedSub(subKey); setSearch(""); }}
-                    style={{ padding: "5px 10px 5px 34px", borderRadius: 4, fontSize: 10, color: isActive ? C.accent : hasItems ? C.text : C.textDim, background: isActive ? C.accentBg : "transparent", fontWeight: isActive ? 600 : hasItems ? 500 : 400, display: "flex", gap: 6, alignItems: "center", cursor: "pointer", opacity: isActive || hasItems ? 1 : 0.7 }}>
-                    <span style={{ fontFeatureSettings: "'tnum'", fontSize: 9, color: isActive ? C.accent : hasItems ? C.textMuted : C.textDim }}>{subKey}</span>
-                    <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sub.name}</span>
-                    {hasItems && <span style={{ fontSize: 9, color: C.accent, fontWeight: 600 }}>{sub.count}</span>}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
+            ))}
         </div>
 
         {/* Right panel: Item list */}
@@ -169,59 +256,137 @@ export default function DatabasePickerModal() {
           {/* Search bar + Custom button */}
           <div style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center" }}>
             <div style={{ position: "relative", flex: 1 }}>
-              <input placeholder="Search by code or name..." value={search}
-                onChange={e => { setSearch(e.target.value); if (e.target.value) setSelectedSub(null); }} autoFocus
-                style={inp(C, { width: "100%", paddingLeft: 32, padding: "8px 12px 8px 32" })} />
+              <input
+                placeholder="Search by code or name..."
+                value={search}
+                onChange={e => {
+                  setSearch(e.target.value);
+                  if (e.target.value) setSelectedSub(null);
+                }}
+                autoFocus
+                style={inp(C, { width: "100%", paddingLeft: 32, padding: "8px 12px 8px 32" })}
+              />
               <div style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }}>
                 <Ic d={I.search} size={14} color={C.textDim} />
               </div>
             </div>
-            <button onClick={() => {
-              setCustomMode(!customMode);
-              if (!customMode && selectedSub) setCustomCode(selectedSub + ".");
-            }} style={bt(C, {
-              background: customMode ? C.accent : "transparent",
-              border: `1px solid ${customMode ? C.accent : C.border}`,
-              color: customMode ? "#fff" : C.textMuted,
-              padding: "6px 12px", fontSize: 11, fontWeight: 600, flexShrink: 0,
-            })}>
+            <button
+              onClick={() => {
+                setCustomMode(!customMode);
+                if (!customMode && selectedSub) setCustomCode(selectedSub + ".");
+              }}
+              style={bt(C, {
+                background: customMode ? C.accent : "transparent",
+                border: `1px solid ${customMode ? C.accent : C.border}`,
+                color: customMode ? "#fff" : C.textMuted,
+                padding: "6px 12px",
+                fontSize: 11,
+                fontWeight: 600,
+                flexShrink: 0,
+              })}
+            >
               <Ic d={I.plus} size={11} color={customMode ? "#fff" : C.textMuted} sw={2.5} /> Custom Item
             </button>
           </div>
 
           {/* Active subdivision label */}
           {selectedSub && !search && (
-            <div style={{ fontSize: 10, color: C.accent, fontWeight: 600, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
-              <span>{selectedSub} — {activeCodes[selectedSub.split(".")[0]]?.subs?.[selectedSub] || ""}</span>
+            <div
+              style={{
+                fontSize: 10,
+                color: C.accent,
+                fontWeight: 600,
+                marginBottom: 6,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              <span>
+                {selectedSub} — {activeCodes[selectedSub.split(".")[0]]?.subs?.[selectedSub] || ""}
+              </span>
               <span style={{ fontSize: 9, color: C.textDim }}>({filtered.length} items)</span>
             </div>
           )}
 
           {/* Custom entry form */}
           {customMode && (
-            <div style={{ padding: "8px 10px", marginBottom: 8, borderRadius: 6, background: `${C.accent}08`, border: `1px solid ${C.accent}30`, display: "flex", gap: 8, alignItems: "center" }}>
-              <input value={customCode} onChange={e => setCustomCode(e.target.value)} placeholder="Code (e.g. 03.310.10)"
-                style={inp(C, { width: 120, fontFeatureSettings: "'tnum'", fontSize: 12, padding: "5px 8px" })} />
-              <input value={customName} onChange={e => setCustomName(e.target.value)} placeholder="Item name..." autoFocus
-                style={inp(C, { flex: 1, fontSize: 12, padding: "5px 8px" })} />
-              <select value={customUnit} onChange={e => setCustomUnit(e.target.value)}
-                style={inp(C, { width: 60, fontSize: 11, padding: "5px 4px", textAlign: "center" })}>
-                {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+            <div
+              style={{
+                padding: "8px 10px",
+                marginBottom: 8,
+                borderRadius: 6,
+                background: `${C.accent}08`,
+                border: `1px solid ${C.accent}30`,
+                display: "flex",
+                gap: 8,
+                alignItems: "center",
+              }}
+            >
+              <input
+                value={customCode}
+                onChange={e => setCustomCode(e.target.value)}
+                placeholder="Code (e.g. 03.310.10)"
+                style={inp(C, { width: 120, fontFeatureSettings: "'tnum'", fontSize: 12, padding: "5px 8px" })}
+              />
+              <input
+                value={customName}
+                onChange={e => setCustomName(e.target.value)}
+                placeholder="Item name..."
+                autoFocus
+                style={inp(C, { flex: 1, fontSize: 12, padding: "5px 8px" })}
+              />
+              <select
+                value={customUnit}
+                onChange={e => setCustomUnit(e.target.value)}
+                style={inp(C, { width: 60, fontSize: 11, padding: "5px 4px", textAlign: "center" })}
+              >
+                {UNITS.map(u => (
+                  <option key={u} value={u}>
+                    {u}
+                  </option>
+                ))}
               </select>
-              <button disabled={!customCode || !customName} onClick={handleCustomPick}
+              <button
+                disabled={!customCode || !customName}
+                onClick={handleCustomPick}
                 style={bt(C, {
                   background: customCode && customName ? C.accent : C.bg3,
                   color: customCode && customName ? "#fff" : C.textDim,
-                  padding: "5px 14px", fontSize: 11, fontWeight: 600, border: "none", flexShrink: 0,
-                })}>
+                  padding: "5px 14px",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  border: "none",
+                  flexShrink: 0,
+                })}
+              >
                 <Ic d={I.check} size={11} color={customCode && customName ? "#fff" : C.textDim} sw={2.5} /> Apply
               </button>
             </div>
           )}
 
           {/* Column headers */}
-          <div style={{ fontSize: 10, display: "flex", gap: 3, padding: "4px 0", color: C.textDim, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.6, borderBottom: `1px solid ${C.border}`, marginBottom: 4 }}>
-            <div style={{ width: 70 }}>Code</div><div style={{ flex: 1 }}>Name</div><div style={{ width: 40 }}>Unit</div><div style={{ width: 55, textAlign: "right" }}>Matl</div><div style={{ width: 55, textAlign: "right" }}>Labor</div><div style={{ width: 55, textAlign: "right" }}>Equip</div><div style={{ width: 60, textAlign: "right" }}>Total</div>
+          <div
+            style={{
+              fontSize: 10,
+              display: "flex",
+              gap: 3,
+              padding: "4px 0",
+              color: C.textDim,
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: 0.6,
+              borderBottom: `1px solid ${C.border}`,
+              marginBottom: 4,
+            }}
+          >
+            <div style={{ width: 70 }}>Code</div>
+            <div style={{ flex: 1 }}>Name</div>
+            <div style={{ width: 40 }}>Unit</div>
+            <div style={{ width: 55, textAlign: "right" }}>Matl</div>
+            <div style={{ width: 55, textAlign: "right" }}>Labor</div>
+            <div style={{ width: 55, textAlign: "right" }}>Equip</div>
+            <div style={{ width: 60, textAlign: "right" }}>Total</div>
           </div>
 
           {/* Item list */}
@@ -229,17 +394,84 @@ export default function DatabasePickerModal() {
             {filtered.map(el => {
               const total = nn(el.material) + nn(el.labor) + nn(el.equipment);
               return (
-                <div key={el.id || el.code} onClick={() => handlePick(el)}
-                  style={{ display: "flex", gap: 3, padding: "5px 0", cursor: "pointer", borderBottom: `1px solid ${C.bg2}`, alignItems: "center", transition: "background 0.1s" }}
-                  onMouseOver={e => e.currentTarget.style.background = `${C.accent}08`}
-                  onMouseOut={e => e.currentTarget.style.background = "transparent"}>
-                  <div style={{ width: 70, fontSize: 12, fontWeight: 600, color: C.purple, fontFeatureSettings: "'tnum'" }}>{el.code}</div>
-                  <div style={{ flex: 1, fontSize: 12, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{titleCase(el.name)}</div>
+                <div
+                  key={el.id || el.code}
+                  onClick={() => handlePick(el)}
+                  style={{
+                    display: "flex",
+                    gap: 3,
+                    padding: "5px 0",
+                    cursor: "pointer",
+                    borderBottom: `1px solid ${C.bg2}`,
+                    alignItems: "center",
+                    transition: "background 0.1s",
+                  }}
+                  onMouseOver={e => (e.currentTarget.style.background = `${C.accent}08`)}
+                  onMouseOut={e => (e.currentTarget.style.background = "transparent")}
+                >
+                  <div
+                    style={{ width: 70, fontSize: 12, fontWeight: 600, color: C.purple, fontFeatureSettings: "'tnum'" }}
+                  >
+                    {el.code}
+                  </div>
+                  <div
+                    style={{
+                      flex: 1,
+                      fontSize: 12,
+                      color: C.text,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {titleCase(el.name)}
+                  </div>
                   <div style={{ width: 40, fontSize: 11, color: C.textDim }}>{el.unit}</div>
-                  <div style={{ width: 55, textAlign: "right", fontSize: 12, color: C.textMuted, fontFeatureSettings: "'tnum'" }}>{nn(el.material) > 0 ? fmt(nn(el.material)) : "—"}</div>
-                  <div style={{ width: 55, textAlign: "right", fontSize: 12, color: C.textMuted, fontFeatureSettings: "'tnum'" }}>{nn(el.labor) > 0 ? fmt(nn(el.labor)) : "—"}</div>
-                  <div style={{ width: 55, textAlign: "right", fontSize: 12, color: C.textMuted, fontFeatureSettings: "'tnum'" }}>{nn(el.equipment) > 0 ? fmt(nn(el.equipment)) : "—"}</div>
-                  <div style={{ width: 60, textAlign: "right", fontSize: 12, fontWeight: 600, color: total > 0 ? C.accent : C.textDim, fontFeatureSettings: "'tnum'" }}>{total > 0 ? fmt(total) : "—"}</div>
+                  <div
+                    style={{
+                      width: 55,
+                      textAlign: "right",
+                      fontSize: 12,
+                      color: C.textMuted,
+                      fontFeatureSettings: "'tnum'",
+                    }}
+                  >
+                    {nn(el.material) > 0 ? fmt(nn(el.material)) : "—"}
+                  </div>
+                  <div
+                    style={{
+                      width: 55,
+                      textAlign: "right",
+                      fontSize: 12,
+                      color: C.textMuted,
+                      fontFeatureSettings: "'tnum'",
+                    }}
+                  >
+                    {nn(el.labor) > 0 ? fmt(nn(el.labor)) : "—"}
+                  </div>
+                  <div
+                    style={{
+                      width: 55,
+                      textAlign: "right",
+                      fontSize: 12,
+                      color: C.textMuted,
+                      fontFeatureSettings: "'tnum'",
+                    }}
+                  >
+                    {nn(el.equipment) > 0 ? fmt(nn(el.equipment)) : "—"}
+                  </div>
+                  <div
+                    style={{
+                      width: 60,
+                      textAlign: "right",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: total > 0 ? C.accent : C.textDim,
+                      fontFeatureSettings: "'tnum'",
+                    }}
+                  >
+                    {total > 0 ? fmt(total) : "—"}
+                  </div>
                 </div>
               );
             })}
@@ -250,8 +482,20 @@ export default function DatabasePickerModal() {
                   {search ? "No matches found" : selectedSub ? `No items in ${selectedSub}` : "No items in database"}
                 </div>
                 {!customMode && (
-                  <button onClick={() => { setCustomMode(true); if (selectedSub) setCustomCode(selectedSub + "."); }}
-                    style={bt(C, { background: "transparent", border: `1px solid ${C.border}`, color: C.accent, padding: "5px 12px", fontSize: 11, marginTop: 10 })}>
+                  <button
+                    onClick={() => {
+                      setCustomMode(true);
+                      if (selectedSub) setCustomCode(selectedSub + ".");
+                    }}
+                    style={bt(C, {
+                      background: "transparent",
+                      border: `1px solid ${C.border}`,
+                      color: C.accent,
+                      padding: "5px 12px",
+                      fontSize: 11,
+                      marginTop: 10,
+                    })}
+                  >
                     <Ic d={I.plus} size={11} color={C.accent} sw={2.5} /> Create Custom Item
                   </button>
                 )}

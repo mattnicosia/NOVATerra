@@ -20,7 +20,7 @@ import { generateBaselineROM } from "@/utils/romEngine";
  */
 export function useBidIntelligence(parsedData, editedFields = {}) {
   const estimates = useEstimatesStore(s => s.estimatesIndex);
-  const { masterData } = useMasterDataStore();
+  const { masterData: _masterData } = useMasterDataStore();
   const calibrationFactors = useScanStore(s => s.calibrationFactors);
 
   return useMemo(() => {
@@ -78,7 +78,7 @@ export function useBidIntelligence(parsedData, editedFields = {}) {
       recommendation,
       hasData,
     };
-  }, [estimates, masterData, calibrationFactors, parsedData, editedFields]);
+  }, [estimates, calibrationFactors, parsedData, editedFields]);
 }
 
 function computeClientHistory(estimates, clientName) {
@@ -169,12 +169,12 @@ function computeRomPreview(projectSF, jobType, calibrationFactors) {
 
 function buildSignals({
   clientHistory,
-  architectHistory,
+  architectHistory: _architectHistory,
   jobTypeStats,
   romPreview,
   overallWinRate,
   bidDue,
-  projectSF,
+  projectSF: _projectSF,
   estimates,
 }) {
   const signals = [];
@@ -244,7 +244,7 @@ function buildSignals({
   }
 
   // Capacity signal
-  const activeBids = estimates.filter(e => e.status === "Bidding" || e.status === "Pending");
+  const activeBids = estimates.filter(e => e.status === "Bidding" || e.status === "Submitted");
   if (activeBids.length >= 8) {
     signals.push({
       type: "capacity",
@@ -255,7 +255,7 @@ function buildSignals({
 
   // ROM size signal
   if (romPreview?.totalRange) {
-    const [low, high] = romPreview.totalRange;
+    const [_low, high] = romPreview.totalRange;
     const avgPipeline =
       estimates.length > 0 ? estimates.reduce((sum, e) => sum + (e.grandTotal || 0), 0) / estimates.length : 0;
     if (high > avgPipeline * 3 && avgPipeline > 0) {

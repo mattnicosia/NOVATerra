@@ -8,20 +8,36 @@
  * @returns {{ floor: number, label: string }}
  */
 export function inferFloorFromSheet(drawing) {
-  const num = (drawing.sheetNumber || '').toUpperCase().trim();
-  const title = (drawing.sheetTitle || drawing.label || '').toLowerCase().trim();
+  const num = (drawing.sheetNumber || "").toUpperCase().trim();
+  const title = (drawing.sheetTitle || drawing.label || "").toLowerCase().trim();
 
   // Check title keywords first (most explicit)
-  if (/basement|lower\s*level|below\s*grade/i.test(title)) return { floor: -1, label: 'Basement' };
-  if (/\broof\b|rooftop|penthouse/i.test(title)) return { floor: 99, label: 'Roof' };
-  if (/\bground\b|ground\s*floor/i.test(title)) return { floor: 1, label: 'Ground Floor' };
+  if (/basement|lower\s*level|below\s*grade/i.test(title)) return { floor: -1, label: "Basement" };
+  if (/\broof\b|rooftop|penthouse/i.test(title)) return { floor: 99, label: "Roof" };
+  if (/\bground\b|ground\s*floor/i.test(title)) return { floor: 1, label: "Ground Floor" };
 
   // Ordinal/cardinal floor names
   const floorNames = {
-    'first': 1, '1st': 1, 'second': 2, '2nd': 2, 'third': 3, '3rd': 3,
-    'fourth': 4, '4th': 4, 'fifth': 5, '5th': 5, 'sixth': 6, '6th': 6,
-    'seventh': 7, '7th': 7, 'eighth': 8, '8th': 8, 'ninth': 9, '9th': 9,
-    'tenth': 10, '10th': 10,
+    first: 1,
+    "1st": 1,
+    second: 2,
+    "2nd": 2,
+    third: 3,
+    "3rd": 3,
+    fourth: 4,
+    "4th": 4,
+    fifth: 5,
+    "5th": 5,
+    sixth: 6,
+    "6th": 6,
+    seventh: 7,
+    "7th": 7,
+    eighth: 8,
+    "8th": 8,
+    ninth: 9,
+    "9th": 9,
+    tenth: 10,
+    "10th": 10,
   };
 
   for (const [name, floor] of Object.entries(floorNames)) {
@@ -44,10 +60,10 @@ export function inferFloorFromSheet(drawing) {
   }
 
   // Basement from sheet number
-  if (num.startsWith('AB') || num.startsWith('B')) return { floor: -1, label: 'Basement' };
+  if (num.startsWith("AB") || num.startsWith("B")) return { floor: -1, label: "Basement" };
 
   // Default to Floor 1
-  return { floor: 1, label: 'Floor 1' };
+  return { floor: 1, label: "Floor 1" };
 }
 
 /**
@@ -67,11 +83,10 @@ export function buildFloorMap(drawings, defaultHeight = 12, floorHeights = {}) {
   }));
 
   // Collect unique floors sorted by floor number
-  const uniqueFloors = [...new Map(entries.map(e => [e.label, e])).values()]
-    .sort((a, b) => a.floor - b.floor);
+  const uniqueFloors = [...new Map(entries.map(e => [e.label, e])).values()].sort((a, b) => a.floor - b.floor);
 
   // Get height for a floor label
-  const getHeight = (label) => {
+  const getHeight = label => {
     if (floorHeights[label] && floorHeights[label] >= 1) return floorHeights[label];
     return defaultHeight;
   };
@@ -83,7 +98,7 @@ export function buildFloorMap(drawings, defaultHeight = 12, floorHeights = {}) {
 
   // Above-grade floors (floor >= 1, not roof)
   const aboveGrade = uniqueFloors.filter(f => f.floor >= 1 && f.floor < 99);
-  aboveGrade.forEach((f, i) => {
+  aboveGrade.forEach((f, _i) => {
     elevations[f.label] = currentElev;
     currentElev += getHeight(f.label);
   });

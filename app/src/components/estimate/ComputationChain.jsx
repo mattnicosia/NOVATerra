@@ -4,7 +4,7 @@ import { useItemsStore } from "@/stores/itemsStore";
 import { useUiStore } from "@/stores/uiStore";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
-import { inp, nInp, bt } from "@/utils/styles";
+import { inp } from "@/utils/styles";
 import { nn } from "@/utils/format";
 import { evalFormula } from "@/utils/formula";
 
@@ -74,12 +74,12 @@ const resolveColor = (C, colorKey) => {
 
 // ─── Narrative Builder ─────────────────────────────────────────
 // Parses the formula and builds a rich inline narrative
-function buildNarrative(formula, variables, measured, unit, result, C) {
+function buildNarrative(formula, variables, measured, unit, _result, _C) {
   if (!formula || !formula.trim()) return null;
   const segments = [];
   // Tokenize the formula
   const tokens = formula.match(/[A-Za-z_]\w*|[\d.]+|[+\-*/()]/g) || [];
-  tokens.forEach((tok, i) => {
+  tokens.forEach((tok, _i) => {
     const isVar = /^[A-Za-z_]/.test(tok);
     if (isVar && tok.toLowerCase() === "qty") {
       segments.push({ type: "measured", text: `${measured}`, unit: unit || "EA" });
@@ -102,7 +102,7 @@ function buildNarrative(formula, variables, measured, unit, result, C) {
 }
 
 // ─── Dimension Card Component ──────────────────────────────────
-function DimensionCard({ v, idx, C, updateVariable, removeVariable, nInp }) {
+function DimensionCard({ v, idx, C, updateVariable, removeVariable }) {
   const T = C.T;
   const [hover, setHover] = useState(false);
   const dt = findDimType(v.key);
@@ -396,22 +396,15 @@ export default function ComputationChain({ item }) {
           {narrative.map((seg, i) => {
             if (seg.type === "measured") {
               return (
-                <span
-                  key={i}
-                  style={{ fontWeight: 700, color: C.purple, fontFamily: T.font.sans, fontSize: 14 }}
-                >
-                  {seg.text}{" "}
-                  <span style={{ fontSize: 11, fontWeight: 500, fontFamily: T.font.sans }}>{seg.unit}</span>
+                <span key={i} style={{ fontWeight: 700, color: C.purple, fontFamily: T.font.sans, fontSize: 14 }}>
+                  {seg.text} <span style={{ fontSize: 11, fontWeight: 500, fontFamily: T.font.sans }}>{seg.unit}</span>
                 </span>
               );
             }
             if (seg.type === "variable") {
               const clr = resolveColor(C, seg.color);
               return (
-                <span
-                  key={i}
-                  style={{ fontWeight: 700, color: clr, fontFamily: T.font.sans, fontSize: 14 }}
-                >
+                <span key={i} style={{ fontWeight: 700, color: clr, fontFamily: T.font.sans, fontSize: 14 }}>
                   {seg.text}
                   <span style={{ fontSize: 10, fontWeight: 500, fontFamily: T.font.sans, marginLeft: 2 }}>
                     {seg.unit}
@@ -439,10 +432,7 @@ export default function ComputationChain({ item }) {
             }
             if (seg.type === "constant") {
               return (
-                <span
-                  key={i}
-                  style={{ fontWeight: 600, color: C.text, fontFamily: T.font.sans, fontSize: 14 }}
-                >
+                <span key={i} style={{ fontWeight: 600, color: C.text, fontFamily: T.font.sans, fontSize: 14 }}>
                   {seg.text}
                 </span>
               );
@@ -462,9 +452,7 @@ export default function ComputationChain({ item }) {
             }}
           >
             {resultRounded}{" "}
-            <span style={{ fontSize: 11, fontWeight: 500, fontFamily: T.font.sans }}>
-              {fresh.unit || "EA"}
-            </span>
+            <span style={{ fontSize: 11, fontWeight: 500, fontFamily: T.font.sans }}>{fresh.unit || "EA"}</span>
           </span>
         </div>
       )}
@@ -564,142 +552,140 @@ export default function ComputationChain({ item }) {
       </div>
 
       {/* ── Dimension Cards ───────────────────────────────────── */}
-      {(variables.length > 0 || true) && (
-        <div style={{ marginBottom: 14 }}>
-          <div
-            style={{
-              fontSize: 10,
-              fontWeight: 700,
-              color: C.textDim,
-              textTransform: "uppercase",
-              letterSpacing: 0.8,
-              marginBottom: 8,
-            }}
-          >
-            Dimensions
-          </div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "stretch" }}>
-            {variables.map((v, idx) => (
-              <DimensionCard
-                key={idx}
-                v={v}
-                idx={idx}
-                C={C}
-                updateVariable={updateVariable}
-                removeVariable={removeVariable}
-                nInp={nInp}
-              />
-            ))}
+      {/* Always show dimensions section */}
+      <div style={{ marginBottom: 14 }}>
+        <div
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            color: C.textDim,
+            textTransform: "uppercase",
+            letterSpacing: 0.8,
+            marginBottom: 8,
+          }}
+        >
+          Dimensions
+        </div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "stretch" }}>
+          {variables.map((v, idx) => (
+            <DimensionCard
+              key={idx}
+              v={v}
+              idx={idx}
+              C={C}
+              updateVariable={updateVariable}
+              removeVariable={removeVariable}
+            />
+          ))}
 
-            {/* Add dimension button */}
-            <div style={{ position: "relative" }}>
-              <button
-                onClick={() => setShowAddMenu(!showAddMenu)}
+          {/* Add dimension button */}
+          <div style={{ position: "relative" }}>
+            <button
+              onClick={() => setShowAddMenu(!showAddMenu)}
+              style={{
+                width: 90,
+                minHeight: 86,
+                padding: "10px 8px",
+                borderRadius: 10,
+                border: `1.5px dashed ${C.border}`,
+                background: "transparent",
+                cursor: "pointer",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 4,
+                transition: "all 0.15s",
+                color: C.textDim,
+              }}
+            >
+              <Ic d={I.plus} size={18} color={C.textDim} />
+              <span style={{ fontSize: 10, fontWeight: 600 }}>Add</span>
+            </button>
+
+            {/* Dropdown */}
+            {showAddMenu && (
+              <div
                 style={{
-                  width: 90,
-                  minHeight: 86,
-                  padding: "10px 8px",
-                  borderRadius: 10,
-                  border: `1.5px dashed ${C.border}`,
-                  background: "transparent",
-                  cursor: "pointer",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 4,
-                  transition: "all 0.15s",
-                  color: C.textDim,
+                  position: "absolute",
+                  top: "100%",
+                  left: 0,
+                  zIndex: 100,
+                  marginTop: 4,
+                  background: C.bg1,
+                  border: `1px solid ${C.border}`,
+                  borderRadius: 8,
+                  boxShadow: T.shadow.lg,
+                  padding: 6,
+                  minWidth: 160,
+                  maxHeight: 280,
+                  overflowY: "auto",
                 }}
               >
-                <Ic d={I.plus} size={18} color={C.textDim} />
-                <span style={{ fontSize: 10, fontWeight: 600 }}>Add</span>
-              </button>
-
-              {/* Dropdown */}
-              {showAddMenu && (
-                <div
+                {DIMENSION_TYPES.map(dt => {
+                  const exists = variables.some(v => v.key && v.key.toLowerCase() === dt.key.toLowerCase());
+                  const clr = resolveColor(C, dt.colorKey);
+                  return (
+                    <button
+                      key={dt.key}
+                      onClick={() => addVariable(dt)}
+                      disabled={exists}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        width: "100%",
+                        padding: "6px 8px",
+                        border: "none",
+                        borderRadius: 5,
+                        background: "transparent",
+                        cursor: exists ? "default" : "pointer",
+                        opacity: exists ? 0.35 : 1,
+                        textAlign: "left",
+                      }}
+                    >
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke={clr}
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d={dt.icon} />
+                      </svg>
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: clr }}>{dt.key}</div>
+                        <div style={{ fontSize: 9, color: C.textDim }}>{dt.desc}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+                <div style={{ height: 1, background: C.border, margin: "4px 0" }} />
+                <button
+                  onClick={addCustomVariable}
                   style={{
-                    position: "absolute",
-                    top: "100%",
-                    left: 0,
-                    zIndex: 100,
-                    marginTop: 4,
-                    background: C.bg1,
-                    border: `1px solid ${C.border}`,
-                    borderRadius: 8,
-                    boxShadow: T.shadow.lg,
-                    padding: 6,
-                    minWidth: 160,
-                    maxHeight: 280,
-                    overflowY: "auto",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    width: "100%",
+                    padding: "6px 8px",
+                    border: "none",
+                    borderRadius: 5,
+                    background: "transparent",
+                    cursor: "pointer",
                   }}
                 >
-                  {DIMENSION_TYPES.map(dt => {
-                    const exists = variables.some(v => v.key && v.key.toLowerCase() === dt.key.toLowerCase());
-                    const clr = resolveColor(C, dt.colorKey);
-                    return (
-                      <button
-                        key={dt.key}
-                        onClick={() => addVariable(dt)}
-                        disabled={exists}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          width: "100%",
-                          padding: "6px 8px",
-                          border: "none",
-                          borderRadius: 5,
-                          background: "transparent",
-                          cursor: exists ? "default" : "pointer",
-                          opacity: exists ? 0.35 : 1,
-                          textAlign: "left",
-                        }}
-                      >
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke={clr}
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d={dt.icon} />
-                        </svg>
-                        <div>
-                          <div style={{ fontSize: 11, fontWeight: 600, color: clr }}>{dt.key}</div>
-                          <div style={{ fontSize: 9, color: C.textDim }}>{dt.desc}</div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                  <div style={{ height: 1, background: C.border, margin: "4px 0" }} />
-                  <button
-                    onClick={addCustomVariable}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      width: "100%",
-                      padding: "6px 8px",
-                      border: "none",
-                      borderRadius: 5,
-                      background: "transparent",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <Ic d={I.plus} size={14} color={C.textDim} />
-                    <div style={{ fontSize: 11, fontWeight: 600, color: C.textDim }}>Custom Variable</div>
-                  </button>
-                </div>
-              )}
-            </div>
+                  <Ic d={I.plus} size={14} color={C.textDim} />
+                  <div style={{ fontSize: 11, fontWeight: 600, color: C.textDim }}>Custom Variable</div>
+                </button>
+              </div>
+            )}
           </div>
         </div>
-      )}
+      </div>
 
       {/* ── Formula Bar ───────────────────────────────────────── */}
       <div

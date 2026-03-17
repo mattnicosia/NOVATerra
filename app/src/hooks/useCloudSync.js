@@ -6,7 +6,7 @@ import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useDatabaseStore } from "@/stores/databaseStore";
 import { useCalendarStore } from "@/stores/calendarStore";
-import { resetAllStores, getDirtyEstimates, clearDirtyEstimate, clearAllDirtyEstimates } from "@/hooks/usePersistence";
+import { resetAllStores, getDirtyEstimates, clearDirtyEstimate } from "@/hooks/usePersistence";
 import * as cloudSync from "@/utils/cloudSync";
 import { idbKey } from "@/utils/idbKey";
 import { useOrgStore } from "@/stores/orgStore";
@@ -40,25 +40,6 @@ async function runCloudSync() {
   nova.sync.info("Starting bidirectional sync...");
   useUiStore.getState().setCloudSyncStatus("syncing");
   useUiStore.setState({ cloudSyncInProgress: true });
-
-  // ── Org-mode recovery: if we loaded in solo mode but previously had an org,
-  // the user's data is org-scoped in the cloud and invisible to solo queries.
-  // Retry org fetch before proceeding to prevent "missing data" on second device.
-  const orgState = useOrgStore.getState();
-  if (!orgState.org) {
-    let lastOrgId = null;
-    try { lastOrgId = localStorage.getItem("bldg-last-org-id"); } catch {}
-    if (lastOrgId) {
-      nova.sync.warn("Solo mode but bldg-last-org-id exists — retrying org fetch for data recovery");
-      await useOrgStore.getState().fetchOrg();
-      const recovered = useOrgStore.getState().org;
-      if (recovered) {
-        nova.sync.info(`Org recovered: ${recovered.name} (${recovered.id})`);
-      } else {
-        nova.sync.warn("Org retry failed — proceeding in solo mode (data may be missing)");
-      }
-    }
-  }
 
   // User-switch detection now runs in usePersistenceLoad BEFORE data loads.
   // This is a safety-net in case persistence didn't catch it.
@@ -238,17 +219,6 @@ async function syncMasterData() {
     }
   }
 
-  // ── Reverse fallback: if solo-mode cloud is empty, check org-scoped cloud ──
-  // Happens when a second device fails fetchOrg and loads in solo mode, but the
-  // user's data was pushed from the primary device in org mode.
-  if (!cloudResult) {
-    const orgResult = await cloudSync.pullOrgFallback("master");
-    if (orgResult) {
-      console.log("[cloudSync] Master: solo cloud empty — recovering from org-scoped cloud");
-      cloudResult = orgResult;
-    }
-  }
-
   const localRaw = await storage.get(idbKey("bldg-master"));
   let localMaster = null;
   try {
@@ -415,18 +385,6 @@ async function syncEstimates() {
     }
   }
 
-  // ── Reverse fallback: if solo cloud is empty, check org-scoped cloud ──
-  // Second device failed fetchOrg → solo mode, but data is org-scoped.
-  if (cloudEstimates.length === 0) {
-    const orgIndex = await cloudSync.pullOrgFallback("index");
-    const orgEstimates = await cloudSync.pullAllEstimatesOrgFallback();
-    if (orgEstimates.length > 0) {
-      console.log(`[cloudSync] Estimates: solo cloud empty — recovering ${orgEstimates.length} from org-scoped cloud`);
-      cloudEstimates = orgEstimates;
-      if (orgIndex && !cloudIndexResult) cloudIndexResult = orgIndex;
-    }
-  }
-
   const cloudIndexRaw = cloudIndexResult?.data && Array.isArray(cloudIndexResult.data) ? cloudIndexResult.data : [];
   const cloudIndexMap = new Map(cloudIndexRaw.filter(e => !initialDeletedSet.has(e.id)).map(e => [e.id, e]));
   const cloudEstMap = new Map(cloudEstimates.map(e => [e.estimate_id, e]));
@@ -468,7 +426,9 @@ async function syncEstimates() {
       if (!estData) continue; // Failed to fetch — skip
       try {
         estData = await cloudSync.hydrateBlobs(estData);
-      } catch {}
+      } catch {
+        /* blob hydration failed — use raw data */
+      }
       await storage.set(idbKey(`bldg-est-${ce.estimate_id}`), JSON.stringify(estData));
       const cloudEntry = cloudIndexMap.get(ce.estimate_id);
       if (cloudEntry) {
@@ -486,7 +446,9 @@ async function syncEstimates() {
             const localData = JSON.parse(localRaw.value);
             localTime = localData._savedAt ? new Date(localData._savedAt).getTime() : 0;
           }
-        } catch {}
+        } catch {
+          /* parse error — treat as no local timestamp */
+        }
 
         // Cloud is newer — fetch full data and overwrite local
         // Also handle case where local has no _savedAt (legacy data before this fix)
@@ -498,7 +460,9 @@ async function syncEstimates() {
           if (!estData) continue; // Failed to fetch — skip
           try {
             estData = await cloudSync.hydrateBlobs(estData);
-          } catch {}
+          } catch {
+            /* blob hydration failed — use raw data */
+          }
           // Stamp with _savedAt so future comparisons work
           estData._savedAt = ce.updated_at;
           await storage.set(idbKey(`bldg-est-${ce.estimate_id}`), JSON.stringify(estData));
@@ -507,11 +471,8 @@ async function syncEstimates() {
           // Update the index entry from cloud too
           const cloudEntry = cloudIndexMap.get(ce.estimate_id);
           if (cloudEntry) {
-            // Read fresh local entry from current store state (not stale snapshot)
-            const freshIndex = useEstimatesStore.getState().estimatesIndex;
-            const freshLocal = freshIndex.find(e => e.id === ce.estimate_id);
-            const localEntry = freshLocal || idbIndexMap.get(ce.estimate_id);
-            // Merge: cloud wins for shared fields, preserve local-only fields
+            const localEntry = idbIndexMap.get(ce.estimate_id);
+            // Merge cloud entry fields into local entry
             idbIndexMap.set(ce.estimate_id, { ...localEntry, ...cloudEntry });
           }
         }
@@ -522,13 +483,7 @@ async function syncEstimates() {
   // If any existing estimates were updated from cloud, reload them into stores
   if (updatedFromCloud.length > 0) {
     console.log(`[cloudSync] Estimates: ${updatedFromCloud.length} estimate(s) updated from cloud — refreshing stores`);
-    // CRITICAL: Filter deleted entries from idbIndexMap before writing back to IDB.
-    // Without this, the full IDB snapshot (which may still contain deleted entries)
-    // gets persisted back, causing zombie resurrection on next refresh.
-    for (const delId of initialDeletedIds) {
-      idbIndexMap.delete(delId);
-    }
-    // Update IDB index with merged entries (deleted entries now purged)
+    // Update IDB index with merged entries
     const mergedIndex = Array.from(idbIndexMap.values());
     await storage.set(idbKey("bldg-index"), JSON.stringify(mergedIndex));
 
@@ -591,7 +546,6 @@ async function syncEstimates() {
     console.log(`[cloudSync] Estimates: adding ${toAdd.length} cloud-pulled entries to store`);
     // ATOMIC: Use functional setState so concurrent user creates/deletes are preserved.
     // This reads the store state at write-time, not from a stale closure variable.
-    const toAddIds = new Set(toAdd.map(e => e.id));
     useEstimatesStore.setState(state => ({
       estimatesIndex: [...state.estimatesIndex, ...toAdd.filter(e => !state.estimatesIndex.some(ex => ex.id === e.id))],
     }));
@@ -647,7 +601,9 @@ async function syncEstimates() {
     try {
       const userId = useAuthStore.getState().user?.id;
       if (userId) localStorage.setItem(`bldg-index-mirror-${userId}`, JSON.stringify(cleanedIdx));
-    } catch {}
+    } catch {
+      /* quota exceeded */
+    }
 
     // Add orphan IDs to deleted-IDs list so the data-loss guard knows about the reduction
     // and cloud sync won't resurrect them from the cloud index
@@ -658,13 +614,17 @@ async function syncEstimates() {
       const userId = useAuthStore.getState().user?.id;
       if (userId) localStorage.setItem(`bldg-deleted-ids-${userId}`, JSON.stringify(merged));
       console.log(`[cloudSync] Added ${orphanIds.length} orphan(s) to deleted-IDs list`);
-    } catch {}
+    } catch {
+      /* storage write failed */
+    }
 
     // Also soft-delete orphans in cloud so cloud index shrinks too
     for (const oid of orphanIds) {
       try {
         await cloudSync.deleteEstimate(oid);
-      } catch {}
+      } catch {
+        /* cloud delete failed — will retry next sync */
+      }
     }
   }
 

@@ -100,7 +100,7 @@ export default function PortalPage() {
           const fb = await resp.json();
           setFeedbackData(fb);
         }
-      } catch (_) {
+      } catch {
         /* feedback fetch non-critical */
       }
     })();
@@ -121,7 +121,9 @@ export default function PortalPage() {
           setIntent(intentVal);
           if (intentVal === "pass") setPassReason(reason);
         }
-      } catch (_) {}
+      } catch {
+        /* non-critical */
+      }
       setIntentLoading(false);
     },
     [token, intentLoading],
@@ -214,6 +216,7 @@ export default function PortalPage() {
         setUploading(false);
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [token],
   );
 
@@ -240,7 +243,7 @@ export default function PortalPage() {
           clearInterval(interval);
           setAnalyzing(false);
         }
-      } catch (_) {
+      } catch {
         if (attempts >= maxAttempts) {
           clearInterval(interval);
           setAnalyzing(false);

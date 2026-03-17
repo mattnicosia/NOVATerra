@@ -2,7 +2,6 @@ import { useState, useRef } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useDatabaseStore } from "@/stores/databaseStore";
 import { useUiStore } from "@/stores/uiStore";
-import { useNovaStore } from "@/stores/novaStore";
 import { callAnthropicStream } from "@/utils/ai";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";

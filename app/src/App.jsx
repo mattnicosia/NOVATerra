@@ -1,5 +1,5 @@
-import { useEffect, useState, useRef, useCallback, lazy, Suspense, Fragment } from "react";
-import { Routes, Route, Navigate, useParams, useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useState, useCallback, lazy, Suspense } from "react";
+import { Routes, Route, Navigate, useParams, useLocation } from "react-router-dom";
 import { ThemeProvider, useTheme } from "@/hooks/useTheme";
 import { usePersistenceLoad, loadEstimate } from "@/hooks/usePersistence";
 import { useAutoSave } from "@/hooks/useAutoSave";
@@ -19,10 +19,7 @@ const DraftApprovalPanel = lazy(() => import("@/components/shared/DraftApprovalP
 
 import { useAuthStore } from "@/stores/authStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
-import { useProjectStore } from "@/stores/projectStore";
 import { useUiStore } from "@/stores/uiStore";
-import { useMasterDataStore } from "@/stores/masterDataStore";
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
 // useDrawingsStore removed — no longer needed in App header
 import { useOrgStore } from "@/stores/orgStore";
 import { useCollaborationStore } from "@/stores/collaborationStore";
@@ -38,18 +35,11 @@ import ErrorBoundary from "@/components/shared/ErrorBoundary";
 import PageErrorBoundary from "@/components/shared/PageErrorBoundary";
 import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
 // Lazy-load heavy components not needed until after auth + first paint
-const LoginPage = lazy(() => import("@/pages/LoginPage"));
 const LoginMockupPage = lazy(() => import("@/pages/LoginMockupPage"));
 const AIChatPanel = lazy(() => import("@/components/ai/AIChatPanel"));
-const AmbientBackground = lazy(() => import("@/components/nova/AmbientBackground"));
-const AmbientParticles = lazy(() => import("@/components/ambient/AmbientParticles"));
 const LiquidGlassBackground = lazy(() => import("@/components/ambient/LiquidGlassBackground"));
 const NovaCursor = lazy(() => import("@/components/nova/NovaCursor"));
 const CommandPalette = lazy(() => import("@/components/shared/CommandPalette"));
-const OnboardingSequence = lazy(() => import("@/components/nova/OnboardingSequence"));
-const NovaSignInSplash = lazy(() => import("@/components/nova/NovaSignInSplash"));
-const GuidedTour = lazy(() => import("@/components/nova/GuidedTour"));
-const ProgressiveSetup = lazy(() => import("@/components/nova/ProgressiveSetup"));
 const FeedbackWidget = lazy(() => import("@/components/beta/FeedbackWidget"));
 
 // ── Lazy-loaded pages — each becomes its own chunk, loaded on navigation ──
@@ -57,7 +47,6 @@ const DashboardPage = lazy(() => import("@/pages/NovaDashboardPage"));
 const ProjectInfoPage = lazy(() => import("@/pages/ProjectInfoPage"));
 const PlanRoomPage = lazy(() => import("@/pages/PlanRoomPage"));
 const TakeoffsPage = lazy(() => import("@/pages/TakeoffsPage"));
-const EstimatePage = lazy(() => import("@/pages/EstimatePage"));
 const AlternatesPage = lazy(() => import("@/pages/AlternatesPage"));
 const ScheduleOfValuesPage = lazy(() => import("@/pages/ScheduleOfValuesPage"));
 // CostDatabasePage now embedded inside CorePage — lazy import removed
@@ -66,20 +55,14 @@ const ReportsPage = lazy(() => import("@/pages/ReportsPage"));
 const ContactsPage = lazy(() => import("@/pages/ContactsPage"));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
 const InboxPage = lazy(() => import("@/pages/InboxPage"));
-const DocumentsPage = lazy(() => import("@/pages/DocumentsPage"));
-const IntelligencePage = lazy(() => import("@/pages/IntelligencePage"));
 const InsightsPage = lazy(() => import("@/pages/InsightsPage"));
 const ProjectsPage = lazy(() => import("@/pages/ProjectsPage"));
 const CorePage = lazy(() => import("@/pages/CorePage"));
 const BidPackagesPage = lazy(() => import("@/pages/BidPackagesPage"));
 const BusinessDashboardPage = lazy(() => import("@/pages/BusinessDashboardPage"));
 const PortalPage = lazy(() => import("@/pages/PortalPage"));
-const SubSubmitPage = lazy(() => import("@/pages/SubSubmitPage"));
-const LivingProposalPage = lazy(() => import("@/pages/LivingProposalPage"));
 const SubDashboardPage = lazy(() => import("@/pages/SubDashboardPage"));
 const ResourcePage = lazy(() => import("@/pages/ResourcePage"));
-const PublicIntelligencePage = lazy(() => import("@/pages/PublicIntelligencePage"));
-const SignupPage = lazy(() => import("@/pages/SignupPage"));
 
 // BLDG Talent + ROM pages (lazy-loaded, role-gated — existing users never download these)
 const RomPage = lazy(() => import("@/pages/RomPage"));
@@ -96,20 +79,6 @@ const AdminUserDetail = lazy(() => import("@/pages/admin/AdminUserDetail"));
 const AdminEstimatesPage = lazy(() => import("@/pages/admin/AdminEstimatesPage"));
 const AdminEstimateDetail = lazy(() => import("@/pages/admin/AdminEstimateDetail"));
 const AdminEmbeddingsPage = lazy(() => import("@/pages/admin/AdminEmbeddingsPage"));
-// NOVA Core admin panels (Sprint 1)
-const AdminHealthPage = lazy(() => import("@/pages/admin/AdminHealthPage"));
-const AdminQueuePage = lazy(() => import("@/pages/admin/AdminQueuePage"));
-const AdminOrgsPage = lazy(() => import("@/pages/admin/AdminOrgsPage"));
-const AdminPipelinePage = lazy(() => import("@/pages/admin/AdminPipelinePage"));
-const AdminIntelligencePage = lazy(() => import("@/pages/admin/AdminIntelligencePage"));
-const AdminLogPage = lazy(() => import("@/pages/admin/AdminLogPage"));
-const AdminCarbonPage = lazy(() => import("@/pages/admin/AdminCarbonPage"));
-// NOVA Core admin panels (Sprint 5)
-const AdminBidLevelingPage = lazy(() => import("@/pages/admin/AdminBidLevelingPage"));
-const AdminUploadPage = lazy(() => import("@/pages/admin/AdminUploadPage"));
-const AdminParserPage = lazy(() => import("@/pages/admin/AdminParserPage"));
-const AdminBillingPage = lazy(() => import("@/pages/admin/AdminBillingPage"));
-const AdminAnalyticsPage = lazy(() => import("@/pages/admin/AdminAnalyticsPage"));
 
 // Admin guard — checks if the current user's email is in the admin whitelist
 function AdminGuard({ children }) {
@@ -130,7 +99,6 @@ function EstimateLoader({ children }) {
   const persistenceLoaded = useUiStore(s => s.persistenceLoaded);
   const [loading, setLoading] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
-  const navigate = useNavigate();
   const orgId = useOrgStore(s => s.org?.id);
   const isLockHolder = useCollaborationStore(s => s.isLockHolder);
   const currentLock = useCollaborationStore(s => s.currentLock);
@@ -251,50 +219,6 @@ function EstimateLoader({ children }) {
 }
 
 /* PROJECT_TABS removed — navigation moved to EstimateJourneyBar */
-
-/* ── Takeoffs header controls: mode button + NOVA orb ── */
-function TakeoffsHeaderControls({ C }) {
-  const tkPanelOpen = useTakeoffsStore(s => s.tkPanelOpen);
-  const tkPanelTier = useTakeoffsStore(s => s.tkPanelTier);
-
-  const modes = [
-    { id: "closed", label: "Drawings" },
-    { id: "standard", label: "Standard" },
-    { id: "full", label: "Split" },
-    { id: "estimate", label: "Estimate" },
-  ];
-  let curId;
-  if (tkPanelTier === "estimate") curId = "estimate";
-  else if (!tkPanelOpen) curId = "closed";
-  else if (tkPanelTier === "full") curId = "full";
-  else curId = "standard";
-  const current = modes.find(m => m.id === curId) || modes[0];
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 5,
-        paddingRight: 8,
-        marginRight: 4,
-        borderRight: `1px solid ${C.border}`,
-      }}
-    >
-      <span
-        style={{
-          fontSize: 9,
-          fontWeight: 600,
-          color: C.textDim,
-          letterSpacing: 0.3,
-          whiteSpace: "nowrap",
-        }}
-      >
-        {current.label}
-      </span>
-    </div>
-  );
-}
 
 /* ProjectTabBar + PILL_KEYFRAMES removed — replaced by EstimateJourneyBar */
 
@@ -550,204 +474,6 @@ function FloatingThemePicker() {
   );
 }
 
-/* ── Theme cycle button (header version — kept for reference) ── */
-function ThemeCycleButton({ C }) {
-  const T = C.T;
-  const selectedPalette = useUiStore(s => s.appSettings.selectedPalette);
-  const updateSetting = useUiStore(s => s.updateSetting);
-  const [hovered, setHovered] = useState(false);
-
-  // All available palettes: originals + car collection
-  const ALL_IDS = [
-    "nova",
-    "clarity",
-    "clean-light",
-    "nero",
-    "shift5",
-    "shift5b",
-    "shift7",
-    "arancio",
-    "terzo",
-    ...CAR_PALETTE_IDS,
-    ...LIGHT_PALETTE_IDS,
-    ...ARTIFACT_PALETTE_IDS,
-  ];
-  const currentIdx = ALL_IDS.indexOf(selectedPalette);
-
-  // Find current palette metadata
-  const currentPalette = PALETTES.find(p => p.id === selectedPalette);
-  const currentName = currentPalette?.name || "Theme";
-  const preview = currentPalette?.preview || [C.accent, C.text, C.bg2];
-
-  const cycle = (dir = 1) => {
-    const nextIdx = currentIdx === -1 ? 0 : (currentIdx + dir + ALL_IDS.length) % ALL_IDS.length;
-    updateSetting("selectedPalette", ALL_IDS[nextIdx]);
-  };
-
-  const accentHex = C.accent || "#6366f1";
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 2,
-        flexShrink: 0,
-        marginRight: 8,
-      }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      {/* Prev arrow */}
-      <button
-        onClick={e => {
-          e.stopPropagation();
-          cycle(-1);
-        }}
-        title="Previous theme"
-        style={{
-          width: 24,
-          height: 28,
-          border: "none",
-          background: hovered ? C.bg2 : "transparent",
-          borderRadius: "5px 0 0 5px",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          transition: "all 0.15s",
-        }}
-      >
-        <svg
-          width="10"
-          height="10"
-          viewBox="0 0 10 10"
-          fill="none"
-          stroke={hovered ? C.text : C.textMuted}
-          strokeWidth="2"
-          strokeLinecap="round"
-        >
-          <path d="M6 1L2 5l4 4" />
-        </svg>
-      </button>
-
-      {/* Preview swatches + name — main clickable area */}
-      <button
-        onClick={() => cycle(1)}
-        title={`${currentName} — click to cycle themes`}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          padding: "4px 12px",
-          border: `1px solid ${hovered ? accentHex + "60" : C.border}`,
-          borderRadius: 0,
-          cursor: "pointer",
-          background: hovered ? accentHex + "14" : C.bg1,
-          transition: "all 0.2s",
-          height: 28,
-        }}
-      >
-        {/* Palette icon */}
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke={accentHex}
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <circle cx="12" cy="12" r="10" />
-          <circle cx="10" cy="9" r="1.5" fill={preview[0] || accentHex} stroke="none" />
-          <circle cx="15" cy="9" r="1.5" fill={preview[1] || accentHex} stroke="none" />
-          <circle cx="8" cy="13" r="1.5" fill={preview[2] || accentHex} stroke="none" />
-          <circle cx="14" cy="14" r="1.5" fill={preview[0] || accentHex} stroke="none" />
-        </svg>
-
-        {/* Color preview strip */}
-        <div style={{ display: "flex", gap: 3 }}>
-          {preview.slice(0, 4).map((color, i) => (
-            <div
-              key={i}
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: 3,
-                background: color,
-                border: `1px solid rgba(128,128,128,0.25)`,
-              }}
-            />
-          ))}
-        </div>
-
-        {/* Palette name */}
-        <span
-          style={{
-            fontSize: 11,
-            fontWeight: 600,
-            color: hovered ? C.text : C.textSub,
-            whiteSpace: "nowrap",
-            fontFamily: T.font.sans,
-            letterSpacing: 0.2,
-          }}
-        >
-          {currentName}
-        </span>
-
-        {/* Count badge */}
-        <span
-          style={{
-            fontSize: 8,
-            fontWeight: 700,
-            color: accentHex,
-            background: accentHex + "18",
-            padding: "1px 5px",
-            borderRadius: 4,
-            letterSpacing: 0.3,
-          }}
-        >
-          {currentIdx + 1}/{ALL_IDS.length}
-        </span>
-      </button>
-
-      {/* Next arrow */}
-      <button
-        onClick={e => {
-          e.stopPropagation();
-          cycle(1);
-        }}
-        title="Next theme"
-        style={{
-          width: 24,
-          height: 28,
-          border: "none",
-          background: hovered ? C.bg2 : "transparent",
-          borderRadius: "0 5px 5px 0",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          transition: "all 0.15s",
-        }}
-      >
-        <svg
-          width="10"
-          height="10"
-          viewBox="0 0 10 10"
-          fill="none"
-          stroke={hovered ? C.text : C.textMuted}
-          strokeWidth="2"
-          strokeLinecap="round"
-        >
-          <path d="M4 1l4 4-4 4" />
-        </svg>
-      </button>
-    </div>
-  );
-}
-
 function AppContent() {
   const C = useTheme();
   const location = useLocation();
@@ -869,9 +595,23 @@ function AppContent() {
           <PageTransition>
             <Suspense fallback={<RouteLoading />}>
               <Routes>
-                <Route path="/" element={<DashboardPage />} />
+                <Route
+                  path="/"
+                  element={
+                    <PageErrorBoundary pageName="Dashboard">
+                      <DashboardPage />
+                    </PageErrorBoundary>
+                  }
+                />
                 <Route path="/database" element={<Navigate to="/core?tab=database" replace />} />
-                <Route path="/assemblies" element={<AssembliesPage />} />
+                <Route
+                  path="/assemblies"
+                  element={
+                    <PageErrorBoundary pageName="Assemblies">
+                      <AssembliesPage />
+                    </PageErrorBoundary>
+                  }
+                />
                 <Route
                   path="/contacts"
                   element={
@@ -880,8 +620,22 @@ function AppContent() {
                     </PageErrorBoundary>
                   }
                 />
-                <Route path="/settings" element={<SettingsPage />} />
-                <Route path="/inbox" element={<InboxPage />} />
+                <Route
+                  path="/settings"
+                  element={
+                    <PageErrorBoundary pageName="Settings">
+                      <SettingsPage />
+                    </PageErrorBoundary>
+                  }
+                />
+                <Route
+                  path="/inbox"
+                  element={
+                    <PageErrorBoundary pageName="Inbox">
+                      <InboxPage />
+                    </PageErrorBoundary>
+                  }
+                />
                 {/* <Route path="/intelligence" element={<IntelligencePage />} /> temporarily removed */}
                 <Route
                   path="/projects"
@@ -1002,7 +756,14 @@ function AppContent() {
                   }
                 />
                 {/* Business dashboard — owner/manager portal */}
-                <Route path="/business" element={<BusinessDashboardPage />} />
+                <Route
+                  path="/business"
+                  element={
+                    <PageErrorBoundary pageName="Business Dashboard">
+                      <BusinessDashboardPage />
+                    </PageErrorBoundary>
+                  }
+                />
                 {/* Admin portal — protected by email whitelist */}
                 <Route
                   path="/admin"
@@ -1012,26 +773,54 @@ function AppContent() {
                     </AdminGuard>
                   }
                 >
-                  <Route index element={<AdminDashboard />} />
-                  <Route path="users" element={<AdminUsersPage />} />
-                  <Route path="users/:userId" element={<AdminUserDetail />} />
-                  <Route path="estimates" element={<AdminEstimatesPage />} />
-                  <Route path="estimates/:userId/:estimateId" element={<AdminEstimateDetail />} />
-                  <Route path="embeddings" element={<AdminEmbeddingsPage />} />
-                  {/* NOVA Core panels (Sprint 1) */}
-                  <Route path="health" element={<AdminHealthPage />} />
-                  <Route path="queue" element={<AdminQueuePage />} />
-                  <Route path="orgs" element={<AdminOrgsPage />} />
-                  <Route path="pipeline" element={<AdminPipelinePage />} />
-                  <Route path="intelligence" element={<AdminIntelligencePage />} />
-                  <Route path="log" element={<AdminLogPage />} />
-                  <Route path="carbon" element={<AdminCarbonPage />} />
-                  {/* NOVA Core panels (Sprint 5) */}
-                  <Route path="bid-leveling" element={<AdminBidLevelingPage />} />
-                  <Route path="upload" element={<AdminUploadPage />} />
-                  <Route path="parser" element={<AdminParserPage />} />
-                  <Route path="billing" element={<AdminBillingPage />} />
-                  <Route path="analytics" element={<AdminAnalyticsPage />} />
+                  <Route
+                    index
+                    element={
+                      <PageErrorBoundary pageName="Admin Dashboard">
+                        <AdminDashboard />
+                      </PageErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="users"
+                    element={
+                      <PageErrorBoundary pageName="Admin Users">
+                        <AdminUsersPage />
+                      </PageErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="users/:userId"
+                    element={
+                      <PageErrorBoundary pageName="Admin User Detail">
+                        <AdminUserDetail />
+                      </PageErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="estimates"
+                    element={
+                      <PageErrorBoundary pageName="Admin Estimates">
+                        <AdminEstimatesPage />
+                      </PageErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="estimates/:userId/:estimateId"
+                    element={
+                      <PageErrorBoundary pageName="Admin Estimate Detail">
+                        <AdminEstimateDetail />
+                      </PageErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="embeddings"
+                    element={
+                      <PageErrorBoundary pageName="Admin Embeddings">
+                        <AdminEmbeddingsPage />
+                      </PageErrorBoundary>
+                    }
+                  />
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
@@ -1069,8 +858,41 @@ function AuthLoading() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
+        fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif",
       }}
-    />
+    >
+      <div style={{ textAlign: "center" }}>
+        <div
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: 12,
+            background: "linear-gradient(135deg, #7C5CFC, #BF5AF2)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            margin: "0 auto 16px",
+            animation: "pulse 1.5s infinite ease-in-out",
+          }}
+        >
+          <svg
+            width={24}
+            height={24}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#fff"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M2 20h20" />
+            <path d="M5 20V8l7-5 7 5v12" />
+            <path d="M9 20v-6h6v6" />
+          </svg>
+        </div>
+        <p style={{ fontSize: 14, color: "#8E8E93", fontWeight: 500 }}>Loading...</p>
+      </div>
+    </div>
   );
 }
 
@@ -1155,15 +977,6 @@ function MobileGuard() {
   );
 }
 
-// Helper: reveal AppContent underneath an intro overlay
-function revealApp() {
-  const el = document.getElementById("app-reveal");
-  if (el) {
-    el.style.opacity = "1";
-    el.style.pointerEvents = "auto";
-  }
-}
-
 export default function App() {
   const user = useAuthStore(s => s.user);
   const loading = useAuthStore(s => s.loading);
@@ -1171,15 +984,15 @@ export default function App() {
   const appRole = useAuthStore(s => s.appRole);
 
   // Onboarding: first sign-in only (persisted in localStorage)
-  const [onboardingComplete, setOnboardingComplete] = useState(
+  const [_onboardingComplete, setOnboardingComplete] = useState(
     () => localStorage.getItem("nova_onboarding_complete") === "true",
   );
   // Guided tour: first sign-in, runs after onboarding departure
-  const [tourComplete, setTourComplete] = useState(() => localStorage.getItem("nova_tour_complete") === "true");
+  const [_tourComplete, setTourComplete] = useState(() => localStorage.getItem("nova_tour_complete") === "true");
   // Progressive setup: first sign-in, runs after guided tour
-  const [setupComplete, setSetupComplete] = useState(() => localStorage.getItem("nova_setup_complete") === "true");
+  const [_setupComplete, setSetupComplete] = useState(() => localStorage.getItem("nova_setup_complete") === "true");
   // Splash: every browser session (persisted in sessionStorage)
-  const [splashComplete, setSplashComplete] = useState(() => sessionStorage.getItem("nova_splash_shown") === "true");
+  const [_splashComplete, setSplashComplete] = useState(() => sessionStorage.getItem("nova_splash_shown") === "true");
 
   // Initialize auth on mount
   useEffect(() => {
@@ -1240,29 +1053,11 @@ export default function App() {
     );
   }
 
-  // Sub proposal submission portal — /portal?gc=<orgId> (public, no auth)
-  if (window.location.pathname === "/portal" && window.location.search.includes("gc=")) {
-    return (
-      <Suspense fallback={<AuthLoading />}>
-        <SubSubmitPage />
-      </Suspense>
-    );
-  }
-
   // Public portal — bypasses auth gate entirely (subs don't need accounts)
   if (window.location.pathname.startsWith("/portal/")) {
     return (
       <Suspense fallback={<AuthLoading />}>
         <PortalPage />
-      </Suspense>
-    );
-  }
-
-  // Living Proposal — public, no auth, white-labeled proposal viewer
-  if (window.location.pathname.startsWith("/p/")) {
-    return (
-      <Suspense fallback={<AuthLoading />}>
-        <LivingProposalPage />
       </Suspense>
     );
   }
@@ -1292,24 +1087,6 @@ export default function App() {
     return (
       <Suspense fallback={<AuthLoading />}>
         <LoginMockupPage />
-      </Suspense>
-    );
-  }
-
-  // Public intelligence dashboard — /intelligence (no auth, lead capture)
-  if (window.location.pathname === "/intelligence") {
-    return (
-      <Suspense fallback={<AuthLoading />}>
-        <PublicIntelligencePage />
-      </Suspense>
-    );
-  }
-
-  // Signup page — /signup (no auth, account creation)
-  if (window.location.pathname === "/signup") {
-    return (
-      <Suspense fallback={<AuthLoading />}>
-        <SignupPage />
       </Suspense>
     );
   }

@@ -33,7 +33,8 @@ export default function AwardBidModal({ bidPackage, onClose }) {
   const [awarding, setAwarding] = useState(false);
   const [step, setStep] = useState("select"); // 'select' | 'confirm'
 
-  const pkgInvites = invitations[bidPackage.id] || [];
+  // Memoize to avoid new array ref on every render
+  const pkgInvites = useMemo(() => invitations[bidPackage.id] || [], [invitations, bidPackage.id]);
 
   // Get parsed proposals with gap analysis
   const parsedOptions = useMemo(() => {
@@ -102,7 +103,7 @@ export default function AwardBidModal({ bidPackage, onClose }) {
       }
 
       // ── Fire auto-response triggers for award results ──
-      const awardCtx = (inv, type) => ({
+      const awardCtx = (inv, _type) => ({
         packageId: bidPackage.id,
         invitationId: inv.id,
         recipientEmail: inv.subEmail || "",

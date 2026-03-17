@@ -11,11 +11,11 @@ import { useUiStore } from "@/stores/uiStore";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { bt } from "@/utils/styles";
-import { MessageBubble, ActionCards, QUICK_ACTIONS } from "@/components/ai/AIChatPanel";
+import { MessageBubble, ActionCards } from "@/components/ai/AIChatPanel";
 import { NOVA_TOOLS, executeNovaTool, previewNovaTool } from "@/utils/novaTools";
 import { callAnthropic, buildProjectContext } from "@/utils/ai";
 import { scanAllSheets, recordPredictionFeedback } from "@/utils/predictiveEngine";
-import { nn, fmt, formatCurrency } from "@/utils/format";
+import { nn, formatCurrency } from "@/utils/format";
 
 // ── Tiny helper: uid for proposals ──
 let _puid = 0;
@@ -41,7 +41,6 @@ export default function TakeoffNOVAPanel({
   const acceptPrediction = useTakeoffsStore(s => s.acceptPrediction);
   const rejectPrediction = useTakeoffsStore(s => s.rejectPrediction);
   const clearPredictions = useTakeoffsStore(s => s.clearPredictions);
-  const acceptAllPredictions = useTakeoffsStore(s => s.acceptAllPredictions);
   const tkActiveTakeoffId = useTakeoffsStore(s => s.tkActiveTakeoffId);
   const tkTool = useTakeoffsStore(s => s.tkTool);
   const takeoffs = useTakeoffsStore(s => s.takeoffs);
@@ -89,7 +88,7 @@ export default function TakeoffNOVAPanel({
     recordPredictionFeedback(tkPredictions?.tag, tkPredictions?.strategy, true);
     if (tkActiveTakeoffId) {
       const color = novaActiveTo?.color || "#5b8def";
-      if ((pred.type === "count" || pred.type === "wall-tag") && pred.point) {
+      if (pred.type === "count" || pred.type === "wall-tag") {
         addMeasurement(tkActiveTakeoffId, {
           type: "count",
           points: [pred.point],
@@ -127,10 +126,9 @@ export default function TakeoffNOVAPanel({
     const toAdd = novaPreds.filter(p => !tkPredRejected.includes(p.id) && !tkPredAccepted.includes(p.id));
     if (tkActiveTakeoffId && toAdd.length > 0) {
       const color = novaActiveTo?.color || "#5b8def";
-      acceptAllPredictions();
       toAdd.forEach(() => recordPredictionFeedback(tkPredictions?.tag, tkPredictions?.strategy, true));
       toAdd.forEach(pred => {
-        if ((pred.type === "count" || pred.type === "wall-tag") && pred.point)
+        if (pred.type === "count" || pred.type === "wall-tag")
           addMeasurement(tkActiveTakeoffId, {
             type: "count",
             points: [pred.point],
@@ -229,7 +227,7 @@ export default function TakeoffNOVAPanel({
     );
   };
 
-  const dismissResolvedProposals = () => {
+  const _dismissResolvedProposals = () => {
     setProposals(prev => prev.filter(p => p.status === "pending"));
   };
 
@@ -473,63 +471,6 @@ export default function TakeoffNOVAPanel({
         handleNovaChat(
           "Review estimate items and categorize unallocated scope items into appropriate CSI divisions. Process up to 25 items per tool call. Use the update_line_items tool to assign codes and divisions. Flag items that need attention.",
         ),
-    },
-    {
-      key: "findHeights",
-      label: "Find Heights",
-      icon: I.ruler,
-      color: "#06B6D4",
-      loading: novaChatLoading,
-      badge: null,
-      action: () => {
-        const sheetList = drawings
-          .filter(d => d.name || d.label)
-          .map(d => `  - "${d.name || d.label}" (id: ${d.id})`)
-          .join("\n");
-        const prompt = `You are searching this project's drawings for HEIGHT DIMENSIONS. This is critical for converting linear takeoffs (LF) into area takeoffs (SF).
-
-AVAILABLE DRAWINGS:
-${sheetList || "  (no drawings uploaded yet)"}
-
-SEARCH PRIORITY — check these sheet types in order:
-
-1. **BUILDING SECTIONS** (most reliable for heights)
-   Sheet naming: A-5xx, S-5xx, or titles containing "BUILDING SECTION", "BLDG SECTION"
-   What to find: floor-to-floor heights, total building height, parapet height, roof structure depth, foundation depth
-   These show the full vertical cross-section of the building.
-
-2. **WALL SECTIONS** (second most reliable)
-   Sheet naming: A-4xx, or titles containing "WALL SECTION", "WALL DETAIL"
-   What to find: plate heights (top of wall), header heights, stud heights, wall assembly total height, parapet cap height
-   These show individual wall assemblies in detail.
-
-3. **EXTERIOR ELEVATIONS** (third)
-   Sheet naming: A-2xx, or titles containing "ELEVATION", "NORTH ELEV", "SOUTH ELEV", etc.
-   What to find: finish floor to roof/parapet, window head heights, window sill heights, storefront heights, canopy heights
-
-4. **INTERIOR ELEVATIONS**
-   Sheet naming: A-6xx, or titles containing "INTERIOR ELEVATION", "INT ELEV"
-   What to find: ceiling heights per room, cabinet heights (upper/lower), backsplash heights, wainscot heights, bulkhead/soffit heights
-
-5. **SCHEDULES** (supplementary)
-   Door schedule → frame heights (typically 7'-0", 8'-0", etc.)
-   Finish schedule → ceiling heights by room (often "CLG HT" column)
-   Room finish schedule → AFF (above finish floor) dimensions
-
-FOR EACH HEIGHT FOUND, report in this format:
-- **What**: e.g., "Floor-to-Floor Height (Level 1 to Level 2)"
-- **Dimension**: e.g., 12'-0" (convert to decimal feet for variables: 12.0)
-- **Source**: e.g., "Sheet A-501, Building Section 1, gridline B"
-- **Confidence**: HIGH (dimensioned on section), MEDIUM (scaled from elevation), LOW (inferred from schedule)
-
-AFTER reporting heights, use the update_line_items tool to:
-- Add a "height" variable to any wall/partition takeoff items (e.g., height=10 for 10'-0" walls)
-- Add notes referencing the source sheet for each height applied
-- For items measured in LF that should become SF, note the formula: qty_SF = qty_LF × height
-
-Focus on the MOST COMMON heights first: typical wall height, floor-to-floor, and ceiling height. These apply to the majority of interior partitions and finishes.`;
-        handleNovaChat(prompt);
-      },
     },
   ];
 

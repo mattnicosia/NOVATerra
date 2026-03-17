@@ -98,6 +98,7 @@ function ChamberFloor({ size, awaken, morph, innerLight }) {
       uMorph: { value: morph },
       uInnerLight: { value: innerLight },
     }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initial uniform snapshot; updates via refs in useFrame
     [],
   );
 
@@ -151,6 +152,7 @@ function VolumetricShaft({ size, awaken, morph, innerLight }) {
       uMorph: { value: morph },
       uInnerLight: { value: innerLight },
     }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initial uniform snapshot; updates via refs in useFrame
     [],
   );
 
@@ -219,6 +221,7 @@ function OculusGodRays({ size, awaken, morph, innerLight }) {
       uMorph: { value: morph },
       uInnerLight: { value: innerLight },
     }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initial uniform snapshot; updates via refs in useFrame
     [],
   );
 
@@ -290,6 +293,7 @@ function GroundFog({ size, awaken, morph, innerLight }) {
       uMorph: { value: morph },
       uInnerLight: { value: innerLight },
     }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initial uniform snapshot; updates via refs in useFrame
     [],
   );
 
@@ -421,6 +425,7 @@ function ChamberWalls({ size, awaken, morph, innerLight }) {
         depthWrite: false,
         side: THREE.DoubleSide,
       }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- novaGlow is a stable useMemo Color
     [],
   );
 
@@ -513,6 +518,7 @@ function RingPlatform({ size, awaken, morph, innerLight }) {
         depthWrite: false,
         side: THREE.DoubleSide,
       }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- novaGlow is a stable useMemo Color
     [],
   );
 
@@ -636,6 +642,7 @@ function Oculus({ size, awaken, morph, innerLight }) {
         depthWrite: false,
         side: THREE.DoubleSide,
       }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- novaGlow is a stable useMemo Color
     [],
   );
 
@@ -664,7 +671,7 @@ function Oculus({ size, awaken, morph, innerLight }) {
 }
 
 // ── Vault Dome — subtle architectural ceiling for enclosure ──────────
-function VaultDome({ size, awaken, morph, innerLight }) {
+function VaultDome({ size: _size, awaken, morph, innerLight }) {
   const matRef = useRef();
   const awakenRef = useRef(awaken);
   const morphRef = useRef(morph);
@@ -680,6 +687,7 @@ function VaultDome({ size, awaken, morph, innerLight }) {
       uMorph: { value: morph },
       uInnerLight: { value: innerLight },
     }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initial uniform snapshot; updates via refs in useFrame
     [],
   );
 

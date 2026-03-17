@@ -20,7 +20,6 @@ import { useNavigate } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useUiStore } from "@/stores/uiStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
-import { useEstimatesStore } from "@/stores/estimatesStore";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { bt, card } from "@/utils/styles";
@@ -83,7 +82,6 @@ export default function OnboardingSequence() {
   const navigate = useNavigate();
   const updateSetting = useUiStore(s => s.updateSetting);
   const companyName = useMasterDataStore(s => s.masterData.companyInfo.name);
-  const estimatesIndex = useEstimatesStore(s => s.estimatesIndex);
   const [currentStep, setCurrentStep] = useState(0);
   const [companyInput, setCompanyInput] = useState(companyName || "");
   const [specialtyInput, setSpecialtyInput] = useState("");
@@ -97,7 +95,7 @@ export default function OnboardingSequence() {
       // Complete onboarding
       updateSetting("onboardingDismissed", true);
       localStorage.setItem("nova_onboarding_complete", "true");
-      navigate("/");
+      navigate("/dashboard");
       return;
     }
     setCurrentStep(prev => Math.min(prev + 1, STEPS.length - 1));
@@ -110,7 +108,7 @@ export default function OnboardingSequence() {
   const handleSkip = useCallback(() => {
     updateSetting("onboardingDismissed", true);
     localStorage.setItem("nova_onboarding_complete", "true");
-    navigate("/");
+    navigate("/dashboard");
   }, [updateSetting, navigate]);
 
   const handleAction = useCallback(() => {
@@ -125,17 +123,14 @@ export default function OnboardingSequence() {
         }
         handleNext();
         break;
-      case "plans": {
+      case "plans":
         // Navigate to plan room, but come back
         updateSetting("onboardingStep", currentStep + 1);
-        const idx = useEstimatesStore.getState().estimatesIndex;
-        const active = idx.find(e => e.status === "Bidding" || e.status === "Pending") || idx[0];
-        navigate(active ? `/estimate/${active.id}/documents` : "/");
+        navigate("/planroom");
         break;
-      }
       case "estimate":
         updateSetting("onboardingStep", currentStep + 1);
-        navigate("/");
+        navigate("/dashboard");
         break;
       default:
         handleNext();
@@ -231,9 +226,7 @@ export default function OnboardingSequence() {
         >
           {step.title}
         </h2>
-        <div style={{ fontSize: 12, color: stepColor, fontWeight: 600, marginBottom: T.space[3] }}>
-          {step.subtitle}
-        </div>
+        <div style={{ fontSize: 12, color: stepColor, fontWeight: 600, marginBottom: T.space[3] }}>{step.subtitle}</div>
         <p
           style={{
             fontSize: 12,

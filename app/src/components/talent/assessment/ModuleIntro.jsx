@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from "react";
 import { useTheme } from "@/hooks/useTheme";
-import { card, accentButton, bt } from "@/utils/styles";
+import { card, accentButton } from "@/utils/styles";
 import { BT_MODULES } from "@/constants/btBrand";
 
 // ── Inline SVG icons ──

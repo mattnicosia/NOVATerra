@@ -84,7 +84,9 @@ function systemPrompt(context = {}) {
     try {
       const firmContext = useFirmMemoryStore.getState().buildFirmContext(context.firmName, 1000);
       if (firmContext) parts.push(`\n\n--- FIRM MEMORY ---\n${firmContext}`);
-    } catch { /* firm memory may not be hydrated yet */ }
+    } catch {
+      /* firm memory may not be hydrated yet */
+    }
   }
 
   return parts.join("\n");
@@ -96,7 +98,7 @@ function systemPrompt(context = {}) {
  * @param {object} context
  * @returns {string}
  */
-function getKnowledge(section, context = {}) {
+function getKnowledge(section, _context = {}) {
   switch (section) {
     case "sheets":
       return extractSection(drawingsKnowledge, "Sheet Identification");
@@ -123,16 +125,11 @@ function getKnowledge(section, context = {}) {
  * @param {string} ocrText
  * @returns {{ systemPrompt: string, userPrompt: string }}
  */
-function augmentDetectionPrompt(drawingLabel, ocrText) {
+function augmentDetectionPrompt(_drawingLabel, _ocrText) {
   // For detection, we need sheet identification + schedule format knowledge
-  const knowledge = [
-    getKnowledge("sheets"),
-    getKnowledge("schedules"),
-  ].filter(Boolean).join("\n\n");
+  const knowledge = [getKnowledge("sheets"), getKnowledge("schedules")].filter(Boolean).join("\n\n");
 
-  const sys = knowledge
-    ? `${BASE_PERSONA}\n\n--- DRAWING KNOWLEDGE ---\n${knowledge}`
-    : BASE_PERSONA;
+  const sys = knowledge ? `${BASE_PERSONA}\n\n--- DRAWING KNOWLEDGE ---\n${knowledge}` : BASE_PERSONA;
 
   return { systemPrompt: sys };
 }
@@ -144,11 +141,9 @@ function augmentDetectionPrompt(drawingLabel, ocrText) {
  * @returns {{ systemPrompt: string }}
  */
 function augmentParsePrompt(scheduleType, ocrText, firmName) {
-  const knowledge = [
-    getKnowledge("schedules"),
-    getKnowledge("abbreviations"),
-    getKnowledge("ocr-misreads"),
-  ].filter(Boolean).join("\n\n");
+  const knowledge = [getKnowledge("schedules"), getKnowledge("abbreviations"), getKnowledge("ocr-misreads")]
+    .filter(Boolean)
+    .join("\n\n");
 
   // Inject correction memory (self-learning from user edits)
   let correctionContext = "";
@@ -164,7 +159,9 @@ function augmentParsePrompt(scheduleType, ocrText, firmName) {
     if (firmName) {
       firmContext = useFirmMemoryStore.getState().buildFirmContext(firmName, 800);
     }
-  } catch { /* firm memory may not be hydrated yet */ }
+  } catch {
+    /* firm memory may not be hydrated yet */
+  }
 
   const parts = [BASE_PERSONA];
   if (knowledge) parts.push(`\n\n--- DRAWING KNOWLEDGE ---\n${knowledge}`);
@@ -179,14 +176,9 @@ function augmentParsePrompt(scheduleType, ocrText, firmName) {
  * @returns {{ systemPrompt: string }}
  */
 function augmentNotesPrompt() {
-  const knowledge = [
-    getKnowledge("notes"),
-    getKnowledge("abbreviations"),
-  ].filter(Boolean).join("\n\n");
+  const knowledge = [getKnowledge("notes"), getKnowledge("abbreviations")].filter(Boolean).join("\n\n");
 
-  const sys = knowledge
-    ? `${BASE_PERSONA}\n\n--- DRAWING KNOWLEDGE ---\n${knowledge}`
-    : BASE_PERSONA;
+  const sys = knowledge ? `${BASE_PERSONA}\n\n--- DRAWING KNOWLEDGE ---\n${knowledge}` : BASE_PERSONA;
 
   return { systemPrompt: sys };
 }

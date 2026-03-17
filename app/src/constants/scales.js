@@ -46,3 +46,20 @@ export const SCALE_PRESETS = [
   ]},
 ];
 
+export function scaleCodeToPxPerUnit(code, dpi) {
+  if (!code || !dpi) return null;
+  const arch = ARCH_SCALES[code];
+  if (arch) return dpi / arch.factor;
+  const engMatch = code.match(/^eng(\d+)$/);
+  if (engMatch) {
+    const feetPerInch = parseInt(engMatch[1]);
+    return dpi / (feetPerInch * 12);
+  }
+  const metricMatch = code.match(/^metric_1:(\d+)$/);
+  if (metricMatch) {
+    const ratio = parseInt(metricMatch[1]);
+    const cmPerInch = 2.54;
+    return (dpi * cmPerInch) / ratio;
+  }
+  return null;
+}

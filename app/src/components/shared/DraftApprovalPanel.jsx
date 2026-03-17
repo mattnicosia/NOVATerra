@@ -4,8 +4,6 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAutoResponseStore, TRIGGER_TYPES } from "@/stores/autoResponseStore";
 import { sendAutoResponse, generateAlternatives } from "@/utils/autoResponseEngine";
 import { useUiStore } from "@/stores/uiStore";
-import Ic from "@/components/shared/Ic";
-import { I } from "@/constants/icons";
 
 export default function DraftApprovalPanel({ open, onClose }) {
   const C = useTheme();

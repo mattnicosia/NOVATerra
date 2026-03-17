@@ -2,8 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
-import { inp, bt } from "@/utils/styles";
-import { nn } from "@/utils/format";
+import { inp } from "@/utils/styles";
 
 // ─── Dimension Type Definitions ────────────────────────────────
 const DIMENSION_TYPES = [
@@ -37,7 +36,15 @@ const SCENARIOS = [
 
 const findDimType = key => DIMENSION_TYPES.find(d => d.key.toLowerCase() === (key || "").toLowerCase());
 const resolveColor = (C, colorKey) => {
-  const map = { blue: C.blue, purple: C.purple, green: C.green, orange: C.orange, red: C.red, cyan: C.cyan || C.accent, accent: C.accent };
+  const map = {
+    blue: C.blue,
+    purple: C.purple,
+    green: C.green,
+    orange: C.orange,
+    red: C.red,
+    cyan: C.cyan || C.accent,
+    accent: C.accent,
+  };
   return map[colorKey] || C.accent;
 };
 
@@ -54,8 +61,14 @@ function getRelevantPresets(unit) {
 // Context-aware: show only relevant scenarios
 function getRelevantScenarios(unit) {
   const u = (unit || "").toUpperCase();
-  if (["LF", "VLF"].includes(u)) return SCENARIOS.filter(s => s.cat === "Masonry" || s.cat === "Concrete" || s.label === "+ Waste %" || s.label === "\u00D7 Factor");
-  if (["SF", "SY"].includes(u)) return SCENARIOS.filter(s => s.cat === "Painting" || s.cat === "Concrete" || s.label === "+ Waste %" || s.label === "\u00D7 Factor");
+  if (["LF", "VLF"].includes(u))
+    return SCENARIOS.filter(
+      s => s.cat === "Masonry" || s.cat === "Concrete" || s.label === "+ Waste %" || s.label === "\u00D7 Factor",
+    );
+  if (["SF", "SY"].includes(u))
+    return SCENARIOS.filter(
+      s => s.cat === "Painting" || s.cat === "Concrete" || s.label === "+ Waste %" || s.label === "\u00D7 Factor",
+    );
   if (["CY", "CF"].includes(u)) return SCENARIOS.filter(s => s.label === "+ Waste %" || s.label === "\u00D7 Factor");
   return SCENARIOS.filter(s => s.cat === "General");
 }
@@ -64,7 +77,7 @@ function getRelevantScenarios(unit) {
 export default function TakeoffDimensionEngine({
   takeoff,
   updateTakeoff,
-  measuredQty,
+  measuredQty: _measuredQty,
   computedQty,
   measurements,
   computeMeasurementValue,
@@ -97,6 +110,7 @@ export default function TakeoffDimensionEngine({
         }
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [suggestHeight]);
 
   const [showMore, setShowMore] = useState(false);
@@ -152,11 +166,18 @@ export default function TakeoffDimensionEngine({
     >
       {/* Context hint for plan view + LF */}
       {isLF && isPlanView && !hasFormula && (
-        <div style={{
-          fontSize: 9, color: C.accent, fontWeight: 500, marginBottom: 6,
-          padding: "4px 8px", background: `${C.accent}08`, borderRadius: 5,
-          border: `1px solid ${C.accent}15`,
-        }}>
+        <div
+          style={{
+            fontSize: 9,
+            color: C.accent,
+            fontWeight: 500,
+            marginBottom: 6,
+            padding: "4px 8px",
+            background: `${C.accent}08`,
+            borderRadius: 5,
+            border: `1px solid ${C.accent}15`,
+          }}
+        >
           Plan view detected — select a formula below to convert LF to SF
         </div>
       )}
@@ -164,7 +185,16 @@ export default function TakeoffDimensionEngine({
       {/* Quick formulas — context-filtered, one click to apply */}
       {!hasFormula && (
         <div style={{ marginBottom: 6 }}>
-          <div style={{ fontSize: 8, fontWeight: 600, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 4 }}>
+          <div
+            style={{
+              fontSize: 8,
+              fontWeight: 600,
+              color: C.textDim,
+              textTransform: "uppercase",
+              letterSpacing: 0.6,
+              marginBottom: 4,
+            }}
+          >
             Quick Formulas
           </div>
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
@@ -175,10 +205,14 @@ export default function TakeoffDimensionEngine({
                   key={i}
                   onClick={() => applyScenario(s)}
                   style={{
-                    padding: "3px 8px", fontSize: 9, fontWeight: 600,
+                    padding: "3px 8px",
+                    fontSize: 9,
+                    fontWeight: 600,
                     border: highlight ? `1px solid ${C.accent}60` : `1px solid ${C.accent}25`,
                     background: highlight ? `${C.accent}18` : `${C.accent}06`,
-                    color: C.accent, borderRadius: 4, cursor: "pointer",
+                    color: C.accent,
+                    borderRadius: 4,
+                    cursor: "pointer",
                     transition: "all 0.12s",
                     boxShadow: highlight ? `0 0 6px ${C.accent}20` : "none",
                   }}
@@ -199,33 +233,53 @@ export default function TakeoffDimensionEngine({
             const clr = dt ? resolveColor(C, dt.colorKey) : C.accent;
             const unitLabel = dt ? dt.unit : "";
             return (
-              <div key={idx} style={{
-                display: "flex", alignItems: "center", gap: 4,
-                padding: "3px 6px", borderRadius: 5,
-                border: `1px solid ${clr}25`, background: `${clr}06`,
-              }}>
-                <span style={{ fontSize: 8, fontWeight: 700, color: clr, textTransform: "uppercase" }}>
-                  {v.key}
-                </span>
+              <div
+                key={idx}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  padding: "3px 6px",
+                  borderRadius: 5,
+                  border: `1px solid ${clr}25`,
+                  background: `${clr}06`,
+                }}
+              >
+                <span style={{ fontSize: 8, fontWeight: 700, color: clr, textTransform: "uppercase" }}>{v.key}</span>
                 <input
                   type="number"
                   value={v.value}
                   onChange={e => updateVariable(idx, "value", e.target.value)}
                   onFocus={e => e.target.select()}
                   style={{
-                    width: 40, padding: "2px 3px", fontSize: 12, fontWeight: 700,
-                    fontFamily: T.font.sans, textAlign: "center", color: C.text,
-                    background: `${clr}06`, border: `1px solid ${clr}18`,
-                    borderRadius: 4, outline: "none", fontFeatureSettings: "'tnum'",
+                    width: 40,
+                    padding: "2px 3px",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    fontFamily: T.font.sans,
+                    textAlign: "center",
+                    color: C.text,
+                    background: `${clr}06`,
+                    border: `1px solid ${clr}18`,
+                    borderRadius: 4,
+                    outline: "none",
+                    fontFeatureSettings: "'tnum'",
                   }}
                 />
                 {unitLabel && <span style={{ fontSize: 8, color: C.textDim }}>{unitLabel}</span>}
                 <button
                   onClick={() => removeVariable(idx)}
                   style={{
-                    width: 14, height: 14, border: "none", background: "transparent",
-                    color: C.red, cursor: "pointer", display: "flex",
-                    alignItems: "center", justifyContent: "center", padding: 0,
+                    width: 14,
+                    height: 14,
+                    border: "none",
+                    background: "transparent",
+                    color: C.red,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: 0,
                   }}
                 >
                   <Ic d={I.x} size={7} />
@@ -235,18 +289,25 @@ export default function TakeoffDimensionEngine({
           })}
           {/* Add dimension button */}
           <div style={{ display: "flex", gap: 3 }}>
-            {DIMENSION_TYPES
-              .filter(dt => relevantPresets.includes(dt.key))
+            {DIMENSION_TYPES.filter(dt => relevantPresets.includes(dt.key))
               .filter(dt => !variables.some(v => v.key && v.key.toLowerCase() === dt.key.toLowerCase()))
               .slice(0, 4)
               .map(dt => {
                 const clr = resolveColor(C, dt.colorKey);
                 return (
-                  <button key={dt.key} onClick={() => addVariable(dt)} title={dt.desc}
+                  <button
+                    key={dt.key}
+                    onClick={() => addVariable(dt)}
+                    title={dt.desc}
                     style={{
-                      padding: "2px 6px", fontSize: 8, fontWeight: 600,
-                      border: `1px dashed ${clr}30`, borderRadius: 3,
-                      background: "transparent", color: `${clr}90`, cursor: "pointer",
+                      padding: "2px 6px",
+                      fontSize: 8,
+                      fontWeight: 600,
+                      border: `1px dashed ${clr}30`,
+                      borderRadius: 3,
+                      background: "transparent",
+                      color: `${clr}90`,
+                      cursor: "pointer",
                     }}
                   >
                     +{dt.key}
@@ -259,32 +320,70 @@ export default function TakeoffDimensionEngine({
 
       {/* Formula bar — compact, only when formula is active */}
       {hasFormula && (
-        <div style={{
-          display: "flex", alignItems: "center", gap: 6, marginBottom: 6,
-          padding: "4px 8px", background: C.bg2, borderRadius: 5, border: `1px solid ${C.border}`,
-        }}>
-          <span style={{ fontSize: 8, fontWeight: 700, color: C.orange, textTransform: "uppercase", letterSpacing: 0.4, flexShrink: 0 }}>ƒ</span>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            marginBottom: 6,
+            padding: "4px 8px",
+            background: C.bg2,
+            borderRadius: 5,
+            border: `1px solid ${C.border}`,
+          }}
+        >
+          <span
+            style={{
+              fontSize: 8,
+              fontWeight: 700,
+              color: C.orange,
+              textTransform: "uppercase",
+              letterSpacing: 0.4,
+              flexShrink: 0,
+            }}
+          >
+            ƒ
+          </span>
           <input
             value={formula}
             onChange={e => updateTakeoff(takeoff.id, "formula", e.target.value)}
             placeholder="e.g. Qty * Height"
             style={inp(C, {
-              flex: 1, padding: "3px 6px", fontSize: 10, fontWeight: 500,
-              background: C.bg, border: `1px solid ${C.orange}25`, borderRadius: 4,
+              flex: 1,
+              padding: "3px 6px",
+              fontSize: 10,
+              fontWeight: 500,
+              background: C.bg,
+              border: `1px solid ${C.orange}25`,
+              borderRadius: 4,
             })}
           />
           {/* Result preview */}
           {computedQty !== null && (
-            <span style={{ fontSize: 11, fontWeight: 700, color: accentColor, fontFeatureSettings: "'tnum'", flexShrink: 0 }}>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: accentColor,
+                fontFeatureSettings: "'tnum'",
+                flexShrink: 0,
+              }}
+            >
               = {Math.round(computedQty * 100) / 100}
             </span>
           )}
           <button
             onClick={clearAll}
             style={{
-              padding: "2px 6px", fontSize: 8, fontWeight: 600,
-              border: `1px solid ${C.border}`, background: "transparent",
-              color: C.textDim, borderRadius: 3, cursor: "pointer", flexShrink: 0,
+              padding: "2px 6px",
+              fontSize: 8,
+              fontWeight: 600,
+              border: `1px solid ${C.border}`,
+              background: "transparent",
+              color: C.textDim,
+              borderRadius: 3,
+              cursor: "pointer",
+              flexShrink: 0,
             }}
           >
             Clear
@@ -297,9 +396,16 @@ export default function TakeoffDimensionEngine({
         <button
           onClick={() => setShowMore(!showMore)}
           style={{
-            fontSize: 8, fontWeight: 600, color: C.textDim,
-            background: "none", border: "none", cursor: "pointer",
-            padding: "2px 0", display: "flex", alignItems: "center", gap: 3,
+            fontSize: 8,
+            fontWeight: 600,
+            color: C.textDim,
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            padding: "2px 0",
+            display: "flex",
+            alignItems: "center",
+            gap: 3,
           }}
         >
           <Ic d={showMore ? I.chevronDown : I.chevronRight} size={8} color={C.textDim} />
@@ -321,9 +427,16 @@ export default function TakeoffDimensionEngine({
                 <button
                   onClick={() => removeMeasurement(takeoff.id, m.id)}
                   style={{
-                    marginLeft: "auto", width: 12, height: 12, border: "none",
-                    background: "transparent", color: C.red, cursor: "pointer",
-                    display: "flex", alignItems: "center", justifyContent: "center",
+                    marginLeft: "auto",
+                    width: 12,
+                    height: 12,
+                    border: "none",
+                    background: "transparent",
+                    color: C.red,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
                 >
                   <Ic d={I.x} size={7} />

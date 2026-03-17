@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useDashboardData } from "@/hooks/useDashboardData";
@@ -24,7 +24,7 @@ const DotsIcon = ({ color = "currentColor" }) => (
   </svg>
 );
 
-const PenDocIcon = ({ color = "currentColor" }) => (
+const _PenDocIcon = ({ color = "currentColor" }) => (
   <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
     <rect x="3" y="1.5" width="8" height="11" rx="1.5" stroke={color} strokeWidth="1.1" fill="none" />
     <line x1="5" y1="5" x2="9" y2="5" stroke={color} strokeWidth="0.9" strokeLinecap="round" />
@@ -39,7 +39,7 @@ const PenDocIcon = ({ color = "currentColor" }) => (
   </svg>
 );
 
-const ChevronRight = ({ color = "currentColor" }) => (
+const _ChevronRight = ({ color = "currentColor" }) => (
   <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
     <path d="M4.5 2.5L8 6L4.5 9.5" stroke={color} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
@@ -215,7 +215,7 @@ export default function ProjectsWidget() {
   const activeEstimateId = activeEstimate?.id || null;
   const biddingEstimates = estimates.filter(e => e.statusLabel === "Bidding");
   const [hoveredId, setHoveredId] = useState(null);
-  const [ctaHovered, setCtaHovered] = useState(false);
+  const [_ctaHovered, _setCtaHovered] = useState(false);
   const [menuState, setMenuState] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
 

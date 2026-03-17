@@ -4,18 +4,18 @@
 // Phase 3 of the predictive takeoff system
 // ══════════════════════════════════════════════════════════════════════
 
-import { extractPageData } from './pdfExtractor';
+import { extractPageData } from "./pdfExtractor";
 
 // ══════════════════════════════════════════════════════════════════════
 // CONSTANTS
 // ══════════════════════════════════════════════════════════════════════
 
-const WALL_MIN_LENGTH = 30;     // px — minimum line length to be a wall candidate
-const WALL_MAX_WIDTH = 55;      // px — max perpendicular distance for parallel wall lines
-const WALL_MIN_WIDTH = 3;       // px — min perpendicular distance (avoids duplicate lines)
-const ENDPOINT_SNAP = 15;       // px — max distance to snap endpoints together
-const ANGLE_TOLERANCE = 5;      // degrees — tolerance for parallel line detection
-const ROOM_MAX_GAP = 20;        // px — max gap between wall segments forming a room
+const WALL_MIN_LENGTH = 30; // px — minimum line length to be a wall candidate
+const WALL_MAX_WIDTH = 55; // px — max perpendicular distance for parallel wall lines
+const WALL_MIN_WIDTH = 3; // px — min perpendicular distance (avoids duplicate lines)
+const ENDPOINT_SNAP = 15; // px — max distance to snap endpoints together
+const ANGLE_TOLERANCE = 5; // degrees — tolerance for parallel line detection
+const _ROOM_MAX_GAP = 20; // px — max gap between wall segments forming a room
 
 // ══════════════════════════════════════════════════════════════════════
 // VECTOR MATH UTILITIES
@@ -36,7 +36,7 @@ function normalizeAngle(a) {
   return a;
 }
 
-function anglesParallel(a1, a2, tolerance = ANGLE_TOLERANCE * Math.PI / 180) {
+function anglesParallel(a1, a2, tolerance = (ANGLE_TOLERANCE * Math.PI) / 180) {
   const na1 = normalizeAngle(a1);
   const na2 = normalizeAngle(a2);
   const diff = Math.abs(na1 - na2);
@@ -137,23 +137,12 @@ export function detectWalls(lines) {
       usedLines.add(key1);
       usedLines.add(bestPair.key);
 
-      // Compute centerline — normalize endpoint order to avoid X-shaped cross
-      // when parallel lines are drawn in opposite directions
-      const l2 = bestPair.line;
-      const sameDirDist =
-        Math.hypot(line1.x1 - l2.x1, line1.y1 - l2.y1) +
-        Math.hypot(line1.x2 - l2.x2, line1.y2 - l2.y2);
-      const flipDirDist =
-        Math.hypot(line1.x1 - l2.x2, line1.y1 - l2.y2) +
-        Math.hypot(line1.x2 - l2.x1, line1.y2 - l2.y1);
-      const p2 = flipDirDist < sameDirDist
-        ? { x1: l2.x2, y1: l2.y2, x2: l2.x1, y2: l2.y1 }
-        : l2;
+      // Compute centerline
       const centerline = {
-        x1: (line1.x1 + p2.x1) / 2,
-        y1: (line1.y1 + p2.y1) / 2,
-        x2: (line1.x2 + p2.x2) / 2,
-        y2: (line1.y2 + p2.y2) / 2,
+        x1: (line1.x1 + bestPair.line.x1) / 2,
+        y1: (line1.y1 + bestPair.line.y1) / 2,
+        x2: (line1.x2 + bestPair.line.x2) / 2,
+        y2: (line1.y2 + bestPair.line.y2) / 2,
       };
 
       walls.push({
@@ -250,7 +239,7 @@ export function findWallChains(walls, graph) {
  * Detect rooms as closed polygons from wall endpoints
  * Uses a cycle detection algorithm on the wall graph
  */
-export function detectRooms(walls, graph) {
+export function detectRooms(walls, _graph) {
   if (walls.length < 3) return [];
 
   const rooms = [];
@@ -272,7 +261,7 @@ export function detectRooms(walls, graph) {
   // A room is a cycle of walls where each wall connects to the next at endpoints
   const visitedCycles = new Set(); // Prevent duplicate rooms
 
-  let _cycleOpsCount = 0;  // Global operation counter to prevent exponential blowup
+  let _cycleOpsCount = 0; // Global operation counter to prevent exponential blowup
   const CYCLE_OPS_LIMIT = 50000; // Max DFS operations across all findCycles calls
 
   function findCycles(startWallId, maxDepth = 12) {
@@ -295,9 +284,7 @@ export function detectRooms(walls, graph) {
       } else {
         const prevWall = wallMap.get(path[path.length - 2]);
         // Find which endpoint of current wall is shared with previous
-        const sharedWithPrev = currentWall.endpoints.find(ep =>
-          prevWall.endpoints.some(pep => pointsEqual(ep, pep))
-        );
+        const sharedWithPrev = currentWall.endpoints.find(ep => prevWall.endpoints.some(pep => pointsEqual(ep, pep)));
         outgoingEp = currentWall.endpoints.find(ep => ep !== sharedWithPrev) || currentWall.endpoints[1];
       }
 
@@ -439,11 +426,13 @@ export function detectOpenings(walls, lines) {
     });
 
     // Project onto wall direction and find gaps
-    const projections = parallelLines.map(l => {
-      const p1 = l.x1 * cos + l.y1 * sin;
-      const p2 = l.x2 * cos + l.y2 * sin;
-      return { min: Math.min(p1, p2), max: Math.max(p1, p2), line: l };
-    }).sort((a, b) => a.min - b.min);
+    const projections = parallelLines
+      .map(l => {
+        const p1 = l.x1 * cos + l.y1 * sin;
+        const p2 = l.x2 * cos + l.y2 * sin;
+        return { min: Math.min(p1, p2), max: Math.max(p1, p2), line: l };
+      })
+      .sort((a, b) => a.min - b.min);
 
     // Find gaps between consecutive projected segments
     for (let i = 0; i < projections.length - 1; i++) {

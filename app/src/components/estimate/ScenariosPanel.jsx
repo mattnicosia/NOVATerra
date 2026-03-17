@@ -220,9 +220,7 @@ export default function ScenariosPanel() {
   };
 
   const handleAdd = (parentId = null) => {
-    const parentName = parentId
-      ? groups.find(g => g.id === parentId)?.name || ""
-      : "";
+    const parentName = parentId ? groups.find(g => g.id === parentId)?.name || "" : "";
     const subs = groups.filter(g => g.parentId === (parentId || null) && g.id !== "base");
     const num = parentId ? subs.length + 1 : groups.filter(g => !g.parentId && g.id !== "base").length + 1;
     const name = parentId ? `${parentName} — Alt ${num}` : `Alternate ${num}`;
@@ -371,14 +369,16 @@ Prioritize by likelihood the architect/owner will request these.`,
     const allIds = new Set(collectIds(gid));
     const targetId = deleteConfirm.parentId || "base";
     const curItems = useItemsStore.getState().items;
-    useItemsStore.getState().setItems(
-      curItems.map(i => (allIds.has(i.bidContext || "base") ? { ...i, bidContext: targetId } : i)),
-    );
+    useItemsStore
+      .getState()
+      .setItems(curItems.map(i => (allIds.has(i.bidContext || "base") ? { ...i, bidContext: targetId } : i)));
     const curTk = useTakeoffsStore.getState().takeoffs;
-    useTakeoffsStore.getState().setTakeoffs(
-      curTk.map(t => (allIds.has(t.bidContext || "base") ? { ...t, bidContext: targetId } : t)),
-    );
-    allIds.forEach(id => { if (id !== "base") removeGroup(id); });
+    useTakeoffsStore
+      .getState()
+      .setTakeoffs(curTk.map(t => (allIds.has(t.bidContext || "base") ? { ...t, bidContext: targetId } : t)));
+    allIds.forEach(id => {
+      if (id !== "base") removeGroup(id);
+    });
     if (activeGroupId && allIds.has(activeGroupId)) setActiveGroupId("base");
     const parentName = groups.find(g => g.id === targetId)?.name || "Base Bid";
     showToast(`Moved items to ${parentName} and deleted scenario`);
@@ -387,7 +387,10 @@ Prioritize by likelihood the architect/owner will request these.`,
 
   // ── Drag-drop: reparent scenarios ───────────────────────────────────
   const handleDragStart = (e, nodeId) => {
-    if (nodeId === "base") { e.preventDefault(); return; }
+    if (nodeId === "base") {
+      e.preventDefault();
+      return;
+    }
     setDragId(nodeId);
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("scenario-id", nodeId);
@@ -403,7 +406,10 @@ Prioritize by likelihood the architect/owner will request these.`,
   const handleDropOnNode = (e, targetId) => {
     e.preventDefault();
     setDragOver(null);
-    if (!dragId || dragId === targetId) { setDragId(null); return; }
+    if (!dragId || dragId === targetId) {
+      setDragId(null);
+      return;
+    }
     const isDescendant = (parentId, checkId) => {
       const children = groups.filter(g => g.parentId === parentId);
       for (const c of children) {
@@ -412,14 +418,20 @@ Prioritize by likelihood the architect/owner will request these.`,
       }
       return false;
     };
-    if (isDescendant(dragId, targetId)) { setDragId(null); return; }
+    if (isDescendant(dragId, targetId)) {
+      setDragId(null);
+      return;
+    }
     updateGroup(dragId, "parentId", targetId === "__root__" ? null : targetId);
     setCollapsed(p => ({ ...p, [targetId]: false }));
     setDragId(null);
     showToast("Moved scenario");
   };
 
-  const handleDragEnd = () => { setDragId(null); setDragOver(null); };
+  const handleDragEnd = () => {
+    setDragId(null);
+    setDragOver(null);
+  };
 
   // ── Type indicator ──────────────────────────────────────────────────
   const typeColor = type => {
@@ -430,13 +442,10 @@ Prioritize by likelihood the architect/owner will request these.`,
     return C.accent;
   };
 
-  const getScenarioTotals = useCallback(
-    ids => useItemsStore.getState().getScenarioTotals(ids),
-    [],
-  );
+  const getScenarioTotals = useCallback(ids => useItemsStore.getState().getScenarioTotals(ids), []);
 
   // ── Render a single pill ────────────────────────────────────────────
-  const renderSinglePill = (node) => {
+  const renderSinglePill = node => {
     const isActive = activeGroupId === node.id;
     const count = getCount(node.id);
     const tc = typeColor(node.type);
@@ -450,7 +459,10 @@ Prioritize by likelihood the architect/owner will request these.`,
         key={node.id}
         onClick={() => setActiveGroupId(node.id)}
         onContextMenu={e => handleContextMenu(e, node)}
-        onDoubleClick={() => { setEditingId(node.id); setEditingName(node.name); }}
+        onDoubleClick={() => {
+          setEditingId(node.id);
+          setEditingName(node.name);
+        }}
         draggable={node.id !== "base"}
         onDragStart={e => handleDragStart(e, node.id)}
         onDragOver={e => handleDragOverNode(e, node.id)}
@@ -458,14 +470,29 @@ Prioritize by likelihood the architect/owner will request these.`,
         onDrop={e => handleDropOnNode(e, node.id)}
         onDragEnd={handleDragEnd}
         style={{
-          display: "inline-flex", alignItems: "center", gap: 5,
-          padding: "5px 10px", borderRadius: 16,
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 5,
+          padding: "5px 10px",
+          borderRadius: 16,
           cursor: node.id !== "base" ? (isDragging ? "grabbing" : "grab") : "pointer",
-          background: isDragTarget ? `${C.accent}18` : isActive ? `${tc}20` : dk ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)",
-          border: isDragTarget ? `1.5px dashed ${C.accent}`
-            : node.type === "breakout" ? `1.5px dashed ${isActive ? tc : dk ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.12)"}`
-            : isActive ? `1.5px solid ${tc}` : `1.5px solid ${dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
-          transition: "all 0.15s", whiteSpace: "nowrap", position: "relative",
+          background: isDragTarget
+            ? `${C.accent}18`
+            : isActive
+              ? `${tc}20`
+              : dk
+                ? "rgba(255,255,255,0.05)"
+                : "rgba(0,0,0,0.03)",
+          border: isDragTarget
+            ? `1.5px dashed ${C.accent}`
+            : node.type === "breakout"
+              ? `1.5px dashed ${isActive ? tc : dk ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.12)"}`
+              : isActive
+                ? `1.5px solid ${tc}`
+                : `1.5px solid ${dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
+          transition: "all 0.15s",
+          whiteSpace: "nowrap",
+          position: "relative",
           opacity: isDragging ? 0.35 : 1,
           transform: isDragTarget ? "scale(1.04)" : isDragging ? "scale(0.95)" : "scale(1)",
           boxShadow: isDragTarget ? `0 0 8px ${C.accent}30` : "none",
@@ -483,48 +510,87 @@ Prioritize by likelihood the architect/owner will request these.`,
             onBlur={commitEdit}
             onKeyDown={e => {
               if (e.key === "Enter") commitEdit();
-              if (e.key === "Escape") { setEditingId(null); setEditingName(""); }
+              if (e.key === "Escape") {
+                setEditingId(null);
+                setEditingName("");
+              }
             }}
             onClick={e => e.stopPropagation()}
             style={{
-              background: "transparent", border: "none", outline: "none",
-              color: C.text, fontSize: 10, fontWeight: 600, fontFamily: T.font.sans,
-              padding: 0, width: Math.max(40, editingName.length * 6),
+              background: "transparent",
+              border: "none",
+              outline: "none",
+              color: C.text,
+              fontSize: 10,
+              fontWeight: 600,
+              fontFamily: T.font.sans,
+              padding: 0,
+              width: Math.max(40, editingName.length * 6),
             }}
           />
         ) : (
-          <span style={{ fontSize: 10, fontWeight: isActive ? 700 : 600, color: isActive ? tc : C.text, fontFamily: T.font.sans }}>
+          <span
+            style={{
+              fontSize: 10,
+              fontWeight: isActive ? 700 : 600,
+              color: isActive ? tc : C.text,
+              fontFamily: T.font.sans,
+            }}
+          >
             {node.name}
           </span>
         )}
 
         {/* Total with markups */}
         {totals.grand > 0 && (
-          <span style={{
-            fontSize: 8, fontWeight: 600, fontFamily: T.font.sans, opacity: 0.7,
-            color: node.type === "deduct" ? "#E67E22" : node.type === "add" ? "#27AE60" : node.type === "revision" ? "#F59E0B" : C.textDim,
-          }}>
-            {node.type === "breakout" ? "" : node.type === "deduct" ? "\u2212" : node.type === "revision" ? "Δ " : "+"}${formatCompact(totals.grand)}
+          <span
+            style={{
+              fontSize: 8,
+              fontWeight: 600,
+              fontFamily: T.font.sans,
+              opacity: 0.7,
+              color:
+                node.type === "deduct"
+                  ? "#E67E22"
+                  : node.type === "add"
+                    ? "#27AE60"
+                    : node.type === "revision"
+                      ? "#F59E0B"
+                      : C.textDim,
+            }}
+          >
+            {node.type === "breakout" ? "" : node.type === "deduct" ? "\u2212" : node.type === "revision" ? "Δ " : "+"}$
+            {formatCompact(totals.grand)}
             {node.type === "breakout" ? " (incl.)" : ""}
           </span>
         )}
         {/* Revision status badge */}
         {node.type === "revision" && (
-          <span style={{
-            fontSize: 7, fontWeight: 700, fontFamily: T.font.sans,
-            padding: "1px 4px", borderRadius: 4,
-            background: node.accepted ? "#27AE6030" : "#F59E0B25",
-            color: node.accepted ? "#27AE60" : "#F59E0B",
-          }}>
+          <span
+            style={{
+              fontSize: 7,
+              fontWeight: 700,
+              fontFamily: T.font.sans,
+              padding: "1px 4px",
+              borderRadius: 4,
+              background: node.accepted ? "#27AE6030" : "#F59E0B25",
+              color: node.accepted ? "#27AE60" : "#F59E0B",
+            }}
+          >
             {node.accepted ? "✓ Applied" : "Pending"}
           </span>
         )}
 
         {/* Count */}
-        <span style={{
-          fontSize: 8, opacity: 0.5, background: dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
-          padding: "0px 4px", borderRadius: 6,
-        }}>
+        <span
+          style={{
+            fontSize: 8,
+            opacity: 0.5,
+            background: dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+            padding: "0px 4px",
+            borderRadius: 6,
+          }}
+        >
           {count}
         </span>
 
@@ -532,8 +598,18 @@ Prioritize by likelihood the architect/owner will request these.`,
         {node.id !== "base" && (
           <span
             className="scenario-add-child"
-            onClick={e => { e.stopPropagation(); handleDelete(node); }}
-            style={{ opacity: 0, cursor: "pointer", display: "flex", alignItems: "center", marginLeft: -2, transition: "opacity 0.15s" }}
+            onClick={e => {
+              e.stopPropagation();
+              handleDelete(node);
+            }}
+            style={{
+              opacity: 0,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              marginLeft: -2,
+              transition: "opacity 0.15s",
+            }}
             title="Delete scenario"
           >
             <Ic d={I.x} size={8} color={C.red || "#E74C3C"} />
@@ -544,7 +620,7 @@ Prioritize by likelihood the architect/owner will request these.`,
   };
 
   // ── Render connected pills recursively ──────────────────────────────
-  const renderConnectedPills = (node) => {
+  const renderConnectedPills = node => {
     const hasChildren = node.children && node.children.length > 0;
     const isCollapsed = collapsed[node.id];
 
@@ -556,10 +632,19 @@ Prioritize by likelihood the architect/owner will request these.`,
           {/* Collapse toggle for nodes with children */}
           {hasChildren && (
             <span
-              onClick={e => { e.stopPropagation(); toggleCollapse(node.id); }}
+              onClick={e => {
+                e.stopPropagation();
+                toggleCollapse(node.id);
+              }}
               style={{
-                width: 14, height: 14, display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: "pointer", opacity: 0.5, flexShrink: 0,
+                width: 14,
+                height: 14,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                opacity: 0.5,
+                flexShrink: 0,
                 transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)",
                 transition: "transform 0.15s",
               }}
@@ -573,41 +658,47 @@ Prioritize by likelihood the architect/owner will request these.`,
         {hasChildren && !isCollapsed && (
           <div style={{ position: "relative", paddingLeft: 20, marginTop: 0 }}>
             {/* Vertical connector line from parent down to last child */}
-            <div style={{
-              position: "absolute",
-              left: 8,
-              top: 0,
-              bottom: node.children.length > 1 ? 14 : 14,
-              width: 1,
-              background: C.border,
-              borderRadius: 1,
-            }} />
+            <div
+              style={{
+                position: "absolute",
+                left: 8,
+                top: 0,
+                bottom: node.children.length > 1 ? 14 : 14,
+                width: 1,
+                background: C.border,
+                borderRadius: 1,
+              }}
+            />
 
-            {node.children.map((child, idx) => (
+            {node.children.map((child, _idx) => (
               <div key={child.id} style={{ position: "relative", marginTop: 6 }}>
                 {/* Horizontal connector line from vertical line to pill */}
-                <div style={{
-                  position: "absolute",
-                  left: -12,
-                  top: 14,
-                  width: 12,
-                  height: 1,
-                  background: C.border,
-                  borderRadius: 1,
-                }} />
+                <div
+                  style={{
+                    position: "absolute",
+                    left: -12,
+                    top: 14,
+                    width: 12,
+                    height: 1,
+                    background: C.border,
+                    borderRadius: 1,
+                  }}
+                />
                 {/* Small rounded corner where vertical meets horizontal */}
-                <div style={{
-                  position: "absolute",
-                  left: -13,
-                  top: 10,
-                  width: 5,
-                  height: 5,
-                  borderLeft: `1px solid ${C.border}`,
-                  borderBottom: `1px solid ${C.border}`,
-                  borderRadius: "0 0 0 3px",
-                  borderTop: "none",
-                  borderRight: "none",
-                }} />
+                <div
+                  style={{
+                    position: "absolute",
+                    left: -13,
+                    top: 10,
+                    width: 5,
+                    height: 5,
+                    borderLeft: `1px solid ${C.border}`,
+                    borderBottom: `1px solid ${C.border}`,
+                    borderRadius: "0 0 0 3px",
+                    borderTop: "none",
+                    borderRight: "none",
+                  }}
+                />
                 {renderConnectedPills(child)}
               </div>
             ))}
@@ -622,13 +713,24 @@ Prioritize by likelihood the architect/owner will request these.`,
       {/* Header */}
       <div
         style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
           padding: "8px 10px 6px",
           borderBottom: `0.5px solid ${dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`,
           flexShrink: 0,
         }}
       >
-        <span style={{ fontSize: 10, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.8, fontFamily: T.font.sans }}>
+        <span
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            color: C.textDim,
+            textTransform: "uppercase",
+            letterSpacing: 0.8,
+            fontFamily: T.font.sans,
+          }}
+        >
           Scenarios
         </span>
         <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
@@ -655,11 +757,17 @@ Prioritize by likelihood the architect/owner will request these.`,
           >
             {novaLoading ? (
               <>
-                <span style={{
-                  display: "inline-block", width: 8, height: 8,
-                  border: `1.5px solid ${C.accent}40`, borderTop: `1.5px solid ${C.accent}`,
-                  borderRadius: "50%", animation: "spin 0.8s linear infinite",
-                }} />
+                <span
+                  style={{
+                    display: "inline-block",
+                    width: 8,
+                    height: 8,
+                    border: `1.5px solid ${C.accent}40`,
+                    borderTop: `1.5px solid ${C.accent}`,
+                    borderRadius: "50%",
+                    animation: "spin 0.8s linear infinite",
+                  }}
+                />
                 ...
               </>
             ) : (
@@ -717,7 +825,10 @@ Prioritize by likelihood the architect/owner will request these.`,
               >
                 {/* Blank */}
                 <button
-                  onClick={() => { setShowAddMenu(false); handleAdd(null); }}
+                  onClick={() => {
+                    setShowAddMenu(false);
+                    handleAdd(null);
+                  }}
                   style={menuItemStyle(C, T)}
                   onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}10`)}
                   onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
@@ -729,15 +840,17 @@ Prioritize by likelihood the architect/owner will request these.`,
 
                 {SCENARIO_TEMPLATES.map(cat => (
                   <div key={cat.category}>
-                    <div style={{
-                      padding: "6px 12px 3px",
-                      fontSize: 9,
-                      fontWeight: 700,
-                      color: C.textDim,
-                      textTransform: "uppercase",
-                      letterSpacing: 0.6,
-                      fontFamily: T.font.sans,
-                    }}>
+                    <div
+                      style={{
+                        padding: "6px 12px 3px",
+                        fontSize: 9,
+                        fontWeight: 700,
+                        color: C.textDim,
+                        textTransform: "uppercase",
+                        letterSpacing: 0.6,
+                        fontFamily: T.font.sans,
+                      }}
+                    >
                       {cat.category}
                     </div>
                     {cat.items.map(tmpl => (
@@ -748,14 +861,17 @@ Prioritize by likelihood the architect/owner will request these.`,
                         onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}10`)}
                         onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                       >
-                        <span style={{
-                          width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
-                          background: typeColor(tmpl.type),
-                        }} />
+                        <span
+                          style={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: "50%",
+                            flexShrink: 0,
+                            background: typeColor(tmpl.type),
+                          }}
+                        />
                         <span style={{ flex: 1 }}>{tmpl.name}</span>
-                        {tmpl.multi && (
-                          <span style={{ fontSize: 8, opacity: 0.5 }}>{tmpl.multi.length}</span>
-                        )}
+                        {tmpl.multi && <span style={{ fontSize: 8, opacity: 0.5 }}>{tmpl.multi.length}</span>}
                       </button>
                     ))}
                   </div>
@@ -768,29 +884,46 @@ Prioritize by likelihood the architect/owner will request these.`,
 
       {/* NOVA Suggestions panel */}
       {(novaLoading || novaSuggestions.length > 0) && (
-        <div style={{
-          borderBottom: `0.5px solid ${dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`,
-          padding: "6px 8px",
-          flexShrink: 0,
-          maxHeight: 220,
-          overflowY: "auto",
-          background: dk ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.06)",
-        }}>
+        <div
+          style={{
+            borderBottom: `0.5px solid ${dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`,
+            padding: "6px 8px",
+            flexShrink: 0,
+            maxHeight: 220,
+            overflowY: "auto",
+            background: dk ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.06)",
+          }}
+        >
           {/* Streaming preview */}
           {novaLoading && novaStream && (
-            <div style={{
-              fontSize: 10, color: C.textDim, lineHeight: 1.5,
-              whiteSpace: "pre-wrap", maxHeight: 120, overflowY: "auto",
-              padding: "4px 6px", background: C.bg, borderRadius: 4,
-              border: `1px solid ${C.border}`, marginBottom: 6,
-            }}>
+            <div
+              style={{
+                fontSize: 10,
+                color: C.textDim,
+                lineHeight: 1.5,
+                whiteSpace: "pre-wrap",
+                maxHeight: 120,
+                overflowY: "auto",
+                padding: "4px 6px",
+                background: C.bg,
+                borderRadius: 4,
+                border: `1px solid ${C.border}`,
+                marginBottom: 6,
+              }}
+            >
               {novaStream}
-              <span style={{
-                display: "inline-block", width: 3, height: 10,
-                background: C.accent, borderRadius: 1,
-                animation: "pulse 0.8s infinite",
-                verticalAlign: "text-bottom", marginLeft: 2,
-              }} />
+              <span
+                style={{
+                  display: "inline-block",
+                  width: 3,
+                  height: 10,
+                  background: C.accent,
+                  borderRadius: 1,
+                  animation: "pulse 0.8s infinite",
+                  verticalAlign: "text-bottom",
+                  marginLeft: 2,
+                }}
+              />
             </div>
           )}
 
@@ -805,43 +938,80 @@ Prioritize by likelihood the architect/owner will request these.`,
                   key={i}
                   onClick={() => toggleSuggestion(i)}
                   style={{
-                    display: "flex", alignItems: "flex-start", gap: 6,
-                    padding: "5px 4px", cursor: "pointer", borderRadius: 4,
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 6,
+                    padding: "5px 4px",
+                    cursor: "pointer",
+                    borderRadius: 4,
                     background: selectedSuggestions.has(i) ? `${C.accent}08` : "transparent",
                     transition: "background 0.15s",
                   }}
                 >
-                  <span style={{
-                    width: 14, height: 14, borderRadius: 3, flexShrink: 0, marginTop: 1,
-                    border: `1.5px solid ${selectedSuggestions.has(i) ? C.accent : C.border}`,
-                    background: selectedSuggestions.has(i) ? C.accent : "transparent",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    transition: "all 0.15s",
-                  }}>
-                    {selectedSuggestions.has(i) && (
-                      <Ic d={I.check} size={8} color="#fff" />
-                    )}
+                  <span
+                    style={{
+                      width: 14,
+                      height: 14,
+                      borderRadius: 3,
+                      flexShrink: 0,
+                      marginTop: 1,
+                      border: `1.5px solid ${selectedSuggestions.has(i) ? C.accent : C.border}`,
+                      background: selectedSuggestions.has(i) ? C.accent : "transparent",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    {selectedSuggestions.has(i) && <Ic d={I.check} size={8} color="#fff" />}
                   </span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                      <span style={{ width: 5, height: 5, borderRadius: "50%", background: typeColor(s.type), flexShrink: 0 }} />
-                      <span style={{ fontSize: 11, fontWeight: 600, color: C.text, fontFamily: T.font.sans }}>{s.name}</span>
-                      <span style={{ fontSize: 8, color: s.type === "add" ? "#27AE60" : s.type === "deduct" ? "#E67E22" : C.textDim, fontWeight: 600, textTransform: "uppercase" }}>
+                      <span
+                        style={{
+                          width: 5,
+                          height: 5,
+                          borderRadius: "50%",
+                          background: typeColor(s.type),
+                          flexShrink: 0,
+                        }}
+                      />
+                      <span style={{ fontSize: 11, fontWeight: 600, color: C.text, fontFamily: T.font.sans }}>
+                        {s.name}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 8,
+                          color: s.type === "add" ? "#27AE60" : s.type === "deduct" ? "#E67E22" : C.textDim,
+                          fontWeight: 600,
+                          textTransform: "uppercase",
+                        }}
+                      >
                         {s.type}
                       </span>
                     </div>
                     {s.description && (
-                      <div style={{ fontSize: 9, color: C.textDim, lineHeight: 1.4, marginTop: 1 }}>{s.description}</div>
+                      <div style={{ fontSize: 9, color: C.textDim, lineHeight: 1.4, marginTop: 1 }}>
+                        {s.description}
+                      </div>
                     )}
                   </div>
                 </div>
               ))}
               <div style={{ display: "flex", gap: 4, marginTop: 6, justifyContent: "flex-end" }}>
                 <button
-                  onClick={() => { setNovaSuggestions([]); setSelectedSuggestions(new Set()); }}
+                  onClick={() => {
+                    setNovaSuggestions([]);
+                    setSelectedSuggestions(new Set());
+                  }}
                   style={bt(C, {
-                    padding: "3px 8px", background: "transparent", border: `1px solid ${C.border}`,
-                    color: C.textDim, fontSize: 9, cursor: "pointer", borderRadius: T.radius.sm,
+                    padding: "3px 8px",
+                    background: "transparent",
+                    border: `1px solid ${C.border}`,
+                    color: C.textDim,
+                    fontSize: 9,
+                    cursor: "pointer",
+                    borderRadius: T.radius.sm,
                     fontFamily: T.font.sans,
                   })}
                 >
@@ -854,8 +1024,12 @@ Prioritize by likelihood the architect/owner will request these.`,
                     padding: "3px 10px",
                     background: selectedSuggestions.size > 0 ? C.accent : C.bg3,
                     color: selectedSuggestions.size > 0 ? "#fff" : C.textDim,
-                    border: "none", fontSize: 9, fontWeight: 600, cursor: selectedSuggestions.size > 0 ? "pointer" : "default",
-                    borderRadius: T.radius.sm, fontFamily: T.font.sans,
+                    border: "none",
+                    fontSize: 9,
+                    fontWeight: 600,
+                    cursor: selectedSuggestions.size > 0 ? "pointer" : "default",
+                    borderRadius: T.radius.sm,
+                    fontFamily: T.font.sans,
                   })}
                 >
                   Add {selectedSuggestions.size > 0 ? `${selectedSuggestions.size} Selected` : "Selected"}
@@ -869,13 +1043,18 @@ Prioritize by likelihood the architect/owner will request these.`,
       {/* Connected pills view */}
       <div
         style={{
-          flex: 1, overflowY: "auto", padding: "8px 10px",
+          flex: 1,
+          overflowY: "auto",
+          padding: "8px 10px",
           outline: dragOver === "__root__" ? `1.5px dashed ${C.accent}40` : "none",
           outlineOffset: -2,
           borderRadius: 6,
           transition: "outline 0.15s",
         }}
-        onDragOver={e => { e.preventDefault(); setDragOver("__root__"); }}
+        onDragOver={e => {
+          e.preventDefault();
+          setDragOver("__root__");
+        }}
         onDrop={e => handleDropOnNode(e, "__root__")}
         onDragLeave={handleDragLeave}
       >
@@ -889,20 +1068,44 @@ Prioritize by likelihood the architect/owner will request these.`,
               <div
                 onClick={() => setActiveGroupId("base")}
                 onContextMenu={e => handleContextMenu(e, baseNode)}
-                onDragOver={e => { e.preventDefault(); if (dragId) setDragOver("base"); }}
+                onDragOver={e => {
+                  e.preventDefault();
+                  if (dragId) setDragOver("base");
+                }}
                 onDragLeave={handleDragLeave}
                 onDrop={e => handleDropOnNode(e, "base")}
                 style={{
-                  display: "inline-flex", alignItems: "center", gap: 6,
-                  padding: "6px 12px", borderRadius: 20, cursor: "pointer",
-                  background: activeGroupId === "base"
-                    ? `${C.accent}20`
-                    : dragOver === "base" ? `${C.accent}12` : dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
-                  border: activeGroupId === "base" ? `1.5px solid ${C.accent}` : dragOver === "base" ? `1.5px dashed ${C.accent}60` : `1.5px solid transparent`,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "6px 12px",
+                  borderRadius: 20,
+                  cursor: "pointer",
+                  background:
+                    activeGroupId === "base"
+                      ? `${C.accent}20`
+                      : dragOver === "base"
+                        ? `${C.accent}12`
+                        : dk
+                          ? "rgba(255,255,255,0.06)"
+                          : "rgba(0,0,0,0.04)",
+                  border:
+                    activeGroupId === "base"
+                      ? `1.5px solid ${C.accent}`
+                      : dragOver === "base"
+                        ? `1.5px dashed ${C.accent}60`
+                        : `1.5px solid transparent`,
                   transition: "all 0.15s",
                 }}
               >
-                <span style={{ fontSize: 11, fontWeight: 700, color: activeGroupId === "base" ? C.accent : C.text, fontFamily: T.font.sans }}>
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: activeGroupId === "base" ? C.accent : C.text,
+                    fontFamily: T.font.sans,
+                  }}
+                >
                   Base Bid
                 </span>
                 {baseTotals.grand > 0 && (
@@ -910,7 +1113,15 @@ Prioritize by likelihood the architect/owner will request these.`,
                     ${formatCompact(baseTotals.grand)}
                   </span>
                 )}
-                <span style={{ fontSize: 8, opacity: 0.5, background: dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)", padding: "1px 5px", borderRadius: 6 }}>
+                <span
+                  style={{
+                    fontSize: 8,
+                    opacity: 0.5,
+                    background: dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+                    padding: "1px 5px",
+                    borderRadius: 6,
+                  }}
+                >
                   {baseTotals.count}
                 </span>
               </div>
@@ -922,76 +1133,116 @@ Prioritize by likelihood the architect/owner will request these.`,
         {tree.filter(n => n.id !== "base").length > 0 && (
           <div style={{ position: "relative", paddingLeft: 20 }}>
             {/* Vertical connector line from base down */}
-            <div style={{
-              position: "absolute",
-              left: 8,
-              top: 0,
-              bottom: 14,
-              width: 1,
-              background: C.border,
-              borderRadius: 1,
-            }} />
+            <div
+              style={{
+                position: "absolute",
+                left: 8,
+                top: 0,
+                bottom: 14,
+                width: 1,
+                background: C.border,
+                borderRadius: 1,
+              }}
+            />
 
-            {tree.filter(n => n.id !== "base").map((node, idx) => (
-              <div key={node.id} style={{ position: "relative", marginTop: idx === 0 ? 0 : 6 }}>
-                {/* Horizontal connector from vertical line to pill */}
-                <div style={{
-                  position: "absolute",
-                  left: -12,
-                  top: 14,
-                  width: 12,
-                  height: 1,
-                  background: C.border,
-                  borderRadius: 1,
-                }} />
-                {/* Rounded corner */}
-                <div style={{
-                  position: "absolute",
-                  left: -13,
-                  top: 10,
-                  width: 5,
-                  height: 5,
-                  borderLeft: `1px solid ${C.border}`,
-                  borderBottom: `1px solid ${C.border}`,
-                  borderRadius: "0 0 0 3px",
-                  borderTop: "none",
-                  borderRight: "none",
-                }} />
-                {renderConnectedPills(node)}
-              </div>
-            ))}
+            {tree
+              .filter(n => n.id !== "base")
+              .map((node, idx) => (
+                <div key={node.id} style={{ position: "relative", marginTop: idx === 0 ? 0 : 6 }}>
+                  {/* Horizontal connector from vertical line to pill */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: -12,
+                      top: 14,
+                      width: 12,
+                      height: 1,
+                      background: C.border,
+                      borderRadius: 1,
+                    }}
+                  />
+                  {/* Rounded corner */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: -13,
+                      top: 10,
+                      width: 5,
+                      height: 5,
+                      borderLeft: `1px solid ${C.border}`,
+                      borderBottom: `1px solid ${C.border}`,
+                      borderRadius: "0 0 0 3px",
+                      borderTop: "none",
+                      borderRight: "none",
+                    }}
+                  />
+                  {renderConnectedPills(node)}
+                </div>
+              ))}
           </div>
         )}
 
         {/* All Scenarios (with markups) summary */}
         {groups.length > 1 && (
-          <div style={{
-            marginTop: 12, padding: "8px 10px", borderRadius: T.radius.sm,
-            background: dk ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
-            border: `1px solid ${dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`,
-          }}>
-            <div style={{ fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 4, fontFamily: T.font.sans }}>
+          <div
+            style={{
+              marginTop: 12,
+              padding: "8px 10px",
+              borderRadius: T.radius.sm,
+              background: dk ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+              border: `1px solid ${dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 9,
+                fontWeight: 700,
+                color: C.textDim,
+                textTransform: "uppercase",
+                letterSpacing: 0.6,
+                marginBottom: 4,
+                fontFamily: T.font.sans,
+              }}
+            >
               All Scenarios (with markups)
             </div>
-            {groups.filter(g => g.id !== "base").map(g => {
-              const ids = new Set([g.id, ...groups.filter(c => c.parentId === g.id).map(c => c.id)]);
-              const t = getScenarioTotals(ids);
-              if (t.count === 0) return null;
-              return (
-                <div key={g.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "2px 0" }}>
-                  <span style={{ fontSize: 10, color: C.text, fontFamily: T.font.sans, display: "flex", alignItems: "center", gap: 4 }}>
-                    <span style={{ width: 5, height: 5, borderRadius: "50%", background: typeColor(g.type) }} />
-                    {g.name}
-                  </span>
-                  <span style={{
-                    fontSize: 10, fontWeight: 600, fontFamily: T.font.sans,
-                    color: g.type === "deduct" ? "#E67E22" : g.type === "add" ? "#27AE60" : C.text,
-                  }}>
-                    {g.type === "deduct" ? "\u2212" : g.type === "add" ? "+" : ""}${formatCompact(t.grand)}
-                  </span>
-                </div>
-              );
-            })}
+            {groups
+              .filter(g => g.id !== "base")
+              .map(g => {
+                const ids = new Set([g.id, ...groups.filter(c => c.parentId === g.id).map(c => c.id)]);
+                const t = getScenarioTotals(ids);
+                if (t.count === 0) return null;
+                return (
+                  <div
+                    key={g.id}
+                    style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "2px 0" }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 10,
+                        color: C.text,
+                        fontFamily: T.font.sans,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      <span style={{ width: 5, height: 5, borderRadius: "50%", background: typeColor(g.type) }} />
+                      {g.name}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 600,
+                        fontFamily: T.font.sans,
+                        color: g.type === "deduct" ? "#E67E22" : g.type === "add" ? "#27AE60" : C.text,
+                      }}
+                    >
+                      {g.type === "deduct" ? "\u2212" : g.type === "add" ? "+" : ""}${formatCompact(t.grand)}
+                    </span>
+                  </div>
+                );
+              })}
           </div>
         )}
       </div>
@@ -1014,14 +1265,25 @@ Prioritize by likelihood the architect/owner will request these.`,
         <div
           ref={contextRef}
           style={{
-            position: "fixed", left: contextMenu.x, top: contextMenu.y, zIndex: 1000,
-            background: C.bg1, border: `1px solid ${C.border}`, borderRadius: T.radius.md,
-            boxShadow: T.shadow.lg || "0 8px 24px rgba(0,0,0,0.25)", minWidth: 160,
-            overflow: "hidden", padding: "4px 0",
+            position: "fixed",
+            left: contextMenu.x,
+            top: contextMenu.y,
+            zIndex: 1000,
+            background: C.bg1,
+            border: `1px solid ${C.border}`,
+            borderRadius: T.radius.md,
+            boxShadow: T.shadow.lg || "0 8px 24px rgba(0,0,0,0.25)",
+            minWidth: 160,
+            overflow: "hidden",
+            padding: "4px 0",
           }}
         >
           <button
-            onClick={() => { setEditingId(contextMenu.node.id); setEditingName(contextMenu.node.name); setContextMenu(null); }}
+            onClick={() => {
+              setEditingId(contextMenu.node.id);
+              setEditingName(contextMenu.node.name);
+              setContextMenu(null);
+            }}
             style={menuItemStyle(C, T)}
             onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}10`)}
             onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
@@ -1029,7 +1291,10 @@ Prioritize by likelihood the architect/owner will request these.`,
             Rename
           </button>
           <button
-            onClick={() => { handleAdd(contextMenu.node.id); setContextMenu(null); }}
+            onClick={() => {
+              handleAdd(contextMenu.node.id);
+              setContextMenu(null);
+            }}
             style={{ ...menuItemStyle(C, T), color: C.accent }}
             onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}10`)}
             onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
@@ -1052,7 +1317,11 @@ Prioritize by likelihood the architect/owner will request these.`,
               </button>
               {contextMenu.node.parentId && (
                 <button
-                  onClick={() => { updateGroup(contextMenu.node.id, "parentId", null); setContextMenu(null); showToast("Moved to root level"); }}
+                  onClick={() => {
+                    updateGroup(contextMenu.node.id, "parentId", null);
+                    setContextMenu(null);
+                    showToast("Moved to root level");
+                  }}
                   style={menuItemStyle(C, T)}
                   onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}10`)}
                   onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
@@ -1077,14 +1346,26 @@ Prioritize by likelihood the architect/owner will request these.`,
       {/* Delete confirmation */}
       {deleteConfirm && (
         <div
-          style={{ position: "fixed", inset: 0, zIndex: 1001, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center" }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1001,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
           onClick={() => setDeleteConfirm(null)}
         >
           <div
             onClick={e => e.stopPropagation()}
             style={{
-              background: C.bg1, borderRadius: T.radius.lg, padding: 24, maxWidth: 360,
-              border: `1px solid ${C.border}`, boxShadow: T.shadow.lg || "0 8px 24px rgba(0,0,0,0.25)",
+              background: C.bg1,
+              borderRadius: T.radius.lg,
+              padding: 24,
+              maxWidth: 360,
+              border: `1px solid ${C.border}`,
+              boxShadow: T.shadow.lg || "0 8px 24px rgba(0,0,0,0.25)",
             }}
           >
             <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 8, fontFamily: T.font.sans }}>
@@ -1092,18 +1373,39 @@ Prioritize by likelihood the architect/owner will request these.`,
             </div>
             <div style={{ fontSize: 12, color: C.textDim, marginBottom: 16, fontFamily: T.font.sans }}>
               {getTreeCount(deleteConfirm.id)} item(s) will be moved to{" "}
-              {deleteConfirm.parentId ? groups.find(g => g.id === deleteConfirm.parentId)?.name || "parent" : "Base Bid"}.
+              {deleteConfirm.parentId
+                ? groups.find(g => g.id === deleteConfirm.parentId)?.name || "parent"
+                : "Base Bid"}
+              .
             </div>
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <button
                 onClick={() => setDeleteConfirm(null)}
-                style={bt(C, { padding: "6px 14px", background: C.bg2, color: C.text, border: `1px solid ${C.border}`, borderRadius: T.radius.sm, fontSize: 12, cursor: "pointer", fontFamily: T.font.sans })}
+                style={bt(C, {
+                  padding: "6px 14px",
+                  background: C.bg2,
+                  color: C.text,
+                  border: `1px solid ${C.border}`,
+                  borderRadius: T.radius.sm,
+                  fontSize: 12,
+                  cursor: "pointer",
+                  fontFamily: T.font.sans,
+                })}
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDelete}
-                style={bt(C, { padding: "6px 14px", background: "#E74C3C", color: "#fff", border: "none", borderRadius: T.radius.sm, fontSize: 12, cursor: "pointer", fontFamily: T.font.sans })}
+                style={bt(C, {
+                  padding: "6px 14px",
+                  background: "#E74C3C",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: T.radius.sm,
+                  fontSize: 12,
+                  cursor: "pointer",
+                  fontFamily: T.font.sans,
+                })}
               >
                 Delete & Move Items
               </button>

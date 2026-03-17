@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { DEFAULT_LABOR_TYPES } from "@/utils/laborTypes";
 
-export const useUiStore = create((set, get) => ({
+export const useUiStore = create((set, _get) => ({
   persistenceLoaded: false,
   sidebarOpen: true,
   toast: null,
@@ -51,8 +51,8 @@ export const useUiStore = create((set, get) => ({
   },
 
   // Revision Detection (transient — not persisted)
-  revisionReport: null,   // Array from detectRevisions(): [{ oldDrawingId, newDrawingId, sheetNumber, ... }]
-  revisionImpact: null,   // Object from analyzeRevisionImpact(): { sheets, summary }
+  revisionReport: null, // Array from detectRevisions(): [{ oldDrawingId, newDrawingId, sheetNumber, ... }]
+  revisionImpact: null, // Object from analyzeRevisionImpact(): { sheets, summary }
 
   // AI Chat
   aiChatOpen: false,

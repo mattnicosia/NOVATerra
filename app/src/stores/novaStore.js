@@ -63,7 +63,7 @@ export const useNovaStore = create((set, get) => ({
   },
 
   // Fail a task — return to idle, release crystallize
-  failTask: error =>
+  failTask: _error =>
     set({
       status: "idle",
       activity: null,

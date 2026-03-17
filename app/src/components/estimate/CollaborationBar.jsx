@@ -35,7 +35,7 @@ export default function CollaborationBar() {
   const releaseLock = useCollaborationStore(s => s.releaseLock);
   const forceReleaseLock = useCollaborationStore(s => s.forceReleaseLock);
   const joinEstimate = useCollaborationStore(s => s.joinEstimate);
-  const leaveEstimate = useCollaborationStore(s => s.leaveEstimate);
+  const _leaveEstimate = useCollaborationStore(s => s.leaveEstimate);
   const subscribeLockChanges = useCollaborationStore(s => s.subscribeLockChanges);
   const subscribePresence = useCollaborationStore(s => s.subscribePresence);
   const cleanup = useCollaborationStore(s => s.cleanup);
@@ -51,7 +51,8 @@ export default function CollaborationBar() {
     return () => {
       cleanup();
     };
-  }, [activeEstimateId, user?.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeEstimateId, user?.id]); // Zustand actions are stable
 
   const handleStartEditing = useCallback(() => {
     if (activeEstimateId) acquireLock(activeEstimateId);
@@ -66,7 +67,6 @@ export default function CollaborationBar() {
   }, [activeEstimateId, forceReleaseLock]);
 
   // Filter out self from viewers for display
-  const otherViewers = viewers.filter(v => v.user_id !== user?.id);
   const totalViewers = viewers.length;
 
   // Lock status
@@ -83,11 +83,7 @@ export default function CollaborationBar() {
         gap: T.space[3],
         padding: `${T.space[1]}px ${T.space[4]}px`,
         borderBottom: `1px solid ${C.border}06`,
-        background: isLockedByOther
-          ? `${C.orange}06`
-          : isLockHolder
-            ? `${C.green}04`
-            : "transparent",
+        background: isLockedByOther ? `${C.orange}06` : isLockHolder ? `${C.green}04` : "transparent",
         minHeight: 32,
         flexShrink: 0,
       }}

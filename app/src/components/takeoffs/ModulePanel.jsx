@@ -72,13 +72,17 @@ export default function ModulePanel({
   const drawingDpi = useDrawingsStore(s => s.drawingDpi);
 
   const moduleDef = MODULES[activeModule];
-  const inst = instances[activeModule] || {
-    specs: {},
-    itemStatus: {},
-    itemTakeoffIds: {},
-    expandedCategories: {},
-    categoryInstances: {},
-  };
+  const inst = useMemo(
+    () =>
+      instances[activeModule] || {
+        specs: {},
+        itemStatus: {},
+        itemTakeoffIds: {},
+        expandedCategories: {},
+        categoryInstances: {},
+      },
+    [instances, activeModule],
+  );
 
   // Build scale context for computing real measured quantities from measurement points
   const scaleCtx = useMemo(
@@ -223,7 +227,7 @@ export default function ModulePanel({
       if (cat.multiInstance) {
         // Process each instance separately
         const catInstances = currentCategoryInstances[cat.id] || [];
-        catInstances.forEach((catInst, idx) => {
+        catInstances.forEach((catInst, _idx) => {
           cat.items.forEach(item => {
             const derivedKey = `${catInst.id}:${item.id}`;
             const prevLen = next.length;
@@ -531,6 +535,7 @@ export default function ModulePanel({
   useEffect(() => {
     if (!moduleDef || !activeModule) return;
     syncDerivedToTakeoffs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [derived, activeModule]);
 
   // Smart defaults: when a SOURCE spec (e.g. WallHeight) changes, auto-update dependent specs
@@ -1384,7 +1389,7 @@ export default function ModulePanel({
               const isStdLumber = studSize.startsWith("2x");
               if (material !== "Wood" || !isStdLumber || wallHt <= 20) return null;
               // Standard lumber stock lengths
-              const stockLengths = [8, 10, 12, 14, 16, 20];
+              const _stockLengths = [8, 10, 12, 14, 16, 20];
               // Map current stud depth → matching LVL/PSL options (sorted: least material first)
               const depthMap = {
                 "2x4": [{ id: "LVL 1-3/4x5-1/2", note: "min LVL (deeper wall)" }],
@@ -1733,13 +1738,13 @@ export default function ModulePanel({
           // ── SINGLE-INSTANCE MEASUREMENT GROUP ──────────────────
           if (catType === "measurement") {
             // Category progress
-            let catTotal = 0,
-              catDone = 0;
+            let _catTotal = 0,
+              _catDone = 0;
             cat.items.forEach(item => {
-              catTotal++;
+              _catTotal++;
               const st = inst.itemStatus[item.id];
-              if (st === "measured" || st === "derived" || st === "complete" || st === "excluded") catDone++;
-              else if (item.type === "derived" && derived[item.id]?.qty > 0) catDone++;
+              if (st === "measured" || st === "derived" || st === "complete" || st === "excluded") _catDone++;
+              else if (item.type === "derived" && derived[item.id]?.qty > 0) _catDone++;
             });
 
             const drivingItem = cat.items.find(i => i.id === cat.drivingItemId);

@@ -88,11 +88,7 @@ const particleFragmentShader = /* glsl */ `
   }
 `;
 
-export default function InnerParticles({
-  size = 1.6,
-  awaken = 0.0,
-  count = 300,
-}) {
+export default function InnerParticles({ size = 1.6, awaken = 0.0, count = 300 }) {
   const matRef = useRef();
   const awakenRef = useRef(awaken);
   awakenRef.current = awaken;
@@ -127,6 +123,7 @@ export default function InnerParticles({
       uAwaken: { value: awaken },
       uSize: { value: size },
     }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
@@ -144,18 +141,9 @@ export default function InnerParticles({
   return (
     <points>
       <bufferGeometry>
-        <bufferAttribute
-          attach="attributes-position"
-          args={[positions, 3]}
-        />
-        <bufferAttribute
-          attach="attributes-aSize"
-          args={[sizes, 1]}
-        />
-        <bufferAttribute
-          attach="attributes-aPhase"
-          args={[phases, 1]}
-        />
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+        <bufferAttribute attach="attributes-aSize" args={[sizes, 1]} />
+        <bufferAttribute attach="attributes-aPhase" args={[phases, 1]} />
       </bufferGeometry>
       <shaderMaterial
         ref={matRef}

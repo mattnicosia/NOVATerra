@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useResourceStore } from "@/stores/resourceStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
@@ -56,7 +56,7 @@ function WeekLabel({ weekDays }) {
 }
 
 // ── Estimate Card ──
-function EstCard({ est, C, T, navigate, compact }) {
+function EstCard({ est, C, T: _T, navigate, compact }) {
   const color = SCHEDULE_COLORS[est.scheduleStatus] || "#A78BFA";
   return (
     <div
@@ -108,13 +108,19 @@ export default function WeeklyPlanView({ workload, C, T }) {
   const navigate = useNavigate();
   const weekOffset = useResourceStore(s => s.weeklyViewWeekOffset);
   const setWeekOffset = useResourceStore(s => s.setWeeklyViewWeekOffset);
-  const { setDragEstimateId, setDragOverEstimator, clearDragState } = useResourceStore.getState();
+  const { setDragOverEstimator, clearDragState } = useResourceStore.getState();
 
   const weekDays = useMemo(() => getWeekDays(weekOffset), [weekOffset]);
   const todayStr = toDateStr(new Date());
 
-  const { estimatorRows, unassignedEstimates, effectiveHoursPerDay, CAPACITY_HOURS, estimatorCapacity, dailyLoad } =
-    workload;
+  const {
+    estimatorRows,
+    unassignedEstimates,
+    effectiveHoursPerDay,
+    CAPACITY_HOURS,
+    estimatorCapacity,
+    dailyLoad: _dailyLoad,
+  } = workload;
   const capHours = effectiveHoursPerDay || CAPACITY_HOURS;
 
   // Build per-estimator × per-day grid

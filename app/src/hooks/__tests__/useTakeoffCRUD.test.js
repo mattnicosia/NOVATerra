@@ -64,7 +64,6 @@ vi.mock("@/utils/format", () => ({
 import useTakeoffCRUD from "@/hooks/useTakeoffCRUD";
 import { useTakeoffsStore } from "@/stores/takeoffsStore";
 import { useDrawingsStore } from "@/stores/drawingsStore";
-import { useUiStore } from "@/stores/uiStore";
 import { uid } from "@/utils/format";
 
 // ── Test Suite ──────────────────────────────────────────────────

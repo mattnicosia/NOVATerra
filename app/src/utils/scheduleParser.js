@@ -5,7 +5,7 @@
 //          Finish Schedules, Fixture Schedules, Equipment Schedules
 // ══════════════════════════════════════════════════════════════════════
 
-import { extractPageData, detectScheduleRegions } from './pdfExtractor';
+import { extractPageData, detectScheduleRegions } from "./pdfExtractor";
 
 // ══════════════════════════════════════════════════════════════════════
 // TABLE STRUCTURE DETECTION
@@ -52,7 +52,6 @@ function detectColumns(rows, tolerance = 15) {
 
   // Cluster X positions
   const clusters = [];
-  let clusterStart = xPositions[0];
   let clusterItems = [xPositions[0]];
 
   for (let i = 1; i < xPositions.length; i++) {
@@ -90,7 +89,10 @@ function assignToColumns(row, columnPositions, tolerance = 25) {
     let bestDist = Infinity;
     for (let c = 0; c < columnPositions.length; c++) {
       const dist = Math.abs(item.x - columnPositions[c]);
-      if (dist < bestDist) { bestDist = dist; bestCol = c; }
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestCol = c;
+      }
     }
     if (bestDist < tolerance) {
       cells[bestCol].push(item.text);
@@ -108,32 +110,100 @@ function assignToColumns(row, columnPositions, tolerance = 25) {
 const SCHEDULE_PATTERNS = {
   wall: {
     titlePatterns: [/wall.*type/i, /wall.*schedule/i, /partition.*type/i, /partition.*schedule/i],
-    headerPatterns: [/type/i, /description/i, /stud/i, /gauge/i, /height/i, /material/i, /finish/i, /gypsum/i, /drywall/i, /sheathing/i, /insulation/i],
+    headerPatterns: [
+      /type/i,
+      /description/i,
+      /stud/i,
+      /gauge/i,
+      /height/i,
+      /material/i,
+      /finish/i,
+      /gypsum/i,
+      /drywall/i,
+      /sheathing/i,
+      /insulation/i,
+    ],
     minHeaderMatches: 3,
   },
   door: {
     titlePatterns: [/door.*schedule/i, /door.*type/i],
-    headerPatterns: [/mark/i, /type/i, /size/i, /width/i, /height/i, /material/i, /hardware/i, /frame/i, /fire.*rat/i, /finish/i],
+    headerPatterns: [
+      /mark/i,
+      /type/i,
+      /size/i,
+      /width/i,
+      /height/i,
+      /material/i,
+      /hardware/i,
+      /frame/i,
+      /fire.*rat/i,
+      /finish/i,
+    ],
     minHeaderMatches: 3,
   },
   window: {
     titlePatterns: [/window.*schedule/i, /window.*type/i, /glazing.*schedule/i],
-    headerPatterns: [/mark/i, /type/i, /size/i, /width/i, /height/i, /glass/i, /glazing/i, /frame/i, /operation/i, /u-value/i],
+    headerPatterns: [
+      /mark/i,
+      /type/i,
+      /size/i,
+      /width/i,
+      /height/i,
+      /glass/i,
+      /glazing/i,
+      /frame/i,
+      /operation/i,
+      /u-value/i,
+    ],
     minHeaderMatches: 3,
   },
   finish: {
     titlePatterns: [/finish.*schedule/i, /room.*finish/i, /interior.*finish/i],
-    headerPatterns: [/room/i, /floor/i, /wall/i, /ceiling/i, /base/i, /finish/i, /wainscot/i, /north/i, /south/i, /east/i, /west/i],
+    headerPatterns: [
+      /room/i,
+      /floor/i,
+      /wall/i,
+      /ceiling/i,
+      /base/i,
+      /finish/i,
+      /wainscot/i,
+      /north/i,
+      /south/i,
+      /east/i,
+      /west/i,
+    ],
     minHeaderMatches: 3,
   },
   fixture: {
     titlePatterns: [/fixture.*schedule/i, /plumbing.*fixture/i, /lighting.*fixture/i, /light.*fixture/i],
-    headerPatterns: [/type/i, /mark/i, /manufacturer/i, /model/i, /description/i, /quantity/i, /watts/i, /lamp/i, /voltage/i, /mounting/i],
+    headerPatterns: [
+      /type/i,
+      /mark/i,
+      /manufacturer/i,
+      /model/i,
+      /description/i,
+      /quantity/i,
+      /watts/i,
+      /lamp/i,
+      /voltage/i,
+      /mounting/i,
+    ],
     minHeaderMatches: 3,
   },
   equipment: {
     titlePatterns: [/equipment.*schedule/i, /mechanical.*equipment/i, /hvac.*schedule/i],
-    headerPatterns: [/tag/i, /type/i, /manufacturer/i, /model/i, /capacity/i, /voltage/i, /hp/i, /cfm/i, /btu/i, /tonnage/i],
+    headerPatterns: [
+      /tag/i,
+      /type/i,
+      /manufacturer/i,
+      /model/i,
+      /capacity/i,
+      /voltage/i,
+      /hp/i,
+      /cfm/i,
+      /btu/i,
+      /tonnage/i,
+    ],
     minHeaderMatches: 3,
   },
 };
@@ -240,7 +310,11 @@ function parseWallScheduleRow(cells, headers) {
     }
   }
   for (const size of WOOD_SIZES) {
-    if (studText.includes(size)) { wallType.studSize = size; wallType.material = "Wood"; break; }
+    if (studText.includes(size)) {
+      wallType.studSize = size;
+      wallType.material = "Wood";
+      break;
+    }
   }
 
   // Gauge
@@ -255,7 +329,10 @@ function parseWallScheduleRow(cells, headers) {
   // Spacing
   const spacingText = cells[headerMap.spacing] || fullText;
   for (const sp of SPACINGS) {
-    if (new RegExp(`\\b${sp}"?\\s*o\\.?c\\.?`, "i").test(spacingText) || new RegExp(`\\b${sp}"?\\s*oc\\b`, "i").test(spacingText)) {
+    if (
+      new RegExp(`\\b${sp}"?\\s*o\\.?c\\.?`, "i").test(spacingText) ||
+      new RegExp(`\\b${sp}"?\\s*oc\\b`, "i").test(spacingText)
+    ) {
       wallType.spacing = `${sp}" O.C.`;
       break;
     }
@@ -280,7 +357,9 @@ function parseWallScheduleRow(cells, headers) {
   if (insulText.trim()) wallType.insulation = insulText.trim();
 
   // Confidence based on how much data we extracted
-  const specCount = Object.keys(wallType).filter(k => !["typeLabel", "description", "category", "material"].includes(k)).length;
+  const specCount = Object.keys(wallType).filter(
+    k => !["typeLabel", "description", "category", "material"].includes(k),
+  ).length;
   wallType.confidence = specCount >= 4 ? "high" : specCount >= 2 ? "medium" : "low";
 
   return wallType;
@@ -418,8 +497,7 @@ function parseFinishScheduleRow(cells, headers) {
  * @returns {Array} Array of detected schedules with parsed data
  */
 export async function extractSchedules(drawing) {
-  if (!drawing || drawing.type !== "pdf") return [];
-  if (!drawing.data && !drawing.pdfRawBase64) return [];
+  if (!drawing || drawing.type !== "pdf" || !drawing.data) return [];
 
   const pageData = await extractPageData(drawing);
   if (!pageData?.text || pageData.text.length === 0) return [];
@@ -431,9 +509,8 @@ export async function extractSchedules(drawing) {
 
   for (const region of scheduleRegions) {
     // Get text items within this region
-    const regionItems = pageData.text.filter(t =>
-      t.x >= region.minX && t.x <= region.maxX &&
-      t.y >= region.minY && t.y <= region.maxY
+    const regionItems = pageData.text.filter(
+      t => t.x >= region.minX && t.x <= region.maxX && t.y >= region.minY && t.y <= region.maxY,
     );
 
     if (regionItems.length < 6) continue; // Too few items for a schedule
@@ -581,8 +658,7 @@ export async function scanAllDrawingsForSchedules(drawings) {
   const allSchedules = [];
 
   for (const drawing of drawings) {
-    if (drawing.type !== "pdf") continue;
-    if (!drawing.data && !drawing.pdfRawBase64) continue;
+    if (!drawing.data || drawing.type !== "pdf") continue;
 
     try {
       const schedules = await extractSchedules(drawing);

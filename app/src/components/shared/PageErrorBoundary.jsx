@@ -31,7 +31,7 @@ export default class PageErrorBoundary extends Component {
         if (Sentry?.captureException) {
           Sentry.captureException(error, { extra: { page, componentStack: errorInfo?.componentStack } });
         }
-      } catch (_) {
+      } catch {
         // Sentry not available, silently continue
       }
     }

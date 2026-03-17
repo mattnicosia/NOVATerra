@@ -1,6 +1,6 @@
 import { useTheme } from "@/hooks/useTheme";
 import { useAuthStore } from "@/stores/authStore";
-import { sectionLabel, bt, card } from "@/utils/styles";
+import { sectionLabel, card } from "@/utils/styles";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { BT_BRAND } from "@/constants/btBrand";

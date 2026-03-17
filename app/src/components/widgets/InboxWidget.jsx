@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useInboxStore } from "@/stores/inboxStore";
@@ -37,12 +37,12 @@ function rfpState(rfp, readIds) {
 
 // colorKey resolves to theme tokens inside the component so colors follow the active palette
 const STATE_CONFIG = {
-  unread:     { colorKey: null,     badge: null,         bold: true,  muted: false },
-  read:       { colorKey: null,     badge: null,         bold: false, muted: false },
+  unread: { colorKey: null, badge: null, bold: true, muted: false },
+  read: { colorKey: null, badge: null, bold: false, muted: false },
   processing: { colorKey: "orange", badge: "Processing", bold: false, muted: false },
-  processed:  { colorKey: "green",  badge: "Imported",   bold: false, muted: true },
-  rejected:   { colorKey: "dim",    badge: "Dismissed",  bold: false, muted: true },
-  error:      { colorKey: "red",    badge: "Error",      bold: false, muted: false },
+  processed: { colorKey: "green", badge: "Imported", bold: false, muted: true },
+  rejected: { colorKey: "dim", badge: "Dismissed", bold: false, muted: true },
+  error: { colorKey: "red", badge: "Error", bold: false, muted: false },
 };
 
 // Sort priority: unread first, then processing, read, processed, rejected, error
@@ -54,7 +54,7 @@ export default function InboxWidget() {
   const dk = C.isDark;
   const font = T.font.display;
   const navigate = useNavigate();
-  const resolveStateColor = (colorKey) => {
+  const resolveStateColor = colorKey => {
     if (!colorKey) return null;
     const map = { orange: C.orange, green: C.green, red: C.red, dim: C.textDim };
     return map[colorKey] || C.textDim;
@@ -71,6 +71,7 @@ export default function InboxWidget() {
   useEffect(() => {
     loadReadIds();
     fetchRfps();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Zustand actions are stable
   }, []);
 
   // Filter by company, sort by state priority then recency

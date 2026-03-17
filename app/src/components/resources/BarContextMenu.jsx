@@ -9,7 +9,6 @@ import { computeEstimatorExperience, computeMatchScore } from "@/utils/estimator
 
 export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) {
   const C = useTheme();
-  const T = C.T;
   const ref = useRef(null);
   const [submenu, setSubmenu] = useState(null);
   const [editHours, setEditHours] = useState(false);
@@ -31,10 +30,11 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
   });
   const [pauseReason, setPauseReason] = useState("");
   const [managePauses, setManagePauses] = useState(false);
-  const isPendingOrWon = bar.status === "Pending" || bar.status === "Won";
+  const isSubmittedOrWon = bar.status === "Submitted" || bar.status === "Won";
   const existingPauses = bar.schedulePauses || [];
 
-  const estimators = useMasterDataStore(s => s.masterData?.estimators) || [];
+  const rawEstimators = useMasterDataStore(s => s.masterData?.estimators);
+  const estimators = useMemo(() => rawEstimators || [], [rawEstimators]);
   const estimatesIndex = useEstimatesStore(s => s.estimatesIndex);
 
   // Team members for this bar
@@ -680,7 +680,7 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
               Manage Pauses ({existingPauses.length})
             </button>
           )}
-          {isPendingOrWon && (
+          {isSubmittedOrWon && (
             <>
               <div style={{ height: 1, background: `${C.border}40`, margin: "4px 8px" }} />
               <button

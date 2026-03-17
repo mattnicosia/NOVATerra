@@ -7,7 +7,7 @@ import { useItemsStore } from "@/stores/itemsStore";
 import { useScheduleStore } from "@/stores/scheduleStore";
 import { generateSchedule } from "@/utils/scheduleEngine";
 import { fmt } from "@/utils/format";
-import { card, bt, sectionLabel, accentButton } from "@/utils/styles";
+import { card, bt } from "@/utils/styles";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 
@@ -28,8 +28,6 @@ export default function ScheduleTab() {
   const viewMode = useScheduleStore(s => s.viewMode);
   const tradeOverrides = useScheduleStore(s => s.tradeOverrides);
   const projectEndDay = useScheduleStore(s => s.getProjectEndDay());
-  const startDate = useScheduleStore(s => s.projectStartDate);
-  const workDays = useScheduleStore(s => s.workDaysPerWeek);
 
   // Summary stats
   const criticalCount = useMemo(() => activities.filter(a => a.isCritical).length, [activities]);
@@ -49,7 +47,8 @@ export default function ScheduleTab() {
     if (!generated && items.length > 0) {
       handleGenerate();
     }
-  }, []); // Only on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Empty state
   if (!generated && !generating && items.length === 0) {
@@ -128,27 +127,18 @@ export default function ScheduleTab() {
         {/* Summary stats */}
         <div style={{ display: "flex", gap: T.space[4], alignItems: "center" }}>
           <div style={{ fontSize: T.fontSize.xs, color: C.textDim }}>
-            <span style={{ fontFamily: T.font.sans, color: C.accent, fontWeight: 600 }}>
-              {projectEndDay}
-            </span>{" "}
-            days
+            <span style={{ fontFamily: T.font.sans, color: C.accent, fontWeight: 600 }}>{projectEndDay}</span> days
           </div>
           <div style={{ fontSize: T.fontSize.xs, color: C.textDim }}>
-            <span style={{ fontFamily: T.font.sans, color: C.text, fontWeight: 600 }}>
-              {activities.length}
-            </span>{" "}
+            <span style={{ fontFamily: T.font.sans, color: C.text, fontWeight: 600 }}>{activities.length}</span>{" "}
             activities
           </div>
           <div style={{ fontSize: T.fontSize.xs, color: C.textDim }}>
-            <span style={{ fontFamily: T.font.sans, color: C.red || "#ef4444", fontWeight: 600 }}>
-              {criticalCount}
-            </span>{" "}
+            <span style={{ fontFamily: T.font.sans, color: C.red || "#ef4444", fontWeight: 600 }}>{criticalCount}</span>{" "}
             critical
           </div>
           <div style={{ fontSize: T.fontSize.xs, color: C.textDim }}>
-            <span style={{ fontFamily: T.font.sans, color: C.text, fontWeight: 600 }}>
-              {fmt(totalCost)}
-            </span>
+            <span style={{ fontFamily: T.font.sans, color: C.text, fontWeight: 600 }}>{fmt(totalCost)}</span>
           </div>
         </div>
       </div>

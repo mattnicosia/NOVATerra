@@ -49,6 +49,7 @@ export default function EnergyWisps({ size = 1.6, awaken = 0.0, morph = 0.0 }) {
             depthWrite: false,
           }),
       ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 

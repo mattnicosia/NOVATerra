@@ -1,3 +1,4 @@
+/* global __BUILD_TS__ */
 /**
  * FeedbackWidget — In-app beta feedback button + modal
  *
@@ -49,7 +50,7 @@ export default function FeedbackWidget() {
       page: location.pathname,
       user_email: user?.email || "anonymous",
       user_id: user?.id || null,
-      app_version: __BUILD_TS__ || "unknown",
+      app_version: typeof __BUILD_TS__ !== "undefined" ? __BUILD_TS__ : "unknown",
       user_agent: navigator.userAgent,
       screen_width: window.innerWidth,
       screen_height: window.innerHeight,
@@ -118,7 +119,16 @@ export default function FeedbackWidget() {
             e.currentTarget.style.boxShadow = `0 4px 16px ${C.accent}40`;
           }}
         >
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 18 18"
+            fill="none"
+            stroke="#fff"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <path d="M3 14l-1.5 3L5 15.5 3 14z" />
             <path d="M15 2H3a1 1 0 00-1 1v9a1 1 0 001 1h12a1 1 0 001-1V3a1 1 0 00-1-1z" />
             <path d="M6 6h6M6 9h3" />
@@ -142,10 +152,10 @@ export default function FeedbackWidget() {
           }}
         >
           {/* Header */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: T.space[3] }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>
-              Send Feedback
-            </div>
+          <div
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: T.space[3] }}
+          >
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Send Feedback</div>
             <button
               onClick={() => setOpen(false)}
               style={{
@@ -163,12 +173,8 @@ export default function FeedbackWidget() {
           {sent ? (
             <div style={{ textAlign: "center", padding: T.space[4] }}>
               <div style={{ fontSize: 32, marginBottom: 8 }}>✓</div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: C.green }}>
-                Thanks for your feedback!
-              </div>
-              <div style={{ fontSize: 10, color: C.textDim, marginTop: 4 }}>
-                We'll review it shortly.
-              </div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: C.green }}>Thanks for your feedback!</div>
+              <div style={{ fontSize: 10, color: C.textDim, marginTop: 4 }}>We'll review it shortly.</div>
             </div>
           ) : (
             <>

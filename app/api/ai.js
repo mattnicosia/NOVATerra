@@ -73,7 +73,7 @@ export default async function handler(req, res) {
     parsed = await readRawBody(req);
   } catch (err) {
     console.error("[ai-proxy] Body parse error:", err.message);
-    return res.status(400).json({ error: "Invalid request body" });
+    return res.status(400).json({ error: err.message });
   }
 
   const { model, max_tokens, messages, system, temperature, tools, tool_choice, stream } = parsed;
@@ -159,7 +159,7 @@ export default async function handler(req, res) {
     return res.status(200).json(data);
   } catch (err) {
     console.error("[ai-proxy] Error:", err);
-    return res.status(500).json({ error: "AI proxy error" });
+    return res.status(500).json({ error: "AI proxy error: " + err.message });
   }
 }
 

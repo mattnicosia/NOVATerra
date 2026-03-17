@@ -2,11 +2,10 @@
 // Features: Low/Mid/High range selector, editable markups, subdivision drill-down
 import React, { useState, useCallback } from "react";
 import { useTheme } from "@/hooks/useTheme";
-import { T } from "@/utils/designTokens";
 import { card, sectionLabel, colHeader } from "@/utils/styles";
 import { useSubdivisionStore } from "@/stores/subdivisionStore";
 import { generateSubdivisionROM } from "@/utils/romEngine";
-import { CONFIDENCE_TIERS, getConfidenceTier } from "@/utils/confidenceEngine";
+import { getConfidenceTier } from "@/utils/confidenceEngine";
 
 const BUILDING_TYPE_LABELS = {
   "commercial-office": "Commercial Office",
@@ -60,7 +59,7 @@ function fmtNum(n) {
   return Math.round(n).toLocaleString("en-US");
 }
 
-function ConfidenceDot({ confidence, C }) {
+function ConfidenceDot({ confidence, C: _C }) {
   const tier = getConfidenceTier(confidence);
   return (
     <span
@@ -148,7 +147,16 @@ export default function RomResult({ rom, email }) {
       setGeneratingSubdivisions(false);
       setGenProgress({ current: 0, total: 0, divCode: "" });
     }
-  }, [rom, generatingSubdivisions, userOverrides, llmRefinements, calibrationFactors, engineConfig]);
+  }, [
+    rom,
+    generatingSubdivisions,
+    userOverrides,
+    llmRefinements,
+    calibrationFactors,
+    engineConfig,
+    setLlmRefinements,
+    setSubdivisionData,
+  ]);
 
   if (!rom) return null;
 
@@ -539,7 +547,7 @@ export default function RomResult({ rom, email }) {
                   </tr>
                   {expandedDivs.has(divNum) &&
                     subdivisionData[divNum] &&
-                    subdivisionData[divNum].map((sub, si) => {
+                    subdivisionData[divNum].map((sub, _si) => {
                       const isLlm = sub.source === "llm";
                       const isUser = sub.confidence === "user" || !!userOverrides[sub.code];
                       const llmData = llmRefinements[sub.code];
@@ -1120,9 +1128,7 @@ export default function RomResult({ rom, email }) {
         {/* Soft cost rows */}
         {softCostsExpanded && (
           <div style={{ overflowX: "auto" }}>
-            <table
-              style={{ width: "100%", borderCollapse: "collapse", fontFamily: T.font.sans, minWidth: 500 }}
-            >
+            <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: T.font.sans, minWidth: 500 }}>
               <thead>
                 <tr>
                   <th style={{ ...headerCell, width: 40 }} />

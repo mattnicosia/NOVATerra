@@ -1,4 +1,4 @@
-import React, { Suspense, useMemo, useCallback, useEffect, useRef } from "react";
+import { Suspense, useMemo, useCallback, useEffect, useRef } from "react";
 import { ResponsiveGridLayout, useContainerWidth } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
@@ -138,7 +138,7 @@ function WidgetSkeleton() {
 }
 
 export default function WidgetGrid({ onConfigure, onReplace }) {
-  const C = useTheme();
+  const _C = useTheme();
   const layouts = useWidgetStore(s => s.layouts);
   const editMode = useWidgetStore(s => s.editMode);
   const movingWidgetId = useWidgetStore(s => s.movingWidgetId);
@@ -173,6 +173,7 @@ export default function WidgetGrid({ onConfigure, onReplace }) {
     const handler = () => clearActiveMenu();
     el.addEventListener("scroll", handler, { passive: true });
     return () => el.removeEventListener("scroll", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clearActiveMenu]);
 
   // Build RGL-compatible layouts (strip custom fields, add constraints)
@@ -199,7 +200,7 @@ export default function WidgetGrid({ onConfigure, onReplace }) {
       });
     }
     return result;
-  }, [layouts, editMode]);
+  }, [layouts]);
 
   // Compact position fingerprint — only compare what matters (i, x, y, w, h)
   function posKey(items) {

@@ -4,38 +4,36 @@ import { useDrawingsStore } from "@/stores/drawingsStore";
 import { useTakeoffsStore } from "@/stores/takeoffsStore";
 import { useItemsStore } from "@/stores/itemsStore";
 import { useProjectStore } from "@/stores/projectStore";
-import { useSpecsStore } from "@/stores/specsStore";
 import { useUiStore } from "@/stores/uiStore";
 import { useDatabaseStore } from "@/stores/databaseStore";
-import useMeasurementEngine, { unitToTool, evalFormula } from "@/hooks/useMeasurementEngine";
+import useMeasurementEngine, { unitToTool } from "@/hooks/useMeasurementEngine";
 import useTakeoffCRUD from "@/hooks/useTakeoffCRUD";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { inp, nInp, bt, truncate } from "@/utils/styles";
-import { uid, nn, fmt, fmt2, nowStr } from "@/utils/format";
-import { UNITS } from "@/constants/units";
-import { PDF_RENDER_DPI, DEFAULT_IMAGE_DPI } from "@/constants/scales";
+import { uid, nn, fmt, fmt2 } from "@/utils/format";
 import {
   callAnthropic,
   callAnthropicStream,
   optimizeImageForAI,
   imageBlock,
   cropImageRegion,
-  buildProjectContext,
   detectSheetReferences,
 } from "@/utils/ai";
 import DetailOverlay from "@/components/takeoffs/DetailOverlay";
 import { useModuleStore } from "@/stores/moduleStore";
 import { useModelStore } from "@/stores/modelStore";
-import { useUndoStore } from "@/stores/undoStore";
-import { outlineToFeet, detectBuildingOutline, ensureDrawingImage } from "@/utils/outlineDetector";
-import { inferViewType, repairRawPdf, pdfRawCache, loadPdfRawFromIDB } from "@/utils/uploadPipeline";
+// useUndoStore moved to TakeoffControlRail + TakeoffContextMenu
+import { outlineToFeet } from "@/utils/outlineDetector";
+import { inferViewType, repairRawPdf } from "@/utils/uploadPipeline";
 import { MODULE_LIST, MODULES } from "@/constants/modules";
 import ModulePanel from "@/components/takeoffs/ModulePanel";
 import TakeoffDimensionEngine from "@/components/takeoffs/TakeoffDimensionEngine";
 import FormulaExpressionRow from "@/components/takeoffs/FormulaExpressionRow";
 import TakeoffCommandPalette from "@/components/takeoffs/TakeoffCommandPalette";
-import GroupBar from "@/components/shared/GroupBar";
+import TakeoffContextMenu from "@/components/takeoffs/TakeoffContextMenu";
+import RevisionImpactCard from "@/components/takeoffs/RevisionImpactCard";
+import TakeoffControlRail from "@/components/takeoffs/TakeoffControlRail";
 import { extractPageData, isExtracted, detectMarkersFromText } from "@/utils/pdfExtractor";
 import {
   runSmartPredictions,
@@ -44,18 +42,16 @@ import {
   warmPredictions,
   recordPredictionFeedback,
 } from "@/utils/predictiveEngine";
-import { extractSchedules, scanAllDrawingsForSchedules } from "@/utils/scheduleParser";
-import { analyzeDrawingGeometry, generateAutoMeasurements } from "@/utils/geometryEngine";
+import { scanAllDrawingsForSchedules } from "@/utils/scheduleParser";
+import { smartCountFromClick } from "@/utils/templateMatcher";
+import { analyzeDrawingGeometry } from "@/utils/geometryEngine";
 import { evalCondition } from "@/utils/moduleCalc";
-import { autoTradeFromCode } from "@/constants/tradeGroupings";
 const EstimatePanelView = lazy(() => import("@/components/estimate/EstimatePanelView"));
 const EstimatePage = lazy(() => import("@/pages/EstimatePage"));
 const ItemDetailPanel = lazy(() => import("@/components/estimate/ItemDetailPanel"));
 import NotesPanel from "@/components/estimate/NotesPanel";
 import ScenariosPanel from "@/components/estimate/ScenariosPanel";
 import RFIPanel from "@/components/estimate/RFIPanel";
-import { MessageBubble, ActionCards, QUICK_ACTIONS } from "@/components/ai/AIChatPanel";
-import { NOVA_TOOLS, executeNovaTool } from "@/utils/novaTools";
 import TakeoffNOVAPanel from "@/components/takeoffs/TakeoffNOVAPanel";
 const DiscoveryPanel = lazy(() => import("@/components/discovery/DiscoveryPanel"));
 import {
@@ -81,10 +77,7 @@ export default function TakeoffsPage() {
   const activeGroupId = useUiStore(s => s.activeGroupId);
   const revisionImpact = useUiStore(s => s.revisionImpact);
   const dismissRevisionImpact = useUiStore(s => s.dismissRevisionImpact);
-  const showNotesPanel = useUiStore(s => s.showNotesPanel);
   const setShowNotesPanel = useUiStore(s => s.setShowNotesPanel);
-  const estGroupBy = useUiStore(s => s.estGroupBy);
-  const setEstGroupBy = useUiStore(s => s.setEstGroupBy);
   const project = useProjectStore(s => s.project);
   const items = useItemsStore(s => s.items);
   const getItemTotal = useItemsStore(s => s.getItemTotal);
@@ -92,19 +85,16 @@ export default function TakeoffsPage() {
   const elements = useDatabaseStore(s => s.elements);
   const assemblies = useDatabaseStore(s => s.assemblies);
 
-  // Model store — outline state for current drawing
-  const modelOutlines = useModelStore(s => s.outlines);
-
   // Drawings store
   const drawings = useDrawingsStore(s => s.drawings);
   const selectedDrawingId = useDrawingsStore(s => s.selectedDrawingId);
   const setSelectedDrawingId = useDrawingsStore(s => s.setSelectedDrawingId);
   const pdfCanvases = useDrawingsStore(s => s.pdfCanvases);
-  const setPdfCanvases = useDrawingsStore(s => s.setPdfCanvases);
+  const _setPdfCanvases = useDrawingsStore(s => s.setPdfCanvases);
   const drawingScales = useDrawingsStore(s => s.drawingScales);
   const setDrawingScales = useDrawingsStore(s => s.setDrawingScales);
   const drawingDpi = useDrawingsStore(s => s.drawingDpi);
-  const setDrawingDpi = useDrawingsStore(s => s.setDrawingDpi);
+  const _setDrawingDpi = useDrawingsStore(s => s.setDrawingDpi);
   const sheetIndex = useDrawingsStore(s => s.sheetIndex);
   const buildSheetIndex = useDrawingsStore(s => s.buildSheetIndex);
   const detectedReferences = useDrawingsStore(s => s.detectedReferences);
@@ -127,7 +117,7 @@ export default function TakeoffsPage() {
   const setTkMeasureState = useTakeoffsStore(s => s.setTkMeasureState);
   const tkCursorPt = useTakeoffsStore(s => s.tkCursorPt);
   const setTkCursorPt = useTakeoffsStore(s => s.setTkCursorPt);
-  const tkContextMenu = useTakeoffsStore(s => s.tkContextMenu);
+  const _tkContextMenu = useTakeoffsStore(s => s.tkContextMenu);
   const setTkContextMenu = useTakeoffsStore(s => s.setTkContextMenu);
   const tkCalibrations = useTakeoffsStore(s => s.tkCalibrations);
   const setTkCalibrations = useTakeoffsStore(s => s.setTkCalibrations);
@@ -146,10 +136,10 @@ export default function TakeoffsPage() {
   const tkPanelWidth = useTakeoffsStore(s => s.tkPanelWidth);
   const setTkPanelWidth = useTakeoffsStore(s => s.setTkPanelWidth);
   const tkPanelTier = useTakeoffsStore(s => s.tkPanelTier);
-  const setTkPanelTier = useTakeoffsStore(s => s.setTkPanelTier);
+  const _setTkPanelTier = useTakeoffsStore(s => s.setTkPanelTier);
   const tkPanelOpen = useTakeoffsStore(s => s.tkPanelOpen);
   const setTkPanelOpen = useTakeoffsStore(s => s.setTkPanelOpen);
-  const toFilter = useTakeoffsStore(s => s.toFilter);
+  const _toFilter = useTakeoffsStore(s => s.toFilter);
   const tkVisibility = useTakeoffsStore(s => s.tkVisibility);
   const setTkVisibility = useTakeoffsStore(s => s.setTkVisibility);
   const tkNewInput = useTakeoffsStore(s => s.tkNewInput);
@@ -186,14 +176,14 @@ export default function TakeoffsPage() {
   const tkPredRefining = useTakeoffsStore(s => s.tkPredRefining);
   const setTkPredictions = useTakeoffsStore(s => s.setTkPredictions);
   const acceptPrediction = useTakeoffsStore(s => s.acceptPrediction);
-  const rejectPrediction = useTakeoffsStore(s => s.rejectPrediction);
-  const acceptAllPredictions = useTakeoffsStore(s => s.acceptAllPredictions);
+  const _rejectPrediction = useTakeoffsStore(s => s.rejectPrediction);
+  const _acceptAllPredictions = useTakeoffsStore(s => s.acceptAllPredictions);
   const clearPredictions = useTakeoffsStore(s => s.clearPredictions);
   const recordPredictionMiss = useTakeoffsStore(s => s.recordPredictionMiss);
   const initPredContext = useTakeoffsStore(s => s.initPredContext);
-  const setTkPredRefining = useTakeoffsStore(s => s.setTkPredRefining);
-  const tkNovaPanelOpen = useTakeoffsStore(s => s.tkNovaPanelOpen);
-  const setTkNovaPanelOpen = useTakeoffsStore(s => s.setTkNovaPanelOpen);
+  const _setTkPredRefining = useTakeoffsStore(s => s.setTkPredRefining);
+  const _tkNovaPanelOpen = useTakeoffsStore(s => s.tkNovaPanelOpen);
+  const _setTkNovaPanelOpen = useTakeoffsStore(s => s.setTkNovaPanelOpen);
 
   // Detail overlay & reference detection
   const [detailOverlayId, setDetailOverlayId] = useState(null);
@@ -203,6 +193,7 @@ export default function TakeoffsPage() {
   // Build sheet index when drawings change
   useEffect(() => {
     buildSheetIndex();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Zustand action is stable; trigger only on drawings.length
   }, [drawings.length]);
 
   // Scan current drawing for section/elevation/detail references
@@ -275,6 +266,7 @@ export default function TakeoffsPage() {
         setRefScanLoading(null);
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Zustand actions (setDetectedReferences, setRefScanLoading) are stable; showToast is stable
     [selectedDrawingId, refScanLoading, drawings, pdfCanvases],
   );
 
@@ -309,9 +301,9 @@ export default function TakeoffsPage() {
 
   // Measurement engine — scale conversion, distance/area calculations, formula evaluation
   const {
-    getDrawingDpi,
-    getPxPerUnit,
-    pxToReal,
+    getDrawingDpi: _getDrawingDpi,
+    getPxPerUnit: _getPxPerUnit,
+    pxToReal: _pxToReal,
     realToPx,
     getDisplayUnit,
     hasScale,
@@ -392,7 +384,7 @@ export default function TakeoffsPage() {
   // Page filter: "all" shows every takeoff, "page" shows only those with measurements on current drawing
   const [pageFilter, setPageFilter] = useState(() => sessionStorage.getItem("bldg-pageFilter") || "all");
   // Panel mode: "auto" = collapse on measure/reopen on stop, "open" = always open, "closed" = always closed
-  const [tkPanelMode, setTkPanelMode] = useState("open");
+  const [tkPanelMode, _setTkPanelMode] = useState("open");
   // Left panel tab: matches EstimatePage tabs (estimate | scenarios | notes | rfis)
   const [leftPanelTab, setLeftPanelTab] = useState("estimate");
 
@@ -459,6 +451,7 @@ export default function TakeoffsPage() {
       }
     }
     prevDrawingIdRef.current = selectedDrawingId;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Zustand actions (setTkPan, setTkZoom) are stable
   }, [selectedDrawingId]);
 
   // AI Drawing Analysis
@@ -806,6 +799,7 @@ export default function TakeoffsPage() {
     } catch (err) {
       showToast("PDF repair failed: " + err.message, "error");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Zustand actions (clearPredictions) and showToast are stable
   }, []);
 
   const engageMeasuring = useCallback(
@@ -853,6 +847,7 @@ export default function TakeoffsPage() {
         warmPredictions(warmDrawing, to.description).catch(() => {});
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Zustand actions (setTk*) are stable; tkPanelMode read from closure is intentional
     [addMeasurement],
   );
 
@@ -904,6 +899,7 @@ export default function TakeoffsPage() {
         }
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Zustand actions (setTk*, clearPredictions) are stable; reads fresh state via getState()
   }, [addMeasurement, tkPanelMode]);
 
   const pauseMeasuring = () => {
@@ -990,8 +986,6 @@ Return ONLY a JSON array of objects.`,
         let countItems = 0,
           measureItems = 0;
         filtered.forEach(item => {
-          const colorIdx = useTakeoffsStore.getState().takeoffs.length;
-          const color = TO_COLORS[colorIdx % TO_COLORS.length];
           addTakeoff(group, item.name, item.unit || "EA", item.code || "", { noMeasure: true, aiDetected: true });
           const newTo = useTakeoffsStore.getState().takeoffs;
           const last = newTo[newTo.length - 1];
@@ -1095,7 +1089,7 @@ Return ONLY a JSON array of objects.`,
   const acceptAllDrawingItems = () => {
     if (!aiDrawingAnalysis?.results) return;
     const group = drawings.find(d => d.id === selectedDrawingId)?.sheetNumber || "";
-    let countItems = 0,
+    let _countItems = 0,
       measureItems = 0;
     aiDrawingAnalysis.results.forEach(item => {
       const colorIdx = useTakeoffsStore.getState().takeoffs.length;
@@ -1108,7 +1102,7 @@ Return ONLY a JSON array of objects.`,
       // Only set quantity for count items
       if (item.type === "count" && item.quantity) {
         updateTakeoff(last.id, "quantity", item.quantity);
-        countItems++;
+        _countItems++;
       } else {
         measureItems++;
       }
@@ -1593,11 +1587,11 @@ IMPORTANT:
   };
 
   // Variables & Formula
-  const addTakeoffVariable = id =>
+  const _addTakeoffVariable = id =>
     setTakeoffs(
       takeoffs.map(t => (t.id === id ? { ...t, variables: [...(t.variables || []), { key: "", value: "" }] } : t)),
     );
-  const updateTakeoffVariable = (id, idx, field, val) =>
+  const _updateTakeoffVariable = (id, idx, field, val) =>
     setTakeoffs(
       takeoffs.map(t => {
         if (t.id !== id) return t;
@@ -1606,7 +1600,7 @@ IMPORTANT:
         return { ...t, variables: vars };
       }),
     );
-  const removeTakeoffVariable = (id, idx) =>
+  const _removeTakeoffVariable = (id, idx) =>
     setTakeoffs(
       takeoffs.map(t => {
         if (t.id !== id) return t;
@@ -1679,6 +1673,7 @@ IMPORTANT:
       document.addEventListener("mousemove", onMove);
       document.addEventListener("mouseup", onUp);
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- TIER_SNAPS is a stable constant defined in render scope
     [tkPanelWidth, setTkPanelWidth, maxPanelWidth, isLargeScreen],
   );
 
@@ -1723,11 +1718,12 @@ IMPORTANT:
       const d = useDrawingsStore.getState().drawings.find(dr => dr.id === id);
       if (d?.type === "pdf" && d.data) renderPdfPage(d);
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Zustand action (setSelectedDrawingId) is stable
     [renderPdfPage],
   );
 
   // ─── OUTLINE TOOL — trace building perimeter for Model tab ────
-  const handleOutlineClick = useCallback(
+  const _handleOutlineClick = useCallback(
     e => {
       if (tkTool !== "outline" || !selectedDrawingId) return;
       const canvas = canvasRef.current;
@@ -1783,6 +1779,7 @@ IMPORTANT:
         (e.shiftKey || snapAngleOnRef.current) && pts.length >= 1 ? snapAngle(pts[pts.length - 1], pt) : pt;
       setTkActivePoints([...pts, snappedPt]);
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Zustand actions (setTkActivePoints, setTkTool) are stable
     [tkTool, tkActivePoints, selectedDrawingId, showToast],
   );
 
@@ -1871,48 +1868,90 @@ IMPORTANT:
       const triggerCountPredictions = (clickPt, to) => {
         const { tkPredictions: preds } = useTakeoffsStore.getState();
         const hasPreds = preds && preds.predictions && preds.predictions.length > 0;
-        document.title = `PRED: hasPreds=${hasPreds} desc="${to?.description?.slice(0,20)}"`;
-        if (!hasPreds) {
-          const currentDrawingId = useDrawingsStore.getState().selectedDrawingId;
-          const drawing = useDrawingsStore.getState().drawings.find(d => d.id === currentDrawingId);
-          document.title = `PRED: dwg=${!!drawing} type=${drawing?.type} data=${!!drawing?.data} raw=${!!drawing?.pdfRawBase64} preR=${!!drawing?.pdfPreRendered}`;
-          if (drawing && drawing.type === "pdf" && (drawing.data || drawing.pdfRawBase64)) {
-            document.title = `PRED: running runSmartPredictions...`;
-            runSmartPredictions(drawing, to, "count", clickPt)
-              .then(result => {
-                document.title = `PRED: result preds=${result.predictions.length} tag=${result.tag} strat=${result.strategy} msg=${result.message?.slice(0,40)}`;
-                if (useTakeoffsStore.getState().tkActiveTakeoffId !== tkActiveTakeoffId) return;
-                if (result.predictions.length > 0) {
-                  setTkPredictions({
-                    tag: result.tag,
-                    predictions: result.predictions,
-                    scanning: false,
-                    totalInstances: result.totalInstances,
-                    source: result.source,
-                    strategy: result.strategy,
-                  });
-                  initPredContext(result.tag, result.source, result.confidence);
-                  showToast(`Found ${result.predictions.length} more "${result.tag || "items"}" — review predictions`);
-                  // Cross-sheet scan: find same tag on other sheets
-                  if (result.tag) {
-                    const allDwgs = useDrawingsStore.getState().drawings;
-                    scanAllSheets(allDwgs, result.tag, "count")
-                      .then(sheetResults => {
-                        const otherSheets = sheetResults.filter(r => r.drawingId !== currentDrawingId);
-                        if (otherSheets.length > 0) {
-                          setCrossSheetScan({ tag: result.tag, results: otherSheets, scanning: false });
-                        }
-                      })
-                      .catch(() => {});
-                  }
+        if (hasPreds) return;
+
+        const currentDrawingId = useDrawingsStore.getState().selectedDrawingId;
+        const drawing = useDrawingsStore.getState().drawings.find(d => d.id === currentDrawingId);
+        if (!drawing || drawing.type !== "pdf") return;
+
+        // Get the rendered image source for template matching
+        const imgSrc = useDrawingsStore.getState().pdfCanvases[currentDrawingId] || drawing.data;
+
+        // ── Strategy 1: Template Matching (instant, offline, high accuracy) ──
+        if (imgSrc) {
+          const existingPts = (to.measurements || [])
+            .filter(m => m.sheetId === currentDrawingId && m.type === "count")
+            .flatMap(m => m.points || []);
+
+          smartCountFromClick(imgSrc, clickPt, existingPts, {
+            templateSize: 64,
+            threshold: 0.88,
+            step: 2,
+            minSeparation: 30,
+            excludeRadius: 25,
+            tag: to.description,
+            drawingId: currentDrawingId,
+          })
+            .then(result => {
+              if (useTakeoffsStore.getState().tkActiveTakeoffId !== tkActiveTakeoffId) return;
+              if (result.predictions.length > 0) {
+                setTkPredictions({
+                  tag: to.description,
+                  predictions: result.predictions,
+                  scanning: false,
+                  totalInstances: result.predictions.length,
+                  source: "template",
+                  strategy: "template",
+                });
+                initPredContext(to.description, "template", 0.9);
+                showToast(`Found ${result.predictions.length} more "${to.description}" — click to confirm`);
+              } else {
+                // ── Strategy 2: Fall back to AI pipeline (text/vision) ──
+                if (drawing.data || drawing.pdfRawBase64) {
+                  runSmartPredictions(drawing, to, "count", clickPt)
+                    .then(aiResult => {
+                      if (useTakeoffsStore.getState().tkActiveTakeoffId !== tkActiveTakeoffId) return;
+                      if (aiResult.predictions.length > 0) {
+                        setTkPredictions({
+                          tag: aiResult.tag,
+                          predictions: aiResult.predictions,
+                          scanning: false,
+                          totalInstances: aiResult.totalInstances,
+                          source: aiResult.source,
+                          strategy: aiResult.strategy,
+                        });
+                        initPredContext(aiResult.tag, aiResult.source, aiResult.confidence);
+                        showToast(
+                          `Found ${aiResult.predictions.length} more "${aiResult.tag || "items"}" — review predictions`,
+                        );
+                      }
+                    })
+                    .catch(err => console.warn("AI prediction fallback failed:", err));
                 }
-                // Surface strategy: show the engine's explanation if it recognized the item but can't predict
-                if (result.message && result.strategy !== "general" && result.strategy !== "tag-based") {
-                  showToast(result.message, "info");
-                }
-              })
-              .catch(err => console.warn("Prediction scan failed:", err));
-          }
+              }
+            })
+            .catch(err => {
+              console.warn("Template matching failed:", err);
+              // Fall back to AI pipeline on template matcher failure
+              if (drawing.data || drawing.pdfRawBase64) {
+                runSmartPredictions(drawing, to, "count", clickPt)
+                  .then(aiResult => {
+                    if (useTakeoffsStore.getState().tkActiveTakeoffId !== tkActiveTakeoffId) return;
+                    if (aiResult.predictions.length > 0) {
+                      setTkPredictions({
+                        tag: aiResult.tag,
+                        predictions: aiResult.predictions,
+                        scanning: false,
+                        totalInstances: aiResult.totalInstances,
+                        source: aiResult.source,
+                        strategy: aiResult.strategy,
+                      });
+                      initPredContext(aiResult.tag, aiResult.source, aiResult.confidence);
+                    }
+                  })
+                  .catch(() => {});
+              }
+            });
         }
       };
 
@@ -1982,7 +2021,7 @@ Where confidence is "high", "medium", or "low".`,
               }));
               // Update the takeoff quantity
               const existingQty = nn(to?.quantity || 0);
-              const currentMeasurements = (to?.measurements || []).filter(m => m.sheetId === selectedDrawingId);
+              const _currentMeasurements = (to?.measurements || []).filter(m => m.sheetId === selectedDrawingId);
               const newCount = parsed.count;
               updateTakeoff(tkAutoCount.takeoffId, "quantity", existingQty + newCount);
               showToast(
@@ -2107,8 +2146,6 @@ Where confidence is "high", "medium", or "low".`,
           ? snapAngle(tkActivePoints[tkActivePoints.length - 1], pt)
           : pt;
 
-      document.title = `CLICK: tool=${currentTool} state=${currentMeasureState} active=${!!currentActiveTakeoffId} desc="${to?.description?.slice(0,20)}"`;
-
       // COUNT
       if (currentTool === "count") {
         // ── Proximity auto-accept: if clicking near a ghost prediction, accept it instead ──
@@ -2202,13 +2239,10 @@ Where confidence is "high", "medium", or "low".`,
           if (!linPreds) {
             const currentDrawingId = useDrawingsStore.getState().selectedDrawingId;
             const drawing = useDrawingsStore.getState().drawings.find(d => d.id === currentDrawingId);
-            document.title = `LIN-PRED: dwg=${!!drawing} type=${drawing?.type} data=${!!drawing?.data} raw=${!!drawing?.pdfRawBase64}`;
             if (drawing && drawing.type === "pdf" && (drawing.data || drawing.pdfRawBase64)) {
               (async () => {
                 try {
-                  document.title = `LIN-PRED: running for "${to?.description?.slice(0,20)}"...`;
                   const result = await runSmartPredictions(drawing, to, "linear", tkActivePoints[0]);
-                  document.title = `LIN-PRED: preds=${result.predictions.length} tag=${result.tag} strat=${result.strategy} msg=${result.message?.slice(0,40)}`;
                   if (result.predictions.length > 0) {
                     setTkPredictions({
                       tag: result.tag,
@@ -2463,6 +2497,7 @@ Where confidence is "high", "medium", or "low".`,
         setTkActivePoints([...tkActivePoints, snappedPt]);
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Zustand actions (setTk*, clearPredictions, etc.) and measurement fns are stable
     [
       tkTool,
       tkActivePoints,
@@ -2477,6 +2512,8 @@ Where confidence is "high", "medium", or "low".`,
       setTkSelectedTakeoffId,
       engageMeasuring,
       addMeasurement,
+      tkPanelMode,
+      tkPanelOpen,
     ],
   );
 
@@ -2634,14 +2671,21 @@ Where confidence is "high", "medium", or "low".`,
           console.log("[NOVA] Stale result gen=" + gen + " (current=" + predScanGenRef.current + "), discarding");
           return;
         }
-        console.log("[NOVA] Result gen=" + gen + ":", result.source, result.strategy, result.tag, result.predictions.length, "predictions", result.message || "");
+        console.log(
+          "[NOVA] Result gen=" + gen + ":",
+          result.source,
+          result.strategy,
+          result.tag,
+          result.predictions.length,
+          "predictions",
+          result.message || "",
+        );
 
         // Double-check: takeoff must still be active
         const currentActiveId = useTakeoffsStore.getState().tkActiveTakeoffId;
         if (currentActiveId !== tkActiveTakeoffId) return;
 
         if (result.predictions.length > 0) {
-          document.title = `NOVA: ${result.predictions.length} predictions found!`;
           setTkPredictions({
             tag: result.tag,
             predictions: result.predictions,
@@ -2664,8 +2708,8 @@ Where confidence is "high", "medium", or "low".`,
       .catch(err => {
         if (predScanGenRef.current !== gen) return; // stale — ignore
         console.warn("Proactive prediction failed:", err);
-        document.title = `NOVA: scan failed — ${err.message?.slice(0, 30)}`;
       });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Zustand actions (clearPredictions, initPredContext, setTkPredictions) and showToast are stable
   }, [tkActiveTakeoffId, selectedDrawingId]);
 
   // Auto-scroll filmstrip to active drawing
@@ -2750,6 +2794,7 @@ Where confidence is "high", "medium", or "low".`,
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Zustand actions (setTk*, engageMeasuring, stopMeasuring) are stable
   }, [tkTool, tkMeasureState, tkSelectedTakeoffId]);
 
   // DB search effect — search items + assemblies (NOVA only on explicit click)
@@ -2808,6 +2853,7 @@ Where confidence is "high", "medium", or "low".`,
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- drawings, renderPdfPage, selectedDrawingId, setSelectedDrawingId read via getState/ref; trigger only on drawings.length
   }, [drawings.length]);
 
   // ─── PREDICTIVE TAKEOFF: Background PDF extraction when drawing changes ───
@@ -2924,7 +2970,13 @@ Where confidence is "high", "medium", or "low".`,
         // Vision predictions always have a single `point` — render as dot marker
         // regardless of type (count, linear, area). Multi-point predictions (wall, area
         // with points array) use their own specialized renderers below.
-        if (pred.point && (pred.type === "count" || pred.type === "wall-tag" || pred.type === "linear" || (pred.type === "area" && !pred.points))) {
+        if (
+          pred.point &&
+          (pred.type === "count" ||
+            pred.type === "wall-tag" ||
+            pred.type === "linear" ||
+            (pred.type === "area" && !pred.points))
+        ) {
           const p = pred.point;
           const sz = isAccepted ? 16 : ghostSize;
           ctx.translate(p.x, p.y);
@@ -3215,6 +3267,7 @@ Where confidence is "high", "medium", or "low".`,
 
       ctx.restore();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- realToPx is derived from drawingScales/drawingDpi already in deps
   }, [
     takeoffs,
     filteredTakeoffs,
@@ -3427,7 +3480,7 @@ Where confidence is "high", "medium", or "low".`,
       const scaleY = overlay.height / (aiDrawingAnalysis.aiH || aiDrawingAnalysis.aiW);
       ctx.save();
       ctx.globalAlpha = 0.6;
-      aiDrawingAnalysis.results.forEach((item, idx) => {
+      aiDrawingAnalysis.results.forEach((item, _idx) => {
         const pts = (item.locations || []).map(p => ({ x: Math.round(p.x * scaleX), y: Math.round(p.y * scaleY) }));
         if (pts.length === 0) return;
         const aiColor = item.type === "count" ? "#22c55e" : item.type === "linear" ? "#3b82f6" : "#a855f7";
@@ -3509,6 +3562,7 @@ Where confidence is "high", "medium", or "low".`,
       });
       ctx.restore();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- measurement fns (calcPolygonArea, etc.) and realToPx are derived from drawingScales/drawingDpi already in deps
   }, [
     takeoffs,
     tkActivePoints,
@@ -3527,7 +3581,7 @@ Where confidence is "high", "medium", or "low".`,
   ]);
 
   // AI Scope Suggestions
-  const runScopeSuggestions = async () => {
+  const _runScopeSuggestions = async () => {
     if (takeoffs.length === 0) return showToast("Add some takeoffs first", "error");
     setTkScopeSuggestions({ loading: true, items: [] });
     try {
@@ -3579,479 +3633,23 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
   return (
     <div style={{ display: "flex", gap: 0, height: "calc(100vh - 120px)", position: "relative" }}>
       {/* ── Revision Impact Card ── */}
-      {revisionImpact && revisionImpact.summary.totalRevisedSheets > 0 && (
-        <div style={{
-          position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)",
-          zIndex: 9000, width: "min(480px, 90%)",
-          background: C.isDark ? "rgba(20,20,25,0.97)" : "rgba(255,255,255,0.97)",
-          border: `1.5px solid #F59E0B60`,
-          borderRadius: 12, padding: "16px 20px",
-          boxShadow: "0 8px 32px rgba(0,0,0,0.3), 0 0 0 1px rgba(245,158,11,0.1)",
-          fontFamily: T.font.sans,
-          backdropFilter: "blur(12px)",
-        }}>
-          {/* Header */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 16 }}>⚠️</span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: "#F59E0B" }}>
-                Revision Detected
-              </span>
-            </div>
-            <button
-              onClick={dismissRevisionImpact}
-              style={{
-                background: "none", border: "none", cursor: "pointer",
-                color: C.textDim, fontSize: 16, padding: 4,
-              }}
-            >
-              ✕
-            </button>
-          </div>
-
-          {/* Summary line */}
-          <div style={{
-            fontSize: 11, color: C.text, lineHeight: 1.6, marginBottom: 12,
-            padding: "8px 12px", borderRadius: 8,
-            background: C.isDark ? "rgba(245,158,11,0.08)" : "rgba(245,158,11,0.06)",
-            border: `1px solid ${C.isDark ? "rgba(245,158,11,0.15)" : "rgba(245,158,11,0.12)"}`,
-          }}>
-            <strong>{revisionImpact.summary.totalRevisedSheets}</strong> sheet{revisionImpact.summary.totalRevisedSheets > 1 ? "s" : ""} revised
-            {revisionImpact.summary.totalAffectedItems > 0 ? (
-              <>
-                {" → "}<strong style={{ color: "#F59E0B" }}>{revisionImpact.summary.totalAffectedItems}</strong> takeoff item{revisionImpact.summary.totalAffectedItems > 1 ? "s" : ""} affected
-                {revisionImpact.summary.affectedDivisions.length > 0 && (
-                  <> {" → "}Div {revisionImpact.summary.affectedDivisions.join(", ")}</>
-                )}
-              </>
-            ) : (
-              <> — no takeoff items affected yet</>
-            )}
-          </div>
-
-          {/* Sheet details */}
-          {revisionImpact.sheets.length > 0 && (
-            <div style={{ maxHeight: 180, overflowY: "auto", marginBottom: 12 }}>
-              {revisionImpact.sheets.map((sheet, i) => (
-                <div key={i} style={{
-                  padding: "6px 0",
-                  borderBottom: i < revisionImpact.sheets.length - 1 ? `1px solid ${C.isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"}` : "none",
-                }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: C.text, marginBottom: 3 }}>
-                    {sheet.sheetNumber} — {sheet.sheetTitle}
-                    <span style={{ fontWeight: 400, color: C.textDim, marginLeft: 6 }}>
-                      Rev {sheet.oldRevision} → {sheet.newRevision}
-                    </span>
-                  </div>
-                  {sheet.affectedTakeoffs.map(t => (
-                    <div key={t.id} style={{
-                      fontSize: 9, color: C.textDim, paddingLeft: 12,
-                      display: "flex", justifyContent: "space-between", lineHeight: 1.8,
-                    }}>
-                      <span style={{ color: C.text }}>{t.description}</span>
-                      <span style={{ color: "#F59E0B", fontWeight: 600, whiteSpace: "nowrap", marginLeft: 8 }}>
-                        {t.measurementCount} meas. ({t.exposurePercent}% exposure)
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Actions */}
-          <div style={{ display: "flex", gap: 8 }}>
-            {revisionImpact.sheets.length > 0 && revisionImpact.sheets[0]?.newDrawingId && (
-              <button
-                onClick={() => {
-                  const newId = revisionImpact.sheets[0].newDrawingId;
-                  setSelectedDrawingId(newId);
-                  dismissRevisionImpact();
-                }}
-                style={{
-                  flex: 1, padding: "7px 12px", borderRadius: 6,
-                  background: "#F59E0B", color: "#000", border: "none",
-                  fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: T.font.sans,
-                }}
-              >
-                Review Revised Sheets
-              </button>
-            )}
-            <button
-              onClick={dismissRevisionImpact}
-              style={{
-                flex: 1, padding: "7px 12px", borderRadius: 6,
-                background: "transparent", color: C.textDim,
-                border: `1px solid ${C.isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`,
-                fontSize: 10, fontWeight: 600, cursor: "pointer", fontFamily: T.font.sans,
-              }}
-            >
-              Dismiss
-            </button>
-          </div>
-        </div>
-      )}
+      <RevisionImpactCard
+        revisionImpact={revisionImpact}
+        onDismiss={dismissRevisionImpact}
+        onReviewSheet={newId => {
+          setSelectedDrawingId(newId);
+          dismissRevisionImpact();
+        }}
+      />
       {/* ── Vertical Control Rail ── */}
-      {(() => {
-        const modes = [
-          { id: "closed", bars: 0, label: "Drawings" },
-          { id: "standard", bars: 2, label: "Standard" },
-          { id: "full", bars: 3, label: "Split" },
-          { id: "estimate", bars: 4, label: "Estimate" },
-        ];
-        let curId;
-        if (tkPanelTier === "estimate") curId = "estimate";
-        else if (!tkPanelOpen) curId = "closed";
-        else if (tkPanelTier === "full") curId = "full";
-        else curId = "standard";
-        const idx = modes.findIndex(m => m.id === curId);
-        const current = modes[idx >= 0 ? idx : 0];
-        const nextMode = modes[(idx + 1) % modes.length];
-        const cycleTier = () => {
-          const store = useTakeoffsStore.getState();
-          if (nextMode.id === "closed") {
-            store.setTkPanelOpen(false);
-            store.setTkPanelTier("standard");
-            sessionStorage.setItem("bldg-tkPanelTier", "standard");
-            sessionStorage.setItem("bldg-tkPanelWidth", "550");
-          } else if (nextMode.id === "estimate") {
-            store.setTkPanelOpen(false);
-            store.setTkPanelTier("estimate");
-            sessionStorage.setItem("bldg-tkPanelTier", "estimate");
-            sessionStorage.setItem("bldg-tkPanelWidth", "0");
-          } else {
-            store.setTkPanelOpen(true);
-            store.setTkPanelWidth(nextMode.id === "full" ? 900 : 550);
-            store.setTkPanelTier(nextMode.id);
-            sessionStorage.setItem("bldg-tkPanelTier", nextMode.id);
-            sessionStorage.setItem("bldg-tkPanelWidth", nextMode.id === "full" ? "900" : "550");
-          }
-        };
-        const railLabelStyle = {
-          position: "absolute",
-          left: RAIL_W + 6,
-          top: "50%",
-          transform: "translateY(-50%)",
-          whiteSpace: "nowrap",
-          fontSize: 10,
-          fontWeight: 600,
-          fontFamily: T.font.sans,
-          color: C.text,
-          background: C.sidebarBg || C.bg1,
-          border: `1px solid ${C.isDark ? "rgba(255,255,255,0.12)" : C.border}`,
-          borderRadius: 6,
-          padding: "5px 12px",
-          boxShadow: [T.shadow.lg || "0 8px 24px rgba(0,0,0,0.35)", T.glass.specularSm, T.glass.edge]
-            .filter(Boolean)
-            .join(", "),
-          backdropFilter: T.glass.blurLight || "blur(12px)",
-          WebkitBackdropFilter: T.glass.blurLight || "blur(12px)",
-          opacity: 0,
-          pointerEvents: "none",
-          transition: "opacity 0.15s ease",
-          zIndex: 50,
-        };
-        return (
-          <div style={{ width: RAIL_W, flexShrink: 0, position: "relative", zIndex: 40 }}>
-            {/* Floating rail pill — top aligned with GroupBar, bottom at screen midpoint */}
-            <div
-              style={{
-                position: "absolute",
-                top: 78,
-                left: 2,
-                width: RAIL_W - 4,
-                bottom: 20,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                paddingTop: 10,
-                paddingBottom: 10,
-                gap: 8,
-                background: C.sidebarBg || C.bg1,
-                backgroundImage: `linear-gradient(180deg, rgba(255,255,255,0.06) 0%, transparent 25%, transparent 85%, rgba(0,0,0,0.06) 100%)`,
-                border: `1px solid ${C.isDark ? "rgba(255,255,255,0.10)" : C.border}`,
-                borderRadius: 14,
-                boxShadow: [
-                  "0 4px 24px rgba(0,0,0,0.45)",
-                  "0 2px 8px rgba(0,0,0,0.30)",
-                  T.glass.specular,
-                  T.glass.innerDepth,
-                  T.glass.specularBottom,
-                  T.glass.edge,
-                ]
-                  .filter(Boolean)
-                  .join(", "),
-                backdropFilter: T.glass.blurLight || "blur(12px)",
-                WebkitBackdropFilter: T.glass.blurLight || "blur(12px)",
-                transition: "top 0.2s ease-out",
-              }}
-            >
-              {/* View cycle button */}
-              <div className="rail-btn-wrap" style={{ position: "relative", display: "flex", alignItems: "center" }}>
-                <button
-                  className="icon-btn rail-btn"
-                  title={`${current.label} → ${nextMode.label}`}
-                  onClick={cycleTier}
-                  style={{
-                    width: 28,
-                    height: 28,
-                    border: `1px solid ${current.bars > 0 ? C.accent + "50" : C.isDark ? "rgba(255,255,255,0.12)" : C.border}`,
-                    background: current.bars > 0 ? C.accent + "18" : C.isDark ? "rgba(255,255,255,0.06)" : C.bg2,
-                    borderRadius: 6,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 1.5,
-                    padding: 0,
-                    flexShrink: 0,
-                    boxShadow: [T.shadow.sm, T.glass.specularSm, current.bars > 0 ? `0 0 8px ${C.accent}20` : null]
-                      .filter(Boolean)
-                      .join(", "),
-                  }}
-                >
-                  {current.bars === 0 ? (
-                    <svg
-                      width="13"
-                      height="13"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke={C.textMuted}
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <rect x="3" y="3" width="7" height="18" rx="1" />
-                      <path d="M14 3h7M14 9h7M14 15h5" />
-                    </svg>
-                  ) : (
-                    Array.from({ length: current.bars }).map((_, i) => (
-                      <div key={i} style={{ width: 2.5, height: 10, borderRadius: 1, background: C.accent }} />
-                    ))
-                  )}
-                </button>
-                <span className="rail-label" style={railLabelStyle}>
-                  {current.label}
-                </span>
-              </div>
-
-              {/* ── Tools — organized by Jony's 4-group layout ── */}
-              {tkPanelTier !== "estimate" &&
-                (() => {
-                  const isSelecting = tkMeasureState === "idle" && !checkDimMode && tkTool !== "calibrate";
-                  const railBtn = active => ({
-                    width: 28,
-                    height: 28,
-                    border: `1px solid ${active ? C.accent + "50" : C.isDark ? "rgba(255,255,255,0.12)" : C.border}`,
-                    background: active ? C.accent + "18" : C.isDark ? "rgba(255,255,255,0.06)" : C.bg2,
-                    borderRadius: 6,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: 0,
-                    flexShrink: 0,
-                    boxShadow: [T.shadow.sm, T.glass.specularSm, active ? `0 0 8px ${C.accent}20` : null]
-                      .filter(Boolean)
-                      .join(", "),
-                  });
-                  const ico = active => ({
-                    width: 13,
-                    height: 13,
-                    viewBox: "0 0 24 24",
-                    fill: "none",
-                    stroke: active ? C.accent : C.textMuted,
-                    strokeWidth: "2",
-                    strokeLinecap: "round",
-                    strokeLinejoin: "round",
-                  });
-                  const sepStyle = {
-                    width: 20,
-                    height: 1,
-                    background: C.isDark ? "rgba(255,255,255,0.08)" : C.border,
-                    flexShrink: 0,
-                    boxShadow: "0 1px 0 rgba(0,0,0,0.2)",
-                  };
-
-                  /* ── MODE GROUP: Select + Undo ── */
-                  const undoState = useUndoStore.getState();
-                  const canUndo = undoState.canUndo();
-                  const modeTools = [
-                    {
-                      id: "select",
-                      label: "Select",
-                      active: isSelecting,
-                      action: () => {
-                        setCheckDimMode(false);
-                        setTkTool("select");
-                        setTkMeasureState("idle");
-                        setTkActivePoints([]);
-                      },
-                      icon: (
-                        <svg {...ico(isSelecting)}>
-                          <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z" />
-                          <path d="M13 13l6 6" />
-                        </svg>
-                      ),
-                    },
-                    {
-                      id: "undo",
-                      label: canUndo ? "Undo" : "Nothing to undo",
-                      active: false,
-                      action: () => {
-                        const actionName = useUndoStore.getState().undo();
-                        if (actionName) {
-                          const toast = useUiStore.getState().showToast;
-                          toast(`Undone: ${actionName}`, "info");
-                        }
-                      },
-                      disabled: !canUndo,
-                      icon: (
-                        <svg {...ico(false)} style={{ opacity: canUndo ? 1 : 0.35 }}>
-                          <path d="M1 4v6h6" />
-                          <path d="M3.51 15a9 9 0 105.64-12.36L1 10" />
-                        </svg>
-                      ),
-                    },
-                  ];
-
-                  /* ── ACTIVE TOOLS: Snap, Labels, Check Dim ── */
-                  const activeTools = [
-                    {
-                      id: "snap",
-                      label: snapAngleOn ? "Snap ON" : "Snap Angle",
-                      active: snapAngleOn,
-                      action: () => setSnapAngleOn(v => !v),
-                      icon: (
-                        <svg {...ico(snapAngleOn)}>
-                          <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
-                          <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-                          <line x1="12" y1="22.08" x2="12" y2="12" />
-                        </svg>
-                      ),
-                    },
-                    {
-                      id: "labels",
-                      label: showMeasureLabels ? "Labels ON" : "Labels OFF",
-                      active: showMeasureLabels,
-                      action: () => setShowMeasureLabels(v => !v),
-                      icon: (
-                        <svg {...ico(showMeasureLabels)}>
-                          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-                        </svg>
-                      ),
-                    },
-                    {
-                      id: "checkdim",
-                      label: checkDimMode ? "Check Dim ON" : "Check Dim",
-                      active: checkDimMode,
-                      action: () => {
-                        setCheckDimMode(v => !v);
-                        if (!checkDimMode) {
-                          setTkTool("linear");
-                          setTkMeasureState("idle");
-                          setTkActivePoints([]);
-                          setTkActiveTakeoffId(null);
-                        } else {
-                          setTkTool("select");
-                        }
-                      },
-                      icon: (
-                        <svg {...ico(checkDimMode)}>
-                          <path d="M2 20h20 M2 20V4 M6 16V8 M10 16V6 M14 16v-4 M18 16V8" />
-                        </svg>
-                      ),
-                    },
-                  ];
-
-                  /* ── AI/SMART TOOLS: AutoCount, Compare, Cut ── */
-                  const aiTools = [
-                    {
-                      id: "autocount",
-                      label: tkAutoCount ? "Counting..." : "AutoCount",
-                      active: !!tkAutoCount,
-                      action: () => {
-                        if (tkAutoCount) {
-                          setTkAutoCount(null);
-                        } else {
-                          const selId = useTakeoffsStore.getState().tkSelectedTakeoffId;
-                          if (selId) setTkAutoCount({ phase: "select", takeoffId: selId });
-                          else {
-                            const toast = useUiStore.getState().showToast;
-                            toast("Select a takeoff first", "warning");
-                          }
-                        }
-                      },
-                      icon: (
-                        <svg {...ico(!!tkAutoCount)}>
-                          <circle cx="12" cy="12" r="10" />
-                          <path d="M12 8v8 M8 12h8" />
-                        </svg>
-                      ),
-                    },
-                    {
-                      id: "compare",
-                      label: "Compare",
-                      soon: true,
-                      icon: (
-                        <svg {...ico(false)}>
-                          <rect x="2" y="3" width="8" height="8" rx="1" />
-                          <rect x="14" y="13" width="8" height="8" rx="1" />
-                          <path d="M7 11v2a2 2 0 002 2h2 M17 13v-2a2 2 0 00-2-2h-2" />
-                        </svg>
-                      ),
-                    },
-                    {
-                      id: "cut",
-                      label: "Cut / Subtract",
-                      soon: true,
-                      icon: (
-                        <svg {...ico(false)}>
-                          <circle cx="8" cy="12" r="6" />
-                          <circle cx="16" cy="12" r="6" />
-                          <path d="M12 8v8" />
-                        </svg>
-                      ),
-                    },
-                  ];
-
-                  const renderBtn = t => (
-                    <div
-                      key={t.id}
-                      className="rail-btn-wrap"
-                      style={{ position: "relative", display: "flex", alignItems: "center" }}
-                    >
-                      <button
-                        className="icon-btn rail-btn"
-                        title={t.label}
-                        onClick={t.action || undefined}
-                        disabled={t.disabled}
-                        style={{
-                          ...railBtn(t.active),
-                          opacity: (t.soon && !t.action) || t.disabled ? 0.45 : 1,
-                          cursor: (t.soon && !t.action) || t.disabled ? "default" : "pointer",
-                        }}
-                      >
-                        {t.icon}
-                      </button>
-                      <span className="rail-label" style={railLabelStyle}>
-                        {t.label}
-                      </span>
-                    </div>
-                  );
-
-                  return [
-                    ...modeTools.map(renderBtn),
-                    <div key="sep-1" style={sepStyle} />,
-                    ...activeTools.map(renderBtn),
-                    <div key="sep-2" style={sepStyle} />,
-                    ...aiTools.map(renderBtn),
-                  ];
-                })()}
-            </div>
-          </div>
-        );
-      })()}
+      <TakeoffControlRail
+        checkDimMode={checkDimMode}
+        setCheckDimMode={setCheckDimMode}
+        snapAngleOn={snapAngleOn}
+        setSnapAngleOn={setSnapAngleOn}
+        showMeasureLabels={showMeasureLabels}
+        setShowMeasureLabels={setShowMeasureLabels}
+      />
 
       {/* LEFT PANEL — Takeoffs drawer (overlay, hidden in estimate mode) */}
       {tkPanelOpen && tkPanelTier !== "estimate" && (
@@ -5249,7 +4847,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                           isActive && (tkMeasureState === "measuring" || tkMeasureState === "paused");
                                         const isPaused = isActive && tkMeasureState === "paused";
                                         const isRevisionAffected = revisionAffectedIds.has(to.id);
-                                        const totalMCount = (to.measurements || []).length;
+                                        const _totalMCount = (to.measurements || []).length;
                                         const computedQty = getComputedQty(to);
                                         const measuredQty = getMeasuredQty(to);
                                         const hasMeasurements = (to.measurements || []).length > 0;
@@ -5263,7 +4861,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                               ? measuredQty
                                               : null
                                           : nn(to.quantity) || null;
-                                        const hasVars = (to.variables || []).length > 0;
+                                        const _hasVars = (to.variables || []).length > 0;
                                         const ctrlBtnS = {
                                           width: 20,
                                           height: 20,
@@ -5681,7 +5279,10 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                         setActionMenuId(null);
                                                       } else {
                                                         const rect = e.currentTarget.getBoundingClientRect();
-                                                        setActionMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+                                                        setActionMenuPos({
+                                                          top: rect.bottom + 4,
+                                                          right: window.innerWidth - rect.right,
+                                                        });
                                                         setActionMenuId(to.id);
                                                       }
                                                       setActionConfirm(null);
@@ -5691,7 +5292,8 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                       width: 20,
                                                       height: 20,
                                                       border: "none",
-                                                      background: actionMenuId === to.id ? `${C.accent}18` : "transparent",
+                                                      background:
+                                                        actionMenuId === to.id ? `${C.accent}18` : "transparent",
                                                       color: actionMenuId === to.id ? C.accent : C.textDim,
                                                       borderRadius: 3,
                                                       display: "flex",
@@ -5749,10 +5351,23 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                           cursor: "pointer",
                                                           transition: T.transition.fast,
                                                         }}
-                                                        onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}10`)}
-                                                        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                                                        onMouseEnter={e =>
+                                                          (e.currentTarget.style.background = `${C.accent}10`)
+                                                        }
+                                                        onMouseLeave={e =>
+                                                          (e.currentTarget.style.background = "transparent")
+                                                        }
                                                       >
-                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.purple} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                        <svg
+                                                          width="13"
+                                                          height="13"
+                                                          viewBox="0 0 24 24"
+                                                          fill="none"
+                                                          stroke={C.purple}
+                                                          strokeWidth="2.5"
+                                                          strokeLinecap="round"
+                                                          strokeLinejoin="round"
+                                                        >
                                                           <path d="M12 20V10 M18 20v-4 M6 20v-6" />
                                                         </svg>
                                                         <span style={{ color: C.purple }}>Auto Count</span>
@@ -5784,8 +5399,12 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                         cursor: "pointer",
                                                         transition: T.transition.fast,
                                                       }}
-                                                      onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}10`)}
-                                                      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                                                      onMouseEnter={e =>
+                                                        (e.currentTarget.style.background = `${C.accent}10`)
+                                                      }
+                                                      onMouseLeave={e =>
+                                                        (e.currentTarget.style.background = "transparent")
+                                                      }
                                                     >
                                                       <Ic d={I.copy} size={11} color={C.textDim} />
                                                       <span>Duplicate</span>
@@ -5797,7 +5416,9 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                           if (actionConfirm === "clear") {
                                                             const cnt = (to.measurements || []).length;
                                                             useTakeoffsStore.getState().clearMeasurements(to.id);
-                                                            useUiStore.getState().showToast(`Cleared ${cnt} measurements`);
+                                                            useUiStore
+                                                              .getState()
+                                                              .showToast(`Cleared ${cnt} measurements`);
                                                             setActionMenuId(null);
                                                             setActionConfirm(null);
                                                           } else {
@@ -5808,7 +5429,8 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                           width: "100%",
                                                           padding: "7px 12px",
                                                           border: "none",
-                                                          background: actionConfirm === "clear" ? `${C.orange}15` : "transparent",
+                                                          background:
+                                                            actionConfirm === "clear" ? `${C.orange}15` : "transparent",
                                                           color: C.orange,
                                                           display: "flex",
                                                           alignItems: "center",
@@ -5818,13 +5440,23 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                           transition: T.transition.fast,
                                                         }}
                                                         onMouseEnter={e => {
-                                                          if (actionConfirm !== "clear") e.currentTarget.style.background = `${C.orange}10`;
+                                                          if (actionConfirm !== "clear")
+                                                            e.currentTarget.style.background = `${C.orange}10`;
                                                         }}
                                                         onMouseLeave={e => {
-                                                          if (actionConfirm !== "clear") e.currentTarget.style.background = "transparent";
+                                                          if (actionConfirm !== "clear")
+                                                            e.currentTarget.style.background = "transparent";
                                                         }}
                                                       >
-                                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                                                        <svg
+                                                          width="11"
+                                                          height="11"
+                                                          viewBox="0 0 24 24"
+                                                          fill="none"
+                                                          stroke="currentColor"
+                                                          strokeWidth="2.5"
+                                                          strokeLinecap="round"
+                                                        >
                                                           <path d="M3 6h18M8 6V4h8v2M10 11v6M14 11v6" />
                                                         </svg>
                                                         <span>
@@ -5835,7 +5467,9 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                       </button>
                                                     )}
                                                     {/* Separator */}
-                                                    <div style={{ height: 1, background: C.border, margin: "4px 8px" }} />
+                                                    <div
+                                                      style={{ height: 1, background: C.border, margin: "4px 8px" }}
+                                                    />
                                                     {/* Delete — two-step confirm */}
                                                     <button
                                                       onClick={() => {
@@ -5851,7 +5485,8 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                         width: "100%",
                                                         padding: "7px 12px",
                                                         border: "none",
-                                                        background: actionConfirm === "delete" ? `${C.red}15` : "transparent",
+                                                        background:
+                                                          actionConfirm === "delete" ? `${C.red}15` : "transparent",
                                                         color: C.red,
                                                         display: "flex",
                                                         alignItems: "center",
@@ -5861,14 +5496,20 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                         transition: T.transition.fast,
                                                       }}
                                                       onMouseEnter={e => {
-                                                        if (actionConfirm !== "delete") e.currentTarget.style.background = `${C.red}10`;
+                                                        if (actionConfirm !== "delete")
+                                                          e.currentTarget.style.background = `${C.red}10`;
                                                       }}
                                                       onMouseLeave={e => {
-                                                        if (actionConfirm !== "delete") e.currentTarget.style.background = "transparent";
+                                                        if (actionConfirm !== "delete")
+                                                          e.currentTarget.style.background = "transparent";
                                                       }}
                                                     >
                                                       <Ic d={I.trash} size={11} color={C.red} />
-                                                      <span>{actionConfirm === "delete" ? "Delete — are you sure?" : "Delete"}</span>
+                                                      <span>
+                                                        {actionConfirm === "delete"
+                                                          ? "Delete — are you sure?"
+                                                          : "Delete"}
+                                                      </span>
                                                     </button>
                                                   </div>
                                                 )}
@@ -6742,23 +6383,37 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                           )}
                           {/* Revision badge */}
                           {d.supersedes && (
-                            <div style={{
-                              position: "absolute", top: 1, right: 1,
-                              fontSize: 6, fontWeight: 800, fontFamily: T.font.sans,
-                              padding: "0 3px", borderRadius: 3, lineHeight: "12px",
-                              background: "#F59E0B", color: "#000",
-                            }}>
+                            <div
+                              style={{
+                                position: "absolute",
+                                top: 1,
+                                right: 1,
+                                fontSize: 6,
+                                fontWeight: 800,
+                                fontFamily: T.font.sans,
+                                padding: "0 3px",
+                                borderRadius: 3,
+                                lineHeight: "12px",
+                                background: "#F59E0B",
+                                color: "#000",
+                              }}
+                            >
                               Rev {d.revision || ""}
                             </div>
                           )}
                           {/* Superseded overlay */}
                           {d.superseded && (
-                            <div style={{
-                              position: "absolute", inset: 0,
-                              background: "rgba(0,0,0,0.45)",
-                              display: "flex", alignItems: "center", justifyContent: "center",
-                              pointerEvents: "none",
-                            }}>
+                            <div
+                              style={{
+                                position: "absolute",
+                                inset: 0,
+                                background: "rgba(0,0,0,0.45)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                pointerEvents: "none",
+                              }}
+                            >
                               <span style={{ fontSize: 6, color: "#F59E0B", fontWeight: 700, fontFamily: T.font.sans }}>
                                 SUPERSEDED
                               </span>
@@ -7058,9 +6713,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                     flexShrink: 0,
                   }}
                 >
-                  <span style={{ fontSize: 8, fontWeight: 600, color: C.textDim, letterSpacing: "0.04em" }}>
-                    EST
-                  </span>
+                  <span style={{ fontSize: 8, fontWeight: 600, color: C.textDim, letterSpacing: "0.04em" }}>EST</span>
                   <span
                     style={{
                       fontSize: 13,
@@ -7109,14 +6762,14 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
             const preds = hudPredictions ? tkPredictions.predictions : [];
             const pending = preds.filter(p => !tkPredAccepted.includes(p.id) && !tkPredRejected.includes(p.id));
             const accepted = preds.filter(p => tkPredAccepted.includes(p.id));
-            const rejected = preds.filter(p => tkPredRejected.includes(p.id));
+            const _rejected = preds.filter(p => tkPredRejected.includes(p.id));
             const ctxConfidence = tkPredContext?.confidence || 0;
-            const confPct = Math.round(ctxConfidence * 100);
-            const isHighConf = ctxConfidence >= 0.75;
-            const isMedConf = ctxConfidence >= 0.5;
+            const _confPct = Math.round(ctxConfidence * 100);
+            const _isHighConf = ctxConfidence >= 0.75;
+            const _isMedConf = ctxConfidence >= 0.5;
 
             // One-click: accept all pending predictions and immediately create measurements
-            const handleAcceptAllAndConfirm = () => {
+            const _handleAcceptAllAndConfirm = () => {
               const drawingId = useDrawingsStore.getState().selectedDrawingId;
               const toAdd = preds.filter(p => !tkPredRejected.includes(p.id) && !tkPredAccepted.includes(p.id));
               if (tkActiveTakeoffId && toAdd.length > 0) {
@@ -7159,7 +6812,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
               clearPredictions();
             };
             // Individual accept: immediately add measurement for a single prediction
-            const handleAcceptOne = pred => {
+            const _handleAcceptOne = pred => {
               const drawingId = useDrawingsStore.getState().selectedDrawingId;
               acceptPrediction(pred.id);
               recordPredictionFeedback(tkPredictions?.tag, tkPredictions?.strategy, true);
@@ -9185,227 +8838,16 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
               )}
 
               {/* Right-click context menu — available in any mode */}
-              {tkContextMenu &&
-                (() => {
-                  const isMeasuring = tkMeasureState === "measuring" || tkMeasureState === "paused";
-                  const hasSelectedTakeoff = !!tkSelectedTakeoffId;
-                  const selectedTo = hasSelectedTakeoff ? takeoffs.find(t => t.id === tkSelectedTakeoffId) : null;
-                  const ctxCanUndo = useUndoStore.getState().canUndo();
-                  const menuItemStyle = color => ({
-                    padding: "7px 12px",
-                    fontSize: 10,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    color,
-                    borderBottom: `1px solid ${C.bg2}`,
-                  });
-                  const ctxIcon = (d, color, size = 12) => (
-                    <svg
-                      width={size}
-                      height={size}
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke={color}
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d={d} />
-                    </svg>
-                  );
-                  return (
-                    <>
-                      <div
-                        onClick={() => setTkContextMenu(null)}
-                        style={{ position: "fixed", inset: 0, zIndex: 199 }}
-                      />
-                      <div
-                        style={{
-                          position: "fixed",
-                          left: tkContextMenu.x,
-                          top: tkContextMenu.y,
-                          zIndex: 200,
-                          background: C.bg1,
-                          border: `1px solid ${C.border}`,
-                          borderRadius: 6,
-                          boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
-                          minWidth: 170,
-                          overflow: "hidden",
-                          animation: "fadeIn 0.1s",
-                        }}
-                      >
-                        {/* ── MEASURING ACTIONS ── */}
-                        {isMeasuring && tkActivePoints.length > 0 && (
-                          <div
-                            className="nav-item"
-                            onClick={() => {
-                              setTkActivePoints(tkActivePoints.slice(0, -1));
-                              setTkContextMenu(null);
-                            }}
-                            style={menuItemStyle(C.text)}
-                          >
-                            {ctxIcon("M1 4v6h6 M3.51 15a9 9 0 105.64-12.36L1 10", C.textMuted)}
-                            Undo Last Point
-                          </div>
-                        )}
-                        {isMeasuring && tkActivePoints.length >= 2 && tkTool === "linear" && (
-                          <div
-                            className="nav-item"
-                            onClick={() => {
-                              const to = takeoffs.find(t => t.id === tkActiveTakeoffId);
-                              if (to && tkActivePoints.length >= 2) {
-                                addMeasurement(tkActiveTakeoffId, {
-                                  type: "linear",
-                                  points: [...tkActivePoints],
-                                  value: 0,
-                                  sheetId: selectedDrawingId,
-                                  color: to.color,
-                                });
-                              }
-                              pauseMeasuring();
-                              setTkContextMenu(null);
-                            }}
-                            style={menuItemStyle(C.accent)}
-                          >
-                            <Ic d={I.check} size={12} color={C.accent} /> Finish Segment
-                          </div>
-                        )}
-                        {isMeasuring && tkActivePoints.length >= 3 && tkTool === "area" && (
-                          <div
-                            className="nav-item"
-                            onClick={() => {
-                              const to = takeoffs.find(t => t.id === tkActiveTakeoffId);
-                              if (to && tkActivePoints.length >= 3) {
-                                addMeasurement(tkActiveTakeoffId, {
-                                  type: "area",
-                                  points: [...tkActivePoints],
-                                  value: 0,
-                                  sheetId: selectedDrawingId,
-                                  color: to.color,
-                                });
-                              }
-                              pauseMeasuring();
-                              setTkContextMenu(null);
-                            }}
-                            style={menuItemStyle(C.accent)}
-                          >
-                            <Ic d={I.check} size={12} color={C.accent} /> Close & Finish Area
-                          </div>
-                        )}
-                        {isMeasuring && (
-                          <>
-                            <div
-                              className="nav-item"
-                              onClick={() => {
-                                setSnapAngleOn(v => !v);
-                                setTkContextMenu(null);
-                              }}
-                              style={menuItemStyle(snapAngleOn ? C.accent : C.text)}
-                            >
-                              {ctxIcon(
-                                "M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z",
-                                snapAngleOn ? C.accent : C.textMuted,
-                              )}
-                              Snap Angle {snapAngleOn ? "✓" : ""}
-                            </div>
-                            <div
-                              className="nav-item"
-                              onClick={() => {
-                                stopMeasuring();
-                                setTkContextMenu(null);
-                              }}
-                              style={{
-                                ...menuItemStyle(C.red),
-                                borderBottom: "none",
-                                borderTop: `1px solid ${C.border}`,
-                                fontWeight: 600,
-                              }}
-                            >
-                              <svg width="10" height="10" viewBox="0 0 10 10" fill={C.red}>
-                                <rect width="10" height="10" rx="1.5" />
-                              </svg>
-                              Stop Measuring
-                            </div>
-                          </>
-                        )}
-
-                        {/* ── GENERAL ACTIONS (always available) ── */}
-                        {!isMeasuring && (
-                          <>
-                            {/* Undo */}
-                            <div
-                              className="nav-item"
-                              onClick={() => {
-                                if (ctxCanUndo) {
-                                  const actionName = useUndoStore.getState().undo();
-                                  if (actionName) useUiStore.getState().showToast(`Undone: ${actionName}`, "info");
-                                }
-                                setTkContextMenu(null);
-                              }}
-                              style={{
-                                ...menuItemStyle(ctxCanUndo ? C.text : C.textMuted),
-                                opacity: ctxCanUndo ? 1 : 0.5,
-                              }}
-                            >
-                              {ctxIcon("M1 4v6h6 M3.51 15a9 9 0 105.64-12.36L1 10", ctxCanUndo ? C.textMuted : C.bg2)}
-                              Undo
-                            </div>
-
-                            {/* Delete Selected Takeoff */}
-                            {selectedTo && (
-                              <div
-                                className="nav-item"
-                                onClick={() => {
-                                  removeTakeoff(selectedTo.id);
-                                  setTkSelectedTakeoffId(null);
-                                  setTkContextMenu(null);
-                                }}
-                                style={{ ...menuItemStyle(C.red), fontWeight: 500 }}
-                              >
-                                {ctxIcon("M12 2a10 10 0 100 20 10 10 0 000-20z M15 9l-6 6 M9 9l6 6", C.red)}
-                                Delete "{selectedTo.description || "Takeoff"}"
-                              </div>
-                            )}
-
-                            {/* Snap Angle toggle */}
-                            <div
-                              className="nav-item"
-                              onClick={() => {
-                                setSnapAngleOn(v => !v);
-                                setTkContextMenu(null);
-                              }}
-                              style={menuItemStyle(snapAngleOn ? C.accent : C.text)}
-                            >
-                              {ctxIcon(
-                                "M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z",
-                                snapAngleOn ? C.accent : C.textMuted,
-                              )}
-                              Snap Angle {snapAngleOn ? "✓" : ""}
-                            </div>
-
-                            {/* Labels toggle */}
-                            <div
-                              className="nav-item"
-                              onClick={() => {
-                                setShowMeasureLabels(v => !v);
-                                setTkContextMenu(null);
-                              }}
-                              style={{ ...menuItemStyle(showMeasureLabels ? C.accent : C.text), borderBottom: "none" }}
-                            >
-                              {ctxIcon(
-                                "M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z",
-                                showMeasureLabels ? C.accent : C.textMuted,
-                              )}
-                              Labels {showMeasureLabels ? "✓" : ""}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </>
-                  );
-                })()}
+              <TakeoffContextMenu
+                addMeasurement={addMeasurement}
+                pauseMeasuring={pauseMeasuring}
+                stopMeasuring={stopMeasuring}
+                snapAngleOn={snapAngleOn}
+                setSnapAngleOn={setSnapAngleOn}
+                showMeasureLabels={showMeasureLabels}
+                setShowMeasureLabels={setShowMeasureLabels}
+                removeTakeoff={removeTakeoff}
+              />
             </div>
           </>
         )}

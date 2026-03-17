@@ -70,7 +70,7 @@ function ensureInstance(state, moduleId) {
   };
 }
 
-export const useModuleStore = create((set, get) => ({
+export const useModuleStore = create((set, _get) => ({
   activeModule: null,
   moduleInstances: {},
 

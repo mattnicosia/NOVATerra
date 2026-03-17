@@ -1,4 +1,4 @@
-export const UNITS = ["SF","LF","SY","CY","EA","HR","LS","TON","LB","GAL","DAY","WK","MO","CF","BD FT","SQRE","MSF","VLF","PAIR","SET","BAG","BOX","ROLL","PALLET","MBF","CLF","BATH"];
+export const UNITS = ["SF","LF","SY","CY","EA","HR","LS","TON","LB","GAL","DAY","MO","CF","BD FT","SQRE","MSF","VLF","PAIR","SET","BAG","BOX","ROLL","PALLET","MBF","CLF"];
 
 export const BASE_UNITS = ["EA", "SF", "LF"];
 

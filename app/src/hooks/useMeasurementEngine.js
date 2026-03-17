@@ -61,7 +61,7 @@ export const evalFormula = (formula, variables, measured) => {
     const safe = expr.replace(/[^0-9.+\-*/()% ]/g, "");
     if (!safe.trim()) return measured;
     return Function('"use strict";return (' + safe + ")")();
-  } catch (e) {
+  } catch {
     return measured;
   }
 };
@@ -91,7 +91,8 @@ export default function useMeasurementEngine() {
       const cal = tkCalibrations[drawingId];
       if (cal?.p1 && cal?.p2 && cal?.realDist) {
         const calPxDist = Math.sqrt((cal.p2.x - cal.p1.x) ** 2 + (cal.p2.y - cal.p1.y) ** 2);
-        if (calPxDist > 0) return calPxDist / nn(cal.realDist);
+        const realDist = nn(cal.realDist);
+        if (calPxDist > 0 && realDist > 0) return calPxDist / realDist;
       }
       const scaleCode = drawingScales[drawingId];
       if (scaleCode && scaleCode !== "custom") {

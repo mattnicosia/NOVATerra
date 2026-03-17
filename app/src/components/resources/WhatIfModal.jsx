@@ -35,7 +35,8 @@ function countWeekdays(start, end) {
 export default function WhatIfModal({ workload, onClose }) {
   const C = useTheme();
   const T = C.T;
-  const estimators = useMasterDataStore(s => s.masterData?.estimators) || [];
+  const rawEstimators = useMasterDataStore(s => s.masterData?.estimators);
+  const estimators = useMemo(() => rawEstimators || [], [rawEstimators]);
 
   const [name, setName] = useState("");
   const [hours, setHours] = useState(40);

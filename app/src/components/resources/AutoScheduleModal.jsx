@@ -17,7 +17,8 @@ export default function AutoScheduleModal({ workload, onClose }) {
   const C = useTheme();
   const T = C.T;
   const estimatesIndex = useEstimatesStore(s => s.estimatesIndex);
-  const estimators = useMasterDataStore(s => s.masterData?.estimators) || [];
+  const rawEstimators = useMasterDataStore(s => s.masterData?.estimators);
+  const estimators = useMemo(() => rawEstimators || [], [rawEstimators]);
   const effectiveHoursPerDay = workload.effectiveHoursPerDay || 5.95;
 
   const [selected, setSelected] = useState(new Set());
@@ -127,7 +128,7 @@ export default function AutoScheduleModal({ workload, onClose }) {
     setMultiPicks(next);
   };
 
-  const pillBtn = (label, active, onClick) => ({
+  const pillBtn = (label, active, _onClick) => ({
     ...bt(C),
     padding: "5px 14px",
     fontSize: 10,

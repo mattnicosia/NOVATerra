@@ -75,7 +75,7 @@ export default function NovaIntelligenceMeter({ proposalCount, elementCount, ass
         {/* Left: label + description */}
         <div style={{ flex: "1 1 280px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>NOVA Intelligence</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>ARTIFACT Intelligence</span>
             <span
               style={{
                 fontSize: 9,
@@ -93,8 +93,8 @@ export default function NovaIntelligenceMeter({ proposalCount, elementCount, ass
           </div>
           <p style={{ fontSize: 11.5, color: C.textMuted, margin: 0, lineHeight: 1.5 }}>
             {totalItems === 0
-              ? "Upload proposals and cost data to begin training NOVA's intelligence engine."
-              : `NOVA has learned from ${totalItems.toLocaleString()} data ${totalItems === 1 ? "point" : "points"} — ${proposalCount} proposal${proposalCount !== 1 ? "s" : ""}, ${elementCount} cost item${elementCount !== 1 ? "s" : ""}, ${assemblyCount} assembl${assemblyCount !== 1 ? "ies" : "y"}, ${drawingNoteCount} drawing note${drawingNoteCount !== 1 ? "s" : ""}.`}
+              ? "Upload proposals and cost data to begin training ARTIFACT's intelligence engine."
+              : `ARTIFACT has learned from ${totalItems.toLocaleString()} data ${totalItems === 1 ? "point" : "points"} — ${proposalCount} proposal${proposalCount !== 1 ? "s" : ""}, ${elementCount} cost item${elementCount !== 1 ? "s" : ""}, ${assemblyCount} assembl${assemblyCount !== 1 ? "ies" : "y"}, ${drawingNoteCount} drawing note${drawingNoteCount !== 1 ? "s" : ""}.`}
           </p>
         </div>
 

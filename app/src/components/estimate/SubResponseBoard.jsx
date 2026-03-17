@@ -66,7 +66,6 @@ function timeSince(dateStr) {
 
 export default function SubResponseBoard() {
   const C = useTheme();
-  const T = C.T;
   const bidPackages = useBidPackagesStore(s => s.bidPackages);
   const invitations = useBidPackagesStore(s => s.invitations);
   const subResponseIntents = useBidPackagesStore(s => s.subResponseIntents);
@@ -78,8 +77,8 @@ export default function SubResponseBoard() {
     const passedList = [];
     let totalSent = 0;
     let totalResponded = 0;
-    let totalOpened = 0;
-    let totalSubmitted = 0;
+    let _totalOpened = 0;
+    let _totalSubmitted = 0;
     let responseTimeSum = 0;
     let responseTimeCount = 0;
 
@@ -94,7 +93,7 @@ export default function SubResponseBoard() {
         const intent = subResponseIntents?.[inv.id]?.intent;
 
         if (SUBMITTED_STATUSES.has(inv.status)) {
-          totalSubmitted++;
+          _totalSubmitted++;
           totalResponded++;
           cols.submitted.push(inv);
           if (inv.submittedAt && inv.sentAt) {
@@ -111,7 +110,7 @@ export default function SubResponseBoard() {
           cols.reviewing.push(inv);
           totalResponded++;
         } else if (OPENED_STATUSES.has(inv.status)) {
-          totalOpened++;
+          _totalOpened++;
           cols.noResponse.push(inv);
         } else {
           cols.noResponse.push(inv);

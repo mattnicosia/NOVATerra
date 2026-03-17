@@ -9,15 +9,6 @@ import { BarChart, Spark } from "@/components/intelligence/PureCSSChart";
    team velocity over time, and hiring signals.
    ──────────────────────────────────────────────────────── */
 
-function getWeekKey(date) {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  const day = d.getDay();
-  const mon = new Date(d);
-  mon.setDate(d.getDate() - ((day + 6) % 7));
-  return mon.toISOString().slice(0, 10);
-}
-
 function fmtWeek(wk) {
   const d = new Date(wk + "T00:00:00");
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -60,7 +51,7 @@ export default function WorkloadTrendsPanel({ workload, C, T }) {
 
       // Estimates "active" in this week: status Bidding/Submitted with bidDue >= weekStart
       const activeInWeek = entries.filter(e => {
-        if (!["Bidding", "Pending", "Won", "Lost"].includes(e.status)) return false;
+        if (!["Bidding", "Submitted", "Won", "Lost"].includes(e.status)) return false;
         if (!e.bidDue) return false;
         return e.bidDue >= weekStart;
       });
@@ -72,7 +63,7 @@ export default function WorkloadTrendsPanel({ workload, C, T }) {
 
       // Completed this week
       const completed = entries.filter(
-        e => ["Won", "Lost", "Pending"].includes(e.status) && e.bidDue >= weekStart && e.bidDue <= weekEndStr,
+        e => ["Won", "Lost", "Submitted"].includes(e.status) && e.bidDue >= weekStart && e.bidDue <= weekEndStr,
       ).length;
 
       return {
@@ -95,7 +86,7 @@ export default function WorkloadTrendsPanel({ workload, C, T }) {
     const estimatorTrends = estimatorRows.map(row => {
       const spark = weeks.map(weekStart => {
         const inWeek = entries.filter(
-          e => e.estimator === row.name && ["Bidding", "Pending"].includes(e.status) && e.bidDue >= weekStart,
+          e => e.estimator === row.name && ["Bidding", "Submitted"].includes(e.status) && e.bidDue >= weekStart,
         );
         return inWeek.reduce((s, e) => s + (e.estimatedHours || 0), 0);
       });

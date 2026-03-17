@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { bt } from "@/utils/styles";
 import { useScanStore } from "@/stores/scanStore";
-import { getBuildingTypeLabel, getWorkTypeLabel } from "@/constants/constructionTypes";
+import { getBuildingTypeLabel } from "@/constants/constructionTypes";
 import {
   getAvailableYears,
   getCompositeIndex,
@@ -13,12 +13,11 @@ import {
   getAllDivisionIndices,
   getCurrentYear,
 } from "@/constants/constructionCostIndex";
-import { extractYear, getEscalationFactor, formatEscalation, normalizeEntry } from "@/utils/costEscalation";
+import { normalizeEntry } from "@/utils/costEscalation";
 import {
   MARKUP_TAXONOMY,
   MARKUP_CATEGORIES,
   classifyMarkup,
-  getMarkupCategory,
   detectMarginGrouping,
   isInsuranceAssumedInOP,
   detectGeneralCostGrouping,
@@ -39,7 +38,7 @@ const fmtCost = n => {
 export default function CostHistoryAnalytics({ entries }) {
   const C = useTheme();
   const T = C.T;
-  const learningRecords = useScanStore(s => s.learningRecords);
+  const _learningRecords = useScanStore(s => s.learningRecords);
   const calibrationFactors = useScanStore.getState().getCalibrationFactors();
   const [showTrendDetail, setShowTrendDetail] = useState(false);
   const [markupView, setMarkupView] = useState("holistic");
@@ -335,9 +334,7 @@ export default function CostHistoryAnalytics({ entries }) {
       >
         {label}
       </div>
-      <div style={{ fontSize: 18, fontWeight: 800, color: color || C.text, fontFamily: T.font.sans }}>
-        {value}
-      </div>
+      <div style={{ fontSize: 18, fontWeight: 800, color: color || C.text, fontFamily: T.font.sans }}>{value}</div>
       {sub && <div style={{ fontSize: 9, color: C.textDim, marginTop: 2 }}>{sub}</div>}
     </div>
   );
@@ -368,7 +365,7 @@ export default function CostHistoryAnalytics({ entries }) {
 
     return (
       <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: chartH, padding: "0 2px" }}>
-        {data.map((d, i) => {
+        {data.map((d, _i) => {
           const pct = ((d.index - minIdx) / range) * 100;
           const h = Math.max(4, (pct / 100) * chartH);
           const isBase = d.year === 2020;
@@ -658,9 +655,7 @@ export default function CostHistoryAnalytics({ entries }) {
                       ${t.adjPerSF}
                     </span>
                     {t.avgPerSF !== t.adjPerSF && (
-                      <span style={{ fontSize: 7, color: C.textDim, fontFamily: T.font.sans }}>
-                        ${t.avgPerSF}
-                      </span>
+                      <span style={{ fontSize: 7, color: C.textDim, fontFamily: T.font.sans }}>${t.avgPerSF}</span>
                     )}
                     <span style={{ fontSize: 8, color: C.textDim }}>({t.count})</span>
                   </div>
@@ -859,9 +854,7 @@ export default function CostHistoryAnalytics({ entries }) {
                         <div key={h.key} style={{ display: "flex", alignItems: "center", gap: 4 }}>
                           <div style={{ width: 6, height: 6, borderRadius: 3, background: C[h.color] || C.accent }} />
                           <span style={{ fontSize: 8, color: C.textDim }}>{h.label}</span>
-                          <span
-                            style={{ fontSize: 8, fontWeight: 700, color: C.text, fontFamily: T.font.sans }}
-                          >
+                          <span style={{ fontSize: 8, fontWeight: 700, color: C.text, fontFamily: T.font.sans }}>
                             {h.avgPctOfDirect}%
                           </span>
                         </div>
@@ -1154,7 +1147,7 @@ export default function CostHistoryAnalytics({ entries }) {
                     // Separated view
                     const withDiv01 = markupStats.generalEntries.filter(e => e.div01 > 0);
                     const withGCMarkup = markupStats.generalEntries.filter(e => e.gcMarkupTotal > 0);
-                    const avgDiv01Pct =
+                    const _avgDiv01Pct =
                       withDiv01.length > 0
                         ? Math.round(
                             (withDiv01.reduce((s, e) => s + e.div01, 0) /

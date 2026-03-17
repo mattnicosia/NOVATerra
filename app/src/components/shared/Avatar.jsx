@@ -28,7 +28,6 @@ export default function Avatar({
   onUpload,
   style: styleProp,
 }) {
-  const C = useTheme();
   const [hovered, setHovered] = useState(false);
   const [imgError, setImgError] = useState(false);
   const [uploading, setUploading] = useState(false);

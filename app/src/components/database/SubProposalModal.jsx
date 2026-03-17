@@ -41,7 +41,7 @@ export default function SubProposalModal({ onClose }) {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [pricingZip, setPricingZip] = useState(project?.zipCode || "");
   const [normalize, setNormalize] = useState(true);
-  const [importedCount, setImportedCount] = useState(0);
+  const [_importedCount, setImportedCount] = useState(0);
   const fileRef = useRef(null);
 
   // Resolve location factors from pricing zip
@@ -178,7 +178,7 @@ IMPORTANT: Return ONLY valid JSON array. No markdown, no explanation. Example:
         } else {
           items = JSON.parse(result);
         }
-      } catch (parseErr) {
+      } catch {
         setError("Could not parse AI response. Try a different file format.");
         setStep("upload");
         return;
@@ -716,7 +716,7 @@ IMPORTANT: Return ONLY valid JSON array. No markdown, no explanation. Example:
 
             {/* Items */}
             <div style={{ flex: 1, overflowY: "auto", padding: "0 16px" }}>
-              {extractedItems.map((item, idx) => {
+              {extractedItems.map((item, _idx) => {
                 const isSelected = selectedIds.has(item.id);
                 return (
                   <div

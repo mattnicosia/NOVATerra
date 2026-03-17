@@ -42,7 +42,6 @@ export const useTakeoffsStore = create((set, get) => ({
   tkScopeSuggestions: null,
   tkZoom: 100,
   tkPan: { x: 0, y: 0 },
-  tkSheetViews: {}, // { [drawingId]: { zoom, pan: {x,y} } } — per-sheet persistence
   tkPanelWidth: 550,
   tkPanelTier: "standard", // "compact" | "standard" | "full" | "estimate"
   tkPanelOpen: true,
@@ -84,27 +83,20 @@ export const useTakeoffsStore = create((set, get) => ({
             confidence: Math.min(0.98, ctx.confidence + 0.03),
           }
         : null;
-      return { tkPredAccepted: newAccepted, tkPredContext: newCtx, tkPredRefining: false };
+      return { tkPredAccepted: newAccepted, tkPredContext: newCtx };
     }),
 
   rejectPrediction: id =>
     set(s => {
       const newRejected = [...s.tkPredRejected, id];
       const ctx = s.tkPredContext;
-      const newMiss = ctx ? ctx.consecutiveMisses + 1 : 0;
       const newCtx = ctx
         ? {
             ...ctx,
-            missCount: ctx.missCount + 1,
-            consecutiveMisses: newMiss,
             confidence: Math.max(0.1, ctx.confidence - 0.05),
           }
         : null;
-      return {
-        tkPredRejected: newRejected,
-        tkPredContext: newCtx,
-        tkPredRefining: newMiss >= 2,
-      };
+      return { tkPredRejected: newRejected, tkPredContext: newCtx };
     }),
 
   acceptAllPredictions: () =>
@@ -120,7 +112,7 @@ export const useTakeoffsStore = create((set, get) => ({
             confidence: 0.95,
           }
         : null;
-      return { tkPredAccepted: ids, tkPredContext: newCtx, tkPredRefining: false };
+      return { tkPredAccepted: ids, tkPredContext: newCtx };
     }),
 
   setTkNovaPanelOpen: v => set(s => ({ tkNovaPanelOpen: typeof v === "function" ? v(s.tkNovaPanelOpen) : v })),
@@ -185,20 +177,6 @@ export const useTakeoffsStore = create((set, get) => ({
   setTkScopeSuggestions: v => set({ tkScopeSuggestions: v }),
   setTkZoom: v => set(s => ({ tkZoom: typeof v === "function" ? v(s.tkZoom) : v })),
   setTkPan: v => set(s => ({ tkPan: typeof v === "function" ? v(s.tkPan) : v })),
-  // Per-sheet zoom/pan: save current view for a drawing
-  saveTkSheetView: (drawingId) => set(s => {
-    if (!drawingId) return s;
-    return { tkSheetViews: { ...s.tkSheetViews, [drawingId]: { zoom: s.tkZoom, pan: { ...s.tkPan } } } };
-  }),
-  // Per-sheet zoom/pan: restore view for a drawing (returns true if found)
-  restoreTkSheetView: (drawingId) => {
-    const view = get().tkSheetViews[drawingId];
-    if (view) {
-      set({ tkZoom: view.zoom, tkPan: { ...view.pan } });
-      return true;
-    }
-    return false;
-  },
   setTkPanelWidth: v => set({ tkPanelWidth: v }),
   setTkPanelTier: v => set({ tkPanelTier: v }),
   setTkPanelOpen: v => set({ tkPanelOpen: v }),
@@ -349,32 +327,5 @@ export const useTakeoffsStore = create((set, get) => ({
         timestamp: Date.now(),
       });
     }
-  },
-
-  clearMeasurements: takeoffId => {
-    const tk = get().takeoffs.find(t => t.id === takeoffId);
-    const oldMeasurements = tk ? [...(tk.measurements || [])] : [];
-    if (oldMeasurements.length === 0) return;
-    set(s => ({
-      takeoffs: s.takeoffs.map(t =>
-        t.id === takeoffId ? { ...t, measurements: [], quantity: 0 } : t,
-      ),
-    }));
-    useUndoStore.getState().push({
-      action: `Clear ${oldMeasurements.length} measurements`,
-      undo: () =>
-        set(s => ({
-          takeoffs: s.takeoffs.map(t =>
-            t.id === takeoffId ? { ...t, measurements: oldMeasurements } : t,
-          ),
-        })),
-      redo: () =>
-        set(s => ({
-          takeoffs: s.takeoffs.map(t =>
-            t.id === takeoffId ? { ...t, measurements: [], quantity: 0 } : t,
-          ),
-        })),
-      timestamp: Date.now(),
-    });
   },
 }));

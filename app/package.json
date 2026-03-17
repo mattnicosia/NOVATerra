@@ -10,6 +10,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "audit:dead-files": "node scripts/audit-dead-files.js",
+    "audit:health": "node scripts/health-report.js",
     "lint": "eslint src/ api/",
     "lint:fix": "eslint src/ api/ --fix",
     "format": "prettier --write \"src/**/*.{js,jsx,css}\" \"api/**/*.js\"",
@@ -19,7 +22,7 @@
   "lint-staged": {
     "*.{js,jsx}": [
       "prettier --write",
-      "eslint --fix --max-warnings 9999"
+      "eslint --fix --max-warnings 0"
     ],
     "*.{css,json,md}": [
       "prettier --write"

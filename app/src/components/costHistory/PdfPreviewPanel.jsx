@@ -1,7 +1,7 @@
 // PdfPreviewPanel — renders all pages of a PDF from base64 string using PDF.js
 // Used in CostHistoryEntryForm to show the original PDF alongside extracted data
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { loadPdfJs } from "@/utils/pdf";
 import Ic from "@/components/shared/Ic";

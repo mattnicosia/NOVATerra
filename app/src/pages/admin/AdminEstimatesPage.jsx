@@ -3,8 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useAdminFetch } from "@/hooks/useAdminFetch";
 import { card } from "@/utils/styles";
-import Ic from "@/components/shared/Ic";
-import { I } from "@/constants/icons";
 
 export default function AdminEstimatesPage() {
   const C = useTheme();
@@ -113,17 +111,11 @@ export default function AdminEstimatesPage() {
                 >
                   {e.userEmail}
                 </span>
-                <span
-                  style={{ textAlign: "right", color: C.text, fontFamily: T.font.sans, fontWeight: 600 }}
-                >
+                <span style={{ textAlign: "right", color: C.text, fontFamily: T.font.sans, fontWeight: 600 }}>
                   {e.totalCost ? `$${Math.round(e.totalCost).toLocaleString()}` : "—"}
                 </span>
-                <span style={{ textAlign: "right", color: C.textDim, fontFamily: T.font.sans }}>
-                  {e.lineItemCount}
-                </span>
-                <span
-                  style={{ textAlign: "right", color: C.textDim, fontFamily: T.font.sans, fontSize: 11 }}
-                >
+                <span style={{ textAlign: "right", color: C.textDim, fontFamily: T.font.sans }}>{e.lineItemCount}</span>
+                <span style={{ textAlign: "right", color: C.textDim, fontFamily: T.font.sans, fontSize: 11 }}>
                   {e.updated_at ? new Date(e.updated_at).toLocaleDateString() : "—"}
                 </span>
               </div>

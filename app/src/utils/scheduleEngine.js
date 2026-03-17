@@ -1,10 +1,10 @@
 // scheduleEngine.js — Pure scheduling logic: activity generation, CPM, Takt
 // No React dependencies — reads data passed as arguments
 
-import { uid } from '@/utils/format';
-import { TRADE_GROUPINGS, TRADE_MAP } from '@/constants/tradeGroupings';
-import { TRADE_SCHEDULE_DEFAULTS } from '@/constants/productivityRates';
-import { getTradeColor } from '@/utils/geometryBuilder';
+import { uid } from "@/utils/format";
+import { TRADE_GROUPINGS } from "@/constants/tradeGroupings";
+import { TRADE_SCHEDULE_DEFAULTS } from "@/constants/productivityRates";
+import { getTradeColor } from "@/utils/geometryBuilder";
 
 // ── Generate activities from estimate items ─────────────────
 export function generateActivities(items, tradeOverrides = {}) {
@@ -12,7 +12,7 @@ export function generateActivities(items, tradeOverrides = {}) {
   const byTrade = {};
 
   items.forEach(item => {
-    const tradeKey = item.trade || 'unassigned';
+    const tradeKey = item.trade || "unassigned";
     if (!byTrade[tradeKey]) {
       byTrade[tradeKey] = { laborCost: 0, materialCost: 0, totalCost: 0, itemCount: 0 };
     }
@@ -135,7 +135,10 @@ function topoSort(activities) {
   const idMap = Object.fromEntries(activities.map(a => [a.id, a]));
   const inDeg = {};
   const adj = {};
-  activities.forEach(a => { inDeg[a.id] = 0; adj[a.id] = []; });
+  activities.forEach(a => {
+    inDeg[a.id] = 0;
+    adj[a.id] = [];
+  });
 
   activities.forEach(a => {
     a.predecessors.forEach(pid => {
@@ -173,14 +176,16 @@ export function computeCPM(activities) {
     if (act.predecessors.length === 0) {
       act.earlyStart = 0;
     } else {
-      act.earlyStart = Math.max(...act.predecessors.map(pid => {
-        const pred = idMap[pid];
-        if (!pred) return 0;
-        if (act.predecessorType === "SS") {
-          return pred.earlyStart + act.lag;
-        }
-        return pred.earlyFinish + act.lag;
-      }));
+      act.earlyStart = Math.max(
+        ...act.predecessors.map(pid => {
+          const pred = idMap[pid];
+          if (!pred) return 0;
+          if (act.predecessorType === "SS") {
+            return pred.earlyStart + act.lag;
+          }
+          return pred.earlyFinish + act.lag;
+        }),
+      );
     }
     act.earlyFinish = act.earlyStart + act.duration;
   });
@@ -190,7 +195,9 @@ export function computeCPM(activities) {
 
   // Build successor map for backward pass
   const successors = {};
-  activities.forEach(a => { successors[a.id] = []; });
+  activities.forEach(a => {
+    successors[a.id] = [];
+  });
   activities.forEach(a => {
     a.predecessors.forEach(pid => {
       if (successors[pid]) {
@@ -206,14 +213,17 @@ export function computeCPM(activities) {
     if (succs.length === 0) {
       act.lateFinish = projectEnd;
     } else {
-      act.lateFinish = Math.min(projectEnd, ...succs.map(s => {
-        const succ = idMap[s.id];
-        if (!succ) return projectEnd;
-        if (s.type === "SS") {
-          return succ.lateStart - s.lag + act.duration;
-        }
-        return succ.lateStart - s.lag;
-      }));
+      act.lateFinish = Math.min(
+        projectEnd,
+        ...succs.map(s => {
+          const succ = idMap[s.id];
+          if (!succ) return projectEnd;
+          if (s.type === "SS") {
+            return succ.lateStart - s.lag + act.duration;
+          }
+          return succ.lateStart - s.lag;
+        }),
+      );
     }
     act.lateStart = act.lateFinish - act.duration;
     act.totalFloat = act.lateStart - act.earlyStart;
@@ -248,7 +258,7 @@ export function generateTaktData(activities, zones) {
 
 // ── Date utilities ──────────────────────────────────────────
 export function dayToDate(dayNumber, startDate, workDaysPerWeek = 5) {
-  const start = new Date(startDate + 'T00:00:00');
+  const start = new Date(startDate + "T00:00:00");
   if (workDaysPerWeek === 7) {
     const result = new Date(start);
     result.setDate(result.getDate() + dayNumber);
@@ -266,7 +276,7 @@ export function dayToDate(dayNumber, startDate, workDaysPerWeek = 5) {
 }
 
 export function formatDate(date) {
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 // ── Full pipeline ───────────────────────────────────────────

@@ -60,8 +60,6 @@ function mergeScheduleRegions(a, b) {
 }
 
 // ── Matrix math helpers ─────────────────────────────────────────────
-const identityMatrix = () => [1, 0, 0, 1, 0, 0];
-
 function multiplyMatrix(a, b) {
   return [
     a[0] * b[0] + a[2] * b[1], // a
@@ -80,7 +78,9 @@ function applyMatrix(m, x, y) {
 // ── Load a PDF page from raw cache (for pre-rendered drawings) ──────
 async function loadPageFromCache(drawing) {
   const buf = pdfRawCache.get(drawing.fileName);
-  console.log(`[loadPageFromCache] fileName="${drawing.fileName}" found=${!!buf} byteLength=${buf?.byteLength || 0} pdfPage=${drawing.pdfPage}`);
+  console.log(
+    `[loadPageFromCache] fileName="${drawing.fileName}" found=${!!buf} byteLength=${buf?.byteLength || 0} pdfPage=${drawing.pdfPage}`,
+  );
   if (!buf || buf.byteLength === 0) return null;
   await loadPdfJs();
   // CRITICAL: slice() creates a copy — pdf.js transfers the ArrayBuffer to its worker,
@@ -160,7 +160,9 @@ export async function extractText(drawing) {
   const items = [];
 
   // DEBUG: log raw item count for diagnosis
-  console.log(`[extractText] Drawing ${drawing.id} page ${drawing.pdfPage || 1}: ${textContent.items.length} raw text items from pdf.js`);
+  console.log(
+    `[extractText] Drawing ${drawing.id} page ${drawing.pdfPage || 1}: ${textContent.items.length} raw text items from pdf.js`,
+  );
 
   for (const item of textContent.items) {
     if (!item.str || !item.str.trim()) continue;
@@ -323,7 +325,9 @@ export async function extractPageData(drawing) {
 
   const [text, vectors] = await Promise.all([extractText(drawing), extractVectors(drawing)]);
 
-  console.log(`[extractPageData] Drawing ${drawing.id}: ${text.length} text items, ${vectors.lines.length} lines, ${vectors.rects.length} rects`);
+  console.log(
+    `[extractPageData] Drawing ${drawing.id}: ${text.length} text items, ${vectors.lines.length} lines, ${vectors.rects.length} rects`,
+  );
 
   const result = {
     drawingId: drawing.id,
@@ -382,7 +386,26 @@ export function isLikelyTag(text) {
   if (/^\d+$/.test(t) && t.length > 2) return false; // Pure numbers 3+ digits (room numbers)
   if (/^[A-Z]{4,}$/i.test(t)) return false; // Long words
   // Common short words that are NOT construction tags
-  const FALSE_WORDS = new Set(["MAX","MIN","SEE","NEW","THE","AND","FOR","NOT","PER","TYP","ALL","USE","ADD","END","SET","TOP","CUT","RUN"]);
+  const FALSE_WORDS = new Set([
+    "MAX",
+    "MIN",
+    "SEE",
+    "NEW",
+    "THE",
+    "AND",
+    "FOR",
+    "NOT",
+    "PER",
+    "TYP",
+    "ALL",
+    "USE",
+    "ADD",
+    "END",
+    "SET",
+    "TOP",
+    "CUT",
+    "RUN",
+  ]);
   if (FALSE_WORDS.has(t.toUpperCase())) return false;
   return TAG_PATTERN.test(t);
 }

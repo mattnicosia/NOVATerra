@@ -15,7 +15,6 @@ import { bt, inp, card as cardStyle } from "@/utils/styles";
 import { TRADE_MAP, TRADE_COLORS } from "@/constants/tradeGroupings";
 import { CSI } from "@/constants/csi";
 import { generateScopeSheet } from "@/utils/scopeSheetGenerator";
-import { callAnthropic } from "@/utils/ai";
 
 /* ────────────────────────────────────────────────────────
    AutoBidPackageReview — Card-based review/approval UI
@@ -33,7 +32,7 @@ export default function AutoBidPackageReview({ proposals, onClose }) {
   const drawings = useDrawingsStore(s => s.drawings);
   const subs = useMasterDataStore(s => s.masterData.subcontractors);
   const estimateId = useEstimatesStore(s => s.activeEstimateId);
-  const project = useProjectStore(s => s.project);
+  const _project = useProjectStore(s => s.project);
   const addBidPackage = useBidPackagesStore(s => s.addBidPackage);
   const setPackageInvitations = useBidPackagesStore(s => s.setPackageInvitations);
   const showToast = useUiStore(s => s.showToast);
@@ -56,39 +55,6 @@ export default function AutoBidPackageReview({ proposals, onClose }) {
   const [progress, setProgress] = useState(null);
   const [subSearchId, setSubSearchId] = useState(null); // which package is browsing all subs
   const [subSearchQuery, setSubSearchQuery] = useState("");
-  const [generatingCoverId, setGeneratingCoverId] = useState(null);
-
-  const handleNovaWriteCover = async (pkg) => {
-    setGeneratingCoverId(pkg.id);
-    try {
-      const result = await callAnthropic({
-        max_tokens: 500,
-        system: `You are NOVA, an AI assistant for a general contractor writing RFP cover messages to subcontractors. Write a brief, professional cover message.
-
-The message should:
-- Be 3-5 sentences
-- Reference the project name and specific trade/scope
-- Mention due date if provided
-- Be direct and professional (GC-to-sub tone)
-- Do NOT include greetings or sign-offs`,
-        messages: [{
-          role: "user",
-          content: `Project: ${project.name || "Untitled"}
-Trade Package: ${pkg.name}
-Due Date: ${pkg.dueDate || project.bidDue || "TBD"}
-Items: ${pkg.items.slice(0, 8).map(i => i.description || i.code).join(", ")}
-
-Write a professional RFP cover message.`
-        }],
-        temperature: 0.4,
-      });
-      const text = result?.content?.[0]?.text || "";
-      if (text) updatePkg(pkg.id, { coverMessage: text.trim() });
-    } catch (err) {
-      console.error("[NOVA Write] Failed:", err);
-    }
-    setGeneratingCoverId(null);
-  };
 
   // Derived
   const enabledPkgs = useMemo(() => packages.filter(p => p.enabled), [packages]);
@@ -344,7 +310,7 @@ Write a professional RFP cover message.`
             const tradeColor = TRADE_COLORS[pkg.tradeKey] || C.accent;
             // Use _orig arrays to show the full matched set (not just currently checked)
             const pkgDrawings = drawings.filter(d => (pkg._origDrawingIds || pkg.drawingIds).includes(d.id));
-            const pkgSubs = subs.filter(s => (pkg._origSubIds || pkg.subIds).includes(s.id));
+            const _pkgSubs = subs.filter(s => (pkg._origSubIds || pkg.subIds).includes(s.id));
 
             return (
               <div
@@ -753,36 +719,19 @@ Write a professional RFP cover message.`
                         >
                           Cover Message
                         </div>
-                        <div style={{ display: "flex", gap: T.space[2] }}>
-                          <button
-                            onClick={() => handleNovaWriteCover(pkg)}
-                            disabled={generatingCoverId === pkg.id}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              cursor: generatingCoverId === pkg.id ? "not-allowed" : "pointer",
-                              fontSize: T.fontSize.xs,
-                              color: C.accent,
-                              fontWeight: T.fontWeight.medium,
-                              opacity: generatingCoverId === pkg.id ? 0.5 : 1,
-                            }}
-                          >
-                            {generatingCoverId === pkg.id ? "Generating..." : "\u2726 NOVA Write"}
-                          </button>
-                          <button
-                            onClick={() => setCoverEditId(coverEditId === pkg.id ? null : pkg.id)}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              cursor: "pointer",
-                              fontSize: T.fontSize.xs,
-                              color: C.accent,
-                              fontWeight: T.fontWeight.medium,
-                            }}
-                          >
-                            {coverEditId === pkg.id ? "Done" : "Edit"}
-                          </button>
-                        </div>
+                        <button
+                          onClick={() => setCoverEditId(coverEditId === pkg.id ? null : pkg.id)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            cursor: "pointer",
+                            fontSize: T.fontSize.xs,
+                            color: C.accent,
+                            fontWeight: T.fontWeight.medium,
+                          }}
+                        >
+                          {coverEditId === pkg.id ? "Done" : "Edit"}
+                        </button>
                       </div>
                       {coverEditId === pkg.id ? (
                         <textarea

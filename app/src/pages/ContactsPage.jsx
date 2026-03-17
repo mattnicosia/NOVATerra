@@ -57,7 +57,7 @@ export default function ContactsPage() {
   const architects = getContactsForCompany("architects", activeCompanyId);
   const engineers = getContactsForCompany("engineers", activeCompanyId);
   const subcontractors = getContactsForCompany("subcontractors", activeCompanyId);
-  const estimators = masterData.estimators || [];
+  const estimators = useMemo(() => masterData.estimators || [], [masterData.estimators]);
 
   const activeProfileInfo =
     activeCompanyId === "__all__" ? masterData.companyInfo : getCompanyInfo(activeCompanyId || undefined);
@@ -944,7 +944,7 @@ function CompanyGroup({
   C,
   T,
   inputStyle,
-  inputBoldStyle,
+  inputBoldStyle: _inputBoldStyle,
   handleFieldUpdate,
   onDeletePerson,
   onAddPerson,
@@ -956,7 +956,6 @@ function CompanyGroup({
 }) {
   const isUnnamed = companyName === "__unnamed__";
   const personCount = people.length;
-  const firstPerson = people[0];
 
   // Local state for debounced company name editing
   const [localName, setLocalName] = useState(isUnnamed ? "" : companyName);
@@ -1332,7 +1331,7 @@ function ContactAvatar({ initials, color, T }) {
 }
 
 /* ── New Company Modal ── */
-function NewCompanyModal({ tab, companyTag, onSave, onClose, C, T }) {
+function NewCompanyModal({ tab, companyTag: _companyTag, onSave, onClose, C, T }) {
   const FIELD_MAP = {
     subcontractors: ["company", "trades", "contact", "email", "phone", "notes"],
     clients: ["company", "contact", "email", "phone", "address", "notes"],
@@ -1665,7 +1664,7 @@ function NewCompanyModal({ tab, companyTag, onSave, onClose, C, T }) {
 function SubDetailPanel({ sub, onUpdate, C, T }) {
   const bidPackages = useBidPackagesStore(s => s.bidPackages);
   const invitations = useBidPackagesStore(s => s.invitations);
-  const proposals = useBidPackagesStore(s => s.proposals);
+  const _proposals = useBidPackagesStore(s => s.proposals);
 
   // Compute performance from bid packages data
   const perf = useMemo(() => {

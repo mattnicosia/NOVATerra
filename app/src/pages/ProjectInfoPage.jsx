@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, useRef, lazy, Suspense } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useProjectStore } from "@/stores/projectStore";
@@ -17,16 +17,12 @@ import Modal from "@/components/shared/Modal";
 import TimePicker from "@/components/shared/TimePicker";
 import { I } from "@/constants/icons";
 import { inp, nInp, bt } from "@/utils/styles";
-import { uid } from "@/utils/format";
+// uid available for future use
+// import { uid } from "@/utils/format";
 import { useCorrespondenceStore } from "@/stores/correspondenceStore";
 import { resolveLocationFactors, getAllLocations } from "@/constants/locationFactors";
 import { suggestEstimatedHours } from "@/utils/hoursEstimator";
 import { supabase } from "@/utils/supabase";
-import { syncCompletedEstimate } from "@/lib/nova-core/completionSync";
-import { useItemsStore } from "@/stores/itemsStore";
-import { useBidLevelingStore } from "@/stores/bidLevelingStore";
-const ReengageSubsPanel = lazy(() => import("@/components/estimate/ReengageSubsPanel"));
-const OutcomeFeedbackModal = lazy(() => import("@/components/shared/OutcomeFeedbackModal"));
 
 /* ── Completion calculator ── */
 const ALL_FIELDS = [
@@ -146,7 +142,7 @@ function BidTimeline({ project, C }) {
           transform: "translateY(-50%)",
         }}
       />
-      {events.map((evt, i) => (
+      {events.map((evt, _i) => (
         <div
           key={evt.key}
           style={{
@@ -238,29 +234,6 @@ export default function ProjectInfoPage() {
   const [estNumError, setEstNumError] = useState("");
   const prevEstNumRef = useRef("");
 
-  // Estimates index + current entry (must be declared before revision workflow uses them)
-  const estimatesIndex = useEstimatesStore(s => s.estimatesIndex);
-  const currentEntry = useMemo(
-    () => estimatesIndex.find(e => e.id === activeEstimateId),
-    [estimatesIndex, activeEstimateId],
-  );
-
-  // Revision workflow
-  const createRevision = useEstimatesStore(s => s.createRevision);
-  const getRevisionChain = useEstimatesStore(s => s.getRevisionChain);
-  const [revisionModalOpen, setRevisionModalOpen] = useState(false);
-  const [revisionReason, setRevisionReason] = useState("");
-  const [creatingRevision, setCreatingRevision] = useState(false);
-  const revisionChain = useMemo(
-    () => (activeEstimateId ? getRevisionChain(activeEstimateId) : []),
-    [estimatesIndex, activeEstimateId],
-  );
-  const isRevision = !!(currentEntry?.parentEstimateId);
-  const hasRevisions = revisionChain.length > 1;
-  const preferredSubs = useBidLevelingStore(s => s.preferredSubs);
-  const hasPreferredSubs = Object.keys(preferredSubs).length > 0;
-  const [showReengage, setShowReengage] = useState(true);
-
   // Correspondences
   const correspondences = useCorrespondenceStore(s => s.correspondences);
   const addCorrespondence = useCorrespondenceStore(s => s.addCorrespondence);
@@ -271,8 +244,11 @@ export default function ProjectInfoPage() {
   // Communications timeline — linked emails from inbox
   const [commEmails, setCommEmails] = useState([]);
   const [commLoading, setCommLoading] = useState(false);
-  const [reviewGate, setReviewGate] = useState(null); // { targetStatus, checks[] }
-  const [outcomeModal, setOutcomeModal] = useState(null); // "Won" | "Lost" | null
+  const estimatesIndex = useEstimatesStore(s => s.estimatesIndex);
+  const currentEntry = useMemo(
+    () => estimatesIndex.find(e => e.id === activeEstimateId),
+    [estimatesIndex, activeEstimateId],
+  );
   const sourceRfpId = currentEntry?.sourceRfpId || "";
   const emailCount = currentEntry?.emailCount || 0;
 
@@ -296,7 +272,7 @@ export default function ProjectInfoPage() {
     } finally {
       setCommLoading(false);
     }
-  }, [activeEstimateId]);
+  }, [activeEstimateId, API_BASE]);
 
   useEffect(() => {
     if (sourceRfpId || emailCount > 0) fetchCommEmails();
@@ -306,21 +282,6 @@ export default function ProjectInfoPage() {
 
   const handleSave = async () => {
     if (!activeEstimateId) return;
-
-    // ── Require a unique estimate number before finalizing ──
-    const trimmedEstNum = (project.estimateNumber || "").trim();
-    if (!trimmedEstNum) {
-      setEstNumError("Estimate number is required before saving");
-      return;
-    }
-    const allEstimates = useEstimatesStore.getState().estimatesIndex;
-    // Exclude trashed estimates from duplicate check
-    const dupEst = allEstimates.find(e => e.estimateNumber === trimmedEstNum && e.id !== activeEstimateId && e.status !== "Trash");
-    if (dupEst) {
-      setEstNumError(`Estimate #${trimmedEstNum} already exists ("${dupEst.name}")`);
-      return;
-    }
-
     const isDraft = draftId && activeEstimateId === draftId;
     if (isDraft) {
       clearDraft();
@@ -349,50 +310,16 @@ export default function ProjectInfoPage() {
     navigate(`/estimate/${activeEstimateId}/plans`);
   };
 
-  const up = (field, value) => {
-    setProject({ ...project, [field]: value });
-
-    // NOVA Core: sync when status changes to Won
-    if (field === "status" && value === "Won") {
-      console.log("[ProjectInfoPage] Won detected, firing NOVA Core sync");
-      const orgId = useOrgStore.getState().org?.id;
-      if (orgId && activeEstimateId) {
-        // Also update the index entry so Projects page reflects the change
-        updateIndexEntry(activeEstimateId, { status: "Won" });
-
-        const items = useItemsStore.getState().items;
-        const currentProject = { ...project, status: "Won" };
-        const estEntry = estimatesIndex.find(e => e.id === activeEstimateId);
-        syncCompletedEstimate({
-          estimateId: activeEstimateId,
-          estimateIndex: estEntry || { id: activeEstimateId, grandTotal: project.grandTotal },
-          project: currentProject,
-          items,
-          outcomeMetadata: {
-            contractAmount: project.grandTotal || estEntry?.grandTotal || 0,
-            awardDate: new Date().toISOString().slice(0, 10),
-          },
-          orgId,
-        }).then(() => {
-          console.log("[ProjectInfoPage] NOVA Core sync complete");
-        }).catch(err => {
-          console.error("[ProjectInfoPage] NOVA Core sync failed:", err);
-        });
-      } else {
-        console.warn("[ProjectInfoPage] Won but missing orgId or estimateId — sync skipped");
-      }
-    }
-  };
+  const up = (field, value) => setProject({ ...project, [field]: value });
 
   const validateEstimateNumber = val => {
     const trimmed = (val || "").trim();
     if (!trimmed) {
-      setEstNumError("Estimate number is required");
+      setEstNumError("");
       return;
     }
     const all = useEstimatesStore.getState().estimatesIndex;
-    // Exclude trashed estimates from duplicate check
-    const dup = all.find(e => e.estimateNumber === trimmed && e.id !== activeEstimateId && e.status !== "Trash");
+    const dup = all.find(e => e.estimateNumber === trimmed && e.id !== activeEstimateId);
     if (dup) {
       setEstNumError(`Estimate #${trimmed} already exists ("${dup.name}")`);
       up("estimateNumber", prevEstNumRef.current);
@@ -401,87 +328,10 @@ export default function ProjectInfoPage() {
     }
   };
 
-  // ── NOVA pre-submission review gate ──
-  const handleStatusChange = newStatus => {
-    // Outcome capture for Won/Lost
-    if (newStatus === "Won" || newStatus === "Lost") {
-      setOutcomeModal(newStatus);
-      up("status", newStatus);
-      setReviewGate(null);
-      return;
-    }
-    const gated = ["Bidding", "Pending"];
-    if (!gated.includes(newStatus)) {
-      up("status", newStatus);
-      setReviewGate(null);
-      return;
-    }
-    // Run checks
-    const items = useItemsStore.getState().items;
-    const checks = [];
-    // 1. Must have a name
-    if (!project.name?.trim()) checks.push({ severity: "error", msg: "Project name is missing" });
-    // 2. Must have bid due date
-    if (!project.bidDue) checks.push({ severity: "warn", msg: "No bid due date set" });
-    // 3. Must have client
-    if (!project.client?.trim()) checks.push({ severity: "warn", msg: "No client specified" });
-    // 4. Must have items
-    if (items.length === 0) checks.push({ severity: "error", msg: "Estimate has no line items" });
-    // 5. Check for $0 items
-    const zeroItems = items.filter(i => {
-      const total = (parseFloat(i.material) || 0) + (parseFloat(i.labor) || 0) + (parseFloat(i.equipment) || 0) + (parseFloat(i.subcontractor) || 0);
-      return total === 0;
-    });
-    if (zeroItems.length > 0) checks.push({ severity: "warn", msg: `${zeroItems.length} line item${zeroItems.length > 1 ? "s" : ""} have $0 cost` });
-    // 6. Check SF
-    if (!project.projectSF || parseFloat(project.projectSF) <= 0) checks.push({ severity: "warn", msg: "Project square footage not set" });
-    // 7. Check building type
-    if (!project.buildingType) checks.push({ severity: "info", msg: "Building type not set — affects cost intelligence" });
-
-    const hasErrors = checks.some(c => c.severity === "error");
-    if (checks.length === 0) {
-      // All clear — proceed
-      up("status", newStatus);
-      return;
-    }
-    setReviewGate({ targetStatus: newStatus, checks, hasErrors });
-  };
-
-  const confirmReviewGate = () => {
-    if (reviewGate) {
-      up("status", reviewGate.targetStatus);
-      setReviewGate(null);
-    }
-  };
-
   const handleSuggestHours = () => {
     const estimatesIndex = useEstimatesStore.getState().estimatesIndex;
     const result = suggestEstimatedHours(project, estimatesIndex);
     setHoursSuggestion(result);
-  };
-
-  const handleCreateRevision = async () => {
-    if (!activeEstimateId || creatingRevision) return;
-    setCreatingRevision(true);
-    try {
-      // Save current estimate first so all latest changes are captured
-      await saveEstimate();
-
-      const result = await createRevision(activeEstimateId, {
-        revisionReason: revisionReason.trim(),
-      });
-      if (result) {
-        showToast(`Revision ${result.revisionNumber} created`);
-        setRevisionModalOpen(false);
-        setRevisionReason("");
-        // Navigate to the new revision
-        navigate(`/estimate/${result.id}/project-info`);
-      }
-    } catch (err) {
-      showToast(`Failed to create revision: ${err.message}`, "error");
-    } finally {
-      setCreatingRevision(false);
-    }
   };
 
   const handleQuickAdd = () => {
@@ -612,104 +462,10 @@ export default function ProjectInfoPage() {
           <div />
         </div>
 
-        {/* ── Revision Banner (shown when this is a revision or has revisions) ── */}
-        {(isRevision || hasRevisions) && (
-          <div
-            style={{
-              background: `${C.accent}10`,
-              border: `1px solid ${C.accent}30`,
-              borderRadius: 8,
-              padding: "12px 16px",
-              marginBottom: 16,
-            }}
-          >
-            {isRevision && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: hasRevisions ? 10 : 0 }}>
-                <Ic d={I.refresh} size={14} color={C.accent} sw={2} />
-                <span style={{ fontSize: 12, fontWeight: 600, color: C.accent }}>
-                  Revision {currentEntry?.revisionNumber || "?"}
-                </span>
-                {currentEntry?.revisionReason && (
-                  <span style={{ fontSize: 11, color: C.textMuted, marginLeft: 4 }}>
-                    — {currentEntry.revisionReason}
-                  </span>
-                )}
-                <button
-                  onClick={() => {
-                    const parentId = currentEntry?.parentEstimateId;
-                    if (parentId) navigate(`/estimate/${parentId}/project-info`);
-                  }}
-                  style={{
-                    marginLeft: "auto",
-                    fontSize: 10,
-                    fontWeight: 600,
-                    color: C.accent,
-                    background: "transparent",
-                    border: `1px solid ${C.accent}40`,
-                    borderRadius: 4,
-                    padding: "3px 10px",
-                    cursor: "pointer",
-                  }}
-                >
-                  View Original
-                </button>
-              </div>
-            )}
-            {hasRevisions && (
-              <div>
-                <div style={{ fontSize: 10, fontWeight: 600, color: C.textMuted, marginBottom: 6, letterSpacing: "0.04em" }}>
-                  REVISION HISTORY
-                </div>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {revisionChain.map(rev => {
-                    const isCurrent = rev.id === activeEstimateId;
-                    const label = rev.revisionNumber === 0 || !rev.parentEstimateId
-                      ? "Original"
-                      : `Rev ${rev.revisionNumber}`;
-                    return (
-                      <button
-                        key={rev.id}
-                        onClick={() => {
-                          if (!isCurrent) navigate(`/estimate/${rev.id}/project-info`);
-                        }}
-                        style={{
-                          fontSize: 11,
-                          fontWeight: isCurrent ? 700 : 500,
-                          color: isCurrent ? "#fff" : C.text,
-                          background: isCurrent ? C.accent : C.bg2,
-                          border: `1px solid ${isCurrent ? C.accent : C.border}`,
-                          borderRadius: 5,
-                          padding: "4px 12px",
-                          cursor: isCurrent ? "default" : "pointer",
-                          opacity: isCurrent ? 1 : 0.8,
-                          transition: "all 0.15s",
-                        }}
-                        title={rev.revisionReason || label}
-                      >
-                        {label}
-                        <span style={{ fontSize: 9, marginLeft: 4, opacity: 0.7 }}>
-                          {rev.status}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── Re-engage Preferred Subs (on revisions with preferred subs) ── */}
-        {isRevision && hasPreferredSubs && showReengage && (
-          <Suspense fallback={null}>
-            <ReengageSubsPanel onClose={() => setShowReengage(false)} />
-          </Suspense>
-        )}
-
         {/* ── Project Details ── */}
         <Sec title="Project Details" icon={SECTION_ICONS["Project Details"]}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 12 }}>
-            <Fld label={<>Estimate Number <span style={{ color: C.red || "#f44" }}>*</span></>}>
+            <Fld label="Estimate Number">
               <input
                 value={project.estimateNumber || ""}
                 onFocus={() => {
@@ -721,9 +477,9 @@ export default function ProjectInfoPage() {
                 }}
                 onBlur={e => validateEstimateNumber(e.target.value)}
                 placeholder="e.g. EST-2026-001"
-                style={inp(C, estNumError ? { borderColor: C.red || "#f44" } : {})}
+                style={inp(C, estNumError ? { borderColor: C.red } : {})}
               />
-              {estNumError && <div style={{ fontSize: 10, color: C.red || "#f44", marginTop: 2 }}>{estNumError}</div>}
+              {estNumError && <div style={{ fontSize: 10, color: C.red, marginTop: 2 }}>{estNumError}</div>}
               {autoTag("estimateNumber")}
             </Fld>
             <Fld label="Project Name">
@@ -761,68 +517,16 @@ export default function ProjectInfoPage() {
               {autoTag("client", "clients", "Client")}
             </Fld>
             <Fld label="Status">
-              <select value={project.status || "Active"} onChange={e => handleStatusChange(e.target.value)} style={inp(C)}>
+              <select value={project.status || "Active"} onChange={e => up("status", e.target.value)} style={inp(C)}>
                 <option>Active</option>
                 <option>Qualifying</option>
                 <option>Bidding</option>
-                <option>Pending</option>
+                <option>Submitted</option>
                 <option>Won</option>
                 <option>Lost</option>
                 <option>On Hold</option>
                 <option>Cancelled</option>
               </select>
-              {/* ── NOVA Review Gate ── */}
-              {reviewGate && (
-                <div
-                  style={{
-                    marginTop: 8,
-                    padding: "10px 12px",
-                    borderRadius: 6,
-                    background: reviewGate.hasErrors ? `${C.red}08` : `${C.orange}08`,
-                    border: `1px solid ${reviewGate.hasErrors ? C.red : C.orange}25`,
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-                    <span style={{ fontSize: 9, fontWeight: 700, color: C.accent, letterSpacing: "0.04em" }}>NOVA</span>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: C.text }}>
-                      Pre-submission review
-                    </span>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    {reviewGate.checks.map((c, i) => (
-                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10 }}>
-                        <span style={{
-                          width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
-                          background: c.severity === "error" ? C.red : c.severity === "warn" ? C.orange : C.accent,
-                        }} />
-                        <span style={{ color: C.textMuted }}>{c.msg}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ display: "flex", gap: 6, marginTop: 10, justifyContent: "flex-end" }}>
-                    <button
-                      onClick={() => setReviewGate(null)}
-                      style={{
-                        background: "transparent", border: `1px solid ${C.border}`, color: C.textDim,
-                        padding: "4px 12px", borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: "pointer",
-                      }}
-                    >
-                      Cancel
-                    </button>
-                    {!reviewGate.hasErrors && (
-                      <button
-                        onClick={confirmReviewGate}
-                        style={{
-                          background: C.accent, border: "none", color: "#fff",
-                          padding: "4px 12px", borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: "pointer",
-                        }}
-                      >
-                        Proceed to {reviewGate.targetStatus}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
             </Fld>
             <Fld label="Building Type">
               <select
@@ -1120,7 +824,7 @@ export default function ProjectInfoPage() {
                   {(() => {
                     const idx = useEstimatesStore.getState().estimatesIndex.find(e => e.id === activeEstimateId);
                     const assignedIds = idx?.assignedTo || [];
-                    const assigned = (orgMembers || []).filter(m => assignedIds.includes(m.user_id));
+                    const assigned = orgMembers.filter(m => assignedIds.includes(m.user_id));
                     return (
                       <>
                         {assigned.length > 0 ? (
@@ -1201,7 +905,7 @@ export default function ProjectInfoPage() {
                             title="Assign team member"
                           >
                             <option value="">+</option>
-                            {(orgMembers || [])
+                            {orgMembers
                               .filter(m => !assignedIds.includes(m.user_id))
                               .map(m => (
                                 <option key={m.id} value={m.user_id}>
@@ -1534,8 +1238,8 @@ export default function ProjectInfoPage() {
           </div>
         </Sec>
 
-        {/* Correspondences — only for Pending/Won, hidden until first one added */}
-        {(correspondences.length > 0 || project.status === "Pending" || project.status === "Won") && (
+        {/* Correspondences — only for Submitted/Won, hidden until first one added */}
+        {(correspondences.length > 0 || project.status === "Submitted" || project.status === "Won") && (
           <Sec
             title={`Correspondences${correspondences.length > 0 ? ` (${correspondences.length})` : ""}`}
             icon={
@@ -2050,35 +1754,16 @@ export default function ProjectInfoPage() {
           />
         </Fld>
 
-        {/* Save Button + Create Revision */}
+        {/* Save Button */}
         <div
           style={{
             display: "flex",
             justifyContent: "flex-end",
-            alignItems: "center",
-            gap: 10,
             marginTop: 20,
             paddingTop: 16,
             borderTop: `1px solid ${C.border}`,
           }}
         >
-          {/* Create Revision — only on non-draft, non-Trash estimates */}
-          {!draftId && project.status !== "Trash" && (
-            <button
-              onClick={() => setRevisionModalOpen(true)}
-              style={bt(C, {
-                background: "transparent",
-                color: C.accent,
-                border: `1px solid ${C.accent}50`,
-                padding: "10px 20px",
-                fontSize: 13,
-                fontWeight: 600,
-                borderRadius: 6,
-              })}
-            >
-              <Ic d={I.copy} size={14} color={C.accent} sw={2} /> Create Revision
-            </button>
-          )}
           <button
             className="accent-btn"
             onClick={handleSave}
@@ -2095,58 +1780,6 @@ export default function ProjectInfoPage() {
           </button>
         </div>
       </div>
-
-      {/* Create Revision Modal */}
-      {revisionModalOpen && (
-        <Modal onClose={() => { setRevisionModalOpen(false); setRevisionReason(""); }}>
-          <div style={{ maxWidth: 480 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: C.text, marginBottom: 4 }}>
-              Create Revision
-            </div>
-            <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 16, lineHeight: 1.5 }}>
-              This creates a full copy of the current estimate — all line items, markup, sub leveling,
-              alternates, and bid data are carried forward. The original estimate is preserved.
-            </p>
-            <Fld label="Revision Reason (optional)">
-              <textarea
-                autoFocus
-                value={revisionReason}
-                onChange={e => setRevisionReason(e.target.value)}
-                placeholder="e.g. Owner requested value engineering, scope reduction for Phase 2, alternate materials..."
-                rows={3}
-                style={inp(C, { resize: "vertical", lineHeight: 1.5, fontSize: 12 })}
-              />
-            </Fld>
-            {isRevision && (
-              <div style={{ fontSize: 11, color: C.accent, marginTop: 8, padding: "6px 10px", background: `${C.accent}10`, borderRadius: 5 }}>
-                This is already Revision {currentEntry?.revisionNumber}. The new revision will be Rev {(currentEntry?.revisionNumber || 0) + 1}.
-              </div>
-            )}
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 20 }}>
-              <button
-                onClick={() => { setRevisionModalOpen(false); setRevisionReason(""); }}
-                style={bt(C, { background: C.bg2, color: C.textMuted, padding: "9px 18px", fontSize: 12 })}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreateRevision}
-                disabled={creatingRevision}
-                style={bt(C, {
-                  background: C.accent,
-                  color: "#fff",
-                  padding: "9px 18px",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  opacity: creatingRevision ? 0.6 : 1,
-                })}
-              >
-                {creatingRevision ? "Creating..." : "Create Revision"}
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
 
       {/* Quick Add Modal */}
       {quickAddModal && (
@@ -2177,23 +1810,6 @@ export default function ProjectInfoPage() {
             </button>
           </div>
         </Modal>
-      )}
-      {/* ── NOVA Outcome Debrief ── */}
-      {outcomeModal && (
-        <Suspense fallback={null}>
-          <OutcomeFeedbackModal
-            estimate={estimatesIndex.find(e => e.id === activeEstimateId) || { name: project.name, grandTotal: project.grandTotal }}
-            status={outcomeModal}
-            onSave={metadata => {
-              // Store outcome metadata on the project
-              setProject(prev => ({ ...prev, outcomeMetadata: { ...(prev.outcomeMetadata || {}), ...metadata } }));
-              // Also update index entry
-              updateIndexEntry(activeEstimateId, { outcomeMetadata: { ...(project.outcomeMetadata || {}), ...metadata } });
-              setOutcomeModal(null);
-            }}
-            onSkip={() => setOutcomeModal(null)}
-          />
-        </Suspense>
       )}
     </div>
   );

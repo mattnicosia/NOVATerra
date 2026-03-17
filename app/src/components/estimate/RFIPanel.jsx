@@ -49,17 +49,14 @@ export default function RFIPanel() {
   const [streamText, setStreamText] = useState("");
   const [filter, setFilter] = useState("all"); // "all" | "open" | "answered" | "closed"
   const [expandedRFI, setExpandedRFI] = useState(null);
-  const [editField, setEditField] = useState(null); // "rfiId::field"
+  const [_editField, _setEditField] = useState(null); // "rfiId::field"
 
   // Load RFIs on mount
   useEffect(() => {
     if (estimateId && !loaded) useRfiStore.getState().loadRFIs(estimateId);
   }, [estimateId, loaded]);
 
-  const filteredRFIs = useMemo(
-    () => (filter === "all" ? rfis : rfis.filter(r => r.status === filter)),
-    [rfis, filter],
-  );
+  const filteredRFIs = useMemo(() => (filter === "all" ? rfis : rfis.filter(r => r.status === filter)), [rfis, filter]);
 
   const counts = useMemo(
     () => ({
@@ -123,13 +120,7 @@ Generate 5-10 RFIs, prioritized by impact on bid accuracy.`,
           const impactMatch = block.match(/Impact:\s*(.+?)(?:\n|$)/);
           const lines = block
             .split("\n")
-            .filter(
-              l =>
-                l.trim() &&
-                !l.startsWith("**") &&
-                !l.startsWith("Reference:") &&
-                !l.startsWith("Impact:"),
-            );
+            .filter(l => l.trim() && !l.startsWith("**") && !l.startsWith("Reference:") && !l.startsWith("Impact:"));
           return {
             subject: subjectMatch?.[1]?.trim() || `RFI ${i + 1}`,
             reference: refMatch?.[1]?.trim() || "",
@@ -159,10 +150,7 @@ Generate 5-10 RFIs, prioritized by impact on bid accuracy.`,
 
   const copyAllRFIs = () => {
     const text = filteredRFIs
-      .map(
-        r =>
-          `RFI #${r.number}: ${r.subject}\nReference: ${r.reference}\n\n${r.question}\n\nImpact: ${r.impact}`,
-      )
+      .map(r => `RFI #${r.number}: ${r.subject}\nReference: ${r.reference}\n\n${r.question}\n\nImpact: ${r.impact}`)
       .join("\n\n---\n\n");
     navigator.clipboard.writeText(text);
     showToast?.(`${filteredRFIs.length} RFIs copied`);
@@ -174,18 +162,16 @@ Generate 5-10 RFIs, prioritized by impact on bid accuracy.`,
     if (newRfi) setExpandedRFI(newRfi.id);
   };
 
-  const isOverdue = rfi =>
-    rfi.status === "open" && rfi.dateDue && new Date(rfi.dateDue).getTime() < Date.now();
+  const isOverdue = rfi => rfi.status === "open" && rfi.dateDue && new Date(rfi.dateDue).getTime() < Date.now();
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
-      {/* Generate bar — card-style CTA */}
+      {/* Generate bar */}
       <div
         style={{
           padding: "8px 10px",
           borderBottom: `1px solid ${C.border}`,
           display: "flex",
-          flexDirection: "column",
           gap: 6,
         }}
       >
@@ -193,21 +179,13 @@ Generate 5-10 RFIs, prioritized by impact on bid accuracy.`,
           onClick={generateRFIs}
           disabled={generating}
           style={bt(C, {
-            width: "100%",
-            padding: "10px 12px",
+            flex: 1,
+            padding: "7px 0",
             fontSize: 11,
             fontWeight: 700,
-            background: generating
-              ? C.bg3
-              : `linear-gradient(135deg, ${C.accent}18, ${(C.purple || C.accent)}12)`,
-            color: generating ? C.textDim : C.accent,
-            border: `1px solid ${generating ? C.border : C.accent + "30"}`,
-            borderRadius: T.radius.md,
-            boxShadow: generating ? "none" : `0 1px 4px ${C.accent}10`,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 6,
+            background: generating ? C.bg3 : `linear-gradient(135deg, ${C.accent}, ${C.purple || C.accent})`,
+            color: generating ? C.textDim : "#fff",
+            boxShadow: generating ? "none" : `0 2px 8px ${C.accent}30`,
           })}
         >
           {generating ? (
@@ -217,19 +195,18 @@ Generate 5-10 RFIs, prioritized by impact on bid accuracy.`,
                   display: "inline-block",
                   width: 10,
                   height: 10,
-                  border: `2px solid ${C.accent}30`,
-                  borderTop: `2px solid ${C.accent}`,
+                  border: "2px solid #fff3",
+                  borderTop: "2px solid #fff",
                   borderRadius: "50%",
                   animation: "spin 0.8s linear infinite",
+                  marginRight: 4,
                 }}
               />
-              Analyzing specs & drawings...
+              Analyzing...
             </>
           ) : (
             <>
-              <Ic d={I.ai} size={12} color={C.accent} />
-              <span>Generate RFIs</span>
-              <span style={{ fontSize: 8, opacity: 0.6, fontWeight: 500 }}>AI</span>
+              <Ic d={I.ai} size={11} color="#fff" /> Generate RFIs
             </>
           )}
         </button>
@@ -237,20 +214,15 @@ Generate 5-10 RFIs, prioritized by impact on bid accuracy.`,
           onClick={handleAddManual}
           title="Add manual RFI"
           style={bt(C, {
-            width: "100%",
-            padding: "6px 10px",
-            fontSize: 10,
-            fontWeight: 500,
+            padding: "7px 10px",
+            fontSize: 11,
+            fontWeight: 600,
             background: "transparent",
             border: `1px solid ${C.border}`,
-            color: C.textDim,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 4,
+            color: C.textMuted,
           })}
         >
-          <Ic d={I.plus} size={9} color={C.textDim} /> Add Manual RFI
+          <Ic d={I.plus} size={10} color={C.textMuted} />
         </button>
       </div>
 
@@ -346,9 +318,7 @@ Generate 5-10 RFIs, prioritized by impact on bid accuracy.`,
                 borderLeft: `3px solid ${overdue ? C.red : statusColor}`,
                 borderRadius: 4,
                 background: expanded ? `${C.accent}04` : "transparent",
-                border: expanded
-                  ? `1px solid ${C.accent}20`
-                  : `1px solid ${C.border}40`,
+                border: expanded ? `1px solid ${C.accent}20` : `1px solid ${C.border}40`,
                 borderLeftWidth: 3,
                 borderLeftColor: overdue ? C.red : statusColor,
                 overflow: "hidden",
@@ -365,9 +335,7 @@ Generate 5-10 RFIs, prioritized by impact on bid accuracy.`,
                   cursor: "pointer",
                 }}
               >
-                <span style={{ fontSize: 9, fontWeight: 700, color: C.textDim, flexShrink: 0 }}>
-                  #{rfi.number}
-                </span>
+                <span style={{ fontSize: 9, fontWeight: 700, color: C.textDim, flexShrink: 0 }}>#{rfi.number}</span>
                 <span
                   style={{
                     fontSize: 11,

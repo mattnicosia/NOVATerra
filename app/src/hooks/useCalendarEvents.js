@@ -8,7 +8,7 @@ import { useUiStore } from "@/stores/uiStore";
  * Filters estimates by active company profile (same logic as useDashboardData).
  * Returns { events: [], eventsByDate: Map<'YYYY-MM-DD', event[]> }
  */
-export function useCalendarEvents(year, month) {
+export function useCalendarEvents(_year, _month) {
   const estimatesIndex = useEstimatesStore(s => s.estimatesIndex);
   const tasks = useCalendarStore(s => s.tasks);
   const activeCompanyId = useUiStore(s => s.appSettings.activeCompanyId);

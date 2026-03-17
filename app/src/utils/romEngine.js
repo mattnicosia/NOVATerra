@@ -2,7 +2,7 @@
 // Generates division-level $/SF ranges and schedule-derived line items
 
 import { SEED_ELEMENTS } from "@/constants/seedAssemblies";
-import { callAnthropic, buildProjectContext } from "@/utils/ai";
+import { callAnthropic } from "@/utils/ai";
 import { searchSimilar } from "@/utils/vectorSearch";
 import { getWorkTypeMultiplier } from "@/constants/constructionTypes";
 import { SUBDIVISION_BENCHMARKS, DEFAULT_SUBDIVISIONS } from "@/constants/subdivisionBenchmarks";
@@ -1192,7 +1192,7 @@ export async function generateSubdivisionROM({
         onProgress,
       });
       // Merge generated data into llmData
-      Object.entries(generated).forEach(([divCode, subs]) => {
+      Object.entries(generated).forEach(([_divCode, subs]) => {
         subs.forEach(sub => {
           llmData[sub.code] = {
             pctOfDiv: sub.pctOfDiv,

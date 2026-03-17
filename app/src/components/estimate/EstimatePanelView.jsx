@@ -141,6 +141,7 @@ function EstimatePanelView({ onSelectItem, selectedItemId }) {
       );
     }
     return list;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, estDivision, estSearch, activeGroupId]);
 
   // Grouping
@@ -177,6 +178,7 @@ function EstimatePanelView({ onSelectItem, selectedItemId }) {
       if (estGroupBy === "trade") groups[key].sortVal = getTradeSortOrder(item);
     });
     return groups;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredItems, estGroupBy]);
 
   const groupKeyTotals = useMemo(() => {
@@ -185,6 +187,7 @@ function EstimatePanelView({ onSelectItem, selectedItemId }) {
       t[gk] = { count: g.items.length, total: g.items.reduce((s, i) => s + getItemTotal(i), 0) };
     });
     return t;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupedItems]);
 
   const sortedGroups = useMemo(
@@ -211,7 +214,7 @@ function EstimatePanelView({ onSelectItem, selectedItemId }) {
   const totals = getTotals();
 
   // ── Source sort order for grouping ──
-  const SOURCE_SORT = { nova: 0, scan: 0, web: 1, core: 2, database: 3, sub: 4, user: 5 };
+  const _SOURCE_SORT = { nova: 0, scan: 0, web: 1, core: 2, database: 3, sub: 4, user: 5 };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>

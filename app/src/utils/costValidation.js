@@ -1,7 +1,7 @@
 // costValidation — Pure validation functions for estimate items
 // Takes items array, returns warnings array. No store dependency.
 
-const nn = v => (typeof v === 'number' && !isNaN(v) ? v : Number(v) || 0);
+const nn = v => (typeof v === "number" && !isNaN(v) ? v : Number(v) || 0);
 
 /**
  * Run all validation checks on an items array.
@@ -20,10 +20,10 @@ export function runValidation(items) {
     const total = nn(item.material) + nn(item.labor) + nn(item.equipment) + nn(item.subcontractor);
     if (total === 0) {
       warnings.push({
-        type: 'zeroTotal',
-        severity: 'warn',
+        type: "zeroTotal",
+        severity: "warn",
         itemId: item.id,
-        message: `"${item.description || 'Unnamed item'}" has quantity ${q} but $0 cost`,
+        message: `"${item.description || "Unnamed item"}" has quantity ${q} but $0 cost`,
       });
     }
   });
@@ -31,7 +31,7 @@ export function runValidation(items) {
   // 2. High unit rates — material or labor > 2x division average
   const divAvgs = {};
   items.forEach(item => {
-    const div = (item.division || 'Unassigned').split(' ')[0]; // Use first word/code
+    const div = (item.division || "Unassigned").split(" ")[0]; // Use first word/code
     if (!divAvgs[div]) divAvgs[div] = { matSum: 0, labSum: 0, count: 0 };
     divAvgs[div].matSum += nn(item.material);
     divAvgs[div].labSum += nn(item.labor);
@@ -43,7 +43,7 @@ export function runValidation(items) {
     d.labAvg = d.count > 0 ? d.labSum / d.count : 0;
   });
   items.forEach(item => {
-    const div = (item.division || 'Unassigned').split(' ')[0];
+    const div = (item.division || "Unassigned").split(" ")[0];
     const avg = divAvgs[div];
     if (!avg || avg.count < 3) return; // Need at least 3 items for meaningful comparison
 
@@ -51,18 +51,18 @@ export function runValidation(items) {
     const lab = nn(item.labor);
     if (avg.matAvg > 0 && mat > avg.matAvg * 3 && mat > 100) {
       warnings.push({
-        type: 'highRate',
-        severity: 'warn',
+        type: "highRate",
+        severity: "warn",
         itemId: item.id,
-        message: `"${item.description || 'Unnamed'}" material ($${mat.toFixed(0)}) is 3x+ the division average ($${avg.matAvg.toFixed(0)})`,
+        message: `"${item.description || "Unnamed"}" material ($${mat.toFixed(0)}) is 3x+ the division average ($${avg.matAvg.toFixed(0)})`,
       });
     }
     if (avg.labAvg > 0 && lab > avg.labAvg * 3 && lab > 100) {
       warnings.push({
-        type: 'highRate',
-        severity: 'warn',
+        type: "highRate",
+        severity: "warn",
         itemId: item.id,
-        message: `"${item.description || 'Unnamed'}" labor ($${lab.toFixed(0)}) is 3x+ the division average ($${avg.labAvg.toFixed(0)})`,
+        message: `"${item.description || "Unnamed"}" labor ($${lab.toFixed(0)}) is 3x+ the division average ($${avg.labAvg.toFixed(0)})`,
       });
     }
   });
@@ -73,16 +73,16 @@ export function runValidation(items) {
     if (missingCode.length <= 3) {
       missingCode.forEach(item => {
         warnings.push({
-          type: 'missingCode',
-          severity: 'info',
+          type: "missingCode",
+          severity: "info",
           itemId: item.id,
-          message: `"${item.description || 'Unnamed'}" has no CSI code assigned`,
+          message: `"${item.description || "Unnamed"}" has no CSI code assigned`,
         });
       });
     } else {
       warnings.push({
-        type: 'missingCode',
-        severity: 'info',
+        type: "missingCode",
+        severity: "info",
         message: `${missingCode.length} items have no CSI code assigned`,
       });
     }
@@ -92,15 +92,17 @@ export function runValidation(items) {
   const seen = {};
   items.forEach(item => {
     if (!item.description) return;
-    const key = `${(item.code || '').trim()}::${item.description.trim().toLowerCase()}`;
-    if (!seen[key]) { seen[key] = []; }
+    const key = `${(item.code || "").trim()}::${item.description.trim().toLowerCase()}`;
+    if (!seen[key]) {
+      seen[key] = [];
+    }
     seen[key].push(item);
   });
-  Object.entries(seen).forEach(([key, dupes]) => {
+  Object.entries(seen).forEach(([_key, dupes]) => {
     if (dupes.length > 1) {
       warnings.push({
-        type: 'duplicate',
-        severity: 'warn',
+        type: "duplicate",
+        severity: "warn",
         itemId: dupes[1].id, // link to the second occurrence
         message: `"${dupes[0].description}" appears ${dupes.length} times (possible duplicate)`,
       });

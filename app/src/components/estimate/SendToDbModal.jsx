@@ -5,7 +5,7 @@ import { useUiStore } from "@/stores/uiStore";
 import Modal from "@/components/shared/Modal";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
-import { inp, nInp, bt } from "@/utils/styles";
+import { inp, bt } from "@/utils/styles";
 import { nn, fmt2 } from "@/utils/format";
 
 export default function SendToDbModal({ item, onClose }) {

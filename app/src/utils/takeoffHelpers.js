@@ -2,8 +2,6 @@
 // Pure functions / constants extracted from TakeoffsPage.jsx for maintainability.
 // Zero component dependencies — safe to import anywhere.
 
-import { callAnthropic, buildProjectContext } from "@/utils/ai";
-
 // Takeoff color palette
 export const TO_COLORS = ["#E53E3E", "#38A169", "#3182CE", "#DD6B20", "#805AD5", "#D53F8C", "#2B6CB0", "#C53030"];
 

@@ -2,13 +2,11 @@
 // Renders IFC elements with hover highlighting, section plane,
 // floor isolation, x-ray mode, and edge rendering.
 
-import { useRef, useMemo, useCallback, createContext, useContext, createElement } from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
-import { OrbitControls, Grid, Edges } from '@react-three/drei';
-import * as THREE from 'three';
-import { useModelStore } from '@/stores/modelStore';
-import { fmt } from '@/utils/format';
-import { getTradeColor } from '@/utils/geometryBuilder';
+import { useMemo, useCallback, createContext, useContext, createElement } from "react";
+import { Canvas, useThree } from "@react-three/fiber";
+import { OrbitControls, Grid, Edges } from "@react-three/drei";
+import * as THREE from "three";
+import { useModelStore } from "@/stores/modelStore";
 
 // ── Clip plane context (shared across all elements) ─────────────
 const ClipContext = createContext([]);
@@ -23,9 +21,9 @@ function ClipProvider({ sectionY, children }) {
 }
 
 // ── Material wrapper with clipping + hover/select support ───────
-function ClippedMaterial({ color, opacity, transparent, selected, hovered, xray, side }) {
+function ClippedMaterial({ color, opacity, transparent, selected: _selected, hovered, xray, side }) {
   const clipPlanes = useContext(ClipContext);
-  const emissive = hovered ? '#444466' : '#000000';
+  const emissive = hovered ? "#444466" : "#000000";
   const emissiveIntensity = hovered ? 0.6 : 0;
   const finalOpacity = xray ? Math.min(opacity, 0.15) : opacity;
 
@@ -58,7 +56,7 @@ function WallElement({ element, selected, hovered, viewMode, maxCost, xray, onCl
     shape.closePath();
 
     const pts = path.map(p => new THREE.Vector3(p.x, 0, p.z));
-    const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal', 0);
+    const curve = new THREE.CatmullRomCurve3(pts, false, "centripetal", 0);
 
     const extrudeSettings = {
       steps: Math.max((path.length - 1) * 4, 8),
@@ -88,11 +86,24 @@ function WallElement({ element, selected, hovered, viewMode, maxCost, xray, onCl
     <mesh
       geometry={geometry}
       position={[0, elevation, 0]}
-      onClick={(e) => { e.stopPropagation(); onClick(element.id); }}
-      onPointerOver={(e) => { e.stopPropagation(); onHover(element.id); }}
+      onClick={e => {
+        e.stopPropagation();
+        onClick(element.id);
+      }}
+      onPointerOver={e => {
+        e.stopPropagation();
+        onHover(element.id);
+      }}
       onPointerOut={() => onHover(null)}
     >
-      <ClippedMaterial color={color} opacity={opacity} transparent={opacity < 1} selected={selected} hovered={hovered} xray={xray} />
+      <ClippedMaterial
+        color={color}
+        opacity={opacity}
+        transparent={opacity < 1}
+        selected={selected}
+        hovered={hovered}
+        xray={xray}
+      />
       {selected && <Edges threshold={15} color="#ffffff" lineWidth={1} />}
     </mesh>
   );
@@ -125,11 +136,24 @@ function SlabElement({ element, selected, hovered, viewMode, maxCost, xray, onCl
     <mesh
       geometry={geometry}
       position={[0, elevation, 0]}
-      onClick={(e) => { e.stopPropagation(); onClick(element.id); }}
-      onPointerOver={(e) => { e.stopPropagation(); onHover(element.id); }}
+      onClick={e => {
+        e.stopPropagation();
+        onClick(element.id);
+      }}
+      onPointerOver={e => {
+        e.stopPropagation();
+        onHover(element.id);
+      }}
       onPointerOut={() => onHover(null)}
     >
-      <ClippedMaterial color={color} opacity={opacity} transparent={opacity < 1} selected={selected} hovered={hovered} xray={xray} />
+      <ClippedMaterial
+        color={color}
+        opacity={opacity}
+        transparent={opacity < 1}
+        selected={selected}
+        hovered={hovered}
+        xray={xray}
+      />
       {selected && <Edges threshold={15} color="#ffffff" lineWidth={1} />}
     </mesh>
   );
@@ -145,12 +169,25 @@ function BoxElement({ element, selected, hovered, viewMode, maxCost, xray, onCli
   return (
     <mesh
       position={[position.x, elevation + height / 2, position.z]}
-      onClick={(e) => { e.stopPropagation(); onClick(element.id); }}
-      onPointerOver={(e) => { e.stopPropagation(); onHover(element.id); }}
+      onClick={e => {
+        e.stopPropagation();
+        onClick(element.id);
+      }}
+      onPointerOver={e => {
+        e.stopPropagation();
+        onHover(element.id);
+      }}
       onPointerOut={() => onHover(null)}
     >
       <boxGeometry args={[width, height, depth]} />
-      <ClippedMaterial color={color} opacity={opacity} transparent={opacity < 1} selected={selected} hovered={hovered} xray={xray} />
+      <ClippedMaterial
+        color={color}
+        opacity={opacity}
+        transparent={opacity < 1}
+        selected={selected}
+        hovered={hovered}
+        xray={xray}
+      />
       {selected && <Edges threshold={15} color="#ffffff" lineWidth={1} />}
     </mesh>
   );
@@ -176,8 +213,8 @@ function IFCMeshElement({ element, selected, hovered, viewMode, maxCost, xray, o
       normals[i * 3 + 1] = vertices[i * stride + 4];
       normals[i * 3 + 2] = vertices[i * stride + 5];
     }
-    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+    geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
     geo.setIndex(new THREE.BufferAttribute(new Uint32Array(indices), 1));
     geo.computeBoundingSphere();
     return geo;
@@ -200,11 +237,24 @@ function IFCMeshElement({ element, selected, hovered, viewMode, maxCost, xray, o
       geometry={geometry}
       matrix={matrixTransform}
       matrixAutoUpdate={false}
-      onClick={(e) => { e.stopPropagation(); onClick(element.id); }}
-      onPointerOver={(e) => { e.stopPropagation(); onHover(element.id); }}
+      onClick={e => {
+        e.stopPropagation();
+        onClick(element.id);
+      }}
+      onPointerOver={e => {
+        e.stopPropagation();
+        onHover(element.id);
+      }}
       onPointerOut={() => onHover(null)}
     >
-      <ClippedMaterial color={color} opacity={opacity} transparent={opacity < 1} selected={selected} hovered={hovered} xray={xray} />
+      <ClippedMaterial
+        color={color}
+        opacity={opacity}
+        transparent={opacity < 1}
+        selected={selected}
+        hovered={hovered}
+        xray={xray}
+      />
       {selected && <Edges threshold={15} color="#ffffff" lineWidth={1} />}
     </mesh>
   );
@@ -234,7 +284,7 @@ function FloorShell({ outline, elevation, height, viewMode }) {
 
   if (!geometry) return null;
 
-  const isCoverage = viewMode === 'coverage';
+  const isCoverage = viewMode === "coverage";
 
   return (
     <group position={[0, elevation, 0]}>
@@ -260,7 +310,7 @@ function FloorShell({ outline, elevation, height, viewMode }) {
 
 // ── Coverage Cell: colored grid tile on floor plane ──────────────
 function CoverageCell({ cell, elevation }) {
-  const color = cell.covered ? '#10B981' : '#EF4444';
+  const color = cell.covered ? "#10B981" : "#EF4444";
   const opacity = cell.covered ? 0.2 : 0.35;
 
   return (
@@ -290,24 +340,24 @@ function SectionPlaneIndicator({ sectionY, span }) {
 
 // ── Color/opacity helpers ────────────────────────────────────────
 function getElementColor(element, viewMode, maxCost) {
-  if (viewMode === 'presentation') return '#e0e0e0';
-  if (viewMode === 'cost') {
+  if (viewMode === "presentation") return "#e0e0e0";
+  if (viewMode === "cost") {
     const intensity = maxCost > 0 ? Math.min(element.cost / maxCost, 1) : 0;
     const r = Math.round(255 * Math.min(intensity * 2, 1));
     const g = Math.round(255 * Math.min((1 - intensity) * 2, 1));
     return `rgb(${r},${g},60)`;
   }
-  if (viewMode === 'gaps') {
-    return element.linkedItemId ? element.color : '#ef4444';
+  if (viewMode === "gaps") {
+    return element.linkedItemId ? element.color : "#ef4444";
   }
-  if (viewMode === 'coverage') return element.color;
+  if (viewMode === "coverage") return element.color;
   return element.color; // trade mode
 }
 
 function getElementOpacity(element, viewMode) {
-  if (viewMode === 'gaps' && element.linkedItemId) return 0.25;
-  if (viewMode === 'presentation') return 0.85;
-  if (viewMode === 'coverage') return 0.15;
+  if (viewMode === "gaps" && element.linkedItemId) return 0.25;
+  if (viewMode === "presentation") return 0.85;
+  if (viewMode === "coverage") return 0.15;
   return 0.8;
 }
 
@@ -318,25 +368,35 @@ function CameraFit({ elements, outlines }) {
   useMemo(() => {
     if (elements.length === 0 && Object.keys(outlines).length === 0) return;
 
-    let minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity, maxY = 0;
+    let minX = Infinity,
+      minZ = Infinity,
+      maxX = -Infinity,
+      maxZ = -Infinity,
+      maxY = 0;
 
     elements.forEach(el => {
       const g = el.geometry;
-      if (g.kind === 'extrudedPath' && g.path) {
+      if (g.kind === "extrudedPath" && g.path) {
         g.path.forEach(p => {
-          minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
-          minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z);
+          minX = Math.min(minX, p.x);
+          maxX = Math.max(maxX, p.x);
+          minZ = Math.min(minZ, p.z);
+          maxZ = Math.max(maxZ, p.z);
         });
         maxY = Math.max(maxY, (g.elevation || 0) + (g.height || 10));
-      } else if (g.kind === 'polygon' && g.points) {
+      } else if (g.kind === "polygon" && g.points) {
         g.points.forEach(p => {
-          minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
-          minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z);
+          minX = Math.min(minX, p.x);
+          maxX = Math.max(maxX, p.x);
+          minZ = Math.min(minZ, p.z);
+          maxZ = Math.max(maxZ, p.z);
         });
-      } else if (g.kind === 'box' && g.position) {
-        minX = Math.min(minX, g.position.x); maxX = Math.max(maxX, g.position.x);
-        minZ = Math.min(minZ, g.position.z); maxZ = Math.max(maxZ, g.position.z);
-      } else if (g.kind === 'ifcMesh') {
+      } else if (g.kind === "box" && g.position) {
+        minX = Math.min(minX, g.position.x);
+        maxX = Math.max(maxX, g.position.x);
+        minZ = Math.min(minZ, g.position.z);
+        maxZ = Math.max(maxZ, g.position.z);
+      } else if (g.kind === "ifcMesh") {
         maxY = Math.max(maxY, 40);
       }
     });
@@ -344,8 +404,10 @@ function CameraFit({ elements, outlines }) {
     Object.values(outlines).forEach(({ polygon }) => {
       if (!polygon) return;
       polygon.forEach(p => {
-        minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
-        minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z);
+        minX = Math.min(minX, p.x);
+        maxX = Math.max(maxX, p.x);
+        minZ = Math.min(minZ, p.z);
+        maxZ = Math.max(maxZ, p.z);
       });
     });
 
@@ -366,7 +428,9 @@ function CameraFit({ elements, outlines }) {
 // ── Enable local clipping on the renderer ────────────────────────
 function EnableClipping() {
   const { gl } = useThree();
-  useMemo(() => { gl.localClippingEnabled = true; }, [gl]);
+  useMemo(() => {
+    gl.localClippingEnabled = true;
+  }, [gl]);
   return null;
 }
 
@@ -391,13 +455,19 @@ export default function SceneViewer() {
     return costs.length > 0 ? Math.max(...costs) : 1;
   }, [elements]);
 
-  const handleClick = useCallback((id) => {
-    selectElement(id);
-  }, [selectElement]);
+  const handleClick = useCallback(
+    id => {
+      selectElement(id);
+    },
+    [selectElement],
+  );
 
-  const handleHover = useCallback((id) => {
-    setHoveredElement(id);
-  }, [setHoveredElement]);
+  const handleHover = useCallback(
+    id => {
+      setHoveredElement(id);
+    },
+    [setHoveredElement],
+  );
 
   // Filter elements by floor visibility
   const visibleElements = useMemo(() => {
@@ -410,8 +480,10 @@ export default function SceneViewer() {
     let span = 40;
     elements.forEach(el => {
       const g = el.geometry;
-      if (g.kind === 'extrudedPath' && g.path) {
-        g.path.forEach(p => { span = Math.max(span, Math.abs(p.x), Math.abs(p.z)); });
+      if (g.kind === "extrudedPath" && g.path) {
+        g.path.forEach(p => {
+          span = Math.max(span, Math.abs(p.x), Math.abs(p.z));
+        });
       }
     });
     return span;
@@ -435,16 +507,19 @@ export default function SceneViewer() {
   }, [shells]);
 
   const hasShells = shells.length > 0;
-  const showShells = hasShells && viewMode !== 'presentation';
-  const showCoverage = viewMode === 'coverage' && coverageCells.length > 0;
-  const bgColor = viewMode === 'presentation' ? '#f8f9fa' : '#0d1117';
+  const showShells = hasShells && viewMode !== "presentation";
+  const showCoverage = viewMode === "coverage" && coverageCells.length > 0;
+  const bgColor = viewMode === "presentation" ? "#f8f9fa" : "#0d1117";
 
   return (
     <Canvas
       camera={{ position: [60, 40, 60], fov: 50, near: 0.1, far: 5000 }}
-      style={{ width: '100%', height: '100%', borderRadius: 8, cursor: hoveredElementId ? 'pointer' : 'grab' }}
+      style={{ width: "100%", height: "100%", borderRadius: 8, cursor: hoveredElementId ? "pointer" : "grab" }}
       gl={{ antialias: true, alpha: false }}
-      onPointerMissed={() => { selectElement(null); setHoveredElement(null); }}
+      onPointerMissed={() => {
+        selectElement(null);
+        setHoveredElement(null);
+      }}
     >
       <EnableClipping />
       <color attach="background" args={[bgColor]} />
@@ -459,8 +534,8 @@ export default function SceneViewer() {
         fadeStrength={2}
         cellSize={1}
         sectionSize={10}
-        cellColor={viewMode === 'presentation' ? '#ddd' : '#1a2030'}
-        sectionColor={viewMode === 'presentation' ? '#bbb' : '#2a3a50'}
+        cellColor={viewMode === "presentation" ? "#ddd" : "#1a2030"}
+        sectionColor={viewMode === "presentation" ? "#bbb" : "#2a3a50"}
         cellThickness={0.5}
         sectionThickness={1}
       />
@@ -472,11 +547,16 @@ export default function SceneViewer() {
         {visibleElements.map(el => {
           const isSelected = el.id === selectedElementId;
           const isHovered = el.id === hoveredElementId;
-          const Comp = el.geometry.kind === 'extrudedPath' ? WallElement
-            : el.geometry.kind === 'polygon' ? SlabElement
-            : el.geometry.kind === 'box' ? BoxElement
-            : el.geometry.kind === 'ifcMesh' ? IFCMeshElement
-            : null;
+          const Comp =
+            el.geometry.kind === "extrudedPath"
+              ? WallElement
+              : el.geometry.kind === "polygon"
+                ? SlabElement
+                : el.geometry.kind === "box"
+                  ? BoxElement
+                  : el.geometry.kind === "ifcMesh"
+                    ? IFCMeshElement
+                    : null;
           if (!Comp) return null;
           return createElement(Comp, {
             key: el.id,
@@ -492,28 +572,26 @@ export default function SceneViewer() {
         })}
 
         {/* Floor shells */}
-        {showShells && shells.map(s => (
-          <FloorShell
-            key={s.drawingId}
-            outline={s.polygon}
-            elevation={s.elevation}
-            height={s.height}
-            viewMode={viewMode}
-          />
-        ))}
+        {showShells &&
+          shells.map(s => (
+            <FloorShell
+              key={s.drawingId}
+              outline={s.polygon}
+              elevation={s.elevation}
+              height={s.height}
+              viewMode={viewMode}
+            />
+          ))}
       </ClipProvider>
 
       {/* Section plane indicator */}
       <SectionPlaneIndicator sectionY={sectionPlaneY} span={sceneSpan} />
 
       {/* Coverage grid cells */}
-      {showCoverage && coverageCells.map(cell => (
-        <CoverageCell
-          key={cell.id}
-          cell={cell}
-          elevation={cell.elevation ?? defaultCoverageElevation}
-        />
-      ))}
+      {showCoverage &&
+        coverageCells.map(cell => (
+          <CoverageCell key={cell.id} cell={cell} elevation={cell.elevation ?? defaultCoverageElevation} />
+        ))}
 
       <OrbitControls makeDefault enableDamping dampingFactor={0.1} />
     </Canvas>

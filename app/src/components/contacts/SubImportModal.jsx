@@ -9,7 +9,6 @@ import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useUiStore } from "@/stores/uiStore";
 import { callAnthropicStream } from "@/utils/ai";
 import { fuzzyMatchTrade, TRADE_GROUPINGS, TRADE_MAP, TRADE_COLORS } from "@/constants/tradeGroupings";
-import { TradeBadge } from "@/components/contacts/TradeMultiSelect";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { bt, inp } from "@/utils/styles";

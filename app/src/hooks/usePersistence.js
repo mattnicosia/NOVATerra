@@ -74,7 +74,7 @@ async function migrateSoloToOrg() {
     // The index was migrated above, but the actual estimate data blobs
     // are stored under separate keys that also need org-scoping.
     try {
-      const soloIndexKey = `u-${userId}-bldg-index`;
+      const _soloIndexKey = `u-${userId}-bldg-index`;
       const indexRaw = await storage.get(`org-${org.id}-bldg-index`);
       const indexData = indexRaw?.value ? JSON.parse(indexRaw.value) : null;
       if (Array.isArray(indexData)) {
@@ -189,7 +189,16 @@ export function resetAllStores() {
   // Reset stores that hold user/estimate-specific data
   useProjectStore.setState({ project: { name: "New Estimate" } });
   useItemsStore.setState({ items: [], customMarkups: [], changeOrders: [], projectAssemblies: [] });
-  useTakeoffsStore.setState({ takeoffs: [], tkCalibrations: {}, tkPredictions: null, tkPredAccepted: [], tkPredRejected: [], tkPredContext: null, tkPredRefining: false, tkNovaPanelOpen: false });
+  useTakeoffsStore.setState({
+    takeoffs: [],
+    tkCalibrations: {},
+    tkPredictions: null,
+    tkPredAccepted: [],
+    tkPredRejected: [],
+    tkPredContext: null,
+    tkPredRefining: false,
+    tkNovaPanelOpen: false,
+  });
   useDrawingsStore.setState({ drawings: [], drawingScales: {}, drawingDpi: {} });
   useBidLevelingStore.setState({
     subBidSubs: {},
@@ -274,7 +283,11 @@ export function usePersistenceLoad() {
 
       // Persist org ID for recovery (survives IDB eviction and org fetch failures)
       if (_orgState.org?.id) {
-        try { localStorage.setItem("bldg-last-org-id", _orgState.org.id); } catch {}
+        try {
+          localStorage.setItem("bldg-last-org-id", _orgState.org.id);
+        } catch {
+          /* localStorage unavailable */
+        }
       } else if (!_lastOrgId && currentUserId) {
         // First time with this code — try to discover org from IDB key scan
         // Look for any org-prefixed keys in IDB to discover the org ID
@@ -286,10 +299,11 @@ export function usePersistenceLoad() {
             console.log(`[usePersistence] Discovered org ID from IDB keys: ${discoveredOrgId.slice(0, 8)}...`);
             localStorage.setItem("bldg-last-org-id", discoveredOrgId);
           }
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
 
-      let localHasData = false;
       let localHasIndex = false; // Track separately — master data should NOT prevent index cloud pull
       let hadCorruptedIndex = false;
       let hadCorruptedMaster = false;
@@ -352,7 +366,9 @@ export function usePersistenceLoad() {
           if (migrated.some((e, i) => e !== parsed[i]) || migrated.length < beforeCount) {
             await storage.set(idbKey("bldg-index"), JSON.stringify(migrated));
           }
-          if (migrated.length > 0) { localHasData = true; localHasIndex = true; }
+          if (migrated.length > 0) {
+            localHasIndex = true;
+          }
         } catch (err) {
           console.error("[usePersistence] Failed to parse estimates index:", err);
           hadCorruptedIndex = true;
@@ -390,7 +406,6 @@ export function usePersistenceLoad() {
             ...useMasterDataStore.getState().masterData,
             ...master,
           });
-          localHasData = true;
         } catch (err) {
           console.error("[usePersistence] Failed to parse master data:", err);
           hadCorruptedMaster = true;
@@ -616,7 +631,9 @@ export function usePersistenceLoad() {
               if (currentUserId && filteredIndex.length > 0) {
                 localStorage.setItem(`bldg-index-mirror-${currentUserId}`, JSON.stringify(filteredIndex));
               }
-            } catch { /* ignore */ }
+            } catch {
+              /* ignore */
+            }
             if (hadCorruptedIndex) recoveredFromCloud = true;
 
             // Pull all estimates, hydrate blobs, then cache locally (skip deleted)
@@ -636,7 +653,9 @@ export function usePersistenceLoad() {
               let estData = ce.data;
               try {
                 estData = await cloudSync.hydrateBlobs(ce.data);
-              } catch {}
+              } catch {
+                /* blob hydration failed — use raw data */
+              }
               await storage.set(idbKey(`bldg-est-${ce.estimate_id}`), JSON.stringify(estData));
             }
           }
@@ -728,7 +747,7 @@ export function usePersistenceLoad() {
           `u-${currentUserId}-bldg-index`,
           orgId ? `org-${orgId}-bldg-index` : null,
           // Also try last-known org key (handles org fetch failure case)
-          (lastKnownOrgId && lastKnownOrgId !== orgId) ? `org-${lastKnownOrgId}-bldg-index` : null,
+          lastKnownOrgId && lastKnownOrgId !== orgId ? `org-${lastKnownOrgId}-bldg-index` : null,
           "bldg-index", // bare key (pre-migration)
         ].filter(Boolean);
         const activeKey = idbKey("bldg-index");
@@ -789,7 +808,7 @@ export function usePersistenceLoad() {
             // Try current scope first
             let cloudIndex = await cloudSync.pullData("index");
             // Try last-known org
-            if ((!cloudIndex || !Array.isArray(cloudIndex) || cloudIndex.length === 0)) {
+            if (!cloudIndex || !Array.isArray(cloudIndex) || cloudIndex.length === 0) {
               const lastOrgId = localStorage.getItem("bldg-last-org-id");
               if (lastOrgId) {
                 console.log(`[usePersistence] RECOVERY GUARD: trying last-known org for cloud index`);
@@ -797,7 +816,7 @@ export function usePersistenceLoad() {
               }
             }
             // SCOPE-BLIND: try ALL orgs
-            if ((!cloudIndex || !Array.isArray(cloudIndex) || cloudIndex.length === 0)) {
+            if (!cloudIndex || !Array.isArray(cloudIndex) || cloudIndex.length === 0) {
               console.log("[usePersistence] RECOVERY GUARD: scope-blind cloud index pull...");
               cloudIndex = await cloudSync.pullDataAnyScope("index");
             }
@@ -825,7 +844,9 @@ export function usePersistenceLoad() {
                   let estData = ce.data;
                   try {
                     estData = await cloudSync.hydrateBlobs(ce.data);
-                  } catch {}
+                  } catch {
+                    /* blob hydration failed — use raw data */
+                  }
                   await storage.set(idbKey(`bldg-est-${ce.estimate_id}`), JSON.stringify(estData));
                 }
               }
@@ -841,7 +862,9 @@ export function usePersistenceLoad() {
         // Try both current scope AND last-known org scope.
         if (!recovered) {
           try {
-            console.log("[usePersistence] RECOVERY GUARD: Attempting nuclear recovery — rebuilding index from user_estimates rows...");
+            console.log(
+              "[usePersistence] RECOVERY GUARD: Attempting nuclear recovery — rebuilding index from user_estimates rows...",
+            );
             // Use scope-blind pull — finds ALL estimates for this user across all orgs
             let cloudEstimates = await cloudSync.pullAllEstimatesAnyScope();
             if (cloudEstimates.length > 0) {
@@ -851,7 +874,9 @@ export function usePersistenceLoad() {
                 let estData = ce.data;
                 try {
                   estData = await cloudSync.hydrateBlobs(ce.data);
-                } catch {}
+                } catch {
+                  /* blob hydration failed — use raw data */
+                }
                 await storage.set(idbKey(`bldg-est-${ce.estimate_id}`), JSON.stringify(estData));
                 // Build minimal index entry from estimate data
                 const proj = estData?.project || {};
@@ -864,8 +889,11 @@ export function usePersistenceLoad() {
                   grandTotal: 0,
                   elementCount: (estData?.items || []).length,
                   lastModified: new Date().toLocaleString("en-US", {
-                    month: "short", day: "numeric", year: "numeric",
-                    hour: "numeric", minute: "2-digit",
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
                   }),
                   estimator: proj.estimator || "",
                   jobType: proj.jobType || "",
@@ -942,11 +970,11 @@ export function usePersistenceLoad() {
             if (srcData?.value) {
               await storage.set(destKey, srcData.value);
               repaired++;
-              console.log(`[repair] Copied estimate ${estId.slice(0,8)} from "${srcKey.slice(0,30)}" → org scope`);
+              console.log(`[repair] Copied estimate ${estId.slice(0, 8)} from "${srcKey.slice(0, 30)}" → org scope`);
             }
           }
           if (repaired > 0) {
-            console.log(`[repair] Migrated ${repaired} orphaned estimate blob(s) to org-${currentOrg.id.slice(0,8)}`);
+            console.log(`[repair] Migrated ${repaired} orphaned estimate blob(s) to org-${currentOrg.id.slice(0, 8)}`);
           }
         }
       } catch (repairErr) {
@@ -1021,7 +1049,10 @@ export async function loadEstimate(id) {
             raw = matchRaw;
           }
         } else {
-          console.warn(`[loadEstimate] Brute-force: NO IDB key contains bldg-est-${id}. All keys:`, allKeys.filter(k => k.includes("bldg-est-")).slice(0, 10));
+          console.warn(
+            `[loadEstimate] Brute-force: NO IDB key contains bldg-est-${id}. All keys:`,
+            allKeys.filter(k => k.includes("bldg-est-")).slice(0, 10),
+          );
         }
       } catch (e) {
         console.warn("[loadEstimate] Brute-force key scan failed:", e);
@@ -1526,13 +1557,17 @@ export async function saveEstimate(overrideId) {
             const lsDelRaw = localStorage.getItem(lsKey);
             if (lsDelRaw) {
               const lsDel = JSON.parse(lsDelRaw);
-              for (const d of lsDel) { if (!delIds.includes(d)) delIds.push(d); }
+              for (const d of lsDel) {
+                if (!delIds.includes(d)) delIds.push(d);
+              }
             }
             if (delIds.length > 0) {
               const delSet = new Set(delIds);
               filtered = mirrorParsed.filter(e => !delSet.has(e.id));
             }
-          } catch { /* proceed with unfiltered */ }
+          } catch {
+            /* proceed with unfiltered */
+          }
           if (filtered.length === 0) {
             console.log("[saveEstimate] DLP guard: mirror entries are all deleted — not recovering");
           } else {
@@ -1599,11 +1634,11 @@ export async function saveMasterData() {
   // Guard: never push a clearly empty/reset master to cloud — this would wipe
   // company profiles, contacts, proposals, etc. that exist on the server.
   const hasContent =
-    (master.companyProfiles?.length > 0) ||
-    (master.companyInfo?.name) ||
-    (master.clients?.length > 0) ||
-    (master.subcontractors?.length > 0) ||
-    (master.historicalProposals?.length > 0);
+    master.companyProfiles?.length > 0 ||
+    master.companyInfo?.name ||
+    master.clients?.length > 0 ||
+    master.subcontractors?.length > 0 ||
+    master.historicalProposals?.length > 0;
 
   const ok = await storage.set(idbKey("bldg-master"), JSON.stringify(master));
   if (!ok) {
@@ -1852,7 +1887,9 @@ export async function recoverFromCloud() {
         }
       }
     }
-    console.log(`[recoverFromCloud] Index query: ${data?.length || 0} rows, best has ${Array.isArray(indexData) ? indexData.length : 0} entries, org=${discoveredOrgId}`);
+    console.log(
+      `[recoverFromCloud] Index query: ${data?.length || 0} rows, best has ${Array.isArray(indexData) ? indexData.length : 0} entries, org=${discoveredOrgId}`,
+    );
   } catch (err) {
     console.error("[recoverFromCloud] Index query failed:", err);
     throw new Error(`Cloud query failed: ${err.message}`);
@@ -1890,8 +1927,11 @@ export async function recoverFromCloud() {
         grandTotal: 0,
         elementCount: (ce.data?.items || []).length,
         lastModified: new Date().toLocaleString("en-US", {
-          month: "short", day: "numeric", year: "numeric",
-          hour: "numeric", minute: "2-digit",
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
         }),
         estimator: proj.estimator || "",
         jobType: proj.jobType || "",
@@ -1912,13 +1952,19 @@ export async function recoverFromCloud() {
   try {
     const lsRaw = localStorage.getItem(`bldg-deleted-ids-${userId}`);
     if (lsRaw) deletedIds = JSON.parse(lsRaw);
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   const deletedSet = new Set(deletedIds);
   recoveredIndex = recoveredIndex.filter(e => !deletedSet.has(e.id));
 
   // 5. Save recovered org ID
   if (discoveredOrgId) {
-    try { localStorage.setItem("bldg-last-org-id", discoveredOrgId); } catch {}
+    try {
+      localStorage.setItem("bldg-last-org-id", discoveredOrgId);
+    } catch {
+      /* localStorage unavailable */
+    }
   }
 
   // 6. Save index to IDB and update store
@@ -1939,7 +1985,9 @@ export async function recoverFromCloud() {
   // Mirror to localStorage
   try {
     localStorage.setItem(`bldg-index-mirror-${userId}`, JSON.stringify(recoveredIndex));
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 
   // 7. Cache estimate data blobs locally
   let cachedCount = 0;
@@ -1949,7 +1997,9 @@ export async function recoverFromCloud() {
       let estData = ce.data;
       try {
         estData = await cloudSync.hydrateBlobs(ce.data);
-      } catch { /* proceed without hydration */ }
+      } catch {
+        /* proceed without hydration */
+      }
       await storage.set(idbKey(`bldg-est-${ce.estimate_id}`), JSON.stringify(estData));
       // Also save under org key if different
       if (discoveredOrgId) {
@@ -1967,11 +2017,7 @@ export async function recoverFromCloud() {
 
   // 8. Pull master data
   try {
-    const { data, error } = await sbClient
-      .from("user_data")
-      .select("data")
-      .eq("user_id", userId)
-      .eq("key", "master");
+    const { data, error } = await sbClient.from("user_data").select("data").eq("user_id", userId).eq("key", "master");
     if (!error && data && data.length > 0) {
       const masterData = data[0].data;
       if (masterData && typeof masterData === "object") {
@@ -1982,7 +2028,9 @@ export async function recoverFromCloud() {
         await storage.set(idbKey("bldg-master"), JSON.stringify(masterData));
       }
     }
-  } catch { /* master data recovery is nice-to-have */ }
+  } catch {
+    /* master data recovery is nice-to-have */
+  }
 
   // 9. Switch to "All" profile so recovered estimates aren't hidden
   const uiState = useUiStore.getState();
@@ -1990,6 +2038,8 @@ export async function recoverFromCloud() {
     uiState.setAppSettings({ ...uiState.appSettings, activeCompanyId: "__all__" });
   }
 
-  console.log(`[recoverFromCloud] DONE — recovered ${recoveredIndex.length} index entries, cached ${cachedCount} estimates`);
+  console.log(
+    `[recoverFromCloud] DONE — recovered ${recoveredIndex.length} index entries, cached ${cachedCount} estimates`,
+  );
   return { recovered: recoveredIndex.length };
 }

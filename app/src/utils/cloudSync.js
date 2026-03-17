@@ -330,14 +330,8 @@ const stripAndUploadBlobs = async (estimateId, data) => {
         const storagePath = await uploadBlob(path, d.data);
         if (storagePath) {
           uploaded++;
-          const { data: _blob, pdfRawBase64: _raw, ...rest } = d;
-          let pdfRawStoragePath = rest.pdfRawStoragePath || null;
-          // Also upload raw PDF for predictive takeoff extraction (if present)
-          if (_raw && !pdfRawStoragePath) {
-            const rawPath = `${userId}/${estimateId}/drawings/${d.id}-raw`;
-            pdfRawStoragePath = await uploadBlob(rawPath, `data:application/pdf;base64,${_raw}`);
-          }
-          return { ...rest, storagePath, _cloudBlobStripped: true, ...(pdfRawStoragePath ? { pdfRawStoragePath } : {}) };
+          const { data: _blob, ...rest } = d;
+          return { ...rest, storagePath, _cloudBlobStripped: true };
         }
         // Upload failed — keep original data inline (safe fallback)
         kept++;
@@ -432,21 +426,7 @@ export const hydrateBlobs = async data => {
         return d;
       }
       hydrated_count++;
-      // Also hydrate raw PDF for predictive takeoff extraction
-      let pdfRawBase64 = d.pdfRawBase64 || null;
-      if (!pdfRawBase64 && d.pdfRawStoragePath) {
-        try {
-          const rawUrl = await downloadBlob(d.pdfRawStoragePath);
-          if (rawUrl) {
-            // Convert data URL to base64 string (strip "data:application/pdf;base64," prefix)
-            const commaIdx = rawUrl.indexOf(",");
-            pdfRawBase64 = commaIdx >= 0 ? rawUrl.slice(commaIdx + 1) : null;
-          }
-        } catch (e) {
-          console.warn(`[cloudSync] Failed to hydrate raw PDF for "${d.id}":`, e.message);
-        }
-      }
-      return { ...d, data: dataUrl, ...(pdfRawBase64 ? { pdfRawBase64 } : {}) };
+      return { ...d, data: dataUrl };
     });
   }
 
@@ -924,7 +904,9 @@ export const pullDataAnyScope = async key => {
     if (bestOrgId) {
       try {
         localStorage.setItem("bldg-last-org-id", bestOrgId);
-      } catch {}
+      } catch {
+        /* non-critical */
+      }
     }
     return best;
   } catch (err) {
@@ -995,60 +977,6 @@ export const pullSoloFallback = async key => {
   } catch (err) {
     console.warn(`[cloudSync] pullSoloFallback("${key}") failed:`, err.message || err);
     return null;
-  }
-};
-
-/**
- * Pull a key from the org-scoped cloud when in solo mode.
- * Reverse of pullSoloFallback — used when a second device loads in solo
- * mode but the user's data is org-scoped (fetchOrg failed on this device).
- */
-export const pullOrgFallback = async key => {
-  if (!isReady()) return null;
-  const scope = getScope();
-  if (scope?.org_id) return null; // Already in org mode, no fallback needed
-  // Check localStorage for the last known org ID
-  let lastOrgId = null;
-  try { lastOrgId = localStorage.getItem("bldg-last-org-id"); } catch {}
-  if (!lastOrgId) return null; // Never been in an org
-  try {
-    const { data, error } = await supabase
-      .from("user_data")
-      .select("data, updated_at")
-      .eq("user_id", getUserId())
-      .eq("key", key)
-      .eq("org_id", lastOrgId)
-      .maybeSingle();
-    if (error) throw error;
-    return data ? { data: data.data, updated_at: data.updated_at } : null;
-  } catch (err) {
-    console.warn(`[cloudSync] pullOrgFallback("${key}") failed:`, err.message || err);
-    return null;
-  }
-};
-
-/**
- * Pull all estimates from org-scoped cloud when in solo mode (reverse fallback).
- */
-export const pullAllEstimatesOrgFallback = async () => {
-  if (!isReady()) return [];
-  const scope = getScope();
-  if (scope?.org_id) return []; // Already in org mode
-  let lastOrgId = null;
-  try { lastOrgId = localStorage.getItem("bldg-last-org-id"); } catch {}
-  if (!lastOrgId) return [];
-  try {
-    const { data, error } = await supabase
-      .from("user_estimates")
-      .select("estimate_id, updated_at, user_id")
-      .is("deleted_at", null)
-      .eq("user_id", getUserId())
-      .eq("org_id", lastOrgId);
-    if (error) throw error;
-    return data || [];
-  } catch (err) {
-    console.warn("[cloudSync] pullAllEstimatesOrgFallback() failed:", err.message || err);
-    return [];
   }
 };
 
@@ -1125,27 +1053,6 @@ export const pullEstimate = async estimateId => {
     if (error) throw error;
     if (data?.data) return data.data;
 
-    // Reverse fallback: if in solo mode, check org-scoped rows (fetchOrg failed on this device)
-    if (!scope?.org_id) {
-      let lastOrgId = null;
-      try { lastOrgId = localStorage.getItem("bldg-last-org-id"); } catch {}
-      if (lastOrgId) {
-        console.log(`[cloudSync] pullEstimate: solo query missed — trying org fallback for ${estimateId}`);
-        const { data: orgData, error: orgErr } = await supabase
-          .from("user_estimates")
-          .select("data")
-          .eq("estimate_id", estimateId)
-          .eq("user_id", userId)
-          .eq("org_id", lastOrgId)
-          .is("deleted_at", null)
-          .maybeSingle();
-        if (!orgErr && orgData?.data) {
-          console.log(`[cloudSync] pullEstimate: found ${estimateId} in org-scoped cloud`);
-          return orgData.data;
-        }
-      }
-    }
-
     // Fallback: if in org mode, also check solo-mode rows (pre-org-migration estimates)
     if (scope?.org_id) {
       console.log(`[cloudSync] pullEstimate: org query missed — trying solo fallback for ${estimateId}`);
@@ -1167,7 +1074,9 @@ export const pullEstimate = async estimateId => {
             .eq("estimate_id", estimateId)
             .eq("user_id", userId)
             .is("org_id", null);
-        } catch {}
+        } catch {
+          /* non-critical */
+        }
         return soloData.data;
       }
     }
@@ -1326,38 +1235,14 @@ async function _applyDataToStore(key, data) {
       useDatabaseStore.getState().loadUserElements(data);
     } else if (key === "index") {
       // Merge into estimates index additively (never replace)
-      // CRITICAL: Filter against deleted-ids to prevent zombie resurrection
       const { useEstimatesStore } = await import("@/stores/estimatesStore");
-
-      // Load deleted-ids from IDB + localStorage (same pattern as usePersistence.js)
-      let deletedIds = new Set();
-      try {
-        const { storage } = await import("@/utils/storage");
-        const { idbKey } = await import("@/utils/idbKey");
-        const delRaw = await storage.get(idbKey("bldg-deleted-ids"));
-        const idbDeleted = delRaw ? JSON.parse(delRaw.value || delRaw) : [];
-        if (Array.isArray(idbDeleted)) idbDeleted.forEach(id => deletedIds.add(id));
-      } catch (_) {}
-      try {
-        const userId = getUserId();
-        const lsKey = `bldg-deleted-ids-${userId || "anon"}`;
-        const lsRaw = localStorage.getItem(lsKey);
-        if (lsRaw) {
-          const lsDeleted = JSON.parse(lsRaw);
-          if (Array.isArray(lsDeleted)) lsDeleted.forEach(id => deletedIds.add(id));
-        }
-      } catch (_) {}
-
       const currentIndex = useEstimatesStore.getState().estimatesIndex;
       const currentIds = new Set(currentIndex.map(e => e.id));
-      const newEntries = (Array.isArray(data) ? data : []).filter(
-        e => !currentIds.has(e.id) && !deletedIds.has(e.id)
-      );
+      const newEntries = (Array.isArray(data) ? data : []).filter(e => !currentIds.has(e.id));
       if (newEntries.length > 0) {
         useEstimatesStore.setState(s => ({
           estimatesIndex: [...s.estimatesIndex, ...newEntries],
         }));
-        console.log(`[cloudSync] Index merge: added ${newEntries.length}, blocked ${deletedIds.size} deleted`);
       }
     }
     console.log(`[cloudSync] Applied Realtime data for key "${key}"`);

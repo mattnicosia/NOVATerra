@@ -1,12 +1,12 @@
-import { useState, useMemo } from 'react';
-import { useReportsStore } from '@/stores/reportsStore';
-import { callAnthropic } from '@/utils/ai';
-import Ic from '@/components/shared/Ic';
-import { I } from '@/constants/icons';
-import { getTradeLabel, getTradeSortOrder } from '@/constants/tradeGroupings';
+import { useState, useMemo } from "react";
+import { useReportsStore } from "@/stores/reportsStore";
+import { callAnthropic } from "@/utils/ai";
+import Ic from "@/components/shared/Ic";
+import { I } from "@/constants/icons";
+import { getTradeLabel, getTradeSortOrder } from "@/constants/tradeGroupings";
 
 export default function ScopeOfWork({ data }) {
-  const { items, T, C } = data;
+  const { items, T } = data;
 
   const scopeNarratives = useReportsStore(s => s.scopeNarratives);
   const scopeNarrativeLoading = useReportsStore(s => s.scopeNarrativeLoading);
@@ -30,22 +30,25 @@ export default function ScopeOfWork({ data }) {
       .map(([label, g]) => ({ label, items: g.items }));
   }, [items]);
 
-  const generateNarrative = async (tradeLabel) => {
+  const generateNarrative = async tradeLabel => {
     setScopeNarrativeLoading(tradeLabel, true);
     try {
       const group = tradeGroups.find(g => g.label === tradeLabel);
       const groupItems = group?.items || [];
-      const itemList = groupItems.slice(0, 50).map(it =>
-        `${it.description} (${it.quantity} ${it.unit})`
-      ).join("; ");
+      const itemList = groupItems
+        .slice(0, 50)
+        .map(it => `${it.description} (${it.quantity} ${it.unit})`)
+        .join("; ");
       const extra = groupItems.length > 50 ? ` ...and ${groupItems.length - 50} additional items.` : "";
 
       const text = await callAnthropic({
         max_tokens: 500,
-        messages: [{
-          role: "user",
-          content: `You are writing a scope of work section for a construction proposal letter. Write a professional, concise paragraph summarizing the following work items for "${tradeLabel}". Use industry-standard construction proposal language suitable for an owner-facing proposal. Do not include pricing or dollar amounts. Be specific about materials and methods where the item descriptions provide that detail.\n\nItems: ${itemList}${extra}`
-        }],
+        messages: [
+          {
+            role: "user",
+            content: `You are writing a scope of work section for a construction proposal letter. Write a professional, concise paragraph summarizing the following work items for "${tradeLabel}". Use industry-standard construction proposal language suitable for an owner-facing proposal. Do not include pricing or dollar amounts. Be specific about materials and methods where the item descriptions provide that detail.\n\nItems: ${itemList}${extra}`,
+          },
+        ],
       });
       setScopeNarrative(tradeLabel, text);
     } catch {
@@ -55,7 +58,7 @@ export default function ScopeOfWork({ data }) {
     }
   };
 
-  const toggleMode = (tradeLabel) => {
+  const toggleMode = tradeLabel => {
     const isNarrative = narrativeMode[tradeLabel];
     setNarrativeMode(prev => ({ ...prev, [tradeLabel]: !isNarrative }));
     if (!isNarrative && !scopeNarratives[tradeLabel]) {
@@ -65,12 +68,26 @@ export default function ScopeOfWork({ data }) {
 
   return (
     <div style={{ marginBottom: 16 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: T.space[2], borderBottom: "1px solid #ddd", paddingBottom: T.space[1] }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: T.space[2],
+          borderBottom: "1px solid #ddd",
+          paddingBottom: T.space[1],
+        }}
+      >
         <span style={{ fontSize: T.fontSize.base, fontWeight: T.fontWeight.bold }}>SCOPE OF WORK</span>
         <label
           className="no-print"
           style={{
-            display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 9, color: "#888",
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            cursor: "pointer",
+            fontSize: 9,
+            color: "#888",
           }}
         >
           <input
@@ -89,7 +106,15 @@ export default function ScopeOfWork({ data }) {
         return (
           <div key={label} style={{ marginBottom: 10 }}>
             {/* Trade header */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", borderBottom: "1px solid #e8e8e8" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "4px 0",
+                borderBottom: "1px solid #e8e8e8",
+              }}
+            >
               <span style={{ fontSize: 12, fontWeight: 600, color: "#1a1a2e" }}>{label}</span>
               <button
                 className="no-print"
@@ -97,9 +122,14 @@ export default function ScopeOfWork({ data }) {
                 style={{
                   background: isNarrative ? "rgba(10,132,255,0.08)" : "transparent",
                   border: `1px solid ${isNarrative ? "rgba(10,132,255,0.3)" : "#ddd"}`,
-                  borderRadius: 4, padding: "2px 8px", fontSize: 9, cursor: "pointer",
+                  borderRadius: 4,
+                  padding: "2px 8px",
+                  fontSize: 9,
+                  cursor: "pointer",
                   color: isNarrative ? "#0A84FF" : "#888",
-                  display: "flex", alignItems: "center", gap: 3,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 3,
                 }}
               >
                 <Ic d={I.ai} size={9} color={isNarrative ? "#0A84FF" : "#888"} />
@@ -122,8 +152,15 @@ export default function ScopeOfWork({ data }) {
                     className="no-print"
                     onClick={() => generateNarrative(label)}
                     style={{
-                      background: "none", border: "none", fontSize: 9, color: "#999",
-                      cursor: "pointer", padding: "4px 0", display: "flex", alignItems: "center", gap: 3,
+                      background: "none",
+                      border: "none",
+                      fontSize: 9,
+                      color: "#999",
+                      cursor: "pointer",
+                      padding: "4px 0",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 3,
                     }}
                   >
                     <Ic d={I.refresh} size={9} color="#999" /> Regenerate
@@ -132,11 +169,17 @@ export default function ScopeOfWork({ data }) {
               )
             ) : (
               groupItems.map(item => (
-                <div key={item.id} style={{
-                  fontSize: 11, padding: "2px 0 2px 12px",
-                  display: "flex", justifyContent: "space-between", gap: 8,
-                  borderBottom: "1px solid #f5f5f5",
-                }}>
+                <div
+                  key={item.id}
+                  style={{
+                    fontSize: 11,
+                    padding: "2px 0 2px 12px",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 8,
+                    borderBottom: "1px solid #f5f5f5",
+                  }}
+                >
                   <span style={{ color: "#333" }}>{item.description || "Unnamed item"}</span>
                   {scopeShowQuantities && (
                     <span style={{ fontFamily: T.font.mono, fontSize: 10, color: "#888", whiteSpace: "nowrap" }}>
@@ -149,7 +192,6 @@ export default function ScopeOfWork({ data }) {
           </div>
         );
       })}
-
     </div>
   );
 }

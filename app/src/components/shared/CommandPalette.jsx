@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useUiStore } from "@/stores/uiStore";
 import { loadEstimate } from "@/hooks/usePersistence";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { backdropVariants, backdropTransition, paletteVariants, paletteTransition } from "@/utils/motion";
 import NewEstimateModal from "@/components/shared/NewEstimateModal";
 import Ic from "@/components/shared/Ic";
@@ -23,7 +23,7 @@ function fuzzy(text, query) {
 const STATUS_COLORS = {
   Qualifying: "#F59E0B",
   Bidding: "#A78BFA",
-  Pending: "#F59E0B",
+  Submitted: "#F59E0B",
   Won: "#34D399",
   Lost: "#F87171",
   "On Hold": "#A78BFA",
@@ -53,10 +53,8 @@ export default function CommandPalette() {
   const ov = a => (isDk ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`);
 
   const navigate = useNavigate();
-  const location = useLocation();
   const { open, query, recentIds, close, setQuery, addRecent } = useCommandPaletteStore();
   const estimates = useEstimatesStore(s => s.estimatesIndex);
-  const createEstimate = useEstimatesStore(s => s.createEstimate);
   const activeCompanyId = useUiStore(s => s.appSettings.activeCompanyId);
   const setAiChatOpen = useUiStore(s => s.setAiChatOpen);
   const aiChatOpen = useUiStore(s => s.aiChatOpen);
@@ -163,7 +161,7 @@ export default function CommandPalette() {
         setAiChatOpen(!aiChatOpen);
       }
     },
-    [close, navigate, addRecent, activeCompanyId, createEstimate, setAiChatOpen, aiChatOpen],
+    [close, navigate, addRecent, setAiChatOpen, aiChatOpen],
   );
 
   // Keyboard navigation

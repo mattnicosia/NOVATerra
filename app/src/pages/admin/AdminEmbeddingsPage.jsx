@@ -1,8 +1,6 @@
 import { useTheme } from "@/hooks/useTheme";
 import { useAdminFetch } from "@/hooks/useAdminFetch";
 import { card } from "@/utils/styles";
-import Ic from "@/components/shared/Ic";
-import { I } from "@/constants/icons";
 
 const KIND_COLORS = {
   seed_element: "#8B5CF6",

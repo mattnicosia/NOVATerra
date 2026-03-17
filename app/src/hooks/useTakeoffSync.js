@@ -1,16 +1,16 @@
 // Auto-sync takeoffs to estimate line items
 // Creates linked items automatically, syncs description/unit/quantity
 // Module takeoffs (with moduleId) are grouped into scope items with costed sub-parts
-import { useEffect, useRef } from 'react';
-import { useTakeoffsStore } from '@/stores/takeoffsStore';
-import { useItemsStore } from '@/stores/itemsStore';
-import { useDrawingsStore } from '@/stores/drawingsStore';
-import { uid, nn } from '@/utils/format';
-import { autoTradeFromCode } from '@/constants/tradeGroupings';
-import { getComputedQtyCtx } from '@/utils/measurementCalc';
-import { getModuleItemCosts } from '@/utils/moduleSeedMap';
-import { useModuleStore } from '@/stores/moduleStore';
-import { useProjectStore } from '@/stores/projectStore';
+import { useEffect, useRef } from "react";
+import { useTakeoffsStore } from "@/stores/takeoffsStore";
+import { useItemsStore } from "@/stores/itemsStore";
+import { useDrawingsStore } from "@/stores/drawingsStore";
+import { uid, nn } from "@/utils/format";
+import { autoTradeFromCode } from "@/constants/tradeGroupings";
+import { getComputedQtyCtx } from "@/utils/measurementCalc";
+import { getModuleItemCosts } from "@/utils/moduleSeedMap";
+import { useModuleStore } from "@/stores/moduleStore";
+import { useProjectStore } from "@/stores/projectStore";
 
 // Retrieve instance specs from module store for dynamic pricing lookup
 function getInstanceSpecs(moduleId, instanceId) {
@@ -19,7 +19,7 @@ function getInstanceSpecs(moduleId, instanceId) {
   if (!moduleInst) return null;
   const cats = moduleInst.categoryInstances || {};
   for (const catId of Object.keys(cats)) {
-    for (const inst of (cats[catId] || [])) {
+    for (const inst of cats[catId] || []) {
       if (inst.id === instanceId) return inst.specs;
     }
   }
@@ -73,7 +73,7 @@ export function useTakeoffSync() {
     let takeoffsChanged = false;
 
     // ── Partition takeoffs into module-grouped and ungrouped ──
-    const moduleGroups = {};  // group string → takeoff[]
+    const moduleGroups = {}; // group string → takeoff[]
     const ungrouped = [];
 
     nextTakeoffs.forEach(to => {
@@ -113,7 +113,7 @@ export function useTakeoffSync() {
           l: costs.l,
           e: costs.e,
           factor: qty,
-          _takeoffId: to.id,   // internal back-reference (not rendered)
+          _takeoffId: to.id, // internal back-reference (not rendered)
         };
       });
 
@@ -124,7 +124,7 @@ export function useTakeoffSync() {
 
       // First takeoff in group determines division/code/trade
       const firstTo = groupTakeoffs[0];
-      const dc = firstTo.code ? firstTo.code.split(".")[0] : "";
+      const _dc = firstTo.code ? firstTo.code.split(".")[0] : "";
 
       const existing = existingScopeMap.get(group);
       if (existing) {
@@ -149,7 +149,8 @@ export function useTakeoffSync() {
             Math.round(nn(existing.material) * 100) !== Math.round(mergedM * 100) ||
             Math.round(nn(existing.labor) * 100) !== Math.round(mergedL * 100) ||
             Math.round(nn(existing.equipment) * 100) !== Math.round(mergedE * 100) ||
-            JSON.stringify((existing.subItems || []).map(s => s.id + ":" + s.factor)) !== JSON.stringify(mergedSubs.map(s => s.id + ":" + s.factor));
+            JSON.stringify((existing.subItems || []).map(s => s.id + ":" + s.factor)) !==
+              JSON.stringify(mergedSubs.map(s => s.id + ":" + s.factor));
 
           if (needsUpdate) {
             nextItems[idx] = {
@@ -169,7 +170,7 @@ export function useTakeoffSync() {
         nextItems.push({
           id: newItemId,
           code: firstTo.code || "",
-          description: group,   // "Steel - Structural Framing (Type A)"
+          description: group, // "Steel - Structural Framing (Type A)"
           division: divFromCode(firstTo.code) || "",
           quantity: 1,
           unit: "EA",
@@ -178,10 +179,16 @@ export function useTakeoffSync() {
           equipment: Math.round(totalE * 100) / 100,
           subcontractor: 0,
           trade: autoTradeFromCode(firstTo.code) || "",
-          directive: "", notes: "", drawingRef: "",
-          variables: [], formula: "",
-          specSection: "", specText: "",
-          specVariantLabel: "", allowanceOf: "", allowanceSubMarkup: "",
+          directive: "",
+          notes: "",
+          drawingRef: "",
+          variables: [],
+          formula: "",
+          specSection: "",
+          specText: "",
+          specVariantLabel: "",
+          allowanceOf: "",
+          allowanceSubMarkup: "",
           subItems,
           sourceGroup: group,
           moduleId: firstTo.moduleId,
@@ -226,10 +233,16 @@ export function useTakeoffSync() {
         equipment: nn(to._aiCosts?.equipment) || 0,
         subcontractor: nn(to._aiCosts?.subcontractor) || 0,
         trade: autoTradeFromCode(to.code) || "",
-        directive: "", notes: "", drawingRef: to.drawingRef || "",
-        variables: [], formula: "",
-        specSection: "", specText: "",
-        specVariantLabel: "", allowanceOf: "", allowanceSubMarkup: "",
+        directive: "",
+        notes: "",
+        drawingRef: to.drawingRef || "",
+        variables: [],
+        formula: "",
+        specSection: "",
+        specText: "",
+        specVariantLabel: "",
+        allowanceOf: "",
+        allowanceSubMarkup: "",
       });
       nextTakeoffs[idx] = { ...nextTakeoffs[idx], linkedItemId: newItemId };
       itemsChanged = true;

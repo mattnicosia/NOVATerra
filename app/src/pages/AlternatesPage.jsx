@@ -8,7 +8,7 @@ import { useUiStore } from "@/stores/uiStore";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { inp, nInp, bt } from "@/utils/styles";
-import { nn, fmt, fmt2, uid } from "@/utils/format";
+import { nn, fmt, uid } from "@/utils/format";
 import { callAnthropic } from "@/utils/ai";
 
 export default function AlternatesPage() {
@@ -438,7 +438,7 @@ export default function AlternatesPage() {
                     {alt.items.map(ai => {
                       const q = nn(ai.quantity);
                       const t = (nn(ai.material) + nn(ai.labor) + nn(ai.equipment) + nn(ai.subcontractor)) * q;
-                      const linkedItem = ai.linkedItemId ? items.find(it => it.id === ai.linkedItemId) : null;
+                      const _linkedItem = ai.linkedItemId ? items.find(it => it.id === ai.linkedItemId) : null;
                       return (
                         <div
                           key={ai.id}

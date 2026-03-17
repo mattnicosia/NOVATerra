@@ -8113,7 +8113,7 @@ export const SEED_ELEMENTS = [
   {
     id: "s890",
     code: "02.2100.1000",
-    name: "Curb Stakes @ 25\' O.C 3 Visits",
+    name: "Curb Stakes @ 25' O.C 3 Visits",
     unit: "LF",
     material: 0.0,
     labor: 0.0,

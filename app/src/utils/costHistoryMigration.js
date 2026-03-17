@@ -57,14 +57,14 @@ export function migrateJobType(oldJobType) {
 
 /**
  * Map a project.status value to an outcome key for Cost History.
- * The project status tracks workflow (Active → Bidding → Pending → Won/Lost).
+ * The project status tracks workflow (Active → Bidding → Submitted → Won/Lost).
  * The outcome tracks the bid result for analytics.
  */
 export function mapStatusToOutcome(status) {
   const map = {
     "Active":    "pending",
     "Bidding":   "pending",
-    "Pending":   "pending",
+    "Submitted": "pending",
     "Won":       "won",
     "Lost":      "lost",
     "On Hold":   "pending",

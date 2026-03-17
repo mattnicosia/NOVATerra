@@ -35,7 +35,7 @@ import { useReviewStore } from "@/stores/reviewStore";
 const STATUS_COLORS = {
   Qualifying: "#F59E0B",
   Bidding: "#A78BFA",
-  Pending: "#60A5FA",
+  Submitted: "#60A5FA",
   Won: "#34D399",
   Lost: "#FB7185",
   "On Hold": "#FBBF24",
@@ -74,7 +74,7 @@ const addDays = (d, n) => {
   return r;
 };
 
-const isWeekdayFn = (d, workWeek = "mon-fri") => {
+const _isWeekdayFn = (d, workWeek = "mon-fri") => {
   const day = d.getDay();
   if (workWeek === "mon-sat") return day !== 0; // Sun off only
   return day !== 0 && day !== 6;
@@ -94,7 +94,7 @@ const DAY_WIDTH = 44; // px per day column
 // ══════════════════════════════════════════════════════════
 // ESTIMATOR CONTEXT MENU (right-click on estimator name)
 // ══════════════════════════════════════════════════════════
-function EstimatorContextMenu({ pos, name, color, projectCount, C, T, onViewScorecard, onRemove, onClose }) {
+function EstimatorContextMenu({ pos, name, color, projectCount, C, _T, onViewScorecard, onRemove, onClose }) {
   const menuRef = useRef(null);
   const [confirming, setConfirming] = useState(false);
 
@@ -258,8 +258,8 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
     estimatorCapacity,
     dailyLoad,
     rangeDays,
-    rangeStart,
-    rangeEnd,
+    rangeStart: _rangeStart,
+    rangeEnd: _rangeEnd,
   } = workload;
   const todayStr = new Date().toISOString().slice(0, 10);
   const dragEstimateId = useResourceStore(s => s.dragEstimateId);
@@ -351,6 +351,7 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
       document.removeEventListener("mousemove", onMouseMove);
       document.removeEventListener("mouseup", onMouseUp);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Zustand actions are stable; onDrop identity shouldn't re-register listeners
   }, [workWeek]);
 
   // Build day columns (weekdays only from rangeDays)
@@ -2645,8 +2646,11 @@ function ByHoursView({ workload, C, T, navigate, onProjectClick }) {
 // ══════════════════════════════════════════════════════════
 function ByDueDateView({ workload, C, T, navigate, onProjectClick }) {
   const { allEstimates } = workload;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
 
   // Sort by bid due date (soonest first)
   const sorted = useMemo(() => {
@@ -2660,7 +2664,7 @@ function ByDueDateView({ workload, C, T, navigate, onProjectClick }) {
   // Group by week
   const weeks = useMemo(() => {
     const groups = new Map();
-    const todayKey = toDateStr(today);
+    const _todayKey = toDateStr(today);
 
     for (const est of sorted) {
       if (!est.bidDue) continue;
@@ -2694,7 +2698,7 @@ function ByDueDateView({ workload, C, T, navigate, onProjectClick }) {
       if (b.label === "Overdue") return 1;
       return a.weekKey.localeCompare(b.weekKey);
     });
-  }, [sorted]);
+  }, [sorted, today]);
 
   const urgencyColor = daysRemaining => {
     if (daysRemaining < 0) return "#FF3B30"; // overdue
@@ -2933,7 +2937,7 @@ function ScheduleSettings({ C, T }) {
           style={{
             position: "absolute",
             top: "calc(100% + 6px)",
-            left: 0,
+            right: 0,
             background: C.bg1,
             border: `1px solid ${C.border}`,
             borderRadius: T.radius.md,
@@ -3345,8 +3349,14 @@ export default function ResourcePage() {
   const C = useTheme();
   const T = C.T;
   const navigate = useNavigate();
-  const { selectedDate, setSelectedDate, sidebarCollapsed, setSidebarCollapsed, sortMode, setSortMode } =
-    useResourceStore();
+  const {
+    selectedDate: _selectedDate,
+    setSelectedDate: _setSelectedDate,
+    sidebarCollapsed: _sidebarCollapsed,
+    setSidebarCollapsed: _setSidebarCollapsed,
+    sortMode,
+    setSortMode,
+  } = useResourceStore();
 
   // Range state: shift by 2-week increments
   const [rangeOffset, setRangeOffset] = useState(0);
@@ -3376,7 +3386,7 @@ export default function ResourcePage() {
   const overloadWarnings = workload.warnings.filter(w => w.type === "overloaded").length;
 
   // Schedule health
-  const scheduleHealth = useMemo(() => {
+  const _scheduleHealth = useMemo(() => {
     const all = workload.estimatorRows.flatMap(r => r.estimates);
     const behind = all.filter(e => e.scheduleStatus === "behind" || e.scheduleStatus === "overdue").length;
     const ahead = all.filter(e => e.scheduleStatus === "ahead").length;

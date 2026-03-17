@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
-import { useTheme } from '@/hooks/useTheme';
-import { supabase } from '@/utils/supabase';
-import { loadPdfJs } from '@/utils/pdf';
-import Ic from '@/components/shared/Ic';
-import { I } from '@/constants/icons';
-import { bt } from '@/utils/styles';
+import { useState, useEffect, useRef } from "react";
+import { useTheme } from "@/hooks/useTheme";
+import { supabase } from "@/utils/supabase";
+import { loadPdfJs } from "@/utils/pdf";
+import Ic from "@/components/shared/Ic";
+import { I } from "@/constants/icons";
+import { bt } from "@/utils/styles";
 
 export default function AttachmentPreview({ attachment, apiBase, onClose }) {
   const C = useTheme();
@@ -18,10 +18,9 @@ export default function AttachmentPreview({ attachment, apiBase, onClose }) {
   const [imageSrc, setImageSrc] = useState(null);
   const pdfDocRef = useRef(null);
 
-  const isPdf = attachment.contentType === "application/pdf" ||
-    attachment.filename?.toLowerCase().endsWith(".pdf");
-  const isImage = attachment.contentType?.startsWith("image/") ||
-    /\.(jpg|jpeg|png|gif)$/i.test(attachment.filename || "");
+  const isPdf = attachment.contentType === "application/pdf" || attachment.filename?.toLowerCase().endsWith(".pdf");
+  const isImage =
+    attachment.contentType?.startsWith("image/") || /\.(jpg|jpeg|png|gif)$/i.test(attachment.filename || "");
 
   // Fetch attachment data
   useEffect(() => {
@@ -102,10 +101,10 @@ export default function AttachmentPreview({ attachment, apiBase, onClose }) {
       cancelled = true;
       objectUrls.forEach(u => URL.revokeObjectURL(u));
     };
-  }, [attachment.storagePath, attachment.contentType, apiBase]);
+  }, [attachment.storagePath, attachment.contentType, apiBase, isImage, isPdf]);
 
   // Page navigation
-  const goToPage = async (pageNum) => {
+  const goToPage = async pageNum => {
     if (!pdfDocRef.current || pageNum < 1 || pageNum > totalPages) return;
     setLoading(true);
     try {
@@ -121,7 +120,7 @@ export default function AttachmentPreview({ attachment, apiBase, onClose }) {
       setCurrentPage(pageNum);
       canvas.width = 0;
       canvas.height = 0;
-    } catch (err) {
+    } catch {
       setError("Failed to render page");
     } finally {
       setLoading(false);
@@ -131,16 +130,29 @@ export default function AttachmentPreview({ attachment, apiBase, onClose }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
       {/* Toolbar */}
-      <div style={{
-        display: "flex", alignItems: "center", gap: T.space[2],
-        paddingBottom: T.space[3], borderBottom: `1px solid ${C.border}`,
-        marginBottom: T.space[3], flexShrink: 0,
-      }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: T.space[2],
+          paddingBottom: T.space[3],
+          borderBottom: `1px solid ${C.border}`,
+          marginBottom: T.space[3],
+          flexShrink: 0,
+        }}
+      >
         <Ic d={I.plans} size={14} color={C.accent} />
-        <span style={{
-          flex: 1, fontSize: T.fontSize.sm, fontWeight: T.fontWeight.medium,
-          color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-        }}>
+        <span
+          style={{
+            flex: 1,
+            fontSize: T.fontSize.sm,
+            fontWeight: T.fontWeight.medium,
+            color: C.text,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
           {attachment.filename}
         </span>
 
@@ -148,9 +160,11 @@ export default function AttachmentPreview({ attachment, apiBase, onClose }) {
           <div style={{ display: "flex", alignItems: "center", gap: T.space[1] }}>
             <button
               style={bt(C, {
-                padding: "3px 6px", background: "transparent",
+                padding: "3px 6px",
+                background: "transparent",
                 color: currentPage > 1 ? C.textMuted : C.textDim,
-                border: `1px solid ${C.border}`, opacity: currentPage > 1 ? 1 : 0.4,
+                border: `1px solid ${C.border}`,
+                opacity: currentPage > 1 ? 1 : 0.4,
               })}
               onClick={() => goToPage(currentPage - 1)}
               disabled={currentPage <= 1}
@@ -162,9 +176,11 @@ export default function AttachmentPreview({ attachment, apiBase, onClose }) {
             </span>
             <button
               style={bt(C, {
-                padding: "3px 6px", background: "transparent",
+                padding: "3px 6px",
+                background: "transparent",
                 color: currentPage < totalPages ? C.textMuted : C.textDim,
-                border: `1px solid ${C.border}`, opacity: currentPage < totalPages ? 1 : 0.4,
+                border: `1px solid ${C.border}`,
+                opacity: currentPage < totalPages ? 1 : 0.4,
               })}
               onClick={() => goToPage(currentPage + 1)}
               disabled={currentPage >= totalPages}
@@ -176,8 +192,10 @@ export default function AttachmentPreview({ attachment, apiBase, onClose }) {
 
         <button
           style={bt(C, {
-            padding: "3px 6px", background: "transparent",
-            color: C.textDim, border: `1px solid ${C.border}`,
+            padding: "3px 6px",
+            background: "transparent",
+            color: C.textDim,
+            border: `1px solid ${C.border}`,
           })}
           onClick={onClose}
           title="Close preview"
@@ -187,26 +205,47 @@ export default function AttachmentPreview({ attachment, apiBase, onClose }) {
       </div>
 
       {/* Content */}
-      <div style={{
-        flex: 1, overflow: "auto", display: "flex",
-        alignItems: "flex-start", justifyContent: "center",
-        minHeight: 0, background: C.bg, borderRadius: T.radius.sm,
-        padding: T.space[2],
-      }}>
+      <div
+        style={{
+          flex: 1,
+          overflow: "auto",
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "center",
+          minHeight: 0,
+          background: C.bg,
+          borderRadius: T.radius.sm,
+          padding: T.space[2],
+        }}
+      >
         {loading && !pageDataUrl && !imageSrc && (
-          <div style={{
-            display: "flex", alignItems: "center", justifyContent: "center",
-            height: "100%", width: "100%", color: C.textDim, fontSize: T.fontSize.sm,
-          }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "100%",
+              width: "100%",
+              color: C.textDim,
+              fontSize: T.fontSize.sm,
+            }}
+          >
             Loading preview...
           </div>
         )}
 
         {error && (
-          <div style={{
-            display: "flex", alignItems: "center", justifyContent: "center",
-            height: "100%", width: "100%", color: C.red, fontSize: T.fontSize.sm,
-          }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "100%",
+              width: "100%",
+              color: C.red,
+              fontSize: T.fontSize.sm,
+            }}
+          >
             {error}
           </div>
         )}

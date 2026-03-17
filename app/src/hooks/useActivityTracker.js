@@ -4,7 +4,7 @@ import { useActivityTimerStore } from "@/stores/activityTimerStore";
 import { useTimerSync } from "@/hooks/useTimerSync";
 
 const IDLE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
-const IDLE_CHECK_INTERVAL_MS = 10 * 1000; // Check every 10 seconds
+const _IDLE_CHECK_INTERVAL_MS = 10 * 1000; // Check every 10 seconds
 const MOUSE_THROTTLE_MS = 2000; // Only flush mouse metrics to Zustand every 2s
 const ACTIVITY_THROTTLE_MS = 5000; // Only update lastActivity every 5s
 
@@ -60,7 +60,7 @@ export function useActivityTracker() {
   // PERF FIX: Accumulate mouse distance in a plain ref, only flush to Zustand
   // store every 2s. The old code called set() 10x/sec creating new objects.
   const mouseDeltaRef = useRef(0); // accumulated distance since last flush
-  const lastFlushTime = useRef(0);
+  const _lastFlushTime = useRef(0);
   const lastActivityFlush = useRef(0);
 
   useEffect(() => {

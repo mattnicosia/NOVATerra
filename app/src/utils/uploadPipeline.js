@@ -14,7 +14,7 @@ import { useUiStore } from "@/stores/uiStore";
 import { useGroupsStore } from "@/stores/groupsStore";
 import { useTakeoffsStore } from "@/stores/takeoffsStore";
 import { uid, nowStr } from "@/utils/format";
-import { callAnthropic, optimizeImageForAI, imageBlock } from "@/utils/ai";
+import { callAnthropic, optimizeImageForAI } from "@/utils/ai";
 import { loadPdfJs } from "@/utils/pdf";
 import { matchScaleKey, renderPdfPage, classifyFile, isDuplicateFile } from "@/utils/drawingUtils";
 import { detectBuildingOutline, outlineToFeet, computePolygonArea } from "@/utils/outlineDetector";
@@ -144,8 +144,7 @@ export async function extractDrawingPages(file, options = {}) {
       renderingScale: "",
       renderingNotes: "",
     };
-    const cur = useDrawingsStore.getState().drawings;
-    useDrawingsStore.getState().setDrawings([...cur, d]);
+    useDrawingsStore.setState(s => ({ drawings: [...s.drawings, d] }));
     return [d.id];
   }
 
@@ -155,7 +154,7 @@ export async function extractDrawingPages(file, options = {}) {
   pdfRawCache.set(file.name, arrayBuffer.slice(0));
   // Persist to separate IDB key (one copy per PDF, not duplicated per page)
   savePdfRawToIDB(file.name, arrayBuffer.slice(0)).catch(err =>
-    console.warn("[extractDrawingPages] Failed to persist raw PDF to IDB:", err.message)
+    console.warn("[extractDrawingPages] Failed to persist raw PDF to IDB:", err.message),
   );
   await loadPdfJs();
   const pdf = await window.pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
@@ -245,18 +244,22 @@ export async function repairRawPdf(file) {
     const selectedBase = file.name.replace(/\.pdf$/i, "").toLowerCase();
     let repaired = 0;
     console.log(`[repairRawPdf] Looking for drawings matching "${file.name}" (base: "${selectedBase}")`);
-    console.log(`[repairRawPdf] All pdfPreRendered drawings:`, drawings.filter(d => d.pdfPreRendered).map(d => d.fileName));
+    console.log(
+      `[repairRawPdf] All pdfPreRendered drawings:`,
+      drawings.filter(d => d.pdfPreRendered).map(d => d.fileName),
+    );
     try {
       const { invalidateCache } = await import("@/utils/pdfExtractor");
       for (const d of drawings) {
         if (!d.pdfPreRendered) continue;
         const drawingBase = (d.fileName || "").replace(/\.pdf$/i, "").toLowerCase();
         // Match: exact, base name match, or no fileName on drawing
-        const matches = d.fileName === file.name
-          || drawingBase === selectedBase
-          || selectedBase.includes(drawingBase)
-          || drawingBase.includes(selectedBase)
-          || !d.fileName;
+        const matches =
+          d.fileName === file.name ||
+          drawingBase === selectedBase ||
+          selectedBase.includes(drawingBase) ||
+          drawingBase.includes(selectedBase) ||
+          !d.fileName;
         if (matches) {
           repaired++;
           invalidateCache(d.id);
@@ -284,7 +287,7 @@ export async function repairRawPdf(file) {
 // After autoLabel completes, check if any newly labeled drawings match existing
 // sheets — indicating a revision/addendum upload.
 
-function isHigherRevision(oldRev, newRev) {
+export function isHigherRevision(oldRev, newRev) {
   if (!newRev) return false;
   if (!oldRev) return true; // any revision > no revision
   const oNum = parseInt(oldRev, 10);
@@ -293,8 +296,10 @@ function isHigherRevision(oldRev, newRev) {
   if (!isNaN(oNum) && !isNaN(nNum)) return nNum > oNum;
   // Both alpha
   if (isNaN(oNum) && isNaN(nNum)) return newRev.toUpperCase() > oldRev.toUpperCase();
-  // Mixed: numeric old + alpha new (post-IFC transition) or vice versa
-  return true;
+  // Mixed: numeric old → alpha new is a common post-IFC transition (higher)
+  // But alpha old → numeric new likely means different revision schemes (not higher)
+  if (!isNaN(oNum) && isNaN(nNum)) return true; // numeric → alpha = upgrade (post-IFC)
+  return false; // alpha → numeric = ambiguous, don't auto-supersede
 }
 
 export function detectRevisions(newDrawingIds) {
@@ -317,8 +322,7 @@ export function detectRevisions(newDrawingIds) {
     const newDwg = allDrawings.find(d => d.id === newId);
     if (!newDwg || !newDwg.sheetNumber) continue;
 
-    const existingId = sheetIdx[newDwg.sheetNumber]
-      || sheetIdx[newDwg.sheetNumber.replace(/[-\s]/g, "")];
+    const existingId = sheetIdx[newDwg.sheetNumber] || sheetIdx[newDwg.sheetNumber.replace(/[-\s]/g, "")];
     if (!existingId) continue;
 
     const existing = allDrawings.find(d => d.id === existingId);
@@ -354,9 +358,7 @@ export function analyzeRevisionImpact(revisionReport) {
   const impact = [];
 
   for (const rev of revisionReport) {
-    const affectedTakeoffs = takeoffs.filter(t =>
-      (t.measurements || []).some(m => m.sheetId === rev.oldDrawingId),
-    );
+    const affectedTakeoffs = takeoffs.filter(t => (t.measurements || []).some(m => m.sheetId === rev.oldDrawingId));
 
     if (affectedTakeoffs.length > 0) {
       impact.push({
@@ -382,12 +384,10 @@ export function analyzeRevisionImpact(revisionReport) {
   }
 
   const totalAffectedItems = new Set(impact.flatMap(i => i.affectedTakeoffs.map(t => t.id))).size;
-  const affectedDivisions = [...new Set(
-    impact.flatMap(i => i.affectedTakeoffs.map(t => t.divisionCode).filter(Boolean)),
-  )].sort();
-  const affectedGroups = [...new Set(
-    impact.flatMap(i => i.affectedTakeoffs.map(t => t.groupName).filter(Boolean)),
-  )];
+  const affectedDivisions = [
+    ...new Set(impact.flatMap(i => i.affectedTakeoffs.map(t => t.divisionCode).filter(Boolean))),
+  ].sort();
+  const affectedGroups = [...new Set(impact.flatMap(i => i.affectedTakeoffs.map(t => t.groupName).filter(Boolean)))];
 
   return {
     sheets: impact,
@@ -419,7 +419,7 @@ export async function autoLabelDrawings(drawingIds) {
     scaleCount = 0,
     failCount = 0,
     lastErr = "";
-  let metadataExtracted = false;
+  let _metadataExtracted = false;
   let metadataComplete = false; // true once architect + projectName found
 
   for (let i = 0; i < targets.length; i++) {
@@ -502,7 +502,7 @@ export async function autoLabelDrawings(drawingIds) {
 
         // Extract project metadata from title block (tries up to 3 sheets)
         if (needsMetadata) {
-          metadataExtracted = true;
+          _metadataExtracted = true;
           try {
             const proj = useProjectStore.getState().project;
             const updates = {};
@@ -675,23 +675,25 @@ export async function autoLabelDrawings(drawingIds) {
         useUiStore.getState().setRevisionImpact(impact);
 
         // Auto-create a revision scenario group
-        const addNum = revisionReport[0]?.description?.match(/addendum\s*#?(\d+)/i)?.[1]
-          || revisionReport[0]?.newRevision || "?";
-        const revGroupId = useGroupsStore.getState().addGroup(
-          `Addendum ${addNum}`,
-          "revision",
-        );
+        const addNum =
+          revisionReport[0]?.description?.match(/addendum\s*#?(\d+)/i)?.[1] || revisionReport[0]?.newRevision || "?";
+        const revGroupId = useGroupsStore.getState().addGroup(`Addendum ${addNum}`, "revision");
         // Store revision metadata on the group
-        useGroupsStore.getState().updateGroup(revGroupId, "description",
-          `${revisionReport.length} sheet${revisionReport.length > 1 ? "s" : ""} revised — ${impact.summary.totalAffectedItems} takeoff items affected`,
-        );
+        useGroupsStore
+          .getState()
+          .updateGroup(
+            revGroupId,
+            "description",
+            `${revisionReport.length} sheet${revisionReport.length > 1 ? "s" : ""} revised — ${impact.summary.totalAffectedItems} takeoff items affected`,
+          );
         useGroupsStore.getState().updateGroup(revGroupId, "revisionReport", revisionReport);
         useGroupsStore.getState().updateGroup(revGroupId, "addendumNumber", addNum);
 
         // Notify user
-        const msg = impact.summary.totalAffectedItems > 0
-          ? `Revision detected: ${revisionReport.length} sheet${revisionReport.length > 1 ? "s" : ""} revised → ${impact.summary.totalAffectedItems} takeoff items affected`
-          : `Revision detected: ${revisionReport.length} sheet${revisionReport.length > 1 ? "s" : ""} revised (no takeoff items affected yet)`;
+        const msg =
+          impact.summary.totalAffectedItems > 0
+            ? `Revision detected: ${revisionReport.length} sheet${revisionReport.length > 1 ? "s" : ""} revised → ${impact.summary.totalAffectedItems} takeoff items affected`
+            : `Revision detected: ${revisionReport.length} sheet${revisionReport.length > 1 ? "s" : ""} revised (no takeoff items affected yet)`;
         useUiStore.getState().showToast(msg, "info");
         useNovaStore.getState().notify(msg, "info");
       }
@@ -1355,7 +1357,7 @@ export async function handleFileUpload(files, options = {}) {
           processingMessage: `${count} sheets • ${schedCount} schedules${romRange ? ` • ${romRange}` : ""}`,
         });
       }
-    } catch (err) {
+    } catch {
       for (const { docId, drawingIds } of drawingDocIds) {
         useDocumentsStore.getState().updateDocument(docId, {
           processingStatus: "complete",

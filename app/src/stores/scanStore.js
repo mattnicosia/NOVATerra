@@ -9,9 +9,6 @@ export const useScanStore = create((set, get) => ({
   scanProgress: { phase: null, current: 0, total: 0, message: "" },
   scanError: null,
 
-  // Scope narratives generated from scan results
-  scopeNarratives: [], // [{ tradeKey, tradeName, narrative, confidence, source }]
-
   // Learning records — shared across estimates
   learningRecords: [], // [{ estimateId, romPrediction, actuals, calibration, timestamp }]
 
@@ -28,9 +25,6 @@ export const useScanStore = create((set, get) => ({
   setScanResults: results => set({ scanResults: results }),
   setScanResultsPending: v => set({ scanResultsPending: v }),
 
-  setScopeNarratives: narratives => set({ scopeNarratives: narratives }),
-  clearScopeNarratives: () => set({ scopeNarratives: [] }),
-
   setScanProgress: progress => set({ scanProgress: progress }),
 
   setScanError: error => set({ scanError: error }),
@@ -42,7 +36,6 @@ export const useScanStore = create((set, get) => ({
       scanError: null,
       scanAbortController: null,
       scanResultsPending: false,
-      scopeNarratives: [],
     }),
 
   // Create abort controller for a new scan — returns the AbortSignal
@@ -211,7 +204,6 @@ export const useScanStore = create((set, get) => ({
       if (filtered.length >= 3) corrections = filtered;
     }
 
-    const currentYear = new Date().getFullYear();
     const fieldData = {}; // { field: [{ detected, corrected, weight }] }
 
     corrections.forEach(c => {

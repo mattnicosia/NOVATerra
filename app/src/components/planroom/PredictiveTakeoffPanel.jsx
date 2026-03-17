@@ -13,12 +13,6 @@ import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { bt, card } from "@/utils/styles";
 
-const CONFIDENCE_COLORS = {
-  high: { bg: "15", text: "", label: "High" },
-  medium: { bg: "12", text: "", label: "Med" },
-  low: { bg: "08", text: "", label: "Low" },
-};
-
 /**
  * @param {{ suggestions: Array, onAccept: fn, onReject: fn, onAcceptAll: fn, onClose: fn }} props
  *
@@ -31,13 +25,7 @@ const CONFIDENCE_COLORS = {
  *   estimatedCost?: { material, labor, equipment, sub },
  * }
  */
-export default function PredictiveTakeoffPanel({
-  suggestions = [],
-  onAccept,
-  onReject,
-  onAcceptAll,
-  onClose,
-}) {
+export default function PredictiveTakeoffPanel({ suggestions = [], onAccept, onReject, onAcceptAll, onClose }) {
   const C = useTheme();
   const T = C.T;
   const [accepted, setAccepted] = useState(new Set());
@@ -103,9 +91,7 @@ export default function PredictiveTakeoffPanel({
         <div style={{ display: "flex", alignItems: "center", gap: T.space[2] }}>
           <Ic d={I.ai} size={16} color={C.accent} />
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>
-              NOVA Predictive Takeoffs
-            </div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>NOVA Predictive Takeoffs</div>
             <div style={{ fontSize: 9, color: C.textDim, marginTop: 1 }}>
               {stats.total} suggestions · {stats.accepted} accepted · {stats.rejected} dismissed
             </div>
@@ -185,8 +171,7 @@ export default function PredictiveTakeoffPanel({
           </div>
         ) : (
           pending.map(s => {
-            const confColor =
-              s.confidence === "high" ? C.green : s.confidence === "medium" ? C.orange : C.textDim;
+            const confColor = s.confidence === "high" ? C.green : s.confidence === "medium" ? C.orange : C.textDim;
             const isExpanded = expandedId === s.id;
 
             return (
@@ -221,9 +206,7 @@ export default function PredictiveTakeoffPanel({
                   {/* Item info */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: C.text }}>
-                        {s.description}
-                      </span>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: C.text }}>{s.description}</span>
                       {s.code && (
                         <span
                           style={{

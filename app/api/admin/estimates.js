@@ -1,17 +1,12 @@
-import { supabaseAdmin } from '../lib/supabaseAdmin.js';
+import { supabaseAdmin, verifyAdmin } from '../lib/supabaseAdmin.js';
 import { cors } from '../lib/cors.js';
-
-function parseCookies(h) { const c = {}; (h||'').split(';').forEach(p => { const [k,...r] = p.trim().split('='); if (k) c[k] = r.join('='); }); return c; }
 
 export default async function handler(req, res) {
   if (cors(req, res)) return;
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
-  const cookie = parseCookies(req.headers.cookie);
-  const ADMIN_SECRET = process.env.NOVA_ADMIN_SECRET;
-  if (!ADMIN_SECRET || cookie.nova_admin_token !== ADMIN_SECRET) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
+  const admin = await verifyAdmin(req);
+  if (!admin) return res.status(403).json({ error: "Forbidden" });
 
   try {
     const userId = req.query.userId || null;

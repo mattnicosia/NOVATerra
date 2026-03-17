@@ -30,7 +30,9 @@ import { autoTradeFromCode } from "@/constants/tradeGroupings";
 const _deletedIds = new Set();
 
 /** Mark an ID as permanently deleted (in-memory guard). */
-export const markDeleted = id => { _deletedIds.add(id); };
+export const markDeleted = id => {
+  _deletedIds.add(id);
+};
 
 /** Hydrate the in-memory guard from an array of IDs (called on startup). */
 export const hydrateDeletedIds = ids => {
@@ -456,9 +458,7 @@ export const useEstimatesStore = create((set, get) => ({
 
     // Determine revision number from existing chain
     const allEstimates = get().estimatesIndex;
-    const siblings = allEstimates.filter(
-      e => e.parentEstimateId === parentId || e.id === parentId,
-    );
+    const siblings = allEstimates.filter(e => e.parentEstimateId === parentId || e.id === parentId);
     const maxRev = siblings.reduce((max, e) => Math.max(max, e.revisionNumber || 0), 0);
     const revisionNumber = maxRev + 1;
 
@@ -543,7 +543,9 @@ export const useEstimatesStore = create((set, get) => ({
     try {
       const authUserId = useAuthStore.getState().user?.id;
       if (authUserId) localStorage.setItem(`bldg-index-mirror-${authUserId}`, idxJson);
-    } catch { /* quota exceeded */ }
+    } catch {
+      /* quota exceeded */
+    }
 
     // Cloud sync (non-blocking)
     if (!useUiStore.getState().cloudSyncInProgress) {
@@ -555,7 +557,7 @@ export const useEstimatesStore = create((set, get) => ({
   },
 
   // Get revision chain for an estimate (parent + all revisions)
-  getRevisionChain: (estimateId) => {
+  getRevisionChain: estimateId => {
     const all = get().estimatesIndex;
     const entry = all.find(e => e.id === estimateId);
     if (!entry) return [];
@@ -564,9 +566,7 @@ export const useEstimatesStore = create((set, get) => ({
     const rootId = entry.parentEstimateId || estimateId;
 
     // Collect all estimates in this chain
-    const chain = all.filter(
-      e => e.id === rootId || e.parentEstimateId === rootId,
-    );
+    const chain = all.filter(e => e.id === rootId || e.parentEstimateId === rootId);
 
     // Sort by revision number
     return chain.sort((a, b) => (a.revisionNumber || 0) - (b.revisionNumber || 0));
@@ -591,7 +591,9 @@ export const useEstimatesStore = create((set, get) => ({
     try {
       const userId = useAuthStore.getState().user?.id;
       if (userId) localStorage.setItem(`bldg-index-mirror-${userId}`, idxJson);
-    } catch { /* quota */ }
+    } catch {
+      /* quota */
+    }
     // Push to cloud (non-blocking)
     cloudSync.pushData("index", idx).catch(() => {});
   },
@@ -674,7 +676,7 @@ export const useEstimatesStore = create((set, get) => ({
 // Watches ALL writes to estimatesIndex — if a permanently-deleted ID appears,
 // immediately strips it. Defense-in-depth against any resurrection code path.
 let _guardActive = false;
-useEstimatesStore.subscribe((state) => {
+useEstimatesStore.subscribe(state => {
   const index = state.estimatesIndex;
   if (!Array.isArray(index)) return;
 
@@ -684,12 +686,9 @@ useEstimatesStore.subscribe((state) => {
     _guardActive = true;
     const zombieIds = index.filter(e => _deletedIds.has(e.id)).map(e => e.id);
     const filtered = index.filter(e => !_deletedIds.has(e.id));
-    console.error(
-      `[ZOMBIE GUARD] INTERCEPTED ${zombieIds.length} zombie(s): ${zombieIds.join(", ")}`
-    );
+    console.error(`[ZOMBIE GUARD] INTERCEPTED ${zombieIds.length} zombie(s): ${zombieIds.join(", ")}`);
     console.trace("[ZOMBIE GUARD] Resurrection stack trace");
     useEstimatesStore.setState({ estimatesIndex: filtered });
     _guardActive = false;
   }
 });
-

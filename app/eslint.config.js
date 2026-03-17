@@ -13,6 +13,7 @@ export default [
   js.configs.recommended,
 
   // React recommended (flat config)
+  react.configs.flat.recommended,
   react.configs.flat["jsx-runtime"],
 
   // Prettier — disables formatting rules that conflict
@@ -122,6 +123,22 @@ export default [
       // Hooks — only the two classic rules (v7 adds React Compiler rules we don't need yet)
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
+    },
+  },
+
+  // React Three Fiber files — suppress unknown-property for 3D JSX props
+  {
+    files: [
+      "src/components/nova/NovaScene.jsx",
+      "src/components/nova/NovacoreSphere.jsx",
+      "src/components/nova/InnerParticles.jsx",
+      "src/components/nova/PBRShell.jsx",
+      "src/components/nova/EnergyWisps.jsx",
+      "src/components/nova/Chamber.jsx",
+      "src/components/insights/SceneViewer.jsx",
+    ],
+    rules: {
+      "react/no-unknown-property": "off",
     },
   },
 

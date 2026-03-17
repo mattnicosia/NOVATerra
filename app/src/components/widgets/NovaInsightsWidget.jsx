@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useFirmMemoryStore } from "@/nova/learning/firmMemory";
 import { useCorrectionStore } from "@/nova/learning/correctionStore";
@@ -15,7 +15,7 @@ export default function NovaInsightsWidget() {
   const C = useTheme();
   const T = C.T;
   const dk = C.isDark;
-  const ov = (a) => dk ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  const ov = useMemo(() => a => (dk ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`), [dk]);
 
   // Select raw state to avoid creating new objects on every render
   const firms = useFirmMemoryStore(s => s.firms);
@@ -93,22 +93,24 @@ export default function NovaInsightsWidget() {
     }
 
     return list.slice(0, 4);
-  }, [firmStats, correctionStats, C]);
+  }, [firmStats, correctionStats, C, ov]);
 
   return (
     <div style={{ padding: "14px 16px", height: "100%", display: "flex", flexDirection: "column" }}>
-      <div style={{
-        fontSize: 8.5,
-        fontWeight: 700,
-        letterSpacing: "0.14em",
-        textTransform: "uppercase",
-        color: ov(0.4),
-        fontFamily: T.font.display,
-        marginBottom: 10,
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-      }}>
+      <div
+        style={{
+          fontSize: 8.5,
+          fontWeight: 700,
+          letterSpacing: "0.14em",
+          textTransform: "uppercase",
+          color: ov(0.4),
+          fontFamily: T.font.display,
+          marginBottom: 10,
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+        }}
+      >
         <Ic d={I.ai} size={11} color={C.accent} />
         NOVA Insights
       </div>
@@ -124,7 +126,9 @@ export default function NovaInsightsWidget() {
             }}
           >
             <Ic d={I[insight.icon] || I.ai} size={12} color={insight.color} style={{ flexShrink: 0, marginTop: 1 }} />
-            <span style={{ fontSize: 10, color: C.text, lineHeight: 1.5, fontFamily: T.font.display }}>{insight.text}</span>
+            <span style={{ fontSize: 10, color: C.text, lineHeight: 1.5, fontFamily: T.font.display }}>
+              {insight.text}
+            </span>
           </div>
         ))}
       </div>

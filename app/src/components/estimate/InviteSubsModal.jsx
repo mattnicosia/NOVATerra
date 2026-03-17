@@ -18,7 +18,6 @@ export default function InviteSubsModal({ packageId, packageName, selectedTrades
   const subs = useMasterDataStore(s => s.masterData.subcontractors);
   const addMasterItem = useMasterDataStore(s => s.addMasterItem);
   const toggleSubPreferred = useMasterDataStore(s => s.toggleSubPreferred);
-  const setPackageInvitations = useBidPackagesStore(s => s.setPackageInvitations);
   const showToast = useUiStore(s => s.showToast);
 
   // Local state

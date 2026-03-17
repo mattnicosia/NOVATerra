@@ -13,7 +13,7 @@ import * as THREE from "three";
 
 const _emissiveTarget = new THREE.Color();
 
-export default function PBRShell({ size = 1.6, awaken = 0, morph = 0 }) {
+export default function PBRShell({ size = 1.6, awaken = 0, _morph = 0 }) {
   const meshRef = useRef();
   const matRef = useRef();
 
@@ -42,9 +42,9 @@ export default function PBRShell({ size = 1.6, awaken = 0, morph = 0 }) {
     // ── Emissive: dark dormant → purple-blue glow at alive ─────────
     // Subtle rim glow that increases with awakening
     _emissiveTarget.setRGB(
-      awaken * 0.12,         // R: very subtle warmth
-      awaken * 0.06,         // G: minimal
-      awaken * 0.35,         // B: dominant blue glow
+      awaken * 0.12, // R: very subtle warmth
+      awaken * 0.06, // G: minimal
+      awaken * 0.35, // B: dominant blue glow
     );
     mat.emissive.lerp(_emissiveTarget, spd);
     const targetEmissiveIntensity = awaken * awaken * 2.5;

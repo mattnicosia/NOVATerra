@@ -5,19 +5,19 @@ import { nn } from "@/utils/format";
 import { getTradeLabel, getTradeSortOrder } from "@/constants/tradeGroupings";
 
 // ── Cell formatting helpers ──────────────────────────────────────
-const CURRENCY_FMT = '$#,##0.00';
-const PCT_FMT = '0.00%';
-const NUM_FMT = '#,##0.##';
+const CURRENCY_FMT = "$#,##0.00";
+const PCT_FMT = "0.00%";
+const _NUM_FMT = "#,##0.##";
 
 function setCellFmt(ws, ref, fmt) {
   if (ws[ref]) ws[ref].z = fmt;
 }
 
-function setCellStyle(ws, ref, style) {
+function _setCellStyle(ws, ref, style) {
   if (ws[ref]) ws[ref].s = style;
 }
 
-const HEADER_STYLE = {
+const _HEADER_STYLE = {
   font: { bold: true, sz: 11, color: { rgb: "FFFFFF" } },
   fill: { fgColor: { rgb: "2D3748" } },
   alignment: { horizontal: "center", vertical: "center" },
@@ -26,16 +26,16 @@ const HEADER_STYLE = {
   },
 };
 
-const TITLE_STYLE = {
+const _TITLE_STYLE = {
   font: { bold: true, sz: 14, color: { rgb: "1A202C" } },
 };
 
-const SECTION_STYLE = {
+const _SECTION_STYLE = {
   font: { bold: true, sz: 11, color: { rgb: "2D3748" } },
   fill: { fgColor: { rgb: "EDF2F7" } },
 };
 
-const TOTAL_STYLE = {
+const _TOTAL_STYLE = {
   font: { bold: true, sz: 12, color: { rgb: "1A202C" } },
   fill: { fgColor: { rgb: "F7FAFC" } },
   border: {
@@ -86,10 +86,12 @@ export function exportEstimateXlsx(project, items, totals, markup, opts = {}) {
 
   // Dynamic markup rows from markupOrder
   if (markupOrder?.length) {
-    markupOrder.filter(m => m.active).forEach(m => {
-      const pct = nn(markup[m.key]) || 0;
-      summaryData.push([m.label, `${pct}%`]);
-    });
+    markupOrder
+      .filter(m => m.active)
+      .forEach(m => {
+        const pct = nn(markup[m.key]) || 0;
+        summaryData.push([m.label, `${pct}%`]);
+      });
   } else {
     // Fallback to flat markup values
     if (nn(markup.overhead)) summaryData.push(["Overhead", `${nn(markup.overhead)}%`]);
@@ -125,9 +127,19 @@ export function exportEstimateXlsx(project, items, totals, markup, opts = {}) {
   // Sheet 2: Line Items (detailed)
   // ═══════════════════════════════════════════════════════════════
   const itemHeaders = [
-    "Division", "Code", "Description", "Notes", "Qty", "Unit",
-    "Material", "Labor", "Equipment", "Subcontractor",
-    "Line Total", "Trade", "Spec Section",
+    "Division",
+    "Code",
+    "Description",
+    "Notes",
+    "Qty",
+    "Unit",
+    "Material",
+    "Labor",
+    "Equipment",
+    "Subcontractor",
+    "Line Total",
+    "Trade",
+    "Spec Section",
   ];
 
   // Sort items by division for clean grouping
@@ -155,19 +167,36 @@ export function exportEstimateXlsx(project, items, totals, markup, opts = {}) {
 
   // Add totals row
   const totalRow = [
-    "", "", `TOTAL (${items.length} items)`, "", "", "",
+    "",
+    "",
+    `TOTAL (${items.length} items)`,
+    "",
+    "",
+    "",
     items.reduce((s, it) => s + nn(it.quantity) * nn(it.material), 0),
     items.reduce((s, it) => s + nn(it.quantity) * nn(it.labor), 0),
     items.reduce((s, it) => s + nn(it.quantity) * nn(it.equipment), 0),
     items.reduce((s, it) => s + nn(it.quantity) * nn(it.subcontractor), 0),
     totals.direct,
-    "", "",
+    "",
+    "",
   ];
 
   const wsItems = XLSX.utils.aoa_to_sheet([itemHeaders, ...itemRows, [], totalRow]);
   wsItems["!cols"] = [
-    { wch: 22 }, { wch: 14 }, { wch: 45 }, { wch: 25 }, { wch: 10 }, { wch: 8 },
-    { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 14 },
+    { wch: 22 },
+    { wch: 14 },
+    { wch: 45 },
+    { wch: 25 },
+    { wch: 10 },
+    { wch: 8 },
+    { wch: 14 },
+    { wch: 14 },
+    { wch: 14 },
+    { wch: 16 },
+    { wch: 16 },
+    { wch: 16 },
+    { wch: 14 },
   ];
   // Currency formatting for cost columns (6-10)
   for (let r = 1; r <= itemRows.length + 2; r++) {
@@ -204,16 +233,27 @@ export function exportEstimateXlsx(project, items, totals, markup, opts = {}) {
       return [div, d.count, d.mat, d.lab, d.equip, d.sub, total, totals.direct > 0 ? total / totals.direct : 0];
     });
   const divTotalRow = [
-    "TOTAL", items.length,
+    "TOTAL",
+    items.length,
     divRows.reduce((s, r) => s + r[2], 0),
     divRows.reduce((s, r) => s + r[3], 0),
     divRows.reduce((s, r) => s + r[4], 0),
     divRows.reduce((s, r) => s + r[5], 0),
-    totals.direct, 1,
+    totals.direct,
+    1,
   ];
 
   const wsDiv = XLSX.utils.aoa_to_sheet([divHeaders, ...divRows, [], divTotalRow]);
-  wsDiv["!cols"] = [{ wch: 30 }, { wch: 8 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 12 }];
+  wsDiv["!cols"] = [
+    { wch: 30 },
+    { wch: 8 },
+    { wch: 16 },
+    { wch: 16 },
+    { wch: 16 },
+    { wch: 16 },
+    { wch: 16 },
+    { wch: 12 },
+  ];
   for (let r = 1; r <= divRows.length + 2; r++) {
     for (let c = 2; c <= 6; c++) setCellFmt(wsDiv, XLSX.utils.encode_cell({ r, c }), CURRENCY_FMT);
     setCellFmt(wsDiv, XLSX.utils.encode_cell({ r, c: 7 }), PCT_FMT);
@@ -240,12 +280,7 @@ export function exportEstimateXlsx(project, items, totals, markup, opts = {}) {
     });
 
   const sovHeaders = ["No.", "Description of Work", "Scheduled Value", "% of Contract"];
-  const sovData = [
-    sovHeaders,
-    ...sovRows,
-    [],
-    ["", "TOTAL CONTRACT SUM", totals.grand, 1],
-  ];
+  const sovData = [sovHeaders, ...sovRows, [], ["", "TOTAL CONTRACT SUM", totals.grand, 1]];
   const wsSov = XLSX.utils.aoa_to_sheet(sovData);
   wsSov["!cols"] = [{ wch: 6 }, { wch: 38 }, { wch: 20 }, { wch: 14 }];
   for (let r = 1; r <= sovRows.length + 2; r++) {
@@ -271,7 +306,8 @@ export function exportEstimateXlsx(project, items, totals, markup, opts = {}) {
       const baseTotal = q * (nn(it.material) + nn(it.labor) + nn(it.equipment) + nn(it.subcontractor));
       row.push(baseTotal);
       // For each additional group, find matching item or show base
-      let minVal = baseTotal, maxVal = baseTotal;
+      let minVal = baseTotal,
+        maxVal = baseTotal;
       groups.slice(1).forEach(() => {
         row.push(baseTotal); // TODO: group-specific costs when multi-group data is available
       });
@@ -289,7 +325,18 @@ export function exportEstimateXlsx(project, items, totals, markup, opts = {}) {
   // Sheet 6: Snapshot History (if snapshots provided)
   // ═══════════════════════════════════════════════════════════════
   if (snapshots?.length > 0) {
-    const snapHeaders = ["Date", "Label", "Grand Total", "Direct Cost", "Material", "Labor", "Equipment", "Sub", "Items", "Change"];
+    const snapHeaders = [
+      "Date",
+      "Label",
+      "Grand Total",
+      "Direct Cost",
+      "Material",
+      "Labor",
+      "Equipment",
+      "Sub",
+      "Items",
+      "Change",
+    ];
     const snapRows = snapshots.map((snap, i) => {
       const prev = i > 0 ? snapshots[i - 1] : null;
       const change = prev ? snap.grandTotal - prev.grandTotal : 0;
@@ -309,8 +356,16 @@ export function exportEstimateXlsx(project, items, totals, markup, opts = {}) {
 
     const wsSnap = XLSX.utils.aoa_to_sheet([snapHeaders, ...snapRows]);
     wsSnap["!cols"] = [
-      { wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 16 },
-      { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 8 }, { wch: 14 },
+      { wch: 14 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 14 },
+      { wch: 14 },
+      { wch: 14 },
+      { wch: 14 },
+      { wch: 8 },
+      { wch: 14 },
     ];
     for (let r = 1; r <= snapRows.length; r++) {
       for (let c = 2; c <= 7; c++) setCellFmt(wsSnap, XLSX.utils.encode_cell({ r, c }), CURRENCY_FMT);

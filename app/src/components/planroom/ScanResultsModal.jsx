@@ -50,7 +50,7 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
   // NOVA Predictive Takeoffs
   const suggestions = useMemo(() => generateTakeoffSuggestions(scanResults), [scanResults]);
   const [acceptedSuggestions, setAcceptedSuggestions] = useState([]);
-  const [rejectedSuggestions, setRejectedSuggestions] = useState(new Set());
+  const [_rejectedSuggestions, setRejectedSuggestions] = useState(new Set());
 
   if (!scanResults) return null;
 
@@ -148,9 +148,12 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
             key={t.k}
             onClick={() => setTab(t.k)}
             style={bt(C, {
-              background: tab === t.k
-                ? t.accent ? `linear-gradient(135deg, ${C.accent}, ${C.purple || C.accent})` : C.accent
-                : "transparent",
+              background:
+                tab === t.k
+                  ? t.accent
+                    ? `linear-gradient(135deg, ${C.accent}, ${C.purple || C.accent})`
+                    : C.accent
+                  : "transparent",
               color: tab === t.k ? "#fff" : t.accent ? C.accent : C.textMuted,
               padding: "6px 16px",
               fontSize: 11,
@@ -478,9 +481,7 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
                               >
                                 ▼
                               </span>
-                              <span style={{ fontSize: 11, fontWeight: 700, color: C.text, flex: 1 }}>
-                                {group}
-                              </span>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: C.text, flex: 1 }}>{group}</span>
                               <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                                 {highCount > 0 && (
                                   <span
@@ -743,9 +744,7 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
                     background: data.aiReason ? `${C.blue}04` : "transparent",
                   }}
                 >
-                  <div style={{ fontSize: 10, fontWeight: 700, fontFamily: T.font.sans, color: C.accent }}>
-                    {div}
-                  </div>
+                  <div style={{ fontSize: 10, fontWeight: 700, fontFamily: T.font.sans, color: C.accent }}>{div}</div>
                   <div style={{ fontSize: 10, color: C.text }}>
                     {data.label}
                     {data.aiReason && (
@@ -785,9 +784,7 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
                   >
                     {fmt(data.total?.high)}
                   </div>
-                  <div
-                    style={{ fontSize: 9, textAlign: "right", color: C.textDim, fontFamily: T.font.sans }}
-                  >
+                  <div style={{ fontSize: 9, textAlign: "right", color: C.textDim, fontFamily: T.font.sans }}>
                     {fmtSF(data.perSF?.mid)}
                   </div>
                 </div>
@@ -1094,9 +1091,7 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
                                 onClick={e => e.stopPropagation()}
                               />
                             </div>
-                            <div style={{ fontSize: 9, fontFamily: T.font.sans, color: C.accent }}>
-                              {li.code}
-                            </div>
+                            <div style={{ fontSize: 9, fontFamily: T.font.sans, color: C.accent }}>{li.code}</div>
                             <div style={{ fontSize: 10, color: C.text, paddingRight: 8 }}>
                               {li.description}
                               <ConfidenceBadge confidence={li.confidence} C={C} />
@@ -1235,7 +1230,7 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
 
 // ─── Sub-components ───────────────────────────────────────────────────
 
-function ScheduleGroup({ C, T, scheduleType, label, count, schedules, outputFields }) {
+function ScheduleGroup({ C, T: _T, scheduleType, label, count, schedules, outputFields }) {
   const [expanded, setExpanded] = useState(true);
   const [editing, setEditing] = useState(null); // "si::ei::field"
   const [editValue, setEditValue] = useState("");
@@ -1254,11 +1249,13 @@ function ScheduleGroup({ C, T, scheduleType, label, count, schedules, outputFiel
       entry[field] = corrected || undefined;
       // Log correction for NOVA learning
       try {
-        useCorrectionStore.getState().logFieldCorrection(
-          scheduleType, field, original ?? "", corrected, schedules[si]?.sheetLabel
-        );
+        useCorrectionStore
+          .getState()
+          .logFieldCorrection(scheduleType, field, original ?? "", corrected, schedules[si]?.sheetLabel);
         setCorrections(c => c + 1);
-      } catch (_) { /* correction store not available */ }
+      } catch {
+        /* correction store not available */
+      }
     }
     setEditing(null);
     setEditValue("");
@@ -1294,7 +1291,16 @@ function ScheduleGroup({ C, T, scheduleType, label, count, schedules, outputFiel
             {count} item{count !== 1 ? "s" : ""}
           </span>
           {corrections > 0 && (
-            <span style={{ fontSize: 8, padding: "1px 5px", borderRadius: 3, fontWeight: 700, background: `${C.green}15`, color: C.green }}>
+            <span
+              style={{
+                fontSize: 8,
+                padding: "1px 5px",
+                borderRadius: 3,
+                fontWeight: 700,
+                background: `${C.green}15`,
+                color: C.green,
+              }}
+            >
               ✓ {corrections} learned
             </span>
           )}
@@ -1379,7 +1385,10 @@ function ScheduleGroup({ C, T, scheduleType, label, count, schedules, outputFiel
                                   onBlur={() => handleCommitEdit(si, ei, field, entry)}
                                   onKeyDown={e => {
                                     if (e.key === "Enter") handleCommitEdit(si, ei, field, entry);
-                                    if (e.key === "Escape") { setEditing(null); setEditValue(""); }
+                                    if (e.key === "Escape") {
+                                      setEditing(null);
+                                      setEditValue("");
+                                    }
                                   }}
                                   style={{
                                     width: "100%",
@@ -1394,7 +1403,7 @@ function ScheduleGroup({ C, T, scheduleType, label, count, schedules, outputFiel
                                   }}
                                 />
                               ) : (
-                                entry[field] ?? "—"
+                                (entry[field] ?? "—")
                               )}
                             </td>
                           );

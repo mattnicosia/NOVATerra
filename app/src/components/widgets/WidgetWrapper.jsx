@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useWidgetStore } from "@/stores/widgetStore";
 import { WIDGET_REGISTRY } from "@/constants/widgetRegistry";
@@ -66,27 +66,29 @@ export default function WidgetWrapper({
         borderRadius: T.radius.lg,
         // noGlass: solid opaque cards. Glass: translucent with blur.
         background: C.noGlass
-            ? (isActive ? C.bg2 : C.bg1)
-            : isActive
-              ? dk
-                ? "rgba(255,255,255,0.06)"
-                : "rgba(255,255,255,0.85)"
-              : dk
-                ? T.glass.bg
-                : C.glassBg || "rgba(255,255,255,0.32)",
-        backdropFilter: C.noGlass ? "none" : (isActive ? undefined : T.glass.blur),
-        WebkitBackdropFilter: C.noGlass ? "none" : (isActive ? undefined : T.glass.blur),
+          ? isActive
+            ? C.bg2
+            : C.bg1
+          : isActive
+            ? dk
+              ? "rgba(255,255,255,0.06)"
+              : "rgba(255,255,255,0.85)"
+            : dk
+              ? T.glass.bg
+              : C.glassBg || "rgba(255,255,255,0.32)",
+        backdropFilter: C.noGlass ? "none" : isActive ? undefined : T.glass.blur,
+        WebkitBackdropFilter: C.noGlass ? "none" : isActive ? undefined : T.glass.blur,
         border: C.noGlass
-            ? `1px solid ${isActive ? `${C.accent}4D` : C.border}`
-            : `${dk ? "0.5" : "1"}px solid ${
-                isActive
-                  ? `${C.accent}4D`
-                  : dk
-                    ? hovered
-                      ? T.glass.borderHover
-                      : T.glass.border
-                    : C.glassBorder || C.border || "rgba(0,0,0,0.08)"
-              }`,
+          ? `1px solid ${isActive ? `${C.accent}4D` : C.border}`
+          : `${dk ? "0.5" : "1"}px solid ${
+              isActive
+                ? `${C.accent}4D`
+                : dk
+                  ? hovered
+                    ? T.glass.borderHover
+                    : T.glass.border
+                  : C.glassBorder || C.border || "rgba(0,0,0,0.08)"
+            }`,
         boxShadow: C.noGlass ? "none" : glassShadow,
         display: "flex",
         flexDirection: "column",

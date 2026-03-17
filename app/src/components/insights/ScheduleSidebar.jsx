@@ -5,7 +5,7 @@ import { useMemo } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useScheduleStore } from "@/stores/scheduleStore";
 import { dayToDate, formatDate } from "@/utils/scheduleEngine";
-import { fmt, nn } from "@/utils/format";
+import { fmt } from "@/utils/format";
 import { card, sectionLabel, bt, inp } from "@/utils/styles";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
@@ -65,7 +65,7 @@ export default function ScheduleSidebar() {
   }, [activities]);
 
   const totalCost = useMemo(() => activities.reduce((s, a) => s + a.totalCost, 0), [activities]);
-  const criticalCount = useMemo(() => activities.filter(a => a.isCritical).length, [activities]);
+  const _criticalCount = useMemo(() => activities.filter(a => a.isCritical).length, [activities]);
 
   const endDate = useMemo(() => {
     if (!startDate || projectEndDay === 0) return "—";
@@ -341,9 +341,7 @@ export default function ScheduleSidebar() {
             >
               {act.label}
             </div>
-            <div style={{ fontSize: 9, fontFamily: T.font.sans, color: C.textDim, flexShrink: 0 }}>
-              {act.duration}d
-            </div>
+            <div style={{ fontSize: 9, fontFamily: T.font.sans, color: C.textDim, flexShrink: 0 }}>{act.duration}d</div>
             {act.isCritical && (
               <div
                 style={{ width: 5, height: 5, borderRadius: "50%", background: C.red || "#ef4444", flexShrink: 0 }}

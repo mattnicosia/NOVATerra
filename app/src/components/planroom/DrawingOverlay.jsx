@@ -35,7 +35,6 @@ export default function DrawingOverlay({ drawingA, drawingB, onClose }) {
   const [blendOpacity, setBlendOpacity] = useState(50); // 0-100
   const [isDragging, setIsDragging] = useState(false);
   const containerRef = useRef(null);
-  const canvasRef = useRef(null);
 
   // Get canvas data for both drawings
   const pdfCanvases = useDrawingsStore(s => s.pdfCanvases);
@@ -86,7 +85,8 @@ export default function DrawingOverlay({ drawingA, drawingB, onClose }) {
           // Changed pixel — show as heat color
           const intensity = Math.min(255, diff * 3);
           // Old content in red, new content in green
-          const isNewContent = dataB.data[i] + dataB.data[i + 1] + dataB.data[i + 2] <
+          const isNewContent =
+            dataB.data[i] + dataB.data[i + 1] + dataB.data[i + 2] <
             dataA.data[i] + dataA.data[i + 1] + dataA.data[i + 2];
           if (isNewContent) {
             // New content (darker in B) → green
@@ -147,9 +147,7 @@ export default function DrawingOverlay({ drawingA, drawingB, onClose }) {
   if (!drawingA || !drawingB) {
     return (
       <div style={{ ...card(C), padding: T.space[5], textAlign: "center" }}>
-        <div style={{ color: C.textDim, fontSize: 12 }}>
-          Select two drawing revisions to compare.
-        </div>
+        <div style={{ color: C.textDim, fontSize: 12 }}>Select two drawing revisions to compare.</div>
       </div>
     );
   }
@@ -180,9 +178,7 @@ export default function DrawingOverlay({ drawingA, drawingB, onClose }) {
       >
         <div style={{ display: "flex", alignItems: "center", gap: T.space[2] }}>
           <Ic d={I.layers || I.compare} size={16} color={C.accent} />
-          <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>
-            Revision Comparison
-          </span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>Revision Comparison</span>
           <span style={{ fontSize: 9, color: C.textDim }}>
             {drawingA.label || drawingA.sheetNumber || "Rev A"} → {drawingB.label || drawingB.sheetNumber || "Rev B"}
           </span>
@@ -238,9 +234,7 @@ export default function DrawingOverlay({ drawingA, drawingB, onClose }) {
             background: C.bg2,
           }}
         >
-          <span style={{ fontSize: 9, color: C.textDim, fontWeight: 600, minWidth: 50 }}>
-            Rev A
-          </span>
+          <span style={{ fontSize: 9, color: C.textDim, fontWeight: 600, minWidth: 50 }}>Rev A</span>
           <input
             type="range"
             min={0}
@@ -309,9 +303,7 @@ export default function DrawingOverlay({ drawingA, drawingB, onClose }) {
         >
           <div style={{ textAlign: "center" }}>
             <Ic d={I.image || I.file} size={32} color={C.textDim} />
-            <div style={{ marginTop: 8 }}>
-              Drawing canvases not loaded. Open both drawings in the plan room first.
-            </div>
+            <div style={{ marginTop: 8 }}>Drawing canvases not loaded. Open both drawings in the plan room first.</div>
           </div>
         </div>
       ) : (
@@ -324,8 +316,8 @@ export default function DrawingOverlay({ drawingA, drawingB, onClose }) {
             cursor: mode === "wipe" ? "ew-resize" : "default",
             background: "#1a1a2e",
           }}
-          onMouseDown={e => mode === "wipe" && setIsDragging(true)}
-          onTouchStart={e => mode === "wipe" && setIsDragging(true)}
+          onMouseDown={_e => mode === "wipe" && setIsDragging(true)}
+          onTouchStart={_e => mode === "wipe" && setIsDragging(true)}
         >
           {/* ── Wipe Slider Mode ── */}
           {mode === "wipe" && (
@@ -445,10 +437,7 @@ export default function DrawingOverlay({ drawingA, drawingB, onClose }) {
           {mode === "diff" && (
             <>
               {diffCanvas ? (
-                <CanvasImage
-                  canvas={diffCanvas}
-                  style={{ position: "absolute", inset: 0 }}
-                />
+                <CanvasImage canvas={diffCanvas} style={{ position: "absolute", inset: 0 }} />
               ) : (
                 <div
                   style={{

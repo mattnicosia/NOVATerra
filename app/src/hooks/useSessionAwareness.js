@@ -9,7 +9,7 @@
 
 import { useEffect, useRef } from "react";
 import { supabase } from "@/utils/supabase";
-import { useAuthStore, getSessionWriteSucceeded } from "@/stores/authStore";
+import { useAuthStore } from "@/stores/authStore";
 import { useUiStore } from "@/stores/uiStore";
 
 // Generate a unique tab ID (persists across re-renders, lost on tab close)
@@ -140,9 +140,6 @@ export function useSessionAwareness() {
     };
 
     const runCheck = async () => {
-      // Only enforce if writeSessionToken actually succeeded —
-      // otherwise DB has a stale/missing token and we'd falsely kick the user
-      if (!getSessionWriteSucceeded()) return;
       const valid = await checkSessionValid(userId);
       if (!valid) kickSession();
     };
@@ -178,14 +175,18 @@ export function useSessionAwareness() {
             setTimeout(() => {
               try {
                 supabase?.removeChannel(ch);
-              } catch {}
+              } catch {
+                /* non-critical */
+              }
             }, 100);
           })
           .catch(() => {
             setTimeout(() => {
               try {
                 supabase?.removeChannel(ch);
-              } catch {}
+              } catch {
+                /* non-critical */
+              }
             }, 100);
           });
       }

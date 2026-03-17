@@ -95,12 +95,12 @@ export default async function handler(req, res) {
         </div>
       </div>
 
-      <h1 style="color:#FFFFFF;font-size:22px;font-weight:600;margin:0 0 8px;">Request for Proposal</h1>
-      <p style="color:#CCCCCC;font-size:15px;margin:0 0 24px;">${escapeHtml(gcCompany)} is requesting your proposal for the following scope of work:</p>
+      <h1 style="color:#FFFFFF;font-size:22px;font-weight:600;margin:0 0 8px;">You're invited to bid</h1>
+      <p style="color:#CCCCCC;font-size:15px;margin:0 0 24px;">${escapeHtml(gcCompany)} has invited you to submit a proposal for:</p>
 
       <div style="background:rgba(255,255,255,0.06);border-radius:12px;padding:20px;margin-bottom:20px;">
         <div style="color:#7C5CFC;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Project</div>
-        <div style="color:#FFFFFF;font-size:18px;font-weight:600;margin-bottom:${inv.sub_trade ? '4' : '16'}px;">${escapeHtml(pkg.name)}</div>${inv.sub_trade ? `\n        <div style="color:#8E8E93;font-size:13px;margin-bottom:16px;">${escapeHtml(inv.sub_trade)}</div>` : ''}
+        <div style="color:#FFFFFF;font-size:18px;font-weight:600;margin-bottom:16px;">${escapeHtml(pkg.name)}</div>
 
         <div style="color:#7C5CFC;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Due Date</div>
         <div style="color:#FFFFFF;font-size:15px;margin-bottom:16px;">${dueStr}</div>
@@ -126,7 +126,7 @@ export default async function handler(req, res) {
     const { data: emailData, error: emailError } = await resend.emails.send({
       from: `NOVA Bids <${fromEmail}>`,
       to: [inv.sub_email],
-      subject: `RFP: ${pkg.name}`,
+      subject: `Bid Invitation: ${pkg.name}`,
       html,
     });
 

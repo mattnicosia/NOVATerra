@@ -1,10 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useItemsStore } from "@/stores/itemsStore";
-import { useProjectStore } from "@/stores/projectStore";
 import { useDatabaseStore } from "@/stores/databaseStore";
 import { useUiStore } from "@/stores/uiStore";
-import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useSpecsStore } from "@/stores/specsStore";
 import { UNITS, BASE_UNITS, CONVERSIONS } from "@/constants/units";
 import Ic from "@/components/shared/Ic";
@@ -12,7 +10,6 @@ import { I } from "@/constants/icons";
 import { inp, nInp, bt } from "@/utils/styles";
 import { nn, fmt, fmt2, formatCurrency } from "@/utils/format";
 import { evalFormula } from "@/utils/formula";
-import { hasAllowance, getAllowanceFields, getItemAllowanceTotal, generateAllowanceNote } from "@/utils/allowances";
 import { callAnthropic } from "@/utils/ai";
 import { CARBON_TRADE_DEFAULTS } from "@/constants/embodiedCarbonDb";
 import { formatCarbon } from "@/utils/carbonEngine";
@@ -117,7 +114,6 @@ export default function ItemDetailPanel({ itemId, onClose, onNavigate, panelWidt
   const setPickerForItemId = useDatabaseStore(s => s.setPickerForItemId);
   const setPricingModal = useUiStore(s => s.setPricingModal);
   const showToast = useUiStore(s => s.showToast);
-  const historicalProposals = useMasterDataStore(s => s.masterData.historicalProposals || []);
 
   const item = items.find(i => i.id === itemId);
   const panelRef = useRef(null);
@@ -176,16 +172,14 @@ export default function ItemDetailPanel({ itemId, onClose, onNavigate, panelWidt
 
   const excludeItem = () => {
     const excText = item.directive ? `${item.directive} of ${item.description}` : item.description || "";
-    useSpecsStore
-      .getState()
-      .addExclusion({
-        text: excText,
-        aiText: "",
-        code: item.code,
-        division: item.division,
-        description: item.description,
-        source: "estimate",
-      });
+    useSpecsStore.getState().addExclusion({
+      text: excText,
+      aiText: "",
+      code: item.code,
+      division: item.division,
+      description: item.description,
+      source: "estimate",
+    });
     removeItem(item.id);
     showToast("Item excluded");
     onClose();
@@ -427,11 +421,15 @@ export default function ItemDetailPanel({ itemId, onClose, onNavigate, panelWidt
           {!BASE_UNITS.includes(item.unit) && !item._conversionKey && (
             <select
               value={item.unit}
-              onChange={e => batchUpdateItem(item.id, { unit: e.target.value, formula: "", variables: [], _conversionKey: "" })}
+              onChange={e =>
+                batchUpdateItem(item.id, { unit: e.target.value, formula: "", variables: [], _conversionKey: "" })
+              }
               style={inp(C, { padding: "4px 8px", fontSize: T.fontSize.sm, borderRadius: 6 })}
             >
               {UNITS.filter(u => !BASE_UNITS.includes(u)).map(u => (
-                <option key={u} value={u}>{u}</option>
+                <option key={u} value={u}>
+                  {u}
+                </option>
               ))}
             </select>
           )}
@@ -441,7 +439,9 @@ export default function ItemDetailPanel({ itemId, onClose, onNavigate, panelWidt
         {(() => {
           const baseUnit = item._conversionKey
             ? Object.keys(CONVERSIONS).find(k => CONVERSIONS[k].some(c => c.label === item._conversionKey))
-            : BASE_UNITS.includes(item.unit) ? item.unit : null;
+            : BASE_UNITS.includes(item.unit)
+              ? item.unit
+              : null;
           const convs = baseUnit ? CONVERSIONS[baseUnit] : null;
           if (!convs || convs.length === 0) return null;
           return (
@@ -471,8 +471,8 @@ export default function ItemDetailPanel({ itemId, onClose, onNavigate, panelWidt
                       fontWeight: 600,
                       fontFamily: T.font.sans,
                       border: `1px solid ${active ? C.cyan || C.accent : C.border}40`,
-                      background: active ? `${(C.cyan || C.accent)}12` : `${C.text}04`,
-                      color: active ? (C.cyan || C.accent) : C.textMuted,
+                      background: active ? `${C.cyan || C.accent}12` : `${C.text}04`,
+                      color: active ? C.cyan || C.accent : C.textMuted,
                       borderRadius: 5,
                       cursor: "pointer",
                       transition: "all 0.12s",
@@ -519,48 +519,6 @@ export default function ItemDetailPanel({ itemId, onClose, onNavigate, panelWidt
         {costField("Labor", "labor")}
         {costField("Equipment", "equipment")}
         {costField("Sub", "subcontractor")}
-        {/* ── NOVA cost history hint ── */}
-        {(() => {
-          const divCode = (item.division || item.code || "").substring(0, 2).replace(/^0/, "0");
-          const normalizedCode = divCode.replace(/^0?/, "").padStart(2, "0");
-          if (!normalizedCode || normalizedCode === "00") return null;
-          const matches = historicalProposals.filter(p => {
-            const sf = parseFloat(p.projectSF);
-            const divCost = p.divisions?.[normalizedCode] || p.divisions?.[divCode];
-            return sf > 0 && divCost > 0;
-          });
-          if (matches.length === 0) return null;
-          const rates = matches.map(p => {
-            const divCost = p.divisions?.[normalizedCode] || p.divisions?.[divCode];
-            return divCost / parseFloat(p.projectSF);
-          });
-          const avg = rates.reduce((s, r) => s + r, 0) / rates.length;
-          const recent = matches.sort((a, b) => (b.date || "").localeCompare(a.date || ""))[0];
-          const recentRate = (recent.divisions?.[normalizedCode] || recent.divisions?.[divCode]) / parseFloat(recent.projectSF);
-          return (
-            <div
-              style={{
-                padding: "4px 8px",
-                marginTop: 2,
-                borderRadius: 4,
-                background: `${C.accent}08`,
-                border: `1px solid ${C.accent}15`,
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                fontSize: 9,
-              }}
-            >
-              <span style={{ color: C.accent, fontWeight: 700, letterSpacing: "0.04em" }}>NOVA</span>
-              <span style={{ color: C.textMuted }}>
-                {matches.length === 1
-                  ? `Last time: $${recentRate.toFixed(2)}/SF`
-                  : `Avg $${avg.toFixed(2)}/SF across ${matches.length} projects`}
-                {recent.name && <span style={{ color: C.textDim }}> · {recent.name}</span>}
-              </span>
-            </div>
-          );
-        })()}
         <div
           style={{
             borderTop: `1px solid ${C.border}30`,
@@ -624,7 +582,6 @@ export default function ItemDetailPanel({ itemId, onClose, onNavigate, panelWidt
         </button>
         <button
           onClick={() => {
-            const SendToDbModal = document.querySelector("[data-send-to-db]");
             useUiStore.getState()._setSendToDbItem?.(item);
             // Open via external state - we emit a custom event
             window.dispatchEvent(new CustomEvent("openSendToDb", { detail: item }));
