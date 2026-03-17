@@ -418,7 +418,8 @@ function parseFinishScheduleRow(cells, headers) {
  * @returns {Array} Array of detected schedules with parsed data
  */
 export async function extractSchedules(drawing) {
-  if (!drawing || drawing.type !== "pdf" || !drawing.data) return [];
+  if (!drawing || drawing.type !== "pdf") return [];
+  if (!drawing.data && !drawing.pdfRawBase64) return [];
 
   const pageData = await extractPageData(drawing);
   if (!pageData?.text || pageData.text.length === 0) return [];
@@ -580,7 +581,8 @@ export async function scanAllDrawingsForSchedules(drawings) {
   const allSchedules = [];
 
   for (const drawing of drawings) {
-    if (!drawing.data || drawing.type !== "pdf") continue;
+    if (drawing.type !== "pdf") continue;
+    if (!drawing.data && !drawing.pdfRawBase64) continue;
 
     try {
       const schedules = await extractSchedules(drawing);

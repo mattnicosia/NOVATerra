@@ -67,7 +67,7 @@ export function useResourceAnalytics() {
     const eightWeeksAgoStr = eightWeeksAgo.toISOString().slice(0, 10);
 
     const submitted = entries.filter(
-      e => ["Won", "Lost", "Submitted"].includes(e.status) && e.bidDue >= eightWeeksAgoStr,
+      e => ["Won", "Lost", "Pending"].includes(e.status) && e.bidDue >= eightWeeksAgoStr,
     );
 
     const velocityMap = new Map();
@@ -86,7 +86,7 @@ export function useResourceAnalytics() {
     const cycleTimeMap = new Map();
     for (const e of entries) {
       if (!e.bidDue || !e.estimator) continue;
-      if (!["Won", "Lost", "Submitted"].includes(e.status)) continue;
+      if (!["Won", "Lost", "Pending"].includes(e.status)) continue;
       const name = e.estimator;
       if (!cycleTimeMap.has(name)) cycleTimeMap.set(name, { totalDays: 0, count: 0 });
       const rec = cycleTimeMap.get(name);

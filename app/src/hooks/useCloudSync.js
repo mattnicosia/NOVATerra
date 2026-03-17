@@ -41,6 +41,25 @@ async function runCloudSync() {
   useUiStore.getState().setCloudSyncStatus("syncing");
   useUiStore.setState({ cloudSyncInProgress: true });
 
+  // ── Org-mode recovery: if we loaded in solo mode but previously had an org,
+  // the user's data is org-scoped in the cloud and invisible to solo queries.
+  // Retry org fetch before proceeding to prevent "missing data" on second device.
+  const orgState = useOrgStore.getState();
+  if (!orgState.org) {
+    let lastOrgId = null;
+    try { lastOrgId = localStorage.getItem("bldg-last-org-id"); } catch {}
+    if (lastOrgId) {
+      nova.sync.warn("Solo mode but bldg-last-org-id exists — retrying org fetch for data recovery");
+      await useOrgStore.getState().fetchOrg();
+      const recovered = useOrgStore.getState().org;
+      if (recovered) {
+        nova.sync.info(`Org recovered: ${recovered.name} (${recovered.id})`);
+      } else {
+        nova.sync.warn("Org retry failed — proceeding in solo mode (data may be missing)");
+      }
+    }
+  }
+
   // User-switch detection now runs in usePersistenceLoad BEFORE data loads.
   // This is a safety-net in case persistence didn't catch it.
   const currentUserId = useAuthStore.getState().user?.id;
@@ -219,6 +238,17 @@ async function syncMasterData() {
     }
   }
 
+  // ── Reverse fallback: if solo-mode cloud is empty, check org-scoped cloud ──
+  // Happens when a second device fails fetchOrg and loads in solo mode, but the
+  // user's data was pushed from the primary device in org mode.
+  if (!cloudResult) {
+    const orgResult = await cloudSync.pullOrgFallback("master");
+    if (orgResult) {
+      console.log("[cloudSync] Master: solo cloud empty — recovering from org-scoped cloud");
+      cloudResult = orgResult;
+    }
+  }
+
   const localRaw = await storage.get(idbKey("bldg-master"));
   let localMaster = null;
   try {
@@ -385,6 +415,18 @@ async function syncEstimates() {
     }
   }
 
+  // ── Reverse fallback: if solo cloud is empty, check org-scoped cloud ──
+  // Second device failed fetchOrg → solo mode, but data is org-scoped.
+  if (cloudEstimates.length === 0) {
+    const orgIndex = await cloudSync.pullOrgFallback("index");
+    const orgEstimates = await cloudSync.pullAllEstimatesOrgFallback();
+    if (orgEstimates.length > 0) {
+      console.log(`[cloudSync] Estimates: solo cloud empty — recovering ${orgEstimates.length} from org-scoped cloud`);
+      cloudEstimates = orgEstimates;
+      if (orgIndex && !cloudIndexResult) cloudIndexResult = orgIndex;
+    }
+  }
+
   const cloudIndexRaw = cloudIndexResult?.data && Array.isArray(cloudIndexResult.data) ? cloudIndexResult.data : [];
   const cloudIndexMap = new Map(cloudIndexRaw.filter(e => !initialDeletedSet.has(e.id)).map(e => [e.id, e]));
   const cloudEstMap = new Map(cloudEstimates.map(e => [e.estimate_id, e]));
@@ -465,8 +507,11 @@ async function syncEstimates() {
           // Update the index entry from cloud too
           const cloudEntry = cloudIndexMap.get(ce.estimate_id);
           if (cloudEntry) {
-            const localEntry = idbIndexMap.get(ce.estimate_id);
-            // Merge cloud entry fields into local entry
+            // Read fresh local entry from current store state (not stale snapshot)
+            const freshIndex = useEstimatesStore.getState().estimatesIndex;
+            const freshLocal = freshIndex.find(e => e.id === ce.estimate_id);
+            const localEntry = freshLocal || idbIndexMap.get(ce.estimate_id);
+            // Merge: cloud wins for shared fields, preserve local-only fields
             idbIndexMap.set(ce.estimate_id, { ...localEntry, ...cloudEntry });
           }
         }

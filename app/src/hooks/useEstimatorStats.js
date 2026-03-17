@@ -139,7 +139,7 @@ export function useEstimatorStats(estimatorName) {
 
     return {
       totalEstimates: mine.length,
-      activeCount: mine.filter(e => e.status === "Bidding" || e.status === "Submitted").length,
+      activeCount: mine.filter(e => e.status === "Bidding" || e.status === "Pending").length,
       wonCount,
       lostCount: mine.filter(e => e.status === "Lost").length,
       accuracy, // null if insufficient data, otherwise X (e.g. 8 = "within 8%")
@@ -207,7 +207,7 @@ export function useAllEstimatorStats() {
 
       stats[name] = {
         totalEstimates: ests.length,
-        activeCount: ests.filter(e => e.status === "Bidding" || e.status === "Submitted").length,
+        activeCount: ests.filter(e => e.status === "Bidding" || e.status === "Pending").length,
         wonCount,
         winRate: decided.length > 0 ? Math.round((wonCount / decided.length) * 100) : null,
         accuracy,

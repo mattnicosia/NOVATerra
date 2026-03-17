@@ -93,6 +93,8 @@ export default function BidLevelingGrid({ onViewProposal, onAward }) {
   const bidPackages = useBidPackagesStore(s => s.bidPackages);
   const invitations = useBidPackagesStore(s => s.invitations);
   const proposals = useBidPackagesStore(s => s.proposals);
+  const preferredSubs = useBidLevelingStore(s => s.preferredSubs);
+  const togglePreferredSub = useBidLevelingStore(s => s.togglePreferredSub);
   const items = useItemsStore(s => s.items);
 
   // Editable leveling store
@@ -1130,6 +1132,36 @@ export default function BidLevelingGrid({ onViewProposal, onAward }) {
               </div>
               <div style={{ color: C.textMuted, fontSize: 11 }}>{sub.packageName}</div>
             </div>
+            {/* Preferred sub star — one per trade for revision re-engagement */}
+            {(() => {
+              const trade = sub.packageName || sub.name;
+              const isPref = preferredSubs[trade]?.subId === sub.id;
+              return (
+                <button
+                  title={isPref ? "Remove preferred status" : "Mark as preferred for revisions"}
+                  onClick={() => togglePreferredSub(trade, {
+                    subId: sub.id,
+                    subName: sub.name,
+                    totalBid: sub.totalBid || 0,
+                  })}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: isPref ? "#FBBF24" : C.textDim,
+                    fontSize: 16,
+                    cursor: "pointer",
+                    padding: "2px 4px",
+                    flexShrink: 0,
+                    opacity: isPref ? 1 : 0.5,
+                    transition: "all 0.15s",
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
+                  onMouseLeave={e => (e.currentTarget.style.opacity = isPref ? "1" : "0.5")}
+                >
+                  {isPref ? "★" : "☆"}
+                </button>
+              );
+            })()}
             {onViewProposal && (
               <button
                 onClick={() => onViewProposal({ ...sub.proposal, _packageName: sub.packageName })}

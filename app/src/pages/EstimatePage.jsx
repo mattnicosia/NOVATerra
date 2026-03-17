@@ -71,15 +71,21 @@ const EstimateItemRow = memo(
         data-item-id={item.id}
         onClick={() => onRowClick(item.id)}
         onMouseEnter={e => {
-          if (!isDragging && !isSelected) e.currentTarget.style.background = `${C.accent}08`;
+          if (!isDragging && !isSelected) {
+            if (C.estRowHoverShadow) {
+              e.currentTarget.style.boxShadow = C.estRowHoverShadow;
+              e.currentTarget.style.background = "rgba(255,255,255,0.02)";
+            } else {
+              e.currentTarget.style.background = `${C.accent}08`;
+            }
+          }
         }}
         onMouseLeave={e => {
-          if (!isSelected)
-            e.currentTarget.style.background = isOddRow
-              ? C.isDark
-                ? "rgba(255,255,255,0.025)"
-                : "rgba(0,0,0,0.025)"
-              : "transparent";
+          if (!isSelected) {
+            e.currentTarget.style.boxShadow = "none";
+            const oddBg = C.estRowOddBg || (C.isDark ? "rgba(255,255,255,0.025)" : "rgba(0,0,0,0.025)");
+            e.currentTarget.style.background = isOddRow ? oddBg : "transparent";
+          }
         }}
         style={{
           display: "flex",
@@ -88,17 +94,16 @@ const EstimateItemRow = memo(
           padding: "7px 8px 7px 10px",
           borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.05)"}`,
           background: isSelected
-            ? `${C.accent}12`
+            ? (C.estRowSelectedBg || `${C.accent}12`)
             : isOddRow
-              ? C.isDark
-                ? "rgba(255,255,255,0.025)"
-                : "rgba(0,0,0,0.025)"
+              ? (C.estRowOddBg || (C.isDark ? "rgba(255,255,255,0.025)" : "rgba(0,0,0,0.025)"))
               : "transparent",
           borderLeft: isSelected
             ? `3px solid ${C.accent}`
             : `3px solid ${isZeroTotal ? "transparent" : C.accent + "20"}`,
+          boxShadow: isSelected ? (C.estRowSelectedShadow || "none") : "none",
           opacity: isDragging ? 0.4 : 1,
-          transition: "background 100ms ease-out",
+          transition: "background 150ms ease-out, box-shadow 200ms ease-out",
           cursor: "pointer",
         }}
       >
@@ -666,7 +671,7 @@ export default function EstimatePage() {
     if (!needsFix) return;
     const fixed = items.map(i => {
       if (!isIncomplete(i.division)) return i;
-      const code = i.code || i.division.split(" - ")[0].trim();
+      const code = i.code || (i.division ? i.division.split(" - ")[0].trim() : "");
       const full = divFromCode(code);
       return full && full !== i.division ? { ...i, division: full } : i;
     });
@@ -758,12 +763,13 @@ export default function EstimatePage() {
                   fontFamily: T.font.sans,
                   background:
                     leftPanelTab === t.key
-                      ? C.isDark
-                        ? "rgba(255,255,255,0.06)"
-                        : "rgba(255,255,255,0.20)"
+                      ? (C.estTabActiveBg || (C.isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.20)"))
                       : "transparent",
                   color: leftPanelTab === t.key ? C.text : C.textDim,
-                  borderBottom: leftPanelTab === t.key ? `2px solid ${C.accent}` : "2px solid transparent",
+                  borderBottom: leftPanelTab === t.key
+                    ? (C.estTabActiveBorder !== undefined ? C.estTabActiveBorder : `2px solid ${C.accent}`)
+                    : "2px solid transparent",
+                  borderRadius: leftPanelTab === t.key && C.estTabActiveRadius ? C.estTabActiveRadius : 0,
                   textTransform: "uppercase",
                   letterSpacing: 0.8,
                   transition: "all 0.15s",
@@ -1350,7 +1356,7 @@ export default function EstimatePage() {
           {viewMode === "level" ? (
             <LevelingView />
           ) : (
-            <div style={{ flex: 1, overflowY: "auto", overflowX: "auto", minHeight: 0 }} className="blueprint-grid">
+            <div style={{ flex: 1, overflowY: "auto", overflowX: "auto", minHeight: 0, background: C.estGridBg || "transparent" }} className="blueprint-grid">
               <div style={{ padding: `${T.space[3]}px ${T.space[5]}px` }}>
                 <CostValidationPanel items={items} />
 

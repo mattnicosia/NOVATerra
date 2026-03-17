@@ -579,4 +579,44 @@ export const useItemsStore = create((set, get) => ({
 
     return { material, labor, equipment, sub, direct, grand };
   },
+
+  /** Per-scenario totals — filters items by bidContext, applies global markups */
+  getScenarioTotals: (groupIds) => {
+    const idSet = groupIds instanceof Set ? groupIds : new Set(Array.isArray(groupIds) ? groupIds : [groupIds]);
+    const { items, markup, markupOrder, customMarkups } = get();
+    const filtered = items.filter(i => idSet.has(i.bidContext || "base"));
+    const mult = get()._getLaborMult();
+    const globalLoc = get()._getLocationFactors();
+    let material = 0, labor = 0, equipment = 0, sub = 0;
+    filtered.forEach(it => {
+      const q = nn(it.quantity);
+      const loc = it.locationLocked ? { mat: 1, lab: 1, equip: 1 } : globalLoc;
+      material += q * nn(it.material) * loc.mat;
+      labor += q * nn(it.labor) * loc.lab;
+      equipment += q * nn(it.equipment) * loc.equip;
+      sub += q * nn(it.subcontractor);
+    });
+    labor = labor * mult;
+    const direct = material + labor + equipment + sub;
+    let running = direct;
+    const order = markupOrder || DEFAULT_MARKUP_ORDER;
+    order.forEach(mo => {
+      if (mo.active === false) return;
+      const val = nn(markup[mo.key]);
+      if (val === 0) return;
+      if (mo.type === "flat") { running += val; }
+      else {
+        const base = mo.compound ? running : direct;
+        running += (base * val) / 100;
+      }
+    });
+    let grand = running;
+    grand *= 1 + nn(markup.tax) / 100;
+    grand *= 1 + nn(markup.bond) / 100;
+    customMarkups.forEach(cm => {
+      if (cm.type === "pct") grand *= 1 + nn(cm.value) / 100;
+      else grand += nn(cm.value);
+    });
+    return { material, labor, equipment, sub, direct, grand, count: filtered.length };
+  },
 }));

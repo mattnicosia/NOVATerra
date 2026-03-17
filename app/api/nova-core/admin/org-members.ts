@@ -21,7 +21,7 @@ function parseCookies(cookieHeader: string): Record<string, string> {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') {
-    res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '');
     res.setHeader('Access-Control-Allow-Methods', 'GET, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -69,7 +69,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { data: members, error: membersErr } = await sb
       .from('org_members')
-      .select('*')
+      .select('id, email, role, active, invited_at, accepted_at, display_name')
       .eq('org_id', orgId)
       .order('invited_at', { ascending: false });
 

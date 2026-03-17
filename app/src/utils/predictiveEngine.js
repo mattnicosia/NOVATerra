@@ -20,6 +20,133 @@ import {
   generateAutoMeasurements,
 } from './geometryEngine';
 
+import { pdfRawCache } from './uploadPipeline';
+import { callAnthropic, imageBlock } from './ai';
+
+// ══════════════════════════════════════════════════════════════════════
+// VISION-BASED PREDICTIONS — fallback for scanned/raster PDFs
+// Sends drawing image to Claude vision to identify elements visually
+// ══════════════════════════════════════════════════════════════════════
+async function runVisionPredictions(drawing, takeoff, measurementType, clickPoint) {
+  const description = takeoff.description || "";
+  // Get the JPEG image data from the drawing
+  let imageData = drawing.data;
+  if (!imageData) return null;
+
+  // Strip data URL prefix to get raw base64
+  const base64 = imageData.includes(",") ? imageData.split(",")[1] : imageData;
+  if (!base64 || base64.length < 100) return null;
+
+  const isCount = measurementType === "count";
+  const isLinear = measurementType === "linear";
+  const isArea = measurementType === "area";
+
+  const systemPrompt = `You are NOVA, an expert construction estimating AI that reads architectural and engineering drawings. You identify specific elements for quantity takeoffs.
+
+You understand construction drawing conventions:
+- Lighting fixtures appear as standardized symbols: circles, squares, rectangles, or specialized shapes repeated throughout floor plans. Common symbols: ⊕ (recessed can), ◻ (surface mount), fluorescent fixtures (long rectangles), exit signs (arrows), etc.
+- Door swings shown as arcs. Door tags like "D1", "D2" in circles/hexagons.
+- Window tags like "W1", "W2". Windows shown as parallel lines in walls.
+- Plumbing fixtures: toilets, sinks, urinals shown as standardized plan-view symbols.
+- Equipment: mechanical units, panels, etc. shown with specific symbols and tags.
+- Tags/callouts are typically short text in circles, diamonds, hexagons, or triangles pointing to elements.
+- The same symbol repeated multiple times = multiple instances of the same element.
+
+CRITICAL: Return ONLY valid JSON. No markdown, no explanation, no code blocks. Be thorough — count EVERY instance, even if there are many.`;
+
+  const userPrompt = isCount
+    ? `Look at this construction drawing carefully. Find ALL instances of: "${description}"
+
+Scan the ENTIRE drawing systematically — top to bottom, left to right. Look for repeated symbols, tags, or callouts that represent "${description}". On lighting/electrical plans, look for the specific fixture symbol that repeats. Count EVERY one.
+
+Return JSON:
+{"found":<total count>,"locations":[{"x":<0-100 % from left>,"y":<0-100 % from top>,"label":"<what you see>"}],"confidence":<0-1>,"notes":"<observations>"}`
+    : isLinear
+    ? `Look at this construction drawing. Identify all locations where "${description}" would need to be measured as a linear quantity (length/run).
+
+Look for walls, edges, runs, or boundaries where this material/element would be installed. Mark the START of each distinct run.
+
+Return JSON:
+{"found":<number of runs>,"locations":[{"x":<0-100 % from left>,"y":<0-100 % from top>,"label":"<description of run>"}],"confidence":<0-1>,"notes":"<observations>"}`
+    : `Look at this construction drawing. Identify all areas/regions where "${description}" would be measured.
+
+Look for rooms, zones, or bounded areas where this material/finish would be applied. Mark the CENTER of each distinct area.
+
+Return JSON:
+{"found":<number of areas>,"locations":[{"x":<0-100 % from left>,"y":<0-100 % from top>,"label":"<room/area name>"}],"confidence":<0-1>,"notes":"<observations>"}`;
+
+  try {
+    console.log(`[NOVA Vision] Analyzing "${description}" on drawing ${drawing.id} (page ${drawing.pdfPage || 1})`);
+    const resp = await callAnthropic({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 4000,
+      messages: [{
+        role: "user",
+        content: [
+          imageBlock(base64),
+          { type: "text", text: userPrompt },
+        ],
+      }],
+      system: systemPrompt,
+      temperature: 0.1,
+    });
+
+    // Parse response
+    const text = resp?.content?.[0]?.text || "";
+    console.log(`[NOVA Vision] Raw response:`, text.slice(0, 300));
+
+    // Extract JSON from response (handle markdown code blocks if present)
+    let json;
+    try {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      json = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    } catch {
+      console.warn("[NOVA Vision] Failed to parse JSON response");
+      return null;
+    }
+
+    if (!json || !json.locations || json.locations.length === 0) {
+      return { predictions: [], message: `NOVA Vision: ${json?.notes || "No instances found on this page"}`, source: "vision" };
+    }
+
+    // Convert percentage coordinates to canvas pixel coordinates
+    // The drawing image was rendered at scale 1.5 from PDF
+    const img = new Image();
+    const imgDims = await new Promise(resolve => {
+      img.onload = () => resolve({ w: img.width, h: img.height });
+      img.onerror = () => resolve({ w: 1200, h: 900 }); // fallback
+      img.src = imageData;
+    });
+
+    const predictions = json.locations.map((loc, i) => ({
+      id: `vision-${drawing.id}-${i}`,
+      point: {
+        x: (loc.x / 100) * imgDims.w,
+        y: (loc.y / 100) * imgDims.h,
+      },
+      tag: description,
+      label: loc.label || description,
+      confidence: json.confidence || 0.6,
+      source: "vision",
+    }));
+
+    console.log(`[NOVA Vision] Found ${predictions.length} predictions with confidence ${json.confidence}`);
+    return {
+      predictions,
+      tag: description,
+      source: "vision",
+      confidence: json.confidence || 0.6,
+      strategy: "vision",
+      totalInstances: json.found || predictions.length,
+      message: json.notes || `NOVA Vision identified ${predictions.length} instance(s)`,
+      takeoffId: takeoff.id,
+    };
+  } catch (err) {
+    console.warn("[NOVA Vision] API call failed:", err.message);
+    return { predictions: [], message: `Vision analysis failed: ${err.message}`, source: "vision" };
+  }
+}
+
 // ══════════════════════════════════════════════════════════════════════
 // PREDICTION LEARNING RECORD — accumulates accept/reject feedback
 // Persists during the app session, modulates confidence for future predictions
@@ -54,7 +181,9 @@ export function getLearningMultiplier(tag, strategy) {
   if (!tag) return 1.0;
   const key = `${tag.toUpperCase()}::${strategy || "tag-based"}`;
   const entry = _learningRecord.get(key);
-  if (!entry || (entry.accepts + entry.rejects) < 2) return 1.0; // Not enough data
+  if (!entry) return 1.0;
+  entry.lastUsed = Date.now(); // LRU: refresh on access
+  if ((entry.accepts + entry.rejects) < 2) return 1.0; // Not enough data
   const total = entry.accepts + entry.rejects;
   const ratio = entry.accepts / total;
   // Map ratio: 0% → 0.7x, 50% → 1.0x, 100% → 1.2x
@@ -123,7 +252,9 @@ export async function warmPredictions(drawing, description) {
  * Returns null if not warmed yet.
  */
 export function getWarmData(drawingId, description) {
-  return _warmCache.get(`${drawingId}::${description || ""}`) || null;
+  const entry = _warmCache.get(`${drawingId}::${description || ""}`);
+  if (entry) entry.timestamp = Date.now(); // LRU: refresh on access
+  return entry || null;
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -132,14 +263,14 @@ export function getWarmData(drawingId, description) {
 // not plan-area tags. This catches schedules missed by region detection.
 // ══════════════════════════════════════════════════════════════════════
 const SCHEDULE_HEADER_WORDS = new Set([
-  'SCHEDULE', 'LEGEND', 'KEY', 'NOTES', 'SPECIFICATIONS', 'SPEC',
+  'SCHEDULE', 'LEGEND', 'KEY', 'SPECIFICATIONS', 'SPEC',
   'ABBREVIATIONS', 'MARK', 'TYPE', 'SIZE', 'DESCRIPTION', 'MANUFACTURER',
   'MODEL', 'QUANTITY', 'QTY', 'REMARKS', 'HEIGHT', 'WIDTH', 'THICKNESS',
   'RATING', 'FINISH', 'MATERIAL', 'CATALOG', 'CAT#', 'SERIES',
-  'HARDWARE', 'GLASS', 'FRAME', 'DETAIL', 'NOTE', 'COLOR', 'GAUGE',
+  'HARDWARE', 'GLASS', 'FRAME', 'COLOR', 'GAUGE',
   'HEAD', 'JAMB', 'SILL', 'LOUVER', 'CFM', 'BTU', 'VOLTS', 'AMPS',
-  'WATTS', 'HP', 'RPM', 'GPM', 'MOUNTING', 'LOCATION', 'DOOR',
-  'WINDOW', 'FIXTURE', 'EQUIPMENT', 'SYMBOL',
+  'WATTS', 'HP', 'RPM', 'GPM', 'MOUNTING', 'LOCATION',
+  'FIXTURE', 'EQUIPMENT', 'SYMBOL',
 ]);
 
 /**
@@ -163,11 +294,11 @@ function findScheduleHeaderPositions(textItems) {
  */
 function isNearScheduleHeader(item, headerPositions, radius = 100) {
   for (const hp of headerPositions) {
-    // Check horizontal overlap (same column region) AND vertical proximity
+    // Check horizontal overlap (same column region) AND vertical proximity (below header only)
     const dx = Math.abs(item.x - hp.x);
-    const dy = Math.abs(item.y - hp.y);
-    // Schedule entries are typically below headers in the same column (within 300px horizontal, 200px vertical)
-    if (dx < 300 && dy < 200 && dy > 0) return true;
+    const dy = item.y - hp.y; // positive = below header
+    // Schedule entries are typically below headers in the same column (within 150px horizontal, 100px below)
+    if (dx < 150 && dy > 0 && dy < 100) return true;
   }
   return false;
 }
@@ -200,14 +331,30 @@ const ABBREV_MAP = {
   DK: ["deck"],
   GAR: ["garage"],
   PTN: ["partition"],
-  CMU: ["cmu", "block"],
+  CMU: ["cmu", "block", "masonry"],
   CLR: ["clear"],
   RM: ["room"],
   CL: ["closet"],
-  HW: ["hallway"],
+  HW: ["hallway", "hardware"],
   ENT: ["entry"],
   PR: ["porch"],
+  HM: ["hollow metal"],
+  AL: ["aluminum"],
+  ALUM: ["aluminum"],
+  WD: ["wood", "door"],
+  MTL: ["metal"],
+  SS: ["stainless steel", "sink"],
+  FRP: ["fiberglass reinforced panel", "frp"],
+  ACT: ["acoustic ceiling tile"],
+  GWB: ["gypsum wallboard", "drywall"],
+  GYP: ["gypsum"],
+  CONC: ["concrete"],
+  MAS: ["masonry"],
+  VCT: ["vinyl composition tile"],
   UT: ["utility"],
+  WT: ["wall type", "wall"],
+  FT: ["fire type", "fire"],
+  PT: ["partition type", "partition"],
 };
 
 // ══════════════════════════════════════════════════════════════════════
@@ -224,16 +371,18 @@ const EXTERIOR_SURFACE_TERMS = [
   "rain screen", "rainscreen", "facade", "veneer", "brick veneer",
   "stone veneer", "waterproofing", "weather barrier", "house wrap",
   "tyvek", "vapor barrier", "air barrier", "flashing", "soffit", "fascia",
-  "trim", "exterior trim", "cornice", "exterior finish", "exterior paint",
+  "exterior trim", "cornice", "exterior finish", "exterior paint",
   "exterior coating", "exterior insulation",
 ];
 
 // Interior surface items — measured by area on interior walls/ceilings
 const INTERIOR_SURFACE_TERMS = [
-  "drywall", "gypsum", "gyp", "plaster", "paint", "primer", "texture",
+  "drywall", "gypsum", "gyp", "gwb", "gypsum wallboard", "gypboard", "gyp bd",
+  "plaster", "paint", "primer", "texture",
   "wallpaper", "wainscot", "paneling", "tile", "backsplash", "acoustic",
-  "ceiling tile", "ceiling grid", "suspended ceiling", "drop ceiling",
-  "interior finish", "interior paint", "interior coating",
+  "ceiling tile", "ceiling grid", "suspended ceiling", "drop ceiling", "act",
+  "interior finish", "interior paint", "interior coating", "interior trim",
+  "base trim", "base molding", "chair rail", "crown molding",
   "flooring", "hardwood", "carpet", "lvp", "vinyl plank", "vinyl tile",
   "lvt", "laminate", "epoxy floor", "epoxy coating", "polished concrete",
   "terrazzo", "rubber flooring", "sheet vinyl", "vct", "porcelain tile",
@@ -277,8 +426,14 @@ export function scoreTagRelevance(tagText, description) {
   const descWords = desc.split(/[\s,\-\/]+/).filter(Boolean);
 
   // Exact: tag text literally appears in description (or vice versa)
-  if (desc.includes(tag)) return 1.0;
-  if (tag.length >= 3 && descWords.some(w => w.includes(tag))) return 1.0;
+  // For short tags (1-2 chars), require whole-word match to avoid false positives
+  // e.g., tag "A" should not score 1.0 against description "Bathroom Tile"
+  if (tag.length <= 2) {
+    if (descWords.some(w => w === tag)) return 1.0;
+  } else {
+    if (desc.includes(tag)) return 1.0;
+    if (descWords.some(w => w.includes(tag))) return 1.0;
+  }
   // Reverse: description word appears in tag (e.g., tag="DUPLEX A", desc="Duplexes")
   for (const w of descWords) {
     if (w.length >= 3 && tag.includes(w)) return 0.95;
@@ -506,12 +661,26 @@ function detectWallSegment(lines, tagX, tagY, searchRadius = 150) {
 
   // Build wall centerline from primary line (or parallel pair midpoint)
   if (bestParallel) {
+    // Normalize parallel line endpoints to match primary line direction.
+    // If lines were drawn in opposite directions, averaging x1+x1 and x2+x2
+    // produces an X-shaped cross instead of a midline. Fix by checking which
+    // endpoint pairing produces a shorter total distance (= same direction).
+    const sameDirDist =
+      Math.hypot(primaryLine.x1 - bestParallel.x1, primaryLine.y1 - bestParallel.y1) +
+      Math.hypot(primaryLine.x2 - bestParallel.x2, primaryLine.y2 - bestParallel.y2);
+    const flipDirDist =
+      Math.hypot(primaryLine.x1 - bestParallel.x2, primaryLine.y1 - bestParallel.y2) +
+      Math.hypot(primaryLine.x2 - bestParallel.x1, primaryLine.y2 - bestParallel.y1);
+    // If flipped endpoints are closer, swap the parallel line's endpoints
+    const p = flipDirDist < sameDirDist
+      ? { x1: bestParallel.x2, y1: bestParallel.y2, x2: bestParallel.x1, y2: bestParallel.y1 }
+      : bestParallel;
     // Centerline between the two parallel lines
     return {
       type: "wall",
       points: [
-        { x: (primaryLine.x1 + bestParallel.x1) / 2, y: (primaryLine.y1 + bestParallel.y1) / 2 },
-        { x: (primaryLine.x2 + bestParallel.x2) / 2, y: (primaryLine.y2 + bestParallel.y2) / 2 },
+        { x: (primaryLine.x1 + p.x1) / 2, y: (primaryLine.y1 + p.y1) / 2 },
+        { x: (primaryLine.x2 + p.x2) / 2, y: (primaryLine.y2 + p.y2) / 2 },
       ],
       wallWidth: bestDist,
       confidence: 0.88,
@@ -539,23 +708,23 @@ function detectWallSegment(lines, tagX, tagY, searchRadius = 150) {
 function traceConnectedWalls(lines, startSegment, maxGap = 15) {
   const segments = [startSegment];
   const used = new Set();
-  used.add(`${startSegment.points[0].x},${startSegment.points[0].y},${startSegment.points[1].x},${startSegment.points[1].y}`);
+  // Use rounded keys to handle floating-point precision issues
+  const lineKey = l => `${Math.round(l.x1)},${Math.round(l.y1)},${Math.round(l.x2)},${Math.round(l.y2)}`;
+  used.add(lineKey(startSegment.sourceLines?.[0] || { x1: startSegment.points[0].x, y1: startSegment.points[0].y, x2: startSegment.points[1].x, y2: startSegment.points[1].y }));
 
   let changed = true;
   while (changed) {
     changed = false;
-    const lastSeg = segments[segments.length - 1];
-    const firstSeg = segments[0];
 
-    // Try to extend from the end
+    // Try to extend from the end (tail)
+    const lastSeg = segments[segments.length - 1];
     const endPt = lastSeg.points[lastSeg.points.length - 1];
     const nearEnd = findNearbyLines(lines, endPt.x, endPt.y, maxGap);
     for (const line of nearEnd) {
-      const key = `${line.x1},${line.y1},${line.x2},${line.y2}`;
+      const key = lineKey(line);
       if (used.has(key)) continue;
       if (line.length < 20) continue;
 
-      // Check if this line connects to our endpoint
       const d1 = Math.sqrt((line.x1 - endPt.x) ** 2 + (line.y1 - endPt.y) ** 2);
       const d2 = Math.sqrt((line.x2 - endPt.x) ** 2 + (line.y2 - endPt.y) ** 2);
 
@@ -571,6 +740,43 @@ function traceConnectedWalls(lines, startSegment, maxGap = 15) {
         break;
       } else if (d2 < maxGap) {
         segments.push({
+          type: "wall",
+          points: [{ x: line.x2, y: line.y2 }, { x: line.x1, y: line.y1 }],
+          confidence: 0.75,
+          sourceLines: [line],
+        });
+        used.add(key);
+        changed = true;
+        break;
+      }
+    }
+
+    // Try to extend from the beginning (head)
+    const firstSeg = segments[0];
+    const startPt = firstSeg.points[0];
+    const nearStart = findNearbyLines(lines, startPt.x, startPt.y, maxGap);
+    for (const line of nearStart) {
+      const key = lineKey(line);
+      if (used.has(key)) continue;
+      if (line.length < 20) continue;
+
+      const d1 = Math.sqrt((line.x1 - startPt.x) ** 2 + (line.y1 - startPt.y) ** 2);
+      const d2 = Math.sqrt((line.x2 - startPt.x) ** 2 + (line.y2 - startPt.y) ** 2);
+
+      if (d2 < maxGap) {
+        // line.x2,y2 is near our start — prepend with line going x1→x2 (so x2 end connects to us)
+        segments.unshift({
+          type: "wall",
+          points: [{ x: line.x1, y: line.y1 }, { x: line.x2, y: line.y2 }],
+          confidence: 0.75,
+          sourceLines: [line],
+        });
+        used.add(key);
+        changed = true;
+        break;
+      } else if (d1 < maxGap) {
+        // line.x1,y1 is near our start — prepend reversed so the far end is first
+        segments.unshift({
           type: "wall",
           points: [{ x: line.x2, y: line.y2 }, { x: line.x1, y: line.y1 }],
           confidence: 0.75,
@@ -762,7 +968,34 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
 
   // Step 1: Check warm cache first, fall back to extraction
   const warm = getWarmData(drawing.id, description);
-  const data = warm?.data || await extractPageData(drawing);
+  let data;
+  try {
+    data = warm?.data || await extractPageData(drawing);
+  } catch (err) {
+    console.warn("[NOVA] extractPageData failed:", err.message);
+    return { tag: null, predictions: [], source: "none", confidence: 0, extractionStats: {}, totalInstances: 0, strategy: "general", message: `PDF extraction failed: ${err.message}` };
+  }
+  if (!data || !data.text || (Array.isArray(data.text) && data.text.length === 0)) {
+    const hasCachedRaw = drawing.fileName && pdfRawCache.has(drawing.fileName);
+    const needsRepair = drawing.pdfPreRendered && !drawing.pdfRawBase64 && !hasCachedRaw;
+    if (needsRepair) {
+      return { tag: null, predictions: [], source: "none", confidence: 0, extractionStats: {}, totalInstances: 0, strategy: "general", message: "Drop the original PDF onto the drawing to enable NOVA predictions (raw PDF data missing)", needsRepair };
+    }
+    // Phase 3: Vision fallback — send image to Claude for visual identification
+    if (drawing.data) {
+      console.log(`[NOVA] No text/vectors — trying Vision fallback for "${description}"`);
+      try {
+        const visionResult = await runVisionPredictions(drawing, takeoff, measurementType, clickPoint);
+        if (visionResult) {
+          return { ...visionResult, extractionStats: {}, takeoffId: takeoff.id };
+        }
+      } catch (err) {
+        console.warn("[NOVA] Vision fallback failed:", err.message);
+      }
+    }
+    const stats = data?._stats || {};
+    return { tag: null, predictions: [], source: "none", confidence: 0, extractionStats: {}, totalInstances: 0, strategy: "general", message: `No text pg${drawing.pdfPage || 1} — vision unavailable` };
+  }
 
   const existingPositions = (takeoff.measurements || [])
     .filter(m => m.sheetId === drawing.id)
@@ -770,7 +1003,9 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
 
   // Step 2: Classify takeoff strategy (use warm cache if available)
   const strategy = warm?.strategy || classifyTakeoffStrategy(description);
-  console.log("[NOVA] Strategy:", strategy, "for", JSON.stringify(description), "measureType:", measurementType, warm ? "(warm)" : "");
+  const _tagCount = data.items ? data.items.filter(i => isLikelyTag(i.str || i.text)).length : 0;
+  console.log("[NOVA] Strategy:", strategy, "for", JSON.stringify(description), "measureType:", measurementType, warm ? "(warm)" : "",
+    "| textLen:", data.text?.length, "items:", data.items?.length, "tags:", _tagCount);
 
   // ── SURFACE strategies: geometry only, NO tag detection ──
   // Surface items (siding, stucco, drywall, paint) must NEVER use tag detection.
@@ -1060,6 +1295,12 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
   }
 
   // Phase 4: Vision API fallback would go here (future implementation)
+  const _txtLen = data.text?.length || 0;
+  const _itemCount = data.items?.length || 0;
+  const _tagItems = data.items ? data.items.filter(i => isLikelyTag(i.str || i.text)) : [];
+  const _nearTag = nearestTag ? `near="${nearestTag.text}"` : "near=NONE";
+  console.log("[NOVA] Final fallthrough:", _nearTag, "txtLen:", _txtLen, "items:", _itemCount, "tags:", _tagItems.length,
+    "sampleTags:", _tagItems.slice(0, 8).map(t => t.str || t.text));
   return {
     tag: null,
     predictions: [],
@@ -1068,9 +1309,7 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
     extractionStats: data.stats,
     strategy,
     takeoffId: takeoff.id,
-    message: description
-      ? `No predictions for "${description}" — NOVA couldn't find matching tags or geometry. Measure manually.`
-      : "No predictions could be generated",
+    message: `txt=${_txtLen} items=${_itemCount} tags=${_tagItems.length} ${_nearTag} strat=${strategy}`,
   };
 }
 
@@ -1088,11 +1327,44 @@ export function findNearbyPrediction(predictions, point, acceptedIds, rejectedId
   for (const pred of predictions) {
     if (acceptedIds.includes(pred.id) || rejectedIds.includes(pred.id)) continue;
 
-    // Get prediction center point
-    const predPt = pred.point || (pred.points ? { x: pred.points[0].x, y: pred.points[0].y } : null);
+    // Get prediction center point — use midpoint for wall/polyline predictions
+    let predPt = pred.point;
+    if (!predPt && pred.points && pred.points.length > 0) {
+      if (pred.points.length >= 2) {
+        // Midpoint of the polyline (average of first and last points)
+        const first = pred.points[0];
+        const last = pred.points[pred.points.length - 1];
+        predPt = { x: (first.x + last.x) / 2, y: (first.y + last.y) / 2 };
+      } else {
+        predPt = { x: pred.points[0].x, y: pred.points[0].y };
+      }
+    }
     if (!predPt) continue;
 
-    const dist = Math.sqrt((point.x - predPt.x) ** 2 + (point.y - predPt.y) ** 2);
+    // For wall predictions, also check minimum distance to the line segment
+    // (user may click anywhere along the wall, not just near the midpoint)
+    let dist;
+    if (pred.points && pred.points.length >= 2) {
+      // Minimum distance from click to any segment of the polyline
+      let minSegDist = Infinity;
+      for (let i = 0; i < pred.points.length - 1; i++) {
+        const a = pred.points[i];
+        const b = pred.points[i + 1];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const len2 = dx * dx + dy * dy;
+        if (len2 < 1) continue;
+        const t = Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / len2));
+        const projX = a.x + t * dx;
+        const projY = a.y + t * dy;
+        const segDist = Math.sqrt((point.x - projX) ** 2 + (point.y - projY) ** 2);
+        if (segDist < minSegDist) minSegDist = segDist;
+      }
+      dist = minSegDist;
+    } else {
+      dist = Math.sqrt((point.x - predPt.x) ** 2 + (point.y - predPt.y) ** 2);
+    }
+
     if (dist < nearestDist) {
       nearestDist = dist;
       nearest = pred;
@@ -1112,7 +1384,9 @@ export async function scanAllSheets(drawings, tag, measurementType) {
   const results = [];
 
   for (const drawing of drawings) {
-    if (!drawing.data || drawing.type !== "pdf") continue;
+    // pdfPreRendered drawings store raw PDF in pdfRawBase64 or pdfRawCache, not .data
+    if (drawing.type !== "pdf") continue;
+    if (!drawing.data && !drawing.pdfRawBase64) continue;
 
     try {
       const data = await extractPageData(drawing);

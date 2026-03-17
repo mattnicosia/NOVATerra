@@ -42,7 +42,7 @@ export default function EstimatorScorecard({
     const decided = mine.filter(e => e.status === "Won" || e.status === "Lost");
     const wonCount = mine.filter(e => e.status === "Won").length;
     const lostCount = mine.filter(e => e.status === "Lost").length;
-    const activeCount = mine.filter(e => e.status === "Bidding" || e.status === "Submitted").length;
+    const activeCount = mine.filter(e => e.status === "Bidding" || e.status === "Pending").length;
     const winRate = decided.length > 0 ? Math.round((wonCount / decided.length) * 100) : null;
 
     // ── Accuracy ──

@@ -22,6 +22,52 @@ import { runFullScan } from "@/utils/scanRunner";
 // Lives for the session — PDFs from previous sessions won't be cached.
 export const pdfRawCache = new Map();
 
+// ─── Persist raw PDF to separate IDB key (one copy per PDF, not per page) ────
+// This avoids the N×M duplication problem where pdfRawBase64 was on every drawing page.
+const PDF_RAW_DB = "bldg-pdf-raw";
+const PDF_RAW_STORE = "pdfs";
+
+function openPdfRawDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(PDF_RAW_DB, 1);
+    req.onupgradeneeded = () => {
+      if (!req.result.objectStoreNames.contains(PDF_RAW_STORE)) {
+        req.result.createObjectStore(PDF_RAW_STORE);
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function savePdfRawToIDB(fileName, arrayBuffer) {
+  try {
+    const db = await openPdfRawDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(PDF_RAW_STORE, "readwrite");
+      tx.objectStore(PDF_RAW_STORE).put(arrayBuffer, fileName);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (err) {
+    console.warn("[savePdfRawToIDB] Failed:", err.message);
+  }
+}
+
+export async function loadPdfRawFromIDB(fileName) {
+  try {
+    const db = await openPdfRawDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(PDF_RAW_STORE, "readonly");
+      const req = tx.objectStore(PDF_RAW_STORE).get(fileName);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  } catch {
+    return null;
+  }
+}
+
 // ─── Infer drawing view type from sheet title ──────────────────────────────
 export function inferViewType(title) {
   const t = title || "";
@@ -103,7 +149,12 @@ export async function extractDrawingPages(file, options = {}) {
 
   // ── PDF: render each page to JPEG instead of storing raw PDF base64 ──
   const arrayBuffer = await file.arrayBuffer();
-  pdfRawCache.set(file.name, arrayBuffer); // preserve raw PDF for vector/text extraction
+  // CRITICAL: store copies — IDB put() can detach the original ArrayBuffer
+  pdfRawCache.set(file.name, arrayBuffer.slice(0));
+  // Persist to separate IDB key (one copy per PDF, not duplicated per page)
+  savePdfRawToIDB(file.name, arrayBuffer.slice(0)).catch(err =>
+    console.warn("[extractDrawingPages] Failed to persist raw PDF to IDB:", err.message)
+  );
   await loadPdfJs();
   const pdf = await window.pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
   const numPages = pdf.numPages;
@@ -130,6 +181,7 @@ export async function extractDrawingPages(file, options = {}) {
         type: "pdf",
         pdfPreRendered: true,
         data: jpegDataUrl,
+        // pdfRawBase64 no longer stored per-page — raw PDF persisted in separate IDB (bldg-pdf-raw)
         fileName: file.name,
         uploadDate: nowStr(),
         pdfPage: p,
@@ -155,6 +207,75 @@ export async function extractDrawingPages(file, options = {}) {
   }
 
   return newIds;
+}
+
+// ─── Repair raw PDF data for existing pdfPreRendered drawings ────────────────
+// When drawings were uploaded before pdfRawBase64 persistence was added,
+// this function accepts a PDF File and attaches raw base64 to all matching drawings.
+// This enables predictive takeoffs (text extraction) on legacy drawings.
+export async function repairRawPdf(file) {
+  try {
+    if (!file || !file.name.toLowerCase().endsWith(".pdf")) return 0;
+    const arrayBuffer = await file.arrayBuffer();
+    if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+      console.error("[repairRawPdf] File read returned empty buffer!");
+      return 0;
+    }
+    console.log(`[repairRawPdf] File "${file.name}" read: ${arrayBuffer.byteLength} bytes`);
+
+    // CRITICAL: store COPIES — IDB put() can detach the original ArrayBuffer
+    const cacheCopy = arrayBuffer.slice(0);
+    const idbCopy = arrayBuffer.slice(0);
+    pdfRawCache.set(file.name, cacheCopy);
+    console.log(`[repairRawPdf] Cache set, verify: byteLength=${pdfRawCache.get(file.name)?.byteLength}`);
+
+    // Persist to IDB (cross session) — AWAIT to ensure it completes
+    try {
+      await savePdfRawToIDB(file.name, idbCopy);
+      console.log(`[repairRawPdf] IDB save succeeded`);
+    } catch (err) {
+      console.warn("[repairRawPdf] IDB persist failed (non-critical):", err.message);
+    }
+
+    // Find all matching pdfPreRendered drawings and invalidate their extraction cache
+    // Match flexibly: exact match, or base name match (ignoring path differences)
+    const drawings = useDrawingsStore.getState().drawings;
+    const selectedBase = file.name.replace(/\.pdf$/i, "").toLowerCase();
+    let repaired = 0;
+    console.log(`[repairRawPdf] Looking for drawings matching "${file.name}" (base: "${selectedBase}")`);
+    console.log(`[repairRawPdf] All pdfPreRendered drawings:`, drawings.filter(d => d.pdfPreRendered).map(d => d.fileName));
+    try {
+      const { invalidateCache } = await import("@/utils/pdfExtractor");
+      for (const d of drawings) {
+        if (!d.pdfPreRendered) continue;
+        const drawingBase = (d.fileName || "").replace(/\.pdf$/i, "").toLowerCase();
+        // Match: exact, base name match, or no fileName on drawing
+        const matches = d.fileName === file.name
+          || drawingBase === selectedBase
+          || selectedBase.includes(drawingBase)
+          || drawingBase.includes(selectedBase)
+          || !d.fileName;
+        if (matches) {
+          repaired++;
+          invalidateCache(d.id);
+          // Also cache under the drawing's fileName if different from file.name
+          if (d.fileName && d.fileName !== file.name) {
+            pdfRawCache.set(d.fileName, cacheCopy.slice(0));
+            savePdfRawToIDB(d.fileName, cacheCopy.slice(0)).catch(() => {});
+          }
+        }
+      }
+    } catch (importErr) {
+      repaired = drawings.filter(d => d.pdfPreRendered).length;
+      console.warn("[repairRawPdf] Cache invalidation skipped:", importErr.message);
+    }
+
+    console.log(`[repairRawPdf] Cached raw PDF and repaired ${repaired} drawings from "${file.name}"`);
+    return repaired;
+  } catch (err) {
+    console.error("[repairRawPdf] Failed:", err);
+    return 0;
+  }
 }
 
 // ─── Auto-label drawings via AI ─────────────────────────────────────────────
@@ -1072,6 +1193,22 @@ export async function handleFileUpload(files, options = {}) {
       await autoDetectOutlines();
     } catch {
       /* non-critical */
+    }
+
+    // Step 4d: Proactive Discovery Scan (non-blocking)
+    // Scans all drawing sheets to build a discovery index of detectable elements.
+    // Uses rescanDrawings to abort any in-flight scan from a previous batch upload
+    // and re-scan with the complete drawing set.
+    try {
+      const { rescanDrawings } = await import("@/utils/discoveryScan");
+      const allDrawings = useDrawingsStore.getState().drawings;
+      if (allDrawings.length > 0) {
+        rescanDrawings(allDrawings).catch(err => {
+          console.warn("[uploadPipeline] Discovery scan failed (non-critical):", err.message);
+        });
+      }
+    } catch {
+      /* non-critical — discovery scan is additive, not blocking */
     }
   }
 

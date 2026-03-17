@@ -35,7 +35,7 @@ NOVATerra occupies the only empty quadrant: **AI-native + full estimating**. No 
 
 | Product | What It Is | Revenue Model |
 |---------|-----------|---------------|
-| **NOVATerra** | AI-powered estimating platform | Subscription ($149-$249/user/mo) |
+| **NOVATerra** | AI-powered estimating platform | $299/mo per user (single price, no tiers) |
 | **BLDG Talent** | Estimator skills assessment | Free for estimators, paid for recruiters ($200/assessment or $500-$1K/mo) |
 | **NOVA CORE** | Aggregated cost intelligence layer | Built into NOVATerra subscriptions; standalone data products later |
 
@@ -146,34 +146,53 @@ Either way, the free ROM drives revenue — either for the GC (who credits NOVAT
 
 ## 3. Pricing Model
 
-### Final Tier Structure
+### Final Pricing Model — Single Price (Board Decision March 2026)
 
-| Tier | Price | Target | What They Get |
-|------|-------|--------|---------------|
-| **Free ROM** | $0 | Anyone with plans | Upload plans → get division-level ROM in 60 seconds. Email-only capture. No account required. Full output — every division, every trade, assumptions, ranges. |
-| **Solo** | $149/month | Individual estimators, freelancers, small subs | Full estimating platform. Takeoffs, NOVA AI, bid packages, proposals, CORE intelligence. 1 user. No org features. |
-| **Team** | $249/user/month | GCs, larger subs, multi-estimator firms | Everything in Solo + org features: shared data, team permissions, company defaults, contact/sub databases, assemblies library, historical proposal calibration. |
-| **Enterprise** | Custom (contact sales) | 50+ seat firms | Everything in Team + SSO, dedicated support, API access, data isolation options, custom integrations, white-label reports. Don't build this tier — just a "Contact Us" page. |
+| | Details |
+|---|---|
+| **Free ROM** | $0 — Upload plans → get division-level ROM in 60 seconds. Email-only capture. No account required. Full output. Lead gen tool, not the product. |
+| **NOVATerra** | **$299/month per user** — Full platform. Everything included. No tiers, no feature gates. Takeoffs, NOVA AI, bid packages, proposals, CORE intelligence, org features, shared data, team permissions, company defaults, contact/sub databases, assemblies library, historical proposal calibration. One price, one login. |
+| **5+ seats** | Contact us — Same $299/user base, room to negotiate volume pricing as a single invoice. |
 
-### Why These Prices
-- ProEst: ~$100-200/user/mo
-- Procore: $375+/user/mo for larger firms
-- Sage: $365/mo
-- STACK: $1,899/year (~$158/mo)
-- NOVATerra at $149-$249 is in the competitive range but delivering 10x the intelligence
-- The margin funds development as a solo founder
+### Why $299/mo — One Price, No Tiers
+- **Target customer is legacy software users**, not greenfield. They already have budget.
+- ProEst: $400-$600/user/mo — NOVATerra saves $100-$300/seat
+- Procore: $10K-$60K+/yr — NOVATerra is radically simpler to buy
+- Sage: $365/mo — NOVATerra undercuts with 10x the intelligence
+- STACK: $299/user/mo — Price parity with dramatically more capability
+- Togal.AI: $299/user/mo — Takeoff only. NOVATerra is full platform at the same price.
+- **Transparency is the weapon.** Competitors hide pricing behind sales calls. NOVATerra publishes one number on a clean page. No games.
+- $299 signals serious software — a VP of Preconstruction sees this and thinks "competitor to ProEst," not "cheap tool"
+- Free ROM is a lead gen door, not a differentiator — AI-generated ROMs are commoditizing fast. CORE intelligence and the full workflow are what people pay for.
+
+### Why NOT Tiers
+- Tiers add cognitive load. Legacy users shopping ProEst replacements want one answer, not a feature matrix.
+- Feature-gating between tiers weakens the CORE data moat — every paid user should feed and benefit from CORE equally.
+- One price means the pricing page IS the marketing: "$299/month. Everything. One login."
 
 ### Revenue Math
-- 50 Solo subscribers × $149/mo = $7,450 MRR = **$89K ARR**
-- 20 Team orgs × 3 users avg × $249/user = $14,940 MRR = **$179K ARR**
-- Combined: **$268K ARR** at modest scale
-- 556 Pro subscribers = $1M ARR (from existing BUSINESS_PLAN.md)
+- 50 users × $299/mo = $14,950 MRR = **$179K ARR**
+- 100 users × $299/mo = $29,900 MRR = **$359K ARR**
+- 280 users = **$1M ARR**
+- Gross margin per user: ~$225-$280/mo (after API/infrastructure costs)
+- Solo-founder breakeven (~$10K/mo): **~35-40 users**
+
+### Unit Economics
+- API costs per active user: $20-$75/mo (scan volume dependent)
+- Infrastructure/hosting per user: ~$5/mo
+- Gross margin at $299: **75-93%**
+- Power users (50+ scans/mo) may cost $150+ in API — accept as cost of building CORE. Their data is valuable.
+
+### Deferred Decisions
+- **Annual pricing**: Add at Day 90 post-launch. Target ~$2,790/yr ($232.50/mo effective, ~22% discount).
+- **Volume discounts**: Negotiate per-deal for 5+ seats. No published discount schedule yet.
+- **Usage-based overages**: Tabled. Monitor API costs. Revisit only if power users create margin problems.
+- **Enterprise tier**: Don't build. Contact form only. Build enterprise features when a real enterprise customer is paying.
 
 ### What NOT to Build Yet
 - Stripe checkout / subscription management — Phase 1 priority
-- Usage-based billing (AI scans per month) — Phase 3
+- Usage-based billing (AI scans per month) — Tabled
 - Enterprise tier features — Only when a real enterprise customer is paying
-- Annual billing discounts — Add when you have enough monthly subscribers to matter
 
 ---
 
@@ -305,7 +324,7 @@ Add later:
 3. Lands in the app IMMEDIATELY — sees Dashboard with a dismissible "Complete Your Setup" card
 4. Setup card prompts (not gates): company name, default markups, invite team
 5. They can dismiss and start estimating right away
-6. After 14 days → prompted to subscribe ($149/mo Solo or $249/user Team)
+6. After 14 days → prompted to subscribe ($299/mo)
 
 #### C. Team Member (invited by admin)
 1. Admin sends invite from Settings > Team (existing `org_invitations` flow in `orgStore.js`)
@@ -338,10 +357,10 @@ When someone signs up with a `@samegccompany.com` email and that domain matches 
 | Component | Implementation |
 |-----------|---------------|
 | **Stripe Checkout** | Use Stripe Checkout Sessions for subscription creation. Redirect to Stripe-hosted page. |
-| **Products** | Two Stripe Products: "NOVATerra Solo" ($149/mo) and "NOVATerra Team" ($249/mo per seat) |
+| **Products** | One Stripe Product: "NOVATerra" ($299/mo per seat) |
 | **Webhooks** | Supabase Edge Function receives Stripe webhooks. Updates `subscriptions` table. |
-| **Trial** | 14-day free trial on both tiers. No card required to start. Card required to continue. |
-| **Seat management** | Team tier: admin adds/removes seats from Settings. Stripe prorates automatically. |
+| **Trial** | 14-day free trial. No card required to start. Card required to continue. |
+| **Seat management** | Admin adds/removes seats from Settings. Stripe prorates automatically. |
 | **Cancellation** | Self-serve from Settings. Access continues until end of billing period. |
 
 ### Database Tables
@@ -391,22 +410,22 @@ CREATE TABLE feature_flags (
 
 ### Feature Gating by Tier
 
-| Feature | Free ROM | Solo ($149) | Team ($249/user) |
-|---------|----------|-------------|------------------|
-| ROM generation | Unlimited (no account) | Unlimited | Unlimited |
-| Full estimating | No | Yes | Yes |
-| Takeoff tools | No | Yes | Yes |
-| NOVA AI assistant | No | Yes | Yes |
-| Bid packages | No | Yes | Yes |
-| Proposal generation | No | Yes | Yes |
-| CORE intelligence | ROM-level only | Full | Full |
-| Historical calibration | No | Yes | Yes |
-| AI plan scanning | No | 50/month | Unlimited |
-| Org features | No | No | Yes |
-| Shared contacts/subs | No | No | Yes |
-| Company defaults | No | No | Yes |
-| Team invitations | No | No | Yes (admin) |
-| Assembly library (shared) | No | No | Yes |
+| Feature | Free ROM | NOVATerra ($299/mo) |
+|---------|----------|---------------------|
+| ROM generation | Unlimited (no account) | Unlimited |
+| Full estimating | No | Yes |
+| Takeoff tools | No | Yes |
+| NOVA AI assistant | No | Yes |
+| Bid packages | No | Yes |
+| Proposal generation | No | Yes |
+| CORE intelligence | ROM-level only | Full |
+| Historical calibration | No | Yes |
+| AI plan scanning | No | Unlimited |
+| Org features | No | Yes |
+| Shared contacts/subs | No | Yes |
+| Company defaults | No | Yes |
+| Team invitations | No | Yes (admin) |
+| Assembly library (shared) | No | Yes |
 
 ### Implementation Pattern
 

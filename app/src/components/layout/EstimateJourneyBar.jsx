@@ -38,11 +38,7 @@ const JOURNEY_STAGES = [
     key: "estimate",
     label: "Estimate",
     defaultPath: "takeoffs",
-    subTabs: [
-      { key: "takeoffs", label: "Scope", path: "takeoffs" },
-      { key: "alternates", label: "Alternates", path: "alternates" },
-      { key: "sov", label: "SOV", path: "sov" },
-    ],
+    subTabs: [],
   },
   {
     key: "network",
@@ -271,7 +267,7 @@ export default function EstimateJourneyBar() {
   }
 
   // ─── Full render ────────────────────────────────────────────────────────
-  const barHeight = showSubTabs ? 68 : 44;
+  const barHeight = showSubTabs ? 60 : 38;
 
   return (
     <>
@@ -299,8 +295,8 @@ export default function EstimateJourneyBar() {
           style={{
             display: "flex",
             alignItems: "center",
-            height: 44,
-            minHeight: 44,
+            height: 38,
+            minHeight: 38,
             padding: `0 ${T.space[5]}px`,
             gap: 8,
           }}
@@ -397,19 +393,19 @@ export default function EstimateJourneyBar() {
                 const prevIsActive = prevStage && prevStage.key === activeStageKey;
                 const connectorTraveled = prevComplete || prevIsActive;
 
-                // Pill style by state
+                // Pill style by state — compact sizing
                 let pillStyle = {
-                  height: 24,
-                  padding: "0 12px",
-                  borderRadius: 12,
+                  height: 20,
+                  padding: "0 9px",
+                  borderRadius: 10,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: 4,
+                  gap: 3,
                   transition: "all 200ms ease",
                   flexShrink: 0,
                   cursor: "pointer",
-                  fontSize: 10,
+                  fontSize: 9,
                   fontWeight: 600,
                   fontFamily: T.font.sans,
                   letterSpacing: "0.02em",

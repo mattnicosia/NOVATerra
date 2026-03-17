@@ -17,7 +17,7 @@ export default function EstimateHealthWidget() {
   const estimates = useEstimatesStore(s => s.estimatesIndex);
 
   const stats = useMemo(() => {
-    const active = estimates.filter(e => e.status === "Bidding" || e.status === "Submitted");
+    const active = estimates.filter(e => e.status === "Bidding" || e.status === "Pending");
     let totalItems = 0;
     let unpricedItems = 0;
     let missingDesc = 0;

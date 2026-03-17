@@ -179,12 +179,13 @@ Generate 5-10 RFIs, prioritized by impact on bid accuracy.`,
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
-      {/* Generate bar */}
+      {/* Generate bar — card-style CTA */}
       <div
         style={{
           padding: "8px 10px",
           borderBottom: `1px solid ${C.border}`,
           display: "flex",
+          flexDirection: "column",
           gap: 6,
         }}
       >
@@ -192,15 +193,21 @@ Generate 5-10 RFIs, prioritized by impact on bid accuracy.`,
           onClick={generateRFIs}
           disabled={generating}
           style={bt(C, {
-            flex: 1,
-            padding: "7px 0",
+            width: "100%",
+            padding: "10px 12px",
             fontSize: 11,
             fontWeight: 700,
             background: generating
               ? C.bg3
-              : `linear-gradient(135deg, ${C.accent}, ${C.purple || C.accent})`,
-            color: generating ? C.textDim : "#fff",
-            boxShadow: generating ? "none" : `0 2px 8px ${C.accent}30`,
+              : `linear-gradient(135deg, ${C.accent}18, ${(C.purple || C.accent)}12)`,
+            color: generating ? C.textDim : C.accent,
+            border: `1px solid ${generating ? C.border : C.accent + "30"}`,
+            borderRadius: T.radius.md,
+            boxShadow: generating ? "none" : `0 1px 4px ${C.accent}10`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
           })}
         >
           {generating ? (
@@ -210,18 +217,19 @@ Generate 5-10 RFIs, prioritized by impact on bid accuracy.`,
                   display: "inline-block",
                   width: 10,
                   height: 10,
-                  border: "2px solid #fff3",
-                  borderTop: "2px solid #fff",
+                  border: `2px solid ${C.accent}30`,
+                  borderTop: `2px solid ${C.accent}`,
                   borderRadius: "50%",
                   animation: "spin 0.8s linear infinite",
-                  marginRight: 4,
                 }}
               />
-              Analyzing...
+              Analyzing specs & drawings...
             </>
           ) : (
             <>
-              <Ic d={I.ai} size={11} color="#fff" /> Generate RFIs
+              <Ic d={I.ai} size={12} color={C.accent} />
+              <span>Generate RFIs</span>
+              <span style={{ fontSize: 8, opacity: 0.6, fontWeight: 500 }}>AI</span>
             </>
           )}
         </button>
@@ -229,15 +237,20 @@ Generate 5-10 RFIs, prioritized by impact on bid accuracy.`,
           onClick={handleAddManual}
           title="Add manual RFI"
           style={bt(C, {
-            padding: "7px 10px",
-            fontSize: 11,
-            fontWeight: 600,
+            width: "100%",
+            padding: "6px 10px",
+            fontSize: 10,
+            fontWeight: 500,
             background: "transparent",
             border: `1px solid ${C.border}`,
-            color: C.textMuted,
+            color: C.textDim,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 4,
           })}
         >
-          <Ic d={I.plus} size={10} color={C.textMuted} />
+          <Ic d={I.plus} size={9} color={C.textDim} /> Add Manual RFI
         </button>
       </div>
 

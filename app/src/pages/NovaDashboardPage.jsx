@@ -18,6 +18,8 @@ import DashboardFooter from "@/components/dashboard/DashboardFooter";
 
 // Sprint 4.3: Onboarding sequence — shown before dashboard on first visit
 const OnboardingSequence = lazy(() => import("@/components/onboarding/OnboardingSequence"));
+// Sprint 8: NOVA Morning Brief — daily context on login
+import MorningBrief from "@/components/dashboard/MorningBrief";
 
 /* ────────────────────────────────────────────────────────
    NovaDashboardPage — widget-based dashboard
@@ -143,6 +145,17 @@ export default function NovaDashboardPage() {
   const showOnboarding =
     !onboardingDismissed && !localStorage.getItem("nova_onboarding_complete");
 
+  // Sprint 8: Morning Brief — once per day, dissolves into dashboard
+  const [briefDismissed, setBriefDismissed] = useState(() => {
+    const dayKey = new Date().toISOString().slice(0, 10);
+    return sessionStorage.getItem("nova_brief_day") === dayKey;
+  });
+  const handleBriefDismiss = useCallback(() => {
+    const dayKey = new Date().toISOString().slice(0, 10);
+    sessionStorage.setItem("nova_brief_day", dayKey);
+    setBriefDismissed(true);
+  }, []);
+
   if (showOnboarding) {
     return (
       <Suspense fallback={null}>
@@ -153,6 +166,11 @@ export default function NovaDashboardPage() {
 
   return (
     <>
+      {/* Sprint 8: NOVA Morning Brief — dissolves into dashboard */}
+      {!briefDismissed && companyEstimates.length > 0 && (
+        <MorningBrief onDismiss={handleBriefDismiss} />
+      )}
+
       <div
         style={{
           display: "flex",

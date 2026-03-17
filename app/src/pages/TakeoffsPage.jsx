@@ -29,7 +29,7 @@ import { useModuleStore } from "@/stores/moduleStore";
 import { useModelStore } from "@/stores/modelStore";
 import { useUndoStore } from "@/stores/undoStore";
 import { outlineToFeet, detectBuildingOutline, ensureDrawingImage } from "@/utils/outlineDetector";
-import { inferViewType } from "@/utils/uploadPipeline";
+import { inferViewType, repairRawPdf, pdfRawCache, loadPdfRawFromIDB } from "@/utils/uploadPipeline";
 import { MODULE_LIST, MODULES } from "@/constants/modules";
 import ModulePanel from "@/components/takeoffs/ModulePanel";
 import TakeoffDimensionEngine from "@/components/takeoffs/TakeoffDimensionEngine";
@@ -57,6 +57,7 @@ import RFIPanel from "@/components/estimate/RFIPanel";
 import { MessageBubble, ActionCards, QUICK_ACTIONS } from "@/components/ai/AIChatPanel";
 import { NOVA_TOOLS, executeNovaTool } from "@/utils/novaTools";
 import TakeoffNOVAPanel from "@/components/takeoffs/TakeoffNOVAPanel";
+const DiscoveryPanel = lazy(() => import("@/components/discovery/DiscoveryPanel"));
 import {
   TO_COLORS,
   _novaCache,
@@ -435,10 +436,25 @@ export default function TakeoffsPage() {
   }, []);
 
   // Persist selected drawing to sessionStorage so refresh returns to same page
+  const prevDrawingIdRef = useRef(selectedDrawingId);
   useEffect(() => {
     if (selectedDrawingId) sessionStorage.setItem("bldg-selectedDrawingId", selectedDrawingId);
     // Clear analysis results when drawing changes
     setGeoAnalysis({ loading: false, results: null });
+    // Sprint 8: Save zoom/pan for previous sheet, restore for new sheet
+    const prevId = prevDrawingIdRef.current;
+    if (prevId && prevId !== selectedDrawingId) {
+      useTakeoffsStore.getState().saveTkSheetView(prevId);
+    }
+    if (selectedDrawingId && selectedDrawingId !== prevId) {
+      const restored = useTakeoffsStore.getState().restoreTkSheetView(selectedDrawingId);
+      if (!restored) {
+        // Reset to default for sheets we haven't visited
+        setTkZoom(100);
+        setTkPan({ x: 0, y: 0 });
+      }
+    }
+    prevDrawingIdRef.current = selectedDrawingId;
   }, [selectedDrawingId]);
 
   // AI Drawing Analysis
@@ -731,13 +747,7 @@ export default function TakeoffsPage() {
   // ─── MEASUREMENT ACTIONS ────────────
   const addMeasurement = useCallback(
     (takeoffId, measurement) => {
-      const s = useTakeoffsStore.getState();
-      s.setTakeoffs(
-        s.takeoffs.map(t => {
-          if (t.id !== takeoffId) return t;
-          return { ...t, measurements: [...(t.measurements || []), { id: uid(), ...measurement }] };
-        }),
-      );
+      useTakeoffsStore.getState().addMeasurement(takeoffId, measurement);
       triggerMeasureFlash(takeoffId);
     },
     [triggerMeasureFlash],
@@ -751,6 +761,26 @@ export default function TakeoffsPage() {
         return { ...t, measurements: (t.measurements || []).filter(m => m.id !== measurementId) };
       }),
     );
+  }, []);
+
+  // ── PDF Repair Drop Handler — re-attaches raw PDF for prediction extraction ──
+  const handlePdfRepairDrop = useCallback(async e => {
+    e.preventDefault();
+    const file = e.dataTransfer?.files?.[0];
+    if (!file || !file.name.toLowerCase().endsWith(".pdf")) return;
+    showToast("Repairing PDF data for predictions...", "info");
+    try {
+      const count = await repairRawPdf(file);
+      if (count > 0) {
+        showToast(`✦ Repaired ${count} drawing${count > 1 ? "s" : ""} — predictions now enabled!`, "success");
+        // Re-trigger proactive predictions
+        clearPredictions();
+      } else {
+        showToast("No drawings needed repair (file name didn't match)", "error");
+      }
+    } catch (err) {
+      showToast("PDF repair failed: " + err.message, "error");
+    }
   }, []);
 
   const engageMeasuring = useCallback(
@@ -794,7 +824,7 @@ export default function TakeoffsPage() {
       // Pre-warm prediction cache in background — predictions will be instant on first click
       const drawState = useDrawingsStore.getState();
       const warmDrawing = drawState.drawings.find(d => d.id === drawState.selectedDrawingId);
-      if (warmDrawing && warmDrawing.type === "pdf" && warmDrawing.data) {
+      if (warmDrawing && warmDrawing.type === "pdf" && (warmDrawing.data || warmDrawing.pdfRawBase64)) {
         warmPredictions(warmDrawing, to.description).catch(() => {});
       }
     },
@@ -832,6 +862,8 @@ export default function TakeoffsPage() {
     setTkActiveTakeoffId(null);
     setTkContextMenu(null);
     setTkCursorPt(null);
+    clearPredictions();
+    setCrossSheetScan(null);
     // Auto-reopen panel when measuring stops (only in "auto" mode)
     if (tkPanelMode === "auto") {
       // Restore tier if it was auto-collapsed during measuring
@@ -1753,6 +1785,11 @@ IMPORTANT:
       const currentActiveTakeoffId = freshState.tkActiveTakeoffId;
       const currentTool = freshState.tkTool;
 
+      // DEBUG: Show state on EVERY click (before measuring gate)
+      const _dbgDwg = useDrawingsStore.getState();
+      const _dbgDrawing = _dbgDwg.drawings.find(d => d.id === _dbgDwg.selectedDrawingId);
+      document.title = `ST=${currentMeasureState} TK=${!!currentActiveTakeoffId} TOOL=${currentTool} DWG=${_dbgDrawing?.type||'none'}/${!!_dbgDrawing?.data}`;
+
       // Selected takeoff shows its points but does NOT auto-start measuring.
       // User must click the play button or press Enter to start measuring.
 
@@ -1770,7 +1807,7 @@ IMPORTANT:
           const nearbyPred = findNearbyPrediction(preds.predictions, clickPt, accepted, rejected, 30);
           if (nearbyPred) {
             acceptPrediction(nearbyPred.id);
-            recordPredictionFeedback(preds.tag, preds.strategy, true);
+            recordPredictionFeedback(preds.tag, preds.strategy || preds.source, true);
             addMeasurement(currentActiveId, {
               type: "count",
               points: [nearbyPred.point || clickPt],
@@ -1788,7 +1825,7 @@ IMPORTANT:
             clearPredictions();
             const drawingId = useDrawingsStore.getState().selectedDrawingId;
             const drawing = useDrawingsStore.getState().drawings.find(d => d.id === drawingId);
-            if (drawing && drawing.type === "pdf" && drawing.data) {
+            if (drawing && drawing.type === "pdf" && (drawing.data || drawing.pdfRawBase64)) {
               runSmartPredictions(drawing, to, "count", clickPt)
                 .then(result => {
                   if (useTakeoffsStore.getState().tkActiveTakeoffId !== currentActiveId) return;
@@ -1799,6 +1836,7 @@ IMPORTANT:
                       scanning: false,
                       totalInstances: result.totalInstances,
                       source: result.source,
+                      strategy: result.strategy,
                     });
                     initPredContext(result.tag, result.source, result.confidence);
                   }
@@ -1812,11 +1850,16 @@ IMPORTANT:
 
       const triggerCountPredictions = (clickPt, to) => {
         const { tkPredictions: preds } = useTakeoffsStore.getState();
+        document.title = `PRED: preds=${!!preds} desc="${to?.description?.slice(0,20)}"`;
         if (!preds) {
-          const drawing = useDrawingsStore.getState().drawings.find(d => d.id === selectedDrawingId);
-          if (drawing && drawing.type === "pdf" && drawing.data) {
+          const currentDrawingId = useDrawingsStore.getState().selectedDrawingId;
+          const drawing = useDrawingsStore.getState().drawings.find(d => d.id === currentDrawingId);
+          document.title = `PRED: dwg=${!!drawing} type=${drawing?.type} data=${!!drawing?.data} raw=${!!drawing?.pdfRawBase64} preR=${!!drawing?.pdfPreRendered}`;
+          if (drawing && drawing.type === "pdf" && (drawing.data || drawing.pdfRawBase64)) {
+            document.title = `PRED: running runSmartPredictions...`;
             runSmartPredictions(drawing, to, "count", clickPt)
               .then(result => {
+                document.title = `PRED: result preds=${result.predictions.length} tag=${result.tag} strat=${result.strategy} msg=${result.message?.slice(0,40)}`;
                 if (useTakeoffsStore.getState().tkActiveTakeoffId !== tkActiveTakeoffId) return;
                 if (result.predictions.length > 0) {
                   setTkPredictions({
@@ -1825,11 +1868,27 @@ IMPORTANT:
                     scanning: false,
                     totalInstances: result.totalInstances,
                     source: result.source,
+                    strategy: result.strategy,
                   });
                   initPredContext(result.tag, result.source, result.confidence);
                   showToast(`Found ${result.predictions.length} more "${result.tag || "items"}" — review predictions`);
+                  // Cross-sheet scan: find same tag on other sheets
+                  if (result.tag) {
+                    const allDwgs = useDrawingsStore.getState().drawings;
+                    scanAllSheets(allDwgs, result.tag, "count")
+                      .then(sheetResults => {
+                        const otherSheets = sheetResults.filter(r => r.drawingId !== currentDrawingId);
+                        if (otherSheets.length > 0) {
+                          setCrossSheetScan({ tag: result.tag, results: otherSheets, scanning: false });
+                        }
+                      })
+                      .catch(() => {});
+                  }
                 }
-                // Silently skip — no toast when predictions find nothing, user can still count manually
+                // Surface strategy: show the engine's explanation if it recognized the item but can't predict
+                if (result.message && result.strategy !== "general" && result.strategy !== "tag-based") {
+                  showToast(result.message, "info");
+                }
               })
               .catch(err => console.warn("Prediction scan failed:", err));
           }
@@ -2027,6 +2086,8 @@ Where confidence is "high", "medium", or "low".`,
           ? snapAngle(tkActivePoints[tkActivePoints.length - 1], pt)
           : pt;
 
+      document.title = `CLICK: tool=${currentTool} state=${currentMeasureState} active=${!!currentActiveTakeoffId} desc="${to?.description?.slice(0,20)}"`;
+
       // COUNT
       if (currentTool === "count") {
         // ── Proximity auto-accept: if clicking near a ghost prediction, accept it instead ──
@@ -2085,24 +2146,48 @@ Where confidence is "high", "medium", or "low".`,
             );
             if (nearbyPred) {
               acceptPrediction(nearbyPred.id);
-              recordPredictionFeedback(linPreds.tag, linPreds.strategy, true);
+              recordPredictionFeedback(linPreds.tag, linPreds.strategy || linPreds.source, true);
             } else {
               recordPredictionMiss();
               const ctx = useTakeoffsStore.getState().tkPredContext;
               if (ctx && ctx.consecutiveMisses >= 3) {
                 clearPredictions();
-                // Re-analyze below
+                // Re-scan immediately after clearing (can't rely on !linPreds — it's a stale local)
+                const currentDrawingId = useDrawingsStore.getState().selectedDrawingId;
+                const drawing = useDrawingsStore.getState().drawings.find(d => d.id === currentDrawingId);
+                if (drawing && drawing.type === "pdf" && (drawing.data || drawing.pdfRawBase64)) {
+                  runSmartPredictions(drawing, to, "linear", tkActivePoints[0])
+                    .then(result => {
+                      if (useTakeoffsStore.getState().tkActiveTakeoffId !== currentActiveTakeoffId) return;
+                      if (result.predictions.length > 0) {
+                        setTkPredictions({
+                          tag: result.tag,
+                          predictions: result.predictions,
+                          scanning: false,
+                          totalInstances: result.totalInstances,
+                          source: result.source,
+                          strategy: result.strategy,
+                        });
+                        initPredContext(result.tag, result.source, result.confidence);
+                      }
+                    })
+                    .catch(err => console.warn("Linear prediction re-scan failed:", err));
+                }
               }
             }
           }
 
           // Predictive takeoff: run smart predictions whenever none exist
           if (!linPreds) {
-            const drawing = useDrawingsStore.getState().drawings.find(d => d.id === selectedDrawingId);
-            if (drawing && drawing.type === "pdf" && drawing.data) {
+            const currentDrawingId = useDrawingsStore.getState().selectedDrawingId;
+            const drawing = useDrawingsStore.getState().drawings.find(d => d.id === currentDrawingId);
+            document.title = `LIN-PRED: dwg=${!!drawing} type=${drawing?.type} data=${!!drawing?.data} raw=${!!drawing?.pdfRawBase64}`;
+            if (drawing && drawing.type === "pdf" && (drawing.data || drawing.pdfRawBase64)) {
               (async () => {
                 try {
+                  document.title = `LIN-PRED: running for "${to?.description?.slice(0,20)}"...`;
                   const result = await runSmartPredictions(drawing, to, "linear", tkActivePoints[0]);
+                  document.title = `LIN-PRED: preds=${result.predictions.length} tag=${result.tag} strat=${result.strategy} msg=${result.message?.slice(0,40)}`;
                   if (result.predictions.length > 0) {
                     setTkPredictions({
                       tag: result.tag,
@@ -2110,11 +2195,26 @@ Where confidence is "high", "medium", or "low".`,
                       scanning: false,
                       totalInstances: result.totalInstances,
                       source: result.source,
+                      strategy: result.strategy,
                     });
                     initPredContext(result.tag, result.source, result.confidence);
                     showToast(
                       `Found ${result.predictions.length} more "${result.tag || "walls"}" — review predictions`,
                     );
+                    // Cross-sheet scan: find same tag on other sheets
+                    if (result.tag) {
+                      const allDwgs = useDrawingsStore.getState().drawings;
+                      scanAllSheets(allDwgs, result.tag, "linear")
+                        .then(sheetResults => {
+                          const otherSheets = sheetResults.filter(r => r.drawingId !== currentDrawingId);
+                          if (otherSheets.length > 0) {
+                            setCrossSheetScan({ tag: result.tag, results: otherSheets, scanning: false });
+                          }
+                        })
+                        .catch(() => {});
+                    }
+                  } else if (result.message && result.strategy !== "general" && result.strategy !== "tag-based") {
+                    showToast(result.message, "info");
                   }
                 } catch (err) {
                   console.warn("Prediction scan failed:", err);
@@ -2148,11 +2248,57 @@ Where confidence is "high", "medium", or "low".`,
             } else {
               showToast("Area measurement saved — set scale to see value");
             }
+            // Track prediction match/miss for area measurements
+            const {
+              tkPredictions: areaPreds,
+              tkPredAccepted: areaAccepted,
+              tkPredRejected: areaRejected,
+            } = useTakeoffsStore.getState();
+            if (areaPreds && areaPreds.predictions.length > 0) {
+              const nearbyPred = findNearbyPrediction(
+                areaPreds.predictions,
+                tkActivePoints[0],
+                areaAccepted,
+                areaRejected,
+                50,
+              );
+              if (nearbyPred) {
+                acceptPrediction(nearbyPred.id);
+                recordPredictionFeedback(areaPreds.tag, areaPreds.strategy || areaPreds.source, true);
+              } else {
+                recordPredictionMiss();
+                const ctx = useTakeoffsStore.getState().tkPredContext;
+                if (ctx && ctx.consecutiveMisses >= 3) {
+                  clearPredictions();
+                  // Re-scan immediately after clearing (can't rely on !areaPreds — it's a stale local)
+                  const currentDrawingId = useDrawingsStore.getState().selectedDrawingId;
+                  const drawing = useDrawingsStore.getState().drawings.find(d => d.id === currentDrawingId);
+                  if (drawing && drawing.type === "pdf" && (drawing.data || drawing.pdfRawBase64)) {
+                    runSmartPredictions(drawing, to, "area", tkActivePoints[0])
+                      .then(result => {
+                        if (useTakeoffsStore.getState().tkActiveTakeoffId !== currentActiveTakeoffId) return;
+                        if (result.predictions.length > 0) {
+                          setTkPredictions({
+                            tag: result.tag,
+                            predictions: result.predictions,
+                            scanning: false,
+                            totalInstances: result.totalInstances,
+                            source: result.source,
+                            strategy: result.strategy,
+                          });
+                          initPredContext(result.tag, result.source, result.confidence);
+                        }
+                      })
+                      .catch(err => console.warn("Area prediction re-scan failed:", err));
+                  }
+                }
+              }
+            }
             // Area predictions: run smart predictions whenever none exist
-            const { tkPredictions: areaPreds } = useTakeoffsStore.getState();
             if (!areaPreds) {
-              const drawing = useDrawingsStore.getState().drawings.find(d => d.id === selectedDrawingId);
-              if (drawing && drawing.type === "pdf" && drawing.data) {
+              const currentDrawingId = useDrawingsStore.getState().selectedDrawingId;
+              const drawing = useDrawingsStore.getState().drawings.find(d => d.id === currentDrawingId);
+              if (drawing && drawing.type === "pdf" && (drawing.data || drawing.pdfRawBase64)) {
                 (async () => {
                   try {
                     const result = await runSmartPredictions(drawing, to, "area", tkActivePoints[0]);
@@ -2163,9 +2309,24 @@ Where confidence is "high", "medium", or "low".`,
                         scanning: false,
                         totalInstances: result.totalInstances,
                         source: result.source,
+                        strategy: result.strategy,
                       });
                       initPredContext(result.tag, result.source, result.confidence);
                       showToast(`Found ${result.predictions.length} room predictions — review`);
+                      // Cross-sheet scan: find same tag on other sheets
+                      if (result.tag) {
+                        const allDwgs = useDrawingsStore.getState().drawings;
+                        scanAllSheets(allDwgs, result.tag, "area")
+                          .then(sheetResults => {
+                            const otherSheets = sheetResults.filter(r => r.drawingId !== currentDrawingId);
+                            if (otherSheets.length > 0) {
+                              setCrossSheetScan({ tag: result.tag, results: otherSheets, scanning: false });
+                            }
+                          })
+                          .catch(() => {});
+                      }
+                    } else if (result.message && result.strategy !== "general" && result.strategy !== "tag-based") {
+                      showToast(result.message, "info");
                     }
                   } catch (err) {
                     console.warn("Area prediction scan failed:", err);
@@ -2191,11 +2352,57 @@ Where confidence is "high", "medium", or "low".`,
           } else {
             showToast("Area measurement saved — set scale to see value");
           }
+          // Track prediction match/miss for area measurements (double-click close)
+          const {
+            tkPredictions: areaPredsDbl,
+            tkPredAccepted: areaAccDbl,
+            tkPredRejected: areaRejDbl,
+          } = useTakeoffsStore.getState();
+          if (areaPredsDbl && areaPredsDbl.predictions.length > 0) {
+            const nearbyPred = findNearbyPrediction(
+              areaPredsDbl.predictions,
+              tkActivePoints[0],
+              areaAccDbl,
+              areaRejDbl,
+              50,
+            );
+            if (nearbyPred) {
+              acceptPrediction(nearbyPred.id);
+              recordPredictionFeedback(areaPredsDbl.tag, areaPredsDbl.strategy || areaPredsDbl.source, true);
+            } else {
+              recordPredictionMiss();
+              const ctx = useTakeoffsStore.getState().tkPredContext;
+              if (ctx && ctx.consecutiveMisses >= 3) {
+                clearPredictions();
+                // Re-scan immediately after clearing (can't rely on !areaPredsDbl — it's a stale local)
+                const currentDrawingId = useDrawingsStore.getState().selectedDrawingId;
+                const drawing = useDrawingsStore.getState().drawings.find(d => d.id === currentDrawingId);
+                if (drawing && drawing.type === "pdf" && (drawing.data || drawing.pdfRawBase64)) {
+                  runSmartPredictions(drawing, to, "area", tkActivePoints[0])
+                    .then(result => {
+                      if (useTakeoffsStore.getState().tkActiveTakeoffId !== currentActiveTakeoffId) return;
+                      if (result.predictions.length > 0) {
+                        setTkPredictions({
+                          tag: result.tag,
+                          predictions: result.predictions,
+                          scanning: false,
+                          totalInstances: result.totalInstances,
+                          source: result.source,
+                          strategy: result.strategy,
+                        });
+                        initPredContext(result.tag, result.source, result.confidence);
+                      }
+                    })
+                    .catch(err => console.warn("Area prediction re-scan failed:", err));
+                }
+              }
+            }
+          }
           // Area predictions: run smart predictions whenever none exist
-          const { tkPredictions: areaPredsDbl } = useTakeoffsStore.getState();
           if (!areaPredsDbl) {
-            const drawing = useDrawingsStore.getState().drawings.find(d => d.id === selectedDrawingId);
-            if (drawing && drawing.type === "pdf" && drawing.data) {
+            const currentDrawingId = useDrawingsStore.getState().selectedDrawingId;
+            const drawing = useDrawingsStore.getState().drawings.find(d => d.id === currentDrawingId);
+            if (drawing && drawing.type === "pdf" && (drawing.data || drawing.pdfRawBase64)) {
               (async () => {
                 try {
                   const result = await runSmartPredictions(drawing, to, "area", tkActivePoints[0]);
@@ -2206,9 +2413,22 @@ Where confidence is "high", "medium", or "low".`,
                       scanning: false,
                       totalInstances: result.totalInstances,
                       source: result.source,
+                      strategy: result.strategy,
                     });
                     initPredContext(result.tag, result.source, result.confidence);
                     showToast(`Found ${result.predictions.length} room predictions — review`);
+                    // Cross-sheet scan: find same tag on other sheets
+                    if (result.tag) {
+                      const allDwgs = useDrawingsStore.getState().drawings;
+                      scanAllSheets(allDwgs, result.tag, "area")
+                        .then(sheetResults => {
+                          const otherSheets = sheetResults.filter(r => r.drawingId !== currentDrawingId);
+                          if (otherSheets.length > 0) {
+                            setCrossSheetScan({ tag: result.tag, results: otherSheets, scanning: false });
+                          }
+                        })
+                        .catch(() => {});
+                    }
                   }
                 } catch (err) {
                   console.warn("Area prediction scan failed:", err);
@@ -2347,12 +2567,20 @@ Where confidence is "high", "medium", or "low".`,
 
     // Guard: only trigger predictions when actively measuring
     const currentMeasureState = useTakeoffsStore.getState().tkMeasureState;
-    if (currentMeasureState !== "measuring" && currentMeasureState !== "paused") return;
+    if (currentMeasureState !== "measuring" && currentMeasureState !== "paused") {
+      document.title = `PROACTIVE: blocked state=${currentMeasureState}`;
+      return;
+    }
 
     const to = useTakeoffsStore.getState().takeoffs.find(t => t.id === tkActiveTakeoffId);
     if (!to) return;
     const drawing = useDrawingsStore.getState().drawings.find(d => d.id === selectedDrawingId);
-    if (!drawing || drawing.type !== "pdf" || !drawing.data) return;
+    if (!drawing || drawing.type !== "pdf" || !drawing.data) {
+      document.title = `PROACTIVE: no-dwg type=${drawing?.type} data=${!!drawing?.data} raw=${!!drawing?.pdfRawBase64}`;
+      return;
+    }
+
+    document.title = `PROACTIVE: running for "${to.description?.slice(0,20)}" type=${drawing.type}`;
 
     const measureType = unitToTool(to.unit);
 
@@ -2406,6 +2634,11 @@ Where confidence is "high", "medium", or "low".`,
             message: result.message,
             takeoffId: result.takeoffId,
           });
+          // Show repair toast once per session when raw PDF is missing
+          if (result.needsRepair && !window._novaRepairToastShown) {
+            window._novaRepairToastShown = true;
+            showToast("Drop the original PDF onto the drawing to enable NOVA predictions", "info");
+          }
         }
       })
       .catch(err => console.warn("Proactive prediction failed:", err));
@@ -2612,6 +2845,8 @@ Where confidence is "high", "medium", or "low".`,
     const activeTo = takeoffs.find(t => t.id === tkActiveTakeoffId);
     const predColor = activeTo?.color || "#8B5CF6";
     const predictions = tkPredictions.predictions;
+    const waveCenterX = predictions.reduce((s, p) => s + (p.point?.x || p.points?.[0]?.x || 0), 0) / predictions.length;
+    const waveCenterY = predictions.reduce((s, p) => s + (p.point?.y || p.points?.[0]?.y || 0), 0) / predictions.length;
 
     // Progressive confidence scaling
     const confidence = tkPredContext?.confidence || 0.7;
@@ -2620,7 +2855,7 @@ Where confidence is "high", "medium", or "low".`,
     // Confidence-based visual parameters (progressive reveal)
     const confLevel = confidence < 0.5 ? "low" : confidence < 0.75 ? "med" : "high";
     const ghostBaseOpacity = confLevel === "low" ? 0.2 : confLevel === "med" ? 0.35 : 0.5;
-    const ghostPulseRange = confLevel === "low" ? 0.15 : confLevel === "med" ? 0.15 : 0.15;
+    const ghostPulseRange = confLevel === "low" ? 0.08 : confLevel === "med" ? 0.12 : 0.18;
     const ghostSize = confLevel === "low" ? 10 : confLevel === "med" ? 12 : 14;
     const ghostGlow = confLevel === "low" ? 6 : confLevel === "med" ? 10 : 14;
 
@@ -2638,9 +2873,11 @@ Where confidence is "high", "medium", or "low".`,
       predScanPhaseRef.current = (predScanPhaseRef.current + dt * 0.5) % 1;
       const phase = predScanPhaseRef.current;
 
+      const acceptedSet = new Set(tkPredAccepted);
+      const rejectedSet = new Set(tkPredRejected);
       predictions.forEach((pred, idx) => {
-        const isAccepted = tkPredAccepted.includes(pred.id);
-        const isRejected = tkPredRejected.includes(pred.id);
+        const isAccepted = acceptedSet.has(pred.id);
+        const isRejected = rejectedSet.has(pred.id);
         if (isRejected) return;
 
         // Stagger each prediction's appearance with a cascade delay
@@ -2738,8 +2975,8 @@ Where confidence is "high", "medium", or "low".`,
 
       // Scan wave ripple
       if (!tkPredAccepted.length && predictions.length > 0 && !isRefining) {
-        const centerX = predictions.reduce((s, p) => s + (p.point?.x || p.points?.[0]?.x || 0), 0) / predictions.length;
-        const centerY = predictions.reduce((s, p) => s + (p.point?.y || p.points?.[0]?.y || 0), 0) / predictions.length;
+        const centerX = waveCenterX;
+        const centerY = waveCenterY;
         const maxR = Math.max(canvas.width, canvas.height) * 0.6;
         const waveR = phase * maxR;
         const waveAlpha = Math.max(0, 0.12 * (1 - phase));
@@ -3311,8 +3548,45 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
   };
 
   // ─── RENDER ─────────────────────────
+  // DEBUG: visible state for prediction pipeline
+  const _dbgDwgState = useDrawingsStore.getState();
+  const _dbgDwgObj = _dbgDwgState.drawings.find(d => d.id === selectedDrawingId);
+  const _dbgCacheHit = _dbgDwgObj?.fileName ? pdfRawCache.has(_dbgDwgObj.fileName) : false;
+  const _dbgCacheBuf = _dbgCacheHit ? pdfRawCache.get(_dbgDwgObj.fileName) : null;
+  const _dbgBufSize = _dbgCacheBuf ? `${(_dbgCacheBuf.byteLength / 1024 / 1024).toFixed(1)}MB` : "0";
+  const _dbgPreds = tkPredictions;
+  const _dbgInfo = tkMeasureState === "measuring"
+    ? `ST=measuring CACHE=${_dbgCacheHit} BUF=${_dbgBufSize} PREDS=${_dbgPreds?.predictions?.length ?? "null"} STRAT=${_dbgPreds?.strategy || "—"} MSG=${_dbgPreds?.message?.slice(0,80) || "none"}`
+    : `preR=${!!_dbgDwgObj?.pdfPreRendered} CACHE=${_dbgCacheHit} BUF=${_dbgBufSize} fn=${_dbgDwgObj?.fileName || "none"}`;
+
   return (
     <div style={{ display: "flex", gap: 0, height: "calc(100vh - 120px)", position: "relative" }}>
+      {/* DEBUG OVERLAY — remove after debugging */}
+      <div style={{
+        position: "fixed", top: 0, left: "50%", transform: "translateX(-50%)",
+        zIndex: 99999, background: "#ff0066", color: "#fff", padding: "6px 18px",
+        fontSize: 13, fontWeight: 700, borderRadius: "0 0 8px 8px", fontFamily: "monospace",
+        whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 12,
+      }}>
+        <span style={{ pointerEvents: "none" }}>{_dbgInfo}</span>
+        {_dbgDwgObj?.pdfPreRendered && (
+          <label style={{
+            pointerEvents: "auto", cursor: "pointer", background: "#fff", color: "#ff0066",
+            padding: "2px 10px", borderRadius: 4, fontSize: 12, fontWeight: 800,
+          }}>
+            REPAIR PDF
+            <input type="file" accept=".pdf" style={{ display: "none" }} onChange={e => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              repairRawPdf(f).then(count => {
+                useUiStore.getState().showToast(count > 0 ? `Repaired ${count} drawings — predictions enabled!` : "No matching drawings found", count > 0 ? "success" : "error");
+              }).catch(err => {
+                useUiStore.getState().showToast("Repair failed: " + err.message, "error");
+              });
+            }} />
+          </label>
+        )}
+      </div>
       {/* ── Vertical Control Rail ── */}
       {(() => {
         const modes = [
@@ -3734,6 +4008,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
             {(() => {
               const allTabs = [
                 { key: "estimate", label: "Est", icon: I.ruler },
+                { key: "discovery", label: "Discovery", icon: I.search || I.scan || I.ai },
                 { key: "scenarios", label: "Scenarios", icon: I.layers },
                 { key: "notes", label: "Notes", icon: I.report },
                 { key: "rfis", label: "RFIs", icon: I.send },
@@ -3969,6 +4244,16 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
               ) : leftPanelTab === "rfis" ? (
                 <div style={{ flex: 1, overflowY: "auto" }}>
                   <RFIPanel />
+                </div>
+              ) : leftPanelTab === "discovery" ? (
+                <div style={{ flex: 1, overflowY: "auto", padding: 8 }}>
+                  <Suspense fallback={<div style={{ padding: 16, color: C.textDim, fontSize: 12 }}>Loading...</div>}>
+                    <DiscoveryPanel
+                      onNavigateToSheet={drawingId => {
+                        useDrawingsStore.getState().setSelectedDrawingId(drawingId);
+                      }}
+                    />
+                  </Suspense>
                 </div>
               ) : leftPanelTab === "nova" ? (
                 <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
@@ -4851,7 +5136,6 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                             <div style={{ width: 65, textAlign: "right" }}>Total</div>
                                           </>
                                         )}
-                                        <div style={{ width: 50 }}>Sheet</div>
                                         <div style={{ width: 52 }}></div>
                                       </div>
                                       {tos.map(to => {
@@ -4927,14 +5211,15 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                 transition: "background 100ms ease-out",
                                               }}
                                             >
-                                              {/* Play / Pause / Resume — left of color for faster engage */}
+                                              {/* Play / Pause / Stop — left of color for faster engage */}
                                               <div
                                                 style={{
-                                                  width: 20,
+                                                  width: isMeasuring || isPaused ? 38 : 20,
                                                   flexShrink: 0,
                                                   display: "flex",
                                                   alignItems: "center",
                                                   justifyContent: "center",
+                                                  gap: 2,
                                                 }}
                                                 onClick={e => e.stopPropagation()}
                                               >
@@ -4976,6 +5261,19 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                       fill={selectedDrawing?.data ? to.color : C.textDim}
                                                     >
                                                       <polygon points="2,1 9,5 2,9" />
+                                                    </svg>
+                                                  </button>
+                                                )}
+                                                {/* Stop button — right next to play/pause */}
+                                                {(isMeasuring || isPaused) && (
+                                                  <button
+                                                    className="icon-btn"
+                                                    onClick={() => stopMeasuring()}
+                                                    title="Stop"
+                                                    style={ctrlBtnS}
+                                                  >
+                                                    <svg width="8" height="8" viewBox="0 0 8 8" fill={C.red}>
+                                                      <rect width="8" height="8" rx="1" />
                                                     </svg>
                                                   </button>
                                                 )}
@@ -5021,7 +5319,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                   }}
                                                 />
                                               </div>
-                                              {/* Tier 1: Description — LOUD */}
+                                              {/* Tier 1: Description */}
                                               <div
                                                 style={{ flex: 2, minWidth: 80, minHeight: 0 }}
                                                 onClick={e => e.stopPropagation()}
@@ -5034,7 +5332,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                     background: "transparent",
                                                     border: "1px solid transparent",
                                                     padding: "2px 4px",
-                                                    fontSize: T.fontSize.sm,
+                                                    fontSize: 11,
                                                     fontWeight: T.fontWeight.medium,
                                                   })}
                                                 />
@@ -5096,8 +5394,8 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                       className={measureFlashId === to.id ? "measure-complete" : ""}
                                                       style={{
                                                         "--rc": to.color,
-                                                        fontSize: T.fontSize.base,
-                                                        fontWeight: T.fontWeight.heavy || 800,
+                                                        fontSize: 12,
+                                                        fontWeight: 800,
                                                         color: measureFlashId === to.id ? to.color : C.text,
                                                         padding: "2px 4px",
                                                         fontFamily: T.font.mono,
@@ -5119,14 +5417,14 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                       background: "transparent",
                                                       border: "1px solid transparent",
                                                       padding: "2px 4px",
-                                                      fontSize: T.fontSize.base,
-                                                      fontWeight: T.fontWeight.bold,
+                                                      fontSize: 12,
+                                                      fontWeight: 700,
                                                     })}
                                                   />
                                                 )}
                                                 {/* Formula whisper removed — displayQty now shows computed result */}
                                               </div>
-                                              {/* Tier 3: Unit — whisper */}
+                                              {/* Tier 3: Unit */}
                                               <div style={{ width: 36 }} onClick={e => e.stopPropagation()}>
                                                 <select
                                                   value={to.unit}
@@ -5141,7 +5439,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                     background: "transparent",
                                                     border: "1px solid transparent",
                                                     padding: "2px 1px",
-                                                    fontSize: 8,
+                                                    fontSize: 9,
                                                     color: C.textDim,
                                                   })}
                                                 >
@@ -5152,15 +5450,21 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                   ))}
                                                 </select>
                                               </div>
-                                              {/* Cost columns — Standard/Full tier, only when item is linked with cost */}
+                                              {/* Cost columns — Standard/Full tier, always render to maintain alignment */}
                                               {tkPanelTier !== "compact" &&
                                                 (() => {
                                                   const linkedItem = itemById[to.linkedItemId];
-                                                  if (!linkedItem) return null;
+                                                  if (!linkedItem || getItemTotal(linkedItem) <= 0) {
+                                                    return (
+                                                      <>
+                                                        <div style={{ width: 55 }} />
+                                                        <div style={{ width: 65 }} />
+                                                      </>
+                                                    );
+                                                  }
                                                   const itemTotal = getItemTotal(linkedItem);
                                                   const itemQty = nn(linkedItem.quantity);
                                                   const unitCost = itemQty > 0 ? itemTotal / itemQty : 0;
-                                                  if (itemTotal <= 0) return null;
                                                   return (
                                                     <>
                                                       <div
@@ -5200,81 +5504,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                     </>
                                                   );
                                                 })()}
-                                              <div
-                                                style={{ width: 50, overflow: "hidden" }}
-                                                onClick={e => e.stopPropagation()}
-                                              >
-                                                {(() => {
-                                                  const mSheets = [
-                                                    ...new Set(
-                                                      (to.measurements || []).map(m => m.sheetId).filter(Boolean),
-                                                    ),
-                                                  ];
-                                                  if (mSheets.length === 0) {
-                                                    return (
-                                                      <select
-                                                        value={to.drawingRef}
-                                                        onChange={e => {
-                                                          updateTakeoff(to.id, "drawingRef", e.target.value);
-                                                          const dd = drawings.find(
-                                                            dr =>
-                                                              (dr.sheetNumber || dr.pageNumber || dr.id) ===
-                                                              e.target.value,
-                                                          );
-                                                          if (dd) {
-                                                            setSelectedDrawingId(dd.id);
-                                                            if (dd.type === "pdf" && dd.data) renderPdfPage(dd);
-                                                          }
-                                                        }}
-                                                        style={inp(C, {
-                                                          background: "transparent",
-                                                          border: "1px solid transparent",
-                                                          padding: "2px 1px",
-                                                          fontSize: 8,
-                                                        })}
-                                                      >
-                                                        <option value="">—</option>
-                                                        {drawings.map(d => (
-                                                          <option
-                                                            key={d.id}
-                                                            value={d.sheetNumber || d.pageNumber || d.id}
-                                                          >
-                                                            {d.sheetNumber || d.pageNumber || "?"}
-                                                          </option>
-                                                        ))}
-                                                      </select>
-                                                    );
-                                                  }
-                                                  const labels = mSheets.map(sid => {
-                                                    const dr = drawings.find(dd => dd.id === sid);
-                                                    return dr ? dr.sheetNumber || dr.pageNumber || "?" : "?";
-                                                  });
-                                                  return (
-                                                    <div
-                                                      title={`Measured on: ${labels.join(", ")}`}
-                                                      style={{
-                                                        fontSize: 8,
-                                                        color: C.accent,
-                                                        fontWeight: 600,
-                                                        padding: "2px 2px",
-                                                        cursor: "pointer",
-                                                        whiteSpace: "nowrap",
-                                                        overflow: "hidden",
-                                                        textOverflow: "ellipsis",
-                                                      }}
-                                                      onClick={() => {
-                                                        const d = drawings.find(d => d.id === mSheets[0]);
-                                                        if (d) {
-                                                          setSelectedDrawingId(d.id);
-                                                          if (d.type === "pdf" && d.data) renderPdfPage(d);
-                                                        }
-                                                      }}
-                                                    >
-                                                      {labels.join(",")}
-                                                    </div>
-                                                  );
-                                                })()}
-                                              </div>
+                                              {/* Sheet column removed — sheet info accessible via detail overlay */}
                                               <div
                                                 style={{
                                                   width: 52,
@@ -5285,20 +5515,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                 }}
                                                 onClick={e => e.stopPropagation()}
                                               >
-                                                {/* Always visible: Stop button + measurement count */}
-                                                {(isActive && tkMeasureState === "measuring") || isPaused ? (
-                                                  <button
-                                                    className="icon-btn"
-                                                    onClick={() => stopMeasuring()}
-                                                    title="Stop"
-                                                    style={ctrlBtnS}
-                                                  >
-                                                    <svg width="8" height="8" viewBox="0 0 8 8" fill={C.red}>
-                                                      <rect width="8" height="8" rx="1" />
-                                                    </svg>
-                                                  </button>
-                                                ) : null}
-                                                {/* Measurement count badge removed — unnecessary clutter */}
+                                                {/* Stop button moved to play/pause cluster */}
                                                 {/* Hover-reveal: Formula, Auto-count, Duplicate, Delete */}
                                                 <div
                                                   className="tk-row-actions"
@@ -5411,6 +5628,32 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                                                   >
                                                     <Ic d={I.copy} size={10} />
                                                   </button>
+                                                  {/* Clear measurements (keep item) */}
+                                                  {(to.measurements || []).length > 0 && (
+                                                    <button
+                                                      className="icon-btn"
+                                                      onClick={() => {
+                                                        useTakeoffsStore.getState().clearMeasurements(to.id);
+                                                        useUiStore.getState().showToast(`Cleared ${(to.measurements || []).length} measurements`);
+                                                      }}
+                                                      title="Clear measurements"
+                                                      style={{
+                                                        width: 20,
+                                                        height: 20,
+                                                        border: "none",
+                                                        background: "transparent",
+                                                        color: C.orange,
+                                                        borderRadius: 3,
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        justifyContent: "center",
+                                                      }}
+                                                    >
+                                                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                                                        <path d="M3 6h18M8 6V4h8v2M10 11v6M14 11v6" />
+                                                      </svg>
+                                                    </button>
+                                                  )}
                                                   <button
                                                     className="icon-btn"
                                                     onClick={() => removeTakeoff(to.id)}
@@ -6575,6 +6818,40 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                 {/* Settings gear removed */}
               </>
             )}
+            {/* ── Running estimate total — always visible ── */}
+            {(() => {
+              const totals = getTotals();
+              const grand = nn(totals.grand);
+              if (grand <= 0) return null;
+              return (
+                <div
+                  style={{
+                    marginLeft: "auto",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    paddingLeft: 8,
+                    borderLeft: `1px solid ${C.border}`,
+                    flexShrink: 0,
+                  }}
+                >
+                  <span style={{ fontSize: 8, fontWeight: 600, color: C.textDim, letterSpacing: "0.04em" }}>
+                    EST
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: C.accent,
+                      fontVariantNumeric: "tabular-nums",
+                      animation: "subtlePulse 3s ease-in-out infinite",
+                    }}
+                  >
+                    {fmt(grand)}
+                  </span>
+                </div>
+              );
+            })()}
           </div>
         </div>
 
@@ -6617,7 +6894,8 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
 
             // One-click: accept all pending predictions and immediately create measurements
             const handleAcceptAllAndConfirm = () => {
-              const toAdd = preds.filter(p => !tkPredRejected.includes(p.id));
+              const drawingId = useDrawingsStore.getState().selectedDrawingId;
+              const toAdd = preds.filter(p => !tkPredRejected.includes(p.id) && !tkPredAccepted.includes(p.id));
               if (tkActiveTakeoffId && toAdd.length > 0) {
                 toAdd.forEach(() => recordPredictionFeedback(tkPredictions?.tag, tkPredictions?.strategy, true));
                 toAdd.forEach(pred => {
@@ -6626,7 +6904,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                       type: "count",
                       points: [pred.point],
                       value: 1,
-                      sheetId: selectedDrawingId,
+                      sheetId: drawingId,
                       color: activeTo?.color || "#5b8def",
                       predicted: true,
                       tag: tkPredictions.tag,
@@ -6636,7 +6914,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                       type: "linear",
                       points: pred.points,
                       value: 0,
-                      sheetId: selectedDrawingId,
+                      sheetId: drawingId,
                       color: activeTo?.color || "#5b8def",
                       predicted: true,
                       tag: tkPredictions.tag,
@@ -6646,7 +6924,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                       type: "area",
                       points: pred.points,
                       value: 0,
-                      sheetId: selectedDrawingId,
+                      sheetId: drawingId,
                       color: activeTo?.color || "#5b8def",
                       predicted: true,
                       tag: pred.tag || tkPredictions.tag,
@@ -6659,6 +6937,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
             };
             // Individual accept: immediately add measurement for a single prediction
             const handleAcceptOne = pred => {
+              const drawingId = useDrawingsStore.getState().selectedDrawingId;
               acceptPrediction(pred.id);
               recordPredictionFeedback(tkPredictions?.tag, tkPredictions?.strategy, true);
               if (tkActiveTakeoffId) {
@@ -6667,7 +6946,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                     type: "count",
                     points: [pred.point],
                     value: 1,
-                    sheetId: selectedDrawingId,
+                    sheetId: drawingId,
                     color: activeTo?.color || "#5b8def",
                     predicted: true,
                     tag: tkPredictions.tag,
@@ -6677,7 +6956,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                     type: "linear",
                     points: pred.points,
                     value: 0,
-                    sheetId: selectedDrawingId,
+                    sheetId: drawingId,
                     color: activeTo?.color || "#5b8def",
                     predicted: true,
                     tag: tkPredictions.tag,
@@ -6687,7 +6966,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                     type: "area",
                     points: pred.points,
                     value: 0,
-                    sheetId: selectedDrawingId,
+                    sheetId: drawingId,
                     color: activeTo?.color || "#5b8def",
                     predicted: true,
                     tag: pred.tag || tkPredictions.tag,
@@ -8062,6 +8341,8 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                   <canvas
                     ref={canvasRef}
                     className="tk-canvas-cursor"
+                    onDrop={handlePdfRepairDrop}
+                    onDragOver={e => e.preventDefault()}
                     onClick={handleCanvasClick}
                     onMouseMove={e => {
                       const rect = e.target.getBoundingClientRect();

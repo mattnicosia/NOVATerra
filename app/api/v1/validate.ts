@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { authenticateApiKey, checkRateLimit } from '../../src/lib/nova-core/apiAuth'
-import { logApiUsage } from '../../src/lib/nova-core/apiUsage'
-import { getTrialStatus } from '../../src/lib/nova-core/trialGuard'
-import { fetchBenchmark } from '../../src/lib/nova-core/benchmarkHelper'
+import { authenticateApiKey, checkRateLimit } from '../../src/lib/nova-core/apiAuth.js'
+import { logApiUsage } from '../../src/lib/nova-core/apiUsage.js'
+import { getTrialStatus } from '../../src/lib/nova-core/trialGuard.js'
+import { fetchBenchmark } from '../../src/lib/nova-core/benchmarkHelper.js'
 
 const CSI_CODE_REGEX = /^\d{2}\.\d{3}$/
 

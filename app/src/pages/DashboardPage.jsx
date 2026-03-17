@@ -534,7 +534,7 @@ export default function DashboardPage() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 80px",
+                gridTemplateColumns: "2fr 1fr 0.8fr 1fr 0.8fr 0.8fr 72px",
                 padding: `${T.space[3]}px ${T.space[5]}px`,
                 background: C.bg2,
                 borderBottom: `1px solid ${C.border}`,
@@ -545,6 +545,7 @@ export default function DashboardPage() {
               <span>Client</span>
               <span>Status</span>
               <span style={{ textAlign: "right" }}>Total</span>
+              <span>Bid Due</span>
               <span>Modified</span>
               <span></span>
             </div>
@@ -557,7 +558,7 @@ export default function DashboardPage() {
                   className="row"
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 80px",
+                    gridTemplateColumns: "2fr 1fr 0.8fr 1fr 0.8fr 0.8fr 72px",
                     padding: `${T.space[3]}px ${T.space[5]}px`,
                     borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.05)"}`,
                     borderLeft: `3px solid ${sc}40`,
@@ -602,6 +603,24 @@ export default function DashboardPage() {
                     <span style={statusBadge(sc)}>{est.status || "Draft"}</span>
                   </span>
                   <span style={moneyCell(C, total)}>{fmt(est.grandTotal)}</span>
+                  {/* Bid Due — urgency color-coded */}
+                  <span style={{ fontSize: T.fontSize.xs }}>
+                    {est.bidDue ? (() => {
+                      const dl = Math.ceil((new Date(est.bidDue) - new Date()) / 86400000);
+                      const uc = dl <= 0 ? C.red : dl <= 3 ? C.orange : dl <= 7 ? C.accent : C.textDim;
+                      const label = dl <= 0 ? "OVERDUE" : dl === 1 ? "1d" : `${dl}d`;
+                      return (
+                        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <span style={{ color: C.textMuted }}>{new Date(est.bidDue).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                          <span style={{
+                            fontSize: 9, fontWeight: 700, color: uc,
+                            padding: "1px 5px", borderRadius: 8,
+                            background: `${uc}12`,
+                          }}>{label}</span>
+                        </span>
+                      );
+                    })() : <span style={{ color: C.textDim }}>{"\u2014"}</span>}
+                  </span>
                   <span style={{ fontSize: T.fontSize.xs, color: C.textDim }}>{est.lastModified || "\u2014"}</span>
                   <div
                     style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}

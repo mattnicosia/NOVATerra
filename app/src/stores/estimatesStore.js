@@ -202,6 +202,7 @@ export const useEstimatesStore = create((set, get) => ({
       bidSelections: {},
       linkedSubs: [],
       subKeyLabels: {},
+      preferredSubs: {},
       exclusions: (() => {
         const profile = useMasterDataStore.getState().getCompanyInfo(companyProfileId);
         return (profile?.boilerplateExclusions || [])
@@ -436,6 +437,136 @@ export const useEstimatesStore = create((set, get) => ({
     }
 
     return newId;
+  },
+
+  // ── Create a revision of an existing estimate ──
+  // Clones ALL data (items, markup, sub leveling, bid packages, alternates, etc.)
+  // Links back to parent via parentEstimateId + revisionNumber.
+  // The parent estimate keeps its status; the revision starts as "Bidding".
+  createRevision: async (parentId, { revisionReason } = {}) => {
+    const raw = await storage.get(idbKey(`bldg-est-${parentId}`));
+    if (!raw) return null;
+
+    const parentData = JSON.parse(raw.value);
+    const newId = uid();
+    const { ownerId, orgId } = get()._getOwnership();
+
+    // Determine revision number from existing chain
+    const allEstimates = get().estimatesIndex;
+    const siblings = allEstimates.filter(
+      e => e.parentEstimateId === parentId || e.id === parentId,
+    );
+    const maxRev = siblings.reduce((max, e) => Math.max(max, e.revisionNumber || 0), 0);
+    const revisionNumber = maxRev + 1;
+
+    // Deep-clone the data blob — preserves everything:
+    // items, markup, markupOrder, customMarkups, drawings, takeoffs,
+    // sub leveling (subBidSubs, bidTotals, bidCells, bidSelections, linkedSubs),
+    // bid packages, alternates, exclusions, clarifications, specs, etc.
+    const clonedData = JSON.parse(JSON.stringify(parentData));
+
+    // Update project metadata for the revision
+    const parentName = clonedData.project.name || "Untitled";
+    clonedData.project.name = `${parentName} — Rev ${revisionNumber}`;
+    clonedData.project.status = "Bidding";
+    clonedData.project.ownerId = ownerId;
+    clonedData.project.orgId = orgId;
+    clonedData.project.parentEstimateId = parentId;
+    clonedData.project.revisionNumber = revisionNumber;
+    clonedData.project.revisionReason = revisionReason || "";
+    clonedData.project.revisionCreatedAt = nowStr();
+
+    // Re-generate IDs for items to avoid cross-estimate ID conflicts
+    // but maintain internal references (subItems, linkedItemId in alternates)
+    const itemIdMap = {};
+    if (clonedData.items) {
+      clonedData.items = clonedData.items.map(item => {
+        const oldId = item.id;
+        const newItemId = uid();
+        itemIdMap[oldId] = newItemId;
+        return { ...item, id: newItemId };
+      });
+    }
+
+    // Remap alternate linkedItemIds
+    if (clonedData.alternates) {
+      clonedData.alternates = clonedData.alternates.map(alt => ({
+        ...alt,
+        id: uid(),
+        items: (alt.items || []).map(ai => ({
+          ...ai,
+          id: uid(),
+          linkedItemId: itemIdMap[ai.linkedItemId] || ai.linkedItemId,
+        })),
+      }));
+    }
+
+    // Clear timer sessions for the revision (fresh tracking)
+    clonedData.timerSessions = [];
+    clonedData.timerTotalMs = 0;
+    clonedData._savedAt = nowStr();
+
+    // Persist the cloned data
+    await storage.set(idbKey(`bldg-est-${newId}`), JSON.stringify(clonedData));
+
+    // Build index entry
+    const parentEntry = allEstimates.find(e => e.id === parentId);
+    const newEntry = {
+      ...(parentEntry || {}),
+      id: newId,
+      name: clonedData.project.name,
+      status: "Bidding",
+      lastModified: nowStr(),
+      startDate: today(),
+      ownerId,
+      orgId,
+      parentEstimateId: parentId,
+      revisionNumber,
+      revisionReason: revisionReason || "",
+      revisionCreatedAt: nowStr(),
+      // Reset tracking fields for the revision
+      manualPercentComplete: null,
+      manualHoursLogged: null,
+      schedulePauses: [],
+    };
+    set(s => ({ estimatesIndex: [...s.estimatesIndex, newEntry] }));
+
+    // Persist index
+    const idx = get().estimatesIndex;
+    const idxJson = JSON.stringify(idx);
+    await storage.set(idbKey("bldg-index"), idxJson);
+
+    // Mirror index to localStorage
+    try {
+      const authUserId = useAuthStore.getState().user?.id;
+      if (authUserId) localStorage.setItem(`bldg-index-mirror-${authUserId}`, idxJson);
+    } catch { /* quota exceeded */ }
+
+    // Cloud sync (non-blocking)
+    if (!useUiStore.getState().cloudSyncInProgress) {
+      cloudSync.pushEstimate(newId, clonedData).catch(() => {});
+      cloudSync.pushData("index", idx).catch(() => {});
+    }
+
+    return { id: newId, revisionNumber };
+  },
+
+  // Get revision chain for an estimate (parent + all revisions)
+  getRevisionChain: (estimateId) => {
+    const all = get().estimatesIndex;
+    const entry = all.find(e => e.id === estimateId);
+    if (!entry) return [];
+
+    // Find the root parent
+    const rootId = entry.parentEstimateId || estimateId;
+
+    // Collect all estimates in this chain
+    const chain = all.filter(
+      e => e.id === rootId || e.parentEstimateId === rootId,
+    );
+
+    // Sort by revision number
+    return chain.sort((a, b) => (a.revisionNumber || 0) - (b.revisionNumber || 0));
   },
 
   updateIndexEntry: (id, updates) => {

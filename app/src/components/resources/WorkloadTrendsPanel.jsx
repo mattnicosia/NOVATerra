@@ -60,7 +60,7 @@ export default function WorkloadTrendsPanel({ workload, C, T }) {
 
       // Estimates "active" in this week: status Bidding/Submitted with bidDue >= weekStart
       const activeInWeek = entries.filter(e => {
-        if (!["Bidding", "Submitted", "Won", "Lost"].includes(e.status)) return false;
+        if (!["Bidding", "Pending", "Won", "Lost"].includes(e.status)) return false;
         if (!e.bidDue) return false;
         return e.bidDue >= weekStart;
       });
@@ -72,7 +72,7 @@ export default function WorkloadTrendsPanel({ workload, C, T }) {
 
       // Completed this week
       const completed = entries.filter(
-        e => ["Won", "Lost", "Submitted"].includes(e.status) && e.bidDue >= weekStart && e.bidDue <= weekEndStr,
+        e => ["Won", "Lost", "Pending"].includes(e.status) && e.bidDue >= weekStart && e.bidDue <= weekEndStr,
       ).length;
 
       return {
@@ -95,7 +95,7 @@ export default function WorkloadTrendsPanel({ workload, C, T }) {
     const estimatorTrends = estimatorRows.map(row => {
       const spark = weeks.map(weekStart => {
         const inWeek = entries.filter(
-          e => e.estimator === row.name && ["Bidding", "Submitted"].includes(e.status) && e.bidDue >= weekStart,
+          e => e.estimator === row.name && ["Bidding", "Pending"].includes(e.status) && e.bidDue >= weekStart,
         );
         return inWeek.reduce((s, e) => s + (e.estimatedHours || 0), 0);
       });

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
+import { useEstimatesStore } from "@/stores/estimatesStore";
 
 /* ────────────────────────────────────────────────────────
    QuickActionsWidget — One-click: new estimate, upload plans, import CSV, settings
@@ -21,14 +22,18 @@ export default function QuickActionsWidget() {
       label: "New Estimate",
       icon: I.estimate,
       color: C.accent,
-      action: () => navigate("/dashboard"),
+      action: () => navigate("/"),
       desc: "Start a fresh estimate",
     },
     {
       label: "Upload Plans",
       icon: I.upload,
       color: C.green,
-      action: () => navigate("/planroom"),
+      action: () => {
+        const idx = useEstimatesStore.getState().estimatesIndex;
+        const active = idx.find(e => e.status === "Bidding" || e.status === "Pending") || idx[0];
+        navigate(active ? `/estimate/${active.id}/documents` : "/");
+      },
       desc: "Scan drawings with NOVA",
     },
     {

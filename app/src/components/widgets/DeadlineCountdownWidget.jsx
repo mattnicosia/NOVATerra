@@ -21,7 +21,7 @@ export default function DeadlineCountdownWidget() {
 
   const upcoming = useMemo(() => {
     return estimates
-      .filter(e => e.bidDue && (e.status === "Bidding" || e.status === "Submitted"))
+      .filter(e => e.bidDue && (e.status === "Bidding" || e.status === "Pending"))
       .map(e => {
         const daysLeft = Math.ceil((new Date(e.bidDue) - new Date()) / 86400000);
         return { ...e, daysLeft };

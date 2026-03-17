@@ -54,7 +54,7 @@ export function autoSchedule(estimates, estimators, settings = {}) {
 
   // Only schedule active estimates with due dates
   const eligible = estimates.filter(
-    e => ["Bidding", "Submitted"].includes(e.status) && e.bidDue && e.estimatedHours > 0,
+    e => ["Bidding", "Pending"].includes(e.status) && e.bidDue && e.estimatedHours > 0,
   );
 
   // Determine which estimators participate

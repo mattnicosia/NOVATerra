@@ -4,7 +4,7 @@ import { fmt } from "@/utils/format";
 import { bt } from "@/utils/styles";
 
 /**
- * CompletionSummary — Shown when an estimate status changes to "Submitted".
+ * CompletionSummary — Shown when an estimate status changes to "Pending".
  * Celebrates the work invested and shows key stats.
  */
 export default function CompletionSummary({ estimate, onClose }) {
@@ -39,7 +39,7 @@ export default function CompletionSummary({ estimate, onClose }) {
             marginBottom: 4,
           }}
         >
-          Bid Submitted
+          Bid Pending
         </div>
         <div style={{ fontSize: 16, fontWeight: 700, color: C.text, marginBottom: T.space[5] }}>
           {estimate.name || "Untitled"}

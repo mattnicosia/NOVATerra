@@ -14,7 +14,7 @@ function timeAgo(dateStr) {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-export default function RfpCard({ rfp, isUnread, onView, onImport, onDismiss, onRetry }) {
+export default function RfpCard({ rfp, isUnread, onView, onImport, onDismiss, onRetry, compact }) {
   const C = useTheme();
   const T = C.T;
   const pd = rfp.parsed_data || {};
@@ -105,6 +105,133 @@ export default function RfpCard({ rfp, isUnread, onView, onImport, onDismiss, on
     badgeColor = "#22c55e";
   }
 
+  // ── Compact mode: single-line condensed row for By Project view ──
+  if (compact) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: T.space[3],
+          padding: `6px ${T.space[3]}`,
+          cursor: "pointer",
+          transition: T.transition.fast,
+          borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"}`,
+          position: "relative",
+        }}
+        onClick={() => onView(rfp)}
+        onMouseOver={e => {
+          e.currentTarget.style.background = C.isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)";
+        }}
+        onMouseOut={e => {
+          e.currentTarget.style.background = "transparent";
+        }}
+      >
+        {/* Accent pip */}
+        {accentColor && (
+          <div style={{ width: 3, height: 20, borderRadius: 2, background: accentColor, flexShrink: 0 }} />
+        )}
+
+        {/* Unread dot */}
+        {isUnread && (
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.accent, flexShrink: 0 }} />
+        )}
+
+        {/* Badge */}
+        <span
+          style={{
+            fontSize: 10,
+            fontWeight: T.fontWeight.semibold,
+            padding: "1px 6px",
+            borderRadius: T.radius.full,
+            background: badgeBg,
+            color: badgeColor,
+            flexShrink: 0,
+            lineHeight: "16px",
+          }}
+        >
+          {badgeLabel}
+        </span>
+
+        {/* Subject — takes remaining space */}
+        <span
+          style={{
+            flex: 1,
+            fontSize: T.fontSize.sm,
+            fontWeight: isUnread ? T.fontWeight.bold : T.fontWeight.medium,
+            color: isDismissed ? C.textMuted : C.text,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            opacity: isDismissed ? 0.5 : 1,
+          }}
+        >
+          {rfp.subject || "(no subject)"}
+        </span>
+
+        {/* Sender — compact */}
+        <span
+          style={{
+            fontSize: 10,
+            color: C.textDim,
+            flexShrink: 0,
+            maxWidth: 120,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {rfp.sender_name || rfp.sender_email}
+        </span>
+
+        {/* Attachments count */}
+        {attachments.length > 0 && (
+          <span style={{ fontSize: 10, color: C.textDim, flexShrink: 0, display: "flex", alignItems: "center", gap: 2 }}>
+            <Ic d={I.plans} size={10} color={C.textDim} />
+            {attachments.length}
+          </span>
+        )}
+
+        {/* Time */}
+        <span style={{ fontSize: 10, color: C.textDim, flexShrink: 0, minWidth: 40, textAlign: "right" }}>
+          {timeAgo(rfp.received_at)}
+        </span>
+
+        {/* Compact action buttons */}
+        <div style={{ display: "flex", gap: 4, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+          {(rfp.status === "parsed" || rfp.status === "pending") && (
+            <>
+              <button
+                style={bt(C, { padding: "2px 8px", background: C.accent, color: "#fff", fontSize: 10 })}
+                onClick={() => onImport(rfp)}
+              >
+                Import
+              </button>
+              <button
+                style={bt(C, { padding: "2px 8px", background: "transparent", color: C.textMuted, border: `1px solid ${C.border}`, fontSize: 10 })}
+                onClick={() => onDismiss(rfp.id)}
+              >
+                Dismiss
+              </button>
+            </>
+          )}
+          {isError && onRetry && (
+            <button
+              style={bt(C, { padding: "2px 8px", background: "#f59e0b", color: "#fff", fontSize: 10 })}
+              onClick={() => onRetry(rfp.id)}
+            >
+              Retry
+            </button>
+          )}
+          {isImported && (
+            <span style={{ fontSize: 10, color: "#22c55e", fontWeight: T.fontWeight.medium }}>✓</span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Standard full card ──
   return (
     <div
       style={{

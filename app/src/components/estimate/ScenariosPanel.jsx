@@ -17,6 +17,13 @@ import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { bt } from "@/utils/styles";
 
+// ── Compact currency formatter ────────────────────────────────────────
+function formatCompact(n) {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
+  if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, "") + "K";
+  return Math.round(n).toLocaleString();
+}
+
 // ── Scenario Templates ────────────────────────────────────────────────
 const SCENARIO_TEMPLATES = [
   {
@@ -115,6 +122,7 @@ export default function ScenariosPanel() {
   const specs = useSpecsStore(s => s.specs);
   const drawings = useDrawingsStore(s => s.drawings);
 
+  const [viewMode, setViewMode] = useState("pills");
   const [collapsed, setCollapsed] = useState({});
   const [editingId, setEditingId] = useState(null);
   const [editingName, setEditingName] = useState("");
@@ -416,6 +424,103 @@ Prioritize by likelihood the architect/owner will request these.`,
     return C.accent;
   };
 
+  const getScenarioTotals = useCallback(
+    ids => useItemsStore.getState().getScenarioTotals(ids),
+    [],
+  );
+
+  // ── Render a pill (for pill view) ─────────────────────────────────
+  const renderPill = (node) => {
+    const isActive = activeGroupId === node.id;
+    const count = getCount(node.id);
+    const tc = typeColor(node.type);
+    const hasChildren = node.children && node.children.length > 0;
+    const childIds = new Set([node.id, ...(node.children || []).map(c => c.id)]);
+    const totals = getScenarioTotals(childIds);
+
+    return (
+      <div key={node.id} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {/* Main pill */}
+        <div
+          onClick={() => setActiveGroupId(node.id)}
+          onContextMenu={e => handleContextMenu(e, node)}
+          onDoubleClick={() => { setEditingId(node.id); setEditingName(node.name); }}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 5,
+            padding: "5px 10px", borderRadius: 16, cursor: "pointer",
+            background: isActive ? `${tc}20` : dk ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)",
+            border: isActive ? `1.5px solid ${tc}` : `1.5px solid ${dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
+            transition: "all 0.15s", whiteSpace: "nowrap", position: "relative",
+          }}
+        >
+          {/* Type dot */}
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: tc, flexShrink: 0 }} />
+
+          {/* Name */}
+          {editingId === node.id ? (
+            <input
+              ref={editRef}
+              value={editingName}
+              onChange={e => setEditingName(e.target.value)}
+              onBlur={commitEdit}
+              onKeyDown={e => {
+                if (e.key === "Enter") commitEdit();
+                if (e.key === "Escape") { setEditingId(null); setEditingName(""); }
+              }}
+              onClick={e => e.stopPropagation()}
+              style={{
+                background: "transparent", border: "none", outline: "none",
+                color: C.text, fontSize: 10, fontWeight: 600, fontFamily: T.font.sans,
+                padding: 0, width: Math.max(40, editingName.length * 6),
+              }}
+            />
+          ) : (
+            <span style={{ fontSize: 10, fontWeight: isActive ? 700 : 600, color: isActive ? tc : C.text, fontFamily: T.font.sans }}>
+              {node.name}
+            </span>
+          )}
+
+          {/* Total with markups */}
+          {totals.grand > 0 && (
+            <span style={{
+              fontSize: 8, fontWeight: 600, fontFamily: T.font.sans, opacity: 0.7,
+              color: node.type === "deduct" ? "#E67E22" : node.type === "add" ? "#27AE60" : C.textDim,
+            }}>
+              {node.type === "deduct" ? "−" : "+"}${formatCompact(totals.grand)}
+            </span>
+          )}
+
+          {/* Count */}
+          <span style={{
+            fontSize: 8, opacity: 0.5, background: dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+            padding: "0px 4px", borderRadius: 6,
+          }}>
+            {count}
+          </span>
+
+          {/* Delete × on hover */}
+          {node.id !== "base" && (
+            <span
+              className="scenario-add-child"
+              onClick={e => { e.stopPropagation(); handleDelete(node); }}
+              style={{ opacity: 0, cursor: "pointer", display: "flex", alignItems: "center", marginLeft: -2, transition: "opacity 0.15s" }}
+              title="Delete scenario"
+            >
+              <Ic d={I.x} size={8} color={C.red || "#E74C3C"} />
+            </span>
+          )}
+        </div>
+
+        {/* Child pills — rendered adjacent (side-by-side) inside parent */}
+        {hasChildren && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, paddingLeft: 12 }}>
+            {node.children.map(child => renderPill(child))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // ── Render a tree node ──────────────────────────────────────────────
   const renderNode = (node, depth = 0) => {
     const isActive = activeGroupId === node.id;
@@ -522,6 +627,21 @@ Prioritize by likelihood the architect/owner will request these.`,
           >
             <Ic d={I.plus} size={9} color={C.textDim} />
           </span>
+
+          {/* Delete — visible on hover for non-base scenarios */}
+          {node.id !== "base" && node.type !== "base" && (
+            <span
+              className="scenario-add-child"
+              onClick={e => {
+                e.stopPropagation();
+                handleDelete(node);
+              }}
+              style={{ opacity: 0, cursor: "pointer", display: "flex", alignItems: "center", flexShrink: 0, padding: "0 2px", transition: "opacity 0.15s" }}
+              title="Delete scenario"
+            >
+              <Ic d={I.x} size={9} color={C.red || "#E74C3C"} />
+            </span>
+          )}
         </div>
 
         {/* Children */}
@@ -783,15 +903,115 @@ Prioritize by likelihood the architect/owner will request these.`,
         </div>
       )}
 
-      {/* Tree */}
-      <div
-        style={{ flex: 1, overflowY: "auto", padding: "4px 0" }}
-        onDragOver={e => { e.preventDefault(); setDragOver("__root__"); }}
-        onDrop={e => handleDropOnNode(e, "__root__")}
-        onDragLeave={handleDragLeave}
-      >
-        {tree.map(node => renderNode(node, 0))}
+      {/* View toggle: Pills | Tree */}
+      <div style={{
+        display: "flex", gap: 2, padding: "4px 10px 2px", flexShrink: 0,
+      }}>
+        {["pills", "tree"].map(v => (
+          <button
+            key={v}
+            onClick={() => setViewMode(v)}
+            style={{
+              ...bt(C),
+              padding: "2px 8px", fontSize: 9, fontWeight: 600,
+              background: viewMode === v ? `${C.accent}18` : "transparent",
+              color: viewMode === v ? C.accent : C.textDim,
+              border: viewMode === v ? `1px solid ${C.accent}30` : `1px solid transparent`,
+              borderRadius: 8, cursor: "pointer", fontFamily: T.font.sans,
+              textTransform: "capitalize",
+            }}
+          >
+            {v}
+          </button>
+        ))}
       </div>
+
+      {/* Pills view */}
+      {viewMode === "pills" && (
+        <div style={{ flex: 1, overflowY: "auto", padding: "8px 10px" }}>
+          {/* Base bid pill */}
+          {(() => {
+            const base = groups.find(g => g.id === "base");
+            if (!base) return null;
+            const baseTotals = getScenarioTotals("base");
+            return (
+              <div
+                onClick={() => setActiveGroupId("base")}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  padding: "6px 12px", borderRadius: 20, cursor: "pointer",
+                  background: activeGroupId === "base"
+                    ? `${C.accent}20`
+                    : dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+                  border: activeGroupId === "base" ? `1.5px solid ${C.accent}` : `1.5px solid transparent`,
+                  transition: "all 0.15s", marginBottom: 8,
+                }}
+              >
+                <span style={{ fontSize: 11, fontWeight: 700, color: activeGroupId === "base" ? C.accent : C.text, fontFamily: T.font.sans }}>
+                  Base Bid
+                </span>
+                {baseTotals.grand > 0 && (
+                  <span style={{ fontSize: 9, fontWeight: 600, color: C.textDim, fontFamily: T.font.sans }}>
+                    ${formatCompact(baseTotals.grand)}
+                  </span>
+                )}
+                <span style={{ fontSize: 8, opacity: 0.5, background: dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)", padding: "1px 5px", borderRadius: 6 }}>
+                  {baseTotals.count}
+                </span>
+              </div>
+            );
+          })()}
+
+          {/* Scenario pills — flex-wrap for side-by-side layout */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "flex-start" }}>
+            {tree.filter(n => n.id !== "base").map(node => renderPill(node))}
+          </div>
+
+          {/* Totals summary with markup */}
+          {groups.length > 1 && (
+            <div style={{
+              marginTop: 12, padding: "8px 10px", borderRadius: T.radius.sm,
+              background: dk ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+              border: `1px solid ${dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`,
+            }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 4, fontFamily: T.font.sans }}>
+                All Scenarios (with markups)
+              </div>
+              {groups.filter(g => g.id !== "base").map(g => {
+                const ids = new Set([g.id, ...groups.filter(c => c.parentId === g.id).map(c => c.id)]);
+                const t = getScenarioTotals(ids);
+                if (t.count === 0) return null;
+                return (
+                  <div key={g.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "2px 0" }}>
+                    <span style={{ fontSize: 10, color: C.text, fontFamily: T.font.sans, display: "flex", alignItems: "center", gap: 4 }}>
+                      <span style={{ width: 5, height: 5, borderRadius: "50%", background: typeColor(g.type) }} />
+                      {g.name}
+                    </span>
+                    <span style={{
+                      fontSize: 10, fontWeight: 600, fontFamily: T.font.sans,
+                      color: g.type === "deduct" ? "#E67E22" : g.type === "add" ? "#27AE60" : C.text,
+                    }}>
+                      {g.type === "deduct" ? "−" : g.type === "add" ? "+" : ""}${formatCompact(t.grand)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tree view */}
+      {viewMode === "tree" && (
+        <div
+          style={{ flex: 1, overflowY: "auto", padding: "4px 0" }}
+          onDragOver={e => { e.preventDefault(); setDragOver("__root__"); }}
+          onDrop={e => handleDropOnNode(e, "__root__")}
+          onDragLeave={handleDragLeave}
+        >
+          {tree.map(node => renderNode(node, 0))}
+        </div>
+      )}
 
       {/* Hover styles */}
       <style>{`

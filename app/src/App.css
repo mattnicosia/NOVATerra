@@ -479,6 +479,15 @@ input[type="number"] {
     opacity: 0.7;
   }
 }
+@keyframes subtlePulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
 @keyframes breatheOrb {
   0%,
   100% {

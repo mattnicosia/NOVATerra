@@ -609,7 +609,7 @@ export default function EstimatorSettingsPanel() {
 
   // Compute active project counts per estimator
   const getEstimatorStats = name => {
-    const active = estimatesIndex.filter(e => e.estimator === name && ["Bidding", "Submitted"].includes(e.status));
+    const active = estimatesIndex.filter(e => e.estimator === name && ["Bidding", "Pending"].includes(e.status));
     const totalHours = active.reduce((s, e) => s + (Number(e.estimatedHours) || 0), 0);
     const hoursLogged = active.reduce((s, e) => s + (e.timerTotalMs || 0) / 3600000, 0);
     return { activeCount: active.length, totalHours, hoursLogged: Math.round(hoursLogged * 10) / 10 };
@@ -626,7 +626,7 @@ export default function EstimatorSettingsPanel() {
     const totalDays = 30;
 
     const active = estimatesIndex.filter(
-      e => e.estimator === estimatorName && ["Bidding", "Submitted"].includes(e.status) && e.bidDue,
+      e => e.estimator === estimatorName && ["Bidding", "Pending"].includes(e.status) && e.bidDue,
     );
 
     const bars = active.map(est => {
@@ -678,7 +678,7 @@ export default function EstimatorSettingsPanel() {
               height: 7,
               borderRadius: 3,
               background: color,
-              opacity: bar.status === "Submitted" ? 0.5 : 0.8,
+              opacity: bar.status === "Pending" ? 0.5 : 0.8,
             }}
           />
         ))}

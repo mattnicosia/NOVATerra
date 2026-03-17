@@ -498,7 +498,7 @@ import { inp, nInp, bt } from '@/utils/styles';
 
 2. **Free ROM Funnel** — Public `/rom` route, email capture, 60-second ROM from uploaded plans, email delivery, trial conversion CTA.
 
-3. **Stripe Subscription** — Payment tiers (Solo $149/mo, Team $249/user/mo), feature gating, trial management.
+3. **Stripe Subscription** — Single price ($299/mo per user), no tiers, trial management.
 
 4. **NOVA CORE Intelligence** — Aggregated, anonymized cost intelligence from all users. Location-adjusted, building-type-adjusted pricing that improves with every estimate.
 

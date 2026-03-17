@@ -25,6 +25,7 @@ export default function OutcomeFeedbackModal({ estimate, status, onSave, onSkip 
   const [competitor, setCompetitor] = useState("");
   const [lostReason, setLostReason] = useState("Price");
   const [notes, setNotes] = useState("");
+  const [winReason, setWinReason] = useState("");
 
   // Calculate deviation as user types
   const deviation = useMemo(() => {
@@ -40,6 +41,7 @@ export default function OutcomeFeedbackModal({ estimate, status, onSave, onSkip 
       contractAmount: amount || estimate?.grandTotal || 0,
       competitor: isWon ? "" : competitor,
       lostReason: isWon ? "" : lostReason,
+      winReason: isWon ? winReason : "",
       awardDate: isWon ? awardDate : "",
       notes,
     });
@@ -61,18 +63,39 @@ export default function OutcomeFeedbackModal({ estimate, status, onSave, onSkip 
     <Modal onClose={onSkip}>
       <div style={{ padding: T.space[5], maxWidth: 420 }}>
         {/* Header */}
-        <div
-          style={{
-            fontSize: 10,
-            fontWeight: 700,
-            textTransform: "uppercase",
-            letterSpacing: 1,
-            color: isWon ? "#34D399" : "#FB7185",
-            marginBottom: 4,
-          }}
-        >
-          {isWon ? "Won" : "Lost"}
-        </div>
+        {isWon && (
+          <div
+            style={{
+              textAlign: "center",
+              padding: "16px 0 12px",
+              marginBottom: 8,
+              background: `linear-gradient(135deg, rgba(52,211,153,0.08), rgba(52,211,153,0.02))`,
+              borderRadius: 8,
+              animation: "fadeUp 0.6s cubic-bezier(0.16,1,0.3,1)",
+            }}
+          >
+            <div style={{ fontSize: 24, fontWeight: 300, color: "#34D399", letterSpacing: "-0.02em", marginBottom: 4 }}>
+              You won.
+            </div>
+            <div style={{ fontSize: 10, color: C.textDim, letterSpacing: "0.04em" }}>
+              NOVA DEBRIEF
+            </div>
+          </div>
+        )}
+        {!isWon && (
+          <div
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: 1,
+              color: "#FB7185",
+              marginBottom: 4,
+            }}
+          >
+            Lost
+          </div>
+        )}
         <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: T.space[4] }}>
           {estimate?.name || "Untitled"}
         </div>
@@ -94,6 +117,30 @@ export default function OutcomeFeedbackModal({ estimate, status, onSave, onSkip 
         {/* Won fields */}
         {isWon && (
           <>
+            <div style={fieldGap}>
+              <label style={labelStyle}>Why did you win?</label>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {["Best Price", "Relationship", "Scope Clarity", "Timeline", "Quality", "Reputation"].map(r => (
+                  <button
+                    key={r}
+                    onClick={() => setWinReason(winReason === r ? "" : r)}
+                    style={{
+                      padding: "4px 10px",
+                      fontSize: 10,
+                      fontWeight: 600,
+                      borderRadius: 4,
+                      cursor: "pointer",
+                      border: winReason === r ? `1px solid #34D399` : `1px solid ${C.border}`,
+                      background: winReason === r ? "rgba(52,211,153,0.12)" : "transparent",
+                      color: winReason === r ? "#34D399" : C.textMuted,
+                      transition: "all 150ms",
+                    }}
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div style={fieldGap}>
               <label style={labelStyle}>Final Contract Amount</label>
               <input

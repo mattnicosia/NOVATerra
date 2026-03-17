@@ -41,6 +41,7 @@ export default function TakeoffNOVAPanel({
   const acceptPrediction = useTakeoffsStore(s => s.acceptPrediction);
   const rejectPrediction = useTakeoffsStore(s => s.rejectPrediction);
   const clearPredictions = useTakeoffsStore(s => s.clearPredictions);
+  const acceptAllPredictions = useTakeoffsStore(s => s.acceptAllPredictions);
   const tkActiveTakeoffId = useTakeoffsStore(s => s.tkActiveTakeoffId);
   const tkTool = useTakeoffsStore(s => s.tkTool);
   const takeoffs = useTakeoffsStore(s => s.takeoffs);
@@ -88,7 +89,7 @@ export default function TakeoffNOVAPanel({
     recordPredictionFeedback(tkPredictions?.tag, tkPredictions?.strategy, true);
     if (tkActiveTakeoffId) {
       const color = novaActiveTo?.color || "#5b8def";
-      if (pred.type === "count" || pred.type === "wall-tag") {
+      if ((pred.type === "count" || pred.type === "wall-tag") && pred.point) {
         addMeasurement(tkActiveTakeoffId, {
           type: "count",
           points: [pred.point],
@@ -126,9 +127,10 @@ export default function TakeoffNOVAPanel({
     const toAdd = novaPreds.filter(p => !tkPredRejected.includes(p.id) && !tkPredAccepted.includes(p.id));
     if (tkActiveTakeoffId && toAdd.length > 0) {
       const color = novaActiveTo?.color || "#5b8def";
+      acceptAllPredictions();
       toAdd.forEach(() => recordPredictionFeedback(tkPredictions?.tag, tkPredictions?.strategy, true));
       toAdd.forEach(pred => {
-        if (pred.type === "count" || pred.type === "wall-tag")
+        if ((pred.type === "count" || pred.type === "wall-tag") && pred.point)
           addMeasurement(tkActiveTakeoffId, {
             type: "count",
             points: [pred.point],
@@ -470,6 +472,18 @@ export default function TakeoffNOVAPanel({
       action: () =>
         handleNovaChat(
           "Review estimate items and categorize unallocated scope items into appropriate CSI divisions. Process up to 25 items per tool call. Use the update_line_items tool to assign codes and divisions. Flag items that need attention.",
+        ),
+    },
+    {
+      key: "findHeights",
+      label: "Find Heights",
+      icon: I.ruler,
+      color: "#06B6D4",
+      loading: false,
+      badge: null,
+      action: () =>
+        handleNovaChat(
+          "Analyze the current drawing and project documents to identify wall heights, floor-to-floor heights, ceiling heights, and any other vertical dimensions. Look at building sections, wall sections, interior elevations, and schedules. For each height found, report: location/context, dimension in feet, and source (which drawing/detail). If height variables are needed for takeoff formulas (e.g., wall LF × height = wall SF), suggest adding them. Use the update_line_items tool to add height notes or variables where applicable.",
         ),
     },
   ];

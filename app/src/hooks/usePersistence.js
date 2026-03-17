@@ -16,6 +16,7 @@ import { useDocumentsStore } from "@/stores/documentsStore";
 import { useModuleStore, migrateModuleInstances } from "@/stores/moduleStore";
 import { useUiStore } from "@/stores/uiStore";
 import { useScanStore } from "@/stores/scanStore";
+import { useDiscoveryStore } from "@/stores/discoveryStore";
 import { useGroupsStore, DEFAULT_GROUPS } from "@/stores/groupsStore";
 import { useCalendarStore } from "@/stores/calendarStore";
 import { useBidPackagesStore } from "@/stores/bidPackagesStore";
@@ -188,7 +189,7 @@ export function resetAllStores() {
   // Reset stores that hold user/estimate-specific data
   useProjectStore.setState({ project: { name: "New Estimate" } });
   useItemsStore.setState({ items: [], customMarkups: [], changeOrders: [], projectAssemblies: [] });
-  useTakeoffsStore.setState({ takeoffs: [], tkCalibrations: {} });
+  useTakeoffsStore.setState({ takeoffs: [], tkCalibrations: {}, tkPredictions: null, tkPredAccepted: [], tkPredRejected: [], tkPredContext: null, tkPredRefining: false, tkNovaPanelOpen: false });
   useDrawingsStore.setState({ drawings: [], drawingScales: {}, drawingDpi: {} });
   useBidLevelingStore.setState({
     subBidSubs: {},
@@ -206,6 +207,7 @@ export function resetAllStores() {
   useFirmMemoryStore.setState({ firms: {} });
   useModuleStore.setState({ moduleInstances: {}, activeModule: null });
   useScanStore.getState().clearScan?.();
+  useDiscoveryStore.getState().reset();
   useBidPackagesStore.setState({ bidPackages: [], invitations: {}, proposals: {}, scopeGapResults: {} });
   useGroupsStore.setState({ groups: [...DEFAULT_GROUPS] });
   useSubdivisionStore.getState().clearSubdivisionData?.();
@@ -1146,6 +1148,7 @@ export async function loadEstimate(id) {
     const projectData = data.project || useProjectStore.getState().project;
     if (projectData.setupComplete === undefined) projectData.setupComplete = true;
     useProjectStore.getState().setProject(projectData);
+    useTakeoffsStore.getState().clearPredictions();
     useProjectStore.getState().setCodeSystem(data.codeSystem || "csi-commercial");
     useProjectStore.getState().setCustomCodes(data.customCodes || {});
     // Migrate: ensure all items have bidContext
@@ -1206,6 +1209,7 @@ export async function loadEstimate(id) {
     useBidLevelingStore.getState().setBidSelections(data.bidSelections || {});
     useBidLevelingStore.getState().setLinkedSubs(data.linkedSubs || []);
     useBidLevelingStore.getState().setSubKeyLabels(data.subKeyLabels || {});
+    useBidLevelingStore.getState().setPreferredSubs(data.preferredSubs || {});
     useSpecsStore.getState().setSpecs(data.specs || []);
     useSpecsStore.getState().setSpecPdf(data.specPdf || null);
     useSpecsStore.getState().setExclusions(data.exclusions || []);
@@ -1238,6 +1242,13 @@ export async function loadEstimate(id) {
       useScanStore.getState().setScanResults(data.scanResults);
     } else {
       useScanStore.getState().clearScan();
+    }
+
+    // Restore discovery index if present
+    if (data.discoveryIndex && Array.isArray(data.discoveryIndex)) {
+      useDiscoveryStore.getState().setDiscoveryIndex(data.discoveryIndex);
+    } else {
+      useDiscoveryStore.getState().reset();
     }
 
     // Load groups (bid context)
@@ -1323,6 +1334,7 @@ export async function saveEstimate(overrideId) {
     bidSelections: useBidLevelingStore.getState().bidSelections,
     linkedSubs: useBidLevelingStore.getState().linkedSubs,
     subKeyLabels: useBidLevelingStore.getState().subKeyLabels,
+    preferredSubs: useBidLevelingStore.getState().preferredSubs,
     exclusions: useSpecsStore.getState().exclusions,
     clarifications: useSpecsStore.getState().clarifications,
     specs: useSpecsStore.getState().specs,
@@ -1342,6 +1354,7 @@ export async function saveEstimate(overrideId) {
     subdivisionOverrides: useSubdivisionStore.getState().userOverrides,
     subdivisionLlm: useSubdivisionStore.getState().llmRefinements,
     scanResults: useScanStore.getState().scanResults,
+    discoveryIndex: useDiscoveryStore.getState().discoveryIndex,
     groups: useGroupsStore.getState().groups,
     bidPackages: useBidPackagesStore.getState().bidPackages,
     bidInvitations: useBidPackagesStore.getState().invitations,

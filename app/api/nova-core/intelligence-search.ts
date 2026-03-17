@@ -65,7 +65,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         units_of_measure!inner ( code )
       `)
       .eq('is_active', true)
-      .or(`section.ilike.%${q}%,title.ilike.%${q}%`, { referencedTable: 'csi_codes' })
+      .or(`section.ilike.%${q.replace(/[%_\\]/g, '\\$&')}%,title.ilike.%${q.replace(/[%_\\]/g, '\\$&')}%`, { referencedTable: 'csi_codes' })
       .limit(20);
 
     if (costErr) throw costErr;
@@ -106,6 +106,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json(results);
   } catch (err: any) {
     console.error('[intelligence-search]', err);
-    return res.status(500).json({ error: err.message || 'Internal server error' });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 }

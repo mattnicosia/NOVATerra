@@ -1280,6 +1280,75 @@ export const PALETTES = [
       },
     ],
   },
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Shift7 — "Warm Depth": Dark theme engineered for 8-hour estimating sessions
+  // Vision Board prescription: luminance zoning, real row alternation,
+  // warm inset hover glow, sustained active warmth, surface-based tabs.
+  // Same NOVA violet accent, dramatically easier to work in.
+  // ═══════════════════════════════════════════════════════════════════════════
+  {
+    id: "shift7",
+    name: "Shift7",
+    desc: "Warm Depth — dark theme built for all-day estimating",
+    preview: ["#0E0D16", "#8B5CF6", "#1E1C2A", "#2A2838", "#EEEDF5"],
+    variantLabels: ["Warm Depth"],
+    overrides: {
+      // ── Surfaces — lifted luminance zone for work areas ──
+      // bg stays dark (chrome/nav), bg1 lifted for cards,
+      // bg2/bg3 provide real separation within the work area
+      bg: "#0A0918",       // nav/chrome — darkest anchor
+      bg1: "#15131F",      // card surfaces — 6pt luminance lift (the key move)
+      bg2: "#1E1C2A",      // raised surfaces, column headers
+      bg3: "#2A2838",      // hover states, elevated elements
+      // ── Borders — more visible for structure ──
+      border: "rgba(255,255,255,0.09)",       // +2% over NOVA default
+      borderLight: "rgba(255,255,255,0.05)",
+      borderAccent: "rgba(139,92,246,0.22)",
+      // ── Text — slightly warmer, higher contrast ──
+      text: "#F0EFF7",                        // primary — warmer white
+      textMuted: "rgba(240,239,247,0.58)",    // secondary — lifted 3%
+      textDim: "rgba(240,239,247,0.32)",      // tertiary — lifted 4%
+      // ── Accent — same NOVA violet ──
+      accent: "#8B5CF6",
+      accentDim: "#6D28D9",
+      accentBg: "rgba(139,92,246,0.08)",
+      accentAlt: "#A78BFA",
+      // ── Gradients ──
+      gradient: "linear-gradient(135deg, #8B5CF6, #A78BFA)",
+      gradientSubtle: `linear-gradient(135deg, ${hR("#8B5CF6", 0.12)}, ${hR("#A78BFA", 0.12)})`,
+      gradientText: "linear-gradient(135deg, #8B5CF6, #A78BFA)",
+      // ── Semantic colors — full color (not monochrome) ──
+      green: "#34D399",
+      red: "#FB7185",
+      blue: "#60A5FA",
+      purple: "#C4B5FD",
+      orange: "#F59E0B",
+      cyan: "#64D2FF",
+      yellow: "#FFE66D",
+      // ── Sidebar ──
+      sidebarBg: "rgba(10,9,24,0.96)",
+      // ── Glass ──
+      glassBg: "rgba(21,19,31,0.82)",
+      glassBorder: "rgba(255,255,255,0.08)",
+      glassBgDark: "rgba(10,9,24,0.82)",
+      // ── Background ──
+      bgGradient: "#0A0918",
+      // ── Flags ──
+      forceDark: true,
+      // ── Warm Depth: estimate grid tokens ──
+      // These are consumed by EstimatePage for the 5 visual moves.
+      // Themes without these fall back to default behavior.
+      estRowOddBg: "rgba(255,255,255,0.05)",        // Move 2: real row alternation (5% vs 2.5%)
+      estRowHoverShadow: "inset 2px 0 0 #8B5CF6, inset 0 0 12px rgba(255,255,255,0.03)", // Move 3: warm inset glow
+      estRowSelectedBg: "rgba(255,255,255,0.05)",    // Move 4: sustained warmth bg
+      estRowSelectedShadow: "inset 2px 0 0 #8B5CF6", // Move 4: sustained accent bar
+      estTabActiveBg: "rgba(255,255,255,0.08)",      // Move 5: surface tab (not underline)
+      estTabActiveRadius: 4,                          // Move 5: rounded surface tab
+      estTabActiveBorder: "none",                     // Move 5: kill underline
+      estGridBg: "#15131F",                           // Move 1: luminance-zoned grid area
+    },
+    variants: [null], // single dark variant
+  },
 ];
 
 // Car palette IDs for cycling

@@ -137,12 +137,23 @@ export function detectWalls(lines) {
       usedLines.add(key1);
       usedLines.add(bestPair.key);
 
-      // Compute centerline
+      // Compute centerline — normalize endpoint order to avoid X-shaped cross
+      // when parallel lines are drawn in opposite directions
+      const l2 = bestPair.line;
+      const sameDirDist =
+        Math.hypot(line1.x1 - l2.x1, line1.y1 - l2.y1) +
+        Math.hypot(line1.x2 - l2.x2, line1.y2 - l2.y2);
+      const flipDirDist =
+        Math.hypot(line1.x1 - l2.x2, line1.y1 - l2.y2) +
+        Math.hypot(line1.x2 - l2.x1, line1.y2 - l2.y1);
+      const p2 = flipDirDist < sameDirDist
+        ? { x1: l2.x2, y1: l2.y2, x2: l2.x1, y2: l2.y1 }
+        : l2;
       const centerline = {
-        x1: (line1.x1 + bestPair.line.x1) / 2,
-        y1: (line1.y1 + bestPair.line.y1) / 2,
-        x2: (line1.x2 + bestPair.line.x2) / 2,
-        y2: (line1.y2 + bestPair.line.y2) / 2,
+        x1: (line1.x1 + p2.x1) / 2,
+        y1: (line1.y1 + p2.y1) / 2,
+        x2: (line1.x2 + p2.x2) / 2,
+        y2: (line1.y2 + p2.y2) / 2,
       };
 
       walls.push({

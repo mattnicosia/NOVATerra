@@ -6,17 +6,23 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { timingSafeEqual } from 'crypto';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NOVA_CORE_SERVICE_ROLE_KEY!
 );
 
+function safeCompare(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
+
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const token = req.cookies?.nova_admin_token;
-  if (!token || token !== process.env.NOVA_ADMIN_TOKEN) {
+  const token = req.cookies?.nova_admin_token || '';
+  if (!token || !process.env.NOVA_ADMIN_TOKEN || !safeCompare(token, process.env.NOVA_ADMIN_TOKEN)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 

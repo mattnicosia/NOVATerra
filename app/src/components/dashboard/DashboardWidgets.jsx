@@ -18,6 +18,7 @@ import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { bt, card, sectionLabel } from "@/utils/styles";
 import { fmt } from "@/utils/format";
+import { useEstimatesStore } from "@/stores/estimatesStore";
 
 /**
  * Main widget grid — renders all widgets in a responsive 2-column layout.
@@ -50,7 +51,7 @@ export default function DashboardWidgets({ estimates = [] }) {
 // ── Widget: Estimate Health ──────────────────────────────────────
 function EstimateHealthWidget({ estimates, C, T, navigate }) {
   const stats = useMemo(() => {
-    const active = estimates.filter(e => e.status === "Bidding" || e.status === "Submitted");
+    const active = estimates.filter(e => e.status === "Bidding" || e.status === "Pending");
     let totalItems = 0;
     let unpricedItems = 0;
     let missingDesc = 0;
@@ -196,14 +197,18 @@ function QuickActionsWidget({ C, T, navigate }) {
       label: "New Estimate",
       icon: I.estimate || I.folder,
       color: C.accent,
-      action: () => navigate("/dashboard"),
+      action: () => navigate("/"),
       desc: "Start a fresh estimate",
     },
     {
       label: "Upload Plans",
       icon: I.upload || I.image,
       color: C.green,
-      action: () => navigate("/planroom"),
+      action: () => {
+        const idx = useEstimatesStore.getState().estimatesIndex;
+        const active = idx.find(e => e.status === "Bidding" || e.status === "Pending") || idx[0];
+        navigate(active ? `/estimate/${active.id}/documents` : "/");
+      },
       desc: "Scan drawings with NOVA",
     },
     {
@@ -259,7 +264,7 @@ function QuickActionsWidget({ C, T, navigate }) {
 function DeadlineCountdownWidget({ estimates, C, T, navigate }) {
   const upcoming = useMemo(() => {
     return estimates
-      .filter(e => e.bidDue && (e.status === "Bidding" || e.status === "Submitted"))
+      .filter(e => e.bidDue && (e.status === "Bidding" || e.status === "Pending"))
       .map(e => {
         const daysLeft = Math.ceil((new Date(e.bidDue) - new Date()) / 86400000);
         return { ...e, daysLeft };

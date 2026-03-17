@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NOVATerra — Estimate Page Element Legend</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0A0918; color: #E2E0ED; font-family: 'Inter', sans-serif; padding: 48px 56px; min-height: 100vh; }
+
+  h1 { font-size: 28px; font-weight: 800; color: #fff; letter-spacing: -0.5px; margin-bottom: 2px; }
+  .subtitle { font-size: 11px; color: #8B5CF6; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 40px; }
+
+  .legend-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0;
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 12px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.02);
+  }
+
+  .legend-col {
+    padding: 28px 32px;
+  }
+  .legend-col:not(:last-child) {
+    border-right: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .col-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.4px;
+    color: #6B6880;
+    margin-bottom: 20px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .legend-item:last-child { margin-bottom: 0; }
+
+  .num {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 0 8px rgba(0,0,0,0.3);
+  }
+
+  .item-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-top: 2px;
+  }
+  .item-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #E2E0ED;
+    line-height: 1.2;
+  }
+  .item-desc {
+    font-size: 10px;
+    color: #8A87A0;
+    line-height: 1.4;
+  }
+
+  .footer {
+    margin-top: 36px;
+    text-align: center;
+    font-size: 10px;
+    color: #4A4760;
+  }
+</style>
+</head>
+<body>
+
+<h1>Estimate Page — Element Legend</h1>
+<p class="subtitle">Shift7 Theme &middot; NOVATerra &middot; Reference numbers to guide changes</p>
+
+<div class="legend-grid">
+
+  <!-- ═══ Column A: Layout & Structure ═══ -->
+  <div class="legend-col">
+    <div class="col-title">Layout & Structure</div>
+
+    <div class="legend-item">
+      <span class="num" style="background: #8B5CF6;">1</span>
+      <div class="item-text">
+        <span class="item-name">Left Panel</span>
+        <span class="item-desc">Sidebar container — holds tabs + division navigator. Resizable width.</span>
+      </div>
+    </div>
+
+    <div class="legend-item">
+      <span class="num" style="background: #F97316;">2</span>
+      <div class="item-text">
+        <span class="item-name">Tab Strip</span>
+        <span class="item-desc">Estimate / Scenarios / Notes / RFIs. Active tab has surface highlight.</span>
+      </div>
+    </div>
+
+    <div class="legend-item">
+      <span class="num" style="background: #22C55E;">3</span>
+      <div class="item-text">
+        <span class="item-name">Division Navigator</span>
+        <span class="item-desc">CSI division list. Clicking filters the grid to that division.</span>
+      </div>
+    </div>
+
+    <div class="legend-item">
+      <span class="num" style="background: #3B82F6;">4</span>
+      <div class="item-text">
+        <span class="item-name">Left Resize Handle</span>
+        <span class="item-desc">Draggable divider between left panel and center content.</span>
+      </div>
+    </div>
+
+    <div class="legend-item">
+      <span class="num" style="background: #8B5CF6;">5</span>
+      <div class="item-text">
+        <span class="item-name">KPI Strip</span>
+        <span class="item-desc">Summary cards — Total, Cost/SF, Items, Markup.</span>
+      </div>
+    </div>
+
+    <div class="legend-item">
+      <span class="num" style="background: #3B82F6;">20</span>
+      <div class="item-text">
+        <span class="item-name">Right Resize Handle</span>
+        <span class="item-desc">Draggable divider between grid and detail panel.</span>
+      </div>
+    </div>
+
+    <div class="legend-item">
+      <span class="num" style="background: #06B6D4;">21</span>
+      <div class="item-text">
+        <span class="item-name">Item Detail Panel</span>
+        <span class="item-desc">Right sidebar showing full detail for the selected item.</span>
+      </div>
+    </div>
+
+    <div class="legend-item">
+      <span class="num" style="background: #8B5CF6;">22</span>
+      <div class="item-text">
+        <span class="item-name">Detail Panel Fields</span>
+        <span class="item-desc">Description, Qty, M/L/E/S costs, Line Total, Notes, Takeoff Link.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Column B: Toolbar ═══ -->
+  <div class="legend-col">
+    <div class="col-title">Toolbar</div>
+
+    <div class="legend-item">
+      <span class="num" style="background: #F97316;">6</span>
+      <div class="item-text">
+        <span class="item-name">Toolbar Bar</span>
+        <span class="item-desc">Full-width action bar spanning the center column.</span>
+      </div>
+    </div>
+
+    <div class="legend-item">
+      <span class="num" style="background: #22C55E;">7</span>
+      <div class="item-text">
+        <span class="item-name">Add Button</span>
+        <span class="item-desc">Primary CTA with dropdown — Blank Item, Database, Assembly, AI Generate, CSV.</span>
+      </div>
+    </div>
+
+    <div class="legend-item">
+      <span class="num" style="background: #3B82F6;">8</span>
+      <div class="item-text">
+        <span class="item-name">Search Input</span>
+        <span class="item-desc">Filters items by description, code, or division in real time.</span>
+      </div>
+    </div>
+
+    <div class="legend-item">
+      <span class="num" style="background: #EC4899;">9</span>
+      <div class="item-text">
+        <span class="item-name">GroupBy Toggle</span>
+        <span class="item-desc">Sub / Div / Trade. Shift+click adds secondary grouping level.</span>
+      </div>
+    </div>
+
+    <div class="legend-item">
+      <span class="num" style="background: #06B6D4;">10</span>
+      <div class="item-text">
+        <span class="item-name">Expand / Collapse All</span>
+        <span class="item-desc">Toggles all division groups open or closed at once.</span>
+      </div>
+    </div>
+
+    <div class="legend-item">
+      <span class="num" style="background: #8B5CF6;">11</span>
+      <div class="item-text">
+        <span class="item-name">Right Toolbar Buttons</span>
+        <span class="item-desc">Export, History, NOVA, Review, Clear All (trash).</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Column C: Grid & Rows ═══ -->
+  <div class="legend-col">
+    <div class="col-title">Grid & Rows</div>
+
+    <div class="legend-item">
+      <span class="num" style="background: #F97316;">12</span>
+      <div class="item-text">
+        <span class="item-name">Grid Background</span>
+        <span class="item-desc">Scrollable content area behind all groups. Own background color for depth.</span>
+      </div>
+    </div>
+
+    <div class="legend-item">
+      <span class="num" style="background: #22C55E;">13</span>
+      <div class="item-text">
+        <span class="item-name">Group Header (expanded)</span>
+        <span class="item-desc">Collapsible division header — name, item count, subtotal.</span>
+      </div>
+    </div>
+
+    <div class="legend-item">
+      <span class="num" style="background: #3B82F6;">14</span>
+      <div class="item-text">
+        <span class="item-name">Column Headers</span>
+        <span class="item-desc"># / Code / Description / Qty / Unit / Matl / Labor / Equip / Sub / Total.</span>
+      </div>
+    </div>
+
+    <div class="legend-item">
+      <span class="num" style="background: #EC4899;">15</span>
+      <div class="item-text">
+        <span class="item-name">Item Row (even)</span>
+        <span class="item-desc">Standard data row — transparent background.</span>
+      </div>
+    </div>
+
+    <div class="legend-item">
+      <span class="num" style="background: #06B6D4;">16</span>
+      <div class="item-text">
+        <span class="item-name">Item Row (odd stripe)</span>
+        <span class="item-desc">Alternating row with subtle tinted background for readability.</span>
+      </div>
+    </div>
+
+    <div class="legend-item">
+      <span class="num" style="background: #8B5CF6;">17</span>
+      <div class="item-text">
+        <span class="item-name">Item Row (hover)</span>
+        <span class="item-desc">Mouse hover — accent glow on left edge + subtle inset light.</span>
+      </div>
+    </div>
+
+    <div class="legend-item">
+      <span class="num" style="background: #F97316;">18</span>
+      <div class="item-text">
+        <span class="item-name">Item Row (selected)</span>
+        <span class="item-desc">Clicked/active — solid accent left border + highlight background.</span>
+      </div>
+    </div>
+
+    <div class="legend-item">
+      <span class="num" style="background: #EC4899;">19</span>
+      <div class="item-text">
+        <span class="item-name">Group Header (collapsed)</span>
+        <span class="item-desc">Header only — chevron right, items hidden. Shows subtotal.</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  NOVATerra Estimate Page Element Legend &mdash; Shift7 Theme<br>
+  Reference each number to tell me what you want changed.
+</div>
+
+</body>
+</html>

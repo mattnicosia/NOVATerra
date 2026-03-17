@@ -15,7 +15,7 @@ const nn = v => (typeof v === "number" && !isNaN(v) ? v : 0);
 function statusToDisplay(status) {
   if (status === "Qualifying") return "review";
   if (status === "Bidding") return "bidding";
-  if (status === "Submitted") return "bidding";
+  if (status === "Pending") return "bidding";
   if (status === "Won") return "active";
   if (status === "On Hold") return "review";
   if (status === "Lost") return "lost";
@@ -70,7 +70,7 @@ export function useDashboardData() {
   // KPIs (benchmarks)
   const benchmarks = useMemo(() => {
     const all = companyEstimates;
-    const active = all.filter(e => e.status === "Bidding" || e.status === "Submitted");
+    const active = all.filter(e => e.status === "Bidding" || e.status === "Pending");
     const won = all.filter(e => e.status === "Won");
     const lost = all.filter(e => e.status === "Lost");
 

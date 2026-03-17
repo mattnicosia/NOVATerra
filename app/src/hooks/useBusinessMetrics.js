@@ -20,7 +20,7 @@ export function useBusinessMetrics() {
 
     // ── Pipeline Metrics ──
     const bidding = estimates.filter(e => e.status === "Bidding");
-    const submitted = estimates.filter(e => e.status === "Submitted");
+    const submitted = estimates.filter(e => e.status === "Pending");
     const won = estimates.filter(e => e.status === "Won");
     const lost = estimates.filter(e => e.status === "Lost");
     const onHold = estimates.filter(e => e.status === "On Hold");
@@ -47,7 +47,7 @@ export function useBusinessMetrics() {
     // ── Status Distribution (for chart) ──
     const statusDistribution = [
       { status: "Bidding", count: bidding.length, color: "#007AFF" },
-      { status: "Submitted", count: submitted.length, color: "#FF9500" },
+      { status: "Pending", count: submitted.length, color: "#FF9500" },
       { status: "Won", count: won.length, color: "#30D158" },
       { status: "Lost", count: lost.length, color: "#FF3B30" },
       { status: "On Hold", count: onHold.length, color: "#8E8E93" },
@@ -88,7 +88,7 @@ export function useBusinessMetrics() {
       estimatorMap[name].total++;
       estimatorMap[name].totalMs += e.timerTotalMs || 0;
       estimatorMap[name].estimates.push(e);
-      if (e.status === "Bidding" || e.status === "Submitted") {
+      if (e.status === "Bidding" || e.status === "Pending") {
         estimatorMap[name].active++;
       }
       if (e.status === "Won") {
@@ -111,7 +111,7 @@ export function useBusinessMetrics() {
     // ── Upcoming Deadlines ──
     const upcoming = estimates
       .filter(e => {
-        if (e.status !== "Bidding" && e.status !== "Submitted") return false;
+        if (e.status !== "Bidding" && e.status !== "Pending") return false;
         if (!e.bidDue) return false;
         return true;
       })

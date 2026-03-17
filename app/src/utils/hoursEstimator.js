@@ -10,7 +10,7 @@ export function suggestEstimatedHours(project, estimatesIndex) {
   // 1. Filter for completed estimates with actual time data
   const comparables = estimatesIndex.filter(e => {
     if (!e.timerTotalMs || e.timerTotalMs < 3600000) return false; // At least 1 hour tracked
-    if (!["Won", "Lost", "Submitted"].includes(e.status)) return false;
+    if (!["Won", "Lost", "Pending"].includes(e.status)) return false;
 
     // Match buildingType (primary filter)
     if (project.buildingType && e.buildingType && e.buildingType !== project.buildingType) return false;

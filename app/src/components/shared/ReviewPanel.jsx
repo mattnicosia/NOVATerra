@@ -76,7 +76,7 @@ export default function ReviewPanel({ open, onClose }) {
   // Get estimates for selected estimator
   const estimatorEstimates = useMemo(() => {
     const name = createType === "setup" ? selectedEstimator : myName;
-    return estimatesIndex.filter(e => e.estimator === name && (e.status === "Bidding" || e.status === "Submitted"));
+    return estimatesIndex.filter(e => e.estimator === name && (e.status === "Bidding" || e.status === "Pending"));
   }, [estimatesIndex, selectedEstimator, createType, myName]);
 
   const handleCreate = useCallback(() => {

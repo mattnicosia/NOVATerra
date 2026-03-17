@@ -47,6 +47,6 @@ export function useWidgetLayoutSync() {
         }
       }
     );
-    return unsub;
+    return () => unsub();
   }, []);
 }

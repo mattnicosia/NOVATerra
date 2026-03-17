@@ -244,7 +244,7 @@ function buildSignals({
   }
 
   // Capacity signal
-  const activeBids = estimates.filter(e => e.status === "Bidding" || e.status === "Submitted");
+  const activeBids = estimates.filter(e => e.status === "Bidding" || e.status === "Pending");
   if (activeBids.length >= 8) {
     signals.push({
       type: "capacity",

@@ -26,6 +26,7 @@ import { syncCompletedEstimate } from "@/lib/nova-core/completionSync";
 import { useItemsStore } from "@/stores/itemsStore";
 import { useBidLevelingStore } from "@/stores/bidLevelingStore";
 const ReengageSubsPanel = lazy(() => import("@/components/estimate/ReengageSubsPanel"));
+const OutcomeFeedbackModal = lazy(() => import("@/components/shared/OutcomeFeedbackModal"));
 
 /* ── Completion calculator ── */
 const ALL_FIELDS = [
@@ -270,6 +271,8 @@ export default function ProjectInfoPage() {
   // Communications timeline — linked emails from inbox
   const [commEmails, setCommEmails] = useState([]);
   const [commLoading, setCommLoading] = useState(false);
+  const [reviewGate, setReviewGate] = useState(null); // { targetStatus, checks[] }
+  const [outcomeModal, setOutcomeModal] = useState(null); // "Won" | "Lost" | null
   const sourceRfpId = currentEntry?.sourceRfpId || "";
   const emailCount = currentEntry?.emailCount || 0;
 
@@ -395,6 +398,59 @@ export default function ProjectInfoPage() {
       up("estimateNumber", prevEstNumRef.current);
     } else {
       setEstNumError("");
+    }
+  };
+
+  // ── NOVA pre-submission review gate ──
+  const handleStatusChange = newStatus => {
+    // Outcome capture for Won/Lost
+    if (newStatus === "Won" || newStatus === "Lost") {
+      setOutcomeModal(newStatus);
+      up("status", newStatus);
+      setReviewGate(null);
+      return;
+    }
+    const gated = ["Bidding", "Pending"];
+    if (!gated.includes(newStatus)) {
+      up("status", newStatus);
+      setReviewGate(null);
+      return;
+    }
+    // Run checks
+    const items = useItemsStore.getState().items;
+    const checks = [];
+    // 1. Must have a name
+    if (!project.name?.trim()) checks.push({ severity: "error", msg: "Project name is missing" });
+    // 2. Must have bid due date
+    if (!project.bidDue) checks.push({ severity: "warn", msg: "No bid due date set" });
+    // 3. Must have client
+    if (!project.client?.trim()) checks.push({ severity: "warn", msg: "No client specified" });
+    // 4. Must have items
+    if (items.length === 0) checks.push({ severity: "error", msg: "Estimate has no line items" });
+    // 5. Check for $0 items
+    const zeroItems = items.filter(i => {
+      const total = (parseFloat(i.material) || 0) + (parseFloat(i.labor) || 0) + (parseFloat(i.equipment) || 0) + (parseFloat(i.subcontractor) || 0);
+      return total === 0;
+    });
+    if (zeroItems.length > 0) checks.push({ severity: "warn", msg: `${zeroItems.length} line item${zeroItems.length > 1 ? "s" : ""} have $0 cost` });
+    // 6. Check SF
+    if (!project.projectSF || parseFloat(project.projectSF) <= 0) checks.push({ severity: "warn", msg: "Project square footage not set" });
+    // 7. Check building type
+    if (!project.buildingType) checks.push({ severity: "info", msg: "Building type not set — affects cost intelligence" });
+
+    const hasErrors = checks.some(c => c.severity === "error");
+    if (checks.length === 0) {
+      // All clear — proceed
+      up("status", newStatus);
+      return;
+    }
+    setReviewGate({ targetStatus: newStatus, checks, hasErrors });
+  };
+
+  const confirmReviewGate = () => {
+    if (reviewGate) {
+      up("status", reviewGate.targetStatus);
+      setReviewGate(null);
     }
   };
 
@@ -705,7 +761,7 @@ export default function ProjectInfoPage() {
               {autoTag("client", "clients", "Client")}
             </Fld>
             <Fld label="Status">
-              <select value={project.status || "Active"} onChange={e => up("status", e.target.value)} style={inp(C)}>
+              <select value={project.status || "Active"} onChange={e => handleStatusChange(e.target.value)} style={inp(C)}>
                 <option>Active</option>
                 <option>Qualifying</option>
                 <option>Bidding</option>
@@ -715,6 +771,58 @@ export default function ProjectInfoPage() {
                 <option>On Hold</option>
                 <option>Cancelled</option>
               </select>
+              {/* ── NOVA Review Gate ── */}
+              {reviewGate && (
+                <div
+                  style={{
+                    marginTop: 8,
+                    padding: "10px 12px",
+                    borderRadius: 6,
+                    background: reviewGate.hasErrors ? `${C.red}08` : `${C.orange}08`,
+                    border: `1px solid ${reviewGate.hasErrors ? C.red : C.orange}25`,
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                    <span style={{ fontSize: 9, fontWeight: 700, color: C.accent, letterSpacing: "0.04em" }}>NOVA</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: C.text }}>
+                      Pre-submission review
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {reviewGate.checks.map((c, i) => (
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10 }}>
+                        <span style={{
+                          width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
+                          background: c.severity === "error" ? C.red : c.severity === "warn" ? C.orange : C.accent,
+                        }} />
+                        <span style={{ color: C.textMuted }}>{c.msg}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", gap: 6, marginTop: 10, justifyContent: "flex-end" }}>
+                    <button
+                      onClick={() => setReviewGate(null)}
+                      style={{
+                        background: "transparent", border: `1px solid ${C.border}`, color: C.textDim,
+                        padding: "4px 12px", borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: "pointer",
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    {!reviewGate.hasErrors && (
+                      <button
+                        onClick={confirmReviewGate}
+                        style={{
+                          background: C.accent, border: "none", color: "#fff",
+                          padding: "4px 12px", borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: "pointer",
+                        }}
+                      >
+                        Proceed to {reviewGate.targetStatus}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </Fld>
             <Fld label="Building Type">
               <select
@@ -1012,7 +1120,7 @@ export default function ProjectInfoPage() {
                   {(() => {
                     const idx = useEstimatesStore.getState().estimatesIndex.find(e => e.id === activeEstimateId);
                     const assignedIds = idx?.assignedTo || [];
-                    const assigned = orgMembers.filter(m => assignedIds.includes(m.user_id));
+                    const assigned = (orgMembers || []).filter(m => assignedIds.includes(m.user_id));
                     return (
                       <>
                         {assigned.length > 0 ? (
@@ -1093,7 +1201,7 @@ export default function ProjectInfoPage() {
                             title="Assign team member"
                           >
                             <option value="">+</option>
-                            {orgMembers
+                            {(orgMembers || [])
                               .filter(m => !assignedIds.includes(m.user_id))
                               .map(m => (
                                 <option key={m.id} value={m.user_id}>
@@ -2069,6 +2177,23 @@ export default function ProjectInfoPage() {
             </button>
           </div>
         </Modal>
+      )}
+      {/* ── NOVA Outcome Debrief ── */}
+      {outcomeModal && (
+        <Suspense fallback={null}>
+          <OutcomeFeedbackModal
+            estimate={estimatesIndex.find(e => e.id === activeEstimateId) || { name: project.name, grandTotal: project.grandTotal }}
+            status={outcomeModal}
+            onSave={metadata => {
+              // Store outcome metadata on the project
+              setProject(prev => ({ ...prev, outcomeMetadata: { ...(prev.outcomeMetadata || {}), ...metadata } }));
+              // Also update index entry
+              updateIndexEntry(activeEstimateId, { outcomeMetadata: { ...(project.outcomeMetadata || {}), ...metadata } });
+              setOutcomeModal(null);
+            }}
+            onSkip={() => setOutcomeModal(null)}
+          />
+        </Suspense>
       )}
     </div>
   );

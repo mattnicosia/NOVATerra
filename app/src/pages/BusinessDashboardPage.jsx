@@ -499,7 +499,7 @@ function StatusBadge({ status, T }) {
     Won: { bg: "rgba(48,209,88,0.15)", color: "#30D158" },
     Lost: { bg: "rgba(255,59,48,0.15)", color: "#FF3B30" },
     Bidding: { bg: "rgba(0,122,255,0.15)", color: "#007AFF" },
-    Submitted: { bg: "rgba(255,149,0,0.15)", color: "#FF9500" },
+    Pending: { bg: "rgba(255,149,0,0.15)", color: "#FF9500" },
   };
   const c = colors[status] || { bg: "rgba(142,142,147,0.15)", color: "#8E8E93" };
   return (

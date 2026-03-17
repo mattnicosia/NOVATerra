@@ -97,7 +97,7 @@ export default function OnboardingSequence() {
       // Complete onboarding
       updateSetting("onboardingDismissed", true);
       localStorage.setItem("nova_onboarding_complete", "true");
-      navigate("/dashboard");
+      navigate("/");
       return;
     }
     setCurrentStep(prev => Math.min(prev + 1, STEPS.length - 1));
@@ -110,7 +110,7 @@ export default function OnboardingSequence() {
   const handleSkip = useCallback(() => {
     updateSetting("onboardingDismissed", true);
     localStorage.setItem("nova_onboarding_complete", "true");
-    navigate("/dashboard");
+    navigate("/");
   }, [updateSetting, navigate]);
 
   const handleAction = useCallback(() => {
@@ -125,14 +125,17 @@ export default function OnboardingSequence() {
         }
         handleNext();
         break;
-      case "plans":
+      case "plans": {
         // Navigate to plan room, but come back
         updateSetting("onboardingStep", currentStep + 1);
-        navigate("/planroom");
+        const idx = useEstimatesStore.getState().estimatesIndex;
+        const active = idx.find(e => e.status === "Bidding" || e.status === "Pending") || idx[0];
+        navigate(active ? `/estimate/${active.id}/documents` : "/");
         break;
+      }
       case "estimate":
         updateSetting("onboardingStep", currentStep + 1);
-        navigate("/dashboard");
+        navigate("/");
         break;
       default:
         handleNext();

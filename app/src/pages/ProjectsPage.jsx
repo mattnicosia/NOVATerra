@@ -24,7 +24,7 @@ const STATUS_TABS = [
   { key: "all", label: "All" },
   { key: "Qualifying", label: "Qualifying" },
   { key: "Bidding", label: "Bidding" },
-  { key: "Submitted", label: "Submitted" },
+  { key: "Pending", label: "Pending" },
   { key: "Won", label: "Won" },
   { key: "Lost", label: "Lost" },
   { key: "On Hold", label: "On Hold" },
@@ -51,7 +51,7 @@ const STATUS_COLORS = {
   Trash: "#8E8E93",
 };
 
-const STATUS_ORDER = ["Qualifying", "Bidding", "Submitted", "Won", "Lost", "On Hold", "Draft"];
+const STATUS_ORDER = ["Qualifying", "Bidding", "Pending", "Won", "Lost", "On Hold", "Draft"];
 
 /* ── Helper: is date within this week (Mon–Sun)? ── */
 function isDueThisWeek(dateStr) {
@@ -235,6 +235,21 @@ function KanbanCard({ est, C, T, navigate, onStatusChange, onDuplicate, onDelete
             }}
           >
             LOST
+          </span>
+        )}
+        {est.parentEstimateId && (
+          <span
+            style={{
+              fontSize: 8,
+              fontWeight: 700,
+              color: C.accent,
+              background: `${C.accent}15`,
+              padding: "1px 5px",
+              borderRadius: 3,
+              flexShrink: 0,
+            }}
+          >
+            REV {est.revisionNumber || "?"}
           </span>
         )}
       </div>
@@ -468,7 +483,7 @@ export default function ProjectsPage() {
       const est = estimatesIndex.find(e => e.id === estId);
       if (!est) return;
 
-      if (newStatus === "Submitted") {
+      if (newStatus === "Pending") {
         setCompletionEst(est);
       } else if (newStatus === "Won" || newStatus === "Lost") {
         setOutcomeEst({ estimate: est, status: newStatus });

@@ -145,7 +145,7 @@ export function useWorkloadData(dateRange) {
 
     // Filter active estimates with scheduling data
     const active = estimatesIndex.filter(e => {
-      if (!["Bidding", "Submitted"].includes(e.status)) return false;
+      if (!["Bidding", "Pending"].includes(e.status)) return false;
       if (activeCompanyId !== "__all__" && e.companyProfileId !== activeCompanyId) return false;
       if (!e.bidDue) return false;
       return true;
