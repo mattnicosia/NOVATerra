@@ -174,7 +174,7 @@ Return JSON: {"found":<count>,"locations":[{"x":<0-100>,"y":<0-100>,"label":"<ro
       source: "vision",
     }));
 
-    console.log(`[NOVA Vision] Found ${predictions.length} predictions, imgDims=${imgDims.w}x${imgDims.h}, sample coords:`, predictions.slice(0,3).map(p => `(${Math.round(p.point.x)},${Math.round(p.point.y)})`));
+    console.log(`[NOVA Vision] Found ${predictions.length} predictions, dims=${origW}x${origH}, sample coords:`, predictions.slice(0,3).map(p => `(${Math.round(p.point.x)},${Math.round(p.point.y)})`));
     return {
       predictions,
       tag: description,

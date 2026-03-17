@@ -690,7 +690,6 @@ useEstimatesStore.subscribe((state) => {
     console.trace("[ZOMBIE GUARD] Resurrection stack trace");
     useEstimatesStore.setState({ estimatesIndex: filtered });
     _guardActive = false;
-    _lastIndexLen = filtered.length;
   }
 });
 
