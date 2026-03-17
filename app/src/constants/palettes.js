@@ -1,4 +1,4 @@
-import { TOPO_TEXTURE, DOT_TEXTURE, DOT_SPARSE_TEXTURE } from "./textures";
+import { TOPO_TEXTURE, DOT_TEXTURE } from "./textures";
 
 // Default color scheme — NOVA galaxy: deep indigo with purple/blue accents
 // Matches the NovaOrb renderer's color palette (violet → blue → white core)
@@ -237,8 +237,6 @@ export const PALETTES = [
         bg1: "#FFFFFF",
         bg2: "#F0EEF6",
         bg3: "#E8E5EE",
-        border: "#D4D0DE",
-        borderLight: "#E2DFEA",
         borderAccent: hR("#7C3AED", 0.15),
         text: "#1A1030",
         textMuted: "#5A4E80",
@@ -262,8 +260,6 @@ export const PALETTES = [
         bg1: "#FFFFFF",
         bg2: "#EDEEF5",
         bg3: "#E4E5ED",
-        border: "#CDD0DC",
-        borderLight: "#DDDFE8",
         borderAccent: hR("#3B82F6", 0.15),
         text: "#101830",
         textMuted: "#4A5078",
@@ -332,8 +328,6 @@ export const PALETTES = [
         bg1: "#FFFFFF",
         bg2: "#ECEEF4",
         bg3: "#E3E5ED",
-        border: "#CCCFD8",
-        borderLight: "#DDDFE6",
         borderAccent: hR("#007AFF", 0.15),
         text: "#1D1D1F",
         textMuted: "#8E8E93",
@@ -350,8 +344,6 @@ export const PALETTES = [
         bg1: "#FFFFFF",
         bg2: "#F0EEEA",
         bg3: "#E6E4DF",
-        border: "#D5D2CC",
-        borderLight: "#E0DDD7",
         borderAccent: hR("#007AFF", 0.15),
         text: "#1D1D1F",
         textMuted: "#8A877E",
@@ -368,8 +360,6 @@ export const PALETTES = [
         bg1: "#FFFFFF",
         bg2: "#ECEEF3",
         bg3: "#E2E5EC",
-        border: "#CDD1DA",
-        borderLight: "#DDDFE8",
         borderAccent: hR("#0A84FF", 0.15),
         text: "#1D1D1F",
         textMuted: "#6B7280",
@@ -737,8 +727,6 @@ export const PALETTES = [
         bg1: "#FFFFFF",
         bg2: "#EFF0F6",
         bg3: "#E5E7EF",
-        border: "#D0D4E0",
-        borderLight: "#E2E4EC",
         borderAccent: hR("#0066FF", 0.15),
         text: "#101028",
         textMuted: "#6068A0",
@@ -873,8 +861,6 @@ export const PALETTES = [
         bg1: "#FFFEFB",
         bg2: "#EBE8DE",
         bg3: "#E2DED2",
-        border: "#C8C2B0",
-        borderLight: "#D8D4C6",
         borderAccent: hR("#2962FF", 0.14),
         text: "#1C2340",
         textMuted: "#5A6278",
@@ -956,13 +942,13 @@ export const PALETTES = [
       // All semantic colors become grey at rest. Only accent (coral)
       // provides color, and only on hover/click. Hex greys are safe
       // for widgets that append alpha suffixes (${C.green}1A).
-      green:  "#9A9AA0",   // positive → warm grey
-      red:    "#FF4F38",   // danger → stays coral (= accent, brand unity)
-      blue:   "#7A7A82",   // info → medium grey
-      purple: "#6A6A72",   // category → dim grey
-      orange: "#8A8A92",   // warning → medium grey
-      cyan:   "#7A7A82",   // info alt → medium grey
-      yellow: "#8A8A92",   // caution → medium grey
+      green: "#9A9AA0", // positive → warm grey
+      red: "#FF4F38", // danger → stays coral (= accent, brand unity)
+      blue: "#7A7A82", // info → medium grey
+      purple: "#6A6A72", // category → dim grey
+      orange: "#8A8A92", // warning → medium grey
+      cyan: "#7A7A82", // info alt → medium grey
+      yellow: "#8A8A92", // caution → medium grey
       // ── Sidebar ──
       sidebarBg: "#101014",
       // ── Glass (disabled — flat surfaces) ──
