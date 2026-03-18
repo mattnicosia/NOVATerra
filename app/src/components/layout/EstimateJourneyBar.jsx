@@ -23,16 +23,16 @@ import { fmt } from "@/utils/format";
 // ─── Stage → sub-tab mapping ─────────────────────────────────────────────────
 const JOURNEY_STAGES = [
   {
-    key: "discover",
-    label: "Discover",
-    defaultPath: "plans",
-    subTabs: [{ key: "plans", label: "Plans", path: "plans" }],
-  },
-  {
     key: "define",
     label: "Info",
     defaultPath: "info",
     subTabs: [{ key: "info", label: "Project Info", path: "info" }],
+  },
+  {
+    key: "discover",
+    label: "Discover",
+    defaultPath: "plans",
+    subTabs: [{ key: "plans", label: "Plans", path: "plans" }],
   },
   {
     key: "estimate",
