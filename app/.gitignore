@@ -1,29 +1,13 @@
-# Dependencies
 node_modules
-
-# Build output
 dist
-.vercel
-
-# Environment / secrets
 .env
-.env.*
-
-# OS files
+.env.local
+.env.pulled
+.env.vercel-check
+*.local
 .DS_Store
-
-# IDE / editor
-.vscode
-.idea
-
-# Logs
-*.log
-
-# Claude session data
-.claude/
-
-# Archive (large binaries, not source)
-Archive/
-
-# Apple Pages documents
-*.pages
+.vercel
+.env*.local
+blender/renders/
+.env.local.check
+.env.vercel-prod

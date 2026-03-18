@@ -24,6 +24,13 @@ export default function ResourcePulse() {
   const canvasSizeRef = useRef({ w: 0, h: 0 });
   const workload = useWorkloadData();
 
+  // Pre-compute RGB values outside draw loop
+  const colorRgb = useMemo(() => ({
+    red: hexToRgb(C.red),
+    orange: hexToRgb(C.orange),
+    green: hexToRgb(C.green),
+  }), [C.red, C.orange, C.green]);
+
   // Build daily utilization data for next 3 weeks
   const pulseData = useMemo(() => {
     const { teamDailyLoad, estimatorRows, effectiveHoursPerDay = 7, warnings = [] } = workload || {};
@@ -110,10 +117,7 @@ export default function ResourcePulse() {
       const plotH = h - padY * 2 - 12; // reserve 12px for labels
       const maxUtil = 1.5; // cap at 150%
 
-      // Pre-compute color RGB values (avoid per-frame hexToRgb calls)
-      const redRgb = hexToRgb(C.red);
-      const orangeRgb = hexToRgb(C.orange);
-      const greenRgb = hexToRgb(C.green);
+      const { red: redRgb, orange: orangeRgb, green: greenRgb } = colorRgb;
 
       ctx.clearRect(0, 0, w, h);
 
@@ -265,7 +269,7 @@ export default function ResourcePulse() {
     return () => {
       if (animRef.current) cancelAnimationFrame(animRef.current);
     };
-  }, [C, pulseData]);
+  }, [C.accent, C.green, C.orange, C.red, C.textDim, C.textMuted, colorRgb, pulseData]);
 
   if (!pulseData) return null;
 

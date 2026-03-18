@@ -11,7 +11,7 @@
  *   >100%  util → hot (red, urgent)
  */
 
-import { polarToXY, hexToRgb, hexAlpha } from "@/utils/fieldPhysics";
+import { polarToXY, hexToRgb, hexAlpha, computeRingRadii } from "@/utils/fieldPhysics";
 
 // ── Helpers ─────────────────────────────────────────────────
 
@@ -66,6 +66,12 @@ export function renderField(ctx, params) {
     time, reducedMotion,
   } = params;
 
+  // Positions map: nodeId/particleId → {x, y} — returned for hit-testing
+  const positions = new Map();
+
+  // Recompute ring radii from the live canvas-derived fieldRadius
+  const liveRadii = computeRingRadii(rings.length, fieldRadius);
+
   ctx.clearRect(0, 0, w, h);
 
   // ── 1. Center glow (team health) ──
@@ -74,35 +80,40 @@ export function renderField(ctx, params) {
   // ── 2. Rings ──
   for (let ri = 0; ri < rings.length; ri++) {
     const ring = rings[ri];
+    const liveRadius = liveRadii[ri] || ring.radius;
     const isHoveredRing = hoveredRingIdx === ri;
-    drawRing(ctx, cx, cy, ring, ri, isHoveredRing, time, reducedMotion, colors);
+    drawRing(ctx, cx, cy, ring, liveRadius, ri, isHoveredRing, time, reducedMotion, colors);
   }
 
   // ── 3. Unassigned outer ring ──
   if (unassignedParticles.length > 0) {
-    drawUnassignedRing(ctx, cx, cy, unassignedRadius, unassignedParticles, time, reducedMotion, colors);
+    drawUnassignedRing(ctx, cx, cy, unassignedRadius, unassignedParticles, time, reducedMotion, colors, positions);
   }
 
-  // ── 4. Collaboration tethers ──
-  drawTethers(ctx, cx, cy, rings, time, colors);
-
-  // ── 5. Nodes (on top of rings) ──
+  // ── 4. Nodes (on top of rings) — also populates positions map ──
   for (let ri = 0; ri < rings.length; ri++) {
     const ring = rings[ri];
+    const liveRadius = liveRadii[ri] || ring.radius;
     for (const node of ring.nodes) {
       const isHovered = hoveredNodeId === node.id;
       const isSelected = selectedNodeId === node.id;
-      drawNode(ctx, cx, cy, ring, node, isHovered, isSelected, time, reducedMotion, colors);
+      drawNode(ctx, cx, cy, ring, liveRadius, node, isHovered, isSelected, time, reducedMotion, colors, positions);
     }
   }
 
+  // ── 5. Collaboration tethers ──
+  drawTethers(ctx, cx, cy, rings, liveRadii, positions, time, colors);
+
   // ── 6. Ring labels (estimator names) ──
   for (let ri = 0; ri < rings.length; ri++) {
-    drawRingLabel(ctx, cx, cy, rings[ri], hoveredRingIdx === ri, colors);
+    const liveRadius = liveRadii[ri] || rings[ri].radius;
+    drawRingLabel(ctx, cx, cy, rings[ri], liveRadius, hoveredRingIdx === ri, colors);
   }
 
   // ── 7. Center text ──
   drawCenterText(ctx, cx, cy, teamUtilization, rings.length, colors, w);
+
+  return positions;
 }
 
 // ── Center Glow ─────────────────────────────────────────────
@@ -161,7 +172,7 @@ function drawCenterGlow(ctx, cx, cy, util, colors, time) {
 
 // ── Ring Drawing ────────────────────────────────────────────
 
-function drawRing(ctx, cx, cy, ring, ringIdx, isHovered, time, reducedMotion, colors) {
+function drawRing(ctx, cx, cy, ring, liveRadius, ringIdx, isHovered, time, reducedMotion, colors) {
   const { r, g, b } = hexToRgb(ring.statusColor);
 
   // Ring circle — thin, with opacity pulse
@@ -169,7 +180,7 @@ function drawRing(ctx, cx, cy, ring, ringIdx, isHovered, time, reducedMotion, co
   const alpha = isHovered ? basePulse + 0.15 : basePulse;
 
   ctx.beginPath();
-  ctx.arc(cx, cy, ring.radius, 0, Math.PI * 2);
+  ctx.arc(cx, cy, liveRadius, 0, Math.PI * 2);
   ctx.strokeStyle = `rgba(${r},${g},${b},${alpha})`;
   ctx.lineWidth = isHovered ? 2 : 1.5;
   ctx.stroke();
@@ -177,7 +188,7 @@ function drawRing(ctx, cx, cy, ring, ringIdx, isHovered, time, reducedMotion, co
   // Subtle ring glow (bloom effect)
   if (!reducedMotion) {
     ctx.beginPath();
-    ctx.arc(cx, cy, ring.radius, 0, Math.PI * 2);
+    ctx.arc(cx, cy, liveRadius, 0, Math.PI * 2);
     ctx.strokeStyle = `rgba(${r},${g},${b},${alpha * 0.3})`;
     ctx.lineWidth = 6;
     ctx.stroke();
@@ -186,14 +197,17 @@ function drawRing(ctx, cx, cy, ring, ringIdx, isHovered, time, reducedMotion, co
 
 // ── Node Drawing ────────────────────────────────────────────
 
-function drawNode(ctx, cx, cy, ring, node, isHovered, isSelected, time, reducedMotion, colors) {
+function drawNode(ctx, cx, cy, ring, liveRadius, node, isHovered, isSelected, time, reducedMotion, colors, positions) {
   // Compute animated angle
   let angle = node.angle;
   if (!reducedMotion) {
     angle += time * ring.angularVelocity;
   }
 
-  const pos = polarToXY(angle, ring.radius, cx, cy);
+  const pos = polarToXY(angle, liveRadius, cx, cy);
+
+  // Store position for hit-testing (external map, not mutating memoized data)
+  positions.set(node.id, { x: pos.x, y: pos.y });
   const { r, g, b } = hexToRgb(node.statusColor);
   const size = node.size;
 
@@ -254,7 +268,7 @@ function drawNode(ctx, cx, cy, ring, node, isHovered, isSelected, time, reducedM
     const trailAlpha = 0.08 + Math.sin(time * 3) * 0.04;
     for (let t = 1; t <= 4; t++) {
       const trailAngle = angle - t * 0.12 * ring.angularVelocity;
-      const trailPos = polarToXY(trailAngle, ring.radius, cx, cy);
+      const trailPos = polarToXY(trailAngle, liveRadius, cx, cy);
       ctx.beginPath();
       ctx.arc(trailPos.x, trailPos.y, size * (1 - t * 0.15), 0, Math.PI * 2);
       ctx.fillStyle = `rgba(${r},${g},${b},${trailAlpha * (1 - t * 0.2)})`;
@@ -267,10 +281,6 @@ function drawNode(ctx, cx, cy, ring, node, isHovered, isSelected, time, reducedM
     drawNodeLabel(ctx, pos.x, pos.y, node, coreSize, colors);
   }
 
-  // Store computed position on node for hit-testing
-  node._x = pos.x;
-  node._y = pos.y;
-  node._computedAngle = angle;
 }
 
 // ── Node Label (on hover) ───────────────────────────────────
@@ -300,9 +310,9 @@ function drawNodeLabel(ctx, x, y, node, nodeRadius, colors) {
 
 // ── Ring Label (estimator name) ─────────────────────────────
 
-function drawRingLabel(ctx, cx, cy, ring, isHovered, colors) {
+function drawRingLabel(ctx, cx, cy, ring, liveRadius, isHovered, colors) {
   // Position: left side of ring, shifted outward
-  const lx = cx - ring.radius - 12;
+  const lx = cx - liveRadius - 12;
   const ly = cy;
 
   ctx.save();
@@ -324,7 +334,7 @@ function drawRingLabel(ctx, cx, cy, ring, isHovered, colors) {
 
 // ── Unassigned Ring ─────────────────────────────────────────
 
-function drawUnassignedRing(ctx, cx, cy, radius, particles, time, reducedMotion, colors) {
+function drawUnassignedRing(ctx, cx, cy, radius, particles, time, reducedMotion, colors, positions) {
   // Dashed outer ring
   ctx.save();
   ctx.beginPath();
@@ -386,9 +396,8 @@ function drawUnassignedRing(ctx, cx, cy, radius, particles, time, reducedMotion,
     ctx.fillStyle = specGrd;
     ctx.fill();
 
-    // Store position for hit-testing
-    p._x = pos.x;
-    p._y = pos.y;
+    // Store position for hit-testing (external map)
+    positions.set(p.id, { x: pos.x, y: pos.y });
   }
 
   // "UNASSIGNED" label
@@ -403,7 +412,7 @@ function drawUnassignedRing(ctx, cx, cy, radius, particles, time, reducedMotion,
 
 // ── Collaboration Tethers ───────────────────────────────────
 
-function drawTethers(ctx, cx, cy, rings, time, colors) {
+function drawTethers(ctx, cx, cy, rings, liveRadii, positions, time, colors) {
   const drawn = new Set();
 
   for (let ri = 0; ri < rings.length; ri++) {
@@ -415,20 +424,24 @@ function drawTethers(ctx, cx, cy, rings, time, colors) {
       if (drawn.has(key) || drawn.has(reverseKey)) continue;
       drawn.add(key);
 
+      const nodePos = positions.get(node.id);
+      if (!nodePos) continue;
+
       // Find partner node
       const partnerRing = rings[node.collaboratorRingIdx];
       if (!partnerRing) continue;
       const partner = partnerRing.nodes.find(n => n.id === node.id);
-      if (!partner || !node._x || !partner._x) continue;
+      if (!partner) continue;
+      const partnerPos = positions.get(partner.id);
+      if (!partnerPos) continue;
 
       // Draw curved tether
       const { r, g, b } = hexToRgb(colors.accent || "#8B5CF6");
       const alpha = 0.12 + Math.sin(time * 2) * 0.04;
 
       ctx.beginPath();
-      ctx.moveTo(node._x, node._y);
-      // Bezier control point at center
-      ctx.quadraticCurveTo(cx, cy, partner._x, partner._y);
+      ctx.moveTo(nodePos.x, nodePos.y);
+      ctx.quadraticCurveTo(cx, cy, partnerPos.x, partnerPos.y);
       ctx.strokeStyle = `rgba(${r},${g},${b},${alpha})`;
       ctx.lineWidth = 1;
       ctx.stroke();
@@ -443,37 +456,40 @@ function drawCenterText(ctx, cx, cy, teamUtil, ringCount, colors, canvasWidth) {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
+  // Position text below the glow core so it doesn't cover the light
+  const textY = cy + 28;
+
   // Team utilization %
-  const fontSize = Math.min(22, canvasWidth * 0.045);
-  ctx.font = `700 ${fontSize}px 'Switzer', sans-serif`;
-  ctx.fillStyle = colors.text || "#fff";
-  ctx.fillText(fmtUtil(teamUtil), cx, cy - 4);
+  const fontSize = Math.min(14, canvasWidth * 0.032);
+  ctx.font = `600 ${fontSize}px 'Switzer', sans-serif`;
+  ctx.fillStyle = colors.textDim || "#ccc";
+  ctx.fillText(fmtUtil(teamUtil), cx, textY);
 
   // "TEAM LOAD" label
-  ctx.font = `600 ${Math.min(8, canvasWidth * 0.018)}px 'Switzer', sans-serif`;
-  ctx.fillStyle = colors.textDim || "#999";
-  drawTracked(ctx, "TEAM LOAD", cx, cy + 12, 1.5);
+  ctx.font = `500 ${Math.min(7, canvasWidth * 0.016)}px 'Switzer', sans-serif`;
+  ctx.fillStyle = colors.textMuted || "#999";
+  drawTracked(ctx, "TEAM LOAD", cx, textY + 13, 1.5);
 
-  // Estimator count at bottom
+  // Estimator count
   if (ringCount > 0) {
-    ctx.font = `500 ${Math.min(8, canvasWidth * 0.018)}px 'Switzer', sans-serif`;
+    ctx.font = `500 ${Math.min(7, canvasWidth * 0.016)}px 'Switzer', sans-serif`;
     ctx.fillStyle = colors.textMuted || "#666";
-    drawTracked(ctx, `${ringCount} ESTIMATOR${ringCount !== 1 ? "S" : ""}`, cx, cy + 24, 1.2);
+    drawTracked(ctx, `${ringCount} ESTIMATOR${ringCount !== 1 ? "S" : ""}`, cx, textY + 24, 1.2);
   }
 
   ctx.restore();
 }
 
-// ── Animated Hit-Test (uses stored _x, _y from render) ──────
+// ── Hit-Test (uses positions Map from renderField) ──────────
 
 /**
- * Hit-test using the positions computed during the last render frame.
- * This accounts for orbital animation — hitTestNodes in fieldPhysics.js
- * uses static angles, but this uses the actual rendered positions.
+ * Hit-test using the positions Map returned by renderField.
+ * Avoids mutating memoized data — positions are stored externally.
  *
+ * @param {Map<string, {x,y}>} positions - id → {x,y} from last render
  * @returns {{ ringIdx, nodeIdx, node, x, y } | null}
  */
-export function hitTestRendered(mx, my, rings, hitPadding = 8) {
+export function hitTestPos(mx, my, rings, positions, hitPadding = 8) {
   let closest = null;
   let closestDist = Infinity;
 
@@ -481,13 +497,14 @@ export function hitTestRendered(mx, my, rings, hitPadding = 8) {
     const ring = rings[ri];
     for (let ni = 0; ni < ring.nodes.length; ni++) {
       const node = ring.nodes[ni];
-      if (node._x == null) continue;
-      const dx = mx - node._x;
-      const dy = my - node._y;
+      const pos = positions.get(node.id);
+      if (!pos) continue;
+      const dx = mx - pos.x;
+      const dy = my - pos.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
       const hitR = node.size + hitPadding;
       if (dist < hitR && dist < closestDist) {
-        closest = { ringIdx: ri, nodeIdx: ni, node, x: node._x, y: node._y };
+        closest = { ringIdx: ri, nodeIdx: ni, node, x: pos.x, y: pos.y };
         closestDist = dist;
       }
     }
@@ -496,16 +513,17 @@ export function hitTestRendered(mx, my, rings, hitPadding = 8) {
 }
 
 /**
- * Hit-test unassigned particles (uses stored _x, _y from render).
+ * Hit-test unassigned particles using positions Map.
  */
-export function hitTestUnassigned(mx, my, particles, hitPadding = 8) {
+export function hitTestUnassignedPos(mx, my, particles, positions, hitPadding = 8) {
   for (let i = 0; i < particles.length; i++) {
     const p = particles[i];
-    if (p._x == null) continue;
-    const dx = mx - p._x;
-    const dy = my - p._y;
+    const pos = positions.get(p.id);
+    if (!pos) continue;
+    const dx = mx - pos.x;
+    const dy = my - pos.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist < p.size + hitPadding) return { idx: i, particle: p, x: p._x, y: p._y };
+    if (dist < p.size + hitPadding) return { idx: i, particle: p, x: pos.x, y: pos.y };
   }
   return null;
 }

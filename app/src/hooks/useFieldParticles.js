@@ -25,6 +25,7 @@ export function useFieldParticles(workloadData, colors, fieldRadius) {
 
     // ── Compute per-estimator utilization (next 5 weekdays) ──
     const today = new Date();
+    const todayStr = today.toISOString().slice(0, 10);
     const utilizationMap = new Map();
 
     for (const row of estimatorRows) {
@@ -33,7 +34,7 @@ export function useFieldParticles(workloadData, colors, fieldRadius) {
       // Sum hours across active estimates
       for (const est of row.estimates) {
         if (!est.workDays?.length) continue;
-        const futureWorkDays = est.workDays.filter(d => d >= today.toISOString().slice(0, 10));
+        const futureWorkDays = est.workDays.filter(d => d >= todayStr);
         totalHours += futureWorkDays.length * est.hoursPerDay;
         days = Math.max(days, futureWorkDays.length);
       }
@@ -119,9 +120,11 @@ export function useFieldParticles(workloadData, colors, fieldRadius) {
     // ── Unassigned particles ──
     const unassignedAngles = distributeNodes(unassignedEstimates.length);
     const unassignedParticles = unassignedEstimates.map((est, i) => {
-      // Deterministic seed from index to avoid jumps on recompute
-      const seed = (i + 1) * 2654435761; // Knuth multiplicative hash
-      const seedNorm = ((seed >>> 0) % 10000) / 10000;
+      // Deterministic seed from estimate ID for stable positions across reorder
+      let hash = 0;
+      const idStr = String(est.id || i);
+      for (let c = 0; c < idStr.length; c++) hash = ((hash << 5) - hash + idStr.charCodeAt(c)) | 0;
+      const seedNorm = (((hash * 2654435761) >>> 0) % 10000) / 10000;
       return {
         id: est.id,
         label: est.name || "Untitled",

@@ -14,7 +14,7 @@ import { useWorkloadData } from "@/hooks/useWorkloadData";
 import { useFieldParticles } from "@/hooks/useFieldParticles";
 import { useFieldStore } from "@/stores/fieldStore";
 import { unassignedRadius as getUnassignedRadius } from "@/utils/fieldPhysics";
-import { renderField, hitTestRendered, hitTestUnassigned } from "./ResourceFieldRenderer";
+import { renderField, hitTestPos, hitTestUnassignedPos } from "./ResourceFieldRenderer";
 
 export default function ResourceField() {
   const C = useTheme();
@@ -26,6 +26,7 @@ export default function ResourceField() {
   const unassignedRef = useRef([]);
   const teamUtilRef = useRef(0);
   const canvasSizeRef = useRef({ w: 0, h: 0 });
+  const positionsRef = useRef(new Map()); // node/particle id → {x,y} for hit-testing
 
   const workloadData = useWorkloadData();
 
@@ -113,7 +114,7 @@ export default function ResourceField() {
 
       const elapsed = (ts - startTimeRef.current) / 1000;
 
-      renderField(ctx, {
+      positionsRef.current = renderField(ctx, {
         w,
         h,
         cx,
@@ -150,7 +151,7 @@ export default function ResourceField() {
       const my = e.clientY - rect.top;
 
       // Hit-test assigned nodes
-      const hit = hitTestRendered(mx, my, ringsRef.current);
+      const hit = hitTestPos(mx, my, ringsRef.current, positionsRef.current);
       if (hit) {
         setHoveredNode(hit.node.id, hit.ringIdx);
         setTooltipData({
@@ -168,7 +169,7 @@ export default function ResourceField() {
       }
 
       // Hit-test unassigned
-      const uHit = hitTestUnassigned(mx, my, unassignedRef.current);
+      const uHit = hitTestUnassignedPos(mx, my, unassignedRef.current, positionsRef.current);
       if (uHit) {
         setHoveredNode(uHit.particle.id, null);
         setTooltipData({
@@ -197,7 +198,7 @@ export default function ResourceField() {
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
 
-      const hit = hitTestRendered(mx, my, ringsRef.current);
+      const hit = hitTestPos(mx, my, ringsRef.current, positionsRef.current);
       if (hit) {
         setSelectedNode(hit.node.id);
         return;
