@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useWidgetLayoutSync } from "@/hooks/useWidgetLayoutSync";
 import { useWidgetStore } from "@/stores/widgetStore";
+import { useOrgStore } from "@/stores/orgStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { useItemsStore } from "@/stores/itemsStore";
@@ -139,9 +140,12 @@ export default function NovaDashboardPage() {
   }, []);
 
   // Sprint 4.3: Show onboarding on first visit (before dashboard)
+  // Skip onboarding for invited users who are already in an org — they didn't create
+  // the company, so asking them to "Set Up Your Company" is wrong.
   const onboardingDismissed = useUiStore(s => s.appSettings?.onboardingDismissed);
+  const hasOrg = !!useOrgStore(s => s.org);
   const showOnboarding =
-    !onboardingDismissed && !localStorage.getItem("nova_onboarding_complete");
+    !onboardingDismissed && !localStorage.getItem("nova_onboarding_complete") && !hasOrg;
 
   if (showOnboarding) {
     return (

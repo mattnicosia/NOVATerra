@@ -168,7 +168,11 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
-  const [mode, setMode] = useState("password"); // password | magic | signup | forgot
+  const [mode, setMode] = useState(() => {
+    // If arriving via invite link, default to signup mode
+    if (localStorage.getItem("pendingInviteToken")) return "signup";
+    return "password";
+  }); // password | magic | signup | forgot
   const [visible, setVisible] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
   const [submitting, setSubmitting] = useState(false);

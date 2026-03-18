@@ -5,6 +5,7 @@ import { useUiStore } from "@/stores/uiStore";
 import { useItemsStore, DEFAULT_MARKUP_ORDER } from "@/stores/itemsStore";
 import { useInboxStore } from "@/stores/inboxStore";
 import { useAuthStore } from "@/stores/authStore";
+import { useOrgStore, selectIsManager } from "@/stores/orgStore";
 import { supabase } from "@/utils/supabase";
 // PALETTES import removed — theme selection temporarily disabled
 import Sec from "@/components/shared/Sec";
@@ -37,6 +38,21 @@ export default function SettingsPage() {
 
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [dragMarkupIdx, setDragMarkupIdx] = useState(null);
+
+  // Org role: estimators see company profile as read-only
+  const isManager = useOrgStore(selectIsManager);
+  const hasOrg = useOrgStore(s => !!s.org);
+  const orgName = useOrgStore(s => s.org?.name);
+  const companyReadOnly = hasOrg && !isManager;
+
+  // First org login: show welcome banner once (flag set by AppContent redirect)
+  const [showWelcome, setShowWelcome] = useState(() => {
+    try { return localStorage.getItem("bldg-first-org-welcome") === "1"; } catch { return false; }
+  });
+  const dismissWelcome = () => {
+    setShowWelcome(false);
+    try { localStorage.removeItem("bldg-first-org-welcome"); } catch { /* non-critical */ }
+  };
 
   // Markup color mapping
   const markupColors = {
@@ -109,6 +125,46 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        {/* Welcome banner for first-login invited users */}
+        {showWelcome && hasOrg && (
+          <div
+            style={{
+              padding: "16px 20px",
+              background: `${C.accent}10`,
+              border: `1px solid ${C.accent}30`,
+              borderRadius: T.radius.md,
+              marginBottom: 16,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 4 }}>
+                Welcome to {orgName || "the team"}
+              </div>
+              <div style={{ fontSize: 11, color: C.textMuted, lineHeight: 1.5 }}>
+                You have joined as an estimator. Below is the company profile and team information.
+                {companyReadOnly && " Company profile fields are managed by your admin."}
+              </div>
+            </div>
+            <button
+              onClick={dismissWelcome}
+              style={bt(C, {
+                background: C.accent,
+                color: "#fff",
+                padding: "6px 16px",
+                fontSize: 11,
+                fontWeight: 600,
+                flexShrink: 0,
+              })}
+            >
+              Got it
+            </button>
+          </div>
+        )}
+
         {/* Company Profiles */}
         <CompanyProfilesSection
           C={C}
@@ -118,6 +174,7 @@ export default function SettingsPage() {
           logoFileRef={logoFileRef}
           handleLogoUpload={handleLogoUpload}
           updateCompanyInfo={updateCompanyInfo}
+          readOnly={companyReadOnly}
         />
 
         {/* Default Markup & Tax Rates */}
@@ -884,6 +941,7 @@ function CompanyProfilesSection({
   logoFileRef: _logoFileRef,
   handleLogoUpload: _handleLogoUpload,
   updateCompanyInfo,
+  readOnly = false,
 }) {
   const addProfile = useMasterDataStore(s => s.addCompanyProfile);
   const updateProfile = useMasterDataStore(s => s.updateCompanyProfile);
@@ -946,10 +1004,12 @@ function CompanyProfilesSection({
   };
 
   return (
-    <Sec title="Company Profiles">
+    <Sec title={readOnly ? "Company Profiles (View Only)" : "Company Profiles"}>
       <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 14 }}>
-        Manage company profiles for different clients or offices. Select a profile per-project on the Project Info page.
-        The <strong style={{ color: C.accent }}>primary</strong> profile is used by default.
+        {readOnly
+          ? "Company profiles are managed by your organization admin. You can view the details below."
+          : <>Manage company profiles for different clients or offices. Select a profile per-project on the Project Info page.
+            The <strong style={{ color: C.accent }}>primary</strong> profile is used by default.</>}
       </div>
 
       {/* Profile logo tiles */}
@@ -1016,7 +1076,7 @@ function CompanyProfilesSection({
                 overflow: "hidden",
               }}
             >
-              <button
+              {!readOnly && <button
                 onClick={e => {
                   e.stopPropagation();
                   handleDeleteProfile(p.id);
@@ -1034,7 +1094,7 @@ function CompanyProfilesSection({
                 title="Delete profile"
               >
                 <Ic d={I.x} size={10} color={C.textDim} />
-              </button>
+              </button>}
               <LogoPill
                 src={p.logo}
                 maxHeight={56}
@@ -1060,7 +1120,7 @@ function CompanyProfilesSection({
         })}
 
         {/* Add new profile tile */}
-        <div
+        {!readOnly && <div
           onClick={handleCreateProfile}
           style={{
             width: 100,
@@ -1079,7 +1139,7 @@ function CompanyProfilesSection({
         >
           <Ic d={I.plus} size={18} color={C.accent} sw={2} />
           <span style={{ fontSize: 9, fontWeight: 600, color: C.accent }}>Add</span>
-        </div>
+        </div>}
       </div>
 
       {/* Edit form for selected profile */}
@@ -1098,8 +1158,8 @@ function CompanyProfilesSection({
               gap: 6,
             }}
           >
-            <Ic d={I.edit} size={12} color={C.accent} />
-            Editing: {isDefault ? "Primary Profile" : editingProfile.name || "Unnamed Profile"}
+            <Ic d={readOnly ? I.eye : I.edit} size={12} color={C.accent} />
+            {readOnly ? "Viewing" : "Editing"}: {isDefault ? "Primary Profile" : editingProfile.name || "Unnamed Profile"}
             {isDefault && (
               <span
                 style={{
@@ -1129,18 +1189,21 @@ function CompanyProfilesSection({
                   justifyContent: "center",
                   overflow: "hidden",
                   background: C.bg2,
-                  cursor: "pointer",
+                  cursor: readOnly ? "default" : "pointer",
                   transition: "border-color 0.2s",
                 }}
-                onClick={() => profileLogoRef.current?.click()}
+                onClick={() => !readOnly && profileLogoRef.current?.click()}
                 onDragOver={e => {
+                  if (readOnly) return;
                   e.preventDefault();
                   e.currentTarget.style.borderColor = C.accent;
                 }}
                 onDragLeave={e => {
+                  if (readOnly) return;
                   e.currentTarget.style.borderColor = C.border;
                 }}
                 onDrop={e => {
+                  if (readOnly) return;
                   e.preventDefault();
                   e.currentTarget.style.borderColor = C.border;
                   if (e.dataTransfer.files[0]) handleProfileLogoUpload(e.dataTransfer.files[0]);
@@ -1169,7 +1232,7 @@ function CompanyProfilesSection({
                   e.target.value = "";
                 }}
               />
-              {editingProfile?.logo && (
+              {editingProfile?.logo && !readOnly && (
                 <button
                   className="ghost-btn"
                   onClick={() => {
@@ -1193,24 +1256,27 @@ function CompanyProfilesSection({
                 <label style={{ fontSize: 9, color: C.textDim, fontWeight: 600 }}>Company Name</label>
                 <input
                   value={editingProfile?.name || ""}
-                  onChange={e => updateField("name", e.target.value)}
-                  style={inp(C, { padding: "6px 10px", fontSize: 13, fontWeight: 700 })}
+                  onChange={e => !readOnly && updateField("name", e.target.value)}
+                  readOnly={readOnly}
+                  style={inp(C, { padding: "6px 10px", fontSize: 13, fontWeight: 700, ...(readOnly && { opacity: 0.75, cursor: "default" }) })}
                 />
               </div>
               <div style={{ gridColumn: "span 2" }}>
                 <label style={{ fontSize: 9, color: C.textDim, fontWeight: 600 }}>Address</label>
                 <input
                   value={editingProfile?.address || ""}
-                  onChange={e => updateField("address", e.target.value)}
-                  style={inp(C, { padding: "5px 10px", fontSize: 11 })}
+                  onChange={e => !readOnly && updateField("address", e.target.value)}
+                  readOnly={readOnly}
+                  style={inp(C, { padding: "5px 10px", fontSize: 11, ...(readOnly && { opacity: 0.75, cursor: "default" }) })}
                 />
               </div>
               <div>
                 <label style={{ fontSize: 9, color: C.textDim, fontWeight: 600 }}>City</label>
                 <input
                   value={editingProfile?.city || ""}
-                  onChange={e => updateField("city", e.target.value)}
-                  style={inp(C, { padding: "5px 10px", fontSize: 11 })}
+                  onChange={e => !readOnly && updateField("city", e.target.value)}
+                  readOnly={readOnly}
+                  style={inp(C, { padding: "5px 10px", fontSize: 11, ...(readOnly && { opacity: 0.75, cursor: "default" }) })}
                 />
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -1218,16 +1284,18 @@ function CompanyProfilesSection({
                   <label style={{ fontSize: 9, color: C.textDim, fontWeight: 600 }}>State</label>
                   <input
                     value={editingProfile?.state || ""}
-                    onChange={e => updateField("state", e.target.value)}
-                    style={inp(C, { padding: "5px 10px", fontSize: 11 })}
+                    onChange={e => !readOnly && updateField("state", e.target.value)}
+                    readOnly={readOnly}
+                    style={inp(C, { padding: "5px 10px", fontSize: 11, ...(readOnly && { opacity: 0.75, cursor: "default" }) })}
                   />
                 </div>
                 <div>
                   <label style={{ fontSize: 9, color: C.textDim, fontWeight: 600 }}>Zip</label>
                   <input
                     value={editingProfile?.zip || ""}
-                    onChange={e => updateField("zip", e.target.value)}
-                    style={inp(C, { padding: "5px 10px", fontSize: 11 })}
+                    onChange={e => !readOnly && updateField("zip", e.target.value)}
+                    readOnly={readOnly}
+                    style={inp(C, { padding: "5px 10px", fontSize: 11, ...(readOnly && { opacity: 0.75, cursor: "default" }) })}
                   />
                 </div>
               </div>
@@ -1235,32 +1303,36 @@ function CompanyProfilesSection({
                 <label style={{ fontSize: 9, color: C.textDim, fontWeight: 600 }}>Phone</label>
                 <input
                   value={editingProfile?.phone || ""}
-                  onChange={e => updateField("phone", e.target.value)}
-                  style={inp(C, { padding: "5px 10px", fontSize: 11 })}
+                  onChange={e => !readOnly && updateField("phone", e.target.value)}
+                  readOnly={readOnly}
+                  style={inp(C, { padding: "5px 10px", fontSize: 11, ...(readOnly && { opacity: 0.75, cursor: "default" }) })}
                 />
               </div>
               <div>
                 <label style={{ fontSize: 9, color: C.textDim, fontWeight: 600 }}>Email</label>
                 <input
                   value={editingProfile?.email || ""}
-                  onChange={e => updateField("email", e.target.value)}
-                  style={inp(C, { padding: "5px 10px", fontSize: 11 })}
+                  onChange={e => !readOnly && updateField("email", e.target.value)}
+                  readOnly={readOnly}
+                  style={inp(C, { padding: "5px 10px", fontSize: 11, ...(readOnly && { opacity: 0.75, cursor: "default" }) })}
                 />
               </div>
               <div>
                 <label style={{ fontSize: 9, color: C.textDim, fontWeight: 600 }}>Website</label>
                 <input
                   value={editingProfile?.website || ""}
-                  onChange={e => updateField("website", e.target.value)}
-                  style={inp(C, { padding: "5px 10px", fontSize: 11 })}
+                  onChange={e => !readOnly && updateField("website", e.target.value)}
+                  readOnly={readOnly}
+                  style={inp(C, { padding: "5px 10px", fontSize: 11, ...(readOnly && { opacity: 0.75, cursor: "default" }) })}
                 />
               </div>
               <div>
                 <label style={{ fontSize: 9, color: C.textDim, fontWeight: 600 }}>License #</label>
                 <input
                   value={editingProfile?.licenseNo || ""}
-                  onChange={e => updateField("licenseNo", e.target.value)}
-                  style={inp(C, { padding: "5px 10px", fontSize: 11 })}
+                  onChange={e => !readOnly && updateField("licenseNo", e.target.value)}
+                  readOnly={readOnly}
+                  style={inp(C, { padding: "5px 10px", fontSize: 11, ...(readOnly && { opacity: 0.75, cursor: "default" }) })}
                 />
               </div>
             </div>
@@ -1293,7 +1365,7 @@ function CompanyProfilesSection({
             <div style={{ marginBottom: 14 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
                 <span style={{ fontSize: 10, fontWeight: 600, color: C.text }}>Exclusions</span>
-                <button
+                {!readOnly && <button
                   onClick={() => {
                     const list = [...(editingProfile?.boilerplateExclusions || []), { id: uid(), text: "" }];
                     updateField("boilerplateExclusions", list);
@@ -1313,7 +1385,7 @@ function CompanyProfilesSection({
                   }}
                 >
                   <Ic d={I.plus} size={9} color={C.accent} /> Add
-                </button>
+                </button>}
               </div>
               {(editingProfile?.boilerplateExclusions || []).length === 0 && (
                 <div style={{ fontSize: 10, color: C.textDim, fontStyle: "italic", padding: "6px 0" }}>
@@ -1328,21 +1400,24 @@ function CompanyProfilesSection({
                   <textarea
                     value={ex.text}
                     onChange={e => {
+                      if (readOnly) return;
                       const list = (editingProfile?.boilerplateExclusions || []).map(x =>
                         x.id === ex.id ? { ...x, text: e.target.value } : x,
                       );
                       updateField("boilerplateExclusions", list);
                     }}
+                    readOnly={readOnly}
                     placeholder="e.g. Site work, landscaping, and paving are excluded from this proposal."
                     rows={1}
                     style={{
-                      ...inp(C, { padding: "5px 10px", fontSize: 11, resize: "vertical", minHeight: 28 }),
+                      ...inp(C, { padding: "5px 10px", fontSize: 11, resize: readOnly ? "none" : "vertical", minHeight: 28 }),
                       flex: 1,
                       fontFamily: T.font.sans,
                       lineHeight: 1.5,
+                      ...(readOnly && { opacity: 0.75, cursor: "default" }),
                     }}
                   />
-                  <button
+                  {!readOnly && <button
                     onClick={() => {
                       const list = (editingProfile?.boilerplateExclusions || []).filter(x => x.id !== ex.id);
                       updateField("boilerplateExclusions", list);
@@ -1358,7 +1433,7 @@ function CompanyProfilesSection({
                     title="Remove"
                   >
                     <Ic d={I.x} size={10} color={C.red} />
-                  </button>
+                  </button>}
                 </div>
               ))}
             </div>
@@ -1367,7 +1442,7 @@ function CompanyProfilesSection({
             <div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
                 <span style={{ fontSize: 10, fontWeight: 600, color: C.text }}>Notes &amp; Clarifications</span>
-                <button
+                {!readOnly && <button
                   onClick={() => {
                     const list = [
                       ...(editingProfile?.boilerplateNotes || []),
@@ -1390,7 +1465,7 @@ function CompanyProfilesSection({
                   }}
                 >
                   <Ic d={I.plus} size={9} color={C.accent} /> Add
-                </button>
+                </button>}
               </div>
               {(editingProfile?.boilerplateNotes || []).length === 0 && (
                 <div style={{ fontSize: 10, color: C.textDim, fontStyle: "italic", padding: "6px 0" }}>
@@ -1405,15 +1480,18 @@ function CompanyProfilesSection({
                   <select
                     value={note.category || "clarification"}
                     onChange={e => {
+                      if (readOnly) return;
                       const list = (editingProfile?.boilerplateNotes || []).map(n =>
                         n.id === note.id ? { ...n, category: e.target.value } : n,
                       );
                       updateField("boilerplateNotes", list);
                     }}
+                    disabled={readOnly}
                     style={{
                       ...inp(C, { padding: "4px 6px", fontSize: 9, width: 90, minWidth: 90 }),
                       fontWeight: 600,
                       marginTop: 1,
+                      ...(readOnly && { opacity: 0.75, cursor: "default" }),
                     }}
                   >
                     <option value="clarification">Clarification</option>
@@ -1423,21 +1501,24 @@ function CompanyProfilesSection({
                   <textarea
                     value={note.text}
                     onChange={e => {
+                      if (readOnly) return;
                       const list = (editingProfile?.boilerplateNotes || []).map(n =>
                         n.id === note.id ? { ...n, text: e.target.value } : n,
                       );
                       updateField("boilerplateNotes", list);
                     }}
+                    readOnly={readOnly}
                     placeholder="e.g. Pricing valid for 30 days from date of proposal."
                     rows={1}
                     style={{
-                      ...inp(C, { padding: "5px 10px", fontSize: 11, resize: "vertical", minHeight: 28 }),
+                      ...inp(C, { padding: "5px 10px", fontSize: 11, resize: readOnly ? "none" : "vertical", minHeight: 28 }),
                       flex: 1,
                       fontFamily: T.font.sans,
                       lineHeight: 1.5,
+                      ...(readOnly && { opacity: 0.75, cursor: "default" }),
                     }}
                   />
-                  <button
+                  {!readOnly && <button
                     onClick={() => {
                       const list = (editingProfile?.boilerplateNotes || []).filter(n => n.id !== note.id);
                       updateField("boilerplateNotes", list);
@@ -1453,7 +1534,7 @@ function CompanyProfilesSection({
                     title="Remove"
                   >
                     <Ic d={I.x} size={10} color={C.red} />
-                  </button>
+                  </button>}
                 </div>
               ))}
             </div>

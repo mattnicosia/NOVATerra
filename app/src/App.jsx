@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, lazy, Suspense } from "react";
-import { Routes, Route, Navigate, useParams, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useParams, useLocation, useNavigate } from "react-router-dom";
 import { ThemeProvider, useTheme } from "@/hooks/useTheme";
 import { usePersistenceLoad, loadEstimate } from "@/hooks/usePersistence";
 import { useAutoSave } from "@/hooks/useAutoSave";
@@ -483,7 +483,24 @@ function FloatingThemePicker() {
 function AppContent() {
   const C = useTheme();
   const location = useLocation();
+  const navigate = useNavigate();
   const isDashboard = location.pathname === "/";
+
+  // ── First org login redirect: send invited users to settings/company profile ──
+  const orgReady = useOrgStore(s => s.orgReady);
+  const hasOrg = useOrgStore(s => !!s.org);
+  useEffect(() => {
+    if (!orgReady || !hasOrg) return;
+    try {
+      const flag = localStorage.getItem("bldg-first-org-login");
+      if (flag) {
+        localStorage.removeItem("bldg-first-org-login");
+        localStorage.setItem("bldg-first-org-welcome", "1");
+        navigate("/settings", { replace: true });
+      }
+    } catch { /* non-critical */ }
+  }, [orgReady, hasOrg, navigate]);
+
   usePersistenceLoad();
   useAutoSave();
   useTakeoffSync();

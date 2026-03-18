@@ -36,11 +36,10 @@ export default function NovaCursor() {
     const orb = orbRef.current;
     if (!dot || !ring) return;
 
-    // Mouse move — update dot immediately via transform (GPU-composited, no layout thrash)
+    // Mouse move — stash coords; dot is moved in the RAF loop for jank-free sync
     const onMove = e => {
       mxRef.current = e.clientX;
       myRef.current = e.clientY;
-      dot.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0) translate(-50%, -50%)`;
     };
 
     // Click ripple
@@ -103,21 +102,13 @@ export default function NovaCursor() {
     // ── RAF loop — lerp ring (+ optional scout-ahead toward nearest prediction) ──
     // PERF: Uses transform3d instead of left/top (GPU compositor, no layout thrash).
     // Caches nearest prediction to skip recalc when predictions haven't changed.
-    // Throttled to ~30fps via frame-skip flag to reduce GPU overhead.
-    let frameSkip = false;
+    // Runs at full 60fps — DOM transforms are GPU-composited and cheap.
     let cachedNearestX = 0;
     let cachedNearestY = 0;
     let cachedNearestDist = Infinity;
     let lastPreds = null;
 
     const loop = () => {
-      // Throttle to ~30fps — skip every other frame
-      frameSkip = !frameSkip;
-      if (frameSkip) {
-        animRef.current = requestAnimationFrame(loop);
-        return;
-      }
-
       let targetX = mxRef.current;
       let targetY = myRef.current;
 
@@ -165,9 +156,12 @@ export default function NovaCursor() {
         lastPreds = null;
       }
 
+      // Dot follows mouse 1:1 — no lerp, no CSS transition, pure GPU transform
+      dot.style.transform = `translate3d(${mxRef.current}px, ${myRef.current}px, 0) translate(-50%, -50%)`;
+
       // Lerp ring toward target — GPU-composited via transform3d
-      rxRef.current += (targetX - rxRef.current) * 0.1;
-      ryRef.current += (targetY - ryRef.current) * 0.1;
+      rxRef.current += (targetX - rxRef.current) * 0.7;
+      ryRef.current += (targetY - ryRef.current) * 0.7;
       ring.style.transform = `translate3d(${rxRef.current}px, ${ryRef.current}px, 0) translate(-50%, -50%)`;
 
       animRef.current = requestAnimationFrame(loop);
@@ -205,7 +199,8 @@ export default function NovaCursor() {
           willChange: "transform",
           transform: "translate3d(-50%, -50%, 0)",
           boxShadow: "0 0 8px #10B981, 0 0 18px rgba(16,185,129,0.30)",
-          transition: "width 0.25s, height 0.25s, background 0.3s, box-shadow 0.3s",
+          /* only animate size/color changes on mode switch — never transform */
+          transition: "width 0.2s, height 0.2s, background 0.2s, box-shadow 0.2s",
         }}
       />
       {/* Cursor ring with NOVA orb — teal idle, purple measuring. Uses transform3d for GPU compositing. */}
@@ -224,8 +219,9 @@ export default function NovaCursor() {
           zIndex: 9998,
           willChange: "transform",
           transform: "translate3d(-50%, -50%, 0)",
+          /* only animate size/border changes on mode switch — never transform */
           transition:
-            "width 0.3s cubic-bezier(0.34,1.56,0.64,1), height 0.3s cubic-bezier(0.34,1.56,0.64,1), border-color 0.3s, border-width 0.2s",
+            "width 0.25s cubic-bezier(0.34,1.56,0.64,1), height 0.25s cubic-bezier(0.34,1.56,0.64,1), border-color 0.2s, border-width 0.15s",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",

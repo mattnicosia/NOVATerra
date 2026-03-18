@@ -176,23 +176,37 @@ export const useOrgStore = create((set, get) => ({
 
     // 2. Call send-team-invite serverless function
     try {
-      const session = useAuthStore.getState().session;
+      // Get session from Supabase directly (more reliable than store state)
+      let accessToken = useAuthStore.getState().session?.access_token;
+      if (!accessToken) {
+        const { data: { session: freshSession } } = await supabase.auth.getSession();
+        accessToken = freshSession?.access_token;
+      }
+      if (!accessToken) {
+        console.error("[orgStore] sendEstimatorInvite: No access token available");
+        get().fetchAllInvitations();
+        get().fetchInvitations();
+        return { success: true, emailFailed: true, emailError: "Not authenticated — please refresh and try again" };
+      }
+
+      const invId = result.invitation?.id;
       const resp = await fetch("/api/send-team-invite", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({ invitationId: result.invitation.id }),
+        body: JSON.stringify({ invitationId: invId }),
       });
 
       if (!resp.ok) {
         const errData = await resp.json().catch(() => ({}));
-        console.warn("[orgStore] send-team-invite failed:", resp.status, errData.error);
+        const detail = errData.error || `HTTP ${resp.status}`;
+        console.error("[orgStore] send-team-invite failed:", resp.status, detail);
         // Invitation was created but email failed — still return success with warning
         get().fetchAllInvitations();
         get().fetchInvitations();
-        return { success: true, emailFailed: true, emailError: errData.error || `HTTP ${resp.status}` };
+        return { success: true, emailFailed: true, emailError: detail };
       }
 
       // 3. Refresh all invitations
@@ -267,13 +281,23 @@ export const useOrgStore = create((set, get) => ({
     const normalizedEmail = email.toLowerCase().trim();
 
     try {
-      // Check for existing pending invitation
+      // Clean up expired invitations for this email first
+      await supabase
+        .from("org_invitations")
+        .delete()
+        .eq("org_id", org.id)
+        .eq("email", normalizedEmail)
+        .is("accepted_at", null)
+        .lt("expires_at", new Date().toISOString());
+
+      // Check for existing ACTIVE (non-expired) pending invitation
       const { data: existing } = await supabase
         .from("org_invitations")
         .select("id")
         .eq("org_id", org.id)
         .eq("email", normalizedEmail)
         .is("accepted_at", null)
+        .gt("expires_at", new Date().toISOString())
         .maybeSingle();
 
       if (existing) return { error: "An invitation has already been sent to this email" };

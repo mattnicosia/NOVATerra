@@ -107,6 +107,8 @@ const checkPendingInvite = async () => {
     const result = await useOrgStore.getState().acceptInvitation(token);
     if (result?.success) {
       console.log("[auth] Auto-accepted invitation");
+      // Flag first org login so App can redirect to settings/company profile
+      try { localStorage.setItem("bldg-first-org-login", "1"); } catch { /* non-critical */ }
       // Re-fetch org to pick up new membership
       await useOrgStore.getState().fetchOrg();
     } else if (result?.error) {

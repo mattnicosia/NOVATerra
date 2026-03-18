@@ -156,16 +156,44 @@ export function useSessionAwareness() {
 
     channelRef.current = channel;
 
-    // ── 2. ENFORCEMENT: DISABLED ──
-    // Session enforcement has been disabled due to persistent false-positive
-    // logouts. The token-matching system has multiple race conditions that
-    // cause the DB token and localStorage token to diverge, kicking the user
-    // even when they're the only active session. The informational presence
-    // channel above still works — it shows other devices without kicking.
-    // TODO: Re-enable once we can debug live with console logs visible.
+    // ── 2. ENFORCEMENT: Poll DB token every 60s ──
+    // Requires 3 consecutive mismatches before kicking (guards against transient issues).
+    // Also checks on tab refocus for faster detection.
+    const kickSession = () => {
+      if (kickedRef.current) return;
+      kickedRef.current = true;
+      alert("You've been signed out because your account was accessed from another device.");
+      useAuthStore.getState().signOut();
+    };
+
+    const runCheck = async () => {
+      const valid = await checkSessionValid(userId);
+      if (valid) {
+        missCountRef.current = 0;
+      } else {
+        missCountRef.current += 1;
+        if (missCountRef.current >= 3) {
+          kickSession();
+        }
+      }
+    };
+
+    // Poll every 60 seconds (relaxed from 30s)
+    intervalRef.current = setInterval(runCheck, 60_000);
+
+    // Also check on tab refocus
+    const onVisible = () => {
+      if (document.visibilityState === "visible") runCheck();
+    };
+    document.addEventListener("visibilitychange", onVisible);
 
     // ── Cleanup ──
     return () => {
+      // Clear enforcement
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      intervalRef.current = null;
+      document.removeEventListener("visibilitychange", onVisible);
+
       // Clear presence
       useUiStore.getState().setOtherSessions([]);
 
