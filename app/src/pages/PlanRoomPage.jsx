@@ -2610,11 +2610,11 @@ export default function PlanRoomPage() {
                 </div>
               </div>
               <div style={{ display: "flex", gap: 6 }}>
-                {/* Compare Revisions — only show if there are versioned drawings */}
-                {drawings.some(d => d.supersedes || d.supersededBy) && (
+                {/* Compare Drawings — available when 2+ drawings exist */}
+                {drawings.length >= 2 && (
                   <button
                     onClick={() => {
-                      // Find first version pair
+                      // Prefer version pair if available
                       const versioned = drawings.find(d => d.supersedes);
                       if (versioned) {
                         const oldDraw = drawings.find(d => d.id === versioned.supersedes);
@@ -2623,10 +2623,8 @@ export default function PlanRoomPage() {
                           return;
                         }
                       }
-                      // Fallback: show first two drawings
-                      if (drawings.length >= 2) {
-                        setShowOverlay({ drawingA: drawings[0], drawingB: drawings[1] });
-                      }
+                      // Fallback: first two drawings
+                      setShowOverlay({ drawingA: drawings[0], drawingB: drawings[1] });
                     }}
                     style={bt(C, {
                       background: "transparent",
@@ -2691,6 +2689,7 @@ export default function PlanRoomPage() {
             <DrawingOverlay
               drawingA={showOverlay.drawingA}
               drawingB={showOverlay.drawingB}
+              drawings={drawings}
               onClose={() => setShowOverlay(null)}
             />
           </div>

@@ -40,6 +40,7 @@ import { extractTitleBlockFields, mapBuildingTypeKey, inferWorkType } from "@/ut
 import { generateScopeOutline } from "@/utils/scopeOutlineGenerator";
 import { novaPlans } from "@/nova/agents/plans";
 import { useFirmMemoryStore } from "@/nova/learning/firmMemory";
+import { useSnapshotsStore } from "@/stores/snapshotsStore";
 import { autoTradeFromCode } from "@/constants/tradeGroupings";
 import { renderPdfPage } from "@/utils/drawingUtils";
 import { saveEstimate } from "@/hooks/usePersistence";
@@ -129,17 +130,25 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
   });
 
   try {
-    // ── Phase 1: Detect schedules ──
+    // ── Phase 0: OCR Pre-Pass (batch OCR all drawings, cache results) ──
     checkAbort();
-    const detections = await batchAI(
+    setScanProgress({
+      phase: "ocr",
+      current: 0,
+      total: currentDrawings.length,
+      message: "Running OCR pre-pass...",
+    });
+
+    // Prepare optimized images + check OCR cache
+    const drawingImages = await batchAI(
       currentDrawings,
       async (d, idx) => {
         checkAbort();
         setScanProgress({
-          phase: "detect",
+          phase: "ocr",
           current: idx + 1,
           total: currentDrawings.length,
-          message: `Scanning sheet ${idx + 1}/${currentDrawings.length}...`,
+          message: `OCR: sheet ${idx + 1}/${currentDrawings.length}...`,
         });
         let imgData;
         const curCanvases = useDrawingsStore.getState().pdfCanvases;
@@ -148,9 +157,17 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
         } else {
           imgData = d.data;
         }
-        if (!imgData) return { sheetId: d.id, schedules: [] };
+        if (!imgData) return { id: d.id, optimized: null, ocrText: "" };
 
         const optimized = await optimizeImageForAI(imgData, 2000);
+
+        // Check drawing-level OCR cache (skip if fresh — less than 1 hour old)
+        const cached = d.ocrCache;
+        if (cached?.text && cached.timestamp && Date.now() - cached.timestamp < 3600000) {
+          return { id: d.id, optimized, ocrText: cached.text };
+        }
+
+        // Run OCR and cache result
         let ocrText = "";
         try {
           const ocrResult = await segmentedOCR(optimized.base64, optimized.width, optimized.height);
@@ -163,6 +180,46 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
             /* optional */
           }
         }
+
+        // Store OCR result on drawing for future reuse
+        if (ocrText) {
+          try {
+            useDrawingsStore.getState().updateDrawing(d.id, "ocrCache", {
+              text: ocrText,
+              timestamp: Date.now(),
+            });
+          } catch {
+            /* non-critical */
+          }
+        }
+
+        return { id: d.id, optimized, ocrText };
+      },
+      3,
+    );
+
+    // Build lookup map for Phase 1
+    const ocrMap = new Map(drawingImages.map(r => [r.id, r]));
+    const ocrCacheHits = drawingImages.filter(r => !r.error && r.ocrText).length;
+    console.log(`[scanRunner] Phase 0: OCR pre-pass complete — ${ocrCacheHits}/${currentDrawings.length} with text`);
+
+    // ── Phase 1: Detect schedules (uses cached OCR from Phase 0) ──
+    checkAbort();
+    const detections = await batchAI(
+      currentDrawings,
+      async (d, idx) => {
+        checkAbort();
+        setScanProgress({
+          phase: "detect",
+          current: idx + 1,
+          total: currentDrawings.length,
+          message: `Scanning sheet ${idx + 1}/${currentDrawings.length}...`,
+        });
+
+        const cached = ocrMap.get(d.id);
+        if (!cached?.optimized) return { sheetId: d.id, schedules: [] };
+        const optimized = cached.optimized;
+        const ocrText = cached.ocrText || "";
 
         const sheetLabel = d.sheetTitle || d.label || d.sheetNumber;
         const prompt = buildDetectionPrompt(sheetLabel, ocrText);
@@ -753,6 +810,27 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
     // ── Phase 3.5: Auto-populate scope outline (only for empty estimates) ──
     let scopeOutlineStats = null;
     checkAbort();
+
+    // Auto-snapshot before scope items are added
+    const preItems = useItemsStore.getState().items;
+    if (preItems.length > 0) {
+      try {
+        const activeId = useUiStore.getState()?.activeEstimateId;
+        if (activeId) {
+          const preTotals = useItemsStore.getState().getTotals();
+          const preProj = useProjectStore.getState().project;
+          useSnapshotsStore
+            .getState()
+            .captureSnapshot(activeId, preItems, preTotals, {}, null, null, preProj, {
+              label: "Pre-scan",
+              trigger: "auto",
+            });
+        }
+      } catch {
+        /* snapshot non-critical */
+      }
+    }
+
     if (useItemsStore.getState().items.length === 0) {
       try {
         useNovaStore.getState().updateProgress(85, "Generating scope outline...");
@@ -822,10 +900,12 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
       const proj = useProjectStore.getState().project;
       const firmName = proj.architect || proj.engineer;
       if (firmName) {
-        const firmKey = useFirmMemoryStore.getState().registerFirm(
-          { architect: proj.architect, engineer: proj.engineer },
-          proj.architect ? "architect" : "engineer",
-        );
+        const firmKey = useFirmMemoryStore
+          .getState()
+          .registerFirm(
+            { architect: proj.architect, engineer: proj.engineer },
+            proj.architect ? "architect" : "engineer",
+          );
         if (firmKey) {
           useFirmMemoryStore.getState().learnFromScan(firmKey, results);
         }
