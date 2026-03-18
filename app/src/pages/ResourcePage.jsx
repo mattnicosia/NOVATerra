@@ -2920,6 +2920,7 @@ function ByDueDateView({ workload, C, T, navigate, onProjectClick }) {
 // ══════════════════════════════════════════════════════════
 function ScheduleSettings({ C, T }) {
   const [open, setOpen] = useState(false);
+  const ref = useRef(null);
   const productionHours = useUiStore(s => s.appSettings?.productionHoursPerDay) || 7;
   const bufferHours = useUiStore(s => s.appSettings?.bufferHours) || 0;
   const overheadPercent = useUiStore(s => s.appSettings?.overheadPercent) ?? 15;
@@ -2927,8 +2928,18 @@ function ScheduleSettings({ C, T }) {
   const aheadThreshold = useUiStore(s => s.appSettings?.aheadThreshold) ?? 15;
   const updateSetting = useUiStore(s => s.updateSetting);
 
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = e => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
   return (
-    <div style={{ position: "relative" }}>
+    <div style={{ position: "relative" }} ref={ref}>
       <button
         onClick={() => setOpen(o => !o)}
         style={{
@@ -2943,10 +2954,10 @@ function ScheduleSettings({ C, T }) {
           alignItems: "center",
           gap: 4,
         }}
-        title="Schedule Settings"
+        title="Settings"
       >
         <span style={{ fontSize: 13 }}>⚙</span>
-        <span style={{ fontWeight: 600 }}>Schedule</span>
+        <span style={{ fontWeight: 600 }}>Settings</span>
       </button>
       {open && (
         <div
@@ -2966,7 +2977,7 @@ function ScheduleSettings({ C, T }) {
           <div
             style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.bold, color: C.text, marginBottom: T.space[3] }}
           >
-            Schedule Settings
+            Settings
           </div>
 
           {/* Production Hours/Day */}
@@ -3155,38 +3166,33 @@ const GUIDE_VIDEO_URL = null; // Set to a Loom/YouTube embed URL to show video s
 const GUIDE_STEPS = [
   {
     num: "1",
-    icon: "📋",
     title: "Create & Set Status",
     desc: 'Create an estimate from the Projects page, then set its status to "Bidding" to make it appear here.',
   },
   {
     num: "2",
-    icon: "👋",
     title: "Drag to Assign",
     desc: "Unassigned projects appear in the amber tray at the top. Drag any project card onto an estimator to assign it.",
   },
   {
     num: "3",
-    icon: "🔄",
     title: "Reassign Anytime",
     desc: "Drag a project between estimator columns to reassign. Drop it back on the unassigned tray to remove the assignment.",
   },
   {
     num: "4",
-    icon: "📊",
     title: "Track Utilization",
     desc: "Each estimator shows a utilization percentage — green means capacity, amber means busy, red means overloaded.",
   },
   {
     num: "5",
-    icon: "⚡",
-    title: "Optimize & Plan",
-    desc: 'Use the "Optimize" button to auto-balance workloads, or "What If?" to simulate adding or removing projects.',
+    title: "NOVA Plan & Scenarios",
+    desc: 'Use "NOVA Plan" to auto-balance workloads, or "Scenarios" to simulate adding or removing projects.',
   },
 ];
 
 const GUIDE_TIPS = [
-  "Switch to Timeline view to see day-by-day Gantt scheduling",
+  "Use This Week view for day-by-day scheduling and drag-to-reschedule",
   "Double-click any project card to jump straight to the estimate",
   "The schedule status dot on each card shows if it's ahead, on-track, or behind",
   "Use the By Hours view to see detailed time breakdowns per estimator",
@@ -3300,7 +3306,6 @@ function ResourceGuideModal({ open, onClose }) {
                   marginBottom: 2,
                 }}
               >
-                <span style={{ fontSize: 14 }}>{step.icon}</span>
                 {step.title}
               </div>
               <div style={{ fontSize: T.fontSize.xs, color: C.textMuted, lineHeight: 1.5 }}>{step.desc}</div>
@@ -3569,8 +3574,7 @@ export default function ResourcePage() {
                 gap: 5,
               }}
             >
-              <span style={{ fontSize: 12 }}>⚡</span>
-              Optimize
+              NOVA Plan
             </button>
             <button
               onClick={() => setShowWhatIf(true)}
@@ -3588,8 +3592,7 @@ export default function ResourcePage() {
                 gap: 5,
               }}
             >
-              <span style={{ fontSize: 12 }}>🔮</span>
-              What If?
+              Scenarios
             </button>
           </>
         )}
@@ -3609,7 +3612,6 @@ export default function ResourcePage() {
             gap: 5,
           }}
         >
-          <span style={{ fontSize: 12 }}>📋</span>
           Reviews
           {pendingReviews > 0 && (
             <span
@@ -3619,9 +3621,10 @@ export default function ResourcePage() {
                 color: "#fff",
                 background: C.accent,
                 borderRadius: T.radius.full,
-                padding: "1px 6px",
-                minWidth: 16,
+                padding: "2px 7px",
+                minWidth: 18,
                 textAlign: "center",
+                lineHeight: "1.2",
               }}
             >
               {pendingReviews}
@@ -3645,7 +3648,6 @@ export default function ResourcePage() {
             gap: 5,
           }}
         >
-          <span style={{ fontSize: 12 }}>?</span>
           How It Works
         </button>
       </div>
@@ -3671,10 +3673,8 @@ export default function ResourcePage() {
           }}
         >
           {[
-            { key: "field", label: "Field" },
             { key: "board", label: "Board" },
-            { key: "timeline", label: "Timeline" },
-            { key: "weekly", label: "This Week" },
+            { key: "weekly", label: "Timeline" },
             { key: "hours", label: "By Hours" },
             { key: "due-date", label: "By Due Date" },
             { key: "analytics", label: "Analytics" },
@@ -3809,7 +3809,7 @@ export default function ResourcePage() {
       )}
 
       {/* Workload Trends — shows on Timeline and Analytics views */}
-      {(sortMode === "timeline" || sortMode === "analytics") && <WorkloadTrendsPanel workload={workload} C={C} T={T} />}
+      {(sortMode === "weekly" || sortMode === "analytics") && <WorkloadTrendsPanel workload={workload} C={C} T={T} />}
 
       {/* Estimator Scorecard Modal */}
       {scorecardEstimator && (

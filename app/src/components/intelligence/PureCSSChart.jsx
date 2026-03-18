@@ -24,7 +24,8 @@ export function BarChart({
     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
       <div style={{ display: "flex", alignItems: "flex-end", gap: 1, height, padding: "0 1px" }}>
         {data.map((d, i) => {
-          const pct = maxVal > 0 ? ((d.value - Math.min(0, minVal)) / (maxVal - Math.min(0, minVal))) * 100 : 0;
+          const rawPct = maxVal > 0 ? ((d.value - Math.min(0, minVal)) / (maxVal - Math.min(0, minVal))) * 100 : 0;
+          const pct = Math.min(100, rawPct);
           const h = Math.max(2, (pct / 100) * height);
           const color = d.color || barColor || C.accent;
           const isLast = i === data.length - 1;
