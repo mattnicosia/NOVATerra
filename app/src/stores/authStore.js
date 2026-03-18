@@ -30,12 +30,14 @@ function getDeviceInfo() {
   return { device, browser };
 }
 
-// ── Write active session token to DB (enforces single-session) ──
+// ── Session token: enforces single-device sign-in ──
+// ONLY called on explicit sign-in actions (password, signup, magic link callback).
+// NEVER called on page load / init — that would overwrite the DB and kick other tabs.
 async function writeSessionToken(userId) {
   if (!supabase || !userId) return;
   try {
     const token = crypto.randomUUID();
-    sessionStorage.setItem("bldg-session-token", token);
+    localStorage.setItem("bldg-session-token", token);
     const { device, browser } = getDeviceInfo();
     await supabase.from("user_active_session").upsert(
       {
@@ -51,6 +53,30 @@ async function writeSessionToken(userId) {
   } catch (err) {
     // Non-fatal — table may not exist yet (42P01)
     console.warn("[auth] writeSessionToken failed:", err.message || err);
+  }
+}
+
+// On page load with an existing session, adopt the DB token locally
+// instead of writing a new one. This prevents kicking other tabs/windows.
+async function adoptSessionToken(userId) {
+  if (!supabase || !userId) return;
+  // Already have a local token — nothing to do
+  if (localStorage.getItem("bldg-session-token")) return;
+  try {
+    const { data } = await supabase
+      .from("user_active_session")
+      .select("session_token")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (data?.session_token) {
+      localStorage.setItem("bldg-session-token", data.session_token);
+      console.log("[auth] Adopted session token from DB:", data.session_token.slice(0, 8) + "...");
+    } else {
+      // No DB row — this is effectively a first sign-in, write a new token
+      await writeSessionToken(userId);
+    }
+  } catch (err) {
+    console.warn("[auth] adoptSessionToken failed:", err.message || err);
   }
 }
 
@@ -122,8 +148,8 @@ export const useAuthStore = create((set, get) => ({
       } = await supabase.auth.getSession();
       if (session?.user) {
         set({ user: session.user, session, loading: false });
-        // Register this device as the active session
-        await writeSessionToken(session.user.id);
+        // Adopt existing token on page load — never overwrite DB on init
+        await adoptSessionToken(session.user.id);
         // Load org membership — awaited so orgReady is set before persistence loads
         await useOrgStore.getState().fetchOrg();
         // Auto-accept pending invite if present (e.g., from email link → signup → redirect)
@@ -148,8 +174,11 @@ export const useAuthStore = create((set, get) => ({
         if (currentUser?.id === session.user.id) return;
 
         set({ user: session.user, session, loading: false, magicLinkSent: false, authError: null });
-        // Register this device as the active session
-        writeSessionToken(session.user.id);
+        // Only write a new session token if we don't already have one locally
+        // (prevents page-load echoes from overwriting the DB token)
+        if (!localStorage.getItem("bldg-session-token")) {
+          writeSessionToken(session.user.id);
+        }
         // Load org membership in background, then check for pending invite
         useOrgStore
           .getState()
@@ -285,7 +314,7 @@ export const useAuthStore = create((set, get) => ({
     } catch {
       /* session cleanup non-critical */
     }
-    sessionStorage.removeItem("bldg-session-token");
+    localStorage.removeItem("bldg-session-token");
 
     await supabase.auth.signOut();
     resetAllStores();

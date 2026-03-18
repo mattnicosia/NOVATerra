@@ -20,6 +20,8 @@ import WorkloadTrendsPanel from "@/components/resources/WorkloadTrendsPanel";
 import PdfExport from "@/components/resources/PdfExport";
 import ResourceField from "@/components/resources/ResourceField";
 import ResourcePulse from "@/components/resources/ResourcePulse";
+import AtAGlance from "@/components/resources/AtAGlance";
+import EstimatorHeatmap from "@/components/resources/EstimatorHeatmap";
 import Modal from "@/components/shared/Modal";
 import { useReviewStore } from "@/stores/reviewStore";
 
@@ -2361,6 +2363,36 @@ function BoardView({ workload, C, T, navigate, onDrop, onProjectClick }) {
                 </div>
               </div>
 
+              {/* Pipeline revenue — revenue-linked allocation */}
+              {!row.pending && sorted.length > 0 && (() => {
+                const pipeline = sorted.reduce((s, e) => s + (e.grandTotal || 0), 0);
+                if (pipeline <= 0) return null;
+                const fmtPipeline = pipeline >= 1000000
+                  ? `$${(pipeline / 1000000).toFixed(1)}M`
+                  : pipeline >= 1000
+                    ? `$${(pipeline / 1000).toFixed(0)}K`
+                    : `$${pipeline.toLocaleString()}`;
+                return (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      marginBottom: T.space[2],
+                      padding: "4px 8px",
+                      borderRadius: T.radius.sm,
+                      background: C.isDark ? "rgba(48,209,88,0.06)" : "rgba(48,209,88,0.04)",
+                      border: `1px solid ${C.isDark ? "rgba(48,209,88,0.15)" : "rgba(48,209,88,0.10)"}`,
+                    }}
+                  >
+                    <span style={{ fontSize: 9, color: C.textDim, fontWeight: 600 }}>Pipeline</span>
+                    <span style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.bold, color: "#30D158" }}>
+                      {fmtPipeline}
+                    </span>
+                  </div>
+                );
+              })()}
+
               {/* Utilization bar */}
               <div style={{ marginBottom: T.space[3] }}>
                 <div
@@ -3673,6 +3705,7 @@ export default function ResourcePage() {
           }}
         >
           {[
+            { key: "glance", label: "At a Glance" },
             { key: "board", label: "Board" },
             { key: "weekly", label: "Timeline" },
             { key: "hours", label: "By Hours" },
@@ -3751,16 +3784,43 @@ export default function ResourcePage() {
         </div>
       )}
 
+      {/* At a Glance — daily overview */}
+      {sortMode === "glance" && (
+        <>
+          <AtAGlance
+            workload={workload}
+            C={C}
+            T={T}
+            navigate={navigate}
+            onProjectClick={handleProjectClick}
+          />
+          <div style={{ marginTop: T.space[4] }}>
+            <EstimatorHeatmap workload={workload} C={C} T={T} />
+          </div>
+          <div style={{ marginTop: T.space[3] }}>
+            <ResourcePulse />
+          </div>
+        </>
+      )}
+
       {/* Board View (default — drag-and-drop assignment) */}
       {sortMode === "board" && (
-        <BoardView
-          workload={workload}
-          C={C}
-          T={T}
-          navigate={navigate}
-          onDrop={handleDrop}
-          onProjectClick={handleProjectClick}
-        />
+        <>
+          <BoardView
+            workload={workload}
+            C={C}
+            T={T}
+            navigate={navigate}
+            onDrop={handleDrop}
+            onProjectClick={handleProjectClick}
+          />
+          <div style={{ marginTop: T.space[4] }}>
+            <EstimatorHeatmap workload={workload} C={C} T={T} />
+          </div>
+          <div style={{ marginTop: T.space[3] }}>
+            <ResourcePulse />
+          </div>
+        </>
       )}
 
       {/* Timeline View (Gantt Chart) */}
@@ -3776,6 +3836,9 @@ export default function ResourcePage() {
             workWeek={workWeek}
             onProjectClick={handleProjectClick}
           />
+          <div style={{ marginTop: T.space[3] }}>
+            <ResourcePulse />
+          </div>
           <AlertsSection warnings={workload.warnings} C={C} T={T} />
         </>
       )}

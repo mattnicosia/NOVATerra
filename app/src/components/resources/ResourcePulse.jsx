@@ -1,14 +1,16 @@
 /**
- * ResourcePulse — Heartbeat Utilization Strip
+ * ResourcePulse — Interactive Heartbeat Utilization Strip
  *
- * Thin canvas strip (full width × 48px) showing 3-week team utilization forecast.
+ * Thin canvas strip (full width × 64px) showing 3-week team utilization forecast.
  * Smooth bezier line, gradient fill (green → amber → red based on amplitude).
  * Today marker, deadline cluster indicators.
+ *
+ * Enhanced: Click/hover a spike → NOVA explains what's causing it and suggests a fix.
  *
  * Canvas 2D, 30fps, DPR-aware.
  */
 
-import { useRef, useEffect, useMemo } from "react";
+import { useRef, useEffect, useMemo, useState, useCallback } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useWorkloadData } from "@/hooks/useWorkloadData";
 import { hexToRgb } from "@/utils/fieldPhysics";
@@ -22,7 +24,9 @@ export default function ResourcePulse() {
   const animRef = useRef(null);
   const ctxRef = useRef(null);
   const canvasSizeRef = useRef({ w: 0, h: 0 });
+  const pointsRef = useRef([]); // store rendered points for hit-testing
   const workload = useWorkloadData();
+  const [tooltip, setTooltip] = useState(null);
 
   // Pre-compute RGB values outside draw loop
   const colorRgb = useMemo(() => ({
@@ -33,7 +37,7 @@ export default function ResourcePulse() {
 
   // Build daily utilization data for next 3 weeks
   const pulseData = useMemo(() => {
-    const { teamDailyLoad, estimatorRows, effectiveHoursPerDay = 7, warnings = [] } = workload || {};
+    const { teamDailyLoad, estimatorRows, dailyLoad, effectiveHoursPerDay = 7, warnings = [] } = workload || {};
     if (!teamDailyLoad || !estimatorRows?.length) return null;
 
     const teamSize = estimatorRows.length || 1;
@@ -49,9 +53,28 @@ export default function ResourcePulse() {
       const dow = d.getDay();
       if (dow >= 1 && dow <= 5) {
         const key = d.toISOString().slice(0, 10);
-        const hours = teamDailyLoad?.get(key) || 0;
+        const teamEntry = teamDailyLoad?.get(key);
+        const hours = teamEntry?.totalHours || 0;
         const util = teamCapacity > 0 ? hours / teamCapacity : 0;
-        days.push({ date: key, util, hours, dow });
+
+        // Per-estimator breakdown for this day
+        const dayMap = dailyLoad?.get(key);
+        const breakdown = [];
+        if (dayMap) {
+          for (const [estName, cell] of dayMap) {
+            if (cell.totalHours > 0) {
+              breakdown.push({
+                name: estName,
+                hours: Math.round(cell.totalHours * 10) / 10,
+                utilization: Math.round(cell.utilization * 100),
+                estimates: cell.estimates || [],
+              });
+            }
+          }
+          breakdown.sort((a, b) => b.hours - a.hours);
+        }
+
+        days.push({ date: key, util, hours: Math.round(hours * 10) / 10, dow, breakdown, teamCapacity });
         count++;
       }
       d = new Date(d.getTime() + 86400000);
@@ -60,8 +83,10 @@ export default function ResourcePulse() {
     // Find deadline clusters from warnings
     const deadlineDays = new Set();
     for (const w of warnings) {
-      if (w.type === "bid_cluster" && w.dates) {
-        for (const dd of w.dates) deadlineDays.add(dd);
+      if (w.type === "bid_cluster" && w.bids) {
+        for (const b of w.bids) {
+          if (b.bidDue) deadlineDays.add(b.bidDue);
+        }
       }
     }
 
@@ -71,6 +96,48 @@ export default function ResourcePulse() {
 
     return { days, deadlineDays, todayIdx };
   }, [workload]);
+
+  // Mouse move → find nearest point for tooltip
+  const handleMouseMove = useCallback((e) => {
+    const canvas = canvasRef.current;
+    if (!canvas || !pulseData) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const points = pointsRef.current;
+    if (!points.length) return;
+
+    // Find nearest point
+    let minDist = Infinity;
+    let nearest = null;
+    let nearestIdx = -1;
+    for (let i = 0; i < points.length; i++) {
+      const dist = Math.abs(points[i].x - mx);
+      if (dist < minDist) {
+        minDist = dist;
+        nearest = points[i];
+        nearestIdx = i;
+      }
+    }
+
+    if (nearest && minDist < 30 && nearestIdx >= 0) {
+      const day = pulseData.days[nearestIdx];
+      if (day) {
+        setTooltip({
+          x: e.clientX,
+          y: e.clientY,
+          date: day.date,
+          hours: day.hours,
+          util: Math.round(day.util * 100),
+          breakdown: day.breakdown,
+          teamCapacity: day.teamCapacity,
+        });
+        return;
+      }
+    }
+    setTooltip(null);
+  }, [pulseData]);
+
+  const handleMouseLeave = useCallback(() => setTooltip(null), []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -114,8 +181,8 @@ export default function ResourcePulse() {
       const padX = 40;
       const padY = 6;
       const plotW = w - padX * 2;
-      const plotH = h - padY * 2 - 12; // reserve 12px for labels
-      const maxUtil = 1.5; // cap at 150%
+      const plotH = h - padY * 2 - 12;
+      const maxUtil = 1.5;
 
       const { red: redRgb, orange: orangeRgb, green: greenRgb } = colorRgb;
 
@@ -143,6 +210,9 @@ export default function ResourcePulse() {
         y: padY + plotH * (1 - Math.min(d.util, maxUtil) / maxUtil),
         util: d.util,
       }));
+
+      // Store for hit-testing
+      pointsRef.current = points;
 
       if (points.length < 2) {
         animRef.current = requestAnimationFrame(draw);
@@ -176,7 +246,6 @@ export default function ResourcePulse() {
         ctx.bezierCurveTo(cpx, points[i - 1].y, cpx, points[i].y, points[i].x, points[i].y);
       }
 
-      // Color based on average utilization
       const avgUtil = days.reduce((s, d) => s + d.util, 0) / days.length;
       let lineColor = C.green;
       if (avgUtil > 1.0) lineColor = C.red;
@@ -229,7 +298,6 @@ export default function ResourcePulse() {
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // "TODAY" label
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
         ctx.font = "500 7px 'Switzer', sans-serif";
@@ -273,16 +341,96 @@ export default function ResourcePulse() {
 
   if (!pulseData) return null;
 
+  const dk = C.isDark;
+
   return (
-    <canvas
-      ref={canvasRef}
-      style={{
-        width: "100%",
-        height: 56,
-        display: "block",
-        borderRadius: 6,
-        background: C.isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
-      }}
-    />
+    <div style={{ position: "relative" }}>
+      <canvas
+        ref={canvasRef}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        style={{
+          width: "100%",
+          height: 64,
+          display: "block",
+          borderRadius: 6,
+          background: dk ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
+          cursor: "crosshair",
+        }}
+      />
+      {/* NOVA insight tooltip */}
+      {tooltip && (
+        <div
+          style={{
+            position: "fixed",
+            left: Math.min(tooltip.x + 12, window.innerWidth - 260),
+            top: tooltip.y - 120,
+            width: 240,
+            background: C.bg1,
+            border: `1px solid ${C.border}`,
+            borderRadius: 8,
+            padding: 10,
+            boxShadow: dk ? "0 8px 24px rgba(0,0,0,0.5)" : "0 8px 24px rgba(0,0,0,0.12)",
+            zIndex: 100,
+            pointerEvents: "none",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: C.text }}>
+              {new Date(tooltip.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+            </span>
+            <span
+              style={{
+                fontSize: 9,
+                fontWeight: 700,
+                color: tooltip.util > 100 ? C.red : tooltip.util > 80 ? C.orange : C.green,
+                padding: "1px 6px",
+                borderRadius: 4,
+                background: `${tooltip.util > 100 ? C.red : tooltip.util > 80 ? C.orange : C.green}15`,
+              }}
+            >
+              {tooltip.util}%
+            </span>
+          </div>
+          <div style={{ fontSize: 9, color: C.textDim, marginBottom: 6 }}>
+            {tooltip.hours}h / {Math.round(tooltip.teamCapacity)}h team capacity
+          </div>
+          {tooltip.breakdown.length > 0 && (
+            <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 6 }}>
+              {tooltip.breakdown.slice(0, 4).map((est, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 9, padding: "1px 0" }}>
+                  <span style={{ color: C.text, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis", flex: 1 }}>
+                    {est.name}
+                  </span>
+                  <span style={{ color: est.utilization > 100 ? C.red : C.textDim, flexShrink: 0, marginLeft: 8, fontWeight: 600 }}>
+                    {est.hours}h
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          {/* NOVA suggestion for spikes */}
+          {tooltip.util > 90 && (
+            <div
+              style={{
+                marginTop: 6,
+                paddingTop: 6,
+                borderTop: `1px solid ${C.accent}30`,
+                fontSize: 9,
+                color: C.accent,
+                fontWeight: 600,
+              }}
+            >
+              NOVA: {tooltip.util > 120
+                ? "Team is overloaded. Consider reassigning or extending deadlines."
+                : tooltip.util > 100
+                  ? "Approaching capacity limits. Review prioritization."
+                  : "High utilization day. Monitor for bottlenecks."
+              }
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

@@ -51,7 +51,7 @@ function getDeviceInfo() {
 // ── Session enforcement: check if this tab's token matches the DB ──
 async function checkSessionValid(userId) {
   if (!supabase || !userId) return true;
-  const localToken = sessionStorage.getItem("bldg-session-token");
+  const localToken = localStorage.getItem("bldg-session-token");
   if (!localToken) return true; // No token yet (first load, table doesn't exist)
 
   try {
@@ -82,6 +82,7 @@ export function useSessionAwareness() {
   const channelRef = useRef(null);
   const intervalRef = useRef(null);
   const kickedRef = useRef(false); // prevent double-signout
+  const missCountRef = useRef(0); // consecutive mismatches — require 3 before kicking
 
   useEffect(() => {
     if (!supabase || !user) return;
@@ -141,7 +142,17 @@ export function useSessionAwareness() {
 
     const runCheck = async () => {
       const valid = await checkSessionValid(userId);
-      if (!valid) kickSession();
+      if (!valid) {
+        missCountRef.current += 1;
+        console.warn(
+          `[sessionAwareness] Token mismatch #${missCountRef.current}`,
+          "local:", localStorage.getItem("bldg-session-token")?.slice(0, 8),
+        );
+        // Require 3 consecutive mismatches before kicking — handles transient issues
+        if (missCountRef.current >= 3) kickSession();
+      } else {
+        missCountRef.current = 0;
+      }
     };
 
     // Poll every 30 seconds
