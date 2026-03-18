@@ -1,18 +1,19 @@
-import { callAnthropic } from '@/utils/ai';
+import { callAnthropic } from "@/utils/ai";
 
 /** NOVATerra target fields available for CSV column mapping */
 export const OMNI_FIELDS = [
-  { key: "code",           label: "Code (CSI)",        type: "string" },
-  { key: "description",    label: "Description",       type: "string" },
-  { key: "division",       label: "Division",          type: "string" },
-  { key: "quantity",       label: "Quantity",           type: "number" },
-  { key: "unit",           label: "Unit",               type: "string" },
-  { key: "material",       label: "Material ($)",       type: "number" },
-  { key: "labor",          label: "Labor ($)",          type: "number" },
-  { key: "equipment",      label: "Equipment ($)",      type: "number" },
-  { key: "subcontractor",  label: "Subcontractor ($)",  type: "number" },
-  { key: "trade",          label: "Trade",              type: "string" },
-  { key: "notes",          label: "Notes",              type: "string" },
+  { key: "itemId", label: "Item ID", type: "string" },
+  { key: "code", label: "Code (CSI)", type: "string" },
+  { key: "description", label: "Description", type: "string" },
+  { key: "division", label: "Division", type: "string" },
+  { key: "quantity", label: "Quantity", type: "number" },
+  { key: "unit", label: "Unit", type: "string" },
+  { key: "material", label: "Material ($)", type: "number" },
+  { key: "labor", label: "Labor ($)", type: "number" },
+  { key: "equipment", label: "Equipment ($)", type: "number" },
+  { key: "subcontractor", label: "Subcontractor ($)", type: "number" },
+  { key: "trade", label: "Trade", type: "string" },
+  { key: "notes", label: "Notes", type: "string" },
 ];
 
 const FIELD_KEYS = new Set(OMNI_FIELDS.map(f => f.key));
@@ -22,6 +23,7 @@ const FIELD_KEYS = new Set(OMNI_FIELDS.map(f => f.key));
 const SYSTEM_PROMPT = `You are a construction estimating data mapper. Given CSV column headers and sample data from an estimating software export (likely ProEst), map each column to the appropriate NOVATerra estimating field.
 
 Available NOVATerra fields:
+- itemId: Internal item ID (for re-import / round-trip updates)
 - code: CSI division code (e.g., "03.100.010", "03 30 00")
 - description: Item description text
 - division: Division name or number
@@ -50,9 +52,7 @@ Return ONLY valid JSON: an object where keys are the exact CSV column header str
  * @returns {Promise<Record<string, string|null>>}
  */
 export async function suggestColumnMappings(_unused, headers, sampleRows) {
-  const table = [headers, ...sampleRows.slice(0, 5)]
-    .map(r => r.join(" | "))
-    .join("\n");
+  const table = [headers, ...sampleRows.slice(0, 5)].map(r => r.join(" | ")).join("\n");
 
   const userMsg = `CSV headers and sample data:\n\n${table}\n\nMap each column header to a NOVATerra field key or null. Return JSON only.`;
 
@@ -65,14 +65,17 @@ export async function suggestColumnMappings(_unused, headers, sampleRows) {
     });
 
     // Strip markdown fences if present
-    const cleaned = raw.replace(/```json\s*/gi, "").replace(/```\s*/gi, "").trim();
+    const cleaned = raw
+      .replace(/```json\s*/gi, "")
+      .replace(/```\s*/gi, "")
+      .trim();
     const parsed = JSON.parse(cleaned);
 
     // Validate: only allow known field keys or null
     const result = {};
     for (const h of headers) {
       const val = parsed[h];
-      result[h] = (val && FIELD_KEYS.has(val)) ? val : null;
+      result[h] = val && FIELD_KEYS.has(val) ? val : null;
     }
     return result;
   } catch (err) {
@@ -84,17 +87,18 @@ export async function suggestColumnMappings(_unused, headers, sampleRows) {
 // ─── Heuristic Fallback ─────────────────────────────────────────────
 
 const PATTERNS = {
-  code:          /\b(code|csi|item\s*#|item\s*num|wbs|cost\s*code)\b/i,
-  description:   /\b(desc|description|name|scope|item\s*desc|line\s*item)\b/i,
-  quantity:      /\b(qty|quantity|count|amount)\b/i,
-  unit:          /\b(unit|uom|u\/m|measure)\b/i,
-  material:      /\b(mat|material|mat\s*cost|unit\s*mat)\b/i,
-  labor:         /\b(lab|labor|labour|unit\s*lab)\b/i,
-  equipment:     /\b(equip|equipment|unit\s*equip)\b/i,
+  itemId: /\b(item\s*id|item_id|itemid|record\s*id|internal\s*id)\b/i,
+  code: /\b(code|csi|item\s*#|item\s*num|wbs|cost\s*code)\b/i,
+  description: /\b(desc|description|name|scope|item\s*desc|line\s*item)\b/i,
+  quantity: /\b(qty|quantity|count|amount)\b/i,
+  unit: /\b(unit|uom|u\/m|measure)\b/i,
+  material: /\b(mat|material|mat\s*cost|unit\s*mat)\b/i,
+  labor: /\b(lab|labor|labour|unit\s*lab)\b/i,
+  equipment: /\b(equip|equipment|unit\s*equip)\b/i,
   subcontractor: /\b(sub|subcontract|subcontractor|unit\s*sub)\b/i,
-  division:      /\b(div|division|section|category|phase)\b/i,
-  trade:         /\b(trade|craft|discipline)\b/i,
-  notes:         /\b(note|notes|remark|comment)\b/i,
+  division: /\b(div|division|section|category|phase)\b/i,
+  trade: /\b(trade|craft|discipline)\b/i,
+  notes: /\b(note|notes|remark|comment)\b/i,
 };
 
 /**

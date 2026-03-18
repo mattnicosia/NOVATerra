@@ -127,6 +127,7 @@ export function exportEstimateXlsx(project, items, totals, markup, opts = {}) {
   // Sheet 2: Line Items (detailed)
   // ═══════════════════════════════════════════════════════════════
   const itemHeaders = [
+    "Item ID",
     "Division",
     "Code",
     "Description",
@@ -149,6 +150,7 @@ export function exportEstimateXlsx(project, items, totals, markup, opts = {}) {
     const q = nn(it.quantity);
     const lineTotal = q * (nn(it.material) + nn(it.labor) + nn(it.equipment) + nn(it.subcontractor));
     return [
+      it.id || "",
       it.division || "",
       it.code || "",
       it.description || "",
@@ -169,6 +171,7 @@ export function exportEstimateXlsx(project, items, totals, markup, opts = {}) {
   const totalRow = [
     "",
     "",
+    "",
     `TOTAL (${items.length} items)`,
     "",
     "",
@@ -184,6 +187,7 @@ export function exportEstimateXlsx(project, items, totals, markup, opts = {}) {
 
   const wsItems = XLSX.utils.aoa_to_sheet([itemHeaders, ...itemRows, [], totalRow]);
   wsItems["!cols"] = [
+    { wch: 12 },
     { wch: 22 },
     { wch: 14 },
     { wch: 45 },
@@ -198,16 +202,16 @@ export function exportEstimateXlsx(project, items, totals, markup, opts = {}) {
     { wch: 16 },
     { wch: 14 },
   ];
-  // Currency formatting for cost columns (6-10)
+  // Currency formatting for cost columns (7-11, shifted +1 for ID column)
   for (let r = 1; r <= itemRows.length + 2; r++) {
-    for (let c = 6; c <= 10; c++) {
+    for (let c = 7; c <= 11; c++) {
       setCellFmt(wsItems, XLSX.utils.encode_cell({ r, c }), CURRENCY_FMT);
     }
   }
   // Freeze header row
   wsItems["!freeze"] = { xSplit: 0, ySplit: 1 };
   // Auto-filter
-  wsItems["!autofilter"] = { ref: `A1:M${itemRows.length + 1}` };
+  wsItems["!autofilter"] = { ref: `A1:N${itemRows.length + 1}` };
   XLSX.utils.book_append_sheet(wb, wsItems, "Line Items");
 
   // ═══════════════════════════════════════════════════════════════

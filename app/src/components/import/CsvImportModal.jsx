@@ -5,6 +5,7 @@ import { useUiStore } from "@/stores/uiStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useItemsStore } from "@/stores/itemsStore";
 import { useProjectStore } from "@/stores/projectStore";
+import { useSnapshotsStore } from "@/stores/snapshotsStore";
 import { loadEstimate } from "@/hooks/usePersistence";
 import { uid } from "@/utils/format";
 import { autoDirective } from "@/utils/directives";
@@ -46,6 +47,12 @@ export default function CsvImportModal({ onClose, mode }) {
   const [mappings, setMappings] = useState({});
   const [aiLoading, setAiLoading] = useState(false);
   const [divideTotals, setDivideTotals] = useState(false);
+  const [importMode, setImportMode] = useState("append"); // "append" | "update"
+
+  // Multi-sheet state
+  const [sheetNames, setSheetNames] = useState([]);
+  const [activeSheet, setActiveSheet] = useState("");
+  const [xlsxBuffer, setXlsxBuffer] = useState(null); // keep buffer for sheet switching
 
   // New estimate fields (mode="new")
   const [estName, setEstName] = useState("");
@@ -115,6 +122,52 @@ export default function CsvImportModal({ onClose, mode }) {
     return false;
   }, []);
 
+  /** Parse a sheet and advance to mapping step */
+  const applyParsed = useCallback(async (parsed, name) => {
+    if (!parsed.headers.length) {
+      useUiStore.getState().showToast("Could not parse file — no headers found", "error");
+      return;
+    }
+    setHeaders(parsed.headers);
+    setRows(parsed.rows);
+    if (parsed.sheetNames?.length > 1) {
+      setSheetNames(parsed.sheetNames);
+      setActiveSheet(parsed.sheetNames.indexOf(name) >= 0 ? name : parsed.sheetNames[0]);
+    }
+    setStep("mapping");
+    setAiLoading(true);
+    try {
+      const suggested = await suggestColumnMappings(null, parsed.headers, parsed.rows.slice(0, 5));
+      setMappings(suggested);
+    } catch {
+      setMappings(heuristicMapping(parsed.headers));
+    } finally {
+      setAiLoading(false);
+    }
+  }, []);
+
+  /** Switch to a different sheet in a multi-sheet workbook */
+  const switchSheet = useCallback(
+    async name => {
+      if (!xlsxBuffer) return;
+      setActiveSheet(name);
+      const parsed = parseXLSX(xlsxBuffer, { sheetName: name });
+      setHeaders(parsed.headers);
+      setRows(parsed.rows);
+      setMappings({});
+      setAiLoading(true);
+      try {
+        const suggested = await suggestColumnMappings(null, parsed.headers, parsed.rows.slice(0, 5));
+        setMappings(suggested);
+      } catch {
+        setMappings(heuristicMapping(parsed.headers));
+      } finally {
+        setAiLoading(false);
+      }
+    },
+    [xlsxBuffer],
+  );
+
   const handleFile = useCallback(
     file => {
       if (!file) return;
@@ -124,41 +177,25 @@ export default function CsvImportModal({ onClose, mode }) {
         let parsed;
 
         if (isExcelFile(file, buffer)) {
-          // Excel file → use XLSX parser
+          // Excel file → use XLSX parser (preserve buffer for sheet switching)
+          setXlsxBuffer(buffer);
           parsed = parseXLSX(buffer);
         } else if (file.name.toLowerCase().endsWith(".xml") || isBluebeamXml(buffer)) {
-          // Bluebeam XML → use XML parser
+          setXlsxBuffer(null);
           parsed = parseBluebeamXml(buffer);
         } else {
-          // CSV/TSV → decode text and use CSV parser
+          setXlsxBuffer(null);
           const text = decodeFile(buffer);
           parsed = parseCSV(text);
         }
 
-        if (!parsed.headers.length) {
-          useUiStore.getState().showToast("Could not parse file — no headers found", "error");
-          return;
-        }
         setFileName(file.name);
-        setHeaders(parsed.headers);
-        setRows(parsed.rows);
         setEstName(file.name.replace(/\.[^.]+$/, ""));
-
-        // Auto-map columns
-        setStep("mapping");
-        setAiLoading(true);
-        try {
-          const suggested = await suggestColumnMappings(null, parsed.headers, parsed.rows.slice(0, 5));
-          setMappings(suggested);
-        } catch {
-          setMappings(heuristicMapping(parsed.headers));
-        } finally {
-          setAiLoading(false);
-        }
+        await applyParsed(parsed, parsed.sheetNames?.[0] || "");
       };
       reader.readAsArrayBuffer(file);
     },
-    [decodeFile, isExcelFile],
+    [decodeFile, isExcelFile, applyParsed],
   );
 
   const onFileChange = e => {
@@ -205,7 +242,7 @@ export default function CsvImportModal({ onClose, mode }) {
 
     try {
       const newItems = previewItems.map(preset => ({
-        id: uid(),
+        id: preset.itemId || uid(),
         code: preset.code || "",
         description: preset.name || "",
         division: preset.division || "",
@@ -257,9 +294,51 @@ export default function CsvImportModal({ onClose, mode }) {
         onClose();
         navigate(`/estimate/${id}/takeoffs`);
       } else {
-        // Append mode
+        // Snapshot current state before modifying
+        const activeId = useUiStore.getState().activeEstimateId;
+        if (activeId) {
+          const curItems = useItemsStore.getState().items;
+          const curTotals = useItemsStore.getState().getTotals();
+          const curProject = useProjectStore.getState().project;
+          useSnapshotsStore
+            .getState()
+            .captureSnapshot(activeId, curItems, curTotals, {}, null, null, curProject, {
+              label: `Pre-import (${fileName})`,
+              trigger: "auto",
+            });
+        }
+
         const current = useItemsStore.getState().items;
-        useItemsStore.getState().setItems([...current, ...newItems]);
+
+        if (importMode === "update") {
+          // Update/merge mode — match by ID, update existing items, add new ones
+          const existingMap = new Map(current.map(it => [it.id, it]));
+          let updated = 0;
+          let added = 0;
+          const merged = [...current];
+
+          for (const item of newItems) {
+            const existing = existingMap.get(item.id);
+            if (existing) {
+              // Update in place
+              const idx = merged.findIndex(it => it.id === item.id);
+              if (idx >= 0) {
+                merged[idx] = { ...existing, ...item };
+                updated++;
+              }
+            } else {
+              merged.push(item);
+              added++;
+            }
+          }
+          useItemsStore.getState().setItems(merged);
+          useUiStore
+            .getState()
+            .showToast(`Updated ${updated}, added ${added} item${added !== 1 ? "s" : ""} from import`, "success");
+        } else {
+          // Append mode
+          useItemsStore.getState().setItems([...current, ...newItems]);
+        }
         onClose();
       }
 
@@ -298,7 +377,9 @@ export default function CsvImportModal({ onClose, mode }) {
         <div>
           <div style={{ fontSize: T.fontSize.lg, fontWeight: T.fontWeight.bold, color: C.text }}>Import Estimate</div>
           <div style={{ fontSize: T.fontSize.sm, color: C.textMuted }}>
-            {mode === "new" ? "Create a new estimate from Excel, CSV, or Bluebeam XML" : "Add items from Excel, CSV, or Bluebeam XML"}
+            {mode === "new"
+              ? "Create a new estimate from Excel, CSV, or Bluebeam XML"
+              : "Add items from Excel, CSV, or Bluebeam XML"}
           </div>
         </div>
       </div>
@@ -329,7 +410,8 @@ export default function CsvImportModal({ onClose, mode }) {
               Drop a file here, or <span style={{ color: C.accent, fontWeight: T.fontWeight.semibold }}>browse</span>
             </div>
             <div style={{ fontSize: T.fontSize.xs, color: C.textDim, marginTop: T.space[1] }}>
-              Supports .xlsx, .xls, .csv, and Bluebeam .xml exports from ProEst, Sage, STACK, Excel, or any estimating software
+              Supports .xlsx, .xls, .csv, and Bluebeam .xml exports from ProEst, Sage, STACK, Excel, or any estimating
+              software
             </div>
           </div>
           <input
@@ -373,6 +455,36 @@ export default function CsvImportModal({ onClose, mode }) {
               Change file
             </button>
           </div>
+
+          {/* Sheet tabs for multi-sheet Excel files */}
+          {sheetNames.length > 1 && (
+            <div
+              style={{
+                display: "flex",
+                gap: 2,
+                marginBottom: T.space[3],
+                overflowX: "auto",
+              }}
+            >
+              {sheetNames.map(name => (
+                <button
+                  key={name}
+                  onClick={() => switchSheet(name)}
+                  style={bt(C, {
+                    padding: "4px 12px",
+                    fontSize: 10,
+                    fontWeight: 600,
+                    background: name === activeSheet ? `${C.accent}15` : "transparent",
+                    color: name === activeSheet ? C.accent : C.textDim,
+                    border: `1px solid ${name === activeSheet ? C.accent + "40" : C.border}`,
+                    borderRadius: T.radius.full,
+                  })}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* AI mapping badge */}
           {aiLoading && (
@@ -472,6 +584,37 @@ export default function CsvImportModal({ onClose, mode }) {
               Cost columns are totals (divide by quantity to get unit rates)
             </span>
           </div>
+
+          {/* Import mode toggle (append vs update) — only for existing estimates */}
+          {mode !== "new" && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: T.space[3],
+                marginBottom: T.space[4],
+              }}
+            >
+              <span style={{ fontSize: T.fontSize.sm, color: C.textMuted }}>Mode:</span>
+              {["append", "update"].map(m => (
+                <button
+                  key={m}
+                  onClick={() => setImportMode(m)}
+                  style={bt(C, {
+                    padding: "4px 12px",
+                    fontSize: 10,
+                    fontWeight: 600,
+                    background: importMode === m ? `${C.accent}15` : "transparent",
+                    color: importMode === m ? C.accent : C.textDim,
+                    border: `1px solid ${importMode === m ? C.accent + "40" : C.border}`,
+                    borderRadius: T.radius.full,
+                  })}
+                >
+                  {m === "append" ? "Add New Items" : "Update Existing (by ID)"}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* New estimate fields */}
           {mode === "new" && (
