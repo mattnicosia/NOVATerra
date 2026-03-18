@@ -1868,8 +1868,22 @@ function ProjectQuickActions({ data, onClose, estimatorRows, C, T, navigate }) {
         </button>
       )}
 
-      {/* ─── Hours Logged ─── */}
-      <div style={sectionTitle}>Hours Logged</div>
+      {/* ─── Hours ─── */}
+      <div style={sectionTitle}>Hours</div>
+      <div style={{ display: "flex", gap: 12, marginBottom: 6 }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 8, color: C.textDim, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 2 }}>Estimated</div>
+          <div style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.bold, color: C.text }}>{estimatedHours}h</div>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 8, color: C.textDim, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 2 }}>Logged</div>
+          <div style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.bold, color: C.text }}>{hoursLogged}h</div>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 8, color: C.textDim, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 2 }}>Remaining</div>
+          <div style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.bold, color: estimatedHours - hoursLogged <= 0 ? "#30D158" : C.text }}>{Math.max(0, estimatedHours - hoursLogged)}h</div>
+        </div>
+      </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <input
           type="number"
@@ -1881,7 +1895,7 @@ function ProjectQuickActions({ data, onClose, estimatorRows, C, T, navigate }) {
           style={{ ...inputStyle, flex: 1 }}
         />
         <span style={{ fontSize: 10, color: C.textDim, fontWeight: 600, whiteSpace: "nowrap" }}>
-          / {estimatedHours}h
+          override
         </span>
       </div>
       {manualHoursLogged != null && (
@@ -2939,7 +2953,7 @@ function ScheduleSettings({ C, T }) {
           style={{
             position: "absolute",
             top: "calc(100% + 6px)",
-            right: 0,
+            left: 0,
             background: C.bg1,
             border: `1px solid ${C.border}`,
             borderRadius: T.radius.md,
