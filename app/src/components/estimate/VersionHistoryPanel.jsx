@@ -421,6 +421,102 @@ export default function VersionHistoryPanel({ estimateId, onClose }) {
                 ))}
             </div>
           )}
+
+          {/* Item-level changes */}
+          {delta.items &&
+            (delta.items.added.length > 0 || delta.items.removed.length > 0 || delta.items.changed.length > 0) && (
+              <div style={{ marginTop: T.space[2] }}>
+                <div style={{ fontSize: 8, fontWeight: 700, color: C.textDim, marginBottom: 4 }}>Item Changes</div>
+
+                {/* Summary counts */}
+                <div style={{ display: "flex", gap: T.space[3], marginBottom: 4 }}>
+                  {delta.items.added.length > 0 && (
+                    <span style={{ fontSize: 9, fontWeight: 600, color: C.green }}>
+                      +{delta.items.added.length} added
+                    </span>
+                  )}
+                  {delta.items.removed.length > 0 && (
+                    <span style={{ fontSize: 9, fontWeight: 600, color: C.red }}>
+                      -{delta.items.removed.length} removed
+                    </span>
+                  )}
+                  {delta.items.changed.length > 0 && (
+                    <span style={{ fontSize: 9, fontWeight: 600, color: C.orange || C.accent }}>
+                      ~{delta.items.changed.length} modified
+                    </span>
+                  )}
+                </div>
+
+                {/* Added items */}
+                {delta.items.added.slice(0, 5).map(item => (
+                  <div
+                    key={item.id}
+                    style={{ display: "flex", justifyContent: "space-between", fontSize: 9, padding: "1px 0" }}
+                  >
+                    <span style={{ color: C.green }}>+ {item.description || item.code || "Unnamed"}</span>
+                    <span style={{ color: C.green, fontWeight: 600 }}>
+                      {fmt(
+                        (parseFloat(item.quantity) || 0) *
+                          ((parseFloat(item.material) || 0) +
+                            (parseFloat(item.labor) || 0) +
+                            (parseFloat(item.equipment) || 0) +
+                            (parseFloat(item.subcontractor) || 0)),
+                      )}
+                    </span>
+                  </div>
+                ))}
+
+                {/* Removed items */}
+                {delta.items.removed.slice(0, 5).map(item => (
+                  <div
+                    key={item.id}
+                    style={{ display: "flex", justifyContent: "space-between", fontSize: 9, padding: "1px 0" }}
+                  >
+                    <span style={{ color: C.red }}>- {item.description || item.code || "Unnamed"}</span>
+                    <span style={{ color: C.red, fontWeight: 600 }}>
+                      {fmt(
+                        (parseFloat(item.quantity) || 0) *
+                          ((parseFloat(item.material) || 0) +
+                            (parseFloat(item.labor) || 0) +
+                            (parseFloat(item.equipment) || 0) +
+                            (parseFloat(item.subcontractor) || 0)),
+                      )}
+                    </span>
+                  </div>
+                ))}
+
+                {/* Changed items */}
+                {delta.items.changed.slice(0, 5).map(({ id, item, diffs }) => (
+                  <div key={id} style={{ fontSize: 9, padding: "1px 0" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: C.orange || C.accent }}>
+                        ~ {item.description || item.code || "Unnamed"}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 8, color: C.textDim, paddingLeft: 10 }}>
+                      {Object.entries(diffs)
+                        .slice(0, 3)
+                        .map(([field, { from, to }]) => (
+                          <span key={field} style={{ marginRight: 8 }}>
+                            {field}: {String(from ?? "—")} → {String(to ?? "—")}
+                          </span>
+                        ))}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Overflow indicator */}
+                {(delta.items.added.length > 5 || delta.items.removed.length > 5 || delta.items.changed.length > 5) && (
+                  <div style={{ fontSize: 8, color: C.textDim, marginTop: 2, fontStyle: "italic" }}>
+                    ...and{" "}
+                    {Math.max(0, delta.items.added.length - 5) +
+                      Math.max(0, delta.items.removed.length - 5) +
+                      Math.max(0, delta.items.changed.length - 5)}{" "}
+                    more changes
+                  </div>
+                )}
+              </div>
+            )}
         </div>
       )}
     </div>

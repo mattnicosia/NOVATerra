@@ -101,6 +101,10 @@ export const useSnapshotsStore = create((set, get) => ({
       projectName: project?.name || "",
       // Store full items for restore capability
       items: items.map(i => ({ ...i })),
+      // Store markup config for full restore
+      markup: markup && typeof markup === "object" ? { ...markup } : undefined,
+      markupOrder: Array.isArray(markupOrder) ? markupOrder.map(m => ({ ...m })) : undefined,
+      customMarkups: Array.isArray(customMarkups) ? customMarkups.map(m => ({ ...m })) : undefined,
     };
 
     set(s => {
@@ -148,13 +152,28 @@ export const useSnapshotsStore = create((set, get) => ({
     // Auto-capture pre-restore snapshot of current state
     const currentItems = useItemsStore.getState().items;
     const currentTotals = useItemsStore.getState().getTotals();
-    get().captureSnapshot(estimateId, currentItems, currentTotals, {}, null, null, {}, {
-      label: `Pre-restore (→ ${target.label || target.dateStr})`,
-      trigger: "auto",
-    });
+    get().captureSnapshot(
+      estimateId,
+      currentItems,
+      currentTotals,
+      {},
+      null,
+      null,
+      {},
+      {
+        label: `Pre-restore (→ ${target.label || target.dateStr})`,
+        trigger: "auto",
+      },
+    );
 
     // Restore items
     useItemsStore.getState().setItems(target.items.map(i => ({ ...i })));
+
+    // Restore markup config if stored
+    if (target.markup) useItemsStore.getState().setMarkup({ ...target.markup });
+    if (target.markupOrder) useItemsStore.getState().setMarkupOrder(target.markupOrder.map(m => ({ ...m })));
+    if (target.customMarkups) useItemsStore.getState().setCustomMarkups(target.customMarkups.map(m => ({ ...m })));
+
     return { ok: true };
   },
 
@@ -206,6 +225,52 @@ export const useSnapshotsStore = create((set, get) => ({
         pct: a ? ((b - a) / a) * 100 : b ? 100 : 0,
       };
     });
+
+    // Item-level diff (only when both snapshots have items)
+    if (snapA.items && snapB.items) {
+      const mapA = new Map(snapA.items.map(i => [i.id, i]));
+      const mapB = new Map(snapB.items.map(i => [i.id, i]));
+
+      const added = [];
+      const removed = [];
+      const changed = [];
+
+      for (const [id, itemB] of mapB) {
+        const itemA = mapA.get(id);
+        if (!itemA) {
+          added.push(itemB);
+        } else {
+          // Check for meaningful changes
+          const fields = [
+            "description",
+            "quantity",
+            "material",
+            "labor",
+            "equipment",
+            "subcontractor",
+            "unit",
+            "division",
+          ];
+          const diffs = {};
+          let hasChange = false;
+          for (const f of fields) {
+            const va = String(itemA[f] ?? "");
+            const vb = String(itemB[f] ?? "");
+            if (va !== vb) {
+              diffs[f] = { from: itemA[f], to: itemB[f] };
+              hasChange = true;
+            }
+          }
+          if (hasChange) changed.push({ id, item: itemB, diffs });
+        }
+      }
+
+      for (const [id, itemA] of mapA) {
+        if (!mapB.has(id)) removed.push(itemA);
+      }
+
+      delta.items = { added, removed, changed };
+    }
 
     return delta;
   },
