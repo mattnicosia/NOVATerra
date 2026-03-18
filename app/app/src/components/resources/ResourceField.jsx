@@ -8,7 +8,7 @@
  * Follows the ProjectPulseWidget pattern.
  */
 
-import { useRef, useEffect, useCallback } from "react";
+import { useRef, useEffect, useCallback, useMemo } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useWorkloadData } from "@/hooks/useWorkloadData";
 import { useFieldParticles } from "@/hooks/useFieldParticles";
@@ -20,27 +20,34 @@ export default function ResourceField() {
   const C = useTheme();
   const canvasRef = useRef(null);
   const animRef = useRef(null);
+  const ctxRef = useRef(null);
   const startTimeRef = useRef(null);
   const ringsRef = useRef([]);
   const unassignedRef = useRef([]);
+  const teamUtilRef = useRef(0);
+  const canvasSizeRef = useRef({ w: 0, h: 0 });
 
   const workloadData = useWorkloadData();
 
   // Derive field radius from container size (computed on each frame)
   const fieldRadiusRef = useRef(200);
 
-  const colors = {
-    accent: C.accent,
-    blue: C.blue,
-    green: C.green,
-    orange: C.orange,
-    red: C.red,
-    text: C.text,
-    textDim: C.textDim,
-    textMuted: C.textMuted,
-    bg: C.bg,
-    surface: C.surface,
-  };
+  // Memoize colors to avoid restarting RAF loop on every render
+  const colors = useMemo(
+    () => ({
+      accent: C.accent,
+      blue: C.blue,
+      green: C.green,
+      orange: C.orange,
+      red: C.red,
+      text: C.text,
+      textDim: C.textDim,
+      textMuted: C.textMuted,
+      bg: C.bg,
+      surface: C.surface,
+    }),
+    [C.accent, C.blue, C.green, C.orange, C.red, C.text, C.textDim, C.textMuted, C.bg, C.surface],
+  );
 
   const { rings, unassignedParticles, teamUtilization } = useFieldParticles(
     workloadData,
@@ -51,11 +58,9 @@ export default function ResourceField() {
   // Keep refs in sync for the RAF loop (avoids stale closures)
   ringsRef.current = rings;
   unassignedRef.current = unassignedParticles;
+  teamUtilRef.current = teamUtilization;
 
-  // Store state
-  const hoveredNodeId = useFieldStore(s => s.hoveredNodeId);
-  const hoveredRingIdx = useFieldStore(s => s.hoveredRingIdx);
-  const selectedNodeId = useFieldStore(s => s.selectedNodeId);
+  // Store actions (stable refs from Zustand)
   const setHoveredNode = useFieldStore(s => s.setHoveredNode);
   const clearHover = useFieldStore(s => s.clearHover);
   const setSelectedNode = useFieldStore(s => s.setSelectedNode);
@@ -70,6 +75,7 @@ export default function ResourceField() {
     let last = 0;
     const interval = 1000 / 30;
     startTimeRef.current = performance.now();
+    ctxRef.current = canvas.getContext("2d");
 
     const draw = ts => {
       if (ts - last < interval) {
@@ -78,7 +84,8 @@ export default function ResourceField() {
       }
       last = ts;
 
-      const ctx = canvas.getContext("2d");
+      const ctx = ctxRef.current;
+      if (!ctx) return;
       const dpr = window.devicePixelRatio || 1;
       const rect = canvas.getBoundingClientRect();
       const w = rect.width;
@@ -88,9 +95,16 @@ export default function ResourceField() {
         return;
       }
 
-      canvas.width = w * dpr;
-      canvas.height = h * dpr;
-      ctx.scale(dpr, dpr);
+      // Only resize canvas buffer when dimensions change
+      const targetW = Math.round(w * dpr);
+      const targetH = Math.round(h * dpr);
+      if (canvasSizeRef.current.w !== targetW || canvasSizeRef.current.h !== targetH) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+        canvasSizeRef.current = { w: targetW, h: targetH };
+      }
+
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
       const cx = w / 2;
       const cy = h / 2;
@@ -108,7 +122,7 @@ export default function ResourceField() {
         rings: ringsRef.current,
         unassignedParticles: unassignedRef.current,
         unassignedRadius: getUnassignedRadius(fieldRadius),
-        teamUtilization,
+        teamUtilization: teamUtilRef.current,
         colors,
         hoveredNodeId: useFieldStore.getState().hoveredNodeId,
         hoveredRingIdx: useFieldStore.getState().hoveredRingIdx,
@@ -124,7 +138,7 @@ export default function ResourceField() {
     return () => {
       if (animRef.current) cancelAnimationFrame(animRef.current);
     };
-  }, [C, teamUtilization, colors]);
+  }, [colors]);
 
   // ── Mouse interaction ──
   const onMouseMove = useCallback(

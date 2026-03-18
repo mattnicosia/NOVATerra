@@ -1,0 +1,30 @@
+*.png
+*.jpg
+*.jpeg
+*.mp4
+*.webm
+*.pdf
+*.zip
+*.docx
+*.blend
+*.blend1
+*.py
+blender/
+renders/
+NOVA/
+nova-transparent/
+files/
+strategy/
+Database Input/
+NOVA Knowledge Base/
+Lamborghini*
+build-docx.js
+clean_craftsman.py
+parse_craftsman.py
+estimate-element-map.html
+estimate-legend.html
+BLDG-Omni-Brand-Kit.html
+*.sql
+!app/**
+node_modules/
+.git/

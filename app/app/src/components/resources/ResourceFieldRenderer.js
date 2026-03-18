@@ -118,23 +118,44 @@ function drawCenterGlow(ctx, cx, cy, util, colors, time) {
   const { r, g, b } = hexToRgb(glowColor);
 
   // Breathing pulse
-  const pulse = 0.3 + Math.sin(time * 1.2) * 0.08;
-  const coreR = 40 + Math.sin(time * 0.8) * 4;
+  const pulse = 0.35 + Math.sin(time * 1.2) * 0.1;
+  const coreR = 44 + Math.sin(time * 0.8) * 5;
 
-  // Outer glow
-  const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreR + 20);
-  grd.addColorStop(0, `rgba(${r},${g},${b},${pulse + 0.15})`);
-  grd.addColorStop(0.35, `rgba(${r},${g},${b},${pulse * 0.5})`);
-  grd.addColorStop(1, `rgba(${r},${g},${b},0)`);
+  // Wide ambient glow
+  const grdWide = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreR + 35);
+  grdWide.addColorStop(0, `rgba(${r},${g},${b},${pulse * 0.6})`);
+  grdWide.addColorStop(0.3, `rgba(${r},${g},${b},${pulse * 0.25})`);
+  grdWide.addColorStop(0.7, `rgba(${r},${g},${b},${pulse * 0.06})`);
+  grdWide.addColorStop(1, `rgba(${r},${g},${b},0)`);
   ctx.beginPath();
-  ctx.arc(cx, cy, coreR + 20, 0, Math.PI * 2);
-  ctx.fillStyle = grd;
+  ctx.arc(cx, cy, coreR + 35, 0, Math.PI * 2);
+  ctx.fillStyle = grdWide;
+  ctx.fill();
+
+  // Tight core glow
+  const grdCore = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreR * 0.6);
+  grdCore.addColorStop(0, `rgba(${r},${g},${b},${pulse + 0.2})`);
+  grdCore.addColorStop(0.5, `rgba(${r},${g},${b},${pulse * 0.4})`);
+  grdCore.addColorStop(1, `rgba(${r},${g},${b},0)`);
+  ctx.beginPath();
+  ctx.arc(cx, cy, coreR * 0.6, 0, Math.PI * 2);
+  ctx.fillStyle = grdCore;
   ctx.fill();
 
   // Bright center dot
   ctx.beginPath();
-  ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+  ctx.arc(cx, cy, 5, 0, Math.PI * 2);
   ctx.fillStyle = glowColor;
+  ctx.fill();
+
+  // Specular on center dot
+  const specGrd = ctx.createRadialGradient(cx - 1.5, cy - 1.5, 0, cx, cy, 5);
+  specGrd.addColorStop(0, `rgba(255,255,255,0.6)`);
+  specGrd.addColorStop(0.5, `rgba(255,255,255,0.1)`);
+  specGrd.addColorStop(1, `rgba(255,255,255,0)`);
+  ctx.beginPath();
+  ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+  ctx.fillStyle = specGrd;
   ctx.fill();
 }
 
@@ -176,28 +197,47 @@ function drawNode(ctx, cx, cy, ring, node, isHovered, isSelected, time, reducedM
   const { r, g, b } = hexToRgb(node.statusColor);
   const size = node.size;
 
-  // ── Glow halo ──
-  const glowRadius = isHovered ? size * 5 : isSelected ? size * 4.5 : size * 3;
-  const glowAlpha = isHovered ? 0.35 : isSelected ? 0.3 : 0.18;
-  const grd = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, glowRadius);
-  grd.addColorStop(0, `rgba(${r},${g},${b},${glowAlpha})`);
-  grd.addColorStop(1, `rgba(${r},${g},${b},0)`);
+  // ── Outer glow halo (wide, soft bloom) ──
+  const outerGlow = isHovered ? size * 7 : isSelected ? size * 6 : size * 5;
+  const outerAlpha = isHovered ? 0.3 : isSelected ? 0.25 : 0.18;
+  const grdOuter = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, outerGlow);
+  grdOuter.addColorStop(0, `rgba(${r},${g},${b},${outerAlpha})`);
+  grdOuter.addColorStop(0.4, `rgba(${r},${g},${b},${outerAlpha * 0.4})`);
+  grdOuter.addColorStop(1, `rgba(${r},${g},${b},0)`);
   ctx.beginPath();
-  ctx.arc(pos.x, pos.y, glowRadius, 0, Math.PI * 2);
-  ctx.fillStyle = grd;
+  ctx.arc(pos.x, pos.y, outerGlow, 0, Math.PI * 2);
+  ctx.fillStyle = grdOuter;
+  ctx.fill();
+
+  // ── Inner glow (tight, bright — gives sphere depth) ──
+  const innerGlow = isHovered ? size * 3.5 : isSelected ? size * 3 : size * 2.5;
+  const innerAlpha = isHovered ? 0.5 : isSelected ? 0.45 : 0.35;
+  const grdInner = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, innerGlow);
+  grdInner.addColorStop(0, `rgba(${r},${g},${b},${innerAlpha})`);
+  grdInner.addColorStop(0.5, `rgba(${r},${g},${b},${innerAlpha * 0.3})`);
+  grdInner.addColorStop(1, `rgba(${r},${g},${b},0)`);
+  ctx.beginPath();
+  ctx.arc(pos.x, pos.y, innerGlow, 0, Math.PI * 2);
+  ctx.fillStyle = grdInner;
   ctx.fill();
 
   // ── Node core ──
-  const coreSize = isHovered ? size * 1.3 : isSelected ? size * 1.2 : size;
+  const coreSize = isHovered ? size * 1.4 : isSelected ? size * 1.3 : size * 1.1;
   ctx.beginPath();
   ctx.arc(pos.x, pos.y, coreSize, 0, Math.PI * 2);
   ctx.fillStyle = node.statusColor;
   ctx.fill();
 
-  // ── Inner bright dot ──
+  // ── Specular highlight (sphere illusion) ──
+  const specX = pos.x - coreSize * 0.25;
+  const specY = pos.y - coreSize * 0.25;
+  const specGrd = ctx.createRadialGradient(specX, specY, 0, pos.x, pos.y, coreSize);
+  specGrd.addColorStop(0, `rgba(255,255,255,0.55)`);
+  specGrd.addColorStop(0.4, `rgba(255,255,255,0.12)`);
+  specGrd.addColorStop(1, `rgba(255,255,255,0)`);
   ctx.beginPath();
-  ctx.arc(pos.x, pos.y, coreSize * 0.35, 0, Math.PI * 2);
-  ctx.fillStyle = `rgba(255,255,255,0.5)`;
+  ctx.arc(pos.x, pos.y, coreSize, 0, Math.PI * 2);
+  ctx.fillStyle = specGrd;
   ctx.fill();
 
   // ── Selection ring ──
@@ -305,19 +345,45 @@ function drawUnassignedRing(ctx, cx, cy, radius, particles, time, reducedMotion,
     }
     const pos = polarToXY(angle, radius, cx, cy);
 
-    // Glow
-    const grd = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, p.size * 3);
-    grd.addColorStop(0, `rgba(${r},${g},${b},0.2)`);
-    grd.addColorStop(1, `rgba(${r},${g},${b},0)`);
+    // Outer glow
+    const outerR = p.size * 4.5;
+    const grdOuter = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, outerR);
+    grdOuter.addColorStop(0, `rgba(${r},${g},${b},0.22)`);
+    grdOuter.addColorStop(0.4, `rgba(${r},${g},${b},0.08)`);
+    grdOuter.addColorStop(1, `rgba(${r},${g},${b},0)`);
     ctx.beginPath();
-    ctx.arc(pos.x, pos.y, p.size * 3, 0, Math.PI * 2);
-    ctx.fillStyle = grd;
+    ctx.arc(pos.x, pos.y, outerR, 0, Math.PI * 2);
+    ctx.fillStyle = grdOuter;
+    ctx.fill();
+
+    // Inner glow
+    const innerR = p.size * 2.2;
+    const grdInner = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, innerR);
+    grdInner.addColorStop(0, `rgba(${r},${g},${b},0.4)`);
+    grdInner.addColorStop(0.5, `rgba(${r},${g},${b},0.12)`);
+    grdInner.addColorStop(1, `rgba(${r},${g},${b},0)`);
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, innerR, 0, Math.PI * 2);
+    ctx.fillStyle = grdInner;
     ctx.fill();
 
     // Core
+    const coreR = p.size * 1.1;
     ctx.beginPath();
-    ctx.arc(pos.x, pos.y, p.size, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(${r},${g},${b},0.6)`;
+    ctx.arc(pos.x, pos.y, coreR, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${r},${g},${b},0.75)`;
+    ctx.fill();
+
+    // Specular
+    const sx = pos.x - coreR * 0.25;
+    const sy = pos.y - coreR * 0.25;
+    const specGrd = ctx.createRadialGradient(sx, sy, 0, pos.x, pos.y, coreR);
+    specGrd.addColorStop(0, `rgba(255,255,255,0.4)`);
+    specGrd.addColorStop(0.4, `rgba(255,255,255,0.08)`);
+    specGrd.addColorStop(1, `rgba(255,255,255,0)`);
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, coreR, 0, Math.PI * 2);
+    ctx.fillStyle = specGrd;
     ctx.fill();
 
     // Store position for hit-testing
@@ -437,7 +503,7 @@ export function hitTestUnassigned(mx, my, particles, hitPadding = 8) {
     const p = particles[i];
     if (p._x == null) continue;
     const dx = mx - p._x;
-    const dy = mx - p._y;
+    const dy = my - p._y;
     const dist = Math.sqrt(dx * dx + dy * dy);
     if (dist < p.size + hitPadding) return { idx: i, particle: p, x: p._x, y: p._y };
   }

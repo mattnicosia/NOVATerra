@@ -18,9 +18,10 @@ const WEEKDAYS = WEEKS * 5; // 15 weekdays
 
 export default function ResourcePulse() {
   const C = useTheme();
-  const T = C.T;
   const canvasRef = useRef(null);
   const animRef = useRef(null);
+  const ctxRef = useRef(null);
+  const canvasSizeRef = useRef({ w: 0, h: 0 });
   const workload = useWorkloadData();
 
   // Build daily utilization data for next 3 weeks
@@ -72,6 +73,7 @@ export default function ResourcePulse() {
     let last = 0;
     const interval = 1000 / 30;
     const startTime = performance.now();
+    ctxRef.current = canvas.getContext("2d");
 
     const draw = ts => {
       if (ts - last < interval) {
@@ -80,7 +82,8 @@ export default function ResourcePulse() {
       }
       last = ts;
 
-      const ctx = canvas.getContext("2d");
+      const ctx = ctxRef.current;
+      if (!ctx) return;
       const dpr = window.devicePixelRatio || 1;
       const rect = canvas.getBoundingClientRect();
       const w = rect.width;
@@ -89,9 +92,15 @@ export default function ResourcePulse() {
         animRef.current = requestAnimationFrame(draw);
         return;
       }
-      canvas.width = w * dpr;
-      canvas.height = h * dpr;
-      ctx.scale(dpr, dpr);
+
+      const targetW = Math.round(w * dpr);
+      const targetH = Math.round(h * dpr);
+      if (canvasSizeRef.current.w !== targetW || canvasSizeRef.current.h !== targetH) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+        canvasSizeRef.current = { w: targetW, h: targetH };
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
       const elapsed = (ts - startTime) / 1000;
       const { days, deadlineDays, todayIdx } = pulseData;
@@ -100,6 +109,11 @@ export default function ResourcePulse() {
       const plotW = w - padX * 2;
       const plotH = h - padY * 2 - 12; // reserve 12px for labels
       const maxUtil = 1.5; // cap at 150%
+
+      // Pre-compute color RGB values (avoid per-frame hexToRgb calls)
+      const redRgb = hexToRgb(C.red);
+      const orangeRgb = hexToRgb(C.orange);
+      const greenRgb = hexToRgb(C.green);
 
       ctx.clearRect(0, 0, w, h);
 
@@ -111,7 +125,7 @@ export default function ResourcePulse() {
         ctx.moveTo(padX, y);
         ctx.lineTo(padX + plotW, y);
         ctx.strokeStyle = t === 1.0
-          ? `rgba(${hexToRgb(C.red).r},${hexToRgb(C.red).g},${hexToRgb(C.red).b},0.15)`
+          ? `rgba(${redRgb.r},${redRgb.g},${redRgb.b},0.15)`
           : `rgba(255,255,255,0.04)`;
         ctx.lineWidth = t === 1.0 ? 1 : 0.5;
         ctx.setLineDash(t === 1.0 ? [4, 4] : []);
@@ -133,10 +147,10 @@ export default function ResourcePulse() {
 
       // ── Gradient fill under curve ──
       const gradient = ctx.createLinearGradient(0, padY, 0, padY + plotH);
-      gradient.addColorStop(0, `rgba(${hexToRgb(C.red).r},${hexToRgb(C.red).g},${hexToRgb(C.red).b},0.3)`);
-      gradient.addColorStop(0.3, `rgba(${hexToRgb(C.orange).r},${hexToRgb(C.orange).g},${hexToRgb(C.orange).b},0.2)`);
-      gradient.addColorStop(0.6, `rgba(${hexToRgb(C.green).r},${hexToRgb(C.green).g},${hexToRgb(C.green).b},0.15)`);
-      gradient.addColorStop(1, `rgba(${hexToRgb(C.green).r},${hexToRgb(C.green).g},${hexToRgb(C.green).b},0.02)`);
+      gradient.addColorStop(0, `rgba(${redRgb.r},${redRgb.g},${redRgb.b},0.3)`);
+      gradient.addColorStop(0.3, `rgba(${orangeRgb.r},${orangeRgb.g},${orangeRgb.b},0.2)`);
+      gradient.addColorStop(0.6, `rgba(${greenRgb.r},${greenRgb.g},${greenRgb.b},0.15)`);
+      gradient.addColorStop(1, `rgba(${greenRgb.r},${greenRgb.g},${greenRgb.b},0.02)`);
 
       ctx.beginPath();
       ctx.moveTo(points[0].x, points[0].y);

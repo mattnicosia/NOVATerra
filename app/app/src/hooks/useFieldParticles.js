@@ -3,7 +3,6 @@ import {
   utilizationToSpeed,
   utilizationTier,
   computeRingRadii,
-  unassignedRadius,
   nodeSize,
   distributeNodes,
 } from "@/utils/fieldPhysics";
@@ -17,7 +16,7 @@ import {
  * This hook is pure computation — no side effects, no subscriptions.
  */
 export function useFieldParticles(workloadData, colors, fieldRadius) {
-  const { estimatorRows = [], unassignedEstimates = [], dailyLoad, effectiveHoursPerDay = 7 } = workloadData || {};
+  const { estimatorRows = [], unassignedEstimates = [], effectiveHoursPerDay = 7 } = workloadData || {};
 
   return useMemo(() => {
     if (!estimatorRows.length && !unassignedEstimates.length) {
@@ -44,7 +43,6 @@ export function useFieldParticles(workloadData, colors, fieldRadius) {
 
     // ── Build ring radii ──
     const radii = computeRingRadii(estimatorRows.length, fieldRadius);
-    const unassignedR = unassignedRadius(fieldRadius);
 
     // ── Color tiers ──
     const tierColors = {
@@ -119,17 +117,20 @@ export function useFieldParticles(workloadData, colors, fieldRadius) {
     }
 
     // ── Unassigned particles ──
+    const unassignedAngles = distributeNodes(unassignedEstimates.length);
     const unassignedParticles = unassignedEstimates.map((est, i) => {
-      const angles = distributeNodes(unassignedEstimates.length);
+      // Deterministic seed from index to avoid jumps on recompute
+      const seed = (i + 1) * 2654435761; // Knuth multiplicative hash
+      const seedNorm = ((seed >>> 0) % 10000) / 10000;
       return {
         id: est.id,
         label: est.name || "Untitled",
-        angle: angles[i],
+        angle: unassignedAngles[i],
         size: nodeSize(est.estimatedHours || 20),
         hours: est.estimatedHours || 0,
         bidDue: est.bidDue || "",
-        drift: (Math.random() - 0.5) * 0.003,
-        phase: Math.random() * Math.PI * 2,
+        drift: (seedNorm - 0.5) * 0.003,
+        phase: seedNorm * Math.PI * 2,
       };
     });
 
@@ -138,5 +139,5 @@ export function useFieldParticles(workloadData, colors, fieldRadius) {
     const teamUtilization = utilizationMap.size > 0 ? totalUtil / utilizationMap.size : 0;
 
     return { rings, unassignedParticles, teamUtilization, pendingMoves: [] };
-  }, [estimatorRows, unassignedEstimates, dailyLoad, effectiveHoursPerDay, colors, fieldRadius]);
+  }, [estimatorRows, unassignedEstimates, effectiveHoursPerDay, colors, fieldRadius]);
 }
