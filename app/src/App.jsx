@@ -100,6 +100,7 @@ function EstimateLoader({ children }) {
   const [loading, setLoading] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const orgId = useOrgStore(s => s.org?.id);
+  const orgReady = useOrgStore(s => s.orgReady);
   const isLockHolder = useCollaborationStore(s => s.isLockHolder);
   const currentLock = useCollaborationStore(s => s.currentLock);
   const isReadOnly = !!orgId && !isLockHolder && !!currentLock;
@@ -111,6 +112,11 @@ function EstimateLoader({ children }) {
 
   useEffect(() => {
     if (!persistenceLoaded || !id || activeId === id) return;
+    // Wait for org store to resolve — idbKey() needs org context for correct key prefix
+    if (!orgReady) {
+      setLoading(true);
+      return;
+    }
     // If cloud sync is still running, wait — estimate data blobs may not be in IDB yet
     if (cloudSyncInProgress) {
       setLoading(true);
@@ -121,10 +127,11 @@ function EstimateLoader({ children }) {
     nova.estimate.info(`Loading estimate ${id}`, { activeId, cloudSyncInProgress });
     loadEstimate(id).then(async ok => {
       if (!ok) {
-        // Retry once after a short delay — cloud sync may still be settling
-        for (let attempt = 2; attempt <= 2; attempt++) {
-          nova.estimate.warn(`Attempt ${attempt - 1} failed for ${id} — retrying...`, { estimateId: id, attempt });
-          await new Promise(r => setTimeout(r, 2000));
+        // Retry with increasing delays — org/auth state may still be settling
+        const delays = [1500, 3000, 5000];
+        for (let attempt = 0; attempt < delays.length; attempt++) {
+          nova.estimate.warn(`Attempt ${attempt + 1} failed for ${id} — retrying in ${delays[attempt]}ms...`, { estimateId: id, attempt: attempt + 2 });
+          await new Promise(r => setTimeout(r, delays[attempt]));
           const retryOk = await loadEstimate(id);
           if (retryOk) {
             setLoading(false);
@@ -142,7 +149,7 @@ function EstimateLoader({ children }) {
       }
       setLoading(false);
     });
-  }, [id, activeId, persistenceLoaded, cloudSyncInProgress]);
+  }, [id, activeId, persistenceLoaded, orgReady, cloudSyncInProgress]);
 
   // Safety timeout: if stuck loading, bail to dashboard
   // Allow 45s for estimates with large drawings that need blob hydration

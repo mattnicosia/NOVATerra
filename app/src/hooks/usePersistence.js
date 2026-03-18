@@ -1169,6 +1169,10 @@ export async function loadEstimate(id) {
   }
 
   if (!raw) return false;
+  if (!raw.value) {
+    console.error(`[loadEstimate] raw exists but raw.value is ${typeof raw.value}:`, raw);
+    return false;
+  }
 
   try {
     const data = JSON.parse(raw.value);
@@ -1317,6 +1321,8 @@ export async function loadEstimate(id) {
     return true;
   } catch (e) {
     console.error("Failed to load estimate:", e);
+    // Surface the actual error so we can diagnose — the generic "could not load" toast hides root cause
+    useUiStore.getState().showToast(`Load error: ${e?.message || e}`, "error");
     return false;
   }
 }
