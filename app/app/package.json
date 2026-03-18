@@ -1,0 +1,71 @@
+{
+  "name": "nova",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:full": "vercel dev --listen 5173",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "audit:dead-files": "node scripts/audit-dead-files.js",
+    "audit:health": "node scripts/health-report.js",
+    "lint": "eslint src/ api/",
+    "lint:fix": "eslint src/ api/ --fix",
+    "format": "prettier --write \"src/**/*.{js,jsx,css}\" \"api/**/*.js\"",
+    "format:check": "prettier --check \"src/**/*.{js,jsx,css}\" \"api/**/*.js\"",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{js,jsx}": [
+      "prettier --write",
+      "eslint --fix --max-warnings 0"
+    ],
+    "*.{css,json,md}": [
+      "prettier --write"
+    ]
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@react-three/drei": "^9.122.0",
+    "@react-three/fiber": "^8.18.0",
+    "@react-three/postprocessing": "^2.19.1",
+    "@sentry/react": "^10.41.0",
+    "@supabase/supabase-js": "^2.49.1",
+    "@vercel/analytics": "^1.6.1",
+    "busboy": "^1.6.0",
+    "framer-motion": "^12.35.0",
+    "html2pdf.js": "^0.14.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-grid-layout": "^2.2.2",
+    "react-router-dom": "^6.22.0",
+    "react-virtuoso": "^4.18.3",
+    "recharts": "^2.12.0",
+    "resend": "^6.9.2",
+    "stripe": "^20.4.1",
+    "three": "^0.183.1",
+    "web-ifc": "^0.0.75",
+    "xlsx": "^0.18.5",
+    "zustand": "^4.5.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.3",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@vitejs/plugin-react": "^4.2.1",
+    "eslint": "^9.39.3",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "husky": "^9.1.7",
+    "jsdom": "^28.1.0",
+    "lint-staged": "^16.3.1",
+    "prettier": "^3.8.1",
+    "vite": "^5.4.0",
+    "vitest": "^4.0.18"
+  }
+}

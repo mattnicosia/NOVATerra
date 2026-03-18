@@ -18,6 +18,8 @@ import AutoScheduleModal from "@/components/resources/AutoScheduleModal";
 import WhatIfModal from "@/components/resources/WhatIfModal";
 import WorkloadTrendsPanel from "@/components/resources/WorkloadTrendsPanel";
 import PdfExport from "@/components/resources/PdfExport";
+import ResourceField from "@/components/resources/ResourceField";
+import ResourcePulse from "@/components/resources/ResourcePulse";
 import Modal from "@/components/shared/Modal";
 import { useReviewStore } from "@/stores/reviewStore";
 
@@ -3655,6 +3657,7 @@ export default function ResourcePage() {
           }}
         >
           {[
+            { key: "field", label: "Field" },
             { key: "board", label: "Board" },
             { key: "timeline", label: "Timeline" },
             { key: "weekly", label: "This Week" },
@@ -3761,6 +3764,16 @@ export default function ResourcePage() {
           />
           <AlertsSection warnings={workload.warnings} C={C} T={T} />
         </>
+      )}
+
+      {/* Orbital Resource Field */}
+      {sortMode === "field" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ width: "100%", height: "calc(100vh - 260px)", minHeight: 400 }}>
+            <ResourceField />
+          </div>
+          <ResourcePulse />
+        </div>
       )}
 
       {/* Weekly Plan View */}
