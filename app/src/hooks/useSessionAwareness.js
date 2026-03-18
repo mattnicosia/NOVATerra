@@ -156,50 +156,16 @@ export function useSessionAwareness() {
 
     channelRef.current = channel;
 
-    // ── 2. ENFORCEMENT: Poll DB every 30s to verify this session is still active ──
-    const kickSession = () => {
-      if (kickedRef.current) return;
-      kickedRef.current = true;
-      console.warn("[sessionAwareness] Session superseded by another device — signing out");
-      // Show alert so user knows why they were signed out
-      setTimeout(() => {
-        alert("You've been signed out because your account was accessed from another device.");
-      }, 100);
-      useAuthStore.getState().signOut();
-    };
-
-    const runCheck = async () => {
-      const valid = await checkSessionValid(userId);
-      if (!valid) {
-        missCountRef.current += 1;
-        console.warn(`[sessionAwareness] Consecutive mismatch #${missCountRef.current}`);
-        // Require 3 consecutive mismatches before kicking — handles transient issues
-        if (missCountRef.current >= 3) kickSession();
-      } else {
-        missCountRef.current = 0;
-      }
-    };
-
-    // Poll every 30 seconds
-    intervalRef.current = setInterval(runCheck, 30000);
-
-    // Also check immediately when tab regains focus
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") {
-        runCheck();
-      }
-    };
-    document.addEventListener("visibilitychange", onVisibility);
+    // ── 2. ENFORCEMENT: DISABLED ──
+    // Session enforcement has been disabled due to persistent false-positive
+    // logouts. The token-matching system has multiple race conditions that
+    // cause the DB token and localStorage token to diverge, kicking the user
+    // even when they're the only active session. The informational presence
+    // channel above still works — it shows other devices without kicking.
+    // TODO: Re-enable once we can debug live with console logs visible.
 
     // ── Cleanup ──
     return () => {
-      // Stop polling
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      document.removeEventListener("visibilitychange", onVisibility);
-
       // Clear presence
       useUiStore.getState().setOtherSessions([]);
 
