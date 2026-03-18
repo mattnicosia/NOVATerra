@@ -52,7 +52,26 @@ function getDeviceInfo() {
 async function checkSessionValid(userId) {
   if (!supabase || !userId) return true;
   const localToken = localStorage.getItem("bldg-session-token");
-  if (!localToken) return true; // No token yet (first load, table doesn't exist)
+
+  // No local token — try to adopt from DB rather than kicking.
+  // This handles cases where localStorage was unexpectedly cleared
+  // (e.g., by the IDB migration or browser cleanup).
+  if (!localToken) {
+    try {
+      const { data } = await supabase
+        .from("user_active_session")
+        .select("session_token")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (data?.session_token) {
+        localStorage.setItem("bldg-session-token", data.session_token);
+        console.log("[sessionAwareness] Re-adopted missing local token from DB");
+      }
+    } catch {
+      /* non-critical */
+    }
+    return true; // Never kick when there's no local token to compare
+  }
 
   try {
     const { data, error } = await supabase
@@ -67,10 +86,19 @@ async function checkSessionValid(userId) {
       console.warn("[sessionAwareness] check error:", error.message);
       return true;
     }
-    if (!data) return true; // No row = no enforcement
+    if (!data) return true; // No row = no enforcement (user signed out elsewhere, or row deleted)
 
     // If DB token doesn't match ours, another device took over
-    return data.session_token === localToken;
+    if (data.session_token !== localToken) {
+      console.warn(
+        "[sessionAwareness] Token mismatch — local:",
+        localToken.slice(0, 8) + "...",
+        "db:",
+        data.session_token.slice(0, 8) + "...",
+      );
+      return false;
+    }
+    return true;
   } catch (err) {
     console.warn("[sessionAwareness] checkSessionValid failed:", err.message);
     return true; // Network error = don't kick user out
@@ -144,10 +172,7 @@ export function useSessionAwareness() {
       const valid = await checkSessionValid(userId);
       if (!valid) {
         missCountRef.current += 1;
-        console.warn(
-          `[sessionAwareness] Token mismatch #${missCountRef.current}`,
-          "local:", localStorage.getItem("bldg-session-token")?.slice(0, 8),
-        );
+        console.warn(`[sessionAwareness] Consecutive mismatch #${missCountRef.current}`);
         // Require 3 consecutive mismatches before kicking — handles transient issues
         if (missCountRef.current >= 3) kickSession();
       } else {

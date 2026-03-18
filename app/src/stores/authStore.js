@@ -33,35 +33,47 @@ function getDeviceInfo() {
 // ── Session token: enforces single-device sign-in ──
 // ONLY called on explicit sign-in actions (password, signup, magic link callback).
 // NEVER called on page load / init — that would overwrite the DB and kick other tabs.
+// _writeInFlight prevents concurrent writes from racing (e.g., signInWithPassword
+// + onAuthStateChange both firing writeSessionToken — the DB upsert that lands
+// last would win, potentially leaving localStorage and DB out of sync).
+let _writeInFlight = null;
+
 async function writeSessionToken(userId) {
   if (!supabase || !userId) return;
-  try {
-    const token = crypto.randomUUID();
-    localStorage.setItem("bldg-session-token", token);
-    const { device, browser } = getDeviceInfo();
-    await supabase.from("user_active_session").upsert(
-      {
-        user_id: userId,
-        session_token: token,
-        device,
-        browser,
-        created_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id" },
-    );
-    console.log("[auth] Session token written:", token.slice(0, 8) + "...");
-  } catch (err) {
-    // Non-fatal — table may not exist yet (42P01)
-    console.warn("[auth] writeSessionToken failed:", err.message || err);
-  }
+  // If a write is already in flight, return that promise — don't create a second token
+  if (_writeInFlight) return _writeInFlight;
+  _writeInFlight = (async () => {
+    try {
+      const token = crypto.randomUUID();
+      const { device, browser } = getDeviceInfo();
+      // Write DB FIRST, then localStorage — if the DB write fails we don't
+      // leave a dangling local token with no matching DB row.
+      await supabase.from("user_active_session").upsert(
+        {
+          user_id: userId,
+          session_token: token,
+          device,
+          browser,
+          created_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" },
+      );
+      localStorage.setItem("bldg-session-token", token);
+      console.log("[auth] Session token written:", token.slice(0, 8) + "...");
+    } catch (err) {
+      // Non-fatal — table may not exist yet (42P01)
+      console.warn("[auth] writeSessionToken failed:", err.message || err);
+    } finally {
+      _writeInFlight = null;
+    }
+  })();
+  return _writeInFlight;
 }
 
 // On page load with an existing session, adopt the DB token locally
 // instead of writing a new one. This prevents kicking other tabs/windows.
 async function adoptSessionToken(userId) {
   if (!supabase || !userId) return;
-  // Already have a local token — nothing to do
-  if (localStorage.getItem("bldg-session-token")) return;
   try {
     const { data } = await supabase
       .from("user_active_session")
@@ -69,10 +81,15 @@ async function adoptSessionToken(userId) {
       .eq("user_id", userId)
       .maybeSingle();
     if (data?.session_token) {
+      // Always adopt the DB token — even if we have a local token, the DB is
+      // the source of truth.  A stale local token (from a previous session that
+      // was superseded) would cause a false-positive kick on the next poll.
       localStorage.setItem("bldg-session-token", data.session_token);
       console.log("[auth] Adopted session token from DB:", data.session_token.slice(0, 8) + "...");
-    } else {
-      // No DB row — this is effectively a first sign-in, write a new token
+    } else if (!localStorage.getItem("bldg-session-token")) {
+      // No DB row AND no local token — first-ever sign-in, write a new token.
+      // If we already have a local token, don't write — avoids overwriting a
+      // token that was just written by signInWithPassword moments ago.
       await writeSessionToken(userId);
     }
   } catch (err) {
@@ -174,11 +191,11 @@ export const useAuthStore = create((set, get) => ({
         if (currentUser?.id === session.user.id) return;
 
         set({ user: session.user, session, loading: false, magicLinkSent: false, authError: null });
-        // Only write a new session token if we don't already have one locally
-        // (prevents page-load echoes from overwriting the DB token)
-        if (!localStorage.getItem("bldg-session-token")) {
-          writeSessionToken(session.user.id);
-        }
+        // NEVER write a session token from onAuthStateChange — it races with
+        // the explicit writeSessionToken in signInWithPassword/signUpWithPassword.
+        // Instead, adopt whatever token is in the DB (which was written by the
+        // explicit sign-in call, or already existed from a previous session).
+        adoptSessionToken(session.user.id);
         // Load org membership in background, then check for pending invite
         useOrgStore
           .getState()

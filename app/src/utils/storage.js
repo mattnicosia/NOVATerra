@@ -26,9 +26,11 @@ async function migrateFromLocalStorage(db) {
   if (migrated) return;
 
   const keys = [];
+  // Collect bldg-* keys EXCEPT bldg-session-token — that must stay in
+  // localStorage for single-session enforcement (useSessionAwareness polls it).
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (key && key.startsWith("bldg-")) keys.push(key);
+    if (key && key.startsWith("bldg-") && key !== "bldg-session-token") keys.push(key);
   }
 
   if (keys.length > 0) {
