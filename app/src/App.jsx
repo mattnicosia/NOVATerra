@@ -131,12 +131,11 @@ function EstimateLoader({ children }) {
             return;
           }
         }
-        // All retries failed — orphaned index entry (metadata without data)
-        nova.orphan.error(`Estimate ${id} is orphaned — removing from index`, { estimateId: id });
-        useEstimatesStore.setState(state => ({
-          estimatesIndex: state.estimatesIndex.filter(e => e.id !== id),
-        }));
-        useUiStore.getState().showToast("Estimate data was lost — removed from list", "error");
+        // All retries failed — estimate data blob not found in IDB or cloud.
+        // Do NOT remove from index — the metadata is valid, data may load on
+        // next full boot (org/auth timing, IDB key namespace mismatch, etc.).
+        nova.orphan.error(`Estimate ${id} failed to load — keeping in index`, { estimateId: id });
+        useUiStore.getState().showToast("Estimate could not be loaded — try refreshing the page", "error");
         setLoadFailed(true);
         setLoading(false);
         return;

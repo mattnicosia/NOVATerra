@@ -581,9 +581,10 @@ async function syncEstimates() {
         await cloudSync.pushEstimate(entry.id, estData);
         pushed = true;
       } else {
-        // No IDB data AND no cloud data — this is an orphaned index entry
-        console.warn(`[cloudSync] Estimate ${entry.id} has no data in IDB or cloud — marking as orphan`);
-        orphanIds.push(entry.id);
+        // No IDB data under current key — but data may exist under a different
+        // key prefix (solo vs org vs bare). Do NOT mark as orphan; loadEstimate
+        // has multi-key fallback logic that can find and migrate these.
+        console.warn(`[cloudSync] Estimate ${entry.id} has no data under current IDB key — skipping (not orphaning)`);
       }
     }
   }
