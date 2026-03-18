@@ -7,6 +7,7 @@ import { bt } from "@/utils/styles";
 import { SCHEDULE_TYPES } from "@/utils/scheduleParsers";
 import { NOTE_CATEGORIES, groupNotesByTrade } from "@/utils/notesExtractor";
 import PredictiveTakeoffPanel from "@/components/planroom/PredictiveTakeoffPanel";
+import { useTakeoffsStore } from "@/stores/takeoffsStore";
 import { generateTakeoffSuggestions } from "@/nova/predictive/generateSuggestions";
 import { useCorrectionStore } from "@/nova/learning/correctionStore";
 
@@ -46,6 +47,9 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
   const [selectedNotes, setSelectedNotes] = useState(new Set());
   const [notesViewMode, setNotesViewMode] = useState("grouped"); // "flat" | "grouped"
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
+  const [noteSearch, setNoteSearch] = useState("");
+  const [activeCategoryFilter, setActiveCategoryFilter] = useState(null); // null = all
+  const [activeDivisionFilter, setActiveDivisionFilter] = useState(null); // null = all
 
   // NOVA Predictive Takeoffs
   const suggestions = useMemo(() => generateTakeoffSuggestions(scanResults), [scanResults]);
@@ -240,7 +244,32 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
           // Grouped data
           const tradeGroups = groupNotesByTrade(drawingNotes);
 
-          const filteredNotes = allNotes.filter(n => noteRelevanceFilter[n.estimatingRelevance || "low"]);
+          // Collect unique CSI divisions across all notes
+          const allDivisions = [
+            ...new Set(allNotes.flatMap(n => (n.csiDivisions || []).map(d => String(d).padStart(2, "0")))),
+          ].sort();
+          // Collect unique categories across all notes
+          const allCats = [...new Set(allNotes.map(n => n.category).filter(Boolean))];
+
+          const filteredNotes = allNotes.filter(n => {
+            if (!noteRelevanceFilter[n.estimatingRelevance || "low"]) return false;
+            if (noteSearch) {
+              const q = noteSearch.toLowerCase();
+              if (
+                !(n.text || "").toLowerCase().includes(q) &&
+                !(n.category || "").toLowerCase().includes(q) &&
+                !(n.sheetLabel || "").toLowerCase().includes(q)
+              )
+                return false;
+            }
+            if (activeCategoryFilter && n.category !== activeCategoryFilter) return false;
+            if (
+              activeDivisionFilter &&
+              !(n.csiDivisions || []).map(d => String(d).padStart(2, "0")).includes(activeDivisionFilter)
+            )
+              return false;
+            return true;
+          });
 
           const toggleNote = key => {
             setSelectedNotes(prev => {
@@ -336,7 +365,24 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
                   <span style={{ fontSize: 7, color: C.textDim }}>{note.sheetLabel}</span>
                 </div>
                 <div style={{ flex: 1, fontSize: 10, color: C.text, lineHeight: 1.5 }}>
-                  {note.text}
+                  {noteSearch
+                    ? (() => {
+                        const q = noteSearch.toLowerCase();
+                        const idx = (note.text || "").toLowerCase().indexOf(q);
+                        if (idx < 0) return note.text;
+                        return (
+                          <>
+                            {note.text.slice(0, idx)}
+                            <mark
+                              style={{ background: `${C.accent}30`, color: C.text, borderRadius: 2, padding: "0 1px" }}
+                            >
+                              {note.text.slice(idx, idx + noteSearch.length)}
+                            </mark>
+                            {note.text.slice(idx + noteSearch.length)}
+                          </>
+                        );
+                      })()
+                    : note.text}
                   {note.csiDivisions?.length > 0 && (
                     <div style={{ marginTop: 2 }}>
                       {note.csiDivisions.map((div, i) => (
@@ -371,11 +417,32 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
                 </div>
               ) : (
                 <>
+                  {/* Search bar */}
+                  <div style={{ marginBottom: 8 }}>
+                    <input
+                      type="text"
+                      placeholder="Search notes... (keyword, spec, material)"
+                      value={noteSearch}
+                      onChange={e => setNoteSearch(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "6px 10px",
+                        fontSize: 10,
+                        background: C.bg2,
+                        color: C.text,
+                        border: `1px solid ${C.border}`,
+                        borderRadius: 6,
+                        outline: "none",
+                        fontFamily: T.font.sans,
+                      }}
+                    />
+                  </div>
+
                   {/* Toolbar: view toggle + relevance filter + add button */}
                   <div
-                    style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}
+                    style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}
                   >
-                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                       {/* View mode toggle */}
                       {["grouped", "flat"].map(mode => (
                         <button
@@ -418,35 +485,175 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
                         </button>
                       ))}
                     </div>
-                    {selectedNotes.size > 0 && (
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      {selectedNotes.size > 0 && (
+                        <>
+                          <button
+                            onClick={() => {
+                              const notes = allNotes.filter(n => selectedNotes.has(n._key));
+                              const { addTakeoff } = useTakeoffsStore.getState();
+                              notes.forEach(note => {
+                                const div = note.csiDivisions?.[0] ? String(note.csiDivisions[0]).padStart(2, "0") : "";
+                                const group = div ? `Div ${div}` : note.category || "Notes";
+                                addTakeoff(
+                                  group,
+                                  note.text?.slice(0, 80) || "Note takeoff",
+                                  "EA",
+                                  div ? `${div}.000` : "",
+                                );
+                              });
+                              setSelectedNotes(new Set());
+                            }}
+                            style={bt(C, {
+                              background: C.accent,
+                              color: "#fff",
+                              padding: "4px 12px",
+                              fontSize: 9,
+                              fontWeight: 600,
+                            })}
+                          >
+                            <Ic d={I.add} size={10} color="#fff" /> Create {selectedNotes.size} Takeoff
+                            {selectedNotes.size !== 1 ? "s" : ""}
+                          </button>
+                          <button
+                            onClick={handleAddNotes}
+                            style={bt(C, {
+                              background: C.green,
+                              color: "#fff",
+                              padding: "4px 12px",
+                              fontSize: 9,
+                              fontWeight: 600,
+                            })}
+                          >
+                            Add to Estimate
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Category filter row */}
+                  {allCats.length > 1 && (
+                    <div style={{ display: "flex", gap: 4, alignItems: "center", marginBottom: 6, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 8, color: C.textDim, fontWeight: 600, marginRight: 2 }}>Category:</span>
                       <button
-                        onClick={handleAddNotes}
+                        onClick={() => setActiveCategoryFilter(null)}
                         style={bt(C, {
-                          background: C.green,
-                          color: "#fff",
-                          padding: "4px 12px",
-                          fontSize: 9,
+                          padding: "2px 8px",
+                          fontSize: 8,
                           fontWeight: 600,
+                          background: !activeCategoryFilter ? `${C.accent}18` : "transparent",
+                          color: !activeCategoryFilter ? C.accent : C.textDim,
+                          border: `1px solid ${!activeCategoryFilter ? C.accent + "40" : C.border}`,
+                          borderRadius: T.radius.full,
                         })}
                       >
-                        Add {selectedNotes.size} Note{selectedNotes.size !== 1 ? "s" : ""} to Estimate
+                        All
                       </button>
-                    )}
-                  </div>
+                      {allCats.map(catId => {
+                        const catCfg = NOTE_CATEGORIES.find(c => c.id === catId);
+                        const count = allNotes.filter(n => n.category === catId).length;
+                        const isActive = activeCategoryFilter === catId;
+                        return (
+                          <button
+                            key={catId}
+                            onClick={() => setActiveCategoryFilter(isActive ? null : catId)}
+                            style={bt(C, {
+                              padding: "2px 8px",
+                              fontSize: 8,
+                              fontWeight: 600,
+                              background: isActive ? `${catCfg?.color || C.accent}18` : "transparent",
+                              color: isActive ? catCfg?.color || C.accent : C.textDim,
+                              border: `1px solid ${isActive ? (catCfg?.color || C.accent) + "40" : C.border}`,
+                              borderRadius: T.radius.full,
+                            })}
+                          >
+                            {catCfg?.label || catId} ({count})
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* CSI Division filter row */}
+                  {allDivisions.length > 0 && (
+                    <div style={{ display: "flex", gap: 4, alignItems: "center", marginBottom: 6, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 8, color: C.textDim, fontWeight: 600, marginRight: 2 }}>CSI Div:</span>
+                      <button
+                        onClick={() => setActiveDivisionFilter(null)}
+                        style={bt(C, {
+                          padding: "2px 8px",
+                          fontSize: 8,
+                          fontWeight: 600,
+                          background: !activeDivisionFilter ? `${C.accent}18` : "transparent",
+                          color: !activeDivisionFilter ? C.accent : C.textDim,
+                          border: `1px solid ${!activeDivisionFilter ? C.accent + "40" : C.border}`,
+                          borderRadius: T.radius.full,
+                        })}
+                      >
+                        All
+                      </button>
+                      {allDivisions.map(div => {
+                        const count = allNotes.filter(n =>
+                          (n.csiDivisions || []).map(d => String(d).padStart(2, "0")).includes(div),
+                        ).length;
+                        const isActive = activeDivisionFilter === div;
+                        return (
+                          <button
+                            key={div}
+                            onClick={() => setActiveDivisionFilter(isActive ? null : div)}
+                            style={bt(C, {
+                              padding: "2px 8px",
+                              fontSize: 8,
+                              fontWeight: 600,
+                              fontFamily: T.font.sans,
+                              background: isActive ? `${C.accent}18` : "transparent",
+                              color: isActive ? C.accent : C.textDim,
+                              border: `1px solid ${isActive ? C.accent + "40" : C.border}`,
+                              borderRadius: T.radius.full,
+                            })}
+                          >
+                            Div {div} ({count})
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
 
                   <div style={{ fontSize: 9, color: C.textDim, marginBottom: 6 }}>
                     {notesViewMode === "grouped"
-                      ? `${tradeGroups.length} trade groups · ${allNotes.length} total notes`
+                      ? `${tradeGroups.length} trade groups · ${filteredNotes.length} matching notes`
                       : `Showing ${filteredNotes.length} of ${allNotes.length} notes — sorted by relevance`}
+                    {(noteSearch || activeCategoryFilter || activeDivisionFilter) && (
+                      <button
+                        onClick={() => {
+                          setNoteSearch("");
+                          setActiveCategoryFilter(null);
+                          setActiveDivisionFilter(null);
+                        }}
+                        style={{
+                          marginLeft: 8,
+                          fontSize: 8,
+                          color: C.accent,
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          textDecoration: "underline",
+                          fontFamily: T.font.sans,
+                        }}
+                      >
+                        Clear filters
+                      </button>
+                    )}
                   </div>
 
                   {/* ── Grouped View ── */}
                   {notesViewMode === "grouped" && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                       {tradeGroups.map(({ group, notes: groupNotes, highCount, medCount }) => {
-                        const visibleNotes = groupNotes.filter(
-                          n => noteRelevanceFilter[n.estimatingRelevance || "low"],
-                        );
+                        // Use same filter set as filteredNotes (includes search, category, division)
+                        const filteredGroupKeys = new Set(filteredNotes.map(n => n._key));
+                        const visibleNotes = groupNotes.filter(n => filteredGroupKeys.has(n._key));
                         if (visibleNotes.length === 0) return null;
                         const isCollapsed = collapsedGroups.has(group);
                         return (
