@@ -7,6 +7,7 @@ import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, Grid, Edges } from "@react-three/drei";
 import * as THREE from "three";
 import { useModelStore } from "@/stores/modelStore";
+import { getMaterial } from "@/utils/materialEngine";
 
 // ── Clip plane context (shared across all elements) ─────────────
 const ClipContext = createContext([]);
@@ -21,7 +22,7 @@ function ClipProvider({ sectionY, children }) {
 }
 
 // ── Material wrapper with clipping + hover/select support ───────
-function ClippedMaterial({ color, opacity, transparent, selected: _selected, hovered, xray, side }) {
+function ClippedMaterial({ color, opacity, transparent, selected: _selected, hovered, xray, side, roughness, metalness }) {
   const clipPlanes = useContext(ClipContext);
   const emissive = hovered ? "#444466" : "#000000";
   const emissiveIntensity = hovered ? 0.6 : 0;
@@ -32,6 +33,8 @@ function ClippedMaterial({ color, opacity, transparent, selected: _selected, hov
       color={color}
       transparent={transparent || finalOpacity < 1 || xray}
       opacity={finalOpacity}
+      roughness={roughness ?? 0.7}
+      metalness={metalness ?? 0}
       side={side || THREE.DoubleSide}
       clippingPlanes={clipPlanes}
       clipShadows
@@ -43,7 +46,7 @@ function ClippedMaterial({ color, opacity, transparent, selected: _selected, hov
 }
 
 // ── Wall element: extruded path ──────────────────────────────────
-function WallElement({ element, selected, hovered, viewMode, maxCost, xray, onClick, onHover }) {
+function WallElement({ element, selected, hovered, viewMode, maxCost, xray, onClick, onHover, materialAssignments }) {
   const { path, height, thickness, elevation } = element.geometry;
 
   const geometry = useMemo(() => {
@@ -79,8 +82,7 @@ function WallElement({ element, selected, hovered, viewMode, maxCost, xray, onCl
 
   if (!geometry) return null;
 
-  const color = getElementColor(element, viewMode, maxCost);
-  const opacity = getElementOpacity(element, viewMode);
+  const vis = getElementVisuals(element, viewMode, maxCost, materialAssignments);
 
   return (
     <mesh
@@ -97,12 +99,14 @@ function WallElement({ element, selected, hovered, viewMode, maxCost, xray, onCl
       onPointerOut={() => onHover(null)}
     >
       <ClippedMaterial
-        color={color}
-        opacity={opacity}
-        transparent={opacity < 1}
+        color={vis.color}
+        opacity={vis.opacity}
+        transparent={vis.opacity < 1}
         selected={selected}
         hovered={hovered}
         xray={xray}
+        roughness={vis.roughness}
+        metalness={vis.metalness}
       />
       {selected && <Edges threshold={15} color="#ffffff" lineWidth={1} />}
     </mesh>
@@ -110,7 +114,7 @@ function WallElement({ element, selected, hovered, viewMode, maxCost, xray, onCl
 }
 
 // ── Slab element: flat polygon ───────────────────────────────────
-function SlabElement({ element, selected, hovered, viewMode, maxCost, xray, onClick, onHover }) {
+function SlabElement({ element, selected, hovered, viewMode, maxCost, xray, onClick, onHover, materialAssignments }) {
   const { points, thickness, elevation } = element.geometry;
 
   const geometry = useMemo(() => {
@@ -129,8 +133,7 @@ function SlabElement({ element, selected, hovered, viewMode, maxCost, xray, onCl
 
   if (!geometry) return null;
 
-  const color = getElementColor(element, viewMode, maxCost);
-  const opacity = getElementOpacity(element, viewMode);
+  const vis = getElementVisuals(element, viewMode, maxCost, materialAssignments);
 
   return (
     <mesh
@@ -147,12 +150,14 @@ function SlabElement({ element, selected, hovered, viewMode, maxCost, xray, onCl
       onPointerOut={() => onHover(null)}
     >
       <ClippedMaterial
-        color={color}
-        opacity={opacity}
-        transparent={opacity < 1}
+        color={vis.color}
+        opacity={vis.opacity}
+        transparent={vis.opacity < 1}
         selected={selected}
         hovered={hovered}
         xray={xray}
+        roughness={vis.roughness}
+        metalness={vis.metalness}
       />
       {selected && <Edges threshold={15} color="#ffffff" lineWidth={1} />}
     </mesh>
@@ -160,11 +165,10 @@ function SlabElement({ element, selected, hovered, viewMode, maxCost, xray, onCl
 }
 
 // ── Box element: placed object (footings, fixtures) ──────────────
-function BoxElement({ element, selected, hovered, viewMode, maxCost, xray, onClick, onHover }) {
+function BoxElement({ element, selected, hovered, viewMode, maxCost, xray, onClick, onHover, materialAssignments }) {
   const { position, width, depth, height, elevation } = element.geometry;
 
-  const color = getElementColor(element, viewMode, maxCost);
-  const opacity = getElementOpacity(element, viewMode);
+  const vis = getElementVisuals(element, viewMode, maxCost, materialAssignments);
 
   return (
     <mesh
@@ -181,12 +185,14 @@ function BoxElement({ element, selected, hovered, viewMode, maxCost, xray, onCli
     >
       <boxGeometry args={[width, height, depth]} />
       <ClippedMaterial
-        color={color}
-        opacity={opacity}
-        transparent={opacity < 1}
+        color={vis.color}
+        opacity={vis.opacity}
+        transparent={vis.opacity < 1}
         selected={selected}
         hovered={hovered}
         xray={xray}
+        roughness={vis.roughness}
+        metalness={vis.metalness}
       />
       {selected && <Edges threshold={15} color="#ffffff" lineWidth={1} />}
     </mesh>
@@ -194,7 +200,7 @@ function BoxElement({ element, selected, hovered, viewMode, maxCost, xray, onCli
 }
 
 // ── IFC Mesh element ─────────────────────────────────────────────
-function IFCMeshElement({ element, selected, hovered, viewMode, maxCost, xray, onClick, onHover }) {
+function IFCMeshElement({ element, selected, hovered, viewMode, maxCost, xray, onClick, onHover, materialAssignments }) {
   const { vertices, indices, matrix } = element.geometry;
 
   const geometry = useMemo(() => {
@@ -229,8 +235,7 @@ function IFCMeshElement({ element, selected, hovered, viewMode, maxCost, xray, o
 
   if (!geometry) return null;
 
-  const color = getElementColor(element, viewMode, maxCost);
-  const opacity = getElementOpacity(element, viewMode);
+  const vis = getElementVisuals(element, viewMode, maxCost, materialAssignments);
 
   return (
     <mesh
@@ -248,12 +253,14 @@ function IFCMeshElement({ element, selected, hovered, viewMode, maxCost, xray, o
       onPointerOut={() => onHover(null)}
     >
       <ClippedMaterial
-        color={color}
-        opacity={opacity}
-        transparent={opacity < 1}
+        color={vis.color}
+        opacity={vis.opacity}
+        transparent={vis.opacity < 1}
         selected={selected}
         hovered={hovered}
         xray={xray}
+        roughness={vis.roughness}
+        metalness={vis.metalness}
       />
       {selected && <Edges threshold={15} color="#ffffff" lineWidth={1} />}
     </mesh>
@@ -338,27 +345,52 @@ function SectionPlaneIndicator({ sectionY, span }) {
   );
 }
 
-// ── Color/opacity helpers ────────────────────────────────────────
-function getElementColor(element, viewMode, maxCost) {
-  if (viewMode === "presentation") return "#e0e0e0";
-  if (viewMode === "cost") {
+// ── Color/opacity/material helpers ───────────────────────────────
+function getElementVisuals(element, viewMode, maxCost, materialAssignments) {
+  let color = element.color;
+  let opacity = 0.8;
+  let roughness = 0.7;
+  let metalness = 0;
+
+  // Check material assignment first (applies in trade + presentation modes)
+  const assignment = materialAssignments?.[element.id];
+  const mat = assignment?.slug ? getMaterial(assignment.slug) : null;
+  if (mat && (viewMode === "trade" || viewMode === "presentation" || viewMode === "material")) {
+    color = mat.visual.color;
+    roughness = mat.visual.roughness ?? 0.7;
+    metalness = mat.visual.metalness ?? 0;
+    opacity = mat.visual.opacity ?? 0.85;
+  }
+
+  // View mode overrides
+  if (viewMode === "presentation" && !mat) {
+    color = "#e0e0e0";
+    opacity = 0.85;
+  } else if (viewMode === "cost") {
     const intensity = maxCost > 0 ? Math.min(element.cost / maxCost, 1) : 0;
     const r = Math.round(255 * Math.min(intensity * 2, 1));
     const g = Math.round(255 * Math.min((1 - intensity) * 2, 1));
-    return `rgb(${r},${g},60)`;
+    color = `rgb(${r},${g},60)`;
+    roughness = 0.7;
+    metalness = 0;
+  } else if (viewMode === "gaps") {
+    color = element.linkedItemId ? element.color : "#ef4444";
+    opacity = element.linkedItemId ? 0.25 : 0.8;
+  } else if (viewMode === "coverage") {
+    color = element.color;
+    opacity = 0.15;
   }
-  if (viewMode === "gaps") {
-    return element.linkedItemId ? element.color : "#ef4444";
-  }
-  if (viewMode === "coverage") return element.color;
-  return element.color; // trade mode
+
+  return { color, opacity, roughness, metalness };
 }
 
-function getElementOpacity(element, viewMode) {
-  if (viewMode === "gaps" && element.linkedItemId) return 0.25;
-  if (viewMode === "presentation") return 0.85;
-  if (viewMode === "coverage") return 0.15;
-  return 0.8;
+// Legacy compat wrappers (used by element components)
+function getElementColor(element, viewMode, maxCost, materialAssignments) {
+  return getElementVisuals(element, viewMode, maxCost, materialAssignments).color;
+}
+
+function getElementOpacity(element, viewMode, _maxCost, materialAssignments) {
+  return getElementVisuals(element, viewMode, 0, materialAssignments).opacity;
 }
 
 // ── Auto-fit camera to scene ─────────────────────────────────────
@@ -449,6 +481,7 @@ export default function SceneViewer() {
   const hiddenFloors = useModelStore(s => s.hiddenFloors);
   const sectionPlaneY = useModelStore(s => s.sectionPlaneY);
   const xrayMode = useModelStore(s => s.xrayMode);
+  const materialAssignments = useModelStore(s => s.materialAssignments);
 
   const maxCost = useMemo(() => {
     const costs = elements.map(e => e.cost).filter(c => c > 0);
@@ -568,6 +601,7 @@ export default function SceneViewer() {
             xray: xrayMode,
             onClick: handleClick,
             onHover: handleHover,
+            materialAssignments,
           });
         })}
 

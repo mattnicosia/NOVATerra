@@ -6,6 +6,8 @@ import { useTakeoffsStore } from "@/stores/takeoffsStore";
 import { useItemsStore } from "@/stores/itemsStore";
 import { useModuleStore } from "@/stores/moduleStore";
 import { nn } from "@/utils/format";
+import { cleanPath } from "@/utils/geometrySnapping";
+import { generateBuildingEnvelope } from "@/utils/envelopeBuilder";
 
 // ── Scale conversion (mirrors TakeoffsPage logic) ──────────────────
 const ARCH_MAP = {
@@ -159,10 +161,14 @@ export function generateElementsFromTakeoffs() {
 
       if ((m.type === "linear" || to.unit === "LF") && m.points.length >= 2) {
         // LINEAR → extruded wall/footing/beam
-        const pathFt = m.points.map(p => ({
+        const rawPath = m.points.map(p => ({
           x: p.x / ppf,
           z: p.y / ppf, // Y in 2D → Z in 3D (depth axis)
         }));
+        const pathFt = cleanPath(rawPath);
+
+        // Skip if snapping collapsed the path to < 2 points
+        if (pathFt.length < 2) return;
 
         elements.push({
           id: `${to.id}-${m.id}`,
@@ -179,6 +185,7 @@ export function generateElementsFromTakeoffs() {
           geometry: {
             kind: "extrudedPath",
             path: pathFt,
+            rawPath,
             height: wallHeight,
             thickness: thicknessFt,
             elevation,
@@ -186,10 +193,14 @@ export function generateElementsFromTakeoffs() {
         });
       } else if ((m.type === "area" || to.unit === "SF") && m.points.length >= 3) {
         // AREA → flat polygon (slab/ceiling/floor)
-        const polyFt = m.points.map(p => ({
+        const rawPoly = m.points.map(p => ({
           x: p.x / ppf,
           z: p.y / ppf,
         }));
+        const polyFt = cleanPath(rawPoly);
+
+        // Skip if snapping collapsed the polygon to < 3 points
+        if (polyFt.length < 3) return;
 
         elements.push({
           id: `${to.id}-${m.id}`,
@@ -206,6 +217,7 @@ export function generateElementsFromTakeoffs() {
           geometry: {
             kind: "polygon",
             points: polyFt,
+            rawPoints: rawPoly,
             thickness: 0.5, // 6" slab default
             elevation,
           },
@@ -245,4 +257,40 @@ export function generateElementsFromTakeoffs() {
   });
 
   return elements;
+}
+
+// ── Building envelope from scan outline + project floors ─────────
+// Reads outline polygon from modelStore and floor data from projectStore,
+// then delegates to the pure envelopeBuilder function.
+// Returns envelope elements that can be merged with takeoff elements.
+
+export function generateEnvelopeFromStores() {
+  // Lazy import to avoid circular dependency (modelStore → geometryBuilder → modelStore)
+  const { useModelStore } = require("@/stores/modelStore");
+  const { useProjectStore } = require("@/stores/projectStore");
+
+  const { outlines, floorHeights } = useModelStore.getState();
+  const { project } = useProjectStore.getState();
+
+  // Get the best available outline (first entry)
+  const outlineEntry = Object.values(outlines)[0];
+  if (!outlineEntry?.polygon || outlineEntry.polygon.length < 3) return [];
+
+  // Get floor definitions — fall back to sensible defaults
+  let floors = project.floors;
+  if (!floors || floors.length === 0) {
+    const count = parseInt(project.floorCount) || 1;
+    const hasBasement = parseInt(project.basementCount) > 0;
+    floors = [];
+    if (hasBasement) {
+      for (let i = parseInt(project.basementCount); i >= 1; i--) {
+        floors.push({ label: `Basement ${i > 1 ? i : ""}`.trim(), height: 10 });
+      }
+    }
+    for (let i = 1; i <= count; i++) {
+      floors.push({ label: `Level ${i}`, height: i === 1 ? 14 : 12 });
+    }
+  }
+
+  return generateBuildingEnvelope(outlineEntry.polygon, floors, floorHeights);
 }
