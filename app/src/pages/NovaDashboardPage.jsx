@@ -140,12 +140,20 @@ export default function NovaDashboardPage() {
   }, []);
 
   // Sprint 4.3: Show onboarding on first visit (before dashboard)
-  // Skip onboarding for invited users who are already in an org — they didn't create
-  // the company, so asking them to "Set Up Your Company" is wrong.
+  // Skip for users in an org — they didn't create the company.
+  // Wait for orgReady before deciding (avoids flash while org loads).
   const onboardingDismissed = useUiStore(s => s.appSettings?.onboardingDismissed);
   const hasOrg = !!useOrgStore(s => s.org);
+  const orgReady = useOrgStore(s => s.orgReady);
+  const alreadyCompleted = localStorage.getItem("nova_onboarding_complete");
+
+  // Auto-dismiss onboarding for org members (persists so it never shows again)
+  if (hasOrg && !alreadyCompleted) {
+    localStorage.setItem("nova_onboarding_complete", "true");
+  }
+
   const showOnboarding =
-    !onboardingDismissed && !localStorage.getItem("nova_onboarding_complete") && !hasOrg;
+    orgReady && !onboardingDismissed && !alreadyCompleted && !hasOrg;
 
   if (showOnboarding) {
     return (

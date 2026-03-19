@@ -16,7 +16,7 @@ import RfpDetailModal from "@/components/inbox/RfpDetailModal";
 import ImportConfirmModal from "@/components/inbox/ImportConfirmModal";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
-import { bt, pageContainer, card, sectionLabel } from "@/utils/styles";
+import { bt, pageContainer, card, sectionLabel, inp } from "@/utils/styles";
 import { titleCase, uid } from "@/utils/format";
 import { loadPdfJs } from "@/utils/pdf";
 import { runFullScan } from "@/utils/scanRunner";
@@ -68,6 +68,8 @@ export default function InboxPage() {
     retryParse,
     loadReadIds,
     markAsRead,
+    toggleRead,
+    markAllRead,
     fetchSenderEmails,
   } = useInboxStore();
   const activeCompanyId = useUiStore(s => s.appSettings.activeCompanyId);
@@ -76,6 +78,7 @@ export default function InboxPage() {
   const [importRfpData, setImportRfpData] = useState(null);
   const [importing, setImporting] = useState(false);
   const [senderEmails, setSenderEmails] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Progress tracking for ImportConfirmModal
   const [progressSteps, setProgressSteps] = useState([]);
@@ -120,20 +123,31 @@ export default function InboxPage() {
   }, [rfps, activeCompanyId]);
 
   const displayedRfps = useMemo(() => {
+    let list = companyFiltered;
     if (filter === "unread") {
-      return companyFiltered.filter(r => (r.status === "parsed" || r.status === "pending") && !readIds.includes(r.id));
+      list = list.filter(r => (r.status === "parsed" || r.status === "pending") && !readIds.includes(r.id));
+    } else if (filter === "read") {
+      list = list.filter(r => (r.status === "parsed" || r.status === "pending") && readIds.includes(r.id));
+    } else if (filter === "threaded") {
+      list = list.filter(r => r.status !== "dismissed");
+    } else if (filter === "imported") {
+      list = list.filter(r => r.status === "imported");
+    } else if (filter === "dismissed") {
+      list = list.filter(r => r.status === "dismissed");
     }
-    if (filter === "read") {
-      return companyFiltered.filter(r => (r.status === "parsed" || r.status === "pending") && readIds.includes(r.id));
+    // Apply text search
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      list = list.filter(r => {
+        const subject = (r.subject || "").toLowerCase();
+        const sender = (r.sender_name || r.sender_email || "").toLowerCase();
+        const project = (r.parsed_data?.projectName || "").toLowerCase();
+        const client = (r.parsed_data?.client?.company || "").toLowerCase();
+        return subject.includes(q) || sender.includes(q) || project.includes(q) || client.includes(q);
+      });
     }
-    if (filter === "threaded") {
-      // Show all non-dismissed emails for "By Project" — grouping is handled separately
-      return companyFiltered.filter(r => r.status !== "dismissed");
-    }
-    if (filter === "imported") return companyFiltered.filter(r => r.status === "imported");
-    if (filter === "dismissed") return companyFiltered.filter(r => r.status === "dismissed");
-    return companyFiltered; // "all"
-  }, [companyFiltered, filter, readIds]);
+    return list;
+  }, [companyFiltered, filter, readIds, searchQuery]);
 
   // Group emails by project for the "By Project" view
   const projectGroups = useMemo(() => {
@@ -959,7 +973,26 @@ export default function InboxPage() {
               </span>
             )}
           </div>
-          <div style={{ fontSize: T.fontSize.xs, color: C.textDim }}>{user?.email}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: T.space[3] }}>
+            {unreadCount > 0 && (
+              <button
+                style={bt(C, {
+                  padding: "4px 12px",
+                  fontSize: T.fontSize.xs,
+                  background: "transparent",
+                  color: C.textMuted,
+                  border: `1px solid ${C.border}`,
+                })}
+                onClick={() => {
+                  markAllRead();
+                  showToast("All marked as read");
+                }}
+              >
+                Mark All Read
+              </button>
+            )}
+            <div style={{ fontSize: T.fontSize.xs, color: C.textDim }}>{user?.email}</div>
+          </div>
         </div>
 
         {/* Forwarding address info */}
@@ -1000,7 +1033,7 @@ export default function InboxPage() {
         </div>
 
         {/* Filter tabs */}
-        <div style={{ display: "flex", gap: T.space[1], marginBottom: T.space[4] }}>
+        <div style={{ display: "flex", gap: T.space[1], marginBottom: T.space[3] }}>
           {FILTERS.map(f => (
             <button
               key={f.key}
@@ -1035,6 +1068,50 @@ export default function InboxPage() {
               )}
             </button>
           ))}
+        </div>
+
+        {/* Search input */}
+        <div style={{ position: "relative", marginBottom: T.space[4] }}>
+          <Ic
+            d={I.search}
+            size={14}
+            color={C.textDim}
+            style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}
+          />
+          <input
+            type="text"
+            placeholder="Search inbox..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            style={inp(C, {
+              width: "100%",
+              paddingLeft: 32,
+              boxSizing: "border-box",
+            })}
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              style={{
+                position: "absolute",
+                right: 8,
+                top: "50%",
+                transform: "translateY(-50%)",
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                color: C.textDim,
+                padding: 4,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </button>
+          )}
         </div>
 
         {/* RFP list */}
@@ -1179,7 +1256,7 @@ export default function InboxPage() {
                     >
                       {rfp.subject || "(no subject)"}
                     </span>
-                    {/* Sender + time */}
+                    {/* Sender + time + toggle read */}
                     <span style={{ fontSize: T.fontSize.xs, color: C.textDim, flexShrink: 0 }}>
                       {rfp.sender_name || rfp.sender_email?.split("@")[0]}
                     </span>
@@ -1205,6 +1282,26 @@ export default function InboxPage() {
                           })()
                         : ""}
                     </span>
+                    {(rfp.status === "parsed" || rfp.status === "pending") && (
+                      <button
+                        title={isUnread ? "Mark as read" : "Mark as unread"}
+                        onClick={e => {
+                          e.stopPropagation();
+                          toggleRead(rfp.id);
+                        }}
+                        style={{
+                          width: 14,
+                          height: 14,
+                          borderRadius: "50%",
+                          background: isUnread ? C.accent : "transparent",
+                          border: isUnread ? `2px solid ${C.accent}` : `2px solid ${C.textDim}40`,
+                          cursor: "pointer",
+                          flexShrink: 0,
+                          padding: 0,
+                          transition: "all 0.12s",
+                        }}
+                      />
+                    )}
                   </div>
                 );
               })}
@@ -1219,6 +1316,7 @@ export default function InboxPage() {
               onView={handleView}
               onImport={handleImport}
               onDismiss={dismissRfp}
+              onToggleRead={toggleRead}
               onRetry={async id => {
                 const result = await retryParse(id);
                 if (result.success) {

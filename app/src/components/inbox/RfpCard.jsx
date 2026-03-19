@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
@@ -14,9 +15,10 @@ function timeAgo(dateStr) {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-export default function RfpCard({ rfp, isUnread, onView, onImport, onDismiss, onRetry }) {
+export default function RfpCard({ rfp, isUnread, onView, onImport, onDismiss, onRetry, onToggleRead }) {
   const C = useTheme();
   const T = C.T;
+  const [hovered, setHovered] = useState(false);
   const pd = rfp.parsed_data || {};
   const attachments = rfp.attachments || [];
   const rawConf = pd.confidence;
@@ -117,10 +119,12 @@ export default function RfpCard({ rfp, isUnread, onView, onImport, onDismiss, on
         overflow: "hidden",
       }}
       onClick={() => onView(rfp)}
-      onMouseOver={e => {
+      onMouseEnter={e => {
+        setHovered(true);
         if (!isDismissed) e.currentTarget.style.boxShadow = `0 0 0 1px ${C.accent}40`;
       }}
-      onMouseOut={e => {
+      onMouseLeave={e => {
+        setHovered(false);
         e.currentTarget.style.boxShadow = "none";
       }}
     >
@@ -184,7 +188,39 @@ export default function RfpCard({ rfp, isUnread, onView, onImport, onDismiss, on
                 </span>
               )}
             </div>
-            <span style={{ fontSize: T.fontSize.xs, color: C.textDim }}>{timeAgo(rfp.received_at)}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: T.space[2] }}>
+              {hovered && onToggleRead && (rfp.status === "parsed" || rfp.status === "pending") && (
+                <button
+                  title={isUnread ? "Mark as read" : "Mark as unread"}
+                  onClick={e => {
+                    e.stopPropagation();
+                    onToggleRead(rfp.id);
+                  }}
+                  style={{
+                    background: "transparent",
+                    border: `1px solid ${C.border}`,
+                    borderRadius: T.radius.sm,
+                    cursor: "pointer",
+                    padding: "2px 8px",
+                    fontSize: T.fontSize.xs,
+                    color: C.textMuted,
+                    whiteSpace: "nowrap",
+                    transition: "color 0.12s, border-color 0.12s",
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.color = C.accent;
+                    e.currentTarget.style.borderColor = C.accent + "60";
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.color = C.textMuted;
+                    e.currentTarget.style.borderColor = C.border;
+                  }}
+                >
+                  {isUnread ? "Mark Read" : "Mark Unread"}
+                </button>
+              )}
+              <span style={{ fontSize: T.fontSize.xs, color: C.textDim }}>{timeAgo(rfp.received_at)}</span>
+            </div>
           </div>
 
           {/* Subject — bold when unread */}

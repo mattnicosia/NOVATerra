@@ -55,6 +55,40 @@ export const useInboxStore = create((set, get) => ({
     });
   },
 
+  // Toggle read/unread state for a single RFP
+  toggleRead: rfpId => {
+    const current = get().readIds;
+    const isRead = current.includes(rfpId);
+    const updated = isRead ? current.filter(id => id !== rfpId) : [...current, rfpId];
+    set({ readIds: updated });
+    try {
+      localStorage.setItem(READ_IDS_KEY, JSON.stringify(updated));
+    } catch {
+      /* localStorage write non-critical */
+    }
+    const rfps = get().rfps;
+    set({
+      unreadCount: rfps.filter(r => (r.status === "parsed" || r.status === "pending") && !updated.includes(r.id))
+        .length,
+    });
+  },
+
+  // Mark all current RFPs as read
+  markAllRead: () => {
+    const rfps = get().rfps;
+    const current = get().readIds;
+    const allIds = rfps
+      .filter(r => r.status === "parsed" || r.status === "pending")
+      .map(r => r.id);
+    const updated = [...new Set([...current, ...allIds])];
+    set({ readIds: updated, unreadCount: 0 });
+    try {
+      localStorage.setItem(READ_IDS_KEY, JSON.stringify(updated));
+    } catch {
+      /* localStorage write non-critical */
+    }
+  },
+
   // Fetch ALL RFPs (always fetches every status — filtering is done client-side)
   fetchRfps: async () => {
     const session = await getSession();
