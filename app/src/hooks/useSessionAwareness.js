@@ -156,43 +156,12 @@ export function useSessionAwareness() {
 
     channelRef.current = channel;
 
-    // ── 2. ENFORCEMENT: Poll DB token every 60s ──
-    // Requires 3 consecutive mismatches before kicking (guards against transient issues).
-    // Also checks on tab refocus for faster detection.
-    const kickSession = () => {
-      if (kickedRef.current) return;
-      kickedRef.current = true;
-      alert("You've been signed out because your account was accessed from another device.");
-      useAuthStore.getState().signOut();
-    };
-
-    const runCheck = async () => {
-      const valid = await checkSessionValid(userId);
-      if (valid) {
-        missCountRef.current = 0;
-      } else {
-        missCountRef.current += 1;
-        if (missCountRef.current >= 3) {
-          kickSession();
-        }
-      }
-    };
-
-    // Poll every 60 seconds (relaxed from 30s)
-    intervalRef.current = setInterval(runCheck, 60_000);
-
-    // Also check on tab refocus
-    const onVisible = () => {
-      if (document.visibilityState === "visible") runCheck();
-    };
-    document.addEventListener("visibilitychange", onVisible);
+    // ── 2. ENFORCEMENT: DISABLED ──
+    // Session enforcement disabled — causes false-positive logouts.
+    // The informational presence channel above still works.
 
     // ── Cleanup ──
     return () => {
-      // Clear enforcement
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      intervalRef.current = null;
-      document.removeEventListener("visibilitychange", onVisible);
 
       // Clear presence
       useUiStore.getState().setOtherSessions([]);

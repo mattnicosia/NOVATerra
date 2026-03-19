@@ -599,58 +599,55 @@ export const PALETTES = [
     ],
   },
   // ═══════════════════════════════════════════════════════════════════════════
-  // Shift5B — Shift5 brutalist chassis, lighter tab/text hierarchy
-  // Same dark card system + coral accent, but #BEBEBE mid-grey lifts
-  // inactive text, borders, and semantic colors so the UI breathes more.
-  // Active tabs pop harder against the brighter neutral field.
+  // Shift5B — Board-spec refined: blue-black void, luminous indigo accent
+  // Deep cool surfaces with warm indigo accent. Full semantic color.
+  // Designed for sustained estimating sessions with high contrast hierarchy.
   // ═══════════════════════════════════════════════════════════════════════════
   {
     id: "shift5b",
     name: "Shift5B",
-    desc: "Military-tech brutalist — lighter grey field, coral accent",
-    preview: ["#0C0C0E", "#FF4F38", "#1A1A1E", "#BEBEBE", "#F0F0F0"],
-    variantLabels: ["Tactical"],
+    desc: "Board-spec — blue-black void, luminous indigo accent",
+    preview: ["#08090E", "#7C6BF0", "#11111B", "#A1A1AA", "#FAFAFA"],
+    variantLabels: ["Refined"],
     overrides: {
-      // ── Surfaces — same dark cards, slightly lifted backdrop ──
-      bg: "#141418",
-      bg1: "#1C1C22",       // cards lifted slightly vs Shift5 (#18181E)
-      bg2: "#242428",       // raised surfaces — more visible separation
-      bg3: "#2E2E34",       // hover states
-      // ── Borders — brighter grey lines for more definition ──
-      border: "rgba(255,255,255,0.16)",
-      borderLight: "rgba(255,255,255,0.09)",
-      borderAccent: "rgba(255,79,56,0.28)",
-      // ── Text — #BEBEBE mid-grey as the secondary/tab resting state ──
-      text: "#F0F0F0",           // primary — near-white, brighter than Shift5
-      textMuted: "#BEBEBE",      // tabs, secondary labels — the signature lift
-      textDim: "#808088",        // tertiary, captions — still recedes
-      // ── Accent — same Shift5 coral ──
-      accent: "#FF4F38",
-      accentDim: "#CC3F2D",
-      accentBg: "rgba(255,79,56,0.10)",
-      accentAlt: "#FF6B57",
+      // ── Surfaces — blue-black void with warm card lift ──
+      bg: "#08090E",        // base — blue-black void
+      bg1: "#11111B",       // cards — warm against cool base
+      bg2: "#1A1A24",       // raised surfaces, input wells
+      bg3: "#22222E",       // hover states, elevated elements
+      // ── Borders — cool indigo-grey ──
+      border: "#25253A",                         // subtle
+      borderLight: "rgba(255,255,255,0.05)",
+      borderAccent: "rgba(124,107,240,0.28)",     // accent-tinted
+      // ── Text — high contrast hierarchy ──
+      text: "#FAFAFA",           // primary — near-white
+      textMuted: "#A1A1AA",      // secondary — zinc-400
+      textDim: "#52525B",        // tertiary — zinc-600
+      // ── Accent — luminous indigo ──
+      accent: "#7C6BF0",
+      accentDim: dk("#7C6BF0"),
+      accentBg: hR("#7C6BF0", 0.08),
+      accentAlt: "#9B8AFB",      // hover state
       // ── Gradients ──
-      gradient: "linear-gradient(135deg, #FF4F38, #FF6B57)",
-      gradientSubtle: "linear-gradient(135deg, rgba(255,79,56,0.14), rgba(255,107,87,0.14))",
-      gradientText: "linear-gradient(135deg, #FF4F38, #FF6B57)",
-      // ── Semantic colors — lifted from pure grey to readable mid-tones ──
-      // Warmer than Shift5's flat greys but still restrained.
-      // Hex values safe for alpha suffix appending.
-      green:  "#A8A8AE",   // positive — warm light grey
-      red:    "#FF4F38",    // danger → coral (brand unity)
-      blue:   "#9898A0",    // info → lifted grey
-      purple: "#888890",    // category → mid grey
-      orange: "#A0A0A8",    // warning → light grey
-      cyan:   "#9898A0",    // info alt → lifted grey
-      yellow: "#A0A0A8",    // caution → light grey
+      gradient: "linear-gradient(135deg, #7C6BF0, #9B8AFB)",
+      gradientSubtle: `linear-gradient(135deg, ${hR("#7C6BF0", 0.12)}, ${hR("#9B8AFB", 0.12)})`,
+      gradientText: "linear-gradient(135deg, #7C6BF0, #9B8AFB)",
+      // ── Semantic colors — full color, board-spec ──
+      green:  "#22C55E",
+      red:    "#EF4444",
+      blue:   "#60A5FA",
+      purple: "#A78BFA",
+      orange: "#F59E0B",
+      cyan:   "#64D2FF",
+      yellow: "#FFE66D",
       // ── Sidebar ──
-      sidebarBg: "#121216",
+      sidebarBg: "rgba(8,9,14,0.96)",
       // ── Glass (disabled — flat surfaces) ──
-      glassBg: "#1C1C22",
-      glassBorder: "rgba(255,255,255,0.16)",
-      glassBgDark: "#161618",
-      // ── Background — lighter grey field for more card contrast ──
-      bgGradient: "#363640",  // lifted from Shift5's #2C2C32
+      glassBg: "#11111B",
+      glassBorder: "#25253A",
+      glassBgDark: "#08090E",
+      // ── Background ──
+      bgGradient: "#08090E",
       // ── Flags ──
       forceDark: true,
       noGlass: true,

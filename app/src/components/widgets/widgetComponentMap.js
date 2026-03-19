@@ -8,7 +8,7 @@ export const WIDGET_COMPONENTS = {
   "project-pulse": lazy(() => import("./ProjectPulseWidget")),
   projects: lazy(() => import("./ProjectsWidget")),
   benchmarks: lazy(() => import("./BenchmarksWidget")),
-  "nova-orb": lazy(() => import("./NovaOrbWidget")),
+  "nova-orb": lazy(() => Promise.resolve({ default: () => null })),
   estimate: lazy(() => import("./EstimateDisplayWidget")),
   "cost-breakdown": lazy(() => import("./CostBreakdownWidget")),
   inbox: lazy(() => import("./InboxWidget")),

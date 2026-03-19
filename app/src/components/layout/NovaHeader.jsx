@@ -13,7 +13,7 @@ import NotificationCenter from "@/components/shared/NotificationCenter";
 import LogoPill from "@/components/shared/LogoPill";
 import { useAutoResponseStore } from "@/stores/autoResponseStore";
 import { useOrgStore, selectIsManager } from "@/stores/orgStore";
-import { COLORS, SPACING } from "@/constants/designTokens";
+import { COLORS, SPACING, MOTION } from "@/constants/designTokens";
 
 /* ── Nav icon SVGs ── */
 const NAV_ICONS = {
@@ -591,41 +591,8 @@ function NovaHeader({ onDraftPanelToggle }) {
 
   /* ── Header-specific derived colors ── */
 
-  // Header — Apple Liquid Glass: nearly transparent bar, thin specular, no heavy shadow
-  // Nero Nemesis: carbon fiber weave + neutral glass + thin bottom edge
-  const isNero = C.neroMode;
-  const hBg = C.noGlass
-    ? C.bg1
-    : isNero
-      ? `${C.carbonTexture || ""}, linear-gradient(180deg, rgba(6,6,14,0.90) 0%, rgba(6,6,14,0.80) 100%)`.replace(
-          /^, /,
-          "",
-        )
-      : dk
-        ? `linear-gradient(180deg, rgba(2,2,6,0.95) 0%, rgba(60,36,120,0.14) 100%)`
-        : `linear-gradient(180deg, ${C.glassBg || "rgba(255,255,255,0.32)"} 0%, ${C.glassBg || "rgba(255,255,255,0.32)"} 100%)`;
-  const hShadow = C.noGlass
-    ? "none"
-    : isNero
-      ? ["inset 0 -1px 0 rgba(255,255,255,0.06)", "0 1px 12px rgba(0,0,0,0.40)"].join(", ")
-      : dk
-        ? [T.glass.specularLg, T.glass.edge, "0 1px 12px rgba(0,0,0,0.15)"].join(", ")
-        : "inset 0 -1px 0 rgba(255,255,255,0.5), 0 1px 4px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.03)";
-  const hBorderB = C.noGlass
-    ? C.border
-    : isNero
-      ? "rgba(255,255,255,0.06)"
-      : dk
-        ? T.glass.borderLight
-        : C.glassBorder || C.border || "rgba(0,0,0,0.08)";
-
   // Overlays — white-alpha on dark, black-alpha on light
   const ov = (darkA, lightA) => (dk ? `rgba(255,255,255,${darkA})` : `rgba(0,0,0,${lightA})`);
-
-  // Nav colors
-  const navActive = dk ? "#FFFFFF" : C.text;
-  const navInactive = C.textMuted;
-  const _navHover = dk ? "rgba(238,237,245,0.85)" : C.text;
 
   // Button colors (search pill, AI chat, notifications)
   const btnDim = C.textDim;
@@ -634,10 +601,6 @@ function NovaHeader({ onDraftPanelToggle }) {
   // Accent
   const accent = C.accent;
   const accentDim = C.accentDim;
-
-  // Logo
-  const _logoText = dk ? "rgba(238,237,245,0.9)" : C.text;
-  const _logoV = isNova ? "#A78BFA" : accent;
 
   // Toggle
   const tglActive = dk ? "#FFFFFF" : C.text;
@@ -662,11 +625,11 @@ function NovaHeader({ onDraftPanelToggle }) {
       }}
     >
       {/* Left — NovaSentenceBar */}
-      <div style={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", minWidth: 220, paddingLeft: 16 }}>
         <NovaSentenceBar />
       </div>
 
-      {/* Center — Navigation: active tab = Liquid Glass pill */}
+      {/* Center — Navigation */}
       <nav style={{ display: "flex", alignItems: "center", gap: 2 }}>
         {NAV_ITEMS.filter(item => !item.managerOnly || isManager || !hasOrg).map(item => (
           <NavLink
@@ -679,45 +642,47 @@ function NovaHeader({ onDraftPanelToggle }) {
               flexDirection: "column",
               alignItems: "center",
               gap: 3,
-              padding: isTablet ? "6px 10px" : "6px 20px",
-              borderRadius: 12,
+              padding: isTablet ? "6px 10px" : "6px 16px",
+              borderRadius: 8,
               cursor: "pointer",
               position: "relative",
-              transition: "all 0.25s ease",
+              transition: `color ${MOTION.normal} ease, background ${MOTION.normal} ease`,
               textDecoration: "none",
-              color: isActive ? navActive : navInactive,
-              // Active = Apple Liquid Glass pill — subtle, ghost-like
-              background: isActive ? (dk ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.15)") : "transparent",
-              border: `0.5px solid ${
-                isActive ? (dk ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.30)") : "transparent"
-              }`,
-              boxShadow: isActive ? [T.glass.specularSm, T.glass.edge].filter(Boolean).join(", ") || "none" : "none",
-              backdropFilter: isActive
-                ? dk
-                  ? "blur(12px) saturate(150%)"
-                  : "blur(12px) saturate(170%) brightness(1.04)"
-                : "none",
-              WebkitBackdropFilter: isActive
-                ? dk
-                  ? "blur(12px) saturate(150%)"
-                  : "blur(12px) saturate(170%) brightness(1.04)"
-                : "none",
+              color: isActive ? COLORS.text.primary : COLORS.text.tertiary,
+              background: isActive ? COLORS.accent.muted : "transparent",
+              border: "none",
+              boxShadow: "none",
             })}
             onMouseEnter={e => {
               if (!e.currentTarget.classList.contains("active")) {
-                e.currentTarget.style.background = dk ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.10)";
-                e.currentTarget.style.borderColor = dk ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.18)";
+                e.currentTarget.style.color = COLORS.text.secondary;
+                e.currentTarget.style.background = COLORS.accent.muted;
               }
             }}
             onMouseLeave={e => {
               if (!e.currentTarget.classList.contains("active")) {
+                e.currentTarget.style.color = "";
                 e.currentTarget.style.background = "";
-                e.currentTarget.style.borderColor = "";
               }
             }}
           >
             {({ isActive }) => (
               <>
+                {/* 2px left accent bar for active item */}
+                {isActive && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      top: "20%",
+                      bottom: "20%",
+                      width: 2,
+                      borderRadius: 1,
+                      background: COLORS.accent.DEFAULT,
+                      boxShadow: `0 0 6px ${COLORS.accent.glow}`,
+                    }}
+                  />
+                )}
                 <div style={{ width: 17, height: 17, flexShrink: 0 }}>{item.icon}</div>
                 {!isTablet && (
                   <span
@@ -737,26 +702,12 @@ function NovaHeader({ onDraftPanelToggle }) {
                     style={{
                       position: "absolute",
                       top: 4,
-                      right: 12,
+                      right: isTablet ? 6 : 10,
                       width: 5,
                       height: 5,
                       borderRadius: "50%",
-                      background: accent,
-                      boxShadow: `0 0 6px ${accent}CC`,
-                    }}
-                  />
-                )}
-                {isActive && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      bottom: -1,
-                      left: "50%",
-                      transform: "translateX(-50%)",
-                      width: 24,
-                      height: 1.5,
-                      background: `linear-gradient(90deg, transparent, ${accent}, transparent)`,
-                      boxShadow: `0 0 10px ${accent}`,
+                      background: COLORS.accent.DEFAULT,
+                      boxShadow: `0 0 6px ${COLORS.accent.glow}`,
                     }}
                   />
                 )}

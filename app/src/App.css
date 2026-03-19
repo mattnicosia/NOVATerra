@@ -51,6 +51,28 @@ input[type="number"] {
   -moz-appearance: textfield;
 }
 
+/* ── Board-spec: Input focus states via CSS custom properties ──
+   Style helpers set --inp-focus-border and --inp-focus-shadow on inputs.
+   This rule activates them on :focus. */
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--inp-focus-border, inherit) !important;
+  box-shadow: var(--inp-focus-shadow, none) !important;
+}
+
+/* ── Board-spec: Button hover/active states ──
+   Primary buttons: hover lifts -1px with accent shadow, active presses +1px */
+button:hover,
+[role="button"]:hover {
+  transform: translateY(-1px);
+}
+button:active,
+[role="button"]:active {
+  transform: translateY(1px);
+  filter: brightness(0.9);
+}
+
 /* Scrollbars — refined with subtle accent on hover */
 ::-webkit-scrollbar {
   width: 6px;

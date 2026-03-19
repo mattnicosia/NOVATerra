@@ -34,10 +34,15 @@ const neroGlassStyle = (C, tier = "md") => {
 export { neroGlassStyle, neroCarbon };
 
 export const inp = (C, overrides) => {
+  // Extract accent RGB for focus ring
+  const accentHex = (C.accent || "#8B5CF6").replace("#", "");
+  const aR = parseInt(accentHex.substring(0, 2), 16);
+  const aG = parseInt(accentHex.substring(2, 4), 16);
+  const aB = parseInt(accentHex.substring(4, 6), 16);
   return {
-    background: C.neroMode ? "rgba(0,0,0,0.35)" : C.isDark ? "rgba(0,0,0,0.25)" : "rgba(255,255,255,0.45)",
-    border: `1px solid ${C.isDark ? C.glassBorder || C.border : C.glassBorder || C.border || "rgba(0,0,0,0.12)"}`,
-    borderRadius: T.radius.sm,
+    background: C.bg1 || (C.isDark ? "rgba(0,0,0,0.25)" : "rgba(255,255,255,0.45)"),
+    border: `1px solid ${C.border || "rgba(255,255,255,0.12)"}`,
+    borderRadius: 8,
     color: C.text,
     padding: "7px 14px",
     fontSize: T.fontSize.base,
@@ -45,12 +50,13 @@ export const inp = (C, overrides) => {
     lineHeight: T.lineHeight.normal,
     width: "100%",
     outline: "none",
-    transition: T.transition.fast,
-    // Liquid Glass v2: recessed field with specular bottom-edge highlight
-    ...(!C.isDark && {
-      boxShadow:
-        "inset 0 0.5px 2px rgba(20,30,80,0.06), 0 0 0 1px rgba(255,255,255,0.25), inset 0 -0.5px 0 rgba(255,255,255,0.80)",
-    }),
+    transition: "border-color 150ms ease-out, box-shadow 150ms ease-out",
+    // Focus styles applied via CSS :focus pseudo-class won't work inline,
+    // but components can spread these via onFocus/onBlur handlers:
+    // --inp-focus-border: C.accent
+    // --inp-focus-shadow: 0 0 0 2px rgba(accent, 0.15)
+    "--inp-focus-border": C.accent,
+    "--inp-focus-shadow": `0 0 0 2px rgba(${aR},${aG},${aB},0.15)`,
     ...overrides,
   };
 };
@@ -64,8 +70,8 @@ export const nInp = (C, overrides) =>
   });
 
 export const bt = (C, overrides) => ({
-  border: "none",
-  borderRadius: T.radius.sm,
+  border: "1px solid rgba(255,255,255,0.1)",
+  borderRadius: 10,
   cursor: "pointer",
   fontSize: T.fontSize.sm,
   fontWeight: T.fontWeight.semibold,
@@ -73,7 +79,7 @@ export const bt = (C, overrides) => ({
   display: "flex",
   alignItems: "center",
   gap: T.space[2],
-  transition: "all 100ms ease-out, box-shadow 200ms ease-out",
+  transition: "all 150ms ease-out, box-shadow 200ms ease-out, transform 100ms ease-out",
   ...overrides,
 });
 
@@ -142,16 +148,28 @@ export const card = (C, overrides) => {
 };
 
 // Solid card — non-glass fallback (old card behavior)
+// Board spec: elevated bg, 12px radius, top-edge border only,
+// hover transitions top border to accent + accent-tinted shadow
 export const cardSolid = (C, overrides) => {
   const tokens = C.T || T;
+  // Extract accent RGB for hover shadow
+  const accentHex = (C.accent || "#8B5CF6").replace("#", "");
+  const aR = parseInt(accentHex.substring(0, 2), 16);
+  const aG = parseInt(accentHex.substring(2, 4), 16);
+  const aB = parseInt(accentHex.substring(4, 6), 16);
 
   // ── CONCRETE: Stone/concrete material — no glass, subtle grain texture ──
   if (C.materialMode === "concrete") {
     return {
       background: C.bg1,
-      borderRadius: T.radius.md,
-      border: `1px solid ${C.border}`,
+      borderRadius: 12,
+      border: "1px solid transparent",
+      borderTop: `1px solid ${C.border}`,
+      padding: 16,
       boxShadow: tokens.shadow.sm,
+      transition: "border-color 150ms ease-out, box-shadow 150ms ease-out",
+      "--card-hover-border-top": C.accent,
+      "--card-hover-shadow": `0 4px 12px rgba(${aR},${aG},${aB},0.08)`,
       ...overrides,
     };
   }
@@ -160,18 +178,28 @@ export const cardSolid = (C, overrides) => {
   if (C.neroMode) {
     return {
       background: neroCarbon(C, C.bg1),
-      borderRadius: T.radius.md,
-      border: `1px solid rgba(255,255,255,0.06)`,
+      borderRadius: 12,
+      border: "1px solid transparent",
+      borderTop: `1px solid rgba(255,255,255,0.06)`,
+      padding: 16,
       boxShadow: `${tokens.shadow.sm}, 0 0 0 0.5px rgba(255,255,255,0.04)`,
+      transition: "border-color 150ms ease-out, box-shadow 150ms ease-out",
+      "--card-hover-border-top": C.accent,
+      "--card-hover-shadow": `0 4px 12px rgba(${aR},${aG},${aB},0.08)`,
       ...overrides,
     };
   }
 
   return {
     background: C.bg1,
-    borderRadius: T.radius.md,
-    border: `1px solid ${C.border}`,
+    borderRadius: 12,
+    border: "1px solid transparent",
+    borderTop: `1px solid ${C.border}`,
+    padding: 16,
     boxShadow: tokens.shadow.sm,
+    transition: "border-color 150ms ease-out, box-shadow 150ms ease-out",
+    "--card-hover-border-top": C.accent,
+    "--card-hover-shadow": `0 4px 12px rgba(${aR},${aG},${aB},0.08)`,
     ...overrides,
   };
 };
@@ -307,28 +335,14 @@ export const pageContainer = _C => ({
   minHeight: "100%",
 });
 
-// Gradient accent button — Liquid Glass glow on light
+// Primary accent button — board spec: accent bg, inner bevel, 10px radius
+// Hover: lighter accent, translateY(-1px), accent shadow
+// Active: translateY(+1px), brightness(0.9)
 export const accentButton = (C, overrides) => {
-  // ── NERO: Accent glow + sm-tier glass specular ──
-  if (C.neroMode) {
-    const ng = (C.T || T).neroGlass?.sm || {};
-    return {
-      ...bt(C),
-      background: C.gradient || C.accent,
-      color: "#fff",
-      padding: "8px 18px",
-      fontWeight: T.fontWeight.semibold,
-      borderRadius: T.radius.sm,
-      boxShadow: [
-        ng.specular || "inset 0 0.5px 0 rgba(255,255,255,0.15)",
-        `0 0 20px ${C.accent}40`,
-        `0 0 40px ${C.accent}18`,
-        ng.edge || "0 0 0 0.5px rgba(255,255,255,0.06)",
-      ].join(", "),
-      transition: (C.T || T).neroGlass?.spring || "all 300ms cubic-bezier(0.4, 0, 0.2, 1)",
-      ...overrides,
-    };
-  }
+  const accentHex = (C.accent || "#8B5CF6").replace("#", "");
+  const aR = parseInt(accentHex.substring(0, 2), 16);
+  const aG = parseInt(accentHex.substring(2, 4), 16);
+  const aB = parseInt(accentHex.substring(4, 6), 16);
 
   return {
     ...bt(C),
@@ -336,10 +350,10 @@ export const accentButton = (C, overrides) => {
     color: "#fff",
     padding: "8px 18px",
     fontWeight: T.fontWeight.semibold,
-    borderRadius: T.radius.sm,
-    boxShadow: C.isDark
-      ? "0 0 12px rgba(0,212,255,0.15)"
-      : `inset 0 1px 0 rgba(255,255,255,0.25), 0 2px 8px ${C.accent}20, 0 0 0 0.5px ${C.accent}10`,
+    borderRadius: 10,
+    border: "1px solid rgba(255,255,255,0.1)",
+    boxShadow: `0 2px 8px rgba(${aR},${aG},${aB},0.25)`,
+    transition: "all 150ms ease-out, transform 100ms ease-out",
     ...overrides,
   };
 };

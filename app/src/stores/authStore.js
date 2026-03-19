@@ -161,10 +161,12 @@ export const useAuthStore = create((set, get) => ({
     }
 
     try {
-      // Check existing session
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      // Check existing session (with 5s timeout to prevent infinite loading)
+      const sessionResult = await Promise.race([
+        supabase.auth.getSession(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("getSession timeout")), 5000)),
+      ]);
+      const { data: { session } } = sessionResult;
       if (session?.user) {
         set({ user: session.user, session, loading: false });
         // Adopt existing token on page load — never overwrite DB on init
