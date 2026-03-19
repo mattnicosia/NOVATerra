@@ -4,6 +4,7 @@ import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useUiStore } from "@/stores/uiStore";
 import { useItemsStore, DEFAULT_MARKUP_ORDER } from "@/stores/itemsStore";
 import { useInboxStore } from "@/stores/inboxStore";
+import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useOrgStore, selectIsManager } from "@/stores/orgStore";
 import { supabase } from "@/utils/supabase";
@@ -888,6 +889,9 @@ export default function SettingsPage() {
           <EstimatorSettingsPanel />
         </Sec>
 
+        {/* Project Access — managers/owners only */}
+        {isManager && hasOrg && <ProjectAccessSection />}
+
         {/* Email Inbox */}
         {supabase && <EmailInboxSection C={C} T={T} showToast={showToast} />}
 
@@ -1546,6 +1550,236 @@ function CompanyProfilesSection({
         Company info appears on proposal letterheads, bid forms, and reports. Upload a logo to auto-extract brand color
         palettes. Select a profile per-project on the Project Info page.
       </div>
+    </Sec>
+  );
+}
+
+// ── Project Access (manager/owner only) ──
+function ProjectAccessSection() {
+  const C = useTheme();
+  const T = C.T;
+  const estimatesIndex = useEstimatesStore(s => s.estimatesIndex);
+  const setVisibility = useEstimatesStore(s => s.setVisibility);
+  const assignEstimate = useEstimatesStore(s => s.assignEstimate);
+  const members = useOrgStore(s => s.members);
+  const fetchMembers = useOrgStore(s => s.fetchMembers);
+  const [openDropdownId, setOpenDropdownId] = useState(null);
+
+  useEffect(() => {
+    fetchMembers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable action
+  }, []);
+
+  // Map user_id -> display_name for quick lookup
+  const memberMap = {};
+  members.forEach(m => {
+    memberMap[m.user_id] = m.display_name || m.user_id?.slice(0, 8);
+  });
+
+  const getMemberName = userId => memberMap[userId] || userId?.slice(0, 8) || "Unknown";
+
+  // Filter to non-trashed estimates
+  const estimates = estimatesIndex.filter(e => e.status !== "Trash");
+
+  const toggleAssignment = (estimateId, userId, currentAssigned) => {
+    const arr = currentAssigned || [];
+    const next = arr.includes(userId) ? arr.filter(id => id !== userId) : [...arr, userId];
+    assignEstimate(estimateId, next);
+  };
+
+  return (
+    <Sec title="Project Access" icon={I.shield}>
+      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 14, lineHeight: 1.5 }}>
+        Control which estimates your team can see. <strong style={{ color: C.textDim }}>Private</strong> = owner only,{" "}
+        <strong style={{ color: C.textDim }}>Assigned</strong> = owner + selected users,{" "}
+        <strong style={{ color: C.textDim }}>Org-Wide</strong> = everyone in the organization.
+      </div>
+
+      {estimates.length === 0 ? (
+        <div style={{ fontSize: 11, color: C.textDim, fontStyle: "italic", padding: "12px 0" }}>
+          No estimates found.
+        </div>
+      ) : (
+        <div style={{ overflowX: "auto" }}>
+          {/* Table header */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "2fr 1fr 140px 1fr",
+              gap: 8,
+              padding: "8px 12px",
+              borderBottom: `1px solid ${C.border}`,
+              marginBottom: 2,
+            }}
+          >
+            {["Estimate Name", "Owner", "Visibility", "Assigned To"].map(h => (
+              <div key={h} style={{ fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                {h}
+              </div>
+            ))}
+          </div>
+
+          {/* Table rows */}
+          {estimates.map(est => {
+            const vis = est.visibility || "private";
+            const assigned = est.assignedTo || [];
+            const isDropdownOpen = openDropdownId === est.id;
+
+            return (
+              <div
+                key={est.id}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "2fr 1fr 140px 1fr",
+                  gap: 8,
+                  padding: "8px 12px",
+                  borderBottom: `1px solid ${C.border}20`,
+                  alignItems: "center",
+                }}
+              >
+                {/* Estimate name */}
+                <div style={{ fontSize: 11, fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {est.name || "Untitled"}
+                </div>
+
+                {/* Owner */}
+                <div style={{ fontSize: 11, color: C.textMuted }}>
+                  {getMemberName(est.ownerId)}
+                </div>
+
+                {/* Visibility dropdown */}
+                <select
+                  value={vis}
+                  onChange={e => setVisibility(est.id, e.target.value)}
+                  style={{
+                    ...inp(C, { padding: "4px 6px", fontSize: 10, fontWeight: 600 }),
+                    cursor: "pointer",
+                  }}
+                >
+                  <option value="private">Private</option>
+                  <option value="assigned">Assigned</option>
+                  <option value="org">Org-Wide</option>
+                </select>
+
+                {/* Assigned To */}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center", position: "relative" }}>
+                  {assigned.map(userId => (
+                    <span
+                      key={userId}
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 600,
+                        color: C.text,
+                        background: C.isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+                        padding: "2px 8px",
+                        borderRadius: 10,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      {getMemberName(userId)}
+                      <span
+                        onClick={() => toggleAssignment(est.id, userId, assigned)}
+                        style={{ cursor: "pointer", opacity: 0.5, lineHeight: 1 }}
+                        title="Remove"
+                      >
+                        x
+                      </span>
+                    </span>
+                  ))}
+
+                  {/* Add button */}
+                  <button
+                    onClick={() => setOpenDropdownId(isDropdownOpen ? null : est.id)}
+                    style={{
+                      background: `${C.accent}10`,
+                      border: `1px solid ${C.accent}30`,
+                      borderRadius: 4,
+                      padding: "2px 8px",
+                      fontSize: 9,
+                      fontWeight: 600,
+                      color: C.accent,
+                      cursor: "pointer",
+                    }}
+                  >
+                    + Add
+                  </button>
+
+                  {/* Assignment dropdown */}
+                  {isDropdownOpen && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "100%",
+                        left: 0,
+                        zIndex: 100,
+                        background: C.bg1,
+                        border: `1px solid ${C.border}`,
+                        borderRadius: 6,
+                        padding: 4,
+                        marginTop: 4,
+                        minWidth: 180,
+                        boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
+                      }}
+                    >
+                      {members.map(m => {
+                        const isAssigned = assigned.includes(m.user_id);
+                        return (
+                          <div
+                            key={m.id}
+                            onClick={() => toggleAssignment(est.id, m.user_id, assigned)}
+                            style={{
+                              padding: "6px 10px",
+                              fontSize: 11,
+                              color: C.text,
+                              cursor: "pointer",
+                              borderRadius: 4,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                              background: isAssigned ? `${C.accent}15` : "transparent",
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.background = `${C.accent}20`; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = isAssigned ? `${C.accent}15` : "transparent"; }}
+                          >
+                            <div
+                              style={{
+                                width: 14,
+                                height: 14,
+                                borderRadius: 3,
+                                border: `1.5px solid ${isAssigned ? C.accent : C.textDim}`,
+                                background: isAssigned ? C.accent : "transparent",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                flexShrink: 0,
+                              }}
+                            >
+                              {isAssigned && <Ic d={I.check} size={9} color="#fff" sw={2.5} />}
+                            </div>
+                            <span style={{ fontWeight: isAssigned ? 600 : 400 }}>
+                              {m.display_name || m.user_id?.slice(0, 8)}
+                            </span>
+                            <span style={{ fontSize: 9, color: C.textDim, marginLeft: "auto" }}>
+                              {m.role}
+                            </span>
+                          </div>
+                        );
+                      })}
+                      {members.length === 0 && (
+                        <div style={{ fontSize: 10, color: C.textDim, padding: 8, fontStyle: "italic" }}>
+                          No team members found
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </Sec>
   );
 }

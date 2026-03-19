@@ -132,6 +132,7 @@ export const useEstimatesStore = create((set, get) => ({
       manualPercentComplete: null, // number | null — overrides auto-calculated %
       manualHoursLogged: null, // number | null — overrides timer-based hours logged
       delegatedBy: "", // name of estimator who delegated (empty = direct assignment)
+      visibility: "private",
     };
     set(s => ({
       activeEstimateId: id,
@@ -602,10 +603,25 @@ export const useEstimatesStore = create((set, get) => ({
     // No-op guard: skip if assignedTo hasn't changed
     const entry = get().estimatesIndex.find(e => e.id === estimateId);
     if (entry && JSON.stringify(entry.assignedTo) === JSON.stringify(userIds)) return;
+    // Auto-switch visibility to 'assigned' when users are added to a private estimate
+    const autoVisibility =
+      entry && entry.visibility === "private" && Array.isArray(userIds) && userIds.length > 0
+        ? "assigned"
+        : undefined;
     set(s => ({
-      estimatesIndex: s.estimatesIndex.map(e => (e.id === estimateId ? { ...e, assignedTo: userIds } : e)),
+      estimatesIndex: s.estimatesIndex.map(e =>
+        e.id === estimateId
+          ? { ...e, assignedTo: userIds, ...(autoVisibility ? { visibility: autoVisibility } : {}) }
+          : e
+      ),
     }));
     // Cloud push happens via auto-save index sync
+  },
+
+  setVisibility: (estimateId, visibility) => {
+    const entry = get().estimatesIndex.find(e => e.id === estimateId);
+    if (!entry || entry.visibility === visibility) return;
+    get().updateIndexEntry(estimateId, { visibility });
   },
 
   // Import a pre-built estimate from an RFP

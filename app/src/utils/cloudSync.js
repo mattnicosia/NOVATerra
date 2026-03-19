@@ -692,6 +692,8 @@ export const pushEstimate = async (estimateId, data) => {
       const scope = getScope();
       // Extract assignedTo from the estimate data to store as a column (for queries)
       const assignedTo = cleanData?.project?.assignedTo || null;
+      // Extract visibility for RLS-based access control
+      const visibility = cleanData?.project?.visibility || 'private';
       // CRITICAL: Do NOT include deleted_at here. Setting deleted_at: null on every
       // push was the root cause of zombie resurrection — an in-flight auto-save
       // would un-delete rows that deleteEstimate() had just soft-deleted.
@@ -703,6 +705,7 @@ export const pushEstimate = async (estimateId, data) => {
         updated_at: new Date().toISOString(),
         ...(scope || {}),
         ...(assignedTo ? { assigned_to: assignedTo } : {}),
+        visibility,
       };
 
       if (scope?.org_id) {
@@ -718,7 +721,7 @@ export const pushEstimate = async (estimateId, data) => {
         if (existing) {
           const { error } = await supabase
             .from("user_estimates")
-            .update({ data: cleanData, updated_at: row.updated_at, ...(assignedTo ? { assigned_to: assignedTo } : {}) })
+            .update({ data: cleanData, updated_at: row.updated_at, visibility, ...(assignedTo ? { assigned_to: assignedTo } : {}) })
             .eq("user_id", userId)
             .eq("estimate_id", estimateId)
             .eq("org_id", scope.org_id);
@@ -735,6 +738,7 @@ export const pushEstimate = async (estimateId, data) => {
                 org_id: scope.org_id,
                 data: cleanData,
                 updated_at: row.updated_at,
+                visibility,
                 ...(assignedTo ? { assigned_to: assignedTo } : {}),
               })
               .eq("user_id", userId)
@@ -758,7 +762,7 @@ export const pushEstimate = async (estimateId, data) => {
         if (existing) {
           const { error } = await supabase
             .from("user_estimates")
-            .update({ data: cleanData, updated_at: row.updated_at })
+            .update({ data: cleanData, updated_at: row.updated_at, visibility })
             .eq("user_id", userId)
             .eq("estimate_id", estimateId)
             .is("org_id", null);
