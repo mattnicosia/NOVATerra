@@ -27,6 +27,7 @@ import ReadOnlyBanner from "@/components/shared/ReadOnlyBanner";
 // NovaOrb moved to EstimatePage left panel
 import { CAR_PALETTE_IDS, LIGHT_PALETTE_IDS, ARTIFACT_PALETTE_IDS, PALETTES } from "@/constants/palettes";
 import { NOISE_GRAIN } from "@/constants/textures";
+import { COLORS } from "@/constants/designTokens";
 import NovaHeader from "@/components/layout/NovaHeader";
 import EstimateJourneyBar from "@/components/layout/EstimateJourneyBar";
 import Toast from "@/components/layout/Toast";
@@ -543,7 +544,7 @@ function AppContent() {
         flexDirection: "column",
         height: "100vh",
         overflow: "hidden",
-        background: C.bgTexture ? `${C.bgTexture}, ${C.bgGradient || C.bg}` : C.bgGradient || C.bg,
+        background: COLORS.bg.primary,
         position: "relative",
         opacity: persistenceLoaded ? 1 : 0,
         transition: "opacity 0.15s ease-in",

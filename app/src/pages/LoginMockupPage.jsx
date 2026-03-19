@@ -1,22 +1,32 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuthStore } from "@/stores/authStore";
+import { COLORS, SPACING, MOTION } from "@/constants/designTokens";
 
 /* ────────────────────────────────────────────────────────────────
-   LoginMockupPage — Clean black login
-   Stripped of all sphere/chamber graphics while we sort NOVACORE.
-   Pure black background, centered glass card.
+   LoginMockupPage — Board Spec IV: Pure void login
+   #08090E background, no card, no glass, no gradient.
+   Fields float in space. Two-beat entrance animation.
    ──────────────────────────────────────────────────────────────── */
 
 const FONT = "'Switzer', -apple-system, BlinkMacSystemFont, sans-serif";
-const ACCENT = "#C83232";
-const ACCENT_DIM = "#5C1A1A";
-const TEXT = "rgba(238,237,245,0.92)";
-const TEXT_MUTED = "rgba(238,237,245,0.50)";
-const TEXT_DIM = "rgba(238,237,245,0.28)";
-const BORDER = "rgba(255,255,255,0.10)";
-const INPUT_BG = "rgba(255,255,255,0.04)";
+const ACCENT = COLORS.accent.DEFAULT;     // #7C6BF0
+const ACCENT_HOVER = COLORS.accent.hover; // #9B8AFB
+const TEXT = COLORS.text.primary;         // #FAFAFA
+const TEXT_SEC = COLORS.text.secondary;   // #A1A1AA
+const TEXT_DIM = COLORS.text.tertiary;    // #52525B
+const BORDER = COLORS.border.subtle;      // #25253A
+const INPUT_BG = COLORS.bg.surface;       // #1A1A24
+const BG = COLORS.bg.primary;            // #08090E
 
 const keyframesCSS = `
+@keyframes loginWordmarkIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes loginFormIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 @keyframes loginFadeUp {
   from { opacity: 0; transform: translateY(24px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -24,10 +34,6 @@ const keyframesCSS = `
 @keyframes loginFadeIn {
   from { opacity: 0; }
   to   { opacity: 1; }
-}
-@keyframes glowPulse {
-  0%, 100% { opacity: 0.5; width: 50px; }
-  50% { opacity: 1; width: 70px; }
 }
 `;
 
@@ -53,11 +59,11 @@ const inputStyle = {
   fontFamily: FONT,
   fontWeight: 400,
   border: `1px solid ${BORDER}`,
-  borderRadius: 10,
+  borderRadius: SPACING.inputRadius,
   outline: "none",
   background: INPUT_BG,
   color: TEXT,
-  transition: "border-color 200ms, box-shadow 200ms",
+  transition: `border-color ${MOTION.slow}, box-shadow ${MOTION.slow}`,
   boxSizing: "border-box",
 };
 
@@ -69,19 +75,18 @@ function submitBtnStyle(disabled) {
     fontWeight: 600,
     fontFamily: FONT,
     color: "#fff",
-    background: disabled ? "rgba(255,255,255,0.08)" : `linear-gradient(135deg, ${ACCENT}, ${ACCENT_DIM})`,
-    border: "none",
-    borderRadius: 10,
+    background: disabled ? "rgba(255,255,255,0.08)" : ACCENT,
+    border: disabled ? "none" : "1px solid rgba(255,255,255,0.1)",
+    borderRadius: SPACING.buttonRadius,
     cursor: disabled ? "default" : "pointer",
-    transition: "all 200ms ease-out",
-    boxShadow: disabled ? "none" : `0 4px 20px ${ACCENT}40, 0 0 0 1px ${ACCENT}30`,
+    transition: `all ${MOTION.slow} ease-out`,
     opacity: disabled ? 0.5 : 1,
   };
 }
 
 const focusHandler = e => {
-  e.target.style.borderColor = `${ACCENT}66`;
-  e.target.style.boxShadow = `0 0 0 3px ${ACCENT}1A`;
+  e.target.style.borderColor = ACCENT;
+  e.target.style.boxShadow = `0 0 0 2px rgba(124,107,240,0.15)`;
 };
 const blurHandler = e => {
   e.target.style.borderColor = BORDER;
@@ -161,7 +166,7 @@ function PasswordInput({ value, onChange, placeholder, onFocusCb, ...rest }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   LOGIN FORM — centered on black
+   LOGIN FORM — fields float in void, no card container
    ═══════════════════════════════════════════════════════════════ */
 
 function LoginForm() {
@@ -169,11 +174,11 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [mode, setMode] = useState(() => {
-    // If arriving via invite link, default to signup mode
     if (localStorage.getItem("pendingInviteToken")) return "signup";
     return "password";
-  }); // password | magic | signup | forgot
-  const [visible, setVisible] = useState(false);
+  });
+  const [wordmarkVisible, setWordmarkVisible] = useState(false);
+  const [formVisible, setFormVisible] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [resetSent, setResetSent] = useState(false);
@@ -188,13 +193,21 @@ function LoginForm() {
   const clearError = useAuthStore(s => s.clearError);
   const clearMagicLinkSent = useAuthStore(s => s.clearMagicLinkSent);
 
-  // Stagger form entry
+  // Two-beat entrance: wordmark first, then form
+  // Skip animation for returning users (existing session in storage)
   useEffect(() => {
-    const t = setTimeout(() => setVisible(true), 300);
-    return () => clearTimeout(t);
+    const hasSession = !!localStorage.getItem("sb-auth-token") || !!sessionStorage.getItem("sb-auth-token");
+    if (hasSession) {
+      setWordmarkVisible(true);
+      setFormVisible(true);
+      return;
+    }
+    const t1 = setTimeout(() => setWordmarkVisible(true), 50);
+    const t2 = setTimeout(() => setFormVisible(true), 350); // 300ms after wordmark
+    return () => { clearTimeout(t1); clearTimeout(t2); };
   }, []);
 
-  // Mode switching — clears error, resets sub-states
+  // Mode switching
   const switchMode = useCallback(
     newMode => {
       setMode(newMode);
@@ -213,9 +226,7 @@ function LoginForm() {
       setSubmitting(true);
       const result = await signInWithPassword(email.trim(), password);
       setSubmitting(false);
-      if (!result?.error) {
-        setTransitioning(true);
-      }
+      if (!result?.error) setTransitioning(true);
     },
     [email, password, signInWithPassword],
   );
@@ -238,9 +249,7 @@ function LoginForm() {
       setSubmitting(true);
       const result = await signUpWithPassword(email.trim(), password, fullName.trim());
       setSubmitting(false);
-      if (result?.success && !result?.confirmEmail) {
-        setTransitioning(true);
-      }
+      if (result?.success && !result?.confirmEmail) setTransitioning(true);
     },
     [email, password, fullName, signUpWithPassword],
   );
@@ -266,8 +275,6 @@ function LoginForm() {
           ? handleSignUp
           : handleForgotPassword;
 
-  if (!visible) return null;
-
   // ── Confirmation screens ───────────────────────────────────
   if (magicLinkSent) {
     return (
@@ -291,37 +298,20 @@ function LoginForm() {
             border: "1px solid rgba(48,209,88,0.25)",
           }}
         >
-          <svg
-            width={28}
-            height={28}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="#30D158"
-            strokeWidth={2.5}
-            strokeLinecap="round"
-          >
+          <svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="#30D158" strokeWidth={2.5} strokeLinecap="round">
             <path d="M20 6 9 17l-5-5" />
           </svg>
         </div>
         <h2 style={{ fontSize: 18, fontWeight: 700, color: TEXT, margin: "0 0 8px", fontFamily: FONT }}>
           Check your email
         </h2>
-        <p style={{ fontSize: 13, color: TEXT_MUTED, margin: "0 0 24px", lineHeight: 1.5, fontFamily: FONT }}>
+        <p style={{ fontSize: 13, color: TEXT_SEC, margin: "0 0 24px", lineHeight: 1.5, fontFamily: FONT }}>
           We sent a {mode === "magic" ? "magic link" : "confirmation link"} to{" "}
           <strong style={{ color: TEXT }}>{email}</strong>
         </p>
         <button
-          onClick={() => {
-            clearMagicLinkSent?.();
-            switchMode("password");
-          }}
-          style={{
-            ...submitBtnStyle(false),
-            maxWidth: 200,
-            margin: "0 auto",
-            background: "rgba(255,255,255,0.08)",
-            boxShadow: "none",
-          }}
+          onClick={() => { clearMagicLinkSent?.(); switchMode("password"); }}
+          style={{ ...submitBtnStyle(false), maxWidth: 200, margin: "0 auto", background: "rgba(255,255,255,0.08)", border: "none" }}
         >
           Back to Sign In
         </button>
@@ -343,23 +333,15 @@ function LoginForm() {
             width: 56,
             height: 56,
             borderRadius: "50%",
-            background: "rgba(124,92,252,0.12)",
+            background: `${ACCENT}1A`,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             margin: "0 auto 18px",
-            border: "1px solid rgba(124,92,252,0.25)",
+            border: `1px solid ${ACCENT}40`,
           }}
         >
-          <svg
-            width={28}
-            height={28}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke={ACCENT}
-            strokeWidth={2}
-            strokeLinecap="round"
-          >
+          <svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth={2} strokeLinecap="round">
             <rect x="3" y="5" width="18" height="14" rx="2" />
             <path d="m3 7 9 6 9-6" />
           </svg>
@@ -367,21 +349,12 @@ function LoginForm() {
         <h2 style={{ fontSize: 18, fontWeight: 700, color: TEXT, margin: "0 0 8px", fontFamily: FONT }}>
           Reset link sent
         </h2>
-        <p style={{ fontSize: 13, color: TEXT_MUTED, margin: "0 0 24px", lineHeight: 1.5, fontFamily: FONT }}>
+        <p style={{ fontSize: 13, color: TEXT_SEC, margin: "0 0 24px", lineHeight: 1.5, fontFamily: FONT }}>
           Check <strong style={{ color: TEXT }}>{email}</strong> for a password reset link
         </p>
         <button
-          onClick={() => {
-            setResetSent(false);
-            switchMode("password");
-          }}
-          style={{
-            ...submitBtnStyle(false),
-            maxWidth: 200,
-            margin: "0 auto",
-            background: "rgba(255,255,255,0.08)",
-            boxShadow: "none",
-          }}
+          onClick={() => { setResetSent(false); switchMode("password"); }}
+          style={{ ...submitBtnStyle(false), maxWidth: 200, margin: "0 auto", background: "rgba(255,255,255,0.08)", border: "none" }}
         >
           Back to Sign In
         </button>
@@ -397,107 +370,74 @@ function LoginForm() {
 
   const submitLabel =
     mode === "password"
-      ? submitting
-        ? "Signing in…"
-        : "Sign In"
+      ? submitting ? "Signing in\u2026" : "Sign In"
       : mode === "magic"
-        ? submitting
-          ? "Sending…"
-          : "Send Magic Link"
+        ? submitting ? "Sending\u2026" : "Send Magic Link"
         : mode === "signup"
-          ? submitting
-            ? "Creating…"
-            : "Create Account"
-          : submitting
-            ? "Sending…"
-            : "Send Reset Link";
+          ? submitting ? "Creating\u2026" : "Create Account"
+          : submitting ? "Sending\u2026" : "Send Reset Link";
 
   const headingLabel = mode === "signup" ? "Create Account" : mode === "forgot" ? "Reset Password" : null;
 
   return (
     <>
-      {/* White flash overlay for sign-in transition */}
+      {/* Transition overlay */}
       {transitioning && (
         <div
           style={{
             position: "fixed",
             inset: 0,
             zIndex: 100,
-            background:
-              "radial-gradient(circle at 50% 45%, rgba(124,92,252,0.6) 0%, rgba(255,255,255,0.95) 50%, white 100%)",
+            background: `radial-gradient(circle at 50% 45%, ${ACCENT}99 0%, rgba(255,255,255,0.95) 50%, white 100%)`,
             animation: "loginFadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.4s both",
             pointerEvents: "all",
           }}
         />
       )}
 
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 340,
-          animation: "loginFadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both",
-        }}
-      >
-        {/* Brand */}
+      <div style={{ width: "100%", maxWidth: 340 }}>
+        {/* NOVA Wordmark — first beat */}
         <div
           style={{
             textAlign: "center",
-            marginBottom: 18,
-            animation: "loginFadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both",
+            marginBottom: 32,
+            opacity: wordmarkVisible ? 1 : 0,
+            transition: `opacity 300ms ${MOTION.easeOut}`,
           }}
         >
-          {/* Subtle glow line */}
-          <div
+          <h1
             style={{
-              height: 1,
-              margin: "0 auto 16px",
-              background: `linear-gradient(90deg, transparent, ${ACCENT}50, transparent)`,
-              boxShadow: `0 0 12px ${ACCENT}30`,
-              animation: "glowPulse 5s ease-in-out infinite",
+              fontSize: 32,
+              fontWeight: 300,
+              letterSpacing: "0.35em",
+              color: TEXT_SEC,
+              margin: "0 0 8px",
+              fontFamily: FONT,
+              textTransform: "uppercase",
             }}
-          />
-          <img
-            src="/nova-logo-cut.svg"
-            alt="NOVA"
-            style={{
-              height: 28,
-              objectFit: "contain",
-              display: "block",
-              margin: "0 auto 2px",
-              userSelect: "none",
-              filter: "drop-shadow(0 2px 20px rgba(200,50,50,0.4))",
-            }}
-            draggable={false}
-          />
+          >
+            NOVA
+          </h1>
           <p
             style={{
-              fontSize: 10,
+              fontSize: 12,
               fontWeight: 500,
-              letterSpacing: "0.16em",
-              color: "rgba(238,237,245,0.30)",
+              letterSpacing: "0.15em",
+              color: TEXT_DIM,
               margin: 0,
               textTransform: "uppercase",
             }}
           >
-            Construction Intelligence
+            CONSTRUCTION INTELLIGENCE
           </p>
         </div>
 
-        {/* Glass card */}
+        {/* Form — second beat, no card container */}
         <div
           style={{
-            background: "linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.015) 100%)",
-            backdropFilter: "blur(48px) saturate(1.6)",
-            WebkitBackdropFilter: "blur(48px) saturate(1.6)",
-            border: "1px solid rgba(255,255,255,0.07)",
-            borderRadius: 16,
-            padding: "20px 24px",
-            boxShadow: [
-              "0 24px 80px rgba(0,0,0,0.5)",
-              "0 8px 32px rgba(0,0,0,0.35)",
-              "inset 0 1px 0 rgba(255,255,255,0.05)",
-            ].join(", "),
-            animation: "loginFadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both",
+            opacity: formVisible ? 1 : 0,
+            transform: formVisible ? "translateY(0)" : "translateY(12px)",
+            transition: `opacity 200ms ${MOTION.easeOut}, transform 200ms ${MOTION.easeOut}`,
           }}
         >
           {/* Mode heading (signup / forgot) */}
@@ -515,15 +455,7 @@ function LoginForm() {
                   alignItems: "center",
                 }}
               >
-                <svg
-                  width={16}
-                  height={16}
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke={TEXT_MUTED}
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                >
+                <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={TEXT_SEC} strokeWidth={2} strokeLinecap="round">
                   <path d="M19 12H5M12 19l-7-7 7-7" />
                 </svg>
               </button>
@@ -536,12 +468,12 @@ function LoginForm() {
             <div
               style={{
                 display: "flex",
-                background: "rgba(255,255,255,0.04)",
-                borderRadius: 8,
+                background: INPUT_BG,
+                borderRadius: SPACING.inputRadius,
                 padding: 3,
                 marginBottom: 18,
                 gap: 2,
-                border: "1px solid rgba(255,255,255,0.05)",
+                border: `1px solid ${BORDER}`,
               }}
             >
               {[
@@ -558,12 +490,12 @@ function LoginForm() {
                     fontSize: 12,
                     fontWeight: mode === tab.key ? 600 : 500,
                     fontFamily: FONT,
-                    color: mode === tab.key ? TEXT : TEXT_MUTED,
+                    color: mode === tab.key ? TEXT : TEXT_SEC,
                     background: mode === tab.key ? "rgba(255,255,255,0.08)" : "transparent",
                     border: "none",
                     borderRadius: 7,
                     cursor: "pointer",
-                    transition: "all 150ms ease-out",
+                    transition: `all ${MOTION.medium} ease-out`,
                     boxShadow: mode === tab.key ? "0 1px 4px rgba(0,0,0,0.3)" : "none",
                   }}
                 >
@@ -602,12 +534,10 @@ function LoginForm() {
               onBlur={blurHandler}
             />
 
-            {/* Password field (password + signup modes) */}
+            {/* Password field */}
             {showPasswordField && (
               <>
-                <div
-                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}
-                >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                   <label style={{ ...labelStyle, marginBottom: 0 }}>Password</label>
                   {mode === "password" && (
                     <button
@@ -645,7 +575,7 @@ function LoginForm() {
                 style={{
                   marginBottom: 12,
                   padding: "8px 12px",
-                  borderRadius: 8,
+                  borderRadius: SPACING.inputRadius,
                   background: "rgba(255,69,58,0.08)",
                   border: "1px solid rgba(255,69,58,0.18)",
                   display: "flex",
@@ -654,15 +584,7 @@ function LoginForm() {
                   animation: "loginFadeIn 0.3s ease-out both",
                 }}
               >
-                <svg
-                  width={14}
-                  height={14}
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="#FF453A"
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                >
+                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#FF453A" strokeWidth={2} strokeLinecap="round">
                   <circle cx="12" cy="12" r="10" />
                   <line x1="15" y1="9" x2="9" y2="15" />
                   <line x1="9" y1="9" x2="15" y2="15" />
@@ -675,6 +597,20 @@ function LoginForm() {
               type="submit"
               disabled={isFormDisabled || submitting}
               style={submitBtnStyle(isFormDisabled || submitting)}
+              onMouseEnter={e => {
+                if (!isFormDisabled && !submitting) {
+                  e.currentTarget.style.background = ACCENT_HOVER;
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                  e.currentTarget.style.boxShadow = `0 4px 16px ${COLORS.accent.shadow}`;
+                }
+              }}
+              onMouseLeave={e => {
+                if (!isFormDisabled && !submitting) {
+                  e.currentTarget.style.background = ACCENT;
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "none";
+                }
+              }}
             >
               {submitLabel}
             </button>
@@ -685,22 +621,20 @@ function LoginForm() {
         <div
           style={{
             textAlign: "center",
-            marginTop: 14,
-            animation: "loginFadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.35s both",
+            marginTop: 20,
+            opacity: formVisible ? 1 : 0,
+            transition: `opacity 200ms ${MOTION.easeOut}`,
           }}
         >
           {mode === "signup" ? (
-            <p style={{ fontSize: 12, color: "rgba(238,237,245,0.25)", margin: "0 0 12px" }}>
+            <p style={{ fontSize: 12, color: TEXT_DIM, margin: "0 0 12px" }}>
               Already have an account?{" "}
-              <span
-                onClick={() => switchMode("password")}
-                style={{ color: ACCENT, fontWeight: 600, cursor: "pointer" }}
-              >
+              <span onClick={() => switchMode("password")} style={{ color: ACCENT, fontWeight: 600, cursor: "pointer" }}>
                 Sign in
               </span>
             </p>
           ) : (
-            <p style={{ fontSize: 12, color: "rgba(238,237,245,0.25)", margin: "0 0 12px" }}>
+            <p style={{ fontSize: 12, color: TEXT_DIM, margin: "0 0 12px" }}>
               Don't have an account?{" "}
               <span onClick={() => switchMode("signup")} style={{ color: ACCENT, fontWeight: 600, cursor: "pointer" }}>
                 Create one
@@ -726,8 +660,7 @@ function LoginForm() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   MAIN EXPORT
-   Black background, centered login card.
+   MAIN EXPORT — Pure void background
    ═══════════════════════════════════════════════════════════════ */
 
 export default function LoginMockupPage() {
@@ -737,7 +670,7 @@ export default function LoginMockupPage() {
         width: "100vw",
         height: "100vh",
         overflow: "hidden",
-        background: "#000000",
+        background: BG,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",

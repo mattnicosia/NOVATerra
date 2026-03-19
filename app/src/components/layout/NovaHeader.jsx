@@ -6,12 +6,14 @@ import { useUiStore } from "@/stores/uiStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import NovaTerraLogo from "@/components/shared/NovaTerraLogo";
+import NovaSentenceBar from "@/components/nova/NovaSentenceBar";
 import { useNovaStore } from "@/stores/novaStore";
 import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
 import NotificationCenter from "@/components/shared/NotificationCenter";
 import LogoPill from "@/components/shared/LogoPill";
 import { useAutoResponseStore } from "@/stores/autoResponseStore";
 import { useOrgStore, selectIsManager } from "@/stores/orgStore";
+import { COLORS, SPACING } from "@/constants/designTokens";
 
 /* ── Nav icon SVGs ── */
 const NAV_ICONS = {
@@ -645,25 +647,23 @@ function NovaHeader({ onDraftPanelToggle }) {
   return (
     <header
       style={{
-        height: T.dashboard.headerHeight,
+        height: SPACING.header,
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
         padding: isTablet ? "0 14px" : "0 28px",
-        background: hBg,
-        boxShadow: hShadow,
-        backdropFilter: T.glass.blur,
-        WebkitBackdropFilter: T.glass.blur,
-        borderBottom: `1px solid ${hBorderB}`,
+        background: COLORS.bg.primary,
+        boxShadow: "none",
+        borderBottom: `1px solid ${COLORS.border.subtle}`,
         fontFamily: T.font.display,
         zIndex: 100,
         flexShrink: 0,
         animation: "fadeUp 0.9s cubic-bezier(0.16,1,0.3,1) 0.25s both",
       }}
     >
-      {/* Left — Logo */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <NovaTerraLogo size={isTablet ? 26 : 34} />
+      {/* Left — NovaSentenceBar */}
+      <div style={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0 }}>
+        <NovaSentenceBar />
       </div>
 
       {/* Center — Navigation: active tab = Liquid Glass pill */}
@@ -767,7 +767,7 @@ function NovaHeader({ onDraftPanelToggle }) {
       </nav>
 
       {/* Right — Actions */}
-      <div style={{ display: "flex", alignItems: "center", gap: 4, position: "relative" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 4, position: "relative", flex: 1, justifyContent: "flex-end" }}>
         {/* NOVA Processing Indicator — visible across all tabs when AI is working */}
         {novaStatus === "thinking" && novaActivity && (
           <div
