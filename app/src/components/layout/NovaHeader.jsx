@@ -550,7 +550,7 @@ function NovaHeader({ onDraftPanelToggle }) {
   const novaTask = useNovaStore(s => s.activeTask);
   const selectedPalette = useUiStore(s => s.appSettings.selectedPalette);
   const updateSetting = useUiStore(s => s.updateSetting);
-  const activeTheme = selectedPalette === "nero" ? "nero" : selectedPalette === "dark" ? "dark" : "light";
+  const activeTheme = selectedPalette === "dark" ? "dark" : "light";
   const isManager = useOrgStore(selectIsManager);
   const hasOrg = useOrgStore(s => !!s.org);
   const isNova = false; // NOVA theme temporarily removed
@@ -1203,25 +1203,6 @@ function NovaHeader({ onDraftPanelToggle }) {
                 </svg>
               ),
             },
-            {
-              key: "nero",
-              palette: "nero",
-              title: "Nero Nemesis",
-              icon: (
-                <svg
-                  width={11}
-                  height={11}
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M8 1l2.2 4.5 5 .7-3.6 3.5.9 5L8 12.4 3.5 14.7l.9-5L.8 6.2l5-.7L8 1z" />
-                </svg>
-              ),
-            },
           ].map(t => (
             <button
               key={t.key}
@@ -1238,14 +1219,14 @@ function NovaHeader({ onDraftPanelToggle }) {
                 alignItems: "center",
                 justifyContent: "center",
                 background:
-                  activeTheme === t.key ? (t.key === "nero" ? "rgba(124,58,237,0.20)" : ov(0.1, 0.08)) : "transparent",
-                color: activeTheme === t.key ? (t.key === "nero" ? "#B366FF" : tglActive) : tglInactive,
+                  activeTheme === t.key ? ov(0.1, 0.08) : "transparent",
+                color: activeTheme === t.key ? tglActive : tglInactive,
                 transition: "all 0.15s",
               }}
               onMouseEnter={e => {
                 if (activeTheme !== t.key) {
-                  e.currentTarget.style.color = t.key === "nero" ? "#B366FF" : tglHover;
-                  e.currentTarget.style.background = t.key === "nero" ? "rgba(124,58,237,0.10)" : ov(0.05, 0.04);
+                  e.currentTarget.style.color = tglHover;
+                  e.currentTarget.style.background = ov(0.05, 0.04);
                 }
               }}
               onMouseLeave={e => {

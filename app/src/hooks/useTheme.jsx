@@ -204,7 +204,7 @@ export function ThemeProvider({ children }) {
 
     // ── Legacy: dark/light toggle — Clarity palette is the base ──
     const isDarkMode = selectedPalette === "dark";
-    const palette = PALETTES.find(p => p.id === "clarity") || PALETTES[0];
+    const palette = PALETTES[0];
     const darkBase = { ...C_DEFAULT, ...(palette.overrides || {}) };
 
     if (isDarkMode) {

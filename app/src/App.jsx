@@ -238,14 +238,10 @@ function FloatingThemePicker() {
 
   const ALL_IDS = [
     "nova",
-    "clarity",
     "clean-light",
-    "nero",
-    "shift5",
     "shift5b",
     "shift7",
     "arancio",
-    "terzo",
     ...CAR_PALETTE_IDS,
     ...LIGHT_PALETTE_IDS,
     ...ARTIFACT_PALETTE_IDS,

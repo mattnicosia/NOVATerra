@@ -10,7 +10,7 @@ export const useUiStore = create((set, _get) => ({
   // App settings
   appSettings: {
     activeCompanyId: "", // "" = primary profile, companyProfile.id, or "__all__"
-    selectedPalette: "dark",
+    selectedPalette: "shift5b",
     customPalettes: [],
     fontSize: 13,
     density: "comfortable", // "comfortable" | "compact"

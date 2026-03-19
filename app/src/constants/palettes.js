@@ -280,107 +280,7 @@ export const PALETTES = [
     ],
   },
 
-  // ━━━ 2. CLARITY — Apple-grade clean light ━━━
-  {
-    id: "clarity",
-    name: "Clarity",
-    desc: "Clean light — Apple-grade minimal",
-    preview: ["#FFFFFF", "#007AFF", "#F2F2F7", "#5AC8FA", "#1C1C1E"],
-    variantLabels: ["Graphite", "Clean", "Warm", "Cool"],
-    overrides: {
-      bg: "#1C1C1E",
-      bg1: "#2C2C2E",
-      bg2: "#3A3A3C",
-      bg3: "#48484A",
-      border: "rgba(255,255,255,0.08)",
-      borderLight: "rgba(255,255,255,0.04)",
-      borderAccent: hR("#007AFF", 0.15),
-      text: "#F5F5F7",
-      textMuted: "rgba(245,245,247,0.55)",
-      textDim: "rgba(245,245,247,0.30)",
-      accent: "#007AFF",
-      accentDim: "#0055D4",
-      accentBg: hR("#007AFF", 0.08),
-      accentAlt: "#5AC8FA",
-      gradient: "linear-gradient(135deg, #007AFF, #5AC8FA)",
-      gradientSubtle: `linear-gradient(135deg, ${hR("#007AFF", 0.1)}, ${hR("#5AC8FA", 0.1)})`,
-      gradientText: "linear-gradient(135deg, #007AFF, #5AC8FA)",
-      green: "#30D158",
-      red: "#FF453A",
-      blue: "#0A84FF",
-      purple: "#BF5AF2",
-      orange: "#FF9F0A",
-      cyan: "#5AC8FA",
-      yellow: "#FFD60A",
-      sidebarBg: "rgba(28,28,30,0.96)",
-      glassBg: "rgba(44,44,46,0.78)",
-      glassBorder: "rgba(255,255,255,0.06)",
-      glassBgDark: "rgba(28,28,30,0.85)",
-      bgGradient: "#1C1C1E",
-      forceDark: false,
-      bgTexture: DOT_TEXTURE,
-    },
-    variants: [
-      null, // 0 — Graphite (dark base, system forces light for main)
-      {
-        // 1 — Clean: neutral near-white so vivid mesh bleeds through glass
-        bg: "#F5F6FA",
-        bg1: "#FFFFFF",
-        bg2: "#ECEEF4",
-        bg3: "#E3E5ED",
-        borderAccent: hR("#007AFF", 0.15),
-        text: "#1D1D1F",
-        textMuted: "#8E8E93",
-        textDim: "#AEAEB2",
-        ...LB,
-        border: "#CCCFD8",
-        borderLight: "#DDDFE6",
-        sidebarBg: "rgba(245,246,250,0.92)",
-        bgGradient: `radial-gradient(ellipse at 8% 6%, ${hR("#007AFF", 0.14)} 0%, transparent 55%), radial-gradient(ellipse at 92% 85%, ${hR("#5AC8FA", 0.12)} 0%, transparent 55%), radial-gradient(ellipse at 50% 42%, ${hR("#BF5AF2", 0.1)} 0%, transparent 50%), radial-gradient(ellipse at 78% 55%, ${hR("#30D158", 0.08)} 0%, transparent 45%), #F5F6FA`,
-      },
-      {
-        // 2 — Warm: barely warm neutral → translucent glass cards
-        bg: "#F9F8F5",
-        bg1: "#FFFFFF",
-        bg2: "#F0EEEA",
-        bg3: "#E6E4DF",
-        borderAccent: hR("#007AFF", 0.15),
-        text: "#1D1D1F",
-        textMuted: "#8A877E",
-        textDim: "#AEABA3",
-        ...LB,
-        border: "#D5D2CC",
-        borderLight: "#E0DDD7",
-        sidebarBg: "rgba(249,248,245,0.92)",
-        bgGradient: `radial-gradient(ellipse at 12% 10%, ${hR("#007AFF", 0.1)} 0%, transparent 50%), radial-gradient(ellipse at 88% 82%, ${hR("#FF9500", 0.08)} 0%, transparent 50%), radial-gradient(ellipse at 50% 48%, ${hR("#FF6B6B", 0.06)} 0%, transparent 50%), #F9F8F5`,
-      },
-      {
-        // 3 — Cool: barely cool neutral → translucent glass cards
-        bg: "#F5F6FA",
-        bg1: "#FFFFFF",
-        bg2: "#ECEEF3",
-        bg3: "#E2E5EC",
-        borderAccent: hR("#0A84FF", 0.15),
-        text: "#1D1D1F",
-        textMuted: "#6B7280",
-        textDim: "#9CA3AF",
-        accent: "#0A84FF",
-        accentDim: "#0066CC",
-        accentBg: hR("#0A84FF", 0.08),
-        accentAlt: "#64D2FF",
-        gradient: "linear-gradient(135deg, #0A84FF, #64D2FF)",
-        gradientSubtle: `linear-gradient(135deg, ${hR("#0A84FF", 0.08)}, ${hR("#64D2FF", 0.08)})`,
-        gradientText: "linear-gradient(135deg, #0A84FF, #64D2FF)",
-        ...LB,
-        border: "#CDD1DA",
-        borderLight: "#DDDFE8",
-        sidebarBg: "rgba(245,246,250,0.92)",
-        bgGradient: `radial-gradient(ellipse at 8% 8%, ${hR("#0A84FF", 0.12)} 0%, transparent 50%), radial-gradient(ellipse at 92% 22%, ${hR("#64D2FF", 0.1)} 0%, transparent 50%), radial-gradient(ellipse at 42% 72%, ${hR("#5E5CE6", 0.08)} 0%, transparent 50%), #F5F6FA`,
-      },
-    ],
-  },
-
-  // ━━━ 3. CLEAN LIGHT — Flat solid light, zero glass/blobs/swirls ━━━
+  // ━━━ CLEAN LIGHT — Flat solid light, zero glass/blobs/swirls ━━━
   {
     id: "clean-light",
     name: "Light",
@@ -448,155 +348,6 @@ export const PALETTES = [
         orange: "#FF9500",
         cyan: "#64D2FF",
         yellow: "#FFD60A",
-      },
-    ],
-  },
-
-  // ━━━ 5. NERO NEMESIS — Lamborghini Terzo Millennio, blacked out ━━━
-  // Carbon fiber textures. Futuristic glass. Glowing lights.
-  // Not a color theme — a material system. Surfaces have WEAVE.
-  // Glass refracts accent light. Borders are emission lines.
-  // Colors don't just exist — they EMIT against the void.
-  {
-    id: "nero",
-    name: "Nero Nemesis",
-    desc: "Terzo Millennio — carbon fiber, glass, glow",
-    preview: ["#000000", "#8B5CF6", "#00E5FF", "#FF9100", "#0A0A12"],
-    variantLabels: ["Void", "Carbon", "Forged", "Signal"],
-    overrides: {
-      // ── NERO MODE FLAG — enables carbon/glass/glow in style helpers ──
-      neroMode: true,
-      textureMode: true,
-      // Foundation Blacks — VOID base, absolute darkness
-      bg: "#000000", // VOID — true black
-      bg1: "#06060E", // ABYSS — card surfaces (slight blue-violet cast)
-      bg2: "#0C0C18", // OBSIDIAN — raised surfaces
-      bg3: "#131320", // CARBON — elevated elements, hovers
-      // Borders — EMISSION LINES (not drawn, they glow)
-      border: "rgba(255,255,255,0.07)",
-      borderLight: "rgba(255,255,255,0.04)",
-      borderAccent: "rgba(139,92,246,0.40)", // STRONG glow line
-      // Text — crisp white on void
-      text: "#F5F5FA",
-      textMuted: "rgba(245,245,250,0.58)",
-      textDim: "rgba(245,245,250,0.28)",
-      // Accent — NOVA CORE violet, cranked for emission
-      accent: "#8B5CF6",
-      accentDim: "#7C3AED",
-      accentBg: "rgba(139,92,246,0.14)",
-      accentAlt: "#C084FC",
-      // Gradients — vivid NOVA spectrum
-      gradient: "linear-gradient(135deg, #8B5CF6, #C084FC)",
-      gradientSubtle: `linear-gradient(135deg, ${hR("#8B5CF6", 0.14)}, ${hR("#C084FC", 0.14)})`,
-      gradientText: "linear-gradient(135deg, #A78BFA, #C084FC)",
-      // Signal colors — ELECTRIC NEON on void
-      green: "#00E676",
-      red: "#FF1744",
-      blue: "#2979FF",
-      purple: "#D4A5FF",
-      orange: "#FF9100",
-      cyan: "#00E5FF",
-      yellow: "#FFD600",
-      // Sidebar — void
-      sidebarBg: "rgba(4,4,10,0.97)",
-      // Glass — visible translucency against void (for glass surfaces, NOT carbon)
-      glassBg: "rgba(255,255,255,0.08)",
-      glassBorder: "rgba(255,255,255,0.12)",
-      glassBgDark: "rgba(6,6,14,0.92)",
-      // Background — carbon fiber weave + subtle ambient glow
-      // Twill weave: grid (H+V) + diagonal cross-hatch = visible carbon fiber
-      bgGradient: [
-        // Primary weave grid — VISIBLE
-        "repeating-linear-gradient(0deg, rgba(255,255,255,0.07) 0 1px, transparent 1px 3px)",
-        "repeating-linear-gradient(90deg, rgba(255,255,255,0.07) 0 1px, transparent 1px 3px)",
-        // Diagonal twill — gives the "woven" character
-        "repeating-linear-gradient(45deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 8px)",
-        "repeating-linear-gradient(-45deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 8px)",
-        // Violet NOVA core glow — deep, barely visible identity pulse
-        "radial-gradient(ellipse at 50% 60%, rgba(139,92,246,0.04) 0%, transparent 45%)",
-        // Ambient floor glow — very dim, just enough to see surfaces aren't flat
-        `radial-gradient(ellipse at 50% 100%, rgba(120,120,140,0.06) 0%, transparent 50%)`,
-        "#000000",
-      ].join(", "),
-      forceDark: true,
-      // ── Carbon fiber CSS (reusable by style helpers) ──
-      // Grid weave + diagonal cross = real carbon fiber texture
-      carbonTexture: [
-        "repeating-linear-gradient(0deg, rgba(255,255,255,0.07) 0 1px, transparent 1px 3px)",
-        "repeating-linear-gradient(90deg, rgba(255,255,255,0.07) 0 1px, transparent 1px 3px)",
-        "repeating-linear-gradient(45deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 8px)",
-        "repeating-linear-gradient(-45deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 8px)",
-      ].join(", "),
-    },
-    variants: [
-      null, // 0 — Void (default — carbon fiber + NOVA violet glow)
-      {
-        // 1 — Carbon — elevated matte carbon
-        bg: "#050510",
-        bg1: "#0A0A18",
-        bg2: "#111120",
-        bg3: "#1A1A2A",
-        sidebarBg: "rgba(5,5,16,0.97)",
-        bgGradient: [
-          "repeating-linear-gradient(0deg, rgba(255,255,255,0.07) 0 1px, transparent 1px 3px)",
-          "repeating-linear-gradient(90deg, rgba(255,255,255,0.07) 0 1px, transparent 1px 3px)",
-          "repeating-linear-gradient(45deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 8px)",
-          "repeating-linear-gradient(-45deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 8px)",
-          "#050510",
-        ].join(", "),
-      },
-      {
-        // 2 — Forged — cold black, ELECTRIC CYAN glow
-        bg: "#000008",
-        bg1: "#040412",
-        bg2: "#0A0A1C",
-        bg3: "#121224",
-        accent: "#00E5FF",
-        accentDim: "#00B8D4",
-        accentBg: hR("#00E5FF", 0.14),
-        accentAlt: "#18FFFF",
-        borderAccent: hR("#00E5FF", 0.4),
-        gradient: "linear-gradient(135deg, #00E5FF, #18FFFF)",
-        gradientSubtle: `linear-gradient(135deg, ${hR("#00E5FF", 0.14)}, ${hR("#18FFFF", 0.14)})`,
-        gradientText: "linear-gradient(135deg, #00E5FF, #18FFFF)",
-        glassBg: "rgba(0,229,255,0.03)",
-        glassBorder: "rgba(0,229,255,0.10)",
-        sidebarBg: "rgba(0,0,8,0.97)",
-        bgGradient: [
-          "repeating-linear-gradient(0deg, rgba(255,255,255,0.07) 0 1px, transparent 1px 3px)",
-          "repeating-linear-gradient(90deg, rgba(255,255,255,0.07) 0 1px, transparent 1px 3px)",
-          "repeating-linear-gradient(45deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 8px)",
-          "repeating-linear-gradient(-45deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 8px)",
-          "#000008",
-        ].join(", "),
-      },
-      {
-        // 3 — Signal — AMBER GLOW (Lambo headlights, construction heat)
-        bg: "#030200",
-        bg1: "#0A0906",
-        bg2: "#14120C",
-        bg3: "#1E1A12",
-        accent: "#FF9100",
-        accentDim: "#E67C00",
-        accentBg: hR("#FF9100", 0.14),
-        accentAlt: "#FFAB40",
-        borderAccent: hR("#FF9100", 0.4),
-        gradient: "linear-gradient(135deg, #FF9100, #FFAB40)",
-        gradientSubtle: `linear-gradient(135deg, ${hR("#FF9100", 0.14)}, ${hR("#FFAB40", 0.14)})`,
-        gradientText: "linear-gradient(135deg, #FF9100, #FFAB40)",
-        glassBg: "rgba(255,145,0,0.03)",
-        glassBorder: "rgba(255,145,0,0.10)",
-        sidebarBg: "rgba(3,2,0,0.97)",
-        bgGradient: [
-          "repeating-linear-gradient(0deg, rgba(255,255,255,0.07) 0 1px, transparent 1px 3px)",
-          "repeating-linear-gradient(90deg, rgba(255,255,255,0.07) 0 1px, transparent 1px 3px)",
-          "repeating-linear-gradient(45deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 8px)",
-          "repeating-linear-gradient(-45deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 8px)",
-          `radial-gradient(ellipse at 50% 100%, ${hR("#FF9100", 0.06)} 0%, transparent 50%)`,
-          "#030200",
-        ].join(", "),
-        carbonTexture:
-          "repeating-linear-gradient(0deg, rgba(255,255,255,0.018) 0 1px, transparent 1px 4px), repeating-linear-gradient(90deg, rgba(255,255,255,0.018) 0 1px, transparent 1px 4px)",
       },
     ],
   },
@@ -749,59 +500,6 @@ export const PALETTES = [
     ],
   },
 
-  // ━━━ 12. AMG ONE — Mercedes F1-derived, Silver Arrow + Petronas teal ━━━
-  // Silver Arrows heritage. F1 telemetry data density. Petronas teal glow.
-  // Metallic silver-dark surfaces, technical precision, high information density.
-  // Accent comes from Petronas sponsorship cyan-teal.
-  {
-    id: "car-amgone",
-    name: "AMG ONE",
-    desc: "Mercedes — Silver Arrow, Petronas teal",
-    preview: ["#0A0C12", "#00D2BE", "#161A22", "#222830", "#F5F8FA"],
-    variantLabels: ["Petronas"],
-    overrides: {
-      bg: "#080A10", // metallic dark (slight cool steel)
-      bg1: "#0E1118", // steel surface
-      bg2: "#161A24", // raised metallic
-      bg3: "#1E232E", // elevated
-      border: "rgba(0,210,190,0.08)",
-      borderLight: "rgba(255,255,255,0.05)",
-      borderAccent: "rgba(0,210,190,0.30)",
-      text: "#F0F4F8", // cool bright white (telemetry screens)
-      textMuted: "rgba(240,244,248,0.55)",
-      textDim: "rgba(240,244,248,0.28)",
-      accent: "#00D2BE", // Petronas teal
-      accentDim: "#00A896",
-      accentBg: hR("#00D2BE", 0.08),
-      accentAlt: "#40E8D8",
-      gradient: "linear-gradient(135deg, #00D2BE, #40E8D8)",
-      gradientSubtle: `linear-gradient(135deg, ${hR("#00D2BE", 0.1)}, ${hR("#40E8D8", 0.1)})`,
-      gradientText: "linear-gradient(135deg, #00D2BE, #40E8D8)",
-      green: "#00E676",
-      red: "#FF1744",
-      blue: "#448AFF",
-      purple: "#B388FF",
-      orange: "#FFAB40",
-      cyan: "#00D2BE",
-      yellow: "#FFD740",
-      sidebarBg: "rgba(8,10,16,0.97)",
-      glassBg: "rgba(22,26,36,0.78)",
-      glassBorder: "rgba(0,210,190,0.06)",
-      glassBgDark: "rgba(8,10,16,0.92)",
-      mesh: {
-        base: "linear-gradient(135deg, #0A0C12 0%, #101418 35%, #141820 60%, #0A0C12 100%)",
-        blobs: [
-          { color: "#00D2BE", x: "30%", y: "45%", size: "42vw", alpha: 0.32, blur: 52 },
-          { color: "#888E98", x: "68%", y: "25%", size: "28vw", alpha: 0.08, blur: 58 },
-        ],
-        caustics: [{ color: "#00D2BE", x: "35%", y: "62%", size: "14vw", alpha: 0.35, blur: 22 }],
-      },
-      bgGradient: `radial-gradient(ellipse at 50% 95%, ${hR("#00D2BE", 0.04)} 0%, transparent 45%), #080A10`,
-      forceDark: true,
-    },
-    variants: [null],
-  },
-
   // ═══════════════════════════════════════════════════════════════════════════
   //  PREMIUM LIGHT COLLECTION — 6 material-driven light themes
   //  Each is a distinct surface material, not a color swap.
@@ -900,71 +598,6 @@ export const PALETTES = [
       },
     ],
   },
-  // ═══════════════════════════════════════════════════════════════════════════
-  // Shift5 — Military-tech brutalist, coral accent on dark grey
-  // Inspired by shift5.io: near-black cards on grey backdrop, grey lines/font
-  // as default state, bold coral accent appears ONLY on hover/click.
-  // Flat surfaces, no glass. Restrained. Technical. Tactical.
-  // ═══════════════════════════════════════════════════════════════════════════
-  {
-    id: "shift5",
-    name: "Shift5",
-    desc: "Military-tech brutalist — coral accent on dark grey",
-    preview: ["#0C0C0E", "#FF4F38", "#1A1A1E", "#666670", "#E8E8EC"],
-    variantLabels: ["Tactical"],
-    overrides: {
-      // ── Surfaces — dark cards floating on grey field ──
-      // Visual Board strategy: bgGradient is the GREY FIELD (app shell).
-      // bg/bg1 are the dark surfaces that float ON it.
-      // Delta: bgGradient(lum≈44) → bg1(lum≈24) = ~20 units of contrast.
-      bg: "#141418", // base chrome, nav bars, insets — darkest
-      bg1: "#18181E", // card surfaces — near-black, clearly darker than backdrop
-      bg2: "#1E1E24", // raised surfaces within cards
-      bg3: "#28282E", // hover states, elevated elements
-      // ── Borders — visible grey lines (Shift5 signature) ──
-      border: "rgba(255,255,255,0.12)", // clearly visible grey lines
-      borderLight: "rgba(255,255,255,0.07)",
-      borderAccent: "rgba(255,79,56,0.25)", // coral glow line — only hover/active
-      // ── Text — grey hierarchy, NOT white ──
-      text: "#E8E8EC", // primary — light grey, not pure white
-      textMuted: "rgba(232,232,236,0.50)", // secondary labels
-      textDim: "rgba(232,232,236,0.28)", // tertiary, captions
-      // ── Accent — Shift5 coral (hero color) ──
-      accent: "#FF4F38",
-      accentDim: "#CC3F2D",
-      accentBg: "rgba(255,79,56,0.08)",
-      accentAlt: "#FF6B57",
-      // ── Gradients ──
-      gradient: "linear-gradient(135deg, #FF4F38, #FF6B57)",
-      gradientSubtle: "linear-gradient(135deg, rgba(255,79,56,0.12), rgba(255,107,87,0.12))",
-      gradientText: "linear-gradient(135deg, #FF4F38, #FF6B57)",
-      // ── Semantic colors — monochromatic grey, Shift5 brutalist ──
-      // All semantic colors become grey at rest. Only accent (coral)
-      // provides color, and only on hover/click. Hex greys are safe
-      // for widgets that append alpha suffixes (${C.green}1A).
-      green: "#9A9AA0", // positive → warm grey
-      red: "#FF4F38", // danger → stays coral (= accent, brand unity)
-      blue: "#7A7A82", // info → medium grey
-      purple: "#6A6A72", // category → dim grey
-      orange: "#8A8A92", // warning → medium grey
-      cyan: "#7A7A82", // info alt → medium grey
-      yellow: "#8A8A92", // caution → medium grey
-      // ── Sidebar ──
-      sidebarBg: "#101014",
-      // ── Glass (disabled — flat surfaces) ──
-      glassBg: "#18181E",
-      glassBorder: "rgba(255,255,255,0.12)",
-      glassBgDark: "#141418",
-      // ── Background — THE GREY FIELD ──
-      bgGradient: "#2C2C32", // the visible grey backdrop behind dark cards
-      // ── Flags ──
-      forceDark: true,
-      noGlass: true,
-      materialMode: "concrete",
-    },
-    variants: [null], // single dark variant
-  },
-
   // ═══════════════════════════════════════════════════════════════════════════
   // Shift5B — Shift5 brutalist chassis, lighter tab/text hierarchy
   // Same dark card system + coral accent, but #BEBEBE mid-grey lifts
@@ -1085,63 +718,6 @@ export const PALETTES = [
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Terzo — burnt crimson-orange from the Terzo Millennio dark render.
-  // Same Shift5 brutalist chassis: flat, noGlass, concrete, monochromatic grey.
-  // ═══════════════════════════════════════════════════════════════════════════
-  {
-    id: "terzo",
-    name: "Terzo",
-    desc: "Military-tech brutalist — burnt crimson-orange accent on dark grey",
-    preview: ["#0C0C0E", "#E04A1A", "#1A1A1E", "#666670", "#E8E8EC"],
-    variantLabels: ["Tactical"],
-    overrides: {
-      // ── Surfaces — same Shift5 dark card system ──
-      bg: "#141418",
-      bg1: "#18181E",
-      bg2: "#1E1E24",
-      bg3: "#28282E",
-      // ── Borders ──
-      border: "rgba(255,255,255,0.12)",
-      borderLight: "rgba(255,255,255,0.07)",
-      borderAccent: "rgba(224,74,26,0.25)",
-      // ── Text ──
-      text: "#E8E8EC",
-      textMuted: "rgba(232,232,236,0.50)",
-      textDim: "rgba(232,232,236,0.28)",
-      // ── Accent — Terzo burnt crimson-orange ──
-      accent: "#E04A1A",
-      accentDim: "#B33B15",
-      accentBg: "rgba(224,74,26,0.08)",
-      accentAlt: "#F06030",
-      // ── Gradients ──
-      gradient: "linear-gradient(135deg, #E04A1A, #F06030)",
-      gradientSubtle: "linear-gradient(135deg, rgba(224,74,26,0.12), rgba(240,96,48,0.12))",
-      gradientText: "linear-gradient(135deg, #E04A1A, #F06030)",
-      // ── Semantic colors — monochromatic grey, brutalist ──
-      green:  "#9A9AA0",
-      red:    "#E04A1A",   // danger → stays accent (brand unity)
-      blue:   "#7A7A82",
-      purple: "#6A6A72",
-      orange: "#8A8A92",
-      cyan:   "#7A7A82",
-      yellow: "#8A8A92",
-      // ── Sidebar ──
-      sidebarBg: "#101014",
-      // ── Glass (disabled — flat surfaces) ──
-      glassBg: "#18181E",
-      glassBorder: "rgba(255,255,255,0.12)",
-      glassBgDark: "#141418",
-      // ── Background — THE GREY FIELD ──
-      bgGradient: "#2C2C32",
-      // ── Flags ──
-      forceDark: true,
-      noGlass: true,
-      materialMode: "concrete",
-    },
-    variants: [null], // single dark variant
-  },
-
-  // ═══════════════════════════════════════════════════════════════════════════
   // NOVA Dark — Monumental concrete, stone architecture, muted warmth
   // Inspired by brutalist galleries and ancient chambers.
   // Neutral grays with warm stone accent. No neon. No violet. Just material.
@@ -1190,82 +766,6 @@ export const PALETTES = [
     variants: [null],
   },
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // NOVA Light — Warm concrete gallery, daylit stone surfaces
-  // The light counterpart: polished concrete floors, diffused skylight,
-  // sandstone walls. Same muted palette, inverted luminance.
-  // ═══════════════════════════════════════════════════════════════════════════
-  {
-    id: "artifact-light",
-    name: "NOVA Light",
-    desc: "Daylit gallery — warm stone, soft light",
-    preview: ["#E0DCD5", "#8A7E70", "#EAE6E0", "#28231E", "#D4CFC7"],
-    variantLabels: ["Gallery"],
-    overrides: {
-      bg: "#28231E",
-      bg1: "#332D26",
-      bg2: "#3E372F",
-      bg3: "#4A4238",
-      border: "rgba(255,255,255,0.07)",
-      borderLight: "rgba(255,255,255,0.04)",
-      borderAccent: "rgba(138,126,112,0.18)",
-      text: "#F0ECE6",
-      textMuted: "rgba(240,236,230,0.55)",
-      textDim: "rgba(240,236,230,0.28)",
-      accent: "#8A7E70",
-      accentDim: "#6D6358",
-      accentBg: "rgba(138,126,112,0.08)",
-      accentAlt: "#A89888",
-      gradient: "linear-gradient(135deg, #8A7E70, #A89888)",
-      gradientSubtle: "linear-gradient(135deg, rgba(138,126,112,0.12), rgba(168,152,136,0.12))",
-      gradientText: "linear-gradient(135deg, #8A7E70, #A89888)",
-      green: "#5C8A6A",
-      red: "#B06560",
-      blue: "#5C7F9A",
-      purple: "#806C9A",
-      orange: "#A07A48",
-      cyan: "#4C8A9A",
-      yellow: "#A09548",
-      sidebarBg: "#28231E",
-      bgGradient: "#28231E",
-      forceDark: false,
-      noGlass: true,
-      materialMode: "concrete",
-    },
-    variants: [
-      null,
-      {
-        bg: "#E0DCD5",
-        bg1: "#EAE6E0",
-        bg2: "#D4CFC7",
-        bg3: "#C8C3BA",
-        border: "rgba(0,0,0,0.08)",
-        borderLight: "rgba(0,0,0,0.04)",
-        borderAccent: "rgba(138,126,112,0.18)",
-        text: "#28231E",
-        textMuted: "rgba(40,35,30,0.55)",
-        textDim: "rgba(40,35,30,0.30)",
-        accent: "#8A7E70",
-        accentDim: "#6D6358",
-        accentBg: "rgba(138,126,112,0.07)",
-        accentAlt: "#A89888",
-        gradient: "linear-gradient(135deg, #8A7E70, #A89888)",
-        gradientSubtle: "linear-gradient(135deg, rgba(138,126,112,0.10), rgba(168,152,136,0.10))",
-        gradientText: "linear-gradient(135deg, #6D6358, #8A7E70)",
-        green: "#5C8A6A",
-        red: "#B06560",
-        blue: "#5C7F9A",
-        purple: "#806C9A",
-        orange: "#A07A48",
-        cyan: "#4C8A9A",
-        yellow: "#A09548",
-        sidebarBg: "#E0DCD5",
-        bgGradient: ["radial-gradient(ellipse at 50% 0%, rgba(138,126,112,0.04) 0%, transparent 50%)", "#E0DCD5"].join(
-          ", ",
-        ),
-      },
-    ],
-  },
   // ═══════════════════════════════════════════════════════════════════════════
   // Shift7 — "Warm Depth": Dark theme engineered for 8-hour estimating sessions
   // Vision Board prescription: luminance zoning, real row alternation,
@@ -1338,13 +838,13 @@ export const PALETTES = [
 ];
 
 // Car palette IDs for cycling
-export const CAR_PALETTE_IDS = ["car-terzo", "car-visiondee", "car-amgone"];
+export const CAR_PALETTE_IDS = ["car-terzo", "car-visiondee"];
 
 // Premium light palette IDs
 export const LIGHT_PALETTE_IDS = ["blueprint"];
 
 // NOVA palette IDs
-export const ARTIFACT_PALETTE_IDS = ["artifact-dark", "artifact-light"];
+export const ARTIFACT_PALETTE_IDS = ["artifact-dark"];
 
 // Chart colors
 export const PIE_COLORS = [
