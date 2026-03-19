@@ -250,13 +250,15 @@ export const useAuthStore = create((set, get) => ({
     set({ user: data.user, session: data.session });
     // Register this device as the active session
     await writeSessionToken(data.user.id);
-    // Load org membership, then auto-accept pending invite (onAuthStateChange may also fire, but dedup guard handles it)
-    useOrgStore
-      .getState()
-      .fetchOrg()
-      .then(() => checkPendingInvite());
+    // Reset orgReady so persistence waits for fetchOrg to complete
+    // (orgReady may already be true from the initial "no session" state)
+    useOrgStore.setState({ orgReady: false });
+    // Load org membership — AWAITED so orgReady gates persistence correctly
+    await useOrgStore.getState().fetchOrg();
+    // Auto-accept pending invite after org is loaded
+    await checkPendingInvite();
     // Load app role (BLDG Talent)
-    get().fetchAppRole(data.user.id);
+    await get().fetchAppRole(data.user.id);
     return { success: true };
   },
 

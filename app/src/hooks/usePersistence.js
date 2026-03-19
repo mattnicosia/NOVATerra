@@ -637,7 +637,6 @@ export function usePersistenceLoad() {
             if (hadCorruptedIndex) recoveredFromCloud = true;
 
             // Pull all estimates, hydrate blobs, then cache locally (skip deleted)
-            // Use scope-blind pull as ultimate fallback (discovered org via pullDataAnyScope)
             const lastOrgFallback = localStorage.getItem("bldg-last-org-id");
             let cloudEstimates;
             if (useOrgStore.getState().org) {
@@ -648,8 +647,7 @@ export function usePersistenceLoad() {
               cloudEstimates = await cloudSync.pullAllEstimatesAnyScope();
             }
             for (const ce of cloudEstimates) {
-              if (deletedSet.has(ce.estimate_id)) continue; // Don't resurrect deleted
-              // Hydrate blobs before caching — cloud data has stripped drawings
+              if (deletedSet.has(ce.estimate_id)) continue;
               let estData = ce.data;
               try {
                 estData = await cloudSync.hydrateBlobs(ce.data);
@@ -657,6 +655,64 @@ export function usePersistenceLoad() {
                 /* blob hydration failed — use raw data */
               }
               await storage.set(idbKey(`bldg-est-${ce.estimate_id}`), JSON.stringify(estData));
+            }
+          } else if (useOrgStore.getState().org) {
+            // ── ORG MODE: Index is empty but user may have ASSIGNED estimates ──
+            // Pull estimates directly from user_estimates (RLS filters by visibility/assignment).
+            // Build index entries from the pulled estimate data so they appear in the UI.
+            console.log("[usePersistence] Index empty in org mode — pulling assigned estimates from cloud...");
+            let cloudEstimates;
+            try {
+              cloudEstimates = await cloudSync.pullAllEstimates();
+            } catch {
+              cloudEstimates = [];
+            }
+            if (cloudEstimates && cloudEstimates.length > 0) {
+              console.log(`[usePersistence] Found ${cloudEstimates.length} assigned estimate(s) — building index`);
+              const builtIndex = [];
+              for (const ce of cloudEstimates) {
+                if (deletedSet.has(ce.estimate_id)) continue;
+                let estData = ce.data;
+                try {
+                  estData = await cloudSync.hydrateBlobs(ce.data);
+                } catch { /* use raw */ }
+                await storage.set(idbKey(`bldg-est-${ce.estimate_id}`), JSON.stringify(estData));
+                // Build an index entry from the estimate data
+                const proj = estData?.project || {};
+                builtIndex.push({
+                  id: ce.estimate_id,
+                  name: proj.name || "Untitled",
+                  estimateNumber: proj.estimateNumber || "",
+                  client: proj.client || "",
+                  status: proj.status || "Bidding",
+                  bidDue: proj.bidDue || "",
+                  startDate: proj.startDate || "",
+                  estimatedHours: proj.estimatedHours || 0,
+                  grandTotal: proj.grandTotal || 0,
+                  elementCount: proj.elementCount || 0,
+                  lastModified: proj.lastModified || new Date().toISOString(),
+                  estimator: proj.estimator || "",
+                  coEstimators: proj.coEstimators || [],
+                  jobType: proj.jobType || "",
+                  companyProfileId: proj.companyProfileId || "",
+                  buildingType: proj.buildingType || "",
+                  workType: proj.workType || "",
+                  architect: proj.architect || "",
+                  projectSF: proj.projectSF || 0,
+                  zipCode: proj.zipCode || "",
+                  ownerId: ce.user_id || "",
+                  orgId: useOrgStore.getState().org?.id || "",
+                  assignedTo: proj.assignedTo || [],
+                  visibility: proj.visibility || "assigned",
+                });
+              }
+              if (builtIndex.length > 0) {
+                useEstimatesStore.getState().setEstimatesIndex(builtIndex);
+                await storage.set(idbKey("bldg-index"), JSON.stringify(builtIndex));
+                try {
+                  localStorage.setItem(`bldg-index-mirror-${currentUserId}`, JSON.stringify(builtIndex));
+                } catch { /* ignore */ }
+              }
             }
           }
 

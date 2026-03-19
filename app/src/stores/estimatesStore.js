@@ -608,20 +608,38 @@ export const useEstimatesStore = create((set, get) => ({
       entry && entry.visibility === "private" && Array.isArray(userIds) && userIds.length > 0
         ? "assigned"
         : undefined;
-    set(s => ({
-      estimatesIndex: s.estimatesIndex.map(e =>
-        e.id === estimateId
-          ? { ...e, assignedTo: userIds, ...(autoVisibility ? { visibility: autoVisibility } : {}) }
-          : e
-      ),
-    }));
-    // Cloud push happens via auto-save index sync
+    const updates = { assignedTo: userIds, ...(autoVisibility ? { visibility: autoVisibility } : {}) };
+    // Use updateIndexEntry for proper IDB + cloud sync
+    get().updateIndexEntry(estimateId, updates);
+    // Also push the estimate itself so assigned_to column updates on user_estimates row
+    storage.get(idbKey(`bldg-est-${estimateId}`)).then(raw => {
+      if (raw) {
+        try {
+          const estData = typeof raw === "string" ? JSON.parse(raw) : raw;
+          if (estData?.project) {
+            estData.project.assignedTo = userIds;
+            if (autoVisibility) estData.project.visibility = autoVisibility;
+          }
+          cloudSync.pushEstimate(estimateId, estData).catch(() => {});
+        } catch { /* non-critical */ }
+      }
+    }).catch(() => {});
   },
 
   setVisibility: (estimateId, visibility) => {
     const entry = get().estimatesIndex.find(e => e.id === estimateId);
     if (!entry || entry.visibility === visibility) return;
     get().updateIndexEntry(estimateId, { visibility });
+    // Push estimate row so visibility column updates on user_estimates
+    storage.get(idbKey(`bldg-est-${estimateId}`)).then(raw => {
+      if (raw) {
+        try {
+          const estData = typeof raw === "string" ? JSON.parse(raw) : raw;
+          if (estData?.project) estData.project.visibility = visibility;
+          cloudSync.pushEstimate(estimateId, estData).catch(() => {});
+        } catch { /* non-critical */ }
+      }
+    }).catch(() => {});
   },
 
   // Import a pre-built estimate from an RFP
