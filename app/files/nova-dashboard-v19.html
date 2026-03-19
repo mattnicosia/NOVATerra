@@ -1,0 +1,1709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nova — Construction Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --u: 8px;
+  --void:          #06060C;
+  --violet:        #8B5CF6;
+  --violet-bright: #A78BFA;
+  --violet-dim:    #6D28D9;
+  --lavender:      #C4B5FD;
+  --white:         #EEEDF5;
+  --white-dim:     rgba(238,237,245,0.38);
+  --white-faint:   rgba(238,237,245,0.07);
+  --emerald:       #34D399;
+  --rose:          #FB7185;
+}
+
+html, body {
+  width: 100%; height: 100%;
+  background: #06060C;
+  color: var(--white);
+  font-family: 'Outfit', sans-serif;
+  overflow: hidden;
+  cursor: none;
+}
+
+/* ── CURSOR ── */
+#cursor {
+  position: fixed; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--violet-bright); pointer-events: none; z-index: 9999;
+  transform: translate(-50%,-50%);
+  box-shadow: 0 0 10px var(--violet), 0 0 22px rgba(139,92,246,.35);
+}
+#cursor-ring {
+  position: fixed; width: 28px; height: 28px; border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.14); pointer-events: none; z-index: 9998;
+  transform: translate(-50%,-50%);
+  transition: width .3s cubic-bezier(.34,1.56,.64,1),
+              height .3s cubic-bezier(.34,1.56,.64,1), border-color .2s;
+}
+#cursor-ring.hovering { width: 44px; height: 44px; border-color: rgba(255,255,255,.3); }
+
+/* ── CANVAS / AMBIENT ── */
+#bg-canvas, #particle-canvas {
+  position: fixed; inset: 0; pointer-events: none;
+}
+#bg-canvas { z-index: 0; }
+#particle-canvas { z-index: 1; }
+.amb { position: fixed; border-radius: 50%; filter: blur(100px); pointer-events: none; z-index: 2; transition: background 3s ease; }
+#amb-1 { width: 580px; height: 580px; top: -180px; right: 60px; background: radial-gradient(ellipse, rgba(90,50,180,.016) 0%, transparent 70%); animation: drift 22s ease-in-out infinite alternate; filter: blur(80px); }
+#amb-2 { width: 420px; height: 420px; bottom: -100px; left: 80px; background: radial-gradient(ellipse, rgba(40,60,120,.014) 0%, transparent 70%); animation: drift 28s ease-in-out infinite alternate-reverse; filter: blur(80px); }
+#amb-3 { width: 320px; height: 320px; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(139,92,246,.018); animation: breatheAmb 8s ease-in-out infinite; }
+#vignette { position: fixed; inset: 0; z-index: 3; pointer-events: none; background: radial-gradient(ellipse at center, transparent 36%, rgba(2,1,10,.7) 100%); }
+#grain { position: fixed; inset: 0; z-index: 4; pointer-events: none; opacity: .02; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+
+/* ── LAYOUT ── */
+#app {
+  position: relative; z-index: 10;
+  width: 100vw; height: 100vh;
+  display: grid;
+  grid-template-columns: 256px 1fr 280px;
+  grid-template-rows: 60px 1fr 52px;
+}
+/* Center column reads as front — panels as recessed wings */
+#center-panel {
+  background: transparent;
+}
+#center-panel::before {
+  content: '';
+  position: absolute; inset: 0; pointer-events: none; z-index: -1;
+  background: radial-gradient(ellipse at 50% 30%,
+    rgba(139,92,246,.04) 0%,
+    rgba(255,255,255,.012) 30%,
+    transparent 70%);
+}
+
+/* ── HEADER ── */
+#header {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 28px;
+  background: linear-gradient(180deg, rgba(12,11,20,.96) 0%, rgba(8,8,16,.55) 100%);
+  box-shadow: 0 1px 0 rgba(255,255,255,.07), 0 1px 40px rgba(0,0,0,.4);
+  backdrop-filter: blur(28px);
+  border-bottom: 1px solid rgba(255,255,255,.05);
+  opacity: 0; animation: fadeUp .9s cubic-bezier(.16,1,.3,1) .25s forwards;
+}
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-orb { width: 28px; height: 28px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+  box-shadow: 0 0 12px rgba(139,92,246,.3), 0 0 24px rgba(109,40,217,.15); }
+.logo-orb canvas { width: 100%; height: 100%; }
+/* Weight-400 — orb leads, word follows. Not shouting. */
+.logo-name {
+  font-size: 13px; font-weight: 400; letter-spacing: .32em;
+  text-transform: uppercase; color: rgba(238,237,245,.9);
+}
+.logo-name em { color: var(--violet-bright); font-style: normal; font-weight: 500; }
+/* Primary navigation */
+.header-nav {
+  display: flex; align-items: center; gap: 2px;
+}
+.nav-item {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 6px 18px; border-radius: 8px; cursor: pointer;
+  position: relative; transition: all .2s ease;
+  border: 1px solid transparent;
+  color: rgba(238,237,245,.38);
+}
+.nav-item:hover {
+  color: rgba(238,237,245,.72);
+  background: rgba(255,255,255,.04);
+  border-color: rgba(255,255,255,.06);
+}
+.nav-item.active {
+  color: rgba(238,237,245,.9);
+  background: rgba(139,92,246,.07);
+  border-color: rgba(139,92,246,.18);
+}
+/* Active glow line at bottom */
+.nav-item.active::after {
+  content: '';
+  position: absolute; bottom: -1px; left: 50%; transform: translateX(-50%);
+  width: 24px; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--violet-bright), transparent);
+  box-shadow: 0 0 8px var(--violet-bright);
+}
+.nav-icon { width: 15px; height: 15px; flex-shrink: 0; }
+.nav-icon svg { width: 100%; height: 100%; display: block; }
+.nav-label {
+  font-size: 8.5px; font-weight: 500; letter-spacing: .1em;
+  text-transform: uppercase; line-height: 1;
+}
+/* Badge on inbox */
+.nav-badge {
+  position: absolute; top: 4px; right: 12px;
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--violet-bright);
+  box-shadow: 0 0 6px rgba(167,139,250,.8);
+}
+/* System status dot — moved to logo area */
+.live-dot {
+  width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0;
+  background: var(--emerald); box-shadow: 0 0 7px rgba(52,211,153,.9);
+  animation: pulseDot 2.5s ease-in-out infinite;
+  margin-left: 4px;
+}
+/* Right — three instrument pods */
+/* ── GLOBAL ACTIONS — top right ── */
+.header-actions { display: flex; align-items: center; gap: 4px; }
+.hdr-btn {
+  width: 32px; height: 32px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: 1px solid transparent;
+  cursor: pointer; transition: all .18s ease;
+  color: rgba(238,237,245,.38); position: relative;
+  flex-shrink: 0;
+}
+.hdr-btn:hover {
+  color: rgba(238,237,245,.82);
+  background: rgba(255,255,255,.05);
+  border-color: rgba(255,255,255,.07);
+}
+.hdr-btn svg { width: 15px; height: 15px; display: block; }
+/* Notification dot */
+.hdr-btn .notif-dot {
+  position: absolute; top: 5px; right: 5px;
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--violet-bright);
+  box-shadow: 0 0 5px rgba(167,139,250,.8);
+  border: 1px solid rgba(6,6,12,.9);
+}
+/* Divider */
+.hdr-divider {
+  width: 1px; height: 18px; margin: 0 4px;
+  background: rgba(255,255,255,.07);
+}
+/* Avatar */
+.hdr-avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: linear-gradient(135deg, #6D28D9 0%, #4C1D95 100%);
+  border: 1px solid rgba(139,92,246,.4);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 600; color: rgba(238,237,245,.9);
+  letter-spacing: .04em; cursor: pointer; flex-shrink: 0;
+  box-shadow: 0 0 10px rgba(109,40,217,.25);
+  transition: all .18s ease;
+}
+.hdr-avatar:hover {
+  border-color: rgba(167,139,250,.65);
+  box-shadow: 0 0 16px rgba(109,40,217,.4);
+}
+
+/* ── LEFT PANEL ── */
+#left-panel {
+  grid-column: 1; grid-row: 2;
+  padding: 20px 16px;
+  border-right: none;
+  background: linear-gradient(135deg,
+    rgba(16,14,24,.88) 0%,
+    rgba(10,9,18,.82) 40%,
+    rgba(7,7,13,.6) 100%);
+  backdrop-filter: blur(32px) saturate(1.4);
+  box-shadow:
+    inset -1px 0 0 rgba(255,255,255,.04),
+    inset -8px 0 32px rgba(0,0,0,.22),
+    inset 0 1px 0 rgba(255,255,255,.06),
+    inset -40px 0 80px rgba(109,40,217,.04);  /* orb light bleeding through */
+  display: flex; flex-direction: column; gap: 5px;
+  overflow: hidden;
+  opacity: 0; animation: fadeLeft .8s cubic-bezier(.16,1,.3,1) .7s forwards;
+}
+.section-label {
+  font-size: 9px; font-weight: 600; letter-spacing: .22em; text-transform: uppercase;
+  color: rgba(238,237,245,.5);
+  padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,.07);
+  margin-bottom: 4px;
+}
+.project-item {
+  padding: 10px 12px; border-radius: 8px; border: 1px solid transparent;
+  cursor: pointer; transition: all .22s ease; position: relative; overflow: hidden;
+  box-shadow: 0 1px 0 rgba(255,255,255,.03) inset;
+}
+/* Phase 2: radial glow from behind, not a border stripe */
+.project-item::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit;
+  background: radial-gradient(ellipse at 18% 50%, rgba(139,92,246,.09) 0%, transparent 65%);
+  opacity: 0; transition: opacity .3s ease; pointer-events: none;
+}
+/* Fade edges instead of hard borders */
+#left-panel::after {
+  content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 1px;
+  background: linear-gradient(180deg,
+    transparent 0%,
+    rgba(255,255,255,.06) 20%,
+    rgba(255,255,255,.09) 50%,
+    rgba(255,255,255,.06) 80%,
+    transparent 100%);
+  pointer-events: none; z-index: 1;
+}
+#right-panel::after {
+  content: ''; position: absolute; top: 0; left: 0; bottom: 0; width: 1px;
+  background: linear-gradient(180deg,
+    transparent 0%,
+    rgba(255,255,255,.06) 20%,
+    rgba(255,255,255,.09) 50%,
+    rgba(255,255,255,.06) 80%,
+    transparent 100%);
+  pointer-events: none; z-index: 1;
+}
+.project-item:hover { border-color: rgba(255,255,255,.08); }
+
+/* Left panel section header — label + create action */
+.panel-section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 2px 8px;
+}
+.panel-section-title {
+  font-size: 9px; font-weight: 600; letter-spacing: .2em;
+  text-transform: uppercase; color: rgba(238,237,245,.38);
+}
+.create-btn {
+  width: 24px; height: 24px; border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(139,92,246,.1);
+  border: 1px solid rgba(139,92,246,.22);
+  cursor: pointer; transition: all .2s ease;
+  color: rgba(167,139,250,.7);
+  box-shadow: 0 0 8px rgba(109,40,217,.1);
+}
+.create-btn:hover {
+  background: rgba(139,92,246,.2);
+  border-color: rgba(167,139,250,.45);
+  color: var(--violet-bright);
+  box-shadow: 0 0 14px rgba(109,40,217,.25);
+  transform: scale(1.08);
+}
+.create-btn svg { width: 15px; height: 15px; display: block; }
+/* Pen spark animates on hover */
+.create-btn .icon-spark {
+  transform-origin: 10.5px 2.5px;
+  transition: opacity .22s ease, transform .22s cubic-bezier(.34,1.56,.64,1);
+  opacity: 0;
+}
+.create-btn:hover .icon-spark { opacity: 1; transform: translate(1px,-1px) scale(1.1); }
+
+/* Project list glass card — same DNA as bench-card */
+.project-list-card {
+  border-radius: 10px;
+  background: linear-gradient(145deg, rgba(18,16,28,.75) 0%, rgba(10,9,18,.65) 100%);
+  padding: 6px 6px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.3), 0 1px 0 rgba(255,255,255,.06) inset;
+  position: relative; overflow: hidden;
+  display: flex; flex-direction: column; gap: 1px;
+}
+.project-list-card::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px;
+  background: linear-gradient(155deg, rgba(255,255,255,.08) 0%, rgba(255,255,255,.02) 50%, transparent 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+}
+.project-item:hover::after { opacity: 1; }
+.project-item.active {
+  border-color: rgba(139,92,246,.22);
+  background: linear-gradient(135deg, rgba(139,92,246,.06) 0%, rgba(109,40,217,.03) 100%);
+  box-shadow: 0 1px 8px rgba(109,40,217,.08), 0 1px 0 rgba(167,139,250,.05) inset;
+}
+.project-item.active::after { opacity: 1; }
+.project-item.active .proj-name {
+  font-size: 13px;
+  letter-spacing: .03em;
+  color: #fff;
+  text-shadow: 0 0 14px rgba(167,139,250,.35), 0 0 28px rgba(139,92,246,.15);
+}
+.proj-name {
+  font-size: 12px; font-weight: 600; color: var(--white);
+  margin-bottom: 3px; letter-spacing: .01em;
+  display: flex; align-items: center; gap: 7px;
+}
+.proj-status-dot {
+  width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; margin-left: auto;
+  transition: box-shadow .3s;
+}
+.status-active  { background: #34D399; box-shadow: 0 0 5px rgba(52,211,153,.7); }
+.status-bidding { background: #F59E0B; box-shadow: 0 0 5px rgba(245,158,11,.6); }
+.status-review  { background: rgba(238,237,245,.4); }
+.proj-meta { display: flex; justify-content: space-between; font-size: 10px; font-weight: 400; color: rgba(238,237,245,.48); }
+.proj-value { color: var(--violet-bright); font-weight: 500; }
+
+/* ── CREATE ESTIMATE BUTTON — full-width left panel CTA ── */
+.create-estimate-full {
+  width: 100%;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  background: linear-gradient(145deg, rgba(18,16,28,.8) 0%, rgba(10,9,18,.7) 100%);
+  border: 1px solid rgba(139,92,246,.2);
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: 'Outfit', sans-serif;
+  font-size: 10.5px; font-weight: 600; letter-spacing: .1em;
+  text-transform: uppercase;
+  color: rgba(238,237,245,.7);
+  position: relative; overflow: hidden;
+  transition: all .25s cubic-bezier(.16,1,.3,1);
+  box-shadow:
+    0 2px 12px rgba(0,0,0,.3),
+    0 1px 0 rgba(255,255,255,.06) inset,
+    0 0 0 rgba(109,40,217,0);
+  flex-shrink: 0;
+}
+/* Glass border — same ::before mask as cards */
+.create-estimate-full::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px;
+  background: linear-gradient(155deg, rgba(255,255,255,.1) 0%, rgba(255,255,255,.03) 50%, transparent 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+  transition: opacity .25s;
+}
+/* Shimmer sweep — reveals on hover */
+.create-estimate-full::after {
+  content: '';
+  position: absolute; top: 0; left: -100%; width: 60%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(167,139,250,.08), transparent);
+  transition: left .5s cubic-bezier(.16,1,.3,1);
+  pointer-events: none;
+}
+.create-estimate-full:hover::after { left: 140%; }
+.create-estimate-full:hover {
+  border-color: rgba(139,92,246,.42);
+  color: rgba(238,237,245,.95);
+  box-shadow:
+    0 4px 20px rgba(0,0,0,.35),
+    0 1px 0 rgba(255,255,255,.08) inset,
+    0 0 20px rgba(109,40,217,.15);
+  transform: translateY(-1px);
+}
+.create-estimate-full:active { transform: translateY(0); }
+/* Icon container */
+.ce-icon-wrap {
+  width: 28px; height: 28px; border-radius: 7px; flex-shrink: 0;
+  background: rgba(139,92,246,.15);
+  border: 1px solid rgba(139,92,246,.28);
+  display: flex; align-items: center; justify-content: center;
+  transition: all .25s ease;
+  box-shadow: 0 0 8px rgba(109,40,217,.1);
+}
+.create-estimate-full:hover .ce-icon-wrap {
+  background: rgba(139,92,246,.28);
+  border-color: rgba(167,139,250,.5);
+  box-shadow: 0 0 14px rgba(109,40,217,.25);
+}
+.ce-icon-wrap svg { width: 14px; height: 14px; display: block; color: rgba(167,139,250,.9); }
+.ce-icon-wrap .icon-spark {
+  transform-origin: 10.5px 2.5px;
+  transition: opacity .22s ease, transform .22s cubic-bezier(.34,1.56,.64,1);
+  opacity: 0;
+}
+.create-estimate-full:hover .ce-icon-wrap .icon-spark { opacity: 1; transform: translate(1px,-1px) scale(1.1); }
+/* Text stack */
+.ce-text { display: flex; flex-direction: column; gap: 2px; text-align: left; }
+.ce-label { font-size: 10.5px; font-weight: 600; letter-spacing: .1em; line-height: 1; }
+.ce-sub { font-size: 8.5px; font-weight: 400; letter-spacing: .04em; color: rgba(238,237,245,.35); text-transform: none; line-height: 1; }
+/* Arrow — right side */
+.ce-arrow {
+  margin-left: auto; flex-shrink: 0;
+  color: rgba(167,139,250,.3);
+  transition: transform .25s cubic-bezier(.34,1.56,.64,1), color .2s;
+}
+.create-estimate-full:hover .ce-arrow { transform: translateX(2px); color: rgba(167,139,250,.7); }
+.ce-arrow svg { width: 12px; height: 12px; display: block; }
+
+.bench { margin-top: auto; }
+/* Benchmark card — glass treatment like intel cards */
+.bench-card {
+  border-radius: 10px;
+  background: linear-gradient(145deg, rgba(18,16,28,.75) 0%, rgba(10,9,18,.65) 100%);
+  padding: 12px 12px 8px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.3), 0 1px 0 rgba(255,255,255,.06) inset;
+  position: relative; overflow: hidden;
+}
+.bench-card::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px;
+  background: linear-gradient(155deg, rgba(255,255,255,.08) 0%, rgba(255,255,255,.02) 50%, transparent 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+}
+.bench-row {
+  display: flex; align-items: center;
+  padding: 6px 0; gap: 8px;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+}
+.bench-row:last-child { border-bottom: none; }
+.bench-label { color: rgba(238,237,245,.48); font-weight: 400; font-size: 10px; flex: 1; white-space: nowrap; }
+/* Mini context bar */
+.bench-track {
+  width: 36px; height: 2px;
+  background: rgba(255,255,255,.06);
+  border-radius: 2px; flex-shrink: 0;
+  overflow: hidden; position: relative;
+}
+.bench-fill {
+  height: 100%; border-radius: 2px;
+  position: absolute; left: 0; top: 0;
+  transition: width 1.4s cubic-bezier(.16,1,.3,1);
+}
+.bench-fill-v  { background: linear-gradient(90deg, #6D28D9, #A78BFA); }
+.bench-fill-em { background: linear-gradient(90deg, #065F46, #34D399); }
+.bench-fill-am { background: linear-gradient(90deg, #92400E, #F59E0B); }
+.bench-fill-wh { background: linear-gradient(90deg, rgba(255,255,255,.2), rgba(255,255,255,.5)); }
+.bench-val { color: rgba(238,237,245,.82); font-weight: 600; font-size: 11px; text-align: right; min-width: 36px; }
+.bench-val.em { color: var(--emerald); text-shadow: 0 0 10px rgba(52,211,153,.3); }
+.bench-val.am { color: #F59E0B; text-shadow: 0 0 10px rgba(245,158,11,.25); }
+
+/* ── CENTER ── */
+#center-panel {
+  grid-column: 2; grid-row: 2;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 16px 20px 0; overflow: hidden; position: relative;
+  opacity: 0; animation: fadeUp 1s cubic-bezier(.16,1,.3,1) .95s forwards;
+}
+
+/* ── ORB ── */
+#nova-core {
+  position: relative; width: 160px; height: 160px; cursor: pointer; flex-shrink: 0;
+  perspective: 600px; transform-style: preserve-3d;
+  /* Float the orb forward — shadow drops onto the layer below */
+  filter: drop-shadow(0 20px 60px rgba(109,40,217,.35))
+          drop-shadow(0 8px 24px rgba(0,0,0,.55))
+          drop-shadow(0 0 80px rgba(139,92,246,.15));
+  transform: translateZ(0);
+}
+.orb-halo {
+  position: absolute; border-radius: 50%;
+  background: radial-gradient(circle, rgba(109,40,217,.2) 0%, transparent 70%);
+  animation: breatheOrb 5s ease-in-out infinite;
+  transition: inset 1.4s cubic-bezier(.16,1,.3,1);
+  inset: -28px;
+}
+.orb-ring-a {
+  position: absolute; border-radius: 50%; border: 1px solid rgba(139,92,246,.13);
+  animation: spinSlow 22s linear infinite; inset: -10px;
+  transition: border-color .8s;
+}
+.orb-ring-a::after {
+  content: ''; position: absolute; top: -3px; left: calc(50% - 3px);
+  width: 6px; height: 6px; border-radius: 50%; background: var(--violet-bright);
+  box-shadow: 0 0 10px var(--violet), 0 0 20px rgba(139,92,246,.5);
+}
+.orb-ring-b {
+  position: absolute; border-radius: 50%; border: 1px solid rgba(167,139,250,.07);
+  animation: spinSlow 15s linear infinite reverse; inset: 8px;
+}
+/* Third ring — equatorial plane, gives orb planetary mass */
+.orb-ring-c {
+  position: absolute; border-radius: 50%;
+  border-top: 1px solid transparent;
+  border-bottom: 1px solid transparent;
+  border-left: 1px solid rgba(167,139,250,.12);
+  border-right: 1px solid rgba(167,139,250,.12);
+  animation: spinSlow 34s linear infinite;
+  inset: -4px;
+  transform: rotateX(72deg);
+  transform-style: preserve-3d;
+}
+.orb-ring-b::after {
+  content: ''; position: absolute; bottom: -2px; right: 22%;
+  width: 4px; height: 4px; border-radius: 50%; background: var(--lavender);
+  box-shadow: 0 0 7px rgba(221,214,254,.8);
+}
+#orb-canvas { width: 160px; height: 160px; border-radius: 50%; display: block; }
+
+#nova-label { margin-top: 14px; text-align: center; position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; }
+.nova-title { font-size: 10px; font-weight: 500; letter-spacing: .5em; text-transform: uppercase; color: var(--violet-bright); text-shadow: 0 0 16px rgba(167,139,250,.5); }
+/* Phase 3: status = spoken, italic, lighter */
+#nova-status { font-size: 10px; font-weight: 300; font-style: italic; letter-spacing: .09em; color: rgba(238,237,245,.55); margin-top: 5px; transition: opacity .4s; }
+
+/* Subtle ask — lives under the orb, intimate scale */
+#nova-ask {
+  margin-top: 14px;
+  width: 260px;
+  position: relative;
+}
+.nova-ask-wrap {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 14px;
+  border-radius: 100px;
+  border: 1px solid rgba(255,255,255,.07);
+  background: rgba(255,255,255,.025);
+  backdrop-filter: blur(20px);
+  transition: border-color .3s ease, background .3s ease, box-shadow .3s ease;
+}
+.nova-ask-wrap:focus-within {
+  border-color: rgba(139,92,246,.4);
+  background: rgba(139,92,246,.05);
+  box-shadow: 0 0 20px rgba(109,40,217,.12), 0 4px 16px rgba(0,0,0,.3);
+}
+.nova-ask-input {
+  flex: 1; background: transparent; border: none; outline: none;
+  font-family: 'Outfit', sans-serif;
+  font-size: 10.5px; font-weight: 300; font-style: italic;
+  letter-spacing: .03em;
+  color: rgba(238,237,245,.82);
+  caret-color: var(--violet-bright);
+}
+.nova-ask-input::placeholder {
+  color: rgba(238,237,245,.2);
+  font-style: italic;
+}
+.nova-ask-send {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: transparent; border: none;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  color: rgba(167,139,250,.4);
+  transition: color .2s, transform .2s;
+  padding: 0; flex-shrink: 0;
+}
+.nova-ask-wrap:focus-within .nova-ask-send { color: rgba(167,139,250,.8); }
+.nova-ask-send:hover { color: var(--violet-bright); transform: scale(1.15); }
+.nova-ask-send svg { width: 10px; height: 10px; display: block; }
+
+/* ── ESTIMATE — Phase 3: primary number dominates ── */
+#estimate-display { margin-top: 20px; text-align: center; width: 100%; max-width: 480px; }
+.est-project {
+  font-size: 9px; font-weight: 600; letter-spacing: .22em; text-transform: uppercase;
+  color: rgba(238,237,245,.42); margin-bottom: 8px;
+}
+/* Phase 3: 80px, weight 300 — dominant, airy */
+.est-value {
+  font-size: 66px; font-weight: 300; color: #F5F3FF;
+  letter-spacing: -.04em; line-height: 1;
+  text-shadow:
+    0 0 60px rgba(139,92,246,.2),
+    0 0 120px rgba(109,40,217,.1),
+    0 3px 6px rgba(0,0,0,.55),
+    0 1px 2px rgba(0,0,0,.7);
+  transition: text-shadow 1.2s;
+}
+.est-value .dollar { color: var(--violet-bright); font-size: 26px; vertical-align: 18px; font-weight: 400; text-shadow: 0 0 16px rgba(167,139,250,.4), 0 1px 3px rgba(0,0,0,.5); }
+.est-value .cents  { color: rgba(238,237,245,.36); font-size: 20px; vertical-align: 4px; font-weight: 300; letter-spacing: .02em; }
+.est-delta { font-size: 10px; font-weight: 500; letter-spacing: .07em; margin-top: 8px; }
+.est-delta.up      { color: var(--emerald); }
+.est-delta.down    { color: var(--rose); }
+.est-delta.neutral { color: rgba(238,237,245,.52); }
+
+/* ── COST BARS — Phase 1: violet spectrum per trade ── */
+#cost-breakdown {
+  margin-top: 16px; width: 100%; max-width: 480px;
+  display: flex; flex-direction: column; gap: 8px;
+  border-radius: 10px;
+  background: linear-gradient(145deg, rgba(18,16,28,.7) 0%, rgba(10,9,18,.6) 100%);
+  padding: 14px 14px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.28), 0 1px 0 rgba(255,255,255,.06) inset;
+  position: relative;
+}
+#cost-breakdown::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px;
+  background: linear-gradient(155deg, rgba(255,255,255,.08) 0%, rgba(255,255,255,.02) 50%, transparent 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+}
+.cost-row { display: flex; align-items: center; gap: 12px; }
+.cost-lbl { width: 84px; text-align: right; flex-shrink: 0; font-size: 9.5px; font-weight: 400; color: rgba(238,237,245,.48); letter-spacing: .03em; }
+.bar-track { flex: 1; height: 3px; background: rgba(255,255,255,.06); border-radius: 3px; overflow: visible; box-shadow: inset 0 1px 2px rgba(0,0,0,.3); }
+.bar-fill { height: 100%; border-radius: 2px; transform: scaleX(0); transform-origin: left; transition: transform 1.2s cubic-bezier(.16,1,.3,1); }
+.bar-concrete { background: linear-gradient(90deg, #312E81, #6366F1); box-shadow: 0 0 7px rgba(99,102,241,.55); }
+.bar-framing  { background: linear-gradient(90deg, #92400E, #F59E0B); box-shadow: 0 0 7px rgba(245,158,11,.45); }
+.bar-mep      { background: linear-gradient(90deg, #065F46, #34D399); box-shadow: 0 0 7px rgba(52,211,153,.5); }
+.bar-finishes { background: linear-gradient(90deg, #9F1239, #FB7185); box-shadow: 0 0 7px rgba(251,113,133,.45); }
+.bar-gc       { background: linear-gradient(90deg, #1E3A5F, #64A9D9); box-shadow: 0 0 7px rgba(100,169,217,.35); }
+.cost-val { width: 64px; text-align: right; flex-shrink: 0; font-size: 10px; font-weight: 400; color: var(--white); }
+
+/* ── TREND CHART — Phase 2: gradient border, no box ── */
+#trend-chart { margin-top: 16px; width: 100%; max-width: 480px; position: relative; border-radius: 10px; background: linear-gradient(145deg, rgba(18,16,28,.7) 0%, rgba(10,9,18,.6) 100%); box-shadow: 0 2px 16px rgba(0,0,0,.3), 0 1px 0 rgba(255,255,255,.05) inset; }
+#trend-chart::before {
+  content: ''; position: absolute; inset: 0; border-radius: 10px; padding: 1px;
+  background: linear-gradient(180deg, rgba(255,255,255,.07) 0%, rgba(255,255,255,.02) 60%, transparent 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+}
+.chart-inner { padding: 16px 16px 12px; }
+.chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.chart-title { font-size: 9px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: rgba(238,237,245,.44); }
+.chart-legend { display: flex; gap: 14px; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 9.5px; color: rgba(238,237,245,.55); font-weight: 400; }
+.legend-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+.chart-canvas-wrap { height: 108px; }
+#trend-canvas { width: 100%; height: 100%; display: block; }
+
+
+/* ── RIGHT PANEL ── */
+#right-panel {
+  grid-column: 3; grid-row: 2;
+  padding: 20px 16px;
+  border-left: none;
+  background: linear-gradient(225deg,
+    rgba(16,14,24,.88) 0%,
+    rgba(10,9,18,.82) 40%,
+    rgba(7,7,13,.6) 100%);
+  backdrop-filter: blur(32px) saturate(1.4);
+  box-shadow:
+    inset 1px 0 0 rgba(255,255,255,.04),
+    inset 8px 0 32px rgba(0,0,0,.22),
+    inset 0 1px 0 rgba(255,255,255,.06),
+    inset 40px 0 80px rgba(109,40,217,.04);  /* orb light bleeding through */
+  display: flex; flex-direction: column; gap: 12px;
+  overflow: hidden;
+  opacity: 0; animation: fadeRight .8s cubic-bezier(.16,1,.3,1) .7s forwards;
+}
+
+/* Phase 2: gradient border cards, floating in void */
+.intel-card {
+  padding: 14px; border-radius: 10px;
+  background: linear-gradient(145deg, rgba(22,20,32,.8) 0%, rgba(12,11,20,.7) 100%);
+  position: relative; overflow: hidden; transition: all .25s; cursor: default;
+  box-shadow:
+    0 2px 12px rgba(0,0,0,.35),
+    0 1px 0 rgba(255,255,255,.06) inset,
+    0 -1px 0 rgba(0,0,0,.3) inset;
+}
+.intel-card::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px;
+  background: linear-gradient(155deg, rgba(255,255,255,.1) 0%, rgba(255,255,255,.03) 40%, transparent 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude; transition: opacity .25s;
+}
+.intel-card:hover { background: linear-gradient(145deg, rgba(28,25,42,.85) 0%, rgba(16,14,26,.75) 100%); transform: translateY(-1px); box-shadow: 0 4px 20px rgba(0,0,0,.4), 0 1px 0 rgba(255,255,255,.08) inset; }
+
+/* Phase 3: label quiet, value large and light */
+.intel-label { font-size: 9px; font-weight: 600; letter-spacing: .14em; color: rgba(238,237,245,.48); margin-bottom: 6px; text-transform: uppercase; }
+.intel-value {
+  font-size: 26px; font-weight: 300; color: #F4F2FF;
+  line-height: 1; letter-spacing: -.01em;
+  text-shadow: 0 1px 12px rgba(255,255,255,.08);
+  transition: text-shadow .4s ease, color .4s ease;
+}
+.intel-value.pulsing {
+  color: #fff;
+  text-shadow: 0 0 20px rgba(255,255,255,.35), 0 0 40px rgba(167,139,250,.2);
+}
+.intel-sub { font-size: 9.5px; color: rgba(238,237,245,.5); margin-top: 4px; font-weight: 400; }
+.intel-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 20px; font-size: 8.5px; font-weight: 500; margin-top: 6px; letter-spacing: .04em; }
+.badge-up   { background: rgba(52,211,153,.08); color: var(--emerald); border: 1px solid rgba(52,211,153,.16); }
+.badge-dn   { background: rgba(251,113,133,.08); color: var(--rose);    border: 1px solid rgba(251,113,133,.16); }
+.badge-flat { background: rgba(238,232,255,.04); color: var(--white-dim); border: 1px solid rgba(238,232,255,.08); }
+
+/* ── TICKER ── */
+#ticker-wrap {
+  flex: 1; overflow: hidden; display: flex; flex-direction: column;
+  border-radius: 10px;
+  background: linear-gradient(145deg, rgba(14,12,22,.7) 0%, rgba(8,8,15,.6) 100%);
+  padding: 10px 10px 6px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.28), 0 1px 0 rgba(255,255,255,.05) inset;
+  position: relative;
+}
+#ticker-wrap::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px;
+  background: linear-gradient(155deg, rgba(255,255,255,.07) 0%, rgba(255,255,255,.02) 50%, transparent 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+}
+#ticker-inner { overflow: hidden; flex: 1; margin-top: 6px; position: relative; }
+#ticker-scroll { will-change: transform; }
+.ticker-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 2px;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+}
+.ticker-name  { color: rgba(238,237,245,.52); font-weight: 400; font-size: 10px; flex: 1; }
+.ticker-price { color: rgba(238,237,245,.82); font-size: 10px; font-weight: 500; letter-spacing: .01em; }
+.ticker-chg {
+  font-size: 8.5px; font-weight: 600;
+  padding: 2px 6px; border-radius: 20px;
+  letter-spacing: .02em; flex-shrink: 0;
+  min-width: 38px; text-align: center;
+}
+.chg-up { color: #34D399; background: rgba(52,211,153,.1); border: 1px solid rgba(52,211,153,.2); }
+.chg-dn { color: #FB7185; background: rgba(251,113,133,.1); border: 1px solid rgba(251,113,133,.2); }
+.chg-fl { color: rgba(238,237,245,.35); background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); }
+
+
+/* ── FOOTER — thin glass shelf, pure meta ── */
+#footer {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 28px;
+  border-top: 1px solid rgba(255,255,255,.05);
+  background: linear-gradient(180deg, rgba(14,12,22,.82) 0%, rgba(8,8,16,.96) 100%);
+  backdrop-filter: blur(32px) saturate(1.4);
+  box-shadow: 0 -1px 0 rgba(255,255,255,.04) inset;
+  opacity: 0; animation: fadeUp .8s cubic-bezier(.16,1,.3,1) 1.8s forwards;
+}
+.footer-meta { display: flex; gap: 20px; font-size: 8.5px; font-weight: 400; color: rgba(238,237,245,.28); letter-spacing: .05em; }
+.footer-meta span { color: rgba(238,237,245,.42); }
+.footer-actions { display: flex; gap: 10px; }
+.btn { padding: 8px 18px; border-radius: 6px; font-family: 'Outfit', sans-serif; font-size: 10.5px; font-weight: 500; letter-spacing: .06em; cursor: pointer; transition: all .2s ease; }
+.btn-sm { padding: 6px 14px; font-size: 9.5px; opacity: .72; }
+.btn-sm:hover { opacity: 1; }
+.btn-ghost {
+  background: linear-gradient(160deg, rgba(255,255,255,.055) 0%, rgba(255,255,255,.025) 100%);
+  border: 1px solid rgba(255,255,255,.14);
+  color: rgba(238,237,245,.75);
+  box-shadow: 0 2px 8px rgba(0,0,0,.25), 0 1px 0 rgba(255,255,255,.08) inset, 0 -1px 0 rgba(0,0,0,.2) inset;
+}
+.btn-ghost:hover {
+  background: linear-gradient(160deg, rgba(255,255,255,.08) 0%, rgba(255,255,255,.04) 100%);
+  border-color: rgba(255,255,255,.26);
+  color: #F5F3FF;
+  box-shadow: 0 4px 16px rgba(0,0,0,.3), 0 1px 0 rgba(255,255,255,.12) inset;
+  transform: translateY(-1px);
+}
+.btn-primary { background: linear-gradient(160deg, #7C3AED 0%, #6D28D9 100%); border: 1px solid rgba(139,92,246,.6); color: #fff; box-shadow: 0 4px 20px rgba(109,40,217,.35), 0 1px 0 rgba(167,139,250,.25) inset; }
+.btn-primary:hover { background: linear-gradient(160deg, #8B5CF6 0%, #7C3AED 100%); box-shadow: 0 6px 28px rgba(109,40,217,.5), 0 1px 0 rgba(167,139,250,.3) inset; transform: translateY(-1px); }
+
+/* query bar removed — ask lives under the orb */
+
+/* Nova response panel — appears below the ask input, centered */
+#response-stream {
+  position: absolute;
+  top: calc(100% + 12px);
+  left: 50%; transform: translateX(-50%) translateY(6px);
+  width: 340px;
+  z-index: 25;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .4s cubic-bezier(.16,1,.3,1), transform .4s cubic-bezier(.16,1,.3,1);
+}
+#response-stream.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+.response-panel {
+  background: linear-gradient(160deg, rgba(22,18,36,.95) 0%, rgba(12,10,24,.97) 100%);
+  backdrop-filter: blur(48px) saturate(1.8);
+  border: 1px solid rgba(167,139,250,.18);
+  border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow:
+    0 24px 64px rgba(0,0,0,.7),
+    0 1px 0 rgba(255,255,255,.08) inset,
+    0 0 40px rgba(109,40,217,.12);
+  position: relative; overflow: hidden;
+}
+.response-panel::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px;
+  background: linear-gradient(155deg, rgba(167,139,250,.2) 0%, rgba(139,92,246,.06) 40%, transparent 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+}
+.response-nova-label {
+  font-size: 8.5px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--violet-bright); margin-bottom: 10px; opacity: .8;
+  display: flex; align-items: center; gap: 6px;
+}
+.response-nova-label::before {
+  content: ''; display: block; width: 4px; height: 4px; border-radius: 50%;
+  background: var(--violet-bright); box-shadow: 0 0 6px rgba(167,139,250,.8);
+}
+.response-text {
+  font-size: 10.5px; font-weight: 300; font-style: italic;
+  letter-spacing: .03em; color: rgba(238,237,245,.78);
+  line-height: 1.85; text-align: left;
+}
+
+/* ── RIPPLE ── */
+.ripple { position: fixed; border-radius: 50%; border: 1px solid rgba(255,255,255,.18); pointer-events: none; z-index: 15; animation: rippleOut .75s ease-out forwards; }
+
+/* ── KEYFRAMES ── */
+@keyframes fadeUp    { from{opacity:0;transform:translateY(12px);}  to{opacity:1;transform:translateY(0);} }
+@keyframes fadeLeft  { from{opacity:0;transform:translateX(-16px);} to{opacity:1;transform:translateX(0);} }
+@keyframes fadeRight { from{opacity:0;transform:translateX(16px);}  to{opacity:1;transform:translateX(0);} }
+@keyframes spinSlow  { from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
+@keyframes breatheAmb{ 0%,100%{transform:translate(-50%,-50%) scale(1);opacity:1;} 50%{transform:translate(-50%,-50%) scale(1.08);opacity:.7;} }
+@keyframes breatheOrb{ 0%,100%{transform:scale(1);opacity:1;} 50%{transform:scale(1.1);opacity:.72;} }
+@keyframes pulseDot  { 0%,100%{opacity:1;} 50%{opacity:.3;} }
+@keyframes rippleOut { from{transform:translate(-50%,-50%) scale(0);opacity:1;} to{transform:translate(-50%,-50%) scale(4);opacity:0;} }
+@keyframes drift     { from{transform:translate(0,0);} to{transform:translate(28px,18px);} }
+</style>
+</head>
+<body>
+
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+<canvas id="bg-canvas"></canvas>
+<canvas id="particle-canvas"></canvas>
+<div class="amb" id="amb-1"></div>
+<div class="amb" id="amb-2"></div>
+<div class="amb" id="amb-3"></div>
+<div id="vignette"></div>
+<div id="grain"></div>
+
+    <div class="response-nova-label">Nova</div>
+    <div class="response-text" id="response-text"></div>
+  </div>
+</div>
+
+<div id="app">
+
+  <header id="header">
+    <div class="logo">
+      <div class="logo-orb"><canvas id="logo-orb-c" width="60" height="60"></canvas></div>
+      <div class="logo-name">No<em>v</em>a</div>
+      <div class="live-dot"></div>
+    </div>
+    <nav class="header-nav" id="header-nav">
+      <div class="nav-item active" data-view="dashboard">
+        <div class="nav-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="1" width="6" height="6" rx="1.5"/><rect x="9" y="1" width="6" height="6" rx="1.5"/><rect x="1" y="9" width="6" height="6" rx="1.5"/><rect x="9" y="9" width="6" height="6" rx="1.5"/></svg></div>
+        <span class="nav-label">Dashboard</span>
+      </div>
+      <div class="nav-item" data-view="inbox">
+        <div class="nav-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M1 10l2.5-6.5a1 1 0 01.93-.5h7.14a1 1 0 01.93.5L15 10v3a1 1 0 01-1 1H2a1 1 0 01-1-1v-3z"/><path d="M1 10h3.5l1 2h5l1-2H15"/></svg></div>
+        <span class="nav-label">Inbox</span>
+        <div class="nav-badge"></div>
+      </div>
+      <div class="nav-item" data-view="database">
+        <div class="nav-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="8" cy="4" rx="6" ry="2"/><path d="M2 4v4c0 1.1 2.7 2 6 2s6-.9 6-2V4"/><path d="M2 8v4c0 1.1 2.7 2 6 2s6-.9 6-2V8"/></svg></div>
+        <span class="nav-label">Database</span>
+      </div>
+      <div class="nav-item" data-view="people">
+        <div class="nav-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="5" r="2.5"/><path d="M1 13c0-2.8 2.2-4.5 5-4.5s5 1.7 5 4.5"/><circle cx="12" cy="5" r="2"/><path d="M12 8.5c1.7.2 3 1.5 3 3.5"/></svg></div>
+        <span class="nav-label">People</span>
+      </div>
+      <div class="nav-item" data-view="settings">
+        <div class="nav-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41"/></svg></div>
+        <span class="nav-label">Settings</span>
+      </div>
+    </nav>
+    <div class="header-actions">
+      <!-- Search -->
+      <button class="hdr-btn" title="Search">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="6.5" cy="6.5" r="4"/>
+          <path d="M10 10l3.5 3.5"/>
+        </svg>
+      </button>
+      <!-- Notifications -->
+      <button class="hdr-btn" title="Notifications">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 1.5a4.5 4.5 0 014.5 4.5c0 2.5.5 4 1.5 5H2c1-1 1.5-2.5 1.5-5A4.5 4.5 0 018 1.5z"/>
+          <path d="M6.5 13.5a1.5 1.5 0 003 0"/>
+        </svg>
+        <div class="notif-dot"></div>
+      </button>
+      <div class="hdr-divider"></div>
+      <!-- Avatar — user initials -->
+      <div class="hdr-avatar" title="Account">MC</div>
+    </div>
+  </header>
+
+  <aside id="left-panel">
+    <div class="panel-section-header">
+      <span class="panel-section-title">Projects</span>
+      <button class="create-btn" title="Create Estimate" id="create-estimate-btn">
+        <!--
+          Icon: document page (folded corner) + pen nib + spark
+          Reads as "new estimate" not just "add"
+        -->
+        <svg viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <!-- Document body with folded top-right corner -->
+          <path d="M3 1.5h6.5L12 4v9.5H3z" stroke-width="1.1" stroke="currentColor" fill="rgba(167,139,250,.07)"/>
+          <!-- Fold crease -->
+          <path d="M9.5 1.5V4H12" stroke-width="1" opacity=".6"/>
+          <!-- Ruled lines suggesting estimate rows -->
+          <path d="M5 6.5h5M5 8.5h5M5 10.5h3" stroke-width="1" opacity=".45"/>
+          <!-- Pen nib — angled, overlapping lower-right corner -->
+          <path d="M9.5 9.5l3-3 1 1-3 3z" stroke-width="1.1" fill="rgba(167,139,250,.15)"/>
+          <path d="M9.5 12.5l-.5-3 1 1z" stroke-width="1" opacity=".5"/>
+          <!-- Spark at pen tip — appears on hover via CSS -->
+          <g class="icon-spark">
+            <circle cx="12" cy="6.8" r=".5" fill="currentColor" stroke="none" opacity=".9"/>
+            <path d="M12.8 5.8l.5-.5M13.2 6.8h.6M12.8 7.8l.4.4" stroke-width=".9" opacity=".7"/>
+          </g>
+        </svg>
+      </button>
+    </div>
+    <div class="project-list-card">
+      <div class="project-item active" data-name="Mamaroneck Estate" data-value="3240000">
+        <div class="proj-name">Mamaroneck Estate<div class="proj-status-dot status-active"></div></div>
+        <div class="proj-meta"><span>High-end Residential</span><span class="proj-value">$3.24M</span></div>
+      </div>
+      <div class="project-item" data-name="Tribeca Commercial" data-value="8750000">
+        <div class="proj-name">Tribeca Commercial<div class="proj-status-dot status-bidding"></div></div>
+        <div class="proj-meta"><span>Mixed-Use · 14 Story</span><span class="proj-value">$8.75M</span></div>
+      </div>
+      <div class="project-item" data-name="Westchester Reno" data-value="1820000">
+        <div class="proj-name">Westchester Reno<div class="proj-status-dot status-active"></div></div>
+        <div class="proj-meta"><span>Full Gut Renovation</span><span class="proj-value">$1.82M</span></div>
+      </div>
+      <div class="project-item" data-name="Hudson Valley Lodge" data-value="5100000">
+        <div class="proj-name">Hudson Valley Lodge<div class="proj-status-dot status-review"></div></div>
+        <div class="proj-meta"><span>Hospitality · New Build</span><span class="proj-value">$5.10M</span></div>
+      </div>
+      <div class="project-item" data-name="Brooklyn Townhouse" data-value="920000">
+        <div class="proj-name">Brooklyn Townhouse<div class="proj-status-dot status-bidding"></div></div>
+        <div class="proj-meta"><span>3-Story Residential</span><span class="proj-value">$0.92M</span></div>
+      </div>
+    </div>
+    <!-- Create Estimate — full CTA between project list and benchmarks -->
+    <button class="create-estimate-full" id="create-estimate-full-btn">
+      <div class="ce-icon-wrap">
+        <svg viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 1.5h6.5L12 4v9.5H3z" stroke-width="1.1" fill="rgba(167,139,250,.07)"/>
+          <path d="M9.5 1.5V4H12" stroke-width="1" opacity=".6"/>
+          <path d="M5 6.5h5M5 8.5h5M5 10.5h3" stroke-width="1" opacity=".45"/>
+          <path d="M9.5 9.5l3-3 1 1-3 3z" stroke-width="1.1" fill="rgba(167,139,250,.15)"/>
+          <path d="M9.5 12.5l-.5-3 1 1z" stroke-width="1" opacity=".5"/>
+          <g class="icon-spark">
+            <circle cx="12" cy="6.8" r=".5" fill="currentColor" stroke="none" opacity=".9"/>
+            <path d="M12.8 5.8l.5-.5M13.2 6.8h.6M12.8 7.8l.4.4" stroke-width=".9" opacity=".7"/>
+          </g>
+        </svg>
+      </div>
+      <div class="ce-text">
+        <span class="ce-label">Create Estimate</span>
+        <span class="ce-sub">New project · AI-powered</span>
+      </div>
+      <div class="ce-arrow">
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2.5 6h7M7 3.5L9.5 6 7 8.5"/>
+        </svg>
+      </div>
+    </button>
+
+    <div class="bench">
+      <div class="bench-card" style="margin-top:4px;">
+        <div class="bench-row">
+          <span class="bench-label">Cost / SF</span>
+          <div class="bench-track"><div class="bench-fill bench-fill-v" style="width:62%"></div></div>
+          <span class="bench-val">$487</span>
+        </div>
+        <div class="bench-row">
+          <span class="bench-label">Win Rate</span>
+          <div class="bench-track"><div class="bench-fill bench-fill-em" style="width:68%"></div></div>
+          <span class="bench-val em">68%</span>
+        </div>
+        <div class="bench-row">
+          <span class="bench-label">Avg. Margin</span>
+          <div class="bench-track"><div class="bench-fill bench-fill-am" style="width:57%"></div></div>
+          <span class="bench-val am">14.2%</span>
+        </div>
+        <div class="bench-row">
+          <span class="bench-label">Open Bids</span>
+          <div class="bench-track"><div class="bench-fill bench-fill-wh" style="width:35%"></div></div>
+          <span class="bench-val">7</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <main id="center-panel">
+    <div id="nova-core">
+      <div class="orb-halo" id="orb-halo"></div>
+      <div class="orb-ring-a" id="orb-ring-a"></div>
+      <div class="orb-ring-b"></div>
+      <div class="orb-ring-c"></div>
+      <canvas id="orb-canvas" width="320" height="320"></canvas>
+    </div>
+    <div id="nova-label">
+      <div id="nova-status">Intelligence online · Awaiting query</div>
+      <div id="nova-ask">
+        <div class="nova-ask-wrap">
+          <input class="nova-ask-input" id="nova-ask-input" placeholder="What would you like to know." autocomplete="off"/>
+          <button class="nova-ask-send" id="nova-ask-send">
+            <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 5h6M6 2.5L8.5 5 6 7.5"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div id="response-stream">
+        <div class="response-panel">
+          <div class="response-nova-label">Nova</div>
+          <div class="response-text" id="response-text"></div>
+        </div>
+      </div>
+    </div>
+    <div id="estimate-display">
+      <div class="est-project" id="est-project">Mamaroneck Estate</div>
+      <div class="est-value">
+        <span class="dollar">$</span><span id="est-num">3,240,000</span><span class="cents">.00</span>
+      </div>
+      <div class="est-delta up" id="est-delta">▲ 2.1% above last comparable</div>
+    </div>
+    <div id="cost-breakdown">
+      <div class="cost-row"><span class="cost-lbl">Concrete</span><div class="bar-track"><div class="bar-fill bar-concrete" id="b1"></div></div><span class="cost-val" id="bv1">$486,000</span></div>
+      <div class="cost-row"><span class="cost-lbl">Framing</span><div class="bar-track"><div class="bar-fill bar-framing" id="b2"></div></div><span class="cost-val" id="bv2">$392,000</span></div>
+      <div class="cost-row"><span class="cost-lbl">MEP Systems</span><div class="bar-track"><div class="bar-fill bar-mep" id="b3"></div></div><span class="cost-val" id="bv3">$614,000</span></div>
+      <div class="cost-row"><span class="cost-lbl">Finishes</span><div class="bar-track"><div class="bar-fill bar-finishes" id="b4"></div></div><span class="cost-val" id="bv4">$728,000</span></div>
+      <div class="cost-row"><span class="cost-lbl">GC / OHP</span><div class="bar-track"><div class="bar-fill bar-gc" id="b5"></div></div><span class="cost-val" id="bv5">$280,000</span></div>
+    </div>
+    <div id="trend-chart">
+      <div class="chart-inner">
+        <div class="chart-header">
+          <div class="chart-title">Industry Trends</div>
+          <div class="chart-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#A78BFA;"></div>Cost Index</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#34D399;"></div>Labor</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#FB7185;"></div>Materials</div>
+          </div>
+        </div>
+        <div class="chart-canvas-wrap"><canvas id="trend-canvas"></canvas></div>
+
+      </div>
+    </div>
+  </main>
+
+  <aside id="right-panel">
+    <div class="intel-card">
+      <div class="intel-label">Concrete · NYC Metro</div>
+      <div class="intel-value">$<span id="c-concrete">188</span><span style="font-size:14px;opacity:.4;font-weight:300"> /CY</span></div>
+      <div class="intel-sub">Ready-mix 4000 PSI</div>
+      <div class="intel-badge badge-up">▲ 3.2% WoW</div>
+    </div>
+    <div class="intel-card">
+      <div class="intel-label">Labor · Carpenter</div>
+      <div class="intel-value">$<span id="c-labor">92</span><span style="font-size:14px;opacity:.4;font-weight:300"> /hr</span></div>
+      <div class="intel-sub">Prevailing wage, NYC</div>
+      <div class="intel-badge badge-flat">Stable</div>
+    </div>
+    <div class="intel-card">
+      <div class="intel-label">Steel · HSS Tube</div>
+      <div class="intel-value">$<span id="c-steel">0.84</span><span style="font-size:14px;opacity:.4;font-weight:300"> /lb</span></div>
+      <div class="intel-sub">Mill price · 2-week lead</div>
+      <div class="intel-badge badge-dn">▼ 1.8% WoW</div>
+    </div>
+    <div id="ticker-wrap">
+      <div class="section-label" style="margin-bottom:0;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.05);">Live Material Feed</div>
+      <div id="ticker-inner"><div id="ticker-scroll"></div></div>
+    </div>
+  </aside>
+
+  <footer id="footer">
+    <div class="footer-meta">
+      <span>Last sync <span id="sync-ago">2 min ago</span></span>
+      <span style="color:rgba(238,237,245,.18)">·</span>
+      <span>RSMeans 2024 · NYC Metro</span>
+      <span style="color:rgba(238,237,245,.18)">·</span>
+      <span>847 indices monitored</span>
+    </div>
+    <div class="footer-actions">
+      <button class="btn btn-ghost btn-sm" style="font-size:9px;padding:4px 12px;opacity:.5;">Export PDF</button>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════
+// CURSOR
+// ═══════════════════════════════════════════
+const curEl = document.getElementById('cursor');
+const ringEl = document.getElementById('cursor-ring');
+let mx=0,my=0,rx=0,ry=0;
+let prlxX=0, prlxY=0; // parallax offset for star field
+
+document.addEventListener('mousemove', e => {
+  mx=e.clientX; my=e.clientY;
+  curEl.style.left=mx+'px'; curEl.style.top=my+'px';
+  maybeSpawnPfx(mx,my);
+  // Parallax: mouse offset from center moves star field ±3px
+  const cx=(innerWidth/2-mx)/innerWidth;
+  const cy=(innerHeight/2-my)/innerHeight;
+  prlxX = cx*3; prlxY = cy*3;
+});
+(function lerpRing(){
+  rx+=(mx-rx)*.1; ry+=(my-ry)*.1;
+  ringEl.style.left=rx+'px'; ringEl.style.top=ry+'px';
+  requestAnimationFrame(lerpRing);
+})();
+
+// Phase 4: hovering project items gives orb a pulse
+document.querySelectorAll('.project-item,.intel-card,button,#nova-core,.create-estimate-full').forEach(el=>{
+  el.addEventListener('mouseenter',()=>{
+    ringEl.classList.add('hovering');
+    if(el.classList.contains('project-item') && !el.classList.contains('active'))
+      orbHoverPulse();
+  });
+  el.addEventListener('mouseleave',()=>ringEl.classList.remove('hovering'));
+});
+document.addEventListener('click', e=>{
+  const r=document.createElement('div'); r.className='ripple';
+  r.style.cssText=`left:${e.clientX}px;top:${e.clientY}px;width:48px;height:48px;`;
+  document.body.appendChild(r);
+  r.addEventListener('animationend',()=>r.remove());
+  if(audioCtx) clickSound();
+});
+
+// ═══════════════════════════════════════════
+// BACKGROUND
+// ═══════════════════════════════════════════
+const bgC=document.getElementById('bg-canvas'), bgX=bgC.getContext('2d');
+let bw,bh;
+const resizeBg=()=>{ bgC.width=bw=innerWidth; bgC.height=bh=innerHeight; };
+resizeBg(); addEventListener('resize',resizeBg);
+
+// Two stellar populations — cool white + warm cream, like real deep space
+const STARS = Array.from({length: 320}, (_, i) => ({
+  x: Math.random(), y: Math.random(),
+  r: Math.random() < 0.04 ? Math.random()*.8+1.0   // rare bright anchors
+     : Math.random() < 0.3  ? Math.random()*.5+.55  // mid-field
+     : Math.random()*.35+.18,                        // fine grain
+  a: Math.random()*.55+.06,
+  phase: Math.random()*Math.PI*2,
+  warm: Math.random() < 0.38  // 38% slightly warm (red-shifted, ancient light)
+}));
+const NEBULAS=Array.from({length:6},()=>({
+  x:Math.random()*.8+.1,y:Math.random()*.8+.1,
+  vx:(Math.random()-.5)*.00007,vy:(Math.random()-.5)*.00007
+}));
+// Phase 1: ambient hue responds to market data
+let ambientHue=260;
+let nebulaWhisper=0; // 0-1, driven by trend data highs
+let bgT=0;
+function bgFrame(){
+  bgX.clearRect(0,0,bw,bh); bgT+=.007;
+  bgX.save();
+  bgX.translate(prlxX, prlxY); // parallax depth
+  const g=bgX.createRadialGradient(bw*.5,bh*.38,0,bw*.5,bh*.5,bw*.8);
+  g.addColorStop(0,`hsl(240,10%,4.5%)`);  // center very slightly warmer — orb light
+  g.addColorStop(.3,'#07070D');
+  g.addColorStop(.7,'#05050B');
+  g.addColorStop(1,'#03030A');
+  bgX.fillStyle=g; bgX.fillRect(0,0,bw,bh);
+
+  // Depth layer — center of composition reads as closer, edges recede
+  const depth=bgX.createRadialGradient(bw*.5,bh*.42,0,bw*.5,bh*.42,bw*.42);
+  depth.addColorStop(0,'rgba(255,255,255,0.008)');
+  depth.addColorStop(1,'rgba(0,0,0,0)');
+  bgX.fillStyle=depth; bgX.fillRect(0,0,bw,bh);
+  bgX.strokeStyle='rgba(255,255,255,0.018)'; bgX.lineWidth=.5;
+  for(let x=0;x<bw;x+=88){bgX.beginPath();bgX.moveTo(x,0);bgX.lineTo(x,bh);bgX.stroke();}
+  for(let y=0;y<bh;y+=88){bgX.beginPath();bgX.moveTo(0,y);bgX.lineTo(bw,y);bgX.stroke();}
+  STARS.forEach(s=>{
+    const f = .42 + .58*Math.sin(bgT*.7+s.phase);
+    bgX.beginPath(); bgX.arc(s.x*bw, s.y*bh, s.r, 0, Math.PI*2);
+    // Warm stars: faint cream-amber. Cool stars: blue-white.
+    const col = s.warm
+      ? `rgba(238,224,210,${s.a*f})`   // warm — ancient, red-shifted
+      : `rgba(218,220,235,${s.a*f})`; // cool — blue-white
+    bgX.fillStyle = col; bgX.fill();
+
+    // Rare bright anchor stars get a tiny diffraction halo
+    if(s.r > 1.0) {
+      const hg = bgX.createRadialGradient(s.x*bw,s.y*bh,0,s.x*bw,s.y*bh,s.r*5);
+      hg.addColorStop(0, s.warm ? `rgba(238,220,195,${s.a*f*.25})` : `rgba(200,210,255,${s.a*f*.2})`);
+      hg.addColorStop(1,'rgba(0,0,0,0)');
+      bgX.fillStyle=hg;
+      bgX.beginPath();bgX.arc(s.x*bw,s.y*bh,s.r*5,0,Math.PI*2);bgX.fill();
+    }
+  });
+  bgX.restore(); // end parallax — nebulas stay fixed (different depth layer)
+  NEBULAS.forEach((n,ni)=>{
+    n.x+=n.vx;n.y+=n.vy;
+    if(n.x<.08||n.x>.92)n.vx*=-1; if(n.y<.08||n.y>.92)n.vy*=-1;
+    // Whisper: nebulas nearest the trend data zone breathe with the data
+    const whisperBoost = ni < 2 ? nebulaWhisper * 0.022 : 0;
+    const baseAlpha = 0.026 + whisperBoost;
+    const ng=bgX.createRadialGradient(n.x*bw,n.y*bh,0,n.x*bw,n.y*bh,220+nebulaWhisper*52);
+    ng.addColorStop(0,`hsla(240,20%,10%,${baseAlpha * 0.35})`); ng.addColorStop(1,'transparent');
+    bgX.fillStyle=ng; bgX.fillRect(0,0,bw,bh);
+  });
+  requestAnimationFrame(bgFrame);
+}
+bgFrame();
+
+// ═══════════════════════════════════════════
+// PARTICLES
+// ═══════════════════════════════════════════
+const pC=document.getElementById('particle-canvas'),pX=pC.getContext('2d');
+let pw,ph; const resizeP=()=>{pC.width=pw=innerWidth;pC.height=ph=innerHeight;};
+resizeP(); addEventListener('resize',resizeP);
+const PFX=[];
+function maybeSpawnPfx(x,y){
+  if(Math.random()>.22)return;
+  PFX.push({x,y,vx:(Math.random()-.5)*1.1,vy:(Math.random()-.5)*1.1-.25,
+    life:1,decay:.048+Math.random()*.028,r:.8+Math.random()*1.4,hue:255+Math.random()*35});
+}
+(function pfxFrame(){
+  pX.clearRect(0,0,pw,ph);
+  for(let i=PFX.length-1;i>=0;i--){
+    const p=PFX[i]; p.x+=p.vx;p.y+=p.vy;p.vy-=.012;p.life-=p.decay;
+    if(p.life<=0){PFX.splice(i,1);continue;}
+    pX.beginPath();pX.arc(p.x,p.y,p.r*p.life,0,Math.PI*2);
+    pX.fillStyle=`hsla(${p.hue},75%,72%,${p.life*.45})`; pX.fill();
+  }
+  requestAnimationFrame(pfxFrame);
+})();
+
+// ═══════════════════════════════════════════
+// ORB — Phase 1: data instrument
+// ═══════════════════════════════════════════
+const orbC=document.getElementById('orb-canvas'),orbX=orbC.getContext('2d');
+const OW=orbC.width,OH=orbC.height,OCX=OW/2,OCY=OH/2;
+let orbT=0;
+let orbIntensity=0.7, targetIntensity=0.7;
+let orbExhaling=false, exhaleProgress=0;
+let orbSpeed=1.0,     targetSpeed=1.0;
+let orbGlow=1.0,      targetGlow=1.0;
+
+function setOrbForValue(v){
+  const t=Math.max(0,Math.min(1,(v-920000)/(8750000-920000)));
+  targetIntensity=.50+t*.50;
+  targetSpeed=.65+t*.85;
+  targetGlow=.88+t*.52;
+  // Phase 1: ambient warms with project scale
+  ambientHue=256+t*16;
+}
+function orbExhale(){
+  orbExhaling=true;
+  exhaleProgress=0;
+  // Return to resting after exhale
+  setTimeout(()=>{ targetIntensity=Math.max(.44,targetIntensity-.18); },800);
+}
+function orbHoverPulse(){
+  const was=targetIntensity;
+  targetIntensity=Math.min(1,targetIntensity+.14);
+  setTimeout(()=>targetIntensity=was,420);
+}
+
+function drawOrb(){
+  orbIntensity+=(targetIntensity-orbIntensity)*.04;
+  orbSpeed    +=(targetSpeed-orbSpeed)*.04;
+  orbGlow     +=(targetGlow-orbGlow)*.04;
+  orbT+=.008*orbSpeed;
+  orbX.clearRect(0,0,OW,OH);
+
+  const base=orbX.createRadialGradient(OCX,OCY,0,OCX,OCY,OCX);
+  base.addColorStop(0,'#18063C'); base.addColorStop(.42,'#0A031A');
+  base.addColorStop(.82,'#060210'); base.addColorStop(1,'#020108');
+  orbX.fillStyle=base;
+  orbX.beginPath();orbX.arc(OCX,OCY,OCX,0,Math.PI*2);orbX.fill();
+
+  const arms=[
+    {a:orbT,             c1:`rgba(115,45,235,${.78*orbIntensity})`,  r:OCX*.88},
+    {a:orbT+Math.PI,     c1:`rgba(155,85,255,${.58*orbIntensity})`,  r:OCX*.74},
+    {a:orbT+Math.PI*.55, c1:`rgba(95,35,210,${.46*orbIntensity})`,   r:OCX*.6},
+    {a:orbT+Math.PI*1.4, c1:`rgba(185,135,255,${.32*orbIntensity})`, r:OCX*.5},
+  ];
+  arms.forEach(arm=>{
+    const x2=OCX+Math.cos(arm.a)*arm.r, y2=OCY+Math.sin(arm.a)*arm.r;
+    const ag=orbX.createRadialGradient(OCX,OCY,0,x2,y2,arm.r*.88);
+    ag.addColorStop(0,arm.c1); ag.addColorStop(1,'rgba(70,15,180,0)');
+    orbX.fillStyle=ag; orbX.beginPath();orbX.arc(OCX,OCY,OCX,0,Math.PI*2);orbX.fill();
+  });
+
+  const bloom=orbX.createRadialGradient(OCX,OCY,0,OCX,OCY,OCX*.58);
+  bloom.addColorStop(0,  `rgba(215,175,255,${.88*orbIntensity})`);
+  bloom.addColorStop(.18,`rgba(150,78,255,${.68*orbIntensity})`);
+  bloom.addColorStop(.5, `rgba(90,24,220,${.36*orbIntensity})`);
+  bloom.addColorStop(1,'rgba(60,10,160,0)');
+  orbX.fillStyle=bloom; orbX.beginPath();orbX.arc(OCX,OCY,OCX,0,Math.PI*2);orbX.fill();
+
+  const cp=.14+.03*Math.sin(orbT*1.9);
+  const core=orbX.createRadialGradient(OCX,OCY,0,OCX,OCY,OCX*cp);
+  core.addColorStop(0,'rgba(255,255,255,1)');
+  core.addColorStop(.35,`rgba(240,215,255,${.92*orbIntensity})`);
+  core.addColorStop(.75,`rgba(175,115,255,${.4*orbIntensity})`);
+  core.addColorStop(1,'rgba(120,55,220,0)');
+  orbX.fillStyle=core; orbX.beginPath();orbX.arc(OCX,OCY,OCX*cp,0,Math.PI*2);orbX.fill();
+
+  const vig=orbX.createRadialGradient(OCX,OCY,OCX*.62,OCX,OCY,OCX);
+  vig.addColorStop(0,'rgba(0,0,0,0)'); vig.addColorStop(1,'rgba(2,1,8,.74)');
+  orbX.fillStyle=vig; orbX.beginPath();orbX.arc(OCX,OCY,OCX,0,Math.PI*2);orbX.fill();
+
+  // Exhale bloom — rings out when answer lands
+  if(orbExhaling) {
+    exhaleProgress = Math.min(1, exhaleProgress + 0.018);
+    const ep = 1 - Math.pow(1-exhaleProgress, 3); // ease out
+    const bloomR = OCX * (1.1 + ep * 1.8);
+    const bloomAlpha = (1-ep) * 0.22;
+    const bg = orbX.createRadialGradient(OCX,OCY,OCX*.8,OCX,OCY,bloomR);
+    bg.addColorStop(0,`rgba(139,92,246,${bloomAlpha})`);
+    bg.addColorStop(0.5,`rgba(109,40,217,${bloomAlpha*.4})`);
+    bg.addColorStop(1,'rgba(0,0,0,0)');
+    orbX.fillStyle=bg;
+    orbX.beginPath();orbX.arc(OCX,OCY,bloomR,0,Math.PI*2);orbX.fill();
+    if(exhaleProgress >= 1) { orbExhaling=false; exhaleProgress=0; }
+  }
+
+  // Phase 1: halo pulses with intensity
+  const halo=document.getElementById('orb-halo');
+  const hi=Math.round(-28-(orbGlow-1)*22);
+  halo.style.inset=hi+'px';
+  halo.style.background=`radial-gradient(circle,rgba(109,40,217,${.2*orbIntensity}) 0%,transparent 70%)`;
+
+  requestAnimationFrame(drawOrb);
+}
+drawOrb();
+
+// Logo orb
+const logoC=document.getElementById('logo-orb-c'),logoX=logoC.getContext('2d');
+const LW=logoC.width,LH=logoC.height,LCX=LW/2,LCY=LH/2;
+let logoT=0;
+(function drawLogoOrb(){
+  logoX.clearRect(0,0,LW,LH); logoT+=.014;
+  const b=logoX.createRadialGradient(LCX,LCY,0,LCX,LCY,LCX);
+  b.addColorStop(0,'#1E0845'); b.addColorStop(1,'#03010C');
+  logoX.fillStyle=b; logoX.beginPath();logoX.arc(LCX,LCY,LCX,0,Math.PI*2);logoX.fill();
+  [{a:logoT,c:'rgba(125,55,250,.72)'},{a:logoT+Math.PI,c:'rgba(165,95,255,.52)'}].forEach(arm=>{
+    const ag=logoX.createRadialGradient(LCX,LCY,0,
+      LCX+Math.cos(arm.a)*LCX*.8,LCY+Math.sin(arm.a)*LCX*.8,LCX*.8);
+    ag.addColorStop(0,arm.c); ag.addColorStop(1,'transparent');
+    logoX.fillStyle=ag; logoX.beginPath();logoX.arc(LCX,LCY,LCX,0,Math.PI*2);logoX.fill();
+  });
+  const bl=logoX.createRadialGradient(LCX,LCY,0,LCX,LCY,LCX*.46);
+  bl.addColorStop(0,'rgba(215,175,255,.9)'); bl.addColorStop(1,'rgba(120,55,220,0)');
+  logoX.fillStyle=bl; logoX.beginPath();logoX.arc(LCX,LCY,LCX,0,Math.PI*2);logoX.fill();
+  const co=logoX.createRadialGradient(LCX,LCY,0,LCX,LCY,LCX*.13);
+  co.addColorStop(0,'rgba(255,255,255,1)'); co.addColorStop(1,'rgba(180,125,255,0)');
+  logoX.fillStyle=co; logoX.beginPath();logoX.arc(LCX,LCY,LCX*.13,0,Math.PI*2);logoX.fill();
+  requestAnimationFrame(drawLogoOrb);
+})();
+
+// ═══════════════════════════════════════════
+// PROJECT DATA
+// ═══════════════════════════════════════════
+const PROJECTS={
+  'Mamaroneck Estate':  {v:3240000,d:'▲ 2.1% above last comparable',cls:'up',
+    bars:[.72,.58,.85,.92,.35],costs:['$486,000','$392,000','$614,000','$728,000','$280,000']},
+  'Tribeca Commercial': {v:8750000,d:'▲ 4.7% above market average',cls:'up',
+    bars:[.88,.75,.65,.55,.45],costs:['$1,214,000','$980,000','$842,000','$720,000','$590,000']},
+  'Westchester Reno':   {v:1820000,d:'▼ 0.8% below last comparable',cls:'down',
+    bars:[.45,.62,.78,.88,.25],costs:['$182,000','$234,000','$310,000','$380,000','$94,000']},
+  'Hudson Valley Lodge':{v:5100000,d:'▲ 1.4% above market average',cls:'up',
+    bars:[.82,.70,.60,.75,.40],costs:['$714,000','$612,000','$520,000','$654,000','$348,000']},
+  'Brooklyn Townhouse': {v:920000, d:'Within market range',cls:'neutral',
+    bars:[.40,.50,.72,.82,.30],costs:['$156,000','$184,000','$212,000','$246,000','$90,000']},
+};
+
+function counter(el,from,to,ms){
+  const t0=performance.now();
+  (function tick(now){
+    const p=Math.min((now-t0)/ms,1),e=1-Math.pow(1-p,4);
+    el.textContent=Math.round(from+(to-from)*e).toLocaleString();
+    if(p<1)requestAnimationFrame(tick);
+  })(performance.now());
+}
+
+function switchProject(item){
+  document.querySelectorAll('.project-item').forEach(i=>i.classList.remove('active'));
+  item.classList.add('active');
+  const name=item.dataset.name, d=PROJECTS[name]; if(!d)return;
+  const status=document.getElementById('nova-status');
+
+  // Phase 1: orb reacts to project value
+  setOrbForValue(d.v);
+  status.textContent='Processing estimate…';
+  if(audioCtx) thinkSound();
+
+  // Phase 4: bars exhale before filling
+  ['b1','b2','b3','b4','b5'].forEach(id=>{
+    const bar=document.getElementById(id);
+    bar.style.transition='transform .3s cubic-bezier(.4,0,1,1)';
+    bar.style.transform='scaleX(0)';
+  });
+
+  setTimeout(()=>{
+    if(audioCtx) pingSound();
+    status.textContent='Estimate complete · Confidence 94%';
+    orbExhale();
+    document.getElementById('est-project').textContent=name;
+    const numEl=document.getElementById('est-num');
+    counter(numEl,parseInt(numEl.textContent.replace(/,/g,''))||0,d.v,1100);
+    const delta=document.getElementById('est-delta');
+    delta.textContent=d.d; delta.className='est-delta '+d.cls;
+
+    // Phase 4: bars breathe in sequentially
+    ['b1','b2','b3','b4','b5'].forEach((id,i)=>{
+      const bar=document.getElementById(id);
+      const val=document.getElementById('bv'+(i+1));
+      setTimeout(()=>{
+        bar.style.transition=`transform ${.85+i*.11}s cubic-bezier(.16,1,.3,1)`;
+        bar.style.transform=`scaleX(${d.bars[i]})`;
+        val.textContent=d.costs[i];
+      },i*52);
+    });
+  },460);
+}
+
+document.querySelectorAll('.project-item').forEach(item=>{
+  item.addEventListener('click',()=>switchProject(item));
+});
+setTimeout(()=>{
+  setOrbForValue(3240000);
+  [.72,.58,.85,.92,.35].forEach((v,i)=>{
+    const bar=document.getElementById('b'+(i+1));
+    setTimeout(()=>{
+      bar.style.transition=`transform ${1.1+i*.14}s cubic-bezier(.16,1,.3,1)`;
+      bar.style.transform=`scaleX(${v})`;
+    },200+i*80);
+  });
+},1200);
+
+// ═══════════════════════════════════════════
+// TICKER
+// ═══════════════════════════════════════════
+const TICKERS=[
+  ['Lumber 2×4',  '$0.42/LF',  'up','▲1.2%'],
+  ['Copper Wire', '$4.82/lb',  'dn','▼0.9%'],
+  ['Cement',      '$142/ton',  'fl','—'],
+  ['Drywall ½"', '$18.40/sht','up','▲0.6%'],
+  ['Rebar #4',    '$0.72/lb',  'dn','▼2.1%'],
+  ['Rigid Foam',  '$42.00/sht','fl','—'],
+  ['PVC Pipe 4"', '$3.20/LF',  'up','▲1.8%'],
+  ['Glass 1" IG', '$28.00/SF', 'fl','—'],
+  ['Steel Plate', '$1.12/lb',  'dn','▼0.5%'],
+  ['Tile 12×24',  '$6.80/SF',  'up','▲3.1%'],
+];
+const tickerEl=document.getElementById('ticker-scroll');
+[...TICKERS,...TICKERS].forEach(([n,p,d,c])=>{
+  const r=document.createElement('div');r.className='ticker-row';
+  r.innerHTML=`<span class="ticker-name">${n}</span><span class="ticker-price">${p}</span><span class="ticker-chg chg-${d}">${c}</span>`;
+  tickerEl.appendChild(r);
+});
+let tickY=0;
+(function scrollTicker(){
+  tickY+=.38; if(tickY>=33*TICKERS.length)tickY=0;
+  tickerEl.style.transform=`translateY(-${tickY}px)`;
+  requestAnimationFrame(scrollTicker);
+})();
+
+// ═══════════════════════════════════════════
+// TREND CHART — Phase 1: orb visual language
+// ═══════════════════════════════════════════
+const trendC=document.getElementById('trend-canvas'),trendX=trendC.getContext('2d');
+const TD={
+  cost:     [102.1,103.4,104.8,105.2,106.1,107.8,109.2],
+  labor:    [88.0, 88.5, 89.2, 89.0, 90.1, 91.4, 92.0],
+  materials:[96.4, 97.8, 99.1, 98.3, 97.9, 98.7, 99.4],
+};
+const TSERIES=[
+  {key:'cost',     color:'#A78BFA',glow:'rgba(167,139,250,.26)'},
+  {key:'labor',    color:'#34D399',glow:'rgba(52,211,153,.22)'},
+  {key:'materials',color:'#FB7185',glow:'rgba(251,113,133,.2)'},
+];
+// Catmull-Rom spline through points for organic curves
+function catmullRomPoints(pts, toX, toY, tension=0.4) {
+  const path = new Path2D();
+  for (let i=0; i<pts.length; i++) {
+    const p0 = pts[Math.max(0,i-1)], p1 = pts[i];
+    const p2 = pts[Math.min(pts.length-1,i+1)];
+    const p3 = pts[Math.min(pts.length-1,i+2)];
+    if (i===0) { path.moveTo(toX(i),toY(p1)); continue; }
+    const cp1x = toX(i-1) + (toX(i)-toX(Math.max(0,i-2)))*tension;
+    const cp1y = toY(p0)  + (toY(p1)-toY(pts[Math.max(0,i-2)]))*tension;
+    const cp2x = toX(i)   - (toX(Math.min(pts.length-1,i+1))-toX(i-1))*tension;
+    const cp2y = toY(p1)  - (toY(p2)-toY(p0))*tension;
+    path.bezierCurveTo(cp1x,cp1y,cp2x,cp2y,toX(i),toY(p1));
+  }
+  return path;
+}
+
+let trendT = 0;
+function resizeTrend(){
+  const wrap=trendC.parentElement, dpr=devicePixelRatio||1;
+  trendC.width=wrap.clientWidth*dpr; trendC.height=wrap.clientHeight*dpr;
+  trendC.style.width=wrap.clientWidth+'px'; trendC.style.height=wrap.clientHeight+'px';
+  trendX.scale(dpr,dpr); drawTrend();
+}
+function drawTrend(){
+  const W=trendC.width/(devicePixelRatio||1), H=trendC.height/(devicePixelRatio||1);
+  trendX.clearRect(0,0,W,H);
+
+  // Breathing vertical padding — expands/contracts like the orb
+  const breathe = 2 + 2*Math.sin(trendT*0.8);
+  const PL=8,PR=8,PT=10+breathe,PB=6+breathe;
+  const cW=W-PL-PR, cH=H-PT-PB;
+
+  const all=Object.values(TD).flat();
+  const minV=Math.min(...all)-2.5, maxV=Math.max(...all)+2.5;
+  const toX=i=>PL+(i/(TD.cost.length-1))*cW;
+  const toY=v=>PT+cH-((v-minV)/(maxV-minV))*cH;
+
+  // No hard grid — just faint radial glow from center, like orb atmosphere
+  const cx=W/2, cy=H/2;
+  const atm=trendX.createRadialGradient(cx,cy,0,cx,cy,W*.55);
+  atm.addColorStop(0,'rgba(80,80,120,0.03)');
+  atm.addColorStop(1,'transparent');
+  trendX.fillStyle=atm; trendX.fillRect(0,0,W,H);
+
+  TSERIES.forEach((s,si)=>{
+    const pts=TD[s.key];
+    const linePath = catmullRomPoints(pts,toX,toY);
+
+    // Fill — deep gradient under the curve
+    const fillPath = new Path2D();
+    fillPath.addPath(linePath);
+    fillPath.lineTo(toX(pts.length-1),PT+cH+4);
+    fillPath.lineTo(toX(0),PT+cH+4);
+    fillPath.closePath();
+    const fg=trendX.createLinearGradient(0,PT,0,PT+cH);
+    fg.addColorStop(0, s.glow.replace(/[\d.]+\)$/, '0.35)'));
+    fg.addColorStop(0.5, s.glow);
+    fg.addColorStop(1,'rgba(0,0,0,0)');
+    trendX.fillStyle=fg; trendX.fill(fillPath);
+
+    // Line — smooth curve
+    trendX.save();
+    trendX.shadowColor = s.color;
+    trendX.shadowBlur = 6;
+    trendX.strokeStyle=s.color; trendX.lineWidth=1.75;
+    trendX.lineJoin='round'; trendX.lineCap='round';
+    trendX.stroke(linePath);
+    trendX.restore();
+
+    // Terminal orb — pulsing dot that mirrors the main orb's language
+    const lx=toX(pts.length-1), ly=toY(pts[pts.length-1]);
+    const pulse = 0.6 + 0.4*Math.sin(trendT*1.4 + si*2.1);
+
+    // Outer glow ring
+    trendX.beginPath(); trendX.arc(lx,ly,7*pulse,0,Math.PI*2);
+    const rg=trendX.createRadialGradient(lx,ly,0,lx,ly,7*pulse);
+    rg.addColorStop(0,s.glow.replace(/[\d.]+\)$/, '0.3)'));
+    rg.addColorStop(1,'rgba(0,0,0,0)');
+    trendX.fillStyle=rg; trendX.fill();
+
+    // Core dot
+    trendX.beginPath(); trendX.arc(lx,ly,2.2,0,Math.PI*2);
+    trendX.fillStyle=s.color; trendX.fill();
+
+    // White highlight (like orb core)
+    trendX.beginPath(); trendX.arc(lx-0.6,ly-0.6,0.9,0,Math.PI*2);
+    trendX.fillStyle='rgba(255,255,255,0.9)'; trendX.fill();
+  });
+  trendT += 0.018;
+}
+
+// Breathing animation loop for the chart
+(function chartLoop(){
+  drawTrend();
+  requestAnimationFrame(chartLoop);
+})();
+setInterval(()=>{
+  Object.keys(TD).forEach(k=>{const a=TD[k],l=a[a.length-1];a[a.length-1]=l+(Math.random()-.5)*.55;});
+  // Whisper: map current cost index trend into nebula brightness
+  // 102-110 range → 0-1 whisper intensity
+  const costLast = TD.cost[TD.cost.length-1];
+  const matLast  = TD.materials[TD.materials.length-1];
+  const targetWhisper = Math.max(0, Math.min(1,
+    ((costLast - 102) / 7) * 0.65 +  // cost rising = brighter (+15%)
+    ((matLast  - 96)  / 4.5) * 0.45  // materials rising = brighter (+15%)
+  ));
+  // Lerp gently — one breath at a time
+  nebulaWhisper += (targetWhisper - nebulaWhisper) * 0.14;
+},3200);
+setTimeout(resizeTrend,80);
+addEventListener('resize',resizeTrend);
+
+// ═══════════════════════════════════════════
+// ORB CLICK
+// ═══════════════════════════════════════════
+document.getElementById('nova-core').addEventListener('click',()=>{
+  const s=document.getElementById('nova-status');
+  s.textContent='Nova is listening…';
+  targetIntensity=Math.min(1,orbIntensity+.22);
+  if(audioCtx)pingSound();
+  setTimeout(()=>{
+    targetIntensity-=.22;
+    s.textContent='Intelligence online · Awaiting query';
+  },2200);
+});
+
+// ═══════════════════════════════════════════
+// QUERY BAR — Phase 4: world dims
+// ═══════════════════════════════════════════
+const qInput=document.getElementById('query-input');
+const qDim=document.getElementById('query-dim');
+qInput.addEventListener('focus',()=>{ qDim.classList.add('active'); initAudio(); });
+qInput.addEventListener('blur', ()=>qDim.classList.remove('active'));
+
+const RESP=[
+  'Analyzing regional cost indices for NYC Metro… Confidence: 96%',
+  'Cross-referencing 847 comparable projects in your database…',
+  'Material escalation: +3.2% concrete, −1.8% steel. Estimate adjusted.',
+  'Historical margin on similar projects: 14.2%. Bid is competitive.',
+  'Labor productivity factor applied at 0.94 efficiency.',
+  'RSMeans 2024 merged with 23 Montana Contracting Corp actuals.',
+];
+let respIdx=0;
+function sendQuery(){
+  const streamEl=document.getElementById('response-stream'); const stream=document.getElementById('response-text') || streamEl;
+  const status=document.getElementById('nova-status');
+  if(!qInput.value.trim())return;
+  initAudio();
+  status.textContent='Processing your query…';
+  targetIntensity=Math.min(1,orbIntensity+.25);
+  thinkSound();
+  streamEl.classList.add('visible');stream.textContent='';
+  qDim.classList.remove('active');
+  qInput.value=''; qInput.blur();
+  const resp=RESP[respIdx++%RESP.length]; let i=0;
+  const iv=setInterval(()=>{
+    stream.textContent+=resp[i++];
+    if(i>=resp.length){
+      clearInterval(iv); pingSound();
+      status.textContent='Complete · Confidence 94%';
+      orbExhale(); // answer landing = orb exhales
+      setTimeout(()=>streamEl.classList.remove('visible'),4500);
+    }
+  },20);
+}
+
+
+// Auto-remove thinking after response completes
+const responseObserver = new MutationObserver(() => {
+  const stream = document.getElementById('response-stream');
+  if (stream && !stream.classList.contains('visible')) {
+    sendBtn.classList.remove('thinking');
+  }
+});
+responseObserver.observe(document.getElementById('response-stream'), {
+  attributes: true, attributeFilter: ['class']
+});
+
+// ── RESPONSE PANEL — wire up text target ─────────────────────
+// Patch: stream text into .response-text instead of #response-stream directly
+const realStream = document.getElementById('response-text');
+if (realStream) {
+  // The sendQuery function writes to stream; redirect
+  Object.defineProperty(window, '_responseTarget', {
+    get: () => realStream
+  });
+}
+
+// ── NOVA ASK — wires the subtle center input ─────────────────
+const novaAskInput = document.getElementById('nova-ask-input');
+const novaAskSend  = document.getElementById('nova-ask-send');
+function submitAsk() {
+  const val = novaAskInput?.value?.trim();
+  if (!val) return;
+  sendQuery(val);
+  novaAskInput.value = '';
+  novaAskInput.blur();
+}
+novaAskSend?.addEventListener('click', submitAsk);
+novaAskInput?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); submitAsk(); }
+});
+// Orb brightens when user focuses the ask input
+novaAskInput?.addEventListener('focus', () => {
+  targetIntensity = Math.min(1, targetIntensity + .18);
+});
+novaAskInput?.addEventListener('blur', () => {
+  targetIntensity = Math.max(.44, targetIntensity - .12);
+});
+
+// ── CREATE ESTIMATE BTN ───────────────────────────────────────
+document.getElementById('create-estimate-btn')?.addEventListener('click', () => {
+  if(audioCtx) clickSound();
+  orbHoverPulse();
+  // Future: open Create Estimate flow
+});
+document.getElementById('create-estimate-full-btn')?.addEventListener('click', () => {
+  if(audioCtx) clickSound();
+  orbHoverPulse();
+  // Future: navigate to /estimates/new
+});
+</script>
+</body>
+</html>

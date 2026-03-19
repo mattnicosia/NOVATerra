@@ -38,7 +38,7 @@ import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
 const LoginMockupPage = lazy(() => import("@/pages/LoginMockupPage"));
 const AIChatPanel = lazy(() => import("@/components/ai/AIChatPanel"));
 const LiquidGlassBackground = lazy(() => import("@/components/ambient/LiquidGlassBackground"));
-const NovaCursor = lazy(() => import("@/components/nova/NovaCursor"));
+const ProximityLight = lazy(() => import("@/components/nova/ProximityLight"));
 const CommandPalette = lazy(() => import("@/components/shared/CommandPalette"));
 const FeedbackWidget = lazy(() => import("@/components/beta/FeedbackWidget"));
 
@@ -858,10 +858,9 @@ function AppContent() {
           <CommandPalette />
         </Suspense>
       )}
-      {/* NovaCursor — scoped to drawing canvas only (deactivates in estimate mode).
-          Throttled to ~30fps to minimize GPU overhead. */}
+      {/* ProximityLight — subtle radial glow that follows cursor across app shell */}
       <Suspense fallback={null}>
-        <NovaCursor />
+        <ProximityLight />
       </Suspense>
     </div>
   );

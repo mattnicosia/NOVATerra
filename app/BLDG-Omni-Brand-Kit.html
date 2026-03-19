@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NOVATerra — Brand Kit</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --nova-violet: #8B5CF6;
+    --violet-bright: #A78BFA;
+    --violet-deep: #6D28D9;
+    --emerald: #10B981;
+    --apple-blue: #007AFF;
+    --sky-blue: #5AC8FA;
+    --system-blue: #0A84FF;
+    --green: #30D158;
+    --red: #FF3B30;
+    --orange: #FF9500;
+    --purple: #BF5AF2;
+    --cyan: #64D2FF;
+    --yellow: #FFD60A;
+    --void: #06060C;
+    --surface-light: #F5F6FA;
+  }
+
+  @page { size: A4; margin: 0; }
+
+  body {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #fff;
+    color: #1D1D1F;
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.5;
+  }
+
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    padding: 40px 48px;
+    page-break-after: always;
+    position: relative;
+  }
+
+  @media print {
+    body { background: #fff; }
+    .page { padding: 32px 40px; margin: 0; width: 100%; }
+    .no-print { display: none !important; }
+  }
+
+  /* ═══════ COVER ═══════ */
+  .cover {
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    min-height: 297mm; text-align: center; position: relative; overflow: hidden;
+    background: linear-gradient(165deg, #030308 0%, #06060C 20%, #0C0B14 45%, #12101C 70%, #1A1828 100%);
+    color: #EEEDF5;
+  }
+  .cover .blob-violet {
+    position: absolute; width: 600px; height: 600px; top: -20%; left: -15%; border-radius: 50%;
+    background: radial-gradient(circle, rgba(139,92,246,0.35) 0%, rgba(139,92,246,0.12) 40%, transparent 70%);
+    filter: blur(60px);
+  }
+  .cover .blob-blue {
+    position: absolute; width: 450px; height: 450px; top: 25%; left: 30%; border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,122,255,0.22) 0%, rgba(0,122,255,0.08) 40%, transparent 70%);
+    filter: blur(60px);
+  }
+  .cover .blob-emerald {
+    position: absolute; width: 500px; height: 500px; bottom: -15%; right: -10%; border-radius: 50%;
+    background: radial-gradient(circle, rgba(16,185,129,0.25) 0%, rgba(16,185,129,0.08) 40%, transparent 70%);
+    filter: blur(60px);
+  }
+  .cover-orb {
+    position: absolute; width: 400px; height: 400px; top: 50%; left: 50%;
+    transform: translate(-50%, -55%); border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, rgba(215,175,255,0.12) 0%, rgba(139,92,246,0.06) 30%, rgba(0,122,255,0.03) 60%, transparent 80%);
+    filter: blur(40px);
+  }
+  .cover-content { position: relative; z-index: 1; }
+  .cover-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 10px; font-weight: 600; letter-spacing: 2.5px; text-transform: uppercase;
+    color: rgba(238,237,245,0.40); margin-bottom: 48px;
+  }
+  .cover-badge::before, .cover-badge::after { content: ''; width: 32px; height: 1px; background: rgba(238,237,245,0.12); }
+  .cover-wordmark {
+    font-size: 84px; font-weight: 800; letter-spacing: -2px;
+    background: linear-gradient(135deg, #C4B5FD 0%, #A78BFA 35%, #8B5CF6 60%, #10B981 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    margin-bottom: 12px;
+  }
+  .cover-subtitle { font-size: 18px; font-weight: 400; color: rgba(238,237,245,0.45); letter-spacing: 0.3px; margin-bottom: 64px; }
+  .cover-nova-badge {
+    display: inline-flex; align-items: center; gap: 8px; padding: 10px 24px; border-radius: 999px;
+    background: rgba(139,92,246,0.08); border: 1px solid rgba(139,92,246,0.15);
+    font-size: 13px; font-weight: 600; color: #A78BFA; letter-spacing: 0.5px; margin-bottom: 64px;
+  }
+  .cover-nova-badge .dot { width: 8px; height: 8px; border-radius: 50%; background: #8B5CF6; box-shadow: 0 0 12px rgba(139,92,246,0.5); }
+  .cover-meta { font-size: 11px; color: rgba(238,237,245,0.22); letter-spacing: 0.5px; }
+
+  /* ═══════ DARK PAGES ═══════ */
+  .page-dark {
+    background: linear-gradient(165deg, #030308 0%, #06060C 20%, #0C0B14 45%, #12101C 70%, #1A1828 100%);
+    color: #EEEDF5;
+  }
+  .page-dark .section-num { color: #A78BFA; }
+  .page-dark .section-title { color: #EEEDF5; }
+  .page-dark .section-desc { color: rgba(238,237,245,0.45); }
+  .page-dark .sub-label { color: rgba(238,237,245,0.30); }
+  .page-dark .divider { background: linear-gradient(90deg, rgba(255,255,255,0.06) 0%, transparent 100%); }
+  .page-dark .token-table th { color: rgba(238,237,245,0.30); border-bottom-color: rgba(255,255,255,0.06); }
+  .page-dark .token-table td { border-bottom-color: rgba(255,255,255,0.04); }
+  .page-dark .token-table .token-name { color: #A78BFA; }
+  .page-dark .token-table .token-value { color: rgba(238,237,245,0.65); }
+  .page-dark .token-table .token-desc { color: rgba(238,237,245,0.35); }
+
+  /* ═══════ SECTION HEADERS ═══════ */
+  .section-num { font-size: 11px; font-weight: 500; color: var(--nova-violet); letter-spacing: 1px; margin-bottom: 4px; }
+  .section-title { font-size: 28px; font-weight: 700; color: #1D1D1F; letter-spacing: -0.5px; margin-bottom: 6px; }
+  .section-desc { font-size: 13px; color: #8E8E93; margin-bottom: 32px; max-width: 480px; }
+  .divider { width: 100%; height: 1px; background: linear-gradient(90deg, #E3E5ED 0%, transparent 100%); margin: 28px 0; }
+  .sub-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #AEAEB2; margin-bottom: 12px; margin-top: 8px; }
+
+  /* ═══════ COLOR SWATCHES ═══════ */
+  .color-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .color-swatch { border-radius: 12px; overflow: hidden; border: 1px solid rgba(0,0,0,0.06); }
+  .color-swatch .preview { height: 56px; }
+  .color-swatch .info { padding: 8px 12px; background: #FAFAFA; }
+  .color-swatch .name { font-size: 11px; font-weight: 600; color: #1D1D1F; margin-bottom: 1px; }
+  .color-swatch .hex { font-size: 10px; color: #8E8E93; }
+  .color-swatch.dark-card .info { background: #0C0B14; }
+  .color-swatch.dark-card .name { color: #EEEDF5; }
+  .color-swatch.dark-card .hex { color: rgba(238,237,245,0.40); }
+
+  /* ═══════ HERO SWATCHES ═══════ */
+  .color-large { display: flex; gap: 16px; margin-bottom: 20px; }
+  .color-hero {
+    flex: 1; border-radius: 16px; padding: 24px 20px; display: flex; flex-direction: column;
+    justify-content: flex-end; min-height: 100px; position: relative; overflow: hidden;
+  }
+  .color-hero .label { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 3px; }
+  .color-hero .value { font-size: 13px; font-weight: 500; }
+
+  /* ═══════ TYPOGRAPHY ═══════ */
+  .type-row { display: flex; align-items: baseline; gap: 24px; padding: 14px 0; border-bottom: 1px solid #F0F0F0; }
+  .type-row:last-child { border-bottom: none; }
+  .type-meta { width: 120px; flex-shrink: 0; }
+  .type-meta .font-name { font-size: 11px; font-weight: 600; color: #1D1D1F; }
+  .type-meta .font-detail { font-size: 9px; color: #AEAEB2; }
+  .type-sample { flex: 1; color: #1D1D1F; }
+
+  /* ═══════ TOKEN TABLES ═══════ */
+  .token-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .token-table th { text-align: left; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #AEAEB2; padding: 6px 10px; border-bottom: 2px solid #E3E5ED; }
+  .token-table td { padding: 6px 10px; border-bottom: 1px solid #F0F0F0; vertical-align: middle; }
+  .token-table .token-name { font-size: 11px; font-weight: 500; color: var(--nova-violet); }
+  .token-table .token-value { font-size: 11px; color: #1D1D1F; }
+  .token-table .token-desc { font-size: 11px; color: #8E8E93; }
+
+  /* ═══════ PALETTE STRIPS ═══════ */
+  .palette-strip { display: flex; align-items: stretch; gap: 8px; margin-bottom: 14px; }
+  .palette-family { width: 110px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; }
+  .palette-family .pf-name { font-size: 12px; font-weight: 700; color: #1D1D1F; margin-bottom: 1px; }
+  .palette-family .pf-desc { font-size: 9px; color: #AEAEB2; line-height: 1.3; }
+  .variant-chip { flex: 1; border-radius: 8px; overflow: hidden; border: 1px solid rgba(0,0,0,0.06); }
+  .variant-chip .vc-color { height: 32px; display: flex; }
+  .variant-chip .vc-bg { flex: 2; }
+  .variant-chip .vc-accent { flex: 1; }
+  .variant-chip .vc-label { padding: 4px 6px; background: #FAFAFA; font-size: 8px; font-weight: 600; color: #AEAEB2; text-align: center; }
+
+  /* ═══════ GLASS DIAGRAM ═══════ */
+  .glass-demo-wrap { display: flex; gap: 32px; align-items: center; margin-bottom: 24px; }
+  .glass-demo {
+    width: 220px; height: 160px; border-radius: 20px; flex-shrink: 0; position: relative;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.10);
+    box-shadow: inset 0 0.5px 0 rgba(255,255,255,0.22), inset 0 -0.5px 0 rgba(255,255,255,0.06),
+      inset 0 1px 3px rgba(0,0,0,0.08), 0 0 0 0.5px rgba(255,255,255,0.06), 0 0 6px rgba(255,255,255,0.03),
+      0 8px 24px rgba(0,0,0,0.35);
+  }
+  .glass-demo::before {
+    content: ''; position: absolute; inset: 0; border-radius: 20px; pointer-events: none;
+    background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, transparent 35%, transparent 75%, rgba(0,0,0,0.03) 100%);
+  }
+  .glass-label { font-size: 9px; color: rgba(238,237,245,0.40); line-height: 1.8; }
+  .glass-label span { color: #A78BFA; font-weight: 600; }
+
+  /* ═══════ SHADOW DEMO ═══════ */
+  .shadow-row { display: flex; gap: 16px; margin-bottom: 16px; }
+  .shadow-card { flex: 1; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 600; }
+
+  /* ═══════ ORB SHOWCASE ═══════ */
+  .orb-showcase { display: flex; gap: 20px; margin-bottom: 24px; }
+  .orb-card { flex: 1; padding: 28px; border-radius: 16px; display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
+  .orb-card .orb-circle { width: 72px; height: 72px; border-radius: 50%; }
+  .orb-card .orb-label { font-size: 12px; font-weight: 600; }
+  .orb-card .orb-desc { font-size: 10px; opacity: 0.5; }
+
+  /* ═══════ RADII ═══════ */
+  .radius-row { display: flex; gap: 16px; align-items: center; margin-bottom: 20px; }
+  .radius-box {
+    width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, rgba(139,92,246,0.12), rgba(0,122,255,0.08));
+    border: 1.5px solid rgba(139,92,246,0.25); font-size: 10px; color: var(--nova-violet); font-weight: 500;
+  }
+
+  /* ═══════ INLINE UTILITIES ═══════ */
+  .inline-badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 6px; font-size: 10px; font-weight: 500; background: rgba(139,92,246,0.08); color: var(--nova-violet); margin-right: 6px; }
+  .mono { font-variant-numeric: tabular-nums; }
+
+  /* ═══════ FOOTER ═══════ */
+  .page-footer { position: absolute; bottom: 28px; left: 48px; right: 48px; display: flex; justify-content: space-between; font-size: 9px; color: #AEAEB2; }
+  .page-footer-dark { color: rgba(238,237,245,0.18); }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 1 — COVER
+     ═══════════════════════════════════════════════════════════ -->
+<div class="page cover">
+  <div class="blob-violet"></div>
+  <div class="blob-blue"></div>
+  <div class="blob-emerald"></div>
+  <div class="cover-orb"></div>
+  <div class="cover-content">
+    <div class="cover-badge">Brand Kit</div>
+    <div class="cover-wordmark">NOVATerra</div>
+    <div class="cover-subtitle">Construction Intelligence Platform</div>
+    <div class="cover-nova-badge">
+      <span class="dot"></span>
+      Powered by NOVA
+    </div>
+    <div class="cover-meta">Version 2.0 &mdash; March 2026</div>
+  </div>
+  <div class="page-footer page-footer-dark">
+    <span>NOVATerra &mdash; Brand Kit</span>
+    <span>Confidential</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 2 — BRAND IDENTITY
+     ═══════════════════════════════════════════════════════════ -->
+<div class="page page-dark">
+  <div class="section-num">00</div>
+  <div class="section-title">Brand Identity</div>
+  <div class="section-desc">The NOVATerra visual system is built on precision, atmosphere, and intelligence. Every element communicates confidence.</div>
+
+  <div class="sub-label">Wordmark</div>
+
+  <div style="text-align: center; padding: 32px 0 16px;">
+    <div style="font-size: 56px; font-weight: 800; letter-spacing: -1.5px; background: linear-gradient(135deg, #C4B5FD 0%, #A78BFA 35%, #8B5CF6 60%, #10B981 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 8px;">NOVATerra</div>
+    <div style="font-size: 10px; color: rgba(238,237,245,0.35); letter-spacing: 0.5px;">DM Sans 800 &middot; -1.5px tracking &middot; Gradient fill</div>
+  </div>
+
+  <div style="display: flex; justify-content: center; padding: 12px 0 8px;">
+    <div style="width: 320px; height: 56px; border: 1px dashed rgba(167,139,250,0.20); border-radius: 8px; display: flex; align-items: center; justify-content: center; position: relative;">
+      <span style="font-size: 24px; font-weight: 800; letter-spacing: -0.5px; background: linear-gradient(135deg, #C4B5FD, #A78BFA, #10B981); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">NOVATerra</span>
+      <span style="position: absolute; top: -8px; right: -8px; font-size: 8px; color: rgba(238,237,245,0.25); background: #0C0B14; padding: 0 4px;">1x cap-height clearance</span>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="sub-label">Brand Color Triangle</div>
+
+  <div style="display: flex; justify-content: center; gap: 40px; padding: 12px 0 20px;">
+    <div style="text-align: center;">
+      <div style="width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, #8B5CF6, #A78BFA); margin: 0 auto 8px; box-shadow: 0 0 24px rgba(139,92,246,0.30);"></div>
+      <div style="font-size: 11px; font-weight: 600; color: #EEEDF5;">Violet</div>
+      <div style="font-size: 9px; color: rgba(238,237,245,0.35);">#8B5CF6</div>
+    </div>
+    <div style="text-align: center;">
+      <div style="width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, #007AFF, #5AC8FA); margin: 0 auto 8px; box-shadow: 0 0 24px rgba(0,122,255,0.25);"></div>
+      <div style="font-size: 11px; font-weight: 600; color: #EEEDF5;">Blue</div>
+      <div style="font-size: 9px; color: rgba(238,237,245,0.35);">#007AFF</div>
+    </div>
+    <div style="text-align: center;">
+      <div style="width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, #10B981, #34D399); margin: 0 auto 8px; box-shadow: 0 0 24px rgba(16,185,129,0.25);"></div>
+      <div style="font-size: 11px; font-weight: 600; color: #EEEDF5;">Emerald</div>
+      <div style="font-size: 9px; color: rgba(238,237,245,0.35);">#10B981</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="sub-label">"Powered by NOVA" Badge</div>
+
+  <div style="display: flex; align-items: center; gap: 24px; padding: 8px 0 12px;">
+    <div style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 24px; border-radius: 999px; background: rgba(139,92,246,0.08); border: 1px solid rgba(139,92,246,0.15);">
+      <span style="width: 8px; height: 8px; border-radius: 50%; background: #8B5CF6; box-shadow: 0 0 12px rgba(139,92,246,0.5);"></span>
+      <span style="font-size: 13px; font-weight: 600; color: #A78BFA; letter-spacing: 0.5px;">Powered by NOVA</span>
+    </div>
+    <div style="font-size: 9px; color: rgba(238,237,245,0.30); line-height: 1.6;">
+      Pill: radius 9999px &middot; bg rgba(139,92,246,0.08)<br>
+      Border: 1px solid rgba(139,92,246,0.15)<br>
+      Dot: 8px &middot; #8B5CF6 &middot; glow 12px
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="sub-label">Brand Voice</div>
+
+  <div style="display: flex; gap: 24px; padding: 4px 0;">
+    <div style="flex: 1;">
+      <div style="font-size: 20px; font-weight: 700; color: #EEEDF5; margin-bottom: 8px; letter-spacing: -0.3px;">Precise. Intelligent. Atmospheric.</div>
+      <div style="font-size: 11px; color: rgba(238,237,245,0.40); line-height: 1.6;">NOVA speaks with technical precision and understated confidence. Language is direct, data-driven, and atmospheric. Favor "intelligence" over "smart", "precision" over "accuracy". Never casual, never loud.</div>
+    </div>
+  </div>
+
+  <div class="page-footer page-footer-dark">
+    <span>NOVATerra &mdash; Brand Kit</span>
+    <span>2 / 8</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 3 — PRIMARY COLORS
+     ═══════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="section-num">01</div>
+  <div class="section-title">Color System</div>
+  <div class="section-desc">Built around the violet-blue-emerald triangle. NOVA Violet is the primary brand color, with Apple Blue for professional themes and Emerald as the secondary accent.</div>
+
+  <div class="sub-label">Brand Identity</div>
+
+  <div class="color-large">
+    <div class="color-hero" style="background: linear-gradient(135deg, #8B5CF6, #A78BFA); color: #fff; flex: 2;">
+      <div class="label">NOVA Violet</div>
+      <div class="value">#8B5CF6 &rarr; #A78BFA</div>
+    </div>
+    <div class="color-hero" style="background: linear-gradient(135deg, #007AFF, #5AC8FA); color: #fff;">
+      <div class="label">Clarity Blue</div>
+      <div class="value">#007AFF &rarr; #5AC8FA</div>
+    </div>
+  </div>
+
+  <div class="color-large">
+    <div class="color-hero" style="background: linear-gradient(135deg, #10B981, #34D399); color: #fff;">
+      <div class="label">Emerald</div>
+      <div class="value">#10B981 &rarr; #34D399</div>
+    </div>
+    <div class="color-hero" style="background: linear-gradient(165deg, #06060C 0%, #0C0B14 50%, #1A1828 100%); color: rgba(238,237,245,0.7); flex: 2;">
+      <div class="label">NOVA Void</div>
+      <div class="value">#06060C</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="sub-label">Primary Accent Palette</div>
+
+  <div class="color-grid">
+    <div class="color-swatch">
+      <div class="preview" style="background: #8B5CF6;"></div>
+      <div class="info"><div class="name">NOVA Violet</div><div class="hex">#8B5CF6 &middot; Primary</div></div>
+    </div>
+    <div class="color-swatch">
+      <div class="preview" style="background: #A78BFA;"></div>
+      <div class="info"><div class="name">Violet Bright</div><div class="hex">#A78BFA &middot; Gradient End</div></div>
+    </div>
+    <div class="color-swatch">
+      <div class="preview" style="background: #6D28D9;"></div>
+      <div class="info"><div class="name">Violet Deep</div><div class="hex">#6D28D9 &middot; Pressed</div></div>
+    </div>
+    <div class="color-swatch">
+      <div class="preview" style="background: #10B981;"></div>
+      <div class="info"><div class="name">Emerald</div><div class="hex">#10B981 &middot; Secondary</div></div>
+    </div>
+  </div>
+  <div class="color-grid">
+    <div class="color-swatch">
+      <div class="preview" style="background: #007AFF;"></div>
+      <div class="info"><div class="name">Apple Blue</div><div class="hex">#007AFF &middot; Clarity Accent</div></div>
+    </div>
+    <div class="color-swatch">
+      <div class="preview" style="background: #5AC8FA;"></div>
+      <div class="info"><div class="name">Sky Blue</div><div class="hex">#5AC8FA &middot; Alt Accent</div></div>
+    </div>
+    <div class="color-swatch">
+      <div class="preview" style="background: #0A84FF;"></div>
+      <div class="info"><div class="name">System Blue</div><div class="hex">#0A84FF &middot; Cool Variant</div></div>
+    </div>
+    <div class="color-swatch">
+      <div class="preview" style="background: #7C3AED;"></div>
+      <div class="info"><div class="name">Deep Violet</div><div class="hex">#7C3AED &middot; NOVA Light</div></div>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <span>NOVATerra &mdash; Brand Kit</span>
+    <span>3 / 8</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 4 — PALETTE FAMILIES
+     ═══════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="section-num">02</div>
+  <div class="section-title">Palette Families</div>
+  <div class="section-desc">Four palette families, each with dark and light variants. Every theme preserves the Liquid Glass material system.</div>
+
+  <div class="sub-label">NOVA &mdash; Galaxy Nebula</div>
+  <div class="palette-strip">
+    <div class="palette-family"><div class="pf-name">NOVA</div><div class="pf-desc">Purple core, cosmic gradients</div></div>
+    <div class="variant-chip"><div class="vc-color"><div class="vc-bg" style="background:#06060C;"></div><div class="vc-accent" style="background:#8B5CF6;"></div></div><div class="vc-label">Nebula</div></div>
+    <div class="variant-chip"><div class="vc-color"><div class="vc-bg" style="background:#04051A;"></div><div class="vc-accent" style="background:#60A5FA;"></div></div><div class="vc-label">Cosmos</div></div>
+    <div class="variant-chip"><div class="vc-color"><div class="vc-bg" style="background:#06091C;"></div><div class="vc-accent" style="background:#C084FC;"></div></div><div class="vc-label">Aurora</div></div>
+    <div class="variant-chip"><div class="vc-color"><div class="vc-bg" style="background:#F8F7FC;"></div><div class="vc-accent" style="background:#7C3AED;"></div></div><div class="vc-label">NOVA Light</div></div>
+    <div class="variant-chip"><div class="vc-color"><div class="vc-bg" style="background:#F6F7FB;"></div><div class="vc-accent" style="background:#3B82F6;"></div></div><div class="vc-label">Stardust</div></div>
+  </div>
+
+  <div class="sub-label">Clarity &mdash; Apple-Grade Clean</div>
+  <div class="palette-strip">
+    <div class="palette-family"><div class="pf-name">Clarity</div><div class="pf-desc">Professional, minimal blue</div></div>
+    <div class="variant-chip"><div class="vc-color"><div class="vc-bg" style="background:#1C1C1E;"></div><div class="vc-accent" style="background:#007AFF;"></div></div><div class="vc-label">Graphite</div></div>
+    <div class="variant-chip"><div class="vc-color"><div class="vc-bg" style="background:#F5F6FA;"></div><div class="vc-accent" style="background:#007AFF;"></div></div><div class="vc-label">Clean</div></div>
+    <div class="variant-chip"><div class="vc-color"><div class="vc-bg" style="background:#F9F8F5;"></div><div class="vc-accent" style="background:#007AFF;"></div></div><div class="vc-label">Warm</div></div>
+    <div class="variant-chip"><div class="vc-color"><div class="vc-bg" style="background:#F5F6FA;"></div><div class="vc-accent" style="background:#0A84FF;"></div></div><div class="vc-label">Cool</div></div>
+  </div>
+
+  <div class="sub-label">Matte &mdash; True Black Refined</div>
+  <div class="palette-strip">
+    <div class="palette-family"><div class="pf-name">Matte</div><div class="pf-desc">OLED-ready, matte finish</div></div>
+    <div class="variant-chip"><div class="vc-color"><div class="vc-bg" style="background:#000000;"></div><div class="vc-accent" style="background:#0A84FF;"></div></div><div class="vc-label">Black</div></div>
+    <div class="variant-chip"><div class="vc-color"><div class="vc-bg" style="background:#000000;"></div><div class="vc-accent" style="background:#86868B;"></div></div><div class="vc-label">Void</div></div>
+    <div class="variant-chip"><div class="vc-color"><div class="vc-bg" style="background:#050403;"></div><div class="vc-accent" style="background:#FF9F0A;"></div></div><div class="vc-label">Ember</div></div>
+    <div class="variant-chip"><div class="vc-color"><div class="vc-bg" style="background:#000000;"></div><div class="vc-accent" style="background:#E5E5EA;"></div></div><div class="vc-label">Frost</div></div>
+  </div>
+
+  <div class="sub-label">Greyscale &mdash; Pure Monochrome</div>
+  <div class="palette-strip">
+    <div class="palette-family"><div class="pf-name">Greyscale</div><div class="pf-desc">Chromatic-free, maximum focus</div></div>
+    <div class="variant-chip"><div class="vc-color"><div class="vc-bg" style="background:#0A0A0A;"></div><div class="vc-accent" style="background:#E0E0E0;"></div></div><div class="vc-label">Charcoal</div></div>
+    <div class="variant-chip"><div class="vc-color"><div class="vc-bg" style="background:#000000;"></div><div class="vc-accent" style="background:#808080;"></div></div><div class="vc-label">Midnight</div></div>
+    <div class="variant-chip"><div class="vc-color"><div class="vc-bg" style="background:#0E0E0E;"></div><div class="vc-accent" style="background:#C0C0C0;"></div></div><div class="vc-label">Silver</div></div>
+    <div class="variant-chip"><div class="vc-color"><div class="vc-bg" style="background:#F5F5F5;"></div><div class="vc-accent" style="background:#404040;"></div></div><div class="vc-label">Paper</div></div>
+    <div class="variant-chip"><div class="vc-color"><div class="vc-bg" style="background:#F2F2F2;"></div><div class="vc-accent" style="background:#808080;"></div></div><div class="vc-label">Fog</div></div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="sub-label">Gradient System</div>
+
+  <div style="margin-bottom: 8px;">
+    <div style="height: 40px; border-radius: 12px; background: linear-gradient(135deg, #8B5CF6, #A78BFA, #5AC8FA, #10B981); margin-bottom: 6px;"></div>
+    <div style="display: flex; justify-content: space-between; font-size: 9px; color: #AEAEB2;">
+      <span>#8B5CF6</span><span>#A78BFA</span><span>#5AC8FA</span><span>#10B981</span>
+    </div>
+  </div>
+  <div style="margin-bottom: 8px;">
+    <div style="height: 40px; border-radius: 12px; background: linear-gradient(135deg, #007AFF, #5AC8FA); margin-bottom: 6px;"></div>
+    <div style="display: flex; justify-content: space-between; font-size: 9px; color: #AEAEB2;">
+      <span>Clarity: #007AFF</span><span>#5AC8FA</span>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <span>NOVATerra &mdash; Brand Kit</span>
+    <span>4 / 8</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 5 — SEMANTIC & SURFACE COLORS
+     ═══════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="section-num">03</div>
+  <div class="section-title">Semantic &amp; Surface Colors</div>
+  <div class="section-desc">Functional colors for status, feedback, and data visualization. Each has calibrated dark and light variants.</div>
+
+  <div class="sub-label">Semantic Colors &mdash; Dark Mode</div>
+  <div class="color-grid">
+    <div class="color-swatch dark-card"><div class="preview" style="background: #34D399;"></div><div class="info"><div class="name">Green</div><div class="hex">#34D399 &middot; Success</div></div></div>
+    <div class="color-swatch dark-card"><div class="preview" style="background: #FB7185;"></div><div class="info"><div class="name">Red</div><div class="hex">#FB7185 &middot; Error</div></div></div>
+    <div class="color-swatch dark-card"><div class="preview" style="background: #60A5FA;"></div><div class="info"><div class="name">Blue</div><div class="hex">#60A5FA &middot; Info</div></div></div>
+    <div class="color-swatch dark-card"><div class="preview" style="background: #F59E0B;"></div><div class="info"><div class="name">Orange</div><div class="hex">#F59E0B &middot; Warning</div></div></div>
+  </div>
+
+  <div class="sub-label">Semantic Colors &mdash; Light Mode</div>
+  <div class="color-grid">
+    <div class="color-swatch"><div class="preview" style="background: #30D158;"></div><div class="info"><div class="name">Green</div><div class="hex">#30D158 &middot; Success</div></div></div>
+    <div class="color-swatch"><div class="preview" style="background: #FF3B30;"></div><div class="info"><div class="name">Red</div><div class="hex">#FF3B30 &middot; Error</div></div></div>
+    <div class="color-swatch"><div class="preview" style="background: #0A84FF;"></div><div class="info"><div class="name">Blue</div><div class="hex">#0A84FF &middot; Info</div></div></div>
+    <div class="color-swatch"><div class="preview" style="background: #FF9500;"></div><div class="info"><div class="name">Orange</div><div class="hex">#FF9500 &middot; Warning</div></div></div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="sub-label">Surface System</div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+    <div style="border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.06);">
+      <div style="padding: 12px 16px; background: #06060C; color: #EEEDF5; font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Dark Mode</div>
+      <div style="display: flex; height: 36px;">
+        <div style="flex: 1; background: #06060C; display: flex; align-items: center; justify-content: center; font-size: 8px; color: rgba(238,237,245,0.4);">bg</div>
+        <div style="flex: 1; background: #0C0B14; display: flex; align-items: center; justify-content: center; font-size: 8px; color: rgba(238,237,245,0.4);">bg1</div>
+        <div style="flex: 1; background: #12101C; display: flex; align-items: center; justify-content: center; font-size: 8px; color: rgba(238,237,245,0.4);">bg2</div>
+        <div style="flex: 1; background: #1A1828; display: flex; align-items: center; justify-content: center; font-size: 8px; color: rgba(238,237,245,0.4);">bg3</div>
+      </div>
+      <div style="padding: 10px 16px; background: #0C0B14;">
+        <span style="font-size: 13px; font-weight: 600; color: #EEEDF5;">Text</span>
+        <span style="font-size: 11px; color: rgba(238,237,245,0.55); margin-left: 10px;">Muted</span>
+        <span style="font-size: 11px; color: rgba(238,237,245,0.28); margin-left: 10px;">Dim</span>
+      </div>
+    </div>
+    <div style="border-radius: 12px; overflow: hidden; border: 1px solid #E3E5ED;">
+      <div style="padding: 12px 16px; background: #F5F6FA; color: #1D1D1F; font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Light Mode</div>
+      <div style="display: flex; height: 36px;">
+        <div style="flex: 1; background: #F5F6FA; display: flex; align-items: center; justify-content: center; font-size: 8px; color: #8E8E93;">bg</div>
+        <div style="flex: 1; background: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 8px; color: #8E8E93; border-left: 1px solid #ECEEF4;">bg1</div>
+        <div style="flex: 1; background: #ECEEF4; display: flex; align-items: center; justify-content: center; font-size: 8px; color: #8E8E93;">bg2</div>
+        <div style="flex: 1; background: #E3E5ED; display: flex; align-items: center; justify-content: center; font-size: 8px; color: #8E8E93;">bg3</div>
+      </div>
+      <div style="padding: 10px 16px; background: #FFFFFF;">
+        <span style="font-size: 13px; font-weight: 600; color: #1D1D1F;">Text</span>
+        <span style="font-size: 11px; color: #8E8E93; margin-left: 10px;">Muted</span>
+        <span style="font-size: 11px; color: #AEAEB2; margin-left: 10px;">Dim</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="sub-label">Chart / Data Visualization</div>
+
+  <div style="display: flex; gap: 3px; height: 32px; border-radius: 8px; overflow: hidden; margin-bottom: 6px;">
+    <div style="flex: 1; background: #0A84FF;"></div>
+    <div style="flex: 1; background: #30D158;"></div>
+    <div style="flex: 1; background: #5E5CE6;"></div>
+    <div style="flex: 1; background: #FF9500;"></div>
+    <div style="flex: 1; background: #FF3B30;"></div>
+    <div style="flex: 1; background: #06B6D4;"></div>
+    <div style="flex: 1; background: #FFD60A;"></div>
+    <div style="flex: 1; background: #BF5AF2;"></div>
+    <div style="flex: 1; background: #E07C24;"></div>
+    <div style="flex: 1; background: #3A8F6E;"></div>
+  </div>
+  <div style="display: flex; gap: 3px; font-size: 7.5px; color: #AEAEB2;">
+    <div style="flex: 1; text-align: center;">#0A84FF</div>
+    <div style="flex: 1; text-align: center;">#30D158</div>
+    <div style="flex: 1; text-align: center;">#5E5CE6</div>
+    <div style="flex: 1; text-align: center;">#FF9500</div>
+    <div style="flex: 1; text-align: center;">#FF3B30</div>
+    <div style="flex: 1; text-align: center;">#06B6D4</div>
+    <div style="flex: 1; text-align: center;">#FFD60A</div>
+    <div style="flex: 1; text-align: center;">#BF5AF2</div>
+    <div style="flex: 1; text-align: center;">#E07C24</div>
+    <div style="flex: 1; text-align: center;">#3A8F6E</div>
+  </div>
+
+  <div class="page-footer">
+    <span>NOVATerra &mdash; Brand Kit</span>
+    <span>5 / 8</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 6 — TYPOGRAPHY
+     ═══════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="section-num">04</div>
+  <div class="section-title">Typography</div>
+  <div class="section-desc">One typeface. Every role. DM Sans serves as the sole typeface across all of NOVATerra &mdash; from display headings to body text to financial data.</div>
+
+  <div class="sub-label">Font Stack</div>
+  <div style="padding: 16px 20px; background: #FAFAFA; border-radius: 12px; border: 1px solid #E3E5ED; margin-bottom: 20px;">
+    <div style="font-size: 11px; font-weight: 700; color: #1D1D1F; margin-bottom: 2px;">DM Sans</div>
+    <div style="font-size: 9px; color: #AEAEB2; margin-bottom: 10px;">'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif</div>
+    <div style="font-size: 28px; font-weight: 700; letter-spacing: -0.3px; color: #1D1D1F;">The quick brown fox jumps over the lazy dog</div>
+  </div>
+
+  <div class="sub-label">Weight Showcase</div>
+
+  <div class="type-row">
+    <div class="type-meta"><div class="font-name">400 Normal</div><div class="font-detail">Body &middot; Descriptions</div></div>
+    <div class="type-sample" style="font-size: 20px; font-weight: 400;">Precision-grade cost intelligence</div>
+  </div>
+  <div class="type-row">
+    <div class="type-meta"><div class="font-name">500 Medium</div><div class="font-detail">Data &middot; Numbers</div></div>
+    <div class="type-sample" style="font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums;">$1,247,890.00</div>
+  </div>
+  <div class="type-row">
+    <div class="type-meta"><div class="font-name">600 Semibold</div><div class="font-detail">Subheadings &middot; Labels</div></div>
+    <div class="type-sample" style="font-size: 20px; font-weight: 600;">Section Heading</div>
+  </div>
+  <div class="type-row">
+    <div class="type-meta"><div class="font-name">700 Bold</div><div class="font-detail">Headings &middot; Titles</div></div>
+    <div class="type-sample" style="font-size: 20px; font-weight: 700;">Project Overview</div>
+  </div>
+  <div class="type-row">
+    <div class="type-meta"><div class="font-name">800 Heavy</div><div class="font-detail">Display &middot; Wordmark</div></div>
+    <div class="type-sample" style="font-size: 20px; font-weight: 800; letter-spacing: -0.5px;">NOVATerra</div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="sub-label">Type Scale</div>
+
+  <table class="token-table">
+    <thead><tr><th>Token</th><th>Size</th><th>Weight</th><th>Sample</th></tr></thead>
+    <tbody>
+      <tr><td class="token-name">2xl</td><td class="token-value">28px</td><td class="token-value">700</td><td style="font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">Dashboard</td></tr>
+      <tr><td class="token-name">xl</td><td class="token-value">20px</td><td class="token-value">700</td><td style="font-size: 20px; font-weight: 700;">Project Overview</td></tr>
+      <tr><td class="token-name">lg</td><td class="token-value">16px</td><td class="token-value">600</td><td style="font-size: 16px; font-weight: 600;">Section Heading</td></tr>
+      <tr><td class="token-name">md</td><td class="token-value">14px</td><td class="token-value">600</td><td style="font-size: 14px; font-weight: 600;">Subheading</td></tr>
+      <tr><td class="token-name">base</td><td class="token-value">13px</td><td class="token-value">400</td><td style="font-size: 13px; font-weight: 400;">Body text for descriptions and content</td></tr>
+      <tr><td class="token-name">sm</td><td class="token-value">11px</td><td class="token-value">600</td><td style="font-size: 11px; font-weight: 600;">Button label, metadata</td></tr>
+      <tr><td class="token-name">xs</td><td class="token-value">10px</td><td class="token-value">600</td><td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px;">Section Label</td></tr>
+    </tbody>
+  </table>
+
+  <div class="divider"></div>
+  <div class="sub-label">Financial Data</div>
+  <div style="padding: 12px 16px; background: #FAFAFA; border-radius: 8px; border: 1px solid #E3E5ED; display: flex; align-items: center; gap: 20px;">
+    <div>
+      <div style="font-size: 9px; font-weight: 700; color: #AEAEB2; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Tabular Nums</div>
+      <div style="font-size: 10px; color: #8E8E93;">font-variant-numeric: tabular-nums</div>
+    </div>
+    <div style="font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; color: #1D1D1F; text-align: right; line-height: 1.8;">
+      $&nbsp;&nbsp;1,247,890.00<br>$&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;128,450.75<br>$&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3,200.00
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <span>NOVATerra &mdash; Brand Kit</span>
+    <span>6 / 8</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 7 — LIQUID GLASS & MOTION
+     ═══════════════════════════════════════════════════════════ -->
+<div class="page page-dark">
+  <div class="section-num">05</div>
+  <div class="section-title">Liquid Glass &amp; Motion</div>
+  <div class="section-desc">Glass bends, shapes, and concentrates light &mdash; never obscures it. The Liquid Glass system defines how every surface interacts with the gradient mesh beneath.</div>
+
+  <div class="sub-label">Glass Panel Anatomy</div>
+
+  <div class="glass-demo-wrap">
+    <div class="glass-demo"></div>
+    <div class="glass-label">
+      <span>Specular</span> &mdash; top-edge highlight (0.5px inset)<br>
+      <span>Lens</span> &mdash; vertical brightness gradient overlay<br>
+      <span>Glass bg</span> &mdash; translucent fill (rgba white 4%)<br>
+      <span>Backdrop</span> &mdash; blur(24px) saturate brightness<br>
+      <span>Refraction</span> &mdash; outer glow at glass edge<br>
+      <span>Hairline</span> &mdash; 0.5px edge (rgba white 6%)<br>
+      <span>Inner depth</span> &mdash; inset shadow for thickness<br>
+      <span>Bottom spec</span> &mdash; underside light catch
+    </div>
+  </div>
+
+  <div class="sub-label">Glass Specifications</div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+    <div>
+      <div style="font-size: 10px; font-weight: 700; color: rgba(238,237,245,0.30); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px;">Dark Glass</div>
+      <table class="token-table" style="font-size: 10px;">
+        <tbody>
+          <tr><td class="token-name" style="font-size:9px;">Blur</td><td class="token-value" style="font-size:9px; color:rgba(238,237,245,0.55);">blur(24px) sat(180%) bright(1.08)</td></tr>
+          <tr><td class="token-name" style="font-size:9px;">Background</td><td class="token-value" style="font-size:9px; color:rgba(238,237,245,0.55);">rgba(255,255,255, 0.04)</td></tr>
+          <tr><td class="token-name" style="font-size:9px;">Border</td><td class="token-value" style="font-size:9px; color:rgba(238,237,245,0.55);">rgba(255,255,255, 0.10)</td></tr>
+          <tr><td class="token-name" style="font-size:9px;">Specular</td><td class="token-value" style="font-size:9px; color:rgba(238,237,245,0.55);">inset 0 0.5px 0 rgba(w, 0.22)</td></tr>
+          <tr><td class="token-name" style="font-size:9px;">Inner depth</td><td class="token-value" style="font-size:9px; color:rgba(238,237,245,0.55);">inset 0 1px 3px rgba(0,0,0, 0.08)</td></tr>
+          <tr><td class="token-name" style="font-size:9px;">Refraction</td><td class="token-value" style="font-size:9px; color:rgba(238,237,245,0.55);">0 0 6px rgba(w, 0.03)</td></tr>
+          <tr><td class="token-name" style="font-size:9px;">Edge</td><td class="token-value" style="font-size:9px; color:rgba(238,237,245,0.55);">0 0 0 0.5px rgba(w, 0.06)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <div style="font-size: 10px; font-weight: 700; color: rgba(238,237,245,0.30); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px;">Light Glass</div>
+      <table class="token-table" style="font-size: 10px;">
+        <tbody>
+          <tr><td class="token-name" style="font-size:9px;">Blur</td><td class="token-value" style="font-size:9px; color:rgba(238,237,245,0.55);">blur(24px) sat(200%) bright(1.08)</td></tr>
+          <tr><td class="token-name" style="font-size:9px;">Background</td><td class="token-value" style="font-size:9px; color:rgba(238,237,245,0.55);">rgba(255,255,255, 0.08)</td></tr>
+          <tr><td class="token-name" style="font-size:9px;">Border</td><td class="token-value" style="font-size:9px; color:rgba(238,237,245,0.55);">rgba(255,255,255, 0.25)</td></tr>
+          <tr><td class="token-name" style="font-size:9px;">Specular</td><td class="token-value" style="font-size:9px; color:rgba(238,237,245,0.55);">inset 0 0.5px 0 rgba(w, 0.55)</td></tr>
+          <tr><td class="token-name" style="font-size:9px;">Inner depth</td><td class="token-value" style="font-size:9px; color:rgba(238,237,245,0.55);">inset 0 1px 3px rgba(20,30,80, 0.04)</td></tr>
+          <tr><td class="token-name" style="font-size:9px;">Refraction</td><td class="token-value" style="font-size:9px; color:rgba(238,237,245,0.55);">0 0 8px rgba(w, 0.15)</td></tr>
+          <tr><td class="token-name" style="font-size:9px;">Edge</td><td class="token-value" style="font-size:9px; color:rgba(238,237,245,0.55);">0 0 0 0.5px rgba(w, 0.15)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="sub-label">Shadow System</div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+    <div>
+      <div style="font-size: 9px; color: rgba(238,237,245,0.25); margin-bottom: 8px;">DARK SHADOWS</div>
+      <div class="shadow-row">
+        <div class="shadow-card" style="background: rgba(255,255,255,0.04); box-shadow: 0 1px 3px rgba(0,0,0,0.24), 0 1px 2px rgba(0,0,0,0.18); color: rgba(238,237,245,0.35);">sm</div>
+        <div class="shadow-card" style="background: rgba(255,255,255,0.04); box-shadow: 0 3px 12px rgba(0,0,0,0.30), 0 2px 4px rgba(0,0,0,0.22); color: rgba(238,237,245,0.35);">md</div>
+        <div class="shadow-card" style="background: rgba(255,255,255,0.04); box-shadow: 0 8px 24px rgba(0,0,0,0.35), 0 4px 8px rgba(0,0,0,0.25); color: rgba(238,237,245,0.35);">lg</div>
+        <div class="shadow-card" style="background: rgba(255,255,255,0.04); box-shadow: 0 16px 48px rgba(0,0,0,0.45), 0 8px 16px rgba(0,0,0,0.30); color: rgba(238,237,245,0.35);">xl</div>
+      </div>
+    </div>
+    <div>
+      <div style="font-size: 9px; color: rgba(238,237,245,0.25); margin-bottom: 8px;">LIGHT SHADOWS</div>
+      <div class="shadow-row">
+        <div class="shadow-card" style="background: #fff; box-shadow: 0 1px 2px rgba(20,30,80,0.04), 0 2px 6px rgba(20,30,80,0.03); color: #AEAEB2;">sm</div>
+        <div class="shadow-card" style="background: #fff; box-shadow: 0 2px 4px rgba(20,30,80,0.06), 0 4px 12px rgba(20,30,80,0.04); color: #AEAEB2;">md</div>
+        <div class="shadow-card" style="background: #fff; box-shadow: 0 4px 8px rgba(20,30,80,0.08), 0 8px 24px rgba(20,30,80,0.06); color: #AEAEB2;">lg</div>
+        <div class="shadow-card" style="background: #fff; box-shadow: 0 8px 16px rgba(20,30,80,0.10), 0 16px 40px rgba(20,30,80,0.08); color: #AEAEB2;">xl</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="sub-label">Transitions</div>
+
+  <table class="token-table">
+    <thead><tr><th>Token</th><th>Value</th><th>Usage</th></tr></thead>
+    <tbody>
+      <tr><td class="token-name">fast</td><td class="token-value" style="color:rgba(238,237,245,0.55);">all 100ms ease-out</td><td class="token-desc">Hover, focus states</td></tr>
+      <tr><td class="token-name">base</td><td class="token-value" style="color:rgba(238,237,245,0.55);">all 150ms ease-out</td><td class="token-desc">State changes, toggles</td></tr>
+      <tr><td class="token-name">slow</td><td class="token-value" style="color:rgba(238,237,245,0.55);">all 250ms ease-out</td><td class="token-desc">Panel reveals, modals</td></tr>
+      <tr><td class="token-name">spring</td><td class="token-value" style="color:rgba(238,237,245,0.55);">300ms cubic-bezier(0.34, 1.56, 0.64, 1)</td><td class="token-desc">Bouncy, playful elements</td></tr>
+    </tbody>
+  </table>
+
+  <div class="page-footer page-footer-dark">
+    <span>NOVATerra &mdash; Brand Kit</span>
+    <span>7 / 8</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 8 — DESIGN TOKENS & NOVA ORB
+     ═══════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="section-num">06</div>
+  <div class="section-title">Design Tokens &amp; NOVA Orb</div>
+  <div class="section-desc">The NovaOrb, spacing scale, corner radii, and component sizing that define the system.</div>
+
+  <div class="sub-label">NovaOrb &mdash; AI Visual Identity</div>
+
+  <div class="orb-showcase">
+    <div class="orb-card" style="background: #06060C; color: #EEEDF5;">
+      <div class="orb-circle" style="background: radial-gradient(circle at 40% 35%, rgba(215,175,255,0.9) 0%, rgba(139,92,246,0.6) 30%, rgba(109,40,217,0.4) 60%, #18063C 100%); box-shadow: 0 0 40px rgba(139,92,246,0.3);"></div>
+      <div class="orb-label">Nova</div>
+      <div class="orb-desc">Galaxy violet &middot; Default dark</div>
+    </div>
+    <div class="orb-card" style="background: #000000; color: #F5F5F7;">
+      <div class="orb-circle" style="background: radial-gradient(circle at 40% 35%, rgba(160,215,255,0.85) 0%, rgba(10,132,255,0.5) 30%, rgba(0,68,180,0.4) 60%, #041020 100%); box-shadow: 0 0 40px rgba(10,132,255,0.2);"></div>
+      <div class="orb-label">Matte</div>
+      <div class="orb-desc">Sleek blue &middot; True black</div>
+    </div>
+    <div class="orb-card" style="background: #F5F6FA; color: #1D1D1F; border: 1px solid #E3E5ED;">
+      <div class="orb-circle" style="background: radial-gradient(circle at 40% 35%, rgba(255,255,255,0.95) 0%, rgba(0,122,255,0.5) 30%, rgba(0,58,165,0.5) 60%, #0C1A38 100%); box-shadow: 0 12px 40px rgba(0,90,200,0.22);"></div>
+      <div class="orb-label">Light</div>
+      <div class="orb-desc">Deep navy &middot; High contrast</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="sub-label">Corner Radii</div>
+
+  <div class="radius-row">
+    <div class="radius-box" style="border-radius: 8px;">8</div>
+    <div class="radius-box" style="border-radius: 12px;">12</div>
+    <div class="radius-box" style="border-radius: 20px;">20</div>
+    <div class="radius-box" style="border-radius: 26px;">26</div>
+    <div class="radius-box" style="border-radius: 9999px;">full</div>
+    <div style="font-size: 9px; color: #AEAEB2; margin-left: 8px; line-height: 1.6;">
+      sm: 8px &middot; Buttons, inputs<br>md: 12px &middot; Cards, panels<br>lg: 20px &middot; Modals, sections<br>xl: 26px &middot; Hero elements<br>full: 9999px &middot; Pills, badges
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+    <div>
+      <div class="sub-label">Spacing Scale &mdash; 4px Base</div>
+      <div style="display: flex; gap: 4px; align-items: flex-end; height: 64px; margin-bottom: 6px;">
+        <div style="width: 20px; height: 4px; background: var(--nova-violet); border-radius: 2px; opacity: 0.3;"></div>
+        <div style="width: 20px; height: 8px; background: var(--nova-violet); border-radius: 2px; opacity: 0.35;"></div>
+        <div style="width: 20px; height: 12px; background: var(--nova-violet); border-radius: 2px; opacity: 0.4;"></div>
+        <div style="width: 20px; height: 16px; background: var(--nova-violet); border-radius: 2px; opacity: 0.45;"></div>
+        <div style="width: 20px; height: 20px; background: var(--nova-violet); border-radius: 2px; opacity: 0.5;"></div>
+        <div style="width: 20px; height: 24px; background: var(--nova-violet); border-radius: 2px; opacity: 0.55;"></div>
+        <div style="width: 20px; height: 32px; background: var(--nova-violet); border-radius: 2px; opacity: 0.6;"></div>
+        <div style="width: 20px; height: 40px; background: var(--nova-violet); border-radius: 2px; opacity: 0.7;"></div>
+        <div style="width: 20px; height: 48px; background: var(--nova-violet); border-radius: 2px; opacity: 0.8;"></div>
+        <div style="width: 20px; height: 64px; background: var(--nova-violet); border-radius: 2px; opacity: 0.9;"></div>
+      </div>
+      <div style="font-size: 8px; color: #AEAEB2; line-height: 1.6;">
+        0: 0 &middot; 1: 4px &middot; 2: 8px &middot; 3: 12px &middot; 4: 16px &middot; 5: 20px<br>
+        6: 24px &middot; 7: 32px &middot; 8: 40px &middot; 9: 48px &middot; 10: 64px
+      </div>
+    </div>
+
+    <div>
+      <div class="sub-label">Z-Index Scale</div>
+      <table class="token-table" style="font-size: 10px;">
+        <tbody>
+          <tr><td class="token-name" style="font-size:10px;">dropdown</td><td class="token-value" style="font-size:10px;">50</td></tr>
+          <tr><td class="token-name" style="font-size:10px;">sticky</td><td class="token-value" style="font-size:10px;">100</td></tr>
+          <tr><td class="token-name" style="font-size:10px;">overlay</td><td class="token-value" style="font-size:10px;">150</td></tr>
+          <tr><td class="token-name" style="font-size:10px;">modal</td><td class="token-value" style="font-size:10px;">200</td></tr>
+          <tr><td class="token-name" style="font-size:10px;">toast</td><td class="token-value" style="font-size:10px;">300</td></tr>
+          <tr><td class="token-name" style="font-size:10px;">tooltip</td><td class="token-value" style="font-size:10px;">400</td></tr>
+        </tbody>
+      </table>
+
+      <div class="sub-label" style="margin-top: 12px;">Component Sizes</div>
+      <table class="token-table" style="font-size: 10px;">
+        <thead><tr><th>Size</th><th>Height</th><th>Font</th><th>Icon</th></tr></thead>
+        <tbody>
+          <tr><td class="token-name" style="font-size:10px;">sm</td><td class="token-value" style="font-size:10px;">28px</td><td class="token-value" style="font-size:10px;">11px</td><td class="token-value" style="font-size:10px;">12px</td></tr>
+          <tr><td class="token-name" style="font-size:10px;">md</td><td class="token-value" style="font-size:10px;">34px</td><td class="token-value" style="font-size:10px;">13px</td><td class="token-value" style="font-size:10px;">14px</td></tr>
+          <tr><td class="token-name" style="font-size:10px;">lg</td><td class="token-value" style="font-size:10px;">40px</td><td class="token-value" style="font-size:10px;">14px</td><td class="token-value" style="font-size:10px;">16px</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <span>NOVATerra &mdash; Brand Kit</span>
+    <span>8 / 8</span>
+  </div>
+</div>
+
+</body>
+</html>

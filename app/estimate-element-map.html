@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NOVATerra — Estimate Page Element Map (Shift7)</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0A0918; color: #E2E0ED; font-family: 'Inter', sans-serif; padding: 32px; }
+  h1 { font-size: 22px; font-weight: 800; color: #fff; margin-bottom: 4px; letter-spacing: -0.5px; }
+  .subtitle { font-size: 12px; color: #8B5CF6; font-weight: 600; margin-bottom: 28px; letter-spacing: 1px; text-transform: uppercase; }
+
+  .page-layout { display: flex; gap: 0; border: 2px solid #8B5CF6; border-radius: 12px; overflow: hidden; background: #0F0D1A; }
+
+  /* Labels */
+  .label {
+    position: absolute;
+    background: #8B5CF6;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 10px;
+    white-space: nowrap;
+    z-index: 100;
+    letter-spacing: 0.3px;
+    line-height: 16px;
+  }
+  .label-alt {
+    background: #F97316;
+  }
+  .label-green {
+    background: #22C55E;
+  }
+  .label-blue {
+    background: #3B82F6;
+  }
+  .label-pink {
+    background: #EC4899;
+  }
+  .label-cyan {
+    background: #06B6D4;
+  }
+
+  /* Zones */
+  .zone-outline {
+    border: 1.5px dashed #8B5CF680;
+    border-radius: 6px;
+    position: relative;
+  }
+  .zone-outline-alt {
+    border-color: #F9731680;
+  }
+  .zone-outline-green {
+    border-color: #22C55E80;
+  }
+
+  /* Left Panel */
+  .left-panel {
+    width: 200px;
+    flex-shrink: 0;
+    border-right: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* Tab strip */
+  .tab-strip {
+    display: flex;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    position: relative;
+  }
+  .tab {
+    flex: 1;
+    padding: 8px 4px;
+    font-size: 9px;
+    font-weight: 500;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #8A87A0;
+    cursor: default;
+  }
+  .tab.active {
+    font-weight: 700;
+    color: #E2E0ED;
+    background: rgba(255,255,255,0.08);
+    border-radius: 4px;
+  }
+
+  /* Division Navigator */
+  .div-nav {
+    flex: 1;
+    padding: 6px;
+    position: relative;
+  }
+  .div-item {
+    padding: 6px 10px;
+    font-size: 10px;
+    color: #B0ADBE;
+    border-radius: 4px;
+    margin-bottom: 2px;
+    cursor: default;
+  }
+  .div-item.active {
+    background: rgba(139,92,246,0.12);
+    color: #E2E0ED;
+    font-weight: 600;
+  }
+
+  /* Center content */
+  .center-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* KPI Strip */
+  .kpi-strip {
+    display: flex;
+    gap: 12px;
+    padding: 10px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    position: relative;
+  }
+  .kpi-card {
+    flex: 1;
+    padding: 10px 14px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+    text-align: center;
+  }
+  .kpi-label { font-size: 8px; color: #8A87A0; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
+  .kpi-value { font-size: 16px; font-weight: 700; color: #E2E0ED; }
+
+  /* Toolbar */
+  .toolbar {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    padding: 8px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    flex-wrap: wrap;
+    position: relative;
+    min-height: 44px;
+  }
+  .tb-btn {
+    padding: 5px 12px;
+    font-size: 10px;
+    font-weight: 600;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    color: #B0ADBE;
+    border-radius: 6px;
+    cursor: default;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .tb-btn.primary {
+    color: #E2E0ED;
+    border-color: rgba(255,255,255,0.10);
+  }
+  .tb-btn.accent {
+    color: #8B5CF6;
+    border-color: rgba(139,92,246,0.30);
+    background: rgba(139,92,246,0.06);
+  }
+  .tb-search {
+    flex: 1;
+    max-width: 180px;
+    padding: 5px 10px 5px 28px;
+    font-size: 11px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 6px;
+    color: #8A87A0;
+    position: relative;
+  }
+  .tb-sep { width: 1px; height: 20px; background: rgba(255,255,255,0.08); flex-shrink: 0; }
+  .groupby-strip {
+    display: flex;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .groupby-btn {
+    padding: 5px 10px;
+    font-size: 9px;
+    font-weight: 600;
+    color: #8A87A0;
+    cursor: default;
+  }
+  .groupby-btn.active { background: rgba(255,255,255,0.10); color: #E2E0ED; }
+
+  /* Grid area */
+  .grid-area {
+    flex: 1;
+    overflow: hidden;
+    background: #15131F;
+    position: relative;
+    padding: 12px 16px;
+  }
+
+  /* Group */
+  .group-block {
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 6px;
+    margin-bottom: 10px;
+    overflow: hidden;
+    position: relative;
+  }
+  .group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 7px 12px;
+    background: linear-gradient(180deg, #15131F, rgba(30,28,42,0.25));
+    cursor: default;
+    position: relative;
+  }
+  .group-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .group-chevron { color: #8A87A0; font-size: 10px; }
+  .group-name { font-size: 11px; font-weight: 700; color: #E2E0ED; }
+  .group-count { font-size: 10px; color: #8A87A0; background: #0A0918; padding: 1px 6px; border-radius: 8px; }
+  .group-total { font-size: 12px; color: #8A87A0; font-variant-numeric: tabular-nums; }
+
+  /* Column headers */
+  .col-headers {
+    display: flex;
+    padding: 6px 8px 6px 12px;
+    font-size: 9px;
+    font-weight: 500;
+    color: #6B6880;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    background: #1E1C2A;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    gap: 4px;
+    position: relative;
+  }
+
+  /* Item rows */
+  .item-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 7px 8px 7px 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 11px;
+    position: relative;
+  }
+  .item-row.odd { background: rgba(255,255,255,0.05); }
+  .item-row.selected {
+    background: rgba(255,255,255,0.05);
+    border-left: 3px solid #8B5CF6;
+    box-shadow: inset 2px 0 0 #8B5CF6;
+  }
+  .item-row.hover {
+    box-shadow: inset 2px 0 0 #8B5CF6, inset 0 0 12px rgba(255,255,255,0.03);
+    background: rgba(255,255,255,0.02);
+  }
+  .row-drag { width: 32px; color: #6B6880; font-size: 10px; }
+  .row-code { width: 82px; font-weight: 600; color: #E2E0ED; font-size: 10px; }
+  .row-code-sub { font-size: 8px; color: #6B6880; font-weight: 400; }
+  .row-desc { flex: 1; min-width: 160px; color: #B0ADBE; font-size: 11px; }
+  .row-qty { width: 60px; text-align: right; color: #B0ADBE; font-size: 11px; }
+  .row-unit { width: 42px; color: #8A87A0; font-size: 10px; }
+  .row-cost { width: 72px; text-align: right; color: #B0ADBE; font-size: 11px; }
+  .row-total { width: 90px; text-align: right; font-weight: 700; color: #E2E0ED; font-size: 12px; }
+
+  /* Right panel (detail) */
+  .right-panel {
+    width: 260px;
+    flex-shrink: 0;
+    border-left: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    background: #0F0D1A;
+  }
+  .detail-header {
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    font-size: 12px;
+    font-weight: 700;
+    color: #E2E0ED;
+    position: relative;
+  }
+  .detail-body {
+    padding: 12px 14px;
+    flex: 1;
+    font-size: 10px;
+    color: #8A87A0;
+    position: relative;
+  }
+  .detail-field {
+    margin-bottom: 10px;
+  }
+  .detail-field-label { font-size: 8px; text-transform: uppercase; color: #6B6880; letter-spacing: 0.5px; margin-bottom: 3px; }
+  .detail-field-value { font-size: 11px; color: #B0ADBE; padding: 5px 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); border-radius: 4px; }
+
+  /* Resize handles */
+  .resize-handle {
+    width: 4px;
+    background: transparent;
+    cursor: col-resize;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .resize-handle::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 2px;
+    height: 24px;
+    background: rgba(139,92,246,0.20);
+    border-radius: 1px;
+  }
+
+  /* Legend */
+  .legend {
+    margin-top: 28px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 16px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #B0ADBE;
+  }
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 10px;
+    flex-shrink: 0;
+  }
+
+  /* Callout numbers */
+  .callout {
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #8B5CF6;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    box-shadow: 0 0 0 2px #0A0918, 0 0 8px rgba(139,92,246,0.40);
+  }
+  .callout-alt { background: #F97316; box-shadow: 0 0 0 2px #0A0918, 0 0 8px rgba(249,115,22,0.40); }
+  .callout-green { background: #22C55E; box-shadow: 0 0 0 2px #0A0918, 0 0 8px rgba(34,197,94,0.40); }
+  .callout-blue { background: #3B82F6; box-shadow: 0 0 0 2px #0A0918, 0 0 8px rgba(59,130,246,0.40); }
+  .callout-pink { background: #EC4899; box-shadow: 0 0 0 2px #0A0918, 0 0 8px rgba(236,72,153,0.40); }
+  .callout-cyan { background: #06B6D4; box-shadow: 0 0 0 2px #0A0918, 0 0 8px rgba(6,182,212,0.40); }
+
+  /* Key table */
+  .key-table {
+    margin-top: 20px;
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .key-table th {
+    text-align: left;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #6B6880;
+    padding: 6px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .key-table td {
+    padding: 6px 12px;
+    font-size: 11px;
+    color: #B0ADBE;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    vertical-align: top;
+  }
+  .key-table td:first-child { width: 30px; }
+  .key-table td:nth-child(2) { font-weight: 600; color: #E2E0ED; width: 200px; }
+  .key-num {
+    display: inline-flex;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 800;
+    color: #fff;
+  }
+</style>
+</head>
+<body>
+
+<h1>Estimate Page — Element Reference Map</h1>
+<p class="subtitle">Shift7 Theme &middot; NOVATerra &middot; All numbered elements below are individually themeable</p>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--                    WIREFRAME DIAGRAM                       -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div style="position: relative;">
+  <div class="page-layout" style="height: 640px;">
+
+    <!-- ═══ LEFT PANEL ═══ -->
+    <div class="left-panel">
+      <!-- Callout 1 -->
+      <div class="callout" style="top: -10px; left: 80px;">1</div>
+
+      <!-- Tab strip -->
+      <div class="tab-strip">
+        <!-- Callout 2 -->
+        <div class="callout callout-alt" style="top: -10px; left: 38px; width: 18px; height: 18px; font-size: 9px;">2</div>
+        <div class="tab active">Estimate</div>
+        <div class="tab">Scenarios</div>
+        <div class="tab">Notes</div>
+        <div class="tab">RFIs</div>
+      </div>
+
+      <!-- Division Navigator -->
+      <div class="div-nav">
+        <!-- Callout 3 -->
+        <div class="callout callout-green" style="top: 4px; right: 4px; width: 18px; height: 18px; font-size: 9px;">3</div>
+        <div class="div-item active">All Divisions</div>
+        <div class="div-item">01 - General</div>
+        <div class="div-item">03 - Concrete</div>
+        <div class="div-item">04 - Masonry</div>
+        <div class="div-item">05 - Metals</div>
+        <div class="div-item">06 - Wood</div>
+        <div class="div-item">07 - Thermal</div>
+        <div class="div-item">08 - Openings</div>
+        <div class="div-item">09 - Finishes</div>
+        <div class="div-item">22 - Plumbing</div>
+        <div class="div-item">23 - HVAC</div>
+        <div class="div-item">26 - Electrical</div>
+      </div>
+    </div>
+
+    <!-- Resize handle -->
+    <div class="resize-handle">
+      <!-- Callout 4 -->
+      <div class="callout callout-blue" style="top: 50%; left: -8px; width: 18px; height: 18px; font-size: 9px;">4</div>
+    </div>
+
+    <!-- ═══ CENTER CONTENT ═══ -->
+    <div class="center-content">
+
+      <!-- KPI Strip -->
+      <div class="kpi-strip">
+        <!-- Callout 5 -->
+        <div class="callout" style="top: -10px; left: 50%; transform: translateX(-50%);">5</div>
+        <div class="kpi-card">
+          <div class="kpi-label">Total</div>
+          <div class="kpi-value">$1,247,850</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Cost/SF</div>
+          <div class="kpi-value">$89.13</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Items</div>
+          <div class="kpi-value">127</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Markup</div>
+          <div class="kpi-value">15%</div>
+        </div>
+      </div>
+
+      <!-- Toolbar -->
+      <div class="toolbar">
+        <!-- Callout 6 -->
+        <div class="callout callout-alt" style="top: -10px; left: 50%; transform: translateX(-50%);">6</div>
+
+        <!-- Add button -->
+        <div style="position: relative;">
+          <!-- Callout 7 -->
+          <div class="callout callout-green" style="top: -8px; left: -8px; width: 18px; height: 18px; font-size: 9px;">7</div>
+          <div class="tb-btn primary">+ Add ▾</div>
+        </div>
+
+        <!-- Search -->
+        <div style="position: relative; flex: 1; max-width: 180px;">
+          <!-- Callout 8 -->
+          <div class="callout callout-blue" style="top: -8px; right: -4px; width: 18px; height: 18px; font-size: 9px;">8</div>
+          <div class="tb-search">🔍 Search items...</div>
+        </div>
+
+        <div class="tb-sep"></div>
+
+        <!-- GroupBy toggle -->
+        <div style="position: relative;">
+          <!-- Callout 9 -->
+          <div class="callout callout-pink" style="top: -8px; left: 20px; width: 18px; height: 18px; font-size: 9px;">9</div>
+          <div class="groupby-strip">
+            <div class="groupby-btn active">Sub</div>
+            <div class="groupby-btn">Div</div>
+            <div class="groupby-btn">Trade</div>
+          </div>
+        </div>
+
+        <!-- Expand/Collapse -->
+        <div style="position: relative;">
+          <!-- Callout 10 -->
+          <div class="callout callout-cyan" style="top: -8px; left: -4px; width: 18px; height: 18px; font-size: 9px;">10</div>
+          <div class="tb-btn" style="padding: 5px 6px;">⌃</div>
+        </div>
+
+        <div style="flex: 1;"></div>
+
+        <div class="tb-sep"></div>
+
+        <!-- Right toolbar buttons -->
+        <div style="position: relative; display: flex; gap: 4px;">
+          <!-- Callout 11 -->
+          <div class="callout" style="top: -8px; left: 50%; transform: translateX(-50%); width: 18px; height: 18px; font-size: 8px;">11</div>
+          <div class="tb-btn">Export</div>
+          <div class="tb-btn">History</div>
+          <div class="tb-btn accent">NOVA</div>
+          <div class="tb-btn accent">Review</div>
+          <div class="tb-btn" style="color: #6B6880;">🗑</div>
+        </div>
+      </div>
+
+      <!-- Grid Area -->
+      <div class="grid-area">
+        <!-- Callout 12 -->
+        <div class="callout callout-alt" style="top: 4px; right: 12px;">12</div>
+
+        <!-- Group 1 -->
+        <div class="group-block">
+          <!-- Group Header -->
+          <div class="group-header">
+            <!-- Callout 13 -->
+            <div class="callout callout-green" style="top: -8px; left: 40px; width: 18px; height: 18px; font-size: 8px;">13</div>
+            <div class="group-header-left">
+              <span class="group-chevron">▸</span>
+              <span class="group-name">03.30 — Cast-in-Place Concrete</span>
+              <span class="group-count">8 items</span>
+            </div>
+            <span class="group-total">$247,200</span>
+          </div>
+
+          <!-- Column Headers -->
+          <div class="col-headers">
+            <!-- Callout 14 -->
+            <div class="callout callout-blue" style="top: -8px; right: 60px; width: 18px; height: 18px; font-size: 8px;">14</div>
+            <div style="width: 32px;">#</div>
+            <div style="width: 82px;">Code</div>
+            <div style="flex: 1; min-width: 160px;">Description</div>
+            <div style="width: 60px; text-align: right;">Qty</div>
+            <div style="width: 42px;">Unit</div>
+            <div style="width: 72px; text-align: right;">Matl</div>
+            <div style="width: 72px; text-align: right;">Labor</div>
+            <div style="width: 72px; text-align: right;">Equip</div>
+            <div style="width: 72px; text-align: right;">Sub</div>
+            <div style="width: 90px; text-align: right;">Total</div>
+          </div>
+
+          <!-- Row 1 — normal -->
+          <div class="item-row">
+            <!-- Callout 15 -->
+            <div class="callout callout-pink" style="top: -6px; left: 30px; width: 18px; height: 18px; font-size: 8px;">15</div>
+            <div class="row-drag">⠿ 1</div>
+            <div class="row-code">03.30.010<br><span class="row-code-sub">Footings</span></div>
+            <div class="row-desc">Spread footings, 3000 PSI</div>
+            <div class="row-qty">240</div>
+            <div class="row-unit">CY</div>
+            <div class="row-cost">$185.00</div>
+            <div class="row-cost">$125.00</div>
+            <div class="row-cost">$45.00</div>
+            <div class="row-cost">—</div>
+            <div class="row-total">$85,200</div>
+          </div>
+
+          <!-- Row 2 — odd (alternating) -->
+          <div class="item-row odd">
+            <!-- Callout 16 -->
+            <div class="callout callout-cyan" style="top: -6px; right: 12px; width: 18px; height: 18px; font-size: 8px;">16</div>
+            <div class="row-drag">⠿ 2</div>
+            <div class="row-code">03.30.020<br><span class="row-code-sub">Walls</span></div>
+            <div class="row-desc">Foundation walls, 4000 PSI</div>
+            <div class="row-qty">180</div>
+            <div class="row-unit">CY</div>
+            <div class="row-cost">$195.00</div>
+            <div class="row-cost">$140.00</div>
+            <div class="row-cost">$50.00</div>
+            <div class="row-cost">—</div>
+            <div class="row-total">$69,300</div>
+          </div>
+
+          <!-- Row 3 — hover state demo -->
+          <div class="item-row hover">
+            <!-- Callout 17 -->
+            <div class="callout" style="top: -6px; left: 120px; width: 18px; height: 18px; font-size: 8px;">17</div>
+            <div class="row-drag">⠿ 3</div>
+            <div class="row-code">03.30.030<br><span class="row-code-sub">Slabs</span></div>
+            <div class="row-desc">SOG, 5" thick, w/ WWF</div>
+            <div class="row-qty">14000</div>
+            <div class="row-unit">SF</div>
+            <div class="row-cost">$4.20</div>
+            <div class="row-cost">$2.80</div>
+            <div class="row-cost">$0.50</div>
+            <div class="row-cost">—</div>
+            <div class="row-total">$105,000</div>
+          </div>
+
+          <!-- Row 4 — selected state demo -->
+          <div class="item-row selected">
+            <!-- Callout 18 -->
+            <div class="callout callout-alt" style="top: -6px; left: 2px; width: 18px; height: 18px; font-size: 8px;">18</div>
+            <div class="row-drag">⠿ 4</div>
+            <div class="row-code">03.30.040<br><span class="row-code-sub">Beams</span></div>
+            <div class="row-desc">Grade beams, 4000 PSI, #5 rebar</div>
+            <div class="row-qty">85</div>
+            <div class="row-unit">CY</div>
+            <div class="row-cost">$210.00</div>
+            <div class="row-cost">$155.00</div>
+            <div class="row-cost">$55.00</div>
+            <div class="row-cost">—</div>
+            <div class="row-total">$35,700</div>
+          </div>
+
+          <!-- Row 5 — normal -->
+          <div class="item-row">
+            <div class="row-drag">⠿ 5</div>
+            <div class="row-code">03.30.050<br><span class="row-code-sub">Columns</span></div>
+            <div class="row-desc">Concrete columns, 24"x24"</div>
+            <div class="row-qty">42</div>
+            <div class="row-unit">EA</div>
+            <div class="row-cost">$380.00</div>
+            <div class="row-cost">$220.00</div>
+            <div class="row-cost">$60.00</div>
+            <div class="row-cost">—</div>
+            <div class="row-total">$27,720</div>
+          </div>
+        </div>
+
+        <!-- Group 2 (collapsed) -->
+        <div class="group-block">
+          <div class="group-header">
+            <!-- Callout 19 -->
+            <div class="callout callout-pink" style="top: -8px; right: 12px; width: 18px; height: 18px; font-size: 8px;">19</div>
+            <div class="group-header-left">
+              <span class="group-chevron">▸</span>
+              <span class="group-name">05.10 — Structural Steel</span>
+              <span class="group-count">12 items</span>
+            </div>
+            <span class="group-total">$389,400</span>
+          </div>
+        </div>
+
+        <!-- Group 3 (collapsed) -->
+        <div class="group-block">
+          <div class="group-header">
+            <div class="group-header-left">
+              <span class="group-chevron">▸</span>
+              <span class="group-name">09.90 — Painting</span>
+              <span class="group-count">6 items</span>
+            </div>
+            <span class="group-total">$42,800</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Resize handle -->
+    <div class="resize-handle">
+      <!-- Callout 20 -->
+      <div class="callout callout-blue" style="top: 50%; left: -8px; width: 18px; height: 18px; font-size: 9px;">20</div>
+    </div>
+
+    <!-- ═══ RIGHT PANEL (Item Detail) ═══ -->
+    <div class="right-panel">
+      <!-- Callout 21 -->
+      <div class="callout callout-cyan" style="top: -10px; right: 100px;">21</div>
+      <div class="detail-header">
+        Item Detail
+        <div style="font-size: 9px; font-weight: 500; color: #8A87A0; margin-top: 2px;">03.30.040 — Grade Beams</div>
+      </div>
+      <div class="detail-body">
+        <!-- Callout 22 -->
+        <div class="callout" style="top: 4px; right: 8px; width: 18px; height: 18px; font-size: 8px;">22</div>
+        <div class="detail-field">
+          <div class="detail-field-label">Description</div>
+          <div class="detail-field-value">Grade beams, 4000 PSI, #5 rebar</div>
+        </div>
+        <div class="detail-field">
+          <div class="detail-field-label">Quantity</div>
+          <div class="detail-field-value">85 CY</div>
+        </div>
+        <div class="detail-field">
+          <div class="detail-field-label">Material</div>
+          <div class="detail-field-value">$210.00 / CY</div>
+        </div>
+        <div class="detail-field">
+          <div class="detail-field-label">Labor</div>
+          <div class="detail-field-value">$155.00 / CY</div>
+        </div>
+        <div class="detail-field">
+          <div class="detail-field-label">Equipment</div>
+          <div class="detail-field-value">$55.00 / CY</div>
+        </div>
+        <div class="detail-field">
+          <div class="detail-field-label">Subcontractor</div>
+          <div class="detail-field-value">—</div>
+        </div>
+        <div class="detail-field">
+          <div class="detail-field-label">Line Total</div>
+          <div class="detail-field-value" style="font-weight: 700; color: #E2E0ED; font-size: 13px;">$35,700.00</div>
+        </div>
+        <div class="detail-field">
+          <div class="detail-field-label">Notes</div>
+          <div class="detail-field-value" style="min-height: 40px;">Per structural plan S-2.1</div>
+        </div>
+        <div class="detail-field">
+          <div class="detail-field-label">Takeoff Link</div>
+          <div class="detail-field-value" style="color: #8B5CF6;">S-2.1 — Structural</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!--                      ELEMENT LEGEND                        -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div style="margin-top: 28px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; overflow: hidden; background: rgba(255,255,255,0.02);">
+
+  <!-- Column A: Layout & Navigation (1–8) -->
+  <div style="padding: 20px 24px; border-right: 1px solid rgba(255,255,255,0.06);">
+    <div style="font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: #6B6880; margin-bottom: 14px;">Layout & Navigation</div>
+
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+      <span class="key-num" style="background: #8B5CF6; flex-shrink: 0;">1</span>
+      <span style="font-size: 12px; font-weight: 600; color: #E2E0ED;">Left Panel</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+      <span class="key-num" style="background: #F97316; flex-shrink: 0;">2</span>
+      <span style="font-size: 12px; font-weight: 600; color: #E2E0ED;">Tab Strip</span>
+      <span style="font-size: 9px; color: #6B6880;">(Estimate / Scenarios / Notes / RFIs)</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+      <span class="key-num" style="background: #22C55E; flex-shrink: 0;">3</span>
+      <span style="font-size: 12px; font-weight: 600; color: #E2E0ED;">Division Navigator</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+      <span class="key-num" style="background: #3B82F6; flex-shrink: 0;">4</span>
+      <span style="font-size: 12px; font-weight: 600; color: #E2E0ED;">Left Resize Handle</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+      <span class="key-num" style="background: #8B5CF6; flex-shrink: 0;">5</span>
+      <span style="font-size: 12px; font-weight: 600; color: #E2E0ED;">KPI Strip</span>
+      <span style="font-size: 9px; color: #6B6880;">(Total / Cost·SF / Items / Markup)</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+      <span class="key-num" style="background: #3B82F6; flex-shrink: 0;">20</span>
+      <span style="font-size: 12px; font-weight: 600; color: #E2E0ED;">Right Resize Handle</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+      <span class="key-num" style="background: #06B6D4; flex-shrink: 0;">21</span>
+      <span style="font-size: 12px; font-weight: 600; color: #E2E0ED;">Item Detail Panel</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 0;">
+      <span class="key-num" style="background: #8B5CF6; flex-shrink: 0;">22</span>
+      <span style="font-size: 12px; font-weight: 600; color: #E2E0ED;">Detail Panel Fields</span>
+    </div>
+  </div>
+
+  <!-- Column B: Toolbar (6–11) -->
+  <div style="padding: 20px 24px; border-right: 1px solid rgba(255,255,255,0.06);">
+    <div style="font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: #6B6880; margin-bottom: 14px;">Toolbar</div>
+
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+      <span class="key-num" style="background: #F97316; flex-shrink: 0;">6</span>
+      <span style="font-size: 12px; font-weight: 600; color: #E2E0ED;">Toolbar Bar</span>
+      <span style="font-size: 9px; color: #6B6880;">(full width container)</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+      <span class="key-num" style="background: #22C55E; flex-shrink: 0;">7</span>
+      <span style="font-size: 12px; font-weight: 600; color: #E2E0ED;">Add Button</span>
+      <span style="font-size: 9px; color: #6B6880;">(+ dropdown menu)</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+      <span class="key-num" style="background: #3B82F6; flex-shrink: 0;">8</span>
+      <span style="font-size: 12px; font-weight: 600; color: #E2E0ED;">Search Input</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+      <span class="key-num" style="background: #EC4899; flex-shrink: 0;">9</span>
+      <span style="font-size: 12px; font-weight: 600; color: #E2E0ED;">GroupBy Toggle</span>
+      <span style="font-size: 9px; color: #6B6880;">(Sub / Div / Trade)</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+      <span class="key-num" style="background: #06B6D4; flex-shrink: 0;">10</span>
+      <span style="font-size: 12px; font-weight: 600; color: #E2E0ED;">Expand / Collapse All</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 0;">
+      <span class="key-num" style="background: #8B5CF6; flex-shrink: 0;">11</span>
+      <span style="font-size: 12px; font-weight: 600; color: #E2E0ED;">Right Toolbar Buttons</span>
+      <span style="font-size: 9px; color: #6B6880;">(Export / History / NOVA / Review / Clear)</span>
+    </div>
+  </div>
+
+  <!-- Column C: Grid & Rows (12–19) -->
+  <div style="padding: 20px 24px;">
+    <div style="font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: #6B6880; margin-bottom: 14px;">Grid & Rows</div>
+
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+      <span class="key-num" style="background: #F97316; flex-shrink: 0;">12</span>
+      <span style="font-size: 12px; font-weight: 600; color: #E2E0ED;">Grid Background</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+      <span class="key-num" style="background: #22C55E; flex-shrink: 0;">13</span>
+      <span style="font-size: 12px; font-weight: 600; color: #E2E0ED;">Group Header</span>
+      <span style="font-size: 9px; color: #6B6880;">(expanded)</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+      <span class="key-num" style="background: #3B82F6; flex-shrink: 0;">14</span>
+      <span style="font-size: 12px; font-weight: 600; color: #E2E0ED;">Column Headers</span>
+      <span style="font-size: 9px; color: #6B6880;">(# / Code / Desc / Qty / Unit / M·L·E·S / Total)</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+      <span class="key-num" style="background: #EC4899; flex-shrink: 0;">15</span>
+      <span style="font-size: 12px; font-weight: 600; color: #E2E0ED;">Item Row</span>
+      <span style="font-size: 9px; color: #6B6880;">(even / normal)</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+      <span class="key-num" style="background: #06B6D4; flex-shrink: 0;">16</span>
+      <span style="font-size: 12px; font-weight: 600; color: #E2E0ED;">Item Row</span>
+      <span style="font-size: 9px; color: #6B6880;">(odd / alternating stripe)</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+      <span class="key-num" style="background: #8B5CF6; flex-shrink: 0;">17</span>
+      <span style="font-size: 12px; font-weight: 600; color: #E2E0ED;">Item Row</span>
+      <span style="font-size: 9px; color: #6B6880;">(hover state)</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+      <span class="key-num" style="background: #F97316; flex-shrink: 0;">18</span>
+      <span style="font-size: 12px; font-weight: 600; color: #E2E0ED;">Item Row</span>
+      <span style="font-size: 9px; color: #6B6880;">(selected state)</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 0;">
+      <span class="key-num" style="background: #EC4899; flex-shrink: 0;">19</span>
+      <span style="font-size: 12px; font-weight: 600; color: #E2E0ED;">Group Header</span>
+      <span style="font-size: 9px; color: #6B6880;">(collapsed)</span>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 20px; font-size: 10px; color: #6B6880; text-align: center;">
+  NOVATerra Estimate Page Element Map — Shift7 Theme<br>
+  Reference each number to tell me what you want changed.
+</div>
+
+</body>
+</html>

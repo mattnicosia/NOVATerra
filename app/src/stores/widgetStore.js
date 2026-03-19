@@ -17,9 +17,8 @@ const DEFAULT_LAYOUT = [
   { i: "w-carbon-bd", x: 3, y: 9, w: 6, h: 4, widgetType: "carbon-breakdown", config: {} },
   { i: "w-feed", x: 3, y: 13, w: 6, h: 6, widgetType: "live-feed", config: {} },
   // Right column (cols 9-11)
-  { i: "w-nova-orb", x: 9, y: 0, w: 3, h: 5, widgetType: "nova-orb", config: {} },
-  { i: "w-calendar", x: 9, y: 5, w: 3, h: 7, widgetType: "calendar", config: {} },
-  { i: "w-intel", x: 9, y: 12, w: 3, h: 7, widgetType: "market-intel", config: {} },
+  { i: "w-calendar", x: 9, y: 0, w: 3, h: 7, widgetType: "calendar", config: {} },
+  { i: "w-intel", x: 9, y: 7, w: 3, h: 7, widgetType: "market-intel", config: {} },
 ];
 
 export const useWidgetStore = create((set, _get) => ({
