@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Estimate as Architecture — NOVATerra Concept</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #08090E;
+    color: #FAFAFA;
+    font-family: 'Inter', -apple-system, sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  .header {
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    border-bottom: 1px solid #25253A;
+    background: #08090E;
+  }
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .header-title {
+    font-size: 13px;
+    font-weight: 400;
+    color: #A1A1AA;
+    letter-spacing: 0.02em;
+  }
+  .header-title strong {
+    color: #FAFAFA;
+    font-weight: 600;
+  }
+  .mode-toggle {
+    display: flex;
+    gap: 2px;
+    background: #11111B;
+    border-radius: 6px;
+    padding: 2px;
+    border: 1px solid #25253A;
+  }
+  .mode-btn {
+    padding: 5px 12px;
+    font-size: 11px;
+    font-weight: 500;
+    color: #52525B;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 150ms;
+  }
+  .mode-btn.active {
+    background: rgba(124,107,240,0.12);
+    color: #FAFAFA;
+  }
+  .mode-btn:hover:not(.active) {
+    color: #A1A1AA;
+  }
+
+  .canvas-container {
+    width: 100%;
+    height: calc(100vh - 48px);
+    position: relative;
+  }
+  canvas {
+    display: block;
+  }
+
+  /* Title block */
+  .title-block {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    border: 1px solid #25253A;
+    padding: 10px 14px;
+    font-size: 10px;
+    line-height: 1.6;
+    color: #52525B;
+    background: #08090E;
+  }
+  .title-block .project-name {
+    font-size: 11px;
+    font-weight: 600;
+    color: #A1A1AA;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .title-block .company {
+    color: #52525B;
+  }
+  .title-block .total {
+    color: #7C6BF0;
+    font-weight: 600;
+    font-size: 12px;
+  }
+
+  /* Tooltip */
+  .tooltip {
+    position: absolute;
+    background: #11111B;
+    border: 1px solid #25253A;
+    border-radius: 8px;
+    padding: 12px 16px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 100ms;
+    z-index: 100;
+    min-width: 180px;
+  }
+  .tooltip.visible { opacity: 1; }
+  .tooltip .tt-div {
+    font-size: 11px;
+    font-weight: 600;
+    color: #FAFAFA;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .tooltip .tt-cost {
+    font-size: 16px;
+    font-weight: 600;
+    color: #7C6BF0;
+    margin-bottom: 2px;
+  }
+  .tooltip .tt-pct {
+    font-size: 11px;
+    color: #A1A1AA;
+  }
+  .tooltip .tt-items {
+    font-size: 11px;
+    color: #52525B;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid #25253A;
+  }
+
+  /* Zoom level indicator */
+  .breadcrumb {
+    position: absolute;
+    top: 16px;
+    left: 24px;
+    font-size: 12px;
+    color: #52525B;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    z-index: 10;
+  }
+  .breadcrumb span {
+    cursor: pointer;
+    transition: color 150ms;
+  }
+  .breadcrumb span:hover {
+    color: #A1A1AA;
+  }
+  .breadcrumb .active {
+    color: #FAFAFA;
+    cursor: default;
+  }
+  .breadcrumb .sep {
+    color: #25253A;
+    cursor: default;
+  }
+
+  /* Instructions */
+  .instructions {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    font-size: 11px;
+    color: #52525B;
+    line-height: 1.6;
+  }
+  .instructions kbd {
+    background: #11111B;
+    border: 1px solid #25253A;
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 10px;
+    font-family: inherit;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <span class="header-title"><strong>36 Old School House Road</strong> — Triad Builders</span>
+  </div>
+  <div class="mode-toggle">
+    <button class="mode-btn active" data-mode="blueprint">Blueprint</button>
+    <button class="mode-btn" data-mode="heat">Heat</button>
+    <button class="mode-btn" data-mode="variance">Variance</button>
+  </div>
+</div>
+
+<div class="canvas-container">
+  <canvas id="treemap"></canvas>
+  <div class="breadcrumb" id="breadcrumb">
+    <span class="active">Estimate Overview</span>
+  </div>
+  <div class="tooltip" id="tooltip">
+    <div class="tt-div"></div>
+    <div class="tt-cost"></div>
+    <div class="tt-pct"></div>
+    <div class="tt-items"></div>
+  </div>
+  <div class="title-block">
+    <div class="project-name">36 Old School House Road</div>
+    <div class="company">Triad Builders</div>
+    <div class="total">$760,000 · 142 items</div>
+    <div>Draft · Due 03/25/2026</div>
+    <div>BLDG Estimating</div>
+  </div>
+  <div class="instructions">
+    <kbd>Hover</kbd> rooms to inspect · <kbd>Click</kbd> to zoom in · <kbd>Esc</kbd> or click background to zoom out
+  </div>
+</div>
+
+<script>
+// ── ESTIMATE DATA ──────────────────────────────────────────
+const divisions = [
+  { id: "03", name: "Concrete", cost: 187500, items: 34, benchmark: 165000,
+    subs: [
+      { name: "Footings", cost: 45000 },
+      { name: "Slab on Grade", cost: 62000 },
+      { name: "Elevated Slabs", cost: 52000 },
+      { name: "Concrete Walls", cost: 18500 },
+      { name: "Misc Concrete", cost: 10000 },
+    ]},
+  { id: "09", name: "Finishes", cost: 142800, items: 48, benchmark: 138000,
+    subs: [
+      { name: "Drywall & Framing", cost: 52000 },
+      { name: "Painting", cost: 28000 },
+      { name: "Flooring", cost: 34800 },
+      { name: "Ceiling Systems", cost: 18000 },
+      { name: "Wall Protection", cost: 10000 },
+    ]},
+  { id: "05", name: "Metals", cost: 94200, items: 18, benchmark: 90000,
+    subs: [
+      { name: "Structural Steel", cost: 62000 },
+      { name: "Misc Metals", cost: 22200 },
+      { name: "Ornamental", cost: 10000 },
+    ]},
+  { id: "26", name: "Electrical", cost: 82000, items: 22, benchmark: 95000,
+    subs: [
+      { name: "Power Distribution", cost: 32000 },
+      { name: "Lighting", cost: 28000 },
+      { name: "Fire Alarm", cost: 12000 },
+      { name: "Low Voltage", cost: 10000 },
+    ]},
+  { id: "22", name: "Plumbing", cost: 67300, items: 15, benchmark: 72000,
+    subs: [
+      { name: "Waste & Vent", cost: 24000 },
+      { name: "Water Supply", cost: 18300 },
+      { name: "Fixtures", cost: 15000 },
+      { name: "Gas Piping", cost: 10000 },
+    ]},
+  { id: "23", name: "HVAC", cost: 58000, items: 12, benchmark: 62000,
+    subs: [
+      { name: "Ductwork", cost: 22000 },
+      { name: "Equipment", cost: 24000 },
+      { name: "Controls", cost: 12000 },
+    ]},
+  { id: "08", name: "Doors & Windows", cost: 31400, items: 8, benchmark: 28000,
+    subs: [
+      { name: "Hollow Metal", cost: 12000 },
+      { name: "Wood Doors", cost: 8400 },
+      { name: "Storefront", cost: 11000 },
+    ]},
+  { id: "07", name: "Thermal & Moisture", cost: 28900, items: 6, benchmark: 30000,
+    subs: [
+      { name: "Insulation", cost: 12000 },
+      { name: "Roofing", cost: 11900 },
+      { name: "Waterproofing", cost: 5000 },
+    ]},
+  { id: "02", name: "Sitework", cost: 24000, items: 5, benchmark: 22000,
+    subs: [
+      { name: "Earthwork", cost: 14000 },
+      { name: "Paving", cost: 10000 },
+    ]},
+  { id: "04", name: "Masonry", cost: 22400, items: 4, benchmark: 20000,
+    subs: [
+      { name: "CMU", cost: 15400 },
+      { name: "Brick Veneer", cost: 7000 },
+    ]},
+  { id: "06", name: "Wood & Plastic", cost: 12500, items: 3, benchmark: 14000,
+    subs: [
+      { name: "Rough Carpentry", cost: 8500 },
+      { name: "Finish Carpentry", cost: 4000 },
+    ]},
+  { id: "10", name: "Specialties", cost: 9000, items: 2, benchmark: 8000,
+    subs: [
+      { name: "Toilet Accessories", cost: 5000 },
+      { name: "Signage", cost: 4000 },
+    ]},
+];
+
+const totalCost = divisions.reduce((s, d) => s + d.cost, 0);
+divisions.forEach(d => d.pct = ((d.cost / totalCost) * 100).toFixed(1));
+
+// CSI division symbols (simple unicode/text representations)
+const divSymbols = {
+  "02": "⬡", "03": "▤", "04": "▦", "05": "⌶", "06": "⌸",
+  "07": "◈", "08": "▯", "09": "◇", "10": "◎",
+  "22": "◉", "23": "◬", "26": "⚡",
+};
+
+// Division colors for heat mode
+const divColors = {
+  "02": [139,105,20],  "03": [156,163,175], "04": [194,69,45],
+  "05": [75,139,190],  "06": [184,134,11],  "07": [13,148,136],
+  "08": [217,119,6],   "09": [139,92,246],  "10": [107,114,128],
+  "22": [37,99,235],   "23": [22,163,74],   "26": [234,179,8],
+};
+
+// ── TREEMAP LAYOUT ─────────────────────────────────────────
+function squarify(items, bounds, gap = 8) {
+  const rects = [];
+  const sorted = [...items].sort((a, b) => b.value - a.value);
+  const totalVal = sorted.reduce((s, i) => s + i.value, 0);
+
+  let { x, y, w, h } = bounds;
+  let remaining = [...sorted];
+
+  while (remaining.length > 0) {
+    const isWide = w >= h;
+    const side = isWide ? h : w;
+
+    // Find optimal row
+    let row = [remaining[0]];
+    let rowVal = remaining[0].value;
+    let remVal = totalVal - rowVal; // not used but keeping logic simple
+
+    const worst = (row, side) => {
+      const rowSum = row.reduce((s, r) => s + r.value, 0);
+      const totalArea = w * h;
+      const rowArea = (rowSum / totalVal) * totalArea;
+      const rowSide = rowArea / side;
+      let mx = 0;
+      for (const r of row) {
+        const itemArea = (r.value / totalVal) * totalArea;
+        const itemSide = itemArea / rowSide;
+        const ratio = Math.max(itemSide / rowSide, rowSide / itemSide);
+        mx = Math.max(mx, ratio);
+      }
+      return mx;
+    };
+
+    for (let i = 1; i < remaining.length; i++) {
+      const newRow = [...row, remaining[i]];
+      if (worst(newRow, side) <= worst(row, side)) {
+        row = newRow;
+      } else break;
+    }
+
+    // Layout row
+    const rowSum = row.reduce((s, r) => s + r.value, 0);
+    const rowFraction = rowSum / remaining.reduce((s, r) => s + r.value, 0);
+
+    if (isWide) {
+      const rowW = w * rowFraction;
+      let cy = y;
+      for (const item of row) {
+        const itemH = (item.value / rowSum) * h;
+        rects.push({
+          ...item,
+          x: x + gap/2,
+          y: cy + gap/2,
+          w: rowW - gap,
+          h: itemH - gap,
+        });
+        cy += itemH;
+      }
+      x += rowW;
+      w -= rowW;
+    } else {
+      const rowH = h * rowFraction;
+      let cx = x;
+      for (const item of row) {
+        const itemW = (item.value / rowSum) * w;
+        rects.push({
+          ...item,
+          x: cx + gap/2,
+          y: y + gap/2,
+          w: itemW - gap,
+          h: rowH - gap,
+        });
+        cx += itemW;
+      }
+      y += rowH;
+      h -= rowH;
+    }
+
+    remaining = remaining.filter(r => !row.includes(r));
+  }
+
+  return rects;
+}
+
+// ── CANVAS RENDERING ───────────────────────────────────────
+const canvas = document.getElementById('treemap');
+const ctx = canvas.getContext('2d');
+const tooltip = document.getElementById('tooltip');
+const breadcrumb = document.getElementById('breadcrumb');
+const container = document.querySelector('.canvas-container');
+
+let dpr = window.devicePixelRatio || 1;
+let W, H;
+let rooms = [];
+let hoveredRoom = null;
+let currentMode = 'blueprint';
+let zoomedDivision = null;
+let animProgress = 1; // 0-1 animation progress
+let animStart = 0;
+let animDirection = 'in'; // 'in' or 'out'
+let animFrom = null;
+
+// Entrance animation
+let entranceProgress = 0;
+let entranceDone = false;
+let entranceStart = 0;
+
+function resize() {
+  W = container.clientWidth;
+  H = container.clientHeight;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  layoutRooms();
+}
+
+function layoutRooms() {
+  const pad = 40;
+  const bounds = { x: pad, y: pad + 20, w: W - pad*2 - 180, h: H - pad*2 - 40 };
+
+  if (zoomedDivision) {
+    const div = divisions.find(d => d.id === zoomedDivision);
+    const items = div.subs.map(s => ({ ...s, value: s.cost, label: s.name }));
+    rooms = squarify(items, bounds, 6);
+    rooms.forEach(r => { r.divId = div.id; r.isSub = true; });
+  } else {
+    const items = divisions.map(d => ({ ...d, value: d.cost, label: d.name }));
+    rooms = squarify(items, bounds);
+    rooms.forEach((r, i) => { r.divId = divisions[i]?.id || r.id; });
+  }
+}
+
+function fmtDollar(n) {
+  if (n >= 1000000) return '$' + (n/1000000).toFixed(1) + 'M';
+  if (n >= 1000) return '$' + (n/1000).toFixed(0) + 'K';
+  return '$' + n.toLocaleString();
+}
+
+function drawRoom(r, isHovered, progress = 1) {
+  if (progress <= 0) return;
+
+  const wallColor = isHovered ? '#FAFAFA' : '#C8C8D0';
+  const wallWidth = isHovered ? 2.5 : 1.5;
+  const ext = 1.5; // corner extension
+
+  ctx.globalAlpha = progress;
+
+  // Fill based on mode
+  if (currentMode === 'heat' && !r.isSub) {
+    const rgb = divColors[r.divId] || [128,128,128];
+    const intensity = isHovered ? 0.15 : 0.08;
+    ctx.fillStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${intensity})`;
+    ctx.fillRect(r.x, r.y, r.w, r.h);
+  } else if (currentMode === 'variance' && !r.isSub && r.benchmark) {
+    const ratio = r.cost / r.benchmark;
+    let color;
+    if (ratio <= 1.05) color = 'rgba(34,197,94,0.08)';      // green - on budget
+    else if (ratio <= 1.15) color = 'rgba(245,158,11,0.08)'; // amber - attention
+    else color = 'rgba(239,68,68,0.08)';                      // red - over
+    if (isHovered) color = color.replace('0.08', '0.15');
+    ctx.fillStyle = color;
+    ctx.fillRect(r.x, r.y, r.w, r.h);
+  } else if (isHovered) {
+    ctx.fillStyle = 'rgba(124,107,240,0.04)';
+    ctx.fillRect(r.x, r.y, r.w, r.h);
+  }
+
+  // Walls with corner extensions
+  ctx.strokeStyle = wallColor;
+  ctx.lineWidth = wallWidth;
+  ctx.beginPath();
+
+  // Top wall
+  ctx.moveTo(r.x - ext, r.y);
+  ctx.lineTo(r.x + r.w + ext, r.y);
+  // Right wall
+  ctx.moveTo(r.x + r.w, r.y - ext);
+  ctx.lineTo(r.x + r.w, r.y + r.h + ext);
+  // Bottom wall
+  ctx.moveTo(r.x - ext, r.y + r.h);
+  ctx.lineTo(r.x + r.w + ext, r.y + r.h);
+  // Left wall
+  ctx.moveTo(r.x, r.y - ext);
+  ctx.lineTo(r.x, r.y + r.h + ext);
+
+  ctx.stroke();
+
+  // Labels (only if room is big enough)
+  if (r.w > 60 && r.h > 50) {
+    const cx = r.x + r.w / 2;
+    const cy = r.y + r.h / 2;
+
+    // Division symbol (top-left of room)
+    if (!r.isSub && divSymbols[r.divId]) {
+      ctx.font = '10px Inter';
+      ctx.fillStyle = isHovered ? '#A1A1AA' : '#52525B';
+      ctx.textAlign = 'left';
+      ctx.fillText(divSymbols[r.divId], r.x + 8, r.y + 18);
+    }
+
+    // Division ID
+    if (!r.isSub) {
+      ctx.font = '500 10px Inter';
+      ctx.fillStyle = isHovered ? '#A1A1AA' : '#52525B';
+      ctx.textAlign = 'center';
+      ctx.fillText(r.divId || '', cx, cy - 22);
+    }
+
+    // Room name
+    ctx.font = '600 11px Inter';
+    ctx.fillStyle = isHovered ? '#FAFAFA' : '#A1A1AA';
+    ctx.textAlign = 'center';
+    ctx.letterSpacing = '0.05em';
+    ctx.fillText((r.name || r.label || '').toUpperCase(), cx, cy - 6);
+
+    // Cost
+    ctx.font = '600 14px Inter';
+    ctx.fillStyle = isHovered ? '#7C6BF0' : '#FAFAFA';
+    ctx.fillText(fmtDollar(r.cost || r.value), cx, cy + 14);
+
+    // Percentage
+    if (r.pct) {
+      ctx.font = '400 10px Inter';
+      ctx.fillStyle = '#52525B';
+      ctx.fillText(r.pct + '%', cx, cy + 30);
+    }
+  } else if (r.w > 40 && r.h > 30) {
+    // Compact label
+    const cx = r.x + r.w / 2;
+    const cy = r.y + r.h / 2;
+    ctx.font = '500 10px Inter';
+    ctx.fillStyle = isHovered ? '#FAFAFA' : '#A1A1AA';
+    ctx.textAlign = 'center';
+    ctx.fillText(r.id || (r.name || r.label || '').substring(0, 8), cx, cy - 2);
+    ctx.font = '500 10px Inter';
+    ctx.fillStyle = isHovered ? '#7C6BF0' : '#52525B';
+    ctx.fillText(fmtDollar(r.cost || r.value), cx, cy + 12);
+  }
+
+  // Benchmark overlay (variance mode)
+  if (currentMode === 'variance' && r.benchmark && !r.isSub) {
+    const ratio = r.benchmark / r.cost;
+    const bw = r.w * Math.min(ratio, 1.3);
+    const bh = r.h * Math.min(ratio, 1.3);
+    const bx = r.x + (r.w - bw) / 2;
+    const by = r.y + (r.h - bh) / 2;
+
+    ctx.strokeStyle = 'rgba(124,107,240,0.25)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([8, 4]);
+    ctx.strokeRect(bx, by, bw, bh);
+    ctx.setLineDash([]);
+  }
+
+  ctx.globalAlpha = 1;
+}
+
+function drawGrid() {
+  ctx.strokeStyle = 'rgba(255,255,255,0.015)';
+  ctx.lineWidth = 0.5;
+  const step = 40;
+  for (let x = 0; x < W; x += step) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, H);
+    ctx.stroke();
+  }
+  for (let y = 0; y < H; y += step) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(W, y);
+    ctx.stroke();
+  }
+}
+
+function drawBoundary() {
+  const pad = 36;
+  const bx = pad;
+  const by = pad + 16;
+  const bw = W - pad*2 - 176;
+  const bh = H - pad*2 - 36;
+
+  ctx.strokeStyle = '#C8C8D0';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(bx, by, bw, bh);
+
+  // Corner circles (section marks)
+  const corners = [[bx, by], [bx+bw, by], [bx, by+bh], [bx+bw, by+bh]];
+  corners.forEach(([cx, cy]) => {
+    ctx.beginPath();
+    ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+    ctx.fillStyle = '#08090E';
+    ctx.fill();
+    ctx.strokeStyle = '#C8C8D0';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  });
+}
+
+// ── ENTRANCE ANIMATION ─────────────────────────────────────
+function drawEntrance(t) {
+  // t goes 0 → 1 over 2 seconds
+  const pad = 36;
+  const bx = pad;
+  const by = pad + 16;
+  const bw = W - pad*2 - 176;
+  const bh = H - pad*2 - 36;
+
+  // Phase 1: boundary draws (0 → 0.3)
+  if (t < 0.3) {
+    const p = t / 0.3; // 0→1
+    drawGrid();
+
+    ctx.strokeStyle = '#C8C8D0';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+
+    // Draw boundary as a continuous path, partially
+    const totalPerim = 2 * (bw + bh);
+    const drawn = totalPerim * p;
+
+    let remaining = drawn;
+    // Top
+    const topLen = Math.min(remaining, bw);
+    ctx.moveTo(bx, by);
+    ctx.lineTo(bx + topLen, by);
+    remaining -= topLen;
+    // Right
+    if (remaining > 0) {
+      const rightLen = Math.min(remaining, bh);
+      ctx.lineTo(bx + bw, by + rightLen);
+      remaining -= rightLen;
+    }
+    // Bottom
+    if (remaining > 0) {
+      const botLen = Math.min(remaining, bw);
+      ctx.moveTo(bx + bw, by + bh);
+      ctx.lineTo(bx + bw - botLen, by + bh);
+      remaining -= botLen;
+    }
+    // Left
+    if (remaining > 0) {
+      const leftLen = Math.min(remaining, bh);
+      ctx.moveTo(bx, by + bh);
+      ctx.lineTo(bx, by + bh - leftLen);
+    }
+
+    ctx.stroke();
+    return;
+  }
+
+  // Phase 2: rooms build in (0.3 → 0.85)
+  if (t < 0.85) {
+    drawGrid();
+    drawBoundary();
+
+    const roomP = (t - 0.3) / 0.55;
+    const roomsToShow = Math.floor(rooms.length * roomP);
+
+    for (let i = 0; i < roomsToShow; i++) {
+      const roomAge = (roomP - (i / rooms.length)) * rooms.length;
+      const alpha = Math.min(1, roomAge * 2);
+      drawRoom(rooms[i], false, alpha);
+    }
+    return;
+  }
+
+  // Phase 3: labels and details fade in (0.85 → 1.0)
+  drawGrid();
+  drawBoundary();
+  rooms.forEach(r => drawRoom(r, r === hoveredRoom, 1));
+}
+
+// ── RENDER LOOP ────────────────────────────────────────────
+function render() {
+  ctx.clearRect(0, 0, W, H);
+
+  const now = performance.now();
+
+  // Entrance animation
+  if (!entranceDone) {
+    if (!entranceStart) entranceStart = now;
+    entranceProgress = Math.min(1, (now - entranceStart) / 2000);
+
+    drawEntrance(entranceProgress);
+
+    if (entranceProgress >= 1) entranceDone = true;
+    requestAnimationFrame(render);
+    return;
+  }
+
+  drawGrid();
+  drawBoundary();
+
+  rooms.forEach(r => {
+    drawRoom(r, r === hoveredRoom);
+  });
+
+  requestAnimationFrame(render);
+}
+
+// ── MOUSE INTERACTION ──────────────────────────────────────
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  let found = null;
+  for (const r of rooms) {
+    if (mx >= r.x && mx <= r.x + r.w && my >= r.y && my <= r.y + r.h) {
+      found = r;
+    }
+  }
+
+  hoveredRoom = found;
+  canvas.style.cursor = found ? 'pointer' : 'default';
+
+  // Tooltip
+  if (found) {
+    const tt = tooltip;
+    tt.querySelector('.tt-div').textContent = (found.id || '') + ' ' + (found.name || found.label || '');
+    tt.querySelector('.tt-cost').textContent = fmtDollar(found.cost || found.value);
+    tt.querySelector('.tt-pct').textContent = found.pct ? found.pct + '% of estimate' : '';
+    tt.querySelector('.tt-items').textContent = found.items ? found.items + ' line items' : '';
+    tt.classList.add('visible');
+
+    let tx = e.clientX + 16;
+    let ty = e.clientY - 10;
+    if (tx + 200 > W) tx = e.clientX - 200;
+    if (ty + 100 > H) ty = e.clientY - 100;
+    tt.style.left = tx + 'px';
+    tt.style.top = ty + 'px';
+  } else {
+    tooltip.classList.remove('visible');
+  }
+});
+
+canvas.addEventListener('click', e => {
+  if (!hoveredRoom) {
+    if (zoomedDivision) {
+      zoomedDivision = null;
+      layoutRooms();
+      updateBreadcrumb();
+    }
+    return;
+  }
+
+  if (!hoveredRoom.isSub && !zoomedDivision) {
+    zoomedDivision = hoveredRoom.divId || hoveredRoom.id;
+    layoutRooms();
+    updateBreadcrumb();
+    // Re-trigger entrance for sub-rooms
+    entranceDone = false;
+    entranceStart = 0;
+    entranceProgress = 0;
+  }
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && zoomedDivision) {
+    zoomedDivision = null;
+    hoveredRoom = null;
+    tooltip.classList.remove('visible');
+    layoutRooms();
+    updateBreadcrumb();
+    entranceDone = false;
+    entranceStart = 0;
+    entranceProgress = 0;
+  }
+});
+
+function updateBreadcrumb() {
+  if (zoomedDivision) {
+    const div = divisions.find(d => d.id === zoomedDivision);
+    breadcrumb.innerHTML = `
+      <span onclick="zoomOut()">Estimate Overview</span>
+      <span class="sep">›</span>
+      <span class="active">${div.id} ${div.name}</span>
+    `;
+  } else {
+    breadcrumb.innerHTML = '<span class="active">Estimate Overview</span>';
+  }
+}
+
+window.zoomOut = () => {
+  zoomedDivision = null;
+  hoveredRoom = null;
+  tooltip.classList.remove('visible');
+  layoutRooms();
+  updateBreadcrumb();
+  entranceDone = false;
+  entranceStart = 0;
+  entranceProgress = 0;
+};
+
+// Mode toggle
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentMode = btn.dataset.mode;
+  });
+});
+
+// ── INIT ───────────────────────────────────────────────────
+window.addEventListener('resize', resize);
+resize();
+requestAnimationFrame(render);
+</script>
+</body>
+</html>
