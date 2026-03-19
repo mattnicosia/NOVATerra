@@ -1573,7 +1573,7 @@ function ProjectAccessSection() {
   // Map user_id -> display_name for quick lookup
   const memberMap = {};
   members.forEach(m => {
-    memberMap[m.user_id] = m.display_name || m.user_id?.slice(0, 8);
+    memberMap[m.user_id] = m.display_name || m.email || `Estimator (${m.role})`;
   });
 
   const getMemberName = userId => memberMap[userId] || userId?.slice(0, 8) || "Unknown";
