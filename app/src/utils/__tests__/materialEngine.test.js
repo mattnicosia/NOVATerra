@@ -214,7 +214,7 @@ describe("computeSwapImpact", () => {
   });
 
   it("handles quantity for count-based items", () => {
-    const impact = computeSwapImpact("kohler-simplice-faucet", "delta-trinsic-faucet", { quantity: 8 });
+    const impact = computeSwapImpact("commercial-toilet", "commercial-toilet-wall", { quantity: 8 });
     expect(typeof impact.costDeltaTotal).toBe("number");
     // Should be delta * 8
     expect(impact.costDeltaTotal).toBeCloseTo(impact.costDeltaPerUnit * 8, 0);

@@ -1,9 +1,10 @@
 // MaterialPicker.jsx — Structured material assignment for 3D model elements
 // Replaces free-text spec fields with searchable catalog picker + swap impact analysis
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useModelStore } from "@/stores/modelStore";
+import { useProductStore } from "@/stores/productStore";
 import { bt, inp, card } from "@/utils/styles";
 import { getMaterial, searchMaterials, getCategories, getMaterialsForElement, computeSwapImpact } from "@/utils/materialEngine";
 import { MATERIAL_CATEGORIES } from "@/constants/materialCatalog";
@@ -367,6 +368,9 @@ export default function MaterialPicker({ element }) {
         </div>
       )}
 
+      {/* ── Product Search (Home Depot / BIMobject) ───── */}
+      <ProductSearchPanel C={C} T={T} />
+
       {/* ── Swap Impact ────────────────────────────────── */}
       {swapImpact && (
         <div style={{
@@ -648,6 +652,273 @@ function DetailLine({ C, T, label, value, bold }) {
         {value}
       </span>
     </div>
+  );
+}
+
+function ProductSearchPanel({ C, T }) {
+  const [open, setOpen] = useState(false);
+  const [localQuery, setLocalQuery] = useState("");
+  const debounceRef = useRef(null);
+
+  const { searchResults, loading, error, sourcesConfigured, totalItems } = useProductStore();
+  const search = useProductStore(s => s.search);
+  const checkSources = useProductStore(s => s.checkSources);
+
+  // Check source configuration on mount
+  useEffect(() => { checkSources(); }, [checkSources]);
+
+  const anySourceConfigured = sourcesConfigured.homedepot || sourcesConfigured.bimobject;
+
+  const handleInput = useCallback((val) => {
+    setLocalQuery(val);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (val.trim().length >= 2) {
+      debounceRef.current = setTimeout(() => search(val), 400);
+    }
+  }, [search]);
+
+  return (
+    <div style={{ ...card(C), padding: T.space[3] }}>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          background: "none",
+          border: "none",
+          padding: 0,
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          gap: 4,
+          width: "100%",
+        }}
+      >
+        <Ic
+          d={I.chevron}
+          size={8}
+          color={C.textDim}
+          style={{ transform: open ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}
+        />
+        <span style={{
+          fontSize: 9,
+          fontWeight: 600,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          color: C.accent,
+          fontFamily: T.font.display,
+        }}>
+          Product Search
+        </span>
+        {!anySourceConfigured && (
+          <span style={{
+            fontSize: 8,
+            color: C.orange,
+            marginLeft: "auto",
+          }}>
+            Not configured
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div style={{ marginTop: T.space[2] }}>
+          {!anySourceConfigured ? (
+            <div style={{
+              padding: T.space[2],
+              borderRadius: T.radius.sm,
+              background: `${C.orange}10`,
+              border: `1px solid ${C.orange}25`,
+              fontSize: T.fontSize.xs,
+              color: C.orange,
+            }}>
+              Configure Home Depot or BIMobject API keys in Vercel environment variables to enable product search with images and specs.
+            </div>
+          ) : (
+            <>
+              <div style={{ position: "relative", marginBottom: T.space[2] }}>
+                <Ic
+                  d={I.search}
+                  size={11}
+                  color={C.textDim}
+                  style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}
+                />
+                <input
+                  type="text"
+                  value={localQuery}
+                  onChange={e => handleInput(e.target.value)}
+                  placeholder="Search Home Depot, BIMobject..."
+                  style={{
+                    ...inp(C),
+                    width: "100%",
+                    padding: "6px 8px 6px 26px",
+                    fontSize: T.fontSize.xs,
+                    boxSizing: "border-box",
+                  }}
+                />
+                {loading && (
+                  <span style={{
+                    position: "absolute",
+                    right: 8,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    fontSize: 8,
+                    color: C.textDim,
+                  }}>
+                    Searching...
+                  </span>
+                )}
+              </div>
+
+              {error && (
+                <div style={{
+                  padding: 4,
+                  fontSize: T.fontSize.xs,
+                  color: "#EF4444",
+                  marginBottom: T.space[1],
+                }}>
+                  {error}
+                </div>
+              )}
+
+              {/* Source badges */}
+              <div style={{ display: "flex", gap: 4, marginBottom: T.space[1] }}>
+                {sourcesConfigured.homedepot && (
+                  <span style={{
+                    fontSize: 8,
+                    padding: "1px 6px",
+                    borderRadius: T.radius.sm,
+                    background: "#F96302" + "20",
+                    color: "#F96302",
+                    fontWeight: 600,
+                  }}>
+                    Home Depot
+                  </span>
+                )}
+                {sourcesConfigured.bimobject && (
+                  <span style={{
+                    fontSize: 8,
+                    padding: "1px 6px",
+                    borderRadius: T.radius.sm,
+                    background: `${C.accent}20`,
+                    color: C.accent,
+                    fontWeight: 600,
+                  }}>
+                    BIMobject
+                  </span>
+                )}
+              </div>
+
+              {/* Results */}
+              {searchResults.length > 0 && (
+                <div style={{
+                  maxHeight: 240,
+                  overflowY: "auto",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 2,
+                }}>
+                  <div style={{ fontSize: 8, color: C.textDim, marginBottom: 2 }}>
+                    {totalItems} result{totalItems !== 1 ? "s" : ""}
+                  </div>
+                  {searchResults.map(item => (
+                    <ProductRow key={item.id} item={item} C={C} T={T} />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProductRow({ item, C, T }) {
+  return (
+    <a
+      href={item.productUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        padding: "5px 8px",
+        borderRadius: T.radius.sm,
+        border: `1px solid ${C.border}`,
+        textDecoration: "none",
+        color: C.text,
+        transition: "all 0.15s ease",
+        cursor: "pointer",
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background = `${C.accent}10`; }}
+      onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+    >
+      {item.imageUrl ? (
+        <img
+          src={item.imageUrl}
+          alt=""
+          style={{
+            width: 32,
+            height: 32,
+            objectFit: "contain",
+            borderRadius: T.radius.sm,
+            background: "#fff",
+            flexShrink: 0,
+          }}
+        />
+      ) : (
+        <div style={{
+          width: 32,
+          height: 32,
+          borderRadius: T.radius.sm,
+          background: C.bg2,
+          flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 8,
+          color: C.textDim,
+        }}>
+          N/A
+        </div>
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontSize: T.fontSize.xs,
+          color: C.text,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+          fontFamily: T.font.display,
+        }}>
+          {item.name}
+        </div>
+        <div style={{ fontSize: 8, color: C.textDim, marginTop: 1 }}>
+          {item.manufacturer}{item.category ? ` · ${item.category}` : ""}
+        </div>
+      </div>
+      {item.price > 0 && (
+        <span style={{
+          fontSize: 9,
+          color: C.textMuted,
+          fontFamily: T.font.sans,
+          flexShrink: 0,
+        }}>
+          ${item.price.toFixed(2)}
+        </span>
+      )}
+      <span style={{
+        fontSize: 7,
+        padding: "1px 4px",
+        borderRadius: 3,
+        background: item.source === "homedepot" ? "#F96302" + "15" : `${C.accent}15`,
+        color: item.source === "homedepot" ? "#F96302" : C.accent,
+        fontWeight: 600,
+        flexShrink: 0,
+      }}>
+        {item.source === "homedepot" ? "HD" : "BIM"}
+      </span>
+    </a>
   );
 }
 

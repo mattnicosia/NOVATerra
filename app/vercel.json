@@ -98,6 +98,12 @@
     },
     "api/send-team-invite.js": {
       "maxDuration": 15
+    },
+    "api/products/search.js": {
+      "maxDuration": 15
+    },
+    "api/products/categories.js": {
+      "maxDuration": 10
     }
   },
   "rewrites": [
