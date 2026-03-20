@@ -730,7 +730,7 @@ function ProductSearchPanel({ C, T }) {
               fontSize: T.fontSize.xs,
               color: C.orange,
             }}>
-              Configure Home Depot or BIMobject API keys in Vercel environment variables to enable product search with images and specs.
+              Add BIGBOX_API_KEY to Vercel env vars to enable Home Depot product search with images, specs, and pricing. Sign up at bigboxapi.com (100 free requests, $15/mo after).
             </div>
           ) : (
             <>
@@ -786,11 +786,11 @@ function ProductSearchPanel({ C, T }) {
                     fontSize: 8,
                     padding: "1px 6px",
                     borderRadius: T.radius.sm,
-                    background: "#F96302" + "20",
+                    background: "#F9630220",
                     color: "#F96302",
                     fontWeight: 600,
                   }}>
-                    Home Depot
+                    Home Depot (live)
                   </span>
                 )}
                 {sourcesConfigured.bimobject && (
@@ -894,7 +894,7 @@ function ProductRow({ item, C, T }) {
           {item.name}
         </div>
         <div style={{ fontSize: 8, color: C.textDim, marginTop: 1 }}>
-          {item.manufacturer}{item.category ? ` · ${item.category}` : ""}
+          {item.manufacturer}{item.rating > 0 ? ` · ${item.rating.toFixed(1)}★` : ""}{item.mpn ? ` · #${item.mpn}` : ""}
         </div>
       </div>
       {item.price > 0 && (
