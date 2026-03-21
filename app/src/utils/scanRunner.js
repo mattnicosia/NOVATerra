@@ -7,6 +7,7 @@
 import { useUiStore } from "@/stores/uiStore";
 import { useDrawingsStore } from "@/stores/drawingsStore";
 import { useProjectStore } from "@/stores/projectStore";
+import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useItemsStore } from "@/stores/itemsStore";
 import { useSpecsStore } from "@/stores/specsStore";
 import { useScanStore } from "@/stores/scanStore";
@@ -450,6 +451,25 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
           useProjectStore.getState().setProject({ ...useProjectStore.getState().project, ...updates });
           const fieldCount = Object.keys(updates).filter(k => k !== "autoDetected").length;
           console.log(`[scanRunner] Phase 1.7: Auto-filled ${fieldCount} project fields from title block`);
+
+          // Sync detected fields to estimatesIndex so Projects table shows them immediately
+          const activeId = useEstimatesStore.getState().activeEstimateId;
+          if (activeId) {
+            const indexUpdates = {};
+            if (updates.name) indexUpdates.name = updates.name;
+            if (updates.client) indexUpdates.client = updates.client;
+            if (updates.architect) indexUpdates.architect = updates.architect;
+            if (updates.engineer) indexUpdates.engineer = updates.engineer;
+            if (updates.address) indexUpdates.address = updates.address;
+            if (updates.zipCode) indexUpdates.zipCode = updates.zipCode;
+            if (updates.buildingType) indexUpdates.buildingType = updates.buildingType;
+            if (updates.workType) indexUpdates.workType = updates.workType;
+            if (updates.projectNumber) indexUpdates.estimateNumber = updates.projectNumber;
+            if (Object.keys(indexUpdates).length > 0) {
+              useEstimatesStore.getState().updateIndexEntry(activeId, indexUpdates);
+              console.log(`[scanRunner] Synced ${Object.keys(indexUpdates).length} fields to estimatesIndex`);
+            }
+          }
         }
       }
     } catch (err) {

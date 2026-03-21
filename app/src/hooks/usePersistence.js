@@ -378,6 +378,61 @@ export function usePersistenceLoad() {
         }
       }
 
+      // ─── ALWAYS merge cloud index with local (cross-device sync) ───
+      // Even when local index exists, the other device may have created/deleted estimates.
+      // Pull cloud index and merge: add any IDs missing locally, respect deleted IDs.
+      if (localHasIndex) {
+        try {
+          const cloudIdx = await cloudSync.pullData("index");
+          if (Array.isArray(cloudIdx) && cloudIdx.length > 0) {
+            // Load deleted IDs for filtering
+            let deletedIds = [];
+            try {
+              const delRaw = await storage.get(idbKey("bldg-deleted-ids"));
+              deletedIds = delRaw ? JSON.parse(delRaw.value) : [];
+              const userId = useAuthStore.getState().user?.id;
+              const lsRaw = localStorage.getItem(`bldg-deleted-ids-${userId || "anon"}`);
+              if (lsRaw) { for (const id of JSON.parse(lsRaw)) { if (!deletedIds.includes(id)) deletedIds.push(id); } }
+            } catch { /* ignore */ }
+            const deletedSet = new Set(deletedIds);
+
+            const localIndex = useEstimatesStore.getState().estimatesIndex;
+            const localIds = new Set(localIndex.map(e => e.id));
+            let merged = false;
+            const newEntries = [];
+            for (const cloudEntry of cloudIdx) {
+              if (deletedSet.has(cloudEntry.id)) continue;
+              if (!localIds.has(cloudEntry.id)) {
+                newEntries.push(cloudEntry);
+                merged = true;
+              }
+            }
+            // Also check: local entries that are NOT in cloud (deleted on other device)
+            // We can't know for sure they were deleted vs never pushed, so keep them.
+            if (merged) {
+              const fullIndex = [...localIndex, ...newEntries];
+              useEstimatesStore.getState().setEstimatesIndex(fullIndex);
+              await storage.set(idbKey("bldg-index"), JSON.stringify(fullIndex));
+              console.log(`[usePersistence] Cloud merge: added ${newEntries.length} estimate(s) from cloud`);
+              // Also pull the actual data blobs for new entries
+              for (const entry of newEntries) {
+                try {
+                  const estData = await cloudSync.pullEstimate(entry.id);
+                  if (estData) {
+                    const hydrated = await cloudSync.hydrateBlobs(estData).catch(() => estData);
+                    await storage.set(idbKey(`bldg-est-${entry.id}`), JSON.stringify(hydrated));
+                  }
+                } catch (blobErr) {
+                  console.warn(`[usePersistence] Cloud merge: failed to pull data for ${entry.id}:`, blobErr.message);
+                }
+              }
+            }
+          }
+        } catch (mergeErr) {
+          console.warn("[usePersistence] Cloud index merge failed (non-critical):", mergeErr.message);
+        }
+      }
+
       // Load master data
       const masterRaw = await storage.get(idbKey("bldg-master"));
       if (masterRaw) {
@@ -1762,16 +1817,19 @@ export async function saveEstimate(overrideId) {
   // This prevents a race where auto-save fires → user deletes → push un-deletes.
   const pushId = useEstimatesStore.getState().activeEstimateId;
   if (pushId === id && useEstimatesStore.getState().estimatesIndex.some(e => e.id === id)) {
-    cloudSync
-      .pushEstimate(id, data)
-      .then(() => clearDirtyEstimate(id))
+    // ATOMIC: Both estimate data AND index must push successfully.
+    // Only clear dirty flag when BOTH succeed. If either fails, mark dirty for retry.
+    Promise.all([
+      cloudSync.pushEstimate(id, data),
+      cloudSync.pushData("index", idx),
+    ])
+      .then(() => {
+        clearDirtyEstimate(id);
+      })
       .catch(err => {
-        console.warn("[usePersistence] Cloud push failed for estimate:", err?.message);
+        console.warn("[usePersistence] Cloud push failed (estimate or index):", err?.message);
         markDirtyEstimate(id);
       });
-    cloudSync.pushData("index", idx).catch(err => {
-      console.warn("[usePersistence] Cloud push failed for index:", err?.message);
-    });
   } else {
     console.warn("[usePersistence] Estimate deleted during save — skipping cloud push for", id);
   }

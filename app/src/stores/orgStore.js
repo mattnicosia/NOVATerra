@@ -55,11 +55,15 @@ export const useOrgStore = create((set, get) => ({
 
     // Helper: single attempt to fetch org membership
     const attemptFetch = async () => {
+      // ORDER BY created_at ASC — deterministic: always returns the FIRST org joined.
+      // Without ordering, multi-org users could get different orgs on different devices.
       const { data: memberRow, error: memErr } = await supabase
         .from("org_members")
         .select("*, organizations(*)")
         .eq("user_id", userId)
         .eq("active", true)
+        .order("created_at", { ascending: true })
+        .limit(1)
         .maybeSingle();
       if (memErr) throw memErr;
       return memberRow;
@@ -67,16 +71,17 @@ export const useOrgStore = create((set, get) => ({
 
     try {
       let memberRow = null;
-      try {
-        memberRow = await attemptFetch();
-      } catch (err1) {
-        // ─── RETRY ONCE on failure ───
-        // A transient network error here causes the app to load in solo mode,
-        // making all org-scoped data invisible. Retry once before giving up.
-        console.warn("[orgStore] fetchOrg attempt 1 failed, retrying:", err1.message);
-        await new Promise(r => setTimeout(r, 1500));
-        if (generation !== get()._fetchGeneration) return;
-        memberRow = await attemptFetch(); // throws if still failing
+      const RETRY_DELAYS = [1500, 3000, 5000]; // 3 retries with increasing delays
+      for (let attempt = 0; attempt <= RETRY_DELAYS.length; attempt++) {
+        try {
+          memberRow = await attemptFetch();
+          break; // success
+        } catch (err) {
+          if (attempt === RETRY_DELAYS.length) throw err; // final attempt failed
+          console.warn(`[orgStore] fetchOrg attempt ${attempt + 1} failed, retrying in ${RETRY_DELAYS[attempt]}ms:`, err.message);
+          await new Promise(r => setTimeout(r, RETRY_DELAYS[attempt]));
+          if (generation !== get()._fetchGeneration) return;
+        }
       }
 
       // Stale check: if reset() was called while we were fetching, discard
