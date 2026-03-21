@@ -173,13 +173,16 @@ export function useCloudSync() {
           return;
         }
         nova.sync.info("Health check passed");
+        console.log("[cloudSync] ✅ Health check passed — starting sync");
       } catch (err) {
         nova.sync.error("Health check failed", { error: err });
+        console.error("[cloudSync] ❌ Health check FAILED:", err.message);
         useUiStore.getState().setCloudSyncStatus("error");
         useUiStore.getState().setCloudSyncError(err.message);
         return;
       }
       await runCloudSync();
+      console.log("[cloudSync] ✅ Sync complete — status:", useUiStore.getState().cloudSyncStatus);
     })();
   }, [persistenceLoaded, user, orgReady]);
 

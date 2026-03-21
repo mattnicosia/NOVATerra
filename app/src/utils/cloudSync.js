@@ -683,7 +683,11 @@ export const pushData = async (key, data) => {
  * Uploads blobs to Supabase Storage, strips base64 from DB payload.
  */
 export const pushEstimate = async (estimateId, data) => {
-  if (!isReady()) return;
+  if (!isReady()) {
+    console.warn(`[cloudSync] pushEstimate("${estimateId}") SKIPPED — not ready (supabase: ${!!supabase}, userId: ${getUserId()?.slice(0,8) || 'null'})`);
+    return;
+  }
+  console.log(`[cloudSync] pushEstimate("${estimateId}") — pushing to cloud...`);
   markSyncing();
   try {
     await withRetry(`pushEstimate("${estimateId}")`, async () => {
@@ -1045,15 +1049,16 @@ export const pullEstimate = async estimateId => {
   try {
     const scope = getScope();
     const userId = getUserId();
-    let query = supabase.from("user_estimates").select("data").eq("estimate_id", estimateId).is("deleted_at", null);
+    let query = supabase.from("user_estimates").select("data").eq("estimate_id", estimateId).eq("user_id", userId).is("deleted_at", null);
 
     if (scope?.org_id) {
       query = query.eq("org_id", scope.org_id);
     } else {
-      query = query.eq("user_id", userId).is("org_id", null);
+      query = query.is("org_id", null);
     }
 
-    const { data, error } = await query.maybeSingle();
+    // Use .limit(1).single() pattern to handle potential duplicates gracefully
+    const { data, error } = await query.limit(1).maybeSingle();
     if (error) throw error;
     if (data?.data) return data.data;
 

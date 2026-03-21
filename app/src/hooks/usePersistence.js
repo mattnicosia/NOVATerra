@@ -1071,7 +1071,7 @@ export function usePersistenceLoad() {
           const estBlobKeys = allKeys.filter(k => typeof k === "string" && k.includes("bldg-est-"));
           const orgPrefix = `org-${currentOrg.id}-`;
           // Group by estimate ID — find blobs NOT under current org prefix
-          const estIdRegex = /bldg-est-([0-9a-f-]{36})/;
+          const estIdRegex = /bldg-est-([a-z0-9_-]+)/i;
           const orphans = new Map(); // estId → key
           const orgExists = new Set(); // estIds that already have org-scoped key
           for (const k of estBlobKeys) {
@@ -1098,6 +1098,12 @@ export function usePersistenceLoad() {
           }
           if (repaired > 0) {
             console.log(`[repair] Migrated ${repaired} orphaned estimate blob(s) to org-${currentOrg.id.slice(0, 8)}`);
+            // Mark repaired estimates as dirty so cloud sync pushes them
+            for (const [estId] of orphans) {
+              if (!orgExists.has(estId)) {
+                markDirtyEstimate(estId);
+              }
+            }
           }
         }
       } catch (repairErr) {

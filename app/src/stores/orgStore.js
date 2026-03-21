@@ -55,14 +55,13 @@ export const useOrgStore = create((set, get) => ({
 
     // Helper: single attempt to fetch org membership
     const attemptFetch = async () => {
-      // ORDER BY created_at ASC — deterministic: always returns the FIRST org joined.
-      // Without ordering, multi-org users could get different orgs on different devices.
+      // ORDER BY id ASC — deterministic: always returns the same org on every device.
       const { data: memberRow, error: memErr } = await supabase
         .from("org_members")
         .select("*, organizations(*)")
         .eq("user_id", userId)
         .eq("active", true)
-        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
         .limit(1)
         .maybeSingle();
       if (memErr) throw memErr;
