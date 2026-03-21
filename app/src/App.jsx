@@ -239,10 +239,7 @@ function FloatingThemePicker() {
 
   const ALL_IDS = [
     "nova",
-    "clean-light",
     "shift5b",
-    "shift7",
-    "arancio",
     ...CAR_PALETTE_IDS,
     ...LIGHT_PALETTE_IDS,
     ...ARTIFACT_PALETTE_IDS,
@@ -511,6 +508,14 @@ function AppContent() {
   useAutoDiscovery();
 
   const persistenceLoaded = useUiStore(s => s.persistenceLoaded);
+  // Cap persistence wait at 3s — never stall on slow cloud sync
+  const [forceShow, setForceShow] = useState(false);
+  useEffect(() => {
+    if (persistenceLoaded) return;
+    const t = setTimeout(() => setForceShow(true), 3000);
+    return () => clearTimeout(t);
+  }, [persistenceLoaded]);
+  const appReady = persistenceLoaded || forceShow;
   const [showDraftPanel, setShowDraftPanel] = useState(false);
   const cmdPaletteOpen = useCommandPaletteStore(s => s.open);
   const aiChatOpen = useUiStore(s => s.aiChatOpen);
@@ -546,13 +551,14 @@ function AppContent() {
         overflow: "hidden",
         background: COLORS.bg.primary,
         position: "relative",
-        opacity: persistenceLoaded ? 1 : 0,
+        opacity: appReady ? 1 : 0,
         transition: "opacity 0.15s ease-in",
       }}
     >
       {/* Noise grain texture overlay — subtle film grain across all themes */}
       {!C.noGlass && (
         <div
+          className="noise-grain-overlay"
           style={{
             position: "fixed",
             inset: 0,

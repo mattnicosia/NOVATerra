@@ -6,6 +6,9 @@ import { useMemo, useCallback, createContext, useContext, createElement } from "
 import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, Grid, Edges } from "@react-three/drei";
 import * as THREE from "three";
+import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
+import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
+import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { useModelStore } from "@/stores/modelStore";
 import { getMaterial } from "@/utils/materialEngine";
 
@@ -267,9 +270,19 @@ function IFCMeshElement({ element, selected, hovered, viewMode, maxCost, xray, o
   );
 }
 
-// ── Floor Shell: translucent building envelope ───────────────────
+// ── Floor Shell: warm-white architectural outline ─────────────────
+// Board recommendation: pencil-on-vellum look — thick warm-white edges,
+// barely-there fill. Uses Line2 for real pixel-width control.
+const OUTLINE_COLOR = "#F0ECE6"; // warm paper-white
+const OUTLINE_EDGE_OPACITY = 0.65;
+const OUTLINE_FILL_OPACITY = 0.02;
+const OUTLINE_EDGE_OPACITY_COVERAGE = 0.8;
+const OUTLINE_FILL_OPACITY_COVERAGE = 0.04;
+const OUTLINE_LINE_WIDTH = 2; // screen pixels
+
 function FloorShell({ outline, elevation, height, viewMode }) {
   const clipPlanes = useContext(ClipContext);
+  const { size } = useThree();
 
   const geometry = useMemo(() => {
     if (!outline || outline.length < 3) return null;
@@ -284,10 +297,28 @@ function FloorShell({ outline, elevation, height, viewMode }) {
     return geo;
   }, [outline, height]);
 
-  const edgesGeo = useMemo(() => {
-    if (!geometry) return null;
-    return new THREE.EdgesGeometry(geometry, 15);
-  }, [geometry]);
+  // Thick edges via Line2 (LineSegments2 + LineMaterial)
+  const { edgesLineGeo, edgesLineMat } = useMemo(() => {
+    if (!geometry) return {};
+    const edges = new THREE.EdgesGeometry(geometry, 15);
+    const posAttr = edges.getAttribute("position");
+    const positions = [];
+    for (let i = 0; i < posAttr.count; i++) {
+      positions.push(posAttr.getX(i), posAttr.getY(i), posAttr.getZ(i));
+    }
+    const lineGeo = new LineSegmentsGeometry();
+    lineGeo.setPositions(positions);
+    const lineMat = new LineMaterial({
+      color: new THREE.Color(OUTLINE_COLOR).getHex(),
+      linewidth: OUTLINE_LINE_WIDTH,
+      worldUnits: false, // screen-pixel width
+      transparent: true,
+      opacity: viewMode === "coverage" ? OUTLINE_EDGE_OPACITY_COVERAGE : OUTLINE_EDGE_OPACITY,
+      resolution: new THREE.Vector2(size.width, size.height),
+      depthWrite: false,
+    });
+    return { edgesLineGeo: lineGeo, edgesLineMat: lineMat };
+  }, [geometry, viewMode, size.width, size.height]);
 
   if (!geometry) return null;
 
@@ -295,21 +326,21 @@ function FloorShell({ outline, elevation, height, viewMode }) {
 
   return (
     <group position={[0, elevation, 0]}>
+      {/* Barely-there fill — just enough to define the floor plate */}
       <mesh geometry={geometry}>
         <meshPhysicalMaterial
-          color="#8888ff"
+          color={OUTLINE_COLOR}
           transparent
-          opacity={isCoverage ? 0.06 : 0.04}
-          roughness={0.1}
+          opacity={isCoverage ? OUTLINE_FILL_OPACITY_COVERAGE : OUTLINE_FILL_OPACITY}
+          roughness={0.3}
           side={THREE.DoubleSide}
           depthWrite={false}
           clippingPlanes={clipPlanes}
         />
       </mesh>
-      {edgesGeo && (
-        <lineSegments geometry={edgesGeo}>
-          <lineBasicMaterial color="#6677cc" transparent opacity={isCoverage ? 0.35 : 0.2} />
-        </lineSegments>
+      {/* Thick warm-white edges — the hero structural read */}
+      {edgesLineGeo && edgesLineMat && (
+        <primitive object={new LineSegments2(edgesLineGeo, edgesLineMat)} />
       )}
     </group>
   );
@@ -325,6 +356,81 @@ function CoverageCell({ cell, elevation }) {
       <planeGeometry args={[cell.size * 0.92, cell.size * 0.92]} />
       <meshBasicMaterial color={color} transparent opacity={opacity} side={THREE.DoubleSide} depthWrite={false} />
     </mesh>
+  );
+}
+
+// ── Room outline: subtle interior boundary lines ─────────────────
+const ROOM_LINE_COLOR = "#C8C4BE"; // slightly dimmer than FloorShell
+const ROOM_LINE_OPACITY = 0.4;
+const ROOM_FILL_OPACITY = 0.015;
+const ROOM_LINE_WIDTH = 1.5;
+
+function RoomOutline({ element, viewMode }) {
+  const clipPlanes = useContext(ClipContext);
+  const { size } = useThree();
+  const { points, elevation, centroid } = element.geometry;
+
+  // Floor polygon fill (barely visible)
+  const floorGeo = useMemo(() => {
+    if (!points || points.length < 3) return null;
+    const shape = new THREE.Shape();
+    shape.moveTo(points[0].x, points[0].z);
+    for (let i = 1; i < points.length; i++) {
+      shape.lineTo(points[i].x, points[i].z);
+    }
+    shape.closePath();
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.05, bevelEnabled: false });
+    geo.rotateX(-Math.PI / 2);
+    return geo;
+  }, [points]);
+
+  // Room boundary edges via Line2
+  const { edgesLineGeo, edgesLineMat } = useMemo(() => {
+    if (!points || points.length < 3) return {};
+    // Build line segments around the room perimeter
+    const positions = [];
+    for (let i = 0; i < points.length; i++) {
+      const a = points[i];
+      const b = points[(i + 1) % points.length];
+      positions.push(a.x, 0, a.z, b.x, 0, b.z);
+    }
+    const lineGeo = new LineSegmentsGeometry();
+    lineGeo.setPositions(positions);
+    const lineMat = new LineMaterial({
+      color: new THREE.Color(ROOM_LINE_COLOR).getHex(),
+      linewidth: ROOM_LINE_WIDTH,
+      worldUnits: false,
+      transparent: true,
+      opacity: ROOM_LINE_OPACITY,
+      resolution: new THREE.Vector2(size.width, size.height),
+      depthWrite: false,
+      dashed: true,
+      dashSize: 1.5,
+      gapSize: 0.8,
+    });
+    return { edgesLineGeo: lineGeo, edgesLineMat: lineMat };
+  }, [points, size.width, size.height]);
+
+  if (!floorGeo || viewMode === "presentation") return null;
+
+  return (
+    <group position={[0, elevation + 0.1, 0]}>
+      {/* Barely-there fill to define the room area */}
+      <mesh geometry={floorGeo}>
+        <meshBasicMaterial
+          color={ROOM_LINE_COLOR}
+          transparent
+          opacity={ROOM_FILL_OPACITY}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+          clippingPlanes={clipPlanes}
+        />
+      </mesh>
+      {/* Dashed boundary lines */}
+      {edgesLineGeo && edgesLineMat && (
+        <primitive object={new LineSegments2(edgesLineGeo, edgesLineMat)} />
+      )}
+    </group>
   );
 }
 
@@ -466,9 +572,43 @@ function EnableClipping() {
   return null;
 }
 
+// ── Floor Label: floating text marker at each floor elevation ────
+function FloorLabel({ label, elevation, xOffset }) {
+  const canvasTexture = useMemo(() => {
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    const text = label;
+    const fontSize = 28;
+    ctx.font = `600 ${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+    const metrics = ctx.measureText(text);
+    const w = Math.ceil(metrics.width + 20);
+    const h = fontSize + 12;
+    canvas.width = w;
+    canvas.height = h;
+    ctx.font = `600 ${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+    ctx.fillStyle = "rgba(240,236,230,0.6)";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, 10, h / 2);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.minFilter = THREE.LinearFilter;
+    return { tex, aspect: w / h, w, h };
+  }, [label]);
+
+  const planeW = 12;
+  const planeH = planeW / canvasTexture.aspect;
+
+  return (
+    <mesh position={[xOffset - planeW / 2 - 2, elevation + 1, 0]} rotation={[0, 0, 0]}>
+      <planeGeometry args={[planeW, planeH]} />
+      <meshBasicMaterial map={canvasTexture.tex} transparent depthWrite={false} side={THREE.DoubleSide} />
+    </mesh>
+  );
+}
+
 // ── Main Scene ───────────────────────────────────────────────────
 export default function SceneViewer() {
   const elements = useModelStore(s => s.elements);
+  const roomElements = useModelStore(s => s.roomElements || []);
   const selectedElementId = useModelStore(s => s.selectedElementId);
   const hoveredElementId = useModelStore(s => s.hoveredElementId);
   const viewMode = useModelStore(s => s.viewMode);
@@ -539,6 +679,31 @@ export default function SceneViewer() {
     return Math.min(...shells.map(s => s.elevation));
   }, [shells]);
 
+  // Compute unique floor levels for labels
+  const floorLevels = useMemo(() => {
+    const seen = new Map();
+    for (const [_drawingId, fa] of Object.entries(floorAssignments)) {
+      if (!seen.has(fa.label)) {
+        seen.set(fa.label, { label: fa.label, elevation: fa.elevation, floor: fa.floor });
+      }
+    }
+    return [...seen.values()].sort((a, b) => a.floor - b.floor);
+  }, [floorAssignments]);
+
+  // Min X of scene for label positioning
+  const sceneBoundsMinX = useMemo(() => {
+    let minX = 0;
+    elements.forEach(el => {
+      const g = el.geometry;
+      const pts = g.kind === "extrudedPath" ? g.path : g.kind === "polygon" ? g.points : [];
+      if (pts) pts.forEach(p => { minX = Math.min(minX, p.x); });
+    });
+    shells.forEach(s => {
+      if (s.polygon) s.polygon.forEach(p => { minX = Math.min(minX, p.x); });
+    });
+    return minX;
+  }, [elements, shells]);
+
   const hasShells = shells.length > 0;
   const showShells = hasShells && viewMode !== "presentation";
   const showCoverage = viewMode === "coverage" && coverageCells.length > 0;
@@ -605,6 +770,12 @@ export default function SceneViewer() {
           });
         })}
 
+        {/* Room outlines (interior boundaries) */}
+        {roomElements.length > 0 && viewMode !== "presentation" &&
+          roomElements.map(re => (
+            <RoomOutline key={re.id} element={re} viewMode={viewMode} />
+          ))}
+
         {/* Floor shells */}
         {showShells &&
           shells.map(s => (
@@ -617,6 +788,17 @@ export default function SceneViewer() {
             />
           ))}
       </ClipProvider>
+
+      {/* Floor level labels */}
+      {floorLevels.length > 0 && viewMode !== "presentation" &&
+        floorLevels.map(fl => (
+          <FloorLabel
+            key={fl.label}
+            label={fl.label}
+            elevation={fl.elevation}
+            xOffset={sceneBoundsMinX}
+          />
+        ))}
 
       {/* Section plane indicator */}
       <SectionPlaneIndicator sectionY={sectionPlaneY} span={sceneSpan} />

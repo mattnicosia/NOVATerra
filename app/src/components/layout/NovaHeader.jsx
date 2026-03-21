@@ -6,7 +6,6 @@ import { useUiStore } from "@/stores/uiStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import NovaTerraLogo from "@/components/shared/NovaTerraLogo";
-import NovaSentenceBar from "@/components/nova/NovaSentenceBar";
 import { useNovaStore } from "@/stores/novaStore";
 import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
 import NotificationCenter from "@/components/shared/NotificationCenter";
@@ -552,7 +551,7 @@ function NovaHeader({ onDraftPanelToggle }) {
   const novaTask = useNovaStore(s => s.activeTask);
   const selectedPalette = useUiStore(s => s.appSettings.selectedPalette);
   const updateSetting = useUiStore(s => s.updateSetting);
-  const activeTheme = selectedPalette === "dark" ? "dark" : "light";
+  const activeTheme = ["stitch", "aurora", "neutral"].includes(selectedPalette) ? selectedPalette : selectedPalette === "dark" ? "dark" : "light";
   const isManager = useOrgStore(selectIsManager);
   const hasOrg = useOrgStore(s => !!s.org);
   const isNova = false; // NOVA theme temporarily removed
@@ -624,10 +623,8 @@ function NovaHeader({ onDraftPanelToggle }) {
         animation: "fadeUp 0.9s cubic-bezier(0.16,1,0.3,1) 0.25s both",
       }}
     >
-      {/* Left — NovaSentenceBar */}
-      <div style={{ display: "flex", alignItems: "center", minWidth: 220, paddingLeft: 16 }}>
-        <NovaSentenceBar />
-      </div>
+      {/* Left — spacer */}
+      <div style={{ display: "flex", alignItems: "center", minWidth: 220, paddingLeft: 16 }} />
 
       {/* Center — Navigation */}
       <nav style={{ display: "flex", alignItems: "center", gap: 2 }}>
@@ -648,21 +645,21 @@ function NovaHeader({ onDraftPanelToggle }) {
               position: "relative",
               transition: `color ${MOTION.normal} ease, background ${MOTION.normal} ease`,
               textDecoration: "none",
-              color: isActive ? COLORS.text.primary : COLORS.text.tertiary,
-              background: isActive ? COLORS.accent.muted : "transparent",
+              color: isActive ? C.text : C.textMuted,
+              background: isActive ? (dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)") : "transparent",
               border: "none",
               boxShadow: "none",
             })}
             onMouseEnter={e => {
               if (!e.currentTarget.classList.contains("active")) {
-                e.currentTarget.style.color = COLORS.text.secondary;
-                e.currentTarget.style.background = COLORS.accent.muted;
+                e.currentTarget.style.color = C.text;
+                e.currentTarget.style.background = dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)";
               }
             }}
             onMouseLeave={e => {
               if (!e.currentTarget.classList.contains("active")) {
-                e.currentTarget.style.color = "";
-                e.currentTarget.style.background = "";
+                e.currentTarget.style.color = C.textMuted;
+                e.currentTarget.style.background = "transparent";
               }
             }}
           >
@@ -678,8 +675,8 @@ function NovaHeader({ onDraftPanelToggle }) {
                       bottom: "20%",
                       width: 2,
                       borderRadius: 1,
-                      background: COLORS.accent.DEFAULT,
-                      boxShadow: `0 0 6px ${COLORS.accent.glow}`,
+                      background: C.text,
+                      opacity: 0.5,
                     }}
                   />
                 )}
@@ -706,8 +703,8 @@ function NovaHeader({ onDraftPanelToggle }) {
                       width: 5,
                       height: 5,
                       borderRadius: "50%",
-                      background: COLORS.accent.DEFAULT,
-                      boxShadow: `0 0 6px ${COLORS.accent.glow}`,
+                      background: C.accent,
+                      boxShadow: `0 0 6px ${C.accent}44`,
                     }}
                   />
                 )}
@@ -1151,6 +1148,64 @@ function NovaHeader({ onDraftPanelToggle }) {
                   strokeLinejoin="round"
                 >
                   <path d="M13.6 9.8A6 6 0 116.2 2.4a4.5 4.5 0 007.4 7.4z" />
+                </svg>
+              ),
+            },
+            {
+              key: "stitch",
+              palette: "stitch",
+              title: "Stitch",
+              icon: (
+                <svg
+                  width={11}
+                  height={11}
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M8 1l1.5 3.5L13 6l-3 2.5L11 13 8 10.5 5 13l1-4.5L3 6l3.5-1.5z" />
+                </svg>
+              ),
+            },
+            {
+              key: "aurora",
+              palette: "aurora",
+              title: "Aurora",
+              icon: (
+                <svg
+                  width={11}
+                  height={11}
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M2 14c2-4 4-8 6-10s4-1 6 2" />
+                  <path d="M2 12c2-3 4-6 6-7s3 0 5 2" opacity="0.5" />
+                </svg>
+              ),
+            },
+            {
+              key: "neutral",
+              palette: "neutral",
+              title: "Neutral",
+              icon: (
+                <svg
+                  width={11}
+                  height={11}
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                >
+                  <rect x="2" y="2" width="12" height="12" rx="2" />
+                  <line x1="2" y1="8" x2="14" y2="8" />
                 </svg>
               ),
             },

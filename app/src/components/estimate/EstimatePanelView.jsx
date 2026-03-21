@@ -15,6 +15,7 @@ import { VIRTUAL_THRESHOLD } from "@/hooks/useVirtualList";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import LevelingView from "@/components/estimate/LevelingView";
+import SpatialTreemap from "@/components/estimate/SpatialTreemap";
 
 // ── Source pill color mapping ──
 const SOURCE_COLORS = {
@@ -105,7 +106,7 @@ function EstimatePanelView({ onSelectItem, selectedItemId }) {
   const [focusedCostCell, setFocusedCostCell] = useState(null);
 
   const viewMode =
-    estViewMode === "scope" || estViewMode === "detail" || estViewMode === "level"
+    estViewMode === "scope" || estViewMode === "detail" || estViewMode === "level" || estViewMode === "spatial"
       ? estViewMode
       : estViewMode === "pricing" || estViewMode === "detailed" || estViewMode === "both"
         ? "detail"
@@ -235,6 +236,7 @@ function EstimatePanelView({ onSelectItem, selectedItemId }) {
             { key: "scope", label: "Scope" },
             { key: "detail", label: "Detail" },
             { key: "level", label: "Level" },
+            { key: "spatial", label: "Spatial" },
           ].map(v => (
             <button
               key={v.key}
@@ -307,11 +309,13 @@ function EstimatePanelView({ onSelectItem, selectedItemId }) {
         )}
       </div>
 
-      {/* Grid or Leveling */}
+      {/* Grid, Leveling, or Spatial */}
       {viewMode === "level" ? (
         <div style={{ flex: 1, overflow: "auto" }}>
           <LevelingView />
         </div>
+      ) : viewMode === "spatial" ? (
+        <SpatialTreemap />
       ) : (
         <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", minHeight: 0 }}>
           <div style={{ padding: "4px 6px" }}>

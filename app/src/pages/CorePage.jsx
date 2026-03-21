@@ -8,7 +8,7 @@ import CoreOverview from "@/components/core/CoreOverview";
 import CoreProposals from "@/components/core/CoreProposals";
 import CostDatabasePage from "@/pages/CostDatabasePage";
 import CoreSources from "@/components/core/CoreSources";
-import NovaSceneLazy from "@/components/nova/NovaSceneLazy";
+
 
 // Lightweight per-tab error catcher — prevents one tab crash from killing the page
 class TabErrorBoundary extends Component {
@@ -126,18 +126,6 @@ export default function CorePage() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <div
-            style={{
-              width: 42,
-              height: 42,
-              borderRadius: "50%",
-              overflow: "hidden",
-              boxShadow: "0 0 20px rgba(139,92,246,0.25), 0 0 40px rgba(109,40,217,0.12)",
-              flexShrink: 0,
-            }}
-          >
-            <NovaSceneLazy width={42} height={42} size={0.8} intensity={0.6} lightweight />
-          </div>
           <div>
             <h1
               style={{
@@ -151,7 +139,7 @@ export default function CorePage() {
                 gap: 8,
               }}
             >
-              ARTIFACT Core
+              NOVA Core
               <span
                 style={{
                   fontSize: 10,
@@ -159,8 +147,8 @@ export default function CorePage() {
                   letterSpacing: "0.06em",
                   padding: "2px 8px",
                   borderRadius: 10,
-                  background: `linear-gradient(135deg, rgba(139,92,246,0.15), rgba(109,40,217,0.1))`,
-                  color: "#8B5CF6",
+                  background: C.accentBg,
+                  color: C.accent,
                   textTransform: "uppercase",
                 }}
               >
@@ -175,7 +163,7 @@ export default function CorePage() {
                 lineHeight: 1.4,
               }}
             >
-              Your data feeds ARTIFACT's intelligence. Upload proposals, track costs, and grow smarter with every
+              Your data feeds NOVA's intelligence. Upload proposals, track costs, and grow smarter with every
               project.
             </p>
           </div>

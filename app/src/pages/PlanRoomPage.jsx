@@ -1011,7 +1011,7 @@ export default function PlanRoomPage() {
               }}
             />
             <span style={{ fontSize: 11, fontWeight: 600, color: C.accent }}>
-              ARTIFACT is processing {processingDocs.length} document{processingDocs.length > 1 ? "s" : ""}...
+              NOVA is processing {processingDocs.length} document{processingDocs.length > 1 ? "s" : ""}...
             </span>
             <span style={{ fontSize: 10, color: C.textDim, marginLeft: "auto" }}>
               Results will appear here automatically
@@ -1132,7 +1132,7 @@ export default function PlanRoomPage() {
               <Ic d={I.plans} size={18} color={C.accent} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: T.fontSize.xs, fontWeight: T.fontWeight.semibold, color: C.text }}>
-                  Upload drawing plans to run ARTIFACT Discovery
+                  Upload drawing plans to run NOVA Discovery
                 </div>
                 <div style={{ fontSize: 10, color: C.textDim, marginTop: 2 }}>
                   Specs and bid documents are loaded. Add your PDF drawing plans to detect schedules and generate a ROM.
@@ -1356,7 +1356,7 @@ export default function PlanRoomPage() {
                         {drawings.length} drawings ready for discovery
                       </div>
                       <div style={{ fontSize: 9, color: C.textDim, marginTop: 2 }}>
-                        ARTIFACT will detect schedules, extract notes, and generate a rough order of magnitude estimate.
+                        NOVA will detect schedules, extract notes, and generate a rough order of magnitude estimate.
                       </div>
                     </div>
                     <button
@@ -1739,7 +1739,7 @@ export default function PlanRoomPage() {
               </div>
             </div>
 
-            {/* ─── ARTIFACT ROM Card ─── */}
+            {/* ─── NOVA ROM Card ─── */}
             {scanResults && (
               <div
                 style={{
@@ -1762,7 +1762,7 @@ export default function PlanRoomPage() {
                     <span
                       style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.bold, color: C.purple || C.accent }}
                     >
-                      ARTIFACT ROM
+                      NOVA ROM
                     </span>
                   </div>
                   {scanResults.rom?.sfEstimated && (
@@ -2490,13 +2490,13 @@ export default function PlanRoomPage() {
               <BuildingParametersSection />
             </div>
 
-            {/* ─── ARTIFACT Activity Log ─── */}
+            {/* ─── NOVA Activity Log ─── */}
             {novaHistory.length > 0 && (
               <div style={{ ...card(C), padding: T.space[5], gridColumn: "1 / -1" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: T.space[2], marginBottom: T.space[3] }}>
                   <Ic d={I.ai} size={16} color={C.textMuted} />
                   <span style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.bold, color: C.textMuted }}>
-                    ARTIFACT Activity Log
+                    NOVA Activity Log
                   </span>
                 </div>
                 <div style={{ maxHeight: 160, overflowY: "auto" }}>
@@ -2598,7 +2598,7 @@ export default function PlanRoomPage() {
                     gap: 6,
                   }}
                 >
-                  <Ic d={I.ai} size={14} color={C.purple || C.accent} /> ARTIFACT Scan Complete
+                  <Ic d={I.ai} size={14} color={C.purple || C.accent} /> NOVA Scan Complete
                 </div>
                 <div style={{ fontSize: 10, color: C.textDim }}>
                   {scanResults.schedules?.length || 0} schedule{scanResults.schedules?.length !== 1 ? "s" : ""}
@@ -2862,7 +2862,7 @@ function buildProjectNarrative(project, drawings, specs, activeLoc) {
     const docParts = [];
     if (drawings.length > 0) docParts.push(`${drawings.length} drawing${drawings.length > 1 ? "s" : ""}`);
     if (specs.length > 0) docParts.push(`${specs.length} specification section${specs.length > 1 ? "s" : ""}`);
-    parts.push("ARTIFACT has analyzed " + docParts.join(" and ") + " for this project.");
+    parts.push("NOVA has analyzed " + docParts.join(" and ") + " for this project.");
   }
 
   return parts.join(" ");

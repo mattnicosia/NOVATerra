@@ -22,6 +22,11 @@ export const useModelStore = create((set, get) => ({
   analyzingPlans: false,     // loading state for AI outline detection
   analyzeProgress: '',       // progress text during analysis
 
+  // Room geometry from geometryEngine analysis
+  // { [drawingId]: { rooms: Room[], roomLabels: RoomLabel[] } }
+  roomGeometry: {},
+  roomElements: [],           // 3D room outline elements for rendering
+
   // Interactive 3D features
   hoveredElementId: null,    // element under cursor
   hiddenFloors: [],          // storey names to hide
@@ -56,6 +61,10 @@ export const useModelStore = create((set, get) => ({
   })),
   setAnalyzingPlans: (v) => set({ analyzingPlans: v }),
   setAnalyzeProgress: (v) => set({ analyzeProgress: v }),
+  setRoomGeometry: (drawingId, rooms, roomLabels) => set(s => ({
+    roomGeometry: { ...s.roomGeometry, [drawingId]: { rooms, roomLabels } },
+  })),
+  setRoomElements: (v) => set({ roomElements: v }),
 
   // Interactive 3D actions
   setHoveredElement: (id) => set({ hoveredElementId: id }),
@@ -132,5 +141,7 @@ export const useModelStore = create((set, get) => ({
     specOverrides: {},
     xrayMode: false,
     materialAssignments: {},
+    roomGeometry: {},
+    roomElements: [],
   }),
 }));

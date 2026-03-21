@@ -157,9 +157,9 @@ export default function InboxWidget() {
               padding: "8px 0",
             }}
           >
-            <Ic d={I.email || I.folder} size={20} color={C.textDim} />
-            <div style={{ fontSize: 10, color: C.textDim, textAlign: "center", lineHeight: 1.5 }}>No emails yet</div>
-            <div style={{ fontSize: 9, color: C.textDim, textAlign: "center", opacity: 0.6 }}>
+            <Ic d={I.email || I.folder} size={20} color={C.textMuted} />
+            <div style={{ fontSize: 11, color: C.textMuted, textAlign: "center", lineHeight: 1.5 }}>No emails yet</div>
+            <div style={{ fontSize: 10, color: C.textMuted, textAlign: "center", opacity: 0.7 }}>
               Forward bid invitations to
               <br />
               <span style={{ color: C.accent, fontWeight: 600 }}>bids@novabuild.app</span>
@@ -207,14 +207,15 @@ export default function InboxWidget() {
                 )}
                 <span
                   style={{
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: st.bold ? 700 : 500,
-                    color: st.muted ? C.textDim : C.text,
+                    color: st.muted ? C.textMuted : C.text,
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
                     flex: 1,
                     minWidth: 0,
+                    lineHeight: 1.3,
                   }}
                 >
                   {rfp.subject || "Untitled RFP"}
@@ -247,8 +248,8 @@ export default function InboxWidget() {
               >
                 <span
                   style={{
-                    fontSize: 9,
-                    color: C.textDim,
+                    fontSize: 10,
+                    color: C.textMuted,
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
@@ -257,7 +258,7 @@ export default function InboxWidget() {
                 >
                   {rfp.sender_name || rfp.sender_email || "Unknown"}
                 </span>
-                <span style={{ fontSize: 8, color: C.textDim, opacity: 0.7, flexShrink: 0 }}>
+                <span style={{ fontSize: 9, color: C.textMuted, opacity: 0.7, flexShrink: 0 }}>
                   {timeAgo(rfp.created_at)}
                 </span>
               </div>

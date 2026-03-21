@@ -523,6 +523,7 @@ export default function ModelSidebar() {
           />
           {selected.level && <DetailRow C={C} T={T} label="Floor" value={selected.level} />}
           {selected.division && <DetailRow C={C} T={T} label="Division" value={selected.division} />}
+          {selected.roomLabel && <DetailRow C={C} T={T} label="Room" value={selected.roomLabel} />}
 
           {/* Material from IFC */}
           {selected.material && <DetailRow C={C} T={T} label="Material" value={selected.material} />}

@@ -57,6 +57,7 @@ export default function WidgetWrapper({
 
   return (
     <motion.div
+      className="widget-card"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       whileHover={!isActive ? widgetHover : undefined}

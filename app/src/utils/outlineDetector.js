@@ -101,9 +101,12 @@ export async function detectBuildingOutline(drawingId) {
   const base64 = await ensureDrawingImage(drawing);
   if (!base64) throw new Error(`No image found for drawing ${drawingId}`);
 
-  // Optimize image for API (max 1200px)
+  // Get ORIGINAL image dimensions first (before AI optimization resizes it)
   const dataUrl = base64.startsWith("data:") ? base64 : `data:image/png;base64,${base64}`;
-  const { base64: optimized, width: imgWidth, height: imgHeight } = await optimizeImageForAI(dataUrl, 1200);
+  const origDims = await _getImageDimensions(dataUrl);
+
+  // Optimize image for API (max 1200px) — Claude sees this smaller image
+  const { base64: optimized, width: aiWidth, height: aiHeight } = await optimizeImageForAI(dataUrl, 1200);
 
   // Call Claude Vision
   const response = await callAnthropic({
@@ -117,15 +120,37 @@ export async function detectBuildingOutline(drawingId) {
     temperature: 0,
   });
 
-  // Parse the JSON response
-  const polygon = parsePolygonResponse(response, imgWidth, imgHeight);
+  // Parse the JSON response — polygon is in AI-optimized image pixel space
+  const aiPolygon = parsePolygonResponse(response, aiWidth, aiHeight);
+
+  // Scale polygon from AI image space → original drawing pixel space
+  // This is critical: takeoff measurements are in original pixel space,
+  // so the outline must be too, or they won't align in 3D.
+  const scaleX = origDims.width / (aiWidth || origDims.width);
+  const scaleY = origDims.height / (aiHeight || origDims.height);
+  const polygon = aiPolygon.map(p => ({
+    x: p.x * scaleX,
+    y: p.y * scaleY,
+  }));
 
   return {
     polygon,
     confidence: polygon.length >= 4 ? 0.8 : 0.4,
-    imgWidth,
-    imgHeight,
+    imgWidth: origDims.width,
+    imgHeight: origDims.height,
   };
+}
+
+/**
+ * Get the natural dimensions of an image from a data URL.
+ */
+function _getImageDimensions(dataUrl) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onerror = () => resolve({ width: 0, height: 0 });
+    img.src = dataUrl;
+  });
 }
 
 /**

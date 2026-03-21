@@ -7888,7 +7888,6 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                 justifyContent: "center",
                 background: C.isDark ? "#1a1d24" : "#e5e7eb",
                 position: "relative",
-                cursor: tkPanning.current ? "grabbing" : "default",
               }}
             >
               {!selectedDrawing ? (
@@ -8292,14 +8291,13 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                       if (e.button === 2 || e.button === 1) handleDrawingMouseDown(e);
                     }}
                     onContextMenu={e => e.preventDefault()}
+                    className="tk-canvas-cursor"
                     style={{
                       position: "absolute",
                       top: 0,
                       left: 0,
                       width: "100%",
                       height: "100%",
-                      cursor:
-                        tkAutoCount?.phase === "select" ? "crosshair" : tkTool === "calibrate" ? "crosshair" : "none",
                       pointerEvents: "auto",
                     }}
                   />

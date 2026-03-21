@@ -1246,8 +1246,8 @@ export default function InboxPage() {
                     <span
                       style={{
                         flex: 1,
-                        fontSize: T.fontSize.sm,
-                        fontWeight: isUnread ? T.fontWeight.semibold : T.fontWeight.normal,
+                        fontSize: 13,
+                        fontWeight: isUnread ? 600 : 400,
                         color: C.text,
                         overflow: "hidden",
                         textOverflow: "ellipsis",
@@ -1257,13 +1257,13 @@ export default function InboxPage() {
                       {rfp.subject || "(no subject)"}
                     </span>
                     {/* Sender + time + toggle read */}
-                    <span style={{ fontSize: T.fontSize.xs, color: C.textDim, flexShrink: 0 }}>
+                    <span style={{ fontSize: 12, color: C.textMuted, flexShrink: 0 }}>
                       {rfp.sender_name || rfp.sender_email?.split("@")[0]}
                     </span>
                     <span
                       style={{
-                        fontSize: T.fontSize.xs,
-                        color: C.textDim,
+                        fontSize: 12,
+                        color: C.textMuted,
                         flexShrink: 0,
                         minWidth: 40,
                         textAlign: "right",

@@ -177,6 +177,20 @@ export const useTakeoffsStore = create((set, get) => ({
   setTkScopeSuggestions: v => set({ tkScopeSuggestions: v }),
   setTkZoom: v => set(s => ({ tkZoom: typeof v === "function" ? v(s.tkZoom) : v })),
   setTkPan: v => set(s => ({ tkPan: typeof v === "function" ? v(s.tkPan) : v })),
+  // Per-sheet zoom/pan persistence
+  _sheetViews: {},
+  saveTkSheetView: (sheetId) => {
+    if (!sheetId) return;
+    const { tkZoom, tkPan } = get();
+    set(s => ({ _sheetViews: { ...s._sheetViews, [sheetId]: { zoom: tkZoom, pan: { ...tkPan } } } }));
+  },
+  restoreTkSheetView: (sheetId) => {
+    if (!sheetId) return false;
+    const view = get()._sheetViews[sheetId];
+    if (!view) return false;
+    set({ tkZoom: view.zoom, tkPan: { ...view.pan } });
+    return true;
+  },
   setTkPanelWidth: v => set({ tkPanelWidth: v }),
   setTkPanelTier: v => set({ tkPanelTier: v }),
   setTkPanelOpen: v => set({ tkPanelOpen: v }),

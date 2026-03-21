@@ -306,10 +306,10 @@ export default function CoreOverview() {
         >
           <div style={{ fontSize: 32, marginBottom: 12 }}>🧠</div>
           <h3 style={{ fontSize: 15, fontWeight: 600, color: C.text, margin: "0 0 6px" }}>
-            ARTIFACT Core is ready to learn
+            NOVA Core is ready to learn
           </h3>
           <p style={{ fontSize: 12, color: C.textMuted, margin: "0 0 16px", maxWidth: 380, marginInline: "auto" }}>
-            Upload your first proposal or import cost data to begin training ARTIFACT's intelligence. Every data point
+            Upload your first proposal or import cost data to begin training NOVA's intelligence. Every data point
             makes your estimates more accurate.
           </p>
           <button
@@ -317,13 +317,13 @@ export default function CoreOverview() {
             style={{
               padding: "10px 24px",
               borderRadius: T.radius.md,
-              background: `linear-gradient(135deg, #8B5CF6, #7C3AED)`,
+              background: C.accent,
               border: "none",
               cursor: "pointer",
               color: "#fff",
               fontSize: 13,
               fontWeight: 600,
-              boxShadow: "0 2px 12px rgba(139,92,246,0.3)",
+              boxShadow: `0 2px 12px ${C.accent}30`,
             }}
           >
             Upload Your First Proposal

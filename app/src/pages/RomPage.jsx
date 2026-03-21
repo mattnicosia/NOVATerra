@@ -382,7 +382,7 @@ function RomPageInner() {
           }}
         >
           <div style={{ ...display(18), fontWeight: 500, color: "rgba(238,237,245,0.5)", letterSpacing: -0.3 }}>
-            ARTIFACT
+            NOVA
           </div>
           <div
             style={{

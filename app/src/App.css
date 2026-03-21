@@ -24,8 +24,12 @@ body {
 
 /* ── Nova cursor system ── */
 .nova-cursor-active,
-.nova-cursor-active * {
+.nova-cursor-active *:not(.tk-canvas-cursor) {
   cursor: none !important;
+}
+/* Drawing canvas gets its own cursor (arrow) */
+.tk-canvas-cursor {
+  cursor: default !important;
 }
 .nova-ring-hovering {
   width: 44px !important;

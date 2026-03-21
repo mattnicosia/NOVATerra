@@ -8,6 +8,7 @@ import { useModuleStore } from "@/stores/moduleStore";
 import { nn } from "@/utils/format";
 import { cleanPath } from "@/utils/geometrySnapping";
 import { generateBuildingEnvelope } from "@/utils/envelopeBuilder";
+import { pointInPolygon } from "@/utils/coverageGrid";
 
 // ── Scale conversion (mirrors TakeoffsPage logic) ──────────────────
 const ARCH_MAP = {
@@ -111,17 +112,42 @@ function getSpecValue(takeoff, specId) {
   return null;
 }
 
+// ── Room polygon conversion + containment ────────────────────────
+// Convert pixel-space room polygons to feet-space for a given drawing
+function _roomsToFeetSpace(rooms, drawingId) {
+  const ppf = getPxPerFoot(drawingId);
+  if (!ppf || !rooms?.length) return [];
+  return rooms.map(r => ({
+    ...r,
+    feetPolygon: r.polygon.map(p => ({ x: p.x / ppf, z: p.y / ppf })),
+    feetCentroid: { x: r.centroid.x / ppf, z: r.centroid.y / ppf },
+  }));
+}
+
+// Find which room a point belongs to (feet-space)
+function _findContainingRoom(px, pz, feetRooms) {
+  for (const room of feetRooms) {
+    if (pointInPolygon(px, pz, room.feetPolygon)) return room;
+  }
+  return null;
+}
+
 // ── Build 3D elements from takeoffs ──────────────────────────────
-export function generateElementsFromTakeoffs() {
+// floorAssignments: optional map of drawingId → { floor, elevation, label, height }
+// from floorAssignment.js buildFloorMap(). When provided, elements use real
+// floor elevations instead of the fallback drawing-order heuristic.
+// roomGeometry: optional map of drawingId → { rooms[], roomLabels[] }
+// from geometryEngine. When provided, elements get roomId/roomLabel tags.
+export function generateElementsFromTakeoffs(floorAssignments, roomGeometry) {
   const { takeoffs } = useTakeoffsStore.getState();
   const { drawings } = useDrawingsStore.getState();
   const items = useItemsStore.getState().items;
   const getItemTotal = useItemsStore.getState().getItemTotal;
 
   const elements = [];
-  const drawingLevels = {}; // sheetId → level index
+  const drawingLevels = {}; // sheetId → level index (fallback)
 
-  // Assign levels based on drawing order (simple heuristic)
+  // Assign levels based on drawing order (fallback when no floorAssignments)
   drawings.forEach((d, i) => {
     drawingLevels[d.id] = i;
   });
@@ -156,8 +182,28 @@ export function generateElementsFromTakeoffs() {
       const ppf = getPxPerFoot(sheetId);
       if (!ppf) return; // no scale → can't convert to real coords
 
-      const levelIdx = drawingLevels[sheetId] || 0;
-      const elevation = levelIdx * 12; // 12' per story default
+      // Use smart floor assignment if available, fall back to drawing order
+      const fa = floorAssignments?.[sheetId];
+      const levelIdx = fa ? fa.floor : (drawingLevels[sheetId] || 0);
+      const elevation = fa ? fa.elevation : levelIdx * 12;
+
+      // Room containment: convert rooms to feet-space and find which room this measurement is in
+      let roomId = null;
+      let roomLabel = null;
+      if (roomGeometry?.[sheetId]?.rooms) {
+        const feetRooms = _roomsToFeetSpace(roomGeometry[sheetId].rooms, sheetId);
+        // Compute measurement centroid in feet-space
+        const cx = m.points.reduce((s, p) => s + p.x, 0) / m.points.length / ppf;
+        const cz = m.points.reduce((s, p) => s + p.y, 0) / m.points.length / ppf;
+        const containingRoom = _findContainingRoom(cx, cz, feetRooms);
+        if (containingRoom) {
+          roomId = containingRoom.id;
+          // Find room label from roomLabels array
+          const labels = roomGeometry[sheetId].roomLabels || [];
+          const label = labels.find(l => l.roomId === containingRoom.id);
+          roomLabel = label?.label || label?.tag || containingRoom.id;
+        }
+      }
 
       if ((m.type === "linear" || to.unit === "LF") && m.points.length >= 2) {
         // LINEAR → extruded wall/footing/beam
@@ -175,6 +221,7 @@ export function generateElementsFromTakeoffs() {
           type: "wall",
           takeoffId: to.id,
           measurementId: m.id,
+          sheetId,
           trade,
           division,
           description,
@@ -182,6 +229,8 @@ export function generateElementsFromTakeoffs() {
           linkedItemId: to.linkedItemId,
           color: getTradeColor(trade),
           level: levelIdx,
+          roomId,
+          roomLabel,
           geometry: {
             kind: "extrudedPath",
             path: pathFt,
@@ -207,6 +256,7 @@ export function generateElementsFromTakeoffs() {
           type: "slab",
           takeoffId: to.id,
           measurementId: m.id,
+          sheetId,
           trade,
           division,
           description,
@@ -214,6 +264,8 @@ export function generateElementsFromTakeoffs() {
           linkedItemId: to.linkedItemId,
           color: getTradeColor(trade),
           level: levelIdx,
+          roomId,
+          roomLabel,
           geometry: {
             kind: "polygon",
             points: polyFt,
@@ -235,6 +287,7 @@ export function generateElementsFromTakeoffs() {
             type: "object",
             takeoffId: to.id,
             measurementId: m.id,
+            sheetId,
             trade,
             division,
             description,
@@ -242,6 +295,8 @@ export function generateElementsFromTakeoffs() {
             linkedItemId: to.linkedItemId,
             color: getTradeColor(trade),
             level: levelIdx,
+            roomId,
+            roomLabel,
             geometry: {
               kind: "box",
               position: ptFt,
@@ -255,6 +310,55 @@ export function generateElementsFromTakeoffs() {
       }
     });
   });
+
+  return elements;
+}
+
+// ── Generate 3D room outline elements from geometry analysis ─────
+// Converts pixel-space room polygons into feet-space room outlines
+// that can be rendered as subtle boundary lines in the 3D scene.
+export function generateRoomElements(roomGeometry, floorAssignments) {
+  const elements = [];
+  if (!roomGeometry) return elements;
+
+  for (const [drawingId, { rooms, roomLabels }] of Object.entries(roomGeometry)) {
+    if (!rooms?.length) continue;
+    const feetRooms = _roomsToFeetSpace(rooms, drawingId);
+    if (!feetRooms.length) continue;
+
+    const fa = floorAssignments?.[drawingId];
+    const levelIdx = fa ? fa.floor : 0;
+    const elevation = fa ? fa.elevation : 0;
+    const height = fa ? fa.height : 12;
+
+    feetRooms.forEach(room => {
+      if (!room.feetPolygon || room.feetPolygon.length < 3) return;
+
+      // Find label for this room
+      const labels = roomLabels || [];
+      const labelEntry = labels.find(l => l.roomId === room.id);
+      const label = labelEntry?.label || labelEntry?.tag || room.id;
+
+      elements.push({
+        id: `room-outline-${drawingId}-${room.id}`,
+        type: "roomOutline",
+        roomId: room.id,
+        drawingId,
+        label,
+        level: levelIdx,
+        color: "#F0ECE6", // warm paper-white, matches FloorShell
+        geometry: {
+          kind: "roomOutline",
+          points: room.feetPolygon,
+          centroid: room.feetCentroid,
+          elevation,
+          height,
+          area: room.area, // px² — for reference
+          confidence: room.confidence,
+        },
+      });
+    });
+  }
 
   return elements;
 }

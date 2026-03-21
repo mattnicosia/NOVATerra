@@ -17,6 +17,9 @@ const ModelTab = lazy(() => import("@/components/insights/ModelTab"));
 // Lazy-load Schedule tab
 const ScheduleTab = lazy(() => import("@/components/insights/ScheduleTab"));
 
+// Lazy-load Blueprint 3D tab — plan-as-floor-plate visualization
+const BlueprintTab = lazy(() => import("@/components/insights/BlueprintTab"));
+
 // Stable empty array — prevents selector from creating new [] on every store change
 const EMPTY_SNAPS = [];
 
@@ -30,6 +33,7 @@ export default function InsightsPage() {
 
   const tabs = [
     { key: "model", label: "Model", icon: I.cube },
+    { key: "blueprint", label: "Blueprint 3D", icon: I.plans },
     { key: "schedule", label: "Schedule", icon: I.schedule },
     { key: "compare", label: "Compare", icon: I.bid },
   ];
@@ -105,6 +109,25 @@ export default function InsightsPage() {
           }
         >
           <ModelTab />
+        </Suspense>
+      )}
+      {tab === "blueprint" && (
+        <Suspense
+          fallback={
+            <div style={{ ...card(C), padding: T.space[8], textAlign: "center" }}>
+              <div
+                style={{
+                  width: 32, height: 32, border: `3px solid ${C.bg3}`,
+                  borderTopColor: C.accent, borderRadius: "50%",
+                  animation: "spin 1s linear infinite", margin: "0 auto", marginBottom: T.space[3],
+                }}
+              />
+              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+              <div style={{ fontSize: T.fontSize.sm, color: C.textMuted }}>Loading Blueprint 3D...</div>
+            </div>
+          }
+        >
+          <BlueprintTab />
         </Suspense>
       )}
       {tab === "schedule" && (

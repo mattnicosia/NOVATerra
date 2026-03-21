@@ -334,6 +334,511 @@ export function ThemeProvider({ children }) {
     };
   }, [value.noGlass, value.bg, value.bgGradient, value.bg1, value.border, value.text, value.isDark]);
 
+  // ── Stitch mode: animated conic-gradient borders on cards + widgets ──
+  useEffect(() => {
+    const STITCH_STYLE_ID = "stitch-gradient-borders";
+    if (value.stitchMode) {
+      document.documentElement.setAttribute("data-stitch", "");
+      const existing = document.getElementById(STITCH_STYLE_ID);
+      if (existing) existing.remove();
+
+      const style = document.createElement("style");
+      style.id = STITCH_STYLE_ID;
+      style.textContent = `
+        /* ═══ STITCH — Click-to-Activate Gradient Borders ═══
+           Gradient borders activate on click only (not always-on).
+           Original Stitch palette: cyan → violet → blue. */
+
+        @property --stitch-angle {
+          syntax: '<angle>';
+          initial-value: 0deg;
+          inherits: false;
+        }
+
+        @keyframes stitch-rotate {
+          to { --stitch-angle: 360deg; }
+        }
+
+        /* ── Global radius bump ── */
+        html[data-stitch] .widget-card,
+        html[data-stitch] .kpi-card {
+          border-radius: 16px !important;
+        }
+
+        /* ── Default state: quiet 1px border, no animation ── */
+        html[data-stitch] .widget-card {
+          position: relative;
+          border: 1px solid rgba(255,255,255,0.06) !important;
+          background: ${value.bg1 || "#1E1F25"} !important;
+          overflow: visible;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.25) !important;
+          transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        /* ::before exists but invisible by default */
+        html[data-stitch] .widget-card::before {
+          content: '';
+          position: absolute;
+          inset: -2px;
+          border-radius: inherit;
+          padding: 2px;
+          background: conic-gradient(
+            from var(--stitch-angle),
+            #00E5FF,
+            #7C4DFF,
+            #2979FF,
+            #00E5FF
+          );
+          -webkit-mask:
+            linear-gradient(#fff 0 0) content-box,
+            linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          mask:
+            linear-gradient(#fff 0 0) content-box,
+            linear-gradient(#fff 0 0);
+          mask-composite: exclude;
+          opacity: 0;
+          animation: none;
+          pointer-events: none;
+          z-index: 0;
+          transition: opacity 1.2s ease-out;
+        }
+
+        /* ── Active state: gradient border rotates, then fades out ── */
+        html[data-stitch] .widget-card.stitch-active {
+          border-color: transparent !important;
+          box-shadow:
+            0 0 15px rgba(0,229,255,0.08),
+            0 0 30px rgba(124,77,255,0.05),
+            0 4px 16px rgba(0,0,0,0.3) !important;
+        }
+
+        html[data-stitch] .widget-card.stitch-active::before {
+          opacity: 1;
+          animation: stitch-rotate 4s linear 1;
+        }
+
+        /* KPI cards — same pattern */
+        html[data-stitch] .kpi-card {
+          position: relative;
+          border: 1px solid rgba(255,255,255,0.06) !important;
+          background: ${value.bg1 || "#1E1F25"} !important;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.2) !important;
+          transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        html[data-stitch] .kpi-card::before {
+          content: '';
+          position: absolute;
+          inset: -1.5px;
+          border-radius: inherit;
+          padding: 1.5px;
+          background: conic-gradient(
+            from var(--stitch-angle),
+            rgba(0,229,255,0.5),
+            rgba(124,77,255,0.5),
+            rgba(41,121,255,0.5),
+            rgba(0,229,255,0.5)
+          );
+          -webkit-mask:
+            linear-gradient(#fff 0 0) content-box,
+            linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          mask:
+            linear-gradient(#fff 0 0) content-box,
+            linear-gradient(#fff 0 0);
+          mask-composite: exclude;
+          opacity: 0;
+          animation: none;
+          pointer-events: none;
+          z-index: 0;
+          transition: opacity 1.2s ease-out;
+        }
+
+        html[data-stitch] .kpi-card.stitch-active {
+          border-color: transparent !important;
+        }
+
+        html[data-stitch] .kpi-card.stitch-active::before {
+          opacity: 1;
+          animation: stitch-rotate 4s linear 1;
+        }
+
+        /* Input fields — rounded containers */
+        html[data-stitch] input,
+        html[data-stitch] select,
+        html[data-stitch] textarea {
+          border-radius: 12px !important;
+        }
+
+        /* Nav active state — cyan underline */
+        html[data-stitch] .nav-link-active {
+          border-bottom-color: #00E5FF !important;
+        }
+
+        /* Hovered cards — subtle lift */
+        html[data-stitch] .widget-card:hover {
+          border-color: rgba(255,255,255,0.10) !important;
+          box-shadow:
+            0 4px 16px rgba(0,0,0,0.3),
+            0 0 8px rgba(0,229,255,0.04) !important;
+        }
+
+        /* ── Estimate division groups — same click-to-activate pattern ── */
+        html[data-stitch] .est-division-group {
+          position: relative;
+          border: 1px solid rgba(255,255,255,0.06) !important;
+          border-radius: 12px !important;
+          background: ${value.bg1 || "#1E1F25"} !important;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.2) !important;
+          transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        html[data-stitch] .est-division-group::before {
+          content: '';
+          position: absolute;
+          inset: -1.5px;
+          border-radius: inherit;
+          padding: 1.5px;
+          background: conic-gradient(
+            from var(--stitch-angle),
+            #00E5FF,
+            #7C4DFF,
+            #2979FF,
+            #00E5FF
+          );
+          -webkit-mask:
+            linear-gradient(#fff 0 0) content-box,
+            linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          mask:
+            linear-gradient(#fff 0 0) content-box,
+            linear-gradient(#fff 0 0);
+          mask-composite: exclude;
+          opacity: 0;
+          animation: none;
+          pointer-events: none;
+          z-index: 0;
+          transition: opacity 1.2s ease-out;
+        }
+
+        html[data-stitch] .est-division-group.stitch-active {
+          border-color: transparent !important;
+        }
+
+        html[data-stitch] .est-division-group.stitch-active::before {
+          opacity: 1;
+          animation: stitch-rotate 4s linear 1;
+        }
+
+        /* Estimate rows — subtle cyan tint on hover */
+        html[data-stitch] .est-row:hover {
+          background: rgba(0,229,255,0.03) !important;
+        }
+
+        /* ── Noise grain — boosted film grain texture for Stitch theme ── */
+        html[data-stitch] .noise-grain-overlay {
+          opacity: 0.65 !important;
+        }
+
+        /* ── Header — match card surface, not void ── */
+        html[data-stitch] header {
+          background: #1E1F25 !important;
+          border-bottom-color: rgba(255,255,255,0.06) !important;
+        }
+      `;
+      document.head.appendChild(style);
+
+      // ── Click-to-activate: toggle stitch-active on cards ──
+      const STITCH_TARGETS = ".widget-card, .kpi-card, .est-division-group";
+      const onClick = (e) => {
+        const card = e.target.closest(STITCH_TARGETS);
+        if (!card || card.classList.contains("stitch-active")) return;
+        card.classList.add("stitch-active");
+        // Remove after one full rotation via animationend on ::before
+        const pseudo = card.querySelector(":scope > *") || card;
+        const onEnd = () => {
+          card.classList.remove("stitch-active");
+          card.removeEventListener("animationend", onEnd);
+        };
+        card.addEventListener("animationend", onEnd);
+        // Fallback timeout in case animationend doesn't fire (::before)
+        setTimeout(() => card.classList.remove("stitch-active"), 5500);
+      };
+      document.addEventListener("click", onClick, true);
+
+      // Store ref for cleanup
+      style._stitchClickHandler = onClick;
+    } else {
+      document.documentElement.removeAttribute("data-stitch");
+      const oldStyle = document.getElementById(STITCH_STYLE_ID);
+      if (oldStyle?._stitchClickHandler) {
+        document.removeEventListener("click", oldStyle._stitchClickHandler, true);
+      }
+      oldStyle?.remove();
+    }
+    return () => {
+      document.documentElement.removeAttribute("data-stitch");
+      const oldStyle = document.getElementById(STITCH_STYLE_ID);
+      if (oldStyle?._stitchClickHandler) {
+        document.removeEventListener("click", oldStyle._stitchClickHandler, true);
+      }
+      oldStyle?.remove();
+    };
+  }, [value.stitchMode, value.bg1]);
+
+  // ── Aurora mode: animated conic-gradient borders (emerald → teal → purple) ──
+  useEffect(() => {
+    const AURORA_STYLE_ID = "aurora-gradient-borders";
+    if (value.auroraMode) {
+      document.documentElement.setAttribute("data-aurora", "");
+      const existing = document.getElementById(AURORA_STYLE_ID);
+      if (existing) existing.remove();
+
+      const style = document.createElement("style");
+      style.id = AURORA_STYLE_ID;
+      style.textContent = `
+        /* ═══ AURORA — Click-to-Activate Gradient Borders ═══
+           Northern Lights: emerald → teal → purple. 6s rotation.
+           Enterprise-forward: dignified, not flashy. */
+
+        @property --aurora-angle {
+          syntax: '<angle>';
+          initial-value: 0deg;
+          inherits: false;
+        }
+
+        @keyframes aurora-rotate {
+          to { --aurora-angle: 360deg; }
+        }
+
+        /* ── Global radius bump ── */
+        html[data-aurora] .widget-card,
+        html[data-aurora] .kpi-card {
+          border-radius: 16px !important;
+        }
+
+        /* ── Default state: quiet 1px border, no animation ── */
+        html[data-aurora] .widget-card {
+          position: relative;
+          border: 1px solid rgba(255,255,255,0.06) !important;
+          background: ${value.bg1 || "#1E1F25"} !important;
+          overflow: visible;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.25) !important;
+          transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        /* ::before exists but invisible by default */
+        html[data-aurora] .widget-card::before {
+          content: '';
+          position: absolute;
+          inset: -2px;
+          border-radius: inherit;
+          padding: 2px;
+          background: conic-gradient(
+            from var(--aurora-angle),
+            #10B981,
+            #06B6D4,
+            #8B5CF6,
+            #06B6D4,
+            #10B981
+          );
+          -webkit-mask:
+            linear-gradient(#fff 0 0) content-box,
+            linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          mask:
+            linear-gradient(#fff 0 0) content-box,
+            linear-gradient(#fff 0 0);
+          mask-composite: exclude;
+          opacity: 0;
+          animation: none;
+          pointer-events: none;
+          z-index: 0;
+          transition: opacity 1.2s ease-out;
+        }
+
+        /* ── Active state: gradient border rotates, then fades out ── */
+        html[data-aurora] .widget-card.aurora-active {
+          border-color: transparent !important;
+          box-shadow:
+            0 0 15px rgba(16,185,129,0.08),
+            0 0 30px rgba(139,92,246,0.05),
+            0 4px 16px rgba(0,0,0,0.3) !important;
+        }
+
+        html[data-aurora] .widget-card.aurora-active::before {
+          opacity: 1;
+          animation: aurora-rotate 6s linear 1;
+        }
+
+        /* KPI cards — same pattern */
+        html[data-aurora] .kpi-card {
+          position: relative;
+          border: 1px solid rgba(255,255,255,0.06) !important;
+          background: ${value.bg1 || "#1E1F25"} !important;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.2) !important;
+          transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        html[data-aurora] .kpi-card::before {
+          content: '';
+          position: absolute;
+          inset: -1.5px;
+          border-radius: inherit;
+          padding: 1.5px;
+          background: conic-gradient(
+            from var(--aurora-angle),
+            rgba(16,185,129,0.5),
+            rgba(6,182,212,0.5),
+            rgba(139,92,246,0.5),
+            rgba(6,182,212,0.5),
+            rgba(16,185,129,0.5)
+          );
+          -webkit-mask:
+            linear-gradient(#fff 0 0) content-box,
+            linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          mask:
+            linear-gradient(#fff 0 0) content-box,
+            linear-gradient(#fff 0 0);
+          mask-composite: exclude;
+          opacity: 0;
+          animation: none;
+          pointer-events: none;
+          z-index: 0;
+          transition: opacity 1.2s ease-out;
+        }
+
+        html[data-aurora] .kpi-card.aurora-active {
+          border-color: transparent !important;
+        }
+
+        html[data-aurora] .kpi-card.aurora-active::before {
+          opacity: 1;
+          animation: aurora-rotate 6s linear 1;
+        }
+
+        /* Input fields — rounded containers */
+        html[data-aurora] input,
+        html[data-aurora] select,
+        html[data-aurora] textarea {
+          border-radius: 12px !important;
+        }
+
+        /* Nav active state — emerald underline */
+        html[data-aurora] .nav-link-active {
+          border-bottom-color: #10B981 !important;
+        }
+
+        /* Hovered cards — subtle lift */
+        html[data-aurora] .widget-card:hover {
+          border-color: rgba(255,255,255,0.10) !important;
+          box-shadow:
+            0 4px 16px rgba(0,0,0,0.3),
+            0 0 8px rgba(16,185,129,0.04) !important;
+        }
+
+        /* ── Estimate division groups ── */
+        html[data-aurora] .est-division-group {
+          position: relative;
+          border: 1px solid rgba(255,255,255,0.06) !important;
+          border-radius: 12px !important;
+          background: ${value.bg1 || "#1E1F25"} !important;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.2) !important;
+          transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        html[data-aurora] .est-division-group::before {
+          content: '';
+          position: absolute;
+          inset: -1.5px;
+          border-radius: inherit;
+          padding: 1.5px;
+          background: conic-gradient(
+            from var(--aurora-angle),
+            #10B981,
+            #06B6D4,
+            #8B5CF6,
+            #06B6D4,
+            #10B981
+          );
+          -webkit-mask:
+            linear-gradient(#fff 0 0) content-box,
+            linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          mask:
+            linear-gradient(#fff 0 0) content-box,
+            linear-gradient(#fff 0 0);
+          mask-composite: exclude;
+          opacity: 0;
+          animation: none;
+          pointer-events: none;
+          z-index: 0;
+          transition: opacity 1.2s ease-out;
+        }
+
+        html[data-aurora] .est-division-group.aurora-active {
+          border-color: transparent !important;
+        }
+
+        html[data-aurora] .est-division-group.aurora-active::before {
+          opacity: 1;
+          animation: aurora-rotate 6s linear 1;
+        }
+
+        /* Estimate rows — subtle emerald tint on hover */
+        html[data-aurora] .est-row:hover {
+          background: rgba(16,185,129,0.03) !important;
+        }
+
+        /* ── Noise grain — boosted film grain texture ── */
+        html[data-aurora] .noise-grain-overlay {
+          opacity: 0.65 !important;
+        }
+
+        /* ── Header — match card surface, not void ── */
+        html[data-aurora] header {
+          background: #1E1F25 !important;
+          border-bottom-color: rgba(255,255,255,0.06) !important;
+        }
+      `;
+      document.head.appendChild(style);
+
+      // ── Click-to-activate: toggle aurora-active on cards ──
+      const AURORA_TARGETS = ".widget-card, .kpi-card, .est-division-group";
+      const onClick = (e) => {
+        const card = e.target.closest(AURORA_TARGETS);
+        if (!card || card.classList.contains("aurora-active")) return;
+        card.classList.add("aurora-active");
+        const onEnd = () => {
+          card.classList.remove("aurora-active");
+          card.removeEventListener("animationend", onEnd);
+        };
+        card.addEventListener("animationend", onEnd);
+        // Fallback: 6s rotation + 1.2s fade + buffer
+        setTimeout(() => card.classList.remove("aurora-active"), 7500);
+      };
+      document.addEventListener("click", onClick, true);
+      style._auroraClickHandler = onClick;
+    } else {
+      document.documentElement.removeAttribute("data-aurora");
+      const oldStyle = document.getElementById(AURORA_STYLE_ID);
+      if (oldStyle?._auroraClickHandler) {
+        document.removeEventListener("click", oldStyle._auroraClickHandler, true);
+      }
+      oldStyle?.remove();
+    }
+    return () => {
+      document.documentElement.removeAttribute("data-aurora");
+      const oldStyle = document.getElementById(AURORA_STYLE_ID);
+      if (oldStyle?._auroraClickHandler) {
+        document.removeEventListener("click", oldStyle._auroraClickHandler, true);
+      }
+      oldStyle?.remove();
+    };
+  }, [value.auroraMode, value.bg1]);
+
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 

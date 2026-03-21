@@ -25,7 +25,7 @@ export default function ProximityLight() {
       currentX += (mouseX - currentX) * 0.85;
       currentY += (mouseY - currentY) * 0.85;
 
-      el.style.background = `radial-gradient(circle 350px at ${currentX}px ${currentY}px, rgba(124,107,240,0.06), transparent)`;
+      el.style.background = `radial-gradient(circle 350px at ${currentX}px ${currentY}px, rgba(124,107,240,0.05), transparent)`;
 
       rafId = requestAnimationFrame(loop);
     };

@@ -67,20 +67,44 @@ export function inferFloorFromSheet(drawing) {
 }
 
 /**
+ * Standard floor definitions for the floor picker UI.
+ * Covers below-grade through 10 stories plus roof.
+ */
+export const FLOOR_OPTIONS = [
+  { floor: -3, label: "Sub-Basement 2" },
+  { floor: -2, label: "Sub-Basement" },
+  { floor: -1, label: "Basement" },
+  { floor: 0, label: "Grade" },
+  { floor: 1, label: "Floor 1" },
+  { floor: 2, label: "Floor 2" },
+  { floor: 3, label: "Floor 3" },
+  { floor: 4, label: "Floor 4" },
+  { floor: 5, label: "Floor 5" },
+  { floor: 6, label: "Floor 6" },
+  { floor: 7, label: "Floor 7" },
+  { floor: 8, label: "Floor 8" },
+  { floor: 9, label: "Floor 9" },
+  { floor: 10, label: "Floor 10" },
+  { floor: 99, label: "Roof" },
+];
+
+/**
  * Build a floor map from all drawings.
  * Groups drawings by floor and assigns elevations using per-floor heights.
  * Elevations are stacked: Floor 1 starts at 0, Floor 2 = Floor1Height, etc.
  * @param {Array} drawings - Drawings from drawingsStore
  * @param {number} defaultHeight - Default floor height in feet (fallback)
  * @param {Object} floorHeights - Per-floor height overrides: { [label]: number }
+ * @param {Object} floorOverrides - Per-drawing floor overrides: { [drawingId]: { floor, label } }
  * @returns {Object} Map of drawingId → { floor, elevation, label, height }
  */
-export function buildFloorMap(drawings, defaultHeight = 12, floorHeights = {}) {
-  // First pass: infer floor + label for each drawing
-  const entries = drawings.map(d => ({
-    id: d.id,
-    ...inferFloorFromSheet(d),
-  }));
+export function buildFloorMap(drawings, defaultHeight = 12, floorHeights = {}, floorOverrides = {}) {
+  // First pass: infer floor + label for each drawing (user overrides take priority)
+  const entries = drawings.map(d => {
+    const override = floorOverrides[d.id];
+    if (override) return { id: d.id, floor: override.floor, label: override.label };
+    return { id: d.id, ...inferFloorFromSheet(d) };
+  });
 
   // Collect unique floors sorted by floor number
   const uniqueFloors = [...new Map(entries.map(e => [e.label, e])).values()].sort((a, b) => a.floor - b.floor);
@@ -96,8 +120,8 @@ export function buildFloorMap(drawings, defaultHeight = 12, floorHeights = {}) {
   const elevations = {};
   let currentElev = 0;
 
-  // Above-grade floors (floor >= 1, not roof)
-  const aboveGrade = uniqueFloors.filter(f => f.floor >= 1 && f.floor < 99);
+  // Above-grade floors (floor >= 0, not roof) — includes Grade (0) and above
+  const aboveGrade = uniqueFloors.filter(f => f.floor >= 0 && f.floor < 99);
   aboveGrade.forEach((f, _i) => {
     elevations[f.label] = currentElev;
     currentElev += getHeight(f.label);

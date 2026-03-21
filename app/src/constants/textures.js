@@ -71,3 +71,12 @@ const ringsSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="40
 </svg>`;
 
 export const RINGS_TEXTURE = `url("data:image/svg+xml,${encodeURIComponent(ringsSvg)}")`;
+
+// ── Stitch Dot Grid (Google Stitch-inspired) ─────────────────
+// Denser, brighter dots than DOT_SPARSE — matches the engineering workshop feel.
+// 24px grid with 0.7px dots at 7% white opacity on dark charcoal.
+const stitchDotSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+  <circle cx="12" cy="12" r="0.7" fill="rgba(255,255,255,0.07)"/>
+</svg>`;
+
+export const STITCH_DOT_TEXTURE = `url("data:image/svg+xml,${encodeURIComponent(stitchDotSvg)}")`;
