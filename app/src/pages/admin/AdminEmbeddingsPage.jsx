@@ -2,17 +2,18 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAdminFetch } from "@/hooks/useAdminFetch";
 import { card } from "@/utils/styles";
 
-const KIND_COLORS = {
-  seed_element: "#8B5CF6",
-  user_element: "#3B82F6",
-  assembly: "#10B981",
-  proposal: "#F59E0B",
+const getKindColors = (C) => ({
+  seed_element: C.accent,
+  user_element: C.blue,
+  assembly: C.green,
+  proposal: C.orange,
   drawing_note: "#EC4899",
-};
+});
 
 export default function AdminEmbeddingsPage() {
   const C = useTheme();
   const T = C.T;
+  const KIND_COLORS = getKindColors(C);
 
   const { data, loading, error } = useAdminFetch("embeddings", {
     params: { byUser: "true" },

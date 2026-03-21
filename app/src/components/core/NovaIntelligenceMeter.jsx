@@ -33,7 +33,7 @@ export default function NovaIntelligenceMeter({ proposalCount, elementCount, ass
             ? "Proficient"
             : "Expert";
   const levelColor =
-    score < 20 ? "#EF4444" : score < 40 ? "#F59E0B" : score < 65 ? "#3B82F6" : score < 85 ? "#8B5CF6" : "#10B981";
+    score < 20 ? C.red : score < 40 ? C.orange : score < 65 ? C.blue : score < 85 ? C.accent : C.green;
 
   const totalItems = proposalCount + elementCount + assemblyCount + drawingNoteCount;
 

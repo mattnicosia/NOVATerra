@@ -6,6 +6,18 @@
   padding: 0;
 }
 
+/* ── Anchor reset — prevent browser default purple on visited links ── */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+a:visited {
+  color: inherit;
+}
+a:hover {
+  color: inherit;
+}
+
 body {
   font-family:
     "Switzer",
@@ -1970,11 +1982,11 @@ button:disabled {
 .nero-nemesis .accent-btn:hover {
   filter: brightness(1.15);
   box-shadow:
-    0 0 20px rgba(139, 92, 246, 0.3),
-    0 0 40px rgba(139, 92, 246, 0.1) !important;
+    0 0 20px var(--accent-glow, rgba(139, 92, 246, 0.3)),
+    0 0 40px var(--accent-glow, rgba(139, 92, 246, 0.1)) !important;
 }
 .nero-nemesis .accent-btn:active {
-  box-shadow: 0 0 10px rgba(139, 92, 246, 0.18) !important;
+  box-shadow: 0 0 10px var(--accent-glow, rgba(139, 92, 246, 0.18)) !important;
 }
 
 /* ═══════════════════════════════════════════════

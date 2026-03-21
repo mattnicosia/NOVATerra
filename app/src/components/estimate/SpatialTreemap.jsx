@@ -481,7 +481,7 @@ export default function SpatialTreemap() {
             <div style={{ fontSize: 11, fontWeight: 600, color: "#FAFAFA", letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 4, fontFamily: font }}>
               {hovered.id || ""} {hovered.name || ""}
             </div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: "#7C6BF0", marginBottom: 2, fontFamily: font }}>
+            <div style={{ fontSize: 16, fontWeight: 600, color: C.accent, marginBottom: 2, fontFamily: font }}>
               {fmtDollar(hovered.cost)}
             </div>
             <div style={{ fontSize: 11, color: "#A1A1AA", fontFamily: font }}>
@@ -640,7 +640,7 @@ function drawRoom(ctx, r, isHovered, mode, font, alpha) {
     }
     ctx.fillText(label, cx, cy - 6);
     ctx.font = `600 14px ${font}`;
-    ctx.fillStyle = isHovered ? "#7C6BF0" : "#FAFAFA";
+    ctx.fillStyle = isHovered ? C.accent : "#FAFAFA";
     ctx.fillText(fmtDollar(r.cost || r.value), cx, cy + 14);
     if (r.pct) {
       ctx.font = `400 10px ${font}`;
@@ -652,7 +652,7 @@ function drawRoom(ctx, r, isHovered, mode, font, alpha) {
     ctx.fillStyle = isHovered ? "#FAFAFA" : "#A1A1AA";
     ctx.fillText(r.id || r.divId || (r.name || "").substring(0, 6), cx, cy - 2);
     ctx.font = `500 10px ${font}`;
-    ctx.fillStyle = isHovered ? "#7C6BF0" : "#52525B";
+    ctx.fillStyle = isHovered ? C.accent : "#52525B";
     ctx.fillText(fmtDollar(r.cost || r.value), cx, cy + 12);
   }
 
@@ -695,7 +695,7 @@ function drawTitleBlock(ctx, W, H, pad, tbW, font, grand, divCount, itemCount, n
   }
 
   ctx.font = `600 12px ${font}`;
-  ctx.fillStyle = "#7C6BF0";
+  ctx.fillStyle = C.accent;
   ctx.fillText(fmtDollar(grand) + " \u00B7 " + itemCount + " items", x + 10, y + 50);
 
   ctx.font = `400 10px ${font}`;

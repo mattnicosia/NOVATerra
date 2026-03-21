@@ -113,7 +113,7 @@ export default function AutoScheduleModal({ workload, onClose }) {
     const est = estimators.find(e => e.name === name);
     if (est?.color) return est.color;
     const row = workload.estimatorRows?.find(r => r.name === name);
-    return row?.color || "#A78BFA";
+    return row?.color || C.purple;
   };
 
   const matchBadgeColor = score => {
@@ -230,7 +230,7 @@ export default function AutoScheduleModal({ workload, onClose }) {
                     borderRadius: 20,
                   }}
                 >
-                  <Avatar name={e.name} color={e.color || "#A78BFA"} size={16} fontSize={7} />
+                  <Avatar name={e.name} color={e.color || C.purple} size={16} fontSize={7} />
                   {e.name}
                 </button>
               ))}
@@ -265,7 +265,7 @@ export default function AutoScheduleModal({ workload, onClose }) {
                       opacity: active ? 1 : 0.6,
                     }}
                   >
-                    <Avatar name={e.name} color={e.color || "#A78BFA"} size={16} fontSize={7} />
+                    <Avatar name={e.name} color={e.color || C.purple} size={16} fontSize={7} />
                     {e.name}
                   </button>
                 );
@@ -283,7 +283,7 @@ export default function AutoScheduleModal({ workload, onClose }) {
               value: stats.currentConflicts,
               color: stats.currentConflicts > 0 ? "#FF3B30" : "#30D158",
             },
-            { label: "Changes Proposed", value: stats.changesProposed, color: "#A78BFA" },
+            { label: "Changes Proposed", value: stats.changesProposed, color: C.purple },
             { label: "Conflicts Resolved", value: stats.conflictsResolved, color: "#30D158" },
           ].map(s => (
             <div key={s.label} style={{ ...cardSolid(C), padding: `${T.space[2]}px ${T.space[3]}px`, flex: 1 }}>

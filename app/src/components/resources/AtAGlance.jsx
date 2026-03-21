@@ -198,7 +198,7 @@ export default function AtAGlance({ workload, C, T, onProjectClick, navigate }) 
         <div style={{ display: "flex", flexDirection: "column", gap: T.space[2] }}>
           {urgentBids.map(est => {
             const dColor = est.daysRemaining === 0 ? "#FF3B30" : est.daysRemaining <= 2 ? "#FF9500" : "#FBBF24";
-            const schedColor = STATUS_COLORS[est.scheduleStatus] || "#A78BFA";
+            const schedColor = STATUS_COLORS[est.scheduleStatus] || C.purple;
             return (
               <div
                 key={est.id}

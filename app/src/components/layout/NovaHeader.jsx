@@ -628,7 +628,7 @@ function NovaHeader({ onDraftPanelToggle }) {
         <img
           src="/novaterra-wordmark.png"
           alt="NOVATerra"
-          style={{ height: 63, width: "auto", opacity: 0.85, userSelect: "none" }}
+          style={{ height: 32, width: "auto", opacity: 0.85, userSelect: "none" }}
           draggable={false}
         />
       </div>

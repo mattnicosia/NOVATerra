@@ -36,12 +36,12 @@ export default function RfpCard({ rfp, isUnread, onView, onImport, onDismiss, on
 
   // Classification colors
   const classColors = {
-    addendum: "#FF9500",
-    date_change: "#f59e0b",
-    scope_clarification: "#60A5FA",
-    substitution: "#A78BFA",
-    pre_bid_notes: "#34D399",
-    plan_room_notification: "#94A3B8",
+    addendum: C.orange,
+    date_change: C.orange,
+    scope_clarification: C.blue,
+    substitution: C.purple,
+    pre_bid_notes: C.green,
+    plan_room_notification: C.textMuted,
   };
 
   // Left accent bar color — immediate visual signal

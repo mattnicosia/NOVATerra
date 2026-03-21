@@ -19,8 +19,8 @@ export default function CoreProposals() {
           gap: 10,
           padding: "10px 16px",
           borderRadius: T.radius.md,
-          background: `linear-gradient(135deg, rgba(139,92,246,0.06) 0%, rgba(109,40,217,0.03) 100%)`,
-          border: `1px solid rgba(139,92,246,0.12)`,
+          background: C.gradientSubtle,
+          border: `1px solid ${C.borderAccent}`,
         }}
       >
         <svg
@@ -28,7 +28,7 @@ export default function CoreProposals() {
           height={16}
           viewBox="0 0 24 24"
           fill="none"
-          stroke="#8B5CF6"
+          stroke={C.accent}
           strokeWidth="1.8"
           strokeLinecap="round"
           strokeLinejoin="round"

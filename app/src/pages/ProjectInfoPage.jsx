@@ -1513,14 +1513,14 @@ export default function ProjectInfoPage() {
                 {commEmails.map((email, ei) => {
                   const cls = email.classification || "initial_rfp";
                   const clsColors = {
-                    initial_rfp: "#22c55e",
-                    addendum: "#FF9500",
-                    date_change: "#f59e0b",
-                    scope_clarification: "#60A5FA",
-                    substitution: "#A78BFA",
-                    pre_bid_notes: "#34D399",
-                    plan_room_notification: "#94A3B8",
-                    other: "#94A3B8",
+                    initial_rfp: C.green,
+                    addendum: C.orange,
+                    date_change: C.orange,
+                    scope_clarification: C.blue,
+                    substitution: C.purple,
+                    pre_bid_notes: C.green,
+                    plan_room_notification: C.textMuted,
+                    other: C.textMuted,
                   };
                   const clsLabels = {
                     initial_rfp: "RFP",

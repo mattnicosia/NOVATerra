@@ -798,8 +798,8 @@ export function ThemeProvider({ children }) {
 
         /* ── Carbon fiber texture on background ── */
         html[data-aurora] .noise-grain-overlay {
-          opacity: 0.7 !important;
-          z-index: 1 !important;
+          opacity: 0.55 !important;
+          z-index: 10 !important;
           mix-blend-mode: normal !important;
         }
 

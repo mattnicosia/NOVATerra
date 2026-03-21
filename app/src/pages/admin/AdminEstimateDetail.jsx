@@ -112,7 +112,7 @@ export default function AdminEstimateDetail() {
             color: "#10B981",
           },
           { label: "Line Items", value: lineItems.length, color: "#3B82F6" },
-          { label: "Drawings", value: drawings.length, color: "#8B5CF6" },
+          { label: "Drawings", value: drawings.length, color: C.accent },
         ].map(s => (
           <div
             key={s.label}

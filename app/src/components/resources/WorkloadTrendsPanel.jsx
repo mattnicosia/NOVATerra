@@ -151,7 +151,7 @@ export default function WorkloadTrendsPanel({ workload, C, T }) {
           showLabels
           showValues
           maxOverride={100}
-          barColor="#A78BFA"
+          barColor={C.purple}
         />
       </div>
 

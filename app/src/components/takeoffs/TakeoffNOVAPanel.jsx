@@ -547,7 +547,7 @@ export default function TakeoffNOVAPanel({
       key: "organize",
       label: "Organize",
       icon: I.layers,
-      color: "#8B5CF6",
+      color: C.accent,
       loading: false,
       badge: null,
       action: () =>

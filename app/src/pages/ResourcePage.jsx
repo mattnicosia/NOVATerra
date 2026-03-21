@@ -37,15 +37,16 @@ import { useReviewStore } from "@/stores/reviewStore";
    ──────────────────────────────────────────────────────── */
 
 // ── Constants ────────────────────────────────────────────
-const STATUS_COLORS = {
-  Qualifying: "#F59E0B",
-  Bidding: "#A78BFA",
-  Submitted: "#60A5FA",
-  Won: "#34D399",
-  Lost: "#FB7185",
-  "On Hold": "#FBBF24",
-  Draft: "#8E8E93",
-};
+// Theme-aware status colors — call with C from useTheme()
+const getStatusColors = (C) => ({
+  Qualifying: C.orange,
+  Bidding: C.purple,
+  Submitted: C.blue,
+  Won: C.green,
+  Lost: C.red,
+  "On Hold": C.yellow,
+  Draft: C.textDim,
+});
 
 const SCHEDULE_COLORS = {
   ahead: "#30D158",
@@ -255,6 +256,7 @@ function EstimatorContextMenu({ pos, name, color, projectCount, C, _T, onViewSco
 // GANTT CHART
 // ══════════════════════════════════════════════════════════
 function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWeek, onProjectClick }) {
+  const STATUS_COLORS = getStatusColors(C);
   const {
     estimatorRows,
     unassignedEstimates,
@@ -719,7 +721,7 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
 
                   {/* Project bars (absolute positioned over grid) */}
                   {row.bars.map((bar, i) => {
-                    const color = SCHEDULE_COLORS[bar.scheduleStatus] || STATUS_COLORS[bar.status] || "#A78BFA";
+                    const color = SCHEDULE_COLORS[bar.scheduleStatus] || STATUS_COLORS[bar.status] || C.purple;
                     const isDragging = dragEstimateId === bar.id;
                     const rescheduleOffset = isDragging && dragMode === "reschedule" ? dragDaysDelta * DAY_WIDTH : 0;
 
@@ -1003,8 +1005,8 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
                                 style={{
                                   fontSize: 7,
                                   fontWeight: 700,
-                                  color: "#A78BFA",
-                                  background: "#A78BFA20",
+                                  color: C.purple,
+                                  background: C.purple + "20",
                                   borderRadius: 3,
                                   padding: "0 3px",
                                   flexShrink: 0,
@@ -1362,7 +1364,7 @@ function GanttChart({ workload, C, T, navigate, onEstimatorClick, onDrop, workWe
             </div>
           )}
           {tooltip.emailCount > 1 && (
-            <div style={{ color: "#A78BFA", marginTop: 2 }}>{tooltip.emailCount} linked emails</div>
+            <div style={{ color: C.purple, marginTop: 2 }}>{tooltip.emailCount} linked emails</div>
           )}
           <div style={{ marginTop: 4, display: "flex", gap: 4, alignItems: "center" }}>
             <span
@@ -1637,6 +1639,7 @@ function GanttRangeNav({ rangeLabel, onPrev, onNext, onToday, C, T }) {
 // PROJECT QUICK ACTIONS POPOVER
 // ══════════════════════════════════════════════════════════
 function ProjectQuickActions({ data, onClose, estimatorRows, C, T, navigate }) {
+  const STATUS_COLORS = getStatusColors(C);
   const ref = useRef(null);
   const {
     id,
@@ -1730,7 +1733,7 @@ function ProjectQuickActions({ data, onClose, estimatorRows, C, T, navigate }) {
 
   const dk = C.isDark;
   const ov = a => (dk ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`);
-  const statusColor = SCHEDULE_COLORS[scheduleStatus] || STATUS_COLORS[status] || "#A78BFA";
+  const statusColor = SCHEDULE_COLORS[scheduleStatus] || STATUS_COLORS[status] || C.purple;
   const pctColor = pctVal >= 100 ? "#30D158" : pctVal >= 50 ? "#FF9500" : statusColor;
 
   const sectionTitle = {
@@ -2014,7 +2017,7 @@ function BoardView({ workload, C, T, navigate, onDrop, onProjectClick }) {
 
   // ── Draggable Project Card ──
   const ProjectCard = ({ est, estimatorName }) => {
-    const statusColor = SCHEDULE_COLORS[est.scheduleStatus] || "#A78BFA";
+    const statusColor = SCHEDULE_COLORS[est.scheduleStatus] || C.purple;
     const pct = est.estimatedHours > 0 ? Math.min(100, (est.hoursLogged / est.estimatedHours) * 100) : 0;
     const isEditingHours = editingHoursId === est.id;
 
@@ -2283,7 +2286,7 @@ function BoardView({ workload, C, T, navigate, onDrop, onProjectClick }) {
                 ...cardSolid(C),
                 padding: T.space[4],
                 border: isOver ? `1px solid ${C.accent}` : undefined,
-                background: isOver ? (C.isDark ? "rgba(139,92,246,0.06)" : "rgba(139,92,246,0.03)") : undefined,
+                background: isOver ? (C.isDark ? C.accentBg : C.accentBg) : undefined,
                 transition: "border-color 150ms, background 150ms",
                 minHeight: 120,
               }}
@@ -2495,7 +2498,7 @@ function ByHoursView({ workload, C, T, navigate, onProjectClick }) {
   );
 
   const EstimateRow = ({ est, estimatorName }) => {
-    const color = SCHEDULE_COLORS[est.scheduleStatus] || "#A78BFA";
+    const color = SCHEDULE_COLORS[est.scheduleStatus] || C.purple;
     return (
       <div
         onClick={e => {
@@ -2810,7 +2813,7 @@ function ByDueDateView({ workload, C, T, navigate, onProjectClick }) {
           >
             {week.estimates.map(est => {
               const uColor = urgencyColor(est.daysRemaining);
-              const schedColor = SCHEDULE_COLORS[est.scheduleStatus] || "#A78BFA";
+              const schedColor = SCHEDULE_COLORS[est.scheduleStatus] || C.purple;
               const hoursRemaining = Math.max(0, est.estimatedHours - est.hoursLogged);
               return (
                 <div
@@ -3352,7 +3355,7 @@ function ResourceGuideModal({ open, onClose }) {
         style={{
           padding: `${T.space[3]}px ${T.space[4]}px`,
           borderRadius: T.radius.md,
-          background: C.isDark ? "rgba(139,92,246,0.06)" : "rgba(139,92,246,0.04)",
+          background: C.accentBg,
           border: `1px solid ${C.accent}20`,
         }}
       >
@@ -3461,13 +3464,13 @@ function MyWorkloadView() {
 
   const statusBadge = status => {
     const colors = {
-      Qualifying: "#F59E0B",
-      Bidding: "#A78BFA",
-      Submitted: "#60A5FA",
-      Won: "#34D399",
-      Lost: "#FB7185",
-      "On Hold": "#FBBF24",
-      Draft: "#8E8E93",
+      Qualifying: C.orange,
+      Bidding: C.purple,
+      Submitted: C.blue,
+      Won: C.green,
+      Lost: C.red,
+      "On Hold": C.yellow,
+      Draft: C.textDim,
     };
     return {
       display: "inline-block",
@@ -3874,20 +3877,20 @@ export default function ResourcePage() {
       {/* KPI Strip */}
       <div style={{ display: "flex", gap: T.space[4], marginBottom: T.space[3] }}>
         {[
-          { label: "Active Bids", value: totalActiveBids, color: "#A78BFA" },
-          { label: "Estimators", value: activeEstimators, color: "#60A5FA" },
+          { label: "Active Bids", value: totalActiveBids, color: C.purple },
+          { label: "Estimators", value: activeEstimators, color: C.blue },
           {
             label: "Unassigned",
             value: workload.unassignedEstimates.length,
-            color: workload.unassignedEstimates.length > 0 ? "#FBBF24" : "#34D399",
+            color: workload.unassignedEstimates.length > 0 ? C.yellow : C.green,
           },
           {
             label: "Needs Action",
             value: workload.needsActionCount || 0,
-            color: (workload.needsActionCount || 0) > 0 ? "#FF3B30" : "#34D399",
+            color: (workload.needsActionCount || 0) > 0 ? C.red : C.green,
             sub: (workload.needsActionCount || 0) > 0 ? "conflicts / overloads" : "all clear",
           },
-          { label: "Overload Alerts", value: overloadWarnings, color: overloadWarnings > 0 ? "#FF3B30" : "#34D399" },
+          { label: "Overload Alerts", value: overloadWarnings, color: overloadWarnings > 0 ? C.red : C.green },
         ].map(kpi => (
           <div
             key={kpi.label}

@@ -338,7 +338,7 @@ export default function RomResult({ rom, email }) {
                   background:
                     r === selectedRange
                       ? r === "mid"
-                        ? `linear-gradient(135deg, ${C.accent}, #7C3AED)`
+                        ? C.gradient
                         : C.isDark
                           ? "rgba(255,255,255,0.12)"
                           : "rgba(0,0,0,0.08)"
@@ -442,7 +442,7 @@ export default function RomResult({ rom, email }) {
             gap: 6,
             padding: "8px 16px",
             borderRadius: 8,
-            background: generatingSubdivisions ? C.bg2 : `linear-gradient(135deg, #8B5CF6, #7C3AED)`,
+            background: generatingSubdivisions ? C.bg2 : C.gradient,
             border: generatingSubdivisions ? `1px solid ${C.border}` : "none",
             cursor: generatingSubdivisions ? "default" : "pointer",
             color: generatingSubdivisions ? C.textMuted : "#fff",
@@ -553,11 +553,11 @@ export default function RomResult({ rom, email }) {
                       const llmData = llmRefinements[sub.code];
                       const isValidated = llmData?.validated;
                       const subSource = isUser ? "User" : isLlm ? (isValidated ? "LLM \u2713" : "LLM") : "Baseline";
-                      const sourceColor = isUser ? "#22C55E" : isLlm ? "#8B5CF6" : "#6B7280";
+                      const sourceColor = isUser ? C.green : isLlm ? C.accent : C.textDim;
                       const sourceBg = isUser
                         ? "rgba(34,197,94,0.12)"
                         : isLlm
-                          ? "rgba(139,92,246,0.12)"
+                          ? C.accentBg
                           : "rgba(107,114,128,0.12)";
                       const isEditingThis = editingSub === `${divNum}-${sub.code}`;
                       const divMidPerSF = div.perSF?.mid || 0;
@@ -566,13 +566,7 @@ export default function RomResult({ rom, email }) {
                         <tr
                           key={`${divNum}-${sub.code}`}
                           style={{
-                            background: isEditingThis
-                              ? C.isDark
-                                ? "rgba(139,92,246,0.08)"
-                                : "rgba(139,92,246,0.04)"
-                              : C.isDark
-                                ? "rgba(139,92,246,0.04)"
-                                : "rgba(139,92,246,0.02)",
+                            background: isEditingThis ? C.accentBg : C.accentBg,
                           }}
                         >
                           <td style={{ ...cellBase, paddingLeft: 36, color: C.textDim, fontSize: T.fontSize.xs }}>
@@ -970,7 +964,7 @@ export default function RomResult({ rom, email }) {
               <tr
                 style={{
                   borderTop: `2px solid ${C.accent}40`,
-                  background: C.isDark ? "rgba(139,92,246,0.06)" : "rgba(139,92,246,0.03)",
+                  background: C.accentBg,
                 }}
               >
                 <td style={{ ...cellBase, fontWeight: T.fontWeight.bold, color: C.text, borderBottom: "none" }} />
@@ -1403,7 +1397,7 @@ export default function RomResult({ rom, email }) {
                   <tr
                     style={{
                       borderTop: `2px solid ${C.accent}40`,
-                      background: C.isDark ? "rgba(139,92,246,0.06)" : "rgba(139,92,246,0.03)",
+                      background: C.accentBg,
                     }}
                   >
                     <td style={{ ...cellBase, borderBottom: "none" }} />

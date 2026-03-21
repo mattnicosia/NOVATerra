@@ -36,17 +36,18 @@ const SORT_OPTIONS = [
   { key: "bidDue", label: "Bid Due" },
 ];
 
-const STATUS_COLORS = {
-  Qualifying: "#F59E0B",
-  Bidding: "#A78BFA",
-  Submitted: "#60A5FA",
-  Won: "#34D399",
-  Lost: "#FB7185",
-  "On Hold": "#FBBF24",
-  Draft: "#8E8E93",
-  Cancelled: "#8E8E93",
-  Trash: "#8E8E93",
-};
+// Theme-aware status colors — keyed to C semantic tokens
+const getStatusColors = (C) => ({
+  Qualifying: C.orange,
+  Bidding: C.purple,
+  Submitted: C.blue,
+  Won: C.green,
+  Lost: C.red,
+  "On Hold": C.yellow,
+  Draft: C.textDim,
+  Cancelled: C.textDim,
+  Trash: C.textDim,
+});
 
 const STATUS_ORDER = ["Qualifying", "Bidding", "Submitted", "Won", "Lost", "On Hold", "Draft"];
 
@@ -421,6 +422,7 @@ function ColumnConfigPopover({ projectColumns, onUpdate, onClose, C }) {
 export default function ProjectsPage() {
   const C = useTheme();
   const T = C.T;
+  const STATUS_COLORS = getStatusColors(C);
   const navigate = useNavigate();
   const estimatesIndex = useEstimatesStore(s => s.estimatesIndex);
   const deleteEstimate = useEstimatesStore(s => s.deleteEstimate);

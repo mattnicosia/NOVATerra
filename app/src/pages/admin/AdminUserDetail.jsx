@@ -137,7 +137,7 @@ export default function AdminUserDetail() {
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         {[
           { label: "Estimates", value: estimates.length, color: "#3B82F6" },
-          { label: "Proposals", value: proposals.length, color: "#8B5CF6" },
+          { label: "Proposals", value: proposals.length, color: C.accent },
           { label: "Contacts", value: contacts.length, color: "#10B981" },
           { label: "Embeddings", value: totalEmbeddings, color: "#F59E0B" },
           { label: "RFPs", value: rfps.length, color: "#EC4899" },
@@ -161,7 +161,7 @@ export default function AdminUserDetail() {
       </div>
 
       {/* Company Info */}
-      <Section title="Company Info" icon={I.dashboard} color="#8B5CF6" C={C}>
+      <Section title="Company Info" icon={I.dashboard} color={C.accent} C={C}>
         <DataRow label="Company Name" value={company.companyName || company.name} C={C} />
         <DataRow label="Address" value={company.address} C={C} />
         <DataRow label="Phone" value={company.phone} C={C} />

@@ -156,8 +156,8 @@ function SubdivisionsTab({ C, T }) {
   const sourceBadge = source => {
     const map = {
       user: { bg: "rgba(34,197,94,0.12)", color: "#22C55E", label: "User" },
-      llm: { bg: "rgba(139,92,246,0.12)", color: "#8B5CF6", label: "LLM" },
-      "llm-validated": { bg: "rgba(139,92,246,0.18)", color: "#8B5CF6", label: "LLM \u2713" },
+      llm: { bg: C.accentBg, color: C.accent, label: "LLM" },
+      "llm-validated": { bg: C.accentBg, color: C.accent, label: "LLM \u2713" },
       baseline: { bg: "rgba(107,114,128,0.12)", color: "#6B7280", label: "Baseline" },
     };
     const s = map[source] || map.baseline;
@@ -225,7 +225,7 @@ function SubdivisionsTab({ C, T }) {
             gap: 6,
             padding: "5px 14px",
             borderRadius: 6,
-            background: generatingAll ? "rgba(139,92,246,0.15)" : "linear-gradient(135deg, #8B5CF6, #7C3AED)",
+            background: generatingAll ? C.accentBg : C.gradient,
             border: "none",
             cursor: generatingAll ? "default" : "pointer",
             color: "#fff",
@@ -310,10 +310,10 @@ function SubdivisionsTab({ C, T }) {
                     gap: 4,
                     padding: "3px 10px",
                     borderRadius: 5,
-                    background: isDivGenerating ? "rgba(139,92,246,0.15)" : "rgba(139,92,246,0.08)",
-                    border: `1px solid rgba(139,92,246,${isDivGenerating ? "0.3" : "0.15"})`,
+                    background: isDivGenerating ? C.accentBg : C.accentBg,
+                    border: `1px solid ${C.borderAccent}`,
                     cursor: !!generatingDiv || generatingAll ? "default" : "pointer",
-                    color: "#8B5CF6",
+                    color: C.accent,
                     fontSize: 9,
                     fontWeight: 600,
                     opacity: (!!generatingDiv || generatingAll) && !isDivGenerating ? 0.4 : 1,
@@ -327,8 +327,8 @@ function SubdivisionsTab({ C, T }) {
                         display: "inline-block",
                         width: 10,
                         height: 10,
-                        border: "2px solid rgba(139,92,246,0.3)",
-                        borderTop: "2px solid #8B5CF6",
+                        border: `2px solid ${C.borderAccent}`,
+                        borderTop: `2px solid ${C.accent}`,
                         borderRadius: "50%",
                         animation: "spin 0.8s linear infinite",
                       }}
@@ -337,7 +337,7 @@ function SubdivisionsTab({ C, T }) {
                     <Ic
                       d={I.sparkle || "M12 2l1.09 3.26L16 6l-2.91.74L12 10l-1.09-3.26L8 6l2.91-.74L12 2z"}
                       size={9}
-                      color="#8B5CF6"
+                      color={C.accent}
                     />
                   )}
                   {isDivGenerating ? "Generating..." : "NOVA"}
@@ -351,7 +351,7 @@ function SubdivisionsTab({ C, T }) {
               {isExpanded && subs.length > 0 && (
                 <div
                   style={{
-                    background: C.isDark ? "rgba(139,92,246,0.03)" : "rgba(139,92,246,0.015)",
+                    background: C.accentBg,
                     borderBottom: `1px solid ${C.border}`,
                   }}
                 >
@@ -391,11 +391,7 @@ function SubdivisionsTab({ C, T }) {
                           fontSize: 11,
                           borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)"}`,
                           alignItems: "center",
-                          background: isEditing
-                            ? C.isDark
-                              ? "rgba(139,92,246,0.08)"
-                              : "rgba(139,92,246,0.04)"
-                            : "transparent",
+                          background: isEditing ? C.accentBg : "transparent",
                         }}
                       >
                         <div style={{ fontFamily: T.font.sans, fontSize: 10, color: C.purple }}>

@@ -21,7 +21,7 @@ import { bt } from "@/utils/styles";
  */
 export default function EstimatorScorecard({
   estimatorName,
-  color = "#A78BFA",
+  color: colorProp,
   avatarSrc,
   onClose,
   open,
@@ -30,6 +30,7 @@ export default function EstimatorScorecard({
 }) {
   const C = useTheme();
   const T = C.T;
+  const color = colorProp || C.purple;
   const estimates = useEstimatesStore(s => s.estimatesIndex);
 
   const data = useMemo(() => {
@@ -418,7 +419,7 @@ export default function EstimatorScorecard({
             {
               label: "Volume",
               value: data.totalEstimates,
-              color: "#A78BFA",
+              color: C.purple,
               sub: `${data.activeCount} active`,
             },
             {

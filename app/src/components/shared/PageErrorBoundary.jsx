@@ -39,7 +39,11 @@ export default class PageErrorBoundary extends Component {
 
   componentDidUpdate(prevProps) {
     // Reset error state when children change (e.g., navigating to a different page)
-    if (this.state.hasError && prevProps.children !== this.props.children) {
+    // Also reset when resetKey changes (used by router to clear errors on navigation)
+    if (this.state.hasError && (
+      prevProps.children !== this.props.children ||
+      (this.props.resetKey !== undefined && prevProps.resetKey !== this.props.resetKey)
+    )) {
       this.setState({ hasError: false, error: null });
     }
   }

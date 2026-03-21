@@ -1,5 +1,7 @@
 import { useRef, useEffect } from "react";
 import { useTakeoffsStore } from "@/stores/takeoffsStore";
+import { useTheme } from "@/hooks/useTheme";
+import { hexAlpha } from "@/utils/fieldPhysics";
 
 /* ── NovaCursor — NOVA orb cursor ──
    Idle:      teal dot + ring with tiny NOVA orb
@@ -9,8 +11,13 @@ import { useTakeoffsStore } from "@/stores/takeoffsStore";
    Scoped to drawing canvas only — deactivates in estimate mode and non-takeoff pages. */
 
 export default function NovaCursor() {
+  const C = useTheme();
   const tkPanelTier = useTakeoffsStore(s => s.tkPanelTier);
   const isDrawingVisible = tkPanelTier !== "estimate";
+  const accentRef = useRef(C.accent);
+  const purpleRef = useRef(C.purple);
+  accentRef.current = C.accent;
+  purpleRef.current = C.purple;
   const dotRef = useRef(null);
   const ringRef = useRef(null);
   const orbRef = useRef(null);
@@ -78,15 +85,15 @@ export default function NovaCursor() {
         if (dot) {
           dot.style.width = measuring ? "10px" : "6px";
           dot.style.height = measuring ? "10px" : "6px";
-          dot.style.background = measuring ? "#A78BFA" : "#10B981";
+          dot.style.background = measuring ? purpleRef.current : "#10B981";
           dot.style.boxShadow = measuring
-            ? "0 0 16px #8B5CF6, 0 0 36px rgba(139,92,246,0.55)"
+            ? `0 0 16px ${accentRef.current}, 0 0 36px ${hexAlpha(accentRef.current, 0.55)}`
             : "0 0 8px #10B981, 0 0 18px rgba(16,185,129,0.30)";
         }
         if (ring) {
           ring.style.width = measuring ? "36px" : "28px";
           ring.style.height = measuring ? "36px" : "28px";
-          ring.style.borderColor = measuring ? "rgba(167,139,250,0.55)" : "rgba(16,185,129,0.25)";
+          ring.style.borderColor = measuring ? hexAlpha(purpleRef.current, 0.55) : "rgba(16,185,129,0.25)";
           ring.style.borderWidth = measuring ? "2px" : "1px";
         }
         if (orb) {

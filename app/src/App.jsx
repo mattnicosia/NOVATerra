@@ -36,6 +36,17 @@ import PageTransition from "@/components/ambient/PageTransition";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
 import PageErrorBoundary from "@/components/shared/PageErrorBoundary";
 import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
+
+// Route-aware error boundary wrapper — resets error state on route navigation
+// so that errors from exiting pages don't flash the error UI during page transitions
+function RouteErrorBoundary({ pageName, children }) {
+  const loc = useLocation();
+  return (
+    <PageErrorBoundary pageName={pageName} resetKey={loc.pathname}>
+      {children}
+    </PageErrorBoundary>
+  );
+}
 // Lazy-load heavy components not needed until after auth + first paint
 const LoginMockupPage = lazy(() => import("@/pages/LoginMockupPage"));
 const AIChatPanel = lazy(() => import("@/components/ai/AIChatPanel"));
@@ -620,82 +631,82 @@ function AppContent() {
           className="app-viewport"
           style={{ flex: 1, position: "relative", overflow: isDashboard ? "hidden" : "auto", scrollBehavior: "smooth" }}
         >
-          <PageTransition>
-            <Suspense fallback={<RouteLoading />}>
+          <Suspense fallback={<RouteLoading />}>
+            <PageTransition>
               <Routes>
                 <Route
                   path="/"
                   element={
-                    <PageErrorBoundary pageName="Dashboard">
+                    <RouteErrorBoundary pageName="Dashboard">
                       <DashboardPage />
-                    </PageErrorBoundary>
+                    </RouteErrorBoundary>
                   }
                 />
                 <Route path="/database" element={<Navigate to="/core?tab=database" replace />} />
                 <Route
                   path="/assemblies"
                   element={
-                    <PageErrorBoundary pageName="Assemblies">
+                    <RouteErrorBoundary pageName="Assemblies">
                       <AssembliesPage />
-                    </PageErrorBoundary>
+                    </RouteErrorBoundary>
                   }
                 />
                 <Route
                   path="/contacts"
                   element={
-                    <PageErrorBoundary pageName="Contacts">
+                    <RouteErrorBoundary pageName="Contacts">
                       <ContactsPage />
-                    </PageErrorBoundary>
+                    </RouteErrorBoundary>
                   }
                 />
                 <Route
                   path="/settings"
                   element={
-                    <PageErrorBoundary pageName="Settings">
+                    <RouteErrorBoundary pageName="Settings">
                       <SettingsPage />
-                    </PageErrorBoundary>
+                    </RouteErrorBoundary>
                   }
                 />
                 <Route
                   path="/inbox"
                   element={
-                    <PageErrorBoundary pageName="Inbox">
+                    <RouteErrorBoundary pageName="Inbox">
                       <InboxPage />
-                    </PageErrorBoundary>
+                    </RouteErrorBoundary>
                   }
                 />
                 {/* <Route path="/intelligence" element={<IntelligencePage />} /> temporarily removed */}
                 <Route
                   path="/projects"
                   element={
-                    <PageErrorBoundary pageName="Projects">
+                    <RouteErrorBoundary pageName="Projects">
                       <ProjectsPage />
-                    </PageErrorBoundary>
+                    </RouteErrorBoundary>
                   }
                 />
                 <Route
                   path="/resources"
                   element={
-                    <PageErrorBoundary pageName="Resources">
+                    <RouteErrorBoundary pageName="Resources">
                       <ResourcePage />
-                    </PageErrorBoundary>
+                    </RouteErrorBoundary>
                   }
                 />
                 <Route
                   path="/core"
                   element={
-                    <PageErrorBoundary pageName="NOVA Core">
+                    <RouteErrorBoundary pageName="NOVA Core">
                       <CorePage />
-                    </PageErrorBoundary>
+                    </RouteErrorBoundary>
                   }
                 />
                 <Route
                   path="/estimate/:id/info"
                   element={
                     <EstimateLoader>
-                      <PageErrorBoundary pageName="Project Info">
+                      <RouteErrorBoundary pageName="Project Info">
                         <ProjectInfoPage />
-                      </PageErrorBoundary>
+                      </RouteErrorBoundary>
                     </EstimateLoader>
                   }
                 />
@@ -703,9 +714,9 @@ function AppContent() {
                   path="/estimate/:id/documents"
                   element={
                     <EstimateLoader>
-                      <PageErrorBoundary pageName="Plan Room">
+                      <RouteErrorBoundary pageName="Plan Room">
                         <PlanRoomPage />
-                      </PageErrorBoundary>
+                      </RouteErrorBoundary>
                     </EstimateLoader>
                   }
                 />
@@ -713,9 +724,9 @@ function AppContent() {
                   path="/estimate/:id/plans"
                   element={
                     <EstimateLoader>
-                      <PageErrorBoundary pageName="Plan Room">
+                      <RouteErrorBoundary pageName="Plan Room">
                         <PlanRoomPage />
-                      </PageErrorBoundary>
+                      </RouteErrorBoundary>
                     </EstimateLoader>
                   }
                 />
@@ -723,9 +734,9 @@ function AppContent() {
                   path="/estimate/:id/takeoffs"
                   element={
                     <EstimateLoader>
-                      <PageErrorBoundary pageName="Takeoffs">
+                      <RouteErrorBoundary pageName="Takeoffs">
                         <TakeoffsPage />
-                      </PageErrorBoundary>
+                      </RouteErrorBoundary>
                     </EstimateLoader>
                   }
                 />
@@ -735,9 +746,9 @@ function AppContent() {
                   path="/estimate/:id/alternates"
                   element={
                     <EstimateLoader>
-                      <PageErrorBoundary pageName="Alternates">
+                      <RouteErrorBoundary pageName="Alternates">
                         <AlternatesPage />
-                      </PageErrorBoundary>
+                      </RouteErrorBoundary>
                     </EstimateLoader>
                   }
                 />
@@ -745,9 +756,9 @@ function AppContent() {
                   path="/estimate/:id/sov"
                   element={
                     <EstimateLoader>
-                      <PageErrorBoundary pageName="Schedule of Values">
+                      <RouteErrorBoundary pageName="Schedule of Values">
                         <ScheduleOfValuesPage />
-                      </PageErrorBoundary>
+                      </RouteErrorBoundary>
                     </EstimateLoader>
                   }
                 />
@@ -755,9 +766,9 @@ function AppContent() {
                   path="/estimate/:id/reports"
                   element={
                     <EstimateLoader>
-                      <PageErrorBoundary pageName="Reports">
+                      <RouteErrorBoundary pageName="Reports">
                         <ReportsPage />
-                      </PageErrorBoundary>
+                      </RouteErrorBoundary>
                     </EstimateLoader>
                   }
                 />
@@ -765,9 +776,9 @@ function AppContent() {
                   path="/estimate/:id/network"
                   element={
                     <EstimateLoader>
-                      <PageErrorBoundary pageName="NOVA Network">
+                      <RouteErrorBoundary pageName="NOVA Network">
                         <BidPackagesPage />
-                      </PageErrorBoundary>
+                      </RouteErrorBoundary>
                     </EstimateLoader>
                   }
                 />
@@ -777,9 +788,9 @@ function AppContent() {
                   path="/estimate/:id/insights"
                   element={
                     <EstimateLoader>
-                      <PageErrorBoundary pageName="Insights">
+                      <RouteErrorBoundary pageName="Insights">
                         <InsightsPage />
-                      </PageErrorBoundary>
+                      </RouteErrorBoundary>
                     </EstimateLoader>
                   }
                 />
@@ -787,9 +798,9 @@ function AppContent() {
                 <Route
                   path="/business"
                   element={
-                    <PageErrorBoundary pageName="Business Dashboard">
+                    <RouteErrorBoundary pageName="Business Dashboard">
                       <BusinessDashboardPage />
-                    </PageErrorBoundary>
+                    </RouteErrorBoundary>
                   }
                 />
                 {/* Admin portal — protected by email whitelist */}
@@ -804,56 +815,56 @@ function AppContent() {
                   <Route
                     index
                     element={
-                      <PageErrorBoundary pageName="Admin Dashboard">
+                      <RouteErrorBoundary pageName="Admin Dashboard">
                         <AdminDashboard />
-                      </PageErrorBoundary>
+                      </RouteErrorBoundary>
                     }
                   />
                   <Route
                     path="users"
                     element={
-                      <PageErrorBoundary pageName="Admin Users">
+                      <RouteErrorBoundary pageName="Admin Users">
                         <AdminUsersPage />
-                      </PageErrorBoundary>
+                      </RouteErrorBoundary>
                     }
                   />
                   <Route
                     path="users/:userId"
                     element={
-                      <PageErrorBoundary pageName="Admin User Detail">
+                      <RouteErrorBoundary pageName="Admin User Detail">
                         <AdminUserDetail />
-                      </PageErrorBoundary>
+                      </RouteErrorBoundary>
                     }
                   />
                   <Route
                     path="estimates"
                     element={
-                      <PageErrorBoundary pageName="Admin Estimates">
+                      <RouteErrorBoundary pageName="Admin Estimates">
                         <AdminEstimatesPage />
-                      </PageErrorBoundary>
+                      </RouteErrorBoundary>
                     }
                   />
                   <Route
                     path="estimates/:userId/:estimateId"
                     element={
-                      <PageErrorBoundary pageName="Admin Estimate Detail">
+                      <RouteErrorBoundary pageName="Admin Estimate Detail">
                         <AdminEstimateDetail />
-                      </PageErrorBoundary>
+                      </RouteErrorBoundary>
                     }
                   />
                   <Route
                     path="embeddings"
                     element={
-                      <PageErrorBoundary pageName="Admin Embeddings">
+                      <RouteErrorBoundary pageName="Admin Embeddings">
                         <AdminEmbeddingsPage />
-                      </PageErrorBoundary>
+                      </RouteErrorBoundary>
                     }
                   />
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
-            </Suspense>
-          </PageTransition>
+            </PageTransition>
+          </Suspense>
         </div>
       </div>
       <Toast />

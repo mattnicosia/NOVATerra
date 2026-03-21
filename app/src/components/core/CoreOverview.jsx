@@ -168,7 +168,7 @@ export default function CoreOverview() {
           label="Proposals"
           value={stats.proposalCount}
           sub={stats.won || stats.lost ? `${stats.won}W / ${stats.lost}L` : null}
-          color="#8B5CF6"
+          color={C.accent}
           accent={C.accent}
         />
         <KpiCard
@@ -205,7 +205,7 @@ export default function CoreOverview() {
         }}
       >
         {[
-          { label: "Upload Proposal", icon: I.upload, color: "#8B5CF6", action: () => setActiveTab("proposals") },
+          { label: "Upload Proposal", icon: I.upload, color: C.accent, action: () => setActiveTab("proposals") },
           { label: "Import CSV / Excel", icon: I.layers, color: "#10B981", action: () => setShowCsvModal(true) },
         ].map(a => (
           <button
@@ -263,7 +263,7 @@ export default function CoreOverview() {
                     width: 6,
                     height: 6,
                     borderRadius: "50%",
-                    background: p.outcome === "won" ? "#10B981" : p.outcome === "lost" ? "#EF4444" : "#8B5CF6",
+                    background: p.outcome === "won" ? C.green : p.outcome === "lost" ? C.red : C.accent,
                     flexShrink: 0,
                   }}
                 />

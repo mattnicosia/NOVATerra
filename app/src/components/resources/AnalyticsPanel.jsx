@@ -109,7 +109,7 @@ export default function AnalyticsPanel({ estimatorColors, C: propC, T: propT }) 
         }}
       >
         {[
-          { label: "Estimates Tracked", value: totalCompleted, color: "#A78BFA" },
+          { label: "Estimates Tracked", value: totalCompleted, color: C.purple },
           { label: "Estimators", value: accuracyByEstimator.size, color: "#60A5FA" },
           {
             label: "Avg Velocity",
@@ -145,7 +145,7 @@ export default function AnalyticsPanel({ estimatorColors, C: propC, T: propT }) 
       {/* Velocity */}
       {velocityData.length > 0 && (
         <Section title="Team Velocity — Bids per Week" C={C} T={T}>
-          <BarChart data={velocityData} height={100} showLabels showValues barColor="#A78BFA" />
+          <BarChart data={velocityData} height={100} showLabels showValues barColor={C.purple} />
         </Section>
       )}
 
@@ -168,7 +168,7 @@ export default function AnalyticsPanel({ estimatorColors, C: propC, T: propT }) 
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: T.space[2], marginBottom: T.space[2] }}>
-                    <Avatar name={name} color={colorEntry || "#A78BFA"} size={24} fontSize={9} />
+                    <Avatar name={name} color={colorEntry || C.purple} size={24} fontSize={9} />
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: T.fontSize.xs, fontWeight: 600, color: C.text }}>{name}</div>
                       <div style={{ fontSize: 8, color: C.textDim }}>

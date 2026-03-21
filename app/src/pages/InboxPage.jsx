@@ -32,21 +32,22 @@ const FILTERS = [
   { key: "dismissed", label: "Dismissed" },
 ];
 
-// Classification labels and colors for email types
-const CLASSIFICATION_LABELS = {
-  initial_rfp: { label: "RFP", color: "#22c55e" },
-  addendum: { label: "Addendum", color: "#FF9500" },
-  date_change: { label: "Date Change", color: "#f59e0b" },
-  scope_clarification: { label: "Scope Clarification", color: "#60A5FA" },
-  substitution: { label: "Substitution", color: "#A78BFA" },
-  pre_bid_notes: { label: "Pre-Bid Notes", color: "#34D399" },
-  plan_room_notification: { label: "Plan Room", color: "#94A3B8" },
-  other: { label: "Other", color: "#94A3B8" },
-};
+// Classification labels and colors for email types — theme-aware
+const getClassificationLabels = (C) => ({
+  initial_rfp: { label: "RFP", color: C.green },
+  addendum: { label: "Addendum", color: C.orange },
+  date_change: { label: "Date Change", color: C.orange },
+  scope_clarification: { label: "Scope Clarification", color: C.blue },
+  substitution: { label: "Substitution", color: C.purple },
+  pre_bid_notes: { label: "Pre-Bid Notes", color: C.green },
+  plan_room_notification: { label: "Plan Room", color: C.textMuted },
+  other: { label: "Other", color: C.textMuted },
+});
 
 export default function InboxPage() {
   const C = useTheme();
   const T = C.T;
+  const CLASSIFICATION_LABELS = getClassificationLabels(C);
   const navigate = useNavigate();
   const showToast = useUiStore(s => s.showToast);
   const importFromRfp = useEstimatesStore(s => s.importFromRfp);
@@ -920,7 +921,7 @@ export default function InboxPage() {
           <p
             style={{
               color: C.textMuted,
-              fontSize: T.fontSize.sm,
+              fontSize: 13,
               lineHeight: T.lineHeight.relaxed,
               marginBottom: T.space[5],
             }}
@@ -936,7 +937,7 @@ export default function InboxPage() {
             }}
           >
             <div style={{ ...sectionLabel(C), marginBottom: T.space[3] }}>Setup Required</div>
-            <p style={{ color: C.textMuted, fontSize: T.fontSize.sm, lineHeight: T.lineHeight.relaxed }}>
+            <p style={{ color: C.textMuted, fontSize: 13, lineHeight: T.lineHeight.relaxed }}>
               This feature requires Supabase configuration. Add your Supabase URL and anon key to the environment
               variables to enable the email inbox.
             </p>
@@ -961,7 +962,7 @@ export default function InboxPage() {
             {unreadCount > 0 && (
               <span
                 style={{
-                  fontSize: T.fontSize.xs,
+                  fontSize: 12,
                   fontWeight: T.fontWeight.bold,
                   padding: "2px 8px",
                   borderRadius: T.radius.full,
@@ -978,7 +979,7 @@ export default function InboxPage() {
               <button
                 style={bt(C, {
                   padding: "4px 12px",
-                  fontSize: T.fontSize.xs,
+                  fontSize: 12,
                   background: "transparent",
                   color: C.textMuted,
                   border: `1px solid ${C.border}`,
@@ -991,7 +992,7 @@ export default function InboxPage() {
                 Mark All Read
               </button>
             )}
-            <div style={{ fontSize: T.fontSize.xs, color: C.textDim }}>{user?.email}</div>
+            <div style={{ fontSize: 13, color: C.textMuted }}>{user?.email}</div>
           </div>
         </div>
 
@@ -1010,17 +1011,17 @@ export default function InboxPage() {
         >
           <Ic d={I.inbox} size={16} color={C.accent} />
           <div style={{ flex: 1 }}>
-            <span style={{ fontSize: T.fontSize.sm, color: C.textMuted }}>Forward RFP emails to: </span>
-            <span style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.semibold, color: C.accent }}>
+            <span style={{ fontSize: 13, color: C.textMuted }}>Forward RFP emails to: </span>
+            <span style={{ fontSize: 13, fontWeight: T.fontWeight.semibold, color: C.accent }}>
               bids@novabuild.app
             </span>
           </div>
           <button
             style={bt(C, {
               padding: "4px 10px",
-              fontSize: T.fontSize.xs,
+              fontSize: 12,
               background: "transparent",
-              color: C.textDim,
+              color: C.textMuted,
               border: `1px solid ${C.border}`,
             })}
             onClick={() => {
@@ -1039,7 +1040,7 @@ export default function InboxPage() {
               key={f.key}
               style={bt(C, {
                 padding: "6px 14px",
-                fontSize: T.fontSize.sm,
+                fontSize: 13,
                 background: filter === f.key ? C.accentBg : "transparent",
                 color: filter === f.key ? C.accent : C.textMuted,
                 border: `1px solid ${filter === f.key ? C.accent + "40" : "transparent"}`,
@@ -1075,7 +1076,7 @@ export default function InboxPage() {
           <Ic
             d={I.search}
             size={14}
-            color={C.textDim}
+            color={C.textMuted}
             style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}
           />
           <input
@@ -1100,7 +1101,7 @@ export default function InboxPage() {
                 background: "transparent",
                 border: "none",
                 cursor: "pointer",
-                color: C.textDim,
+                color: C.textMuted,
                 padding: 4,
                 display: "flex",
                 alignItems: "center",
@@ -1116,7 +1117,7 @@ export default function InboxPage() {
 
         {/* RFP list */}
         {loading ? (
-          <div style={{ textAlign: "center", padding: T.space[7], color: C.textDim }}>Loading...</div>
+          <div style={{ textAlign: "center", padding: T.space[7], color: C.textMuted }}>Loading...</div>
         ) : error ? (
           <div style={{ textAlign: "center", padding: T.space[7], color: C.red }}>{error}</div>
         ) : displayedRfps.length === 0 ? (
@@ -1128,8 +1129,8 @@ export default function InboxPage() {
               border: `2px dashed ${C.border}`,
             }}
           >
-            <Ic d={I.inbox} size={32} color={C.textDim} />
-            <div style={{ color: C.textMuted, marginTop: T.space[3], fontSize: T.fontSize.sm }}>
+            <Ic d={I.inbox} size={32} color={C.textMuted} />
+            <div style={{ color: C.textMuted, marginTop: T.space[3], fontSize: 13 }}>
               {rfps.length === 0
                 ? senderEmails.length === 0
                   ? "Add an approved sender email in Settings, then forward an RFP to get started."
@@ -1176,7 +1177,7 @@ export default function InboxPage() {
                   </span>
                   <span
                     style={{
-                      fontSize: T.fontSize.xs,
+                      fontSize: 12,
                       fontWeight: T.fontWeight.semibold,
                       padding: "1px 8px",
                       borderRadius: T.radius.full,
@@ -1191,7 +1192,7 @@ export default function InboxPage() {
                   <button
                     style={bt(C, {
                       padding: "3px 10px",
-                      fontSize: T.fontSize.xs,
+                      fontSize: 12,
                       background: "transparent",
                       color: C.accent,
                       border: `1px solid ${C.accent}30`,
@@ -1257,12 +1258,12 @@ export default function InboxPage() {
                       {rfp.subject || "(no subject)"}
                     </span>
                     {/* Sender + time + toggle read */}
-                    <span style={{ fontSize: 12, color: C.textMuted, flexShrink: 0 }}>
+                    <span style={{ fontSize: 13, color: C.textMuted, flexShrink: 0 }}>
                       {rfp.sender_name || rfp.sender_email?.split("@")[0]}
                     </span>
                     <span
                       style={{
-                        fontSize: 12,
+                        fontSize: 13,
                         color: C.textMuted,
                         flexShrink: 0,
                         minWidth: 40,

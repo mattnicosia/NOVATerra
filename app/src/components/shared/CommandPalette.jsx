@@ -19,16 +19,16 @@ function fuzzy(text, query) {
   return terms.every(t => lower.includes(t));
 }
 
-// Status → color
-const STATUS_COLORS = {
-  Qualifying: "#F59E0B",
-  Bidding: "#A78BFA",
-  Submitted: "#F59E0B",
-  Won: "#34D399",
-  Lost: "#F87171",
-  "On Hold": "#A78BFA",
-  Draft: "#8E8E93",
-};
+// Theme-aware status colors
+const getStatusColors = (C) => ({
+  Qualifying: C.orange,
+  Bidding: C.purple,
+  Submitted: C.orange,
+  Won: C.green,
+  Lost: C.red,
+  "On Hold": C.purple,
+  Draft: C.textDim,
+});
 
 // Static pages
 const PAGES = [
@@ -49,6 +49,7 @@ const ACTIONS = [
 export default function CommandPalette() {
   const C = useTheme();
   const T = C.T;
+  const STATUS_COLORS = getStatusColors(C);
   const isDk = C.isDark;
   const ov = a => (isDk ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`);
 

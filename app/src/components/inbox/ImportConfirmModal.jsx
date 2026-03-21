@@ -289,15 +289,15 @@ export default function ImportConfirmModal({
                       style={{
                         padding: T.space[3],
                         borderRadius: T.radius.sm,
-                        background: C.isDark ? "rgba(139,92,246,0.06)" : "rgba(139,92,246,0.04)",
-                        border: `1px solid ${C.isDark ? "rgba(139,92,246,0.15)" : "rgba(139,92,246,0.10)"}`,
+                        background: C.accentBg,
+                        border: `1px solid ${C.borderAccent}`,
                         marginBottom: T.space[4],
                       }}
                     >
                       <div
                         style={{
                           fontSize: T.fontSize.xs,
-                          color: "#8b5cf6",
+                          color: C.accent,
                           fontWeight: T.fontWeight.semibold,
                           textTransform: "uppercase",
                           letterSpacing: "0.05em",
@@ -323,7 +323,7 @@ export default function ImportConfirmModal({
                                 padding: "2px 8px",
                                 borderRadius: T.radius.full,
                                 background: "#8b5cf618",
-                                color: "#8b5cf6",
+                                color: C.accent,
                                 fontWeight: T.fontWeight.medium,
                               }}
                             >

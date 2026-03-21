@@ -57,7 +57,7 @@ function WeekLabel({ weekDays }) {
 
 // ── Estimate Card ──
 function EstCard({ est, C, T: _T, navigate, compact }) {
-  const color = SCHEDULE_COLORS[est.scheduleStatus] || "#A78BFA";
+  const color = SCHEDULE_COLORS[est.scheduleStatus] || C.purple;
   return (
     <div
       onClick={() => navigate(`/estimate/${est.id}/info`)}

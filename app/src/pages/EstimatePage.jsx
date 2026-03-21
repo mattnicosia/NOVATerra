@@ -730,9 +730,7 @@ export default function EstimatePage() {
                               ? "rgba(255,255,255,0.10)"
                               : "rgba(255,255,255,0.40)"
                             : isSecondary
-                              ? dk
-                                ? "rgba(139,92,246,0.12)"
-                                : "rgba(139,92,246,0.10)"
+                              ? C.accentBg
                               : "transparent",
                           color: isPrimary ? C.text : isSecondary ? C.purple || C.accent : C.textMuted,
                           fontFamily: T.font.sans,

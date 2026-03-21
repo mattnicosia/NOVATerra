@@ -4,11 +4,11 @@ import { card } from "@/utils/styles";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 
-const KPI_DEFS = [
-  { key: "totalUsers", label: "Total Users", icon: I.user, color: "#8B5CF6" },
-  { key: "totalEstimates", label: "Estimates", icon: I.estimate, color: "#3B82F6" },
-  { key: "totalEmbeddings", label: "Embeddings", icon: I.intelligence, color: "#10B981" },
-  { key: "totalRfps", label: "Pending RFPs", icon: I.inbox, color: "#F59E0B" },
+const getKpiDefs = (C) => [
+  { key: "totalUsers", label: "Total Users", icon: I.user, color: C.accent },
+  { key: "totalEstimates", label: "Estimates", icon: I.estimate, color: C.blue },
+  { key: "totalEmbeddings", label: "Embeddings", icon: I.intelligence, color: C.green },
+  { key: "totalRfps", label: "Pending RFPs", icon: I.inbox, color: C.orange },
   { key: "totalUserDataRows", label: "Data Rows", icon: I.database, color: "#EC4899" },
 ];
 
@@ -60,6 +60,7 @@ function KpiCard({ label, value, icon, color, C }) {
 export default function AdminDashboard() {
   const C = useTheme();
   const T = C.T;
+  const KPI_DEFS = getKpiDefs(C);
   const { data, loading, error } = useAdminFetch("stats");
 
   if (loading) {

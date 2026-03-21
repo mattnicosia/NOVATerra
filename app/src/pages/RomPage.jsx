@@ -43,7 +43,7 @@ const ui = {
    SIGNUP — Two fields, one button. Nothing else.
    ════════════════════════════════════════════════════════════════ */
 function RomSignup() {
-  useTheme(); // subscribe to theme context
+  const C = useTheme();
   const signUp = useAuthStore(s => s.signUpWithPassword);
   const signIn = useAuthStore(s => s.signInWithPassword);
 
@@ -114,7 +114,7 @@ function RomSignup() {
             onChange={e => setEmail(e.target.value)}
             style={inputStyle}
             autoComplete="email"
-            onFocus={e => (e.target.style.borderColor = "rgba(139,92,246,0.5)")}
+            onFocus={e => (e.target.style.borderColor = C.borderAccent)}
             onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,0.10)")}
           />
         </div>
@@ -126,7 +126,7 @@ function RomSignup() {
             onChange={e => setPassword(e.target.value)}
             style={inputStyle}
             autoComplete={mode === "signup" ? "new-password" : "current-password"}
-            onFocus={e => (e.target.style.borderColor = "rgba(139,92,246,0.5)")}
+            onFocus={e => (e.target.style.borderColor = C.borderAccent)}
             onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,0.10)")}
           />
         </div>
@@ -157,7 +157,7 @@ function RomSignup() {
                 setConfirmEmail(false);
                 setMode("login");
               }}
-              style={{ fontSize: 12, color: "rgba(139,92,246,0.8)", cursor: "pointer", marginTop: 8, ...ui }}
+              style={{ fontSize: 12, color: C.accent, cursor: "pointer", marginTop: 8, ...ui }}
             >
               Ready to sign in
             </div>
@@ -172,7 +172,7 @@ function RomSignup() {
             padding: "15px 24px",
             borderRadius: 12,
             border: "none",
-            background: "rgba(139,92,246,1)",
+            background: C.accent,
             color: "#fff",
             cursor: loading ? "wait" : "pointer",
             fontSize: 15,
@@ -193,7 +193,7 @@ function RomSignup() {
             setMode(mode === "signup" ? "login" : "signup");
             setError("");
           }}
-          style={{ color: "rgba(139,92,246,0.8)", cursor: "pointer" }}
+          style={{ color: C.accent, cursor: "pointer" }}
         >
           {mode === "signup" ? "Sign in" : "Create account"}
         </span>
@@ -206,6 +206,7 @@ function RomSignup() {
    ROM TOOL — Two inputs, one button. The form disappears; the result stays.
    ════════════════════════════════════════════════════════════════ */
 function RomTool({ onGenerate }) {
+  const C = useTheme();
   const user = useAuthStore(s => s.user);
   const [buildingType, setBuildingType] = useState("commercial-office");
   const [projectSF, setProjectSF] = useState("");
@@ -268,7 +269,7 @@ function RomTool({ onGenerate }) {
           value={projectSF}
           onChange={e => setProjectSF(e.target.value)}
           style={inputStyle}
-          onFocus={e => (e.target.style.borderColor = "rgba(139,92,246,0.5)")}
+          onFocus={e => (e.target.style.borderColor = C.borderAccent)}
           onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,0.10)")}
         />
         {error && <div style={{ color: "#FB7185", fontSize: 12, marginTop: 6, ...ui }}>{error}</div>}
@@ -281,7 +282,7 @@ function RomTool({ onGenerate }) {
           padding: "15px 24px",
           borderRadius: 12,
           border: "none",
-          background: "rgba(139,92,246,1)",
+          background: C.accent,
           color: "#fff",
           cursor: "pointer",
           fontSize: 15,
@@ -304,6 +305,7 @@ function RomTool({ onGenerate }) {
    PAGE — Hero typography. Negative space. Gray does the work.
    ════════════════════════════════════════════════════════════════ */
 function RomPageInner() {
+  const C = useTheme();
   const resultRef = useRef(null);
   const user = useAuthStore(s => s.user);
   const loading = useAuthStore(s => s.loading);
@@ -366,7 +368,7 @@ function RomPageInner() {
           inset: 0,
           pointerEvents: "none",
           zIndex: 0,
-          background: "radial-gradient(ellipse 80% 50% at 50% 0%, rgba(139,92,246,0.06) 0%, transparent 60%)",
+          background: `radial-gradient(ellipse 80% 50% at 50% 0%, ${C.accentBg} 0%, transparent 60%)`,
         }}
       />
 

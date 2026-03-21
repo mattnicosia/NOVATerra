@@ -12,6 +12,7 @@ import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { inp, nInp, bt, truncate } from "@/utils/styles";
 import { uid, nn, fmt, fmt2 } from "@/utils/format";
+import { hexAlpha } from "@/utils/fieldPhysics";
 import {
   callAnthropic,
   callAnthropicStream,
@@ -698,14 +699,18 @@ export default function TakeoffsPage() {
     setTkNewInput("");
     setTkDbResults([]);
     setAiLookup(null);
-    showToast(`✦ Added: ${item.description} — AI priced — measuring`);
     const drawingId = useDrawingsStore.getState().selectedDrawingId;
-    if (drawingId) {
+    if (drawingId && hasScale(drawingId)) {
+      showToast(`✦ Added: ${item.description} — AI priced — measuring`);
       setTkActiveTakeoffId(id);
       setTkTool(unitToTool(item.unit || "SF"));
       setTkMeasureState("measuring");
       setTkActivePoints([]);
       setTkContextMenu(null);
+    } else if (drawingId) {
+      showToast("Please calibrate this drawing first — set a scale before measuring", "error");
+    } else {
+      showToast(`✦ Added: ${item.description} — AI priced`);
     }
   };
 
@@ -808,6 +813,11 @@ export default function TakeoffsPage() {
       const to = s.takeoffs.find(t => t.id === toId);
       if (!to) return;
       const drawingId = useDrawingsStore.getState().selectedDrawingId;
+      // Block measurement on uncalibrated drawings — require scale first
+      if (drawingId && !hasScale(drawingId)) {
+        showToast("Please calibrate this drawing first — set a scale before measuring", "error");
+        return;
+      }
       const activeTo = s.tkActiveTakeoffId;
       if (activeTo && activeTo !== toId && s.tkMeasureState === "measuring") {
         const pts = s.tkActivePoints || [];
@@ -2913,7 +2923,7 @@ Where confidence is "high", "medium", or "low".`,
     }
 
     const activeTo = takeoffs.find(t => t.id === tkActiveTakeoffId);
-    const predColor = activeTo?.color || "#8B5CF6";
+    const predColor = activeTo?.color || C.accent;
     const predictions = tkPredictions.predictions;
     const waveCenterX = predictions.reduce((s, p) => s + (p.point?.x || p.points?.[0]?.x || 0), 0) / predictions.length;
     const waveCenterY = predictions.reduce((s, p) => s + (p.point?.y || p.points?.[0]?.y || 0), 0) / predictions.length;
@@ -2981,7 +2991,7 @@ Where confidence is "high", "medium", or "low".`,
           const sz = isAccepted ? 16 : ghostSize;
           ctx.translate(p.x, p.y);
           ctx.rotate(Math.PI / 4);
-          ctx.shadowColor = isAccepted ? predColor : "#8B5CF6";
+          ctx.shadowColor = isAccepted ? predColor : C.accent;
           ctx.shadowBlur = isAccepted ? 16 : ghostGlow;
           ctx.fillStyle = isAccepted ? predColor + "DD" : predColor + "66";
           ctx.fillRect(-sz / 2, -sz / 2, sz, sz);
@@ -3000,7 +3010,7 @@ Where confidence is "high", "medium", or "low".`,
             ctx.setTransform(1, 0, 0, 1, 0, 0); // reset transform
             ctx.translate(p.x, p.y);
             ctx.font = `${isAccepted ? 10 : 8}px sans-serif`;
-            ctx.fillStyle = `rgba(139, 92, 246, ${isAccepted ? 0.9 : 0.6})`;
+            ctx.fillStyle = hexAlpha(C.accent, isAccepted ? 0.9 : 0.6);
             ctx.fillText("✦", sz * 0.5 + 2, -sz * 0.5 - 2);
           }
         } else if (pred.type === "wall" && pred.points?.length >= 2) {
@@ -3009,7 +3019,7 @@ Where confidence is "high", "medium", or "low".`,
           for (let i = 1; i < pred.points.length; i++) {
             ctx.lineTo(pred.points[i].x, pred.points[i].y);
           }
-          ctx.shadowColor = isAccepted ? predColor : "#8B5CF6";
+          ctx.shadowColor = isAccepted ? predColor : C.accent;
           ctx.shadowBlur = isAccepted ? 12 : ghostGlow;
           ctx.strokeStyle = isAccepted ? predColor : predColor + "88";
           ctx.lineWidth = isAccepted ? 3 : 2;
@@ -3031,12 +3041,12 @@ Where confidence is "high", "medium", or "low".`,
             ctx.lineTo(pred.points[i].x, pred.points[i].y);
           }
           ctx.closePath();
-          ctx.shadowColor = isAccepted ? predColor : "#8B5CF6";
+          ctx.shadowColor = isAccepted ? predColor : C.accent;
           ctx.shadowBlur = isAccepted ? 8 : ghostGlow * 0.5;
-          ctx.fillStyle = isAccepted ? predColor + "25" : `rgba(139, 92, 246, 0.08)`;
+          ctx.fillStyle = isAccepted ? predColor + "25" : hexAlpha(C.accent, 0.08);
           ctx.fill();
           ctx.shadowBlur = 0;
-          ctx.strokeStyle = isAccepted ? predColor : `rgba(139, 92, 246, 0.5)`;
+          ctx.strokeStyle = isAccepted ? predColor : hexAlpha(C.accent, 0.5);
           ctx.lineWidth = isAccepted ? 2 : 1.5;
           ctx.setLineDash(isAccepted ? [] : [6, 3]);
           ctx.stroke();
@@ -3044,7 +3054,7 @@ Where confidence is "high", "medium", or "low".`,
           // Room label at centroid
           if (pred.point) {
             ctx.font = "bold 10px 'Switzer', sans-serif";
-            ctx.fillStyle = isAccepted ? predColor : `rgba(139, 92, 246, 0.7)`;
+            ctx.fillStyle = isAccepted ? predColor : hexAlpha(C.accent, 0.7);
             ctx.textAlign = "center";
             ctx.fillText(pred.tag || "Room", pred.point.x, pred.point.y + 4);
           }
@@ -3062,7 +3072,7 @@ Where confidence is "high", "medium", or "low".`,
         ctx.save();
         ctx.beginPath();
         ctx.arc(centerX, centerY, waveR, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(139, 92, 246, ${waveAlpha})`;
+        ctx.strokeStyle = hexAlpha(C.accent, waveAlpha);
         ctx.lineWidth = 3;
         ctx.stroke();
         ctx.restore();
@@ -3242,10 +3252,10 @@ Where confidence is "high", "medium", or "low".`,
           ctx.lineTo(room.polygon[i].x, room.polygon[i].y);
         }
         ctx.closePath();
-        ctx.fillStyle = "#8B5CF6";
+        ctx.fillStyle = C.accent;
         ctx.fill();
         ctx.globalAlpha = 0.3;
-        ctx.strokeStyle = "#8B5CF6";
+        ctx.strokeStyle = C.accent;
         ctx.lineWidth = 1;
         ctx.setLineDash([3, 2]);
         ctx.stroke();
@@ -6756,7 +6766,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
             const scaleSet = hasScale(selectedDrawingId);
             const calUnit = getDisplayUnit(selectedDrawingId);
             const toolLabel = tkTool === "count" ? "Count" : tkTool === "linear" ? "Linear" : "Area";
-            const predColor = activeTo?.color || "#8B5CF6";
+            const predColor = activeTo?.color || C.accent;
 
             // Prediction helpers
             const preds = hudPredictions ? tkPredictions.predictions : [];
@@ -7042,9 +7052,9 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                         }}
                         style={bt(C, {
                           marginLeft: "auto",
-                          background: "linear-gradient(135deg, #6366F115, #8B5CF615)",
-                          color: "#8B5CF6",
-                          border: "1px solid #8B5CF630",
+                          background: C.gradientSubtle,
+                          color: C.accent,
+                          border: `1px solid ${C.borderAccent}`,
                           padding: "2px 8px",
                           fontSize: 8,
                           fontWeight: 700,
@@ -7083,8 +7093,8 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                         width: 8,
                         height: 8,
                         borderRadius: "50%",
-                        background: tkPredRefining ? C.orange : pending.length > 0 ? "#8B5CF6" : C.green,
-                        boxShadow: `0 0 8px ${tkPredRefining ? C.orange : pending.length > 0 ? "#8B5CF6" : C.green}`,
+                        background: tkPredRefining ? C.orange : pending.length > 0 ? C.accent : C.green,
+                        boxShadow: `0 0 8px ${tkPredRefining ? C.orange : pending.length > 0 ? C.accent : C.green}`,
                         animation: tkPredRefining
                           ? "spin 1s linear infinite"
                           : pending.length > 0
@@ -7097,8 +7107,8 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                         fontSize: 8,
                         fontWeight: 800,
                         letterSpacing: 0.8,
-                        color: "#8B5CF6",
-                        background: "linear-gradient(135deg, #6366F115, #8B5CF615)",
+                        color: C.accent,
+                        background: C.gradientSubtle,
                         padding: "2px 6px",
                         borderRadius: 3,
                       }}
@@ -7703,7 +7713,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                         wall: C.accent,
                         door: C.orange,
                         window: C.blue,
-                        finish: C.purple || "#8B5CF6",
+                        finish: C.purple || C.accent,
                         fixture: C.green,
                         equipment: C.textDim,
                       };
