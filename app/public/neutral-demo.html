@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Neutral Theme — 15 Background Options</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #111;
+    font-family: 'Switzer', -apple-system, sans-serif;
+    color: #E8EAED;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+    gap: 32px;
+  }
+
+  h1 {
+    font-size: 13px;
+    font-weight: 300;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: rgba(232,234,237,0.4);
+  }
+  .sub {
+    font-size: 10px;
+    color: rgba(232,234,237,0.25);
+    letter-spacing: 2px;
+    margin-top: -20px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 420px);
+    gap: 28px;
+  }
+
+  .demo {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .label {
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .label-name { color: rgba(232,234,237,0.45); }
+  .label-hex { color: rgba(232,234,237,0.25); font-weight: 400; }
+
+  .bg-frame {
+    width: 420px;
+    padding: 24px;
+    border-radius: 20px;
+    display: flex;
+    justify-content: center;
+  }
+
+  .widget-card {
+    width: 360px;
+    background: #F1F5F9;
+    border: 1px solid #CBD5E1;
+    border-radius: 14px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+
+  .widget-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .widget-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #0F172A;
+  }
+  .widget-badge {
+    font-size: 8px;
+    letter-spacing: 1px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    text-transform: uppercase;
+    font-weight: 500;
+    background: #E2E8F0;
+    color: #475569;
+  }
+
+  .widget-kpis {
+    display: flex;
+    gap: 8px;
+  }
+  .kpi-box {
+    flex: 1;
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 10px;
+    padding: 12px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .kpi-value {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: #0F172A;
+  }
+  .kpi-label {
+    font-size: 8px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #94A3B8;
+  }
+
+  .widget-bar {
+    display: flex;
+    gap: 4px;
+    margin-top: auto;
+  }
+  .bar-segment {
+    height: 6px;
+    border-radius: 3px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Neutral Theme — 15 Background Options</h1>
+<p class="sub">Same neutral card · different page backgrounds · 10 dark + 5 light</p>
+
+<div class="grid">
+
+  <!-- ═══ DARK BACKGROUNDS (10) ═══ -->
+
+  <div class="demo">
+    <div class="label">
+      <span class="label-name">1. Void Black</span>
+      <span class="label-hex">#0A0A0A</span>
+    </div>
+    <div class="bg-frame" style="background: #0A0A0A;">
+      <div class="widget-card">
+        <div class="widget-header">
+          <div class="widget-title">Project Summary</div>
+          <div class="widget-badge">Active</div>
+        </div>
+        <div class="widget-kpis">
+          <div class="kpi-box"><div class="kpi-value">$1.2M</div><div class="kpi-label">Total Cost</div></div>
+          <div class="kpi-box"><div class="kpi-value">847</div><div class="kpi-label">Line Items</div></div>
+          <div class="kpi-box"><div class="kpi-value">94%</div><div class="kpi-label">Complete</div></div>
+        </div>
+        <div class="widget-bar">
+          <div class="bar-segment" style="flex: 4; background: #334155;"></div>
+          <div class="bar-segment" style="flex: 2; background: #64748B;"></div>
+          <div class="bar-segment" style="flex: 1; background: #CBD5E1;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">
+      <span class="label-name">2. Ink</span>
+      <span class="label-hex">#0F1115</span>
+    </div>
+    <div class="bg-frame" style="background: #0F1115;">
+      <div class="widget-card">
+        <div class="widget-header">
+          <div class="widget-title">Project Summary</div>
+          <div class="widget-badge">Active</div>
+        </div>
+        <div class="widget-kpis">
+          <div class="kpi-box"><div class="kpi-value">$1.2M</div><div class="kpi-label">Total Cost</div></div>
+          <div class="kpi-box"><div class="kpi-value">847</div><div class="kpi-label">Line Items</div></div>
+          <div class="kpi-box"><div class="kpi-value">94%</div><div class="kpi-label">Complete</div></div>
+        </div>
+        <div class="widget-bar">
+          <div class="bar-segment" style="flex: 4; background: #334155;"></div>
+          <div class="bar-segment" style="flex: 2; background: #64748B;"></div>
+          <div class="bar-segment" style="flex: 1; background: #CBD5E1;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">
+      <span class="label-name">3. Slate 900</span>
+      <span class="label-hex">#0F172A</span>
+    </div>
+    <div class="bg-frame" style="background: #0F172A;">
+      <div class="widget-card">
+        <div class="widget-header">
+          <div class="widget-title">Project Summary</div>
+          <div class="widget-badge">Active</div>
+        </div>
+        <div class="widget-kpis">
+          <div class="kpi-box"><div class="kpi-value">$1.2M</div><div class="kpi-label">Total Cost</div></div>
+          <div class="kpi-box"><div class="kpi-value">847</div><div class="kpi-label">Line Items</div></div>
+          <div class="kpi-box"><div class="kpi-value">94%</div><div class="kpi-label">Complete</div></div>
+        </div>
+        <div class="widget-bar">
+          <div class="bar-segment" style="flex: 4; background: #334155;"></div>
+          <div class="bar-segment" style="flex: 2; background: #64748B;"></div>
+          <div class="bar-segment" style="flex: 1; background: #CBD5E1;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">
+      <span class="label-name">4. Charcoal</span>
+      <span class="label-hex">#1A1A1A</span>
+    </div>
+    <div class="bg-frame" style="background: #1A1A1A;">
+      <div class="widget-card">
+        <div class="widget-header">
+          <div class="widget-title">Project Summary</div>
+          <div class="widget-badge">Active</div>
+        </div>
+        <div class="widget-kpis">
+          <div class="kpi-box"><div class="kpi-value">$1.2M</div><div class="kpi-label">Total Cost</div></div>
+          <div class="kpi-box"><div class="kpi-value">847</div><div class="kpi-label">Line Items</div></div>
+          <div class="kpi-box"><div class="kpi-value">94%</div><div class="kpi-label">Complete</div></div>
+        </div>
+        <div class="widget-bar">
+          <div class="bar-segment" style="flex: 4; background: #334155;"></div>
+          <div class="bar-segment" style="flex: 2; background: #64748B;"></div>
+          <div class="bar-segment" style="flex: 1; background: #CBD5E1;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">
+      <span class="label-name">5. Warm Charcoal</span>
+      <span class="label-hex">#1C1917</span>
+    </div>
+    <div class="bg-frame" style="background: #1C1917;">
+      <div class="widget-card">
+        <div class="widget-header">
+          <div class="widget-title">Project Summary</div>
+          <div class="widget-badge">Active</div>
+        </div>
+        <div class="widget-kpis">
+          <div class="kpi-box"><div class="kpi-value">$1.2M</div><div class="kpi-label">Total Cost</div></div>
+          <div class="kpi-box"><div class="kpi-value">847</div><div class="kpi-label">Line Items</div></div>
+          <div class="kpi-box"><div class="kpi-value">94%</div><div class="kpi-label">Complete</div></div>
+        </div>
+        <div class="widget-bar">
+          <div class="bar-segment" style="flex: 4; background: #334155;"></div>
+          <div class="bar-segment" style="flex: 2; background: #64748B;"></div>
+          <div class="bar-segment" style="flex: 1; background: #CBD5E1;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">
+      <span class="label-name">6. Gunmetal</span>
+      <span class="label-hex">#1E293B</span>
+    </div>
+    <div class="bg-frame" style="background: #1E293B;">
+      <div class="widget-card">
+        <div class="widget-header">
+          <div class="widget-title">Project Summary</div>
+          <div class="widget-badge">Active</div>
+        </div>
+        <div class="widget-kpis">
+          <div class="kpi-box"><div class="kpi-value">$1.2M</div><div class="kpi-label">Total Cost</div></div>
+          <div class="kpi-box"><div class="kpi-value">847</div><div class="kpi-label">Line Items</div></div>
+          <div class="kpi-box"><div class="kpi-value">94%</div><div class="kpi-label">Complete</div></div>
+        </div>
+        <div class="widget-bar">
+          <div class="bar-segment" style="flex: 4; background: #334155;"></div>
+          <div class="bar-segment" style="flex: 2; background: #64748B;"></div>
+          <div class="bar-segment" style="flex: 1; background: #CBD5E1;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">
+      <span class="label-name">7. Graphite</span>
+      <span class="label-hex">#222222</span>
+    </div>
+    <div class="bg-frame" style="background: #222222;">
+      <div class="widget-card">
+        <div class="widget-header">
+          <div class="widget-title">Project Summary</div>
+          <div class="widget-badge">Active</div>
+        </div>
+        <div class="widget-kpis">
+          <div class="kpi-box"><div class="kpi-value">$1.2M</div><div class="kpi-label">Total Cost</div></div>
+          <div class="kpi-box"><div class="kpi-value">847</div><div class="kpi-label">Line Items</div></div>
+          <div class="kpi-box"><div class="kpi-value">94%</div><div class="kpi-label">Complete</div></div>
+        </div>
+        <div class="widget-bar">
+          <div class="bar-segment" style="flex: 4; background: #334155;"></div>
+          <div class="bar-segment" style="flex: 2; background: #64748B;"></div>
+          <div class="bar-segment" style="flex: 1; background: #CBD5E1;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">
+      <span class="label-name">8. Iron</span>
+      <span class="label-hex">#27272A</span>
+    </div>
+    <div class="bg-frame" style="background: #27272A;">
+      <div class="widget-card">
+        <div class="widget-header">
+          <div class="widget-title">Project Summary</div>
+          <div class="widget-badge">Active</div>
+        </div>
+        <div class="widget-kpis">
+          <div class="kpi-box"><div class="kpi-value">$1.2M</div><div class="kpi-label">Total Cost</div></div>
+          <div class="kpi-box"><div class="kpi-value">847</div><div class="kpi-label">Line Items</div></div>
+          <div class="kpi-box"><div class="kpi-value">94%</div><div class="kpi-label">Complete</div></div>
+        </div>
+        <div class="widget-bar">
+          <div class="bar-segment" style="flex: 4; background: #334155;"></div>
+          <div class="bar-segment" style="flex: 2; background: #64748B;"></div>
+          <div class="bar-segment" style="flex: 1; background: #CBD5E1;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">
+      <span class="label-name">9. Smoke</span>
+      <span class="label-hex">#2D2D30</span>
+    </div>
+    <div class="bg-frame" style="background: #2D2D30;">
+      <div class="widget-card">
+        <div class="widget-header">
+          <div class="widget-title">Project Summary</div>
+          <div class="widget-badge">Active</div>
+        </div>
+        <div class="widget-kpis">
+          <div class="kpi-box"><div class="kpi-value">$1.2M</div><div class="kpi-label">Total Cost</div></div>
+          <div class="kpi-box"><div class="kpi-value">847</div><div class="kpi-label">Line Items</div></div>
+          <div class="kpi-box"><div class="kpi-value">94%</div><div class="kpi-label">Complete</div></div>
+        </div>
+        <div class="widget-bar">
+          <div class="bar-segment" style="flex: 4; background: #334155;"></div>
+          <div class="bar-segment" style="flex: 2; background: #64748B;"></div>
+          <div class="bar-segment" style="flex: 1; background: #CBD5E1;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">
+      <span class="label-name">10. Pewter</span>
+      <span class="label-hex">#334155</span>
+    </div>
+    <div class="bg-frame" style="background: #334155;">
+      <div class="widget-card">
+        <div class="widget-header">
+          <div class="widget-title">Project Summary</div>
+          <div class="widget-badge">Active</div>
+        </div>
+        <div class="widget-kpis">
+          <div class="kpi-box"><div class="kpi-value">$1.2M</div><div class="kpi-label">Total Cost</div></div>
+          <div class="kpi-box"><div class="kpi-value">847</div><div class="kpi-label">Line Items</div></div>
+          <div class="kpi-box"><div class="kpi-value">94%</div><div class="kpi-label">Complete</div></div>
+        </div>
+        <div class="widget-bar">
+          <div class="bar-segment" style="flex: 4; background: #334155;"></div>
+          <div class="bar-segment" style="flex: 2; background: #64748B;"></div>
+          <div class="bar-segment" style="flex: 1; background: #CBD5E1;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ LIGHT BACKGROUNDS (5) ═══ -->
+
+  <div class="demo">
+    <div class="label">
+      <span class="label-name">11. Snow</span>
+      <span class="label-hex">#FFFFFF</span>
+    </div>
+    <div class="bg-frame" style="background: #FFFFFF; border: 1px solid #E2E8F0;">
+      <div class="widget-card">
+        <div class="widget-header">
+          <div class="widget-title">Project Summary</div>
+          <div class="widget-badge">Active</div>
+        </div>
+        <div class="widget-kpis">
+          <div class="kpi-box"><div class="kpi-value">$1.2M</div><div class="kpi-label">Total Cost</div></div>
+          <div class="kpi-box"><div class="kpi-value">847</div><div class="kpi-label">Line Items</div></div>
+          <div class="kpi-box"><div class="kpi-value">94%</div><div class="kpi-label">Complete</div></div>
+        </div>
+        <div class="widget-bar">
+          <div class="bar-segment" style="flex: 4; background: #334155;"></div>
+          <div class="bar-segment" style="flex: 2; background: #64748B;"></div>
+          <div class="bar-segment" style="flex: 1; background: #CBD5E1;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">
+      <span class="label-name">12. Fog</span>
+      <span class="label-hex">#F1F5F9</span>
+    </div>
+    <div class="bg-frame" style="background: #F1F5F9; border: 1px solid #CBD5E1;">
+      <div class="widget-card">
+        <div class="widget-header">
+          <div class="widget-title">Project Summary</div>
+          <div class="widget-badge">Active</div>
+        </div>
+        <div class="widget-kpis">
+          <div class="kpi-box"><div class="kpi-value">$1.2M</div><div class="kpi-label">Total Cost</div></div>
+          <div class="kpi-box"><div class="kpi-value">847</div><div class="kpi-label">Line Items</div></div>
+          <div class="kpi-box"><div class="kpi-value">94%</div><div class="kpi-label">Complete</div></div>
+        </div>
+        <div class="widget-bar">
+          <div class="bar-segment" style="flex: 4; background: #334155;"></div>
+          <div class="bar-segment" style="flex: 2; background: #64748B;"></div>
+          <div class="bar-segment" style="flex: 1; background: #CBD5E1;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">
+      <span class="label-name">13. Ash</span>
+      <span class="label-hex">#E2E8F0</span>
+    </div>
+    <div class="bg-frame" style="background: #E2E8F0; border: 1px solid #CBD5E1;">
+      <div class="widget-card">
+        <div class="widget-header">
+          <div class="widget-title">Project Summary</div>
+          <div class="widget-badge">Active</div>
+        </div>
+        <div class="widget-kpis">
+          <div class="kpi-box"><div class="kpi-value">$1.2M</div><div class="kpi-label">Total Cost</div></div>
+          <div class="kpi-box"><div class="kpi-value">847</div><div class="kpi-label">Line Items</div></div>
+          <div class="kpi-box"><div class="kpi-value">94%</div><div class="kpi-label">Complete</div></div>
+        </div>
+        <div class="widget-bar">
+          <div class="bar-segment" style="flex: 4; background: #334155;"></div>
+          <div class="bar-segment" style="flex: 2; background: #64748B;"></div>
+          <div class="bar-segment" style="flex: 1; background: #CBD5E1;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">
+      <span class="label-name">14. Warm White</span>
+      <span class="label-hex">#FAF9F6</span>
+    </div>
+    <div class="bg-frame" style="background: #FAF9F6; border: 1px solid #D6D3D1;">
+      <div class="widget-card">
+        <div class="widget-header">
+          <div class="widget-title">Project Summary</div>
+          <div class="widget-badge">Active</div>
+        </div>
+        <div class="widget-kpis">
+          <div class="kpi-box"><div class="kpi-value">$1.2M</div><div class="kpi-label">Total Cost</div></div>
+          <div class="kpi-box"><div class="kpi-value">847</div><div class="kpi-label">Line Items</div></div>
+          <div class="kpi-box"><div class="kpi-value">94%</div><div class="kpi-label">Complete</div></div>
+        </div>
+        <div class="widget-bar">
+          <div class="bar-segment" style="flex: 4; background: #334155;"></div>
+          <div class="bar-segment" style="flex: 2; background: #64748B;"></div>
+          <div class="bar-segment" style="flex: 1; background: #CBD5E1;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">
+      <span class="label-name">15. Cool Gray</span>
+      <span class="label-hex">#F3F4F6</span>
+    </div>
+    <div class="bg-frame" style="background: #F3F4F6; border: 1px solid #D1D5DB;">
+      <div class="widget-card">
+        <div class="widget-header">
+          <div class="widget-title">Project Summary</div>
+          <div class="widget-badge">Active</div>
+        </div>
+        <div class="widget-kpis">
+          <div class="kpi-box"><div class="kpi-value">$1.2M</div><div class="kpi-label">Total Cost</div></div>
+          <div class="kpi-box"><div class="kpi-value">847</div><div class="kpi-label">Line Items</div></div>
+          <div class="kpi-box"><div class="kpi-value">94%</div><div class="kpi-label">Complete</div></div>
+        </div>
+        <div class="widget-bar">
+          <div class="bar-segment" style="flex: 4; background: #334155;"></div>
+          <div class="bar-segment" style="flex: 2; background: #64748B;"></div>
+          <div class="bar-segment" style="flex: 1; background: #CBD5E1;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

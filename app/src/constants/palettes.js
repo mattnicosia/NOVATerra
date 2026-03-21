@@ -416,15 +416,15 @@ export const PALETTES = [
     variants: [null], // single dark variant
   },
 
-  // ━━━ AURORA — Northern Lights: emerald-teal-purple gradient borders ━━━
-  // Enterprise-forward dark theme with restrained multi-color gradient.
-  // Slow 6s rotation feels dignified, not flashy. Tech-forward without being cheesy.
-  // Colors: #10B981 (emerald) → #06B6D4 (teal) → #8B5CF6 (purple)
+  // ━━━ AURORA — Purple-dominant Northern Lights with film grain ━━━
+  // Deep purple primary, violet-teal secondary accents. Noise grain texture.
+  // Stitch-style widget cards with animated gradient borders on click.
+  // Colors: #A855F7 (purple) → #7C3AED (violet) → #06B6D4 (teal accent)
   {
     id: "aurora",
     name: "Aurora",
-    desc: "Northern Lights — emerald-teal-purple gradient, film grain texture",
-    preview: ["#191A1F", "#10B981", "#06B6D4", "#8B5CF6", "#E8EAED"],
+    desc: "Northern Lights — purple-violet gradient, film grain texture",
+    preview: ["#191A1F", "#A855F7", "#7C3AED", "#06B6D4", "#E8EAED"],
     variantLabels: ["Aurora"],
     overrides: {
       bg: "#191A1F",
@@ -433,21 +433,21 @@ export const PALETTES = [
       bg3: "#2C2D34",
       border: "rgba(255,255,255,0.08)",
       borderLight: "rgba(255,255,255,0.04)",
-      borderAccent: "rgba(16,185,129,0.18)",
+      borderAccent: "rgba(168,85,247,0.18)",
       text: "#E8EAED",
       textMuted: "rgba(232,234,237,0.55)",
       textDim: "rgba(232,234,237,0.28)",
-      accent: "#10B981",       // emerald primary
-      accentDim: "#059669",
-      accentBg: "rgba(16,185,129,0.07)",
+      accent: "#A855F7",       // purple primary
+      accentDim: "#7C3AED",
+      accentBg: "rgba(168,85,247,0.07)",
       accentAlt: "#06B6D4",    // teal secondary
-      gradient: "linear-gradient(135deg, #10B981, #06B6D4, #8B5CF6)",
-      gradientSubtle: `linear-gradient(135deg, ${hR("#10B981", 0.12)}, ${hR("#06B6D4", 0.12)}, ${hR("#8B5CF6", 0.12)})`,
-      gradientText: "linear-gradient(135deg, #10B981, #06B6D4, #8B5CF6)",
+      gradient: "linear-gradient(135deg, #A855F7, #7C3AED, #06B6D4)",
+      gradientSubtle: `linear-gradient(135deg, ${hR("#A855F7", 0.12)}, ${hR("#7C3AED", 0.12)}, ${hR("#06B6D4", 0.12)})`,
+      gradientText: "linear-gradient(135deg, #A855F7, #7C3AED, #06B6D4)",
       green: "#10B981",
       red: "#FB7185",
-      blue: "#06B6D4",
-      purple: "#8B5CF6",
+      blue: "#60A5FA",
+      purple: "#A855F7",
       orange: "#F59E0B",
       cyan: "#06B6D4",
       yellow: "#FFD740",
@@ -458,8 +458,9 @@ export const PALETTES = [
       textureMode: true,
       bgTexture: NOISE_GRAIN,
       bgGradient: [
-        "radial-gradient(ellipse at 50% 15%, rgba(16,185,129,0.05) 0%, transparent 45%)",
-        "radial-gradient(ellipse at 80% 80%, rgba(139,92,246,0.04) 0%, transparent 40%)",
+        "radial-gradient(ellipse at 40% 20%, rgba(168,85,247,0.06) 0%, transparent 45%)",
+        "radial-gradient(ellipse at 70% 75%, rgba(124,58,237,0.05) 0%, transparent 40%)",
+        "radial-gradient(ellipse at 90% 10%, rgba(6,182,212,0.03) 0%, transparent 35%)",
         "#191A1F",
       ].join(", "),
       forceDark: true,

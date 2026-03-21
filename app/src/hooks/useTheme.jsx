@@ -599,8 +599,8 @@ export function ThemeProvider({ children }) {
       style.id = AURORA_STYLE_ID;
       style.textContent = `
         /* ═══ AURORA — Click-to-Activate Gradient Borders ═══
-           Northern Lights: emerald → teal → purple. 6s rotation.
-           Enterprise-forward: dignified, not flashy. */
+           Northern Lights: purple → violet → teal. 6s rotation.
+           Purple-dominant, enterprise-forward. */
 
         @property --aurora-angle {
           syntax: '<angle>';
@@ -618,14 +618,16 @@ export function ThemeProvider({ children }) {
           border-radius: 16px !important;
         }
 
-        /* ── Default state: quiet 1px border, no animation ── */
+        /* ── Default state: deep black card, grey border, no grain ── */
         html[data-aurora] .widget-card {
           position: relative;
-          border: 1px solid rgba(255,255,255,0.06) !important;
-          background: ${value.bg1 || "#1E1F25"} !important;
+          border: 1px solid rgba(255,255,255,0.15) !important;
+          background: #111114 !important;
           overflow: visible;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.25) !important;
+          box-shadow: none !important;
           transition: border-color 0.3s, box-shadow 0.3s;
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
         }
 
         /* ::before exists but invisible by default */
@@ -637,11 +639,11 @@ export function ThemeProvider({ children }) {
           padding: 2px;
           background: conic-gradient(
             from var(--aurora-angle),
-            #10B981,
+            #A855F7,
+            #7C3AED,
             #06B6D4,
-            #8B5CF6,
-            #06B6D4,
-            #10B981
+            #7C3AED,
+            #A855F7
           );
           -webkit-mask:
             linear-gradient(#fff 0 0) content-box,
@@ -662,8 +664,8 @@ export function ThemeProvider({ children }) {
         html[data-aurora] .widget-card.aurora-active {
           border-color: transparent !important;
           box-shadow:
-            0 0 15px rgba(16,185,129,0.08),
-            0 0 30px rgba(139,92,246,0.05),
+            0 0 15px rgba(168,85,247,0.10),
+            0 0 30px rgba(124,58,237,0.06),
             0 4px 16px rgba(0,0,0,0.3) !important;
         }
 
@@ -672,12 +674,12 @@ export function ThemeProvider({ children }) {
           animation: aurora-rotate 6s linear 1;
         }
 
-        /* KPI cards — same pattern */
+        /* KPI cards — deep black, grey border */
         html[data-aurora] .kpi-card {
           position: relative;
-          border: 1px solid rgba(255,255,255,0.06) !important;
-          background: ${value.bg1 || "#1E1F25"} !important;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.2) !important;
+          border: 1px solid rgba(255,255,255,0.15) !important;
+          background: #111114 !important;
+          box-shadow: none !important;
           transition: border-color 0.3s, box-shadow 0.3s;
         }
 
@@ -689,11 +691,11 @@ export function ThemeProvider({ children }) {
           padding: 1.5px;
           background: conic-gradient(
             from var(--aurora-angle),
-            rgba(16,185,129,0.5),
+            rgba(168,85,247,0.5),
             rgba(6,182,212,0.5),
             rgba(139,92,246,0.5),
             rgba(6,182,212,0.5),
-            rgba(16,185,129,0.5)
+            rgba(168,85,247,0.5)
           );
           -webkit-mask:
             linear-gradient(#fff 0 0) content-box,
@@ -736,7 +738,7 @@ export function ThemeProvider({ children }) {
           border-color: rgba(255,255,255,0.10) !important;
           box-shadow:
             0 4px 16px rgba(0,0,0,0.3),
-            0 0 8px rgba(16,185,129,0.04) !important;
+            0 0 8px rgba(168,85,247,0.04) !important;
         }
 
         /* ── Estimate division groups ── */
@@ -757,11 +759,11 @@ export function ThemeProvider({ children }) {
           padding: 1.5px;
           background: conic-gradient(
             from var(--aurora-angle),
-            #10B981,
+            #A855F7,
+            #7C3AED,
             #06B6D4,
-            #8B5CF6,
-            #06B6D4,
-            #10B981
+            #7C3AED,
+            #A855F7
           );
           -webkit-mask:
             linear-gradient(#fff 0 0) content-box,
@@ -789,18 +791,25 @@ export function ThemeProvider({ children }) {
 
         /* Estimate rows — subtle emerald tint on hover */
         html[data-aurora] .est-row:hover {
-          background: rgba(16,185,129,0.03) !important;
+          background: rgba(168,85,247,0.03) !important;
         }
 
-        /* ── Noise grain — boosted film grain texture ── */
+        /* ── Noise grain — cinematic film grain on background ── */
         html[data-aurora] .noise-grain-overlay {
-          opacity: 0.65 !important;
+          opacity: 0.8 !important;
+          z-index: 0 !important;
         }
 
-        /* ── Header — match card surface, not void ── */
+        /* ── Header — deep black to match cards ── */
         html[data-aurora] header {
-          background: #1E1F25 !important;
-          border-bottom-color: rgba(255,255,255,0.06) !important;
+          background: #111114 !important;
+          border-bottom-color: rgba(255,255,255,0.10) !important;
+        }
+
+        /* ── Sidebar — deep black ── */
+        html[data-aurora] .sidebar,
+        html[data-aurora] [class*="sidebar"] {
+          background: #111114 !important;
         }
       `;
       document.head.appendChild(style);

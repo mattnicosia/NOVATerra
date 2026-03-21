@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Gradient Border Options — 30 Styles</title>
+<style>
+  @property --angle {
+    syntax: '<angle>';
+    initial-value: 0deg;
+    inherits: false;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #191A1F;
+    font-family: 'Switzer', -apple-system, sans-serif;
+    color: #E8EAED;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+    gap: 32px;
+  }
+
+  h1 {
+    font-size: 13px;
+    font-weight: 300;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: rgba(232,234,237,0.4);
+  }
+  .sub {
+    font-size: 10px;
+    color: rgba(232,234,237,0.25);
+    letter-spacing: 2px;
+    margin-top: -20px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(4, 280px);
+    gap: 24px;
+  }
+
+  .demo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .label {
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(232,234,237,0.35);
+  }
+
+  .card {
+    width: 280px;
+    height: 160px;
+    border-radius: 16px;
+    background: #1E1F25;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: visible;
+    cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .card-inner {
+    font-size: 8px;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: rgba(232,234,237,0.22);
+    line-height: 1.8;
+    text-align: center;
+    padding: 16px;
+  }
+
+  @keyframes rotate { to { --angle: 360deg; } }
+
+  /* Shared ::before for all conic cards */
+  .card::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    padding: 2px;
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    animation: rotate 4s linear infinite;
+    pointer-events: none;
+  }
+
+  /* Silver Sweep uses linear, not conic — override */
+  .silver-sweep::before {
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), rgba(255,255,255,0.35), rgba(255,255,255,0.06), transparent) !important;
+    background-size: 300% 100% !important;
+    animation: sweep 3.5s ease-in-out infinite !important;
+  }
+  @keyframes sweep {
+    0% { background-position: 100% 0; }
+    100% { background-position: -100% 0; }
+  }
+
+  /* 1 */ .stitch::before { background: conic-gradient(from var(--angle), #00E5FF, #7C4DFF, #2979FF, #00E5FF); }
+  /* 2 — silver sweep handled above */
+  /* 3 */ .molten-gold::before { background: conic-gradient(from var(--angle), #F59E0B, #D97706, #FBBF24, #B45309, #F59E0B); animation-duration: 5s; }
+  /* 4 */ .arctic::before { background: conic-gradient(from var(--angle), #E0F2FE, #7DD3FC, #BAE6FD, #38BDF8, #E0F2FE); }
+  /* 5 */ .magma::before { background: conic-gradient(from var(--angle), #EF4444, #F97316, #FBBF24, #F97316, #EF4444); animation-duration: 5s; }
+  /* 6 */ .ultraviolet::before { background: conic-gradient(from var(--angle), #A855F7, #7C3AED, #C084FC, #6D28D9, #A855F7); }
+  /* 7 */ .mint-chrome::before { background: conic-gradient(from var(--angle), #34D399, #6EE7B7, #A7F3D0, #10B981, #34D399); }
+  /* 8 */ .rose-gold::before { background: conic-gradient(from var(--angle), #F9A8D4, #EC4899, #F472B6, #BE185D, #F9A8D4); }
+  /* 9 */ .cobalt::before { background: conic-gradient(from var(--angle), #2563EB, #1D4ED8, #60A5FA, #1E40AF, #2563EB); }
+  /* 10 */ .aurora::before { background: conic-gradient(from var(--angle), #10B981, #06B6D4, #8B5CF6, #06B6D4, #10B981); animation-duration: 6s; }
+  /* 11 */ .pearl::before { background: conic-gradient(from var(--angle), rgba(255,255,255,0.40), rgba(255,255,255,0.10), rgba(255,255,255,0.30), rgba(255,255,255,0.08), rgba(255,255,255,0.40)); }
+  /* 12 */ .blood-orange::before { background: conic-gradient(from var(--angle), #FF6B35, #DC2626, #FB923C, #B91C1C, #FF6B35); }
+  /* 13 */ .twilight::before { background: conic-gradient(from var(--angle), #7C3AED, #DB2777, #F97316, #DB2777, #7C3AED); animation-duration: 7s; }
+  /* 14 */ .steel::before { background: conic-gradient(from var(--angle), #94A3B8, #64748B, #CBD5E1, #475569, #94A3B8); }
+  /* 15 */ .neon-lime::before { background: conic-gradient(from var(--angle), #84CC16, #A3E635, #BEF264, #65A30D, #84CC16); animation-duration: 3s; }
+  /* 16 */ .sapphire::before { background: conic-gradient(from var(--angle), #3B82F6, #1E3A8A, #60A5FA, #1E40AF, #93C5FD, #3B82F6); }
+  /* 17 */ .copper::before { background: conic-gradient(from var(--angle), #CD7F32, #B87333, #DA9A5B, #8B6914, #CD7F32); animation-duration: 5s; }
+  /* 18 */ .candy::before { background: conic-gradient(from var(--angle), #F43F5E, #EC4899, #A855F7, #8B5CF6, #EC4899, #F43F5E); animation-duration: 3.5s; }
+  /* 19 */ .ocean::before { background: conic-gradient(from var(--angle), #0EA5E9, #0D9488, #155E75, #14B8A6, #0EA5E9); animation-duration: 5s; }
+  /* 20 */ .monochrome::before { background: conic-gradient(from var(--angle), #FAFAFA, #71717A, #D4D4D8, #3F3F46, #FAFAFA); }
+  /* 21 */ .ember::before { background: conic-gradient(from var(--angle), #92400E, #DC2626, #F59E0B, #DC2626, #92400E); animation-duration: 6s; }
+  /* 22 */ .glacier::before { background: conic-gradient(from var(--angle), #ECFEFF, #67E8F9, #22D3EE, #A5F3FC, #ECFEFF); animation-duration: 4s; }
+  /* 23 */ .nebula::before { background: conic-gradient(from var(--angle), #581C87, #7E22CE, #D946EF, #A855F7, #581C87); animation-duration: 7s; }
+  /* 24 */ .champagne::before { background: conic-gradient(from var(--angle), #D4A574, #E8C89E, #F5E6D3, #C4956A, #D4A574); animation-duration: 5s; }
+  /* 25 */ .plasma::before { background: conic-gradient(from var(--angle), #06B6D4, #8B5CF6, #EC4899, #8B5CF6, #06B6D4); animation-duration: 4s; }
+  /* 26 */ .forest::before { background: conic-gradient(from var(--angle), #166534, #15803D, #4ADE80, #22C55E, #166534); animation-duration: 5s; }
+  /* 27 */ .titanium::before { background: conic-gradient(from var(--angle), #A8A29E, #78716C, #D6D3D1, #57534E, #A8A29E); animation-duration: 4s; }
+  /* 28 */ .sunrise::before { background: conic-gradient(from var(--angle), #FDE047, #FB923C, #F43F5E, #FB923C, #FDE047); animation-duration: 5s; }
+  /* 29 */ .mercury::before { background: conic-gradient(from var(--angle), #E2E8F0, #94A3B8, #F1F5F9, #64748B, #CBD5E1, #E2E8F0); animation-duration: 3.5s; }
+  /* 30 */ .infrared::before { background: conic-gradient(from var(--angle), #7F1D1D, #B91C1C, #EF4444, #B91C1C, #7F1D1D); animation-duration: 6s; }
+
+  .tag {
+    display: inline-block;
+    margin-top: 2px;
+    font-size: 7px;
+    letter-spacing: 1px;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  .tag-keep { background: rgba(0,229,255,0.08); color: rgba(0,229,255,0.5); }
+  .tag-new { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.3); }
+</style>
+</head>
+<body>
+
+<h1>Gradient Border Options — 30 Continuous Loops</h1>
+<p class="sub">All use smooth conic-gradient rotation · same technique, different palettes</p>
+
+<div class="grid">
+  <div class="demo">
+    <div class="label">1. Stitch</div>
+    <div class="card stitch">
+      <div class="card-inner">Cyan → Violet → Blue<br>4s · <span class="tag tag-keep">current</span></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">2. Silver Sweep</div>
+    <div class="card silver-sweep">
+      <div class="card-inner">White gradient L → R<br>3.5s · <span class="tag tag-keep">kept</span></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">3. Molten Gold</div>
+    <div class="card molten-gold">
+      <div class="card-inner">Amber → Gold → Bronze<br>5s · <span class="tag tag-keep">kept</span></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">4. Arctic</div>
+    <div class="card arctic">
+      <div class="card-inner">Ice blue → Sky → Frost<br>4s · <span class="tag tag-new">cold whites</span></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">5. Magma</div>
+    <div class="card magma">
+      <div class="card-inner">Red → Orange → Gold<br>5s · <span class="tag tag-new">volcanic heat</span></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">6. Ultraviolet</div>
+    <div class="card ultraviolet">
+      <div class="card-inner">Purple → Violet → Lavender<br>4s · <span class="tag tag-new">deep purple</span></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">7. Mint Chrome</div>
+    <div class="card mint-chrome">
+      <div class="card-inner">Emerald → Mint → Sage<br>4s · <span class="tag tag-new">fresh green</span></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">8. Rose Gold</div>
+    <div class="card rose-gold">
+      <div class="card-inner">Pink → Hot Pink → Blush<br>4s · <span class="tag tag-new">feminine warmth</span></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">9. Cobalt</div>
+    <div class="card cobalt">
+      <div class="card-inner">Royal Blue → Navy → Sky<br>4s · <span class="tag tag-new">deep blue mono</span></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">10. Aurora</div>
+    <div class="card aurora">
+      <div class="card-inner">Green → Teal → Purple<br>6s · <span class="tag tag-new">northern lights</span></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">11. Pearl</div>
+    <div class="card pearl">
+      <div class="card-inner">White → Silver → White<br>4s · <span class="tag tag-new">iridescent shell</span></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">12. Blood Orange</div>
+    <div class="card blood-orange">
+      <div class="card-inner">Orange → Red → Tangerine<br>4s · <span class="tag tag-new">citrus fire</span></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">13. Twilight</div>
+    <div class="card twilight">
+      <div class="card-inner">Purple → Pink → Orange<br>7s · <span class="tag tag-new">sunset sky</span></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">14. Steel</div>
+    <div class="card steel">
+      <div class="card-inner">Slate → Gray → Silver<br>4s · <span class="tag tag-new">brushed metal</span></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">15. Neon Lime</div>
+    <div class="card neon-lime">
+      <div class="card-inner">Lime → Chartreuse → Green<br>3s · <span class="tag tag-new">electric green</span></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">16. Sapphire</div>
+    <div class="card sapphire">
+      <div class="card-inner">Blue → Navy → Periwinkle<br>4s · <span class="tag tag-new">gemstone blue</span></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">17. Copper</div>
+    <div class="card copper">
+      <div class="card-inner">Copper → Bronze → Brass<br>5s · <span class="tag tag-new">industrial warm</span></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">18. Candy</div>
+    <div class="card candy">
+      <div class="card-inner">Rose → Pink → Purple<br>3.5s · <span class="tag tag-new">playful pop</span></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">19. Ocean</div>
+    <div class="card ocean">
+      <div class="card-inner">Sky Blue → Teal → Deep Sea<br>5s · <span class="tag tag-new">deep water</span></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">20. Monochrome</div>
+    <div class="card monochrome">
+      <div class="card-inner">White → Gray → Charcoal<br>4s · <span class="tag tag-new">black & white</span></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">21. Ember</div>
+    <div class="card ember">
+      <div class="card-inner">Dark Red → Red → Amber<br>6s · <span class="tag tag-new">smoldering coal</span></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">22. Glacier</div>
+    <div class="card glacier">
+      <div class="card-inner">White → Cyan → Aqua<br>4s · <span class="tag tag-new">frozen ice</span></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">23. Nebula</div>
+    <div class="card nebula">
+      <div class="card-inner">Deep Purple → Fuchsia → Violet<br>7s · <span class="tag tag-new">deep space</span></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">24. Champagne</div>
+    <div class="card champagne">
+      <div class="card-inner">Tan → Cream → Linen<br>5s · <span class="tag tag-new">warm neutral</span></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">25. Plasma</div>
+    <div class="card plasma">
+      <div class="card-inner">Cyan → Purple → Pink<br>4s · <span class="tag tag-new">electric tri</span></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">26. Forest</div>
+    <div class="card forest">
+      <div class="card-inner">Dark Green → Emerald → Lime<br>5s · <span class="tag tag-new">deep woods</span></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">27. Titanium</div>
+    <div class="card titanium">
+      <div class="card-inner">Stone → Warm Gray → Ash<br>4s · <span class="tag tag-new">warm metal</span></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">28. Sunrise</div>
+    <div class="card sunrise">
+      <div class="card-inner">Yellow → Orange → Rose<br>5s · <span class="tag tag-new">morning glow</span></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">29. Mercury</div>
+    <div class="card mercury">
+      <div class="card-inner">Silver → Slate → Fog<br>3.5s · <span class="tag tag-new">liquid metal</span></div>
+    </div>
+  </div>
+
+  <div class="demo">
+    <div class="label">30. Infrared</div>
+    <div class="card infrared">
+      <div class="card-inner">Maroon → Crimson → Red<br>6s · <span class="tag tag-new">thermal glow</span></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
