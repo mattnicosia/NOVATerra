@@ -1,4 +1,4 @@
-import { TOPO_TEXTURE, DOT_TEXTURE, NOISE_GRAIN } from "./textures";
+import { TOPO_TEXTURE, DOT_TEXTURE, NOISE_GRAIN, CARBON_FIBER } from "./textures";
 
 // Default color scheme — NOVA galaxy: deep indigo with purple/blue accents
 // Matches the NovaOrb renderer's color palette (violet → blue → white core)
@@ -427,8 +427,8 @@ export const PALETTES = [
     preview: ["#191A1F", "#A855F7", "#7C3AED", "#06B6D4", "#E8EAED"],
     variantLabels: ["Aurora"],
     overrides: {
-      bg: "#191A1F",
-      bg1: "#1E1F25",
+      bg: "#232430",             // dark charcoal background (grain sits here)
+      bg1: "#0A0A0F",            // widget/card surfaces (deep black, above grain)
       bg2: "#24252B",
       bg3: "#2C2D34",
       border: "rgba(255,255,255,0.08)",
@@ -451,17 +451,17 @@ export const PALETTES = [
       orange: "#F59E0B",
       cyan: "#06B6D4",
       yellow: "#FFD740",
-      sidebarBg: "rgba(25,26,31,0.96)",
+      sidebarBg: "rgba(10,10,15,0.98)",
       glassBg: "rgba(30,31,37,0.78)",
       glassBorder: "rgba(255,255,255,0.08)",
       glassBgDark: "rgba(25,26,31,0.92)",
       textureMode: true,
-      bgTexture: NOISE_GRAIN,
+      bgTexture: CARBON_FIBER,
       bgGradient: [
         "radial-gradient(ellipse at 40% 20%, rgba(168,85,247,0.06) 0%, transparent 45%)",
         "radial-gradient(ellipse at 70% 75%, rgba(124,58,237,0.05) 0%, transparent 40%)",
         "radial-gradient(ellipse at 90% 10%, rgba(6,182,212,0.03) 0%, transparent 35%)",
-        "#191A1F",
+        "#232430",
       ].join(", "),
       forceDark: true,
       auroraMode: true,

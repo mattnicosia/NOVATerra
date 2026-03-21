@@ -31,6 +31,7 @@ import { COLORS } from "@/constants/designTokens";
 import NovaHeader from "@/components/layout/NovaHeader";
 import EstimateJourneyBar from "@/components/layout/EstimateJourneyBar";
 import Toast from "@/components/layout/Toast";
+import PersistentMusicBar from "@/components/layout/PersistentMusicBar";
 import PageTransition from "@/components/ambient/PageTransition";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
 import PageErrorBoundary from "@/components/shared/PageErrorBoundary";
@@ -549,20 +550,20 @@ function AppContent() {
         flexDirection: "column",
         height: "100vh",
         overflow: "hidden",
-        background: COLORS.bg.primary,
+        background: C.bgGradient || C.bg || COLORS.bg.primary,
         position: "relative",
         opacity: appReady ? 1 : 0,
         transition: "opacity 0.15s ease-in",
       }}
     >
-      {/* Noise grain texture overlay — subtle film grain across all themes */}
+      {/* Background texture overlay — uses palette's bgTexture or default grain */}
       {!C.noGlass && (
         <div
           className="noise-grain-overlay"
           style={{
             position: "fixed",
             inset: 0,
-            backgroundImage: NOISE_GRAIN,
+            backgroundImage: C.bgTexture || NOISE_GRAIN,
             opacity: 0.4,
             pointerEvents: "none",
             zIndex: 11,
@@ -611,6 +612,7 @@ function AppContent() {
         )}
         <EstimateJourneyBar />
         <FloatingThemePicker />
+        <PersistentMusicBar />
         <Suspense fallback={null}>
           <FeedbackWidget />
         </Suspense>

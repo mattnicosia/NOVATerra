@@ -50,6 +50,40 @@ const STATUS_COLORS = {
 
 const STATUS_ORDER = ["Qualifying", "Bidding", "Submitted", "Won", "Lost", "On Hold", "Draft"];
 
+/* ── Column definitions for configurable table ── */
+const ALL_COLUMNS = [
+  // Core fields
+  { key: "name", label: "Project", width: "2.5fr", sortKey: "name", alwaysVisible: true },
+  { key: "client", label: "Client", width: "1.2fr" },
+  { key: "estimateNumber", label: "Est #", width: "0.6fr" },
+  { key: "status", label: "Status", width: "0.8fr", sortKey: "status" },
+  { key: "value", label: "Value", width: "1fr", sortKey: "grandTotal", align: "right" },
+  { key: "bidDue", label: "Bid Due", width: "0.8fr", sortKey: "bidDue" },
+  { key: "modified", label: "Modified", width: "0.9fr", sortKey: "lastModified" },
+  // Project details
+  { key: "jobType", label: "Job Type", width: "0.8fr" },
+  { key: "estimator", label: "Estimator", width: "0.8fr" },
+  { key: "architect", label: "Architect", width: "0.8fr" },
+  { key: "engineer", label: "Engineer", width: "0.8fr" },
+  { key: "buildingType", label: "Building Type", width: "0.8fr" },
+  { key: "workType", label: "Work Type", width: "0.7fr" },
+  { key: "bidType", label: "Bid Type", width: "0.7fr" },
+  { key: "projectSF", label: "Project SF", width: "0.7fr", align: "right" },
+  { key: "address", label: "Address", width: "1.2fr" },
+  { key: "description", label: "Description", width: "1.5fr" },
+  { key: "bidDueTime", label: "Bid Time", width: "0.6fr" },
+  { key: "walkthroughDate", label: "Walkthrough", width: "0.8fr" },
+  { key: "rfiDueDate", label: "RFI Due", width: "0.7fr" },
+  { key: "date", label: "Created", width: "0.8fr" },
+  { key: "startDate", label: "Start Date", width: "0.8fr" },
+  { key: "bidRequirements", label: "Bid Requirements", width: "1.5fr" },
+  { key: "bidDelivery", label: "Bid Delivery", width: "0.7fr" },
+  { key: "coEstimators", label: "Co-Estimators", width: "0.8fr" },
+];
+
+const DEFAULT_VISIBLE = ["name", "client", "status", "value", "bidDue", "modified"];
+const DEFAULT_ORDER = ["name", "client", "status", "value", "bidDue", "modified"];
+
 /* ── Helper: is date within this week (Mon–Sun)? ── */
 function isDueThisWeek(dateStr) {
   if (!dateStr) return false;
@@ -177,13 +211,20 @@ function KanbanCard({
   const sc = STATUS_COLORS[est.status] || STATUS_COLORS.Draft;
   return (
     <div
+      draggable
+      onDragStart={e => {
+        e.dataTransfer.setData("text/plain", est.id);
+        e.dataTransfer.effectAllowed = "move";
+        e.currentTarget.style.opacity = "0.5";
+      }}
+      onDragEnd={e => { e.currentTarget.style.opacity = "1"; }}
       onClick={() => navigate(`/estimate/${est.id}/takeoffs`)}
       style={{
         background: C.glassBg || "rgba(255,255,255,0.03)",
         border: `1px solid ${C.border}`,
         borderRadius: 10,
         padding: 12,
-        cursor: "pointer",
+        cursor: "grab",
         transition: "all 0.15s ease",
         borderLeft: `3px solid ${sc}`,
       }}
@@ -260,6 +301,123 @@ function KanbanCard({
   );
 }
 
+/* ── Column Config Popover — toggle visibility & drag to reorder ── */
+function ColumnConfigPopover({ projectColumns, onUpdate, onClose, C }) {
+  const ref = useRef(null);
+  const dragItem = useRef(null);
+  const dragOver = useRef(null);
+  const visible = new Set(projectColumns.visible || DEFAULT_VISIBLE);
+  visible.add("name");
+  // Build ordered list: visible columns first (in order), then hidden columns
+  const currentOrder = projectColumns.order || DEFAULT_ORDER;
+  const allKeys = ALL_COLUMNS.map(c => c.key);
+  const orderedVisible = [...new Set([...currentOrder, ...allKeys])].filter(k => visible.has(k));
+  const hiddenCols = allKeys.filter(k => !visible.has(k));
+  const displayList = [...orderedVisible, ...hiddenCols];
+
+  useEffect(() => {
+    const handler = e => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [onClose]);
+
+  const toggleCol = key => {
+    if (key === "name") return;
+    const newVis = new Set(visible);
+    if (newVis.has(key)) newVis.delete(key); else newVis.add(key);
+    const newOrder = [...new Set([...currentOrder, ...allKeys])].filter(k => newVis.has(k));
+    onUpdate({ visible: [...newVis], order: newOrder });
+  };
+
+  const handleDragStart = idx => { dragItem.current = idx; };
+  const handleDragEnter = idx => { dragOver.current = idx; };
+  const handleDragEnd = () => {
+    if (dragItem.current === null || dragOver.current === null) return;
+    const from = dragItem.current;
+    const to = dragOver.current;
+    if (from === to) { dragItem.current = null; dragOver.current = null; return; }
+    // Only reorder visible columns
+    const arr = [...orderedVisible];
+    const fromIdx = arr.indexOf(displayList[from]);
+    const toIdx = arr.indexOf(displayList[to]);
+    if (fromIdx < 0 || toIdx < 0 || displayList[from] === "name") { dragItem.current = null; dragOver.current = null; return; }
+    const [moved] = arr.splice(fromIdx, 1);
+    arr.splice(toIdx, 0, moved);
+    onUpdate({ ...projectColumns, order: arr });
+    dragItem.current = null;
+    dragOver.current = null;
+  };
+
+  const dk = C.isDark;
+  return (
+    <div
+      ref={ref}
+      style={{
+        position: "absolute",
+        top: "100%",
+        right: 0,
+        marginTop: 6,
+        width: 230,
+        maxHeight: "60vh",
+        overflowY: "auto",
+        background: dk ? "#141418" : "#fff",
+        border: `1px solid ${dk ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)"}`,
+        borderRadius: 12,
+        padding: "6px 4px",
+        zIndex: 100,
+        boxShadow: dk ? "0 12px 36px rgba(0,0,0,0.6)" : "0 6px 24px rgba(0,0,0,0.15)",
+      }}
+    >
+      <div style={{ fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.8, padding: "6px 10px 8px" }}>
+        Table Fields
+      </div>
+      {displayList.map((key, idx) => {
+        const col = ALL_COLUMNS.find(c => c.key === key);
+        if (!col) return null;
+        const isVis = visible.has(key);
+        const isLocked = col.alwaysVisible;
+        const canDrag = isVis && !isLocked;
+        return (
+          <div
+            key={key}
+            draggable={canDrag}
+            onDragStart={() => canDrag && handleDragStart(idx)}
+            onDragEnter={() => canDrag && handleDragEnter(idx)}
+            onDragEnd={handleDragEnd}
+            onDragOver={e => e.preventDefault()}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "6px 10px",
+              borderRadius: 8,
+              cursor: canDrag ? "grab" : "default",
+              opacity: isVis ? 1 : 0.5,
+              transition: "background 0.1s",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = dk ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+          >
+            {/* Drag handle */}
+            <span style={{ fontSize: 10, color: C.textDim, opacity: canDrag ? 0.5 : 0, cursor: canDrag ? "grab" : "default", userSelect: "none" }}>⠿</span>
+            <input
+              type="checkbox"
+              checked={isVis}
+              disabled={isLocked}
+              onChange={() => toggleCol(key)}
+              style={{ accentColor: C.accent, cursor: isLocked ? "default" : "pointer", width: 13, height: 13 }}
+            />
+            <span style={{ flex: 1, fontSize: 11.5, color: isVis ? C.text : C.textDim, fontWeight: isVis ? 500 : 400 }}>
+              {col.label}
+            </span>
+            {isLocked && <span style={{ fontSize: 8, color: C.textDim, opacity: 0.5 }}>Required</span>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function ProjectsPage() {
   const C = useTheme();
   const T = C.T;
@@ -280,6 +438,37 @@ export default function ProjectsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [viewMode, setViewMode] = useState("table"); // table | board
   const [dueThisWeek, setDueThisWeek] = useState(false);
+  const [showColumnConfig, setShowColumnConfig] = useState(false);
+  const updateSetting = useUiStore(s => s.updateSetting);
+  const projectColumns = useUiStore(s => s.appSettings.projectColumns) || { visible: DEFAULT_VISIBLE, order: DEFAULT_ORDER };
+  const customWidths = projectColumns.widths || {};
+  const visibleCols = useMemo(() => {
+    const order = projectColumns.order || DEFAULT_ORDER;
+    const vis = new Set(projectColumns.visible || DEFAULT_VISIBLE);
+    vis.add("name"); // always visible
+    return order.filter(k => vis.has(k)).map(k => ALL_COLUMNS.find(c => c.key === k)).filter(Boolean);
+  }, [projectColumns]);
+  const gridTemplate = useMemo(() => visibleCols.map(c => {
+    const px = customWidths[c.key];
+    return px ? `${px}px` : c.width;
+  }).join(" ") + " 80px", [visibleCols, customWidths]);
+
+  // Column resize handler
+  const handleColResize = useCallback((colKey, e) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const th = e.currentTarget.parentElement;
+    const startW = th.getBoundingClientRect().width;
+    const onMove = ev => {
+      const newW = Math.max(60, startW + ev.clientX - startX);
+      updateSetting("projectColumns", { ...projectColumns, widths: { ...customWidths, [colKey]: Math.round(newW) } });
+    };
+    const onUp = () => { document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); document.body.style.cursor = ""; document.body.style.userSelect = ""; };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }, [projectColumns, customWidths, updateSetting]);
   const [statusDropdownId, setStatusDropdownId] = useState(null);
   const [scope, setScope] = useState("mine"); // "mine" | "team" (org mode only)
   const [presenceMap, setPresenceMap] = useState({}); // { estimateId: [{ user_name, user_color }] }
@@ -772,6 +961,7 @@ export default function ProjectsPage() {
                   color: dueThisWeek ? "#FBBF24" : C.textMuted,
                   border: `1px solid ${dueThisWeek ? "#FBBF2440" : C.border}`,
                   fontWeight: dueThisWeek ? 600 : 400,
+                  whiteSpace: "nowrap",
                 }}
               >
                 Due This Week
@@ -863,7 +1053,7 @@ export default function ProjectsPage() {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "2.5fr 1.2fr .8fr 1fr .8fr .9fr 80px",
+                    gridTemplateColumns: gridTemplate,
                     gap: 8,
                     padding: `${T.space[2]}px ${T.space[4]}px`,
                     fontSize: 9,
@@ -875,23 +1065,57 @@ export default function ProjectsPage() {
                     borderBottom: `1px solid ${C.border}`,
                   }}
                 >
-                  <span style={{ cursor: "pointer" }} onClick={() => toggleSort("name")}>
-                    Project {sortBy === "name" && (sortDir === "asc" ? "↑" : "↓")}
+                  {visibleCols.map(col => (
+                    <span
+                      key={col.key}
+                      style={{ cursor: col.sortKey ? "pointer" : "default", textAlign: col.align || "left", position: "relative", userSelect: "none" }}
+                      onClick={() => col.sortKey && toggleSort(col.sortKey)}
+                    >
+                      {col.label} {col.sortKey && sortBy === col.sortKey && (sortDir === "asc" ? "↑" : "↓")}
+                      {/* Resize handle */}
+                      <span
+                        onMouseDown={e => { e.stopPropagation(); handleColResize(col.key, e); }}
+                        style={{
+                          position: "absolute",
+                          right: -4,
+                          top: 0,
+                          bottom: 0,
+                          width: 8,
+                          cursor: "col-resize",
+                          zIndex: 2,
+                        }}
+                      />
+                    </span>
+                  ))}
+                  {/* Column config button */}
+                  <span style={{ display: "flex", justifyContent: "flex-end", position: "relative" }}>
+                    <button
+                      onClick={() => setShowColumnConfig(v => !v)}
+                      style={{
+                        background: showColumnConfig ? `${C.accent}15` : (C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)"),
+                        border: `1px solid ${showColumnConfig ? `${C.accent}40` : C.border}`,
+                        borderRadius: 6,
+                        cursor: "pointer",
+                        padding: "3px 8px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                      title="Configure columns"
+                    >
+                      <Ic d={I.settings} size={10} color={showColumnConfig ? C.accent : C.textMuted} />
+                      <span style={{ fontSize: 8, fontWeight: 600, color: showColumnConfig ? C.accent : C.textMuted, letterSpacing: "0.05em" }}>FIELDS</span>
+                    </button>
+                    {showColumnConfig && (
+                      <ColumnConfigPopover
+                        projectColumns={projectColumns}
+                        onUpdate={v => updateSetting("projectColumns", v)}
+                        onClose={() => setShowColumnConfig(false)}
+                        C={C}
+                        T={T}
+                      />
+                    )}
                   </span>
-                  <span>Client</span>
-                  <span style={{ cursor: "pointer" }} onClick={() => toggleSort("status")}>
-                    Status {sortBy === "status" && (sortDir === "asc" ? "↑" : "↓")}
-                  </span>
-                  <span style={{ cursor: "pointer", textAlign: "right" }} onClick={() => toggleSort("grandTotal")}>
-                    Value {sortBy === "grandTotal" && (sortDir === "asc" ? "↑" : "↓")}
-                  </span>
-                  <span style={{ cursor: "pointer" }} onClick={() => toggleSort("bidDue")}>
-                    Bid Due {sortBy === "bidDue" && (sortDir === "asc" ? "↑" : "↓")}
-                  </span>
-                  <span style={{ cursor: "pointer" }} onClick={() => toggleSort("lastModified")}>
-                    Modified {sortBy === "lastModified" && (sortDir === "asc" ? "↑" : "↓")}
-                  </span>
-                  <span></span>
                 </div>
 
                 {/* Rows */}
@@ -905,7 +1129,7 @@ export default function ProjectsPage() {
                       onClick={() => navigate(`/estimate/${est.id}/takeoffs`)}
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "2.5fr 1.2fr .8fr 1fr .8fr .9fr 80px",
+                        gridTemplateColumns: gridTemplate,
                         gap: 8,
                         padding: `${T.space[3]}px ${T.space[4]}px`,
                         borderBottom: `1px solid ${C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.05)"}`,
@@ -918,112 +1142,108 @@ export default function ProjectsPage() {
                         alignItems: "center",
                       }}
                     >
-                      {/* Project name + estimate number + type */}
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                          <span
-                            style={{
-                              fontSize: T.fontSize.base,
-                              fontWeight: T.fontWeight.semibold,
-                              color: C.text,
-                              lineHeight: 1.3,
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {est.name || "Untitled"}
-                          </span>
-                          {est.estimateNumber && (
-                            <span style={{ fontSize: T.fontSize.xs, color: C.accent, fontWeight: 500, flexShrink: 0 }}>
-                              #{est.estimateNumber}
-                            </span>
-                          )}
-                          <PresenceDots viewers={presenceMap[est.id]} C={C} />
-                        </div>
-                        {(est.jobType || est.estimator) && (
-                          <div
-                            style={{
-                              fontSize: T.fontSize.xs,
-                              color: C.textDim,
-                              marginTop: 1,
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {[est.jobType, est.estimator].filter(Boolean).join(" \u00b7 ")}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Client */}
-                      <div
-                        style={{
-                          fontSize: T.fontSize.sm,
-                          color: C.textMuted,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {est.client || "\u2014"}
-                      </div>
-
-                      {/* Status badge — clickable for inline change */}
-                      <div style={{ position: "relative" }} onClick={e => e.stopPropagation()}>
-                        <button
-                          onClick={() => setStatusDropdownId(statusDropdownId === est.id ? null : est.id)}
-                          style={statusBadge(sc, {
-                            cursor: "pointer",
-                            border: "none",
-                            transition: "all 100ms ease-out",
-                          })}
-                          onMouseEnter={e => {
-                            e.currentTarget.style.background = `${sc}28`;
-                          }}
-                          onMouseLeave={e => {
-                            e.currentTarget.style.background = `${sc}18`;
-                          }}
-                        >
-                          {est.status || "Draft"}
-                        </button>
-                        {statusDropdownId === est.id && (
-                          <StatusDropdown
-                            currentStatus={est.status || "Draft"}
-                            onSelect={s => handleStatusChange(est.id, s)}
-                            onClose={() => setStatusDropdownId(null)}
-                            C={C}
-                            T={T}
-                          />
-                        )}
-                      </div>
-
-                      {/* Value */}
-                      <div style={moneyCell(C, total)}>{total ? fmt(total) : "\u2014"}</div>
-
-                      {/* Bid Due */}
-                      <div
-                        style={{
-                          fontSize: T.fontSize.sm,
-                          color: isDueThisWeek(est.bidDue) ? C.yellow || "#FBBF24" : C.textMuted,
-                        }}
-                      >
-                        {est.bidDue || "\u2014"}
-                      </div>
-
-                      {/* Modified */}
-                      <div
-                        style={{
-                          fontSize: T.fontSize.xs,
-                          color: C.textDim,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {est.lastModified || "\u2014"}
-                      </div>
+                      {/* Dynamic columns */}
+                      {visibleCols.map(col => {
+                        const cellStyle = { fontSize: T.fontSize.sm, color: C.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 };
+                        switch (col.key) {
+                          case "name":
+                            return (
+                              <div key="name" style={{ minWidth: 0 }}>
+                                <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                                  <span style={{ fontSize: T.fontSize.base, fontWeight: T.fontWeight.semibold, color: C.text, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                    {est.name || "Untitled"}
+                                  </span>
+                                  {est.estimateNumber && <span style={{ fontSize: T.fontSize.xs, color: C.accent, fontWeight: 500, flexShrink: 0 }}>#{est.estimateNumber}</span>}
+                                  <PresenceDots viewers={presenceMap[est.id]} C={C} />
+                                </div>
+                                {(est.jobType || est.estimator) && (
+                                  <div style={{ fontSize: T.fontSize.xs, color: C.textDim, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                    {[est.jobType, est.estimator].filter(Boolean).join(" \u00b7 ")}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          case "client":
+                            return <div key="client" style={cellStyle}>{est.client || "\u2014"}</div>;
+                          case "estimateNumber":
+                            return <div key="estNum" style={{ ...cellStyle, color: C.accent, fontWeight: 500 }}>#{est.estimateNumber || "\u2014"}</div>;
+                          case "jobType":
+                            return <div key="jobType" style={cellStyle}>{est.jobType || "\u2014"}</div>;
+                          case "estimator":
+                            return <div key="estimator" style={cellStyle}>{est.estimator || "\u2014"}</div>;
+                          case "status":
+                            return (
+                              <div key="status" style={{ position: "relative" }} onClick={e => e.stopPropagation()}>
+                                <button
+                                  onClick={() => setStatusDropdownId(statusDropdownId === est.id ? null : est.id)}
+                                  style={statusBadge(sc, { cursor: "pointer", border: "none", transition: "all 100ms ease-out" })}
+                                  onMouseEnter={e => { e.currentTarget.style.background = `${sc}28`; }}
+                                  onMouseLeave={e => { e.currentTarget.style.background = `${sc}18`; }}
+                                >
+                                  {est.status || "Draft"}
+                                </button>
+                                {statusDropdownId === est.id && (
+                                  <StatusDropdown currentStatus={est.status || "Draft"} onSelect={s => handleStatusChange(est.id, s)} onClose={() => setStatusDropdownId(null)} C={C} T={T} />
+                                )}
+                              </div>
+                            );
+                          case "value":
+                            return <div key="value" style={moneyCell(C, total)}>{total ? fmt(total) : "\u2014"}</div>;
+                          case "bidDue":
+                            return <div key="bidDue" style={{ ...cellStyle, color: isDueThisWeek(est.bidDue) ? C.yellow || "#FBBF24" : C.textMuted }}>{est.bidDue || "\u2014"}</div>;
+                          case "modified":
+                            return <div key="modified" style={{ ...cellStyle, fontSize: T.fontSize.xs, color: C.textDim }}>{est.lastModified || "\u2014"}</div>;
+                          case "architect":
+                            return <div key="architect" style={cellStyle}>{est.architect || "\u2014"}</div>;
+                          case "engineer":
+                            return <div key="engineer" style={cellStyle}>{est.engineer || "\u2014"}</div>;
+                          case "buildingType":
+                            return <div key="buildingType" style={cellStyle}>{est.buildingType || "\u2014"}</div>;
+                          case "workType":
+                            return <div key="workType" style={cellStyle}>{est.workType || "\u2014"}</div>;
+                          case "bidType":
+                            return <div key="bidType" style={cellStyle}>{est.bidType || "\u2014"}</div>;
+                          case "projectSF":
+                            return <div key="projectSF" style={{ ...cellStyle, textAlign: "right" }}>{est.projectSF ? Number(est.projectSF).toLocaleString() : "\u2014"}</div>;
+                          case "address":
+                            return <div key="address" style={cellStyle}>{est.address || "\u2014"}</div>;
+                          case "description":
+                            return <div key="description" style={cellStyle}>{est.description || "\u2014"}</div>;
+                          case "bidDueTime":
+                            return <div key="bidDueTime" style={cellStyle}>{est.bidDueTime || "\u2014"}</div>;
+                          case "walkthroughDate":
+                            return <div key="walkthroughDate" style={cellStyle}>{est.walkthroughDate || "\u2014"}</div>;
+                          case "rfiDueDate":
+                            return <div key="rfiDueDate" style={cellStyle}>{est.rfiDueDate || "\u2014"}</div>;
+                          case "date":
+                            return <div key="date" style={{ ...cellStyle, fontSize: T.fontSize.xs, color: C.textDim }}>{est.date || "\u2014"}</div>;
+                          case "startDate":
+                            return <div key="startDate" style={{ ...cellStyle, fontSize: T.fontSize.xs, color: C.textDim }}>{est.startDate || "\u2014"}</div>;
+                          case "bidRequirements": {
+                            const reqs = est.bidRequirements || {};
+                            const REQ_LABELS = { bidForm: "Bid Form", schedule: "Schedule", marketing: "Marketing", financials: "Financials", bonds: "Bonds", insurance: "Insurance", references: "References", safetyPlan: "Safety" };
+                            const active = Object.entries(reqs).filter(([k, v]) => v && k !== "other").map(([k]) => REQ_LABELS[k] || k);
+                            const other = reqs.other;
+                            return (
+                              <div key="bidReqs" style={{ display: "flex", flexWrap: "wrap", gap: 3, alignItems: "center", minWidth: 0 }}>
+                                {active.length === 0 && !other && <span style={{ fontSize: T.fontSize.xs, color: C.textDim }}>{"\u2014"}</span>}
+                                {active.map(label => (
+                                  <span key={label} style={{ fontSize: 8, fontWeight: 600, padding: "1px 5px", borderRadius: 4, background: `${C.accent}15`, color: C.accent, whiteSpace: "nowrap" }}>{label}</span>
+                                ))}
+                                {other && <span style={{ fontSize: 8, fontWeight: 500, padding: "1px 5px", borderRadius: 4, background: `${C.textDim}15`, color: C.textMuted, whiteSpace: "nowrap" }}>{other}</span>}
+                              </div>
+                            );
+                          }
+                          case "bidDelivery":
+                            return <div key="bidDelivery" style={cellStyle}>{est.bidDelivery || "\u2014"}</div>;
+                          case "coEstimators": {
+                            const coEsts = est.coEstimators || [];
+                            return <div key="coEsts" style={cellStyle}>{coEsts.length ? coEsts.join(", ") : "\u2014"}</div>;
+                          }
+                          default:
+                            return <div key={col.key} style={cellStyle}>{est[col.key] || "\u2014"}</div>;
+                        }
+                      })}
 
                       {/* Actions */}
                       <div
@@ -1073,10 +1293,7 @@ export default function ProjectsPage() {
                           <>
                             <button
                               title="Project Settings"
-                              onClick={async () => {
-                                await loadEstimate(est.id);
-                                navigate(`/estimate/${est.id}/project`);
-                              }}
+                              onClick={e => { e.stopPropagation(); e.preventDefault(); navigate(`/estimate/${est.id}/info`); }}
                               className="icon-btn"
                               style={{
                                 width: 26,
@@ -1188,6 +1405,14 @@ export default function ProjectsPage() {
               return (
                 <div
                   key={status}
+                  onDragOver={e => { e.preventDefault(); e.currentTarget.style.background = `${sc}12`; }}
+                  onDragLeave={e => { e.currentTarget.style.background = C.bg2 || "rgba(255,255,255,0.02)"; }}
+                  onDrop={e => {
+                    e.preventDefault();
+                    e.currentTarget.style.background = C.bg2 || "rgba(255,255,255,0.02)";
+                    const estId = e.dataTransfer.getData("text/plain");
+                    if (estId) handleStatusChange(estId, status);
+                  }}
                   style={{
                     background: C.bg2 || "rgba(255,255,255,0.02)",
                     borderRadius: 12,
@@ -1197,6 +1422,7 @@ export default function ProjectsPage() {
                     flexDirection: "column",
                     gap: 8,
                     minHeight: 200,
+                    transition: "background 0.15s ease",
                   }}
                 >
                   {/* Column header */}

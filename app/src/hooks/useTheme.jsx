@@ -618,11 +618,12 @@ export function ThemeProvider({ children }) {
           border-radius: 16px !important;
         }
 
-        /* ── Default state: deep black card, grey border, no grain ── */
+        /* ── Widgets: deep black, subtle grey border, above grain layer ── */
         html[data-aurora] .widget-card {
           position: relative;
-          border: 1px solid rgba(255,255,255,0.15) !important;
-          background: #111114 !important;
+          z-index: 12;
+          border: 1px solid rgba(255,255,255,0.12) !important;
+          background: #0A0A0F !important;
           overflow: visible;
           box-shadow: none !important;
           transition: border-color 0.3s, box-shadow 0.3s;
@@ -674,11 +675,12 @@ export function ThemeProvider({ children }) {
           animation: aurora-rotate 6s linear 1;
         }
 
-        /* KPI cards — deep black, grey border */
+        /* KPI cards — deep black, subtle grey border, above grain */
         html[data-aurora] .kpi-card {
           position: relative;
-          border: 1px solid rgba(255,255,255,0.15) !important;
-          background: #111114 !important;
+          z-index: 12;
+          border: 1px solid rgba(255,255,255,0.12) !important;
+          background: #0A0A0F !important;
           box-shadow: none !important;
           transition: border-color 0.3s, box-shadow 0.3s;
         }
@@ -794,22 +796,17 @@ export function ThemeProvider({ children }) {
           background: rgba(168,85,247,0.03) !important;
         }
 
-        /* ── Noise grain — cinematic film grain on background ── */
+        /* ── Carbon fiber texture on background ── */
         html[data-aurora] .noise-grain-overlay {
-          opacity: 0.8 !important;
-          z-index: 0 !important;
+          opacity: 0.7 !important;
+          z-index: 1 !important;
+          mix-blend-mode: normal !important;
         }
 
-        /* ── Header — deep black to match cards ── */
+        /* ── Header — deep black like widgets ── */
         html[data-aurora] header {
-          background: #111114 !important;
+          background: #0A0A0F !important;
           border-bottom-color: rgba(255,255,255,0.10) !important;
-        }
-
-        /* ── Sidebar — deep black ── */
-        html[data-aurora] .sidebar,
-        html[data-aurora] [class*="sidebar"] {
-          background: #111114 !important;
         }
       `;
       document.head.appendChild(style);

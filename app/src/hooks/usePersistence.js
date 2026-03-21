@@ -700,8 +700,18 @@ export function usePersistenceLoad() {
                   buildingType: proj.buildingType || "",
                   workType: proj.workType || "",
                   architect: proj.architect || "",
+                  engineer: proj.engineer || "",
                   projectSF: proj.projectSF || 0,
                   zipCode: proj.zipCode || "",
+                  address: proj.address || "",
+                  description: proj.description || "",
+                  bidDueTime: proj.bidDueTime || "",
+                  bidType: proj.bidType || "",
+                  bidDelivery: proj.bidDelivery || "",
+                  bidRequirements: proj.bidRequirements || {},
+                  walkthroughDate: proj.walkthroughDate || "",
+                  rfiDueDate: proj.rfiDueDate || "",
+                  date: proj.date || "",
                   ownerId: ce.user_id || "",
                   orgId: useOrgStore.getState().org?.id || "",
                   assignedTo: proj.assignedTo || [],
@@ -1052,6 +1062,53 @@ export function usePersistenceLoad() {
         }
       } catch (intErr) {
         nova.idb.error("Startup integrity check failed", { error: intErr });
+      }
+
+      // ── Enrich index entries with project fields that may be missing ──
+      // Fields like bidRequirements, engineer, address, etc. were added to the index
+      // after initial release. This backfills them from IDB estimate data blobs.
+      try {
+        const INDEX_FIELDS = ["bidRequirements","engineer","address","description","bidDelivery","bidDueTime","walkthroughDate","rfiDueDate","date","coEstimators","bidType"];
+        const currentIndex = useEstimatesStore.getState().estimatesIndex;
+        let enriched = false;
+        const updatedIndex = await Promise.all(currentIndex.map(async entry => {
+          // Check if bidRequirements is empty or any field is missing
+          const brEmpty = !entry.bidRequirements || Object.keys(entry.bidRequirements).length === 0;
+          const missing = INDEX_FIELDS.some(f => entry[f] === undefined);
+          if (!missing && !brEmpty) return entry;
+          try {
+            const raw = await storage.get(idbKey(`bldg-est-${entry.id}`));
+            if (!raw) return entry;
+            const data = JSON.parse(raw);
+            const proj = data?.project || {};
+            enriched = true;
+            // Always take project's bidRequirements if richer than index
+            const projReqs = proj.bidRequirements || {};
+            const entryReqs = entry.bidRequirements || {};
+            const useProjectReqs = Object.keys(projReqs).length > Object.keys(entryReqs).length;
+            return {
+              ...entry,
+              bidRequirements: useProjectReqs ? projReqs : entryReqs,
+              engineer: entry.engineer || proj.engineer || "",
+              address: entry.address ?? proj.address ?? "",
+              description: entry.description ?? proj.description ?? "",
+              bidDelivery: entry.bidDelivery ?? proj.bidDelivery ?? "",
+              bidDueTime: entry.bidDueTime ?? proj.bidDueTime ?? "",
+              walkthroughDate: entry.walkthroughDate ?? proj.walkthroughDate ?? "",
+              rfiDueDate: entry.rfiDueDate ?? proj.rfiDueDate ?? "",
+              date: entry.date ?? proj.date ?? "",
+              coEstimators: entry.coEstimators ?? proj.coEstimators ?? [],
+              bidType: entry.bidType ?? proj.bidType ?? "",
+            };
+          } catch { return entry; }
+        }));
+        if (enriched) {
+          useEstimatesStore.getState().setEstimatesIndex(updatedIndex);
+          await storage.set(idbKey("bldg-index"), JSON.stringify(updatedIndex));
+          console.log("[usePersistence] Enriched index with missing project fields");
+        }
+      } catch (enrichErr) {
+        console.warn("[usePersistence] Index enrichment failed:", enrichErr);
       }
 
       // Signal that persistence load is complete — auto-save can now safely write

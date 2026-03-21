@@ -126,7 +126,7 @@ export default function WidgetPickerModal({ onClose }) {
             fontFamily: T.font.display,
           }}
         >
-          {configFor ? "Configure Widget" : "Add Widget"}
+          {configFor ? (WIDGET_REGISTRY[configFor.type]?.configLabel || "Configure Widget") : "Add Widget"}
         </div>
 
         {configFor ? (

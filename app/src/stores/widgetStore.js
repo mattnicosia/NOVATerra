@@ -26,6 +26,10 @@ export const useWidgetStore = create((set, _get) => ({
   editMode: false,
   movingWidgetId: null,
   activeMenuId: null,
+  musicPlayerUrl: null,
+
+  setMusicPlayerUrl: url => set({ musicPlayerUrl: url }),
+  clearMusicPlayer: () => set({ musicPlayerUrl: null }),
 
   setLayouts: layouts => set({ layouts }),
   setEditMode: v => set({ editMode: v }),

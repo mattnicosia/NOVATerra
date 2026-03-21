@@ -80,3 +80,15 @@ const stitchDotSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height=
 </svg>`;
 
 export const STITCH_DOT_TEXTURE = `url("data:image/svg+xml,${encodeURIComponent(stitchDotSvg)}")`;
+
+// ── Carbon Fiber ─────────────────────────────────────────────
+// Subtle alternating-density horizontal lines.
+// Stealth charcoal — visible but understated.
+const carbonSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4" viewBox="0 0 4 4">
+  <rect width="4" height="1" fill="rgba(255,255,255,0.03)"/>
+  <rect y="1" width="4" height="1" fill="rgba(0,0,0,0.06)"/>
+  <rect y="2" width="4" height="1" fill="rgba(255,255,255,0.02)"/>
+  <rect y="3" width="4" height="1" fill="rgba(0,0,0,0.04)"/>
+</svg>`;
+
+export const CARBON_FIBER = `url("data:image/svg+xml,${encodeURIComponent(carbonSvg)}")`;

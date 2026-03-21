@@ -48,6 +48,10 @@ export const useUiStore = create((set, _get) => ({
     onboardingDismissed: false,
     showActivityTimer: false,
     workWeek: "mon-fri", // "mon-fri" | "mon-sat"
+    projectColumns: {
+      visible: ["name", "client", "status", "value", "bidDue", "modified"],
+      order: ["name", "client", "status", "value", "bidDue", "modified"],
+    },
   },
 
   // Revision Detection (transient — not persisted)

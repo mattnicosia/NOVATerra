@@ -623,8 +623,15 @@ function NovaHeader({ onDraftPanelToggle }) {
         animation: "fadeUp 0.9s cubic-bezier(0.16,1,0.3,1) 0.25s both",
       }}
     >
-      {/* Left — spacer */}
-      <div style={{ display: "flex", alignItems: "center", minWidth: 220, paddingLeft: 16 }} />
+      {/* Left — NOVATerra wordmark */}
+      <div style={{ display: "flex", alignItems: "center", minWidth: 220, paddingLeft: 16 }}>
+        <img
+          src="/novaterra-wordmark.png"
+          alt="NOVATerra"
+          style={{ height: 63, width: "auto", opacity: 0.85, userSelect: "none" }}
+          draggable={false}
+        />
+      </div>
 
       {/* Center — Navigation */}
       <nav style={{ display: "flex", alignItems: "center", gap: 2 }}>
