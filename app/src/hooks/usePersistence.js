@@ -1114,12 +1114,22 @@ export function usePersistenceLoad() {
       try {
         const integrity = await nova.runIntegrityCheck(storage, idbKey);
         if (!integrity.healthy && integrity.orphanCount > 0) {
-          nova.orphan.warn(`Startup integrity: ${integrity.orphanCount} orphaned entries detected`, {
+          nova.orphan.warn(`Startup integrity: ${integrity.orphanCount} orphaned entries detected — removing`, {
             orphanIds: integrity.orphanIds,
             totalCount: integrity.totalCount,
           });
-          // Don't auto-remove here — cloud sync Phase 6 will handle cleanup
-          // after attempting to pull missing data from cloud. Just log for awareness.
+          // Remove orphaned entries from the index — they have no backing data
+          // in IDB or cloud, so they're just ghosts polluting the estimate list.
+          const currentIndex = useEstimatesStore.getState().estimatesIndex;
+          const cleaned = currentIndex.filter(e => !integrity.orphanIds.includes(e.id));
+          if (cleaned.length < currentIndex.length) {
+            useEstimatesStore.setState({ estimatesIndex: cleaned });
+            const indexKey = idbKey("bldg-index");
+            await storage.set(indexKey, JSON.stringify(cleaned));
+            // Also update localStorage mirror
+            localStorage.setItem("bldg-index-mirror", JSON.stringify(cleaned));
+            console.log(`[repair] Removed ${currentIndex.length - cleaned.length} orphaned entries from index`);
+          }
         }
       } catch (intErr) {
         nova.idb.error("Startup integrity check failed", { error: intErr });
