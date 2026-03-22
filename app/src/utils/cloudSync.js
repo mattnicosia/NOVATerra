@@ -612,41 +612,11 @@ export const pushData = async (key, data) => {
       const userId = getUserId();
       const row = { user_id: userId, key, data: cleanData, updated_at: new Date().toISOString(), ...(scope || {}) };
 
-      // UPSERT: insert or update. With partial indexes:
-      //   org mode  → unique on (user_id, key, org_id) WHERE org_id IS NOT NULL
-      //   solo mode → unique on (user_id, key) WHERE org_id IS NULL
-      // First try update (matches current scope), then insert if no rows updated.
-      const updateFilter = supabase
+      // Simple UPSERT — global unique index on (user_id, key)
+      const { error } = await supabase
         .from("user_data")
-        .update({ data: cleanData, updated_at: row.updated_at })
-        .eq("user_id", userId)
-        .eq("key", key);
-
-      const { count, error: upErr } = scope?.org_id
-        ? await updateFilter.eq("org_id", scope.org_id).select("id", { count: "exact", head: true })
-        : await updateFilter.is("org_id", null).select("id", { count: "exact", head: true });
-
-      if (upErr) throw upErr;
-
-      if (!count || count === 0) {
-        // No existing row — insert new
-        const { error: insErr } = await supabase.from("user_data").insert(row);
-        if (insErr) {
-          // If conflict, try migrating solo row to org
-          if (insErr.code === "23505" && scope?.org_id) {
-            console.log(`[cloudSync] pushData("${key}"): migrating solo row to org`);
-            const { error: migErr } = await supabase
-              .from("user_data")
-              .update({ org_id: scope.org_id, data: cleanData, updated_at: row.updated_at })
-              .eq("user_id", userId)
-              .eq("key", key)
-              .is("org_id", null);
-            if (migErr) throw migErr;
-          } else {
-            throw insErr;
-          }
-        }
-      }
+        .upsert(row, { onConflict: "user_id,key" });
+      if (error) throw error;
     });
     markSynced();
   } catch (err) {
@@ -689,40 +659,11 @@ export const pushEstimate = async (estimateId, data) => {
         visibility,
       };
 
-      // UPDATE-then-INSERT pattern (partial indexes don't work with onConflict column names).
-      // Partial indexes: idx_user_estimates_uq_solo (user_id, estimate_id WHERE org_id IS NULL)
-      //                  idx_user_estimates_uq_org (user_id, estimate_id, org_id WHERE org_id IS NOT NULL)
-      const updateFilter = supabase
+      // Simple UPSERT — global unique index on (user_id, estimate_id)
+      const { error } = await supabase
         .from("user_estimates")
-        .update({ data: cleanData, updated_at: row.updated_at, visibility, ...(assignedTo ? { assigned_to: assignedTo } : {}) })
-        .eq("user_id", userId)
-        .eq("estimate_id", estimateId);
-
-      const { count, error: upErr } = scope?.org_id
-        ? await updateFilter.eq("org_id", scope.org_id).select("id", { count: "exact", head: true })
-        : await updateFilter.is("org_id", null).select("id", { count: "exact", head: true });
-
-      if (upErr) throw upErr;
-
-      if (!count || count === 0) {
-        // No existing row in current scope — try INSERT
-        const { error: insErr } = await supabase.from("user_estimates").insert(row);
-        if (insErr) {
-          // Conflict means a row exists under different scope — migrate it
-          if (insErr.code === "23505" && scope?.org_id) {
-            console.log(`[cloudSync] pushEstimate("${estimateId}"): migrating solo row to org`);
-            const { error: migErr } = await supabase
-              .from("user_estimates")
-              .update({ org_id: scope.org_id, data: cleanData, updated_at: row.updated_at, visibility, ...(assignedTo ? { assigned_to: assignedTo } : {}) })
-              .eq("user_id", userId)
-              .eq("estimate_id", estimateId)
-              .is("org_id", null);
-            if (migErr) throw migErr;
-          } else {
-            throw insErr;
-          }
-        }
-      }
+        .upsert(row, { onConflict: "user_id,estimate_id" });
+      if (error) throw error;
     });
     markSynced();
   } catch (err) {
