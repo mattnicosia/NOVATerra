@@ -195,11 +195,13 @@ export const useAuthStore = create((set, get) => ({
         if (currentUser?.id === session.user.id) return;
 
         set({ user: session.user, session, loading: false, magicLinkSent: false, authError: null });
-        // NEVER write a session token from onAuthStateChange — it races with
-        // the explicit writeSessionToken in signInWithPassword/signUpWithPassword.
-        // Instead, adopt whatever token is in the DB (which was written by the
-        // explicit sign-in call, or already existed from a previous session).
-        adoptSessionToken(session.user.id);
+        // Only adopt session token on INITIAL sign-in detection (no existing user).
+        // Do NOT re-adopt on subsequent auth events — that would overwrite our
+        // local token with a new device's token, defeating session enforcement.
+        // The explicit signInWithPassword/signUpWithPassword already called writeSessionToken.
+        if (!localStorage.getItem("bldg-session-token")) {
+          adoptSessionToken(session.user.id);
+        }
         // Load org membership in background, then check for pending invite
         useOrgStore
           .getState()
