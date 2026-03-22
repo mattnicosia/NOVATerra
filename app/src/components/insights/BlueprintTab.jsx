@@ -17,6 +17,9 @@ import { useTakeoffsStore } from "@/stores/takeoffsStore";
 import { useDrawingsStore } from "@/stores/drawingsStore";
 import { useModelStore } from "@/stores/modelStore";
 import { generateElementsFromTakeoffs, getPxPerFoot } from "@/utils/geometryBuilder";
+import { detectWalls } from "@/utils/wallDetector";
+import { detectSpacesForLevel } from "@/utils/pascalSpaceDetection";
+import { calculateLevelMiters } from "@/utils/pascalWallMitering";
 import { buildFloorMap, inferFloorFromSheet, FLOOR_OPTIONS } from "@/utils/floorAssignment";
 import { bt, card } from "@/utils/styles";
 import { useTheme } from "@/hooks/useTheme";
@@ -438,8 +441,14 @@ export default function BlueprintTab() {
   const [displayMode, setDisplayMode] = useState("both");
   // Element-derived outlines per floor (convex hull from takeoff elements)
   const [floorOutlines, setFloorOutlines] = useState([]);
+  // CV-detected walls from floor plan scan
+  const [detectedWalls, setDetectedWalls] = useState([]);
+  const [detectedRooms, setDetectedRooms] = useState([]);
+  const [scanning, setScanning] = useState(false);
+  const [scanDebugCanvas, setScanDebugCanvas] = useState(null);
 
   const hasTakeoffData = takeoffs.some(t => t.measurements?.length > 0);
+  const hasDrawings = drawings.length > 0;
 
   const handleGenerate = useCallback(() => {
     setGenerating(true);
@@ -562,6 +571,78 @@ export default function BlueprintTab() {
     handleGenerate();
   }, []);
 
+  // ── Scan Walls: CV detection from floor plan images ──
+  const handleScanWalls = useCallback(async () => {
+    setScanning(true);
+    setDetectedWalls([]);
+    setDetectedRooms([]);
+
+    try {
+      const pdfCanvases = useDrawingsStore.getState().pdfCanvases;
+      const allWalls = [];
+
+      // Scan each floor plate's drawing
+      for (const plate of floorPlates) {
+        const imageData = pdfCanvases[plate.drawingId] || drawings.find(d => d.id === plate.drawingId)?.data;
+        if (!imageData) {
+          console.warn(`[ScanWalls] No image for drawing ${plate.drawingId}`);
+          continue;
+        }
+
+        console.log(`[ScanWalls] Scanning floor ${plate.label} (drawing ${plate.drawingId.slice(0,8)})`);
+
+        const { walls, debugCanvas, rawLineCount } = await detectWalls(
+          imageData, plate.drawingId
+        );
+
+        console.log(`[ScanWalls] Floor ${plate.label}: ${rawLineCount} raw lines → ${walls.length} walls`);
+
+        // Tag each wall with floor info
+        walls.forEach(w => {
+          w.elevation = plate.elevation;
+          w.floorLabel = plate.label;
+          w.drawingId = plate.drawingId;
+        });
+
+        allWalls.push(...walls);
+
+        if (debugCanvas) setScanDebugCanvas(debugCanvas);
+      }
+
+      // Run Pascal space detection on detected walls
+      if (allWalls.length > 0) {
+        const { spaces, wallUpdates } = detectSpacesForLevel("scan", allWalls, 0.5);
+        setDetectedRooms(spaces.filter(s => !s.isExterior));
+
+        // Run mitering
+        const { junctionData } = calculateLevelMiters(allWalls);
+        // Store miter data on walls
+        for (const [_jKey, wallIntersections] of junctionData) {
+          for (const [wallId, miterPoints] of wallIntersections) {
+            const wall = allWalls.find(w => w.id === wallId);
+            if (wall) {
+              if (!wall.miterData) wall.miterData = [];
+              wall.miterData.push(miterPoints);
+            }
+          }
+        }
+
+        // Apply wall side classifications
+        for (const update of wallUpdates) {
+          const wall = allWalls.find(w => w.id === update.wallId);
+          if (wall) wall.wallSide = { front: update.frontSide, back: update.backSide };
+        }
+      }
+
+      setDetectedWalls(allWalls);
+      console.log(`[ScanWalls] Complete: ${allWalls.length} walls, ${detectedRooms.length} rooms`);
+    } catch (err) {
+      console.error("[ScanWalls] Failed:", err);
+    } finally {
+      setScanning(false);
+    }
+  }, [floorPlates, drawings]);
+
   const handleDrawingOverride = useCallback((floorLabel, drawingId) => {
     setDrawingOverrides(prev => ({ ...prev, [floorLabel]: drawingId }));
     setTimeout(() => handleGenerate(), 100);
@@ -624,6 +705,9 @@ export default function BlueprintTab() {
         <div style={{ position: "absolute", top: 12, left: 12, zIndex: 10, display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
           <button onClick={handleGenerate} disabled={!hasTakeoffData} style={{ ...bt(C), padding: "6px 10px", fontSize: T.fontSize.xs, background: "rgba(0,0,0,0.6)", color: "#fff", borderRadius: T.radius.sm, backdropFilter: "blur(8px)", gap: 4 }}>
             <Ic d={I.refresh} size={12} color="#fff" /> Rebuild
+          </button>
+          <button onClick={handleScanWalls} disabled={!hasDrawings || scanning} style={{ ...bt(C), padding: "6px 10px", fontSize: T.fontSize.xs, background: scanning ? "rgba(16,185,129,0.7)" : "rgba(0,0,0,0.6)", color: "#fff", borderRadius: T.radius.sm, backdropFilter: "blur(8px)", gap: 4 }}>
+            {scanning ? "Scanning..." : "⚡ Scan Walls"}
           </button>
           <button onClick={() => setExploded(!exploded)} style={{ ...bt(C), padding: "6px 10px", fontSize: T.fontSize.xs, background: exploded ? "rgba(99,102,241,0.7)" : "rgba(0,0,0,0.6)", color: "#fff", borderRadius: T.radius.sm, backdropFilter: "blur(8px)", gap: 4 }}>
             {exploded ? "Collapse" : "Explode"}
@@ -716,6 +800,44 @@ export default function BlueprintTab() {
             return null;
           })}
 
+          {/* CV-detected walls from Scan Walls */}
+          {detectedWalls.map(w => {
+            const [x1, z1] = w.start;
+            const [x2, z2] = w.end;
+            const dx = x2 - x1, dz = z2 - z1;
+            const len = Math.sqrt(dx * dx + dz * dz);
+            if (len < 0.1) return null;
+            const elev = w.elevation ?? 0;
+            const wallH = 10; // default 10ft wall height
+            const cx = (x1 + x2) / 2, cz = (z1 + z2) / 2;
+            const angle = Math.atan2(dx, dz);
+            return (
+              <mesh key={w.id} position={[cx, elev + wallH / 2, cz]} rotation={[0, angle, 0]}>
+                <boxGeometry args={[w.thickness, wallH, len]} />
+                <meshStandardMaterial
+                  color={w.confidence > 0.5 ? "#10B981" : "#F59E0B"}
+                  transparent opacity={0.6}
+                  side={THREE.DoubleSide}
+                />
+              </mesh>
+            );
+          })}
+          {/* CV-detected rooms from Pascal space detection */}
+          {detectedRooms.map((room, i) => {
+            if (!room.polygon || room.polygon.length < 3) return null;
+            const shape = new THREE.Shape();
+            room.polygon.forEach(([x, z], j) => {
+              j === 0 ? shape.moveTo(x, z) : shape.lineTo(x, z);
+            });
+            shape.closePath();
+            return (
+              <mesh key={`room-${i}`} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
+                <shapeGeometry args={[shape]} />
+                <meshBasicMaterial color="#3B82F6" transparent opacity={0.15} side={THREE.DoubleSide} />
+              </mesh>
+            );
+          })}
+
           <OrbitControls makeDefault enableDamping dampingFactor={0.1} />
         </Canvas>
       </div>
@@ -741,6 +863,22 @@ export default function BlueprintTab() {
             </button>
           ))}
         </div>
+
+        {/* Scan Results */}
+        {(detectedWalls.length > 0 || detectedRooms.length > 0) && (
+          <div style={{ marginBottom: T.space[4], padding: T.space[3], background: "rgba(16,185,129,0.08)", borderRadius: T.radius.sm, border: "1px solid rgba(16,185,129,0.2)" }}>
+            <div style={{ fontSize: T.fontSize.xs, fontWeight: T.fontWeight.bold, color: "#10B981", marginBottom: 4 }}>
+              Wall Scan Results
+            </div>
+            <div style={{ fontSize: 11, color: C.textMuted }}>
+              {detectedWalls.length} walls detected
+              {detectedRooms.length > 0 && ` · ${detectedRooms.length} rooms`}
+            </div>
+            <div style={{ fontSize: 10, color: C.textDim, marginTop: 4 }}>
+              {detectedWalls.filter(w => w.confidence > 0.5).length} high confidence · {detectedWalls.filter(w => w.confidence <= 0.5).length} low
+            </div>
+          </div>
+        )}
 
         {/* Plan Opacity */}
         {showPlans && (
