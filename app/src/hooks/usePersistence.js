@@ -1182,6 +1182,14 @@ export function usePersistenceLoad() {
         console.warn("[usePersistence] Index enrichment failed:", enrichErr);
       }
 
+      // ── One-time data imports (run after persistence loads, before cloud sync) ──
+      try {
+        const { importMontanaProposals } = await import("@/data/importProposals");
+        importMontanaProposals();
+      } catch (importErr) {
+        console.warn("[usePersistence] Proposal import failed:", importErr);
+      }
+
       // Signal that persistence load is complete — auto-save can now safely write
       useUiStore.getState().setPersistenceLoaded(true);
     })();
