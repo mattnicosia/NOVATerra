@@ -531,6 +531,7 @@ function AppContent() {
   const [showDraftPanel, setShowDraftPanel] = useState(false);
   const cmdPaletteOpen = useCommandPaletteStore(s => s.open);
   const aiChatOpen = useUiStore(s => s.aiChatOpen);
+  const sessionKicked = useUiStore(s => s.sessionKicked);
 
   // Sync body background to theme (covers areas outside app-shell + prevents flash)
   // Also toggle theme-light/theme-dark class for CSS hover state overrides
@@ -567,6 +568,31 @@ function AppContent() {
         transition: "opacity 0.15s ease-in",
       }}
     >
+      {/* Session kicked modal — shown when another device signs in */}
+      {sessionKicked && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 99999,
+          background: "rgba(0,0,0,0.85)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <div style={{
+            background: C.bg1, border: `1px solid ${C.border}`,
+            borderRadius: 16, padding: "40px 48px", maxWidth: 420,
+            textAlign: "center", fontFamily: T.font.display,
+          }}>
+            <div style={{ fontSize: 40, marginBottom: 16 }}>🔒</div>
+            <h2 style={{ color: C.text, fontSize: 20, fontWeight: 600, marginBottom: 12 }}>
+              Signed in on another device
+            </h2>
+            <p style={{ color: C.textMuted, fontSize: 14, lineHeight: 1.6, marginBottom: 24 }}>
+              Your account was signed in from another location. For security, only one active session is allowed at a time.
+            </p>
+            <p style={{ color: C.textDim, fontSize: 12 }}>
+              Signing out in a few seconds...
+            </p>
+          </div>
+        </div>
+      )}
       {/* Background texture overlay — uses palette's bgTexture or default grain */}
       {!C.noGlass && (
         <div

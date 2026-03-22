@@ -153,6 +153,8 @@ export const useUiStore = create((set, _get) => ({
   setCloudSyncLastAt: ts => set({ cloudSyncLastAt: ts }),
   setCloudSyncError: msg => set({ cloudSyncError: msg }),
   setOtherSessions: v => set({ otherSessions: v }),
+  sessionKicked: false,
+  setSessionKicked: v => set({ sessionKicked: v }),
 
   setVeLoading: v => set({ veLoading: v }),
   setVeSuggestions: v => set({ veSuggestions: v }),

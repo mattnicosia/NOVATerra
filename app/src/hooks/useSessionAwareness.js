@@ -3,11 +3,11 @@
  *
  * Two responsibilities:
  * 1. INFORMATIONAL: Shows when the same account is open on other devices/tabs via Supabase Presence
- * 2. ENFORCEMENT: Polls DB to verify this session is still active. If another device signs in,
- *    this session auto-signs-out within 30s (or immediately on tab refocus).
+ * 2. ENFORCEMENT: Checks DB on tab focus to verify this session is still active.
+ *    If another device signs in, this session shows a modal and auto-signs-out.
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/utils/supabase";
 import { useAuthStore } from "@/stores/authStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -53,9 +53,7 @@ async function checkSessionValid(userId) {
   if (!supabase || !userId) return true;
   const localToken = localStorage.getItem("bldg-session-token");
 
-  // No local token — try to adopt from DB rather than kicking.
-  // This handles cases where localStorage was unexpectedly cleared
-  // (e.g., by the IDB migration or browser cleanup).
+  // No local token — adopt from DB, don't kick
   if (!localToken) {
     try {
       const { data } = await supabase
@@ -70,47 +68,82 @@ async function checkSessionValid(userId) {
     } catch {
       /* non-critical */
     }
-    return true; // Never kick when there's no local token to compare
+    return true;
   }
 
   try {
     const { data, error } = await supabase
       .from("user_active_session")
-      .select("session_token")
+      .select("session_token, device, browser")
       .eq("user_id", userId)
       .maybeSingle();
 
-    // Table doesn't exist (42P01) or no row = allow (graceful degradation)
+    // Table doesn't exist or no row = allow
     if (error) {
-      if (error.code === "42P01") return true; // table not created yet
+      if (error.code === "42P01") return true;
       console.warn("[sessionAwareness] check error:", error.message);
       return true;
     }
-    if (!data) return true; // No row = no enforcement (user signed out elsewhere, or row deleted)
+    if (!data) return true;
 
     // If DB token doesn't match ours, another device took over
     if (data.session_token !== localToken) {
       console.warn(
-        "[sessionAwareness] Token mismatch — local:",
-        localToken.slice(0, 8) + "...",
-        "db:",
-        data.session_token.slice(0, 8) + "...",
+        "[sessionAwareness] Token mismatch — kicked by",
+        data.device, data.browser,
       );
       return false;
     }
     return true;
   } catch (err) {
     console.warn("[sessionAwareness] checkSessionValid failed:", err.message);
-    return true; // Network error = don't kick user out
+    return true; // Network error = don't kick
   }
 }
 
 export function useSessionAwareness() {
   const user = useAuthStore(s => s.user);
   const channelRef = useRef(null);
-  const intervalRef = useRef(null);
-  const kickedRef = useRef(false); // prevent double-signout
-  const missCountRef = useRef(0); // consecutive mismatches — require 3 before kicking
+  const kickedRef = useRef(false);
+  const missCountRef = useRef(0);
+  const bootTimeRef = useRef(Date.now());
+
+  // ── Kick handler: show modal then sign out ──
+  const handleKicked = useCallback(async () => {
+    if (kickedRef.current) return;
+    kickedRef.current = true;
+
+    // Set the kicked flag in uiStore so App.jsx can show a modal
+    useUiStore.getState().setSessionKicked(true);
+
+    // Auto sign out after 5 seconds
+    setTimeout(async () => {
+      try {
+        await useAuthStore.getState().signOut();
+      } catch {
+        // Force reload if signOut fails
+        window.location.reload();
+      }
+    }, 5000);
+  }, []);
+
+  // ── Enforcement check ──
+  const runCheck = useCallback(async () => {
+    if (!user || kickedRef.current) return;
+    // Don't check in the first 10 seconds after boot — adoption might not be complete
+    if (Date.now() - bootTimeRef.current < 10000) return;
+
+    const valid = await checkSessionValid(user.id);
+    if (!valid) {
+      missCountRef.current++;
+      // Require 2 consecutive mismatches to prevent transient false positives
+      if (missCountRef.current >= 2) {
+        handleKicked();
+      }
+    } else {
+      missCountRef.current = 0;
+    }
+  }, [user, handleKicked]);
 
   useEffect(() => {
     if (!supabase || !user) return;
@@ -118,6 +151,9 @@ export function useSessionAwareness() {
     const userId = user.id;
     const tabId = getTabId();
     const { device, browser } = getDeviceInfo();
+    bootTimeRef.current = Date.now();
+    kickedRef.current = false;
+    missCountRef.current = 0;
 
     // ── 1. INFORMATIONAL: Presence channel for multi-device awareness ──
     const channel = supabase.channel(`user-session-${userId}`, {
@@ -127,8 +163,6 @@ export function useSessionAwareness() {
     channel
       .on("presence", { event: "sync" }, () => {
         const state = channel.presenceState();
-
-        // Collect all sessions except our own tab
         const others = [];
         for (const [key, entries] of Object.entries(state)) {
           if (key === tabId) continue;
@@ -140,7 +174,6 @@ export function useSessionAwareness() {
             });
           }
         }
-
         useUiStore.getState().setOtherSessions(others);
       })
       .subscribe(async status => {
@@ -156,14 +189,22 @@ export function useSessionAwareness() {
 
     channelRef.current = channel;
 
-    // ── 2. ENFORCEMENT: DISABLED ──
-    // Session enforcement disabled — causes false-positive logouts.
-    // The informational presence channel above still works.
+    // ── 2. ENFORCEMENT: Check on tab focus + periodic poll ──
+    // Tab focus: immediate check when user switches back to this tab
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        runCheck();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    // Periodic poll every 30 seconds as backup
+    const pollInterval = setInterval(runCheck, 30000);
 
     // ── Cleanup ──
     return () => {
-
-      // Clear presence
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      clearInterval(pollInterval);
       useUiStore.getState().setOtherSessions([]);
 
       const ch = channelRef.current;
@@ -172,23 +213,15 @@ export function useSessionAwareness() {
         ch.untrack()
           .then(() => {
             setTimeout(() => {
-              try {
-                supabase?.removeChannel(ch);
-              } catch {
-                /* non-critical */
-              }
+              try { supabase?.removeChannel(ch); } catch { /* */ }
             }, 100);
           })
           .catch(() => {
             setTimeout(() => {
-              try {
-                supabase?.removeChannel(ch);
-              } catch {
-                /* non-critical */
-              }
+              try { supabase?.removeChannel(ch); } catch { /* */ }
             }, 100);
           });
       }
     };
-  }, [user]);
+  }, [user, runCheck]);
 }
