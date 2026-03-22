@@ -1046,6 +1046,7 @@ export default function App() {
   const loading = useAuthStore(s => s.loading);
   const init = useAuthStore(s => s.init);
   const appRole = useAuthStore(s => s.appRole);
+  const sessionKicked = useUiStore(s => s.sessionKicked);
 
   // Onboarding: first sign-in only (persisted in localStorage)
   const [_onboardingComplete, setOnboardingComplete] = useState(
@@ -1181,7 +1182,6 @@ export default function App() {
   }
 
   // Not logged in → show cinematic chamber login
-  const sessionKicked = useUiStore(s => s.sessionKicked);
   if (!user)
     return (
       <>
