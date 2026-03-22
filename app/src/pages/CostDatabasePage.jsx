@@ -571,6 +571,7 @@ export default function CostDatabasePage({ embedded = false }) {
   const [editingBundleKey, setEditingBundleKey] = useState(null);
   const [expandedBundleKey, setExpandedBundleKey] = useState(null);
   const [menuOpenId, setMenuOpenId] = useState(null);
+  const [menuPos, setMenuPos] = useState(null);
   const [movingId, setMovingId] = useState(null);
   const [moveCode, setMoveCode] = useState("");
   const [compareId, setCompareId] = useState(null);
@@ -1803,7 +1804,13 @@ export default function CostDatabasePage({ embedded = false }) {
                                 title="Actions"
                                 onClick={e => {
                                   e.stopPropagation();
-                                  setMenuOpenId(menuOpenId === el.id ? null : el.id);
+                                  if (menuOpenId === el.id) {
+                                    setMenuOpenId(null);
+                                  } else {
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+                                    setMenuOpenId(el.id);
+                                  }
                                 }}
                                 style={{
                                   width: 22,
@@ -1824,14 +1831,14 @@ export default function CostDatabasePage({ embedded = false }) {
                                   <circle cx="12" cy="19" r="2" />
                                 </svg>
                               </button>
-                              {menuOpenId === el.id && (
+                              {menuOpenId === el.id && menuPos && (
                                 <div
                                   onClick={e => e.stopPropagation()}
                                   style={{
-                                    position: "absolute",
-                                    right: 0,
-                                    top: 24,
-                                    zIndex: 100,
+                                    position: "fixed",
+                                    right: menuPos.right,
+                                    top: menuPos.top,
+                                    zIndex: 9999,
                                     background: C.glassBgDark || C.bg,
                                     border: `1px solid ${C.glassBorder || C.border}`,
                                     borderRadius: 8,
