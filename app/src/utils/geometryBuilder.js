@@ -9,6 +9,8 @@ import { nn } from "@/utils/format";
 import { cleanPath } from "@/utils/geometrySnapping";
 import { generateBuildingEnvelope } from "@/utils/envelopeBuilder";
 import { pointInPolygon } from "@/utils/coverageGrid";
+import { calculateLevelMiters } from "@/utils/pascalWallMitering";
+import { detectSpacesForLevel } from "@/utils/pascalSpaceDetection";
 
 // ── Scale conversion (mirrors TakeoffsPage logic) ──────────────────
 const ARCH_MAP = {
@@ -311,7 +313,94 @@ export function generateElementsFromTakeoffs(floorAssignments, roomGeometry) {
     });
   });
 
+  // ── Pascal post-processing: wall mitering + space detection ──
+  applyPascalAlgorithms(elements);
+
   return elements;
+}
+
+/**
+ * Applies Pascal Editor algorithms to generated elements:
+ * 1. Wall mitering — proper junction geometry at L/T junctions
+ * 2. Space detection — auto-detect rooms from wall enclosures
+ *
+ * Mutates elements in-place (adds miterData to wall geometry).
+ */
+function applyPascalAlgorithms(elements) {
+  // Group wall elements by floor elevation
+  const wallsByFloor = {};
+  for (const el of elements) {
+    if (el.type !== "wall" || el.geometry?.kind !== "extrudedPath") continue;
+    const path = el.geometry.path;
+    if (!path || path.length < 2) continue;
+
+    const elev = Math.round(el.geometry.elevation ?? 0);
+    if (!wallsByFloor[elev]) wallsByFloor[elev] = [];
+
+    // Convert extrudedPath to Pascal wall format: { id, start:[x,z], end:[x,z], thickness }
+    wallsByFloor[elev].push({
+      id: el.id,
+      start: [path[0].x, path[0].z],
+      end: [path[path.length - 1].x, path[path.length - 1].z],
+      thickness: el.geometry.thickness ?? 0.5,
+      _element: el, // back-reference for mutation
+    });
+  }
+
+  // Run mitering per floor
+  for (const [elev, walls] of Object.entries(wallsByFloor)) {
+    if (walls.length < 2) continue;
+
+    try {
+      const { junctionData } = calculateLevelMiters(walls);
+
+      // Store miter data on each wall element for the renderer to use
+      for (const [_jKey, wallIntersections] of junctionData) {
+        for (const [wallId, miterPoints] of wallIntersections) {
+          const wall = walls.find(w => w.id === wallId);
+          if (wall?._element?.geometry) {
+            if (!wall._element.geometry.miterData) wall._element.geometry.miterData = [];
+            wall._element.geometry.miterData.push(miterPoints);
+          }
+        }
+      }
+
+      // Run space detection for this floor
+      const { spaces, wallUpdates } = detectSpacesForLevel(`floor-${elev}`, walls, 0.5);
+
+      // Store wall side classifications
+      for (const update of wallUpdates) {
+        const wall = walls.find(w => w.id === update.wallId);
+        if (wall?._element?.geometry) {
+          wall._element.geometry.wallSide = {
+            front: update.frontSide,
+            back: update.backSide,
+          };
+        }
+      }
+
+      // Add detected rooms as slab elements
+      for (const space of spaces) {
+        if (space.isExterior) continue;
+        elements.push({
+          id: `pascal-room-${space.id}`,
+          type: "pascal-room",
+          trade: "Rooms",
+          description: `Detected Room (${Math.round(space.area)} SF)`,
+          color: "#2196F3",
+          level: parseInt(elev) || 0,
+          geometry: {
+            kind: "polygon",
+            points: space.polygon.map(([x, z]) => ({ x, z })),
+            thickness: 0.05, // thin floor marker
+            elevation: parseFloat(elev) || 0,
+          },
+        });
+      }
+    } catch (err) {
+      console.warn(`[Pascal] Mitering/space detection failed for floor ${elev}:`, err);
+    }
+  }
 }
 
 // ── Generate 3D room outline elements from geometry analysis ─────
