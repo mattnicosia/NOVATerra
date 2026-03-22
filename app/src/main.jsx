@@ -45,6 +45,20 @@ if (import.meta.env.VITE_SENTRY_DSN) {
 console.log("[NOVA] Build:", __BUILD_TS__);
 window.__NOVA_BUILD = __BUILD_TS__; // eslint-disable-line no-undef
 
+// ── Auto-reload on stale chunk errors (after new deployments) ──
+// When Vercel deploys a new build, old chunk hashes become 404s.
+// Catch the dynamic import error and reload once to get fresh chunks.
+window.addEventListener("unhandledrejection", e => {
+  const msg = e?.reason?.message || "";
+  if (msg.includes("Failed to fetch dynamically imported module") || msg.includes("Importing a module script failed")) {
+    // Only reload once per session to prevent infinite loops
+    if (!sessionStorage.getItem("nova-chunk-reload")) {
+      sessionStorage.setItem("nova-chunk-reload", "1");
+      window.location.reload();
+    }
+  }
+});
+
 // ── Vercel Analytics (free Web Vitals + page views) ────────────
 injectAnalytics();
 

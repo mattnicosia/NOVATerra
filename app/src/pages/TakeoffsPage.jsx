@@ -8225,7 +8225,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                   {/* Canvas overlay */}
                   <canvas
                     ref={canvasRef}
-                    className="tk-canvas-cursor"
+                    className={`tk-canvas-cursor${tkMeasureState === "measuring" || tkActiveTakeoffId ? " tk-measuring" : ""}`}
                     onDrop={handlePdfRepairDrop}
                     onDragOver={e => e.preventDefault()}
                     onClick={handleCanvasClick}
@@ -8301,7 +8301,7 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                       if (e.button === 2 || e.button === 1) handleDrawingMouseDown(e);
                     }}
                     onContextMenu={e => e.preventDefault()}
-                    className="tk-canvas-cursor"
+                    className={`tk-canvas-cursor${tkMeasureState === "measuring" || tkActiveTakeoffId ? " tk-measuring" : ""}`}
                     style={{
                       position: "absolute",
                       top: 0,

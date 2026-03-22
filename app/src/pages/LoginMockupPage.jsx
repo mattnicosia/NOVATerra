@@ -219,10 +219,16 @@ function LoginForm() {
   );
 
   // ── Auth handlers ──────────────────────────────────────────
+  // Email validation helper
+  const isValidEmail = email => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const [validationError, setValidationError] = useState("");
+
   const handlePasswordLogin = useCallback(
     async e => {
       e.preventDefault();
+      setValidationError("");
       if (!email.trim() || !password) return;
+      if (!isValidEmail(email.trim())) { setValidationError("Please enter a valid email address"); return; }
       setSubmitting(true);
       const result = await signInWithPassword(email.trim(), password);
       setSubmitting(false);
@@ -234,7 +240,9 @@ function LoginForm() {
   const handleMagicLink = useCallback(
     async e => {
       e.preventDefault();
+      setValidationError("");
       if (!email.trim()) return;
+      if (!isValidEmail(email.trim())) { setValidationError("Please enter a valid email address"); return; }
       setSubmitting(true);
       await signInWithMagicLink(email.trim());
       setSubmitting(false);
@@ -245,7 +253,10 @@ function LoginForm() {
   const handleSignUp = useCallback(
     async e => {
       e.preventDefault();
+      setValidationError("");
       if (!email.trim() || !password) return;
+      if (!isValidEmail(email.trim())) { setValidationError("Please enter a valid email address"); return; }
+      if (password.length < 8) { setValidationError("Password must be at least 8 characters"); return; }
       setSubmitting(true);
       const result = await signUpWithPassword(email.trim(), password, fullName.trim());
       setSubmitting(false);
@@ -526,13 +537,17 @@ function LoginForm() {
             <input
               type="email"
               value={email}
-              onChange={e => setEmail(e.target.value)}
+              onChange={e => { setEmail(e.target.value); setValidationError(""); }}
               placeholder="you@company.com"
               autoFocus
+              autoComplete="email"
               style={{ ...inputStyle, marginBottom: showPasswordField ? 14 : 18 }}
               onFocus={focusHandler}
               onBlur={blurHandler}
             />
+            {validationError && (
+              <p style={{ fontSize: 12, color: "#FF453A", margin: "-8px 0 10px", fontFamily: FONT }}>{validationError}</p>
+            )}
 
             {/* Password field */}
             {showPasswordField && (
@@ -559,13 +574,18 @@ function LoginForm() {
                     </button>
                   )}
                 </div>
-                <div style={{ marginBottom: 18 }}>
+                <div style={{ marginBottom: mode === "signup" ? 6 : 18 }}>
                   <PasswordInput
                     value={password}
-                    onChange={e => setPassword(e.target.value)}
+                    onChange={e => { setPassword(e.target.value); setValidationError(""); }}
                     placeholder={mode === "signup" ? "Create a password" : "Enter your password"}
                   />
                 </div>
+                {mode === "signup" && (
+                  <p style={{ fontSize: 11, color: password.length >= 8 ? "rgba(48,209,88,0.7)" : TEXT_SEC, margin: "0 0 14px", fontFamily: FONT }}>
+                    {password.length >= 8 ? "✓ " : ""}Minimum 8 characters
+                  </p>
+                )}
               </>
             )}
 
@@ -612,6 +632,15 @@ function LoginForm() {
                 }
               }}
             >
+              {submitting && (
+                <span style={{
+                  display: "inline-block", width: 14, height: 14,
+                  border: "2px solid rgba(255,255,255,0.3)",
+                  borderTopColor: "#fff", borderRadius: "50%",
+                  animation: "spin 0.6s linear infinite",
+                  marginRight: 8, verticalAlign: "middle",
+                }} />
+              )}
               {submitLabel}
             </button>
           </form>

@@ -39,9 +39,12 @@ body {
 .nova-cursor-active *:not(.tk-canvas-cursor) {
   cursor: none !important;
 }
-/* Drawing canvas gets its own cursor (arrow) */
+/* Drawing canvas gets its own cursor (arrow by default, crosshair when measuring) */
 .tk-canvas-cursor {
   cursor: default !important;
+}
+.tk-canvas-cursor.tk-measuring {
+  cursor: crosshair !important;
 }
 .nova-ring-hovering {
   width: 44px !important;
