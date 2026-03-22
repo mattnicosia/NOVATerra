@@ -13,23 +13,30 @@ import { getPxPerFoot } from "@/utils/geometryBuilder";
 // ── Configuration ──
 const CONFIG = {
   // Edge detection
-  sobelThreshold: 40,        // Minimum gradient magnitude to count as edge
+  sobelThreshold: 60,        // Higher threshold = only strong edges (thick lines)
 
   // Hough transform
   houghRhoStep: 1,           // Distance resolution in pixels
   houghThetaSteps: 180,      // Angle resolution (180 = 1° steps)
-  houghThreshold: 0.35,      // Minimum votes as fraction of image diagonal
+  houghThreshold: 0.20,      // Lower = more lines detected, filtered later
+
+  // Line weight filtering (KEY for construction drawings)
+  minLineWeightPx: 2.5,      // Minimum stroke width in pixels to be a wall
+  // Walls: 2-6px, Dimensions/grids: 0.5-1.5px, Text: variable
 
   // Wall filtering
-  minWallLengthFt: 3,        // Minimum wall length in feet
-  maxWallLengthFt: 200,      // Maximum wall length (skip site boundaries)
-  wallThicknessRange: [0.2, 1.5], // Wall thickness range in feet
-  mergeDistancePx: 8,        // Merge lines closer than this (pixels)
+  minWallLengthFt: 4,        // Minimum wall length in feet (raised from 3)
+  maxWallLengthFt: 120,      // Maximum wall length (lowered — skip sheet-spanning lines)
+  wallThicknessRange: [0.3, 1.5], // Wall thickness range in feet
+  mergeDistancePx: 10,       // Merge lines closer than this (pixels)
   mergeAngleDeg: 5,          // Merge lines within this angle difference
 
   // Parallel line clustering
   parallelAngleDeg: 3,       // Max angle diff to consider lines parallel
-  parallelDistRange: [3, 30], // Min/max pixel distance for parallel wall edges
+  parallelDistRange: [4, 25], // Min/max pixel distance for parallel wall edges (narrowed)
+
+  // Title block exclusion (percentage of sheet to ignore from edges)
+  titleBlockMargin: 0.08,    // Ignore 8% from each edge (title block, borders)
 };
 
 // ── Main export ──
@@ -65,25 +72,50 @@ export async function detectWalls(imageDataUrl, drawingId, options = {}) {
   // Get pixel data
   const imageData = ctx.getImageData(0, 0, width, height);
 
+  // Step 0: Define title block exclusion zone (ignore sheet borders)
+  const margin = cfg.titleBlockMargin;
+  const cropX1 = Math.floor(width * margin);
+  const cropY1 = Math.floor(height * margin);
+  const cropX2 = Math.floor(width * (1 - margin));
+  const cropY2 = Math.floor(height * (1 - margin * 2.5)); // bottom has title block, crop more
+  console.log(`[wallDetector] Crop zone: (${cropX1},${cropY1}) to (${cropX2},${cropY2})`);
+
   // Step 1: Grayscale
   const gray = toGrayscale(imageData);
 
-  // Step 2: Adaptive threshold (isolate dark lines on light background)
-  const binary = adaptiveThreshold(gray, width, height);
+  // Step 2: Measure line weights across the image
+  // Walls have thick strokes (2-6px), dimensions/grids have thin strokes (0.5-1.5px)
+  const lineWeights = measureLineWeights(gray, width, height);
+  console.log(`[wallDetector] Line weight analysis: median=${lineWeights.median.toFixed(1)}px, p75=${lineWeights.p75.toFixed(1)}px`);
 
-  // Step 3: Sobel edge detection
-  const edges = sobelEdges(binary, width, height, cfg.sobelThreshold);
+  // Step 3: Adaptive threshold — only keep THICK dark strokes
+  // Use a stricter threshold that favors heavy line weights
+  const binary = adaptiveThreshold(gray, width, height, 31, 8);
 
-  // Step 4: Hough line detection
+  // Step 3b: Erode thin lines (remove 1px strokes, keep 2px+ strokes)
+  const eroded = erodeThickOnly(binary, width, height, cfg.minLineWeightPx);
+
+  // Step 4: Sobel edge detection on thick-line-only image
+  const edges = sobelEdges(eroded, width, height, cfg.sobelThreshold);
+
+  // Step 4b: Zero out edges in title block zone
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (x < cropX1 || x > cropX2 || y < cropY1 || y > cropY2) {
+        edges[y * width + x] = 0;
+      }
+    }
+  }
+
+  // Step 5: Hough line detection
   const lines = houghLines(edges, width, height, cfg);
-
   console.log(`[wallDetector] Hough detected ${lines.length} raw lines`);
 
-  // Step 5: Merge similar lines
+  // Step 6: Merge similar lines
   const merged = mergeLines(lines, cfg);
   console.log(`[wallDetector] After merge: ${merged.length} lines`);
 
-  // Step 6: Find parallel line pairs (wall edges)
+  // Step 7: Find parallel line pairs (wall edges)
   const wallCandidates = findParallelPairs(merged, cfg);
   console.log(`[wallDetector] Found ${wallCandidates.length} wall candidates`);
 
@@ -183,6 +215,91 @@ function adaptiveThreshold(gray, width, height, blockSize = 31, C = 10) {
   }
 
   return binary;
+}
+
+// ── Line weight measurement ──
+// Samples horizontal and vertical cross-sections to measure stroke widths
+
+function measureLineWeights(gray, width, height) {
+  const weights = [];
+  const sampleCount = 200;
+
+  // Sample random rows for horizontal line weights
+  for (let s = 0; s < sampleCount; s++) {
+    const y = Math.floor(Math.random() * height);
+    let inDark = false;
+    let darkStart = 0;
+
+    for (let x = 0; x < width; x++) {
+      const dark = gray[y * width + x] < 128;
+      if (dark && !inDark) {
+        inDark = true;
+        darkStart = x;
+      } else if (!dark && inDark) {
+        inDark = false;
+        const w = x - darkStart;
+        if (w >= 1 && w <= 20) weights.push(w);
+      }
+    }
+  }
+
+  // Sample random columns for vertical line weights
+  for (let s = 0; s < sampleCount; s++) {
+    const x = Math.floor(Math.random() * width);
+    let inDark = false;
+    let darkStart = 0;
+
+    for (let y = 0; y < height; y++) {
+      const dark = gray[y * width + x] < 128;
+      if (dark && !inDark) {
+        inDark = true;
+        darkStart = y;
+      } else if (!dark && inDark) {
+        inDark = false;
+        const w = y - darkStart;
+        if (w >= 1 && w <= 20) weights.push(w);
+      }
+    }
+  }
+
+  weights.sort((a, b) => a - b);
+  const median = weights[Math.floor(weights.length / 2)] || 1;
+  const p75 = weights[Math.floor(weights.length * 0.75)] || 2;
+  const p90 = weights[Math.floor(weights.length * 0.90)] || 3;
+
+  return { median, p75, p90, count: weights.length };
+}
+
+// ── Erosion filter — remove thin strokes ──
+// Only keeps dark pixels that have thick neighborhoods (wall-weight lines)
+
+function erodeThickOnly(binary, width, height, minWeight) {
+  const result = new Uint8Array(width * height);
+  const radius = Math.max(1, Math.floor(minWeight / 2));
+
+  for (let y = radius; y < height - radius; y++) {
+    for (let x = radius; x < width - radius; x++) {
+      if (binary[y * width + x] === 0) continue;
+
+      // Check if this pixel has enough dark neighbors in a cross pattern
+      // (indicates it's part of a thick stroke, not a thin line)
+      let hCount = 0, vCount = 0;
+
+      for (let dx = -radius; dx <= radius; dx++) {
+        if (binary[y * width + (x + dx)] > 0) hCount++;
+      }
+      for (let dy = -radius; dy <= radius; dy++) {
+        if (binary[(y + dy) * width + x] > 0) vCount++;
+      }
+
+      // Keep pixel if it's part of a thick horizontal OR vertical stroke
+      if (hCount >= radius + 1 || vCount >= radius + 1) {
+        result[y * width + x] = 255;
+      }
+    }
+  }
+
+  return result;
 }
 
 // ── Sobel edge detection ──
