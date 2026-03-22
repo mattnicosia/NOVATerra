@@ -1183,9 +1183,43 @@ export default function App() {
   // Not logged in → show cinematic chamber login
   if (!user)
     return (
-      <Suspense fallback={<AuthLoading />}>
-        <LoginMockupPage />
-      </Suspense>
+      <>
+        <Suspense fallback={<AuthLoading />}>
+          <LoginMockupPage />
+        </Suspense>
+        {/* Session kicked modal persists through sign-out */}
+        {sessionKicked && (
+          <div style={{
+            position: "fixed", inset: 0, zIndex: 99999,
+            background: "rgba(0,0,0,0.92)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <div style={{
+              background: "#1a1a1e", border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: 16, padding: "40px 48px", maxWidth: 420,
+              textAlign: "center", fontFamily: "Switzer, sans-serif",
+            }}>
+              <div style={{ fontSize: 40, marginBottom: 16 }}>🔒</div>
+              <h2 style={{ color: "#eee", fontSize: 20, fontWeight: 600, marginBottom: 12 }}>
+                Signed in on another device
+              </h2>
+              <p style={{ color: "#999", fontSize: 14, lineHeight: 1.6, marginBottom: 24 }}>
+                Your account was signed in from another location. Only one active session is allowed at a time.
+              </p>
+              <button
+                onClick={() => { useUiStore.getState().setSessionKicked(false); }}
+                style={{
+                  background: "#333", color: "#eee", border: "none",
+                  borderRadius: 8, padding: "10px 24px", fontSize: 14,
+                  cursor: "pointer", fontFamily: "Switzer, sans-serif",
+                }}
+              >
+                Sign in here instead
+              </button>
+            </div>
+          </div>
+        )}
+      </>
     );
 
   /* ── Onboarding gates disabled — login/signup is the entry point ──

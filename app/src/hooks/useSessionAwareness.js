@@ -134,14 +134,9 @@ export function useSessionAwareness() {
     if (Date.now() - bootTimeRef.current < 10000) return;
 
     const valid = await checkSessionValid(user.id);
-    console.log("[sessionAwareness] Check result:", valid ? "VALID" : "MISMATCH", "missCount:", missCountRef.current);
+    console.log("[sessionAwareness] Check result:", valid ? "VALID" : "MISMATCH");
     if (!valid) {
-      missCountRef.current++;
-      if (missCountRef.current >= 2) {
-        handleKicked();
-      }
-    } else {
-      missCountRef.current = 0;
+      handleKicked();
     }
   }, [user, handleKicked]);
 
@@ -198,8 +193,8 @@ export function useSessionAwareness() {
     };
     document.addEventListener("visibilitychange", onVisibilityChange);
 
-    // Periodic poll every 30 seconds as backup
-    const pollInterval = setInterval(runCheck, 30000);
+    // Periodic poll every 15 seconds
+    const pollInterval = setInterval(runCheck, 15000);
 
     // ── Cleanup ──
     return () => {
