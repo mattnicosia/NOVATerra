@@ -134,9 +134,9 @@ export function useSessionAwareness() {
     if (Date.now() - bootTimeRef.current < 10000) return;
 
     const valid = await checkSessionValid(user.id);
+    console.log("[sessionAwareness] Check result:", valid ? "VALID" : "MISMATCH", "missCount:", missCountRef.current);
     if (!valid) {
       missCountRef.current++;
-      // Require 2 consecutive mismatches to prevent transient false positives
       if (missCountRef.current >= 2) {
         handleKicked();
       }
