@@ -8,6 +8,7 @@ import CoreOverview from "@/components/core/CoreOverview";
 import CoreProposals from "@/components/core/CoreProposals";
 import CostDatabasePage from "@/pages/CostDatabasePage";
 import CoreSources from "@/components/core/CoreSources";
+import CoreExplorer from "@/components/core/CoreExplorer";
 
 
 // Lightweight per-tab error catcher — prevents one tab crash from killing the page
@@ -99,6 +100,11 @@ export default function CorePage() {
     sources: (
       <TabErrorBoundary key="sources">
         <CoreSources />
+      </TabErrorBoundary>
+    ),
+    explorer: (
+      <TabErrorBoundary key="explorer">
+        <CoreExplorer />
       </TabErrorBoundary>
     ),
   };
