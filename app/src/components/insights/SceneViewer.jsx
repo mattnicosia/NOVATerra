@@ -9,8 +9,10 @@ import * as THREE from "three";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
+import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { useModelStore } from "@/stores/modelStore";
 import { getMaterial } from "@/utils/materialEngine";
+import { calculateLevelMiters } from "@/utils/pascalAlgorithms";
 
 // ── Clip plane context (shared across all elements) ─────────────
 const ClipContext = createContext([]);
@@ -49,39 +51,93 @@ function ClippedMaterial({ color, opacity, transparent, selected: _selected, hov
 }
 
 // ── Wall element: extruded path ──────────────────────────────────
-function WallElement({ element, selected, hovered, viewMode, maxCost, xray, onClick, onHover, materialAssignments }) {
+function WallElement({ element, selected, hovered, viewMode, maxCost, xray, onClick, onHover, materialAssignments, miterData }) {
   const { path, height, thickness, elevation } = element.geometry;
 
   const geometry = useMemo(() => {
     if (!path || path.length < 2) return null;
-    const shape = new THREE.Shape();
-    shape.moveTo(-thickness / 2, 0);
-    shape.lineTo(thickness / 2, 0);
-    shape.lineTo(thickness / 2, height);
-    shape.lineTo(-thickness / 2, height);
-    shape.closePath();
 
-    const pts = path.map(p => new THREE.Vector3(p.x, 0, p.z));
-    const curve = new THREE.CatmullRomCurve3(pts, false, "centripetal", 0);
+    // For each segment, build a proper wall geometry
+    // If miter data exists, use mitered endpoints for clean junctions
+    const elev = Math.round(elevation ?? 0);
+    const floorMiters = miterData?.[elev];
+    const group = new THREE.Group();
+    const geometries = [];
 
-    const extrudeSettings = {
-      steps: Math.max((path.length - 1) * 4, 8),
-      bevelEnabled: false,
-      extrudePath: curve,
-    };
-
-    try {
-      return new THREE.ExtrudeGeometry(shape, extrudeSettings);
-    } catch {
-      const dx = path[path.length - 1].x - path[0].x;
-      const dz = path[path.length - 1].z - path[0].z;
+    for (let i = 0; i < path.length - 1; i++) {
+      const segId = `${element.id}-seg${i}`;
+      const p0 = path[i], p1 = path[i + 1];
+      const dx = p1.x - p0.x, dz = p1.z - p0.z;
       const len = Math.sqrt(dx * dx + dz * dz);
-      if (len < 0.1) return null;
-      const geo = new THREE.BoxGeometry(len, height, thickness);
-      geo.translate((path[0].x + path[path.length - 1].x) / 2, height / 2, (path[0].z + path[path.length - 1].z) / 2);
-      return geo;
+      if (len < 0.01) continue;
+
+      // Wall direction and perpendicular
+      const dirX = dx / len, dirZ = dz / len;
+      const perpX = -dirZ, perpZ = dirX;
+      const halfT = (thickness || 0.5) / 2;
+
+      // Default corners (no mitering)
+      let bl = { x: p0.x - perpX * halfT, z: p0.z - perpZ * halfT };
+      let br = { x: p0.x + perpX * halfT, z: p0.z + perpZ * halfT };
+      let tl = { x: p1.x - perpX * halfT, z: p1.z - perpZ * halfT };
+      let tr = { x: p1.x + perpX * halfT, z: p1.z + perpZ * halfT };
+
+      // Apply miter data if available
+      if (floorMiters?.junctionData) {
+        for (const [, wallIntersections] of floorMiters.junctionData) {
+          const segMiter = wallIntersections.get(segId);
+          if (segMiter) {
+            // "left" miter → adjusts the left edge, "right" → right edge
+            if (segMiter.left) {
+              // Determine which end this junction is at
+              const distToStart = Math.sqrt((segMiter.left.x - p0.x) ** 2 + (segMiter.left.y - p0.z) ** 2);
+              const distToEnd = Math.sqrt((segMiter.left.x - p1.x) ** 2 + (segMiter.left.y - p1.z) ** 2);
+              if (distToStart < distToEnd) {
+                bl = { x: segMiter.left.x, z: segMiter.left.y };
+              } else {
+                tl = { x: segMiter.left.x, z: segMiter.left.y };
+              }
+            }
+            if (segMiter.right) {
+              const distToStart = Math.sqrt((segMiter.right.x - p0.x) ** 2 + (segMiter.right.y - p0.z) ** 2);
+              const distToEnd = Math.sqrt((segMiter.right.x - p1.x) ** 2 + (segMiter.right.y - p1.z) ** 2);
+              if (distToStart < distToEnd) {
+                br = { x: segMiter.right.x, z: segMiter.right.y };
+              } else {
+                tr = { x: segMiter.right.x, z: segMiter.right.y };
+              }
+            }
+          }
+        }
+      }
+
+      // Build wall shape from 4 corners (plan view) then extrude up
+      const wallShape = new THREE.Shape();
+      wallShape.moveTo(bl.x, bl.z);
+      wallShape.lineTo(br.x, br.z);
+      wallShape.lineTo(tr.x, tr.z);
+      wallShape.lineTo(tl.x, tl.z);
+      wallShape.closePath();
+
+      const segGeo = new THREE.ExtrudeGeometry(wallShape, {
+        depth: height,
+        bevelEnabled: false,
+      });
+      // Rotate from XZ plane extrusion to vertical (Y-up)
+      segGeo.rotateX(-Math.PI / 2);
+      geometries.push(segGeo);
     }
-  }, [path, height, thickness]);
+
+    if (geometries.length === 0) return null;
+    if (geometries.length === 1) return geometries[0];
+
+    // Merge multiple segments into one geometry
+    try {
+      return BufferGeometryUtils.mergeGeometries(geometries);
+    } catch {
+      return geometries[0];
+    }
+  }, [path, height, thickness, elevation, miterData, element.id]);
 
   if (!geometry) return null;
 
@@ -648,6 +704,35 @@ export default function SceneViewer() {
     return elements.filter(el => !hiddenFloors.includes(el.level));
   }, [elements, hiddenFloors]);
 
+  // Compute wall miters per floor for proper junction geometry
+  const miterData = useMemo(() => {
+    const wallsByFloor = {};
+    elements.forEach(el => {
+      if (el.type !== "wall" || !el.geometry?.path || el.geometry.path.length < 2) return;
+      const elev = Math.round(el.geometry.elevation ?? 0);
+      if (!wallsByFloor[elev]) wallsByFloor[elev] = [];
+      const path = el.geometry.path;
+      for (let i = 0; i < path.length - 1; i++) {
+        wallsByFloor[elev].push({
+          id: `${el.id}-seg${i}`,
+          parentElementId: el.id,
+          segIndex: i,
+          start: [path[i].x, path[i].z],
+          end: [path[i + 1].x, path[i + 1].z],
+          thickness: el.geometry.thickness || 0.5,
+        });
+      }
+    });
+    const result = {};
+    for (const [elev, walls] of Object.entries(wallsByFloor)) {
+      if (walls.length < 2) continue;
+      try {
+        result[elev] = calculateLevelMiters(walls);
+      } catch { /* non-critical */ }
+    }
+    return result;
+  }, [elements]);
+
   // Compute scene span for section plane indicator
   const sceneSpan = useMemo(() => {
     let span = 40;
@@ -767,6 +852,7 @@ export default function SceneViewer() {
             onClick: handleClick,
             onHover: handleHover,
             materialAssignments,
+            miterData,
           });
         })}
 
