@@ -1181,6 +1181,7 @@ export default function App() {
   }
 
   // Not logged in → show cinematic chamber login
+  const sessionKicked = useUiStore(s => s.sessionKicked);
   if (!user)
     return (
       <>
