@@ -8,11 +8,12 @@
 //   Layer 3: Floating panels (floor selector, data panels, metrics)
 //   Bottom bar: Persistent navigation + live metrics
 
-import { useState, useCallback, useMemo, Suspense, lazy } from "react";
+import { useState, useCallback, useMemo, useEffect, Suspense, lazy } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useTakeoffsStore } from "@/stores/takeoffsStore";
 import { useDrawingsStore } from "@/stores/drawingsStore";
+import { loadEstimate } from "@/hooks/usePersistence";
 
 // ── Color tokens (Epichust-inspired dark steel palette) ──
 const C = {
@@ -266,6 +267,30 @@ export default function SpatialShell() {
   const activeEstimateId = useEstimatesStore(s => s.activeEstimateId);
   const estimatesIndex = useEstimatesStore(s => s.estimatesIndex);
   const activeEstimate = estimatesIndex?.find(e => e.id === activeEstimateId);
+  const [loading, setLoading] = useState(false);
+
+  // Load a project by ID
+  const handleLoadProject = useCallback(async (id) => {
+    if (!id) return;
+    setLoading(true);
+    console.log(`[Spatial] Loading project ${id}...`);
+    try {
+      await loadEstimate(id);
+      console.log(`[Spatial] Project loaded`);
+    } catch (err) {
+      console.error(`[Spatial] Failed to load project:`, err);
+    }
+    setLoading(false);
+  }, []);
+
+  // Auto-load the first estimate if none is active
+  useEffect(() => {
+    if (!activeEstimateId && estimatesIndex?.length > 0 && !loading) {
+      const first = estimatesIndex[0];
+      console.log(`[Spatial] No active estimate — auto-loading "${first.name}" (${first.id})`);
+      handleLoadProject(first.id);
+    }
+  }, [activeEstimateId, estimatesIndex, loading, handleLoadProject]);
 
   // Mock floors for now — will come from floorAssignment.js
   const floors = useMemo(() => [
@@ -312,7 +337,7 @@ export default function SpatialShell() {
         }
       `}</style>
 
-      {/* Top-left branding */}
+      {/* Top-left branding + project selector */}
       <div style={{
         position: "absolute", top: 16, left: 16, zIndex: 25,
         display: "flex", alignItems: "center", gap: 10,
@@ -333,6 +358,29 @@ export default function SpatialShell() {
         }}>
           Spatial
         </div>
+        {/* Project selector */}
+        {estimatesIndex?.length > 0 && (
+          <select
+            value={activeEstimateId || ""}
+            onChange={e => { if (e.target.value) handleLoadProject(e.target.value); }}
+            style={{
+              marginLeft: 12,
+              background: C.panelSolid,
+              border: `1px solid ${C.borderSubtle}`,
+              borderRadius: 4,
+              color: C.textPrimary,
+              fontFamily: FONT.condensed, fontSize: 12, fontWeight: 500,
+              padding: "6px 10px",
+              cursor: "pointer",
+              maxWidth: 220,
+            }}
+          >
+            <option value="" disabled>Select Project</option>
+            {estimatesIndex.filter(e => e.status !== "Trash").map(e => (
+              <option key={e.id} value={e.id}>{e.name || "Untitled"}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* Top nav — mode tabs (Epichust style) */}

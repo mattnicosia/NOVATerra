@@ -5,7 +5,7 @@
 
 import { useRef, useState, useMemo, useEffect, useCallback } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, Text } from "@react-three/drei";
+import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import { useTakeoffsStore } from "@/stores/takeoffsStore";
 import { useDrawingsStore } from "@/stores/drawingsStore";
@@ -280,18 +280,22 @@ function RealBuilding({ onRoomSelect, selectedRoom }) {
         />
       ))}
 
-      {/* No data message */}
+      {/* No data indicator — simple 3D box instead of Text (avoids font loading) */}
       {!hasData && (
-        <Text
-          position={[0, 5, 0]}
-          fontSize={1.5}
-          color={COLORS.roomUntouched}
-          anchorX="center"
-          anchorY="middle"
-          font="/fonts/barlow-condensed-v12-latin-600.woff"
-        >
-          Upload drawings and create takeoffs to see your building
-        </Text>
+        <group>
+          <mesh position={[0, 1, 0]}>
+            <boxGeometry args={[8, 2, 8]} />
+            <meshStandardMaterial color="#2A2E35" transparent opacity={0.3} wireframe />
+          </mesh>
+          <mesh position={[0, 3.5, 0]}>
+            <boxGeometry args={[5, 1, 5]} />
+            <meshStandardMaterial color="#2A2E35" transparent opacity={0.2} wireframe />
+          </mesh>
+          <mesh position={[0, 5.5, 0]}>
+            <boxGeometry args={[3, 0.5, 3]} />
+            <meshStandardMaterial color="#2A2E35" transparent opacity={0.15} wireframe />
+          </mesh>
+        </group>
       )}
     </group>
   );

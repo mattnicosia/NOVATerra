@@ -645,8 +645,13 @@ function AppContent() {
           overflow: "hidden",
         }}
       >
-        <NovaHeader onDraftPanelToggle={() => setShowDraftPanel(v => !v)} />
-        <AutoResponseBanner onReviewClick={() => setShowDraftPanel(true)} />
+        {/* Hide classic header on spatial routes */}
+        {!window.location.pathname.startsWith("/spatial") && (
+          <>
+            <NovaHeader onDraftPanelToggle={() => setShowDraftPanel(v => !v)} />
+            <AutoResponseBanner onReviewClick={() => setShowDraftPanel(true)} />
+          </>
+        )}
         {showDraftPanel && (
           <Suspense fallback={null}>
             <DraftApprovalPanel open={showDraftPanel} onClose={() => setShowDraftPanel(false)} />
