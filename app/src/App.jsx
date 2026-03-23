@@ -55,6 +55,9 @@ const ProximityLight = lazy(() => import("@/components/nova/ProximityLight"));
 const CommandPalette = lazy(() => import("@/components/shared/CommandPalette"));
 const FeedbackWidget = lazy(() => import("@/components/beta/FeedbackWidget"));
 
+// ── Spatial interface — completely separate UI tree ──
+const SpatialShell = lazy(() => import("@/pages/spatial/SpatialShell"));
+
 // ── Lazy-loaded pages — each becomes its own chunk, loaded on navigation ──
 const DashboardPage = lazy(() => import("@/pages/NovaDashboardPage"));
 const ProjectInfoPage = lazy(() => import("@/pages/ProjectInfoPage"));
@@ -255,6 +258,8 @@ function FloatingThemePicker() {
     ...CAR_PALETTE_IDS,
     ...LIGHT_PALETTE_IDS,
     ...ARTIFACT_PALETTE_IDS,
+    // Additional themes
+    ...PALETTES.filter(p => !["nova", "shift5b", ...CAR_PALETTE_IDS, ...LIGHT_PALETTE_IDS, ...ARTIFACT_PALETTE_IDS].includes(p.id)).map(p => p.id),
   ];
   const currentIdx = ALL_IDS.indexOf(selectedPalette);
   const currentPalette = PALETTES.find(p => p.id === selectedPalette);
@@ -887,6 +892,10 @@ function AppContent() {
                     }
                   />
                 </Route>
+                {/* Spatial interface — completely separate UI */}
+                <Route path="/spatial" element={<SpatialShell />} />
+                <Route path="/spatial/*" element={<SpatialShell />} />
+
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </PageTransition>
