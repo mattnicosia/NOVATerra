@@ -12,9 +12,7 @@ import { useDrawingsStore } from "@/stores/drawingsStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { generateElementsFromTakeoffs, getPxPerFoot } from "@/utils/geometryBuilder";
 import { buildFloorMap, inferFloorFromSheet } from "@/utils/floorAssignment";
-// Pascal room detection — will be wired when pipeline is integrated
-// import { detectRoomsFromWalls } from "@/utils/pascalIntegration";
-const detectRoomsFromWalls = null; // placeholder
+import { extractPageData } from "@/utils/pdfExtractor";
 
 // ── Scene colors ──
 const COLORS = {
@@ -195,46 +193,77 @@ function RealBuilding({ onRoomSelect, selectedRoom }) {
     }
   }, [takeoffs, drawings]);
 
-  // Try to detect rooms from wall elements using Pascal
-  const rooms = useMemo(() => {
-    const wallElements = elements.filter(e => e.type === "wall" && e.geometry?.kind === "extrudedPath");
-    if (wallElements.length < 3) return [];
+  // Vector-pipeline rooms + walls from PDF extraction
+  const [vectorData, setVectorData] = useState({ walls: [], rooms: [] });
 
-    try {
-      // Extract wall segments for room detection
-      const wallSegments = [];
-      wallElements.forEach(e => {
-        const path = e.geometry.path;
-        if (!path || path.length < 2) return;
-        for (let i = 0; i < path.length - 1; i++) {
-          wallSegments.push({
-            start: { x: path[i].x, y: path[i].z },
-            end: { x: path[i + 1].x, y: path[i + 1].z },
-            thickness: e.geometry.thickness || 0.5,
-          });
+  useEffect(() => {
+    if (!drawings?.length) return;
+    let cancelled = false;
+
+    async function loadVectorData() {
+      const allWalls = [];
+      const allRooms = [];
+
+      for (const d of drawings) {
+        try {
+          const extracted = await extractPageData(d);
+          if (extracted?.floorPlan) {
+            const fp = extracted.floorPlan;
+            // Walls: convert {start, end} to 3D coords (x, z plane)
+            fp.walls?.forEach(w => {
+              allWalls.push({
+                start: { x: w.start.x, z: w.start.y },
+                end: { x: w.end.x, z: w.end.y },
+                lengthFt: w.lengthFt,
+                lineWeight: w.lineWeight,
+              });
+            });
+            // Rooms: convert polygon {x, y} to {x, z}
+            fp.rooms?.forEach(r => {
+              allRooms.push({
+                id: `${d.id}-${r.id}`,
+                name: r.label || null,
+                area: r.areaSf || 0,
+                status: "untouched", // Will be updated based on takeoff coverage
+                polygon: r.polygon?.map(p => ({ x: p.x, z: p.y })) || [],
+                centroid: r.centroid ? { x: r.centroid.x, z: r.centroid.y } : null,
+                drawingId: d.id,
+              });
+            });
+            console.log(`[SpatialScene] Drawing ${d.id}: ${fp.walls?.length || 0} walls, ${fp.rooms?.length || 0} rooms from vector pipeline`);
+          }
+        } catch (err) {
+          // extractPageData may fail for pre-rendered drawings without raw PDF
         }
-      });
-
-      if (typeof detectRoomsFromWalls === "function" && wallSegments.length >= 3) {
-        const detected = detectRoomsFromWalls(wallSegments);
-        return detected.map((r, i) => ({
-          id: `room-${i}`,
-          name: r.label || `Room ${i + 1}`,
-          area: r.area_sf || 0,
-          status: "estimated",
-          polygon: r.polygon?.map(p => ({ x: p.x, z: p.y || p.z })) || [],
-        }));
       }
-    } catch (err) {
-      console.warn("[SpatialScene] Room detection failed:", err);
-    }
-    return [];
-  }, [elements]);
 
-  // Compute bounding box for centering
+      if (!cancelled) {
+        setVectorData({ walls: allWalls, rooms: allRooms });
+      }
+    }
+
+    loadVectorData();
+    return () => { cancelled = true; };
+  }, [drawings]);
+
+  // Merge: use vector rooms if available, fall back to takeoff-derived
+  const rooms = useMemo(() => {
+    if (vectorData.rooms.length > 0) return vectorData.rooms;
+    // Fallback: no vector data, no rooms
+    return [];
+  }, [vectorData.rooms]);
+
+  // Compute bounding box for centering (from both vector walls and takeoff elements)
   const bounds = useMemo(() => {
-    if (!elements.length) return { cx: 0, cz: 0, width: 40, depth: 40 };
     let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+
+    // Include vector walls
+    vectorData.walls.forEach(w => {
+      minX = Math.min(minX, w.start.x, w.end.x); maxX = Math.max(maxX, w.start.x, w.end.x);
+      minZ = Math.min(minZ, w.start.z, w.end.z); maxZ = Math.max(maxZ, w.start.z, w.end.z);
+    });
+
+    // Include takeoff elements
     elements.forEach(e => {
       const g = e.geometry;
       if (g?.kind === "extrudedPath" && g.path) {
@@ -246,9 +275,10 @@ function RealBuilding({ onRoomSelect, selectedRoom }) {
         minZ = Math.min(minZ, g.position.z); maxZ = Math.max(maxZ, g.position.z);
       }
     });
+
     if (!isFinite(minX)) return { cx: 0, cz: 0, width: 40, depth: 40 };
     return { cx: (minX + maxX) / 2, cz: (minZ + maxZ) / 2, width: maxX - minX, depth: maxZ - minZ };
-  }, [elements]);
+  }, [elements, vectorData.walls]);
 
   const hasData = elements.length > 0;
 
@@ -259,6 +289,23 @@ function RealBuilding({ onRoomSelect, selectedRoom }) {
         <planeGeometry args={[bounds.width + 10, bounds.depth + 10]} />
         <meshStandardMaterial color={COLORS.floorBase} />
       </mesh>
+
+      {/* Vector pipeline walls (from PDF geometry) */}
+      {vectorData.walls.map((w, i) => {
+        const dx = w.end.x - w.start.x;
+        const dz = w.end.z - w.start.z;
+        const length = Math.sqrt(dx * dx + dz * dz);
+        if (length < 0.5) return null;
+        const angle = Math.atan2(dz, dx);
+        const cx = (w.start.x + w.end.x) / 2;
+        const cz = (w.start.z + w.end.z) / 2;
+        return (
+          <mesh key={`vw-${i}`} position={[cx, 5, cz]} rotation={[0, -angle, 0]}>
+            <boxGeometry args={[length, 10, 0.5]} />
+            <meshStandardMaterial color="#3A5570" transparent opacity={0.6} roughness={0.9} />
+          </mesh>
+        );
+      })}
 
       {/* Real takeoff elements */}
       {elements.map((el, i) => (
