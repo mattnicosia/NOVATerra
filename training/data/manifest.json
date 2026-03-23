@@ -1,0 +1,70 @@
+{
+  "total_pdfs": 11,
+  "total_examples": 554,
+  "classes": [
+    "wall_linear",
+    "wall_area",
+    "floor_area",
+    "ceiling_area",
+    "roof_area",
+    "door",
+    "window",
+    "fixture_plumbing",
+    "fixture_electric",
+    "fixture_hvac",
+    "linear_misc",
+    "area_misc",
+    "count_misc",
+    "site_linear",
+    "site_area",
+    "site_count",
+    "foundation",
+    "structural"
+  ],
+  "files": [
+    {
+      "file": "1_Orchard_Street_-_RRIS_Rev._2_.pdf",
+      "examples": 6
+    },
+    {
+      "file": "28_Liberty_22nd_Floor.pdf",
+      "examples": 27
+    },
+    {
+      "file": "45_Malta.pdf",
+      "examples": 23
+    },
+    {
+      "file": "D._Wolkoff_Office.pdf",
+      "examples": 15
+    },
+    {
+      "file": "Mainbridge_Commons_Rev._2b_.pdf",
+      "examples": 62
+    },
+    {
+      "file": "PWYC_Clubhouse.pdf",
+      "examples": 52
+    },
+    {
+      "file": "PWYC_Paddle_Hut.pdf",
+      "examples": 60
+    },
+    {
+      "file": "Popup_Bagel_Aventura.pdf",
+      "examples": 42
+    },
+    {
+      "file": "Spark_Newburgh.pdf",
+      "examples": 155
+    },
+    {
+      "file": "Welcome_Homes_Katona__SOG_.pdf",
+      "examples": 37
+    },
+    {
+      "file": "Yaun_Road_.pdf",
+      "examples": 75
+    }
+  ]
+}
