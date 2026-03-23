@@ -356,29 +356,47 @@ const stripAndUploadBlobs = async (estimateId, data) => {
           const { data: _blob, ...rest } = d;
           return rest; // strip inline blob — already in Storage
         }
+        const docFailKey = `_docFailCount_${d.id}`;
+        const docFailCount = parseInt(localStorage.getItem(docFailKey) || "0", 10);
+        if (docFailCount >= 3) {
+          console.warn(`[cloudSync] Document "${d.id}" permanently skipped — 3 failures`);
+          const { data: _blob, ...rest } = d;
+          return rest; // strip corrupted blob
+        }
         const path = `${userId}/${estimateId}/documents/${d.id}`;
         const storagePath = await uploadBlob(path, d.data);
         if (storagePath) {
+          localStorage.removeItem(docFailKey);
           const { data: _blob, ...rest } = d;
           return { ...rest, storagePath, _cloudBlobStripped: true };
         }
-        console.warn(`[cloudSync] Document "${d.id}" upload failed — keeping inline`);
+        localStorage.setItem(docFailKey, String(docFailCount + 1));
+        console.warn(`[cloudSync] Document "${d.id}" upload failed (attempt ${docFailCount + 1}/3) — keeping inline`);
         return d;
       }),
     );
   }
 
   // Upload + strip spec PDF (only strip if upload is VERIFIED)
-  if (clean.specPdf) {
+  // Skip if this blob has failed too many times (prevents infinite retry loop)
+  const specFailKey = `_specPdfFailCount_${estimateId}`;
+  const specFailCount = parseInt(localStorage.getItem(specFailKey) || "0", 10);
+  if (clean.specPdf && specFailCount < 3) {
     const path = `${userId}/${estimateId}/specPdf`;
     const storagePath = await uploadBlob(path, clean.specPdf);
     if (storagePath) {
       clean.specPdf = null;
       clean._specPdfStripped = true;
       clean._specPdfStoragePath = storagePath;
+      localStorage.removeItem(specFailKey);
     } else {
-      console.warn(`[cloudSync] specPdf upload failed — keeping inline`);
+      localStorage.setItem(specFailKey, String(specFailCount + 1));
+      console.warn(`[cloudSync] specPdf upload failed (attempt ${specFailCount + 1}/3) — keeping inline`);
     }
+  } else if (specFailCount >= 3) {
+    // Permanently skip — blob is corrupted, don't keep retrying
+    console.warn(`[cloudSync] specPdf permanently skipped for ${estimateId} — 3 failures`);
+    clean.specPdf = null; // strip the corrupted blob from the push payload
   }
 
   return clean;
