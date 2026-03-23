@@ -5,6 +5,7 @@
 
 import { loadPdfJs } from "./pdf";
 import { pdfRawCache, loadPdfRawFromIDB } from "./uploadPipeline";
+import { analyzeFloorPlan } from "./vectorWallDetector";
 
 // ── Cache (per drawing ID) ──────────────────────────────────────────
 const cache = new Map();
@@ -345,6 +346,15 @@ export async function extractPageData(drawing) {
 
   // Pre-compute schedule regions so downstream code doesn't re-detect every call
   result.scheduleRegions = detectScheduleRegions(result);
+
+  // Vector-first wall and room detection — runs automatically on extraction
+  if (vectors.lines.length > 50) {
+    try {
+      result.floorPlan = analyzeFloorPlan(result, drawing.id);
+    } catch (err) {
+      console.warn(`[extractPageData] Wall detection failed for ${drawing.id}:`, err.message);
+    }
+  }
 
   // Only cache if we actually extracted something — don't cache empty results
   // from pdfPreRendered drawings without raw PDF data available, so re-extraction
