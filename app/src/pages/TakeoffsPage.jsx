@@ -35,6 +35,7 @@ import TakeoffCommandPalette from "@/components/takeoffs/TakeoffCommandPalette";
 import TakeoffContextMenu from "@/components/takeoffs/TakeoffContextMenu";
 import RevisionImpactCard from "@/components/takeoffs/RevisionImpactCard";
 import TakeoffControlRail from "@/components/takeoffs/TakeoffControlRail";
+import VectorScanResults from "@/components/takeoffs/VectorScanResults";
 import { extractPageData, isExtracted, detectMarkersFromText } from "@/utils/pdfExtractor";
 import {
   runSmartPredictions,
@@ -1347,10 +1348,17 @@ Return ONLY a JSON array of schedule objects.`,
     }
     setGeoAnalysis({ loading: true, results: null });
     try {
+      const t0 = performance.now();
       const result = await analyzeDrawingGeometry(drawing);
+      result._runtime = (performance.now() - t0) / 1000;
       setGeoAnalysis({ loading: false, results: result });
       const s = result.stats;
-      showToast(`Detected ${s.totalWalls} walls, ${s.totalRooms} rooms, ${s.totalOpenings} openings`);
+      const mode = result.drawingMode?.mode || "unknown";
+      if (mode === "framing") {
+        showToast("Framing plan detected — wall detection not supported on this sheet", "warning");
+      } else {
+        showToast(`${mode === "residential" ? "🏠" : "🏢"} ${s.totalWalls} walls, ${s.totalRooms} rooms, ${s.totalOpenings} openings (${result._runtime.toFixed(2)}s)`);
+      }
     } catch (err) {
       console.error("Geometry analysis error:", err);
       setGeoAnalysis({ loading: false, results: null });
@@ -8335,6 +8343,14 @@ Respond ONLY with a JSON array. Each object: {"name":"Item Name","desc":"Why thi
                       pointerEvents: "none",
                     }}
                   />
+                  {/* ── Vector Scan Results Panel ── */}
+                  {geoAnalysis.results && (
+                    <VectorScanResults
+                      result={geoAnalysis.results}
+                      onClose={() => setGeoAnalysis({ loading: false, results: null })}
+                      scalePxPerFt={selectedDrawingId ? (drawingScales[selectedDrawingId] || 1) : 1}
+                    />
+                  )}
                   {/* ── Sheet Reference Badges ── */}
                   {selectedDrawingId &&
                     detectedReferences[selectedDrawingId]?.length > 0 &&

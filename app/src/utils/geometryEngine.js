@@ -7,6 +7,240 @@
 import { extractPageData } from "./pdfExtractor";
 
 // ══════════════════════════════════════════════════════════════════════
+// DRAWING MODE DETECTION — adaptive threshold for residential vs commercial
+// ══════════════════════════════════════════════════════════════════════
+
+/**
+ * Analyze line weight distribution to determine drawing type.
+ * Residential plans often use 0pt hairlines for walls.
+ * Commercial plans use 0.7pt+ for walls.
+ * Framing plans have evenly-spaced lines (16" OC joists).
+ *
+ * @param {Array} lines — extracted line segments with lineWidth
+ * @returns {{ mode: string, threshold: number, message: string }}
+ */
+export function getDrawingMode(lines) {
+  if (!lines || lines.length === 0) return { mode: "unknown", threshold: 30, message: "No lines found" };
+
+  // Collect weights from meaningful segments (>15px long)
+  const weights = [];
+  for (const l of lines) {
+    if (l.length > 15) weights.push(Math.round((l.lineWidth || 0) * 100) / 100);
+  }
+  if (weights.length === 0) return { mode: "unknown", threshold: 30, message: "No meaningful segments" };
+
+  const unique = [...new Set(weights)].sort((a, b) => a - b);
+  const lightest = unique[0];
+  const lightestCount = weights.filter(w => w === lightest).length;
+  const lightestRatio = lightestCount / weights.length;
+
+  // Framing detection: check for regular spacing among horizontal lines
+  const hLines = lines.filter(l => {
+    if (l.length < 20) return false;
+    const dy = Math.abs(l.y2 - l.y1);
+    const dx = Math.abs(l.x2 - l.x1);
+    return dx > dy * 3; // horizontal
+  });
+
+  if (hLines.length > 20) {
+    const yPositions = hLines.map(l => Math.round((l.y1 + l.y2) / 2)).sort((a, b) => a - b);
+    const gaps = [];
+    for (let i = 1; i < yPositions.length; i++) {
+      const gap = yPositions[i] - yPositions[i - 1];
+      if (gap > 5 && gap < 50) gaps.push(gap);
+    }
+    if (gaps.length > 10) {
+      const avgGap = gaps.reduce((s, g) => s + g, 0) / gaps.length;
+      const regularCount = gaps.filter(g => Math.abs(g - avgGap) < 3).length;
+      if (regularCount / gaps.length > 0.6) {
+        return {
+          mode: "framing",
+          threshold: 30,
+          message: `Framing plan detected (${regularCount} lines at ~${avgGap.toFixed(0)}px spacing) — unsupported for wall detection`,
+        };
+      }
+    }
+  }
+
+  // Residential vs commercial
+  if (lightestRatio > 0.4 && lightest < 0.5) {
+    return {
+      mode: "residential",
+      threshold: Math.max(8, lightest < 0.01 ? 8 : 15), // lower min length for hairlines
+      message: `Residential mode (${lightest}pt = ${(lightestRatio * 100).toFixed(0)}% of segments)`,
+    };
+  }
+
+  return {
+    mode: "commercial",
+    threshold: 30, // standard commercial threshold
+    message: `Commercial mode (lightest=${lightest}pt at ${(lightestRatio * 100).toFixed(0)}%)`,
+  };
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// FLOOD FILL ROOM DETECTION — fallback when DFS cycle detection finds 0 rooms
+// ══════════════════════════════════════════════════════════════════════
+
+/**
+ * Detect rooms by rasterizing walls onto a grid and flood-filling exterior.
+ * Remaining interior cells are clustered into room polygons.
+ * Used as fallback when graph-based DFS finds no enclosed cycles.
+ *
+ * @param {Array} walls — detected wall objects with centerline + endpoints
+ * @param {number} pageWidth — page width in pixels
+ * @param {number} pageHeight — page height in pixels
+ * @param {number} minRoomArea — minimum room area in grid cells (default 50)
+ * @returns {Array} rooms with polygon, area, centroid
+ */
+export function detectRoomsFloodFill(walls, pageWidth, pageHeight, minRoomArea = 50) {
+  if (!walls || walls.length < 3) return [];
+
+  // Determine bounds from walls
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const w of walls) {
+    for (const ep of w.endpoints) {
+      if (ep.x < minX) minX = ep.x;
+      if (ep.x > maxX) maxX = ep.x;
+      if (ep.y < minY) minY = ep.y;
+      if (ep.y > maxY) maxY = ep.y;
+    }
+  }
+
+  const pad = 20;
+  minX -= pad; minY -= pad; maxX += pad; maxY += pad;
+
+  // Grid resolution
+  const cellSize = Math.max(6, (maxX - minX) / 400);
+  const gridW = Math.min(2000, Math.ceil((maxX - minX) / cellSize) + 1);
+  const gridH = Math.min(2000, Math.ceil((maxY - minY) / cellSize) + 1);
+
+  // Rasterize walls (0 = empty, 1 = wall)
+  const grid = new Uint8Array(gridW * gridH); // flat for performance
+
+  for (const w of walls) {
+    const cl = w.centerline;
+    const x1 = cl.x1, y1 = cl.y1, x2 = cl.x2, y2 = cl.y2;
+    const dx = Math.abs(x2 - x1), dy = Math.abs(y2 - y1);
+    const isH = dx > dy;
+
+    if (isH) {
+      const gy = Math.floor(((y1 + y2) / 2 - minY) / cellSize);
+      const gx1 = Math.floor((Math.min(x1, x2) - minX) / cellSize);
+      const gx2 = Math.floor((Math.max(x1, x2) - minX) / cellSize);
+      for (let gx = Math.max(0, gx1); gx <= Math.min(gridW - 1, gx2); gx++) {
+        for (let d = -1; d <= 1; d++) {
+          const gy2 = gy + d;
+          if (gy2 >= 0 && gy2 < gridH) grid[gy2 * gridW + gx] = 1;
+        }
+      }
+    } else {
+      const gx = Math.floor(((x1 + x2) / 2 - minX) / cellSize);
+      const gy1 = Math.floor((Math.min(y1, y2) - minY) / cellSize);
+      const gy2 = Math.floor((Math.max(y1, y2) - minY) / cellSize);
+      for (let gy = Math.max(0, gy1); gy <= Math.min(gridH - 1, gy2); gy++) {
+        for (let d = -1; d <= 1; d++) {
+          const gx2 = gx + d;
+          if (gx2 >= 0 && gx2 < gridW) grid[gy * gridW + gx2] = 1;
+        }
+      }
+    }
+  }
+
+  // BFS flood fill from edges (mark exterior as 2)
+  const queue = [];
+  for (let gx = 0; gx < gridW; gx++) {
+    if (grid[gx] === 0) { grid[gx] = 2; queue.push(gx); } // top edge: row 0
+    const botIdx = (gridH - 1) * gridW + gx;
+    if (grid[botIdx] === 0) { grid[botIdx] = 2; queue.push(botIdx); } // bottom edge
+  }
+  for (let gy = 0; gy < gridH; gy++) {
+    const leftIdx = gy * gridW;
+    if (grid[leftIdx] === 0) { grid[leftIdx] = 2; queue.push(leftIdx); }
+    const rightIdx = gy * gridW + gridW - 1;
+    if (grid[rightIdx] === 0) { grid[rightIdx] = 2; queue.push(rightIdx); }
+  }
+
+  let qi = 0;
+  const offsets = [-gridW, gridW, -1, 1]; // up, down, left, right
+  while (qi < queue.length) {
+    const idx = queue[qi++];
+    const gx = idx % gridW, gy = Math.floor(idx / gridW);
+    for (const off of offsets) {
+      const ni = idx + off;
+      if (ni < 0 || ni >= gridW * gridH) continue;
+      // Prevent left/right wrap
+      const nx = ni % gridW;
+      if (off === -1 && nx === gridW - 1) continue;
+      if (off === 1 && nx === 0) continue;
+      if (grid[ni] === 0) { grid[ni] = 2; queue.push(ni); }
+    }
+  }
+
+  // Cluster remaining interior cells (value 0) into rooms
+  const rooms = [];
+  let roomId = 3;
+
+  for (let idx = 0; idx < gridW * gridH; idx++) {
+    if (grid[idx] !== 0) continue;
+
+    const cells = [];
+    const rq = [idx];
+    grid[idx] = roomId;
+
+    let rqi = 0;
+    while (rqi < rq.length) {
+      const ci = rq[rqi++];
+      cells.push(ci);
+      for (const off of offsets) {
+        const ni = ci + off;
+        if (ni < 0 || ni >= gridW * gridH) continue;
+        const nx = ni % gridW;
+        if (off === -1 && nx === gridW - 1) continue;
+        if (off === 1 && nx === 0) continue;
+        if (grid[ni] === 0) { grid[ni] = roomId; rq.push(ni); }
+      }
+    }
+
+    if (cells.length >= minRoomArea) {
+      // Compute bounding box and centroid
+      let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
+      let sumX = 0, sumY = 0;
+      for (const ci of cells) {
+        const cx = ci % gridW, cy = Math.floor(ci / gridW);
+        if (cx < xMin) xMin = cx; if (cx > xMax) xMax = cx;
+        if (cy < yMin) yMin = cy; if (cy > yMax) yMax = cy;
+        sumX += cx; sumY += cy;
+      }
+
+      const bboxMinX = xMin * cellSize + minX;
+      const bboxMaxX = (xMax + 1) * cellSize + minX;
+      const bboxMinY = yMin * cellSize + minY;
+      const bboxMaxY = (yMax + 1) * cellSize + minY;
+
+      rooms.push({
+        id: `room-ff-${roomId}`,
+        polygon: [
+          { x: bboxMinX, y: bboxMinY },
+          { x: bboxMaxX, y: bboxMinY },
+          { x: bboxMaxX, y: bboxMaxY },
+          { x: bboxMinX, y: bboxMaxY },
+        ],
+        area: cells.length * cellSize * cellSize, // in px²
+        centroid: {
+          x: (sumX / cells.length) * cellSize + minX,
+          y: (sumY / cells.length) * cellSize + minY,
+        },
+        cellCount: cells.length,
+      });
+    }
+    roomId++;
+  }
+
+  return rooms;
+}
+
+// ══════════════════════════════════════════════════════════════════════
 // CONSTANTS
 // ══════════════════════════════════════════════════════════════════════
 
@@ -552,8 +786,28 @@ export async function analyzeDrawingGeometry(drawing) {
 
   const pageData = await extractPageData(drawing);
 
+  // Detect drawing mode (residential/commercial/framing)
+  const drawingMode = getDrawingMode(pageData.lines);
+  console.log(`[geometryEngine] ${drawingMode.message}`);
+
+  // Framing plans: return early with unsupported message
+  if (drawingMode.mode === "framing") {
+    const result = {
+      walls: [], rooms: [], openings: [], wallTags: [], roomLabels: [], wallChains: [],
+      drawingMode,
+      stats: { totalWalls: 0, totalRooms: 0, totalOpenings: 0, totalWallLength: 0, wallTagCount: 0, roomLabelCount: 0, totalSF: 0, wallLF: 0 },
+    };
+    _geometryCache.set(drawing.id, result);
+    return result;
+  }
+
+  // Filter lines based on adaptive threshold
+  const filteredLines = drawingMode.mode === "residential"
+    ? pageData.lines.filter(l => l.length >= drawingMode.threshold)
+    : pageData.lines;
+
   // Detect walls from line segments
-  const walls = detectWalls(pageData.lines);
+  const walls = detectWalls(filteredLines);
 
   // Build wall connectivity graph
   const graph = buildWallGraph(walls);
@@ -561,17 +815,32 @@ export async function analyzeDrawingGeometry(drawing) {
   // Find wall chains (connected runs)
   const chains = findWallChains(walls, graph);
 
-  // Detect rooms (closed polygons)
-  const rooms = detectRooms(walls, graph);
+  // Detect rooms (closed polygons via DFS)
+  let rooms = detectRooms(walls, graph);
+
+  // Flood fill fallback if DFS found 0 rooms
+  if (rooms.length === 0 && walls.length >= 3) {
+    console.log("[geometryEngine] DFS found 0 rooms — trying flood fill fallback");
+    const pw = pageData.stats?.pageWidth || 1000;
+    const ph = pageData.stats?.pageHeight || 800;
+    rooms = detectRoomsFloodFill(walls, pw, ph);
+    if (rooms.length > 0) {
+      console.log(`[geometryEngine] Flood fill found ${rooms.length} rooms`);
+    }
+  }
 
   // Detect openings (doors/windows from wall gaps)
-  const openings = detectOpenings(walls, pageData.lines);
+  const openings = detectOpenings(walls, filteredLines);
 
   // Associate tags with walls
   const wallTags = associateTagsWithWalls(pageData.text, walls);
 
   // Associate labels with rooms
   const roomLabels = associateTagsWithRooms(pageData.text, rooms);
+
+  // Compute aggregate stats
+  const wallLF = walls.reduce((s, w) => s + w.length, 0);
+  const totalSF = rooms.reduce((s, r) => s + (r.area || 0), 0);
 
   const result = {
     walls,
@@ -580,11 +849,14 @@ export async function analyzeDrawingGeometry(drawing) {
     wallTags,
     roomLabels,
     wallChains: chains,
+    drawingMode,
     stats: {
       totalWalls: walls.length,
       totalRooms: rooms.length,
       totalOpenings: openings.length,
-      totalWallLength: walls.reduce((s, w) => s + w.length, 0),
+      totalWallLength: wallLF,
+      wallLF,
+      totalSF,
       wallTagCount: wallTags.length,
       roomLabelCount: roomLabels.length,
     },
