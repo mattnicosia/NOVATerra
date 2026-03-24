@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NOVATerra — Holographic Building Concept</title>
+<style>
+  * { margin: 0; padding: 0; }
+  body { background: #0C0F14; overflow: hidden; }
+  canvas { display: block; }
+  #label {
+    position: fixed; top: 20px; left: 24px;
+    font-family: 'Courier New', monospace; color: #00D4AA;
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+  }
+  #label span { display: block; font-size: 18px; color: #E8E4E0; letter-spacing: 0; margin-top: 4px; }
+  #phase {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    font-family: 'Courier New', monospace; color: #888; font-size: 12px;
+    display: flex; gap: 24px;
+  }
+  #phase div { cursor: pointer; padding: 6px 12px; border: 1px solid #333; }
+  #phase div.active { border-color: #00D4AA; color: #00D4AA; }
+</style>
+</head>
+<body>
+<div id="label">NOVATERRA<span>Holographic Building Projection</span></div>
+<div id="phase">
+  <div class="active" onclick="setPhase('rom')">ROM</div>
+  <div onclick="setPhase('sd')">SD</div>
+  <div onclick="setPhase('dd')">DD</div>
+  <div onclick="setPhase('cd')">CD</div>
+  <div onclick="setPhase('awarded')">AWARDED</div>
+</div>
+
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+// ── Scene setup ──
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x0C0F14, 0.008);
+
+const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.1, 500);
+camera.position.set(30, 20, 30);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.target.set(0, 6, 0);
+controls.maxPolarAngle = Math.PI / 2.1;
+
+// ── Bloom ──
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 1.0, 0.4, 0.2);
+composer.addPass(bloom);
+
+// ── Lighting ──
+scene.add(new THREE.AmbientLight(0xC0C8D0, 0.3));
+const sun = new THREE.DirectionalLight(0xFFE8D4, 0.6);
+sun.position.set(20, 30, 15);
+sun.castShadow = true;
+scene.add(sun);
+scene.add(new THREE.DirectionalLight(0xB0C4D8, 0.15).translateZ(20));
+
+// ── Ground — dark reflective surface ──
+const groundGeo = new THREE.PlaneGeometry(200, 200);
+const groundMat = new THREE.MeshStandardMaterial({
+  color: 0x1C2028, metalness: 0.6, roughness: 0.5
+});
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI / 2;
+ground.position.y = -0.1;
+ground.receiveShadow = true;
+scene.add(ground);
+
+// Grid
+for (let i = -100; i <= 100; i += 8) {
+  const mat = new THREE.LineBasicMaterial({ color: 0x00D4AA, transparent: true, opacity: i % 40 === 0 ? 0.06 : 0.02 });
+  const pts1 = [new THREE.Vector3(-100, 0, i), new THREE.Vector3(100, 0, i)];
+  const pts2 = [new THREE.Vector3(i, 0, -100), new THREE.Vector3(i, 0, 100)];
+  scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts1), mat));
+  scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts2), mat));
+}
+
+// ── Phase configs ──
+const phases = {
+  rom:     { color: 0x4A6A8A, emissive: 0x1A2A3A, opacity: 0.12, wireOpacity: 0.4, emIntensity: 0.1, bloom: 0.5 },
+  sd:      { color: 0x6A8AA0, emissive: 0x2A4A5A, opacity: 0.25, wireOpacity: 0.5, emIntensity: 0.15, bloom: 0.7 },
+  dd:      { color: 0x80A0C0, emissive: 0x3A5A7A, opacity: 0.45, wireOpacity: 0.6, emIntensity: 0.3, bloom: 0.9 },
+  cd:      { color: 0x00CFFF, emissive: 0x00CFFF, opacity: 0.55, wireOpacity: 0.8, emIntensity: 0.5, bloom: 1.2 },
+  awarded: { color: 0x00D4AA, emissive: 0x00D4AA, opacity: 0.65, wireOpacity: 1.0, emIntensity: 0.6, bloom: 1.5 },
+};
+
+let currentPhase = 'rom';
+let buildingGroup = new THREE.Group();
+scene.add(buildingGroup);
+
+// ── Building generator ──
+function buildHologram(phase) {
+  // Clear old
+  while (buildingGroup.children.length) {
+    const c = buildingGroup.children[0];
+    c.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+    buildingGroup.remove(c);
+  }
+
+  const p = phases[phase];
+  bloom.strength = p.bloom;
+
+  const w = 12, d = 8, floors = 4, fh = 3;
+  const totalH = floors * fh;
+
+  // Main volume — translucent glass
+  const bodyGeo = new THREE.BoxGeometry(w, totalH, d);
+  const bodyMat = new THREE.MeshPhysicalMaterial({
+    color: p.color,
+    metalness: 0.3,
+    roughness: 0.1,
+    transmission: phase === 'rom' ? 0.8 : 0.4,
+    thickness: 1,
+    transparent: true,
+    opacity: p.opacity,
+    emissive: p.emissive,
+    emissiveIntensity: p.emIntensity,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+  const body = new THREE.Mesh(bodyGeo, bodyMat);
+  body.position.y = totalH / 2;
+  body.castShadow = true;
+  buildingGroup.add(body);
+
+  // Wireframe edges
+  const edges = new THREE.LineSegments(
+    new THREE.EdgesGeometry(bodyGeo),
+    new THREE.LineBasicMaterial({ color: p.color, transparent: true, opacity: p.wireOpacity })
+  );
+  edges.position.copy(body.position);
+  buildingGroup.add(edges);
+
+  // Floor plates
+  for (let i = 0; i <= floors; i++) {
+    const y = i * fh;
+    const floorGeo = new THREE.PlaneGeometry(w - 0.5, d - 0.5);
+    const floorMat = new THREE.MeshBasicMaterial({
+      color: p.color, transparent: true, opacity: p.opacity * 0.4, side: THREE.DoubleSide
+    });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = y;
+    buildingGroup.add(floor);
+
+    // Floor edge lines
+    const floorEdges = new THREE.LineSegments(
+      new THREE.EdgesGeometry(floorGeo),
+      new THREE.LineBasicMaterial({ color: p.color, transparent: true, opacity: p.wireOpacity * 0.5 })
+    );
+    floorEdges.rotation.x = -Math.PI / 2;
+    floorEdges.position.y = y;
+    buildingGroup.add(floorEdges);
+  }
+
+  // Interior walls (simple cross)
+  for (let i = 0; i < floors; i++) {
+    const y = i * fh + fh / 2;
+    [[0, y, 0, 0.05, fh - 0.5, d - 1], [0, y, 0, w - 1, fh - 0.5, 0.05]].forEach(([x, py, z, sw, sh, sd]) => {
+      const wallGeo = new THREE.BoxGeometry(sw, sh, sd);
+      const wallMat = new THREE.MeshBasicMaterial({
+        color: p.color, transparent: true, opacity: p.opacity * 0.15, side: THREE.DoubleSide, depthWrite: false,
+      });
+      const wall = new THREE.Mesh(wallGeo, wallMat);
+      wall.position.set(x, py, z);
+      buildingGroup.add(wall);
+    });
+  }
+
+  // Base ring glow
+  const ringGeo = new THREE.RingGeometry(Math.max(w, d) * 0.55, Math.max(w, d) * 0.65, 48);
+  const ringMat = new THREE.MeshBasicMaterial({
+    color: p.emissive, transparent: true, opacity: p.emIntensity * 0.6, side: THREE.DoubleSide
+  });
+  const ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = 0.05;
+  buildingGroup.add(ring);
+
+  // Awarded: gold pulse ring
+  if (phase === 'awarded') {
+    const pulseGeo = new THREE.RingGeometry(Math.max(w, d) * 0.7, Math.max(w, d) * 0.72, 48);
+    const pulseMat = new THREE.MeshBasicMaterial({
+      color: 0xF0A830, transparent: true, opacity: 0.8, side: THREE.DoubleSide
+    });
+    const pulse = new THREE.Mesh(pulseGeo, pulseMat);
+    pulse.rotation.x = -Math.PI / 2;
+    pulse.position.y = 0.06;
+    pulse.userData.isPulse = true;
+    buildingGroup.add(pulse);
+  }
+
+  // Scan lines (vertical)
+  for (let i = 0; i < 3; i++) {
+    const lineGeo = new THREE.PlaneGeometry(w + 1, 0.03);
+    const lineMat = new THREE.MeshBasicMaterial({
+      color: p.color, transparent: true, opacity: 0, side: THREE.DoubleSide
+    });
+    const line = new THREE.Mesh(lineGeo, lineMat);
+    line.rotation.x = -Math.PI / 2;
+    line.position.y = 0;
+    line.userData.scanLine = true;
+    line.userData.scanSpeed = 2 + i * 0.5;
+    line.userData.scanOffset = i * 4;
+    buildingGroup.add(line);
+  }
+}
+
+// ── Phase switcher ──
+window.setPhase = function(phase) {
+  currentPhase = phase;
+  buildHologram(phase);
+  document.querySelectorAll('#phase div').forEach(d => d.classList.remove('active'));
+  document.querySelector(`#phase div[onclick*="${phase}"]`).classList.add('active');
+};
+
+buildHologram('rom');
+
+// ── Animate ──
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+
+  const t = performance.now() * 0.001;
+
+  buildingGroup.children.forEach(child => {
+    // Pulse ring
+    if (child.userData.isPulse) {
+      child.scale.setScalar(1 + Math.sin(t * 2) * 0.08);
+      child.material.opacity = 0.4 + Math.sin(t * 2) * 0.4;
+    }
+    // Scan lines
+    if (child.userData.scanLine) {
+      const h = 12; // total building height
+      const y = ((t * child.userData.scanSpeed + child.userData.scanOffset) % (h + 4)) - 2;
+      child.position.y = y;
+      child.material.opacity = y > 0 && y < h ? 0.3 : 0;
+    }
+  });
+
+  // Gentle building breathing
+  buildingGroup.position.y = Math.sin(t * 0.5) * 0.05;
+
+  composer.render();
+}
+animate();
+
+// ── Resize ──
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>

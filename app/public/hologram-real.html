@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NOVATerra — Real Building Hologram (Wolkoff Office)</title>
+<style>
+  * { margin: 0; padding: 0; }
+  body { background: #0C0F14; overflow: hidden; font-family: 'Courier New', monospace; }
+  canvas { display: block; }
+  #label { position: fixed; top: 20px; left: 24px; color: #00D4AA; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; }
+  #label span { display: block; font-size: 18px; color: #E8E4E0; letter-spacing: 0; margin-top: 4px; }
+  #label small { display: block; font-size: 11px; color: #666; margin-top: 2px; }
+  #stats { position: fixed; top: 20px; right: 24px; text-align: right; color: #888; font-size: 11px; }
+  #stats .val { font-size: 20px; color: #00D4AA; }
+  #phase { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); color: #888; font-size: 11px; display: flex; gap: 16px; }
+  #phase div { cursor: pointer; padding: 5px 10px; border: 1px solid #333; letter-spacing: 0.08em; }
+  #phase div.active { border-color: #00D4AA; color: #00D4AA; }
+</style>
+</head>
+<body>
+<div id="label">NOVATERRA — REAL BUILDING DATA<span>D. Wolkoff Office</span><small>Vector pipeline extraction • 18 rooms • 2,294 SF</small></div>
+<div id="stats"><div>ROOMS<br><span class="val">18</span></div><div style="margin-top:12px">AREA<br><span class="val">2,294 SF</span></div><div style="margin-top:12px">WALLS<br><span class="val">552</span></div></div>
+<div id="phase">
+  <div class="active" onclick="setPhase('rom')">ROM</div>
+  <div onclick="setPhase('sd')">SD</div>
+  <div onclick="setPhase('dd')">DD</div>
+  <div onclick="setPhase('cd')">CD</div>
+  <div onclick="setPhase('awarded')">AWARDED</div>
+</div>
+
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+const BUILDING = {"walls": [{"sx": 10.35, "sz": -6.9, "ex": 10.35, "ez": 6.9, "wt": 1.9}, {"sx": 8.32, "sz": -6.9, "ex": 8.32, "ez": 6.9, "wt": 1.9}, {"sx": -9.91, "sz": -6.03, "ex": 0.59, "ez": -6.03, "wt": 0.8}, {"sx": -9.91, "sz": -4.78, "ex": 0.59, "ez": -4.78, "wt": 0.8}, {"sx": -9.91, "sz": -6.33, "ex": 0.59, "ez": -6.33, "wt": 1.7}, {"sx": -10.35, "sz": -5.82, "ex": -1.14, "ez": -5.82, "wt": 1.0}, {"sx": -8.64, "sz": -5.53, "ex": -1.14, "ez": -5.53, "wt": 0.4}, {"sx": -8.64, "sz": -5.28, "ex": -1.14, "ez": -5.28, "wt": 0.4}, {"sx": -8.19, "sz": -6.18, "ex": -1.14, "ez": -6.18, "wt": 0.8}, {"sx": 1.14, "sz": 4.58, "ex": 7.65, "ez": 4.58, "wt": 0.6}, {"sx": 1.62, "sz": 5.39, "ex": 7.65, "ez": 5.39, "wt": 1.9}, {"sx": 6.93, "sz": -1.56, "ex": 6.93, "ez": 4.39, "wt": 1.7}, {"sx": -9.07, "sz": -0.22, "ex": -3.27, "ez": -0.22, "wt": 0.6}, {"sx": 1.14, "sz": -1.23, "ex": 6.93, "ez": -1.23, "wt": 0.6}, {"sx": 0.82, "sz": -3.45, "ex": 0.82, "ez": 2.29, "wt": 0.6}, {"sx": 0.81, "sz": -2.83, "ex": 6.45, "ez": -2.83, "wt": 1.1}, {"sx": 1.27, "sz": -1.99, "ex": 6.79, "ez": -1.99, "wt": 0.6}, {"sx": 6.67, "sz": -2.01, "ex": 6.67, "ez": 3.3, "wt": 0.6}, {"sx": -0.66, "sz": 4.92, "ex": 4.62, "ez": 4.92, "wt": 1.9}, {"sx": 1.41, "sz": -0.45, "ex": 6.66, "ez": -0.45, "wt": 0.6}, {"sx": 1.41, "sz": 3.3, "ex": 6.66, "ez": 3.3, "wt": 0.6}, {"sx": 0.81, "sz": -3.45, "ex": 5.92, "ez": -3.45, "wt": 0.6}, {"sx": -4.14, "sz": 2.29, "ex": 0.9, "ez": 2.29, "wt": 1.7}, {"sx": 1.41, "sz": -1.53, "ex": 1.41, "ez": 3.3, "wt": 0.6}, {"sx": -9.18, "sz": 4.31, "ex": -4.92, "ez": 4.31, "wt": 1.7}, {"sx": 1.14, "sz": -1.56, "ex": 1.14, "ez": 2.54, "wt": 0.4}, {"sx": -8.13, "sz": -2.46, "ex": -4.18, "ez": -2.46, "wt": 1.9}, {"sx": 1.02, "sz": -1.5, "ex": 1.02, "ez": 2.44, "wt": 0.8}, {"sx": 0.99, "sz": -1.5, "ex": 0.99, "ez": 2.38, "wt": 0.4}, {"sx": -4.14, "sz": 2.54, "ex": -0.36, "ez": 2.54, "wt": 1.7}, {"sx": -8.03, "sz": -2.56, "ex": -4.29, "ez": -2.56, "wt": 18.0}, {"sx": -7.95, "sz": -2.1, "ex": -4.39, "ez": -2.1, "wt": 0.6}, {"sx": 2.26, "sz": -3.55, "ex": 5.81, "ez": -3.55, "wt": 0.1}, {"sx": -4.67, "sz": -5.02, "ex": -1.14, "ez": -5.02, "wt": 0.4}, {"sx": -9.69, "sz": 0.07, "ex": -6.18, "ez": 0.07, "wt": 0.6}, {"sx": 6.79, "sz": -2.01, "ex": 6.79, "ez": 1.46, "wt": 0.6}, {"sx": 7.17, "sz": -1.56, "ex": 7.17, "ez": 1.8, "wt": 1.7}, {"sx": 2.39, "sz": -2.5, "ex": 5.69, "ez": -2.5, "wt": 0.6}, {"sx": 2.39, "sz": -3.4, "ex": 5.69, "ez": -3.4, "wt": 1.1}, {"sx": -5.98, "sz": 0.07, "ex": -2.7, "ez": 0.07, "wt": 0.6}, {"sx": -9.03, "sz": 0.45, "ex": -5.74, "ez": 0.45, "wt": 1.9}, {"sx": -0.79, "sz": 6.14, "ex": 2.49, "ez": 6.14, "wt": 1.9}, {"sx": 7.02, "sz": -1.5, "ex": 7.02, "ez": 1.5, "wt": 0.8}, {"sx": 2.56, "sz": -0.75, "ex": 5.49, "ez": -0.75, "wt": 0.8}, {"sx": 1.27, "sz": -0.43, "ex": 1.27, "ez": 2.44, "wt": 0.4}, {"sx": 3.39, "sz": -3.42, "ex": 3.39, "ez": -0.72, "wt": 0.6}, {"sx": -3.06, "sz": 2.21, "ex": -3.06, "ez": 4.65, "wt": 18.0}, {"sx": 7.77, "sz": 3.52, "ex": 7.77, "ez": 5.97, "wt": 1.7}, {"sx": -0.67, "sz": 5.02, "ex": 1.69, "ez": 5.02, "wt": 18.0}, {"sx": 1.72, "sz": 5.21, "ex": 4.08, "ez": 5.21, "wt": 1.1}, {"sx": 1.72, "sz": 5.25, "ex": 4.08, "ez": 5.25, "wt": 1.1}, {"sx": 1.72, "sz": 4.83, "ex": 4.08, "ez": 4.83, "wt": 0.8}, {"sx": 1.72, "sz": 5.64, "ex": 4.08, "ez": 5.64, "wt": 0.6}, {"sx": -3.66, "sz": 2.21, "ex": -3.66, "ez": 4.47, "wt": 1.7}, {"sx": -4.42, "sz": -2.61, "ex": -4.42, "ez": -0.41, "wt": 18.0}, {"sx": 2.89, "sz": -1.47, "ex": 5.04, "ez": -1.47, "wt": 0.8}, {"sx": -7.86, "sz": -2.55, "ex": -7.86, "ez": -0.41, "wt": 1.9}, {"sx": -4.03, "sz": 2.54, "ex": -4.03, "ez": 4.65, "wt": 0.6}, {"sx": 8.32, "sz": 2.4, "ex": 10.35, "ez": 2.4, "wt": 1.9}, {"sx": 8.32, "sz": 3.45, "ex": 10.35, "ez": 3.45, "wt": 1.9}, {"sx": 8.32, "sz": 2.48, "ex": 10.35, "ez": 2.48, "wt": 1.9}, {"sx": 8.32, "sz": 4.65, "ex": 10.35, "ez": 4.65, "wt": 1.9}, {"sx": 8.32, "sz": 3.38, "ex": 10.35, "ez": 3.38, "wt": 1.9}, {"sx": 8.32, "sz": 5.62, "ex": 10.35, "ez": 5.62, "wt": 1.9}, {"sx": 8.32, "sz": -4.8, "ex": 10.35, "ez": -4.8, "wt": 1.9}, {"sx": 8.32, "sz": 5.7, "ex": 10.35, "ez": 5.7, "wt": 1.9}, {"sx": 8.32, "sz": 6.9, "ex": 10.35, "ez": 6.9, "wt": 1.9}, {"sx": 8.32, "sz": -4.88, "ex": 10.35, "ez": -4.88, "wt": 1.9}, {"sx": 8.32, "sz": -6.9, "ex": 10.35, "ez": -6.9, "wt": 1.9}, {"sx": 8.32, "sz": -4.42, "ex": 10.35, "ez": -4.42, "wt": 1.9}, {"sx": 8.32, "sz": -4.35, "ex": 10.35, "ez": -4.35, "wt": 1.9}, {"sx": -4.62, "sz": -6.54, "ex": -4.62, "ez": -4.53, "wt": 1.3}, {"sx": 2.37, "sz": 5.5, "ex": 4.35, "ez": 5.5, "wt": 1.9}, {"sx": -2.27, "sz": 2.38, "ex": -0.36, "ez": 2.38, "wt": 0.8}, {"sx": -4.67, "sz": -2.55, "ex": -4.67, "ez": -0.64, "wt": 0.6}, {"sx": -7.65, "sz": -2.55, "ex": -7.65, "ez": -0.64, "wt": 0.6}, {"sx": 8.4, "sz": -5.38, "ex": 10.28, "ez": -5.38, "wt": 0.6}, {"sx": 8.4, "sz": -5.34, "ex": 10.28, "ez": -5.34, "wt": 0.6}, {"sx": -3.81, "sz": 2.54, "ex": -3.81, "ez": 4.38, "wt": 1.7}, {"sx": -8.64, "sz": -6.33, "ex": -8.64, "ez": -4.53, "wt": 0.8}, {"sx": -1.14, "sz": -6.33, "ex": -1.14, "ez": -4.53, "wt": 0.8}, {"sx": 3.15, "sz": -4.05, "ex": 4.94, "ez": -4.05, "wt": 0}, {"sx": 5.86, "sz": 5.5, "ex": 7.65, "ez": 5.5, "wt": 1.9}, {"sx": -10.35, "sz": -6.6, "ex": -8.58, "ez": -6.6, "wt": 1.0}, {"sx": -10.35, "sz": -6.39, "ex": -8.58, "ez": -6.39, "wt": 1.0}, {"sx": -10.35, "sz": -6.11, "ex": -8.58, "ez": -6.11, "wt": 1.0}, {"sx": -0.67, "sz": 3.89, "ex": 1.09, "ez": 3.89, "wt": 0.6}, {"sx": 6.79, "sz": 3.64, "ex": 6.79, "ez": 5.39, "wt": 0.6}, {"sx": 7.65, "sz": 3.64, "ex": 7.65, "ez": 5.39, "wt": 1.7}, {"sx": 7.05, "sz": 1.8, "ex": 7.05, "ez": 3.52, "wt": 1.7}, {"sx": -7.0, "sz": -3.15, "ex": -5.33, "ez": -3.15, "wt": 18.0}, {"sx": 7.35, "sz": 3.67, "ex": 7.35, "ez": 5.36, "wt": 0.6}, {"sx": -3.36, "sz": -6.18, "ex": -3.36, "ez": -4.53, "wt": 0.8}, {"sx": -3.84, "sz": -6.18, "ex": -3.84, "ez": -4.53, "wt": 0.8}, {"sx": -2.46, "sz": -6.18, "ex": -2.46, "ez": -4.53, "wt": 0.8}, {"sx": -1.67, "sz": -6.18, "ex": -1.67, "ez": -4.53, "wt": 0.8}, {"sx": -0.67, "sz": 3.44, "ex": -0.67, "ez": 5.02, "wt": 1.9}, {"sx": 5.69, "sz": 4.91, "ex": 7.27, "ez": 4.91, "wt": 1.9}, {"sx": -1.43, "sz": 3.45, "ex": 0.07, "ez": 3.45, "wt": 1.7}, {"sx": 5.76, "sz": -3.47, "ex": 5.76, "ez": -1.98, "wt": 0.6}], "rooms": [{"poly": [[8.46, -6.76], [10.26, -6.76], [10.26, -5.49], [8.46, -5.49]], "area": 85.2, "cx": 9.36, "cz": -6.13}, {"poly": [[-8.56, -5.19], [-4.74, -5.19], [-4.74, -4.89], [-8.56, -4.89]], "area": 51.0, "cx": -6.66, "cz": -5.04}, {"poly": [[8.46, -4.21], [10.26, -4.21], [10.26, 2.31], [8.46, 2.31]], "area": 522.0, "cx": 9.36, "cz": -0.96}, {"poly": [[3.51, -3.31], [5.54, -3.31], [5.54, -2.94], [3.51, -2.94]], "area": 27.5, "cx": 4.51, "cz": -3.13}, {"poly": [[3.51, -2.42], [5.69, -2.42], [5.69, -2.12], [3.51, -2.12]], "area": 29.0, "cx": 4.59, "cz": -2.27}, {"poly": [[-7.81, -1.97], [-4.51, -1.97], [-4.51, -0.32], [-7.81, -0.32]], "area": 204.0, "cx": -6.17, "cz": -1.14}, {"poly": [[1.49, -1.89], [3.29, -1.89], [3.29, -1.37], [1.49, -1.37]], "area": 30.8, "cx": 2.39, "cz": -1.63}, {"poly": [[3.51, -1.89], [6.59, -1.89], [6.59, -1.37], [3.51, -1.37]], "area": 46.2, "cx": 5.04, "cz": -1.63}, {"poly": [[1.56, -1.14], [2.39, -1.14], [2.39, -0.54], [1.56, -0.54]], "area": 22.0, "cx": 1.96, "cz": -0.84}, {"poly": [[5.61, -1.14], [6.59, -1.14], [6.59, -0.54], [5.61, -0.54]], "area": 26.0, "cx": 6.09, "cz": -0.84}, {"poly": [[1.56, -0.32], [6.59, -0.32], [6.59, 3.21], [1.56, 3.21]], "area": 782.8, "cx": 4.06, "cz": 1.44}, {"poly": [[8.46, 2.61], [10.26, 2.61], [10.26, 3.29], [8.46, 3.29]], "area": 39.0, "cx": 9.36, "cz": 2.94}, {"poly": [[1.41, 3.36], [6.81, 3.36], [6.81, 4.49], [1.41, 4.49]], "area": 243.5, "cx": 4.11, "cz": 3.91}, {"poly": [[9.29, 3.59], [10.26, 3.59], [10.26, 4.56], [9.29, 4.56]], "area": 42.2, "cx": 9.76, "cz": 4.06}, {"poly": [[-0.09, 3.96], [0.74, 3.96], [0.74, 4.79], [-0.09, 4.79]], "area": 20.5, "cx": 0.31, "cz": 4.36}, {"poly": [[4.41, 4.71], [5.84, 4.71], [5.84, 5.24], [4.41, 5.24]], "area": 23.2, "cx": 5.11, "cz": 4.96}, {"poly": [[8.46, 4.79], [10.26, 4.79], [10.26, 5.54], [8.46, 5.54]], "area": 29.2, "cx": 9.36, "cz": 5.16}, {"poly": [[8.46, 5.84], [10.26, 5.84], [10.26, 6.81], [8.46, 6.81]], "area": 69.5, "cx": 9.36, "cz": 6.31}], "totalSF": 2293.6, "wallCount": 552};
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x0C0F14, 0.012);
+const camera = new THREE.PerspectiveCamera(40, innerWidth/innerHeight, 0.1, 500);
+camera.position.set(18, 14, 18);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.target.set(0, 2, 0);
+controls.maxPolarAngle = Math.PI / 2.1;
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.8, 0.4, 0.15);
+composer.addPass(bloom);
+
+// Lighting
+scene.add(new THREE.AmbientLight(0xC0C8D0, 0.3));
+const sun = new THREE.DirectionalLight(0xFFE8D4, 0.5);
+sun.position.set(15, 25, 10);
+sun.castShadow = true;
+scene.add(sun);
+scene.add(new THREE.DirectionalLight(0xB0C4D8, 0.15).translateZ(15));
+
+// Ground
+const gnd = new THREE.Mesh(new THREE.PlaneGeometry(100,100), new THREE.MeshStandardMaterial({ color: 0x1C2028, metalness: 0.6, roughness: 0.5 }));
+gnd.rotation.x = -Math.PI/2; gnd.position.y = -0.05; gnd.receiveShadow = true;
+scene.add(gnd);
+
+// Grid
+for (let i = -50; i <= 50; i += 4) {
+  const o = i%20===0 ? 0.05 : 0.015;
+  const m = new THREE.LineBasicMaterial({ color: 0x00D4AA, transparent: true, opacity: o });
+  scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-50,0.01,i), new THREE.Vector3(50,0.01,i)]), m));
+  scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(i,0.01,-50), new THREE.Vector3(i,0.01,50)]), m));
+}
+
+// Phase configs
+const P = {
+  rom:     { color: 0x3A5A7A, em: 0x1A2A3A, op: 0.08, wop: 0.3, ei: 0.05, bl: 0.4, wallH: 3.5 },
+  sd:      { color: 0x5A7A9A, em: 0x2A4A5A, op: 0.18, wop: 0.4, ei: 0.1, bl: 0.6, wallH: 3.5 },
+  dd:      { color: 0x6A9ABB, em: 0x3A6A8A, op: 0.3, wop: 0.6, ei: 0.25, bl: 0.9, wallH: 3.5 },
+  cd:      { color: 0x00CFFF, em: 0x00AADD, op: 0.4, wop: 0.8, ei: 0.4, bl: 1.2, wallH: 3.5 },
+  awarded: { color: 0x00D4AA, em: 0x00D4AA, op: 0.5, wop: 1.0, ei: 0.5, bl: 1.5, wallH: 3.5 },
+};
+
+let group = new THREE.Group();
+scene.add(group);
+
+function buildReal(phase) {
+  while(group.children.length) { const c=group.children[0]; c.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose();}); group.remove(c); }
+  const p = P[phase];
+  bloom.strength = p.bl;
+  const wallH = p.wallH;
+  const wallThick = 0.06;
+
+  // Draw REAL walls as extruded lines
+  BUILDING.walls.forEach(w => {
+    const dx = w.ex - w.sx, dz = w.ez - w.sz;
+    const len = Math.sqrt(dx*dx + dz*dz);
+    if (len < 0.1) return;
+    const angle = Math.atan2(dz, dx);
+    const geo = new THREE.BoxGeometry(len, wallH, wallThick);
+    const mat = new THREE.MeshPhysicalMaterial({
+      color: p.color, metalness: 0.2, roughness: 0.15,
+      transparent: true, opacity: p.op * 1.2,
+      emissive: p.em, emissiveIntensity: p.ei,
+      side: THREE.DoubleSide, depthWrite: false,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set((w.sx+w.ex)/2, wallH/2, (w.sz+w.ez)/2);
+    mesh.rotation.y = -angle;
+    group.add(mesh);
+
+    // Wall edge wireframe
+    const edges = new THREE.LineSegments(
+      new THREE.EdgesGeometry(geo),
+      new THREE.LineBasicMaterial({ color: p.color, transparent: true, opacity: p.wop * 0.6 })
+    );
+    edges.position.copy(mesh.position);
+    edges.rotation.copy(mesh.rotation);
+    group.add(edges);
+  });
+
+  // Draw REAL room floor plates
+  BUILDING.rooms.forEach(r => {
+    if (r.poly.length < 3) return;
+    const shape = new THREE.Shape();
+    shape.moveTo(r.poly[0][0], r.poly[0][1]);
+    for (let i = 1; i < r.poly.length; i++) shape.lineTo(r.poly[i][0], r.poly[i][1]);
+    shape.closePath();
+
+    // Floor plate
+    const floorGeo = new THREE.ShapeGeometry(shape);
+    const floorMat = new THREE.MeshBasicMaterial({
+      color: p.color, transparent: true, opacity: p.op * 0.5, side: THREE.DoubleSide, depthWrite: false,
+    });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = 0.02;
+    group.add(floor);
+
+    // Room outline
+    const pts = r.poly.map(pt => new THREE.Vector3(pt[0], 0.03, pt[1]));
+    pts.push(pts[0].clone());
+    const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
+    const line = new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: p.color, transparent: true, opacity: p.wop }));
+    group.add(line);
+
+    // Room area label (just a small glow dot at centroid)
+    const dot = new THREE.Mesh(
+      new THREE.CircleGeometry(0.15, 16),
+      new THREE.MeshBasicMaterial({ color: p.em, transparent: true, opacity: p.ei * 1.5 })
+    );
+    dot.rotation.x = -Math.PI/2;
+    dot.position.set(r.cx, 0.04, r.cz);
+    group.add(dot);
+  });
+
+  // Building perimeter glow ring
+  const allX = BUILDING.walls.flatMap(w => [w.sx, w.ex]);
+  const allZ = BUILDING.walls.flatMap(w => [w.sz, w.ez]);
+  const bw = Math.max(...allX) - Math.min(...allX);
+  const bd = Math.max(...allZ) - Math.min(...allZ);
+  const ringR = Math.max(bw, bd) * 0.6;
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(ringR, ringR + 0.08, 64),
+    new THREE.MeshBasicMaterial({ color: p.em, transparent: true, opacity: p.ei * 0.4, side: THREE.DoubleSide })
+  );
+  ring.rotation.x = -Math.PI/2; ring.position.y = 0.01;
+  group.add(ring);
+
+  // Awarded pulse
+  if (phase === 'awarded') {
+    const pr = new THREE.Mesh(
+      new THREE.RingGeometry(ringR + 0.2, ringR + 0.25, 64),
+      new THREE.MeshBasicMaterial({ color: 0xF0A830, transparent: true, opacity: 0.6, side: THREE.DoubleSide })
+    );
+    pr.rotation.x = -Math.PI/2; pr.position.y = 0.015;
+    pr.userData.pulse = true;
+    group.add(pr);
+  }
+
+  // Scan lines
+  for (let i = 0; i < 2; i++) {
+    const sl = new THREE.Mesh(
+      new THREE.PlaneGeometry(bw * 1.2, 0.02),
+      new THREE.MeshBasicMaterial({ color: p.color, transparent: true, opacity: 0, side: THREE.DoubleSide })
+    );
+    sl.rotation.x = -Math.PI/2;
+    sl.userData.scan = { speed: 1.5 + i * 0.7, offset: i * 3, maxH: wallH + 1 };
+    group.add(sl);
+  }
+}
+
+window.setPhase = function(ph) {
+  buildReal(ph);
+  document.querySelectorAll('#phase div').forEach(d => d.classList.remove('active'));
+  document.querySelector(`#phase div[onclick*="${ph}"]`).classList.add('active');
+};
+buildReal('rom');
+
+// Animate
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  const t = performance.now() * 0.001;
+  group.children.forEach(c => {
+    if (c.userData.pulse) { c.scale.setScalar(1 + Math.sin(t*2)*0.08); c.material.opacity = 0.3 + Math.sin(t*2)*0.3; }
+    if (c.userData.scan) { const s = c.userData.scan; const y = ((t*s.speed+s.offset)%(s.maxH+2))-1; c.position.y = y; c.material.opacity = y>0&&y<s.maxH ? 0.25 : 0; }
+  });
+  group.position.y = Math.sin(t * 0.4) * 0.03;
+  composer.render();
+}
+animate();
+
+addEventListener('resize', () => { camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); composer.setSize(innerWidth,innerHeight); });
+</script>
+</body>
+</html>

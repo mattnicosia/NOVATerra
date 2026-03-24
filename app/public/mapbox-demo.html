@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NOVATerra — Pipeline Map</title>
+<link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet">
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170/examples/jsm/"}}
+</script>
+<style>
+  * { margin: 0; padding: 0; }
+  body { overflow: hidden; font-family: 'Courier New', monospace; }
+  #map { width: 100vw; height: 100vh; }
+  #hud { position: fixed; top: 0; left: 0; right: 0; pointer-events: none; z-index: 10; }
+  #hud-top { display: flex; justify-content: space-between; padding: 16px 24px; }
+  #brand { color: #00D4AA; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; }
+  #brand span { display: block; font-size: 18px; color: #fff; letter-spacing: 0; margin-top: 2px; }
+  #stats { text-align: right; color: #888; font-size: 11px; }
+  #stats .val { font-size: 20px; color: #00D4AA; display: block; }
+  #bottom { position: fixed; bottom: 0; left: 0; right: 0; height: 44px; background: rgba(10,13,20,0.88); backdrop-filter: blur(12px); border-top: 1px solid rgba(0,212,170,0.1); display: flex; align-items: center; justify-content: center; gap: 36px; font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.08em; z-index: 10; }
+  #bottom .v { color: #00D4AA; font-size: 15px; font-weight: 700; }
+  #list { position: fixed; right: 16px; top: 70px; width: 220px; max-height: 60vh; overflow-y: auto; z-index: 10; pointer-events: auto; }
+  #list div { padding: 8px 10px; margin-bottom: 4px; background: rgba(10,13,20,0.85); border: 1px solid rgba(255,255,255,0.06); cursor: pointer; font-size: 11px; color: #ccc; backdrop-filter: blur(8px); }
+  #list div:hover { border-color: #00D4AA; color: #00D4AA; }
+  #list div small { display: block; color: #666; font-size: 9px; margin-top: 2px; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="hud">
+  <div id="hud-top">
+    <div id="brand">NOVATERRA<span>Pipeline Map</span></div>
+    <div id="stats">PROJECTS<span class="val" id="count">0</span></div>
+  </div>
+</div>
+<div id="bottom">
+  <div><span class="v" id="b-total">0</span> Projects</div>
+  <div><span class="v" id="b-bidding">0</span> Bidding</div>
+  <div><span class="v" id="b-won">0</span> Won</div>
+  <div><span class="v" id="b-value">$0</span> Pipeline</div>
+</div>
+<div id="list"></div>
+
+<script type="module">
+import * as THREE from 'three';
+
+// ── Project data (your actual estimates with geocoded addresses) ──
+const PROJECTS = [
+  { name: "36 Old School House Road", status: "Bidding", lat: 41.1945, lng: -74.0632, floors: 2, width: 40, depth: 30, value: 450000, type: "residential" },
+  { name: "28 Liberty - 22nd Floor", status: "Bidding", lat: 40.7074, lng: -74.0089, floors: 1, width: 80, depth: 60, value: 850000, type: "commercial" },
+  { name: "Popup Bagel Aventura", status: "Won", lat: 25.9565, lng: -80.1392, floors: 1, width: 30, depth: 25, value: 180000, type: "commercial" },
+  { name: "Spark Newburgh", status: "Bidding", lat: 41.5034, lng: -74.0104, floors: 2, width: 50, depth: 35, value: 620000, type: "commercial" },
+  { name: "D. Wolkoff Office", status: "Won", lat: 41.1120, lng: -74.1180, floors: 1, width: 70, depth: 45, value: 320000, type: "commercial" },
+  { name: "PWYC Clubhouse", status: "Bidding", lat: 41.3520, lng: -74.2890, floors: 2, width: 60, depth: 40, value: 780000, type: "commercial" },
+  { name: "PWYC Paddle Hut", status: "Won", lat: 41.3525, lng: -74.2870, floors: 1, width: 25, depth: 20, value: 210000, type: "residential" },
+  { name: "Welcome Homes Katona", status: "Bidding", lat: 41.2150, lng: -73.9420, floors: 2, width: 35, depth: 28, value: 380000, type: "residential" },
+  { name: "Yaun Road", status: "Lost", lat: 41.1800, lng: -74.0900, floors: 2, width: 45, depth: 32, value: 520000, type: "residential" },
+  { name: "Mainbridge Commons", status: "Bidding", lat: 41.4450, lng: -74.4220, floors: 3, width: 120, depth: 50, value: 2400000, type: "mixed-use" },
+  { name: "Andes Away", status: "Bidding", lat: 42.1860, lng: -74.7930, floors: 2, width: 40, depth: 30, value: 350000, type: "commercial" },
+  { name: "45 Malta", status: "Won", lat: 41.1100, lng: -74.1300, floors: 1, width: 30, depth: 25, value: 150000, type: "residential" },
+];
+
+// Status colors
+const STATUS_CLR = {
+  Bidding: { hex: '#00BFFF', r: 0, g: 0.75, b: 1 },
+  Won:     { hex: '#00D4AA', r: 0, g: 0.83, b: 0.67 },
+  Lost:    { hex: '#444', r: 0.27, g: 0.27, b: 0.27 },
+};
+
+// Update HUD
+document.getElementById('count').textContent = PROJECTS.length;
+document.getElementById('b-total').textContent = PROJECTS.length;
+document.getElementById('b-bidding').textContent = PROJECTS.filter(p => p.status === 'Bidding').length;
+document.getElementById('b-won').textContent = PROJECTS.filter(p => p.status === 'Won').length;
+const totalVal = PROJECTS.reduce((s, p) => s + p.value, 0);
+document.getElementById('b-value').textContent = '$' + (totalVal > 1e6 ? (totalVal/1e6).toFixed(1)+'M' : (totalVal/1e3).toFixed(0)+'K');
+
+// Project list
+const listEl = document.getElementById('list');
+PROJECTS.forEach((p, i) => {
+  const d = document.createElement('div');
+  d.innerHTML = `${p.name}<small>${p.status} • $${(p.value/1000).toFixed(0)}K</small>`;
+  d.onclick = () => map.flyTo({ center: [p.lng, p.lat], zoom: 16, pitch: 60, duration: 2000 });
+  listEl.appendChild(d);
+});
+
+// ── Mapbox ──
+mapboxgl.accessToken = 'pk.eyJ1IjoibWF0dG5pY29zaWEiLCJhIjoiY21uNDJsM2NnMWthZjJ0cTJkdWZmeWplMiJ9.lEoeGN-_aDlAD_a7mOgy5g';
+
+const map = new mapboxgl.Map({
+  container: 'map',
+  style: 'mapbox://styles/mapbox/satellite-streets-v12',
+  center: [-74.1, 41.2],
+  zoom: 9,
+  pitch: 55,
+  bearing: -15,
+  antialias: true,
+});
+
+map.addControl(new mapboxgl.NavigationControl(), 'top-left');
+
+map.on('style.load', () => {
+  // 3D terrain
+  map.addSource('mapbox-dem', { type: 'raster-dem', url: 'mapbox://mapbox.mapbox-terrain-dem-v1', tileSize: 512, maxzoom: 14 });
+  map.setTerrain({ source: 'mapbox-dem', exaggeration: 1.5 });
+
+  // Atmosphere
+  map.addLayer({ id: 'sky', type: 'sky', paint: { 'sky-type': 'atmosphere', 'sky-atmosphere-sun': [0, 0], 'sky-atmosphere-sun-intensity': 15 }});
+
+  // ── Three.js custom layer ──
+  const customLayer = {
+    id: 'buildings-3d',
+    type: 'custom',
+    renderingMode: '3d',
+
+    onAdd(map, gl) {
+      this.camera = new THREE.Camera();
+      this.scene = new THREE.Scene();
+
+      // Lighting
+      this.scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+      const sun = new THREE.DirectionalLight(0xffeedd, 0.8);
+      sun.position.set(100, 200, 100);
+      this.scene.add(sun);
+
+      // Create buildings
+      PROJECTS.forEach(proj => {
+        const mc = mapboxgl.MercatorCoordinate.fromLngLat([proj.lng, proj.lat], 0);
+        const scale = mc.meterInMercatorCoordinateUnits();
+        const st = STATUS_CLR[proj.status] || STATUS_CLR.Bidding;
+
+        const group = new THREE.Group();
+        group.position.set(mc.x, mc.y, mc.z);
+
+        const ftToM = 0.3048;
+        const w = proj.width * ftToM * scale;
+        const d = proj.depth * ftToM * scale;
+        const floorH = 3.5 * scale; // 3.5m per floor
+        const totalH = proj.floors * floorH;
+
+        // Main volume — holographic
+        const bodyGeo = new THREE.BoxGeometry(w, totalH, d);
+        const bodyMat = new THREE.MeshPhysicalMaterial({
+          color: new THREE.Color(st.r, st.g, st.b),
+          metalness: 0.3,
+          roughness: 0.1,
+          transparent: true,
+          opacity: proj.status === 'Lost' ? 0.08 : 0.35,
+          emissive: new THREE.Color(st.r, st.g, st.b),
+          emissiveIntensity: proj.status === 'Lost' ? 0.02 : 0.3,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+        });
+        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        body.position.y = totalH / 2;
+        body.rotateX(Math.PI / 2); // Mapbox Y is up in mercator
+        group.add(body);
+
+        // Wireframe
+        const edges = new THREE.LineSegments(
+          new THREE.EdgesGeometry(bodyGeo),
+          new THREE.LineBasicMaterial({ color: new THREE.Color(st.r, st.g, st.b), transparent: true, opacity: proj.status === 'Lost' ? 0.15 : 0.7 })
+        );
+        edges.position.copy(body.position);
+        edges.rotation.copy(body.rotation);
+        group.add(edges);
+
+        // Floor plates
+        for (let f = 0; f <= proj.floors; f++) {
+          const y = f * floorH;
+          const fp = new THREE.LineSegments(
+            new THREE.EdgesGeometry(new THREE.PlaneGeometry(w, d)),
+            new THREE.LineBasicMaterial({ color: new THREE.Color(st.r, st.g, st.b), transparent: true, opacity: 0.3 })
+          );
+          fp.position.y = y;
+          fp.rotateX(Math.PI / 2);
+          // Rotate floor plate to be horizontal
+          fp.rotateY(Math.PI / 2);
+          group.add(fp);
+        }
+
+        // Value beam
+        if (proj.status !== 'Lost') {
+          const beamH = totalH * 2;
+          const beam = new THREE.Mesh(
+            new THREE.CylinderGeometry(w * 0.05, w * 0.2, beamH, 6, 1, true),
+            new THREE.MeshBasicMaterial({ color: new THREE.Color(st.r, st.g, st.b), transparent: true, opacity: 0.06, side: THREE.DoubleSide, depthWrite: false })
+          );
+          beam.position.y = totalH + beamH / 2;
+          beam.rotateX(Math.PI / 2);
+          group.add(beam);
+        }
+
+        // Base ring
+        const ringR = Math.max(w, d) * 0.7;
+        const ring = new THREE.Mesh(
+          new THREE.RingGeometry(ringR, ringR * 1.05, 32),
+          new THREE.MeshBasicMaterial({ color: new THREE.Color(st.r, st.g, st.b), transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false })
+        );
+        ring.rotateX(Math.PI / 2);
+        ring.rotateY(Math.PI / 2);
+        ring.position.y = 0.001;
+        group.add(ring);
+
+        group.scale.set(1, 1, 1);
+        this.scene.add(group);
+        proj._group = group;
+        proj._mc = mc;
+        proj._scale = scale;
+      });
+
+      this.renderer = new THREE.WebGLRenderer({
+        canvas: map.getCanvas(),
+        context: gl,
+        antialias: true,
+      });
+      this.renderer.autoClear = false;
+    },
+
+    render(gl, matrix) {
+      this.camera.projectionMatrix = new THREE.Matrix4().fromArray(matrix);
+      this.renderer.resetState();
+      this.renderer.render(this.scene, this.camera);
+      map.triggerRepaint();
+    },
+  };
+
+  map.addLayer(customLayer);
+});
+</script>
+</body>
+</html>

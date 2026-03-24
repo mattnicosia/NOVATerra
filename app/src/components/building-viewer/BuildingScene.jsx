@@ -2,7 +2,8 @@
 
 import { useRef, useMemo, useState, useCallback, Suspense } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
+import { OrbitControls, Environment, MeshReflectorMaterial } from "@react-three/drei";
+import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import * as THREE from "three";
 import BuildingCubes from "./BuildingCubes";
 import { generateBuildingCubes, computeMetrics } from "@/lib/building-generator";
@@ -83,13 +84,21 @@ function Ground({ buildingSize = 10 }) {
 
   return (
     <group>
-      {/* Main surface — continuous brushed gunmetal, matte to avoid harsh reflections */}
+      {/* Reflective gunmetal surface — buildings reflect in the ground */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, padY, 0]} receiveShadow>
         <planeGeometry args={[500, 500]} />
-        <meshStandardMaterial
-          color="#22252B"
-          metalness={0.15}
-          roughness={0.8}
+        <MeshReflectorMaterial
+          blur={[400, 100]}
+          resolution={1024}
+          mixBlur={1}
+          mixStrength={0.35}
+          roughness={0.75}
+          depthScale={1}
+          minDepthThreshold={0.4}
+          maxDepthThreshold={1.4}
+          color="#1C2028"
+          metalness={0.7}
+          mirror={0.15}
         />
       </mesh>
 
@@ -208,8 +217,21 @@ function SceneContent({ config, onProgress, onComplete, interactive }) {
       {/* Particles — teal/cyan instead of orange, cluster near building */}
       <Particles count={120} />
 
+      {/* HDRI environment — gives glass/metal surfaces real reflections */}
+      <Environment files="/hdri/night_bridge_1k.hdr" background={false} />
+
       {/* Building cubes */}
       <BuildingCubes cubes={cubes} onProgress={onProgress} onComplete={onComplete} />
+
+      {/* Postprocessing — bloom makes emissive materials glow cinematically */}
+      <EffectComposer>
+        <Bloom
+          luminanceThreshold={0.2}
+          luminanceSmoothing={0.9}
+          intensity={1.0}
+          mipmapBlur
+        />
+      </EffectComposer>
     </>
   );
 }

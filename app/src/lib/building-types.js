@@ -28,56 +28,57 @@
  * @property {number} delay - Animation delay in seconds
  */
 
-// ── Glowing glass + dark steel ──
-// Blocks glow from within like backlit glass panels. No HDRI needed.
+// ── Glass + steel with HDRI reflections ──
+// With HDRI environment map, metallic surfaces actually reflect light properly.
+// Glass blocks: moderate metalness for reflections + emissive for inner glow.
 export const BUILDING_COLORS = {
   foundation: '#1A1D22',
-  column:     '#3A3F4A',
-  wall:       '#4A5060',
-  window:     '#00BFFF',
+  column:     '#6A7080',
+  wall:       '#7080A0',
+  window:     '#00CFFF',
   door:       '#00D4AA',
   retail:     '#FF8C00',
-  slab:       '#2A2E36',
-  roof:       '#353A44',
+  slab:       '#3A404A',
+  roof:       '#505868',
   mechanical: '#FF3B3B',
 };
 
 export const CUBE_MATERIALS = {
   foundation: {
-    color: '#2A2E36', metalness: 0.2, roughness: 0.6,
-    emissive: '#181C22', emissiveIntensity: 0.2,
+    color: '#1A1D22', metalness: 0.5, roughness: 0.4,
+    emissive: '#0A0D12', emissiveIntensity: 0.1,
   },
   column: {
-    color: '#4A5058', metalness: 0.25, roughness: 0.5,
-    emissive: '#303540', emissiveIntensity: 0.3,
+    color: '#6A7080', metalness: 0.6, roughness: 0.25,
+    emissive: '#303540', emissiveIntensity: 0.1,
   },
   wall: {
-    color: '#5A6070', metalness: 0.2, roughness: 0.4,
-    emissive: '#3A4555', emissiveIntensity: 0.45,
+    color: '#7080A0', metalness: 0.65, roughness: 0.15,
+    emissive: '#354060', emissiveIntensity: 0.15,
   },
   window: {
-    color: '#00BFFF', metalness: 0.5, roughness: 0.1,
-    emissive: '#00BFFF', emissiveIntensity: 0.7,
+    color: '#00CFFF', metalness: 0.8, roughness: 0.05,
+    emissive: '#00CFFF', emissiveIntensity: 0.6,
   },
   door: {
-    color: '#00D4AA', metalness: 0.4, roughness: 0.2,
-    emissive: '#00D4AA', emissiveIntensity: 0.6,
+    color: '#00D4AA', metalness: 0.7, roughness: 0.1,
+    emissive: '#00D4AA', emissiveIntensity: 0.5,
   },
   retail: {
-    color: '#FF8C00', metalness: 0.4, roughness: 0.2,
-    emissive: '#FF8C00', emissiveIntensity: 0.5,
+    color: '#FF8C00', metalness: 0.65, roughness: 0.12,
+    emissive: '#FF8C00', emissiveIntensity: 0.4,
   },
   slab: {
-    color: '#353A44', metalness: 0.2, roughness: 0.5,
-    emissive: '#1E2230', emissiveIntensity: 0.25,
+    color: '#3A404A', metalness: 0.4, roughness: 0.4,
+    emissive: '#1A1E25', emissiveIntensity: 0.08,
   },
   roof: {
-    color: '#404550', metalness: 0.25, roughness: 0.45,
-    emissive: '#252A35', emissiveIntensity: 0.3,
+    color: '#505868', metalness: 0.5, roughness: 0.3,
+    emissive: '#252A35', emissiveIntensity: 0.1,
   },
   mechanical: {
-    color: '#FF3B3B', metalness: 0.4, roughness: 0.2,
-    emissive: '#FF3B3B', emissiveIntensity: 0.5,
+    color: '#FF3B3B', metalness: 0.6, roughness: 0.15,
+    emissive: '#FF3B3B', emissiveIntensity: 0.4,
   },
 };
 
