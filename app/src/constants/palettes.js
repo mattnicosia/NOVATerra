@@ -676,6 +676,51 @@ export const PALETTES = [
     },
     variants: [null],
   },
+
+  // ━━━ SIGNAL — Gradient depth cards, bold metrics, mixed widget styles ━━━
+  // Inspired by Figma Year Wrapped aesthetic: gradient feature cards,
+  // massive numbers, cyan accents, warm gradients, layered depth.
+  // Not uniform — each widget type gets distinct visual treatment.
+  {
+    id: "signal",
+    name: "Signal",
+    desc: "Bold gradients, depth, color, presence",
+    preview: ["#0C0C10", "#00D4AA", "#1A1A22", "#F0ECE4", "#FF6B9D"],
+    variantLabels: ["Signal"],
+    overrides: {
+      signalMode: true,
+      bg: "#0C0C10",
+      bg1: "#16161E",
+      bg2: "#1E1E28",
+      bg3: "#282834",
+      border: "rgba(255,255,255,0.08)",
+      borderLight: "rgba(255,255,255,0.04)",
+      borderAccent: "rgba(0,212,170,0.2)",
+      text: "#F0ECE4",
+      textMuted: "rgba(240,236,228,0.55)",
+      textDim: "rgba(240,236,228,0.25)",
+      accent: "#00D4AA",
+      accentDim: "#00A888",
+      accentBg: "rgba(0,212,170,0.10)",
+      accentAlt: "#3BDFCF",
+      gradient: "linear-gradient(135deg, #00D4AA, #0891B2)",
+      gradientSubtle: "linear-gradient(135deg, rgba(0,212,170,0.12), rgba(8,145,178,0.12))",
+      gradientText: "linear-gradient(135deg, #00D4AA, #06B6D4)",
+      green: "#00D4AA",
+      red: "#FF4757",
+      blue: "#4DA6FF",
+      purple: "#A855F7",
+      orange: "#FF8C00",
+      cyan: "#06B6D4",
+      yellow: "#FFB020",
+      sidebarBg: "#0A0A0E",
+      bgGradient: "radial-gradient(ellipse at 30% 0%, rgba(0,212,170,0.04) 0%, transparent 50%), radial-gradient(ellipse at 70% 100%, rgba(168,85,247,0.03) 0%, transparent 50%), #0C0C10",
+      forceDark: true,
+      noGlass: true,
+      materialMode: "concrete",
+    },
+    variants: [null],
+  },
 ];
 
 // Car palette IDs for cycling

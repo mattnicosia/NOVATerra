@@ -978,6 +978,180 @@ export function ThemeProvider({ children }) {
     };
   }, [value.commandMode]);
 
+  // ── Signal mode: gradient depth cards, bold metrics, mixed styles ──
+  useEffect(() => {
+    const SIGNAL_STYLE_ID = "signal-theme-styles";
+    if (value.signalMode) {
+      document.documentElement.setAttribute("data-signal", "");
+      const existing = document.getElementById(SIGNAL_STYLE_ID);
+      if (existing) return;
+      const style = document.createElement("style");
+      style.id = SIGNAL_STYLE_ID;
+      style.textContent = `
+        /* ═══ SIGNAL — Gradient Depth Cards ═══ */
+
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+        /* ── Global typography — Inter (clean, modern, NOT generic) ── */
+        html[data-signal] body,
+        html[data-signal] input,
+        html[data-signal] select,
+        html[data-signal] textarea,
+        html[data-signal] button {
+          font-family: 'Inter', -apple-system, sans-serif !important;
+          -webkit-font-smoothing: antialiased;
+        }
+
+        /* ── All widget cards — base style with depth ── */
+        html[data-signal] .widget-card {
+          border-radius: 20px !important;
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
+          border: 1px solid rgba(255,255,255,0.08) !important;
+          box-shadow: 0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05) !important;
+          background: #16161E !important;
+          transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1) !important;
+          overflow: hidden !important;
+        }
+
+        /* ── Hover — lift + glow ── */
+        html[data-signal] .widget-card:hover {
+          transform: translateY(-3px) scale(1.005) !important;
+          box-shadow: 0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08), 0 0 20px rgba(0,212,170,0.06) !important;
+          border-color: rgba(255,255,255,0.12) !important;
+        }
+
+        /* ── Feature card (first/largest) — teal→cyan gradient ── */
+        html[data-signal] .widget-card:nth-child(1) {
+          background: linear-gradient(135deg, #0D3D56 0%, #0A2540 40%, #16161E 100%) !important;
+          border-color: rgba(0,212,170,0.15) !important;
+        }
+
+        /* ── Metrics card — dark with pink/magenta accent numbers ── */
+        html[data-signal] .widget-card:nth-child(2) {
+          background: linear-gradient(180deg, #1A1A24 0%, #12121A 100%) !important;
+          border-color: rgba(168,85,247,0.12) !important;
+        }
+
+        /* ── Third card — warm gradient ── */
+        html[data-signal] .widget-card:nth-child(4) {
+          background: linear-gradient(135deg, #2D1B00 0%, #1A1205 40%, #16161E 100%) !important;
+          border-color: rgba(255,176,32,0.12) !important;
+        }
+
+        /* ── Inbox — subtle orange tint ── */
+        html[data-signal] .widget-card:nth-child(5) {
+          background: linear-gradient(180deg, #1E1614 0%, #16161E 100%) !important;
+          border-color: rgba(255,140,0,0.10) !important;
+        }
+
+        /* ── Right column cards — alternating subtle tints ── */
+        html[data-signal] .widget-card:nth-child(7) {
+          background: linear-gradient(180deg, #1A1625 0%, #16161E 100%) !important;
+          border-color: rgba(168,85,247,0.10) !important;
+        }
+
+        /* ── Large numbers — make them HUGE ── */
+        html[data-signal] .widget-card [style*="fontSize: 2"],
+        html[data-signal] .widget-card [style*="fontSize: 3"],
+        html[data-signal] .widget-card [style*="fontSize: 4"] {
+          font-family: 'Inter', sans-serif !important;
+          font-weight: 800 !important;
+          letter-spacing: -0.03em !important;
+        }
+
+        /* ── Section labels — clean uppercase ── */
+        html[data-signal] .widget-card [style*="letterSpacing"][style*="textTransform"],
+        html[data-signal] .widget-card [style*="letter-spacing"][style*="text-transform"] {
+          font-family: 'Inter', sans-serif !important;
+          font-weight: 600 !important;
+          font-size: 10px !important;
+          letter-spacing: 0.15em !important;
+          color: rgba(240,236,228,0.35) !important;
+        }
+
+        /* ── Progress bars — cyan on dark ── */
+        html[data-signal] .widget-card [style*="background"][style*="height: 4"],
+        html[data-signal] .widget-card [style*="background"][style*="height: 6"],
+        html[data-signal] .widget-card [style*="background"][style*="height:4"],
+        html[data-signal] .widget-card [style*="background"][style*="height:6"] {
+          border-radius: 4px !important;
+        }
+
+        /* ── Nav — clean, minimal ── */
+        html[data-signal] nav a,
+        html[data-signal] [data-interactive] {
+          font-family: 'Inter', sans-serif !important;
+          font-weight: 500 !important;
+          font-size: 12px !important;
+          letter-spacing: 0.02em !important;
+        }
+
+        /* ── Inputs — rounded, modern ── */
+        html[data-signal] input,
+        html[data-signal] select,
+        html[data-signal] textarea {
+          border-radius: 12px !important;
+          border: 1px solid rgba(255,255,255,0.08) !important;
+          background: #12121A !important;
+        }
+        html[data-signal] input:focus,
+        html[data-signal] select:focus,
+        html[data-signal] textarea:focus {
+          border-color: #00D4AA !important;
+          box-shadow: 0 0 0 3px rgba(0,212,170,0.12) !important;
+        }
+
+        /* ── Scrollbar — hidden by default, subtle on hover ── */
+        html[data-signal] ::-webkit-scrollbar { width: 4px; }
+        html[data-signal] ::-webkit-scrollbar-track { background: transparent; }
+        html[data-signal] ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 4px; }
+        html[data-signal] ::-webkit-scrollbar-thumb:hover { background: rgba(0,212,170,0.3); }
+
+        /* ── Staggered entrance — blur + fade + slide ── */
+        @keyframes signalEnter {
+          from { opacity: 0; transform: translateY(16px) scale(0.97); filter: blur(6px); }
+          to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0px); }
+        }
+        html[data-signal] .widget-card {
+          animation: signalEnter 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+        html[data-signal] .widget-card:nth-child(1) { animation-delay: 0.05s; }
+        html[data-signal] .widget-card:nth-child(2) { animation-delay: 0.10s; }
+        html[data-signal] .widget-card:nth-child(3) { animation-delay: 0.15s; }
+        html[data-signal] .widget-card:nth-child(4) { animation-delay: 0.20s; }
+        html[data-signal] .widget-card:nth-child(5) { animation-delay: 0.25s; }
+        html[data-signal] .widget-card:nth-child(6) { animation-delay: 0.30s; }
+        html[data-signal] .widget-card:nth-child(7) { animation-delay: 0.35s; }
+        html[data-signal] .widget-card:nth-child(8) { animation-delay: 0.40s; }
+        html[data-signal] .widget-card:nth-child(9) { animation-delay: 0.45s; }
+        html[data-signal] .widget-card:nth-child(10) { animation-delay: 0.50s; }
+
+        /* ── Subtle ambient glow on body ── */
+        html[data-signal] body::after {
+          content: '';
+          position: fixed;
+          top: -50%;
+          left: -50%;
+          width: 200%;
+          height: 200%;
+          background: radial-gradient(ellipse at 30% 20%, rgba(0,212,170,0.03) 0%, transparent 50%),
+                      radial-gradient(ellipse at 70% 80%, rgba(168,85,247,0.02) 0%, transparent 50%);
+          pointer-events: none;
+          z-index: 0;
+        }
+      `;
+      document.head.appendChild(style);
+    } else {
+      document.documentElement.removeAttribute("data-signal");
+      document.getElementById(SIGNAL_STYLE_ID)?.remove();
+    }
+    return () => {
+      document.documentElement.removeAttribute("data-signal");
+      document.getElementById(SIGNAL_STYLE_ID)?.remove();
+    };
+  }, [value.signalMode]);
+
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
