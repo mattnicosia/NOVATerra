@@ -8,15 +8,15 @@ import BuildingCubes from "./BuildingCubes";
 import { generateBuildingCubes, computeMetrics } from "@/lib/building-generator";
 import { MODULE_SIZE_FT } from "@/lib/building-types";
 
-// ── Floating particles ──
-function Particles({ count = 150 }) {
+// ── Floating particles — teal motes rising near the building ──
+function Particles({ count = 120 }) {
   const meshRef = useRef();
   const positions = useMemo(() => {
     const arr = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
-      arr[i * 3] = (Math.random() - 0.5) * 40;
-      arr[i * 3 + 1] = Math.random() * 30;
-      arr[i * 3 + 2] = (Math.random() - 0.5) * 40;
+      arr[i * 3] = (Math.random() - 0.5) * 25;
+      arr[i * 3 + 1] = Math.random() * 20 - 2;
+      arr[i * 3 + 2] = (Math.random() - 0.5) * 25;
     }
     return arr;
   }, [count]);
@@ -25,8 +25,15 @@ function Particles({ count = 150 }) {
     if (!meshRef.current) return;
     const pos = meshRef.current.geometry.attributes.position;
     for (let i = 0; i < count; i++) {
-      pos.array[i * 3 + 1] += delta * 0.3; // slow rise
-      if (pos.array[i * 3 + 1] > 30) pos.array[i * 3 + 1] = -2;
+      // Slow rise with gentle horizontal drift
+      pos.array[i * 3] += Math.sin(state.clock.elapsedTime + i) * delta * 0.05;
+      pos.array[i * 3 + 1] += delta * 0.2;
+      pos.array[i * 3 + 2] += Math.cos(state.clock.elapsedTime + i * 0.7) * delta * 0.05;
+      if (pos.array[i * 3 + 1] > 22) {
+        pos.array[i * 3 + 1] = -2;
+        pos.array[i * 3] = (Math.random() - 0.5) * 20;
+        pos.array[i * 3 + 2] = (Math.random() - 0.5) * 20;
+      }
     }
     pos.needsUpdate = true;
   });
@@ -41,7 +48,7 @@ function Particles({ count = 150 }) {
           itemSize={3}
         />
       </bufferGeometry>
-      <pointsMaterial color="#e85c30" size={0.04} transparent opacity={0.4} sizeAttenuation />
+      <pointsMaterial color="#00D4AA" size={0.035} transparent opacity={0.3} sizeAttenuation />
     </points>
   );
 }
@@ -70,48 +77,74 @@ function CameraController({ buildingSize }) {
   return null;
 }
 
-// ── Ground plane ──
-function Ground() {
+// ── Continuous brushed gunmetal surface — Epichust factory floor ──
+function Ground({ buildingSize = 10 }) {
+  const padY = -0.6;
+
   return (
     <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.6, 0]} receiveShadow>
-        <planeGeometry args={[100, 100]} />
-        <meshStandardMaterial color="#0a0a0a" metalness={0.1} roughness={0.95} />
+      {/* Main surface — continuous brushed gunmetal, matte to avoid harsh reflections */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, padY, 0]} receiveShadow>
+        <planeGeometry args={[500, 500]} />
+        <meshStandardMaterial
+          color="#22252B"
+          metalness={0.15}
+          roughness={0.8}
+        />
       </mesh>
-      <gridHelper args={[100, 100, "#1a1a1a", "#111111"]} position={[0, -0.59, 0]} />
-    </group>
-  );
-}
 
-// ── Corner accent marks ──
-function CornerMarks() {
-  const size = 20;
-  const len = 1.5;
-  const positions = [
-    [-size, -size], [size, -size], [-size, size], [size, size],
-  ];
-
-  return (
-    <group>
-      {positions.map(([x, z], i) => {
-        const dx = x > 0 ? -1 : 1;
-        const dz = z > 0 ? -1 : 1;
+      {/* Subtle seam lines — like welded steel panels, every 20 units */}
+      {Array.from({ length: 25 }, (_, i) => {
+        const pos = (i - 12) * 20;
         return (
-          <group key={i} position={[x, 0.01, z]}>
-            <mesh rotation={[-Math.PI / 2, 0, 0]}>
-              <planeGeometry args={[len, 0.02]} />
-              <meshBasicMaterial color="#e85c30" transparent opacity={0.5} />
+          <group key={`seam-${i}`}>
+            {/* Horizontal seam */}
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, padY + 0.002, pos]}>
+              <planeGeometry args={[500, 0.02]} />
+              <meshBasicMaterial color="#35393F" transparent opacity={0.25} />
             </mesh>
-            <mesh rotation={[-Math.PI / 2, 0, Math.PI / 2]}>
-              <planeGeometry args={[len, 0.02]} />
-              <meshBasicMaterial color="#e85c30" transparent opacity={0.5} />
+            {/* Vertical seam */}
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[pos, padY + 0.002, 0]}>
+              <planeGeometry args={[0.02, 500]} />
+              <meshBasicMaterial color="#35393F" transparent opacity={0.25} />
             </mesh>
           </group>
         );
       })}
+
+      {/* Building pad — slightly raised, darker than ground, subtle */}
+      <mesh position={[0, padY + 0.04, 0]} receiveShadow castShadow>
+        <boxGeometry args={[buildingSize * 2, 0.08, buildingSize * 2]} />
+        <meshStandardMaterial
+          color="#1E2128"
+          metalness={0.2}
+          roughness={0.75}
+        />
+      </mesh>
+
+      {/* Pad edge glow — thin teal accent line around the building pad */}
+      {(() => {
+        const s = buildingSize;
+        const y = padY + 0.09;
+        return [
+          [0, y, -s, s * 2, 0.015],
+          [0, y, s, s * 2, 0.015],
+          [-s, y, 0, 0.015, s * 2],
+          [s, y, 0, 0.015, s * 2],
+        ].map(([x, py, z, w, d], i) => (
+          <mesh key={`edge-${i}`} rotation={[-Math.PI / 2, 0, 0]} position={[x, py, z]}>
+            <planeGeometry args={[w, d]} />
+            <meshBasicMaterial color="#00D4AA" transparent opacity={0.2} />
+          </mesh>
+        ));
+      })()}
+
+      {/* No rogue point lights — building emissives provide the glow */}
     </group>
   );
 }
+
+// (Platform accents now built into Ground component)
 
 // ── Main scene content ──
 function SceneContent({ config, onProgress, onComplete, interactive }) {
@@ -125,12 +158,14 @@ function SceneContent({ config, onProgress, onComplete, interactive }) {
 
   return (
     <>
-      {/* Lighting */}
-      <ambientLight intensity={0.3} />
+      {/* Lighting — Epichust inspired: warm key + cool fill + teal rim */}
+      <ambientLight intensity={0.5} color="#D8D4D0" />
+
+      {/* Key light — warm, upper-left, casts shadows */}
       <directionalLight
-        position={[15, 20, 10]}
-        intensity={1.2}
-        color="#ffe8d0"
+        position={[18, 25, 12]}
+        intensity={1.0}
+        color="#FFE4CC"
         castShadow
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
@@ -139,14 +174,20 @@ function SceneContent({ config, onProgress, onComplete, interactive }) {
         shadow-camera-right={30}
         shadow-camera-top={30}
         shadow-camera-bottom={-30}
+        shadow-bias={-0.0005}
       />
-      {/* Rim light (orange) */}
-      <directionalLight position={[-10, 5, -10]} intensity={0.4} color="#e85c30" />
-      {/* Fill light (blue) */}
-      <directionalLight position={[5, 3, 15]} intensity={0.2} color="#4a9eff" />
 
-      {/* Fog — subtle, don't hide the ground */}
-      <fogExp2 attach="fog" color="#08080a" density={0.006} />
+      {/* Rim light — subtle teal, only catches edges. NOT a flood light */}
+      <directionalLight position={[-12, 3, -15]} intensity={0.08} color="#00D4AA" />
+
+      {/* Fill light — neutral cool from right side, keeps shadows from going black */}
+      <directionalLight position={[10, 8, 18]} intensity={0.25} color="#B0C4D8" />
+
+      {/* Accent spot — warm on entry side, very subtle */}
+      <pointLight position={[0, 2, -8]} intensity={0.15} color="#FF8C00" distance={15} decay={2} />
+
+      {/* Fog — matches gunmetal surface, fades buildings at distance */}
+      <fogExp2 attach="fog" color="#1E2128" density={0.006} />
 
       {/* Camera */}
       {interactive ? (
@@ -161,12 +202,11 @@ function SceneContent({ config, onProgress, onComplete, interactive }) {
         <CameraController buildingSize={buildingSize} />
       )}
 
-      {/* Ground + grid */}
-      <Ground />
-      <CornerMarks />
+      {/* Ground — brushed steel platform on dark void */}
+      <Ground buildingSize={buildingSize} />
 
-      {/* Particles */}
-      <Particles count={150} />
+      {/* Particles — teal/cyan instead of orange, cluster near building */}
+      <Particles count={120} />
 
       {/* Building cubes */}
       <BuildingCubes cubes={cubes} onProgress={onProgress} onComplete={onComplete} />
@@ -197,7 +237,7 @@ export default function BuildingScene({
         far: 200,
         position: [20, 15, 20],
       }}
-      style={{ background: "#08080a", ...style }}
+      style={{ background: "#1E2128", ...style }}
     >
       <Suspense fallback={null}>
         <SceneContent

@@ -28,28 +28,57 @@
  * @property {number} delay - Animation delay in seconds
  */
 
+// ── Glowing glass + dark steel ──
+// Blocks glow from within like backlit glass panels. No HDRI needed.
 export const BUILDING_COLORS = {
-  foundation: '#1e1e1e',
-  column: '#d4ccc0',
-  wall: '#b0a898',
-  window: '#4a9eff',
-  door: '#e85c30',
-  retail: '#ffb840',
-  slab: '#706860',
-  roof: '#e85c30',
-  mechanical: '#555050',
+  foundation: '#1A1D22',
+  column:     '#3A3F4A',
+  wall:       '#4A5060',
+  window:     '#00BFFF',
+  door:       '#00D4AA',
+  retail:     '#FF8C00',
+  slab:       '#2A2E36',
+  roof:       '#353A44',
+  mechanical: '#FF3B3B',
 };
 
 export const CUBE_MATERIALS = {
-  foundation: { color: '#1e1e1e', metalness: 0.1, roughness: 0.9, emissive: '#000000', emissiveIntensity: 0 },
-  column:     { color: '#d4ccc0', metalness: 0.15, roughness: 0.7, emissive: '#000000', emissiveIntensity: 0 },
-  wall:       { color: '#b0a898', metalness: 0.05, roughness: 0.85, emissive: '#000000', emissiveIntensity: 0 },
-  window:     { color: '#4a9eff', metalness: 0.85, roughness: 0.05, emissive: '#4a9eff', emissiveIntensity: 0.3 },
-  door:       { color: '#e85c30', metalness: 0.3, roughness: 0.4, emissive: '#e85c30', emissiveIntensity: 0.2 },
-  retail:     { color: '#ffb840', metalness: 0.4, roughness: 0.3, emissive: '#ffb840', emissiveIntensity: 0.25 },
-  slab:       { color: '#706860', metalness: 0.05, roughness: 0.9, emissive: '#000000', emissiveIntensity: 0 },
-  roof:       { color: '#e85c30', metalness: 0.2, roughness: 0.6, emissive: '#e85c30', emissiveIntensity: 0.1 },
-  mechanical: { color: '#555050', metalness: 0.3, roughness: 0.7, emissive: '#000000', emissiveIntensity: 0 },
+  foundation: {
+    color: '#2A2E36', metalness: 0.2, roughness: 0.6,
+    emissive: '#181C22', emissiveIntensity: 0.2,
+  },
+  column: {
+    color: '#4A5058', metalness: 0.25, roughness: 0.5,
+    emissive: '#303540', emissiveIntensity: 0.3,
+  },
+  wall: {
+    color: '#5A6070', metalness: 0.2, roughness: 0.4,
+    emissive: '#3A4555', emissiveIntensity: 0.45,
+  },
+  window: {
+    color: '#00BFFF', metalness: 0.5, roughness: 0.1,
+    emissive: '#00BFFF', emissiveIntensity: 0.7,
+  },
+  door: {
+    color: '#00D4AA', metalness: 0.4, roughness: 0.2,
+    emissive: '#00D4AA', emissiveIntensity: 0.6,
+  },
+  retail: {
+    color: '#FF8C00', metalness: 0.4, roughness: 0.2,
+    emissive: '#FF8C00', emissiveIntensity: 0.5,
+  },
+  slab: {
+    color: '#353A44', metalness: 0.2, roughness: 0.5,
+    emissive: '#1E2230', emissiveIntensity: 0.25,
+  },
+  roof: {
+    color: '#404550', metalness: 0.25, roughness: 0.45,
+    emissive: '#252A35', emissiveIntensity: 0.3,
+  },
+  mechanical: {
+    color: '#FF3B3B', metalness: 0.4, roughness: 0.2,
+    emissive: '#FF3B3B', emissiveIntensity: 0.5,
+  },
 };
 
 export const MODULE_SIZE_FT = 5; // 1 cube = 5ft module

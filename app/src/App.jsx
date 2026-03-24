@@ -58,6 +58,7 @@ const FeedbackWidget = lazy(() => import("@/components/beta/FeedbackWidget"));
 // ── Spatial interface — completely separate UI tree ──
 const SpatialShell = lazy(() => import("@/pages/spatial/SpatialShell"));
 const BuildingViewer = lazy(() => import("@/components/building-viewer/index"));
+const CommandTable = lazy(() => import("@/components/building-viewer/CommandTable"));
 
 // ── Lazy-loaded pages — each becomes its own chunk, loaded on navigation ──
 const DashboardPage = lazy(() => import("@/pages/NovaDashboardPage"));
@@ -902,6 +903,7 @@ function AppContent() {
                 <Route path="/spatial" element={<SpatialShell />} />
                 <Route path="/spatial/*" element={<SpatialShell />} />
                 <Route path="/building" element={<Suspense fallback={<div style={{background:"#08080a",width:"100vw",height:"100vh"}} />}><BuildingViewer style={{width:"100vw",height:"100vh"}} /></Suspense>} />
+                <Route path="/command" element={<Suspense fallback={<div style={{background:"#141720",width:"100vw",height:"100vh"}} />}><CommandTable style={{width:"100vw",height:"100vh"}} /></Suspense>} />
 
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
