@@ -624,11 +624,11 @@ function NovaHeader({ onDraftPanelToggle }) {
       }}
     >
       {/* Left — NOVATerra wordmark */}
-      <div style={{ display: "flex", alignItems: "center", minWidth: 220, paddingLeft: 24 }}>
+      <div style={{ display: "flex", alignItems: "center", minWidth: 220, paddingLeft: 8 }}>
         <img
           src="/novaterra-wordmark.png"
           alt="NOVATerra"
-          style={{ height: 22, width: "auto", opacity: 0.9, userSelect: "none" }}
+          style={{ height: 66, width: "auto", opacity: 0.9, userSelect: "none" }}
           draggable={false}
         />
       </div>

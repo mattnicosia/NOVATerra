@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useProjectStore } from "@/stores/projectStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
+import AddressAutocomplete from "@/components/shared/AddressAutocomplete";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useUiStore } from "@/stores/uiStore";
 import { useOrgStore, selectIsManager } from "@/stores/orgStore";
@@ -949,7 +950,19 @@ export default function ProjectInfoPage() {
               </div>
             </Fld>
             <Fld label="Address">
-              <input value={project.address} onChange={e => up("address", e.target.value)} style={inp(C)} />
+              <AddressAutocomplete
+                value={project.address || ""}
+                onChange={v => up("address", v)}
+                onGeocode={geo => {
+                  up("address", geo.address);
+                  up("city", geo.city);
+                  up("state", geo.state);
+                  up("zipCode", geo.zip);
+                  up("latitude", geo.lat);
+                  up("longitude", geo.lng);
+                }}
+                style={inp(C)}
+              />
               {autoTag("address")}
             </Fld>
             <Fld label="Work Type">
