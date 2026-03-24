@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>NOVATerra — Map Style Comparison</title>
+<link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet">
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0a0a; font-family: 'Courier New', monospace; overflow-y: auto; }
+  h1 { color: #00D4AA; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; text-align: center; padding: 20px 0 4px; }
+  h1 span { display: block; color: #fff; font-size: 24px; letter-spacing: 0; margin-top: 4px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 16px; max-width: 1600px; margin: 0 auto; }
+  .cell { position: relative; height: 45vh; border: 1px solid rgba(255,255,255,0.08); }
+  .cell .label { position: absolute; top: 8px; left: 8px; z-index: 5; background: rgba(0,0,0,0.75); color: #fff; font-size: 11px; padding: 4px 10px; letter-spacing: 0.06em; text-transform: uppercase; backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.1); }
+  .cell .label small { display: block; color: #00D4AA; font-size: 9px; margin-top: 2px; }
+  .map { width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+
+<h1>NOVATERRA <span>Map Style Comparison</span></h1>
+
+<div class="grid">
+  <div class="cell">
+    <div class="label">1. Satellite Streets<small>mapbox/satellite-streets-v12</small></div>
+    <div id="map1" class="map"></div>
+  </div>
+  <div class="cell">
+    <div class="label">2. Dark<small>mapbox/dark-v11</small></div>
+    <div id="map2" class="map"></div>
+  </div>
+  <div class="cell">
+    <div class="label">3. Navigation Night<small>mapbox/navigation-night-v1</small></div>
+    <div id="map3" class="map"></div>
+  </div>
+  <div class="cell">
+    <div class="label">4. Pure Satellite (No Labels)<small>mapbox/satellite-v9</small></div>
+    <div id="map4" class="map"></div>
+  </div>
+  <div class="cell">
+    <div class="label">5. Light<small>mapbox/light-v11</small></div>
+    <div id="map5" class="map"></div>
+  </div>
+  <div class="cell">
+    <div class="label">6. Standard (3D Buildings)<small>mapbox/standard</small></div>
+    <div id="map6" class="map"></div>
+  </div>
+</div>
+
+<script>
+mapboxgl.accessToken = 'pk.eyJ1IjoibWF0dG5pY29zaWEiLCJhIjoiY21uNDJsM2NnMWthZjJ0cTJkdWZmeWplMiJ9.lEoeGN-_aDlAD_a7mOgy5g';
+
+const configs = [
+  { id: 'map1', style: 'mapbox://styles/mapbox/satellite-streets-v12' },
+  { id: 'map2', style: 'mapbox://styles/mapbox/dark-v11' },
+  { id: 'map3', style: 'mapbox://styles/mapbox/navigation-night-v1' },
+  { id: 'map4', style: 'mapbox://styles/mapbox/satellite-v9' },
+  { id: 'map5', style: 'mapbox://styles/mapbox/light-v11' },
+  { id: 'map6', style: 'mapbox://styles/mapbox/standard' },
+];
+
+const center = [-74.00, 41.10];
+const zoom = 9;
+const pitch = 45;
+const bearing = -10;
+
+const projects = [
+  { name: "36 Old School House Rd", lng: -74.058, lat: 41.188, value: "$420K", status: "Bidding" },
+  { name: "28 Liberty St", lng: -74.006, lat: 40.708, value: "$1.2M", status: "Won" },
+  { name: "Popup Bagel Aventura", lng: -80.139, lat: 25.960, value: "$180K", status: "Bidding" },
+  { name: "Spark Newburgh", lng: -74.010, lat: 41.503, value: "$850K", status: "Pending" },
+  { name: "PWYC Clubhouse", lng: -74.040, lat: 41.280, value: "$320K", status: "Won" },
+  { name: "Wolkoff Office", lng: -73.970, lat: 40.720, value: "$95K", status: "Lost" },
+];
+
+const maps = {};
+let syncing = false;
+
+configs.forEach(({ id, style }) => {
+  const map = new mapboxgl.Map({
+    container: id,
+    style,
+    center,
+    zoom,
+    pitch,
+    bearing,
+    interactive: true,
+    attributionControl: false,
+  });
+
+  maps[id] = map;
+
+  map.on('style.load', () => {
+    // Add 3D terrain
+    try {
+      if (!map.getSource('mapbox-dem')) {
+        map.addSource('mapbox-dem', {
+          type: 'raster-dem',
+          url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
+          tileSize: 512,
+        });
+        map.setTerrain({ source: 'mapbox-dem', exaggeration: 1.5 });
+      }
+    } catch (e) { console.log(id, 'terrain error:', e.message); }
+
+    // Add sky
+    try {
+      if (!map.getLayer('sky')) {
+        map.addLayer({
+          id: 'sky',
+          type: 'sky',
+          paint: {
+            'sky-type': 'atmosphere',
+            'sky-atmosphere-sun': [0.0, 90.0],
+            'sky-atmosphere-sun-intensity': 15,
+          },
+        });
+      }
+    } catch (e) { console.log(id, 'sky error:', e.message); }
+  });
+
+  // Add project markers
+  map.on('load', () => {
+    projects.forEach(p => {
+      const el = document.createElement('div');
+      const color = p.status === 'Won' ? '#00D4AA' : p.status === 'Lost' ? '#FF4757' : p.status === 'Pending' ? '#FFB020' : '#4DA6FF';
+      el.style.cssText = `width:14px;height:14px;background:${color};border-radius:50%;border:2px solid #fff;box-shadow:0 0 12px ${color},0 0 24px ${color}44;cursor:pointer;`;
+
+      const popup = new mapboxgl.Popup({ offset: 14, closeButton: false })
+        .setHTML(`<div style="font-family:monospace;font-size:11px;color:#333;padding:2px;"><b>${p.name}</b><br>${p.value} · ${p.status}</div>`);
+
+      new mapboxgl.Marker({ element: el })
+        .setLngLat([p.lng, p.lat])
+        .setPopup(popup)
+        .addTo(map);
+    });
+  });
+
+  // Sync maps on move
+  map.on('moveend', () => {
+    if (syncing) return;
+    syncing = true;
+    const c = map.getCenter();
+    const z = map.getZoom();
+    const p = map.getPitch();
+    const b = map.getBearing();
+    configs.forEach(({ id: otherId }) => {
+      if (otherId === id && maps[otherId]) return;
+      try {
+        maps[otherId]?.jumpTo({ center: c, zoom: z, pitch: p, bearing: b });
+      } catch (e) {}
+    });
+    setTimeout(() => { syncing = false; }, 100);
+  });
+});
+</script>
+</body>
+</html>

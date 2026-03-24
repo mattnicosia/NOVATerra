@@ -1,0 +1,291 @@
+import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
+import { useTheme } from "@/hooks/useTheme";
+import { useDashboardData } from "@/hooks/useDashboardData";
+import { useNavigate } from "react-router-dom";
+
+/* ────────────────────────────────────────────────────────
+   MapRadarWidget — Mapbox dark map with radar ping markers
+   Expandable: widget size ↔ fullscreen
+   ──────────────────────────────────────────────────────── */
+
+const MAPBOX_TOKEN = "pk.eyJ1IjoibWF0dG5pY29zaWEiLCJhIjoiY21uNDJsM2NnMWthZjJ0cTJkdWZmeWplMiJ9.lEoeGN-_aDlAD_a7mOgy5g";
+const MAPBOX_CSS = "https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css";
+const MAPBOX_JS = "https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js";
+
+const STATUS_COLORS = {
+  Qualifying: "#FFB020",
+  Bidding: "#00BFFF",
+  Submitted: "#4DA6FF",
+  Won: "#00D4AA",
+  Lost: "#333",
+  "On Hold": "#FFB020",
+  Draft: "#555",
+  Cancelled: "#333",
+  Trash: "#222",
+};
+
+const STATUS_SPEED = {
+  Qualifying: "2.5s",
+  Bidding: "2s",
+  Submitted: "1.5s",
+  Won: "3.5s",
+  Lost: "5s",
+  "On Hold": "4s",
+  Draft: "4s",
+};
+
+// Geocode cache — hardcoded known locations + dynamic lookup
+const KNOWN_LOCATIONS = {
+  "36 old school house": [-74.0589, 41.1847],
+  "28 liberty": [-74.0071, 40.7074],
+  "popup bagel": [-80.1392, 25.9565],
+  "mk showroom": [-74.006, 40.7128],
+  "starbucks": [-74.1724, 40.7357],
+  "pwyc": [-73.9857, 41.239],
+  "spark newburgh": [-74.0104, 41.5034],
+  "mainbridge": [-74.0241, 41.112],
+  "wolkoff": [-73.9442, 40.7295],
+  "welcome homes": [-73.89, 41.298],
+  "andes away": [-74.006, 40.7128],
+};
+
+function guessLocation(name) {
+  const lower = (name || "").toLowerCase();
+  for (const [key, coords] of Object.entries(KNOWN_LOCATIONS)) {
+    if (lower.includes(key)) return coords;
+  }
+  // Default: scatter around NYC metro with some randomness
+  const hash = lower.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+  return [-74.0 + (hash % 50) * 0.008 - 0.2, 40.7 + (hash % 30) * 0.01 - 0.15];
+}
+
+// Expand icon
+const ExpandIcon = ({ color }) => (
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke={color} strokeWidth="1.3" strokeLinecap="round">
+    <path d="M1 5V1h4M13 5V1H9M1 9v4h4M13 9v4H9" />
+  </svg>
+);
+
+const CollapseIcon = ({ color }) => (
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke={color} strokeWidth="1.3" strokeLinecap="round">
+    <path d="M5 1v4H1M9 1v4h4M5 13V9H1M9 13V9h4" />
+  </svg>
+);
+
+export default function MapRadarWidget() {
+  const C = useTheme();
+  const T = C.T;
+  const dk = C.isDark;
+  const navigate = useNavigate();
+  const { estimates } = useDashboardData();
+
+  const [expanded, setExpanded] = useState(false);
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const [scriptLoaded, setScriptLoaded] = useState(!!window.mapboxgl);
+  const mapContainerRef = useRef(null);
+  const mapRef = useRef(null);
+  const markersRef = useRef([]);
+
+  // Load Mapbox script
+  useEffect(() => {
+    if (window.mapboxgl) { setScriptLoaded(true); return; }
+    // Load CSS
+    if (!document.querySelector(`link[href="${MAPBOX_CSS}"]`)) {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = MAPBOX_CSS;
+      document.head.appendChild(link);
+    }
+    // Load JS
+    const script = document.createElement("script");
+    script.src = MAPBOX_JS;
+    script.onload = () => setScriptLoaded(true);
+    document.head.appendChild(script);
+  }, []);
+
+  // Initialize map
+  useEffect(() => {
+    if (!scriptLoaded || !mapContainerRef.current || mapRef.current) return;
+    window.mapboxgl.accessToken = MAPBOX_TOKEN;
+    const map = new window.mapboxgl.Map({
+      container: mapContainerRef.current,
+      style: "mapbox://styles/mapbox/dark-v11",
+      center: [-74.0, 40.95],
+      zoom: 8,
+      pitch: 40,
+      bearing: -10,
+      antialias: true,
+      attributionControl: false,
+    });
+    map.addControl(new window.mapboxgl.NavigationControl({ showCompass: false }), "bottom-right");
+    map.on("style.load", () => setMapLoaded(true));
+    mapRef.current = map;
+    return () => { map.remove(); mapRef.current = null; };
+  }, [scriptLoaded]);
+
+  // Resize map when expanded/collapsed
+  useEffect(() => {
+    if (mapRef.current) {
+      setTimeout(() => mapRef.current.resize(), 100);
+    }
+  }, [expanded]);
+
+  // Render project markers
+  useEffect(() => {
+    if (!mapLoaded || !mapRef.current) return;
+    // Clear old markers
+    markersRef.current.forEach(m => m.remove());
+    markersRef.current = [];
+
+    const items = estimates || [];
+    items.forEach(est => {
+      const name = est.name || est.projectName || "Untitled";
+      const status = est.status || "Draft";
+      const value = est.grandTotal || est.value || 0;
+      const color = STATUS_COLORS[status] || "#555";
+      const speed = STATUS_SPEED[status] || "3s";
+      const [lng, lat] = guessLocation(name);
+
+      // Create radar ping element
+      const el = document.createElement("div");
+      const sz = Math.max(40, Math.min(80, 40 + (value / 500000) * 30));
+      el.innerHTML = `
+        <div style="position:relative;width:${sz}px;height:${sz}px;cursor:pointer;" title="${name}\n${status} · ${value ? "$" + (value / 1000).toFixed(0) + "K" : "No value"}">
+          <div style="position:absolute;inset:0;border-radius:50%;border:1px solid ${color};opacity:0;
+            animation:mrp ${speed} ease-out infinite;"></div>
+          <div style="position:absolute;inset:12%;border-radius:50%;border:1px solid ${color};opacity:0;
+            animation:mrp ${speed} ease-out infinite 0.25s;"></div>
+          <div style="position:absolute;inset:24%;border-radius:50%;border:1px solid ${color};opacity:0;
+            animation:mrp ${speed} ease-out infinite 0.5s;"></div>
+          <div style="position:absolute;left:50%;top:50%;width:5px;height:5px;margin:-2.5px;border-radius:50%;
+            background:${color};box-shadow:0 0 6px ${color},0 0 12px ${color}40;"></div>
+        </div>
+      `;
+
+      el.onclick = () => {
+        mapRef.current.flyTo({ center: [lng, lat], zoom: 14, pitch: 55, duration: 1500 });
+      };
+
+      const marker = new window.mapboxgl.Marker({ element: el, anchor: "center" })
+        .setLngLat([lng, lat])
+        .addTo(mapRef.current);
+      markersRef.current.push(marker);
+    });
+  }, [mapLoaded, estimates]);
+
+  // Inject radar animation CSS
+  useEffect(() => {
+    if (document.getElementById("map-radar-css")) return;
+    const style = document.createElement("style");
+    style.id = "map-radar-css";
+    style.textContent = `@keyframes mrp{0%{transform:scale(0.3);opacity:0.7}100%{transform:scale(1.1);opacity:0}}`;
+    document.head.appendChild(style);
+  }, []);
+
+  const toggleExpand = useCallback(() => setExpanded(e => !e), []);
+
+  // ESC to collapse
+  useEffect(() => {
+    if (!expanded) return;
+    const handler = e => { if (e.key === "Escape") setExpanded(false); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [expanded]);
+
+  const mapContent = (
+    <div
+      style={{
+        position: expanded ? "fixed" : "relative",
+        inset: expanded ? 0 : undefined,
+        width: expanded ? "100vw" : "100%",
+        height: expanded ? "100vh" : "100%",
+        zIndex: expanded ? 9999 : 1,
+        background: "#0a0c14",
+        borderRadius: expanded ? 0 : T?.radius?.lg || 6,
+        overflow: "hidden",
+      }}
+    >
+      {/* Map container */}
+      <div ref={mapContainerRef} style={{ width: "100%", height: "100%" }} />
+
+      {/* Expand/Collapse button */}
+      <button
+        onClick={toggleExpand}
+        style={{
+          position: "absolute",
+          top: expanded ? 16 : 8,
+          right: expanded ? 16 : 8,
+          zIndex: 10,
+          background: "rgba(10,12,20,0.85)",
+          border: `1px solid rgba(255,255,255,0.1)`,
+          borderRadius: 3,
+          padding: "6px 8px",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          backdropFilter: "blur(8px)",
+        }}
+      >
+        {expanded ? <CollapseIcon color="#999" /> : <ExpandIcon color="#999" />}
+        <span style={{ color: "#999", fontSize: 10, fontFamily: "'Barlow Condensed', sans-serif",
+          textTransform: "uppercase", letterSpacing: "0.08em" }}>
+          {expanded ? "Collapse" : "Expand"}
+        </span>
+      </button>
+
+      {/* HUD overlay when expanded */}
+      {expanded && (
+        <>
+          <div style={{ position: "absolute", top: 16, left: 16, zIndex: 10 }}>
+            <div style={{ color: C.accent || "#00D4AA", fontSize: 10, fontFamily: "'Barlow Condensed', sans-serif",
+              textTransform: "uppercase", letterSpacing: "0.15em" }}>NOVATERRA</div>
+            <div style={{ color: "#e0ddd5", fontSize: 20, fontWeight: 600,
+              fontFamily: "'Barlow Condensed', sans-serif" }}>Pipeline Map</div>
+          </div>
+          <div style={{ position: "absolute", top: 16, right: 80, zIndex: 10, textAlign: "right" }}>
+            <div style={{ color: "#555", fontSize: 9, fontFamily: "'Barlow Condensed', sans-serif",
+              textTransform: "uppercase", letterSpacing: "0.12em" }}>Projects</div>
+            <div style={{ color: C.accent || "#00D4AA", fontSize: 24, fontWeight: 700,
+              fontFamily: "'Barlow Condensed', sans-serif" }}>{(estimates || []).length}</div>
+          </div>
+          {/* Legend */}
+          <div style={{
+            position: "absolute", bottom: 16, left: 16, zIndex: 10,
+            background: "rgba(10,12,20,0.9)", padding: "10px 14px", borderRadius: 3,
+            border: "1px solid rgba(255,255,255,0.06)", backdropFilter: "blur(12px)",
+          }}>
+            <div style={{ color: "#555", fontSize: 9, fontFamily: "'Barlow Condensed', sans-serif",
+              textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 6 }}>Status</div>
+            {Object.entries(STATUS_COLORS).filter(([k]) => !["Draft","Cancelled","Trash"].includes(k)).map(([k, c]) => (
+              <div key={k} style={{ display: "flex", alignItems: "center", gap: 8, margin: "3px 0", color: "#999", fontSize: 11 }}>
+                <div style={{ width: 7, height: 7, borderRadius: "50%", background: c, flexShrink: 0 }} />
+                {k}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Mini label when NOT expanded */}
+      {!expanded && (
+        <div style={{
+          position: "absolute", bottom: 8, left: 10, zIndex: 10,
+          color: C.accent || "#00D4AA", fontSize: 9,
+          fontFamily: "'Barlow Condensed', sans-serif",
+          textTransform: "uppercase", letterSpacing: "0.12em", opacity: 0.7,
+        }}>
+          PIPELINE MAP · {(estimates || []).length} PROJECTS
+        </div>
+      )}
+    </div>
+  );
+
+  // When expanded, portal to body so it's above everything
+  if (expanded) {
+    return createPortal(mapContent, document.body);
+  }
+
+  return mapContent;
+}

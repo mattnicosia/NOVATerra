@@ -190,6 +190,18 @@ export const WIDGET_REGISTRY = {
     category: "sustainability",
     singleton: true,
   },
+  "map-radar": {
+    label: "Pipeline Map",
+    description: "Radar map showing all projects on dark satellite view — expandable to fullscreen",
+    defaultW: 6,
+    defaultH: 6,
+    minW: 3,
+    minH: 4,
+    maxW: 12,
+    maxH: 16,
+    category: "core",
+    singleton: true,
+  },
 };
 
 export const WIDGET_CATEGORIES = {

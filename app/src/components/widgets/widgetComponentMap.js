@@ -20,4 +20,5 @@ export const WIDGET_COMPONENTS = {
   "deadline-countdown": lazy(() => import("./DeadlineCountdownWidget")),
   "carbon-breakdown": lazy(() => import("./CarbonBreakdownWidget")),
   "carbon-benchmark": lazy(() => import("./CarbonBenchmarkWidget")),
+  "map-radar": lazy(() => import("./MapRadarWidget")),
 };
