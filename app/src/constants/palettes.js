@@ -631,6 +631,51 @@ export const PALETTES = [
       },
     ],
   },
+
+  // ━━━ COMMAND — Epichust-inspired dark steel command center ━━━
+  // Dark steel surfaces, teal accent, colored widget accent lines,
+  // Barlow Condensed typography, staggered entrance animations.
+  // Data-forward industrial aesthetic. No glass. No blur. Pure signal.
+  {
+    id: "command",
+    name: "Command",
+    desc: "Dark steel command center — teal, precision, signal",
+    preview: ["#12141A", "#00D4AA", "#1A1D25", "#E0DDD5", "#FF8C00"],
+    variantLabels: ["Command"],
+    overrides: {
+      commandMode: true,
+      bg: "#12141A",
+      bg1: "#1A1D25",
+      bg2: "#22262F",
+      bg3: "#2A2F3A",
+      border: "rgba(255,255,255,0.06)",
+      borderLight: "rgba(255,255,255,0.03)",
+      borderAccent: "rgba(0,212,170,0.15)",
+      text: "#E0DDD5",
+      textMuted: "rgba(224,221,213,0.50)",
+      textDim: "rgba(224,221,213,0.25)",
+      accent: "#00D4AA",
+      accentDim: "#00A888",
+      accentBg: "rgba(0,212,170,0.08)",
+      accentAlt: "#3BDFCF",
+      gradient: "linear-gradient(135deg, #00D4AA, #00A888)",
+      gradientSubtle: "linear-gradient(135deg, rgba(0,212,170,0.10), rgba(0,168,136,0.10))",
+      gradientText: "linear-gradient(135deg, #00D4AA, #3BDFCF)",
+      green: "#00D4AA",
+      red: "#FF4757",
+      blue: "#4DA6FF",
+      purple: "#A855F7",
+      orange: "#FF8C00",
+      cyan: "#00BCD4",
+      yellow: "#FFB020",
+      sidebarBg: "#0E1016",
+      bgGradient: "linear-gradient(180deg, #12141A 0%, #0E1016 100%)",
+      forceDark: true,
+      noGlass: true,
+      materialMode: "concrete",
+    },
+    variants: [null],
+  },
 ];
 
 // Car palette IDs for cycling

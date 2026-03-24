@@ -845,6 +845,139 @@ export function ThemeProvider({ children }) {
     };
   }, [value.auroraMode, value.bg1]);
 
+  // ── Command mode: Epichust-inspired dark steel command center ──
+  useEffect(() => {
+    const COMMAND_STYLE_ID = "command-theme-styles";
+    if (value.commandMode) {
+      document.documentElement.setAttribute("data-command", "");
+      const existing = document.getElementById(COMMAND_STYLE_ID);
+      if (existing) return;
+      const style = document.createElement("style");
+      style.id = COMMAND_STYLE_ID;
+      style.textContent = `
+        /* ═══ COMMAND — Dark Steel Command Center ═══ */
+
+        @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=Barlow:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+        /* ── Global typography ── */
+        html[data-command] body,
+        html[data-command] input,
+        html[data-command] select,
+        html[data-command] textarea,
+        html[data-command] button {
+          font-family: 'Barlow', -apple-system, sans-serif !important;
+        }
+
+        /* ── Section headers — Barlow Condensed, accent-colored ── */
+        html[data-command] .widget-card [style*="letterSpacing"],
+        html[data-command] .widget-card [style*="textTransform"] {
+          font-family: 'Barlow Condensed', 'Barlow', sans-serif !important;
+          color: rgba(0,212,170,0.6) !important;
+          font-weight: 600 !important;
+          font-size: 10px !important;
+          letter-spacing: 0.12em !important;
+        }
+
+        /* ── Numbers and metrics — IBM Plex Mono ── */
+        html[data-command] .widget-card [style*="fontSize: 2"],
+        html[data-command] .widget-card [style*="fontSize: 3"],
+        html[data-command] .widget-card [style*="fontWeight: 700"],
+        html[data-command] .widget-card [style*="fontWeight: 800"] {
+          font-family: 'IBM Plex Mono', monospace !important;
+          font-variant-numeric: tabular-nums !important;
+        }
+
+        /* ── Widget cards — sharp, accent-topped ── */
+        html[data-command] .widget-card {
+          border-radius: 4px !important;
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
+          box-shadow: none !important;
+          background: #1A1D25 !important;
+          border: 1px solid rgba(255,255,255,0.06) !important;
+          border-top: 2px solid #00D4AA !important;
+          transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1) !important;
+        }
+
+        /* ── Category accent lines ── */
+        html[data-command] .widget-card:nth-child(6n+1) { border-top-color: #00D4AA !important; }
+        html[data-command] .widget-card:nth-child(6n+2) { border-top-color: #4DA6FF !important; }
+        html[data-command] .widget-card:nth-child(6n+3) { border-top-color: #FF8C00 !important; }
+        html[data-command] .widget-card:nth-child(6n+4) { border-top-color: #A855F7 !important; }
+        html[data-command] .widget-card:nth-child(6n+5) { border-top-color: #FFB020 !important; }
+        html[data-command] .widget-card:nth-child(6n+6) { border-top-color: #00BCD4 !important; }
+
+        /* ── Hover — physical lift ── */
+        html[data-command] .widget-card:hover {
+          transform: translateY(-2px) !important;
+          border-color: rgba(255,255,255,0.12) !important;
+          border-top-width: 2px !important;
+        }
+
+        /* ── Staggered entrance animation ── */
+        @keyframes commandEnter {
+          from { opacity: 0; transform: translateY(12px); filter: blur(3px); }
+          to { opacity: 1; transform: translateY(0); filter: blur(0px); }
+        }
+        html[data-command] .widget-card {
+          animation: commandEnter 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+        html[data-command] .widget-card:nth-child(1) { animation-delay: 0.04s; }
+        html[data-command] .widget-card:nth-child(2) { animation-delay: 0.08s; }
+        html[data-command] .widget-card:nth-child(3) { animation-delay: 0.12s; }
+        html[data-command] .widget-card:nth-child(4) { animation-delay: 0.16s; }
+        html[data-command] .widget-card:nth-child(5) { animation-delay: 0.20s; }
+        html[data-command] .widget-card:nth-child(6) { animation-delay: 0.24s; }
+        html[data-command] .widget-card:nth-child(7) { animation-delay: 0.28s; }
+        html[data-command] .widget-card:nth-child(8) { animation-delay: 0.32s; }
+        html[data-command] .widget-card:nth-child(9) { animation-delay: 0.36s; }
+        html[data-command] .widget-card:nth-child(10) { animation-delay: 0.40s; }
+
+        /* ── Nav bar — condensed industrial ── */
+        html[data-command] nav a,
+        html[data-command] [data-interactive] {
+          font-family: 'Barlow Condensed', sans-serif !important;
+          font-weight: 600 !important;
+          text-transform: uppercase !important;
+          letter-spacing: 0.08em !important;
+        }
+
+        /* ── Inputs — sharp, precise ── */
+        html[data-command] input,
+        html[data-command] select,
+        html[data-command] textarea {
+          border-radius: 2px !important;
+        }
+        html[data-command] input:focus,
+        html[data-command] select:focus,
+        html[data-command] textarea:focus {
+          border-color: #00D4AA !important;
+          box-shadow: 0 0 0 2px rgba(0,212,170,0.12) !important;
+        }
+
+        /* ── Scrollbar — minimal ── */
+        html[data-command] ::-webkit-scrollbar { width: 5px; }
+        html[data-command] ::-webkit-scrollbar-track { background: transparent; }
+        html[data-command] ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+        html[data-command] ::-webkit-scrollbar-thumb:hover { background: #00D4AA; }
+
+        /* ── Status badge colors ── */
+        html[data-command] [style*="background"][style*="rgb(16, 185, 129)"],
+        html[data-command] [style*="background-color"][style*="#10B981"] {
+          background: #00D4AA !important;
+        }
+      `;
+      document.head.appendChild(style);
+    } else {
+      document.documentElement.removeAttribute("data-command");
+      document.getElementById(COMMAND_STYLE_ID)?.remove();
+    }
+    return () => {
+      document.documentElement.removeAttribute("data-command");
+      document.getElementById(COMMAND_STYLE_ID)?.remove();
+    };
+  }, [value.commandMode]);
+
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 

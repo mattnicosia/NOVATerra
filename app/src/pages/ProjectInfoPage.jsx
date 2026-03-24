@@ -564,26 +564,7 @@ export default function ProjectInfoPage() {
               />
               {autoTag("projectSF")}
             </Fld>
-            <Fld label="Project Zip Code">
-              <input
-                value={project.zipCode || ""}
-                onChange={e => up("zipCode", e.target.value.replace(/\D/g, "").slice(0, 5))}
-                placeholder="5-digit zip"
-                maxLength={5}
-                style={inp(C)}
-              />
-              {project.zipCode &&
-                project.zipCode.length >= 3 &&
-                (() => {
-                  const loc = resolveLocationFactors(project.zipCode);
-                  return loc.source !== "none" ? (
-                    <div style={{ fontSize: 10, color: C.accent, marginTop: 3, fontWeight: 600 }}>
-                      {loc.label} — Mat: {loc.mat}x · Lab: {loc.lab}x · Equip: {loc.equip}x
-                    </div>
-                  ) : null;
-                })()}
-              {autoTag("zipCode")}
-            </Fld>
+            {/* Zip code moved to be next to Address field above */}
 
             {/* ── Extended fields ── */}
             <Fld label="Architect">
@@ -964,6 +945,26 @@ export default function ProjectInfoPage() {
                 style={inp(C)}
               />
               {autoTag("address")}
+            </Fld>
+            <Fld label="Zip Code">
+              <input
+                value={project.zipCode || ""}
+                onChange={e => up("zipCode", e.target.value.replace(/\D/g, "").slice(0, 5))}
+                placeholder="5-digit zip"
+                maxLength={5}
+                style={inp(C)}
+              />
+              {project.zipCode &&
+                project.zipCode.length >= 3 &&
+                (() => {
+                  const loc = resolveLocationFactors(project.zipCode);
+                  return loc.source !== "none" ? (
+                    <div style={{ fontSize: 10, color: C.accent, marginTop: 3, fontWeight: 600 }}>
+                      {loc.label} — Mat: {loc.mat}x · Lab: {loc.lab}x · Equip: {loc.equip}x
+                    </div>
+                  ) : null;
+                })()}
+              {autoTag("zipCode")}
             </Fld>
             <Fld label="Work Type">
               <select value={project.workType || ""} onChange={e => up("workType", e.target.value)} style={inp(C)}>

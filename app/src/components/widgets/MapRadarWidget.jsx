@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { createPortal } from "react-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { useNavigate } from "react-router-dom";
@@ -78,7 +77,8 @@ export default function MapRadarWidget() {
   const T = C.T;
   const dk = C.isDark;
   const navigate = useNavigate();
-  const { estimates } = useDashboardData();
+  const { estimatesList } = useDashboardData();
+  const estimates = estimatesList;
 
   const [expanded, setExpanded] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -141,8 +141,8 @@ export default function MapRadarWidget() {
     const items = estimates || [];
     items.forEach(est => {
       const name = est.name || est.projectName || "Untitled";
-      const status = est.status || "Draft";
-      const value = est.grandTotal || est.value || 0;
+      const status = est.statusLabel || est.status || "Draft";
+      const value = est.value || est.grandTotal || 0;
       const color = STATUS_COLORS[status] || "#555";
       const speed = STATUS_SPEED[status] || "3s";
       const [lng, lat] = guessLocation(name);
@@ -179,7 +179,9 @@ export default function MapRadarWidget() {
     if (document.getElementById("map-radar-css")) return;
     const style = document.createElement("style");
     style.id = "map-radar-css";
-    style.textContent = `@keyframes mrp{0%{transform:scale(0.3);opacity:0.7}100%{transform:scale(1.1);opacity:0}}`;
+    style.textContent = `@keyframes mrp{0%{transform:scale(0.3);opacity:0.7}100%{transform:scale(1.1);opacity:0}}
+.mapboxgl-ctrl-logo{opacity:0.3!important;transform:scale(0.7)!important}
+.mapboxgl-ctrl-attrib{opacity:0.2!important;font-size:8px!important}`;
     document.head.appendChild(style);
   }, []);
 
@@ -271,7 +273,7 @@ export default function MapRadarWidget() {
       {/* Mini label when NOT expanded */}
       {!expanded && (
         <div style={{
-          position: "absolute", bottom: 8, left: 10, zIndex: 10,
+          position: "absolute", top: 8, right: 40, zIndex: 10,
           color: C.accent || "#00D4AA", fontSize: 9,
           fontFamily: "'Barlow Condensed', sans-serif",
           textTransform: "uppercase", letterSpacing: "0.12em", opacity: 0.7,
@@ -282,10 +284,6 @@ export default function MapRadarWidget() {
     </div>
   );
 
-  // When expanded, portal to body so it's above everything
-  if (expanded) {
-    return createPortal(mapContent, document.body);
-  }
-
+  // No portal — use CSS fixed positioning for expand to avoid destroying the map context
   return mapContent;
 }
