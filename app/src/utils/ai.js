@@ -9,7 +9,7 @@ import { supabase } from "./supabase";
 const PROXY_URL = "/api/ai";
 const DEFAULT_MODEL = "claude-sonnet-4-20250514";
 // Haiku for high-volume low-cost tasks (schedule scanning, OCR, detection)
-export const SCAN_MODEL = "claude-haiku-4-5-20251001";
+export const SCAN_MODEL = "claude-3-5-haiku-20241022";
 
 // Get the Supabase auth token for server-side proxy authentication.
 // Uses getSession() first (fast, cached), then falls back to refreshSession()
