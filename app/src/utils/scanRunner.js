@@ -20,6 +20,7 @@ import {
   buildProjectContext,
   runOCR,
   segmentedOCR,
+  SCAN_MODEL,
 } from "@/utils/ai";
 import {
   buildDetectionPrompt,
@@ -226,6 +227,7 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
         const prompt = buildDetectionPrompt(sheetLabel, ocrText);
         const { systemPrompt: detectionSys } = novaPlans.augmentDetectionPrompt(sheetLabel, ocrText);
         const result = await callAnthropic({
+          model: SCAN_MODEL,
           max_tokens: 1000,
           system: detectionSys,
           messages: [{ role: "user", content: [imageBlock(optimized.base64), { type: "text", text: prompt }] }],
@@ -527,6 +529,7 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
           if (!parsePrompt) return { ...sched, entries: [], error: "Unknown schedule type" };
           const { systemPrompt: parseSys } = novaPlans.augmentParsePrompt(sched.type, cropOcrText);
           const result = await callAnthropic({
+            model: SCAN_MODEL,
             max_tokens: 4000,
             system: parseSys,
             messages: [{ role: "user", content: [imageBlock(cropBase64), { type: "text", text: parsePrompt }] }],
@@ -601,6 +604,7 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
               });
               const prompt = buildCountingPrompt(marksByType, det.ocrText);
               const result = await callAnthropic({
+                model: SCAN_MODEL,
                 max_tokens: 2000,
                 messages: [{ role: "user", content: [imageBlock(det.imgBase64), { type: "text", text: prompt }] }],
               });
