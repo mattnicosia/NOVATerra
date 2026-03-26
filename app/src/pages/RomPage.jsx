@@ -56,25 +56,35 @@ const WIZARD_QUESTIONS = [
   },
   {
     id: "size",
-    question: "How big is the space?",
-    // Options adjust dynamically based on building type in the wizard
-    options: [
-      { value: 800, label: "Under 1,000 SF", icon: "◽" },
-      { value: 1500, label: "1,000 - 2,000 SF", icon: "◻️" },
-      { value: 3000, label: "2,000 - 5,000 SF", icon: "⬜" },
-      { value: 7500, label: "5,000 - 10,000 SF", icon: "🔳" },
-      { value: 15000, label: "10,000 - 25,000 SF", icon: "🏗️" },
-    ],
+    question: "How many square feet?",
+    inputType: "number",
+    placeholder: "e.g. 2500",
+    suffix: "SF",
   },
   {
     id: "work",
     question: "What kind of work?",
     options: [
-      { value: "", label: "New Construction", icon: "🆕" },
+      { value: "new-construction", label: "New Construction", icon: "🆕" },
       { value: "renovation", label: "Renovation", icon: "🔨" },
-      { value: "tenant-improvement", label: "Tenant Improvement", icon: "🏢" },
+      { value: "tenant-fit-out", label: "Tenant Improvement", icon: "🏢" },
       { value: "addition", label: "Addition", icon: "➕" },
     ],
+  },
+  {
+    id: "labor",
+    question: "What labor type?",
+    options: [
+      { value: "open-shop", label: "Open Shop", icon: "🔧" },
+      { value: "prevailing", label: "Prevailing Wage", icon: "📋" },
+      { value: "union", label: "Union", icon: "🏗️" },
+    ],
+  },
+  {
+    id: "location",
+    question: "Where is the project?",
+    inputType: "text",
+    placeholder: "City, State or ZIP code",
   },
   {
     id: "floors",
@@ -627,47 +637,62 @@ function GuidedWizardPath({ onResult, onBack }) {
   const user = useAuthStore(s => s.user);
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState({});
+  const [inputValue, setInputValue] = useState("");
+
+  function finalize(finalAnswers) {
+    try {
+      const sf = parseFloat(finalAnswers.size) || 2500;
+      const buildType = finalAnswers.category || "commercial-office";
+      const work = finalAnswers.work || "new-construction";
+      const floorCount = finalAnswers.floors || 1;
+      const laborType = finalAnswers.labor || "open-shop";
+      const location = finalAnswers.location || "";
+      const result = generateBaselineROM(sf, buildType, work, null, { floorCount, laborType, location });
+      result.source = "wizard";
+      result.wizardAnswers = finalAnswers;
+      onResult(result);
+    } catch (err) {
+      console.error("[ROM Wizard] Generation failed:", err);
+      try {
+        const sf = parseFloat(finalAnswers.size) || 2500;
+        const result = generateBaselineROM(sf, finalAnswers.category || "commercial-office");
+        result.source = "wizard";
+        result.wizardAnswers = finalAnswers;
+        onResult(result);
+      } catch (err2) {
+        console.error("[ROM Wizard] Fallback also failed:", err2);
+      }
+    }
+  }
 
   function handleSelect(value) {
     const q = WIZARD_QUESTIONS[step];
     const newAnswers = { ...answers, [q.id]: value };
     setAnswers(newAnswers);
+    setInputValue("");
 
     if (step < WIZARD_QUESTIONS.length - 1) {
       setStep(step + 1);
     } else {
-      // All questions answered — generate ROM
-      try {
-        const sf = newAnswers.size || 2500;
-        const buildType = newAnswers.category || "commercial-office";
-        const work = newAnswers.work || "";
-        const floorCount = newAnswers.floors || 1;
-        const result = generateBaselineROM(sf, buildType, work, null, { floorCount });
-        result.source = "wizard";
-        result.wizardAnswers = newAnswers;
-        onResult(result);
-      } catch (err) {
-        console.error("[ROM Wizard] Generation failed:", err);
-        // Fallback: try without building params
-        try {
-          const sf = newAnswers.size || 2500;
-          const result = generateBaselineROM(sf, newAnswers.category || "commercial-office");
-          result.source = "wizard";
-          result.wizardAnswers = newAnswers;
-          onResult(result);
-        } catch (err2) {
-          console.error("[ROM Wizard] Fallback also failed:", err2);
-        }
-      }
+      finalize(newAnswers);
     }
+  }
+
+  function handleInputSubmit() {
+    const q = WIZARD_QUESTIONS[step];
+    if (!inputValue.trim()) return;
+    const val = q.inputType === "number" ? parseFloat(inputValue) : inputValue.trim();
+    if (q.inputType === "number" && (!val || val <= 0)) return;
+    handleSelect(val);
   }
 
   const q = WIZARD_QUESTIONS[step];
   const isLastStep = step === WIZARD_QUESTIONS.length - 1;
+  const isInputStep = !!q.inputType;
 
   return (
     <div style={{ width: "100%", maxWidth: 500 }}>
-      <button onClick={step > 0 ? () => setStep(step - 1) : onBack} style={{
+      <button onClick={step > 0 ? () => { setStep(step - 1); setInputValue(""); } : onBack} style={{
         background: "none", border: "none", color: "rgba(238,237,245,0.4)", fontSize: 13,
         cursor: "pointer", marginBottom: 24, padding: 0, ...ff,
       }}>← {step > 0 ? "Previous" : "Back"}</button>
@@ -685,7 +710,33 @@ function GuidedWizardPath({ onResult, onBack }) {
 
       <h2 style={{ fontSize: 24, fontWeight: 300, color: "#EEEDF5", margin: "0 0 32px 0", ...ff }}>{q.question}</h2>
 
-      {!user && isLastStep ? (
+      {/* Input-type step (SF, location) */}
+      {isInputStep ? (
+        <div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <input
+              type={q.inputType}
+              placeholder={q.placeholder}
+              value={inputValue}
+              onChange={e => setInputValue(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleInputSubmit()}
+              autoFocus
+              style={{ ...inputStyle, flex: 1, fontSize: 18, padding: "16px 20px" }}
+              min={q.inputType === "number" ? "1" : undefined}
+            />
+            {q.suffix && <span style={{ color: "rgba(238,237,245,0.3)", fontSize: 16, ...ff }}>{q.suffix}</span>}
+          </div>
+          <button onClick={handleInputSubmit} style={{
+            width: "100%", marginTop: 16, padding: "14px 24px", borderRadius: 12,
+            border: "none", background: inputValue.trim() ? "#00D4AA" : "rgba(255,255,255,0.06)",
+            color: inputValue.trim() ? "#000" : "rgba(238,237,245,0.3)",
+            cursor: inputValue.trim() ? "pointer" : "not-allowed",
+            fontSize: 15, fontWeight: 600, ...ff, transition: "all 0.2s",
+          }}>
+            {isLastStep ? "Generate Estimate" : "Continue"}
+          </button>
+        </div>
+      ) : !user && isLastStep ? (
         <AuthGate />
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
