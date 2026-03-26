@@ -1184,8 +1184,9 @@ export function usePersistenceLoad() {
 
       // ── One-time data imports (run after persistence loads, before cloud sync) ──
       try {
-        const { importMontanaProposals } = await import("@/data/importProposals");
+        const { importMontanaProposals, importViolanteProposals } = await import("@/data/importProposals");
         importMontanaProposals();
+        importViolanteProposals();
       } catch (importErr) {
         console.warn("[usePersistence] Proposal import failed:", importErr);
       }
