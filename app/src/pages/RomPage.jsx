@@ -98,17 +98,27 @@ const WIZARD_QUESTIONS = [
     ],
   },
   {
-    id: "scopeExclusions",
-    question: "Any of these scopes NOT required or owner-supplied?",
-    multiSelect: true,
+    id: "scopeInclusions",
+    question: "Which of these apply to your project?",
+    yesNoSelect: true,
     options: [
-      { value: "asbestos", label: "Asbestos Testing / Abatement / 3rd Party Testing" },
-      { value: "demolition", label: "Demolition" },
-      { value: "sitedemo", label: "Site Demolition (new builds)" },
-      { value: "windowtreatments", label: "Window Treatments" },
-      { value: "kitchenequip", label: "Kitchen Equipment" },
-      { value: "av", label: "Audio / Visual" },
-      { value: "security", label: "Security" },
+      { value: "demolition", label: "Demolition / Gut Existing Space", defaultYes: true },
+      { value: "sitework", label: "Sitework / Site Preparation", defaultYes: false },
+      { value: "sitedemo", label: "Site Demolition", defaultYes: false },
+      { value: "asbestos", label: "Asbestos Testing / Abatement", defaultYes: false },
+      { value: "thirdparty", label: "3rd Party Testing & Inspections", defaultYes: false },
+      { value: "designfees", label: "Architectural / Engineering Design Fees", defaultYes: false },
+      { value: "permits", label: "Permits & Filing Fees", defaultYes: false },
+      { value: "kitchenequip", label: "Kitchen / Food Service Equipment", defaultYes: false },
+      { value: "av", label: "Audio / Visual Systems", defaultYes: false },
+      { value: "security", label: "Security Systems / Access Control", defaultYes: false },
+      { value: "windowtreatments", label: "Window Treatments / Roller Shades", defaultYes: false },
+      { value: "furniture", label: "Furniture / FF&E", defaultYes: false },
+      { value: "signage", label: "Signage (Interior & Exterior)", defaultYes: false },
+      { value: "landscaping", label: "Landscaping / Irrigation", defaultYes: false },
+      { value: "lowvoltage", label: "Low Voltage / Data / Telecom", defaultYes: false },
+      { value: "fireprotection", label: "Fire Protection / Sprinkler", defaultYes: true },
+      { value: "elevator", label: "Elevator / Conveying", defaultYes: false },
     ],
   },
 ];
@@ -653,15 +663,25 @@ function GuidedWizardPath({ onResult, onBack }) {
   const [answers, setAnswers] = useState({});
   const [inputValue, setInputValue] = useState("");
 
-  // Map exclusion keys to division codes
-  const EXCLUSION_TO_DIVISIONS = {
-    asbestos: ["02"],       // falls under existing conditions
-    demolition: ["02"],     // existing conditions/demo
-    sitedemo: ["31"],       // earthwork/site demo
-    windowtreatments: ["12"], // furnishings
-    kitchenequip: ["11"],   // equipment
-    av: ["27"],             // communications
-    security: ["28"],       // electronic safety
+  // Map scope keys to division codes for inclusion/exclusion
+  const SCOPE_TO_DIVISIONS = {
+    demolition: ["02"],
+    sitework: ["31"],
+    sitedemo: ["31"],
+    asbestos: ["02"],
+    thirdparty: [],          // soft cost, not a division
+    designfees: [],          // soft cost
+    permits: [],             // soft cost
+    kitchenequip: ["11"],
+    av: ["27"],
+    security: ["28"],
+    windowtreatments: ["12"],
+    furniture: ["12"],
+    signage: ["10"],
+    landscaping: ["32"],
+    lowvoltage: ["27"],
+    fireprotection: ["21"],
+    elevator: ["14"],
   };
 
   function finalize(finalAnswers) {
@@ -675,29 +695,44 @@ function GuidedWizardPath({ onResult, onBack }) {
       const result = generateBaselineROM(sf, buildType, work, null, { floorCount, laborType, location });
       result.source = "wizard";
 
-      // Apply scope exclusions — zero out excluded divisions
-      const exclusions = finalAnswers.scopeExclusions || [];
-      if (exclusions.length > 0) {
-        result.scopeExclusions = exclusions;
+      // Apply scope inclusions — items marked "No" get zeroed out
+      const inclusions = finalAnswers.scopeInclusions || {};
+      const excludedScopes = Object.entries(inclusions).filter(([, v]) => v === false).map(([k]) => k);
+      const includedScopes = Object.entries(inclusions).filter(([, v]) => v === true).map(([k]) => k);
+
+      if (excludedScopes.length > 0) {
+        result.scopeExclusions = excludedScopes;
+        result.scopeInclusions = includedScopes;
         const excludedDivs = new Set();
-        exclusions.forEach(ex => {
-          (EXCLUSION_TO_DIVISIONS[ex] || []).forEach(d => excludedDivs.add(d));
+        excludedScopes.forEach(ex => {
+          (SCOPE_TO_DIVISIONS[ex] || []).forEach(d => excludedDivs.add(d));
         });
         for (const divCode of excludedDivs) {
           if (result.divisions[divCode]) {
             const div = result.divisions[divCode];
-            // Store original values for display
             div.excluded = true;
+            div.excludedReason = "Not required / owner-supplied";
             div.originalTotal = { ...div.total };
             div.originalPerSF = { ...div.perSF };
-            // Zero out
             div.total = { low: 0, mid: 0, high: 0 };
             div.perSF = { low: 0, mid: 0, high: 0 };
-            // Adjust totals
             result.totals.low -= div.originalTotal.low;
             result.totals.mid -= div.originalTotal.mid;
             result.totals.high -= div.originalTotal.high;
           }
+        }
+        // Add included soft costs as additional line items
+        if (inclusions.designfees) {
+          result.softCostInclusions = result.softCostInclusions || [];
+          result.softCostInclusions.push({ label: "A/E Design Fees", pct: 8 });
+        }
+        if (inclusions.permits) {
+          result.softCostInclusions = result.softCostInclusions || [];
+          result.softCostInclusions.push({ label: "Permits & Filing Fees", pct: 2 });
+        }
+        if (inclusions.thirdparty) {
+          result.softCostInclusions = result.softCostInclusions || [];
+          result.softCostInclusions.push({ label: "3rd Party Testing & Inspections", pct: 1.5 });
         }
         // Recalculate perSF
         if (sf > 0) {
@@ -745,18 +780,26 @@ function GuidedWizardPath({ onResult, onBack }) {
     handleSelect(val);
   }
 
-  // Multi-select state for scope exclusions
-  const [multiSelections, setMultiSelections] = useState([]);
+  // Yes/No state for scope inclusions
+  const [yesNoState, setYesNoState] = useState({});
 
-  function toggleMulti(value) {
-    setMultiSelections(prev => prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]);
+  function initYesNo(q) {
+    if (Object.keys(yesNoState).length === 0 && q.yesNoSelect) {
+      const initial = {};
+      q.options.forEach(opt => { initial[opt.value] = opt.defaultYes; });
+      setYesNoState(initial);
+    }
   }
 
-  function handleMultiContinue() {
+  function toggleYesNo(value) {
+    setYesNoState(prev => ({ ...prev, [value]: !prev[value] }));
+  }
+
+  function handleYesNoContinue() {
     const q = WIZARD_QUESTIONS[step];
-    const newAnswers = { ...answers, [q.id]: multiSelections };
+    const newAnswers = { ...answers, [q.id]: { ...yesNoState } };
     setAnswers(newAnswers);
-    setMultiSelections([]);
+    setYesNoState({});
     if (step < WIZARD_QUESTIONS.length - 1) {
       setStep(step + 1);
     } else {
@@ -767,7 +810,12 @@ function GuidedWizardPath({ onResult, onBack }) {
   const q = WIZARD_QUESTIONS[step];
   const isLastStep = step === WIZARD_QUESTIONS.length - 1;
   const isInputStep = !!q.inputType;
-  const isMultiStep = !!q.multiSelect;
+  const isYesNoStep = !!q.yesNoSelect;
+
+  // Init yes/no defaults when reaching that step
+  if (isYesNoStep && Object.keys(yesNoState).length === 0) {
+    initYesNo(q);
+  }
 
   return (
     <div style={{ width: "100%", maxWidth: 500 }}>
@@ -788,52 +836,50 @@ function GuidedWizardPath({ onResult, onBack }) {
       </div>
 
       <h2 style={{ fontSize: 24, fontWeight: 300, color: "#EEEDF5", margin: "0 0 32px 0", ...ff }}>{q.question}</h2>
-      {q.multiSelect && <p style={{ fontSize: 13, color: "rgba(238,237,245,0.35)", margin: "-20px 0 24px", ...ff }}>Select all that apply, then continue. These will be excluded from the estimate.</p>}
+      {q.yesNoSelect && <p style={{ fontSize: 13, color: "rgba(238,237,245,0.35)", margin: "-20px 0 24px", ...ff }}>Toggle each scope. Items marked "No" will be excluded from the estimate.</p>}
 
-      {/* Multi-select step (scope exclusions) */}
-      {isMultiStep ? (
+      {/* Yes/No scope inclusion step */}
+      {isYesNoStep ? (
         <div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {q.options.map(opt => {
-              const selected = multiSelections.includes(opt.value);
+              const isYes = yesNoState[opt.value] ?? opt.defaultYes;
               return (
                 <button
                   key={opt.value}
-                  onClick={() => toggleMulti(opt.value)}
+                  onClick={() => toggleYesNo(opt.value)}
                   style={{
-                    display: "flex", alignItems: "center", gap: 12, padding: "14px 18px",
-                    background: selected ? "rgba(255,71,87,0.08)" : "rgba(255,255,255,0.03)",
-                    border: `1px solid ${selected ? "rgba(255,71,87,0.3)" : "rgba(255,255,255,0.06)"}`,
-                    borderRadius: 12, cursor: "pointer", textAlign: "left",
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    padding: "12px 16px",
+                    background: isYes ? "rgba(0,212,170,0.06)" : "rgba(255,255,255,0.02)",
+                    border: `1px solid ${isYes ? "rgba(0,212,170,0.2)" : "rgba(255,255,255,0.04)"}`,
+                    borderRadius: 10, cursor: "pointer", textAlign: "left",
                     transition: "all 0.2s",
                   }}
-                  onMouseEnter={e => { if (!selected) { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; } }}
-                  onMouseLeave={e => { if (!selected) { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; } }}
                 >
-                  <div style={{
-                    width: 20, height: 20, borderRadius: 4, flexShrink: 0,
-                    border: `2px solid ${selected ? "#FF4757" : "rgba(255,255,255,0.15)"}`,
-                    background: selected ? "#FF4757" : "transparent",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    transition: "all 0.2s",
-                  }}>
-                    {selected && <span style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>✕</span>}
-                  </div>
                   <span style={{
-                    fontSize: 14, color: selected ? "rgba(255,255,255,0.5)" : "#EEEDF5",
-                    textDecoration: selected ? "line-through" : "none",
-                    fontWeight: 400, ...ff,
+                    fontSize: 13, color: isYes ? "#EEEDF5" : "rgba(238,237,245,0.35)",
+                    fontWeight: isYes ? 500 : 400, ...ff,
                   }}>{opt.label}</span>
+                  <div style={{
+                    padding: "3px 12px", borderRadius: 6, fontSize: 11, fontWeight: 700,
+                    letterSpacing: "0.05em",
+                    background: isYes ? "rgba(0,212,170,0.15)" : "rgba(255,255,255,0.06)",
+                    color: isYes ? "#00D4AA" : "rgba(238,237,245,0.3)",
+                    transition: "all 0.2s", ...ff,
+                  }}>
+                    {isYes ? "YES" : "NO"}
+                  </div>
                 </button>
               );
             })}
           </div>
-          <button onClick={handleMultiContinue} style={{
+          <button onClick={handleYesNoContinue} style={{
             width: "100%", marginTop: 20, padding: "14px 24px", borderRadius: 12,
             border: "none", background: "#00D4AA", color: "#000",
             cursor: "pointer", fontSize: 15, fontWeight: 600, ...ff,
           }}>
-            {multiSelections.length === 0 ? "None — Include All Scopes" : `Exclude ${multiSelections.length} Scope${multiSelections.length !== 1 ? "s" : ""} & Continue`}
+            Continue
           </button>
         </div>
       ) : isInputStep ? (
