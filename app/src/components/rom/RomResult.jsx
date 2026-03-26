@@ -24,10 +24,17 @@ const BUILDING_TYPE_LABELS = {
   parking: "Parking",
 };
 
+// GR/GC mode: "requirements" = General Requirements only, "conditions" = General Conditions only, "both" = both
+const GR_GC_OPTIONS = [
+  { value: "requirements", label: "General Requirements", desc: "Division 01 — included in division benchmarks" },
+  { value: "conditions", label: "General Conditions", desc: "Separate % markup on direct costs" },
+  { value: "both", label: "Both (GR + GC)", desc: "Division 01 benchmarks + GC markup" },
+];
+
 const DEFAULT_MARKUPS = [
-  { id: 1, label: "GC Overhead & Profit", pct: 10, enabled: true },
-  { id: 2, label: "General Conditions", pct: 8, enabled: true },
-  { id: 3, label: "Contingency", pct: 5, enabled: true },
+  { id: 1, label: "Contingency", pct: 5, enabled: false },
+  { id: 2, label: "GC Overhead & Profit", pct: 10, enabled: true },
+  { id: 3, label: "General Conditions", pct: 8, enabled: false },
   { id: 4, label: "Insurance (GL/WC)", pct: 2, enabled: true },
   { id: 5, label: "Bond", pct: 3, enabled: false },
 ];
@@ -329,31 +336,58 @@ export default function RomResult({ rom, email }) {
   const generateNarrative = () => {
     const typeLabel = BUILDING_TYPE_LABELS[jobType] || jobType || "commercial";
     const sf = fmtNum(projectSF);
-    const totalMid = fmt(totals.mid * markupMultiplier);
-    const perSF = fmtSF(totals.mid / projectSF);
+    const grandLow = fmt(grandTotals.low);
+    const grandMid = fmt(grandTotals.mid);
+    const grandHigh = fmt(grandTotals.high);
+    const perSFMid = projectSF > 0 ? fmtSF(grandTotals.mid / projectSF) : "$0.00";
 
-    const topDivisions = divEntries
-      .filter(([, d]) => d.mid > 0)
-      .sort((a, b) => b[1].mid - a[1].mid)
+    // Top 5 divisions by mid cost (using total.mid, not perSF)
+    const sortedDivs = divEntries
+      .filter(([, d]) => (d.total?.mid || 0) > 0 && !d.excluded)
+      .sort((a, b) => (b[1].total?.mid || 0) * getDivisionMultiplier(b[0]) - (a[1].total?.mid || 0) * getDivisionMultiplier(a[0]));
+
+    const topDivisions = sortedDivs
       .slice(0, 5)
-      .map(([code, d]) => `${d.name} (${fmt(d.mid * getDivisionMultiplier(code))})`);
+      .map(([code, d]) => `${d.label} (${fmt((d.total?.mid || 0) * getDivisionMultiplier(code))})`);
+
+    const topFiveTotal = sortedDivs.slice(0, 5).reduce((s, [code, d]) => s + (d.total?.mid || 0) * getDivisionMultiplier(code), 0);
+    const topFivePct = totals.mid > 0 ? Math.round((topFiveTotal / totals.mid) * 100) : 0;
+
+    // Location + labor adjustments
+    const adjNotes = [];
+    if (rom.laborMultiplier && rom.laborMultiplier !== 1.0) adjNotes.push(`${rom.laborType === "prevailing" ? "Prevailing wage" : "Union"} labor (+${Math.round((rom.laborMultiplier - 1) * 100)}%)`);
+    if (rom.marketMultiplier && rom.marketMultiplier !== 1.0) adjNotes.push(`${rom.marketRegion?.label || "Market"} location adjustment (${rom.marketMultiplier > 1 ? "+" : ""}${Math.round((rom.marketMultiplier - 1) * 100)}%)`);
+    if (rom.workMultiplier && rom.workMultiplier !== 1.0) adjNotes.push(`${rom.workType || "Work type"} scope adjustment (${rom.workMultiplier > 1 ? "+" : ""}${Math.round((rom.workMultiplier - 1) * 100)}%)`);
 
     const adjustedDivs = Object.entries(divisionAdjustments).filter(([, m]) => m !== 1.0);
-    const adjustmentNote = adjustedDivs.length > 0
-      ? ` Adjustments have been applied to ${adjustedDivs.length} division(s).`
+    const divAdjNote = adjustedDivs.length > 0
+      ? `User adjustments have been applied to ${adjustedDivs.length} division(s).`
       : "";
 
-    return `This conceptual budget estimate is for a ${sf} SF ${typeLabel.toLowerCase()} project. The estimated construction cost ranges from ${fmt(totals.low * markupMultiplier)} to ${fmt(totals.high * markupMultiplier)}, with a midpoint estimate of ${totalMid} (${perSF}/SF).
+    // Excluded scopes
+    const excludedDivs = divEntries.filter(([, d]) => d.excluded);
+    const excludeNote = excludedDivs.length > 0
+      ? `${excludedDivs.map(([, d]) => d.label).join(", ")} ${excludedDivs.length === 1 ? "has" : "have"} been excluded as not required or owner-supplied.`
+      : "";
 
-The largest cost drivers are ${topDivisions.join(", ")}. These five divisions represent approximately ${Math.round((divEntries.filter(([,d]) => d.mid > 0).sort((a,b) => b[1].mid - a[1].mid).slice(0, 5).reduce((s, [,d]) => s + d.mid, 0) / totals.mid) * 100)}% of the direct construction cost.
+    const lines = [
+      `This conceptual budget estimate is for a ${sf} SF ${typeLabel.toLowerCase()} project. The estimated construction cost ranges from ${grandLow} to ${grandHigh}, with a midpoint estimate of ${grandMid} (${perSFMid}/SF).`,
+      "",
+      topDivisions.length > 0 ? `The largest cost drivers are ${topDivisions.join(", ")}. These ${topDivisions.length} divisions represent approximately ${topFivePct}% of the direct construction cost.` : "",
+      "",
+      markups.filter(m => m.enabled).length > 0 ? `Markups include ${markups.filter(m => m.enabled).map(m => `${m.label} (${m.pct}%)`).join(", ")}, totaling ${totalMarkupPct.toFixed(1)}% above direct costs.` : "",
+      "",
+      adjNotes.length > 0 ? `Market adjustments: ${adjNotes.join("; ")}.` : "",
+      "",
+      hasSoftCosts ? `Soft costs of ${totalSoftCostPct.toFixed(1)}% (${fmt(softCostTotals.mid)}) are included for ${softCosts.filter(sc => sc.enabled).map(sc => sc.label.toLowerCase()).join(", ")}.` : "",
+      "",
+      excludeNote,
+      divAdjNote,
+      "",
+      "This estimate is based on historical project data and industry benchmarks calibrated from real construction proposals. All figures should be verified against project-specific conditions, local market rates, and current material pricing. This ROM is intended for conceptual budgeting purposes only and does not constitute a formal bid or guarantee of final construction cost.",
+    ];
 
-${markups.filter(m => m.enabled).length > 0 ? `General conditions and markups include ${markups.filter(m => m.enabled).map(m => `${m.label} (${m.pct}%)`).join(", ")}, totaling ${totalMarkupPct.toFixed(1)}% above direct costs.` : ""}
-
-${hasSoftCosts ? `Soft costs of ${totalSoftCostPct.toFixed(1)}% (${fmt(softCostTotals.mid)}) are included for ${softCosts.filter(sc => sc.enabled).map(sc => sc.label.toLowerCase()).join(", ")}.` : ""}
-
-${adjustmentNote}
-
-This estimate is based on historical project data and industry benchmarks. All figures should be verified against project-specific conditions, local market rates, and current material pricing. This ROM is intended for conceptual budgeting purposes only and does not constitute a formal bid or guarantee of final construction cost.`;
+    return lines.filter(l => l !== "").join("\n\n");
   };
 
   // Column highlight for selected range
