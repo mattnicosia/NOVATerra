@@ -26,8 +26,10 @@ const BUILDING_TYPE_LABELS = {
 
 const DEFAULT_MARKUPS = [
   { id: 1, label: "GC Overhead & Profit", pct: 10, enabled: true },
-  { id: 2, label: "Contingency", pct: 5, enabled: true },
-  { id: 3, label: "Bond", pct: 1.5, enabled: true },
+  { id: 2, label: "General Conditions", pct: 8, enabled: true },
+  { id: 3, label: "Contingency", pct: 5, enabled: true },
+  { id: 4, label: "Insurance (GL/WC)", pct: 2, enabled: true },
+  { id: 5, label: "Bond", pct: 3, enabled: false },
 ];
 
 const DEFAULT_SOFT_COSTS = [
