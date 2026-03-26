@@ -12,6 +12,7 @@ import { useRomStore } from "@/stores/romStore";
 import { generateBaselineROM } from "@/utils/romEngine";
 import RomResult from "@/components/rom/RomResult";
 import RomUpsell from "@/components/rom/RomUpsell";
+import NOVAThinking from "@/components/rom/NOVAThinking";
 
 const BUILDING_TYPES = [
   { value: "commercial-office", label: "Commercial Office" },
@@ -714,19 +715,43 @@ function RomPageInner() {
   const setLeadCaptured = useRomStore(s => s.setLeadCaptured);
 
   const [path, setPath] = useState(null); // null | "drawings" | "basics" | "explore"
+  const [thinking, setThinking] = useState(false);
+  const [pendingResult, setPendingResult] = useState(null);
+  const [thinkingMeta, setThinkingMeta] = useState({}); // buildingType, sf, opts, etc. for NOVAThinking
 
   function handleResult(result) {
-    setEmail(user?.email || "");
-    setBuildingType(result.buildingType || result.jobType || "");
-    setProjectSF(String(result.projectSF || ""));
-    setLeadCaptured(true);
-    setRomResult(result);
-    setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+    // Store the result but show NOVA thinking first
+    setPendingResult(result);
+    setThinkingMeta({
+      path: path || "basics",
+      buildingType: result.buildingType || result.jobType || "",
+      sf: result.projectSF || 0,
+      opts: { floors: result.floors || 1, workType: result.workType || "" },
+      scanSummary: result.scanSummary || null,
+      wizardAnswers: result.wizardAnswers || null,
+    });
+    setThinking(true);
+  }
+
+  function handleThinkingComplete() {
+    // NOVA finished reasoning — reveal the deliverable
+    setThinking(false);
+    if (pendingResult) {
+      setEmail(user?.email || "");
+      setBuildingType(pendingResult.buildingType || pendingResult.jobType || "");
+      setProjectSF(String(pendingResult.projectSF || ""));
+      setLeadCaptured(true);
+      setRomResult(pendingResult);
+      setPendingResult(null);
+      setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 300);
+    }
   }
 
   function handleReset() {
     setRomResult(null);
     setPath(null);
+    setThinking(false);
+    setPendingResult(null);
   }
 
   if (loading) {
@@ -775,12 +800,25 @@ function RomPageInner() {
           )}
 
           {/* Path selection */}
-          {!romResult && !path && <PathSelector onSelect={setPath} />}
+          {!romResult && !thinking && !path && <PathSelector onSelect={setPath} />}
 
           {/* Active path */}
-          {!romResult && path === "drawings" && <DrawingUploadPath onResult={handleResult} onBack={() => setPath(null)} />}
-          {!romResult && path === "basics" && <BasicInfoPath onResult={handleResult} onBack={() => setPath(null)} />}
-          {!romResult && path === "explore" && <GuidedWizardPath onResult={handleResult} onBack={() => setPath(null)} />}
+          {!romResult && !thinking && path === "drawings" && <DrawingUploadPath onResult={handleResult} onBack={() => setPath(null)} />}
+          {!romResult && !thinking && path === "basics" && <BasicInfoPath onResult={handleResult} onBack={() => setPath(null)} />}
+          {!romResult && !thinking && path === "explore" && <GuidedWizardPath onResult={handleResult} onBack={() => setPath(null)} />}
+
+          {/* NOVA Thinking — reasoning animation before revealing results */}
+          {thinking && (
+            <NOVAThinking
+              path={thinkingMeta.path}
+              buildingType={thinkingMeta.buildingType}
+              sf={thinkingMeta.sf}
+              opts={thinkingMeta.opts}
+              scanSummary={thinkingMeta.scanSummary}
+              wizardAnswers={thinkingMeta.wizardAnswers}
+              onComplete={handleThinkingComplete}
+            />
+          )}
         </section>
 
         {/* Result */}
