@@ -303,7 +303,7 @@ function DrawingUploadPath({ onResult, onBack }) {
       setProgress("Scanning schedules and extracting scope...");
 
       // Call the scan API through our proxy
-      const { callAnthropic, optimizeImageForAI, imageBlock, SCAN_MODEL } = await import("@/utils/ai");
+      const { callAnthropic, optimizeImageForAI, imageBlock, SCAN_MODEL, INTERPRET_MODEL, NARRATIVE_MODEL } = await import("@/utils/ai");
       const { buildDetectionPrompt, buildParsePrompt, normalizeScheduleData, SCHEDULE_TYPES } = await import("@/utils/scheduleParsers");
       const { generateBaselineROM, generateScheduleLineItems, extractBuildingParamsFromSchedules } = await import("@/utils/romEngine");
       const { renderPdfPage } = await import("@/utils/drawingUtils");

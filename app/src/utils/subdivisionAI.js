@@ -2,7 +2,7 @@
 // Generates percentage-based breakdowns within CSI divisions using Claude.
 // Outputs %s, not $s — dollar amounts derived from BENCHMARKS x percentage.
 
-import { callAnthropic } from "@/utils/ai";
+import { callAnthropic, SCAN_MODEL } from "@/utils/ai";
 import { CSI } from "@/constants/csi";
 import { SEED_ELEMENTS } from "@/constants/seedAssemblies";
 
@@ -151,6 +151,7 @@ Distribute the division cost across its subdivisions as percentage allocations. 
 
     // Call LLM
     const response = await callAnthropic({
+      model: SCAN_MODEL, // Haiku — math-heavy allocation, no judgment needed
       max_tokens: MAX_TOKENS,
       messages: [{ role: "user", content: userMessage }],
       system: SUBDIVISION_SYSTEM_PROMPT,

@@ -21,6 +21,8 @@ import {
   runOCR,
   segmentedOCR,
   SCAN_MODEL,
+  INTERPRET_MODEL,
+  NARRATIVE_MODEL,
 } from "@/utils/ai";
 import {
   buildDetectionPrompt,
