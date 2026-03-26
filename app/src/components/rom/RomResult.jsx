@@ -85,6 +85,9 @@ export default function RomResult({ rom, email }) {
   const [expandedDivs, setExpandedDivs] = useState(new Set());
   const [generatingSubdivisions, setGeneratingSubdivisions] = useState(false);
   const [genProgress, setGenProgress] = useState({ current: 0, total: 0, divCode: "" });
+  const [showSubdivisions, setShowSubdivisions] = useState(true);
+  const [showNarrative, setShowNarrative] = useState(true);
+  const [divisionAdjustments, setDivisionAdjustments] = useState({}); // { divCode: multiplier }
 
   const [editingSub, setEditingSub] = useState(null);
   const [editingValue, setEditingValue] = useState("");
@@ -160,8 +163,19 @@ export default function RomResult({ rom, email }) {
 
   if (!rom) return null;
 
-  const { divisions, totals, projectSF, jobType } = rom;
+  const { divisions, totals: rawTotals, projectSF, jobType } = rom;
   const divEntries = Object.entries(divisions).sort(([a], [b]) => a.localeCompare(b));
+
+  // Compute adjusted totals (account for division-level +/- adjustments)
+  const totals = {
+    low: divEntries.reduce((sum, [code, d]) => sum + (d.total?.low || d.low || 0) * getDivisionMultiplier(code), 0),
+    mid: divEntries.reduce((sum, [code, d]) => sum + (d.total?.mid || d.mid || 0) * getDivisionMultiplier(code), 0),
+    high: divEntries.reduce((sum, [code, d]) => sum + (d.total?.high || d.high || 0) * getDivisionMultiplier(code), 0),
+  };
+  // Fall back to raw totals if no adjustments
+  const hasAdjustments = Object.keys(divisionAdjustments).length > 0;
+  if (!hasAdjustments) { totals.low = rawTotals.low; totals.mid = rawTotals.mid; totals.high = rawTotals.high; }
+
   const totalPerSF =
     projectSF > 0
       ? { low: totals.low / projectSF, mid: totals.mid / projectSF, high: totals.high / projectSF }
@@ -279,6 +293,63 @@ export default function RomResult({ rom, email }) {
   };
   const toggleAllSoftCosts = enabled => {
     setSoftCosts(prev => prev.map(sc => ({ ...sc, enabled })));
+  };
+
+  // Division adjustment handlers
+  const adjustDivision = (divCode, delta) => {
+    setDivisionAdjustments(prev => {
+      const current = prev[divCode] || 1.0;
+      const next = Math.max(0, Math.round((current + delta) * 100) / 100);
+      return { ...prev, [divCode]: next };
+    });
+  };
+  const getDivisionMultiplier = (divCode) => divisionAdjustments[divCode] || 1.0;
+  const resetDivisionAdjustment = (divCode) => {
+    setDivisionAdjustments(prev => {
+      const next = { ...prev };
+      delete next[divCode];
+      return next;
+    });
+  };
+
+  // Toggle all subdivisions
+  const toggleAllSubdivisions = () => {
+    if (expandedDivs.size > 0) {
+      setExpandedDivs(new Set());
+    } else {
+      setExpandedDivs(new Set(divEntries.map(([code]) => code)));
+    }
+  };
+
+  // Generate project narrative
+  const generateNarrative = () => {
+    const typeLabel = BUILDING_TYPE_LABELS[jobType] || jobType || "commercial";
+    const sf = fmtNum(projectSF);
+    const totalMid = fmt(totals.mid * markupMultiplier);
+    const perSF = fmtSF(totals.mid / projectSF);
+
+    const topDivisions = divEntries
+      .filter(([, d]) => d.mid > 0)
+      .sort((a, b) => b[1].mid - a[1].mid)
+      .slice(0, 5)
+      .map(([code, d]) => `${d.name} (${fmt(d.mid * getDivisionMultiplier(code))})`);
+
+    const adjustedDivs = Object.entries(divisionAdjustments).filter(([, m]) => m !== 1.0);
+    const adjustmentNote = adjustedDivs.length > 0
+      ? ` Adjustments have been applied to ${adjustedDivs.length} division(s).`
+      : "";
+
+    return `This conceptual budget estimate is for a ${sf} SF ${typeLabel.toLowerCase()} project. The estimated construction cost ranges from ${fmt(totals.low * markupMultiplier)} to ${fmt(totals.high * markupMultiplier)}, with a midpoint estimate of ${totalMid} (${perSF}/SF).
+
+The largest cost drivers are ${topDivisions.join(", ")}. These five divisions represent approximately ${Math.round((divEntries.filter(([,d]) => d.mid > 0).sort((a,b) => b[1].mid - a[1].mid).slice(0, 5).reduce((s, [,d]) => s + d.mid, 0) / totals.mid) * 100)}% of the direct construction cost.
+
+${markups.filter(m => m.enabled).length > 0 ? `General conditions and markups include ${markups.filter(m => m.enabled).map(m => `${m.label} (${m.pct}%)`).join(", ")}, totaling ${totalMarkupPct.toFixed(1)}% above direct costs.` : ""}
+
+${hasSoftCosts ? `Soft costs of ${totalSoftCostPct.toFixed(1)}% (${fmt(softCostTotals.mid)}) are included for ${softCosts.filter(sc => sc.enabled).map(sc => sc.label.toLowerCase()).join(", ")}.` : ""}
+
+${adjustmentNote}
+
+This estimate is based on historical project data and industry benchmarks. All figures should be verified against project-specific conditions, local market rates, and current material pricing. This ROM is intended for conceptual budgeting purposes only and does not constitute a formal bid or guarantee of final construction cost.`;
   };
 
   // Column highlight for selected range
@@ -431,8 +502,78 @@ export default function RomResult({ rom, email }) {
         </div>
       </div>
 
-      {/* ── Generate Subdivisions Button ── */}
-      <div style={{ display: "flex", justifyContent: "flex-end", padding: "0 0 12px" }}>
+      {/* ── Project Narrative ── */}
+      {showNarrative && (
+        <div style={card(C, { padding: `${T.space[5]}px`, marginBottom: T.space[4] })}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <div style={{ ...sectionLabel(C) }}>PROJECT NARRATIVE</div>
+            <button onClick={() => setShowNarrative(false)} style={{
+              background: "none", border: "none", color: C.textDim, cursor: "pointer", fontSize: 11,
+              fontFamily: T.font.sans,
+            }}>Hide</button>
+          </div>
+          <div style={{
+            fontSize: T.fontSize.sm, color: C.textMuted, lineHeight: 1.7,
+            fontFamily: T.font.sans, whiteSpace: "pre-line",
+          }}>
+            {generateNarrative()}
+          </div>
+        </div>
+      )}
+
+      {/* ── Controls Bar ── */}
+      <div style={{
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+        padding: "0 0 12px", flexWrap: "wrap", gap: 8,
+      }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {/* Subdivisions toggle */}
+          <button
+            onClick={() => setShowSubdivisions(!showSubdivisions)}
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "6px 12px", borderRadius: 6,
+              background: showSubdivisions ? C.accentBg : "transparent",
+              border: `1px solid ${showSubdivisions ? C.accent + "40" : C.border}`,
+              cursor: "pointer", color: showSubdivisions ? C.accent : C.textMuted,
+              fontSize: 11, fontWeight: 500, fontFamily: T.font.sans,
+            }}
+          >
+            {showSubdivisions ? "☑" : "☐"} Subdivisions
+          </button>
+
+          {/* Expand/Collapse all */}
+          {showSubdivisions && Object.keys(subdivisionData || {}).length > 0 && (
+            <button
+              onClick={toggleAllSubdivisions}
+              style={{
+                padding: "6px 12px", borderRadius: 6,
+                background: "transparent", border: `1px solid ${C.border}`,
+                cursor: "pointer", color: C.textMuted,
+                fontSize: 11, fontWeight: 500, fontFamily: T.font.sans,
+              }}
+            >
+              {expandedDivs.size > 0 ? "Collapse All" : "Expand All"}
+            </button>
+          )}
+
+          {/* Narrative toggle */}
+          {!showNarrative && (
+            <button
+              onClick={() => setShowNarrative(true)}
+              style={{
+                padding: "6px 12px", borderRadius: 6,
+                background: "transparent", border: `1px solid ${C.border}`,
+                cursor: "pointer", color: C.textMuted,
+                fontSize: 11, fontWeight: 500, fontFamily: T.font.sans,
+              }}
+            >
+              Show Narrative
+            </button>
+          )}
+        </div>
+
+        {/* Generate Subdivisions button */}
         <button
           onClick={handleGenerateSubdivisions}
           disabled={generatingSubdivisions}
@@ -452,9 +593,7 @@ export default function RomResult({ rom, email }) {
           }}
         >
           {generatingSubdivisions ? (
-            <>
-              Generating... ({genProgress.current}/{genProgress.total})
-            </>
+            <>Generating... ({genProgress.current}/{genProgress.total})</>
           ) : (
             <>Generate Subdivisions</>
           )}
@@ -494,6 +633,7 @@ export default function RomResult({ rom, email }) {
                   $/SF (High)
                 </th>
                 <th style={{ ...headerCell, ...rightAlign }}>Total ({rangeLabels[selectedRange]})</th>
+                <th style={{ ...headerCell, textAlign: "center", fontSize: 9, width: 80 }}>Adjust</th>
               </tr>
             </thead>
             <tbody>
@@ -525,13 +665,13 @@ export default function RomResult({ rom, email }) {
                     </td>
                     <td style={{ ...cellBase, color: C.text, fontWeight: T.fontWeight.medium }}>{div.label}</td>
                     <td style={{ ...cellBase, ...rightAlign, ...colHighlight("low"), fontFeatureSettings: "'tnum'" }}>
-                      {fmtSF(div.perSF.low)}
+                      {fmtSF(div.perSF.low * getDivisionMultiplier(divNum))}
                     </td>
                     <td style={{ ...cellBase, ...rightAlign, ...colHighlight("mid"), fontFeatureSettings: "'tnum'" }}>
-                      {fmtSF(div.perSF.mid)}
+                      {fmtSF(div.perSF.mid * getDivisionMultiplier(divNum))}
                     </td>
                     <td style={{ ...cellBase, ...rightAlign, ...colHighlight("high"), fontFeatureSettings: "'tnum'" }}>
-                      {fmtSF(div.perSF.high)}
+                      {fmtSF(div.perSF.high * getDivisionMultiplier(divNum))}
                     </td>
                     <td
                       style={{
@@ -542,7 +682,32 @@ export default function RomResult({ rom, email }) {
                         fontFeatureSettings: "'tnum'",
                       }}
                     >
-                      {fmt(div.total[selectedRange])}
+                      {fmt(div.total[selectedRange] * getDivisionMultiplier(divNum))}
+                    </td>
+                    <td style={{ ...cellBase, textAlign: "center", padding: "6px 8px", whiteSpace: "nowrap" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 3, justifyContent: "center" }} onClick={e => e.stopPropagation()}>
+                        <button onClick={() => adjustDivision(divNum, -0.05)} style={{
+                          width: 22, height: 22, borderRadius: 4, border: `1px solid ${C.border}`,
+                          background: "transparent", color: C.textMuted, cursor: "pointer",
+                          fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center",
+                          lineHeight: 1, fontFamily: T.font.sans,
+                        }}>−</button>
+                        <span style={{
+                          fontSize: 10, color: getDivisionMultiplier(divNum) !== 1.0 ? C.accent : C.textDim,
+                          fontWeight: getDivisionMultiplier(divNum) !== 1.0 ? 600 : 400,
+                          minWidth: 32, textAlign: "center", fontFamily: T.font.sans,
+                          cursor: getDivisionMultiplier(divNum) !== 1.0 ? "pointer" : "default",
+                        }} onClick={() => getDivisionMultiplier(divNum) !== 1.0 && resetDivisionAdjustment(divNum)}
+                          title={getDivisionMultiplier(divNum) !== 1.0 ? "Click to reset" : ""}>
+                          {Math.round(getDivisionMultiplier(divNum) * 100)}%
+                        </span>
+                        <button onClick={() => adjustDivision(divNum, 0.05)} style={{
+                          width: 22, height: 22, borderRadius: 4, border: `1px solid ${C.border}`,
+                          background: "transparent", color: C.textMuted, cursor: "pointer",
+                          fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center",
+                          lineHeight: 1, fontFamily: T.font.sans,
+                        }}>+</button>
+                      </div>
                     </td>
                   </tr>
                   {expandedDivs.has(divNum) &&
