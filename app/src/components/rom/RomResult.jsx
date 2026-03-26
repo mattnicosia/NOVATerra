@@ -634,7 +634,7 @@ This estimate is based on historical project data and industry benchmarks. All f
             {/* Source attribution */}
             <div style={{
               marginTop: 12, padding: "8px 12px", borderRadius: 6,
-              background: dk ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
+              background: C.isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
               fontSize: 10, color: C.textDim, lineHeight: 1.5, fontFamily: T.font.sans,
             }}>
               Source: NOVATerra scope template for {scopeResult.label}. Quantities are estimates based on project SF
