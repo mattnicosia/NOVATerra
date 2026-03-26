@@ -25,6 +25,7 @@ import { bt, card } from "@/utils/styles";
 import { useTheme } from "@/hooks/useTheme";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
+import { getWallDetectionAgent } from "@/utils/novaAgent";
 
 // ── Floor colors for differentiation ──
 const FLOOR_COLORS = [
@@ -635,13 +636,51 @@ export default function BlueprintTab() {
       }
 
       setDetectedWalls(allWalls);
+
+      // Record the scan in the NOVA agent for learning
+      const agent = getWallDetectionAgent();
+      const status = agent.getStatus();
       console.log(`[ScanWalls] Complete: ${allWalls.length} walls, ${detectedRooms.length} rooms`);
+      console.log(`[NOVAAgent] Wall detector v${status.version} | ${status.totalCorrections} corrections | config:`, status.config);
     } catch (err) {
       console.error("[ScanWalls] Failed:", err);
     } finally {
       setScanning(false);
     }
   }, [floorPlates, drawings]);
+
+  // ── Wall correction handler — feeds NOVA agent ──
+  const handleWallCorrection = useCallback((action, wallData) => {
+    const agent = getWallDetectionAgent();
+    const originalCount = detectedWalls.length;
+
+    if (action === "add") {
+      // User added a wall the detector missed
+      setDetectedWalls(prev => [...prev, { ...wallData, userAdded: true, id: `user-${Date.now()}` }]);
+      agent.recordCorrection(
+        { count: originalCount },
+        { count: originalCount + 1 },
+        { action: "add", reason: "missed-wall" }
+      );
+    } else if (action === "remove") {
+      // User removed a false positive wall
+      setDetectedWalls(prev => prev.filter(w => w.id !== wallData.id));
+      agent.recordCorrection(
+        { count: originalCount },
+        { count: originalCount - 1 },
+        { action: "remove", reason: "false-positive", wallId: wallData.id }
+      );
+    }
+
+    // Check if we have enough corrections to improve
+    const analysis = agent.analyze();
+    if (analysis.ready) {
+      const result = agent.improve();
+      if (result.improved) {
+        console.log(`[NOVAAgent] Wall detector self-improved to v${result.version}:`, result.adjustments);
+      }
+    }
+  }, [detectedWalls]);
 
   const handleDrawingOverride = useCallback((floorLabel, drawingId) => {
     setDrawingOverrides(prev => ({ ...prev, [floorLabel]: drawingId }));
@@ -709,6 +748,22 @@ export default function BlueprintTab() {
           <button onClick={handleScanWalls} disabled={!hasDrawings || scanning} style={{ ...bt(C), padding: "6px 10px", fontSize: T.fontSize.xs, background: scanning ? "rgba(16,185,129,0.7)" : "rgba(0,0,0,0.6)", color: "#fff", borderRadius: T.radius.sm, backdropFilter: "blur(8px)", gap: 4 }}>
             {scanning ? "Scanning..." : "⚡ Scan Walls"}
           </button>
+          {/* NOVA Agent status */}
+          {detectedWalls.length > 0 && (() => {
+            const agent = getWallDetectionAgent();
+            const s = agent.getStatus();
+            return (
+              <span style={{
+                fontSize: 9, color: "rgba(255,255,255,0.4)", padding: "4px 8px",
+                background: "rgba(0,0,0,0.4)", borderRadius: 4, backdropFilter: "blur(8px)",
+                fontFamily: T.font.sans,
+              }}
+                title={`Wall detector v${s.version} | ${s.totalCorrections} corrections | Right-click a wall to remove it`}
+              >
+                NOVA v{s.version} · {detectedWalls.length} walls · {s.totalCorrections} corrections
+              </span>
+            );
+          })()}
           <button onClick={() => setExploded(!exploded)} style={{ ...bt(C), padding: "6px 10px", fontSize: T.fontSize.xs, background: exploded ? "rgba(99,102,241,0.7)" : "rgba(0,0,0,0.6)", color: "#fff", borderRadius: T.radius.sm, backdropFilter: "blur(8px)", gap: 4 }}>
             {exploded ? "Collapse" : "Explode"}
           </button>
@@ -808,14 +863,33 @@ export default function BlueprintTab() {
             const len = Math.sqrt(dx * dx + dz * dz);
             if (len < 0.1) return null;
             const elev = w.elevation ?? 0;
-            const wallH = 10; // default 10ft wall height
+            const wallH = 10;
             const cx = (x1 + x2) / 2, cz = (z1 + z2) / 2;
             const angle = Math.atan2(dx, dz);
             return (
-              <mesh key={w.id} position={[cx, elev + wallH / 2, cz]} rotation={[0, angle, 0]}>
+              <mesh
+                key={w.id}
+                position={[cx, elev + wallH / 2, cz]}
+                rotation={[0, angle, 0]}
+                onContextMenu={(e) => {
+                  e.stopPropagation();
+                  handleWallCorrection("remove", w);
+                }}
+                onPointerOver={(e) => {
+                  e.stopPropagation();
+                  document.body.style.cursor = "pointer";
+                  e.object.material.emissive?.setHex(0xff4444);
+                  e.object.material.emissiveIntensity = 0.3;
+                }}
+                onPointerOut={(e) => {
+                  document.body.style.cursor = "default";
+                  e.object.material.emissive?.setHex(0x000000);
+                  e.object.material.emissiveIntensity = 0;
+                }}
+              >
                 <boxGeometry args={[w.thickness, wallH, len]} />
                 <meshStandardMaterial
-                  color={w.confidence > 0.5 ? "#10B981" : "#F59E0B"}
+                  color={w.userAdded ? "#3B82F6" : w.confidence > 0.5 ? "#10B981" : "#F59E0B"}
                   transparent opacity={0.6}
                   side={THREE.DoubleSide}
                 />
