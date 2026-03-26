@@ -56,12 +56,13 @@ const WIZARD_QUESTIONS = [
   {
     id: "size",
     question: "How big is the space?",
+    // Options adjust dynamically based on building type in the wizard
     options: [
-      { value: 500, label: "Small (under 1,000 SF)", icon: "◽" },
-      { value: 2500, label: "Medium (1,000 - 5,000 SF)", icon: "◻️" },
-      { value: 10000, label: "Large (5,000 - 20,000 SF)", icon: "⬜" },
-      { value: 35000, label: "Very Large (20,000 - 50,000 SF)", icon: "🔳" },
-      { value: 75000, label: "Massive (50,000+ SF)", icon: "🏗️" },
+      { value: 800, label: "Under 1,000 SF", icon: "◽" },
+      { value: 1500, label: "1,000 - 2,000 SF", icon: "◻️" },
+      { value: 3000, label: "2,000 - 5,000 SF", icon: "⬜" },
+      { value: 7500, label: "5,000 - 10,000 SF", icon: "🔳" },
+      { value: 15000, label: "10,000 - 25,000 SF", icon: "🏗️" },
     ],
   },
   {
@@ -619,12 +620,28 @@ function GuidedWizardPath({ onResult, onBack }) {
       setStep(step + 1);
     } else {
       // All questions answered — generate ROM
-      const sf = newAnswers.size || 2500;
-      const params = newAnswers.floors ? { floorCount: newAnswers.floors } : undefined;
-      const result = generateBaselineROM(sf, newAnswers.category || "commercial-office", newAnswers.work || "", null, params);
-      result.source = "wizard";
-      result.wizardAnswers = newAnswers;
-      onResult(result);
+      try {
+        const sf = newAnswers.size || 2500;
+        const buildType = newAnswers.category || "commercial-office";
+        const work = newAnswers.work || "";
+        const floorCount = newAnswers.floors || 1;
+        const result = generateBaselineROM(sf, buildType, work, null, { floorCount });
+        result.source = "wizard";
+        result.wizardAnswers = newAnswers;
+        onResult(result);
+      } catch (err) {
+        console.error("[ROM Wizard] Generation failed:", err);
+        // Fallback: try without building params
+        try {
+          const sf = newAnswers.size || 2500;
+          const result = generateBaselineROM(sf, newAnswers.category || "commercial-office");
+          result.source = "wizard";
+          result.wizardAnswers = newAnswers;
+          onResult(result);
+        } catch (err2) {
+          console.error("[ROM Wizard] Fallback also failed:", err2);
+        }
+      }
     }
   }
 
