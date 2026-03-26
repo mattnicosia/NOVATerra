@@ -97,6 +97,20 @@ const WIZARD_QUESTIONS = [
       { value: 10, label: "7+ floors", icon: "🏙️" },
     ],
   },
+  {
+    id: "scopeExclusions",
+    question: "Any of these scopes NOT required or owner-supplied?",
+    multiSelect: true,
+    options: [
+      { value: "asbestos", label: "Asbestos Testing / Abatement / 3rd Party Testing" },
+      { value: "demolition", label: "Demolition" },
+      { value: "sitedemo", label: "Site Demolition (new builds)" },
+      { value: "windowtreatments", label: "Window Treatments" },
+      { value: "kitchenequip", label: "Kitchen Equipment" },
+      { value: "av", label: "Audio / Visual" },
+      { value: "security", label: "Security" },
+    ],
+  },
 ];
 
 /* ── Shared styles ── */
@@ -639,6 +653,17 @@ function GuidedWizardPath({ onResult, onBack }) {
   const [answers, setAnswers] = useState({});
   const [inputValue, setInputValue] = useState("");
 
+  // Map exclusion keys to division codes
+  const EXCLUSION_TO_DIVISIONS = {
+    asbestos: ["02"],       // falls under existing conditions
+    demolition: ["02"],     // existing conditions/demo
+    sitedemo: ["31"],       // earthwork/site demo
+    windowtreatments: ["12"], // furnishings
+    kitchenequip: ["11"],   // equipment
+    av: ["27"],             // communications
+    security: ["28"],       // electronic safety
+  };
+
   function finalize(finalAnswers) {
     try {
       const sf = parseFloat(finalAnswers.size) || 2500;
@@ -649,6 +674,40 @@ function GuidedWizardPath({ onResult, onBack }) {
       const location = finalAnswers.location || "";
       const result = generateBaselineROM(sf, buildType, work, null, { floorCount, laborType, location });
       result.source = "wizard";
+
+      // Apply scope exclusions — zero out excluded divisions
+      const exclusions = finalAnswers.scopeExclusions || [];
+      if (exclusions.length > 0) {
+        result.scopeExclusions = exclusions;
+        const excludedDivs = new Set();
+        exclusions.forEach(ex => {
+          (EXCLUSION_TO_DIVISIONS[ex] || []).forEach(d => excludedDivs.add(d));
+        });
+        for (const divCode of excludedDivs) {
+          if (result.divisions[divCode]) {
+            const div = result.divisions[divCode];
+            // Store original values for display
+            div.excluded = true;
+            div.originalTotal = { ...div.total };
+            div.originalPerSF = { ...div.perSF };
+            // Zero out
+            div.total = { low: 0, mid: 0, high: 0 };
+            div.perSF = { low: 0, mid: 0, high: 0 };
+            // Adjust totals
+            result.totals.low -= div.originalTotal.low;
+            result.totals.mid -= div.originalTotal.mid;
+            result.totals.high -= div.originalTotal.high;
+          }
+        }
+        // Recalculate perSF
+        if (sf > 0) {
+          result.perSF = {
+            low: Math.round((result.totals.low / sf) * 100) / 100,
+            mid: Math.round((result.totals.mid / sf) * 100) / 100,
+            high: Math.round((result.totals.high / sf) * 100) / 100,
+          };
+        }
+      }
       result.wizardAnswers = finalAnswers;
       onResult(result);
     } catch (err) {
@@ -686,9 +745,29 @@ function GuidedWizardPath({ onResult, onBack }) {
     handleSelect(val);
   }
 
+  // Multi-select state for scope exclusions
+  const [multiSelections, setMultiSelections] = useState([]);
+
+  function toggleMulti(value) {
+    setMultiSelections(prev => prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]);
+  }
+
+  function handleMultiContinue() {
+    const q = WIZARD_QUESTIONS[step];
+    const newAnswers = { ...answers, [q.id]: multiSelections };
+    setAnswers(newAnswers);
+    setMultiSelections([]);
+    if (step < WIZARD_QUESTIONS.length - 1) {
+      setStep(step + 1);
+    } else {
+      finalize(newAnswers);
+    }
+  }
+
   const q = WIZARD_QUESTIONS[step];
   const isLastStep = step === WIZARD_QUESTIONS.length - 1;
   const isInputStep = !!q.inputType;
+  const isMultiStep = !!q.multiSelect;
 
   return (
     <div style={{ width: "100%", maxWidth: 500 }}>
@@ -709,9 +788,55 @@ function GuidedWizardPath({ onResult, onBack }) {
       </div>
 
       <h2 style={{ fontSize: 24, fontWeight: 300, color: "#EEEDF5", margin: "0 0 32px 0", ...ff }}>{q.question}</h2>
+      {q.multiSelect && <p style={{ fontSize: 13, color: "rgba(238,237,245,0.35)", margin: "-20px 0 24px", ...ff }}>Select all that apply, then continue. These will be excluded from the estimate.</p>}
 
-      {/* Input-type step (SF, location) */}
-      {isInputStep ? (
+      {/* Multi-select step (scope exclusions) */}
+      {isMultiStep ? (
+        <div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {q.options.map(opt => {
+              const selected = multiSelections.includes(opt.value);
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => toggleMulti(opt.value)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 12, padding: "14px 18px",
+                    background: selected ? "rgba(255,71,87,0.08)" : "rgba(255,255,255,0.03)",
+                    border: `1px solid ${selected ? "rgba(255,71,87,0.3)" : "rgba(255,255,255,0.06)"}`,
+                    borderRadius: 12, cursor: "pointer", textAlign: "left",
+                    transition: "all 0.2s",
+                  }}
+                  onMouseEnter={e => { if (!selected) { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; } }}
+                  onMouseLeave={e => { if (!selected) { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; } }}
+                >
+                  <div style={{
+                    width: 20, height: 20, borderRadius: 4, flexShrink: 0,
+                    border: `2px solid ${selected ? "#FF4757" : "rgba(255,255,255,0.15)"}`,
+                    background: selected ? "#FF4757" : "transparent",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    transition: "all 0.2s",
+                  }}>
+                    {selected && <span style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>✕</span>}
+                  </div>
+                  <span style={{
+                    fontSize: 14, color: selected ? "rgba(255,255,255,0.5)" : "#EEEDF5",
+                    textDecoration: selected ? "line-through" : "none",
+                    fontWeight: 400, ...ff,
+                  }}>{opt.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <button onClick={handleMultiContinue} style={{
+            width: "100%", marginTop: 20, padding: "14px 24px", borderRadius: 12,
+            border: "none", background: "#00D4AA", color: "#000",
+            cursor: "pointer", fontSize: 15, fontWeight: 600, ...ff,
+          }}>
+            {multiSelections.length === 0 ? "None — Include All Scopes" : `Exclude ${multiSelections.length} Scope${multiSelections.length !== 1 ? "s" : ""} & Continue`}
+          </button>
+        </div>
+      ) : isInputStep ? (
         <div>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <input
