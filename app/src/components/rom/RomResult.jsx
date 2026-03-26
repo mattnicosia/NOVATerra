@@ -166,15 +166,16 @@ export default function RomResult({ rom, email }) {
   const { divisions, totals: rawTotals, projectSF, jobType } = rom;
   const divEntries = Object.entries(divisions).sort(([a], [b]) => a.localeCompare(b));
 
+  // Must be defined before totals computation
+  const getDivisionMultiplier = (divCode) => divisionAdjustments[divCode] || 1.0;
+
   // Compute adjusted totals (account for division-level +/- adjustments)
-  const totals = {
+  const hasAdjustments = Object.keys(divisionAdjustments).length > 0;
+  const totals = hasAdjustments ? {
     low: divEntries.reduce((sum, [code, d]) => sum + (d.total?.low || d.low || 0) * getDivisionMultiplier(code), 0),
     mid: divEntries.reduce((sum, [code, d]) => sum + (d.total?.mid || d.mid || 0) * getDivisionMultiplier(code), 0),
     high: divEntries.reduce((sum, [code, d]) => sum + (d.total?.high || d.high || 0) * getDivisionMultiplier(code), 0),
-  };
-  // Fall back to raw totals if no adjustments
-  const hasAdjustments = Object.keys(divisionAdjustments).length > 0;
-  if (!hasAdjustments) { totals.low = rawTotals.low; totals.mid = rawTotals.mid; totals.high = rawTotals.high; }
+  } : { low: rawTotals.low, mid: rawTotals.mid, high: rawTotals.high };
 
   const totalPerSF =
     projectSF > 0
@@ -303,7 +304,6 @@ export default function RomResult({ rom, email }) {
       return { ...prev, [divCode]: next };
     });
   };
-  const getDivisionMultiplier = (divCode) => divisionAdjustments[divCode] || 1.0;
   const resetDivisionAdjustment = (divCode) => {
     setDivisionAdjustments(prev => {
       const next = { ...prev };
