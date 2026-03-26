@@ -6,6 +6,7 @@ import { card, sectionLabel, colHeader } from "@/utils/styles";
 import { useSubdivisionStore } from "@/stores/subdivisionStore";
 import { generateSubdivisionROM } from "@/utils/romEngine";
 import { getConfidenceTier } from "@/utils/confidenceEngine";
+import { generateScopeTemplate } from "@/constants/scopeTemplates";
 
 const BUILDING_TYPE_LABELS = {
   "commercial-office": "Commercial Office",
@@ -87,6 +88,7 @@ export default function RomResult({ rom, email }) {
   const [genProgress, setGenProgress] = useState({ current: 0, total: 0, divCode: "" });
   const [showSubdivisions, setShowSubdivisions] = useState(true);
   const [showNarrative, setShowNarrative] = useState(true);
+  const [showScopeItems, setShowScopeItems] = useState(true);
   const [divisionAdjustments, setDivisionAdjustments] = useState({}); // { divCode: multiplier }
 
   const [editingSub, setEditingSub] = useState(null);
@@ -520,6 +522,128 @@ This estimate is based on historical project data and industry benchmarks. All f
           </div>
         </div>
       )}
+
+      {/* ── Scope Detail Items (from template engine) ── */}
+      {showScopeItems && (() => {
+        const scopeResult = generateScopeTemplate(jobType, projectSF, {
+          floors: rom.floors || 1,
+          workType: rom.workType || "",
+        });
+        if (!scopeResult || !scopeResult.items.length) return null;
+
+        // Group items by division
+        const byDiv = {};
+        scopeResult.items.forEach(item => {
+          if (!byDiv[item.division]) byDiv[item.division] = [];
+          byDiv[item.division].push(item);
+        });
+
+        return (
+          <div style={card(C, { padding: `${T.space[5]}px`, marginBottom: T.space[4] })}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div style={{ ...sectionLabel(C) }}>DETAILED SCOPE ITEMS ({scopeResult.itemCount})</div>
+              <button onClick={() => setShowScopeItems(false)} style={{
+                background: "none", border: "none", color: C.textDim, cursor: "pointer", fontSize: 11,
+                fontFamily: T.font.sans,
+              }}>Hide</button>
+            </div>
+
+            {Object.entries(byDiv).sort(([a], [b]) => a.localeCompare(b)).map(([divCode, items]) => {
+              const divName = divisions?.[divCode]?.name || `Division ${divCode}`;
+              const divTotal = items.reduce((sum, i) => sum + (i.midCost || 0), 0);
+
+              return (
+                <div key={divCode} style={{ marginBottom: 16 }}>
+                  {/* Division header */}
+                  <div style={{
+                    display: "flex", justifyContent: "space-between", alignItems: "center",
+                    padding: "6px 0", borderBottom: `1px solid ${C.border}`,
+                    marginBottom: 6,
+                  }}>
+                    <span style={{
+                      fontSize: 11, fontWeight: 600, color: C.text,
+                      fontFamily: T.font.sans, textTransform: "uppercase", letterSpacing: "0.06em",
+                    }}>{divCode} — {divName}</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: C.accent, fontFamily: T.font.sans }}>
+                      {fmt(divTotal)}
+                    </span>
+                  </div>
+
+                  {/* Line items */}
+                  {items.map((item, idx) => (
+                    <div key={idx} style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 70px 40px 80px 80px 80px",
+                      gap: 8,
+                      padding: "4px 0",
+                      fontSize: 11,
+                      fontFamily: T.font.sans,
+                      color: C.textMuted,
+                      borderBottom: idx < items.length - 1 ? `1px solid ${C.borderLight}` : "none",
+                      alignItems: "center",
+                    }}>
+                      <span style={{ color: C.text, fontSize: 11.5 }}>
+                        <span style={{ color: C.textDim, marginRight: 6 }}>{item.code}</span>
+                        {item.description}
+                        {item.note && <span style={{ color: C.textDim, fontSize: 10, marginLeft: 6 }}>({item.note})</span>}
+                      </span>
+                      <span style={{ textAlign: "right", fontFamily: T.font.mono || T.font.sans }}>
+                        {item.qty?.toLocaleString()}
+                      </span>
+                      <span style={{ textAlign: "center", color: C.textDim }}>{item.unit}</span>
+                      <span style={{ textAlign: "right", fontFamily: T.font.mono || T.font.sans, color: C.textDim }}>
+                        {item.lowCost ? fmt(item.lowCost) : "—"}
+                      </span>
+                      <span style={{ textAlign: "right", fontFamily: T.font.mono || T.font.sans, fontWeight: 500, color: C.text }}>
+                        {item.midCost ? fmt(item.midCost) : "—"}
+                      </span>
+                      <span style={{ textAlign: "right", fontFamily: T.font.mono || T.font.sans, color: C.textDim }}>
+                        {item.highCost ? fmt(item.highCost) : "—"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+
+            {/* Scope totals */}
+            <div style={{
+              display: "grid", gridTemplateColumns: "1fr 70px 40px 80px 80px 80px",
+              gap: 8, padding: "8px 0", borderTop: `2px solid ${C.border}`, marginTop: 8,
+              fontSize: 12, fontWeight: 700, fontFamily: T.font.sans, color: C.text,
+            }}>
+              <span>TOTAL ({scopeResult.itemCount} items)</span>
+              <span />
+              <span />
+              <span style={{ textAlign: "right", fontFamily: T.font.mono || T.font.sans }}>{fmt(scopeResult.grandTotal.low)}</span>
+              <span style={{ textAlign: "right", fontFamily: T.font.mono || T.font.sans, color: C.accent }}>{fmt(scopeResult.grandTotal.mid)}</span>
+              <span style={{ textAlign: "right", fontFamily: T.font.mono || T.font.sans }}>{fmt(scopeResult.grandTotal.high)}</span>
+            </div>
+            <div style={{
+              display: "grid", gridTemplateColumns: "1fr 70px 40px 80px 80px 80px",
+              gap: 8, padding: "4px 0", fontSize: 11, fontFamily: T.font.sans, color: C.textMuted,
+            }}>
+              <span>Per SF</span>
+              <span />
+              <span />
+              <span style={{ textAlign: "right" }}>{fmt(scopeResult.perSF.low)}/SF</span>
+              <span style={{ textAlign: "right", color: C.accent }}>{fmt(scopeResult.perSF.mid)}/SF</span>
+              <span style={{ textAlign: "right" }}>{fmt(scopeResult.perSF.high)}/SF</span>
+            </div>
+
+            {/* Source attribution */}
+            <div style={{
+              marginTop: 12, padding: "8px 12px", borderRadius: 6,
+              background: dk ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
+              fontSize: 10, color: C.textDim, lineHeight: 1.5, fontFamily: T.font.sans,
+            }}>
+              Source: NOVATerra scope template for {scopeResult.label}. Quantities are estimates based on project SF
+              and building type. Actual quantities will vary based on design documents.
+              {rom.calibrationNote && <span> {rom.calibrationNote}</span>}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Controls Bar ── */}
       <div style={{
