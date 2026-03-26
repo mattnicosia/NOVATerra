@@ -521,6 +521,7 @@ function BasicInfoPath({ onResult, onBack }) {
   const [buildingType, setBuildingType] = useState("commercial-office");
   const [projectSF, setProjectSF] = useState("");
   const [workType, setWorkType] = useState("");
+  const [laborType, setLaborType] = useState("open-shop");
   const [floors, setFloors] = useState("");
   const [location, setLocation] = useState("");
   const [error, setError] = useState("");
@@ -530,10 +531,13 @@ function BasicInfoPath({ onResult, onBack }) {
     if (!projectSF || parseFloat(projectSF) <= 0) { setError("Enter square footage"); return; }
     setError("");
     const sf = parseFloat(projectSF);
-    const params = floors ? { floorCount: parseInt(floors) } : undefined;
+    const params = {
+      ...(floors ? { floorCount: parseInt(floors) } : {}),
+      laborType,
+      location: location || undefined,
+    };
     const result = generateBaselineROM(sf, buildingType, workType, null, params);
     result.source = "basics";
-    result.location = location;
     onResult(result);
   }
 
@@ -579,16 +583,28 @@ function BasicInfoPath({ onResult, onBack }) {
               </select>
             </div>
             <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 11, color: "rgba(238,237,245,0.35)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em", ...ff }}>Labor Type</label>
+              <select value={laborType} onChange={e => setLaborType(e.target.value)} style={{
+                ...inputStyle, cursor: "pointer", appearance: "none", WebkitAppearance: "none",
+              }}>
+                <option value="open-shop">Open Shop</option>
+                <option value="prevailing">Prevailing Wage</option>
+                <option value="union">Union</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+            <div style={{ flex: 1 }}>
               <label style={{ fontSize: 11, color: "rgba(238,237,245,0.35)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em", ...ff }}>Floors</label>
               <input type="number" placeholder="e.g. 3" min="1" value={floors}
                 onChange={e => setFloors(e.target.value)} style={inputStyle} />
             </div>
-          </div>
-
-          <div style={{ marginBottom: 24 }}>
-            <label style={{ fontSize: 11, color: "rgba(238,237,245,0.35)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em", ...ff }}>Location (optional)</label>
-            <input type="text" placeholder="City, State or ZIP" value={location}
-              onChange={e => setLocation(e.target.value)} style={inputStyle} />
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 11, color: "rgba(238,237,245,0.35)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em", ...ff }}>Location</label>
+              <input type="text" placeholder="City, State or ZIP" value={location}
+                onChange={e => setLocation(e.target.value)} style={inputStyle} />
+            </div>
           </div>
 
           <button type="submit" style={{

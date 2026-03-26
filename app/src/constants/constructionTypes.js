@@ -38,6 +38,74 @@ export const WORK_TYPES = [
   { key: "interior-demo", label: "Interior Demolition", multiplier: 0.2 },
 ];
 
+// ─── Labor Types ─────────────────────────────────────────
+export const LABOR_TYPES = [
+  { key: "open-shop", label: "Open Shop", multiplier: 1.0 },
+  { key: "prevailing", label: "Prevailing Wage", multiplier: 1.35 },
+  { key: "union", label: "Union", multiplier: 1.45 },
+];
+
+export const LABOR_TYPE_MAP = Object.fromEntries(LABOR_TYPES.map(l => [l.key, l]));
+export const getLaborTypeMultiplier = key => LABOR_TYPE_MAP[key]?.multiplier ?? 1.0;
+export const getLaborTypeLabel = key => LABOR_TYPE_MAP[key]?.label || key || "";
+
+// ─── Market / Location Adjustments ─────────────────────────────────
+// Regional cost indices relative to national average (1.0)
+// Based on RSMeans City Cost Index patterns for NY metro area
+export const MARKET_REGIONS = [
+  { key: "manhattan", label: "Manhattan", multiplier: 1.45, zip: /^100|^101|^102/ },
+  { key: "brooklyn", label: "Brooklyn / Queens", multiplier: 1.30, zip: /^112|^111|^113|^114/ },
+  { key: "bronx", label: "Bronx", multiplier: 1.25, zip: /^104/ },
+  { key: "staten-island", label: "Staten Island", multiplier: 1.20, zip: /^103/ },
+  { key: "nassau", label: "Nassau County", multiplier: 1.15, zip: /^115|^110|^116/ },
+  { key: "suffolk-west", label: "Suffolk County (West)", multiplier: 1.10, zip: /^117|^117[0-5]/ },
+  { key: "suffolk-east", label: "Suffolk County (East)", multiplier: 1.05, zip: /^117[6-9]|^119/ },
+  { key: "westchester", label: "Westchester", multiplier: 1.20, zip: /^105|^106|^107|^108/ },
+  { key: "rockland", label: "Rockland County", multiplier: 1.10, zip: /^109/ },
+  { key: "hudson-valley", label: "Hudson Valley", multiplier: 1.05, zip: /^124|^125|^126|^128|^129/ },
+  { key: "northern-nj", label: "Northern NJ", multiplier: 1.20, zip: /^07[0-4]/ },
+  { key: "central-nj", label: "Central NJ", multiplier: 1.10, zip: /^07[5-9]|^08[0-9]/ },
+  { key: "connecticut", label: "Connecticut", multiplier: 1.15, zip: /^06/ },
+  { key: "south-florida", label: "South Florida", multiplier: 0.95, zip: /^33[0-4]/ },
+  { key: "national", label: "National Average", multiplier: 1.0, zip: /.*/ },
+];
+
+export function getMarketMultiplier(locationOrZip) {
+  if (!locationOrZip) return 1.0;
+  const input = String(locationOrZip).trim();
+
+  // Try ZIP match first
+  const zipMatch = input.match(/\b(\d{5})\b/);
+  if (zipMatch) {
+    const zip = zipMatch[1];
+    for (const region of MARKET_REGIONS) {
+      if (region.zip.test(zip)) return region.multiplier;
+    }
+  }
+
+  // Try keyword match
+  const lower = input.toLowerCase();
+  if (lower.includes("manhattan") || lower.includes("midtown") || lower.includes("downtown ny")) return 1.45;
+  if (lower.includes("brooklyn") || lower.includes("queens")) return 1.30;
+  if (lower.includes("bronx")) return 1.25;
+  if (lower.includes("nassau")) return 1.15;
+  if (lower.includes("suffolk") || lower.includes("long island")) return 1.10;
+  if (lower.includes("westchester")) return 1.20;
+  if (lower.includes("hudson valley") || lower.includes("rockland")) return 1.05;
+  if (lower.includes("jersey") || lower.includes("nj")) return 1.15;
+  if (lower.includes("connecticut") || lower.includes("ct")) return 1.15;
+  if (lower.includes("miami") || lower.includes("florida") || lower.includes("fl")) return 0.95;
+
+  return 1.0; // national average fallback
+}
+
+export function detectMarketRegion(locationOrZip) {
+  if (!locationOrZip) return { key: "national", label: "National Average", multiplier: 1.0 };
+  const mult = getMarketMultiplier(locationOrZip);
+  const region = MARKET_REGIONS.find(r => r.multiplier === mult) || MARKET_REGIONS[MARKET_REGIONS.length - 1];
+  return region;
+}
+
 // ─── Outcome Statuses ─────────────────────────────────────────
 // Bid outcome tracking for Cost History analytics
 export const OUTCOME_STATUSES = [

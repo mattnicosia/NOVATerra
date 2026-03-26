@@ -4,7 +4,7 @@
 import { SEED_ELEMENTS } from "@/constants/seedAssemblies";
 import { callAnthropic } from "@/utils/ai";
 import { searchSimilar } from "@/utils/vectorSearch";
-import { getWorkTypeMultiplier } from "@/constants/constructionTypes";
+import { getWorkTypeMultiplier, getLaborTypeMultiplier, getMarketMultiplier, detectMarketRegion } from "@/constants/constructionTypes";
 import { SUBDIVISION_BENCHMARKS, DEFAULT_SUBDIVISIONS } from "@/constants/subdivisionBenchmarks";
 import { computeSubdivisionBreakdown } from "@/utils/confidenceEngine";
 import { generateAllSubdivisions } from "@/utils/subdivisionAI";
@@ -296,17 +296,16 @@ export function getBuildingParamMultipliers(buildingParams = {}) {
 
 // ─── Baseline ROM Generation ──────────────────────────────────────────
 // Signature: (projectSF, buildingType, workType?, calibrationFactors?, buildingParams?)
+// buildingParams can include: { laborType, location, floorCount, ... }
 // Backward compat: (projectSF, jobType, calibrationFactors) still works
 export function generateBaselineROM(projectSF, buildingTypeOrJobType, workTypeOrCalib, maybeCalib, buildingParams) {
   // Detect old 3-arg signature vs new 4-arg
   let buildingType, workType, calibrationFactors;
   if (typeof workTypeOrCalib === "string") {
-    // New signature: (sf, buildingType, workType, calibrationFactors)
     buildingType = buildingTypeOrJobType;
     workType = workTypeOrCalib;
     calibrationFactors = maybeCalib || {};
   } else {
-    // Old signature: (sf, jobType, calibrationFactors)
     buildingType = buildingTypeOrJobType;
     workType = null;
     calibrationFactors = workTypeOrCalib || {};
@@ -314,8 +313,19 @@ export function generateBaselineROM(projectSF, buildingTypeOrJobType, workTypeOr
 
   const sf = parseFloat(projectSF) || 0;
   const benchmarks = BENCHMARKS[buildingType] || DEFAULT_BENCHMARKS;
+  const params = buildingParams || {};
+
+  // ── Multipliers ──
   const workMultiplier = workType ? getWorkTypeMultiplier(workType) : 1.0;
-  const bpMults = getBuildingParamMultipliers(buildingParams || {});
+  const laborMultiplier = params.laborType ? getLaborTypeMultiplier(params.laborType) : 1.0;
+  const marketMultiplier = params.location ? getMarketMultiplier(params.location) : 1.0;
+  const bpMults = getBuildingParamMultipliers(params);
+
+  // Combined multiplier applied to every division
+  const combinedMultiplier = workMultiplier * laborMultiplier * marketMultiplier;
+
+  // Detect market region for display
+  const marketRegion = params.location ? detectMarketRegion(params.location) : null;
 
   const divisions = {};
   let totalLow = 0,
@@ -323,8 +333,8 @@ export function generateBaselineROM(projectSF, buildingTypeOrJobType, workTypeOr
     totalHigh = 0;
 
   Object.entries(benchmarks).forEach(([div, range]) => {
-    // Apply calibration factor + work type multiplier + building param multiplier
-    const factor = (calibrationFactors[div] || 1) * workMultiplier * (bpMults[div] || 1);
+    // Apply: calibration × work type × labor type × market × building params
+    const factor = (calibrationFactors[div] || 1) * combinedMultiplier * (bpMults[div] || 1);
     const low = range.low * factor;
     const mid = range.mid * factor;
     const high = range.high * factor;
@@ -349,17 +359,37 @@ export function generateBaselineROM(projectSF, buildingTypeOrJobType, workTypeOr
     jobType: buildingType || "commercial-office",
     buildingType: buildingType || "commercial-office",
     workType: workType || "",
+    laborType: params.laborType || "open-shop",
+    location: params.location || "",
+    // Multipliers (for display in the deliverable)
     workMultiplier,
+    laborMultiplier,
+    marketMultiplier,
+    combinedMultiplier,
+    marketRegion: marketRegion ? { key: marketRegion.key, label: marketRegion.label, multiplier: marketRegion.multiplier } : null,
+    // Divisions + totals
     divisions,
     totals: {
       low: Math.round(totalLow),
       mid: Math.round(totalMid),
       high: Math.round(totalHigh),
     },
+    perSF: {
+      low: sf > 0 ? Math.round((totalLow / sf) * 100) / 100 : 0,
+      mid: sf > 0 ? Math.round((totalMid / sf) * 100) / 100 : 0,
+      high: sf > 0 ? Math.round((totalHigh / sf) * 100) / 100 : 0,
+    },
+    // Calibration info
     calibrated: Object.keys(calibrationFactors).length > 0,
     calibrationCount: Object.keys(calibrationFactors).length,
     buildingParamAdjusted: Object.keys(bpMults).length > 0,
     buildingParamMultipliers: bpMults,
+    // Adjustment summary (for the deliverable)
+    adjustments: [
+      workMultiplier !== 1.0 ? { label: `Work type: ${workType}`, multiplier: workMultiplier } : null,
+      laborMultiplier !== 1.0 ? { label: `Labor: ${params.laborType}`, multiplier: laborMultiplier } : null,
+      marketMultiplier !== 1.0 ? { label: `Market: ${marketRegion?.label || params.location}`, multiplier: marketMultiplier } : null,
+    ].filter(Boolean),
   };
 }
 
