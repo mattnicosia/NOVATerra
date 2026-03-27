@@ -143,11 +143,42 @@ const inputStyle = {
 /* ════════════════════════════════════════════════════════════════
    PATH SELECTOR — Three cards
    ════════════════════════════════════════════════════════════════ */
+// Geometric icons — SVG shapes instead of emojis
+const GeoIcon = ({ type, color, size = 32 }) => {
+  const s = size;
+  if (type === "drawings") return (
+    <svg width={s} height={s} viewBox="0 0 32 32" fill="none">
+      <rect x="4" y="2" width="18" height="24" rx="2" stroke={color} strokeWidth="1.5" opacity="0.4" />
+      <rect x="8" y="6" width="18" height="24" rx="2" stroke={color} strokeWidth="1.5" fill={`${color}08`} />
+      <line x1="13" y1="14" x2="22" y2="14" stroke={color} strokeWidth="1" opacity="0.5" />
+      <line x1="13" y1="18" x2="20" y2="18" stroke={color} strokeWidth="1" opacity="0.5" />
+      <line x1="13" y1="22" x2="18" y2="22" stroke={color} strokeWidth="1" opacity="0.5" />
+    </svg>
+  );
+  if (type === "basics") return (
+    <svg width={s} height={s} viewBox="0 0 32 32" fill="none">
+      <rect x="4" y="4" width="24" height="24" rx="1" stroke={color} strokeWidth="1.5" fill={`${color}08`} />
+      <line x1="4" y1="16" x2="28" y2="16" stroke={color} strokeWidth="0.75" opacity="0.3" />
+      <line x1="16" y1="4" x2="16" y2="28" stroke={color} strokeWidth="0.75" opacity="0.3" />
+      <circle cx="16" cy="16" r="3" stroke={color} strokeWidth="1.5" />
+      <circle cx="16" cy="16" r="1" fill={color} />
+    </svg>
+  );
+  if (type === "explore") return (
+    <svg width={s} height={s} viewBox="0 0 32 32" fill="none">
+      <polygon points="16,3 28,28 4,28" stroke={color} strokeWidth="1.5" fill={`${color}08`} strokeLinejoin="round" />
+      <circle cx="16" cy="19" r="2" fill={color} opacity="0.6" />
+      <line x1="16" y1="11" x2="16" y2="15" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+  return null;
+};
+
 function PathSelector({ onSelect }) {
   const paths = [
     {
       id: "drawings",
-      icon: "📄",
+      iconType: "drawings",
       title: "I have drawings",
       desc: "Upload your plans for a detailed scope + budget analysis",
       accent: "#00D4AA",
@@ -155,16 +186,16 @@ function PathSelector({ onSelect }) {
     },
     {
       id: "basics",
+      iconType: "basics",
       title: "I know the basics",
-      icon: "📐",
       desc: "Building type, SF, location — get a calibrated budget estimate",
       accent: "#4DA6FF",
       tag: "INSTANT",
     },
     {
       id: "explore",
+      iconType: "explore",
       title: "I'm just exploring",
-      icon: "💡",
       desc: "Answer a few questions and we'll build an estimate together",
       accent: "#FFB020",
       tag: "GUIDED",
@@ -216,8 +247,8 @@ function PathSelector({ onSelect }) {
           >
             {p.tag}
           </div>
-          {/* Icon + Title */}
-          <div style={{ fontSize: 28, marginBottom: 10 }}>{p.icon}</div>
+          {/* Geometric icon */}
+          <div style={{ marginBottom: 10 }}><GeoIcon type={p.iconType} color={p.accent} /></div>
           <div style={{ fontSize: 17, fontWeight: 600, color: "#EEEDF5", marginBottom: 8, ...ff }}>{p.title}</div>
           <div style={{ fontSize: 13, color: "rgba(238,237,245,0.4)", lineHeight: 1.5, ...ff }}>{p.desc}</div>
         </button>
@@ -1031,10 +1062,42 @@ function RomPageInner() {
           </h1>
 
           {!romResult && !path && (
-            <p style={{ fontSize: 16, color: "rgba(238,237,245,0.35)", margin: "0 0 48px 0", maxWidth: 460, lineHeight: 1.6, ...ff }}>
-              Upload drawings for a detailed scope analysis. Or enter your project basics for an instant budget estimate.
-              Free. No credit card.
-            </p>
+            <>
+              <p style={{ fontSize: 16, color: "rgba(238,237,245,0.45)", margin: "0 0 32px 0", maxWidth: 520, lineHeight: 1.7, ...ff }}>
+                NOVATerra generates construction budget estimates calibrated against <strong style={{ color: "#EEEDF5" }}>real project data</strong> — not AI guesses.
+                Every number is backed by actual proposals from real contractors in real markets.
+              </p>
+
+              {/* How it works */}
+              <div style={{
+                display: "flex", gap: 32, maxWidth: 600, margin: "0 auto 40px",
+                justifyContent: "center", flexWrap: "wrap",
+              }}>
+                {[
+                  { step: "1", label: "Tell us about your project", sub: "Upload drawings or enter basics" },
+                  { step: "2", label: "NOVA analyzes the scope", sub: "AI + calibrated benchmarks" },
+                  { step: "3", label: "Get your budget estimate", sub: "With data source & confidence" },
+                ].map((s, i) => (
+                  <div key={i} style={{ textAlign: "center", flex: "1 1 140px" }}>
+                    <div style={{
+                      width: 28, height: 28, borderRadius: "50%", margin: "0 auto 8px",
+                      border: "1px solid rgba(255,255,255,0.12)", display: "flex",
+                      alignItems: "center", justifyContent: "center",
+                      fontSize: 12, fontWeight: 700, color: "rgba(238,237,245,0.5)", ...ff,
+                    }}>{s.step}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#EEEDF5", marginBottom: 3, ...ff }}>{s.label}</div>
+                    <div style={{ fontSize: 11, color: "rgba(238,237,245,0.3)", ...ff }}>{s.sub}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{
+                fontSize: 11, color: "rgba(238,237,245,0.2)", marginBottom: 36,
+                textTransform: "uppercase", letterSpacing: "0.12em", ...ff,
+              }}>
+                Free · No credit card · Results in seconds
+              </div>
+            </>
           )}
 
           {/* Path selection */}
@@ -1087,6 +1150,41 @@ function RomPageInner() {
                 </div>
               </div>
             )}
+
+            {/* Data points indicator — shows for ALL result types */}
+            <div style={{
+              marginBottom: 20, padding: "14px 24px", borderRadius: 10,
+              background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)",
+              display: "flex", gap: 28, flexWrap: "wrap", justifyContent: "center", alignItems: "center",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <circle cx="7" cy="7" r="5.5" stroke="#00D4AA" strokeWidth="1.2" />
+                  <circle cx="7" cy="7" r="2" fill="#00D4AA" />
+                </svg>
+                <span style={{ fontSize: 12, color: "rgba(238,237,245,0.5)", ...ff }}>
+                  <strong style={{ color: "#EEEDF5" }}>{romResult.dataPoints || 58}</strong> proposals calibrating this estimate
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <rect x="2" y="2" width="10" height="10" rx="2" stroke="#4DA6FF" strokeWidth="1.2" />
+                  <line x1="5" y1="7" x2="9" y2="7" stroke="#4DA6FF" strokeWidth="1.2" />
+                  <line x1="7" y1="5" x2="7" y2="9" stroke="#4DA6FF" strokeWidth="1.2" />
+                </svg>
+                <span style={{ fontSize: 12, color: "rgba(238,237,245,0.5)", ...ff }}>
+                  <strong style={{ color: "#EEEDF5" }}>{romResult.calibrationSources || "Montana, Violante"}</strong> contractor data
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <polygon points="7,1 13,5 13,10 7,14 1,10 1,5" stroke="#FFB020" strokeWidth="1.2" fill="none" />
+                </svg>
+                <span style={{ fontSize: 12, color: "rgba(238,237,245,0.5)", ...ff }}>
+                  Market: <strong style={{ color: "#EEEDF5" }}>{romResult.location || romResult.wizardAnswers?.location || "NY Metro"}</strong>
+                </span>
+              </div>
+            </div>
 
             <RomResult rom={romResult} email={email} />
 
