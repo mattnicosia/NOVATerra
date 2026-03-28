@@ -97,6 +97,7 @@ const AdminUserDetail = lazy(() => import("@/pages/admin/AdminUserDetail"));
 const AdminEstimatesPage = lazy(() => import("@/pages/admin/AdminEstimatesPage"));
 const AdminEstimateDetail = lazy(() => import("@/pages/admin/AdminEstimateDetail"));
 const AdminEmbeddingsPage = lazy(() => import("@/pages/admin/AdminEmbeddingsPage"));
+const AdminNovaPage = lazy(() => import("@/pages/admin/AdminNovaPage"));
 
 // Admin guard — checks if the current user's email is in the admin whitelist
 function AdminGuard({ children }) {
@@ -895,6 +896,14 @@ function AppContent() {
                     element={
                       <RouteErrorBoundary pageName="Admin Embeddings">
                         <AdminEmbeddingsPage />
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="nova"
+                    element={
+                      <RouteErrorBoundary pageName="Admin NOVA Intelligence">
+                        <AdminNovaPage />
                       </RouteErrorBoundary>
                     }
                   />
