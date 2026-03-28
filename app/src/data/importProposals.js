@@ -8,9 +8,9 @@ import { generateBaselineROM, computeCalibration } from "@/utils/romEngine";
 import { MONTANA_PROPOSALS } from "./montana-proposals";
 import { VIOLANTE_PROPOSALS } from "./violante-proposals";
 
-const IMPORT_KEY = "proposals-imported-montana-v3"; // v3: force reimport + calibration
-const VIOLANTE_IMPORT_KEY = "proposals-imported-violante-v3";
-const CALIBRATION_KEY = "proposals-calibrated-v2"; // v2: force recalibration
+const IMPORT_KEY = "proposals-imported-montana-v4"; // v4: force reimport with correct proposalType
+const VIOLANTE_IMPORT_KEY = "proposals-imported-violante-v4"; // v4: force Violante import
+const CALIBRATION_KEY = "proposals-calibrated-v3"; // v3: force recalibration from all proposals
 
 // ── Generate a learning record from a proposal (same logic as HistoricalProposalsPanel) ──
 function generateLearningRecord(proposal) {
@@ -74,11 +74,11 @@ export function importMontanaProposals() {
 
   const store = useMasterDataStore.getState();
 
-  // v3: Remove old imports without proposalType (from v1/v2) and reimport with correct data
+  // v4: Remove ALL old Montana imports (any version) and reimport fresh with correct data
   const existing = store.masterData?.historicalProposals || [];
-  const oldMontana = existing.filter(p => (p.source === "montana-import" || p.gcCompany === "Montana Contracting Corp" || p.gcCompany === "Anonymous GC-1") && !p.proposalType);
+  const oldMontana = existing.filter(p => p.source === "montana-import" || p.gcCompany === "Montana Contracting Corp" || p.gcCompany === "Anonymous GC-1");
   if (oldMontana.length > 0) {
-    console.log(`[proposals] Removing ${oldMontana.length} old Montana imports without proposalType`);
+    console.log(`[proposals] Removing ${oldMontana.length} old Montana imports for clean reimport`);
     const cleaned = existing.filter(p => !oldMontana.includes(p));
     store.setMasterData({ ...store.masterData, historicalProposals: cleaned });
   }
