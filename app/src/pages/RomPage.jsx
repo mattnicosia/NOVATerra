@@ -1173,7 +1173,7 @@ function RomPageInner() {
                   <line x1="7" y1="5" x2="7" y2="9" stroke="#4DA6FF" strokeWidth="1.2" />
                 </svg>
                 <span style={{ fontSize: 12, color: "rgba(238,237,245,0.5)", ...ff }}>
-                  <strong style={{ color: "#EEEDF5" }}>{romResult.calibrationSources || "Montana, Violante"}</strong> contractor data
+                  <strong style={{ color: "#EEEDF5" }}>{romResult.contractorCount || 2}</strong> regional contractor{(romResult.contractorCount || 2) !== 1 ? "s" : ""}
                 </span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
