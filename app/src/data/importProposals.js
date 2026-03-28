@@ -8,9 +8,9 @@ import { generateBaselineROM, computeCalibration } from "@/utils/romEngine";
 import { MONTANA_PROPOSALS } from "./montana-proposals";
 import { VIOLANTE_PROPOSALS } from "./violante-proposals";
 
-const IMPORT_KEY = "proposals-imported-montana-v2"; // v2: now generates learning records
-const VIOLANTE_IMPORT_KEY = "proposals-imported-violante-v2";
-const CALIBRATION_KEY = "proposals-calibrated-v1";
+const IMPORT_KEY = "proposals-imported-montana-v3"; // v3: force reimport + calibration
+const VIOLANTE_IMPORT_KEY = "proposals-imported-violante-v3";
+const CALIBRATION_KEY = "proposals-calibrated-v2"; // v2: force recalibration
 
 // ── Generate a learning record from a proposal (same logic as HistoricalProposalsPanel) ──
 function generateLearningRecord(proposal) {
@@ -74,11 +74,11 @@ export function importMontanaProposals() {
 
   const store = useMasterDataStore.getState();
   const existing = store.masterData?.historicalProposals || [];
-  const existingNames = new Set(existing.map(p => p.projectName || p.name));
+  const existingNames = new Set(existing.map(p => (p.projectName || p.name || "").toLowerCase()));
 
   let imported = 0;
   for (const p of MONTANA_PROPOSALS) {
-    if (existingNames.has(p.projectName)) continue;
+    if (existingNames.has((p.projectName || "").toLowerCase())) continue;
     store.addHistoricalProposal({
       projectName: p.projectName, client: p.client, architect: p.architect,
       totalCost: p.totalCost, proposalCost: p.totalCost, projectSF: p.projectSF,
@@ -101,11 +101,11 @@ export function importViolanteProposals() {
 
   const store = useMasterDataStore.getState();
   const existing = store.masterData?.historicalProposals || [];
-  const existingNames = new Set(existing.map(p => p.projectName || p.name));
+  const existingNames = new Set(existing.map(p => (p.projectName || p.name || "").toLowerCase()));
 
   let imported = 0;
   for (const p of VIOLANTE_PROPOSALS) {
-    if (existingNames.has(p.projectName)) continue;
+    if (existingNames.has((p.projectName || "").toLowerCase())) continue;
     store.addHistoricalProposal({
       projectName: p.projectName, client: p.client,
       totalCost: p.totalCost, proposalCost: p.totalCost, projectSF: p.projectSF,
@@ -127,10 +127,12 @@ export function importViolanteProposals() {
 // ── Generate learning records from ALL imported proposals ──
 // This is the critical step that was missing — without this, proposals don't calibrate the ROM.
 export async function calibrateFromImportedProposals() {
-  if (localStorage.getItem(CALIBRATION_KEY)) return false;
+  // Check if already calibrated — BUT if 0 learning records exist, force recalibration
+  const scanStore = useScanStore.getState();
+  const existingRecords = scanStore.learningRecords || [];
+  if (localStorage.getItem(CALIBRATION_KEY) && existingRecords.length > 0) return false;
 
   const store = useMasterDataStore.getState();
-  const scanStore = useScanStore.getState();
   const proposals = store.masterData?.historicalProposals || [];
 
   if (proposals.length === 0) {
