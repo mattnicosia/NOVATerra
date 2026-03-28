@@ -1182,13 +1182,16 @@ export function usePersistenceLoad() {
         console.warn("[usePersistence] Index enrichment failed:", enrichErr);
       }
 
-      // ── One-time data imports (run after persistence loads, before cloud sync) ──
+      // ── One-time data imports + calibration (run after persistence loads) ──
       try {
-        const { importMontanaProposals, importViolanteProposals } = await import("@/data/importProposals");
+        const { importMontanaProposals, importViolanteProposals, calibrateFromImportedProposals } = await import("@/data/importProposals");
         importMontanaProposals();
         importViolanteProposals();
+        // Generate learning records from ALL imported proposals — this is what
+        // makes them actually calibrate the ROM instead of just sitting in storage.
+        await calibrateFromImportedProposals();
       } catch (importErr) {
-        console.warn("[usePersistence] Proposal import failed:", importErr);
+        console.warn("[usePersistence] Proposal import/calibration failed:", importErr);
       }
 
       // Signal that persistence load is complete — auto-save can now safely write

@@ -346,7 +346,10 @@ export function generateBaselineROM(projectSF, buildingTypeOrJobType, workTypeOr
 
   Object.entries(benchmarks).forEach(([div, range]) => {
     // Apply: calibration × work type × labor type × market × building params
-    const factor = (calibrationFactors[div] || 1) * combinedMultiplier * (bpMults[div] || 1);
+    // calibrationFactors[div] can be a number (legacy) or { factor, count, confidence } (new)
+    const calEntry = calibrationFactors[div];
+    const calFactor = typeof calEntry === "number" ? calEntry : (calEntry?.factor || 1);
+    const factor = calFactor * combinedMultiplier * (bpMults[div] || 1);
     const low = range.low * factor;
     const mid = range.mid * factor;
     const high = range.high * factor;
