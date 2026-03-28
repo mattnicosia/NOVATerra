@@ -73,8 +73,18 @@ export function importMontanaProposals() {
   if (localStorage.getItem(IMPORT_KEY)) return false;
 
   const store = useMasterDataStore.getState();
+
+  // v3: Remove old imports without proposalType (from v1/v2) and reimport with correct data
   const existing = store.masterData?.historicalProposals || [];
-  const existingNames = new Set(existing.map(p => (p.projectName || p.name || "").toLowerCase()));
+  const oldMontana = existing.filter(p => (p.source === "montana-import" || p.gcCompany === "Montana Contracting Corp" || p.gcCompany === "Anonymous GC-1") && !p.proposalType);
+  if (oldMontana.length > 0) {
+    console.log(`[proposals] Removing ${oldMontana.length} old Montana imports without proposalType`);
+    const cleaned = existing.filter(p => !oldMontana.includes(p));
+    store.setMasterData({ ...store.masterData, historicalProposals: cleaned });
+  }
+
+  const currentExisting = store.masterData?.historicalProposals || [];
+  const existingNames = new Set(currentExisting.map(p => (p.projectName || p.name || "").toLowerCase()));
 
   let imported = 0;
   for (const p of MONTANA_PROPOSALS) {
@@ -85,14 +95,14 @@ export function importMontanaProposals() {
       jobType: p.jobType, workType: p.workType, laborType: p.laborType,
       outcome: p.outcome, date: p.date, zipCode: p.zipCode, address: p.address,
       divisions: p.divisions, source: p.source, sourceFileName: p.sourceFileName,
-      proposalType: "gc",
+      proposalType: p.proposalType || "gc", // Montana = always GC
       gcCompany: "Anonymous GC-1", // Anonymized
     });
     imported++;
   }
 
   localStorage.setItem(IMPORT_KEY, new Date().toISOString());
-  console.log(`[proposals] Imported ${imported} Montana proposals`);
+  console.log(`[proposals] Imported ${imported} Montana proposals (all GC)`);
   return imported;
 }
 
@@ -101,7 +111,17 @@ export function importViolanteProposals() {
 
   const store = useMasterDataStore.getState();
   const existing = store.masterData?.historicalProposals || [];
-  const existingNames = new Set(existing.map(p => (p.projectName || p.name || "").toLowerCase()));
+
+  // Remove old Violante imports that might be blocking reimport
+  const oldViolante = existing.filter(p => (p.source === "violante-import" || p.subContractor === "Violante & Sons" || p.subContractor === "Anonymous Sub-1"));
+  if (oldViolante.length > 0) {
+    console.log(`[proposals] Removing ${oldViolante.length} old Violante imports for reimport`);
+    const cleaned = existing.filter(p => !oldViolante.includes(p));
+    store.setMasterData({ ...store.masterData, historicalProposals: cleaned });
+  }
+
+  const currentExisting = store.masterData?.historicalProposals || [];
+  const existingNames = new Set(currentExisting.map(p => (p.projectName || p.name || "").toLowerCase()));
 
   let imported = 0;
   for (const p of VIOLANTE_PROPOSALS) {
