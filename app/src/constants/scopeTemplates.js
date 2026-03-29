@@ -17,7 +17,9 @@ function estimatePerimeter(sf, floors = 1) {
 
 // ── Scope item factory ──
 function item(division, code, description, qtyFn, unit, lowRate, highRate, opts = {}) {
-  return { division, code, description, qtyFn, unit, lowRate, highRate, ...opts };
+  // durationDays: null for now — will be populated post-beta for construction simulation
+  // When populated, this enables the timeline slider to animate construction sequence
+  return { division, code, description, qtyFn, unit, lowRate, highRate, durationDays: null, ...opts };
 }
 
 // ── SHARED ITEMS — appear in most building types ──
