@@ -994,7 +994,7 @@ function RomPageInner() {
       if (!el) { el = document.createElement("meta"); el.setAttribute(attr, name); document.head.appendChild(el); }
       el.setAttribute("content", content);
     };
-    setMeta("description", "Get a free construction budget estimate in 60 seconds. Calibrated against real contractor proposals — not AI guesses. Upload drawings or enter project basics. No credit card required.");
+    setMeta("description", "Construction budgets in 60 seconds — backed by real bid data, not AI guesses. Preliminary estimates shouldn't cost $5K or take 3 weeks. Upload drawings or enter basics. Free, instant, traceable.");
     setMeta("og:title", "Free Construction Budget Estimate | NOVATerra", true);
     setMeta("og:description", "Data-backed ROM estimates calibrated from real construction proposals. Upload your plans or enter project basics. Free, instant, accurate.", true);
     setMeta("og:type", "website", true);
@@ -1098,14 +1098,13 @@ function RomPageInner() {
             margin: 0, marginBottom: romResult ? 4 : 12, letterSpacing: -1.5, lineHeight: 1.05,
             transition: "font-size 0.5s ease", ...ff,
           }}>
-            {romResult ? "Your Estimate" : "Stop guessing your construction costs."}
+            {romResult ? "Your Estimate" : (<>Construction budgets in 60 seconds —<br /><span style={{ color: C.accent || "#00D4AA" }}>backed by real bid data, not AI guesses.</span></>)}
           </h1>
 
           {!romResult && !path && (
             <>
-              <p style={{ fontSize: 16, color: "rgba(238,237,245,0.45)", margin: "0 0 24px 0", maxWidth: 520, lineHeight: 1.7, ...ff }}>
-                Every inaccurate estimate costs you the bid or the profit.
-                NOVATerra generates budget estimates calibrated against <strong style={{ color: "#EEEDF5" }}>real contractor proposals</strong> — not AI guesses.
+              <p style={{ fontSize: 16, color: "rgba(238,237,245,0.45)", margin: "0 0 24px 0", maxWidth: 560, lineHeight: 1.7, ...ff }}>
+                Preliminary estimates shouldn't cost $5K or take 3 weeks. NOVATerra calibrates against <strong style={{ color: "#EEEDF5" }}>actual contractor proposals</strong> from real projects — not LLM training data. Free. Instant. Traceable.
               </p>
 
               {/* How it works */}
