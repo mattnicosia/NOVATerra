@@ -7,6 +7,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useScanStore } from "@/stores/scanStore";
 import { generateBaselineROM, computeCalibration } from "@/utils/romEngine";
+import { normalizeProposal, getNormalizationTrace } from "@/utils/normalizationEngine";
 
 const ff = { fontFamily: "'Switzer', -apple-system, sans-serif" };
 
@@ -114,37 +115,122 @@ function ProposalsTab() {
         </table>
       </div>
 
-      {/* Detail panel */}
+      {/* Full traceability panel */}
       {selected !== null && filtered[selected] && (() => {
         const p = filtered[selected];
-        const divs = Object.entries(p.divisions || {}).filter(([, v]) => parseFloat(v) > 0).sort(([a], [b]) => a.localeCompare(b));
+        const trace = getNormalizationTrace(p);
+        const norm = normalizeProposal(p);
+        const divs = Object.entries(norm.divisions).sort(([a], [b]) => a.localeCompare(b));
+        const sectionLabel = { fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 8, marginTop: 20, ...ff };
+        const metaLabel = { color: "rgba(255,255,255,0.35)", fontSize: 10, ...ff };
+        const metaValue = { color: "#EEEDF5", fontSize: 13, fontWeight: 500, ...ff };
         return (
-          <div style={{ marginTop: 16, padding: 20, background: "rgba(255,255,255,0.03)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)" }}>
-            <div style={{ fontSize: 16, fontWeight: 600, color: "#EEEDF5", marginBottom: 12, ...ff }}>{p.projectName || p.name}</div>
-            <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginBottom: 16 }}>
-              <div><span style={{ color: "rgba(255,255,255,0.35)", fontSize: 10 }}>SF:</span> <span style={{ color: "#EEEDF5" }}>{p.projectSF?.toLocaleString() || "—"}</span></div>
-              <div><span style={{ color: "rgba(255,255,255,0.35)", fontSize: 10 }}>TYPE:</span> <span style={{ color: "#EEEDF5" }}>{p.jobType || "—"}</span></div>
-              <div><span style={{ color: "rgba(255,255,255,0.35)", fontSize: 10 }}>LABOR:</span> <span style={{ color: "#EEEDF5" }}>{p.laborType || "—"}</span></div>
-              <div><span style={{ color: "rgba(255,255,255,0.35)", fontSize: 10 }}>OUTCOME:</span> <span style={{ color: p.outcome === "won" ? "#00D4AA" : p.outcome === "lost" ? "#FF4757" : "#FFB020" }}>{p.outcome || "pending"}</span></div>
+          <div style={{ marginTop: 16, padding: 24, background: "rgba(255,255,255,0.03)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)" }}>
+
+            {/* Header */}
+            <div style={{ fontSize: 18, fontWeight: 600, color: "#EEEDF5", marginBottom: 4, ...ff }}>{p.projectName || p.name}</div>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginBottom: 16, ...ff }}>Full normalization trace — every step from raw data to calibrated baseline</div>
+
+            {/* ── STEP 1: RAW INPUT ── */}
+            <div style={sectionLabel}>1. RAW INPUT</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12, marginBottom: 8 }}>
+              <div><div style={metaLabel}>SF</div><div style={metaValue}>{p.projectSF?.toLocaleString() || "—"}</div></div>
+              <div><div style={metaLabel}>TOTAL COST</div><div style={{ ...metaValue, color: "#00D4AA" }}>{fmt(p.totalCost || 0)}</div></div>
+              <div><div style={metaLabel}>RAW $/SF</div><div style={metaValue}>${trace.summary.rawPerSF}</div></div>
+              <div><div style={metaLabel}>TYPE</div><div style={metaValue}>{p.jobType || p.buildingType || "—"}</div></div>
+              <div><div style={metaLabel}>LABOR</div><div style={metaValue}>{p.laborType || "open-shop"}</div></div>
+              <div><div style={metaLabel}>LOCATION</div><div style={metaValue}>{trace.summary.location}</div></div>
+              <div><div style={metaLabel}>ZIP</div><div style={metaValue}>{p.zipCode || "—"}</div></div>
+              <div><div style={metaLabel}>PROPOSAL TYPE</div><div style={{ ...metaValue, color: p.proposalType === "gc" ? "#4DA6FF" : "#FFB020" }}>{p.proposalType === "gc" ? "GC" : "SUB"}</div></div>
+              <div><div style={metaLabel}>OUTCOME</div><div style={{ ...metaValue, color: p.outcome === "won" ? "#00D4AA" : p.outcome === "lost" ? "#FF4757" : "#FFB020" }}>{p.outcome || "pending"}</div></div>
             </div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8, ...ff }}>Division Breakdown</div>
-            {divs.map(([div, cost]) => {
-              const c = parseFloat(cost);
-              const pct = p.totalCost > 0 ? ((c / p.totalCost) * 100).toFixed(1) : 0;
-              const perSF = p.projectSF > 0 ? (c / p.projectSF).toFixed(2) : "—";
-              return (
-                <div key={div} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", fontSize: 12, ...ff }}>
-                  <span style={{ width: 30, color: "rgba(255,255,255,0.4)", fontWeight: 600 }}>{div}</span>
-                  <div style={{ flex: 1, height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
-                    <div style={{ height: "100%", background: "#00D4AA", borderRadius: 2, width: `${Math.min(parseFloat(pct) * 2, 100)}%` }} />
-                  </div>
-                  <span style={{ width: 60, textAlign: "right", color: "#EEEDF5" }}>{fmt(c)}</span>
-                  <span style={{ width: 50, textAlign: "right", color: "rgba(255,255,255,0.4)" }}>${perSF}/SF</span>
-                  <span style={{ width: 40, textAlign: "right", color: "rgba(255,255,255,0.3)" }}>{pct}%</span>
+
+            {/* ── STEP 2: NORMALIZATION FACTORS ── */}
+            <div style={sectionLabel}>2. NORMALIZATION FACTORS</div>
+            <div style={{ padding: 14, background: "rgba(77,166,255,0.04)", borderRadius: 8, border: "1px solid rgba(77,166,255,0.1)", marginBottom: 8 }}>
+              <div style={{ fontSize: 12, color: "#4DA6FF", marginBottom: 8, fontWeight: 600, ...ff }}>Adjusting to National Average, Open Shop baseline</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                <div>
+                  <div style={metaLabel}>LOCATION FACTOR</div>
+                  <div style={metaValue}>{norm.normalization.locationFactor}×</div>
+                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", ...ff }}>mat={norm.normalization.locationBreakdown.material} lab={norm.normalization.locationBreakdown.labor} equip={norm.normalization.locationBreakdown.equipment}</div>
                 </div>
-              );
-            })}
-            {p.notes && <div style={{ marginTop: 12, fontSize: 11, color: "rgba(255,255,255,0.3)", fontStyle: "italic", ...ff }}>{p.notes}</div>}
+                <div>
+                  <div style={metaLabel}>LABOR FACTOR</div>
+                  <div style={metaValue}>{norm.normalization.laborFactor}×</div>
+                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", ...ff }}>{p.laborType || "open-shop"}</div>
+                </div>
+                <div>
+                  <div style={metaLabel}>COMBINED FACTOR</div>
+                  <div style={{ ...metaValue, color: "#4DA6FF", fontWeight: 700 }}>{norm.normalization.combinedFactor}×</div>
+                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", ...ff }}>location × labor</div>
+                </div>
+              </div>
+              <div style={{ marginTop: 10, fontSize: 12, color: "rgba(255,255,255,0.4)", ...ff }}>
+                Formula: <span style={{ color: "#EEEDF5" }}>${trace.summary.rawPerSF}/SF ÷ {norm.normalization.combinedFactor} = ${trace.summary.normalizedPerSF}/SF baseline</span>
+              </div>
+            </div>
+
+            {/* ── STEP 3: NORMALIZED DIVISION BREAKDOWN ── */}
+            <div style={sectionLabel}>3. NORMALIZED DIVISION BREAKDOWN</div>
+            <div style={{ display: "grid", gridTemplateColumns: "40px 1fr 80px 80px 80px 60px", gap: "2px 8px", fontSize: 11, ...ff }}>
+              <div style={{ color: "rgba(255,255,255,0.3)", fontWeight: 700 }}>DIV</div>
+              <div style={{ color: "rgba(255,255,255,0.3)" }}>BAR</div>
+              <div style={{ color: "rgba(255,255,255,0.3)", textAlign: "right" }}>RAW $/SF</div>
+              <div style={{ color: "rgba(255,255,255,0.3)", textAlign: "right" }}>÷ FACTOR</div>
+              <div style={{ color: "rgba(255,255,255,0.3)", textAlign: "right" }}>BASELINE</div>
+              <div style={{ color: "rgba(255,255,255,0.3)", textAlign: "right" }}>TOTAL</div>
+              {divs.map(([div, d]) => {
+                const maxPerSF = Math.max(...divs.map(([, x]) => x.rawPerSF));
+                const barPct = maxPerSF > 0 ? (d.rawPerSF / maxPerSF) * 100 : 0;
+                return [
+                  <div key={`${div}-code`} style={{ color: "rgba(255,255,255,0.5)", fontWeight: 600 }}>{div}</div>,
+                  <div key={`${div}-bar`} style={{ display: "flex", alignItems: "center" }}>
+                    <div style={{ flex: 1, height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden" }}>
+                      <div style={{ height: "100%", background: "#00D4AA", borderRadius: 2, width: `${barPct}%` }} />
+                    </div>
+                  </div>,
+                  <div key={`${div}-raw`} style={{ textAlign: "right", color: "#EEEDF5" }}>${d.rawPerSF}</div>,
+                  <div key={`${div}-factor`} style={{ textAlign: "right", color: "rgba(255,255,255,0.3)" }}>÷ {d.factor}</div>,
+                  <div key={`${div}-norm`} style={{ textAlign: "right", color: "#4DA6FF", fontWeight: 600 }}>${d.normalizedPerSF}</div>,
+                  <div key={`${div}-total`} style={{ textAlign: "right", color: "rgba(255,255,255,0.4)" }}>{fmt(d.normalizedTotal)}</div>,
+                ];
+              })}
+            </div>
+
+            {/* ── STEP 4: NORMALIZED TOTALS ── */}
+            <div style={sectionLabel}>4. NORMALIZED TOTALS</div>
+            <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+              <div style={{ padding: "10px 16px", background: "rgba(0,212,170,0.06)", borderRadius: 8, border: "1px solid rgba(0,212,170,0.1)" }}>
+                <div style={metaLabel}>RAW TOTAL</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: "#00D4AA", ...ff }}>{fmt(trace.summary.rawTotal)}</div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", ...ff }}>${trace.summary.rawPerSF}/SF</div>
+              </div>
+              <div style={{ padding: "2px 16px", display: "flex", alignItems: "center", color: "rgba(255,255,255,0.3)", fontSize: 20 }}>→</div>
+              <div style={{ padding: "10px 16px", background: "rgba(77,166,255,0.06)", borderRadius: 8, border: "1px solid rgba(77,166,255,0.1)" }}>
+                <div style={metaLabel}>NORMALIZED (BASELINE)</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: "#4DA6FF", ...ff }}>{fmt(trace.summary.normalizedTotal)}</div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", ...ff }}>${trace.summary.normalizedPerSF}/SF at national avg open-shop</div>
+              </div>
+            </div>
+
+            {/* ── STEP 5: MARKUP ANALYSIS ── */}
+            {norm.markups?.items?.length > 0 && (
+              <>
+                <div style={sectionLabel}>5. MARKUP PATTERN</div>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginBottom: 8, ...ff }}>
+                  Total markups: <span style={{ color: "#EEEDF5" }}>{fmt(norm.markups.rawMarkupTotal)} ({norm.markups.markupPctOfDirect}% of direct cost)</span>
+                </div>
+                {norm.markups.items.map((m, i) => (
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: 12, ...ff }}>
+                    <span style={{ color: "rgba(255,255,255,0.5)" }}>{m.label}</span>
+                    <span style={{ color: "#EEEDF5" }}>{m.pct ? `${m.pct}%` : fmt(m.amount)}</span>
+                  </div>
+                ))}
+              </>
+            )}
+
+            {p.notes && <div style={{ marginTop: 16, fontSize: 11, color: "rgba(255,255,255,0.25)", fontStyle: "italic", ...ff }}>Notes: {p.notes}</div>}
           </div>
         );
       })()}
