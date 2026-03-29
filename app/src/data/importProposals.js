@@ -8,9 +8,9 @@ import { generateBaselineROM, computeCalibration } from "@/utils/romEngine";
 import { MONTANA_PROPOSALS } from "./montana-proposals";
 import { VIOLANTE_PROPOSALS } from "./violante-proposals";
 
-const IMPORT_KEY = "proposals-imported-montana-v4"; // v4: force reimport with correct proposalType
-const VIOLANTE_IMPORT_KEY = "proposals-imported-violante-v4"; // v4: force Violante import
-const CALIBRATION_KEY = "proposals-calibrated-v3"; // v3: force recalibration from all proposals
+const IMPORT_KEY = "proposals-imported-montana-v6"; // v6: force reimport - fix GC/Sub tagging + all proposals
+const VIOLANTE_IMPORT_KEY = "proposals-imported-violante-v6"; // v6: force Violante import
+const CALIBRATION_KEY = "proposals-calibrated-v6"; // v6: force recalibration from all proposals
 
 // ── Generate a learning record from a proposal (same logic as HistoricalProposalsPanel) ──
 function generateLearningRecord(proposal) {
@@ -153,7 +153,26 @@ export async function calibrateFromImportedProposals() {
   if (localStorage.getItem(CALIBRATION_KEY) && existingRecords.length > 0) return false;
 
   const store = useMasterDataStore.getState();
-  const proposals = store.masterData?.historicalProposals || [];
+  let proposals = store.masterData?.historicalProposals || [];
+
+  // Fix-up: PDF-uploaded proposals without proposalType default to "gc" (they're GC proposals)
+  let fixed = 0;
+  proposals = proposals.map(p => {
+    if (!p.proposalType || p.proposalType === "") {
+      fixed++;
+      return { ...p, proposalType: "gc" };
+    }
+    // Fix Montana proposals that were incorrectly tagged as "sub"
+    if (p.source === "pdf" && p.proposalType === "sub" && !p.subContractor) {
+      fixed++;
+      return { ...p, proposalType: "gc" };
+    }
+    return p;
+  });
+  if (fixed > 0) {
+    console.log(`[calibrate] Fixed proposalType on ${fixed} proposals (set to GC)`);
+    store.setMasterData({ ...store.masterData, historicalProposals: proposals });
+  }
 
   if (proposals.length === 0) {
     console.log("[calibrate] No proposals to calibrate from");
