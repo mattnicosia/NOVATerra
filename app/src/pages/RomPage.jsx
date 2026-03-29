@@ -4,7 +4,7 @@
 // Path C: Guided wizard → ballpark estimate
 // No login required to start. Login prompted before results.
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { ThemeProvider, useTheme } from "@/hooks/useTheme";
 import { T } from "@/utils/designTokens";
 import { useAuthStore } from "@/stores/authStore";
@@ -969,11 +969,51 @@ function GuidedWizardPath({ onResult, onBack }) {
 /* ════════════════════════════════════════════════════════════════
    MAIN PAGE
    ════════════════════════════════════════════════════════════════ */
+// FAQ data — serves double duty: user info + SEO structured data
+const FAQ_ITEMS = [
+  { q: "How accurate is this estimate?", a: "Every number is calibrated against real contractor proposals from real projects — not AI-generated averages. Confidence levels are shown per division based on how many data points support each number." },
+  { q: "Is this really free?", a: "Yes. No credit card, no trial period. Generate unlimited ROM estimates. When you're ready for detailed takeoffs and bid management, NOVATerra's full platform starts at $299/month." },
+  { q: "What's the difference between the three options?", a: "Upload Drawings gives the most detailed result — NOVA scans your plans for schedules and scope items. Know the Basics generates an instant estimate from building type and SF. The Guided Wizard walks you through questions step by step." },
+  { q: "How is this different from asking ChatGPT for an estimate?", a: "ChatGPT generates numbers from training data — averaged internet knowledge with no traceability. NOVATerra calibrates against real proposals from real contractors in real markets. Every number shows its data source and confidence level." },
+  { q: "What project types are supported?", a: "Commercial office, retail, restaurant, healthcare, education, residential (single and multi-family), hospitality, industrial, mixed-use, government, religious, and parking structures. Both new construction and renovation." },
+  { q: "Can I export the estimate?", a: "Yes. Create a free account and your ROM exports to PDF or can be converted into a full detailed estimate inside NOVATerra." },
+];
+
 function RomPageInner() {
   const C = useTheme();
   const resultRef = useRef(null);
   const user = useAuthStore(s => s.user);
   const loading = useAuthStore(s => s.loading);
+
+  // SEO: Set page-specific meta tags for /rom
+  useEffect(() => {
+    document.title = "Free Construction Budget Estimate | NOVATerra ROM Tool";
+    const setMeta = (name, content, prop) => {
+      const attr = prop ? "property" : "name";
+      let el = document.querySelector(`meta[${attr}="${name}"]`);
+      if (!el) { el = document.createElement("meta"); el.setAttribute(attr, name); document.head.appendChild(el); }
+      el.setAttribute("content", content);
+    };
+    setMeta("description", "Get a free construction budget estimate in 60 seconds. Calibrated against real contractor proposals — not AI guesses. Upload drawings or enter project basics. No credit card required.");
+    setMeta("og:title", "Free Construction Budget Estimate | NOVATerra", true);
+    setMeta("og:description", "Data-backed ROM estimates calibrated from real construction proposals. Upload your plans or enter project basics. Free, instant, accurate.", true);
+    setMeta("og:type", "website", true);
+    setMeta("og:url", "https://app-nova-42373ca7.vercel.app/rom", true);
+    // FAQ structured data for SEO
+    const faqSchema = {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: FAQ_ITEMS.map(f => ({
+        "@type": "Question",
+        name: f.q,
+        acceptedAnswer: { "@type": "Answer", text: f.a },
+      })),
+    };
+    let script = document.getElementById("faq-schema");
+    if (!script) { script = document.createElement("script"); script.id = "faq-schema"; script.type = "application/ld+json"; document.head.appendChild(script); }
+    script.textContent = JSON.stringify(faqSchema);
+    return () => { document.title = "NOVA"; };
+  }, []);
 
   const romResult = useRomStore(s => s.romResult);
   const email = useRomStore(s => s.email);
@@ -1058,14 +1098,14 @@ function RomPageInner() {
             margin: 0, marginBottom: romResult ? 4 : 12, letterSpacing: -1.5, lineHeight: 1.05,
             transition: "font-size 0.5s ease", ...ff,
           }}>
-            {romResult ? "Your Estimate" : "Know your number."}
+            {romResult ? "Your Estimate" : "Stop guessing your construction costs."}
           </h1>
 
           {!romResult && !path && (
             <>
-              <p style={{ fontSize: 16, color: "rgba(238,237,245,0.45)", margin: "0 0 32px 0", maxWidth: 520, lineHeight: 1.7, ...ff }}>
-                NOVATerra generates construction budget estimates calibrated against <strong style={{ color: "#EEEDF5" }}>real project data</strong> — not AI guesses.
-                Every number is backed by actual proposals from real contractors in real markets.
+              <p style={{ fontSize: 16, color: "rgba(238,237,245,0.45)", margin: "0 0 24px 0", maxWidth: 520, lineHeight: 1.7, ...ff }}>
+                Every inaccurate estimate costs you the bid or the profit.
+                NOVATerra generates budget estimates calibrated against <strong style={{ color: "#EEEDF5" }}>real contractor proposals</strong> — not AI guesses.
               </p>
 
               {/* How it works */}
@@ -1202,9 +1242,63 @@ function RomPageInner() {
           </section>
         )}
 
+        {/* FAQ Section — SEO structured data + user trust */}
+        <section style={{ maxWidth: 680, margin: "0 auto", padding: "48px 24px 64px" }}>
+          <h2 style={{ fontSize: 24, fontWeight: 300, color: "#EEEDF5", marginBottom: 32, textAlign: "center", letterSpacing: -0.5, ...ff }}>
+            Frequently Asked Questions
+          </h2>
+          {FAQ_ITEMS.map((faq, i) => (
+            <details key={i} style={{
+              marginBottom: 12, borderRadius: 10,
+              border: "1px solid rgba(255,255,255,0.06)",
+              background: "rgba(255,255,255,0.02)",
+              overflow: "hidden",
+            }}>
+              <summary style={{
+                padding: "16px 20px", cursor: "pointer", fontSize: 14, fontWeight: 500,
+                color: "#EEEDF5", listStyle: "none", display: "flex", alignItems: "center",
+                justifyContent: "space-between", ...ff,
+              }}>
+                {faq.q}
+                <span style={{ color: "rgba(238,237,245,0.3)", fontSize: 18, marginLeft: 12, flexShrink: 0 }}>+</span>
+              </summary>
+              <div style={{
+                padding: "0 20px 16px", fontSize: 13, lineHeight: 1.7,
+                color: "rgba(238,237,245,0.5)", ...ff,
+              }}>
+                {faq.a}
+              </div>
+            </details>
+          ))}
+        </section>
+
+        {/* Social Proof / Trust Strip */}
+        <section style={{
+          padding: "32px 24px", textAlign: "center",
+          borderTop: "1px solid rgba(255,255,255,0.03)",
+          borderBottom: "1px solid rgba(255,255,255,0.03)",
+        }}>
+          <div style={{ display: "flex", gap: 32, justifyContent: "center", flexWrap: "wrap", maxWidth: 600, margin: "0 auto" }}>
+            {[
+              { num: "58+", label: "Real proposals calibrating estimates" },
+              { num: "13", label: "Building types supported" },
+              { num: "$47M+", label: "Project data analyzed" },
+              { num: "<60s", label: "Average time to estimate" },
+            ].map((s, i) => (
+              <div key={i} style={{ textAlign: "center", minWidth: 100 }}>
+                <div style={{ fontSize: 22, fontWeight: 700, color: C.accent || "#00D4AA", letterSpacing: -0.5, ...ff }}>{s.num}</div>
+                <div style={{ fontSize: 10, color: "rgba(238,237,245,0.35)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4, ...ff }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
         {/* Footer */}
-        <footer style={{ padding: "32px 24px", textAlign: "center", borderTop: "1px solid rgba(255,255,255,0.03)" }}>
+        <footer style={{ padding: "32px 24px", textAlign: "center" }}>
           <div style={{ fontSize: 11, color: "rgba(238,237,245,0.15)", letterSpacing: 0.5, ...ff }}>NOVATerra by BLDG Estimating</div>
+          <div style={{ fontSize: 10, color: "rgba(238,237,245,0.08)", marginTop: 8, ...ff }}>
+            Construction budget estimates for general contractors and owners. New York Metro area and nationwide.
+          </div>
         </footer>
       </div>
     </div>
