@@ -14,6 +14,11 @@ import { Line2 } from "three/examples/jsm/lines/Line2.js";
 import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { extend } from "@react-three/fiber";
+
+// Register UnrealBloomPass so R3F can use it as <unrealBloomPass>
+extend({ UnrealBloomPass });
+
 import { useTakeoffsStore } from "@/stores/takeoffsStore";
 import { useDrawingsStore } from "@/stores/drawingsStore";
 import { useItemsStore } from "@/stores/itemsStore";
