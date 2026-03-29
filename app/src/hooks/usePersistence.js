@@ -786,11 +786,24 @@ export function usePersistenceLoad() {
           // Pull master data
           const cloudMaster = await cloudSync.pullData("master");
           if (cloudMaster) {
-            useMasterDataStore.getState().setMasterData({
-              ...useMasterDataStore.getState().masterData,
-              ...cloudMaster,
-            });
-            await storage.set(idbKey("bldg-master"), JSON.stringify(cloudMaster));
+            // Merge cloud data into local store
+            const localMaster = useMasterDataStore.getState().masterData;
+            const merged = { ...localMaster, ...cloudMaster };
+            // CRITICAL: Merge historicalProposals arrays (don't replace)
+            // Cloud might have fewer proposals than local (batch imports not yet pushed)
+            if (localMaster.historicalProposals?.length > 0 || cloudMaster.historicalProposals?.length > 0) {
+              const localProposals = localMaster.historicalProposals || [];
+              const cloudProposals = cloudMaster.historicalProposals || [];
+              // Merge by ID — keep both, cloud wins on duplicates
+              const byId = new Map();
+              localProposals.forEach(p => byId.set(p.id || p.projectName, p));
+              cloudProposals.forEach(p => byId.set(p.id || p.projectName, p));
+              merged.historicalProposals = Array.from(byId.values());
+              console.log(`[usePersistence] Master merge: ${localProposals.length} local + ${cloudProposals.length} cloud → ${merged.historicalProposals.length} merged`);
+            }
+            useMasterDataStore.getState().setMasterData(merged);
+            // Save the MERGED state to IDB, not just cloudMaster
+            await storage.set(idbKey("bldg-master"), JSON.stringify(merged));
             if (hadCorruptedMaster) recoveredFromCloud = true;
           }
 
@@ -1892,7 +1905,7 @@ export async function saveMasterData() {
     console.warn("[saveMasterData] Skipping cloud push — master data appears empty/reset");
     return;
   }
-  cloudSync.pushData("master", master).catch(err => {
+  await cloudSync.pushData("master", master).catch(err => {
     console.warn("[usePersistence] Cloud push failed for master:", err?.message);
   });
 }
