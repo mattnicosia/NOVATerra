@@ -120,7 +120,7 @@ export const MONTANA_PROPOSALS = [
     laborType: "open_shop",
     outcome: "on_hold",
     date: "2025-03-26",
-    zipCode: null,
+    zipCode: "10001",
     address: null,
     divisions: {
       "01": 172248, "03": 100953, "04": 38020, "05": 87023, "06": 32872,
@@ -142,7 +142,7 @@ export const MONTANA_PROPOSALS = [
     laborType: "open_shop",
     outcome: "lost",
     date: "2025-05-15",
-    zipCode: null,
+    zipCode: "10960",
     address: null,
     divisions: {
       "01": 183520, "03": 159827, "04": 33280, "06": 321699, "07": 220113,
@@ -164,7 +164,7 @@ export const MONTANA_PROPOSALS = [
     laborType: "open_shop",
     outcome: "lost",
     date: "2025-05-21",
-    zipCode: null,
+    zipCode: "10562",
     address: "24 Attitash St",
     divisions: {
       "01": 91651, "02": 21645, "05": 30939, "06": 55710, "07": 133971,
@@ -185,7 +185,7 @@ export const MONTANA_PROPOSALS = [
     laborType: "open_shop",
     outcome: "lost",
     date: "2026-01-13",
-    zipCode: null,
+    zipCode: "10960",
     address: null,
     divisions: {
       "01": 106720, "02": 52424, "03": 22071, "04": 17431, "05": 7860,
@@ -228,7 +228,7 @@ export const MONTANA_PROPOSALS = [
     laborType: "open_shop",
     outcome: "pending",
     date: "2025-07-11",
-    zipCode: null,
+    zipCode: "10950",
     address: null,
     divisions: {
       "01": 73675, "02": 21881, "03": 6966, "06": 3994, "08": 43920,
@@ -249,7 +249,7 @@ export const MONTANA_PROPOSALS = [
     laborType: "open_shop",
     outcome: "on_hold",
     date: "2025-04-10",
-    zipCode: null,
+    zipCode: "10566",
     address: null,
     divisions: {
       "01": 14170, "02": 16306, "06": 102100, "08": 3111, "09": 53185,
@@ -291,7 +291,7 @@ export const MONTANA_PROPOSALS = [
     laborType: "open_shop",
     outcome: "lost",
     date: "2025-04-21",
-    zipCode: null,
+    zipCode: "10956",
     address: null,
     divisions: {
       "04": 147088, "06": 50721, "09": 72935,
@@ -310,7 +310,7 @@ export const MONTANA_PROPOSALS = [
     laborType: "open_shop",
     outcome: "never_built",
     date: "2026-01-16",
-    zipCode: null,
+    zipCode: "10536",
     address: null,
     divisions: {
       "01": 142949, "03": 61565, "04": 8755, "05": 44805, "06": 242045,
@@ -372,7 +372,7 @@ export const MONTANA_PROPOSALS = [
     laborType: "open_shop",
     outcome: "lost",
     date: "2025-05-21",
-    zipCode: null,
+    zipCode: "10960",
     address: null,
     divisions: {
       "01": 88082, "02": 26891, "03": 15582, "04": 24106, "06": 83131,
@@ -435,7 +435,7 @@ export const MONTANA_PROPOSALS = [
     laborType: "open_shop",
     outcome: "lost",
     date: "2025-02-20",
-    zipCode: null,
+    zipCode: "10960",
     address: null,
     divisions: {
       "01": 215461, "02": 28350, "03": 32578, "06": 570149, "07": 275658,
@@ -457,7 +457,7 @@ export const MONTANA_PROPOSALS = [
     laborType: "open_shop",
     outcome: "unknown",
     date: "2025-09-22",
-    zipCode: null,
+    zipCode: "10566",
     address: null,
     divisions: {
       "01": 25000, "04": 198530,
@@ -575,7 +575,7 @@ export const MONTANA_PROPOSALS = [
     laborType: "open_shop",
     outcome: "lost",
     date: "2025-01-13",
-    zipCode: null,
+    zipCode: "10989",
     address: null,
     divisions: {
       "01": 88517, "03": 68623, "06": 301757, "07": 177806, "08": 69051,
@@ -640,7 +640,7 @@ export const MONTANA_PROPOSALS = [
     laborType: "open_shop",
     outcome: "lost",
     date: "2025-11-21",
-    zipCode: null,
+    zipCode: "07960",
     address: "1111 Rte 9W South",
     divisions: {
       "01": 82514, "02": 38832, "03": 1750, "04": 2500, "05": 10000,

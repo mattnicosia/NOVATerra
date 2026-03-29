@@ -8,9 +8,9 @@ import { generateBaselineROM, computeCalibration } from "@/utils/romEngine";
 import { MONTANA_PROPOSALS } from "./montana-proposals";
 import { VIOLANTE_PROPOSALS } from "./violante-proposals";
 
-const IMPORT_KEY = "proposals-imported-montana-v7"; // v7: fix dedup blocking PDF-uploaded names
-const VIOLANTE_IMPORT_KEY = "proposals-imported-violante-v7"; // v7: fix dedup blocking
-const CALIBRATION_KEY = "proposals-calibrated-v7"; // v7: recalibrate with all proposals
+const IMPORT_KEY = "proposals-imported-montana-v8"; // v8: all proposals now have ZIP codes
+const VIOLANTE_IMPORT_KEY = "proposals-imported-violante-v8"; // v8: all proposals now have ZIP codes
+const CALIBRATION_KEY = "proposals-calibrated-v8"; // v8: recalibrate with ZIP-normalized data
 
 // ── Generate a learning record from a proposal (same logic as HistoricalProposalsPanel) ──
 function generateLearningRecord(proposal) {
