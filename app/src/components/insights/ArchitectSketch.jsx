@@ -8,15 +8,11 @@
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
-import { OrbitControls, Effects } from "@react-three/drei";
+import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import { Line2 } from "three/examples/jsm/lines/Line2.js";
 import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
-import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
-import { extend } from "@react-three/fiber";
-
-extend({ UnrealBloomPass });
 
 import { useTakeoffsStore } from "@/stores/takeoffsStore";
 import { useDrawingsStore } from "@/stores/drawingsStore";
@@ -28,20 +24,8 @@ import { detectSpacesForLevel } from "@/utils/pascalSpaceDetection";
 import { bt } from "@/utils/styles";
 import { useTheme } from "@/hooks/useTheme";
 
-// ── Bloom — subtle glow on white lines ──
-function BloomEffect() {
-  const { size } = useThree();
-  return (
-    <Effects disableGamma>
-      <unrealBloomPass
-        args={[new THREE.Vector2(size.width, size.height), 0.2, 0.5, 0.85]}
-        threshold={0.5}
-        strength={0.2}
-        radius={0.3}
-      />
-    </Effects>
-  );
-}
+// Bloom disabled for v1 — clean anti-aliased lines without wash
+// Can be re-enabled once wall rendering is confirmed correct
 
 // ── Single wall rendered as 4 Line2 edges (bottom, top, 2 verticals) ──
 function WallLine({ start, end, weight, elevation, wallHeight }) {
@@ -158,6 +142,7 @@ export default function ArchitectSketch() {
   const [exploded, setExploded] = useState(false);
   const [floorHeight, setFloorHeight] = useState(10);
   const [selectedFloor, setSelectedFloor] = useState(null);
+  const [cameraDistance, setCameraDistance] = useState(60);
 
   // Scan drawings for vector data
   const handleScan = useCallback(async () => {
@@ -230,6 +215,40 @@ export default function ArchitectSketch() {
       if (floors.length === 0) {
         setError("No calibrated floor plan drawings found. Calibrate at least one drawing on the Takeoffs page.");
       } else {
+        // ── AUTO-CENTER: compute bounding box of all walls, center at origin ──
+        const allX = [], allZ = [];
+        floors.forEach(f => f.walls.forEach(w => {
+          allX.push(w.start[0], w.end[0]);
+          allZ.push(w.start[1], w.end[1]);
+        }));
+
+        if (allX.length > 0) {
+          const minX = Math.min(...allX), maxX = Math.max(...allX);
+          const minZ = Math.min(...allZ), maxZ = Math.max(...allZ);
+          const cx = (minX + maxX) / 2;
+          const cz = (minZ + maxZ) / 2;
+          const buildingWidth = maxX - minX;
+          const buildingDepth = maxZ - minZ;
+
+          console.log(`[ArchitectSketch] Bounds: ${buildingWidth.toFixed(1)}ft × ${buildingDepth.toFixed(1)}ft, center (${cx.toFixed(1)}, ${cz.toFixed(1)})`);
+
+          // Subtract center from all coordinates
+          floors.forEach(f => {
+            f.walls.forEach(w => {
+              w.start = [w.start[0] - cx, w.start[1] - cz];
+              w.end = [w.end[0] - cx, w.end[1] - cz];
+            });
+            f.rooms.forEach(r => {
+              if (r.polygon) r.polygon = r.polygon.map(([x, y]) => [x - cx, y - cz]);
+            });
+          });
+
+          // Auto-fit camera distance based on building size
+          const maxDim = Math.max(buildingWidth, buildingDepth, 20); // minimum 20ft
+          const camDist = maxDim * 1.3;
+          setCameraDistance(camDist);
+        }
+
         setSketchData({ floors });
         const totalWalls = floors.reduce((s, f) => s + f.walls.length, 0);
         const totalRooms = floors.reduce((s, f) => s + f.rooms.length, 0);
@@ -361,12 +380,11 @@ export default function ArchitectSketch() {
 
       {/* 3D Canvas — pure black, white lines only */}
       <Canvas
-        camera={{ position: [30, 25, 30], fov: 50, near: 0.1, far: 500 }}
+        camera={{ position: [cameraDistance, cameraDistance * 0.7, cameraDistance], fov: 50, near: 0.1, far: 2000 }}
         gl={{ antialias: true, toneMapping: THREE.NoToneMapping }}
         style={{ background: "#000000" }}
       >
         <ambientLight intensity={0.02} />
-        <BloomEffect />
         <OrbitControls enableDamping dampingFactor={0.05} minDistance={5} maxDistance={200} maxPolarAngle={Math.PI * 0.85} />
 
         {/* Very faint ground reference */}
