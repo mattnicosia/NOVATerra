@@ -1165,6 +1165,195 @@ export function ThemeProvider({ children }) {
     };
   }, [value.signalMode]);
 
+  // ── Linear mode: extracted from Linear.app — precision dark UI ──
+  useEffect(() => {
+    const LINEAR_STYLE_ID = "linear-theme-styles";
+    if (value.linearMode) {
+      document.documentElement.setAttribute("data-linear", "");
+      const existing = document.getElementById(LINEAR_STYLE_ID);
+      if (existing) return;
+      const style = document.createElement("style");
+      style.id = LINEAR_STYLE_ID;
+      style.textContent = `
+        /* ═══ LINEAR — Precision Dark, Clean Typography ═══ */
+
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;510;600;700&display=swap');
+
+        /* ── Global: Inter everywhere, antialiased ── */
+        html[data-linear] * {
+          font-family: 'Inter', -apple-system, 'SF Pro Display', 'Segoe UI', sans-serif !important;
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* ── Body: true near-black ── */
+        html[data-linear] body {
+          background: #08090A !important;
+          color: #F7F8F8 !important;
+        }
+
+        /* ── Widget cards: Linear's card style ── */
+        html[data-linear] .widget-card {
+          border-radius: 10px !important;
+          background: #141417 !important;
+          border: 1px solid rgba(255,255,255,0.06) !important;
+          box-shadow: none !important;
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
+          transition: all 0.15s ease !important;
+          overflow: hidden !important;
+        }
+
+        /* ── Hover: subtle border brightening, no lift ── */
+        html[data-linear] .widget-card:hover {
+          border-color: rgba(255,255,255,0.12) !important;
+          box-shadow: none !important;
+          transform: none !important;
+        }
+
+        /* ── Header: seamless with body ── */
+        html[data-linear] header,
+        html[data-linear] [class*="NovaHeader"],
+        html[data-linear] [class*="header"] {
+          background: #08090A !important;
+          border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+        }
+
+        /* ── Sidebar ── */
+        html[data-linear] aside,
+        html[data-linear] [class*="sidebar"],
+        html[data-linear] [class*="Sidebar"] {
+          background: #0C0D0F !important;
+          border-right: 1px solid rgba(255,255,255,0.06) !important;
+        }
+
+        /* ── Typography: tight headings, muted secondary ── */
+        html[data-linear] h1, html[data-linear] h2, html[data-linear] h3 {
+          letter-spacing: -0.04em !important;
+          font-weight: 510 !important;
+          color: #F7F8F8 !important;
+        }
+
+        /* ── Muted text: Linear's signature cool gray ── */
+        html[data-linear] [style*="textMuted"],
+        html[data-linear] [style*="rgba(238,237,245"] {
+          color: #8A8F98 !important;
+        }
+
+        /* ── Section labels: subtle, not shouty ── */
+        html[data-linear] .widget-card [style*="letterSpacing"],
+        html[data-linear] .widget-card [style*="letter-spacing"] {
+          color: #8A8F98 !important;
+          font-weight: 500 !important;
+          font-size: 11px !important;
+          letter-spacing: 0.04em !important;
+          text-transform: uppercase !important;
+        }
+
+        /* ── Inputs: clean, minimal ── */
+        html[data-linear] input,
+        html[data-linear] select,
+        html[data-linear] textarea {
+          border-radius: 6px !important;
+          border: 1px solid rgba(255,255,255,0.15) !important;
+          background: rgba(255,255,255,0.04) !important;
+          font-size: 13px !important;
+          font-weight: 400 !important;
+        }
+        html[data-linear] input:focus,
+        html[data-linear] select:focus,
+        html[data-linear] textarea:focus {
+          border-color: #5E6AD2 !important;
+          box-shadow: 0 0 0 2px rgba(94,106,210,0.15) !important;
+          outline: none !important;
+        }
+
+        /* ── Buttons: solid, no border-radius excess ── */
+        html[data-linear] button[style*="background"] {
+          border-radius: 6px !important;
+          font-weight: 500 !important;
+          font-size: 13px !important;
+          letter-spacing: 0 !important;
+        }
+
+        /* ── Nav items: clean, 13px, medium weight ── */
+        html[data-linear] nav a,
+        html[data-linear] [data-interactive] {
+          font-weight: 500 !important;
+          font-size: 13px !important;
+          letter-spacing: 0 !important;
+          text-transform: none !important;
+        }
+
+        /* ── Active nav: indigo bg ── */
+        html[data-linear] .active {
+          background: rgba(94,106,210,0.10) !important;
+        }
+
+        /* ── Status badges: tight, small ── */
+        html[data-linear] .widget-card [style*="borderRadius: 99"],
+        html[data-linear] .widget-card [style*="border-radius: 99"],
+        html[data-linear] .widget-card [style*="borderRadius: 12"],
+        html[data-linear] .widget-card [style*="border-radius: 12"] {
+          border-radius: 4px !important;
+          font-size: 11px !important;
+          font-weight: 500 !important;
+          padding: 2px 6px !important;
+          letter-spacing: 0 !important;
+        }
+
+        /* ── Scrollbar: thin, near-invisible ── */
+        html[data-linear] ::-webkit-scrollbar { width: 6px; height: 6px; }
+        html[data-linear] ::-webkit-scrollbar-track { background: transparent; }
+        html[data-linear] ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+        html[data-linear] ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+
+        /* ── No entrance animation — Linear is instant ── */
+        html[data-linear] .widget-card {
+          animation: none !important;
+        }
+
+        /* ── Tables/rows: clean hover ── */
+        html[data-linear] .est-row:hover,
+        html[data-linear] tr:hover {
+          background: rgba(255,255,255,0.03) !important;
+        }
+
+        /* ── Remove ALL glass/blur ── */
+        html[data-linear] [style*="backdrop-filter"],
+        html[data-linear] [style*="backdropFilter"] {
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
+        }
+
+        /* ── Monospace numbers ── */
+        html[data-linear] [style*="tabularNums"],
+        html[data-linear] [style*="tabular-nums"] {
+          font-variant-numeric: tabular-nums !important;
+        }
+
+        /* ── Links: indigo ── */
+        html[data-linear] a:not([class]) {
+          color: #5E6AD2 !important;
+        }
+
+        /* ── Selection: indigo tint ── */
+        html[data-linear] ::selection {
+          background: rgba(94,106,210,0.3) !important;
+          color: #F7F8F8 !important;
+        }
+      `;
+      document.head.appendChild(style);
+    } else {
+      document.documentElement.removeAttribute("data-linear");
+      document.getElementById(LINEAR_STYLE_ID)?.remove();
+    }
+    return () => {
+      document.documentElement.removeAttribute("data-linear");
+      document.getElementById(LINEAR_STYLE_ID)?.remove();
+    };
+  }, [value.linearMode]);
+
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 

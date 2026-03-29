@@ -721,6 +721,51 @@ export const PALETTES = [
     },
     variants: [null],
   },
+
+  // ━━━ LINEAR — Extracted from Linear.app via website cloner ━━━
+  // Near-black base, cool gray muted text, indigo accent.
+  // Ultra-clean: thin borders, tight letter-spacing, Inter font.
+  // The gold standard of dark SaaS UI.
+  {
+    id: "linear",
+    name: "Linear",
+    desc: "Precision dark, clean typography, quiet confidence",
+    preview: ["#08090A", "#5E6AD2", "#141417", "#F7F8F8", "#8A8F98"],
+    variantLabels: ["Linear"],
+    overrides: {
+      linearMode: true,
+      bg: "#08090A",
+      bg1: "#141417",
+      bg2: "#1A1A1F",
+      bg3: "#222228",
+      border: "rgba(255,255,255,0.08)",
+      borderLight: "rgba(255,255,255,0.04)",
+      borderAccent: "rgba(94,106,210,0.25)",
+      text: "#F7F8F8",
+      textMuted: "rgba(138,143,152,0.9)",
+      textDim: "rgba(138,143,152,0.45)",
+      accent: "#5E6AD2",
+      accentDim: "#4B55A8",
+      accentBg: "rgba(94,106,210,0.08)",
+      accentAlt: "#7C85E0",
+      gradient: "linear-gradient(135deg, #5E6AD2, #7C85E0)",
+      gradientSubtle: "linear-gradient(135deg, rgba(94,106,210,0.10), rgba(124,133,224,0.10))",
+      gradientText: "linear-gradient(135deg, #5E6AD2, #7C85E0)",
+      green: "#4ADE80",
+      red: "#F87171",
+      blue: "#60A5FA",
+      purple: "#C4B5FD",
+      orange: "#FBBF24",
+      cyan: "#22D3EE",
+      yellow: "#D4F50C",
+      sidebarBg: "#0C0D0F",
+      bgGradient: "#08090A",
+      forceDark: true,
+      noGlass: true,
+      materialMode: "concrete",
+    },
+    variants: [null],
+  },
 ];
 
 // Car palette IDs for cycling
