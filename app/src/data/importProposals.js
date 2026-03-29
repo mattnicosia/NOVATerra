@@ -8,9 +8,9 @@ import { generateBaselineROM, computeCalibration } from "@/utils/romEngine";
 import { MONTANA_PROPOSALS } from "./montana-proposals";
 import { VIOLANTE_PROPOSALS } from "./violante-proposals";
 
-const IMPORT_KEY = "proposals-imported-montana-v6"; // v6: force reimport - fix GC/Sub tagging + all proposals
-const VIOLANTE_IMPORT_KEY = "proposals-imported-violante-v6"; // v6: force Violante import
-const CALIBRATION_KEY = "proposals-calibrated-v6"; // v6: force recalibration from all proposals
+const IMPORT_KEY = "proposals-imported-montana-v7"; // v7: fix dedup blocking PDF-uploaded names
+const VIOLANTE_IMPORT_KEY = "proposals-imported-violante-v7"; // v7: fix dedup blocking
+const CALIBRATION_KEY = "proposals-calibrated-v7"; // v7: recalibrate with all proposals
 
 // ── Generate a learning record from a proposal (same logic as HistoricalProposalsPanel) ──
 function generateLearningRecord(proposal) {
@@ -84,11 +84,16 @@ export function importMontanaProposals() {
   }
 
   const currentExisting = store.masterData?.historicalProposals || [];
-  const existingNames = new Set(currentExisting.map(p => (p.projectName || p.name || "").toLowerCase()));
+  // Only dedup against OTHER batch imports from same source — not PDF uploads
+  const batchImportNames = new Set(
+    currentExisting
+      .filter(p => p.source === "montana-import")
+      .map(p => (p.projectName || p.name || "").toLowerCase())
+  );
 
   let imported = 0;
   for (const p of MONTANA_PROPOSALS) {
-    if (existingNames.has((p.projectName || "").toLowerCase())) continue;
+    if (batchImportNames.has((p.projectName || "").toLowerCase())) continue;
     store.addHistoricalProposal({
       projectName: p.projectName, client: p.client, architect: p.architect,
       totalCost: p.totalCost, proposalCost: p.totalCost, projectSF: p.projectSF,
@@ -121,11 +126,16 @@ export function importViolanteProposals() {
   }
 
   const currentExisting = store.masterData?.historicalProposals || [];
-  const existingNames = new Set(currentExisting.map(p => (p.projectName || p.name || "").toLowerCase()));
+  // Only dedup against OTHER batch imports from same source — not PDF uploads
+  const batchImportNames = new Set(
+    currentExisting
+      .filter(p => p.source === "violante-import")
+      .map(p => (p.projectName || p.name || "").toLowerCase())
+  );
 
   let imported = 0;
   for (const p of VIOLANTE_PROPOSALS) {
-    if (existingNames.has((p.projectName || "").toLowerCase())) continue;
+    if (batchImportNames.has((p.projectName || "").toLowerCase())) continue;
     store.addHistoricalProposal({
       projectName: p.projectName, client: p.client,
       totalCost: p.totalCost, proposalCost: p.totalCost, projectSF: p.projectSF,
