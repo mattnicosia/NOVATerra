@@ -20,6 +20,9 @@ const ScheduleTab = lazy(() => import("@/components/insights/ScheduleTab"));
 // Lazy-load Blueprint 3D tab — plan-as-floor-plate visualization
 const BlueprintTab = lazy(() => import("@/components/insights/BlueprintTab"));
 
+// Lazy-load Architect Sketch — white wireframe lines on black canvas
+const ArchitectSketch = lazy(() => import("@/components/insights/ArchitectSketch"));
+
 // Stable empty array — prevents selector from creating new [] on every store change
 const EMPTY_SNAPS = [];
 
@@ -29,9 +32,10 @@ const EMPTY_SNAPS = [];
 export default function InsightsPage() {
   const C = useTheme();
   const T = C.T;
-  const [tab, setTab] = useState("model");
+  const [tab, setTab] = useState("sketch");
 
   const tabs = [
+    { key: "sketch", label: "Architect Sketch", icon: I.plans },
     { key: "model", label: "Model", icon: I.cube },
     { key: "blueprint", label: "Blueprint 3D", icon: I.plans },
     { key: "schedule", label: "Schedule", icon: I.schedule },
@@ -86,6 +90,20 @@ export default function InsightsPage() {
       </div>
 
       {/* Tab Content */}
+      {tab === "sketch" && (
+        <Suspense
+          fallback={
+            <div style={{ ...card(C), padding: T.space[8], textAlign: "center" }}>
+              <div style={{ width: 32, height: 32, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.1)", borderTopColor: C.accent, animation: "spin 0.8s linear infinite", margin: "0 auto 12px" }} />
+              <div style={{ fontSize: 12, color: C.textDim }}>Loading Architect Sketch...</div>
+            </div>
+          }
+        >
+          <div style={{ width: "100%", height: "calc(100vh - 160px)", borderRadius: T.radius.lg, overflow: "hidden" }}>
+            <ArchitectSketch />
+          </div>
+        </Suspense>
+      )}
       {tab === "compare" && <CompareTab />}
       {tab === "model" && (
         <Suspense
