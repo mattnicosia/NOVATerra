@@ -8,6 +8,7 @@ import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useScanStore } from "@/stores/scanStore";
 import { generateBaselineROM, computeCalibration } from "@/utils/romEngine";
 import { normalizeProposal, getNormalizationTrace } from "@/utils/normalizationEngine";
+import { validateProposal, getStatusColor, getStatusLabel } from "@/utils/proposalValidation";
 
 const ff = { fontFamily: "'Switzer', -apple-system, sans-serif" };
 
@@ -78,7 +79,7 @@ function ProposalsTab() {
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, ...ff }}>
           <thead>
             <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-              {["Project", "Type", "SF", "Total", "$/SF", "Source", "Proposal Type", "Divisions"].map(h => (
+              {["Project", "Type", "SF", "Total", "$/SF", "Source", "Proposal Type", "Status", "Divisions"].map(h => (
                 <th key={h} style={{ padding: "8px 10px", textAlign: "left", color: "rgba(255,255,255,0.4)", fontWeight: 600, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em" }}>{h}</th>
               ))}
             </tr>
@@ -107,6 +108,17 @@ function ProposalsTab() {
                       {p.proposalType === "gc" ? "GC" : "SUB"}
                     </span>
                   </td>
+                  <td style={{ padding: "8px 10px" }}>
+                    {(() => {
+                      const v = validateProposal(p, proposals);
+                      return (
+                        <span style={{ padding: "2px 8px", borderRadius: 4, fontSize: 9, fontWeight: 700, letterSpacing: "0.05em",
+                          background: `${getStatusColor(v.overallStatus)}15`, color: getStatusColor(v.overallStatus) }}>
+                          {v.overallStatus}
+                        </span>
+                      );
+                    })()}
+                  </td>
                   <td style={{ padding: "8px 10px", color: "rgba(255,255,255,0.5)" }}>{divCount}</td>
                 </tr>
               );
@@ -120,6 +132,7 @@ function ProposalsTab() {
         const p = filtered[selected];
         const trace = getNormalizationTrace(p);
         const norm = normalizeProposal(p);
+        const validation = validateProposal(p, proposals);
         const divs = Object.entries(norm.divisions).sort(([a], [b]) => a.localeCompare(b));
         const sectionLabel = { fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 8, marginTop: 20, ...ff };
         const metaLabel = { color: "rgba(255,255,255,0.35)", fontSize: 10, ...ff };
@@ -130,6 +143,67 @@ function ProposalsTab() {
             {/* Header */}
             <div style={{ fontSize: 18, fontWeight: 600, color: "#EEEDF5", marginBottom: 4, ...ff }}>{p.projectName || p.name}</div>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginBottom: 16, ...ff }}>Full normalization trace — every step from raw data to calibrated baseline</div>
+
+            {/* ── STEP 0: VALIDATION GATES ── */}
+            <div style={sectionLabel}>0. VALIDATION GATES</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+              <span style={{
+                padding: "4px 12px", borderRadius: 6, fontSize: 12, fontWeight: 700,
+                background: `${getStatusColor(validation.overallStatus)}15`,
+                color: getStatusColor(validation.overallStatus),
+                border: `1px solid ${getStatusColor(validation.overallStatus)}30`,
+                ...ff,
+              }}>
+                {validation.overallStatus}
+              </span>
+              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", ...ff }}>
+                {getStatusLabel(validation.overallStatus)}
+              </span>
+              {validation.usableFor.length > 0 && (
+                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", ...ff }}>
+                  Usable for: {validation.usableFor.join(", ")}
+                </span>
+              )}
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
+              {Object.entries(validation.gates).map(([key, gate]) => (
+                <div key={key} style={{
+                  display: "flex", alignItems: "flex-start", gap: 10, padding: "8px 12px",
+                  background: `${getStatusColor(gate.status)}06`, borderRadius: 6,
+                  border: `1px solid ${getStatusColor(gate.status)}15`,
+                }}>
+                  <div style={{
+                    width: 8, height: 8, borderRadius: "50%", marginTop: 4, flexShrink: 0,
+                    background: getStatusColor(gate.status),
+                  }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "#EEEDF5", textTransform: "uppercase", letterSpacing: "0.08em", ...ff }}>
+                        {gate.label}
+                      </span>
+                      <span style={{ fontSize: 10, fontWeight: 600, color: getStatusColor(gate.status), ...ff }}>
+                        {gate.status}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginTop: 2, ...ff }}>{gate.reason}</div>
+                    {gate.issues.length > 0 && gate.status !== "PASS" && (
+                      <div style={{ marginTop: 4 }}>
+                        {gate.issues.map((issue, i) => (
+                          <div key={i} style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", paddingLeft: 8, borderLeft: `2px solid ${getStatusColor(gate.status)}30`, marginTop: 2, ...ff }}>
+                            {issue}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {gate.details?.formula && (
+                      <div style={{ fontSize: 11, color: "#4DA6FF", marginTop: 4, fontFamily: "'IBM Plex Mono', monospace" }}>
+                        {gate.details.formula}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
 
             {/* ── STEP 1: RAW INPUT ── */}
             <div style={sectionLabel}>1. RAW INPUT</div>
