@@ -539,7 +539,7 @@ export default function PlanRoomPage() {
                 ref={fileInputRef}
                 type="file"
                 multiple
-                accept=".pdf,.jpg,.jpeg,.png,.tif,.tiff,.doc,.docx,.xls,.xlsx,image/*"
+                accept=".pdf,.jpg,.jpeg,.png,.tif,.tiff,.doc,.docx,.xls,.xlsx,.ifc,.dwg,.dxf,image/*"
                 style={{ display: "none" }}
                 onChange={e => {
                   handleUpload(Array.from(e.target.files || []));
@@ -767,7 +767,7 @@ export default function PlanRoomPage() {
               ref={fileInputRef}
               type="file"
               multiple
-              accept=".pdf,.jpg,.jpeg,.png,.tif,.tiff,.doc,.docx,.xls,.xlsx,image/*"
+              accept=".pdf,.jpg,.jpeg,.png,.tif,.tiff,.doc,.docx,.xls,.xlsx,.ifc,.dwg,.dxf,image/*"
               style={{ display: "none" }}
               onChange={e => {
                 handleUpload(Array.from(e.target.files || []));

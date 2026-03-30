@@ -119,6 +119,72 @@ function compressImportImage(dataUrl, maxDim = 4096, quality = 0.85) {
 // reducing a 50MB PDF × 20 pages from ~1.34GB of JSON to ~8MB of JPEGs.
 export async function extractDrawingPages(file, options = {}) {
   const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+  const isIfc = file.name.toLowerCase().endsWith(".ifc");
+
+  // ── IFC: parse via web-ifc WASM, store in modelStore, create placeholder drawing ──
+  if (isIfc) {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const { parseIFCFile } = await import("@/utils/ifcLoader");
+      const { useModelStore } = await import("@/stores/modelStore");
+      const result = await parseIFCFile(arrayBuffer);
+
+      if (!result?.elements?.length) {
+        console.warn("[uploadPipeline] IFC file parsed but no elements found");
+        return [];
+      }
+
+      // Store parsed IFC data in modelStore
+      useModelStore.getState().setElements(result.elements);
+      useModelStore.getState().setIfcElements(result.elements);
+      useModelStore.setState({
+        ifcLoaded: true,
+        ifcError: null,
+        storeys: result.storeys || [],
+      });
+
+      // Create a placeholder drawing entry so it appears in the plan room
+      const wallCount = result.elements.filter(e => e.trade === "framing").length;
+      const storeyCount = (result.storeys || []).length;
+      const d = {
+        id: uid(),
+        label: file.name.replace(/\.[^.]+$/, ""),
+        sheetNumber: "IFC",
+        sheetTitle: `BIM Model — ${wallCount} walls, ${storeyCount} stories`,
+        revision: "0",
+        type: "ifc",
+        data: null, // No raster image — IFC is 3D geometry
+        fileName: file.name,
+        uploadDate: nowStr(),
+        pdfPage: null,
+        totalPdfPages: null,
+        viewType: "model",
+        ifcElementCount: result.elements.length,
+        ifcStoreyCount: storeyCount,
+      };
+      useDrawingsStore.setState(s => ({ drawings: [...s.drawings, d] }));
+
+      console.log(`[uploadPipeline] IFC imported: ${result.elements.length} elements, ${storeyCount} stories, ${wallCount} walls`);
+
+      // Show toast
+      try {
+        const { useUiStore } = await import("@/stores/uiStore");
+        useUiStore.getState().showToast(
+          `BIM model loaded — ${result.elements.length} elements across ${storeyCount} stories`,
+          "success"
+        );
+      } catch { /* non-critical */ }
+
+      return [d.id];
+    } catch (err) {
+      console.error("[uploadPipeline] IFC parse failed:", err);
+      try {
+        const { useModelStore } = await import("@/stores/modelStore");
+        useModelStore.getState().setIfcError(err.message);
+      } catch { /* non-critical */ }
+      return [];
+    }
+  }
 
   if (!isPdf) {
     let data = await new Promise((res, rej) => {
