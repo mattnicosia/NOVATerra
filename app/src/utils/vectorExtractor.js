@@ -1,8 +1,10 @@
 // vectorExtractor.js — Client-side interface to the PyMuPDF vector extraction API
-// Calls /api/extract_vectors with PDF data, caches results in drawingsStore.
+// Calls the Render-hosted Python service for PDF vector extraction.
 // Returns walls + rooms in PDF points (72 DPI). Client converts to feet via calibration.
 
 import { useDrawingsStore } from "@/stores/drawingsStore";
+
+const VECTOR_API_URL = "https://novaterra-vector-api.onrender.com";
 
 /**
  * Extract vector wall data from a PDF drawing page.
@@ -54,7 +56,7 @@ export async function extractVectors(drawingId) {
 
   console.log(`[vectorExtractor] Calling API for ${drawingId.slice(0, 8)}, page ${pageNum + 1}...`);
 
-  const response = await fetch("/api/extract_vectors", {
+  const response = await fetch(`${VECTOR_API_URL}/extract`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
