@@ -3,6 +3,7 @@
 // Returns walls + rooms in PDF points (72 DPI). Client converts to feet via calibration.
 
 import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useDocumentsStore } from "@/stores/documentsStore";
 
 const VECTOR_API_URL = "https://novaterra-vector-api.onrender.com";
 
@@ -26,30 +27,46 @@ export async function extractVectors(drawingId) {
   if (!drawing) throw new Error(`Drawing ${drawingId} not found`);
 
   // Get raw PDF data — need the original PDF, not the rendered JPEG
-  // The PDF is stored as base64 in drawing.data for PDF-type drawings
-  // OR we need to reconstruct from the source file
   let pdfBase64 = null;
 
-  // Check if drawing has raw PDF data
-  if (drawing.data && (drawing.data.startsWith("data:application/pdf") || drawing.data.startsWith("JVBERi"))) {
-    pdfBase64 = drawing.data;
-  } else if (drawing.sourceFileData) {
-    pdfBase64 = drawing.sourceFileData;
-  } else if (drawing.pdfData) {
-    pdfBase64 = drawing.pdfData;
-  }
-
-  // Try to get from the shared document source
-  if (!pdfBase64) {
-    const docs = useDrawingsStore.getState().documents || [];
-    const parentDoc = docs.find(d => d.id === drawing.docId || d.id === drawing.documentId);
-    if (parentDoc?.data) {
-      pdfBase64 = parentDoc.data;
+  // Check if drawing.data IS a PDF (not a JPEG)
+  if (drawing.data && typeof drawing.data === "string") {
+    const d = drawing.data;
+    if (d.startsWith("data:application/pdf") || d.startsWith("JVBERi")) {
+      pdfBase64 = d;
     }
   }
 
+  // Check drawing-level fields
+  if (!pdfBase64 && drawing.sourceFileData) pdfBase64 = drawing.sourceFileData;
+  if (!pdfBase64 && drawing.pdfData) pdfBase64 = drawing.pdfData;
+
+  // Check documentsStore — the original PDF is stored as a document
   if (!pdfBase64) {
-    throw new Error(`No PDF data available for drawing ${drawingId.slice(0, 8)}. The original PDF may not be stored.`);
+    const docs = useDocumentsStore.getState().documents || [];
+    // Try matching by docId, documentId, or filename
+    const parentDoc = docs.find(d =>
+      (drawing.docId && d.id === drawing.docId) ||
+      (drawing.documentId && d.id === drawing.documentId) ||
+      (drawing.sourceDocId && d.id === drawing.sourceDocId) ||
+      (drawing.fileName && d.filename === drawing.fileName)
+    );
+    if (parentDoc?.data) {
+      const pd = parentDoc.data;
+      if (pd.startsWith("data:application/pdf") || pd.startsWith("JVBERi") || pd.startsWith("data:application/octet")) {
+        pdfBase64 = pd;
+        console.log(`[vectorExtractor] Found PDF in documentsStore: ${parentDoc.filename || parentDoc.id}`);
+      }
+    }
+  }
+
+  // Last resort: check if the drawing has a Supabase storage path for the original PDF
+  if (!pdfBase64 && drawing.storagePath) {
+    console.log(`[vectorExtractor] Drawing has storagePath but no local PDF data. Would need to download from cloud.`);
+  }
+
+  if (!pdfBase64) {
+    throw new Error(`No PDF data available for drawing ${drawingId.slice(0, 8)}. The original PDF may not be stored. Try re-uploading the drawings.`);
   }
 
   const pageNum = (drawing.pdfPage || drawing.pageNumber || 1) - 1; // 0-indexed for API
