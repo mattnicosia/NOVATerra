@@ -467,7 +467,7 @@ export const useEstimatesStore = create((set, get) => ({
     // items, markup, markupOrder, customMarkups, drawings, takeoffs,
     // sub leveling (subBidSubs, bidTotals, bidCells, bidSelections, linkedSubs),
     // bid packages, alternates, exclusions, clarifications, specs, etc.
-    const clonedData = JSON.parse(JSON.stringify(parentData));
+    const clonedData = structuredClone(parentData);
 
     // Update project metadata for the revision
     const parentName = clonedData.project.name || "Untitled";

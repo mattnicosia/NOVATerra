@@ -41,6 +41,30 @@ export async function extractVectors(drawingId) {
   if (!pdfBase64 && drawing.sourceFileData) pdfBase64 = drawing.sourceFileData;
   if (!pdfBase64 && drawing.pdfData) pdfBase64 = drawing.pdfData;
 
+  // Check bldg-pdf-raw IDB — the upload pipeline stores raw PDFs here (uploadPipeline.js:156)
+  if (!pdfBase64) {
+    const fileName = drawing.fileName || drawing.sourceFileName || drawing.name;
+    if (fileName) {
+      try {
+        const { loadPdfRawFromIDB } = await import("@/utils/uploadPipeline");
+        const arrayBuffer = await loadPdfRawFromIDB(fileName);
+        if (arrayBuffer && arrayBuffer.byteLength > 100) {
+          // Convert ArrayBuffer to base64 data URL
+          const bytes = new Uint8Array(arrayBuffer);
+          const chunks = [];
+          const chunkSize = 32768;
+          for (let i = 0; i < bytes.length; i += chunkSize) {
+            chunks.push(String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize)));
+          }
+          pdfBase64 = "data:application/pdf;base64," + btoa(chunks.join(""));
+          console.log(`[vectorExtractor] Loaded raw PDF from IDB: ${fileName} (${(arrayBuffer.byteLength / 1024).toFixed(0)}KB)`);
+        }
+      } catch (idbErr) {
+        console.warn(`[vectorExtractor] IDB raw PDF lookup failed: ${idbErr.message}`);
+      }
+    }
+  }
+
   // Check documentsStore — the original PDF is stored as a document
   if (!pdfBase64) {
     const docs = useDocumentsStore.getState().documents || [];

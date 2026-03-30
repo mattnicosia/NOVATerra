@@ -141,6 +141,104 @@ export default function ArchitectSketch() {
   const [floorHeight, setFloorHeight] = useState(10);
   const [selectedFloor, setSelectedFloor] = useState(null);
   const [cameraDistance, setCameraDistance] = useState(60);
+  const pdfInputRef = useRef(null);
+
+  // Direct PDF upload — bypasses storage, sends straight to Render API
+  const handleDirectPdfUpload = useCallback(async (file) => {
+    if (!file || !file.name.endsWith(".pdf")) return;
+    setScanning(true);
+    setError(null);
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      const chunks = [];
+      const chunkSize = 32768;
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        chunks.push(String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize)));
+      }
+      const pdfBase64 = "data:application/pdf;base64," + btoa(chunks.join(""));
+
+      console.log(`[ArchitectSketch] Direct upload: ${file.name} (${(arrayBuffer.byteLength / 1024).toFixed(0)}KB)`);
+
+      // Get page count by trying page 0
+      const VECTOR_API = "https://novaterra-vector-api.onrender.com";
+      const floorGroups = {};
+      const PDF_TO_CANVAS = 1.5;
+
+      // Try first 10 pages
+      for (let pageNum = 0; pageNum < 10; pageNum++) {
+        const resp = await fetch(`${VECTOR_API}/extract`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pdf_base64: pdfBase64, page_num: pageNum }),
+        });
+
+        if (!resp.ok) break; // no more pages
+
+        const data = await resp.json();
+        if (data.error) break;
+        if (!data.walls?.length) continue;
+
+        const floorLabel = `Page ${pageNum + 1}`;
+        // Use a default scale since we don't have calibration for direct uploads
+        // Assume 1/4" = 1'-0" on 24x36 sheet: ppf ≈ 24
+        const defaultPpf = 24;
+        const scale = PDF_TO_CANVAS / defaultPpf;
+
+        const wallsFeet = data.walls.map(w => ({
+          start: [w.start[0] * scale, w.start[1] * scale],
+          end: [w.end[0] * scale, w.end[1] * scale],
+          weight: w.weight || 1,
+          orientation: w.orientation,
+          length: w.length * scale,
+        }));
+
+        const roomsFeet = (data.rooms || []).map(r => ({
+          polygon: r.polygon?.map(([x, y]) => [x * scale, y * scale]),
+          area: r.area_sq_pts ? r.area_sq_pts * scale * scale : 0,
+        }));
+
+        if (!floorGroups[floorLabel]) {
+          floorGroups[floorLabel] = { floorLabel, elevation: pageNum * floorHeight, height: floorHeight, walls: [], rooms: [] };
+        }
+        floorGroups[floorLabel].walls.push(...wallsFeet);
+        floorGroups[floorLabel].rooms.push(...roomsFeet);
+
+        console.log(`[ArchitectSketch] Page ${pageNum + 1}: ${data.stats?.merged_walls || 0} walls, ${data.stats?.rooms_detected || 0} rooms`);
+      }
+
+      const floors = Object.values(floorGroups);
+      if (floors.length === 0) {
+        setError("No walls detected in this PDF. The file may be scanned (raster) or contain no architectural drawings.");
+      } else {
+        // Auto-center
+        const allX = [], allZ = [];
+        floors.forEach(f => f.walls.forEach(w => {
+          allX.push(w.start[0], w.end[0]);
+          allZ.push(w.start[1], w.end[1]);
+        }));
+        if (allX.length > 0) {
+          const minX = Math.min(...allX), maxX = Math.max(...allX);
+          const minZ = Math.min(...allZ), maxZ = Math.max(...allZ);
+          const cx = (minX + maxX) / 2, cz = (minZ + maxZ) / 2;
+          floors.forEach(f => {
+            f.walls.forEach(w => { w.start = [w.start[0] - cx, w.start[1] - cz]; w.end = [w.end[0] - cx, w.end[1] - cz]; });
+            f.rooms.forEach(r => { if (r.polygon) r.polygon = r.polygon.map(([x, y]) => [x - cx, y - cz]); });
+          });
+          const maxDim = Math.max(maxX - minX, maxZ - minZ, 20);
+          setCameraDistance(maxDim * 1.3);
+          console.log(`[ArchitectSketch] Building: ${(maxX-minX).toFixed(0)}ft × ${(maxZ-minZ).toFixed(0)}ft`);
+        }
+        setSketchData({ floors });
+      }
+    } catch (err) {
+      console.error("[ArchitectSketch] Direct upload failed:", err);
+      setError(err.message || "Failed to process PDF");
+    } finally {
+      setScanning(false);
+    }
+  }, [floorHeight]);
 
   // Extract vectors from PDF via server-side PyMuPDF
   const handleScan = useCallback(async () => {
@@ -286,6 +384,26 @@ export default function ArchitectSketch() {
           }}
         >
           {scanning ? "Scanning..." : "⚡ Generate Sketch"}
+        </button>
+
+        <input
+          ref={pdfInputRef}
+          type="file"
+          accept=".pdf"
+          style={{ display: "none" }}
+          onChange={e => { if (e.target.files?.[0]) handleDirectPdfUpload(e.target.files[0]); e.target.value = ""; }}
+        />
+        <button
+          onClick={() => pdfInputRef.current?.click()}
+          disabled={scanning}
+          style={{
+            ...bt(C), padding: "6px 12px", fontSize: 11,
+            background: "rgba(255,255,255,0.05)",
+            color: "#888", border: "1px solid rgba(255,255,255,0.1)",
+            borderRadius: 6, cursor: "pointer",
+          }}
+        >
+          📄 Upload PDF
         </button>
 
         {sketchData && (
