@@ -3,7 +3,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import Modal from "./Modal";
 import { bt, inp } from "@/utils/styles";
-import { ESTIMATE_TEMPLATES } from "@/constants/seedTemplates";
+// Templates hidden — always creates blank estimates
 
 /**
  * Suggest the next estimate number based on existing patterns.
@@ -53,8 +53,8 @@ export default function NewEstimateModal({ onCreated, onClose, companyProfileId 
   const C = useTheme();
   const T = C.T;
 
-  // Step 1: template selection (null = not chosen yet, "blank" = blank estimate)
-  const [selectedTemplate, setSelectedTemplate] = useState(null);
+  // Always blank — template selection removed
+  const [selectedTemplate, setSelectedTemplate] = useState("blank");
   // Step 2: estimate number entry
   const [estNum, setEstNum] = useState("");
   const [error, setError] = useState("");
@@ -236,51 +236,14 @@ export default function NewEstimateModal({ onCreated, onClose, companyProfileId 
     );
   }
 
-  // ── Step 2: Estimate Number Entry ───────────────────────────────────
-  const activeTemplate = selectedTemplate !== "blank" ? ESTIMATE_TEMPLATES.find(t => t.id === selectedTemplate) : null;
+  // ── Estimate Number Entry ────────────────────────────────────────────
 
   return (
     <Modal onClose={onClose}>
       <div style={{ padding: T.space[5] }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: T.space[4] }}>
-          <button
-            onClick={() => setSelectedTemplate(null)}
-            style={bt(C, {
-              padding: "4px 8px",
-              fontSize: 11,
-              background: "transparent",
-              color: C.textMuted,
-              border: `1px solid ${C.border}`,
-            })}
-          >
-            &larr;
-          </button>
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>
-              {activeTemplate ? activeTemplate.name : "Blank Estimate"}
-            </div>
-            {activeTemplate && <div style={{ fontSize: 10, color: C.textMuted }}>{activeTemplate.description}</div>}
-          </div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: T.space[4] }}>
+          New Estimate
         </div>
-
-        {activeTemplate && (
-          <div
-            style={{
-              fontSize: 10,
-              color: C.textDim,
-              padding: "6px 10px",
-              background: activeTemplate.color + "10",
-              border: `1px solid ${activeTemplate.color}30`,
-              borderRadius: 6,
-              marginBottom: T.space[3],
-            }}
-          >
-            <span style={{ fontWeight: 600 }}>
-              {(activeTemplate.seedIds?.length || 0) + (activeTemplate.customItems?.length || 0)}
-            </span>{" "}
-            pre-loaded items across Divisions {activeTemplate.divisions.join(", ")}
-          </div>
-        )}
 
         <label
           style={{ fontSize: 10, fontWeight: 600, color: C.textDim, textTransform: "uppercase", letterSpacing: 0.5 }}
