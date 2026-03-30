@@ -271,14 +271,15 @@ export default function ArchitectSketch() {
 
       let floors = Object.values(floorGroups);
 
+      // Remove roof plans
+      floors = floors.filter(f => !/\broof\b/i.test(f.floorLabel));
+
       // Cap to NOVA-detected floor count if available
-      if (novaFloorCount > 0) {
-        const maxFloors = novaFloorCount + novaBasementCount + 1; // +1 for potential roof
-        if (floors.length > maxFloors) {
-          floors.sort((a, b) => a.elevation - b.elevation);
-          floors = floors.slice(0, maxFloors);
-          console.log(`[ArchitectSketch] Capped to ${maxFloors} floors (NOVA: ${novaFloorCount} stories)`);
-        }
+      if (novaFloorCount > 0 && floors.length > novaFloorCount + novaBasementCount) {
+        const maxFloors = novaFloorCount + novaBasementCount;
+        floors.sort((a, b) => a.elevation - b.elevation);
+        floors = floors.slice(0, maxFloors);
+        console.log(`[ArchitectSketch] Capped to ${maxFloors} floors (NOVA: ${novaFloorCount} stories)`);
       }
 
       if (floors.length === 0) {
@@ -461,14 +462,19 @@ export default function ArchitectSketch() {
 
       let floors = Object.values(floorGroups);
 
+      // Remove roof plans — they don't have walls to extrude in 3D
+      const preRoofCount = floors.length;
+      floors = floors.filter(f => !/\broof\b/i.test(f.floorLabel));
+      if (floors.length < preRoofCount) {
+        console.log(`[ArchitectSketch] Removed ${preRoofCount - floors.length} roof plan floor(s)`);
+      }
+
       // Cap to NOVA-detected floor count if available
-      if (novaFloorCount > 0) {
-        const maxFloors = novaFloorCount + novaBasementCount + 1;
-        if (floors.length > maxFloors) {
-          floors.sort((a, b) => a.elevation - b.elevation);
-          floors = floors.slice(0, maxFloors);
-          console.log(`[ArchitectSketch] Capped to ${maxFloors} floors (NOVA: ${novaFloorCount} stories)`);
-        }
+      if (novaFloorCount > 0 && floors.length > novaFloorCount + novaBasementCount) {
+        const maxFloors = novaFloorCount + novaBasementCount;
+        floors.sort((a, b) => a.elevation - b.elevation);
+        floors = floors.slice(0, maxFloors);
+        console.log(`[ArchitectSketch] Capped to ${maxFloors} floors (NOVA: ${novaFloorCount} stories + ${novaBasementCount} basements)`);
       }
 
       if (floors.length === 0) {
