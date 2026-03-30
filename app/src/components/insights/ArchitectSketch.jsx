@@ -136,6 +136,9 @@ export default function ArchitectSketch() {
 
   const [sketchData, setSketchData] = useState(null);
   const [scanning, setScanning] = useState(false);
+  const [scanPhase, setScanPhase] = useState(""); // "analyzing", "extracting", "building"
+  const [scanDetail, setScanDetail] = useState(""); // e.g. "Page 3 of 12"
+  const [scanProgress, setScanProgress] = useState(0); // 0-100
   const [error, setError] = useState(null);
   const [exploded, setExploded] = useState(false);
   const [floorHeight, setFloorHeight] = useState(10);
@@ -150,6 +153,9 @@ export default function ArchitectSketch() {
     if (!file || !file.name.endsWith(".pdf")) return;
     setScanning(true);
     setError(null);
+    setScanPhase("analyzing");
+    setScanDetail("Reading PDF...");
+    setScanProgress(5);
 
     try {
       const arrayBuffer = await file.arrayBuffer();
@@ -166,9 +172,13 @@ export default function ArchitectSketch() {
       const VECTOR_API = "https://novaterra-vector-api.onrender.com";
       const floorGroups = {};
       const PDF_TO_CANVAS = 1.5;
-      const defaultPpf = 24; // Assume 1/4" = 1'-0" on 24×36 sheet
+      const defaultPpf = 24;
 
       // Step 1: Classify all pages
+      setScanPhase("analyzing");
+      setScanDetail("Classifying pages...");
+      setScanProgress(15);
+
       let floorPlanPages = [];
       try {
         const analyzeResp = await fetch(`${VECTOR_API}/analyze`, {
@@ -179,14 +189,15 @@ export default function ArchitectSketch() {
         if (analyzeResp.ok) {
           const analysis = await analyzeResp.json();
           floorPlanPages = analysis.floor_plans || [];
+          setScanDetail(`${analysis.total_pages} pages found · ${floorPlanPages.length} floor plans`);
+          setScanProgress(25);
           console.log(`[ArchitectSketch] Analysis: ${analysis.total_pages} pages → ${floorPlanPages.length} floor plans`);
-          console.log(`[ArchitectSketch] Summary:`, analysis.summary);
         }
       } catch (analyzeErr) {
         console.warn(`[ArchitectSketch] /analyze failed, falling back to brute-force:`, analyzeErr.message);
       }
 
-      // Fallback: if /analyze failed or found nothing, try first 10 pages
+      // Fallback
       if (floorPlanPages.length === 0) {
         for (let i = 0; i < 10; i++) {
           floorPlanPages.push({ page_num: i, floor_label: null, floor_num: null });
@@ -194,9 +205,16 @@ export default function ArchitectSketch() {
       }
 
       // Step 2: Extract walls from each floor plan page
+      setScanPhase("extracting");
       let floorIndex = 0;
-      for (const fp of floorPlanPages) {
+      const total = floorPlanPages.length;
+      for (let fpIdx = 0; fpIdx < total; fpIdx++) {
+        const fp = floorPlanPages[fpIdx];
         const pageNum = fp.page_num;
+        const pct = 25 + Math.round((fpIdx / total) * 60);
+        setScanProgress(pct);
+        setScanDetail(`Extracting walls · page ${fpIdx + 1} of ${total}`);
+
         const resp = await fetch(`${VECTOR_API}/extract`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -240,6 +258,10 @@ export default function ArchitectSketch() {
       if (floors.length === 0) {
         setError("No walls detected in this PDF. The file may be scanned (raster) or contain no architectural drawings.");
       } else {
+        setScanPhase("building");
+        setScanDetail(`Assembling ${floors.length} floor${floors.length > 1 ? "s" : ""}...`);
+        setScanProgress(90);
+
         // Auto-center building at origin
         const allX = [], allZ = [];
         floors.forEach(f => f.walls.forEach(w => {
@@ -258,6 +280,7 @@ export default function ArchitectSketch() {
           setCameraDistance(maxDim * 1.3);
           console.log(`[ArchitectSketch] Building: ${(maxX-minX).toFixed(0)}ft × ${(maxZ-minZ).toFixed(0)}ft`);
         }
+        setScanProgress(100);
         setSketchData({ floors });
       }
     } catch (err) {
@@ -265,6 +288,9 @@ export default function ArchitectSketch() {
       setError(err.message || "Failed to process PDF");
     } finally {
       setScanning(false);
+      setScanPhase("");
+      setScanDetail("");
+      setScanProgress(0);
     }
   }, [floorHeight]);
 
@@ -273,18 +299,21 @@ export default function ArchitectSketch() {
   const handleScan = useCallback(async () => {
     setScanning(true);
     setError(null);
+    setScanPhase("analyzing");
+    setScanDetail("Loading drawings...");
+    setScanProgress(5);
 
     try {
       const floorMap = buildFloorMap(drawings, floorHeight);
       const floorGroups = {};
-      const PDF_TO_CANVAS = 1.5; // PDF points (72 DPI) → canvas pixels (108 DPI)
+      const PDF_TO_CANVAS = 1.5;
 
-      // Build a set of drawing page numbers that /analyze says are NOT floor plans
-      // This lets us skip elevations, details, schedules without wasting extraction calls
       const skipPages = new Set();
-      const analyzeFloorLabels = {}; // page_num → floor_label from /analyze
+      const analyzeFloorLabels = {};
 
-      // Try to get analysis for each unique source PDF
+      // Step 1: Analyze source PDFs
+      setScanDetail("Classifying pages...");
+      setScanProgress(10);
       const analyzedPdfs = new Set();
       for (const drawing of drawings) {
         const fileName = drawing.fileName || drawing.sourceFileName;
@@ -292,7 +321,6 @@ export default function ArchitectSketch() {
         analyzedPdfs.add(fileName);
 
         try {
-          // Load raw PDF to send to /analyze
           const { loadPdfRawFromIDB } = await import("@/utils/uploadPipeline");
           const arrayBuffer = await loadPdfRawFromIDB(fileName);
           if (arrayBuffer && arrayBuffer.byteLength > 100) {
@@ -305,7 +333,6 @@ export default function ArchitectSketch() {
             const pdfBase64 = "data:application/pdf;base64," + btoa(chunks.join(""));
             const analysis = await analyzePdf(pdfBase64);
 
-            // Mark non-floor-plan pages for skipping
             for (const p of analysis.pages) {
               if (p.page_type !== "floor_plan") {
                 skipPages.add(`${fileName}:${p.page_num}`);
@@ -314,6 +341,7 @@ export default function ArchitectSketch() {
                 analyzeFloorLabels[`${fileName}:${p.page_num}`] = p.floor_label;
               }
             }
+            setScanDetail(`${fileName.slice(0,30)}... · ${analysis.floor_plan_count} floor plans`);
             console.log(`[ArchitectSketch] Analyzed ${fileName}: ${analysis.floor_plan_count}/${analysis.total_pages} floor plans`);
           }
         } catch (err) {
@@ -321,30 +349,32 @@ export default function ArchitectSketch() {
         }
       }
 
-      for (const drawing of drawings) {
-        // Skip pages that /analyze classified as non-floor-plans
+      // Step 2: Extract walls from each drawing
+      setScanPhase("extracting");
+      setScanProgress(25);
+      const eligibleDrawings = drawings.filter(drawing => {
         const fileName = drawing.fileName || drawing.sourceFileName;
         const pageNum = (drawing.pdfPage || drawing.pageNumber || 1) - 1;
         const pageKey = `${fileName}:${pageNum}`;
+        if (skipPages.has(pageKey)) return false;
+        if (!analyzedPdfs.has(fileName) && !isFloorPlanDrawing(drawing)) return false;
+        const { canRender } = canRenderArchitectSketch(drawing.id);
+        if (!canRender) return false;
+        const ppf = getPxPerFoot(drawing.id);
+        return !!ppf;
+      });
 
-        if (skipPages.has(pageKey)) {
-          console.log(`[ArchitectSketch] Skipping ${drawing.id.slice(0,8)} (${pageKey}): not a floor plan`);
-          continue;
-        }
-
-        // Fallback: client-side heuristic if /analyze didn't run for this PDF
-        if (!analyzedPdfs.has(fileName) && !isFloorPlanDrawing(drawing)) continue;
-
-        const { canRender, reason } = canRenderArchitectSketch(drawing.id);
-        if (!canRender) {
-          console.warn(`[ArchitectSketch] Skipping ${drawing.id.slice(0,8)}: ${reason}`);
-          continue;
-        }
+      for (let di = 0; di < eligibleDrawings.length; di++) {
+        const drawing = eligibleDrawings[di];
+        const fileName = drawing.fileName || drawing.sourceFileName;
+        const pageNum = (drawing.pdfPage || drawing.pageNumber || 1) - 1;
+        const pageKey = `${fileName}:${pageNum}`;
+        const pct = 25 + Math.round((di / eligibleDrawings.length) * 60);
+        setScanProgress(pct);
+        setScanDetail(`Extracting walls · drawing ${di + 1} of ${eligibleDrawings.length}`);
 
         const ppf = getPxPerFoot(drawing.id);
-        if (!ppf) continue;
 
-        // Call server-side PyMuPDF extraction
         let vectorData;
         try {
           vectorData = await extractVectors(drawing.id);
@@ -399,7 +429,10 @@ export default function ArchitectSketch() {
       if (floors.length === 0) {
         setError("No calibrated floor plan drawings found. Calibrate at least one drawing on the Takeoffs page.");
       } else {
-        // ── AUTO-CENTER: compute bounding box of all walls, center at origin ──
+        setScanPhase("building");
+        setScanDetail(`Assembling ${floors.length} floor${floors.length > 1 ? "s" : ""}...`);
+        setScanProgress(90);
+
         const allX = [], allZ = [];
         floors.forEach(f => f.walls.forEach(w => {
           allX.push(w.start[0], w.end[0]);
@@ -411,12 +444,7 @@ export default function ArchitectSketch() {
           const minZ = Math.min(...allZ), maxZ = Math.max(...allZ);
           const cx = (minX + maxX) / 2;
           const cz = (minZ + maxZ) / 2;
-          const buildingWidth = maxX - minX;
-          const buildingDepth = maxZ - minZ;
 
-          console.log(`[ArchitectSketch] Bounds: ${buildingWidth.toFixed(1)}ft × ${buildingDepth.toFixed(1)}ft, center (${cx.toFixed(1)}, ${cz.toFixed(1)})`);
-
-          // Subtract center from all coordinates
           floors.forEach(f => {
             f.walls.forEach(w => {
               w.start = [w.start[0] - cx, w.start[1] - cz];
@@ -427,12 +455,11 @@ export default function ArchitectSketch() {
             });
           });
 
-          // Auto-fit camera distance based on building size
-          const maxDim = Math.max(buildingWidth, buildingDepth, 20); // minimum 20ft
-          const camDist = maxDim * 1.3;
-          setCameraDistance(camDist);
+          const maxDim = Math.max(maxX - minX, maxZ - minZ, 20);
+          setCameraDistance(maxDim * 1.3);
         }
 
+        setScanProgress(100);
         setSketchData({ floors });
         const totalWalls = floors.reduce((s, f) => s + f.walls.length, 0);
         const totalRooms = floors.reduce((s, f) => s + f.rooms.length, 0);
@@ -443,6 +470,9 @@ export default function ArchitectSketch() {
       setError(err.message || "Failed to generate sketch");
     } finally {
       setScanning(false);
+      setScanPhase("");
+      setScanDetail("");
+      setScanProgress(0);
     }
   }, [drawings, floorHeight]);
 
@@ -564,6 +594,124 @@ export default function ArchitectSketch() {
           color: "#FF4757", fontSize: 12, maxWidth: 400, textAlign: "center",
         }}>
           {error}
+        </div>
+      )}
+
+      {/* ── SCANNING OVERLAY ── */}
+      {scanning && (
+        <div style={{
+          position: "absolute", inset: 0, zIndex: 20,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          flexDirection: "column",
+          background: "#000",
+        }}>
+          {/* Blueprint grid background */}
+          <div style={{
+            position: "absolute", inset: 0, opacity: 0.06,
+            backgroundImage: `
+              linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px)
+            `,
+            backgroundSize: "40px 40px",
+          }} />
+
+          {/* Sweeping scan line — horizontal band moving top to bottom */}
+          <div style={{
+            position: "absolute", left: 0, right: 0, height: 2,
+            background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.6) 20%, #fff 50%, rgba(255,255,255,0.6) 80%, transparent 100%)",
+            boxShadow: "0 0 30px 8px rgba(255,255,255,0.15), 0 0 80px 20px rgba(255,255,255,0.05)",
+            animation: "scanSweep 2.4s ease-in-out infinite",
+          }} />
+
+          {/* Faint vertical scan lines — data streams */}
+          <div style={{
+            position: "absolute", inset: 0, overflow: "hidden", opacity: 0.04,
+          }}>
+            {[15, 30, 50, 65, 80].map((left, i) => (
+              <div key={i} style={{
+                position: "absolute", left: `${left}%`, top: 0, width: 1, height: "100%",
+                background: "linear-gradient(180deg, transparent, #fff 40%, #fff 60%, transparent)",
+                animation: `scanVertical ${1.8 + i * 0.3}s ease-in-out infinite`,
+                animationDelay: `${i * 0.2}s`,
+              }} />
+            ))}
+          </div>
+
+          {/* Center content */}
+          <div style={{
+            position: "relative", zIndex: 1, display: "flex", flexDirection: "column",
+            alignItems: "center", gap: 20,
+          }}>
+            {/* Phase icon */}
+            <div style={{
+              width: 48, height: 48, borderRadius: "50%",
+              border: "1px solid rgba(255,255,255,0.1)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              animation: "scanPulse 2s ease-in-out infinite",
+            }}>
+              <span style={{ fontSize: 20, filter: "grayscale(1) brightness(2)" }}>
+                {scanPhase === "analyzing" ? "🔍" : scanPhase === "extracting" ? "📐" : "🏗"}
+              </span>
+            </div>
+
+            {/* Phase label */}
+            <div style={{
+              fontSize: 11, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase",
+              color: "rgba(255,255,255,0.5)",
+            }}>
+              {scanPhase === "analyzing" ? "Analyzing Pages" :
+               scanPhase === "extracting" ? "Extracting Geometry" :
+               scanPhase === "building" ? "Building Model" : "Scanning"}
+            </div>
+
+            {/* Detail text */}
+            <div style={{
+              fontSize: 12, color: "rgba(255,255,255,0.25)",
+              fontFamily: "'JetBrains Mono', monospace",
+              minHeight: 18,
+            }}>
+              {scanDetail}
+            </div>
+
+            {/* Progress bar */}
+            <div style={{
+              width: 200, height: 2, background: "rgba(255,255,255,0.06)",
+              borderRadius: 1, overflow: "hidden",
+            }}>
+              <div style={{
+                height: "100%", background: "#fff",
+                width: `${scanProgress}%`,
+                transition: "width 0.4s ease-out",
+                boxShadow: "0 0 8px rgba(255,255,255,0.3)",
+              }} />
+            </div>
+
+            {/* Percentage */}
+            <div style={{
+              fontSize: 10, color: "rgba(255,255,255,0.15)",
+              fontFamily: "'JetBrains Mono', monospace",
+            }}>
+              {scanProgress}%
+            </div>
+          </div>
+
+          {/* CSS animations injected inline */}
+          <style>{`
+            @keyframes scanSweep {
+              0% { top: -2px; opacity: 0; }
+              5% { opacity: 1; }
+              95% { opacity: 1; }
+              100% { top: 100%; opacity: 0; }
+            }
+            @keyframes scanVertical {
+              0%, 100% { opacity: 0; }
+              50% { opacity: 1; }
+            }
+            @keyframes scanPulse {
+              0%, 100% { transform: scale(1); opacity: 0.6; }
+              50% { transform: scale(1.08); opacity: 1; }
+            }
+          `}</style>
         </div>
       )}
 
