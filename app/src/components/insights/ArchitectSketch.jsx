@@ -14,13 +14,11 @@ import { Line2 } from "three/examples/jsm/lines/Line2.js";
 import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 
-import { useTakeoffsStore } from "@/stores/takeoffsStore";
 import { useDrawingsStore } from "@/stores/drawingsStore";
 import { buildFloorMap, inferFloorFromSheet } from "@/utils/floorAssignment";
 import { getPxPerFoot } from "@/utils/geometryBuilder";
-import { canRenderArchitectSketch } from "@/utils/vectorCoordinates";
-import { detectWalls } from "@/utils/wallDetector";
-import { detectSpacesForLevel } from "@/utils/pascalSpaceDetection";
+import { canRenderArchitectSketch, pdfPointToFeet } from "@/utils/vectorCoordinates";
+import { extractVectors } from "@/utils/vectorExtractor";
 import { bt } from "@/utils/styles";
 import { useTheme } from "@/hooks/useTheme";
 
@@ -144,67 +142,72 @@ export default function ArchitectSketch() {
   const [selectedFloor, setSelectedFloor] = useState(null);
   const [cameraDistance, setCameraDistance] = useState(60);
 
-  // Scan drawings for vector data
+  // Extract vectors from PDF via server-side PyMuPDF
   const handleScan = useCallback(async () => {
     setScanning(true);
     setError(null);
 
     try {
-      const pdfCanvases = useDrawingsStore.getState().pdfCanvases;
       const floorMap = buildFloorMap(drawings, floorHeight);
-
-      // Collect walls per drawing, then GROUP by floor label
-      const floorGroups = {}; // { "Floor 1": { walls: [], rooms: [], elevation, height } }
+      const floorGroups = {};
+      const PDF_TO_CANVAS = 1.5; // PDF points (72 DPI) → canvas pixels (108 DPI)
 
       for (const drawing of drawings) {
-        if (!isFloorPlanDrawing(drawing)) {
-          console.log(`[ArchitectSketch] Skipping non-floor-plan: ${drawing.title || drawing.id}`);
-          continue;
-        }
+        if (!isFloorPlanDrawing(drawing)) continue;
 
         const { canRender, reason } = canRenderArchitectSketch(drawing.id);
         if (!canRender) {
-          console.warn(`[ArchitectSketch] Skipping ${drawing.id}: ${reason}`);
+          console.warn(`[ArchitectSketch] Skipping ${drawing.id.slice(0,8)}: ${reason}`);
           continue;
         }
 
-        const imageData = pdfCanvases[drawing.id] || drawing?.data;
-        if (!imageData) continue;
+        const ppf = getPxPerFoot(drawing.id);
+        if (!ppf) continue;
 
-        const { walls } = await detectWalls(imageData, drawing.id);
-        if (!walls?.length) continue;
+        // Call server-side PyMuPDF extraction
+        let vectorData;
+        try {
+          vectorData = await extractVectors(drawing.id);
+        } catch (err) {
+          console.warn(`[ArchitectSketch] Vector extraction failed for ${drawing.id.slice(0,8)}: ${err.message}`);
+          continue;
+        }
 
-        const { spaces } = detectSpacesForLevel("sketch-" + drawing.id, walls, 0.5);
-        const rooms = spaces.filter(s => !s.isExterior);
+        if (!vectorData?.walls?.length) continue;
 
         const fa = floorMap[drawing.id];
         const elevation = fa?.elevation ?? 0;
         const floorLabel = fa?.label || inferFloorFromSheet(drawing) || "Floor 1";
 
-        const ppf = getPxPerFoot(drawing.id);
-        if (!ppf) continue;
+        // Convert from PDF points to feet: pts * 1.5 / ppf
+        const scale = PDF_TO_CANVAS / ppf;
 
-        const wallsFeet = walls.map(w => ({
-          ...w,
-          start: [w.start[0] / ppf, w.start[1] / ppf],
-          end: [w.end[0] / ppf, w.end[1] / ppf],
-          thickness: (w.thickness || 4) / ppf,
+        console.log(`[ArchitectSketch] ${drawing.id.slice(0,8)}: ${vectorData.walls.length} walls, ppf=${ppf.toFixed(1)}, scale=${scale.toFixed(4)} pts/ft`);
+
+        const wallsFeet = vectorData.walls.map(w => ({
+          start: [w.start[0] * scale, w.start[1] * scale],
+          end: [w.end[0] * scale, w.end[1] * scale],
+          weight: w.weight || 1,
+          orientation: w.orientation,
+          length: w.length * scale,
         }));
 
-        const roomsFeet = rooms.map(r => ({
-          ...r,
-          polygon: r.polygon?.map(([x, y]) => [x / ppf, y / ppf]),
+        const roomsFeet = (vectorData.rooms || []).map(r => ({
+          polygon: r.polygon?.map(([x, y]) => [x * scale, y * scale]),
+          area: r.area_sq_pts ? r.area_sq_pts * scale * scale : 0,
+          centroid: r.centroid ? [r.centroid[0] * scale, r.centroid[1] * scale] : null,
         }));
 
-        // GROUP by floor label — merge walls from multiple drawings on the same floor
+        // Log diagnostic
+        if (wallsFeet.length > 0) {
+          const xs = wallsFeet.flatMap(w => [w.start[0], w.end[0]]);
+          const ys = wallsFeet.flatMap(w => [w.start[1], w.end[1]]);
+          console.log(`[ArchitectSketch] Feet bounds: X=[${Math.min(...xs).toFixed(1)}..${Math.max(...xs).toFixed(1)}] Y=[${Math.min(...ys).toFixed(1)}..${Math.max(...ys).toFixed(1)}]`);
+          console.log(`[ArchitectSketch] Building size: ${(Math.max(...xs)-Math.min(...xs)).toFixed(1)}ft × ${(Math.max(...ys)-Math.min(...ys)).toFixed(1)}ft`);
+        }
+
         if (!floorGroups[floorLabel]) {
-          floorGroups[floorLabel] = {
-            floorLabel,
-            elevation,
-            height: fa?.height || floorHeight,
-            walls: [],
-            rooms: [],
-          };
+          floorGroups[floorLabel] = { floorLabel, elevation, height: fa?.height || floorHeight, walls: [], rooms: [] };
         }
         floorGroups[floorLabel].walls.push(...wallsFeet);
         floorGroups[floorLabel].rooms.push(...roomsFeet);

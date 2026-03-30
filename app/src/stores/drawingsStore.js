@@ -16,8 +16,10 @@ export const useDrawingsStore = create((set, get) => ({
   smartLabelDragging: null,
   aiLabelLoading: false,
   autoLabelProgress: null,
+  vectorData: {}, // { [drawingId]: { walls, rooms, text_blocks, page_width, page_height, stats } }
 
   setDrawings: v => set({ drawings: v }),
+  setVectorData: (drawingId, data) => set(s => ({ vectorData: { ...s.vectorData, [drawingId]: data } })),
   setSelectedDrawingId: v => set({ selectedDrawingId: v }),
   setPdfCanvases: v => set({ pdfCanvases: v }),
   setDrawingScales: v => set({ drawingScales: v }),
