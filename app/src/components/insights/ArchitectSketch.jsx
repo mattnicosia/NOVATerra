@@ -274,12 +274,29 @@ export default function ArchitectSketch() {
       // Remove roof plans
       floors = floors.filter(f => !/\broof\b/i.test(f.floorLabel));
 
-      // Cap to NOVA-detected floor count if available
-      if (novaFloorCount > 0 && floors.length > novaFloorCount + novaBasementCount) {
-        const maxFloors = novaFloorCount + novaBasementCount;
-        floors.sort((a, b) => a.elevation - b.elevation);
-        floors = floors.slice(0, maxFloors);
-        console.log(`[ArchitectSketch] Capped to ${maxFloors} floors (NOVA: ${novaFloorCount} stories)`);
+      // ── SMART FLOOR SELECTION ──
+      // When /analyze fails and we get brute-force pages, every page becomes a "floor".
+      // Keep only the N most substantial floors by wall count.
+      // A cover sheet (3 walls) or elevation (142 walls) will be dropped in favor
+      // of actual floor plans (400+ walls).
+      const maxFloors = novaFloorCount > 0
+        ? novaFloorCount + novaBasementCount
+        : Math.min(floors.length, 4); // Default: max 4 if no NOVA data
+
+      if (floors.length > maxFloors) {
+        // Sort by wall count descending — keep the most detailed pages
+        const sorted = [...floors].sort((a, b) => b.walls.length - a.walls.length);
+        const kept = sorted.slice(0, maxFloors);
+        // Re-assign elevations sequentially (floor 0, 1, 2...) since original page order is meaningless
+        kept.sort((a, b) => {
+          // Try to preserve floor label ordering if labels have numbers
+          const aNum = parseInt(a.floorLabel.match(/\d+/)?.[0]) || 999;
+          const bNum = parseInt(b.floorLabel.match(/\d+/)?.[0]) || 999;
+          return aNum - bNum;
+        });
+        kept.forEach((f, i) => { f.elevation = i * floorHeight; });
+        floors = kept;
+        console.log(`[ArchitectSketch] Kept top ${maxFloors} floors by wall count (dropped ${sorted.length - maxFloors} sparse pages)`);
       }
 
       if (floors.length === 0) {
@@ -462,19 +479,25 @@ export default function ArchitectSketch() {
 
       let floors = Object.values(floorGroups);
 
-      // Remove roof plans — they don't have walls to extrude in 3D
-      const preRoofCount = floors.length;
+      // Remove roof plans
       floors = floors.filter(f => !/\broof\b/i.test(f.floorLabel));
-      if (floors.length < preRoofCount) {
-        console.log(`[ArchitectSketch] Removed ${preRoofCount - floors.length} roof plan floor(s)`);
-      }
 
-      // Cap to NOVA-detected floor count if available
-      if (novaFloorCount > 0 && floors.length > novaFloorCount + novaBasementCount) {
-        const maxFloors = novaFloorCount + novaBasementCount;
-        floors.sort((a, b) => a.elevation - b.elevation);
-        floors = floors.slice(0, maxFloors);
-        console.log(`[ArchitectSketch] Capped to ${maxFloors} floors (NOVA: ${novaFloorCount} stories + ${novaBasementCount} basements)`);
+      // ── SMART FLOOR SELECTION ──
+      const maxFloors = novaFloorCount > 0
+        ? novaFloorCount + novaBasementCount
+        : Math.min(floors.length, 4);
+
+      if (floors.length > maxFloors) {
+        const sorted = [...floors].sort((a, b) => b.walls.length - a.walls.length);
+        const kept = sorted.slice(0, maxFloors);
+        kept.sort((a, b) => {
+          const aNum = parseInt(a.floorLabel.match(/\d+/)?.[0]) || 999;
+          const bNum = parseInt(b.floorLabel.match(/\d+/)?.[0]) || 999;
+          return aNum - bNum;
+        });
+        kept.forEach((f, i) => { f.elevation = i * floorHeight; });
+        floors = kept;
+        console.log(`[ArchitectSketch] Kept top ${maxFloors} floors by wall count (dropped ${sorted.length - maxFloors} sparse pages)`);
       }
 
       if (floors.length === 0) {
