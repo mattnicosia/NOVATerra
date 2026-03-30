@@ -124,12 +124,20 @@ export default function MapRadarWidget() {
     return () => { map.remove(); mapRef.current = null; };
   }, [scriptLoaded]);
 
-  // Resize map when expanded/collapsed
+  // Resize map when expanded/collapsed or widget resizes
   useEffect(() => {
     if (mapRef.current) {
       setTimeout(() => mapRef.current.resize(), 100);
     }
   }, [expanded]);
+
+  // Auto-resize map when widget container changes size
+  useEffect(() => {
+    if (!mapContainerRef.current || !mapRef.current) return;
+    const ro = new ResizeObserver(() => { mapRef.current?.resize(); });
+    ro.observe(mapContainerRef.current);
+    return () => ro.disconnect();
+  }, [scriptLoaded]);
 
   // Render project markers
   useEffect(() => {
@@ -180,8 +188,9 @@ export default function MapRadarWidget() {
     const style = document.createElement("style");
     style.id = "map-radar-css";
     style.textContent = `@keyframes mrp{0%{transform:scale(0.3);opacity:0.7}100%{transform:scale(1.1);opacity:0}}
-.mapboxgl-ctrl-logo{opacity:0.3!important;transform:scale(0.7)!important}
-.mapboxgl-ctrl-attrib{opacity:0.2!important;font-size:8px!important}`;
+.mapboxgl-ctrl-logo{opacity:0.08!important;transform:scale(0.5)!important;filter:grayscale(1)!important}
+.mapboxgl-ctrl-attrib{opacity:0!important;font-size:0!important;pointer-events:none!important}
+.mapboxgl-ctrl-bottom-left{opacity:0.08!important}`;
     document.head.appendChild(style);
   }, []);
 
@@ -270,10 +279,10 @@ export default function MapRadarWidget() {
         </>
       )}
 
-      {/* Mini label when NOT expanded */}
+      {/* Mini label when NOT expanded — top-left */}
       {!expanded && (
         <div style={{
-          position: "absolute", top: 8, right: 40, zIndex: 10,
+          position: "absolute", top: 8, left: 10, zIndex: 10,
           color: C.accent || "#00D4AA", fontSize: 9,
           fontFamily: "'Barlow Condensed', sans-serif",
           textTransform: "uppercase", letterSpacing: "0.12em", opacity: 0.7,

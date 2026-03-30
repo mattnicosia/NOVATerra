@@ -5,7 +5,7 @@ import { useTheme } from "@/hooks/useTheme";
    MarketIntelWidget — market intel tabs + cards
    ──────────────────────────────────────────────────────── */
 
-const INTEL_TABS = ["Materials", "Labor", "Equipment"];
+const INTEL_TABS = ["Materials", "Labor"];
 const PERIOD_TABS = ["MoM", "QoQ", "YoY"];
 
 const MARKET_DATA = {

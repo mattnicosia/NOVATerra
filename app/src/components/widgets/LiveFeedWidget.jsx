@@ -68,19 +68,7 @@ export default function LiveFeedWidget() {
       </div>
 
       <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
-        {/* Fade top */}
-        <div
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 24,
-            background: `linear-gradient(to bottom, ${C.noGlass ? C.bg1 : C.glassBg}, transparent)`,
-            zIndex: 1,
-            pointerEvents: "none",
-          }}
-        />
+        {/* Fade overlays removed — were causing black bands on top/bottom */}
 
         <div ref={scrollRef} style={{ willChange: "transform" }}>
           {doubledTickers.map(([name, price, trend, change], i) => {
@@ -139,19 +127,7 @@ export default function LiveFeedWidget() {
           })}
         </div>
 
-        {/* Fade bottom */}
-        <div
-          style={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 24,
-            background: `linear-gradient(to top, ${C.noGlass ? C.bg1 : C.glassBg}, transparent)`,
-            zIndex: 1,
-            pointerEvents: "none",
-          }}
-        />
+        {/* Bottom fade removed */}
       </div>
     </div>
   );
