@@ -766,6 +766,98 @@ export const PALETTES = [
     },
     variants: [null],
   },
+  // ━━━ SHIFT5 — Extracted from shift5.io via website cloner ━━━
+  // Defense-grade: signature orange (#FF5841) on charcoal (#202020).
+  // Monospace labels, zero radius, harsh borders. Military data aesthetic.
+  // Inspired by shift5.io — operational intelligence for defense & transport.
+  // Two variants: Dark (charcoal base, orange accent) and Light (orange base, dark text).
+  {
+    id: "shift5",
+    name: "Shift5",
+    desc: "Defense-grade — signal orange, charcoal steel, zero radius",
+    preview: ["#202020", "#FF5841", "#2A2A2A", "#B9B9B9", "#E6E6E6"],
+    variantLabels: ["Ops Dark", "Signal Light"],
+    overrides: {
+      shift5Mode: true,
+      // ── Surfaces — charcoal steel ──
+      bg: "#181818",          // base — deep charcoal
+      bg1: "#202020",         // cards — Shift5 primary dark
+      bg2: "#2A2A2A",         // raised surfaces
+      bg3: "#333333",         // hover states
+      // ── Borders — harsh, no softness ──
+      border: "#3A3A3A",
+      borderLight: "rgba(255,255,255,0.06)",
+      borderAccent: "rgba(255,88,65,0.35)",
+      // ── Text — high contrast ──
+      text: "#E6E6E6",             // primary — light gray
+      textMuted: "#B9B9B9",        // secondary — Shift5 mid gray
+      textDim: "#666666",          // tertiary
+      // ── Accent — signal orange ──
+      accent: "#FF5841",           // Shift5 signature orange
+      accentDim: "#CC4634",        // darkened
+      accentBg: "rgba(255,88,65,0.10)",
+      accentAlt: "#FF7A68",        // hover — lighter orange
+      // ── Gradients — orange to warm ──
+      gradient: "linear-gradient(135deg, #FF5841, #FF7A68)",
+      gradientSubtle: "linear-gradient(135deg, rgba(255,88,65,0.12), rgba(255,122,104,0.12))",
+      gradientText: "linear-gradient(135deg, #FF5841, #FF7A68)",
+      // ── Semantic colors — desaturated military palette ──
+      green:  "#4ADE80",
+      red:    "#FF5841",     // red IS the accent
+      blue:   "#60A5FA",
+      purple: "#A78BFA",
+      orange: "#FF5841",
+      cyan:   "#22D3EE",
+      yellow: "#FBBF24",
+      // ── Sidebar ──
+      sidebarBg: "rgba(24,24,24,0.97)",
+      // ── Glass (disabled — flat hard surfaces) ──
+      glassBg: "#202020",
+      glassBorder: "#3A3A3A",
+      glassBgDark: "#181818",
+      bgGradient: "#181818",
+      // ── Flags ──
+      forceDark: true,
+      noGlass: true,
+      materialMode: "concrete",
+    },
+    variants: [
+      null, // Ops Dark
+      // Signal Light — orange hero background, dark text (the shift5.io homepage look)
+      {
+        bg: "#F0EFEB",            // warm off-white
+        bg1: "#FFFFFF",           // cards
+        bg2: "#F5F4F0",          // raised
+        bg3: "#E8E7E3",          // hover
+        border: "#D4D3CF",
+        borderLight: "rgba(0,0,0,0.06)",
+        borderAccent: "rgba(255,88,65,0.30)",
+        text: "#202020",          // Shift5 charcoal
+        textMuted: "#666666",
+        textDim: "#999999",
+        accent: "#FF5841",
+        accentDim: "#CC4634",
+        accentBg: "rgba(255,88,65,0.08)",
+        accentAlt: "#FF7A68",
+        gradient: "linear-gradient(135deg, #FF5841, #FF7A68)",
+        gradientSubtle: "linear-gradient(135deg, rgba(255,88,65,0.10), rgba(255,122,104,0.10))",
+        gradientText: "linear-gradient(135deg, #FF5841, #FF7A68)",
+        green: "#16A34A",
+        red: "#DC2626",
+        blue: "#2563EB",
+        purple: "#7C3AED",
+        orange: "#EA580C",
+        cyan: "#0891B2",
+        yellow: "#CA8A04",
+        sidebarBg: "#202020",        // dark sidebar contrast
+        glassBg: "#FFFFFF",
+        glassBorder: "#D4D3CF",
+        bgGradient: "#F0EFEB",
+        noGlass: true,
+        materialMode: "concrete",
+      },
+    ],
+  },
 ];
 
 // Car palette IDs for cycling

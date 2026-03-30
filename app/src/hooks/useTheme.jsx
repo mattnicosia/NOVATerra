@@ -1354,6 +1354,194 @@ export function ThemeProvider({ children }) {
     };
   }, [value.linearMode]);
 
+  // ── SHIFT5 MODE — Defense-grade: signal orange, monospace, zero radius ──
+  useEffect(() => {
+    const SHIFT5_STYLE_ID = "shift5-theme-styles";
+    if (value.shift5Mode) {
+      document.documentElement.setAttribute("data-shift5", "");
+      const existing = document.getElementById(SHIFT5_STYLE_ID);
+      if (existing) return;
+      const style = document.createElement("style");
+      style.id = SHIFT5_STYLE_ID;
+      style.textContent = `
+        /* ═══ SHIFT5 — Defense-grade: Signal Orange, Charcoal Steel ═══ */
+
+        /* ── Global: zero radius, monospace labels ── */
+        html[data-shift5] * {
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* ── Body ── */
+        html[data-shift5] body {
+          background: #181818 !important;
+          color: #E6E6E6 !important;
+        }
+
+        /* ── Widget cards: zero radius, hard borders ── */
+        html[data-shift5] .widget-card {
+          border-radius: 0 !important;
+          background: #202020 !important;
+          border: 1px solid #3A3A3A !important;
+          box-shadow: none !important;
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
+        }
+
+        html[data-shift5] .widget-card:hover {
+          border-color: rgba(255,88,65,0.4) !important;
+          box-shadow: none !important;
+          transform: none !important;
+        }
+
+        /* ── Header ── */
+        html[data-shift5] header,
+        html[data-shift5] [class*="NovaHeader"],
+        html[data-shift5] [class*="header"] {
+          background: #181818 !important;
+          border-bottom: 1px solid #3A3A3A !important;
+        }
+
+        /* ── Sidebar ── */
+        html[data-shift5] aside,
+        html[data-shift5] [class*="sidebar"],
+        html[data-shift5] [class*="Sidebar"] {
+          background: #181818 !important;
+          border-right: 1px solid #3A3A3A !important;
+        }
+
+        /* ── Typography: tight, military precision ── */
+        html[data-shift5] h1, html[data-shift5] h2, html[data-shift5] h3 {
+          letter-spacing: -0.02em !important;
+          font-weight: 600 !important;
+          color: #E6E6E6 !important;
+        }
+
+        /* ── Section labels: monospace, uppercase, orange ── */
+        html[data-shift5] .widget-card [style*="letterSpacing"],
+        html[data-shift5] .widget-card [style*="letter-spacing"] {
+          font-family: 'JetBrains Mono', monospace !important;
+          color: #FF5841 !important;
+          font-weight: 500 !important;
+          font-size: 10px !important;
+          letter-spacing: 0.08em !important;
+          text-transform: uppercase !important;
+        }
+
+        /* ── Inputs: zero radius, hard edges ── */
+        html[data-shift5] input,
+        html[data-shift5] select,
+        html[data-shift5] textarea {
+          border-radius: 0 !important;
+          border: 1px solid #3A3A3A !important;
+          background: rgba(255,255,255,0.04) !important;
+          font-size: 13px !important;
+        }
+        html[data-shift5] input:focus,
+        html[data-shift5] select:focus,
+        html[data-shift5] textarea:focus {
+          border-color: #FF5841 !important;
+          box-shadow: 0 0 0 1px rgba(255,88,65,0.25) !important;
+          outline: none !important;
+        }
+
+        /* ── Buttons: zero radius, solid ── */
+        html[data-shift5] button[style*="background"] {
+          border-radius: 0 !important;
+          font-weight: 600 !important;
+          font-size: 12px !important;
+          letter-spacing: 0.04em !important;
+          text-transform: uppercase !important;
+        }
+
+        /* ── Status badges: zero radius ── */
+        html[data-shift5] .widget-card [style*="borderRadius: 99"],
+        html[data-shift5] .widget-card [style*="border-radius: 99"],
+        html[data-shift5] .widget-card [style*="borderRadius: 12"],
+        html[data-shift5] .widget-card [style*="border-radius: 12"] {
+          border-radius: 0 !important;
+          font-family: 'JetBrains Mono', monospace !important;
+          font-size: 10px !important;
+          font-weight: 500 !important;
+          padding: 2px 6px !important;
+          letter-spacing: 0.06em !important;
+          text-transform: uppercase !important;
+        }
+
+        /* ── Nav items ── */
+        html[data-shift5] nav a,
+        html[data-shift5] [data-interactive] {
+          font-weight: 500 !important;
+          font-size: 13px !important;
+          letter-spacing: 0 !important;
+        }
+
+        /* ── Active nav: orange left bar ── */
+        html[data-shift5] .active {
+          background: rgba(255,88,65,0.08) !important;
+          border-left: 2px solid #FF5841 !important;
+        }
+
+        /* ── Tables/rows ── */
+        html[data-shift5] .est-row:hover,
+        html[data-shift5] tr:hover {
+          background: rgba(255,88,65,0.04) !important;
+        }
+
+        /* ── Scrollbar: thin, dark ── */
+        html[data-shift5] ::-webkit-scrollbar { width: 6px; height: 6px; }
+        html[data-shift5] ::-webkit-scrollbar-track { background: transparent; }
+        html[data-shift5] ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 0; }
+        html[data-shift5] ::-webkit-scrollbar-thumb:hover { background: rgba(255,88,65,0.25); }
+
+        /* ── Remove ALL glass/blur ── */
+        html[data-shift5] [style*="backdrop-filter"],
+        html[data-shift5] [style*="backdropFilter"] {
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
+        }
+
+        /* ── No entrance animation ── */
+        html[data-shift5] .widget-card {
+          animation: none !important;
+        }
+
+        /* ── Links: orange ── */
+        html[data-shift5] a:not([class]) {
+          color: #FF5841 !important;
+        }
+
+        /* ── Selection: orange tint ── */
+        html[data-shift5] ::selection {
+          background: rgba(255,88,65,0.3) !important;
+          color: #E6E6E6 !important;
+        }
+
+        /* ── All border-radius overrides: zero across the board ── */
+        html[data-shift5] [style*="borderRadius: 6"],
+        html[data-shift5] [style*="border-radius: 6"],
+        html[data-shift5] [style*="borderRadius: 8"],
+        html[data-shift5] [style*="border-radius: 8"],
+        html[data-shift5] [style*="borderRadius: 10"],
+        html[data-shift5] [style*="border-radius: 10"],
+        html[data-shift5] [style*="borderRadius: 12"],
+        html[data-shift5] [style*="border-radius: 12"],
+        html[data-shift5] [style*="borderRadius: 16"],
+        html[data-shift5] [style*="border-radius: 16"] {
+          border-radius: 0 !important;
+        }
+      `;
+      document.head.appendChild(style);
+    } else {
+      document.documentElement.removeAttribute("data-shift5");
+      document.getElementById(SHIFT5_STYLE_ID)?.remove();
+    }
+    return () => {
+      document.documentElement.removeAttribute("data-shift5");
+      document.getElementById(SHIFT5_STYLE_ID)?.remove();
+    };
+  }, [value.shift5Mode]);
+
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
