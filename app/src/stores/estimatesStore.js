@@ -597,6 +597,30 @@ export const useEstimatesStore = create((set, get) => ({
     }
     // Push to cloud (non-blocking)
     cloudSync.pushData("index", idx).catch(() => {});
+
+    // ── FEEDBACK LOOP: generate learning record when estimate reaches final bid ──
+    if (updates.status && ["Submitted", "Won", "Lost"].includes(updates.status)) {
+      const entry = idx.find(e => e.id === id);
+      if (entry && !entry.feedbackGenerated) {
+        Promise.all([
+          import("@/utils/estimateFeedback"),
+          import("@/stores/uiStore"),
+        ]).then(([{ generateLearningFromEstimate }, { useUiStore }]) => {
+          generateLearningFromEstimate(id).then(record => {
+            if (record) {
+              get().updateIndexEntry(id, { feedbackGenerated: true });
+              const divs = Object.keys(record.calibration || {}).length;
+              useUiStore.getState().showToast(
+                `NOVA learned from this bid — ${divs} calibration points added`,
+                "success"
+              );
+            }
+          }).catch(err => {
+            console.warn(`[NOVA Feedback] Failed:`, err.message);
+          });
+        });
+      }
+    }
   },
 
   assignEstimate: (estimateId, userIds) => {
