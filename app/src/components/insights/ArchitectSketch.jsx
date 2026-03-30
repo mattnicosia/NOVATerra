@@ -18,7 +18,7 @@ import { useDrawingsStore } from "@/stores/drawingsStore";
 import { buildFloorMap, inferFloorFromSheet } from "@/utils/floorAssignment";
 import { getPxPerFoot } from "@/utils/geometryBuilder";
 import { canRenderArchitectSketch, pdfPointToFeet } from "@/utils/vectorCoordinates";
-import { extractVectors } from "@/utils/vectorExtractor";
+import { extractVectors, analyzePdf } from "@/utils/vectorExtractor";
 import { bt } from "@/utils/styles";
 import { useTheme } from "@/hooks/useTheme";
 
@@ -144,6 +144,8 @@ export default function ArchitectSketch() {
   const pdfInputRef = useRef(null);
 
   // Direct PDF upload — bypasses storage, sends straight to Render API
+  // Step 1: /analyze classifies all pages → only extract floor plans
+  // Step 2: /extract on each floor plan page → walls + rooms
   const handleDirectPdfUpload = useCallback(async (file) => {
     if (!file || !file.name.endsWith(".pdf")) return;
     setScanning(true);
@@ -161,29 +163,54 @@ export default function ArchitectSketch() {
 
       console.log(`[ArchitectSketch] Direct upload: ${file.name} (${(arrayBuffer.byteLength / 1024).toFixed(0)}KB)`);
 
-      // Get page count by trying page 0
       const VECTOR_API = "https://novaterra-vector-api.onrender.com";
       const floorGroups = {};
       const PDF_TO_CANVAS = 1.5;
+      const defaultPpf = 24; // Assume 1/4" = 1'-0" on 24×36 sheet
 
-      // Try first 10 pages
-      for (let pageNum = 0; pageNum < 10; pageNum++) {
+      // Step 1: Classify all pages
+      let floorPlanPages = [];
+      try {
+        const analyzeResp = await fetch(`${VECTOR_API}/analyze`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pdf_base64: pdfBase64 }),
+        });
+        if (analyzeResp.ok) {
+          const analysis = await analyzeResp.json();
+          floorPlanPages = analysis.floor_plans || [];
+          console.log(`[ArchitectSketch] Analysis: ${analysis.total_pages} pages → ${floorPlanPages.length} floor plans`);
+          console.log(`[ArchitectSketch] Summary:`, analysis.summary);
+        }
+      } catch (analyzeErr) {
+        console.warn(`[ArchitectSketch] /analyze failed, falling back to brute-force:`, analyzeErr.message);
+      }
+
+      // Fallback: if /analyze failed or found nothing, try first 10 pages
+      if (floorPlanPages.length === 0) {
+        for (let i = 0; i < 10; i++) {
+          floorPlanPages.push({ page_num: i, floor_label: null, floor_num: null });
+        }
+      }
+
+      // Step 2: Extract walls from each floor plan page
+      let floorIndex = 0;
+      for (const fp of floorPlanPages) {
+        const pageNum = fp.page_num;
         const resp = await fetch(`${VECTOR_API}/extract`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ pdf_base64: pdfBase64, page_num: pageNum }),
         });
 
-        if (!resp.ok) break; // no more pages
-
+        if (!resp.ok) continue;
         const data = await resp.json();
-        if (data.error) break;
-        if (!data.walls?.length) continue;
+        if (data.error || !data.walls?.length) continue;
 
-        const floorLabel = `Page ${pageNum + 1}`;
-        // Use a default scale since we don't have calibration for direct uploads
-        // Assume 1/4" = 1'-0" on 24x36 sheet: ppf ≈ 24
-        const defaultPpf = 24;
+        const floorLabel = fp.floor_label || `Floor ${floorIndex + 1}`;
+        const elevation = (fp.floor_num != null && fp.floor_num !== 99)
+          ? (fp.floor_num - 1) * floorHeight
+          : floorIndex * floorHeight;
         const scale = PDF_TO_CANVAS / defaultPpf;
 
         const wallsFeet = data.walls.map(w => ({
@@ -200,19 +227,20 @@ export default function ArchitectSketch() {
         }));
 
         if (!floorGroups[floorLabel]) {
-          floorGroups[floorLabel] = { floorLabel, elevation: pageNum * floorHeight, height: floorHeight, walls: [], rooms: [] };
+          floorGroups[floorLabel] = { floorLabel, elevation, height: floorHeight, walls: [], rooms: [] };
+          floorIndex++;
         }
         floorGroups[floorLabel].walls.push(...wallsFeet);
         floorGroups[floorLabel].rooms.push(...roomsFeet);
 
-        console.log(`[ArchitectSketch] Page ${pageNum + 1}: ${data.stats?.merged_walls || 0} walls, ${data.stats?.rooms_detected || 0} rooms`);
+        console.log(`[ArchitectSketch] Page ${pageNum + 1} → ${floorLabel}: ${data.stats?.merged_walls || 0} walls, ${data.stats?.rooms_detected || 0} rooms`);
       }
 
       const floors = Object.values(floorGroups);
       if (floors.length === 0) {
         setError("No walls detected in this PDF. The file may be scanned (raster) or contain no architectural drawings.");
       } else {
-        // Auto-center
+        // Auto-center building at origin
         const allX = [], allZ = [];
         floors.forEach(f => f.walls.forEach(w => {
           allX.push(w.start[0], w.end[0]);
@@ -241,6 +269,7 @@ export default function ArchitectSketch() {
   }, [floorHeight]);
 
   // Extract vectors from PDF via server-side PyMuPDF
+  // Uses /analyze to classify pages → only extracts floor plans
   const handleScan = useCallback(async () => {
     setScanning(true);
     setError(null);
@@ -250,8 +279,61 @@ export default function ArchitectSketch() {
       const floorGroups = {};
       const PDF_TO_CANVAS = 1.5; // PDF points (72 DPI) → canvas pixels (108 DPI)
 
+      // Build a set of drawing page numbers that /analyze says are NOT floor plans
+      // This lets us skip elevations, details, schedules without wasting extraction calls
+      const skipPages = new Set();
+      const analyzeFloorLabels = {}; // page_num → floor_label from /analyze
+
+      // Try to get analysis for each unique source PDF
+      const analyzedPdfs = new Set();
       for (const drawing of drawings) {
-        if (!isFloorPlanDrawing(drawing)) continue;
+        const fileName = drawing.fileName || drawing.sourceFileName;
+        if (!fileName || analyzedPdfs.has(fileName)) continue;
+        analyzedPdfs.add(fileName);
+
+        try {
+          // Load raw PDF to send to /analyze
+          const { loadPdfRawFromIDB } = await import("@/utils/uploadPipeline");
+          const arrayBuffer = await loadPdfRawFromIDB(fileName);
+          if (arrayBuffer && arrayBuffer.byteLength > 100) {
+            const bytes = new Uint8Array(arrayBuffer);
+            const chunks = [];
+            const chunkSize = 32768;
+            for (let i = 0; i < bytes.length; i += chunkSize) {
+              chunks.push(String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize)));
+            }
+            const pdfBase64 = "data:application/pdf;base64," + btoa(chunks.join(""));
+            const analysis = await analyzePdf(pdfBase64);
+
+            // Mark non-floor-plan pages for skipping
+            for (const p of analysis.pages) {
+              if (p.page_type !== "floor_plan") {
+                skipPages.add(`${fileName}:${p.page_num}`);
+              }
+              if (p.floor_label) {
+                analyzeFloorLabels[`${fileName}:${p.page_num}`] = p.floor_label;
+              }
+            }
+            console.log(`[ArchitectSketch] Analyzed ${fileName}: ${analysis.floor_plan_count}/${analysis.total_pages} floor plans`);
+          }
+        } catch (err) {
+          console.warn(`[ArchitectSketch] /analyze failed for ${fileName}, proceeding without filter:`, err.message);
+        }
+      }
+
+      for (const drawing of drawings) {
+        // Skip pages that /analyze classified as non-floor-plans
+        const fileName = drawing.fileName || drawing.sourceFileName;
+        const pageNum = (drawing.pdfPage || drawing.pageNumber || 1) - 1;
+        const pageKey = `${fileName}:${pageNum}`;
+
+        if (skipPages.has(pageKey)) {
+          console.log(`[ArchitectSketch] Skipping ${drawing.id.slice(0,8)} (${pageKey}): not a floor plan`);
+          continue;
+        }
+
+        // Fallback: client-side heuristic if /analyze didn't run for this PDF
+        if (!analyzedPdfs.has(fileName) && !isFloorPlanDrawing(drawing)) continue;
 
         const { canRender, reason } = canRenderArchitectSketch(drawing.id);
         if (!canRender) {
@@ -275,7 +357,8 @@ export default function ArchitectSketch() {
 
         const fa = floorMap[drawing.id];
         const elevation = fa?.elevation ?? 0;
-        const floorLabel = fa?.label || inferFloorFromSheet(drawing) || "Floor 1";
+        // Prefer /analyze floor label, fallback to sheet-based inference
+        const floorLabel = analyzeFloorLabels[pageKey] || fa?.label || inferFloorFromSheet(drawing) || "Floor 1";
 
         // Convert from PDF points to feet: pts * 1.5 / ppf
         const scale = PDF_TO_CANVAS / ppf;

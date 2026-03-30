@@ -155,6 +155,34 @@ export async function extractVectors(drawingId) {
 }
 
 /**
+ * Analyze all pages in a PDF — classify as floor_plan, elevation, detail, schedule, cover, other.
+ * Returns page classifications with floor number inference.
+ *
+ * @param {string} pdfBase64 — base64 data URL of the PDF
+ * @returns {Object} { total_pages, pages, floor_plans, floor_plan_count, summary }
+ */
+export async function analyzePdf(pdfBase64) {
+  if (!pdfBase64) throw new Error("No PDF data provided for analysis");
+
+  console.log(`[vectorExtractor] Analyzing PDF pages...`);
+
+  const response = await fetch(`${VECTOR_API_URL}/analyze`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pdf_base64: pdfBase64 }),
+  });
+
+  if (!response.ok) {
+    const errData = await response.json().catch(() => ({}));
+    throw new Error(errData.error || `PDF analysis failed: ${response.status}`);
+  }
+
+  const result = await response.json();
+  console.log(`[vectorExtractor] Analysis: ${result.total_pages} pages → ${result.floor_plan_count} floor plans`);
+  return result;
+}
+
+/**
  * Check if a drawing has cached vector data.
  */
 export function hasVectorData(drawingId) {

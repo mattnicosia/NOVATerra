@@ -464,6 +464,21 @@ export async function autoLabelDrawings(drawingIds) {
         const jsonMatch = text.match(/\{[\s\S]*\}/);
         if (!jsonMatch) throw new Error("No JSON");
         const parsed = JSON.parse(jsonMatch[0]);
+
+        // Validate AI output types — reject malformed responses
+        if (parsed.number != null && typeof parsed.number !== "string") {
+          console.warn(`[autoLabel] Invalid number type: ${typeof parsed.number}, skipping`);
+          parsed.number = null;
+        }
+        if (parsed.title != null && typeof parsed.title !== "string") {
+          console.warn(`[autoLabel] Invalid title type: ${typeof parsed.title}, skipping`);
+          parsed.title = null;
+        }
+        if (parsed.scale != null && typeof parsed.scale !== "string") {
+          console.warn(`[autoLabel] Invalid scale type: ${typeof parsed.scale}, skipping`);
+          parsed.scale = null;
+        }
+
         if (parsed.number && !d.sheetNumber) {
           useDrawingsStore.getState().updateDrawing(d.id, "sheetNumber", parsed.number);
           count++;
