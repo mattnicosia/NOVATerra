@@ -40,6 +40,10 @@ export default function SettingsPage() {
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [dragMarkupIdx, setDragMarkupIdx] = useState(null);
 
+  // Dev admin — only Matt sees API configuration
+  const currentUser = useAuthStore(s => s.user);
+  const isDevAdmin = currentUser?.id === "9ca86c2e-09cb-4e6b-b78b-c029e9da68d9";
+
   // Org role
   const isManager = useOrgStore(selectIsManager);
   const isOwner = useOrgStore(selectIsOwner);
@@ -752,8 +756,8 @@ export default function SettingsPage() {
           </div>
         </Sec>}
 
-        {/* AI Configuration */}
-        <Sec title="AI Configuration">
+        {/* AI Configuration — dev admin only */}
+        {isDevAdmin && <Sec title="AI Configuration">
           <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 12 }}>
             Configure the AI features used for spec parsing, auto-labeling, scope suggestions, pricing lookup, and the
             AI chat assistant.
@@ -878,7 +882,7 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
-        </Sec>
+        </Sec>}
 
         {/* Historical Proposals — moved to Cost Database */}
         <Sec title="Cost History & ROM Calibration">
