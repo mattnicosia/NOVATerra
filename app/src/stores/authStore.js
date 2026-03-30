@@ -97,22 +97,48 @@ async function adoptSessionToken(userId) {
   }
 }
 
-// Check for pending invite token in localStorage and auto-accept
+// Check for pending invite token and auto-accept.
+// Reads from BOTH the URL query param AND localStorage to avoid race condition
+// where App.jsx's useEffect hasn't saved the token yet when init() runs.
 const checkPendingInvite = async () => {
   try {
-    const token = localStorage.getItem("pendingInviteToken");
+    // Source 1: URL query param (most reliable — no race condition)
+    let token = null;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      token = params.get("invite");
+      if (token) {
+        // Clean URL
+        const url = new URL(window.location);
+        url.searchParams.delete("invite");
+        window.history.replaceState({}, "", url.pathname + url.search);
+      }
+    } catch { /* SSR guard */ }
+
+    // Source 2: localStorage fallback (set by App.jsx useEffect)
+    if (!token) {
+      token = localStorage.getItem("pendingInviteToken");
+    }
+
     if (!token) return;
     localStorage.removeItem("pendingInviteToken");
     console.log("[auth] Found pending invite token, auto-accepting...");
+
     const result = await useOrgStore.getState().acceptInvitation(token);
     if (result?.success) {
       console.log("[auth] Auto-accepted invitation");
-      // Flag first org login so App can redirect to settings/company profile
       try { localStorage.setItem("bldg-first-org-login", "1"); } catch { /* non-critical */ }
-      // Re-fetch org to pick up new membership
       await useOrgStore.getState().fetchOrg();
     } else if (result?.error) {
       console.warn("[auth] Auto-accept failed:", result.error);
+      // Show error to user so they know what happened
+      try {
+        const { useUiStore } = await import("@/stores/uiStore");
+        useUiStore.getState().showToast(
+          `Invitation error: ${result.error}. Contact your admin.`,
+          "error"
+        );
+      } catch { /* non-critical */ }
     }
   } catch (err) {
     console.warn("[auth] checkPendingInvite error:", err.message || err);
