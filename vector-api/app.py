@@ -334,6 +334,178 @@ def detect_rooms(merged_walls, min_room_area_pts=2000):
     return rooms
 
 
+def classify_page(doc, page_num):
+    """Classify a PDF page as floor_plan, elevation, detail, schedule, cover, or other."""
+    page = doc[page_num]
+    text = page.get_text().lower()
+    paths = page.get_drawings()
+
+    # Count line types
+    h_lines = v_lines = diag_lines = total_lines = 0
+    heavy_lines = 0
+
+    for p in paths:
+        weight = p.get("width") or 0
+        for item in p["items"]:
+            if item[0] == "l":
+                s, e = item[1], item[2]
+                dx = abs(e.x - s.x)
+                dy = abs(e.y - s.y)
+                length = math.sqrt(dx**2 + dy**2)
+                if length > 15:
+                    total_lines += 1
+                    if weight > 1.0:
+                        heavy_lines += 1
+                    angle = math.degrees(math.atan2(dy, dx)) % 180
+                    if angle < 15 or angle > 165:
+                        h_lines += 1
+                    elif 75 < angle < 105:
+                        v_lines += 1
+                    else:
+                        diag_lines += 1
+
+    hv_ratio = (h_lines + v_lines) / max(total_lines, 1)
+
+    # Floor plan keywords
+    FLOOR_PLAN_KW = ["floor plan", "first floor", "second floor", "basement",
+                     "ground floor", "level 1", "level 2", "main floor",
+                     "upper floor", "lower floor", "1st floor", "2nd floor",
+                     "third floor", "3rd floor", "penthouse", "mezzanine"]
+    ROOM_KW = ["bedroom", "bathroom", "kitchen", "living", "dining", "garage",
+               "closet", "laundry", "office", "storage", "lobby", "corridor",
+               "restroom", "conference", "break room", "reception", "entry"]
+    ELEVATION_KW = ["elevation", "north elevation", "south elevation", "east elevation", "west elevation"]
+    DETAIL_KW = ["detail", "section", "enlarged", "typical"]
+    SCHEDULE_KW = ["schedule", "legend", "notes", "specifications"]
+    COVER_KW = ["cover", "index", "title sheet", "drawing list", "abbreviations"]
+
+    has_fp_title = any(kw in text for kw in FLOOR_PLAN_KW)
+    room_count = sum(1 for kw in ROOM_KW if kw in text)
+    has_elevation = any(kw in text for kw in ELEVATION_KW)
+    has_detail = any(kw in text for kw in DETAIL_KW)
+    has_schedule = any(kw in text for kw in SCHEDULE_KW)
+    has_cover = any(kw in text for kw in COVER_KW)
+
+    # Scoring
+    score = 0
+    page_type = "other"
+    reasons = []
+
+    if has_cover and total_lines < 100:
+        page_type = "cover"
+        reasons.append("cover keywords + few lines")
+    elif has_schedule and total_lines < 200:
+        page_type = "schedule"
+        reasons.append("schedule keywords")
+    elif has_elevation and diag_lines > h_lines * 0.3:
+        page_type = "elevation"
+        reasons.append("elevation keywords + diagonal lines")
+    elif has_detail and total_lines < 300:
+        page_type = "detail"
+        reasons.append("detail keywords + moderate lines")
+    elif has_fp_title or room_count >= 2:
+        page_type = "floor_plan"
+        score = 80
+        if has_fp_title: reasons.append("floor plan title")
+        if room_count >= 2: reasons.append(f"{room_count} room labels")
+    elif hv_ratio > 0.6 and total_lines > 200 and heavy_lines > 20:
+        page_type = "floor_plan"
+        score = 60
+        reasons.append(f"H/V ratio {hv_ratio:.0%}, {total_lines} lines, {heavy_lines} heavy")
+    elif total_lines > 100 and hv_ratio > 0.5:
+        page_type = "floor_plan"
+        score = 40
+        reasons.append(f"likely plan: {total_lines} lines, {hv_ratio:.0%} H/V")
+
+    # Infer floor number from text
+    floor_num = None
+    floor_label = None
+    import re
+    for pattern, num, label in [
+        (r"basement|below grade|b1", -1, "Basement"),
+        (r"ground\s*floor|1st\s*floor|first\s*floor|level\s*1|floor\s*plan.*1", 1, "Floor 1"),
+        (r"2nd\s*floor|second\s*floor|level\s*2|floor\s*plan.*2", 2, "Floor 2"),
+        (r"3rd\s*floor|third\s*floor|level\s*3|floor\s*plan.*3", 3, "Floor 3"),
+        (r"4th\s*floor|fourth\s*floor|level\s*4", 4, "Floor 4"),
+        (r"roof\s*plan|roof\s*level", 99, "Roof"),
+        (r"mezzanine|mezz", 1.5, "Mezzanine"),
+    ]:
+        if re.search(pattern, text):
+            floor_num = num
+            floor_label = label
+            break
+
+    return {
+        "page_num": page_num,
+        "page_type": page_type,
+        "confidence": score,
+        "floor_num": floor_num,
+        "floor_label": floor_label,
+        "reasons": reasons,
+        "stats": {
+            "total_lines": total_lines,
+            "h_lines": h_lines,
+            "v_lines": v_lines,
+            "diag_lines": diag_lines,
+            "heavy_lines": heavy_lines,
+            "hv_ratio": round(hv_ratio, 2),
+            "text_length": len(text),
+        }
+    }
+
+
+@app.route("/analyze", methods=["POST", "OPTIONS"])
+def analyze():
+    """Analyze all pages in a PDF — classify each page and identify floor plans."""
+    if request.method == "OPTIONS":
+        return "", 200
+
+    data = request.get_json(force=True)
+    pdf_b64 = data.get("pdf_base64", "")
+
+    if not pdf_b64:
+        return jsonify({"error": "pdf_base64 is required"}), 400
+
+    try:
+        if "," in pdf_b64:
+            pdf_b64 = pdf_b64.split(",", 1)[1]
+
+        pdf_bytes = base64.b64decode(pdf_b64)
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+
+        pages = []
+        floor_plans = []
+
+        for i in range(len(doc)):
+            classification = classify_page(doc, i)
+            pages.append(classification)
+            if classification["page_type"] == "floor_plan":
+                floor_plans.append(classification)
+
+        doc.close()
+
+        # Sort floor plans by floor number (if detected), then by confidence
+        floor_plans.sort(key=lambda p: (p["floor_num"] or 999, -p["confidence"]))
+
+        return jsonify({
+            "total_pages": len(pages),
+            "pages": pages,
+            "floor_plans": floor_plans,
+            "floor_plan_count": len(floor_plans),
+            "summary": {
+                "cover": sum(1 for p in pages if p["page_type"] == "cover"),
+                "floor_plan": len(floor_plans),
+                "elevation": sum(1 for p in pages if p["page_type"] == "elevation"),
+                "detail": sum(1 for p in pages if p["page_type"] == "detail"),
+                "schedule": sum(1 for p in pages if p["page_type"] == "schedule"),
+                "other": sum(1 for p in pages if p["page_type"] == "other"),
+            }
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok", "service": "novaterra-vector-api"})
