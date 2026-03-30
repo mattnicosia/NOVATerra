@@ -352,6 +352,36 @@ export const useOrgStore = create((set, get) => ({
     }
   },
 
+  // ── Lookup invitation by token (pre-signup, no auth required) ──
+  lookupInvitation: async (token) => {
+    if (!supabase || !token) return { error: "Invalid token" };
+    try {
+      const { data, error } = await supabase.rpc("lookup_invitation", { invitation_token: token });
+      if (error) throw error;
+      if (data?.error) return { error: data.error };
+      return data; // { email, org_name, role, expires_at }
+    } catch (err) {
+      console.error("[orgStore] lookupInvitation failed:", err.message);
+      return { error: err.message };
+    }
+  },
+
+  // ── Update organization (owner only — enforced by RLS) ──
+  updateOrg: async (updates) => {
+    const org = get().org;
+    if (!supabase || !org) return { error: "No organization" };
+    try {
+      const { data, error } = await supabase
+        .from("organizations").update(updates).eq("id", org.id).select().single();
+      if (error) throw error;
+      set({ org: data });
+      return { success: true };
+    } catch (err) {
+      console.error("[orgStore] updateOrg failed:", err.message);
+      return { error: err.message };
+    }
+  },
+
   // ── Update a member (manager/owner action) ──
   updateMember: async (memberId, updates) => {
     if (!supabase) return { error: "Supabase not configured" };

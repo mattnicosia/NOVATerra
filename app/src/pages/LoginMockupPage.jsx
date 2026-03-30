@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuthStore } from "@/stores/authStore";
+import { useOrgStore } from "@/stores/orgStore";
 import { COLORS, SPACING, MOTION } from "@/constants/designTokens";
 
 /* ────────────────────────────────────────────────────────────────
@@ -183,6 +184,11 @@ function LoginForm() {
   const [submitting, setSubmitting] = useState(false);
   const [resetSent, setResetSent] = useState(false);
 
+  // Invite state — locked email when signing up via invitation link
+  const [inviteData, setInviteData] = useState(null); // { email, org_name, role }
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteError, setInviteError] = useState(null);
+
   // Auth store
   const signInWithPassword = useAuthStore(s => s.signInWithPassword);
   const signInWithMagicLink = useAuthStore(s => s.signInWithMagicLink);
@@ -192,6 +198,29 @@ function LoginForm() {
   const magicLinkSent = useAuthStore(s => s.magicLinkSent);
   const clearError = useAuthStore(s => s.clearError);
   const clearMagicLinkSent = useAuthStore(s => s.clearMagicLinkSent);
+
+  // Lookup invitation on mount when invite token exists — locks email to invited address
+  useEffect(() => {
+    if (mode !== "signup") return;
+    const token = localStorage.getItem("pendingInviteToken");
+    if (!token) return;
+    let cancelled = false;
+    setInviteLoading(true);
+    useOrgStore.getState().lookupInvitation(token).then(result => {
+      if (cancelled) return;
+      setInviteLoading(false);
+      if (result?.error) {
+        setInviteError(result.error);
+        // Bad token — clear it and let them sign in normally
+        localStorage.removeItem("pendingInviteToken");
+        setTimeout(() => setMode("password"), 3000);
+      } else if (result?.email) {
+        setInviteData(result);
+        setEmail(result.email);
+      }
+    });
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Two-beat entrance: wordmark first, then form
   // Skip animation for returning users (existing session in storage)
@@ -516,6 +545,37 @@ function LoginForm() {
             </div>
           )}
 
+          {/* Invite banner */}
+          {inviteData && mode === "signup" && (
+            <div style={{
+              marginBottom: 20, padding: "12px 16px", borderRadius: 8,
+              background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.2)",
+              fontSize: 12, lineHeight: 1.5, color: "#A5B4FC", fontFamily: FONT,
+            }}>
+              You've been invited to join <strong style={{ color: "#E0E7FF" }}>{inviteData.org_name}</strong> as
+              an {inviteData.role}. Sign up with your invited email below.
+            </div>
+          )}
+          {inviteError && (
+            <div style={{
+              marginBottom: 20, padding: "12px 16px", borderRadius: 8,
+              background: "rgba(255,69,58,0.08)", border: "1px solid rgba(255,69,58,0.2)",
+              fontSize: 12, lineHeight: 1.5, color: "#FF453A", fontFamily: FONT,
+            }}>
+              {inviteError === "Invalid or expired invitation"
+                ? "This invitation link is invalid or has expired. Contact your admin for a new invite."
+                : inviteError}
+            </div>
+          )}
+          {inviteLoading && (
+            <div style={{
+              marginBottom: 20, padding: "16px", textAlign: "center",
+              fontSize: 12, color: "rgba(255,255,255,0.4)", fontFamily: FONT,
+            }}>
+              Verifying invitation...
+            </div>
+          )}
+
           <form onSubmit={handleSubmit}>
             {/* Full Name (signup only) */}
             {showNameField && (
@@ -526,6 +586,7 @@ function LoginForm() {
                   value={fullName}
                   onChange={e => setFullName(e.target.value)}
                   placeholder="Jane Smith"
+                  autoFocus={!!inviteData}
                   style={{ ...inputStyle, marginBottom: 14 }}
                   onFocus={focusHandler}
                   onBlur={blurHandler}
@@ -537,13 +598,18 @@ function LoginForm() {
             <input
               type="email"
               value={email}
-              onChange={e => { setEmail(e.target.value); setValidationError(""); }}
+              onChange={e => { if (!inviteData) { setEmail(e.target.value); setValidationError(""); } }}
               placeholder="you@company.com"
-              autoFocus
+              readOnly={!!inviteData}
+              autoFocus={!inviteData}
               autoComplete="email"
-              style={{ ...inputStyle, marginBottom: showPasswordField ? 14 : 18 }}
-              onFocus={focusHandler}
-              onBlur={blurHandler}
+              style={{
+                ...inputStyle,
+                marginBottom: showPasswordField ? 14 : 18,
+                ...(inviteData ? { opacity: 0.6, cursor: "not-allowed", background: "rgba(255,255,255,0.02)" } : {}),
+              }}
+              onFocus={inviteData ? undefined : focusHandler}
+              onBlur={inviteData ? undefined : blurHandler}
             />
             {validationError && (
               <p style={{ fontSize: 12, color: "#FF453A", margin: "-8px 0 10px", fontFamily: FONT }}>{validationError}</p>

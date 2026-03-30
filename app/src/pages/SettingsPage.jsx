@@ -6,7 +6,7 @@ import { useItemsStore, DEFAULT_MARKUP_ORDER } from "@/stores/itemsStore";
 import { useInboxStore } from "@/stores/inboxStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useAuthStore } from "@/stores/authStore";
-import { useOrgStore, selectIsManager } from "@/stores/orgStore";
+import { useOrgStore, selectIsManager, selectIsOwner } from "@/stores/orgStore";
 import { supabase } from "@/utils/supabase";
 // PALETTES import removed — theme selection temporarily disabled
 import Sec from "@/components/shared/Sec";
@@ -40,11 +40,19 @@ export default function SettingsPage() {
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [dragMarkupIdx, setDragMarkupIdx] = useState(null);
 
-  // Org role: estimators see company profile as read-only
+  // Org role
   const isManager = useOrgStore(selectIsManager);
+  const isOwner = useOrgStore(selectIsOwner);
   const hasOrg = useOrgStore(s => !!s.org);
+  const orgData = useOrgStore(s => s.org);
   const orgName = useOrgStore(s => s.org?.name);
+  const orgMembers = useOrgStore(s => s.members);
+  const updateOrg = useOrgStore(s => s.updateOrg);
   const companyReadOnly = hasOrg && !isManager;
+
+  // Org name editing
+  const [editingOrgName, setEditingOrgName] = useState(false);
+  const [orgNameDraft, setOrgNameDraft] = useState("");
 
   // First org login: show welcome banner once (flag set by AppContent redirect)
   const [showWelcome, setShowWelcome] = useState(() => {
@@ -884,6 +892,94 @@ export default function SettingsPage() {
         <Sec title="Auto-Responses" icon={I.send}>
           <AutoResponseSettings />
         </Sec>
+
+        {/* Organization */}
+        {hasOrg && orgData && (
+          <Sec title="Organization">
+            {/* Org Name */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 6 }}>
+                Organization Name
+              </label>
+              {editingOrgName && isOwner ? (
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input
+                    value={orgNameDraft}
+                    onChange={e => setOrgNameDraft(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter") {
+                        const trimmed = orgNameDraft.trim();
+                        if (trimmed && trimmed !== orgData.name) {
+                          updateOrg({ name: trimmed }).then(r => {
+                            if (r.success) { showToast("Organization name updated"); setEditingOrgName(false); }
+                            else showToast(r.error || "Failed to update", "error");
+                          });
+                        } else setEditingOrgName(false);
+                      }
+                      if (e.key === "Escape") { setEditingOrgName(false); setOrgNameDraft(orgData.name); }
+                    }}
+                    autoFocus
+                    style={inp(C, { flex: 1, padding: "7px 12px", fontSize: 13 })}
+                  />
+                  <button
+                    onMouseDown={e => {
+                      e.preventDefault(); // prevent blur before click
+                      const trimmed = orgNameDraft.trim();
+                      if (trimmed && trimmed !== orgData.name) {
+                        updateOrg({ name: trimmed }).then(r => {
+                          if (r.success) { showToast("Organization name updated"); setEditingOrgName(false); }
+                          else showToast(r.error || "Failed to update", "error");
+                        });
+                      } else setEditingOrgName(false);
+                    }}
+                    style={{ ...bt(C), background: C.accent, color: "#fff", padding: "7px 16px", fontSize: 11, fontWeight: 600 }}
+                  >Save</button>
+                  <button
+                    onMouseDown={() => { setEditingOrgName(false); setOrgNameDraft(orgData.name); }}
+                    style={{ ...bt(C), background: C.bg3, color: C.textMuted, padding: "7px 12px", fontSize: 11 }}
+                  >Cancel</button>
+                </div>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{
+                    flex: 1, fontSize: 13, color: C.text, padding: "7px 12px",
+                    background: C.bg2, borderRadius: 6, border: `1px solid ${C.border}`,
+                  }}>
+                    {orgData.name}
+                  </div>
+                  {isOwner && (
+                    <button
+                      onClick={() => { setEditingOrgName(true); setOrgNameDraft(orgData.name); }}
+                      style={{ ...bt(C), background: `${C.accent}15`, color: C.accent, padding: "7px 12px", fontSize: 11, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}
+                    >
+                      <Ic d={I.edit} size={11} color={C.accent} /> Edit
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Owner */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 6 }}>
+                Owner
+              </label>
+              <div style={{ fontSize: 12, color: C.textMuted, padding: "7px 12px", background: C.bg2, borderRadius: 6, border: `1px solid ${C.border}` }}>
+                {orgMembers?.find(m => m.role === "owner")?.display_name || orgMembers?.find(m => m.role === "owner")?.email || "—"}
+              </div>
+            </div>
+
+            {/* Created */}
+            <div>
+              <label style={{ fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 6 }}>
+                Created
+              </label>
+              <div style={{ fontSize: 12, color: C.textMuted, padding: "7px 12px", background: C.bg2, borderRadius: 6, border: `1px solid ${C.border}` }}>
+                {orgData.created_at ? new Date(orgData.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "—"}
+              </div>
+            </div>
+          </Sec>
+        )}
 
         {/* Team */}
         <Sec title="Team" icon={I.people}>
