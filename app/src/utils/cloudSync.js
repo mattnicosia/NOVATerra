@@ -274,7 +274,7 @@ const downloadBlobOnce = async storagePath => {
   });
 };
 
-const downloadBlob = async storagePath => {
+export const downloadBlob = async storagePath => {
   for (let attempt = 0; attempt < BLOB_DOWNLOAD_RETRIES; attempt++) {
     try {
       const result = await downloadBlobOnce(storagePath);

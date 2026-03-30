@@ -60,13 +60,46 @@ export async function extractVectors(drawingId) {
     }
   }
 
-  // Last resort: check if the drawing has a Supabase storage path for the original PDF
+  // Download from Supabase Storage if we have a storagePath
   if (!pdfBase64 && drawing.storagePath) {
-    console.log(`[vectorExtractor] Drawing has storagePath but no local PDF data. Would need to download from cloud.`);
+    console.log(`[vectorExtractor] Downloading PDF from cloud storage: ${drawing.storagePath}`);
+    try {
+      const { downloadBlob } = await import("@/utils/cloudSync");
+      const downloaded = await downloadBlob(drawing.storagePath);
+      if (downloaded && (downloaded.startsWith("data:application/pdf") || downloaded.startsWith("data:application/octet"))) {
+        pdfBase64 = downloaded;
+        console.log(`[vectorExtractor] Downloaded PDF from cloud (${(downloaded.length / 1024).toFixed(0)}KB)`);
+      }
+    } catch (dlErr) {
+      console.warn(`[vectorExtractor] Cloud download failed: ${dlErr.message}`);
+    }
+  }
+
+  // Also check if the parent document has a storagePath
+  if (!pdfBase64) {
+    const docs = useDocumentsStore.getState().documents || [];
+    const parentDoc = docs.find(d =>
+      (drawing.docId && d.id === drawing.docId) ||
+      (drawing.documentId && d.id === drawing.documentId) ||
+      (drawing.fileName && d.filename === drawing.fileName)
+    );
+    if (parentDoc?.storagePath && !pdfBase64) {
+      console.log(`[vectorExtractor] Downloading parent doc PDF from cloud: ${parentDoc.storagePath}`);
+      try {
+        const { downloadBlob } = await import("@/utils/cloudSync");
+        const downloaded = await downloadBlob(parentDoc.storagePath);
+        if (downloaded) {
+          pdfBase64 = downloaded;
+          console.log(`[vectorExtractor] Downloaded parent doc PDF (${(downloaded.length / 1024).toFixed(0)}KB)`);
+        }
+      } catch (dlErr) {
+        console.warn(`[vectorExtractor] Parent doc download failed: ${dlErr.message}`);
+      }
+    }
   }
 
   if (!pdfBase64) {
-    throw new Error(`No PDF data available for drawing ${drawingId.slice(0, 8)}. The original PDF may not be stored. Try re-uploading the drawings.`);
+    throw new Error(`No PDF data available for drawing ${drawingId.slice(0, 8)}. Try re-uploading the drawings.`);
   }
 
   const pageNum = (drawing.pdfPage || drawing.pageNumber || 1) - 1; // 0-indexed for API
