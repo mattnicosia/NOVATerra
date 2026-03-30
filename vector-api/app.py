@@ -62,11 +62,17 @@ def _filter_border_and_titleblock(segments, page_width, page_height, margin=50):
     return filtered
 
 
-def _largest_cluster(walls, proximity=100):
-    """Keep only the largest spatial cluster of walls.
-    Uses union-find on wall midpoints. Two walls are connected if their
-    midpoints are within `proximity` PDF points. Returns the cluster with
-    the most total wall length — the main plan view on the page.
+def _largest_cluster(walls, snap=20):
+    """Keep only the largest connected cluster of walls.
+
+    Uses union-find on wall ENDPOINTS (not midpoints). Two walls are connected
+    if any endpoint of wall A is within `snap` PDF points of any endpoint of
+    wall B. This models real building topology: walls meet at corners and
+    T-intersections, forming a connected graph.
+
+    snap=20 pts ≈ 0.28 inches — handles drawing tolerance while still
+    separating distinct plan views that are hundreds of points apart on
+    multi-view sheets.
     """
     if len(walls) <= 3:
         return walls
@@ -84,20 +90,28 @@ def _largest_cluster(walls, proximity=100):
         if a != b:
             parent[a] = b
 
-    # Compute midpoints
-    mids = []
+    # Collect all 4 endpoints per wall pair (start-start, start-end, end-start, end-end)
+    endpoints = []
     for w in walls:
-        mx = (w["start"][0] + w["end"][0]) / 2
-        my = (w["start"][1] + w["end"][1]) / 2
-        mids.append((mx, my))
+        endpoints.append((w["start"], w["end"]))
 
-    # Union walls whose midpoints are close
+    snap_sq = snap * snap  # compare squared distances to avoid sqrt
+
     for i in range(n):
+        si, ei = endpoints[i]
         for j in range(i + 1, n):
-            dx = abs(mids[i][0] - mids[j][0])
-            dy = abs(mids[i][1] - mids[j][1])
-            if dx < proximity and dy < proximity:
-                union(i, j)
+            sj, ej = endpoints[j]
+            # Check all 4 endpoint combinations
+            for pi in (si, ei):
+                for pj in (sj, ej):
+                    dx = pi[0] - pj[0]
+                    dy = pi[1] - pj[1]
+                    if dx * dx + dy * dy < snap_sq:
+                        union(i, j)
+                        break
+                else:
+                    continue
+                break
 
     # Find largest cluster by total wall length
     clusters = defaultdict(list)
@@ -105,6 +119,9 @@ def _largest_cluster(walls, proximity=100):
         clusters[find(i)].append(i)
 
     best = max(clusters.values(), key=lambda idxs: sum(walls[i]["length"] for i in idxs))
+    dropped = n - len(best)
+    if dropped > 0:
+        print(f"[cluster] Kept {len(best)}/{n} walls (dropped {dropped} from {len(clusters)-1} small clusters)")
     return [walls[i] for i in best]
 
 
