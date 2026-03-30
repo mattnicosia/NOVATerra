@@ -51,15 +51,11 @@ export function inferFloorFromSheet(drawing) {
     return { floor: f, label: `Floor ${f}` };
   }
 
-  // AIA sheet number convention: A{floor}{sequence}
-  // A101, A102 → Floor 1; A201 → Floor 2; etc.
-  const aiaMatch = num.match(/^A(\d)/);
-  if (aiaMatch) {
-    const f = parseInt(aiaMatch[1]);
-    if (f >= 1 && f <= 9) return { floor: f, label: `Floor ${f}` };
-  }
+  // NOTE: AIA sheet numbering (A-1xx, A-2xx) indicates drawing SERIES, not building floor.
+  // A-1xx = Plans, A-2xx = Elevations, A-3xx = Sections, A-4xx = Details.
+  // Do NOT infer floor from sheet number — only use title keywords (handled above).
 
-  // Basement from sheet number
+  // Basement from sheet number (rare but valid)
   if (num.startsWith("AB") || num.startsWith("B")) return { floor: -1, label: "Basement" };
 
   // Default to Floor 1

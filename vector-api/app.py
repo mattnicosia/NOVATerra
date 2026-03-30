@@ -37,6 +37,77 @@ def _get_wall_threshold(paths):
     return 0.7
 
 
+def _filter_border_and_titleblock(segments, page_width, page_height, margin=50):
+    """Remove segments in the border margin or title block region.
+    Border: within 50pts (0.7") of any page edge.
+    Title block: bottom-right corner, ~560×250 pts (standard AIA).
+    Only removes segments where BOTH endpoints are in the exclusion zone.
+    """
+    tb_x = page_width - 560   # title block left edge
+    tb_y = page_height - 250  # title block top edge
+    filtered = []
+    for seg in segments:
+        x1, y1, x2, y2 = seg["x1"], seg["y1"], seg["x2"], seg["y2"]
+        # Both endpoints in border margin?
+        in_margin = (
+            (x1 < margin and x2 < margin) or
+            (x1 > page_width - margin and x2 > page_width - margin) or
+            (y1 < margin and y2 < margin) or
+            (y1 > page_height - margin and y2 > page_height - margin)
+        )
+        # Both endpoints in title block?
+        in_tb = (x1 > tb_x and x2 > tb_x and y1 > tb_y and y2 > tb_y)
+        if not in_margin and not in_tb:
+            filtered.append(seg)
+    return filtered
+
+
+def _largest_cluster(walls, proximity=100):
+    """Keep only the largest spatial cluster of walls.
+    Uses union-find on wall midpoints. Two walls are connected if their
+    midpoints are within `proximity` PDF points. Returns the cluster with
+    the most total wall length — the main plan view on the page.
+    """
+    if len(walls) <= 3:
+        return walls
+    n = len(walls)
+    parent = list(range(n))
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(a, b):
+        a, b = find(a), find(b)
+        if a != b:
+            parent[a] = b
+
+    # Compute midpoints
+    mids = []
+    for w in walls:
+        mx = (w["start"][0] + w["end"][0]) / 2
+        my = (w["start"][1] + w["end"][1]) / 2
+        mids.append((mx, my))
+
+    # Union walls whose midpoints are close
+    for i in range(n):
+        for j in range(i + 1, n):
+            dx = abs(mids[i][0] - mids[j][0])
+            dy = abs(mids[i][1] - mids[j][1])
+            if dx < proximity and dy < proximity:
+                union(i, j)
+
+    # Find largest cluster by total wall length
+    clusters = defaultdict(list)
+    for i in range(n):
+        clusters[find(i)].append(i)
+
+    best = max(clusters.values(), key=lambda idxs: sum(walls[i]["length"] for i in idxs))
+    return [walls[i] for i in best]
+
+
 def extract_paths(doc, page_num=0):
     """Extract and classify all vector paths from a PDF page."""
     if page_num >= len(doc):
@@ -541,7 +612,19 @@ def extract():
             return jsonify({"error": "Failed to extract paths"}), 500
 
         all_wall_segs = extracted["walls"] + extracted["heavy_walls"] + extracted["outlines"]
+
+        # Filter out border lines and title block
+        pre_filter = len(all_wall_segs)
+        all_wall_segs = _filter_border_and_titleblock(
+            all_wall_segs, extracted["page_width"], extracted["page_height"])
+
         merged = merge_wall_segments(all_wall_segs)
+
+        # Keep only the largest spatial cluster (main plan view)
+        pre_cluster = len(merged)
+        if len(merged) > 5:
+            merged = _largest_cluster(merged)
+
         rooms = detect_rooms(merged)
 
         doc.close()
@@ -556,8 +639,10 @@ def extract():
             "wall_threshold": extracted["wall_threshold"],
             "stats": {
                 "total_paths": sum(len(extracted[k]) for k in ["outlines", "heavy_walls", "walls", "annotations"]),
-                "wall_candidates": len(all_wall_segs),
-                "merged_walls": len(merged),
+                "wall_candidates": pre_filter,
+                "after_border_filter": len(all_wall_segs),
+                "merged_walls": pre_cluster,
+                "after_cluster_filter": len(merged),
                 "rooms_detected": len(rooms),
             },
         })

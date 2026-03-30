@@ -15,6 +15,7 @@ import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 
 import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useProjectStore } from "@/stores/projectStore";
 import { buildFloorMap, inferFloorFromSheet } from "@/utils/floorAssignment";
 import { getPxPerFoot } from "@/utils/geometryBuilder";
 import { canRenderArchitectSketch, pdfPointToFeet } from "@/utils/vectorCoordinates";
@@ -117,12 +118,19 @@ function RoomOutline({ polygon, elevation }) {
 // ── Check if a drawing looks like a floor plan ──
 function isFloorPlanDrawing(drawing) {
   const title = (drawing.title || drawing.name || drawing.sheetTitle || "").toLowerCase();
-  const sheet = (drawing.sheetNumber || "").toLowerCase();
-  // Positive signals: contains "floor plan", "plan", sheet starts with a1/a2
-  if (/\bfloor\s*plan\b/.test(title)) return true;
+  const sheet = (drawing.sheetNumber || "").toUpperCase();
+  // Explicit floor plan signals
+  if (/\bfloor\s*plan\b|\bplan\b.*(?:level|floor)/i.test(title)) return true;
   if (/\bplan\b/i.test(title) && !/detail|section|elevation|framing|foundation|roof|reflected|ceiling|demo/i.test(title)) return true;
-  if (/^a[0-9]/.test(sheet)) return true;
-  // If nothing detected, include it (better to include than miss)
+  // A-1xx series = architectural plans (only if title doesn't say otherwise)
+  if (/^A-?1\d\d/.test(sheet) && !/detail|section|elevation/i.test(title)) return true;
+  // Exclude known non-plan types by title
+  if (/elevation|section|detail|schedule|legend|notes|cover|index|demo|specification/i.test(title)) return false;
+  // Exclude non-plan AIA series: A-200+ = elevations/sections/details
+  if (/^A-?[2-9]/.test(sheet)) return false;
+  // Exclude structural, mechanical, electrical, plumbing sheets
+  if (/^[SMEP]-/.test(sheet)) return false;
+  // Unknown — include (server-side cluster filter will clean up noise)
   return true;
 }
 
@@ -134,16 +142,23 @@ export default function ArchitectSketch() {
   const T = C.T;
   const drawings = useDrawingsStore(s => s.drawings);
 
+  // NOVA Scan data — floor count, per-floor heights from projectStore
+  const project = useProjectStore(s => s.project);
+  const novaFloorCount = parseInt(project?.floorCount) || 0;
+  const novaBasementCount = parseInt(project?.basementCount) || 0;
+  const novaFloors = project?.floors || [];
+
   const [sketchData, setSketchData] = useState(null);
   const [scanning, setScanning] = useState(false);
-  const [scanPhase, setScanPhase] = useState(""); // "analyzing", "extracting", "building"
-  const [scanDetail, setScanDetail] = useState(""); // e.g. "Page 3 of 12"
-  const [scanProgress, setScanProgress] = useState(0); // 0-100
+  const [scanPhase, setScanPhase] = useState("");
+  const [scanDetail, setScanDetail] = useState("");
+  const [scanProgress, setScanProgress] = useState(0);
   const [error, setError] = useState(null);
   const [exploded, setExploded] = useState(false);
   const [floorHeight, setFloorHeight] = useState(10);
   const [selectedFloor, setSelectedFloor] = useState(null);
   const [cameraDistance, setCameraDistance] = useState(60);
+  const [orbitTarget, setOrbitTarget] = useState([0, 0, 0]);
   const pdfInputRef = useRef(null);
 
   // Direct PDF upload — bypasses storage, sends straight to Render API
@@ -254,7 +269,18 @@ export default function ArchitectSketch() {
         console.log(`[ArchitectSketch] Page ${pageNum + 1} → ${floorLabel}: ${data.stats?.merged_walls || 0} walls, ${data.stats?.rooms_detected || 0} rooms`);
       }
 
-      const floors = Object.values(floorGroups);
+      let floors = Object.values(floorGroups);
+
+      // Cap to NOVA-detected floor count if available
+      if (novaFloorCount > 0) {
+        const maxFloors = novaFloorCount + novaBasementCount + 1; // +1 for potential roof
+        if (floors.length > maxFloors) {
+          floors.sort((a, b) => a.elevation - b.elevation);
+          floors = floors.slice(0, maxFloors);
+          console.log(`[ArchitectSketch] Capped to ${maxFloors} floors (NOVA: ${novaFloorCount} stories)`);
+        }
+      }
+
       if (floors.length === 0) {
         setError("No walls detected in this PDF. The file may be scanned (raster) or contain no architectural drawings.");
       } else {
@@ -262,7 +288,7 @@ export default function ArchitectSketch() {
         setScanDetail(`Assembling ${floors.length} floor${floors.length > 1 ? "s" : ""}...`);
         setScanProgress(90);
 
-        // Auto-center building at origin
+        // Auto-center building at origin (XZ) + compute Y center for camera
         const allX = [], allZ = [];
         floors.forEach(f => f.walls.forEach(w => {
           allX.push(w.start[0], w.end[0]);
@@ -276,9 +302,14 @@ export default function ArchitectSketch() {
             f.walls.forEach(w => { w.start = [w.start[0] - cx, w.start[1] - cz]; w.end = [w.end[0] - cx, w.end[1] - cz]; });
             f.rooms.forEach(r => { if (r.polygon) r.polygon = r.polygon.map(([x, y]) => [x - cx, y - cz]); });
           });
-          const maxDim = Math.max(maxX - minX, maxZ - minZ, 20);
+          // Center camera on full 3D bounding box
+          const minY = Math.min(...floors.map(f => f.elevation));
+          const maxY = Math.max(...floors.map(f => f.elevation + f.height));
+          const cy = (minY + maxY) / 2;
+          setOrbitTarget([0, cy, 0]);
+          const maxDim = Math.max(maxX - minX, maxZ - minZ, maxY - minY, 20);
           setCameraDistance(maxDim * 1.3);
-          console.log(`[ArchitectSketch] Building: ${(maxX-minX).toFixed(0)}ft × ${(maxZ-minZ).toFixed(0)}ft`);
+          console.log(`[ArchitectSketch] Building: ${(maxX-minX).toFixed(0)}ft × ${(maxZ-minZ).toFixed(0)}ft, ${floors.length} floors`);
         }
         setScanProgress(100);
         setSketchData({ floors });
@@ -292,7 +323,7 @@ export default function ArchitectSketch() {
       setScanDetail("");
       setScanProgress(0);
     }
-  }, [floorHeight]);
+  }, [floorHeight, novaFloorCount, novaBasementCount]);
 
   // Extract vectors from PDF via server-side PyMuPDF
   // Uses /analyze to classify pages → only extracts floor plans
@@ -417,14 +448,28 @@ export default function ArchitectSketch() {
           console.log(`[ArchitectSketch] Building size: ${(Math.max(...xs)-Math.min(...xs)).toFixed(1)}ft × ${(Math.max(...ys)-Math.min(...ys)).toFixed(1)}ft`);
         }
 
+        // Use NOVA per-floor heights if available, then fall back to floorMap height, then slider
+        const novaHeight = novaFloors.find(f => f.label === floorLabel)?.height;
+        const height = novaHeight || fa?.height || floorHeight;
+
         if (!floorGroups[floorLabel]) {
-          floorGroups[floorLabel] = { floorLabel, elevation, height: fa?.height || floorHeight, walls: [], rooms: [] };
+          floorGroups[floorLabel] = { floorLabel, elevation, height, walls: [], rooms: [] };
         }
         floorGroups[floorLabel].walls.push(...wallsFeet);
         floorGroups[floorLabel].rooms.push(...roomsFeet);
       }
 
-      const floors = Object.values(floorGroups);
+      let floors = Object.values(floorGroups);
+
+      // Cap to NOVA-detected floor count if available
+      if (novaFloorCount > 0) {
+        const maxFloors = novaFloorCount + novaBasementCount + 1;
+        if (floors.length > maxFloors) {
+          floors.sort((a, b) => a.elevation - b.elevation);
+          floors = floors.slice(0, maxFloors);
+          console.log(`[ArchitectSketch] Capped to ${maxFloors} floors (NOVA: ${novaFloorCount} stories)`);
+        }
+      }
 
       if (floors.length === 0) {
         setError("No calibrated floor plan drawings found. Calibrate at least one drawing on the Takeoffs page.");
@@ -455,7 +500,12 @@ export default function ArchitectSketch() {
             });
           });
 
-          const maxDim = Math.max(maxX - minX, maxZ - minZ, 20);
+          // Center camera on full 3D bounding box
+          const minY = Math.min(...floors.map(f => f.elevation));
+          const maxY = Math.max(...floors.map(f => f.elevation + f.height));
+          const cy = (minY + maxY) / 2;
+          setOrbitTarget([0, cy, 0]);
+          const maxDim = Math.max(maxX - minX, maxZ - minZ, maxY - minY, 20);
           setCameraDistance(maxDim * 1.3);
         }
 
@@ -474,7 +524,7 @@ export default function ArchitectSketch() {
       setScanDetail("");
       setScanProgress(0);
     }
-  }, [drawings, floorHeight]);
+  }, [drawings, floorHeight, novaFloorCount, novaBasementCount]);
 
   const totalWalls = sketchData?.floors?.reduce((s, f) => s + f.walls.length, 0) || 0;
   const totalRooms = sketchData?.floors?.reduce((s, f) => s + f.rooms.length, 0) || 0;
@@ -732,12 +782,12 @@ export default function ArchitectSketch() {
 
       {/* 3D Canvas — pure black, white lines only */}
       <Canvas
-        camera={{ position: [cameraDistance, cameraDistance * 0.7, cameraDistance], fov: 50, near: 0.1, far: 2000 }}
+        camera={{ position: [cameraDistance, orbitTarget[1] + cameraDistance * 0.7, cameraDistance], fov: 50, near: 0.1, far: 2000 }}
         gl={{ antialias: true, toneMapping: THREE.NoToneMapping }}
         style={{ background: "#000000" }}
       >
         <ambientLight intensity={0.02} />
-        <OrbitControls enableDamping dampingFactor={0.05} minDistance={5} maxDistance={200} maxPolarAngle={Math.PI * 0.85} />
+        <OrbitControls target={orbitTarget} enableDamping dampingFactor={0.05} minDistance={5} maxDistance={500} maxPolarAngle={Math.PI * 0.85} />
 
         {/* Very faint ground reference */}
         <gridHelper args={[100, 50, "#0A0A0A", "#050505"]} position={[0, -0.01, 0]} />
