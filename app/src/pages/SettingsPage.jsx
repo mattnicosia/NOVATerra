@@ -166,8 +166,8 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* Company Profiles */}
-        <CompanyProfilesSection
+        {/* Company Profiles — hidden to simplify Settings (data preserved in masterDataStore) */}
+        {/* <CompanyProfilesSection
           C={C}
           T={T}
           masterData={masterData}
@@ -176,7 +176,7 @@ export default function SettingsPage() {
           handleLogoUpload={handleLogoUpload}
           updateCompanyInfo={updateCompanyInfo}
           readOnly={companyReadOnly}
-        />
+        /> */}
 
         {/* Default Markup & Tax Rates */}
         <Sec title="Default Markup & Tax Rates">
@@ -596,8 +596,9 @@ export default function SettingsPage() {
           </div>
         </Sec>
 
-        {/* Labor Types */}
-        <Sec title="Labor Types">
+        {/* Labor Types — hidden: Settings multipliers are disconnected from ROM/normalization engines.
+           Per-estimate labor type dropdown on Project Info still works (reads from constructionTypes.js). */}
+        {false && <Sec title="Labor Types">
           <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 12 }}>
             Configure labor type multipliers. The multiplier is applied to the labor portion of all line items at
             calculation time. Set per-estimate on the Project Info page.
@@ -741,7 +742,7 @@ export default function SettingsPage() {
               ))}
             </select>
           </div>
-        </Sec>
+        </Sec>}
 
         {/* AI Configuration */}
         <Sec title="AI Configuration">
