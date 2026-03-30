@@ -76,8 +76,11 @@ export function inferViewType(title) {
   if (/\belevation\b/i.test(t)) return "elevation";
   if (/\bsection\b/i.test(t)) return "section";
   if (/\bdetail\b/i.test(t)) return "detail";
+  if (/\bschedule\b/i.test(t)) return "schedule";
   const isPlan = /\b(plan|floor|level|layout)\b/i.test(t);
-  const exclude = /\b(roof\s*plan|site\s*plan|foundation|reflected|ceiling|framing)\b/i.test(t);
+  // Exclude discipline-specific plans that reuse the floor plan as background.
+  // These have the same walls drawn but aren't architectural floor plans.
+  const exclude = /\b(roof\s*plan|site\s*plan|foundation|reflected|ceiling|framing|finish|power|demolition|demo|plumbing|mechanical|electrical|fire|lighting|furniture|equipment|life\s*safety|keying|signage|casework)\b/i.test(t);
   if (isPlan && !exclude) return "plan";
   return null;
 }

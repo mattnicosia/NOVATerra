@@ -19,7 +19,8 @@ import { useProjectStore } from "@/stores/projectStore";
 import { buildFloorMap, inferFloorFromSheet } from "@/utils/floorAssignment";
 import { getPxPerFoot } from "@/utils/geometryBuilder";
 import { canRenderArchitectSketch, pdfPointToFeet } from "@/utils/vectorCoordinates";
-import { extractVectors, analyzePdf } from "@/utils/vectorExtractor";
+import { extractVectors } from "@/utils/vectorExtractor";
+import { inferViewType } from "@/utils/uploadPipeline";
 import { bt } from "@/utils/styles";
 import { useTheme } from "@/hooks/useTheme";
 
@@ -115,22 +116,17 @@ function RoomOutline({ polygon, elevation }) {
   return <group ref={ref} />;
 }
 
-// ── Check if a drawing looks like a floor plan ──
-function isFloorPlanDrawing(drawing) {
-  const title = (drawing.title || drawing.name || drawing.sheetTitle || "").toLowerCase();
-  const sheet = (drawing.sheetNumber || "").toUpperCase();
-  // Explicit floor plan signals
-  if (/\bfloor\s*plan\b|\bplan\b.*(?:level|floor)/i.test(title)) return true;
-  if (/\bplan\b/i.test(title) && !/detail|section|elevation|framing|foundation|roof|reflected|ceiling|demo/i.test(title)) return true;
-  // A-1xx series = architectural plans (only if title doesn't say otherwise)
-  if (/^A-?1\d\d/.test(sheet) && !/detail|section|elevation/i.test(title)) return true;
-  // Exclude known non-plan types by title
-  if (/elevation|section|detail|schedule|legend|notes|cover|index|demo|specification/i.test(title)) return false;
-  // Exclude non-plan AIA series: A-200+ = elevations/sections/details
-  if (/^A-?[2-9]/.test(sheet)) return false;
-  // Exclude structural, mechanical, electrical, plumbing sheets
-  if (/^[SMEP]-/.test(sheet)) return false;
-  // Unknown — include (server-side cluster filter will clean up noise)
+// ── Check if a drawing is an architectural floor plan using NOVA's detected viewType ──
+// viewType is set by autoLabel → inferViewType() from the sheet title.
+// "FIRST FLOOR PLAN" → viewType="plan"
+// "BUILDING ELEVATIONS" → viewType="elevation"
+// "FIRST FLOOR FINISH PLAN" → viewType=null (excluded by inferViewType)
+function isArchitecturalFloorPlan(drawing) {
+  // If NOVA has classified this drawing, trust it
+  if (drawing.viewType) return drawing.viewType === "plan";
+  // Fallback: infer from sheetTitle if viewType hasn't been set yet
+  if (drawing.sheetTitle) return inferViewType(drawing.sheetTitle) === "plan";
+  // No metadata at all — include it (rare edge case, server filters will help)
   return true;
 }
 
@@ -343,84 +339,41 @@ export default function ArchitectSketch() {
     }
   }, [floorHeight, novaFloorCount, novaBasementCount]);
 
-  // Extract vectors from PDF via server-side PyMuPDF
-  // Uses /analyze to classify pages → only extracts floor plans
+  // Extract vectors from project drawings via server-side PyMuPDF.
+  // Uses NOVA's detected viewType and sheetTitle — no guessing.
   const handleScan = useCallback(async () => {
     setScanning(true);
     setError(null);
     setScanPhase("analyzing");
-    setScanDetail("Loading drawings...");
-    setScanProgress(5);
+    setScanDetail("Identifying floor plans...");
+    setScanProgress(10);
 
     try {
       const floorMap = buildFloorMap(drawings, floorHeight);
       const floorGroups = {};
       const PDF_TO_CANVAS = 1.5;
 
-      const skipPages = new Set();
-      const analyzeFloorLabels = {};
-
-      // Step 1: Analyze source PDFs
-      setScanDetail("Classifying pages...");
-      setScanProgress(10);
-      const analyzedPdfs = new Set();
-      for (const drawing of drawings) {
-        const fileName = drawing.fileName || drawing.sourceFileName;
-        if (!fileName || analyzedPdfs.has(fileName)) continue;
-        analyzedPdfs.add(fileName);
-
-        try {
-          const { loadPdfRawFromIDB } = await import("@/utils/uploadPipeline");
-          const arrayBuffer = await loadPdfRawFromIDB(fileName);
-          if (arrayBuffer && arrayBuffer.byteLength > 100) {
-            const bytes = new Uint8Array(arrayBuffer);
-            const chunks = [];
-            const chunkSize = 32768;
-            for (let i = 0; i < bytes.length; i += chunkSize) {
-              chunks.push(String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize)));
-            }
-            const pdfBase64 = "data:application/pdf;base64," + btoa(chunks.join(""));
-            const analysis = await analyzePdf(pdfBase64);
-
-            for (const p of analysis.pages) {
-              if (p.page_type !== "floor_plan") {
-                skipPages.add(`${fileName}:${p.page_num}`);
-              }
-              if (p.floor_label) {
-                analyzeFloorLabels[`${fileName}:${p.page_num}`] = p.floor_label;
-              }
-            }
-            setScanDetail(`${fileName.slice(0,30)}... · ${analysis.floor_plan_count} floor plans`);
-            console.log(`[ArchitectSketch] Analyzed ${fileName}: ${analysis.floor_plan_count}/${analysis.total_pages} floor plans`);
-          }
-        } catch (err) {
-          console.warn(`[ArchitectSketch] /analyze failed for ${fileName}, proceeding without filter:`, err.message);
+      // Filter to architectural floor plans using NOVA's detected viewType/sheetTitle
+      const planDrawings = drawings.filter(d => {
+        if (!isArchitecturalFloorPlan(d)) {
+          console.log(`[ArchitectSketch] Skipping "${d.sheetTitle || d.sheetNumber || d.id.slice(0,8)}": viewType=${d.viewType || "unknown"}`);
+          return false;
         }
-      }
-
-      // Step 2: Extract walls from each drawing
-      setScanPhase("extracting");
-      setScanProgress(25);
-      const eligibleDrawings = drawings.filter(drawing => {
-        const fileName = drawing.fileName || drawing.sourceFileName;
-        const pageNum = (drawing.pdfPage || drawing.pageNumber || 1) - 1;
-        const pageKey = `${fileName}:${pageNum}`;
-        if (skipPages.has(pageKey)) return false;
-        if (!analyzedPdfs.has(fileName) && !isFloorPlanDrawing(drawing)) return false;
-        const { canRender } = canRenderArchitectSketch(drawing.id);
+        const { canRender } = canRenderArchitectSketch(d.id);
         if (!canRender) return false;
-        const ppf = getPxPerFoot(drawing.id);
-        return !!ppf;
+        return !!getPxPerFoot(d.id);
       });
 
-      for (let di = 0; di < eligibleDrawings.length; di++) {
-        const drawing = eligibleDrawings[di];
-        const fileName = drawing.fileName || drawing.sourceFileName;
-        const pageNum = (drawing.pdfPage || drawing.pageNumber || 1) - 1;
-        const pageKey = `${fileName}:${pageNum}`;
-        const pct = 25 + Math.round((di / eligibleDrawings.length) * 60);
+      console.log(`[ArchitectSketch] ${planDrawings.length} floor plan(s) from ${drawings.length} total drawings`);
+
+      setScanPhase("extracting");
+      setScanProgress(25);
+
+      for (let di = 0; di < planDrawings.length; di++) {
+        const drawing = planDrawings[di];
+        const pct = 25 + Math.round((di / planDrawings.length) * 60);
         setScanProgress(pct);
-        setScanDetail(`Extracting walls · drawing ${di + 1} of ${eligibleDrawings.length}`);
+        setScanDetail(`Extracting walls · ${drawing.sheetTitle || `drawing ${di + 1}`}`);
 
         const ppf = getPxPerFoot(drawing.id);
 
@@ -428,7 +381,7 @@ export default function ArchitectSketch() {
         try {
           vectorData = await extractVectors(drawing.id);
         } catch (err) {
-          console.warn(`[ArchitectSketch] Vector extraction failed for ${drawing.id.slice(0,8)}: ${err.message}`);
+          console.warn(`[ArchitectSketch] Vector extraction failed for ${drawing.sheetTitle || drawing.id.slice(0,8)}: ${err.message}`);
           continue;
         }
 
@@ -436,13 +389,10 @@ export default function ArchitectSketch() {
 
         const fa = floorMap[drawing.id];
         const elevation = fa?.elevation ?? 0;
-        // Prefer /analyze floor label, fallback to sheet-based inference
-        const floorLabel = analyzeFloorLabels[pageKey] || fa?.label || inferFloorFromSheet(drawing) || "Floor 1";
-
-        // Convert from PDF points to feet: pts * 1.5 / ppf
+        const floorLabel = fa?.label || inferFloorFromSheet(drawing)?.label || "Floor 1";
         const scale = PDF_TO_CANVAS / ppf;
 
-        console.log(`[ArchitectSketch] ${drawing.id.slice(0,8)}: ${vectorData.walls.length} walls, ppf=${ppf.toFixed(1)}, scale=${scale.toFixed(4)} pts/ft`);
+        console.log(`[ArchitectSketch] "${drawing.sheetTitle || drawing.id.slice(0,8)}" → ${floorLabel}: ${vectorData.walls.length} walls`);
 
         const wallsFeet = vectorData.walls.map(w => ({
           start: [w.start[0] * scale, w.start[1] * scale],
@@ -458,15 +408,6 @@ export default function ArchitectSketch() {
           centroid: r.centroid ? [r.centroid[0] * scale, r.centroid[1] * scale] : null,
         }));
 
-        // Log diagnostic
-        if (wallsFeet.length > 0) {
-          const xs = wallsFeet.flatMap(w => [w.start[0], w.end[0]]);
-          const ys = wallsFeet.flatMap(w => [w.start[1], w.end[1]]);
-          console.log(`[ArchitectSketch] Feet bounds: X=[${Math.min(...xs).toFixed(1)}..${Math.max(...xs).toFixed(1)}] Y=[${Math.min(...ys).toFixed(1)}..${Math.max(...ys).toFixed(1)}]`);
-          console.log(`[ArchitectSketch] Building size: ${(Math.max(...xs)-Math.min(...xs)).toFixed(1)}ft × ${(Math.max(...ys)-Math.min(...ys)).toFixed(1)}ft`);
-        }
-
-        // Use NOVA per-floor heights if available, then fall back to floorMap height, then slider
         const novaHeight = novaFloors.find(f => f.label === floorLabel)?.height;
         const height = novaHeight || fa?.height || floorHeight;
 
@@ -478,27 +419,6 @@ export default function ArchitectSketch() {
       }
 
       let floors = Object.values(floorGroups);
-
-      // Remove roof plans
-      floors = floors.filter(f => !/\broof\b/i.test(f.floorLabel));
-
-      // ── SMART FLOOR SELECTION ──
-      const maxFloors = novaFloorCount > 0
-        ? novaFloorCount + novaBasementCount
-        : Math.min(floors.length, 4);
-
-      if (floors.length > maxFloors) {
-        const sorted = [...floors].sort((a, b) => b.walls.length - a.walls.length);
-        const kept = sorted.slice(0, maxFloors);
-        kept.sort((a, b) => {
-          const aNum = parseInt(a.floorLabel.match(/\d+/)?.[0]) || 999;
-          const bNum = parseInt(b.floorLabel.match(/\d+/)?.[0]) || 999;
-          return aNum - bNum;
-        });
-        kept.forEach((f, i) => { f.elevation = i * floorHeight; });
-        floors = kept;
-        console.log(`[ArchitectSketch] Kept top ${maxFloors} floors by wall count (dropped ${sorted.length - maxFloors} sparse pages)`);
-      }
 
       if (floors.length === 0) {
         setError("No calibrated floor plan drawings found. Calibrate at least one drawing on the Takeoffs page.");
