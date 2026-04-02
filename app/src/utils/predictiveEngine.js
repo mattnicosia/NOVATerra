@@ -18,18 +18,9 @@ import { analyzeDrawingGeometry, generateAutoMeasurements } from "./geometryEngi
 
 import { pdfRawCache } from "./uploadPipeline";
 import { callAnthropic, imageBlock } from "./ai";
-import { getLegendContext } from "./legendParser";
 import { getFirstClickExample, captureFirstClick } from "./firstClickTeacher";
-
-// ── Discipline inference from sheet number ──
-function inferDisciplineFromSheet(drawing) {
-  const num = (drawing.sheetNumber || "").toLowerCase().trim();
-  if (!num) return null;
-  const map = { e: "electrical", p: "plumbing", m: "mechanical", a: "architectural", s: "structural", c: "civil" };
-  if (map[num.slice(0, 2)]) return map[num.slice(0, 2)];
-  if (map[num[0]]) return map[num[0]];
-  return null;
-}
+import { assembleVisionContext } from "./contextAssembler";
+import { autoRecordFromPredState } from "./crossSheetLearning";
 
 // ══════════════════════════════════════════════════════════════════════
 // VISION-BASED PREDICTIONS — fallback for scanned/raster PDFs
@@ -73,51 +64,14 @@ async function runVisionPredictions(drawing, takeoff, measurementType, _clickPoi
   const base64 = imageData.includes(",") ? imageData.split(",")[1] : imageData;
   if (!base64 || base64.length < 100) return null;
 
-  const isCount = measurementType === "count";
-  const isLinear = measurementType === "linear";
-
-  // ── Build discipline-aware system prompt with legend context ──
-  const discipline = inferDisciplineFromSheet(drawing);
-  const legendCtx = getLegendContext(discipline);
-
-  const systemPrompt = `You are NOVA, an expert construction plan reader for quantity takeoffs. You identify and PRECISELY locate specific elements on architectural/engineering drawings.
-
-Construction drawing conventions you know:
-- Lighting: recessed cans (circles with X or cross), surface mounts (squares), fluorescents (long thin rectangles), exit signs, sconces. On reflected ceiling plans (RCP), fixtures appear as distinct repeated symbols.
-- Doors: arc swings with tags (D1, D2) in circles/hexagons near the opening.
-- Windows: parallel lines in walls with tags (W1, W2).
-- Plumbing: toilets (elongated ovals), sinks (small rectangles at walls), urinals.
-- Equipment: mechanical units, electrical panels — shown with specific symbols and tags.
-- Tags/callouts: short text in circles, diamonds, hexagons, or triangles.
-${legendCtx ? `\n${legendCtx}\n` : ""}
-CRITICAL RULES:
-1. Return ONLY valid JSON — no markdown, no explanation, no code blocks.
-2. x and y are PERCENTAGES (0-100) from the left edge and top edge of the image.
-3. Be PRECISE — place each location at the EXACT CENTER of the symbol/element, not in approximate areas.
-4. Only mark locations where you can SEE an actual symbol or element. Do NOT guess or interpolate positions.
-5. If you cannot clearly identify the element, return {"found":0,"locations":[],"confidence":0,"notes":"Cannot identify element"}${legendCtx ? "\n6. PRIORITIZE the SYMBOL LEGEND definitions above — they are project-specific and more accurate than generic conventions." : ""}`;
-
-  const userPrompt = isCount
-    ? `Find ALL instances of "${description}" on this construction drawing.
-
-INSTRUCTIONS:
-1. First, identify what SYMBOL represents "${description}" on this drawing. Look for a repeated small symbol/icon.
-2. Scan the ENTIRE drawing methodically — every room, corridor, and space.
-3. For EACH instance, mark the EXACT CENTER of that symbol as x,y percentages (0-100).
-4. Only include locations where you can clearly see the symbol. Do not guess.
-
-Return JSON: {"found":<count>,"locations":[{"x":<0-100>,"y":<0-100>,"label":"<room or area>"}],"confidence":<0-1>,"notes":"<what symbol you identified>"}`
-    : isLinear
-      ? `Find all runs/segments of "${description}" on this construction drawing.
-
-Mark the START POINT of each distinct run as x,y percentages (0-100). Only mark clearly visible elements.
-
-Return JSON: {"found":<count>,"locations":[{"x":<0-100>,"y":<0-100>,"label":"<description>"}],"confidence":<0-1>,"notes":"<observations>"}`
-      : `Find all areas/regions where "${description}" would be applied on this construction drawing.
-
-Mark the CENTER of each distinct area as x,y percentages (0-100). Only mark clearly visible regions.
-
-Return JSON: {"found":<count>,"locations":[{"x":<0-100>,"y":<0-100>,"label":"<room name>"}],"confidence":<0-1>,"notes":"<observations>"}`;
+  // ── Dynamic context assembly: discipline-aware prompts with legend + KB + cross-sheet hints ──
+  const { systemPrompt, userPrompt, contextLayers } = assembleVisionContext({
+    drawing,
+    takeoff,
+    measurementType,
+  });
+  if (contextLayers.hasLegend) console.log("[NOVA Vision] Legend context injected");
+  if (contextLayers.hasCrossSheet) console.log("[NOVA Vision] Cross-sheet hints injected");
 
   try {
     // ── Build user content with optional first-click example ──

@@ -453,6 +453,22 @@ export default function TakeoffsPage() {
     const prevId = prevDrawingIdRef.current;
     if (prevId && prevId !== selectedDrawingId) {
       useTakeoffsStore.getState().saveTkSheetView(prevId);
+
+      // Record cross-sheet learning data for the sheet we're leaving
+      try {
+        const s = useTakeoffsStore.getState();
+        if (s.tkActiveTakeoffId && s.tkPredictions) {
+          const { autoRecordFromPredState } = require("@/utils/crossSheetLearning");
+          const manualCount = (s.takeoffs.find(t => t.id === s.tkActiveTakeoffId)?.measurements || [])
+            .filter(m => m.sheetId === prevId && !m.predicted).length;
+          autoRecordFromPredState(
+            s.tkActiveTakeoffId, prevId,
+            s.tkPredContext, s.tkPredictions,
+            s.tkPredAccepted, s.tkPredRejected,
+            manualCount,
+          );
+        }
+      } catch { /* cross-sheet learning non-critical */ }
     }
     if (selectedDrawingId && selectedDrawingId !== prevId) {
       const restored = useTakeoffsStore.getState().restoreTkSheetView(selectedDrawingId);
