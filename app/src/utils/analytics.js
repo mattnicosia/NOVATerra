@@ -124,4 +124,7 @@ export const EVENTS = {
   FEEDBACK_SUBMITTED: "feedback_submitted",
   ONBOARDING_COMPLETED: "onboarding_completed",
   ONBOARDING_SKIPPED: "onboarding_skipped",
+
+  // Performance
+  WEB_VITAL: "web_vital",
 };

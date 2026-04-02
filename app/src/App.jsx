@@ -103,6 +103,8 @@ const AdminEstimateDetail = lazy(() => import("@/pages/admin/AdminEstimateDetail
 const AdminEmbeddingsPage = lazy(() => import("@/pages/admin/AdminEmbeddingsPage"));
 const AdminNovaPage = lazy(() => import("@/pages/admin/AdminNovaPage"));
 const AdminUnitRatesPage = lazy(() => import("@/pages/admin/AdminUnitRatesPage"));
+const AdminFeedbackPage = lazy(() => import("@/pages/admin/AdminFeedbackPage"));
+const AdminInvitesPage = lazy(() => import("@/pages/admin/AdminInvitesPage"));
 
 // Admin guard — checks if the current user's email is in the admin whitelist
 function AdminGuard({ children }) {
@@ -896,6 +898,22 @@ function AppContent() {
                     }
                   />
                   <Route
+                    path="feedback"
+                    element={
+                      <RouteErrorBoundary pageName="Admin Feedback">
+                        <AdminFeedbackPage />
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="invites"
+                    element={
+                      <RouteErrorBoundary pageName="Admin Invites">
+                        <AdminInvitesPage />
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
                     path="embeddings"
                     element={
                       <RouteErrorBoundary pageName="Admin Embeddings">
@@ -1143,7 +1161,9 @@ export default function App() {
   if (loading) return <AuthLoading />;
 
   // ── Mobile guard — NOVATerra requires tablet or larger (700px+) ──
-  if (typeof window !== "undefined" && window.innerWidth < 700) {
+  // iPads in split-screen can report 500-700px — detect iPad user agent and allow
+  const isIPad = typeof navigator !== "undefined" && (/iPad/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+  if (typeof window !== "undefined" && window.innerWidth < 700 && !isIPad) {
     return (
       <ThemeProvider>
         <MobileGuard />

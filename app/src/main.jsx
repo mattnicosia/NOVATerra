@@ -25,6 +25,8 @@ if (import.meta.env.VITE_SENTRY_DSN) {
       tags: {
         // eslint-disable-next-line no-undef
         build: typeof __BUILD_TS__ !== "undefined" ? __BUILD_TS__ : "dev",
+        device_type: window.innerWidth >= 1024 ? "desktop" : window.innerWidth >= 700 ? "tablet" : "mobile",
+        screen_width: String(window.innerWidth),
       },
     },
     beforeSend(event) {
@@ -61,6 +63,9 @@ window.addEventListener("unhandledrejection", e => {
 
 // ── Vercel Analytics (free Web Vitals + page views) ────────────
 injectAnalytics();
+
+// ── Core Web Vitals (LCP, FID, CLS, TTFB, INP → analytics + Sentry) ──
+import("@/utils/webVitals").then(m => m.reportWebVitals()).catch(() => {});
 
 // ── Render ─────────────────────────────────────────────────────
 ReactDOM.createRoot(document.getElementById("root")).render(

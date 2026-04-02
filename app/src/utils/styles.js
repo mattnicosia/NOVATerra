@@ -91,6 +91,13 @@ export const btGlow = (C, overrides) => ({
   ...overrides,
 });
 
+// Touch target — ensures minimum 44px hit area on tablet/mobile
+// Usage: style={{ ...touchTarget(isTablet, overrides) }}
+export const touchTarget = (isTablet, overrides) =>
+  isTablet
+    ? { minHeight: 44, minWidth: 44, display: "flex", alignItems: "center", justifyContent: "center", ...overrides }
+    : overrides || {};
+
 // Card surface — Liquid Glass card (both modes use translucent glass)
 export const card = (C, overrides) => {
   const tokens = C.T || T;

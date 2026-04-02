@@ -1,7 +1,8 @@
-import { useRef, useEffect, useState, memo } from "react";
+import { useRef, useEffect, useState, useCallback, memo } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useResponsive } from "@/hooks/useResponsive";
+import TabletNavDrawer from "@/components/layout/TabletNavDrawer";
 import { useUiStore } from "@/stores/uiStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
@@ -561,6 +562,8 @@ function NovaHeader({ onDraftPanelToggle }) {
   const [companyMenuOpen, setCompanyMenuOpen] = useState(false);
   const draftPendingCount = useAutoResponseStore(s => s.getPendingCount());
   const { isTablet } = useResponsive();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const toggleDrawer = useCallback(() => setDrawerOpen(v => !v), []);
 
   // Company profile data
   const activeCompanyId = useUiStore(s => s.appSettings.activeCompanyId);
@@ -635,6 +638,39 @@ function NovaHeader({ onDraftPanelToggle }) {
       </div>
 
       {/* Center — Navigation */}
+      {isTablet && (
+        <>
+          <button
+            onClick={toggleDrawer}
+            data-tour="hamburger"
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: 10,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              minWidth: 44,
+              minHeight: 44,
+            }}
+          >
+            <svg viewBox="0 0 18 14" fill="none" stroke={C.text} strokeWidth="1.6" strokeLinecap="round" style={{ width: 18, height: 14 }}>
+              <line x1="1" y1="2" x2="17" y2="2" />
+              <line x1="1" y1="7" x2="17" y2="7" />
+              <line x1="1" y1="12" x2="17" y2="12" />
+            </svg>
+          </button>
+          <TabletNavDrawer
+            isOpen={drawerOpen}
+            onClose={() => setDrawerOpen(false)}
+            navItems={NAV_ITEMS}
+            isManager={isManager}
+            hasOrg={hasOrg}
+          />
+        </>
+      )}
+      {!isTablet && (
       <nav style={{ display: "flex", alignItems: "center", gap: 2 }}>
         {NAV_ITEMS.filter(item => !item.managerOnly || isManager || !hasOrg).map(item => (
           <NavLink
@@ -718,6 +754,7 @@ function NovaHeader({ onDraftPanelToggle }) {
           </NavLink>
         ))}
       </nav>
+      )}
 
       {/* Right — Actions */}
       <div style={{ display: "flex", alignItems: "center", gap: 4, position: "relative", flex: 1, justifyContent: "flex-end" }}>
