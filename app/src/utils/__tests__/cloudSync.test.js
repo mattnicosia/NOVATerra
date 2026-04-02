@@ -15,7 +15,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 /** Build a chainable mock that records calls and resolves with configurable data */
 function createQueryMock(resolvedValue = { data: null, error: null }) {
   const chain = {};
-  const methods = ["from", "select", "insert", "update", "delete", "eq", "is", "maybeSingle", "single"];
+  const methods = ["from", "select", "insert", "upsert", "update", "delete", "eq", "is", "maybeSingle", "single"];
   methods.forEach(m => {
     chain[m] = vi.fn(() => {
       // Terminal methods return a promise-like
@@ -356,8 +356,12 @@ describe("cloudSync", () => {
 
       await pushEstimate("est-1", { project: { name: "Test" } });
 
-      // Check insert was called
-      if (mockQuery.insert.mock.calls.length > 0) {
+      // Check upsert was called (new path) or insert/update (legacy path)
+      if (mockQuery.upsert.mock.calls.length > 0) {
+        const upsertPayload = mockQuery.upsert.mock.calls[0][0];
+        const payload = Array.isArray(upsertPayload) ? upsertPayload[0] : upsertPayload;
+        expect(payload).not.toHaveProperty("deleted_at");
+      } else if (mockQuery.insert.mock.calls.length > 0) {
         const insertPayload = mockQuery.insert.mock.calls[0][0];
         expect(insertPayload).not.toHaveProperty("deleted_at");
       }
@@ -378,7 +382,11 @@ describe("cloudSync", () => {
         project: { name: "Test", assignedTo: "user-456" },
       });
 
-      if (mockQuery.insert.mock.calls.length > 0) {
+      if (mockQuery.upsert.mock.calls.length > 0) {
+        const upsertPayload = mockQuery.upsert.mock.calls[0][0];
+        const payload = Array.isArray(upsertPayload) ? upsertPayload[0] : upsertPayload;
+        expect(payload.assigned_to).toBe("user-456");
+      } else if (mockQuery.insert.mock.calls.length > 0) {
         const payload = mockQuery.insert.mock.calls[0][0];
         expect(payload.assigned_to).toBe("user-456");
       }

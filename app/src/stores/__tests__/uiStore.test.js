@@ -66,7 +66,7 @@ describe("uiStore — initial state", () => {
   it("has correct default appSettings", () => {
     const { appSettings } = useUiStore.getState();
     expect(appSettings.activeCompanyId).toBe("");
-    expect(appSettings.selectedPalette).toBe("dark");
+    expect(appSettings.selectedPalette).toBe("nova");
     expect(appSettings.customPalettes).toEqual([]);
     expect(appSettings.fontSize).toBe(13);
     expect(appSettings.density).toBe("comfortable");

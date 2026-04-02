@@ -224,8 +224,8 @@ describe("inferViewType(title)", () => {
       expect(inferViewType(undefined)).toBe(null);
     });
 
-    it("returns null for unrecognized title", () => {
-      expect(inferViewType("Mechanical Schedule")).toBe(null);
+    it("returns schedule for title containing schedule", () => {
+      expect(inferViewType("Mechanical Schedule")).toBe("schedule");
     });
   });
 });

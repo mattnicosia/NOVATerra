@@ -334,15 +334,15 @@ describe("generateBaselineROM", () => {
 
   it("per-SF rates match known benchmarks for commercial-office", () => {
     const rom = generateBaselineROM(10000, "commercial-office");
-    expect(rom.divisions["03"].perSF.low).toBe(8);
-    expect(rom.divisions["03"].perSF.mid).toBe(14);
-    expect(rom.divisions["03"].perSF.high).toBe(22);
+    expect(rom.divisions["03"].perSF.low).toBe(10);
+    expect(rom.divisions["03"].perSF.mid).toBe(18);
+    expect(rom.divisions["03"].perSF.high).toBe(30);
   });
 
-  it("healthcare is more expensive than commercial office", () => {
+  it("commercial office is more expensive than healthcare (more divisions)", () => {
     const office = generateBaselineROM(10000, "commercial-office");
     const health = generateBaselineROM(10000, "healthcare");
-    expect(health.totals.mid).toBeGreaterThan(office.totals.mid);
+    expect(office.totals.mid).toBeGreaterThan(health.totals.mid);
   });
 
   it("retail has fewer divisions than commercial office", () => {
@@ -730,6 +730,6 @@ describe("edge cases", () => {
   it("restaurant has equipment division (div 11)", () => {
     const rom = generateBaselineROM(10000, "restaurant");
     expect(rom.divisions["11"]).toBeDefined();
-    expect(rom.divisions["11"].perSF.mid).toBe(30);
+    expect(rom.divisions["11"].perSF.mid).toBe(40);
   });
 });

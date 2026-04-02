@@ -22,7 +22,16 @@ import { runFullScan } from "@/utils/scanRunner";
 
 // Cache raw PDF arrayBuffers for vector/text extraction (keyed by fileName)
 // Lives for the session — PDFs from previous sessions won't be cached.
+// LRU eviction: max 5 entries (each 5-50MB, so 25-250MB ceiling).
 export const pdfRawCache = new Map();
+const PDF_RAW_CACHE_MAX = 5;
+function pdfRawCacheSet(key, value) {
+  pdfRawCache.set(key, value);
+  if (pdfRawCache.size > PDF_RAW_CACHE_MAX) {
+    const oldest = pdfRawCache.keys().next().value;
+    pdfRawCache.delete(oldest);
+  }
+}
 
 // ─── Persist raw PDF to separate IDB key (one copy per PDF, not per page) ────
 // This avoids the N×M duplication problem where pdfRawBase64 was on every drawing page.
@@ -220,7 +229,7 @@ export async function extractDrawingPages(file, options = {}) {
   // ── PDF: render each page to JPEG instead of storing raw PDF base64 ──
   const arrayBuffer = await file.arrayBuffer();
   // CRITICAL: store copies — IDB put() can detach the original ArrayBuffer
-  pdfRawCache.set(file.name, arrayBuffer.slice(0));
+  pdfRawCacheSet(file.name, arrayBuffer.slice(0));
   // Persist to separate IDB key (one copy per PDF, not duplicated per page)
   savePdfRawToIDB(file.name, arrayBuffer.slice(0)).catch(err =>
     console.warn("[extractDrawingPages] Failed to persist raw PDF to IDB:", err.message),
@@ -296,7 +305,7 @@ export async function repairRawPdf(file) {
     // CRITICAL: store COPIES — IDB put() can detach the original ArrayBuffer
     const cacheCopy = arrayBuffer.slice(0);
     const idbCopy = arrayBuffer.slice(0);
-    pdfRawCache.set(file.name, cacheCopy);
+    pdfRawCacheSet(file.name, cacheCopy);
     console.log(`[repairRawPdf] Cache set, verify: byteLength=${pdfRawCache.get(file.name)?.byteLength}`);
 
     // Persist to IDB (cross session) — AWAIT to ensure it completes
@@ -334,7 +343,7 @@ export async function repairRawPdf(file) {
           invalidateCache(d.id);
           // Also cache under the drawing's fileName if different from file.name
           if (d.fileName && d.fileName !== file.name) {
-            pdfRawCache.set(d.fileName, cacheCopy.slice(0));
+            pdfRawCacheSet(d.fileName, cacheCopy.slice(0));
             savePdfRawToIDB(d.fileName, cacheCopy.slice(0)).catch(() => {});
           }
         }

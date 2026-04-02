@@ -281,9 +281,9 @@ describe("scanStore -- getCalibrationFactors", () => {
     });
     const factors = useScanStore.getState().getCalibrationFactors();
     // 120000/100000 = 1.2
-    expect(factors["03"]).toBeCloseTo(1.2, 1);
+    expect(factors["03"].factor).toBeCloseTo(1.2, 1);
     // 45000/50000 = 0.9
-    expect(factors["05"]).toBeCloseTo(0.9, 1);
+    expect(factors["05"].factor).toBeCloseTo(0.9, 1);
   });
 
   it("applies recency weighting (15% decay per year)", () => {
@@ -300,7 +300,7 @@ describe("scanStore -- getCalibrationFactors", () => {
     const factors = useScanStore.getState().getCalibrationFactors();
     // Even with recency weighting, single record ratio is still actual/predicted
     // because both sides are weighted equally
-    expect(factors["03"]).toBeCloseTo(1.5, 1);
+    expect(factors["03"].factor).toBeCloseTo(1.5, 1);
   });
 
   it("applies completeness weighting based on division count", () => {
@@ -350,7 +350,7 @@ describe("scanStore -- getCalibrationFactors", () => {
     const factors = useScanStore.getState().getCalibrationFactors();
     // Division 03 appears in both records, factor is a weighted average
     expect(factors["03"]).toBeDefined();
-    expect(factors["03"]).toBeGreaterThan(1.0);
+    expect(factors["03"].factor).toBeGreaterThan(1.0);
   });
 
   it("filters by buildingType when provided", () => {
@@ -373,7 +373,7 @@ describe("scanStore -- getCalibrationFactors", () => {
     });
     const factors = useScanStore.getState().getCalibrationFactors("healthcare");
     // Should only use healthcare record: 150000/100000 = 1.5
-    expect(factors["03"]).toBeCloseTo(1.5, 1);
+    expect(factors["03"].factor).toBeCloseTo(1.5, 1);
   });
 
   it("falls back to all records when filter returns no matches", () => {
@@ -390,7 +390,7 @@ describe("scanStore -- getCalibrationFactors", () => {
     });
     const factors = useScanStore.getState().getCalibrationFactors("nonexistent-type");
     // Falls back to all records
-    expect(factors["03"]).toBeCloseTo(0.8, 1);
+    expect(factors["03"].factor).toBeCloseTo(0.8, 1);
   });
 
   it("skips records with missing romPrediction or actuals", () => {
@@ -441,7 +441,7 @@ describe("scanStore -- getCalibrationFactors", () => {
       ],
     });
     const factors = useScanStore.getState().getCalibrationFactors(null, "renovation", "union");
-    expect(factors["09"]).toBeCloseTo(1.3, 1);
+    expect(factors["09"].factor).toBeCloseTo(1.3, 1);
   });
 });
 

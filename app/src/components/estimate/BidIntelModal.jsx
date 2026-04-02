@@ -1,4 +1,5 @@
 import { useState } from "react";
+import DOMPurify from "dompurify";
 import { useTheme } from "@/hooks/useTheme";
 import { useProjectStore } from "@/stores/projectStore";
 import { useItemsStore } from "@/stores/itemsStore";
@@ -268,13 +269,13 @@ Be specific — reference actual line items and numbers from the estimate.`,
                       <span style={{ color: C.accent, fontWeight: 700 }}>•</span>
                       <span
                         dangerouslySetInnerHTML={{
-                          __html: line
+                          __html: DOMPurify.sanitize(line
                             .slice(2)
                             .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
                             .replace(
                               /`(.+?)`/g,
                               `<code style="background:${C.accent}12;padding:1px 4px;border-radius:3px;font-size:0.9em;color:${C.accent}">$1</code>`,
-                            ),
+                            )),
                         }}
                       />
                     </div>
@@ -284,12 +285,12 @@ Be specific — reference actual line items and numbers from the estimate.`,
                   <div
                     key={i}
                     dangerouslySetInnerHTML={{
-                      __html: line
+                      __html: DOMPurify.sanitize(line
                         .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
                         .replace(
                           /`(.+?)`/g,
                           `<code style="background:${C.accent}12;padding:1px 4px;border-radius:3px;font-size:0.9em;color:${C.accent}">$1</code>`,
-                        ),
+                        )),
                     }}
                   />
                 );
