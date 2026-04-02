@@ -21,6 +21,8 @@ import { callAnthropic, imageBlock } from "./ai";
 import { getFirstClickExample, captureFirstClick } from "./firstClickTeacher";
 import { assembleVisionContext } from "./contextAssembler";
 import { autoRecordFromPredState } from "./crossSheetLearning";
+import { applyGuardrails } from "./predictionGuardrails";
+import { recordVisionCall } from "./visionMetrics";
 
 // ══════════════════════════════════════════════════════════════════════
 // VISION-BASED PREDICTIONS — fallback for scanned/raster PDFs
@@ -99,6 +101,7 @@ async function runVisionPredictions(drawing, takeoff, measurementType, _clickPoi
     userContent.push(imageBlock(base64), { type: "text", text: userPrompt });
 
     console.log(`[NOVA Vision] Analyzing "${description}" on drawing ${drawing.id} (page ${drawing.pdfPage || 1})`);
+    const _visionStart = Date.now();
     const resp = await callAnthropic({
       model: "claude-sonnet-4-20250514",
       max_tokens: 4000,
@@ -167,19 +170,49 @@ async function runVisionPredictions(drawing, takeoff, measurementType, _clickPoi
       source: "vision",
     }));
 
+    const _visionLatency = Date.now() - _visionStart;
+
+    // ── Apply guardrails before returning to UI ──
+    const guardrailed = applyGuardrails(predictions, {
+      takeoffId: takeoff?.id,
+      imageWidth: origW,
+      imageHeight: origH,
+    });
+
+    if (guardrailed.guardrailFlags.length > 0) {
+      console.log(`[NOVA Vision] Guardrails applied:`, guardrailed.guardrailFlags);
+    }
+
+    const finalPredictions = guardrailed.predictions;
+
+    // ── Record metrics ──
+    recordVisionCall({
+      takeoffId: takeoff?.id,
+      latencyMs: _visionLatency,
+      predictionCount: finalPredictions.length,
+      confidence: json.confidence || 0.6,
+      contextLayers: {
+        ...contextLayers,
+        hasFirstClick: !!firstClickEx,
+      },
+      strategy: "vision",
+    });
+
     console.log(
-      `[NOVA Vision] Found ${predictions.length} predictions, dims=${origW}x${origH}, sample coords:`,
-      predictions.slice(0, 3).map(p => `(${Math.round(p.point.x)},${Math.round(p.point.y)})`),
+      `[NOVA Vision] ${finalPredictions.length} predictions (${guardrailed.removed} filtered), ` +
+      `${_visionLatency}ms, dims=${origW}x${origH}`,
+      finalPredictions.slice(0, 3).map(p => `(${Math.round(p.point.x)},${Math.round(p.point.y)})`),
     );
     return {
-      predictions,
+      predictions: finalPredictions,
       tag: description,
       source: "vision",
       confidence: json.confidence || 0.6,
       strategy: "vision",
-      totalInstances: json.found || predictions.length,
-      message: json.notes || `NOVA Vision identified ${predictions.length} instance(s)`,
-      takeoffId: takeoff.id,
+      totalInstances: json.found || finalPredictions.length,
+      message: json.notes || `NOVA Vision identified ${finalPredictions.length} instance(s)`,
+      takeoffId: takeoff?.id,
+      guardrailFlags: guardrailed.guardrailFlags,
     };
   } catch (err) {
     console.warn("[NOVA Vision] API call failed:", err.message);
@@ -218,6 +251,22 @@ export function recordPredictionFeedback(tag, strategy, accepted, captureCtx) {
         drawing: captureCtx.drawing,
         point: captureCtx.point,
       });
+
+      // ── Re-fire logic: re-scan current sheet with first-click example ──
+      // Only re-fire if initial predictions were sparse (<5) or mostly rejected (>50%).
+      // This avoids wasting an API call when initial predictions were already good.
+      if (captureCtx.totalPredictions != null) {
+        const total = entry.accepts + entry.rejects;
+        const rejectRate = total > 0 ? entry.rejects / total : 0;
+        const shouldRefire = captureCtx.totalPredictions < 5 || rejectRate > 0.5;
+        if (shouldRefire && captureCtx.drawing && captureCtx.takeoffId) {
+          console.log(
+            `[firstClickTeacher] Re-firing Vision with example (initial: ${captureCtx.totalPredictions} preds, ${Math.round(rejectRate * 100)}% rejected)`,
+          );
+          // Non-blocking re-fire — result handled via the returned promise callback
+          captureCtx._refireCallback?.(captureCtx.drawing, captureCtx.takeoffId);
+        }
+      }
     } catch (err) {
       console.warn("[firstClickTeacher] Capture on first accept failed:", err.message);
     }

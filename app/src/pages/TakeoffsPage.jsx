@@ -1876,6 +1876,23 @@ IMPORTANT:
               description: to.description || "",
               drawing: captureDrawing,
               point: nearbyPred.point || clickPt,
+              totalPredictions: preds.predictions?.length || 0,
+              _refireCallback: (drw, tkId) => {
+                // Re-fire Vision with first-click example on same sheet
+                const tkState = useTakeoffsStore.getState();
+                const tkOff = tkState.takeoffs.find(t => t.id === tkId);
+                if (drw && tkOff) {
+                  runSmartPredictions(drw, tkOff, "count", clickPt).then(result => {
+                    if (result?.predictions?.length > 0) {
+                      setTkPredictions({
+                        tag: result.tag, predictions: result.predictions, scanning: false,
+                        totalInstances: result.totalInstances, source: result.source, strategy: result.strategy,
+                      });
+                      initPredContext(result.tag, result.source, result.confidence);
+                    }
+                  }).catch(() => {});
+                }
+              },
             });
             addMeasurement(currentActiveId, {
               type: "count",
