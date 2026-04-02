@@ -67,6 +67,17 @@ export const useTakeoffsStore = create((set, get) => ({
         tkPredAccepted: [],
         tkPredRejected: [],
         tkNovaPanelOpen: hasPreds ? true : s.tkNovaPanelOpen,
+        // Auto-initialize prediction context when predictions arrive
+        tkPredContext: hasPreds ? {
+          tag: v.tag || "",
+          source: v.source || "tag",
+          confidence: v.confidence || 0.7,
+          matchCount: 0,
+          missCount: 0,
+          consecutiveMisses: 0,
+          refining: false,
+        } : s.tkPredContext,
+        tkPredRefining: false,
       };
     }),
 

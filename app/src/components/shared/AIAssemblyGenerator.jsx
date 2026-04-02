@@ -3,6 +3,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useDatabaseStore } from "@/stores/databaseStore";
 import { useUiStore } from "@/stores/uiStore";
 import { callAnthropicStream } from "@/utils/ai";
+import { useCorrectionStore } from "@/nova/learning/correctionStore";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import NovaSceneLazy from "@/components/nova/NovaSceneLazy";
@@ -66,7 +67,7 @@ export default function AIAssemblyGenerator({ onClose }) {
       const fullText = await callAnthropicStream({
         max_tokens: 2000,
         system: SYSTEM_PROMPT,
-        messages: [{ role: "user", content: `Generate a complete construction assembly for:\n\n"${prompt.trim()}"` }],
+        messages: [{ role: "user", content: `Generate a complete construction assembly for:\n\n"${prompt.trim()}"${(() => { const ctx = useCorrectionStore.getState().buildCorrectionContext("assembly"); return ctx ? "\n\n" + ctx : ""; })()}` }],
         onText: t => setStream(t),
         signal: abortRef.current.signal,
       });
@@ -99,6 +100,15 @@ export default function AIAssemblyGenerator({ onClose }) {
 
   const addToDatabase = () => {
     if (!result) return;
+
+    // Log assembly creation for learning (tracks what user accepted/edited)
+    useCorrectionStore.getState().logCorrection("assembly:edit", {
+      context: `AI assembly: "${prompt.trim().substring(0, 80)}"`,
+      original: result.elements.length + " elements generated",
+      corrected: result.name,
+      field: result.code,
+    });
+
     addAssembly({
       code: result.code || "",
       name: titleCase(result.name),

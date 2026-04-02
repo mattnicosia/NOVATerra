@@ -61,6 +61,99 @@ GUIDELINES:
 - qualifications: conditions, assumptions, or caveats
 - confidence: your confidence in the parse quality (1.0 = crystal clear PDF, 0.5 = partial/unclear)`;
 
+// ── Haiku Classification Prompt (fast, cheap — $0.01/page) ──
+export const CLASSIFY_PROMPT = `You classify construction documents. Return ONLY a valid JSON object, no explanation.
+
+JSON SCHEMA:
+{
+  "documentType": "gc_proposal" | "sub_proposal" | "vendor_quote" | "internal_report" | "schedule_of_values" | "drawing" | "other",
+  "companyName": "string" | null,
+  "totalBid": number | null,
+  "projectName": "string" | null,
+  "tradeCodes": ["09", "26"],
+  "hasLineItems": boolean,
+  "hasUnitPrices": boolean,
+  "worthFullParse": boolean,
+  "confidence": number
+}
+
+RULES:
+- gc_proposal: Full project proposal from a general contractor with division-level SOV
+- sub_proposal: Trade-specific proposal from a subcontractor (drywall, electrical, plumbing, etc.)
+- vendor_quote: Material/equipment quote from a supplier with product pricing
+- internal_report: Cost report, internal estimate summary, or budget document
+- schedule_of_values: Standalone SOV or cost breakdown without proposal letter
+- drawing: Construction drawings, floor plans, details — NOT worth parsing
+- other: Anything else (photos, correspondence, spec sheets)
+- worthFullParse: true if the document contains extractable cost data (line items, amounts, unit prices). False for drawings, photos, cover letters, correspondence.
+- tradeCodes: 2-digit CSI division codes this document covers (e.g., ["09"] for drywall, ["22","23"] for MEP)`;
+
+export function buildClassifyMessages(pdfBase64) {
+  return [
+    {
+      role: "user",
+      content: [
+        {
+          type: "document",
+          source: { type: "base64", media_type: "application/pdf", data: pdfBase64 },
+        },
+        {
+          type: "text",
+          text: "Classify this construction document. Return ONLY the JSON object.",
+        },
+      ],
+    },
+  ];
+}
+
+// ── Enhanced Parse Prompt (adds context per document type) ──
+const PARSE_EXTRAS = {
+  gc_proposal: `\nADDITIONAL FOR GC PROPOSALS:
+- Extract the Schedule of Values (SOV) as lineItems with CSI division codes
+- Look for General Conditions, Fee, Insurance, and Overhead as separate line items
+- totalBid should be the GRAND TOTAL including all markups
+- If divisions are numbered (01, 02, 03...), use those as csiCode`,
+  sub_proposal: `\nADDITIONAL FOR SUB PROPOSALS:
+- Focus on unit prices ($/LF, $/SF, $/EA, $/CY) — these are the most valuable data
+- Extract the subcontractor's trade scope precisely
+- Look for labor vs material breakdowns if available
+- If there's a per-SF price, include it as a lineItem with unit "SF"`,
+  vendor_quote: `\nADDITIONAL FOR VENDOR QUOTES:
+- Extract individual product items with unit prices and quantities
+- Look for model numbers, specifications, and lead times
+- totalBid may not exist — sum of line items is the total
+- Include product descriptions with model numbers in the description field`,
+  internal_report: `\nADDITIONAL FOR INTERNAL REPORTS:
+- Extract division-level cost breakdowns
+- Look for $/SF benchmarks and total project costs
+- Capture any markup percentages (GC, fee, insurance, bond)`,
+  schedule_of_values: `\nADDITIONAL FOR SCHEDULE OF VALUES:
+- Every line should be a lineItem with CSI code and amount
+- Capture scheduled values, previous payments, and balance to finish if present`,
+};
+
+export function buildEnhancedParsePrompt(docType) {
+  return PROPOSAL_PARSE_PROMPT + (PARSE_EXTRAS[docType] || "");
+}
+
+export function buildEnhancedParseMessages(pdfBase64, docType) {
+  return [
+    {
+      role: "user",
+      content: [
+        {
+          type: "document",
+          source: { type: "base64", media_type: "application/pdf", data: pdfBase64 },
+        },
+        {
+          type: "text",
+          text: `Parse this construction ${docType.replace("_", " ")} and extract all structured data per the schema. Return ONLY the JSON object.`,
+        },
+      ],
+    },
+  ];
+}
+
 export function buildProposalMessages(pdfBase64) {
   return [
     {

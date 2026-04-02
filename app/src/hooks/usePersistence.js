@@ -1197,15 +1197,16 @@ export function usePersistenceLoad() {
 
       // ── One-time data imports + calibration (run after persistence loads) ──
       try {
-        const { importMontanaProposals, importViolanteProposals, calibrateFromImportedProposals } = await import("@/data/importProposals");
+        const { importMontanaProposals, importViolanteProposals, importAreaBuildersProposals, calibrateFromImportedProposals } = await import("@/data/importProposals");
         const mCount = importMontanaProposals();
         const vCount = importViolanteProposals();
+        const abCount = importAreaBuildersProposals();
         // Generate learning records from ALL imported proposals — this is what
         // makes them actually calibrate the ROM instead of just sitting in storage.
         await calibrateFromImportedProposals();
         // If any proposals were imported, persist immediately to IDB + cloud
         // so cloud sync doesn't overwrite with stale data
-        if (mCount || vCount) {
+        if (mCount || vCount || abCount) {
           console.log(`[usePersistence] Imports changed data — persisting immediately`);
           await saveMasterData();
         }

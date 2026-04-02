@@ -51,9 +51,11 @@ function RouteErrorBoundary({ pageName, children }) {
 const LoginMockupPage = lazy(() => import("@/pages/LoginMockupPage"));
 const AIChatPanel = lazy(() => import("@/components/ai/AIChatPanel"));
 const LiquidGlassBackground = lazy(() => import("@/components/ambient/LiquidGlassBackground"));
+const PBRDashboardBackground = lazy(() => import("@/components/ambient/PBRDashboardBackground"));
 const ProximityLight = lazy(() => import("@/components/nova/ProximityLight"));
 const CommandPalette = lazy(() => import("@/components/shared/CommandPalette"));
 const FeedbackWidget = lazy(() => import("@/components/beta/FeedbackWidget"));
+// SideRail removed — board voted to keep top header, style it per theme instead
 
 // ── Spatial interface — completely separate UI tree ──
 const SpatialShell = lazy(() => import("@/pages/spatial/SpatialShell"));
@@ -98,6 +100,7 @@ const AdminEstimatesPage = lazy(() => import("@/pages/admin/AdminEstimatesPage")
 const AdminEstimateDetail = lazy(() => import("@/pages/admin/AdminEstimateDetail"));
 const AdminEmbeddingsPage = lazy(() => import("@/pages/admin/AdminEmbeddingsPage"));
 const AdminNovaPage = lazy(() => import("@/pages/admin/AdminNovaPage"));
+const AdminUnitRatesPage = lazy(() => import("@/pages/admin/AdminUnitRatesPage"));
 
 // Admin guard — checks if the current user's email is in the admin whitelist
 function AdminGuard({ children }) {
@@ -616,14 +619,14 @@ function AppContent() {
           }}
         />
       )}
-      {/* Liquid Glass mesh background — suppressed for noGlass/concrete themes */}
-      {!C.noGlass && (
+      {/* Background: PBR material system, Liquid Glass, or none (cardMaterials = clean dark ground) */}
+      {!C.noGlass && !C.cardMaterials && (
         <Suspense fallback={null}>
-          <LiquidGlassBackground />
+          {C.usePBR ? <PBRDashboardBackground /> : <LiquidGlassBackground />}
         </Suspense>
       )}
-      {/* SVG refraction filter — suppressed for noGlass/concrete themes */}
-      {!C.noGlass && (
+      {/* SVG refraction filter — suppressed for noGlass/concrete/cardMaterials themes */}
+      {!C.noGlass && !C.cardMaterials && (
         <svg style={{ position: "absolute", width: 0, height: 0, pointerEvents: "none" }} aria-hidden="true">
           <defs>
             <filter id="glass-refract" x="-5%" y="-5%" width="110%" height="110%">
@@ -661,7 +664,7 @@ function AppContent() {
           </Suspense>
         )}
         <EstimateJourneyBar />
-        <FloatingThemePicker />
+        {/* FloatingThemePicker removed — theme switching moved to header */}
         <PersistentMusicBar />
         <Suspense fallback={null}>
           <FeedbackWidget />
@@ -888,6 +891,14 @@ function AppContent() {
                     element={
                       <RouteErrorBoundary pageName="Admin Estimate Detail">
                         <AdminEstimateDetail />
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="unit-rates"
+                    element={
+                      <RouteErrorBoundary pageName="Admin Unit Rates">
+                        <AdminUnitRatesPage />
                       </RouteErrorBoundary>
                     }
                   />

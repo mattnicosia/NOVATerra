@@ -350,9 +350,24 @@ export function generateBaselineROM(projectSF, buildingTypeOrJobType, workTypeOr
     const calEntry = calibrationFactors[div];
     const calFactor = typeof calEntry === "number" ? calEntry : (calEntry?.factor || 1);
     const factor = calFactor * combinedMultiplier * (bpMults[div] || 1);
-    const low = range.low * factor;
-    const mid = range.mid * factor;
-    const high = range.high * factor;
+    let low = range.low * factor;
+    let mid = range.mid * factor;
+    let high = range.high * factor;
+
+    // ── Trade Pricing Index supplemental calibration ──
+    // If tradePricingIndex is provided and has 3+ samples for this division,
+    // blend the index median with the baseline. Weight caps at 60% at 20 samples.
+    const tpi = calibrationFactors?._tradePricingIndex?.[div];
+    if (tpi?.lump_sum_per_sf && tpi.lump_sum_per_sf.sampleCount >= 3 && sf > 0) {
+      const idxPerSF = tpi.lump_sum_per_sf.median / sf; // Normalize to $/SF
+      if (idxPerSF > 0 && isFinite(idxPerSF)) {
+        const idxWeight = Math.min(0.6, tpi.lump_sum_per_sf.sampleCount / 33);
+        const baseWeight = 1 - idxWeight;
+        mid = mid * baseWeight + idxPerSF * idxWeight;
+        low = low * baseWeight + (tpi.lump_sum_per_sf.p25 / sf) * idxWeight;
+        high = high * baseWeight + (tpi.lump_sum_per_sf.p75 / sf) * idxWeight;
+      }
+    }
 
     divisions[div] = {
       label: range.label,

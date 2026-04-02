@@ -57,6 +57,9 @@
     "api/parse-proposal.js": {
       "maxDuration": 60
     },
+    "api/batch-parse.js": {
+      "maxDuration": 120
+    },
     "api/scope-gap-narrative.js": {
       "maxDuration": 60
     },

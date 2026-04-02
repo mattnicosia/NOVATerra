@@ -168,7 +168,7 @@ const NAV_ITEMS = [
   { key: "core", path: "/core", icon: NAV_ICONS.core, label: "Core" },
   // { key: "intelligence", path: "/intelligence", icon: NAV_ICONS.intelligence, label: "Intel" }, // temporarily removed
   { key: "resources", path: "/resources", icon: NAV_ICONS.resources, label: "Resources" },
-  { key: "business", path: "/business", icon: NAV_ICONS.business, label: "Business", managerOnly: true },
+  // { key: "business", path: "/business", icon: NAV_ICONS.business, label: "Business", managerOnly: true }, // Hidden for MVP
   { key: "people", path: "/contacts", icon: NAV_ICONS.people, label: "People" },
   { key: "settings", path: "/settings", icon: NAV_ICONS.settings, label: "Settings" },
 ];
@@ -551,7 +551,8 @@ function NovaHeader({ onDraftPanelToggle }) {
   const novaTask = useNovaStore(s => s.activeTask);
   const selectedPalette = useUiStore(s => s.appSettings.selectedPalette);
   const updateSetting = useUiStore(s => s.updateSetting);
-  const activeTheme = ["stitch", "aurora", "neutral"].includes(selectedPalette) ? selectedPalette : selectedPalette === "dark" ? "dark" : "light";
+  const activeTheme = ["aurora", "neutral", "linear"].includes(selectedPalette) ? selectedPalette : "nova";
+  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const isManager = useOrgStore(selectIsManager);
   const hasOrg = useOrgStore(s => !!s.org);
   const isNova = false; // NOVA theme temporarily removed
@@ -643,10 +644,8 @@ function NovaHeader({ onDraftPanelToggle }) {
             data-interactive
             style={({ isActive }) => ({
               display: "flex",
-              flexDirection: "column",
               alignItems: "center",
-              gap: 3,
-              padding: isTablet ? "6px 10px" : "6px 16px",
+              padding: isTablet ? "6px 10px" : "6px 14px",
               borderRadius: 8,
               cursor: "pointer",
               position: "relative",
@@ -687,7 +686,6 @@ function NovaHeader({ onDraftPanelToggle }) {
                     }}
                   />
                 )}
-                <div style={{ width: 17, height: 17, flexShrink: 0 }}>{item.icon}</div>
                 {!isTablet && (
                   <span
                     style={{
@@ -1106,152 +1104,80 @@ function NovaHeader({ onDraftPanelToggle }) {
           </div>
         )}
 
-        {/* Theme Toggle — Light / Dark / Nero */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 1,
-            padding: 2,
-            marginLeft: 2,
-            borderRadius: 7,
-            background: ov(0.03, 0.03),
-            border: `1px solid ${ov(0.04, 0.04)}`,
-          }}
-        >
-          {[
-            {
-              key: "light",
-              palette: "light",
-              title: "Light",
-              icon: (
-                <svg
-                  width={11}
-                  height={11}
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                >
-                  <circle cx="8" cy="8" r="2.8" />
-                  <path d="M8 2v1.5M8 12.5V14M2 8h1.5M12.5 8H14M4 4l1 1M11 11l1 1M4 12l1-1M11 5l1-1" />
-                </svg>
-              ),
-            },
-            {
-              key: "dark",
-              palette: "dark",
-              title: "Dark",
-              icon: (
-                <svg
-                  width={11}
-                  height={11}
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M13.6 9.8A6 6 0 116.2 2.4a4.5 4.5 0 007.4 7.4z" />
-                </svg>
-              ),
-            },
-            {
-              key: "stitch",
-              palette: "stitch",
-              title: "Stitch",
-              icon: (
-                <svg
-                  width={11}
-                  height={11}
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M8 1l1.5 3.5L13 6l-3 2.5L11 13 8 10.5 5 13l1-4.5L3 6l3.5-1.5z" />
-                </svg>
-              ),
-            },
-            {
-              key: "aurora",
-              palette: "aurora",
-              title: "Aurora",
-              icon: (
-                <svg
-                  width={11}
-                  height={11}
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M2 14c2-4 4-8 6-10s4-1 6 2" />
-                  <path d="M2 12c2-3 4-6 6-7s3 0 5 2" opacity="0.5" />
-                </svg>
-              ),
-            },
-            {
-              key: "neutral",
-              palette: "neutral",
-              title: "Neutral",
-              icon: (
-                <svg
-                  width={11}
-                  height={11}
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                >
-                  <rect x="2" y="2" width="12" height="12" rx="2" />
-                  <line x1="2" y1="8" x2="14" y2="8" />
-                </svg>
-              ),
-            },
-          ].map(t => (
-            <button
-              key={t.key}
-              data-interactive
-              title={t.title}
-              onClick={() => updateSetting("selectedPalette", t.palette)}
-              style={{
-                width: 24,
-                height: 24,
-                borderRadius: 5,
-                border: "none",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background:
-                  activeTheme === t.key ? ov(0.1, 0.08) : "transparent",
-                color: activeTheme === t.key ? tglActive : tglInactive,
-                transition: "all 0.15s",
-              }}
-              onMouseEnter={e => {
-                if (activeTheme !== t.key) {
-                  e.currentTarget.style.color = tglHover;
-                  e.currentTarget.style.background = ov(0.05, 0.04);
-                }
-              }}
-              onMouseLeave={e => {
-                if (activeTheme !== t.key) {
-                  e.currentTarget.style.color = tglInactive;
-                  e.currentTarget.style.background = "transparent";
-                }
-              }}
-            >
-              {t.icon}
-            </button>
-          ))}
+        {/* Sync Status Indicator */}
+        {(() => {
+          const syncStatus = useUiStore(s => s.cloudSyncStatus);
+          if (syncStatus === "idle" || syncStatus === "synced") return null;
+          return (
+            <div title={syncStatus === "syncing" ? "Syncing to cloud..." : "Sync error"} style={{
+              width: 8, height: 8, borderRadius: "50%", marginLeft: 4,
+              background: syncStatus === "syncing" ? "#eab308" : "#ef4444",
+              animation: syncStatus === "syncing" ? "pulse 1.5s infinite" : "none",
+            }} />
+          );
+        })()}
+
+        {/* Theme Switcher — Single button with dropdown */}
+        <div style={{ position: "relative", marginLeft: 2 }}>
+          <button
+            data-interactive
+            title="Switch Theme"
+            onClick={() => setThemeMenuOpen(v => !v)}
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 7,
+              border: `1px solid ${ov(0.06, 0.06)}`,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: themeMenuOpen ? ov(0.1, 0.08) : ov(0.03, 0.03),
+              color: tglActive,
+              transition: "all 0.15s",
+            }}
+          >
+            <svg width={13} height={13} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
+              <circle cx="8" cy="8" r="6" />
+              <path d="M8 2a6 6 0 000 12" fill="currentColor" opacity="0.15" />
+              <circle cx="8" cy="8" r="2" fill="currentColor" opacity="0.4" />
+            </svg>
+          </button>
+          {themeMenuOpen && (
+            <>
+              <div style={{ position: "fixed", inset: 0, zIndex: 999 }} onClick={() => setThemeMenuOpen(false)} />
+              <div style={{
+                position: "absolute", top: 36, right: 0, zIndex: 1000,
+                background: C.bg1 || "#0F0F12", border: `1px solid ${C.border}`,
+                borderRadius: 10, padding: 6, minWidth: 130,
+                boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+              }}>
+                {[
+                  { id: "nova", label: "NOVA" },
+                  { id: "aurora", label: "Aurora" },
+                  { id: "neutral", label: "Neutral" },
+                  { id: "linear", label: "Linear" },
+                ].map(t => (
+                  <button
+                    key={t.id}
+                    onClick={() => { updateSetting("selectedPalette", t.id); setThemeMenuOpen(false); }}
+                    style={{
+                      display: "block", width: "100%", padding: "7px 12px",
+                      border: "none", borderRadius: 6, cursor: "pointer",
+                      background: selectedPalette === t.id ? (accent + "20") : "transparent",
+                      color: selectedPalette === t.id ? accent : (C.text || "#eee"),
+                      fontSize: 12, fontWeight: selectedPalette === t.id ? 600 : 400,
+                      textAlign: "left", transition: "all 0.1s",
+                    }}
+                    onMouseEnter={e => { if (selectedPalette !== t.id) e.currentTarget.style.background = ov(0.05, 0.04); }}
+                    onMouseLeave={e => { if (selectedPalette !== t.id) e.currentTarget.style.background = "transparent"; }}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Divider */}

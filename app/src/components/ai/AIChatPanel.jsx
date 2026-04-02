@@ -8,6 +8,8 @@ import { useSpecsStore } from "@/stores/specsStore";
 import { useDrawingsStore } from "@/stores/drawingsStore";
 import { callAnthropic, buildProjectContext } from "@/utils/ai";
 import { NOVA_TOOLS, executeNovaTool } from "@/utils/novaTools";
+import { novaCost } from "@/nova/agents/cost";
+import { detectScopeGaps, buildScopeGapSummary } from "@/nova/predictive/scopeGapDetector";
 import { motion } from "framer-motion";
 import { slidePanelVariants, slidePanelTransition } from "@/utils/motion";
 import Ic from "@/components/shared/Ic";
@@ -45,11 +47,11 @@ You are helpful, knowledgeable, and construction-savvy. Think like a senior esti
 // Quick action suggestions shown when chat is empty
 export const QUICK_ACTIONS = [
   { label: "What's missing from my estimate?", icon: "🔍" },
-  { label: "Review my takeoff quantities", icon: "📐" },
+  { label: "How does my pricing compare to my past projects?", icon: "📊" },
+  { label: "What should drywall cost on this project?", icon: "💰" },
+  { label: "What's my biggest cost risk?", icon: "⚠️" },
   { label: "Suggest value engineering options", icon: "💡" },
-  { label: "Check spec requirements for Division 03", icon: "📋" },
   { label: "Help me write scope exclusions", icon: "✏️" },
-  { label: "Compare my costs to industry averages", icon: "📊" },
 ];
 
 export default function AIChatPanel() {
@@ -109,6 +111,26 @@ export default function AIChatPanel() {
       // Build project context (includes item IDs for tool use)
       const context = buildProjectContext({ project, items, takeoffs, specs, drawings });
 
+      // Auto-detect scope gaps and inject into context for "missing" questions
+      let scopeContext = "";
+      const lowerMsg = msg.toLowerCase();
+      if (lowerMsg.includes("missing") || lowerMsg.includes("gap") || lowerMsg.includes("forgot") || lowerMsg.includes("complete") || lowerMsg.includes("risk") || lowerMsg.includes("coverage")) {
+        try {
+          const gapResult = detectScopeGaps({
+            items,
+            buildingType: project?.buildingType,
+            workType: project?.workType,
+            projectSF: project?.projectSF,
+            laborType: project?.laborType,
+          });
+          if (gapResult.gaps.length > 0 || gapResult.completionPct > 0) {
+            scopeContext = "\n\n[SCOPE GAP ANALYSIS — generated from ROM baseline vs current items]\n" + buildScopeGapSummary(gapResult);
+          }
+        } catch (e) {
+          console.warn("[AIChatPanel] Scope gap detection failed:", e);
+        }
+      }
+
       // Build API messages — include context in first user message
       const apiMessages = updatedMessages.map((m, i) => {
         // Skip action cards in API messages
@@ -116,7 +138,7 @@ export default function AIChatPanel() {
           return { role: "assistant", content: m.text || "Done." };
         }
         if (i === 0 && m.role === "user") {
-          return { role: "user", content: `[Project Context]\n${context}\n\n[Question]\n${m.text}` };
+          return { role: "user", content: `[Project Context]\n${context}${scopeContext}\n\n[Question]\n${m.text}` };
         }
         if (m.role === "user" && i > 0 && i % 6 === 0) {
           return { role: "user", content: `[Updated Context]\n${context}\n\n${m.text}` };
@@ -146,8 +168,19 @@ export default function AIChatPanel() {
             });
           }
 
+          // Augment system prompt with NOVA-Cost data context
+          const costContext = novaCost.systemPrompt({
+            projectSF: project?.projectSF,
+            buildingType: project?.buildingType,
+            workType: project?.workType,
+            laborType: project?.laborType,
+            zipCode: project?.zipCode,
+            currentItems: useItemsStore.getState().items?.slice(0, 15),
+          });
+          const augmentedSystem = SYSTEM_PROMPT + "\n\n" + costContext;
+
           const response = await callAnthropic({
-            system: SYSTEM_PROMPT,
+            system: augmentedSystem,
             max_tokens: 4096,
             messages: currentMessages,
             tools: NOVA_TOOLS,

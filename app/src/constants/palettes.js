@@ -3,14 +3,14 @@ import { TOPO_TEXTURE, DOT_TEXTURE, NOISE_GRAIN, CARBON_FIBER } from "./textures
 // Default color scheme — NOVA galaxy: deep indigo with purple/blue accents
 // Matches the NovaOrb renderer's color palette (violet → blue → white core)
 export const C_DEFAULT = {
-  // Surfaces — Nova void: near-black with subtle violet cast
-  bg: "#06060C", // void — near-black
-  bg1: "#0C0B14", // card surfaces
-  bg2: "#12101C", // raised surfaces, headers
-  bg3: "#1A1828", // elevated elements, hover
+  // Surfaces — NOVA 2.0: warm near-black, no blue/violet cast
+  bg: "#09090B", // ground — warm near-black
+  bg1: "#0F0F12", // card surfaces
+  bg2: "#161619", // raised surfaces, headers
+  bg3: "#1C1C20", // elevated elements, hover
   // Borders
-  border: "rgba(255,255,255,0.07)",
-  borderLight: "rgba(255,255,255,0.04)",
+  border: "rgba(255,255,255,0.06)",
+  borderLight: "rgba(255,255,255,0.03)",
   borderAccent: "rgba(139,92,246,0.18)",
   // Text hierarchy
   text: "#EEEDF5",
@@ -34,9 +34,9 @@ export const C_DEFAULT = {
   cyan: "#64D2FF",
   yellow: "#FFE66D",
   // Sidebar
-  sidebarBg: "rgba(6,6,12,0.96)",
+  sidebarBg: "rgba(9,9,11,0.96)",
   // Glass
-  glassBg: "rgba(18,16,28,0.75)",
+  glassBg: "rgba(15,15,18,0.80)",
   glassBorder: "rgba(255,255,255,0.06)",
   glassBgDark: "rgba(8,8,16,0.75)",
   // Background
@@ -162,26 +162,29 @@ export const PALETTES = [
   {
     id: "nova",
     name: "NOVA",
-    desc: "Galaxy nebula — purple, blue & white core",
-    preview: ["#08091A", "#8B5CF6", "#60A5FA", "#C084FC", "#F5F3FF"],
+    desc: "Warm dark — quiet confidence, Apple-grade clarity",
+    preview: ["#09090B", "#8B5CF6", "#60A5FA", "#C084FC", "#F5F3FF"],
     variantLabels: ["Nebula", "Cosmos", "Aurora", "NOVA Light", "Stardust"],
     overrides: {
-      bg: "#06060C",
-      bg1: "#0C0B14",
-      bg2: "#12101C",
-      bg3: "#1A1828",
-      border: "rgba(255,255,255,0.07)",
-      borderLight: "rgba(255,255,255,0.04)",
-      borderAccent: "rgba(139,92,246,0.18)",
+      // NOVA 2.0 — warm near-black, not blue-black
+      usePBR: false, // PBR material dashboard background (disabled — materials live on cards now)
+      cardMaterials: true, // Per-widget CSS material surfaces (Terzo Millennio concept)
+      bg: "#09090B",
+      bg1: "#0F0F12",
+      bg2: "#161619",
+      bg3: "#1C1C20",
+      border: "rgba(255,255,255,0.06)",
+      borderLight: "rgba(255,255,255,0.03)",
+      borderAccent: "rgba(139,92,246,0.15)",
       text: "#EEEDF5",
       textMuted: "rgba(238,237,245,0.55)",
       textDim: "rgba(238,237,245,0.28)",
       accent: "#8B5CF6",
       accentDim: "#6D28D9",
-      accentBg: "rgba(139,92,246,0.07)",
+      accentBg: "rgba(139,92,246,0.06)",
       accentAlt: "#A78BFA",
       gradient: "linear-gradient(135deg, #8B5CF6, #A78BFA)",
-      gradientSubtle: `linear-gradient(135deg, ${hR("#8B5CF6", 0.12)}, ${hR("#A78BFA", 0.12)})`,
+      gradientSubtle: `linear-gradient(135deg, ${hR("#8B5CF6", 0.08)}, ${hR("#A78BFA", 0.08)})`,
       gradientText: "linear-gradient(135deg, #8B5CF6, #A78BFA)",
       green: "#34D399",
       red: "#FB7185",
@@ -189,11 +192,11 @@ export const PALETTES = [
       purple: "#C4B5FD",
       orange: "#F59E0B",
       cyan: "#64D2FF",
-      sidebarBg: "rgba(6,6,12,0.96)",
-      glassBg: "rgba(18,16,28,0.78)",
-      glassBorder: "rgba(255,255,255,0.06)",
-      glassBgDark: "rgba(8,8,16,0.78)",
-      bgGradient: "#06060C",
+      sidebarBg: "rgba(9,9,11,0.96)",
+      glassBg: "rgba(15,15,18,0.80)",
+      glassBorder: "rgba(255,255,255,0.05)",
+      glassBgDark: "rgba(9,9,11,0.80)",
+      bgGradient: "#09090B",
       forceDark: true,
       bgTexture: TOPO_TEXTURE,
     },
@@ -296,126 +299,6 @@ export const PALETTES = [
   // ═══════════════════════════════════════════════════════════════════════════
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Shift5B — Board-spec refined: blue-black void, luminous indigo accent
-  // Deep cool surfaces with warm indigo accent. Full semantic color.
-  // Designed for sustained estimating sessions with high contrast hierarchy.
-  // ═══════════════════════════════════════════════════════════════════════════
-  {
-    id: "shift5b",
-    name: "Shift5B",
-    desc: "Board-spec — blue-black void, luminous indigo accent",
-    preview: ["#08090E", "#7C6BF0", "#11111B", "#A1A1AA", "#FAFAFA"],
-    variantLabels: ["Refined"],
-    overrides: {
-      // ── Surfaces — blue-black void with warm card lift ──
-      bg: "#08090E",        // base — blue-black void
-      bg1: "#11111B",       // cards — warm against cool base
-      bg2: "#1A1A24",       // raised surfaces, input wells
-      bg3: "#22222E",       // hover states, elevated elements
-      // ── Borders — cool indigo-grey ──
-      border: "#25253A",                         // subtle
-      borderLight: "rgba(255,255,255,0.05)",
-      borderAccent: "rgba(124,107,240,0.28)",     // accent-tinted
-      // ── Text — high contrast hierarchy ──
-      text: "#FAFAFA",           // primary — near-white
-      textMuted: "#A1A1AA",      // secondary — zinc-400
-      textDim: "#52525B",        // tertiary — zinc-600
-      // ── Accent — luminous indigo ──
-      accent: "#7C6BF0",
-      accentDim: dk("#7C6BF0"),
-      accentBg: hR("#7C6BF0", 0.08),
-      accentAlt: "#9B8AFB",      // hover state
-      // ── Gradients ──
-      gradient: "linear-gradient(135deg, #7C6BF0, #9B8AFB)",
-      gradientSubtle: `linear-gradient(135deg, ${hR("#7C6BF0", 0.12)}, ${hR("#9B8AFB", 0.12)})`,
-      gradientText: "linear-gradient(135deg, #7C6BF0, #9B8AFB)",
-      // ── Semantic colors — full color, board-spec ──
-      green:  "#22C55E",
-      red:    "#EF4444",
-      blue:   "#60A5FA",
-      purple: "#A78BFA",
-      orange: "#F59E0B",
-      cyan:   "#64D2FF",
-      yellow: "#FFE66D",
-      // ── Sidebar ──
-      sidebarBg: "rgba(8,9,14,0.96)",
-      // ── Glass (disabled — flat surfaces) ──
-      glassBg: "#11111B",
-      glassBorder: "#25253A",
-      glassBgDark: "#08090E",
-      // ── Background ──
-      bgGradient: "#08090E",
-      // ── Flags ──
-      forceDark: true,
-      noGlass: true,
-      materialMode: "concrete",
-    },
-    variants: [null],
-  },
-
-  // ━━━ STITCH — Google Stitch-inspired: dark workshop, animated gradient borders ━━━
-  // Warmer charcoal (#191A1F) base, cyan-violet-blue gradient accent system,
-  // dot-grid texture, pill-shaped buttons. AI-native creative tool aesthetic.
-  // The signature element: animated conic-gradient borders on active cards
-  // (injected via useTheme stylesheet when this palette is active).
-  {
-    id: "stitch",
-    name: "Stitch",
-    desc: "Workshop — cyan-violet gradient, film grain texture",
-    preview: ["#191A1F", "#00E5FF", "#7C4DFF", "#2979FF", "#E8EAED"],
-    variantLabels: ["Workshop"],
-    overrides: {
-      bg: "#191A1F",           // warm charcoal (Stitch base)
-      bg1: "#1E1F25",          // card surfaces — slightly elevated
-      bg2: "#24252B",          // raised surfaces, headers
-      bg3: "#2C2D34",          // elevated elements, hover
-      border: "rgba(255,255,255,0.08)",
-      borderLight: "rgba(255,255,255,0.04)",
-      borderAccent: "rgba(0,229,255,0.18)",
-      text: "#E8EAED",         // Google-style warm off-white
-      textMuted: "rgba(232,234,237,0.55)",
-      textDim: "rgba(232,234,237,0.28)",
-      // Accent — cyan (primary action color)
-      accent: "#00E5FF",
-      accentDim: "#00B8D4",
-      accentBg: "rgba(0,229,255,0.07)",
-      accentAlt: "#7C4DFF",     // violet as secondary
-      // Gradient — the signature cyan→violet→blue sweep
-      gradient: "linear-gradient(135deg, #00E5FF, #7C4DFF, #2979FF)",
-      gradientSubtle: `linear-gradient(135deg, ${hR("#00E5FF", 0.12)}, ${hR("#7C4DFF", 0.12)}, ${hR("#2979FF", 0.12)})`,
-      gradientText: "linear-gradient(135deg, #00E5FF, #7C4DFF, #2979FF)",
-      // Semantic colors
-      green: "#00E676",
-      red: "#FF5252",
-      blue: "#448AFF",
-      purple: "#B388FF",
-      orange: "#FFAB40",
-      cyan: "#00E5FF",
-      yellow: "#FFD740",
-      // Sidebar
-      sidebarBg: "rgba(25,26,31,0.96)",
-      // Glass — subtle, warm
-      glassBg: "rgba(30,31,37,0.78)",
-      glassBorder: "rgba(255,255,255,0.08)",
-      glassBgDark: "rgba(25,26,31,0.92)",
-      // Background
-      textureMode: true,
-      bgTexture: NOISE_GRAIN,
-      bgGradient: [
-        // Noise grain texture applied via global overlay (boosted in Stitch mode)
-        // Ambient cyan glow — upper center
-        "radial-gradient(ellipse at 50% 15%, rgba(0,229,255,0.06) 0%, transparent 45%)",
-        // Secondary violet whisper — lower right
-        "radial-gradient(ellipse at 80% 80%, rgba(124,77,255,0.04) 0%, transparent 40%)",
-        "#191A1F",
-      ].join(", "),
-      forceDark: true,
-      // Stitch-specific: flag for animated gradient borders
-      stitchMode: true,
-    },
-    variants: [null], // single dark variant
-  },
-
   // ━━━ AURORA — Purple-dominant Northern Lights with film grain ━━━
   // Deep purple primary, violet-teal secondary accents. Noise grain texture.
   // Stitch-style widget cards with animated gradient borders on click.
@@ -550,180 +433,6 @@ export const PALETTES = [
     ],
   },
 
-  // ━━━ CONSTRUCT — Blueprint precision light theme ━━━
-  // Construction drawings: light gray paper, blueprint blue accent, dotted grid.
-  // Safety orange CTAs. Clean flat surfaces, no glass, no texture gimmicks.
-  // Daylight readability with subtle architectural grid pattern.
-  {
-    id: "construct",
-    name: "Construct",
-    desc: "Blueprint precision — daylight, grid, structure",
-    preview: ["#F6F7F9", "#0074E4", "#FFFFFF", "#1A1D24", "#FF6B00"],
-    variantLabels: ["Blueprint"],
-    overrides: {
-      // Dark panel (sidebar) — deep blueprint navy
-      bg: "#0B1628",
-      bg1: "#122240",
-      bg2: "#1A2D4E",
-      bg3: "#23395C",
-      border: "rgba(255,255,255,0.10)",
-      borderLight: "rgba(255,255,255,0.05)",
-      borderAccent: "rgba(0,116,228,0.28)",
-      text: "#F0F2F6",
-      textMuted: "rgba(240,242,246,0.55)",
-      textDim: "rgba(240,242,246,0.30)",
-      accent: "#0074E4",
-      accentDim: "#005BB5",
-      accentBg: "rgba(0,116,228,0.10)",
-      accentAlt: "#3B9FFF",
-      gradient: "linear-gradient(135deg, #0074E4, #0094FF)",
-      gradientSubtle: `linear-gradient(135deg, ${hR("#0074E4", 0.12)}, ${hR("#0094FF", 0.12)})`,
-      gradientText: "linear-gradient(135deg, #0074E4, #0094FF)",
-      green: "#34D399",
-      red: "#FB7185",
-      blue: "#60A5FA",
-      purple: "#A78BFA",
-      orange: "#FF6B00",
-      cyan: "#67E8F9",
-      yellow: "#FDE047",
-      sidebarBg: "rgba(11,22,40,0.97)",
-      glassBg: "#122240",
-      glassBorder: "rgba(255,255,255,0.08)",
-      glassBgDark: "#0B1628",
-      bgGradient: "#0B1628",
-      forceDark: false,
-      noGlass: true,
-      materialMode: "concrete",
-    },
-    variants: [
-      null, // 0 — dark panel
-      {
-        // 1 — Blueprint Light: gray paper with grid overlay
-        bg: "#F6F7F9",
-        bg1: "#FFFFFF",
-        bg2: "#ECEEF2",
-        bg3: "#E2E5EB",
-        border: "#E2E5EB",
-        borderLight: "#F0F1F4",
-        borderAccent: "rgba(0,116,228,0.2)",
-        text: "#1A1D24",
-        textMuted: "#6B7280",
-        textDim: "#9CA3AF",
-        accent: "#0074E4",
-        accentDim: "#005BB5",
-        accentBg: "rgba(0,116,228,0.06)",
-        accentAlt: "#E8F2FF",
-        gradient: "linear-gradient(135deg, #0074E4, #0094FF)",
-        gradientSubtle: "linear-gradient(135deg, rgba(0,116,228,0.08), rgba(0,148,255,0.08))",
-        gradientText: "linear-gradient(135deg, #0074E4, #0094FF)",
-        green: "#059669",
-        red: "#DC2626",
-        blue: "#0074E4",
-        purple: "#7C3AED",
-        orange: "#FF6B00",
-        cyan: "#0891B2",
-        yellow: "#D97706",
-        glassBg: "#FFFFFF",
-        glassBorder: "#E2E5EB",
-        glassBgDark: "#FFFFFF",
-        sidebarBg: "#FFFFFF",
-        bgGradient: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Ccircle cx='0.5' cy='0.5' r='0.4' fill='%239CA3AF' fill-opacity='0.18'/%3E%3C/svg%3E"), linear-gradient(180deg, rgba(0,116,228,0.02) 0%, rgba(0,116,228,0.00) 50%, rgba(0,116,228,0.01) 100%), #F6F7F9`,
-      },
-    ],
-  },
-
-  // ━━━ COMMAND — Epichust-inspired dark steel command center ━━━
-  // Dark steel surfaces, teal accent, colored widget accent lines,
-  // Barlow Condensed typography, staggered entrance animations.
-  // Data-forward industrial aesthetic. No glass. No blur. Pure signal.
-  {
-    id: "command",
-    name: "Command",
-    desc: "Dark steel command center — teal, precision, signal",
-    preview: ["#12141A", "#00D4AA", "#1A1D25", "#E0DDD5", "#FF8C00"],
-    variantLabels: ["Command"],
-    overrides: {
-      commandMode: true,
-      bg: "#12141A",
-      bg1: "#1A1D25",
-      bg2: "#22262F",
-      bg3: "#2A2F3A",
-      border: "rgba(255,255,255,0.06)",
-      borderLight: "rgba(255,255,255,0.03)",
-      borderAccent: "rgba(0,212,170,0.15)",
-      text: "#E0DDD5",
-      textMuted: "rgba(224,221,213,0.50)",
-      textDim: "rgba(224,221,213,0.25)",
-      accent: "#00D4AA",
-      accentDim: "#00A888",
-      accentBg: "rgba(0,212,170,0.08)",
-      accentAlt: "#3BDFCF",
-      gradient: "linear-gradient(135deg, #00D4AA, #00A888)",
-      gradientSubtle: "linear-gradient(135deg, rgba(0,212,170,0.10), rgba(0,168,136,0.10))",
-      gradientText: "linear-gradient(135deg, #00D4AA, #3BDFCF)",
-      green: "#00D4AA",
-      red: "#FF4757",
-      blue: "#4DA6FF",
-      purple: "#A855F7",
-      orange: "#FF8C00",
-      cyan: "#00BCD4",
-      yellow: "#FFB020",
-      sidebarBg: "#0E1016",
-      bgGradient: "linear-gradient(180deg, #12141A 0%, #0E1016 100%)",
-      forceDark: true,
-      noGlass: true,
-      materialMode: "concrete",
-    },
-    variants: [null],
-  },
-
-  // ━━━ SIGNAL — Gradient depth cards, bold metrics, mixed widget styles ━━━
-  // Inspired by Figma Year Wrapped aesthetic: gradient feature cards,
-  // massive numbers, cyan accents, warm gradients, layered depth.
-  // Not uniform — each widget type gets distinct visual treatment.
-  {
-    id: "signal",
-    name: "Signal",
-    desc: "Bold gradients, depth, color, presence",
-    preview: ["#0C0C10", "#00D4AA", "#1A1A22", "#F0ECE4", "#FF6B9D"],
-    variantLabels: ["Signal"],
-    overrides: {
-      signalMode: true,
-      bg: "#0C0C10",
-      bg1: "#16161E",
-      bg2: "#1E1E28",
-      bg3: "#282834",
-      border: "rgba(255,255,255,0.08)",
-      borderLight: "rgba(255,255,255,0.04)",
-      borderAccent: "rgba(0,212,170,0.2)",
-      text: "#F0ECE4",
-      textMuted: "rgba(240,236,228,0.55)",
-      textDim: "rgba(240,236,228,0.25)",
-      accent: "#00D4AA",
-      accentDim: "#00A888",
-      accentBg: "rgba(0,212,170,0.10)",
-      accentAlt: "#3BDFCF",
-      gradient: "linear-gradient(135deg, #00D4AA, #0891B2)",
-      gradientSubtle: "linear-gradient(135deg, rgba(0,212,170,0.12), rgba(8,145,178,0.12))",
-      gradientText: "linear-gradient(135deg, #00D4AA, #06B6D4)",
-      green: "#00D4AA",
-      red: "#FF4757",
-      blue: "#4DA6FF",
-      purple: "#A855F7",
-      orange: "#FF8C00",
-      cyan: "#06B6D4",
-      yellow: "#FFB020",
-      sidebarBg: "#0A0A0E",
-      bgGradient: "radial-gradient(ellipse at 30% 0%, rgba(0,212,170,0.04) 0%, transparent 50%), radial-gradient(ellipse at 70% 100%, rgba(168,85,247,0.03) 0%, transparent 50%), #0C0C10",
-      forceDark: true,
-      noGlass: true,
-      materialMode: "concrete",
-    },
-    variants: [null],
-  },
-
-  // ━━━ LINEAR — Extracted from Linear.app via website cloner ━━━
-  // Near-black base, cool gray muted text, indigo accent.
   // Ultra-clean: thin borders, tight letter-spacing, Inter font.
   // The gold standard of dark SaaS UI.
   {
@@ -855,6 +564,82 @@ export const PALETTES = [
         bgGradient: "#F0EFEB",
         noGlass: true,
         materialMode: "concrete",
+      },
+    ],
+  },
+  // ━━━ SHIFT5 OPS — Burnt orange field, dark ops cards, left sidebar ━━━
+  // Inspired by shift5.io footer: burnt coral background, dark charcoal cards,
+  // monospace military typography. Replaces top header with collapsible left sidebar.
+  {
+    id: "shift5-ops",
+    name: "Shift5 Ops",
+    desc: "Burnt orange field, dark ops cards, monospace military aesthetic",
+    preview: ["#E8614D", "#1E1E1E", "#252525", "#E8614D", "#F0F0F0"],
+    variantLabels: ["Ops Orange", "Signal Grey", "Dark Ops"],
+    overrides: {
+      shift5OpsMode: true,
+      // ── Surfaces — burnt orange field with dark cards ──
+      bg: "#E8614D",           // page background — the orange field
+      bg1: "#1E1E1E",          // cards — dark charcoal
+      bg2: "#252525",          // raised surfaces
+      bg3: "#2E2E2E",          // hover states
+      // ── Borders — harsh, no softness ──
+      border: "#3A3A3A",
+      borderLight: "rgba(255,255,255,0.06)",
+      borderAccent: "rgba(232,97,77,0.40)",
+      // ── Text — high contrast on dark cards ──
+      text: "#F0F0F0",
+      textMuted: "#B0B0B0",
+      textDim: "#666666",
+      // ── Accent — burnt coral ──
+      accent: "#E8614D",
+      accentDim: "#C04E3D",
+      accentBg: "rgba(232,97,77,0.12)",
+      accentAlt: "#FF7A68",
+      // ── Gradients ──
+      gradient: "linear-gradient(135deg, #E8614D, #FF7A68)",
+      gradientSubtle: "linear-gradient(135deg, rgba(232,97,77,0.12), rgba(255,122,104,0.12))",
+      gradientText: "linear-gradient(135deg, #E8614D, #FF7A68)",
+      // ── Semantic colors ──
+      green: "#4ADE80",
+      red: "#E8614D",
+      blue: "#60A5FA",
+      purple: "#A78BFA",
+      orange: "#E8614D",
+      cyan: "#22D3EE",
+      yellow: "#FBBF24",
+      // ── Sidebar ──
+      sidebarBg: "rgba(24,24,24,0.98)",
+      // ── Glass disabled — flat military surfaces ──
+      glassBg: "#1E1E1E",
+      glassBorder: "#3A3A3A",
+      glassBgDark: "#181818",
+      bgGradient: "#E8614D",
+      // ── Flags ──
+      forceDark: true,
+      noGlass: true,
+      materialMode: "concrete",
+    },
+    variants: [
+      null, // 0 — Ops Orange: burnt orange field, dark cards
+      // 1 — Signal Grey: warm grey field, dark cards (Shift5.io homepage look)
+      {
+        bg: "#C4C4C4",
+        bgGradient: "#C4C4C4",
+        glassBg: "#1E1E1E",
+        glassBgDark: "#181818",
+      },
+      // 2 — Dark Ops: dark-on-dark monochromatic (System Status card look)
+      {
+        bg: "#252525",
+        bgGradient: "#252525",
+        bg2: "#2A2A2A",
+        bg3: "#333333",
+        text: "#B0B0B0",
+        textMuted: "#808080",
+        textDim: "#555555",
+        glassBg: "#1E1E1E",
+        glassBgDark: "#181818",
       },
     ],
   },

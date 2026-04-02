@@ -7,10 +7,12 @@ import { useScanStore } from "@/stores/scanStore";
 import { generateBaselineROM, computeCalibration } from "@/utils/romEngine";
 import { MONTANA_PROPOSALS } from "./montana-proposals";
 import { VIOLANTE_PROPOSALS } from "./violante-proposals";
+import { AREA_BUILDERS_PROPOSALS } from "./area-builders-proposals";
 
 const IMPORT_KEY = "proposals-imported-montana-v8"; // v8: all proposals now have ZIP codes
 const VIOLANTE_IMPORT_KEY = "proposals-imported-violante-v8"; // v8: all proposals now have ZIP codes
-const CALIBRATION_KEY = "proposals-calibrated-v8"; // v8: recalibrate with ZIP-normalized data
+const AREA_BUILDERS_IMPORT_KEY = "proposals-imported-area-builders-v1";
+const CALIBRATION_KEY = "proposals-calibrated-v9"; // v9: recalibrate with Area Builders data
 
 // ── Generate a learning record from a proposal (same logic as HistoricalProposalsPanel) ──
 function generateLearningRecord(proposal) {
@@ -151,6 +153,120 @@ export function importViolanteProposals() {
 
   localStorage.setItem(VIOLANTE_IMPORT_KEY, new Date().toISOString());
   console.log(`[proposals] Imported ${imported} Violante proposals`);
+  return imported;
+}
+
+export function importAreaBuildersProposals() {
+  if (localStorage.getItem(AREA_BUILDERS_IMPORT_KEY)) return false;
+
+  const store = useMasterDataStore.getState();
+  const existing = store.masterData?.historicalProposals || [];
+
+  // Remove old Area Builders imports for clean reimport
+  const oldAB = existing.filter(p => p.source === "area-builders-import" || p.gcCompany === "Anonymous GC-3");
+  if (oldAB.length > 0) {
+    console.log(`[proposals] Removing ${oldAB.length} old Area Builders imports for clean reimport`);
+    const cleaned = existing.filter(p => !oldAB.includes(p));
+    store.setMasterData({ ...store.masterData, historicalProposals: cleaned });
+  }
+
+  const currentExisting = store.masterData?.historicalProposals || [];
+  const batchImportNames = new Set(
+    currentExisting
+      .filter(p => p.source === "area-builders-import")
+      .map(p => (p.projectName || p.name || "").toLowerCase())
+  );
+
+  let imported = 0;
+  for (const p of AREA_BUILDERS_PROPOSALS) {
+    if (batchImportNames.has((p.projectName || "").toLowerCase())) continue;
+    store.addHistoricalProposal({
+      projectName: p.projectName, client: p.client, architect: p.architect,
+      totalCost: p.totalCost, proposalCost: p.totalCost, projectSF: p.projectSF,
+      jobType: p.jobType, workType: p.workType, laborType: p.laborType,
+      outcome: p.outcome, date: p.date, zipCode: p.zipCode, address: p.address,
+      divisions: p.divisions, source: p.source, sourceFileName: p.sourceFileName,
+      proposalType: "gc",
+      gcCompany: "Anonymous GC-3", // Anonymized
+    });
+    imported++;
+  }
+
+  localStorage.setItem(AREA_BUILDERS_IMPORT_KEY, new Date().toISOString());
+  console.log(`[proposals] Imported ${imported} Area Builders proposals (all GC, open shop NYC)`);
+  return imported;
+}
+
+// ── Import batch-parsed proposals from ingestion_runs into masterData ──
+export async function importBatchParsedProposals() {
+  const BATCH_KEY = "proposals-imported-batch-v1";
+  if (localStorage.getItem(BATCH_KEY)) return false;
+
+  // Dynamic import to avoid circular deps
+  const { supabase } = await import("@/utils/supabase");
+
+  const { data: runs, error } = await supabase
+    .from("ingestion_runs")
+    .select("*")
+    .eq("parse_status", "parsed");
+
+  if (error || !runs?.length) {
+    console.log(`[proposals] No batch-parsed runs to import (${error?.message || "0 runs"})`);
+    return 0;
+  }
+
+  const store = useMasterDataStore.getState();
+  const existing = store.masterData?.historicalProposals || [];
+  const existingFileIds = new Set(
+    existing.filter(p => p.source === "batch-import").map(p => p.dropboxFileId),
+  );
+
+  let imported = 0;
+  for (const run of runs) {
+    if (existingFileIds.has(run.dropbox_file_id)) continue;
+
+    const pd = run.parsed_data || {};
+    const cl = run.classification || {};
+
+    // Build divisions from line items
+    const divisions = {};
+    for (const item of pd.lineItems || []) {
+      if (item.csiCode && item.amount > 0) {
+        divisions[item.csiCode] = (divisions[item.csiCode] || 0) + Math.round(item.amount);
+      }
+    }
+
+    // Map folder_type to proposalType
+    const proposalType = run.folder_type === "gc" ? "gc" :
+      run.folder_type === "vendor" ? "vendor" : "sub";
+
+    store.addHistoricalProposal({
+      projectName: cl.projectName || run.filename.replace(/\.[^.]+$/, ""),
+      client: cl.companyName || run.company_name || "Unknown",
+      totalCost: pd.totalBid || run.total_bid || 0,
+      proposalCost: pd.totalBid || run.total_bid || 0,
+      divisions,
+      proposalType,
+      source: "batch-import",
+      sourceFileName: run.filename,
+      dropboxFileId: run.dropbox_file_id,
+      dropboxPath: run.dropbox_path,
+      lineItems: pd.lineItems || [],
+      inclusions: pd.inclusions || [],
+      exclusions: pd.exclusions || [],
+      alternates: pd.alternates || [],
+      subcontractorName: pd.subcontractorName || null,
+      confidence: pd.confidence || 0,
+      gcCompany: proposalType === "gc" ? (cl.companyName || "Unknown GC") : null,
+      subContractor: proposalType === "sub" ? (pd.subcontractorName || cl.companyName || "Unknown Sub") : null,
+    });
+    imported++;
+  }
+
+  if (imported > 0) {
+    localStorage.setItem(BATCH_KEY, new Date().toISOString());
+    console.log(`[proposals] Imported ${imported} batch-parsed proposals into CORE`);
+  }
   return imported;
 }
 

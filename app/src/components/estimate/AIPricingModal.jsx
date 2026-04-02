@@ -10,6 +10,8 @@ import { I } from "@/constants/icons";
 import { bt } from "@/utils/styles";
 import { nn, fmt2 } from "@/utils/format";
 import { callAnthropic } from "@/utils/ai";
+import { useCorrectionStore } from "@/nova/learning/correctionStore";
+import { supabase } from "@/utils/supabase";
 
 export default function AIPricingModal() {
   const C = useTheme();
@@ -24,6 +26,7 @@ export default function AIPricingModal() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [selected, setSelected] = useState({ material: true, labor: true, equipment: true, subcontractor: true });
+  const [tradeIndex, setTradeIndex] = useState(null); // Data from trade_pricing_index
 
   // DB matches
   const dbMatches = item
@@ -42,9 +45,60 @@ export default function AIPricingModal() {
     setLoading(true);
     setResult(null);
     setError(null);
-    const loc = project.address || "NYC metro area";
-    const dir = item.directive || "";
-    const prompt = `You are a construction cost estimator. Provide unit pricing for this scope item.
+    setTradeIndex(null);
+
+    const csiDiv = (item.code || "").substring(0, 2);
+    const unit = (item.unit || "EA").toUpperCase();
+
+    // Step 1: Check trade pricing index from Supabase (YOUR data first)
+    const fetchTradeIndex = supabase
+      .from("trade_pricing_index")
+      .select("*")
+      .eq("csi_division", csiDiv)
+      .then(({ data }) => {
+        if (data?.length) {
+          // Find best match: same unit > any unit rate > lump sum
+          const exactMatch = data.find(d => d.metric_type === "unit_rate" && d.unit === unit);
+          const anyUnitRate = data.find(d => d.metric_type === "unit_rate");
+          const lumpSum = data.find(d => d.metric_type === "lump_sum_per_sf");
+          setTradeIndex(exactMatch || anyUnitRate || lumpSum || null);
+          return exactMatch || anyUnitRate || lumpSum;
+        }
+        return null;
+      })
+      .catch(() => null);
+
+    // Step 2: Call Claude with your data context injected
+    fetchTradeIndex.then(tpi => {
+      const loc = project.address || "NYC metro area";
+      const dir = item.directive || "";
+
+      // Build data context from trade pricing index
+      let dataContext = "";
+      if (tpi) {
+        dataContext = `\n\nIMPORTANT — USER'S HISTORICAL DATA for Division ${csiDiv}:
+- Metric: ${tpi.metric_type} ${tpi.unit ? `(${tpi.unit})` : ""}
+- Median: $${tpi.median} | Mean: $${tpi.mean}
+- Range: $${tpi.p25} (25th pct) to $${tpi.p75} (75th pct)
+- Based on ${tpi.sample_count} real proposals from this user's portfolio
+ANCHOR your pricing to this data. Adjust for the specific item but stay within reasonable range of the user's historical pricing.`;
+      }
+
+      // Build DB match context
+      let dbContext = "";
+      if (dbMatches.length > 0) {
+        const top3 = dbMatches.slice(0, 3).map(e => {
+          const total = (e.material || 0) + (e.labor || 0) + (e.equipment || 0) + (e.subcontractor || 0);
+          return `"${e.name}" — $${total.toFixed(2)}/${e.unit} (M:$${e.material || 0} L:$${e.labor || 0} E:$${e.equipment || 0})`;
+        });
+        dbContext = `\n\nUSER'S COST DATABASE MATCHES:\n${top3.join("\n")}
+Consider these as reference points.`;
+      }
+
+      // Correction context
+      const corrCtx = useCorrectionStore.getState().buildCorrectionContext("pricing", 500);
+
+      const prompt = `You are a construction cost estimator. Provide unit pricing for this scope item.
 
 Item: ${item.description}
 CSI Code: ${item.code || "N/A"}
@@ -52,13 +106,14 @@ Unit: ${item.unit || "EA"}
 Directive: ${dir || "N/A"}
 Location: ${loc}
 ${dir === "F/O" ? "This is Furnish Only — set labor to 0." : ""}
-${dir === "I/O" ? "This is Install Only — set material to 0." : ""}
+${dir === "I/O" ? "This is Install Only — set material to 0." : ""}${dataContext}${dbContext}${corrCtx ? "\n\n" + corrCtx : ""}
 
 Return ONLY valid JSON (no markdown): { "material": number, "labor": number, "equipment": number, "subcontractor": number, "confidence": "high"|"medium"|"low", "source": "string describing pricing basis", "subNote": "whether typically self-performed or subcontracted", "alternatives": [{ "name": "string", "material": number, "labor": number, "equipment": number }] }
 
-Base pricing on RS Means / industry data. Apply locality adjustment factor 1.25-1.35x for NYC metro if applicable.`;
+Base pricing on the user's historical data when available, supplemented by RS Means / industry data. Apply locality adjustment if needed.`;
 
-    callAnthropic({ max_tokens: 800, messages: [{ role: "user", content: prompt }] })
+      return callAnthropic({ max_tokens: 800, messages: [{ role: "user", content: prompt }] });
+    })
       .then(text => {
         try {
           const json = JSON.parse(
@@ -84,9 +139,26 @@ Base pricing on RS Means / industry data. Apply locality adjustment factor 1.25-
   const handleApply = () => {
     if (!result) return;
     const fields = ["material", "labor", "equipment", "subcontractor"];
+    const { logCorrection } = useCorrectionStore.getState();
+
+    // Log which pricing components were accepted/rejected
     fields.forEach(f => {
-      if (selected[f] && result[f] != null) updateItem(item.id, f, result[f]);
+      if (result[f] != null && result[f] > 0) {
+        if (!selected[f]) {
+          // User rejected this component — log it
+          logCorrection("pricing:adjust", {
+            context: `Rejected AI ${f} for "${item.description}"`,
+            original: result[f],
+            corrected: 0,
+            field: f,
+            scheduleType: item.code,
+          });
+        } else {
+          updateItem(item.id, f, result[f]);
+        }
+      }
     });
+
     showToast("AI pricing applied");
     setPricingModal(null);
   };
@@ -95,6 +167,17 @@ Base pricing on RS Means / industry data. Apply locality adjustment factor 1.25-
     updateItem(item.id, "material", el.material || 0);
     updateItem(item.id, "labor", el.labor || 0);
     updateItem(item.id, "equipment", el.equipment || 0);
+
+    // Log that user preferred DB match over AI — teaches NOVA to match DB items
+    if (result) {
+      useCorrectionStore.getState().logCorrection("pricing:source", {
+        context: `Chose DB "${el.name}" over AI for "${item.description}"`,
+        original: { m: result.material, l: result.labor, e: result.equipment },
+        corrected: { m: el.material, l: el.labor, e: el.equipment, source: el.name },
+        field: item.code,
+      });
+    }
+
     showToast(`Applied "${el.name}" pricing`);
     setPricingModal(null);
   };
@@ -156,6 +239,24 @@ Base pricing on RS Means / industry data. Apply locality adjustment factor 1.25-
         <span>E={fmt2(nn(item.equipment))}</span>
         <span>S={fmt2(nn(item.subcontractor))}</span>
       </div>
+
+      {/* Your Data — Trade Pricing Index */}
+      {tradeIndex && (
+        <div style={{
+          padding: "8px 10px", marginBottom: 10, borderRadius: 6,
+          background: `${C.accent}12`, border: `1px solid ${C.accent}30`,
+          fontSize: 11,
+        }}>
+          <div style={{ fontWeight: 700, color: C.accent, marginBottom: 4, fontSize: 12 }}>
+            Your Data — {tradeIndex.trade_name} ({tradeIndex.sample_count} proposals)
+          </div>
+          <div style={{ display: "flex", gap: 12, color: C.text }}>
+            <span>Median: <b>${parseFloat(tradeIndex.median).toLocaleString()}</b>{tradeIndex.unit ? `/${tradeIndex.unit}` : ""}</span>
+            <span style={{ color: C.textDim }}>Range: ${parseFloat(tradeIndex.p25).toLocaleString()} – ${parseFloat(tradeIndex.p75).toLocaleString()}</span>
+            <span style={{ color: C.textDim }}>Mean: ${parseFloat(tradeIndex.mean).toLocaleString()}</span>
+          </div>
+        </div>
+      )}
 
       {/* Loading */}
       {loading && (

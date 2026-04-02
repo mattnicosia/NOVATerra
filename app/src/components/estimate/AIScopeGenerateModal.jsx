@@ -11,6 +11,7 @@ import { bt } from "@/utils/styles";
 import { nn, fmt2 } from "@/utils/format";
 import { callAnthropic } from "@/utils/ai";
 import { autoTradeFromCode } from "@/constants/tradeGroupings";
+import { useCorrectionStore } from "@/nova/learning/correctionStore";
 
 export default function AIScopeGenerateModal({ onClose }) {
   const C = useTheme();
@@ -66,7 +67,11 @@ Rules:
 - Generate 5-20 items depending on scope complexity
 - Return ONLY the JSON array, nothing else`;
 
-    const userMsg = prompt.trim() + (contextLines.length > 0 ? "\n\nProject context:\n" + contextLines.join("\n") : "");
+    // Inject learning context from past corrections
+    const correctionCtx = useCorrectionStore.getState().buildCorrectionContext("scope");
+    const userMsg = prompt.trim()
+      + (contextLines.length > 0 ? "\n\nProject context:\n" + contextLines.join("\n") : "")
+      + (correctionCtx ? "\n\n" + correctionCtx : "");
 
     try {
       const text = await callAnthropic({
@@ -108,9 +113,20 @@ Rules:
   };
 
   const handleAdd = () => {
+    const { logCorrection } = useCorrectionStore.getState();
     let added = 0;
+
     results.forEach((item, i) => {
-      if (!selected.has(i)) return;
+      if (!selected.has(i)) {
+        // Log rejected items so NOVA learns what the user doesn't want
+        logCorrection("scope:reject", {
+          context: `AI scope: "${prompt.trim().substring(0, 80)}"`,
+          original: item.description,
+          corrected: null,
+          field: item.code,
+        });
+        return;
+      }
       const division = item.division || divFromCode(item.code) || "";
       addElement(
         division,
@@ -124,11 +140,23 @@ Rules:
           equipment: item.equipment || 0,
           subcontractor: item.subcontractor || 0,
           trade: autoTradeFromCode(item.code) || "",
+          source: { category: "nova", label: "AI Scope Generator" },
         },
         activeGroupId,
       );
       added++;
     });
+
+    // Log what was accepted as a batch
+    if (added > 0) {
+      logCorrection("scope:accept", {
+        context: `AI scope: "${prompt.trim().substring(0, 80)}" — ${added}/${results.length} accepted`,
+        original: results.length,
+        corrected: added,
+        field: "scope-generation",
+      });
+    }
+
     showToast(`Added ${added} scope item${added !== 1 ? "s" : ""} to estimate`);
     onClose();
   };

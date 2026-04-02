@@ -14,6 +14,11 @@
  *   - notes:relevance   → User changed relevance rating
  *   - rom:estimate      → User significantly adjusted ROM value
  *   - titleblock:field  → User corrected a title block field
+ *   - scope:reject      → User deselected an AI-generated scope item
+ *   - scope:accept      → User accepted AI scope items (logs what was kept)
+ *   - pricing:adjust    → User applied different pricing than AI suggested
+ *   - pricing:source    → User chose DB match over AI pricing (or vice versa)
+ *   - assembly:edit     → User edited an AI-generated assembly element
  *
  * Storage: persisted per-estimate in IDB alongside estimate data,
  * plus a global corrections summary in master data for cross-project learning.
