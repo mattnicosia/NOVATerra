@@ -8,11 +8,11 @@ export const useUiStore = create((set, _get) => ({
   toast: null,
   showNotesPanel: false,
 
-  // App settings
+  // App settings — selectedPalette reads from localStorage for instant boot (no FOUC)
   appSettings: {
     activeCompanyId: "", // "" = primary profile, companyProfile.id, or "__all__"
-    selectedPalette: "nova",
-    paletteVariant: 0,
+    selectedPalette: (() => { try { return localStorage.getItem("nova-palette") || "nova"; } catch { return "nova"; } })(),
+    paletteVariant: (() => { try { return Number(localStorage.getItem("nova-palette-variant")) || 0; } catch { return 0; } })(),
     customPalettes: [],
     fontSize: 13,
     density: "comfortable", // "comfortable" | "compact"
@@ -175,8 +175,20 @@ export const useUiStore = create((set, _get) => ({
         obj = obj[keys[i]];
       }
       obj[keys[keys.length - 1]] = val;
+      // Persist palette instantly for no-flash boot
+      try {
+        if (path === "selectedPalette") localStorage.setItem("nova-palette", val);
+        if (path === "paletteVariant") localStorage.setItem("nova-palette-variant", String(val));
+      } catch { /* non-critical */ }
       return { appSettings: settings };
     }),
 
-  setAppSettings: v => set({ appSettings: v }),
+  setAppSettings: v => {
+    set({ appSettings: v });
+    // Persist palette to localStorage for instant boot (no theme flash)
+    try {
+      if (v?.selectedPalette) localStorage.setItem("nova-palette", v.selectedPalette);
+      if (v?.paletteVariant !== undefined) localStorage.setItem("nova-palette-variant", String(v.paletteVariant));
+    } catch { /* non-critical */ }
+  },
 }));
