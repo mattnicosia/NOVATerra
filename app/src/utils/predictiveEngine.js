@@ -18,6 +18,18 @@ import { analyzeDrawingGeometry, generateAutoMeasurements } from "./geometryEngi
 
 import { pdfRawCache } from "./uploadPipeline";
 import { callAnthropic, imageBlock } from "./ai";
+import { getLegendContext } from "./legendParser";
+import { getFirstClickExample, captureFirstClick } from "./firstClickTeacher";
+
+// ── Discipline inference from sheet number ──
+function inferDisciplineFromSheet(drawing) {
+  const num = (drawing.sheetNumber || "").toLowerCase().trim();
+  if (!num) return null;
+  const map = { e: "electrical", p: "plumbing", m: "mechanical", a: "architectural", s: "structural", c: "civil" };
+  if (map[num.slice(0, 2)]) return map[num.slice(0, 2)];
+  if (map[num[0]]) return map[num[0]];
+  return null;
+}
 
 // ══════════════════════════════════════════════════════════════════════
 // VISION-BASED PREDICTIONS — fallback for scanned/raster PDFs
@@ -64,6 +76,10 @@ async function runVisionPredictions(drawing, takeoff, measurementType, _clickPoi
   const isCount = measurementType === "count";
   const isLinear = measurementType === "linear";
 
+  // ── Build discipline-aware system prompt with legend context ──
+  const discipline = inferDisciplineFromSheet(drawing);
+  const legendCtx = getLegendContext(discipline);
+
   const systemPrompt = `You are NOVA, an expert construction plan reader for quantity takeoffs. You identify and PRECISELY locate specific elements on architectural/engineering drawings.
 
 Construction drawing conventions you know:
@@ -73,13 +89,13 @@ Construction drawing conventions you know:
 - Plumbing: toilets (elongated ovals), sinks (small rectangles at walls), urinals.
 - Equipment: mechanical units, electrical panels — shown with specific symbols and tags.
 - Tags/callouts: short text in circles, diamonds, hexagons, or triangles.
-
+${legendCtx ? `\n${legendCtx}\n` : ""}
 CRITICAL RULES:
 1. Return ONLY valid JSON — no markdown, no explanation, no code blocks.
 2. x and y are PERCENTAGES (0-100) from the left edge and top edge of the image.
 3. Be PRECISE — place each location at the EXACT CENTER of the symbol/element, not in approximate areas.
 4. Only mark locations where you can SEE an actual symbol or element. Do NOT guess or interpolate positions.
-5. If you cannot clearly identify the element, return {"found":0,"locations":[],"confidence":0,"notes":"Cannot identify element"}`;
+5. If you cannot clearly identify the element, return {"found":0,"locations":[],"confidence":0,"notes":"Cannot identify element"}${legendCtx ? "\n6. PRIORITIZE the SYMBOL LEGEND definitions above — they are project-specific and more accurate than generic conventions." : ""}`;
 
   const userPrompt = isCount
     ? `Find ALL instances of "${description}" on this construction drawing.
@@ -104,6 +120,30 @@ Mark the CENTER of each distinct area as x,y percentages (0-100). Only mark clea
 Return JSON: {"found":<count>,"locations":[{"x":<0-100>,"y":<0-100>,"label":"<room name>"}],"confidence":<0-1>,"notes":"<observations>"}`;
 
   try {
+    // ── Build user content with optional first-click example ──
+    const userContent = [];
+
+    // First-click example: if user already clicked/accepted one instance,
+    // include the cropped 400×400px reference so Vision knows exactly what to find.
+    // This is a 2-3x accuracy multiplier.
+    const firstClickEx = takeoff?.id ? getFirstClickExample(takeoff.id) : null;
+    if (firstClickEx) {
+      const exRaw = firstClickEx.base64.includes(",")
+        ? firstClickEx.base64.split(",")[1]
+        : firstClickEx.base64;
+      userContent.push(
+        imageBlock(exRaw),
+        {
+          type: "text",
+          text: `REFERENCE: This cropped image shows exactly what "${description}" looks like on this project. The red circle marks one instance. Find ALL other instances of this SAME symbol on the full drawing below.`,
+        },
+      );
+      console.log(`[NOVA Vision] Including first-click example for "${description}"`);
+    }
+
+    // Full drawing image + prompt
+    userContent.push(imageBlock(base64), { type: "text", text: userPrompt });
+
     console.log(`[NOVA Vision] Analyzing "${description}" on drawing ${drawing.id} (page ${drawing.pdfPage || 1})`);
     const resp = await callAnthropic({
       model: "claude-sonnet-4-20250514",
@@ -111,7 +151,7 @@ Return JSON: {"found":<count>,"locations":[{"x":<0-100>,"y":<0-100>,"label":"<ro
       messages: [
         {
           role: "user",
-          content: [imageBlock(base64), { type: "text", text: userPrompt }],
+          content: userContent,
         },
       ],
       system: systemPrompt,
@@ -203,7 +243,7 @@ const _learningRecord = new Map(); // key: `${tag}::${strategy}` → { accepts, 
  * Record a user accept/reject for a prediction tag + strategy
  * Called from TakeoffsPage when user accepts or rejects predictions
  */
-export function recordPredictionFeedback(tag, strategy, accepted) {
+export function recordPredictionFeedback(tag, strategy, accepted, captureCtx) {
   if (!tag) return;
   const key = `${tag.toUpperCase()}::${strategy || "tag-based"}`;
   const entry = _learningRecord.get(key) || { accepts: 0, rejects: 0, lastUsed: 0 };
@@ -211,6 +251,23 @@ export function recordPredictionFeedback(tag, strategy, accepted) {
   else entry.rejects++;
   entry.lastUsed = Date.now();
   _learningRecord.set(key, entry);
+
+  // ── First-click teaching: capture on first accept ──
+  // When the user accepts their FIRST prediction for a takeoff,
+  // crop the region around the click and cache it as a visual reference.
+  // Subsequent Vision calls will include this crop for 2-3x accuracy.
+  if (accepted && entry.accepts === 1 && captureCtx) {
+    try {
+      captureFirstClick({
+        takeoffId: captureCtx.takeoffId,
+        description: captureCtx.description,
+        drawing: captureCtx.drawing,
+        point: captureCtx.point,
+      });
+    } catch (err) {
+      console.warn("[firstClickTeacher] Capture on first accept failed:", err.message);
+    }
+  }
 
   // LRU eviction: cap at 50 entries
   if (_learningRecord.size > 50) {

@@ -7,7 +7,7 @@ import { WIDGET_REGISTRY, SIZE_PRESETS, getAvailablePresets, getCurrentPreset } 
    WidgetActionMenu — per-widget popover with resize, move, remove
    ──────────────────────────────────────────────────────── */
 
-export default function WidgetActionMenu({ widgetId, widgetType, currentW, onClose, onConfigure, onReplace }) {
+export default function WidgetActionMenu({ widgetId, widgetType, config, currentW, onClose, onConfigure, onReplace }) {
   const C = useTheme();
   const T = C.T;
   const dk = C.isDark;
@@ -16,6 +16,7 @@ export default function WidgetActionMenu({ widgetId, widgetType, currentW, onClo
   const resizeWidget = useWidgetStore(s => s.resizeWidget);
   const setMovingWidget = useWidgetStore(s => s.setMovingWidget);
   const removeWidget = useWidgetStore(s => s.removeWidget);
+  const updateWidgetConfig = useWidgetStore(s => s.updateWidgetConfig);
 
   const reg = WIDGET_REGISTRY[widgetType] || {};
   const presets = getAvailablePresets(widgetType);
@@ -161,6 +162,70 @@ export default function WidgetActionMenu({ widgetId, widgetType, currentW, onClo
                   }}
                 >
                   {SIZE_PRESETS[key].label}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {/* ── Card Style (Shift5 Ops only) ── */}
+      {C.shift5OpsMode && (
+        <>
+          <div
+            style={{
+              fontSize: 7.5,
+              fontWeight: 600,
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              color: C.textDim,
+              fontFamily: T.font.display,
+              padding: "4px 8px 4px",
+            }}
+          >
+            Card Style
+          </div>
+          <div style={{ display: "flex", gap: 4, padding: "0 6px 6px" }}>
+            {[
+              { id: "1", bg: "#1E1E1E", label: "Dark" },
+              { id: "2", bg: "#C4C4C4", label: "Light" },
+              { id: "3", bg: "#252525", label: "Ops" },
+            ].map(combo => {
+              const active = (config?.colorCombo || "1") === combo.id;
+              return (
+                <button
+                  key={combo.id}
+                  onClick={() => updateWidgetConfig(widgetId, { colorCombo: combo.id })}
+                  style={{
+                    flex: 1,
+                    height: 28,
+                    borderRadius: 6,
+                    border: `1px solid ${active ? "#E8614D" : C.border}`,
+                    background: "transparent",
+                    cursor: "pointer",
+                    padding: 0,
+                    overflow: "hidden",
+                    display: "flex",
+                    flexDirection: "column",
+                    transition: "border-color 0.15s",
+                  }}
+                >
+                  <div style={{ flex: 1, display: "flex" }}>
+                    <div style={{ width: 3, background: "#E8614D", flexShrink: 0 }} />
+                    <div style={{ flex: 1, background: combo.bg }} />
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 7,
+                      fontWeight: 600,
+                      color: active ? "#E8614D" : C.textMuted,
+                      textAlign: "center",
+                      padding: "2px 0 1px",
+                      fontFamily: T.font.display,
+                    }}
+                  >
+                    {combo.label}
+                  </div>
                 </button>
               );
             })}

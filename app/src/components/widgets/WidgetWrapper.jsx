@@ -3,18 +3,115 @@ import { useTheme } from "@/hooks/useTheme";
 import { useWidgetStore } from "@/stores/widgetStore";
 import { WIDGET_REGISTRY } from "@/constants/widgetRegistry";
 import { motion } from "framer-motion";
-import { widgetHover, widgetTap } from "@/utils/motion";
+// widgetHover/widgetTap removed — NOVA 2.0 (Apple: no card bounce)
 import WidgetActionMenu from "./WidgetActionMenu";
 
 /* ────────────────────────────────────────────────────────
-   WidgetWrapper — Liquid Glass shell for each widget
-   Apple WWDC25-219: translucent glass panels with
-   backdrop-filter blur, specular highlights, and luminous edges.
+   WidgetWrapper — Material surface shell for each widget
+
+   NOVA 2.0: Each widget type gets a distinct material treatment
+   on its card surface. Inspired by Terzo Millennio — five dark
+   materials differentiated by how they respond to light.
+
+   Materials live ON the card, not behind it.
    ──────────────────────────────────────────────────────── */
+
+// ── Per-widget material treatments (dark mode only) ──────
+// Each returns { background, backgroundImage, border, boxShadow }
+const CARD_MATERIALS = {
+  // Carbon Fiber — hero widget, directional weave pattern
+  "project-pulse": (C) => ({
+    background: "#111116",
+    backgroundImage: `
+      repeating-linear-gradient(
+        45deg,
+        transparent, transparent 3px,
+        rgba(255,255,255,0.02) 3px, rgba(255,255,255,0.02) 4px
+      ),
+      repeating-linear-gradient(
+        -45deg,
+        transparent, transparent 3px,
+        rgba(255,255,255,0.015) 3px, rgba(255,255,255,0.015) 4px
+      )
+    `,
+    border: `1px solid rgba(255,255,255,0.07)`,
+    boxShadow: `0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)`,
+  }),
+
+  // Brushed Aluminum — precision instrument, horizontal grain
+  calendar: (C) => ({
+    background: `linear-gradient(135deg, #131318 0%, #0F0F14 100%)`,
+    backgroundImage: `
+      repeating-linear-gradient(
+        90deg,
+        transparent, transparent 1px,
+        rgba(255,255,255,0.018) 1px, rgba(255,255,255,0.018) 2px
+      )
+    `,
+    border: `1px solid rgba(255,255,255,0.08)`,
+    boxShadow: `0 1px 3px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.07)`,
+  }),
+
+  // Obsidian Glass — deep reflective surface for market observation
+  "market-intel": (C) => ({
+    background: `linear-gradient(180deg, #0E0E14 0%, #0A0A10 100%)`,
+    backgroundImage: "none",
+    border: `1px solid rgba(255,255,255,0.05)`,
+    boxShadow: `0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -1px 0 rgba(255,255,255,0.02)`,
+  }),
+
+  // Satin Titanium — instrument gauge, diagonal sheen
+  benchmarks: (C) => ({
+    background: `linear-gradient(135deg, #131318 0%, #101015 50%, #131318 100%)`,
+    backgroundImage: "none",
+    border: `1px solid rgba(255,255,255,0.07)`,
+    boxShadow: `0 1px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)`,
+  }),
+
+  // Polished Slate — writing surface, slightly warm
+  inbox: (C) => ({
+    background: `linear-gradient(180deg, #121214 0%, #0E0E11 100%)`,
+    backgroundImage: "none",
+    border: `1px solid rgba(255,255,255,0.06)`,
+    boxShadow: `0 1px 3px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.05)`,
+  }),
+
+  // Matte Carbon — default workhorse, max text contrast
+  _default: (C) => ({
+    background: "#0D0D11",
+    backgroundImage: "none",
+    border: `1px solid rgba(255,255,255,0.06)`,
+    boxShadow: `0 1px 3px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.04)`,
+  }),
+};
+
+// Map additional widget types to base materials
+CARD_MATERIALS["map-radar"] = CARD_MATERIALS._default;
+CARD_MATERIALS.projects = CARD_MATERIALS._default;
+CARD_MATERIALS["live-feed"] = CARD_MATERIALS._default;
+CARD_MATERIALS["carbon-breakdown"] = CARD_MATERIALS._default;
+CARD_MATERIALS["carbon-benchmark"] = CARD_MATERIALS._default;
+CARD_MATERIALS.estimate = CARD_MATERIALS._default;
+CARD_MATERIALS["cost-breakdown"] = CARD_MATERIALS._default;
+CARD_MATERIALS["estimate-health"] = CARD_MATERIALS._default;
+CARD_MATERIALS["deadline-countdown"] = CARD_MATERIALS._default;
+CARD_MATERIALS.spotify = CARD_MATERIALS._default;
+CARD_MATERIALS.iframe = CARD_MATERIALS._default;
+CARD_MATERIALS["pipeline-hero"] = (C) => ({
+  background: "#111110",
+  backgroundImage: `
+    repeating-linear-gradient(45deg, rgba(255,255,255,0.016) 0 1px, transparent 1px 8px),
+    repeating-linear-gradient(-45deg, rgba(0,0,0,0.22) 0 1px, transparent 1px 8px)
+  `,
+  backgroundSize: "8px 8px",
+  border: `1px solid rgba(255,255,255,0.07)`,
+  boxShadow: "none",
+});
 
 export default function WidgetWrapper({
   id,
   widgetType,
+  config,
   editMode,
   movingWidgetId,
   currentW,
@@ -43,58 +140,71 @@ export default function WidgetWrapper({
 
   const isActive = showEditChrome || showMoveChrome;
 
-  // Apple Liquid Glass — specular + hairline edge ONLY (no drop shadow on widgets)
-  // Light mode: white speculars invisible on light bg — use dark-adapted shadows
+  // NOVA 2.0 — simplified card shadow: subtle drop + top-edge inner highlight
   const glassShadow = isActive
     ? `0 0 0 1px ${C.accent}1A, 0 4px 16px rgba(0,0,0,0.10)`
-    : dk
-      ? hovered
-        ? [T.glass.specularHover, T.glass.edgeHover].join(", ")
-        : [T.glass.specular, T.glass.edge].join(", ")
-      : hovered
-        ? "inset 0 1px 0 rgba(255,255,255,0.7), 0 2px 8px rgba(0,0,0,0.08), 0 6px 20px rgba(0,0,0,0.04)"
-        : "inset 0 1px 0 rgba(255,255,255,0.6), 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.03)";
+    : "0 1px 3px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.04)";
+
+  // ── Per-widget material surface (NOVA 2.0 dark mode only) ──
+  const materialFn = C.cardMaterials && dk
+    ? (CARD_MATERIALS[widgetType] || CARD_MATERIALS._default)
+    : null;
+  const mat = materialFn ? materialFn(C) : null;
+
+  // Active-state override for material cards
+  const matActiveOverrides = mat && isActive
+    ? {
+        border: `1px solid ${C.accent}4D`,
+        boxShadow: `0 0 0 1px ${C.accent}1A, 0 4px 16px rgba(0,0,0,0.10)`,
+      }
+    : {};
 
   return (
     <motion.div
       className="widget-card"
+      data-widget-type={widgetType}
+      data-color-combo={config?.colorCombo || "1"}
       onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      whileHover={!isActive ? widgetHover : undefined}
-      whileTap={!isActive ? widgetTap : undefined}
+      onMouseLeave={() => { setHovered(false); }}
+      /* NOVA 2.0: no hover/tap scale — Apple doesn't bounce cards */
       style={{
         height: "100%",
         borderRadius: T.radius.lg,
-        // noGlass: solid opaque cards. Glass: translucent with blur.
-        background: C.noGlass
-          ? isActive
-            ? C.bg2
-            : C.bg1
-          : isActive
-            ? dk
-              ? "rgba(255,255,255,0.06)"
-              : "rgba(255,255,255,0.85)"
-            : dk
-              ? T.glass.bg
-              : C.glassBg || "rgba(255,255,255,0.32)",
-        backdropFilter: C.noGlass ? "none" : isActive ? undefined : T.glass.blur,
-        WebkitBackdropFilter: C.noGlass ? "none" : isActive ? undefined : T.glass.blur,
-        border: C.noGlass
-          ? `1px solid ${isActive ? `${C.accent}4D` : C.border}`
-          : `${dk ? "0.5" : "1"}px solid ${
-              isActive
-                ? `${C.accent}4D`
-                : dk
-                  ? hovered
-                    ? T.glass.borderHover
-                    : T.glass.border
-                  : C.glassBorder || C.border || "rgba(0,0,0,0.08)"
-            }`,
-        boxShadow: C.noGlass ? "none" : glassShadow,
+        // Material system: opaque PBR-inspired surfaces per widget type
+        ...(mat
+          ? {
+              background: mat.background,
+              backgroundImage: mat.backgroundImage,
+              ...(mat.backgroundSize ? { backgroundSize: mat.backgroundSize } : {}),
+              backdropFilter: "none",
+              WebkitBackdropFilter: "none",
+              border: mat.border,
+              boxShadow: mat.boxShadow,
+              ...matActiveOverrides,
+            }
+          : {
+              // noGlass: solid opaque cards. Glass: translucent with blur.
+              background: C.noGlass
+                ? isActive
+                  ? C.bg2
+                  : C.bg1
+                : isActive
+                  ? dk
+                    ? "rgba(255,255,255,0.06)"
+                    : "rgba(255,255,255,0.85)"
+                  : dk
+                    ? T.glass.bg
+                    : C.glassBg || "rgba(255,255,255,0.32)",
+              backdropFilter: C.noGlass ? "none" : isActive ? undefined : T.glass.blur,
+              WebkitBackdropFilter: C.noGlass ? "none" : isActive ? undefined : T.glass.blur,
+              border: `1px solid ${isActive ? `${C.accent}4D` : C.border || "rgba(255,255,255,0.06)"}`,
+              boxShadow: C.noGlass ? "none" : glassShadow,
+            }
+        ),
         display: "flex",
         flexDirection: "column",
         overflow: "visible",
-        transition: "border-color 0.3s, box-shadow 0.3s, background 0.3s",
+        transition: "border-color 0.2s, background 0.2s",
         position: "relative",
       }}
     >
@@ -104,24 +214,24 @@ export default function WidgetWrapper({
           <div
             className="widget-drag-handle"
             style={{
-              height: 26,
+              height: 22,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               cursor: "grab",
               borderBottom: `1px solid ${dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`,
-              borderRadius: "14px 14px 0 0",
+              borderRadius: "12px 12px 0 0",
               flexShrink: 0,
               gap: 6,
             }}
           >
             <svg width="14" height="8" viewBox="0 0 14 8" fill="none" style={{ opacity: 0.4 }}>
-              <circle cx="3" cy="2" r="1.2" fill={C.textMuted} />
-              <circle cx="7" cy="2" r="1.2" fill={C.textMuted} />
-              <circle cx="11" cy="2" r="1.2" fill={C.textMuted} />
-              <circle cx="3" cy="6" r="1.2" fill={C.textMuted} />
-              <circle cx="7" cy="6" r="1.2" fill={C.textMuted} />
-              <circle cx="11" cy="6" r="1.2" fill={C.textMuted} />
+              <circle cx="3" cy="2" r="1" fill={C.textMuted} />
+              <circle cx="7" cy="2" r="1" fill={C.textMuted} />
+              <circle cx="11" cy="2" r="1" fill={C.textMuted} />
+              <circle cx="3" cy="6" r="1" fill={C.textMuted} />
+              <circle cx="7" cy="6" r="1" fill={C.textMuted} />
+              <circle cx="11" cy="6" r="1" fill={C.textMuted} />
             </svg>
             <span
               style={{
@@ -212,24 +322,24 @@ export default function WidgetWrapper({
           <div
             className="widget-drag-handle"
             style={{
-              height: 26,
+              height: 22,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               cursor: "grab",
               borderBottom: `1px solid ${dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`,
-              borderRadius: "14px 14px 0 0",
+              borderRadius: "12px 12px 0 0",
               flexShrink: 0,
               gap: 6,
             }}
           >
             <svg width="14" height="8" viewBox="0 0 14 8" fill="none" style={{ opacity: 0.4 }}>
-              <circle cx="3" cy="2" r="1.2" fill={C.textMuted} />
-              <circle cx="7" cy="2" r="1.2" fill={C.textMuted} />
-              <circle cx="11" cy="2" r="1.2" fill={C.textMuted} />
-              <circle cx="3" cy="6" r="1.2" fill={C.textMuted} />
-              <circle cx="7" cy="6" r="1.2" fill={C.textMuted} />
-              <circle cx="11" cy="6" r="1.2" fill={C.textMuted} />
+              <circle cx="3" cy="2" r="1" fill={C.textMuted} />
+              <circle cx="7" cy="2" r="1" fill={C.textMuted} />
+              <circle cx="11" cy="2" r="1" fill={C.textMuted} />
+              <circle cx="3" cy="6" r="1" fill={C.textMuted} />
+              <circle cx="7" cy="6" r="1" fill={C.textMuted} />
+              <circle cx="11" cy="6" r="1" fill={C.textMuted} />
             </svg>
             <span
               style={{
@@ -286,7 +396,7 @@ export default function WidgetWrapper({
               alignItems: "center",
               justifyContent: "center",
               cursor: "grab",
-              borderRadius: "14px 14px 0 0",
+              borderRadius: "12px 12px 0 0",
               flexShrink: 0,
               opacity: hovered ? 0.5 : 0,
               transition: "opacity 0.2s",
@@ -349,6 +459,7 @@ export default function WidgetWrapper({
         <WidgetActionMenu
           widgetId={id}
           widgetType={widgetType}
+          config={config}
           currentW={currentW}
           onClose={clearActiveMenu}
           onConfigure={onConfigure}
@@ -360,7 +471,7 @@ export default function WidgetWrapper({
       <div
         style={{
           flex: 1,
-          padding: isActive ? "6px 12px 12px" : "2px 14px 12px",
+          padding: isActive ? "6px 12px 12px" : "4px 16px 14px",
           overflow: "hidden",
           pointerEvents: isActive ? "none" : "auto",
           minHeight: 0,

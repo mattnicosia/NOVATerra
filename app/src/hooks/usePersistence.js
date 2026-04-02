@@ -19,6 +19,7 @@ import { useScanStore } from "@/stores/scanStore";
 import { useDiscoveryStore } from "@/stores/discoveryStore";
 import { useGroupsStore, DEFAULT_GROUPS } from "@/stores/groupsStore";
 import { useCalendarStore } from "@/stores/calendarStore";
+import { useTaskStore } from "@/stores/taskStore";
 import { useBidPackagesStore } from "@/stores/bidPackagesStore";
 import { useAutoResponseStore } from "@/stores/autoResponseStore";
 import { useSubdivisionStore } from "@/stores/subdivisionStore";
@@ -544,6 +545,18 @@ export function usePersistenceLoad() {
         }
       }
 
+      // Load tasks
+      const taskRaw = await storage.get(idbKey("bldg-tasks"));
+      if (taskRaw) {
+        try {
+          const tasks = JSON.parse(taskRaw.value);
+          if (Array.isArray(tasks)) useTaskStore.getState().setTasks(tasks);
+        } catch (err) {
+          console.error("[usePersistence] Failed to parse tasks:", err);
+          await storage.delete(idbKey("bldg-tasks"));
+        }
+      }
+
       // Load auto-response config
       const arConfigRaw = await storage.get(idbKey("bldg-auto-response-config"));
       if (arConfigRaw?.value) {
@@ -618,6 +631,12 @@ export function usePersistenceLoad() {
       // Load scan learning records (global)
       await useScanStore.getState().loadLearningRecords();
       await useScanStore.getState().loadParameterCorrections();
+
+      // Load cached symbol legends
+      try {
+        const { useLegendStore } = await import("@/stores/legendStore");
+        await useLegendStore.getState().load();
+      } catch { /* legend store non-critical */ }
 
       // Load PDF upload queue (resumes pending extractions)
       await loadUploadQueue();
@@ -807,7 +826,7 @@ export function usePersistenceLoad() {
             if (hadCorruptedMaster) recoveredFromCloud = true;
           }
 
-          // Pull settings
+          // Pull settings — cloud version wins over stale local IDB
           const cloudSettings = await cloudSync.pullData("settings");
           if (cloudSettings) {
             useUiStore.getState().setAppSettings({
@@ -816,6 +835,8 @@ export function usePersistenceLoad() {
             });
             await storage.set(idbKey("bldg-settings"), JSON.stringify(cloudSettings));
           }
+          // Gate: allow auto-save to push settings to cloud now that we've pulled
+          useUiStore.getState().setCloudSettingsLoaded(true);
 
           // Pull assemblies
           const cloudAsm = await cloudSync.pullData("assemblies");
@@ -1216,6 +1237,11 @@ export function usePersistenceLoad() {
 
       // Signal that persistence load is complete — auto-save can now safely write
       useUiStore.getState().setPersistenceLoaded(true);
+      // If cloudSettingsLoaded wasn't set during cloud pull (e.g., local-only path),
+      // set it now so auto-save can push settings to cloud going forward.
+      if (!useUiStore.getState().cloudSettingsLoaded) {
+        useUiStore.getState().setCloudSettingsLoaded(true);
+      }
     })();
   }, [orgReady]);
 }
@@ -1972,7 +1998,11 @@ export async function saveSettings() {
     console.error("[usePersistence] Failed to save settings");
   }
 
-  // Cloud push (non-blocking)
+  // Cloud push — ONLY after cloud pull has completed.
+  // Without this gate, the stale local IDB settings get pushed to cloud
+  // within 2s of app load, overwriting the correct cross-device layout.
+  if (!useUiStore.getState().cloudSettingsLoaded) return;
+
   cloudSync.pushData("settings", settings).catch(err => {
     console.warn("[usePersistence] Cloud push failed for settings:", err?.message);
   });
@@ -2017,6 +2047,20 @@ export async function saveCalendar() {
   // Cloud push (non-blocking)
   cloudSync.pushData("calendar", tasks).catch(err => {
     console.warn("[usePersistence] Cloud push failed for calendar:", err?.message);
+  });
+}
+
+// Save tasks
+export async function saveTasks() {
+  const tasks = useTaskStore.getState().tasks;
+  const ok = await storage.set(idbKey("bldg-tasks"), JSON.stringify(tasks));
+  if (!ok) {
+    console.error("[usePersistence] Failed to save tasks");
+  }
+
+  // Cloud push (non-blocking)
+  cloudSync.pushData("tasks", tasks).catch(err => {
+    console.warn("[usePersistence] Cloud push failed for tasks:", err?.message);
   });
 }
 

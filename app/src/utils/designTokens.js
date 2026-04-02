@@ -66,12 +66,12 @@ export const T = {
     display: "'Switzer', sans-serif",
   },
 
-  // Border radii — Apple Liquid Glass: larger, softer corners
+  // Border radii — NOVA 2.0: Apple 12/8 system, tighter, more confident
   radius: {
-    sm: 8,
-    md: 12,
-    lg: 20,
-    xl: 26,
+    sm: 6,
+    md: 8,
+    lg: 12,
+    xl: 16,
     full: 9999,
   },
 
@@ -206,9 +206,10 @@ export const T = {
     },
     hero: {
       fontSize: 48,
-      fontWeight: 200,
-      lineHeight: 1.05,
-      letterSpacing: -1.0,
+      fontWeight: 700,
+      lineHeight: 1.0,
+      letterSpacing: -1.5,
+      fontVariantNumeric: "tabular-nums",
       fontFamily: "'Switzer', sans-serif",
     },
   },

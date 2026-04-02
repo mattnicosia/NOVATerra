@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useMemo } from "react";
+import { useRef, useEffect, useCallback, useMemo, useState } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useDashboardData } from "@/hooks/useDashboardData";
 
@@ -49,6 +49,7 @@ export default function ProjectPulseWidget() {
   const animRef = useRef(null);
   const particlesRef = useRef([]);
   const mouseRef = useRef({ x: -1, y: -1 });
+  const mountTimeRef = useRef(performance.now());
   const { sortedEstimates, benchmarks } = useDashboardData();
 
   // Status → color mapping
@@ -220,36 +221,27 @@ export default function ProjectPulseWidget() {
         ctx.fill();
       }
 
-      // ── Center glow ──
-      const coreGrd = ctx.createRadialGradient(midX, midY, 0, midX, midY, 45);
-      coreGrd.addColorStop(0, accentRgba(0.4));
-      coreGrd.addColorStop(0.4, accentRgba(0.1));
-      coreGrd.addColorStop(1, accentRgba(0.0));
+      // ── Center dot — NOVA 2.0: subtle, no glow gradient ──
       ctx.beginPath();
-      ctx.arc(midX, midY, 45, 0, Math.PI * 2);
-      ctx.fillStyle = coreGrd;
-      ctx.fill();
-
-      // Center bright dot
-      ctx.beginPath();
-      ctx.arc(midX, midY, 3.5, 0, Math.PI * 2);
-      ctx.fillStyle = C.accent;
+      ctx.arc(midX, midY, 2, 0, Math.PI * 2);
+      ctx.fillStyle = accentRgba(0.35);
       ctx.fill();
 
       // ── Text labels ──
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
 
-      // Pipeline total (center)
+      // Pipeline total (center) — NOVA 2.0: hero 48px
       const pipeline = benchmarks.pipeline || 0;
-      ctx.font = `700 ${Math.min(28, w * 0.065)}px 'Switzer', sans-serif`;
+      const heroSize = Math.min(48, w * 0.1);
+      ctx.font = `700 ${heroSize}px 'Switzer', sans-serif`;
       ctx.fillStyle = C.text;
-      ctx.fillText(fmtVal(pipeline), midX, midY - 6);
+      ctx.fillText(fmtVal(pipeline), midX, midY - 14);
 
-      // "PIPELINE" label
-      ctx.font = `600 ${Math.min(10, w * 0.025)}px 'Switzer', sans-serif`;
+      // "PIPELINE" label — 11px, 0.15em tracking
+      ctx.font = `600 11px 'Switzer', sans-serif`;
       ctx.fillStyle = C.textDim;
-      drawTracked(ctx, "PIPELINE", midX, midY + 14, 1.5);
+      drawTracked(ctx, "PIPELINE", midX, midY + heroSize * 0.35, 2.0);
 
       // Top axis label — estimate count
       ctx.font = `600 ${Math.min(9, w * 0.022)}px 'Switzer', sans-serif`;
@@ -270,6 +262,58 @@ export default function ProjectPulseWidget() {
         drawTracked(ctx, `${benchmarks.openBids} OPEN BIDS`, 0, 0, 1.2);
         ctx.restore();
       }
+
+      // ── Status bars — NOVA 2.0: 800ms grow animation on mount ──
+      const elapsed = ts - mountTimeRef.current;
+      const barProgress = Math.min(1, elapsed / 800); // 0→1 over 800ms
+      const ease = 1 - Math.pow(1 - barProgress, 3); // cubic ease-out
+      const barY = midY + heroSize * 0.35 + 18;
+      const barW = Math.min(120, w * 0.25);
+      const barH = 3;
+      const barGap = 14;
+      const barStartX = midX - barW / 2;
+
+      const wonCount = sortedEstimates.filter(e => e.status === "Won").length;
+      const biddingCount = sortedEstimates.filter(e => e.status === "Bidding" || e.status === "Submitted").length;
+      const lostCount = sortedEstimates.filter(e => e.status === "Lost").length;
+      const maxCount = Math.max(wonCount, biddingCount, lostCount, 1);
+
+      const bars = [
+        { label: "WON", count: wonCount, color: C.green },
+        { label: "BIDDING", count: biddingCount, color: C.blue },
+        { label: "LOST", count: lostCount, color: C.textDim },
+      ];
+
+      bars.forEach((bar, bi) => {
+        const by = barY + bi * barGap;
+        // Label
+        ctx.font = `600 8px 'Switzer', sans-serif`;
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = C.textDim;
+        ctx.fillText(bar.label, barStartX - 6, by + barH / 2);
+        // Track
+        ctx.beginPath();
+        ctx.roundRect(barStartX, by, barW, barH, barH / 2);
+        ctx.fillStyle = accentRgba(0.06);
+        ctx.fill();
+        // Fill — animated
+        const fillW = (bar.count / maxCount) * barW * ease;
+        if (fillW > 0) {
+          ctx.beginPath();
+          ctx.roundRect(barStartX, by, fillW, barH, barH / 2);
+          ctx.fillStyle = bar.color;
+          ctx.globalAlpha = 0.8;
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+        // Count
+        ctx.font = `600 9px 'Switzer', sans-serif`;
+        ctx.textAlign = "left";
+        ctx.fillStyle = bar.color;
+        ctx.fillText(`${bar.count}`, barStartX + barW + 6, by + barH / 2);
+      });
+      ctx.textAlign = "center"; // reset
 
       animRef.current = requestAnimationFrame(draw);
     };

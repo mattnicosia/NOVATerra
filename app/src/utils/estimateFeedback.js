@@ -52,11 +52,13 @@ export async function generateLearningFromEstimate(estimateId) {
   items.forEach(item => {
     const div = normalizeCSI(item.code || item.division);
     if (!div) return;
-    const itemTotal =
+    const qty = parseFloat(item.quantity) || 0;
+    const unitCost =
       (parseFloat(item.material) || 0) +
       (parseFloat(item.labor) || 0) +
       (parseFloat(item.equipment) || 0) +
       (parseFloat(item.subcontractor) || 0);
+    const itemTotal = qty * unitCost;
     divisionTotals[div] = (divisionTotals[div] || 0) + itemTotal;
     totalCost += itemTotal;
   });

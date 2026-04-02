@@ -15,7 +15,23 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
-    setupFiles: [],
+    setupFiles: ["./src/test/setup.js"],
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "text-summary", "lcov"],
+      include: ["src/**/*.{js,jsx}"],
+      exclude: [
+        "src/test/**",
+        "src/**/__tests__/**",
+        "src/**/*.test.*",
+      ],
+      thresholds: {
+        statements: 25,
+        branches: 20,
+        functions: 20,
+        lines: 25,
+      },
+    },
   },
   build: {
     chunkSizeWarningLimit: 600,

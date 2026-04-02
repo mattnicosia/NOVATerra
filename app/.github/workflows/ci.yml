@@ -27,7 +27,7 @@ jobs:
         run: npx prettier --check "src/**/*.{js,jsx,css}"
 
       - name: Test
-        run: npx vitest run --reporter=verbose
+        run: npx vitest run --reporter=verbose --coverage
 
       - name: Build
         run: npx vite build

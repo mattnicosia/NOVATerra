@@ -5,6 +5,7 @@ import {
   saveSettings,
   saveAssemblies,
   saveCalendar,
+  saveTasks,
   saveBidPackagePresets,
   saveAutoResponseConfig,
   saveAutoResponseDrafts,
@@ -26,6 +27,7 @@ import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useDatabaseStore } from "@/stores/databaseStore";
 import { useModuleStore } from "@/stores/moduleStore";
 import { useCalendarStore } from "@/stores/calendarStore";
+import { useTaskStore } from "@/stores/taskStore";
 import { useGroupsStore } from "@/stores/groupsStore";
 import { useBidPackagesStore } from "@/stores/bidPackagesStore";
 import { useAutoResponseStore } from "@/stores/autoResponseStore";
@@ -38,6 +40,7 @@ export function useAutoSave() {
   const settingsTimer = useRef(null);
   const assemblyTimer = useRef(null);
   const calTimer = useRef(null);
+  const taskTimer = useRef(null);
   const bpPresetsTimer = useRef(null);
   const arConfigTimer = useRef(null);
   const arDraftsTimer = useRef(null);
@@ -207,6 +210,21 @@ export function useAutoSave() {
       if (calTimer.current) clearTimeout(calTimer.current);
     };
   }, [persistenceLoaded, calendarTasks]);
+
+  // ── Tasks (debounced) ─────────────────────────────────
+  const storeTasks = useTaskStore(s => s.tasks);
+  useEffect(() => {
+    if (!persistenceLoaded) return;
+    if (taskTimer.current) clearTimeout(taskTimer.current);
+    taskTimer.current = setTimeout(() => {
+      saveTasks().catch(err => {
+        console.error("[autoSave] Tasks save failed:", err);
+      });
+    }, 2000);
+    return () => {
+      if (taskTimer.current) clearTimeout(taskTimer.current);
+    };
+  }, [persistenceLoaded, storeTasks]);
 
   // ── Bid package presets (debounced) ────────────────────
   const bpPresets = useBidPackagesStore(s => s.bidPackagePresets);

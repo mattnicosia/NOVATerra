@@ -1,16 +1,18 @@
 import { useMemo } from "react";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useCalendarStore } from "@/stores/calendarStore";
+import { useTaskStore, TASK_TYPES } from "@/stores/taskStore";
 import { useUiStore } from "@/stores/uiStore";
 
 /**
- * Aggregates estimate dates + user tasks into a unified event map for a given month.
+ * Aggregates estimate dates + user tasks + taskStore tasks into a unified event map.
  * Filters estimates by active company profile (same logic as useDashboardData).
  * Returns { events: [], eventsByDate: Map<'YYYY-MM-DD', event[]> }
  */
 export function useCalendarEvents(_year, _month) {
   const estimatesIndex = useEstimatesStore(s => s.estimatesIndex);
-  const tasks = useCalendarStore(s => s.tasks);
+  const calendarTasks = useCalendarStore(s => s.tasks);
+  const richTasks = useTaskStore(s => s.tasks);
   const activeCompanyId = useUiStore(s => s.appSettings.activeCompanyId);
 
   return useMemo(() => {
@@ -63,8 +65,8 @@ export function useCalendarEvents(_year, _month) {
       }
     }
 
-    // ── User tasks ────────────────────────────────────────
-    for (const t of tasks) {
+    // ── Calendar store tasks (legacy) ─────────────────────
+    for (const t of calendarTasks) {
       events.push({
         date: t.date,
         type: "task",
@@ -74,6 +76,36 @@ export function useCalendarEvents(_year, _month) {
         completed: t.completed,
         time: t.time,
         description: t.description,
+      });
+    }
+
+    // ── Rich tasks from taskStore (with due dates) ────────
+    for (const t of richTasks) {
+      if (!t.dueDate) continue;
+      const typeInfo = TASK_TYPES[t.type];
+      // Map task type to calendar color
+      const colorMap = {
+        "bid-prep": "red",
+        deadline: "red",
+        rfi: "purple",
+        "scope-gap": "orange",
+        review: "green",
+        "follow-up": "purple",
+        procurement: "accent",
+        action: "accent",
+      };
+      events.push({
+        date: t.dueDate,
+        type: "task",
+        label: `${typeInfo?.icon || "⚡"} ${t.title}`,
+        taskId: t.id,
+        richTask: true,
+        colorKey: colorMap[t.type] || "accent",
+        completed: t.status === "done",
+        time: t.dueTime || "",
+        description: t.description,
+        priority: t.priority,
+        taskType: t.type,
       });
     }
 
@@ -87,5 +119,5 @@ export function useCalendarEvents(_year, _month) {
     }
 
     return { events, eventsByDate };
-  }, [estimatesIndex, tasks, activeCompanyId]);
+  }, [estimatesIndex, calendarTasks, richTasks, activeCompanyId]);
 }

@@ -662,7 +662,10 @@ export const pushEstimate = async (estimateId, data) => {
       // Extract assignedTo from the estimate data to store as a column (for queries)
       const assignedTo = cleanData?.project?.assignedTo || null;
       // Extract visibility for RLS-based access control
-      const visibility = cleanData?.project?.visibility || 'private';
+      // Default to 'org' when inside an organization so all members can see the estimate.
+      // Solo-mode estimates (no org) default to 'private'.
+      const visibility = cleanData?.project?.visibility
+        || (scope?.org_id ? 'org' : 'private');
       // CRITICAL: Do NOT include deleted_at here. Setting deleted_at: null on every
       // push was the root cause of zombie resurrection — an in-flight auto-save
       // would un-delete rows that deleteEstimate() had just soft-deleted.

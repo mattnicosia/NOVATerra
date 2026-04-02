@@ -202,6 +202,30 @@ export const WIDGET_REGISTRY = {
     category: "core",
     singleton: true,
   },
+  "pipeline-hero": {
+    label: "Pipeline",
+    description: "Financial pipeline instrument — active bids, totals, status breakdown",
+    defaultW: 12,
+    defaultH: 5,
+    minW: 6,
+    minH: 4,
+    maxW: 12,
+    maxH: 8,
+    category: "core",
+    singleton: true,
+  },
+  tasks: {
+    label: "Tasks",
+    description: "Urgency-sorted task list with smart quick-add and NOVA AI integration",
+    defaultW: 3,
+    defaultH: 8,
+    minW: 2,
+    minH: 5,
+    maxW: 6,
+    maxH: 16,
+    category: "core",
+    singleton: true,
+  },
 };
 
 export const WIDGET_CATEGORIES = {

@@ -21,4 +21,6 @@ export const WIDGET_COMPONENTS = {
   "carbon-breakdown": lazy(() => import("./CarbonBreakdownWidget")),
   "carbon-benchmark": lazy(() => import("./CarbonBenchmarkWidget")),
   "map-radar": lazy(() => import("./MapRadarWidget")),
+  "pipeline-hero": lazy(() => import("./PipelineHeroWidget")),
+  tasks: lazy(() => import("./TasksWidget")),
 };

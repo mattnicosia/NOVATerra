@@ -788,6 +788,27 @@ export async function autoLabelDrawings(drawingIds) {
 
   useDrawingsStore.getState().setAiLabelLoading(false);
   useDrawingsStore.getState().setAutoLabelProgress(null);
+
+  // ── Auto-parse symbol legends (non-blocking) ──
+  // Now that sheets are labeled, scan for legend/cover sheets and parse symbols.
+  // Results are cached in legendStore and injected into all future Vision predictions.
+  try {
+    const { scanForLegends } = await import("@/utils/legendParser");
+    const currentDrawings = useDrawingsStore.getState().drawings;
+    scanForLegends(currentDrawings).then(parsed => {
+      if (parsed > 0) {
+        useUiStore.getState().showToast(
+          `NOVA parsed ${parsed} symbol legend${parsed > 1 ? "s" : ""} — predictions will be more accurate`,
+          "success",
+        );
+      }
+    }).catch(err => {
+      console.warn("[uploadPipeline] Legend scan failed (non-critical):", err.message);
+    });
+  } catch {
+    /* legend parsing is non-critical */
+  }
+
   return { count, scaleCount, revisionReport };
 }
 

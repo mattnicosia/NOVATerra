@@ -271,9 +271,9 @@ export default function DashboardCalendar() {
       </div>
       <span
         style={{
-          fontSize: 7.5,
-          fontWeight: 500,
-          letterSpacing: "0.06em",
+          fontSize: 9,
+          fontWeight: 600,
+          letterSpacing: "0.04em",
           color: resolveColor(ev.colorKey, C),
           fontFamily: T.font.display,
           flexShrink: 0,
@@ -816,9 +816,9 @@ export default function DashboardCalendar() {
                       )}
                       <span
                         style={{
-                          fontSize: 7.5,
-                          fontWeight: 500,
-                          letterSpacing: "0.06em",
+                          fontSize: 9,
+                          fontWeight: 600,
+                          letterSpacing: "0.04em",
                           color: resolveColor(ev.colorKey, C),
                           fontFamily: T.font.display,
                           padding: "1px 5px",
@@ -932,7 +932,7 @@ export default function DashboardCalendar() {
         ].map(item => (
           <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 3 }}>
             <div style={{ width: 5, height: 5, borderRadius: "50%", background: resolveColor(item.colorKey, C) }} />
-            <span style={{ fontSize: 7.5, fontWeight: 400, color: C.textDim, fontFamily: T.font.display }}>
+            <span style={{ fontSize: 9, fontWeight: 500, color: C.textDim, fontFamily: T.font.display }}>
               {item.label}
             </span>
           </div>

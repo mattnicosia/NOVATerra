@@ -3,6 +3,7 @@ import { DEFAULT_LABOR_TYPES } from "@/utils/laborTypes";
 
 export const useUiStore = create((set, _get) => ({
   persistenceLoaded: false,
+  cloudSettingsLoaded: false,
   sidebarOpen: true,
   toast: null,
   showNotesPanel: false,
@@ -104,6 +105,7 @@ export const useUiStore = create((set, _get) => ({
 
   // Actions
   setPersistenceLoaded: v => set({ persistenceLoaded: v }),
+  setCloudSettingsLoaded: v => set({ cloudSettingsLoaded: v }),
   setSidebarOpen: v => set({ sidebarOpen: v }),
   toggleSidebar: () => set(s => ({ sidebarOpen: !s.sidebarOpen })),
 

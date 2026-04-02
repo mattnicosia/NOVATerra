@@ -54,6 +54,7 @@ const flatGlass = {
 
 export function ThemeProvider({ children }) {
   const selectedPalette = useUiStore(s => s.appSettings.selectedPalette);
+  const paletteVariant = useUiStore(s => s.appSettings?.paletteVariant || 0);
   const density = useUiStore(s => s.appSettings?.density || "comfortable");
 
   const value = useMemo(() => {
@@ -66,7 +67,8 @@ export function ThemeProvider({ children }) {
 
     if (directPalette && directPalette.overrides?.forceDark) {
       // Force-dark palette (Nero, Nova, Matte, etc.) — no light variant
-      const colors = { ...C_DEFAULT, ...(directPalette.overrides || {}) };
+      const variantOverrides = (paletteVariant > 0 && directPalette.variants?.[paletteVariant]) || {};
+      const colors = { ...C_DEFAULT, ...(directPalette.overrides || {}), ...variantOverrides };
 
       // Nero Nemesis: dual material system — Black Glass + Matte Carbon
       // Glass tokens upgraded for visible 5-layer stack on void-black backgrounds.
@@ -1541,6 +1543,233 @@ export function ThemeProvider({ children }) {
       document.getElementById(SHIFT5_STYLE_ID)?.remove();
     };
   }, [value.shift5Mode]);
+
+  // ── SHIFT5 OPS MODE — Burnt orange field, dark ops cards ──
+  useEffect(() => {
+    const S5OPS_STYLE_ID = "shift5-ops-theme-styles";
+    if (value.shift5OpsMode) {
+      document.documentElement.setAttribute("data-shift5-ops", "");
+      // Load Playfair Display for pipeline hero number
+      if (!document.getElementById("playfair-display-font")) {
+        const link = document.createElement("link");
+        link.id = "playfair-display-font";
+        link.rel = "stylesheet";
+        link.href = "https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;1,400&display=swap";
+        document.head.appendChild(link);
+      }
+      // Always recreate style when bg changes (variant switch)
+      document.getElementById(S5OPS_STYLE_ID)?.remove();
+      const style = document.createElement("style");
+      style.id = S5OPS_STYLE_ID;
+      const pageBg = value.bg || "#E8614D";
+      style.textContent = `
+        /* ═══ SHIFT5 OPS — Dynamic Field + Dark Ops Cards ═══ */
+
+        html[data-shift5-ops] * {
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
+        }
+
+        html[data-shift5-ops] body {
+          background: ${pageBg} !important;
+          color: #F0F0F0 !important;
+        }
+
+        /* ── Widget cards: dark charcoal, orange left accent bar ── */
+        html[data-shift5-ops] .widget-card {
+          background: #1E1E1E !important;
+          border: 1px solid #3A3A3A !important;
+          border-left: 3px solid #E8614D !important;
+          box-shadow: none !important;
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
+        }
+
+        html[data-shift5-ops] .widget-card:hover {
+          border-color: #3A3A3A !important;
+          border-left-color: #FF7A68 !important;
+          box-shadow: none !important;
+          transform: none !important;
+        }
+
+        /* ── Color Combo 2: Light grey cards ── */
+        html[data-shift5-ops] .widget-card[data-color-combo="2"] {
+          background: #C4C4C4 !important;
+          color: #1E1E1E !important;
+          border: 1px solid #A0A0A0 !important;
+          border-left: 3px solid #E8614D !important;
+        }
+        html[data-shift5-ops] .widget-card[data-color-combo="2"]:hover {
+          border-color: #A0A0A0 !important;
+          border-left-color: #FF7A68 !important;
+        }
+        html[data-shift5-ops] .widget-card[data-color-combo="2"] [style*="letterSpacing"],
+        html[data-shift5-ops] .widget-card[data-color-combo="2"] [style*="letter-spacing"] {
+          color: #C04E3D !important;
+        }
+        html[data-shift5-ops] .widget-card[data-color-combo="2"] * {
+          color: inherit;
+        }
+
+        /* ── Color Combo 3: Dark ops cards ── */
+        html[data-shift5-ops] .widget-card[data-color-combo="3"] {
+          background: #252525 !important;
+          color: #B0B0B0 !important;
+          border: 1px solid #3A3A3A !important;
+          border-left: 3px solid #E8614D !important;
+        }
+        html[data-shift5-ops] .widget-card[data-color-combo="3"]:hover {
+          border-color: #3A3A3A !important;
+          border-left-color: #FF7A68 !important;
+        }
+
+        /* ── Widget titles: larger, bolder ── */
+        html[data-shift5-ops] .widget-card [style*="letterSpacing"],
+        html[data-shift5-ops] .widget-card [style*="letter-spacing"] {
+          color: #E8614D !important;
+          font-size: 13px !important;
+          font-weight: 600 !important;
+          letter-spacing: 0.08em !important;
+          text-transform: uppercase !important;
+        }
+
+        /* ── Header: orange accent bar on bottom ── */
+        html[data-shift5-ops] header {
+          border-bottom: 2px solid #E8614D !important;
+        }
+
+        /* ── Inputs ── */
+        html[data-shift5-ops] input,
+        html[data-shift5-ops] select,
+        html[data-shift5-ops] textarea {
+          border: 1px solid #3A3A3A !important;
+          background: rgba(255,255,255,0.04) !important;
+        }
+        html[data-shift5-ops] input:focus,
+        html[data-shift5-ops] select:focus,
+        html[data-shift5-ops] textarea:focus {
+          border-color: #E8614D !important;
+          box-shadow: 0 0 0 1px rgba(232,97,77,0.25) !important;
+          outline: none !important;
+        }
+
+        /* ── Remove glass/blur ── */
+        html[data-shift5-ops] [style*="backdrop-filter"],
+        html[data-shift5-ops] [style*="backdropFilter"] {
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
+        }
+
+        /* ── No entrance animation ── */
+        html[data-shift5-ops] .widget-card {
+          animation: none !important;
+        }
+
+        /* ── Links: orange ── */
+        html[data-shift5-ops] a:not([class]) {
+          color: #E8614D !important;
+        }
+
+        /* ── Selection ── */
+        html[data-shift5-ops] ::selection {
+          background: rgba(232,97,77,0.3) !important;
+          color: #F0F0F0 !important;
+        }
+
+        /* ── Scrollbar ── */
+        html[data-shift5-ops] ::-webkit-scrollbar { width: 6px; height: 6px; }
+        html[data-shift5-ops] ::-webkit-scrollbar-track { background: transparent; }
+        html[data-shift5-ops] ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); }
+        html[data-shift5-ops] ::-webkit-scrollbar-thumb:hover { background: rgba(232,97,77,0.25); }
+
+        /* ── Tables/rows ── */
+        html[data-shift5-ops] .est-row:hover,
+        html[data-shift5-ops] tr:hover {
+          background: rgba(232,97,77,0.04) !important;
+        }
+
+        /* ── Grid placeholder ── */
+        html[data-shift5-ops] .react-grid-placeholder {
+          background: rgba(232,97,77,0.15) !important;
+          border: 1px dashed #E8614D !important;
+        }
+
+        /* ── Per-widget font adjustments ── */
+
+        /* Calendar: reduce Today and M/W/D buttons */
+        html[data-shift5-ops] .widget-card[data-widget-type="calendar"] [style*="fontSize: 8.5"] {
+          font-size: 7.5px !important;
+        }
+        /* Calendar: increase Bid Due / walkthrough event text */
+        html[data-shift5-ops] .widget-card[data-widget-type="calendar"] [style*="fontSize: 8"],
+        html[data-shift5-ops] .widget-card[data-widget-type="calendar"] [style*="font-size: 8"] {
+          font-size: 9px !important;
+        }
+
+        /* Inbox: reduce email subject, compact cards */
+        html[data-shift5-ops] .widget-card[data-widget-type="inbox"] [style*="fontSize: 11"],
+        html[data-shift5-ops] .widget-card[data-widget-type="inbox"] [style*="font-size: 11"] {
+          font-size: 10px !important;
+        }
+
+        /* Market Intel: cap value display, reduce MATERIAL/LABOR tabs */
+        html[data-shift5-ops] .widget-card[data-widget-type="market-intel"] [style*="fontSize: 22"],
+        html[data-shift5-ops] .widget-card[data-widget-type="market-intel"] [style*="font-size: 22"] {
+          font-size: 13px !important;
+        }
+        html[data-shift5-ops] .widget-card[data-widget-type="market-intel"] [style*="fontSize: 11"],
+        html[data-shift5-ops] .widget-card[data-widget-type="market-intel"] [style*="font-size: 11"] {
+          font-size: 10px !important;
+        }
+        html[data-shift5-ops] .widget-card[data-widget-type="market-intel"] [style*="fontSize: 9"],
+        html[data-shift5-ops] .widget-card[data-widget-type="market-intel"] [style*="font-size: 9"] {
+          font-size: 8px !important;
+        }
+
+        /* Projects: reduce BIDDING badge size */
+        html[data-shift5-ops] .widget-card[data-widget-type="projects"] [style*="fontSize: 14"],
+        html[data-shift5-ops] .widget-card[data-widget-type="projects"] [style*="font-size: 14"] {
+          font-size: 9px !important;
+        }
+        html[data-shift5-ops] .widget-card[data-widget-type="projects"] [style*="fontSize: 12"],
+        html[data-shift5-ops] .widget-card[data-widget-type="projects"] [style*="font-size: 12"] {
+          font-size: 10px !important;
+        }
+
+        /* Pipeline Hero: carbon fiber, no radius, no shadow */
+        html[data-shift5-ops] .widget-card[data-widget-type="pipeline-hero"] {
+          background-color: #111110 !important;
+          background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.016) 0 1px, transparent 1px 8px), repeating-linear-gradient(-45deg, rgba(0,0,0,0.22) 0 1px, transparent 1px 8px) !important;
+          background-size: 8px 8px !important;
+          border-left: 3px solid #E85C30 !important;
+        }
+      `;
+      document.head.appendChild(style);
+    } else {
+      document.documentElement.removeAttribute("data-shift5-ops");
+      document.getElementById(S5OPS_STYLE_ID)?.remove();
+    }
+    return () => {
+      document.documentElement.removeAttribute("data-shift5-ops");
+      document.getElementById(S5OPS_STYLE_ID)?.remove();
+    };
+  }, [value.shift5OpsMode, value.bg]);
+
+  // ── NOVA 2.0: Global antialiased font rendering + tabular-nums ──
+  useEffect(() => {
+    const NOVA_GLOBAL_ID = "nova-global-typography";
+    if (document.getElementById(NOVA_GLOBAL_ID)) return;
+    const style = document.createElement("style");
+    style.id = NOVA_GLOBAL_ID;
+    style.textContent = `
+      * {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+    `;
+    document.head.appendChild(style);
+    // Never removed — benefits all themes
+  }, []);
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

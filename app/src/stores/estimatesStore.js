@@ -44,7 +44,15 @@ export const useEstimatesStore = create((set, get) => ({
   activeEstimateId: null,
   draftId: null, // Non-null when estimate is a draft (not yet persisted to DB)
 
-  setEstimatesIndex: v => set({ estimatesIndex: Array.isArray(v) ? v : [] }),
+  setEstimatesIndex: v => {
+    if (!Array.isArray(v)) return set({ estimatesIndex: [] });
+    // Dedup by estimate ID — keep the LAST occurrence (most recent push wins)
+    const seen = new Map();
+    for (const entry of v) {
+      if (entry?.id) seen.set(entry.id, entry);
+    }
+    set({ estimatesIndex: [...seen.values()] });
+  },
   setActiveEstimateId: v => set({ activeEstimateId: v }),
   clearDraft: () => set({ draftId: null }),
 

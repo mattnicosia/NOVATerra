@@ -66,7 +66,7 @@ export default function BenchmarksWidget() {
     <div style={{ fontFamily: font, height: "100%", display: "flex", flexDirection: "column" }}>
       <div
         style={{
-          fontSize: 9,
+          fontSize: 11,
           fontWeight: 600,
           letterSpacing: "0.2em",
           textTransform: "uppercase",
@@ -88,14 +88,14 @@ export default function BenchmarksWidget() {
               marginBottom: i < rows.length - 1 ? 10 : 0,
             }}
           >
-            <span style={{ fontSize: 10, fontWeight: 400, color: C.textMuted, fontFamily: font, flex: 1, minWidth: 0 }}>
+            <span style={{ fontSize: 11, fontWeight: 400, color: C.textMuted, fontFamily: font, flex: 1, minWidth: 0 }}>
               {b.label}
             </span>
             <div
               style={{
                 width: 36,
-                height: 2,
-                borderRadius: 1,
+                height: 3,
+                borderRadius: 1.5,
                 background: ov(0.06),
                 position: "relative",
                 overflow: "hidden",
@@ -109,19 +109,20 @@ export default function BenchmarksWidget() {
                   left: 0,
                   height: "100%",
                   width: b.width,
-                  borderRadius: 1,
+                  borderRadius: 1.5,
                   background: b.fill,
-                  transition: "width 0.6s cubic-bezier(0.16,1,0.3,1)",
+                  transition: "width 0.8s cubic-bezier(0.16,1,0.3,1)",
                 }}
               />
             </div>
             <span
               style={{
-                fontSize: 11,
+                fontSize: 13,
                 fontWeight: 600,
                 color: b.color,
                 fontFamily: font,
-                minWidth: 28,
+                fontVariantNumeric: "tabular-nums",
+                minWidth: 32,
                 textAlign: "right",
               }}
             >
