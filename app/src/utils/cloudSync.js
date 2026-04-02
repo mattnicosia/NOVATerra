@@ -731,10 +731,62 @@ export const pullData = async key => {
   if (!isReady()) return null;
   try {
     const scope = key === "settings" ? null : getScope();
-    let query = supabase.from("user_data").select("data").eq("user_id", getUserId()).eq("key", key);
-    query = applyScope(query, scope);
 
-    const { data, error } = await query.maybeSingle();
+    if (scope?.org_id && key === "index") {
+      // ── Special case: estimate index in org mode ──
+      // Multiple users may each have their own index row. Fetch ALL rows
+      // for this org+key and merge into a deduplicated master index.
+      const { data: rows, error } = await supabase
+        .from("user_data")
+        .select("data")
+        .eq("key", "index")
+        .eq("org_id", scope.org_id);
+      if (error) throw error;
+      if (!rows || rows.length === 0) return null;
+      // Merge all index arrays, deduplicate by estimate id, keep newest
+      const merged = new Map();
+      for (const row of rows) {
+        const arr = Array.isArray(row.data) ? row.data : [];
+        for (const entry of arr) {
+          if (!entry?.id) continue;
+          const existing = merged.get(entry.id);
+          if (!existing || (entry.lastModified || "") > (existing.lastModified || "")) {
+            merged.set(entry.id, entry);
+          }
+        }
+      }
+      return [...merged.values()];
+    }
+
+    if (scope?.org_id) {
+      // Org mode for non-index keys: pick the row with the most data
+      // (handles shared master data, cost library, etc.)
+      const { data: rows, error } = await supabase
+        .from("user_data")
+        .select("data")
+        .eq("key", key)
+        .eq("org_id", scope.org_id);
+      if (error) throw error;
+      if (!rows || rows.length === 0) return null;
+      // Return the largest row (most data = most complete)
+      let best = null;
+      let bestSize = 0;
+      for (const row of rows) {
+        const d = row.data;
+        const size = Array.isArray(d) ? d.length : typeof d === "object" && d ? Object.keys(d).length : 0;
+        if (size > bestSize) { best = d; bestSize = size; }
+      }
+      return best || rows[0]?.data || null;
+    }
+
+    // Solo mode
+    const { data, error } = await supabase
+      .from("user_data")
+      .select("data")
+      .eq("user_id", getUserId())
+      .eq("key", key)
+      .is("org_id", null)
+      .maybeSingle();
     if (error) throw error;
     return data?.data || null;
   } catch (err) {
@@ -860,8 +912,48 @@ export const pullDataWithMeta = async key => {
   if (!isReady()) return null;
   try {
     const scope = key === "settings" ? null : getScope();
-    let query = supabase.from("user_data").select("data, updated_at").eq("user_id", getUserId()).eq("key", key);
-    query = applyScope(query, scope);
+
+    if (scope?.org_id && key === "index") {
+      // Org mode index: merge all user rows, return merged data + latest timestamp
+      const { data: rows, error } = await supabase
+        .from("user_data")
+        .select("data, updated_at")
+        .eq("key", "index")
+        .eq("org_id", scope.org_id);
+      if (error) throw error;
+      if (!rows || rows.length === 0) return null;
+      const merged = new Map();
+      let latestUpdated = "";
+      for (const row of rows) {
+        if (row.updated_at > latestUpdated) latestUpdated = row.updated_at;
+        const arr = Array.isArray(row.data) ? row.data : [];
+        for (const entry of arr) {
+          if (!entry?.id) continue;
+          const existing = merged.get(entry.id);
+          if (!existing || (entry.lastModified || "") > (existing.lastModified || "")) {
+            merged.set(entry.id, entry);
+          }
+        }
+      }
+      return { data: [...merged.values()], updated_at: latestUpdated };
+    }
+
+    let query = supabase.from("user_data").select("data, updated_at").eq("key", key);
+    if (scope?.org_id) {
+      // Non-index org keys: get all rows, pick largest
+      const { data: rows, error } = await query.eq("org_id", scope.org_id);
+      if (error) throw error;
+      if (!rows || rows.length === 0) return null;
+      let best = null;
+      for (const row of rows) {
+        const size = Array.isArray(row.data) ? row.data.length : typeof row.data === "object" && row.data ? Object.keys(row.data).length : 0;
+        const bestSize = best ? (Array.isArray(best.data) ? best.data.length : typeof best.data === "object" && best.data ? Object.keys(best.data).length : 0) : 0;
+        if (!best || size > bestSize) best = row;
+      }
+      return best ? { data: best.data, updated_at: best.updated_at } : null;
+    } else {
+      query = query.eq("user_id", getUserId()).is("org_id", null);
+    }
 
     const { data, error } = await query.maybeSingle();
     if (error) throw error;
@@ -958,12 +1050,14 @@ export const pullEstimate = async estimateId => {
   try {
     const scope = getScope();
     const userId = getUserId();
-    let query = supabase.from("user_estimates").select("data").eq("estimate_id", estimateId).eq("user_id", userId).is("deleted_at", null);
+    let query = supabase.from("user_estimates").select("data").eq("estimate_id", estimateId).is("deleted_at", null);
 
     if (scope?.org_id) {
+      // In org mode: don't filter by user_id — RLS allows all org members to read
+      // org-scoped estimates with visibility='org'. This lets Steve see Matt's estimates.
       query = query.eq("org_id", scope.org_id);
     } else {
-      query = query.is("org_id", null);
+      query = query.eq("user_id", userId).is("org_id", null);
     }
 
     // Use .limit(1).single() pattern to handle potential duplicates gracefully
