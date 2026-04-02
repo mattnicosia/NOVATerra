@@ -14,30 +14,7 @@
 import { callAnthropic, imageBlock, SCAN_MODEL } from "@/utils/ai";
 import { useLegendStore } from "@/stores/legendStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
-
-// ── Discipline detection from sheet number prefix ──
-const DISCIPLINE_MAP = {
-  e: "electrical",
-  p: "plumbing",
-  m: "mechanical",
-  fp: "fire-protection",
-  a: "architectural",
-  s: "structural",
-  c: "civil",
-  l: "landscape",
-  g: "general",
-  t: "telecommunications",
-};
-
-function inferDiscipline(sheetNumber) {
-  if (!sheetNumber) return "general";
-  const s = sheetNumber.toLowerCase().trim();
-  // Try two-char prefix first (fp, etc.)
-  if (DISCIPLINE_MAP[s.slice(0, 2)]) return DISCIPLINE_MAP[s.slice(0, 2)];
-  // Single-char prefix
-  if (DISCIPLINE_MAP[s[0]]) return DISCIPLINE_MAP[s[0]];
-  return "general";
-}
+import { inferDiscipline } from "@/utils/contextAssembler";
 
 // ── System prompt for legend parsing ──
 const LEGEND_SYSTEM_PROMPT = `You are NOVA, an expert construction plan reader specializing in symbol legend extraction.
@@ -159,7 +136,7 @@ export async function parseLegendFromDrawing(drawing) {
 
     const legendEntry = {
       drawingId: drawing.id,
-      discipline: inferDiscipline(drawing.sheetNumber),
+      discipline: inferDiscipline(drawing),
       sheetNumber: drawing.sheetNumber || "",
       symbols: cleanedSymbols,
       parsedAt: Date.now(),

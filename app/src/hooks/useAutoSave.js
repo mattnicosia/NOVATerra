@@ -77,7 +77,7 @@ export function useAutoSave() {
           console.error("[autoSave] Estimate save failed:", err);
           useUiStore.getState().showToast("Auto-save failed — retrying...", "error");
         });
-      }, 1500);
+      }, 1500); // AUTOSAVE_DEBOUNCE_MS
     };
 
     const scheduleDrawSave = () => {

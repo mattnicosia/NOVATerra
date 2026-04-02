@@ -168,7 +168,7 @@ const GUARDRAILS = `CRITICAL RULES:
 /**
  * Infer discipline from sheet number prefix.
  */
-function inferDiscipline(drawing) {
+export function inferDiscipline(drawing) {
   const num = (drawing?.sheetNumber || "").toLowerCase().trim();
   if (!num) return "general";
   const map = {

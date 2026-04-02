@@ -22,7 +22,7 @@ import { getFirstClickExample, captureFirstClick } from "./firstClickTeacher";
 import { assembleVisionContext } from "./contextAssembler";
 import { autoRecordFromPredState } from "./crossSheetLearning";
 import { applyGuardrails } from "./predictionGuardrails";
-import { recordVisionCall } from "./visionMetrics";
+import { recordVisionCall, recordAccept, recordReject } from "./visionMetrics";
 
 // ══════════════════════════════════════════════════════════════════════
 // VISION-BASED PREDICTIONS — fallback for scanned/raster PDFs
@@ -234,8 +234,13 @@ export function recordPredictionFeedback(tag, strategy, accepted, captureCtx) {
   if (!tag) return;
   const key = `${tag.toUpperCase()}::${strategy || "tag-based"}`;
   const entry = _learningRecord.get(key) || { accepts: 0, rejects: 0, lastUsed: 0 };
-  if (accepted) entry.accepts++;
-  else entry.rejects++;
+  if (accepted) {
+    entry.accepts++;
+    recordAccept(captureCtx?.takeoffId);
+  } else {
+    entry.rejects++;
+    recordReject(captureCtx?.takeoffId);
+  }
   entry.lastUsed = Date.now();
   _learningRecord.set(key, entry);
 
