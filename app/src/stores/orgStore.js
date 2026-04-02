@@ -1,6 +1,13 @@
 import { create } from "zustand";
 import { supabase } from "@/utils/supabase";
-import { useAuthStore } from "@/stores/authStore";
+
+// Break circular import: authStore imports orgStore at module level, so we
+// import the authStore *namespace* (which Vite resolves as a live module object)
+// and access .useAuthStore lazily inside action functions. During module init
+// the namespace object exists but its properties may still be undefined —
+// by the time any Zustand action runs, both modules are fully evaluated.
+import * as authStoreModule from "@/stores/authStore";
+const getAuthStore = () => authStoreModule.useAuthStore;
 
 // Preset team colors for estimator identity
 export const TEAM_COLORS = [
@@ -45,7 +52,7 @@ export const useOrgStore = create((set, get) => ({
       set({ orgReady: true });
       return;
     }
-    const userId = useAuthStore.getState().user?.id;
+    const userId = getAuthStore().getState().user?.id;
     if (!userId) {
       set({ orgReady: true });
       return;
@@ -181,7 +188,7 @@ export const useOrgStore = create((set, get) => ({
     // 2. Call send-team-invite serverless function
     try {
       // Get session from Supabase directly (more reliable than store state)
-      let accessToken = useAuthStore.getState().session?.access_token;
+      let accessToken = getAuthStore().getState().session?.access_token;
       if (!accessToken) {
         const { data: { session: freshSession } } = await supabase.auth.getSession();
         accessToken = freshSession?.access_token;
@@ -228,7 +235,7 @@ export const useOrgStore = create((set, get) => ({
   // ── Create organization (current user becomes owner) ──
   createOrg: async name => {
     if (!supabase) return { error: "Supabase not configured" };
-    const user = useAuthStore.getState().user;
+    const user = getAuthStore().getState().user;
     if (!user) return { error: "Not authenticated" };
     if (get().org) return { error: "Already in an organization" };
 
@@ -279,7 +286,7 @@ export const useOrgStore = create((set, get) => ({
   inviteMember: async (email, role = "estimator") => {
     const org = get().org;
     if (!supabase || !org) return { error: "No organization" };
-    const user = useAuthStore.getState().user;
+    const user = getAuthStore().getState().user;
     if (!user) return { error: "Not authenticated" };
 
     const normalizedEmail = email.toLowerCase().trim();
@@ -332,7 +339,7 @@ export const useOrgStore = create((set, get) => ({
   acceptInvitation: async token => {
     if (!supabase) return { error: "Supabase not configured" };
     if (!token || typeof token !== "string") return { error: "Invalid invitation token" };
-    const user = useAuthStore.getState().user;
+    const user = getAuthStore().getState().user;
     if (!user) return { error: "You must be signed in to accept an invitation" };
 
     try {

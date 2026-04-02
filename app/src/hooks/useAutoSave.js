@@ -35,6 +35,22 @@ import { useSubdivisionStore } from "@/stores/subdivisionStore";
 import { useModelStore } from "@/stores/modelStore";
 import { useUiStore } from "@/stores/uiStore";
 
+// ── Selector-based subscribe helper ─────────────────────────
+// Zustand v4 subscribe(listener) fires on ANY state change.
+// This helper only fires the callback when the selected slice
+// changes (by reference), avoiding spurious saves from cursor
+// movement, zoom, pan, prediction state, etc.
+function subSlice(store, selector, callback) {
+  let prev = selector(store.getState());
+  return store.subscribe((state) => {
+    const next = selector(state);
+    if (next !== prev) {
+      prev = next;
+      callback();
+    }
+  });
+}
+
 export function useAutoSave() {
   const masterTimer = useRef(null);
   const settingsTimer = useRef(null);
@@ -95,20 +111,30 @@ export function useAutoSave() {
       }, 3000);
     };
 
-    // Subscribe to all estimate-related stores (no React re-renders)
+    // Subscribe to DATA slices only — ignores UI-only state (cursor, zoom,
+    // pan, predictions, loading flags, selections, etc.) to prevent
+    // spurious debounce resets on every mouse move or tool switch.
     const unsubs = [
-      useProjectStore.subscribe(scheduleEstSave),
-      useItemsStore.subscribe(scheduleEstSave),
-      useTakeoffsStore.subscribe(scheduleEstSave),
-      useBidLevelingStore.subscribe(scheduleEstSave),
-      useAlternatesStore.subscribe(scheduleEstSave),
-      useSpecsStore.subscribe(scheduleEstSave),
-      useCorrespondenceStore.subscribe(scheduleEstSave),
-      useModuleStore.subscribe(scheduleEstSave),
-      useGroupsStore.subscribe(scheduleEstSave),
-      useBidPackagesStore.subscribe(scheduleEstSave),
-      useModelStore.subscribe(scheduleEstSave),
-      useDrawingsStore.subscribe(scheduleDrawSave),
+      subSlice(useProjectStore, s => s.project, scheduleEstSave),
+      subSlice(useItemsStore, s => s.items, scheduleEstSave),
+      subSlice(useTakeoffsStore, s => s.takeoffs, scheduleEstSave),
+      subSlice(useBidLevelingStore, s => s.subBidSubs, scheduleEstSave),
+      subSlice(useBidLevelingStore, s => s.linkedSubs, scheduleEstSave),
+      subSlice(useBidLevelingStore, s => s.overrides, scheduleEstSave),
+      subSlice(useBidLevelingStore, s => s.selections, scheduleEstSave),
+      subSlice(useAlternatesStore, s => s.alternates, scheduleEstSave),
+      subSlice(useSpecsStore, s => s.specs, scheduleEstSave),
+      subSlice(useSpecsStore, s => s.exclusions, scheduleEstSave),
+      subSlice(useSpecsStore, s => s.clarifications, scheduleEstSave),
+      subSlice(useCorrespondenceStore, s => s.correspondences, scheduleEstSave),
+      subSlice(useModuleStore, s => s.moduleInstances, scheduleEstSave),
+      subSlice(useGroupsStore, s => s.groups, scheduleEstSave),
+      subSlice(useBidPackagesStore, s => s.bidPackages, scheduleEstSave),
+      subSlice(useBidPackagesStore, s => s.invitations, scheduleEstSave),
+      subSlice(useBidPackagesStore, s => s.proposals, scheduleEstSave),
+      subSlice(useModelStore, s => s.elements, scheduleEstSave),
+      subSlice(useModelStore, s => s.levels, scheduleEstSave),
+      subSlice(useDrawingsStore, s => s.drawings, scheduleDrawSave),
       // Flush pending save for outgoing estimate, then cancel timers
       useEstimatesStore.subscribe((state, prev) => {
         if (state.activeEstimateId !== prev.activeEstimateId) {

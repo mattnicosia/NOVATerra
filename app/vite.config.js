@@ -2,8 +2,12 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react()],
+  esbuild: {
+    // Strip console.log in production builds (keeps console.warn / console.error)
+    pure: mode === 'production' ? ['console.log'] : [],
+  },
   define: {
     "__BUILD_TS__": JSON.stringify(new Date().toISOString()),
   },
@@ -70,4 +74,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));
