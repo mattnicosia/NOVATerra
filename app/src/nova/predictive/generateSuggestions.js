@@ -287,6 +287,30 @@ function buildScheduleReasoning(schedType, entry, sched) {
   return parts.join(" ");
 }
 
+// ── Per-division cost splits (industry benchmarks) ───────────────
+const DIVISION_COST_SPLITS = {
+  "01": { m: 0.20, l: 0.50, e: 0.10, s: 0.20 }, // General Requirements
+  "02": { m: 0.15, l: 0.35, e: 0.30, s: 0.20 }, // Existing Conditions (demo heavy)
+  "03": { m: 0.55, l: 0.35, e: 0.05, s: 0.05 }, // Concrete
+  "04": { m: 0.45, l: 0.45, e: 0.05, s: 0.05 }, // Masonry
+  "05": { m: 0.45, l: 0.40, e: 0.05, s: 0.10 }, // Metals
+  "06": { m: 0.50, l: 0.40, e: 0.05, s: 0.05 }, // Wood & Plastics
+  "07": { m: 0.45, l: 0.35, e: 0.05, s: 0.15 }, // Thermal & Moisture
+  "08": { m: 0.50, l: 0.25, e: 0.05, s: 0.20 }, // Openings
+  "09": { m: 0.35, l: 0.40, e: 0.05, s: 0.20 }, // Finishes
+  10:   { m: 0.55, l: 0.30, e: 0.05, s: 0.10 }, // Specialties
+  11:   { m: 0.60, l: 0.20, e: 0.05, s: 0.15 }, // Equipment
+  14:   { m: 0.40, l: 0.20, e: 0.10, s: 0.30 }, // Conveying
+  21:   { m: 0.35, l: 0.25, e: 0.05, s: 0.35 }, // Fire Suppression
+  22:   { m: 0.30, l: 0.35, e: 0.05, s: 0.30 }, // Plumbing
+  23:   { m: 0.25, l: 0.30, e: 0.10, s: 0.35 }, // HVAC
+  26:   { m: 0.20, l: 0.35, e: 0.05, s: 0.40 }, // Electrical
+  31:   { m: 0.15, l: 0.30, e: 0.35, s: 0.20 }, // Earthwork
+  32:   { m: 0.40, l: 0.35, e: 0.10, s: 0.15 }, // Exterior Improvements
+  33:   { m: 0.30, l: 0.30, e: 0.15, s: 0.25 }, // Utilities
+  default: { m: 0.40, l: 0.35, e: 0.10, s: 0.15 },
+};
+
 // ── Cost estimation from ROM data ─────────────────────────────────
 function estimateCostFromRom(rom, division, quantity, _unit) {
   if (!rom?.divisions?.[division]) return null;
@@ -295,12 +319,13 @@ function estimateCostFromRom(rom, division, quantity, _unit) {
   const midTotal = divData.total?.mid || 0;
   if (midTotal === 0) return null;
 
-  // Rough split: 40% material, 35% labor, 10% equipment, 15% sub
+  const split = DIVISION_COST_SPLITS[division] || DIVISION_COST_SPLITS.default;
+  const perUnit = Math.max(quantity, 1);
   return {
-    material: Math.round((midTotal * 0.4) / Math.max(quantity, 1)),
-    labor: Math.round((midTotal * 0.35) / Math.max(quantity, 1)),
-    equipment: Math.round((midTotal * 0.1) / Math.max(quantity, 1)),
-    sub: Math.round((midTotal * 0.15) / Math.max(quantity, 1)),
+    material: Math.round((midTotal * split.m) / perUnit),
+    labor: Math.round((midTotal * split.l) / perUnit),
+    equipment: Math.round((midTotal * split.e) / perUnit),
+    sub: Math.round((midTotal * split.s) / perUnit),
   };
 }
 
@@ -386,12 +411,15 @@ function generateRomGapFill(rom, coveredDivisions) {
         scheduleType: null,
       },
       reasoning: `ROM estimates $${Math.round(data.total.mid).toLocaleString()} for this division (${(pctOfTotal * 100).toFixed(1)}% of total) but no schedule data was detected. Consider adding a lump sum allowance or measuring from drawings.`,
-      estimatedCost: {
-        material: Math.round(data.total.mid * 0.4),
-        labor: Math.round(data.total.mid * 0.35),
-        equipment: Math.round(data.total.mid * 0.1),
-        sub: Math.round(data.total.mid * 0.15),
-      },
+      estimatedCost: (() => {
+        const split = DIVISION_COST_SPLITS[div] || DIVISION_COST_SPLITS.default;
+        return {
+          material: Math.round(data.total.mid * split.m),
+          labor: Math.round(data.total.mid * split.l),
+          equipment: Math.round(data.total.mid * split.e),
+          sub: Math.round(data.total.mid * split.s),
+        };
+      })(),
     });
   });
 

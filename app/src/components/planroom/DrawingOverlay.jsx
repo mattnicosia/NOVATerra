@@ -14,12 +14,15 @@
  */
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "@/hooks/useTheme";
 import { useDrawingsStore } from "@/stores/drawingsStore";
 import { useTakeoffsStore } from "@/stores/takeoffsStore";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { bt, card, inp } from "@/utils/styles";
+import { tweenFast, springSnappy, springBounce, toastVariants, toastTransition } from "@/utils/motion";
+import { annotateRevisionDelta } from "@/nova/predictive/revisionAnnotator";
 
 const MODES = [
   { id: "wipe", label: "Wipe Slider", icon: I.compare || I.layers },
@@ -36,7 +39,12 @@ export default function DrawingOverlay({ drawingA: initialA, drawingB: initialB,
   const [blendOpacity, setBlendOpacity] = useState(50);
   const [isDragging, setIsDragging] = useState(false);
   const [showTakeoffs, setShowTakeoffs] = useState(false);
+  const [heatIntensity, setHeatIntensity] = useState(50);
+  const [focusIndex, setFocusIndex] = useState(0);
+  const [annotation, setAnnotation] = useState(null);
+  const [annotationLoading, setAnnotationLoading] = useState(false);
   const containerRef = useRef(null);
+  const annotationCache = useRef({});
 
   // Drawing picker state
   const [selectedA, setSelectedA] = useState(initialA);
@@ -72,8 +80,8 @@ export default function DrawingOverlay({ drawingA: initialA, drawingB: initialB,
     return useDrawingsStore.getState().drawings.filter(d => d.data || pdfCanvases[d.id]);
   }, [drawings, pdfCanvases]);
 
-  // Compute pixel difference on a canvas
-  const diffCanvas = useMemo(() => {
+  // Compute pixel difference with heat map density + stats
+  const diffResult = useMemo(() => {
     if (mode !== "diff" || !canvasA || !canvasB) return null;
 
     try {
@@ -87,43 +95,111 @@ export default function DrawingOverlay({ drawingA: initialA, drawingB: initialB,
       const ctx = offscreen.getContext("2d");
 
       const tempA = document.createElement("canvas");
-      tempA.width = w;
-      tempA.height = h;
+      tempA.width = w; tempA.height = h;
       const ctxA = tempA.getContext("2d");
       ctxA.drawImage(canvasA, 0, 0, w, h);
       const dataA = ctxA.getImageData(0, 0, w, h);
 
       const tempB = document.createElement("canvas");
-      tempB.width = w;
-      tempB.height = h;
+      tempB.width = w; tempB.height = h;
       const ctxB = tempB.getContext("2d");
       ctxB.drawImage(canvasB, 0, 0, w, h);
       const dataB = ctxB.getImageData(0, 0, w, h);
 
       const diffData = ctx.createImageData(w, h);
       const threshold = 30;
+      const totalPixels = w * h;
+
+      // ── Pass 1: Identify changed pixels + build density grid ──
+      const GRID = 32;
+      const bw = Math.ceil(w / GRID);
+      const bh = Math.ceil(h / GRID);
+      const blockChanged = new Float32Array(GRID * GRID);
+      const blockTotal = new Float32Array(GRID * GRID);
+      let changedCount = 0, addedCount = 0, removedCount = 0;
+      // Quadrant counters
+      const quadrant = { NW: 0, NE: 0, SW: 0, SE: 0 };
+      const quadrantTotal = { NW: 0, NE: 0, SW: 0, SE: 0 };
+      const halfW = w / 2, halfH = h / 2;
+
+      // Track per-pixel change flag for heat map pass
+      const isChanged = new Uint8Array(totalPixels);
+      const isNew = new Uint8Array(totalPixels);
 
       for (let i = 0; i < dataA.data.length; i += 4) {
+        const px = (i / 4) % w;
+        const py = Math.floor((i / 4) / w);
+        const bx = Math.min(Math.floor(px / bw), GRID - 1);
+        const by = Math.min(Math.floor(py / bh), GRID - 1);
+        const bi = by * GRID + bx;
+        blockTotal[bi]++;
+
+        // Quadrant
+        const qKey = (py < halfH ? "N" : "S") + (px < halfW ? "W" : "E");
+        quadrantTotal[qKey]++;
+
         const dr = Math.abs(dataA.data[i] - dataB.data[i]);
         const dg = Math.abs(dataA.data[i + 1] - dataB.data[i + 1]);
         const db = Math.abs(dataA.data[i + 2] - dataB.data[i + 2]);
         const diff = (dr + dg + db) / 3;
 
         if (diff > threshold) {
-          const intensity = Math.min(255, diff * 3);
-          const isNewContent =
-            dataB.data[i] + dataB.data[i + 1] + dataB.data[i + 2] <
+          changedCount++;
+          blockChanged[bi]++;
+          quadrant[qKey]++;
+          const pixIdx = i / 4;
+          isChanged[pixIdx] = 1;
+          const newContent = dataB.data[i] + dataB.data[i + 1] + dataB.data[i + 2] <
             dataA.data[i] + dataA.data[i + 1] + dataA.data[i + 2];
-          if (isNewContent) {
-            diffData.data[i] = 0;
-            diffData.data[i + 1] = intensity;
-            diffData.data[i + 2] = 0;
+          if (newContent) { addedCount++; isNew[pixIdx] = 1; } else { removedCount++; }
+        }
+      }
+
+      // ── Compute block densities ──
+      const blockDensity = new Float32Array(GRID * GRID);
+      for (let i = 0; i < GRID * GRID; i++) {
+        blockDensity[i] = blockTotal[i] > 0 ? blockChanged[i] / blockTotal[i] : 0;
+      }
+
+      // Find hot regions (top 3 blocks by density)
+      const blocks = [];
+      for (let i = 0; i < GRID * GRID; i++) {
+        if (blockDensity[i] > 0.05) {
+          const bx = i % GRID;
+          const by = Math.floor(i / GRID);
+          blocks.push({ density: blockDensity[i], cx: (bx + 0.5) / GRID, cy: (by + 0.5) / GRID });
+        }
+      }
+      blocks.sort((a, b) => b.density - a.density);
+      const hotRegions = blocks.slice(0, 5);
+
+      // ── Pass 2: Color pixels with heat map gradient ──
+      const heatScale = heatIntensity / 50; // 0-2 range
+      for (let i = 0; i < dataA.data.length; i += 4) {
+        const pixIdx = i / 4;
+        if (isChanged[pixIdx]) {
+          const px = pixIdx % w;
+          const py = Math.floor(pixIdx / w);
+          const bx = Math.min(Math.floor(px / bw), GRID - 1);
+          const by = Math.min(Math.floor(py / bh), GRID - 1);
+          const density = Math.min(1, blockDensity[by * GRID + bx] * heatScale);
+
+          // Heat gradient: blue-green → yellow-orange → red-magenta
+          let r, g, b;
+          if (density < 0.3) {
+            const t = density / 0.3;
+            r = Math.round(t * 80); g = Math.round(180 + t * 40); b = Math.round(200 * (1 - t));
+          } else if (density < 0.6) {
+            const t = (density - 0.3) / 0.3;
+            r = Math.round(80 + t * 175); g = Math.round(220 - t * 80); b = Math.round(t * 20);
           } else {
-            diffData.data[i] = intensity;
-            diffData.data[i + 1] = Math.round(intensity * 0.3);
-            diffData.data[i + 2] = 0;
+            const t = (density - 0.6) / 0.4;
+            r = 255; g = Math.round(140 - t * 140); b = Math.round(20 + t * 80);
           }
-          diffData.data[i + 3] = 200;
+          diffData.data[i] = r;
+          diffData.data[i + 1] = g;
+          diffData.data[i + 2] = b;
+          diffData.data[i + 3] = Math.round(160 + density * 80);
         } else {
           diffData.data[i] = dataB.data[i];
           diffData.data[i + 1] = dataB.data[i + 1];
@@ -133,11 +209,44 @@ export default function DrawingOverlay({ drawingA: initialA, drawingB: initialB,
       }
 
       ctx.putImageData(diffData, 0, 0);
-      return offscreen;
+
+      // ── Stats ──
+      const changedPct = totalPixels > 0 ? ((changedCount / totalPixels) * 100) : 0;
+      const addedPct = totalPixels > 0 ? ((addedCount / totalPixels) * 100) : 0;
+      const removedPct = totalPixels > 0 ? ((removedCount / totalPixels) * 100) : 0;
+      const quadrantPct = {};
+      for (const q of ["NW", "NE", "SW", "SE"]) {
+        quadrantPct[q] = quadrantTotal[q] > 0 ? ((quadrant[q] / quadrantTotal[q]) * 100) : 0;
+      }
+      const maxQuadrant = Object.entries(quadrantPct).sort((a, b) => b[1] - a[1])[0]?.[0] || "—";
+
+      return {
+        canvas: offscreen,
+        stats: { changedPct, addedPct, removedPct, quadrantPct, maxQuadrant, hotRegions },
+      };
     } catch {
       return null;
     }
-  }, [mode, canvasA, canvasB]);
+  }, [mode, canvasA, canvasB, heatIntensity]);
+
+  const diffCanvas = diffResult?.canvas || null;
+  const diffStats = diffResult?.stats || null;
+
+  // ── Auto-focus on hot region ──
+  const focusOnRegion = useCallback((regionIdx) => {
+    const regions = diffStats?.hotRegions;
+    if (!regions?.length || !containerRef.current) return;
+    const idx = regionIdx % regions.length;
+    setFocusIndex(idx);
+    const region = regions[idx];
+    const rect = containerRef.current.getBoundingClientRect();
+    const targetZoom = 2.5;
+    setPan({
+      x: rect.width / 2 - region.cx * rect.width * targetZoom,
+      y: rect.height / 2 - region.cy * rect.height * targetZoom,
+    });
+    setZoom(targetZoom);
+  }, [diffStats]);
 
   // ── Pan/zoom handlers ──
   const handleWheel = useCallback(e => {
@@ -308,11 +417,14 @@ export default function DrawingOverlay({ drawingA: initialA, drawingB: initialB,
         </div>
 
         <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-          {/* Mode selector */}
+          {/* Mode selector (animated) */}
           {MODES.map(m => (
-            <button
+            <motion.button
               key={m.id}
               onClick={() => setMode(m.id)}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              transition={tweenFast}
               style={bt(C, {
                 padding: "4px 10px",
                 fontSize: 9,
@@ -324,7 +436,7 @@ export default function DrawingOverlay({ drawingA: initialA, drawingB: initialB,
               })}
             >
               {m.label}
-            </button>
+            </motion.button>
           ))}
 
           {/* Takeoff overlay toggle */}
@@ -412,37 +524,72 @@ export default function DrawingOverlay({ drawingA: initialA, drawingB: initialB,
           style={{
             display: "flex",
             alignItems: "center",
-            gap: T.space[3],
+            gap: T.space[2],
             padding: `${T.space[2]}px ${T.space[4]}px`,
             borderBottom: `1px solid ${C.border}06`,
             background: C.bg2,
+            flexWrap: "wrap",
           }}
         >
-          <span
-            style={{
-              fontSize: 8,
-              padding: "2px 8px",
-              borderRadius: 3,
-              background: "rgba(0,200,0,0.15)",
-              color: C.green,
-              fontWeight: 700,
+          {/* Heat map gradient legend */}
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ fontSize: 7, color: C.textDim }}>Minor</span>
+            <div style={{
+              width: 80, height: 8, borderRadius: 4,
+              background: "linear-gradient(to right, #00B4D8, #F9C74F, #F94144)",
+            }} />
+            <span style={{ fontSize: 7, color: C.textDim }}>Major</span>
+          </div>
+          {/* Heat intensity slider */}
+          <div style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: 4 }}>
+            <span style={{ fontSize: 8, color: C.textDim }}>Intensity</span>
+            <input
+              type="range" min={10} max={100} value={heatIntensity}
+              onChange={e => setHeatIntensity(Number(e.target.value))}
+              style={{ width: 60, accentColor: C.accent }}
+            />
+          </div>
+          {/* Focus Changes button */}
+          {diffStats?.hotRegions?.length > 0 && (
+            <button
+              onClick={() => focusOnRegion(focusIndex + 1)}
+              style={bt(C, {
+                padding: "3px 8px", fontSize: 8, fontWeight: 600,
+                background: `${C.accent}12`, color: C.accent,
+                border: `1px solid ${C.accent}30`, borderRadius: T.radius.full,
+              })}
+            >
+              Focus Changes {diffStats.hotRegions.length > 1 ? `(${(focusIndex % diffStats.hotRegions.length) + 1}/${diffStats.hotRegions.length})` : ""}
+            </button>
+          )}
+          {/* Describe Changes (AI annotation) */}
+          <button
+            onClick={async () => {
+              if (!canvasA || !canvasB) return;
+              const cacheKey = `${drawingA.id}-${drawingB.id}`;
+              if (annotationCache.current[cacheKey]) {
+                setAnnotation(annotationCache.current[cacheKey]);
+                return;
+              }
+              setAnnotationLoading(true);
+              try {
+                const result = await annotateRevisionDelta(canvasA, canvasB, drawingA, drawingB);
+                annotationCache.current[cacheKey] = result;
+                setAnnotation(result);
+              } catch { setAnnotation({ bullets: [], summary: "Failed to analyze changes." }); }
+              setAnnotationLoading(false);
             }}
+            disabled={annotationLoading}
+            style={bt(C, {
+              padding: "3px 8px", fontSize: 8, fontWeight: 600,
+              background: `${C.purple || C.accent}12`, color: C.purple || C.accent,
+              border: `1px solid ${(C.purple || C.accent) + "30"}`, borderRadius: T.radius.full,
+              opacity: annotationLoading ? 0.5 : 1,
+            })}
           >
-            New / Added
-          </span>
-          <span
-            style={{
-              fontSize: 8,
-              padding: "2px 8px",
-              borderRadius: 3,
-              background: "rgba(255,100,0,0.15)",
-              color: C.orange || C.red,
-              fontWeight: 700,
-            }}
-          >
-            Removed / Changed
-          </span>
-          <span style={{ fontSize: 8, color: C.textDim }}>Unchanged areas are dimmed</span>
+            <Ic d={I.ai} size={8} color={C.purple || C.accent} /> {annotationLoading ? "Analyzing…" : "Describe Changes"}
+          </button>
+          <span style={{ fontSize: 8, color: C.textDim, marginLeft: "auto" }}>Unchanged areas dimmed</span>
         </div>
       )}
 
@@ -477,9 +624,10 @@ export default function DrawingOverlay({ drawingA: initialA, drawingB: initialB,
           onMouseDown={handlePanStart}
           onTouchStart={handlePanStart}
         >
+          <AnimatePresence mode="wait">
           {/* ── Wipe Slider Mode ── */}
           {mode === "wipe" && (
-            <div style={{ position: "absolute", inset: 0, ...transformStyle }}>
+            <motion.div key="wipe" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={tweenFast} style={{ position: "absolute", inset: 0, ...transformStyle }}>
               {/* Full drawing B (bottom layer) */}
               <CanvasImage canvas={canvasB} style={{ position: "absolute", inset: 0 }} />
               {showTakeoffs && <TakeoffOverlay takeoffs={takeoffsB} C={C} />}
@@ -538,12 +686,12 @@ export default function DrawingOverlay({ drawingA: initialA, drawingB: initialB,
               {/* Labels */}
               <RevLabel side="left" drawing={drawingA} label="Rev A" />
               <RevLabel side="right" drawing={drawingB} label="Rev B" />
-            </div>
+            </motion.div>
           )}
 
           {/* ── Opacity Blend Mode ── */}
           {mode === "blend" && (
-            <div style={{ position: "absolute", inset: 0, ...transformStyle }}>
+            <motion.div key="blend" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={tweenFast} style={{ position: "absolute", inset: 0, ...transformStyle }}>
               <CanvasImage
                 canvas={canvasA}
                 style={{ position: "absolute", inset: 0, opacity: 1 - blendOpacity / 100 }}
@@ -551,12 +699,12 @@ export default function DrawingOverlay({ drawingA: initialA, drawingB: initialB,
               {showTakeoffs && <TakeoffOverlay takeoffs={takeoffsA} C={C} opacity={1 - blendOpacity / 100} />}
               <CanvasImage canvas={canvasB} style={{ position: "absolute", inset: 0, opacity: blendOpacity / 100 }} />
               {showTakeoffs && <TakeoffOverlay takeoffs={takeoffsB} C={C} opacity={blendOpacity / 100} />}
-            </div>
+            </motion.div>
           )}
 
           {/* ── Difference Mode ── */}
           {mode === "diff" && (
-            <div style={{ position: "absolute", inset: 0, ...transformStyle }}>
+            <motion.div key="diff" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={tweenFast} style={{ position: "absolute", inset: 0, ...transformStyle }}>
               {diffCanvas ? (
                 <>
                   <CanvasImage canvas={diffCanvas} style={{ position: "absolute", inset: 0 }} />
@@ -577,12 +725,12 @@ export default function DrawingOverlay({ drawingA: initialA, drawingB: initialB,
                   Computing difference...
                 </div>
               )}
-            </div>
+            </motion.div>
           )}
 
           {/* ── Side by Side Mode ── */}
           {mode === "side" && (
-            <div style={{ display: "flex", height: "100%", gap: 2 }}>
+            <motion.div key="side" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={tweenFast} style={{ display: "flex", height: "100%", gap: 2 }}>
               <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
                 <div style={{ position: "absolute", inset: 0, ...transformStyle }}>
                   <CanvasImage canvas={canvasA} style={{ position: "absolute", inset: 0 }} />
@@ -598,8 +746,48 @@ export default function DrawingOverlay({ drawingA: initialA, drawingB: initialB,
                 </div>
                 <RevLabel side="right" drawing={drawingB} label="Rev B" />
               </div>
-            </div>
+            </motion.div>
           )}
+          </AnimatePresence>
+
+          {/* ── AI Annotation Card ── */}
+          <AnimatePresence>
+            {annotation && mode === "diff" && (
+              <motion.div
+                key="annotation"
+                variants={toastVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                transition={toastTransition}
+                style={{
+                  position: "absolute", bottom: 12, right: 12, zIndex: 20,
+                  ...card(C), padding: T.space[3], maxWidth: 320,
+                  fontSize: 10, lineHeight: 1.5,
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <Ic d={I.ai} size={10} color={C.accent} />
+                    <span style={{ fontWeight: 700, color: C.text, fontSize: 9 }}>NOVA Change Analysis</span>
+                  </div>
+                  <button onClick={() => setAnnotation(null)} style={{ background: "none", border: "none", cursor: "pointer", padding: 2 }}>
+                    <Ic d={I.x} size={8} color={C.textDim} />
+                  </button>
+                </div>
+                {annotation.bullets?.length > 0 && (
+                  <ul style={{ margin: 0, paddingLeft: 14, color: C.text }}>
+                    {annotation.bullets.map((b, i) => (
+                      <li key={i} style={{ marginBottom: 2 }}>{b}</li>
+                    ))}
+                  </ul>
+                )}
+                {annotation.summary && (
+                  <div style={{ color: C.textDim, marginTop: 4, fontStyle: "italic" }}>{annotation.summary}</div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       )}
 
@@ -629,7 +817,18 @@ export default function DrawingOverlay({ drawingA: initialA, drawingB: initialB,
         <div style={{ fontSize: 9, color: C.accent, fontWeight: 600 }}>
           {mode === "wipe" && `Wipe: ${Math.round(wipePos)}%`}
           {mode === "blend" && `Blend: ${blendOpacity}% Rev B`}
-          {mode === "diff" && "Pixel Difference"}
+          {mode === "diff" && diffStats && (
+            <span>
+              <span style={{ color: C.text }}>{diffStats.changedPct.toFixed(1)}% changed</span>
+              {" ("}
+              <span style={{ color: C.green }}>{diffStats.addedPct.toFixed(1)}% added</span>
+              {", "}
+              <span style={{ color: C.orange || C.red }}>{diffStats.removedPct.toFixed(1)}% removed</span>
+              {") — concentrated in "}
+              <span style={{ color: C.accent }}>{diffStats.maxQuadrant}</span>
+            </span>
+          )}
+          {mode === "diff" && !diffStats && "Pixel Difference"}
           {mode === "side" && "Side by Side"}
           {zoom !== 1 && ` · ${Math.round(zoom * 100)}%`}
         </div>

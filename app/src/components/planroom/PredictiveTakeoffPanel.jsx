@@ -11,7 +11,7 @@ import { useState, useMemo } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
-import { bt, card } from "@/utils/styles";
+import { bt, card, inp } from "@/utils/styles";
 
 /**
  * @param {{ suggestions: Array, onAccept: fn, onReject: fn, onAcceptAll: fn, onClose: fn }} props
@@ -32,6 +32,8 @@ export default function PredictiveTakeoffPanel({ suggestions = [], onAccept, onR
   const [rejected, setRejected] = useState(new Set());
   const [expandedId, setExpandedId] = useState(null);
   const [filterConf, setFilterConf] = useState("all"); // "all" | "high" | "medium" | "low"
+  const [editingId, setEditingId] = useState(null);
+  const [editValues, setEditValues] = useState({});
 
   const pending = useMemo(
     () =>
@@ -286,7 +288,7 @@ export default function PredictiveTakeoffPanel({ suggestions = [], onAccept, onR
                   </div>
                 </div>
 
-                {/* Expanded detail */}
+                {/* Expanded detail + inline edit */}
                 {isExpanded && (
                   <div
                     style={{
@@ -302,14 +304,118 @@ export default function PredictiveTakeoffPanel({ suggestions = [], onAccept, onR
                         <strong style={{ color: C.text }}>Why:</strong> {s.reasoning}
                       </div>
                     )}
-                    {s.estimatedCost && (
-                      <div style={{ display: "flex", gap: T.space[3], color: C.textDim }}>
-                        {s.estimatedCost.material > 0 && <span>Mat: ${Math.round(s.estimatedCost.material)}</span>}
-                        {s.estimatedCost.labor > 0 && <span>Lab: ${Math.round(s.estimatedCost.labor)}</span>}
-                        {s.estimatedCost.equipment > 0 && <span>Equip: ${Math.round(s.estimatedCost.equipment)}</span>}
-                        {s.estimatedCost.sub > 0 && <span>Sub: ${Math.round(s.estimatedCost.sub)}</span>}
+
+                    {/* ── Inline Edit Mode ── */}
+                    {editingId === s.id ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
+                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          <label style={{ color: C.textDim, fontSize: 9, minWidth: 30 }}>Qty</label>
+                          <input
+                            type="number"
+                            value={editValues.quantity ?? s.quantity ?? 1}
+                            onChange={e => setEditValues(v => ({ ...v, quantity: Number(e.target.value) }))}
+                            style={{ ...inp(C, { padding: "3px 6px", fontSize: 10, width: 60, borderRadius: 4 }) }}
+                          />
+                          <label style={{ color: C.textDim, fontSize: 9, minWidth: 30 }}>Unit</label>
+                          <input
+                            value={editValues.unit ?? s.unit ?? ""}
+                            onChange={e => setEditValues(v => ({ ...v, unit: e.target.value }))}
+                            style={{ ...inp(C, { padding: "3px 6px", fontSize: 10, width: 50, borderRadius: 4 }) }}
+                          />
+                        </div>
+                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          <label style={{ color: C.textDim, fontSize: 9, minWidth: 30 }}>Mat</label>
+                          <input
+                            type="number"
+                            value={editValues.material ?? s.estimatedCost?.material ?? 0}
+                            onChange={e => setEditValues(v => ({ ...v, material: Number(e.target.value) }))}
+                            style={{ ...inp(C, { padding: "3px 6px", fontSize: 10, width: 70, borderRadius: 4 }) }}
+                          />
+                          <label style={{ color: C.textDim, fontSize: 9, minWidth: 30 }}>Lab</label>
+                          <input
+                            type="number"
+                            value={editValues.labor ?? s.estimatedCost?.labor ?? 0}
+                            onChange={e => setEditValues(v => ({ ...v, labor: Number(e.target.value) }))}
+                            style={{ ...inp(C, { padding: "3px 6px", fontSize: 10, width: 70, borderRadius: 4 }) }}
+                          />
+                          <label style={{ color: C.textDim, fontSize: 9, minWidth: 30 }}>Eqp</label>
+                          <input
+                            type="number"
+                            value={editValues.equipment ?? s.estimatedCost?.equipment ?? 0}
+                            onChange={e => setEditValues(v => ({ ...v, equipment: Number(e.target.value) }))}
+                            style={{ ...inp(C, { padding: "3px 6px", fontSize: 10, width: 70, borderRadius: 4 }) }}
+                          />
+                          <label style={{ color: C.textDim, fontSize: 9, minWidth: 30 }}>Sub</label>
+                          <input
+                            type="number"
+                            value={editValues.sub ?? s.estimatedCost?.sub ?? 0}
+                            onChange={e => setEditValues(v => ({ ...v, sub: Number(e.target.value) }))}
+                            style={{ ...inp(C, { padding: "3px 6px", fontSize: 10, width: 70, borderRadius: 4 }) }}
+                          />
+                        </div>
+                        <div style={{ display: "flex", gap: 6, marginTop: 2 }}>
+                          <button
+                            onClick={e => {
+                              e.stopPropagation();
+                              const edited = {
+                                ...s,
+                                quantity: editValues.quantity ?? s.quantity,
+                                unit: editValues.unit ?? s.unit,
+                                estimatedCost: {
+                                  material: editValues.material ?? s.estimatedCost?.material ?? 0,
+                                  labor: editValues.labor ?? s.estimatedCost?.labor ?? 0,
+                                  equipment: editValues.equipment ?? s.estimatedCost?.equipment ?? 0,
+                                  sub: editValues.sub ?? s.estimatedCost?.sub ?? 0,
+                                },
+                              };
+                              handleAccept(edited);
+                              setEditingId(null);
+                              setEditValues({});
+                            }}
+                            style={bt(C, { padding: "3px 10px", fontSize: 9, fontWeight: 600, background: C.green, color: "#fff" })}
+                          >
+                            Accept Edited
+                          </button>
+                          <button
+                            onClick={e => { e.stopPropagation(); setEditingId(null); setEditValues({}); }}
+                            style={bt(C, { padding: "3px 10px", fontSize: 9, color: C.textDim })}
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       </div>
+                    ) : (
+                      <>
+                        {s.estimatedCost && (
+                          <div style={{ display: "flex", gap: T.space[3], color: C.textDim }}>
+                            {s.estimatedCost.material > 0 && <span>Mat: ${Math.round(s.estimatedCost.material).toLocaleString()}</span>}
+                            {s.estimatedCost.labor > 0 && <span>Lab: ${Math.round(s.estimatedCost.labor).toLocaleString()}</span>}
+                            {s.estimatedCost.equipment > 0 && <span>Equip: ${Math.round(s.estimatedCost.equipment).toLocaleString()}</span>}
+                            {s.estimatedCost.sub > 0 && <span>Sub: ${Math.round(s.estimatedCost.sub).toLocaleString()}</span>}
+                          </div>
+                        )}
+                        <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                          <button
+                            onClick={e => {
+                              e.stopPropagation();
+                              setEditingId(s.id);
+                              setEditValues({
+                                quantity: s.quantity,
+                                unit: s.unit,
+                                material: s.estimatedCost?.material || 0,
+                                labor: s.estimatedCost?.labor || 0,
+                                equipment: s.estimatedCost?.equipment || 0,
+                                sub: s.estimatedCost?.sub || 0,
+                              });
+                            }}
+                            style={bt(C, { padding: "2px 8px", fontSize: 8, color: C.accent, background: `${C.accent}10`, border: `1px solid ${C.accent}25` })}
+                          >
+                            <Ic d={I.edit} size={8} color={C.accent} /> Edit before accepting
+                          </button>
+                        </div>
+                      </>
                     )}
+
                     {s.source?.entry && (
                       <div style={{ color: C.textDim, marginTop: 2 }}>
                         <strong style={{ color: C.text }}>Source:</strong>{" "}

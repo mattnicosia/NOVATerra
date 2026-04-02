@@ -188,12 +188,34 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
               suggestions={suggestions}
               onAccept={s => {
                 setAcceptedSuggestions(prev => [...prev, s]);
+                useCorrectionStore.getState().logCorrection("suggestions:accept", {
+                  context: `Accepted ${s.confidence} suggestion: ${s.description?.slice(0, 60)}`,
+                  original: s,
+                  corrected: s,
+                  field: s.source?.type || "unknown",
+                  scheduleType: s.source?.scheduleType,
+                });
               }}
               onReject={s => {
                 setRejectedSuggestions(prev => new Set([...prev, s.id]));
+                useCorrectionStore.getState().logCorrection("suggestions:reject", {
+                  context: `Rejected ${s.confidence} suggestion: ${s.description?.slice(0, 60)}`,
+                  original: s,
+                  corrected: null,
+                  field: s.source?.type || "unknown",
+                  scheduleType: s.source?.scheduleType,
+                });
               }}
               onAcceptAll={pending => {
                 setAcceptedSuggestions(prev => [...prev, ...pending]);
+                pending.forEach(s => {
+                  useCorrectionStore.getState().logCorrection("suggestions:accept", {
+                    context: `Bulk-accepted ${s.confidence} suggestion: ${s.description?.slice(0, 60)}`,
+                    original: s,
+                    corrected: s,
+                    field: s.source?.type || "unknown",
+                  });
+                });
               }}
             />
           )}
