@@ -183,6 +183,9 @@ function LoginForm() {
   const [transitioning, setTransitioning] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [betaRequested, setBetaRequested] = useState(false);
+  const [company, setCompany] = useState("");
+  const [role, setRole] = useState("");
 
   // Invite state — locked email when signing up via invitation link
   const [inviteData, setInviteData] = useState(null); // { email, org_name, role }
@@ -306,6 +309,34 @@ function LoginForm() {
     [email, resetPasswordFn],
   );
 
+  const handleBetaRequest = useCallback(
+    async e => {
+      e.preventDefault();
+      setValidationError("");
+      if (!email.trim()) return;
+      if (!isValidEmail(email.trim())) { setValidationError("Please enter a valid email address"); return; }
+      setSubmitting(true);
+      try {
+        const { createClient } = await import("@supabase/supabase-js");
+        const sb = createClient(
+          import.meta.env.VITE_SUPABASE_URL,
+          import.meta.env.VITE_SUPABASE_ANON_KEY,
+        );
+        await sb.from("beta_requests").insert({
+          email: email.trim(),
+          full_name: fullName.trim() || null,
+          company: company.trim() || null,
+          role: role.trim() || null,
+        });
+        setBetaRequested(true);
+      } catch (err) {
+        setValidationError("Something went wrong. Please try again.");
+      }
+      setSubmitting(false);
+    },
+    [email, fullName, company, role],
+  );
+
   const handleSubmit =
     mode === "password"
       ? handlePasswordLogin
@@ -313,9 +344,29 @@ function LoginForm() {
         ? handleMagicLink
         : mode === "signup"
           ? handleSignUp
-          : handleForgotPassword;
+          : mode === "request"
+            ? handleBetaRequest
+            : handleForgotPassword;
 
   // ── Confirmation screens ───────────────────────────────────
+  // Beta request success screen
+  if (betaRequested) {
+    return (
+      <div style={{ maxWidth: 340, textAlign: "center", animation: "loginFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both" }}>
+        <div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(99,102,241,0.12)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 18px", border: "1px solid rgba(99,102,241,0.25)" }}>
+          <svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth={2.5} strokeLinecap="round"><path d="M20 6 9 17l-5-5" /></svg>
+        </div>
+        <h2 style={{ fontSize: 18, fontWeight: 700, color: TEXT, margin: "0 0 8px", letterSpacing: "-0.02em" }}>Request Received</h2>
+        <p style={{ fontSize: 13, color: TEXT_DIM, margin: "0 0 20px", lineHeight: 1.5 }}>
+          Thanks for your interest in NOVATerra. We'll review your request and get back to you shortly.
+        </p>
+        <button onClick={() => { setBetaRequested(false); switchMode("password"); }} style={{ fontSize: 12, color: ACCENT, background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>
+          Back to Sign In
+        </button>
+      </div>
+    );
+  }
+
   if (magicLinkSent) {
     return (
       <div
@@ -404,9 +455,9 @@ function LoginForm() {
 
   // ── Determine form fields based on mode ────────────────────
   const showPasswordField = mode === "password" || mode === "signup";
-  const showNameField = mode === "signup";
+  const showNameField = mode === "signup" || mode === "request";
   const showTabs = mode === "password" || mode === "magic";
-  const isFormDisabled = mode === "magic" || mode === "forgot" ? !email.trim() : !email.trim() || !password;
+  const isFormDisabled = mode === "magic" || mode === "forgot" || mode === "request" ? !email.trim() : !email.trim() || !password;
 
   const submitLabel =
     mode === "password"
@@ -415,9 +466,11 @@ function LoginForm() {
         ? submitting ? "Sending\u2026" : "Send Magic Link"
         : mode === "signup"
           ? submitting ? "Creating\u2026" : "Create Account"
+        : mode === "request"
+          ? submitting ? "Submitting\u2026" : "Request Access"
           : submitting ? "Sending\u2026" : "Send Reset Link";
 
-  const headingLabel = mode === "signup" ? "Create Account" : mode === "forgot" ? "Reset Password" : null;
+  const headingLabel = mode === "signup" ? "Create Account" : mode === "request" ? "Request Beta Access" : mode === "forgot" ? "Reset Password" : null;
 
   return (
     <>
@@ -577,7 +630,7 @@ function LoginForm() {
           )}
 
           <form onSubmit={handleSubmit}>
-            {/* Full Name (signup only) */}
+            {/* Full Name (signup + request) */}
             {showNameField && (
               <>
                 <label style={labelStyle}>Full Name</label>
@@ -587,6 +640,32 @@ function LoginForm() {
                   onChange={e => setFullName(e.target.value)}
                   placeholder="Jane Smith"
                   autoFocus={!!inviteData}
+                  style={{ ...inputStyle, marginBottom: 14 }}
+                  onFocus={focusHandler}
+                  onBlur={blurHandler}
+                />
+              </>
+            )}
+
+            {/* Company + Role (request only) */}
+            {mode === "request" && (
+              <>
+                <label style={labelStyle}>Company</label>
+                <input
+                  type="text"
+                  value={company}
+                  onChange={e => setCompany(e.target.value)}
+                  placeholder="Your company name"
+                  style={{ ...inputStyle, marginBottom: 14 }}
+                  onFocus={focusHandler}
+                  onBlur={blurHandler}
+                />
+                <label style={labelStyle}>Role</label>
+                <input
+                  type="text"
+                  value={role}
+                  onChange={e => setRole(e.target.value)}
+                  placeholder="Estimator, Project Manager, Owner..."
                   style={{ ...inputStyle, marginBottom: 14 }}
                   onFocus={focusHandler}
                   onBlur={blurHandler}
@@ -721,7 +800,7 @@ function LoginForm() {
             transition: `opacity 200ms ${MOTION.easeOut}`,
           }}
         >
-          {mode === "signup" ? (
+          {mode === "signup" || mode === "request" ? (
             <p style={{ fontSize: 12, color: TEXT_DIM, margin: "0 0 12px" }}>
               Already have an account?{" "}
               <span onClick={() => switchMode("password")} style={{ color: ACCENT, fontWeight: 600, cursor: "pointer" }}>
@@ -731,8 +810,8 @@ function LoginForm() {
           ) : (
             <p style={{ fontSize: 12, color: TEXT_DIM, margin: "0 0 12px" }}>
               Don't have an account?{" "}
-              <span onClick={() => switchMode("signup")} style={{ color: ACCENT, fontWeight: 600, cursor: "pointer" }}>
-                Create one
+              <span onClick={() => switchMode("request")} style={{ color: ACCENT, fontWeight: 600, cursor: "pointer" }}>
+                Request Access
               </span>
             </p>
           )}
