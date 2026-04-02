@@ -145,6 +145,15 @@ export default function CollaborationBar() {
         </span>
       </div>
 
+      {/* Activity indicators */}
+      {viewers.filter(v => v.user_id !== user?.id && v.activity?.type === "editing").slice(0, 2).map(v => (
+        <div key={v.user_id} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 8, color: C.textDim }}>
+          <div style={{ width: 5, height: 5, borderRadius: "50%", background: v.user_color || C.accent }} />
+          <span style={{ fontWeight: 600, color: v.user_color || C.accent }}>{(v.user_name || "?").split(" ")[0]}</span>
+          <span>— editing {v.activity?.label || "an item"}</span>
+        </div>
+      ))}
+
       {/* Spacer */}
       <div style={{ flex: 1 }} />
 

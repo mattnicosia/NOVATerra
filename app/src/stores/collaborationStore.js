@@ -32,6 +32,7 @@ export const useCollaborationStore = create((set, get) => ({
   _heartbeatInterval: null,
   _presenceInterval: null,
   _currentEstimateId: null,
+  _activityDebounce: null,
 
   // ── Lock Lifecycle ────────────────────────────────────
 
@@ -293,6 +294,30 @@ export const useCollaborationStore = create((set, get) => ({
     set({ viewers: [], _currentEstimateId: null });
   },
 
+  /** Update current user's activity in presence (debounced 2s) */
+  updateActivity: (activity) => {
+    const prev = get()._activityDebounce;
+    if (prev) clearTimeout(prev);
+
+    const timer = setTimeout(async () => {
+      const orgId = getOrgId();
+      const estimateId = get()._currentEstimateId;
+      if (!orgId || !estimateId || !supabase) return;
+      const { userId } = getUserInfo();
+      if (!userId) return;
+      try {
+        await supabase
+          .from("estimate_presence")
+          .update({ activity: activity || {} })
+          .eq("estimate_id", estimateId)
+          .eq("org_id", orgId)
+          .eq("user_id", userId);
+      } catch { /* activity broadcast non-critical */ }
+    }, 2000);
+
+    set({ _activityDebounce: timer });
+  },
+
   _refreshViewers: async estimateId => {
     const orgId = getOrgId();
     if (!orgId || !supabase) return;
@@ -301,7 +326,7 @@ export const useCollaborationStore = create((set, get) => ({
     try {
       const { data } = await supabase
         .from("estimate_presence")
-        .select("user_id, user_name, user_color, last_seen")
+        .select("user_id, user_name, user_color, last_seen, activity")
         .eq("estimate_id", estimateId)
         .eq("org_id", orgId)
         .gte("last_seen", fiveMinAgo);

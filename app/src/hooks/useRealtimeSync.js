@@ -22,6 +22,7 @@ import { useOrgStore } from "@/stores/orgStore";
 import * as cloudSync from "@/utils/cloudSync";
 import { storage } from "@/utils/storage";
 import { idbKey } from "@/utils/idbKey";
+import { loadEstimate } from "@/hooks/usePersistence";
 
 // Throttle timers for incoming changes (batch rapid updates)
 const CHANGE_THROTTLE_MS = 500;
@@ -259,6 +260,19 @@ async function _handleEstimateChange(payload) {
   // New or updated estimate — pull full data and apply
   console.log(`[realtimeSync] Estimate ${estimateId} changed on another device — pulling`);
   const data = await cloudSync.pullAndApplyEstimate(estimateId);
+
+  // If this is the active estimate, rehydrate all Zustand stores from IDB
+  const activeId = useEstimatesStore.getState().activeEstimateId;
+  if (data && estimateId === activeId) {
+    console.log(`[realtimeSync] Active estimate updated remotely — rehydrating stores`);
+    try {
+      await loadEstimate(estimateId);
+      const savedBy = data._savedByName || "a teammate";
+      useUiStore.getState().showToast(`Estimate updated by ${savedBy}`, "info");
+    } catch {
+      /* rehydrate non-critical — data is already in IDB */
+    }
+  }
 
   // If this is a new estimate not in our index, add it
   if (data) {

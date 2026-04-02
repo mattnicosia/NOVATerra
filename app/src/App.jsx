@@ -55,6 +55,8 @@ const PBRDashboardBackground = lazy(() => import("@/components/ambient/PBRDashbo
 const ProximityLight = lazy(() => import("@/components/nova/ProximityLight"));
 const CommandPalette = lazy(() => import("@/components/shared/CommandPalette"));
 const FeedbackWidget = lazy(() => import("@/components/beta/FeedbackWidget"));
+const SpotlightOverlay = lazy(() => import("@/components/onboarding/SpotlightOverlay"));
+const ConflictMergeModal = lazy(() => import("@/components/shared/ConflictMergeModal"));
 // SideRail removed — board voted to keep top header, style it per theme instead
 
 // ── Spatial interface — completely separate UI tree ──
@@ -923,6 +925,8 @@ function AppContent() {
         </div>
       </div>
       <Toast />
+      <Suspense fallback={null}><SpotlightOverlay /></Suspense>
+      <Suspense fallback={null}><ConflictMergeModal /></Suspense>
       {aiChatOpen && (
         <Suspense fallback={null}>
           <AIChatPanel />

@@ -60,6 +60,9 @@ export const useUiStore = create((set, _get) => ({
   revisionReport: null, // Array from detectRevisions(): [{ oldDrawingId, newDrawingId, sheetNumber, ... }]
   revisionImpact: null, // Object from analyzeRevisionImpact(): { sheets, summary }
 
+  // Conflict Merge (transient — not persisted)
+  conflictData: null, // { estimateId, localBlob, cloudMeta } — set by cloudSync when offline conflict detected
+
   // AI Chat
   aiChatOpen: false,
   aiChatMessages: [],

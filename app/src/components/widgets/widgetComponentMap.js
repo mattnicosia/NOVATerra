@@ -23,4 +23,7 @@ export const WIDGET_COMPONENTS = {
   "map-radar": lazy(() => import("./MapRadarWidget")),
   "pipeline-hero": lazy(() => import("./PipelineHeroWidget")),
   tasks: lazy(() => import("./TasksWidget")),
+  "team-activity": lazy(() => import("./TeamActivityWidget")),
+  "win-rate": lazy(() => import("./WinRateWidget")),
+  "nova-insights": lazy(() => import("./NovaInsightsWidget")),
 };
