@@ -19,6 +19,7 @@ import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useItemsStore } from "@/stores/itemsStore";
 import Pill from "@/components/shared/Pill";
 import { fmt } from "@/utils/format";
+import { detectScopeGaps } from "@/nova/predictive/scopeGapDetector";
 
 // ─── Stage → sub-tab mapping ─────────────────────────────────────────────────
 const JOURNEY_STAGES = [
@@ -56,7 +57,6 @@ const JOURNEY_STAGES = [
     defaultPath: "reports",
     subTabs: [
       { key: "reports", label: "Reports", path: "reports" },
-      { key: "insights", label: "Insights", path: "insights" },
     ],
   },
 ];
@@ -510,7 +510,7 @@ export default function EstimateJourneyBar() {
             </div>
           </div>
 
-          {/* RIGHT — Item count + total pills */}
+          {/* RIGHT — Scope coverage + Item count + total pills */}
           <div
             style={{
               display: "flex",
@@ -522,6 +522,45 @@ export default function EstimateJourneyBar() {
               borderLeft: `1px solid ${C.border}`,
             }}
           >
+            {/* Ambient scope gap indicator */}
+            {(() => {
+              if (!project.buildingType || !project.projectSF || items.length === 0) return null;
+              try {
+                const gaps = detectScopeGaps({
+                  items,
+                  buildingType: project.buildingType,
+                  workType: project.workType,
+                  projectSF: project.projectSF,
+                  laborType: project.laborType,
+                });
+                if (gaps.missingCount === 0) return (
+                  <div title="All expected divisions covered" style={{
+                    display: "flex", alignItems: "center", gap: 3,
+                    padding: "2px 8px", borderRadius: 99,
+                    background: "rgba(34,197,94,0.08)", fontSize: 9, fontWeight: 600,
+                    color: "#22c55e", letterSpacing: "0.02em",
+                  }}>
+                    <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#22c55e" }} />
+                    {gaps.completionPct}%
+                  </div>
+                );
+                const color = gaps.missingCount >= 5 ? "#ef4444" : gaps.missingCount >= 3 ? "#eab308" : "#f97316";
+                return (
+                  <div
+                    title={`${gaps.missingCount} missing division${gaps.missingCount !== 1 ? "s" : ""} — $${gaps.totalMissingCost.toLocaleString()} not in estimate. Ask NOVA "What am I missing?"`}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 3,
+                      padding: "2px 8px", borderRadius: 99,
+                      background: `${color}10`, fontSize: 9, fontWeight: 600,
+                      color, letterSpacing: "0.02em", cursor: "default",
+                    }}
+                  >
+                    <div style={{ width: 5, height: 5, borderRadius: "50%", background: color }} />
+                    {gaps.missingCount} gap{gaps.missingCount !== 1 ? "s" : ""}
+                  </div>
+                );
+              } catch { return null; }
+            })()}
             <Pill label="Items" value={items.length} />
             <Pill label="Total" value={fmt(getTotals().grand)} accent />
           </div>

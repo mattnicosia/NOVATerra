@@ -826,16 +826,7 @@ function AppContent() {
                 />
                 {/* Backward compat: old /bids URLs redirect to /network */}
                 <Route path="/estimate/:id/bids" element={<Navigate to="../network" replace />} />
-                <Route
-                  path="/estimate/:id/insights"
-                  element={
-                    <EstimateLoader>
-                      <RouteErrorBoundary pageName="Insights">
-                        <InsightsPage />
-                      </RouteErrorBoundary>
-                    </EstimateLoader>
-                  }
-                />
+                {/* Insights route hidden for MVP */}
                 {/* Business dashboard — owner/manager portal */}
                 <Route
                   path="/business"
