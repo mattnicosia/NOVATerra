@@ -50,6 +50,10 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
   const [noteSearch, setNoteSearch] = useState("");
   const [activeCategoryFilter, setActiveCategoryFilter] = useState(null); // null = all
   const [activeDivisionFilter, setActiveDivisionFilter] = useState(null); // null = all
+  // Note correction state — local edits keyed by _key
+  const [noteEdits, setNoteEdits] = useState({}); // { [_key]: { category?, estimatingRelevance? } }
+  const [editingNoteKey, setEditingNoteKey] = useState(null); // which note has dropdown open
+  const [editingField, setEditingField] = useState(null); // "category" | "relevance"
 
   // NOVA Predictive Takeoffs
   const suggestions = useMemo(() => generateTakeoffSuggestions(scanResults), [scanResults]);
@@ -296,14 +300,43 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
 
           // Render a single note row (shared between flat + grouped)
           const renderNote = note => {
-            const catConfig = NOTE_CATEGORIES.find(c => c.id === note.category);
+            const edits = noteEdits[note._key] || {};
+            const effectiveCategory = edits.category || note.category;
+            const effectiveRelevance = edits.estimatingRelevance || note.estimatingRelevance;
+            const catConfig = NOTE_CATEGORIES.find(c => c.id === effectiveCategory);
             const relColor =
-              note.estimatingRelevance === "high"
+              effectiveRelevance === "high"
                 ? C.green
-                : note.estimatingRelevance === "medium"
+                : effectiveRelevance === "medium"
                   ? C.orange
                   : C.textDim;
             const isSelected = selectedNotes.has(note._key);
+            const isEditingCat = editingNoteKey === note._key && editingField === "category";
+            const isEditingRel = editingNoteKey === note._key && editingField === "relevance";
+
+            const handleCategoryChange = (newCat) => {
+              if (newCat === effectiveCategory) { setEditingNoteKey(null); return; }
+              useCorrectionStore.getState().logCorrection("notes:category", {
+                context: `Recategorized note on ${note.sheetLabel}`,
+                original: note.category,
+                corrected: newCat,
+                field: "category",
+              });
+              setNoteEdits(prev => ({ ...prev, [note._key]: { ...prev[note._key], category: newCat } }));
+              setEditingNoteKey(null);
+            };
+            const handleRelevanceChange = (newRel) => {
+              if (newRel === effectiveRelevance) { setEditingNoteKey(null); return; }
+              useCorrectionStore.getState().logCorrection("notes:relevance", {
+                context: `Changed relevance on ${note.sheetLabel}`,
+                original: note.estimatingRelevance,
+                corrected: newRel,
+                field: "relevance",
+              });
+              setNoteEdits(prev => ({ ...prev, [note._key]: { ...prev[note._key], estimatingRelevance: newRel } }));
+              setEditingNoteKey(null);
+            };
+
             return (
               <div
                 key={note._key}
@@ -335,9 +368,12 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
                     gap: 3,
                     minWidth: 80,
                     paddingTop: 1,
+                    position: "relative",
                   }}
                 >
+                  {/* ── Category chip (clickable → dropdown) ── */}
                   <span
+                    onClick={e => { e.stopPropagation(); setEditingNoteKey(note._key); setEditingField("category"); }}
                     style={{
                       fontSize: 7,
                       padding: "2px 5px",
@@ -346,11 +382,46 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
                       whiteSpace: "nowrap",
                       background: `${catConfig?.color || C.accent}18`,
                       color: catConfig?.color || C.accent,
+                      cursor: "pointer",
+                      border: edits.category ? `1px solid ${catConfig?.color || C.accent}40` : "1px solid transparent",
                     }}
+                    title="Click to change category — NOVA learns from corrections"
                   >
-                    {catConfig?.label || note.category}
+                    {catConfig?.label || effectiveCategory}
                   </span>
+                  {isEditingCat && (
+                    <div
+                      onClick={e => e.stopPropagation()}
+                      style={{
+                        position: "absolute", top: 18, left: 0, zIndex: 100,
+                        background: C.bg1 || "#1a1a2e", border: `1px solid ${C.border}`,
+                        borderRadius: 4, padding: 2, minWidth: 130,
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+                      }}
+                    >
+                      {NOTE_CATEGORIES.map(cat => (
+                        <div
+                          key={cat.id}
+                          onClick={() => handleCategoryChange(cat.id)}
+                          style={{
+                            padding: "3px 6px", fontSize: 8, cursor: "pointer",
+                            color: cat.id === effectiveCategory ? cat.color : C.text,
+                            fontWeight: cat.id === effectiveCategory ? 700 : 400,
+                            borderRadius: 2,
+                          }}
+                          onMouseEnter={e => (e.currentTarget.style.background = `${cat.color}15`)}
+                          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                        >
+                          <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: cat.color, marginRight: 4 }} />
+                          {cat.label}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* ── Relevance badge (clickable → dropdown) ── */}
                   <span
+                    onClick={e => { e.stopPropagation(); setEditingNoteKey(note._key); setEditingField("relevance"); }}
                     style={{
                       fontSize: 7,
                       padding: "1px 4px",
@@ -358,10 +429,44 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
                       fontWeight: 600,
                       background: `${relColor}12`,
                       color: relColor,
+                      cursor: "pointer",
+                      border: edits.estimatingRelevance ? `1px solid ${relColor}40` : "1px solid transparent",
                     }}
+                    title="Click to change relevance — NOVA learns from corrections"
                   >
-                    {note.estimatingRelevance}
+                    {effectiveRelevance}
                   </span>
+                  {isEditingRel && (
+                    <div
+                      onClick={e => e.stopPropagation()}
+                      style={{
+                        position: "absolute", top: 36, left: 0, zIndex: 100,
+                        background: C.bg1 || "#1a1a2e", border: `1px solid ${C.border}`,
+                        borderRadius: 4, padding: 2, minWidth: 80,
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+                      }}
+                    >
+                      {["high", "medium", "low"].map(rel => {
+                        const rc = rel === "high" ? C.green : rel === "medium" ? C.orange : C.textDim;
+                        return (
+                          <div
+                            key={rel}
+                            onClick={() => handleRelevanceChange(rel)}
+                            style={{
+                              padding: "3px 6px", fontSize: 8, cursor: "pointer",
+                              color: rel === effectiveRelevance ? rc : C.text,
+                              fontWeight: rel === effectiveRelevance ? 700 : 400,
+                              borderRadius: 2,
+                            }}
+                            onMouseEnter={e => (e.currentTarget.style.background = `${rc}15`)}
+                            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                          >
+                            {rel}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                   <span style={{ fontSize: 7, color: C.textDim }}>{note.sheetLabel}</span>
                 </div>
                 <div style={{ flex: 1, fontSize: 10, color: C.text, lineHeight: 1.5 }}>
@@ -646,6 +751,14 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
                       </button>
                     )}
                   </div>
+
+                  {/* ── NOVA learning indicator ── */}
+                  {Object.keys(noteEdits).length > 0 && (
+                    <div style={{ fontSize: 8, color: C.accent, marginBottom: 6, display: "flex", alignItems: "center", gap: 4 }}>
+                      <Ic d={I.ai} size={9} color={C.accent} />
+                      NOVA learns from your corrections — {Object.keys(noteEdits).length} correction{Object.keys(noteEdits).length !== 1 ? "s" : ""} applied
+                    </div>
+                  )}
 
                   {/* ── Grouped View ── */}
                   {notesViewMode === "grouped" && (

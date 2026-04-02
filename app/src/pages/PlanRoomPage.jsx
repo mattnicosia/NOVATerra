@@ -24,6 +24,7 @@ import { saveEstimate } from "@/hooks/usePersistence";
 import { handleFileUpload, autoLabelDrawings, autoDetectOutlines } from "@/utils/uploadPipeline";
 import ScanResultsModal from "@/components/planroom/ScanResultsModal";
 import CompactDocList from "@/components/planroom/CompactDocList";
+import DocumentsPanel from "@/components/planroom/DocumentsPanel";
 import FactorBar from "@/components/planroom/FactorBar";
 const DrawingOverlay = lazy(() => import("@/components/planroom/DrawingOverlay"));
 import Modal from "@/components/shared/Modal";
@@ -924,17 +925,8 @@ export default function PlanRoomPage() {
           </div>
         )}
 
-        {/* ─── Compact Document List ─── */}
-        {documents.length > 0 && (
-          <CompactDocList
-            drawingDocs={drawingDocs}
-            specDocs={specDocs}
-            generalDocs={generalDocs}
-            onRemove={removeDocument}
-            C={C}
-            T={T}
-          />
-        )}
+        {/* ─── Documents Panel (search, folders, tags, versions, transmittals) ─── */}
+        <DocumentsPanel onRemove={removeDocument} />
 
         {/* Reset All confirmation */}
         {showResetConfirm && (
