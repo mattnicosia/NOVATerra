@@ -107,6 +107,12 @@
     },
     "api/products/categories.js": {
       "maxDuration": 10
+    },
+    "api/rom-ai.js": {
+      "maxDuration": 60
+    },
+    "api/send-rom-results.js": {
+      "maxDuration": 10
     }
   },
   "rewrites": [
