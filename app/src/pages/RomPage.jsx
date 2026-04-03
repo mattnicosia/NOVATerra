@@ -351,7 +351,6 @@ function DrawingUploadPath({ onResult, onBack }) {
 
   async function handleScan() {
     if (!files.length) return;
-    if (!user) return; // auth gate should handle this
     setScanning(true);
     setError("");
     setProgress("Preparing drawings...");
@@ -560,8 +559,14 @@ function DrawingUploadPath({ onResult, onBack }) {
         </div>
       )}
 
-      {!user ? (
-        <AuthGate />
+      {/* Auth gate on scan only — AI calls require JWT. Upload is free. */}
+      {!user && files.length > 0 ? (
+        <div style={{ marginTop: 16 }}>
+          <div style={{ fontSize: 12, color: "rgba(238,237,245,0.5)", marginBottom: 8, ...ff }}>
+            Sign in to scan your drawings with NOVA AI
+          </div>
+          <AuthGate />
+        </div>
       ) : (
         <button onClick={handleScan} disabled={!files.length || scanning} style={{
           width: "100%", padding: "15px 24px", borderRadius: 12, border: "none",
@@ -618,7 +623,8 @@ function BasicInfoPath({ onResult, onBack }) {
         The more you share, the more accurate the estimate.
       </p>
 
-      {!user ? <AuthGate /> : (
+      {/* Auth gate removed — let users fill form freely */}
+      {(
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: 16 }}>
             <label style={{ fontSize: 11, color: "rgba(238,237,245,0.35)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em", ...ff }}>Building Type</label>
