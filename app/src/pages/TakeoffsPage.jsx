@@ -1614,6 +1614,22 @@ export default function TakeoffsPage() {
         ctx.arc(tkCursorPt.x, tkCursorPt.y, 3, 0, Math.PI * 2);
         ctx.fillStyle = color + "80";
         ctx.fill();
+        // Large crosshair for remote cursor visibility
+        ctx.save();
+        ctx.strokeStyle = "rgba(255,0,255,0.7)";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.moveTo(tkCursorPt.x, 0);
+        ctx.lineTo(tkCursorPt.x, overlay.height);
+        ctx.moveTo(0, tkCursorPt.y);
+        ctx.lineTo(overlay.width, tkCursorPt.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.font = "11px monospace";
+        ctx.fillStyle = "rgba(255,0,255,0.9)";
+        ctx.fillText(`(${Math.round(tkCursorPt.x)}, ${Math.round(tkCursorPt.y)})`, tkCursorPt.x + 12, tkCursorPt.y - 10);
+        ctx.restore();
       }
 
       // Snap angle guide line + badge (when Shift is held)
@@ -1723,6 +1739,25 @@ export default function TakeoffsPage() {
         ctx.stroke();
       }
       ctx.setLineDash([]);
+      ctx.restore();
+    }
+
+    // Always-visible crosshair for remote automation cursor visibility
+    if (tkCursorPt && (tkTool === "area" || tkTool === "linear" || tkTool === "calibrate" || tkTool === "count")) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(255,0,255,0.5)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath();
+      ctx.moveTo(tkCursorPt.x, 0);
+      ctx.lineTo(tkCursorPt.x, overlay.height);
+      ctx.moveTo(0, tkCursorPt.y);
+      ctx.lineTo(overlay.width, tkCursorPt.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.font = "11px monospace";
+      ctx.fillStyle = "rgba(255,0,255,0.85)";
+      ctx.fillText(`(${Math.round(tkCursorPt.x)}, ${Math.round(tkCursorPt.y)})`, tkCursorPt.x + 12, tkCursorPt.y - 10);
       ctx.restore();
     }
 
