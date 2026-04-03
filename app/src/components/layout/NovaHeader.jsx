@@ -8,7 +8,6 @@ import { useAuthStore } from "@/stores/authStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import NovaTerraLogo from "@/components/shared/NovaTerraLogo";
 import { useNovaStore } from "@/stores/novaStore";
-import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
 import NotificationCenter from "@/components/shared/NotificationCenter";
 import LogoPill from "@/components/shared/LogoPill";
 import { useAutoResponseStore } from "@/stores/autoResponseStore";
@@ -544,7 +543,7 @@ function NovaHeader({ onDraftPanelToggle }) {
   const user = useAuthStore(s => s.user);
   const setAiChatOpen = useUiStore(s => s.setAiChatOpen);
   const aiChatOpen = useUiStore(s => s.aiChatOpen);
-  const toggleCmdPalette = useCommandPaletteStore(s => s.toggle);
+  const toggleCmdPalette = useUiStore(s => s.cmdToggle);
   const notifications = useNovaStore(s => s.notifications);
   const unreadCount = notifications.filter(n => !n.read).length;
   const novaStatus = useNovaStore(s => s.status);

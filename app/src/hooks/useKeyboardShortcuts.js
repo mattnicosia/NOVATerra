@@ -1,7 +1,6 @@
 // useKeyboardShortcuts — Centralized keyboard shortcut handler
 // Call once in App.jsx to enable all global shortcuts.
 import { useEffect } from 'react';
-import { useCommandPaletteStore } from '@/stores/commandPaletteStore';
 import { useUndoStore } from '@/stores/undoStore';
 import { useUiStore } from '@/stores/uiStore';
 import { useNovaStore } from '@/stores/novaStore';
@@ -16,7 +15,7 @@ export function useKeyboardShortcuts() {
       // ── Cmd+K — Command Palette (always, even in inputs) ──
       if (isMod && e.key === 'k') {
         e.preventDefault();
-        useCommandPaletteStore.getState().toggle();
+        useUiStore.getState().cmdToggle();
         return;
       }
 
@@ -25,8 +24,8 @@ export function useKeyboardShortcuts() {
 
       // ── Escape — Close overlays ──
       if (e.key === 'Escape') {
-        const cmdStore = useCommandPaletteStore.getState();
-        if (cmdStore.open) {
+        const cmdState = useUiStore.getState();
+        if (cmdState.cmdOpen) {
           // CommandPalette handles its own Escape
           return;
         }

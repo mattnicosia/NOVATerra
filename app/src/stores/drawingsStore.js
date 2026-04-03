@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import { uid } from "@/utils/format";
+import { storage } from "@/utils/storage";
+import { idbKey } from "@/utils/idbKey";
 
 export const useDrawingsStore = create((set, get) => ({
   drawings: [],
@@ -198,4 +200,67 @@ export const useDrawingsStore = create((set, get) => ({
   // Show/hide superseded drawings toggle
   showSuperseded: false,
   setShowSuperseded: v => set({ showSuperseded: v }),
+
+  // ── Symbol Legends (was legendStore) ──
+  legends: {},
+  legendsLoaded: false,
+
+  loadLegends: async () => {
+    if (get().legendsLoaded) return;
+    try {
+      const raw = await storage.get(idbKey("bldg-legends"));
+      if (raw?.value) {
+        const parsed = typeof raw.value === "string" ? JSON.parse(raw.value) : raw.value;
+        set({ legends: parsed, legendsLoaded: true });
+      } else {
+        set({ legendsLoaded: true });
+      }
+    } catch { set({ legendsLoaded: true }); }
+  },
+
+  addLegend: (estimateId, legendEntry) => set(s => {
+    const existing = s.legends[estimateId] || [];
+    const filtered = existing.filter(l => l.drawingId !== legendEntry.drawingId);
+    const updated = { ...s.legends, [estimateId]: [...filtered, legendEntry] };
+    storage.set(idbKey("bldg-legends"), JSON.stringify(updated)).catch(() => {});
+    return { legends: updated };
+  }),
+
+  getLegendsForEstimate: estimateId => get().legends[estimateId] || [],
+
+  getSymbolsForDiscipline: (estimateId, discipline) => {
+    const legends = get().legends[estimateId] || [];
+    if (!discipline) return legends.flatMap(l => l.symbols);
+    return legends.filter(l => l.discipline === discipline || l.discipline === "general").flatMap(l => l.symbols);
+  },
+
+  buildLegendContext: (estimateId, discipline) => {
+    const symbols = get().getSymbolsForDiscipline(estimateId, discipline);
+    if (symbols.length === 0) return "";
+    const lines = symbols.map(s => {
+      const visual = s.symbolDescription ? ` (looks like: ${s.symbolDescription})` : "";
+      return `- ${s.code}: ${s.description}${visual} [${s.category}]`;
+    });
+    return ["SYMBOL LEGEND (from project drawings):", ...lines, "", "Use these symbol definitions to identify elements accurately."].join("\n");
+  },
+
+  isLegendSheet: drawing => {
+    const title = (drawing.sheetTitle || drawing.label || "").toLowerCase();
+    const number = (drawing.sheetNumber || "").toLowerCase();
+    const isCoverSheet = /^[a-z]0[.\-]?[01]$/i.test(number) || /^[a-z]-?0$/i.test(number);
+    const hasLegendKeyword = /legend|symbol|fixture\s+schedule|abbreviat|general\s+notes/i.test(title);
+    return isCoverSheet || hasLegendKeyword;
+  },
+
+  hasLegendForDrawing: (estimateId, drawingId) => {
+    const legends = get().legends[estimateId] || [];
+    return legends.some(l => l.drawingId === drawingId);
+  },
+
+  clearLegends: estimateId => set(s => {
+    const updated = { ...s.legends };
+    delete updated[estimateId];
+    storage.set(idbKey("bldg-legends"), JSON.stringify(updated)).catch(() => {});
+    return { legends: updated };
+  }),
 }));

@@ -3,7 +3,7 @@
 // Slots: 'drone', 'textPing', 'activation'
 
 import { storage } from '@/utils/storage';
-import { useNovaAudioStore } from '@/stores/novaAudioStore';
+import { useNovaStore } from '@/stores/novaStore';
 
 const KEY_PREFIX = 'nova-audio-';
 const META_KEY = 'nova-audio-meta';
@@ -26,7 +26,7 @@ export async function saveAudioBlob(slot, file) {
 
   // Update metadata in store + persist
   const meta = { name: file.name, size: file.size, type: file.type };
-  useNovaAudioStore.getState().setAudioAsset(slot, meta);
+  useNovaStore.getState().setAudioAsset(slot, meta);
   await persistMeta();
 }
 
@@ -39,13 +39,13 @@ export async function loadAudioBlob(slot) {
 /** Remove audio from a slot */
 export async function removeAudioBlob(slot) {
   await storage.delete(`${KEY_PREFIX}${slot}`);
-  useNovaAudioStore.getState().removeAudioAsset(slot);
+  useNovaStore.getState().removeAudioAsset(slot);
   await persistMeta();
 }
 
 /** Save a volume level for a slot */
 export async function saveSlotVolume(slot, level) {
-  useNovaAudioStore.getState().setSlotVolume(slot, level);
+  useNovaStore.getState().setAudioSlotVolume(slot, level);
   await persistMeta();
 }
 
@@ -57,11 +57,11 @@ export async function loadAudioMeta() {
       const data = typeof result.value === 'string' ? JSON.parse(result.value) : result.value;
       // Support both old format (just assets) and new format (assets + volumes)
       if (data.assets) {
-        useNovaAudioStore.getState().setAllAssets(data.assets);
-        if (data.volumes) useNovaAudioStore.getState().setAllVolumes(data.volumes);
+        useNovaStore.getState().setAllAudioAssets(data.assets);
+        if (data.volumes) useNovaStore.getState().setAllAudioVolumes(data.volumes);
       } else {
         // Old format: entire object is the assets map
-        useNovaAudioStore.getState().setAllAssets(data);
+        useNovaStore.getState().setAllAudioAssets(data);
       }
     } catch { /* ignore corrupt data */ }
   }
@@ -69,6 +69,6 @@ export async function loadAudioMeta() {
 
 /** Persist current metadata + volumes to IndexedDB */
 async function persistMeta() {
-  const { audioAssets, volumes } = useNovaAudioStore.getState();
-  await storage.set(META_KEY, JSON.stringify({ assets: audioAssets, volumes }));
+  const { audioAssets, audioVolumes } = useNovaStore.getState();
+  await storage.set(META_KEY, JSON.stringify({ assets: audioAssets, volumes: audioVolumes }));
 }

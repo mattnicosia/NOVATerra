@@ -1,6 +1,29 @@
 import { create } from "zustand";
 import { DEFAULT_LABOR_TYPES } from "@/utils/laborTypes";
 
+// ── Feature flag defaults ──
+const DEFAULT_FLAGS = {
+  "predictive-takeoffs": true,
+  "drawing-overlay": true,
+  "firm-memory": true,
+  "collaboration": true,
+  "dashboard-widgets": true,
+  "onboarding-v2": true,
+  "feedback-widget": true,
+  "version-history": true,
+  "nova-insights": true,
+  "tablet-mode": true,
+};
+function parseUrlOverrides() {
+  if (typeof window === "undefined") return {};
+  const params = new URLSearchParams(window.location.search);
+  const overrides = {};
+  for (const [key, value] of params.entries()) {
+    if (key.startsWith("ff_")) overrides[key.slice(3)] = value === "1" || value === "true";
+  }
+  return overrides;
+}
+
 export const useUiStore = create((set, _get) => ({
   persistenceLoaded: false,
   cloudSettingsLoaded: false,
@@ -191,4 +214,51 @@ export const useUiStore = create((set, _get) => ({
       if (v?.paletteVariant !== undefined) localStorage.setItem("nova-palette-variant", String(v.paletteVariant));
     } catch { /* non-critical */ }
   },
+
+  // ── Command Palette (was commandPaletteStore) ──
+  cmdOpen: false,
+  cmdQuery: '',
+  cmdRecentIds: JSON.parse(localStorage.getItem('nova_cmd_recents') || '[]'),
+  cmdToggle: () => set(s => ({ cmdOpen: !s.cmdOpen, cmdQuery: '' })),
+  setCmdOpen: v => set({ cmdOpen: v, cmdQuery: '' }),
+  cmdClose: () => set({ cmdOpen: false, cmdQuery: '' }),
+  setCmdQuery: v => set({ cmdQuery: v }),
+  addCmdRecent: id => set(s => {
+    const next = [id, ...s.cmdRecentIds.filter(r => r !== id)].slice(0, 8);
+    localStorage.setItem('nova_cmd_recents', JSON.stringify(next));
+    return { cmdRecentIds: next };
+  }),
+
+  // ── Field View (was fieldStore) ──
+  fieldMode: "field", // "field" | "plan" | "transitioning"
+  fieldTransitionProgress: 0,
+  fieldTransitionDirection: null, // "to-plan" | "to-field"
+  fieldHoveredNodeId: null,
+  fieldHoveredRingIdx: null,
+  fieldSelectedNodeId: null,
+  fieldTooltipData: null,
+  setFieldMode: v => set({ fieldMode: v }),
+  setFieldTransitionProgress: v => set({ fieldTransitionProgress: v }),
+  setFieldTransitionDirection: v => set({ fieldTransitionDirection: v }),
+  setFieldHoveredNode: (nodeId, ringIdx) => set({ fieldHoveredNodeId: nodeId, fieldHoveredRingIdx: ringIdx }),
+  clearFieldHover: () => set({ fieldHoveredNodeId: null, fieldHoveredRingIdx: null, fieldTooltipData: null }),
+  setFieldSelectedNode: v => set({ fieldSelectedNodeId: v }),
+  setFieldTooltipData: v => set({ fieldTooltipData: v }),
+  toggleFieldMode: () => set(s => ({ fieldMode: s.fieldMode === "field" ? "plan" : "field" })),
+
+  // ── Core Tab (was coreStore) ──
+  coreActiveTab: "overview",
+  setCoreActiveTab: tab => set({ coreActiveTab: tab }),
+  coreStatsLastComputed: null,
+  coreCachedStats: null,
+  setCoreCachedStats: stats => set({ coreCachedStats: stats, coreStatsLastComputed: Date.now() }),
+
+  // ── Feature Flags (was featureFlagStore) ──
+  featureFlags: { ...DEFAULT_FLAGS, ...parseUrlOverrides() },
+  isFeatureEnabled: name => _get().featureFlags[name] ?? false,
+  toggleFeatureFlag: name => set(s => ({ featureFlags: { ...s.featureFlags, [name]: !s.featureFlags[name] } })),
+  setFeatureFlag: (name, value) => set(s => ({ featureFlags: { ...s.featureFlags, [name]: value } })),
+  setFeatureFlags: updates => set(s => ({ featureFlags: { ...s.featureFlags, ...updates } })),
+  resetFeatureFlags: () => set({ featureFlags: { ...DEFAULT_FLAGS } }),
+  getAllFeatureFlags: () => Object.entries(_get().featureFlags).map(([name, enabled]) => ({ name, enabled, isDefault: DEFAULT_FLAGS[name] === enabled })),
 }));

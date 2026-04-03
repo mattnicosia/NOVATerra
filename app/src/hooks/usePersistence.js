@@ -16,7 +16,9 @@ import { useDocumentsStore } from "@/stores/documentsStore";
 import { useModuleStore, migrateModuleInstances } from "@/stores/moduleStore";
 import { useUiStore } from "@/stores/uiStore";
 import { useScanStore } from "@/stores/scanStore";
-import { useDiscoveryStore } from "@/stores/discoveryStore";
+// discoveryStore consolidated — discoveryIndex inlined for persistence
+const _discoveryIdx = { v: [] };
+const useDiscoveryStore = { getState: () => ({ discoveryIndex: _discoveryIdx.v, setDiscoveryIndex: v => { _discoveryIdx.v = v; }, reset: () => { _discoveryIdx.v = []; } }) };
 import { useGroupsStore, DEFAULT_GROUPS } from "@/stores/groupsStore";
 import { useCalendarStore } from "@/stores/calendarStore";
 import { useTaskStore } from "@/stores/taskStore";
@@ -634,8 +636,7 @@ export function usePersistenceLoad() {
 
       // Load cached symbol legends
       try {
-        const { useLegendStore } = await import("@/stores/legendStore");
-        await useLegendStore.getState().load();
+        await useDrawingsStore.getState().loadLegends();
       } catch { /* legend store non-critical */ }
 
       // Load PDF upload queue (resumes pending extractions)

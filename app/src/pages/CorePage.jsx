@@ -1,7 +1,7 @@
 import { Component, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
-import { useCoreStore } from "@/stores/coreStore";
+import { useUiStore } from "@/stores/uiStore";
 import CompanySwitcher from "@/components/shared/CompanySwitcher";
 import CoreNav from "@/components/core/CoreNav";
 import CoreOverview from "@/components/core/CoreOverview";
@@ -70,8 +70,8 @@ class TabErrorBoundary extends Component {
 
 export default function CorePage() {
   const C = useTheme();
-  const activeTab = useCoreStore(s => s.activeTab);
-  const setActiveTab = useCoreStore(s => s.setActiveTab);
+  const activeTab = useUiStore(s => s.coreActiveTab);
+  const setActiveTab = useUiStore(s => s.setCoreActiveTab);
   const [searchParams] = useSearchParams();
 
   // Sync ?tab= URL param → coreStore

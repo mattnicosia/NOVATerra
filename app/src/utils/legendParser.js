@@ -2,7 +2,7 @@
  * legendParser.js — Auto-detect and parse symbol legends from construction drawings.
  *
  * Called once per legend sheet (~$0.02 via Haiku, <3 seconds).
- * Results are cached forever in legendStore — every subsequent
+ * Results are cached forever in drawingsStore — every subsequent
  * prediction call gets symbol definitions as context.
  *
  * This is the single biggest accuracy unlock for auto-takeoffs.
@@ -12,7 +12,7 @@
  */
 
 import { callAnthropic, imageBlock, SCAN_MODEL } from "@/utils/ai";
-import { useLegendStore } from "@/stores/legendStore";
+import { useDrawingsStore } from "@/stores/drawingsStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { inferDiscipline } from "@/utils/contextAssembler";
 
@@ -73,9 +73,9 @@ export async function parseLegendFromDrawing(drawing) {
   if (!estimateId) return null;
 
   // Check if already parsed
-  if (useLegendStore.getState().hasLegendForDrawing(estimateId, drawing.id)) {
+  if (useDrawingsStore.getState().hasLegendForDrawing(estimateId, drawing.id)) {
     console.log(`[legendParser] Already parsed legend for drawing ${drawing.id}, skipping`);
-    return useLegendStore.getState().getLegendsForEstimate(estimateId)
+    return useDrawingsStore.getState().getLegendsForEstimate(estimateId)
       .find(l => l.drawingId === drawing.id);
   }
 
@@ -145,7 +145,7 @@ export async function parseLegendFromDrawing(drawing) {
     };
 
     // Store in legendStore (persisted to IDB)
-    useLegendStore.getState().addLegend(estimateId, legendEntry);
+    useDrawingsStore.getState().addLegend(estimateId, legendEntry);
 
     console.log(
       `[legendParser] ✓ Parsed ${cleanedSymbols.length} symbols from ` +
@@ -174,8 +174,8 @@ export async function scanForLegends(drawings) {
   if (!estimateId) return 0;
 
   const legendSheets = drawings.filter(d =>
-    useLegendStore.getState().isLegendSheet(d) &&
-    !useLegendStore.getState().hasLegendForDrawing(estimateId, d.id)
+    useDrawingsStore.getState().isLegendSheet(d) &&
+    !useDrawingsStore.getState().hasLegendForDrawing(estimateId, d.id)
   );
 
   if (legendSheets.length === 0) {
@@ -208,5 +208,5 @@ export async function scanForLegends(drawings) {
 export function getLegendContext(discipline) {
   const estimateId = useEstimatesStore.getState().activeEstimateId;
   if (!estimateId) return "";
-  return useLegendStore.getState().buildLegendContext(estimateId, discipline);
+  return useDrawingsStore.getState().buildLegendContext(estimateId, discipline);
 }

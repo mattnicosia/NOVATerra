@@ -12,7 +12,7 @@ import { useRef, useEffect, useCallback, useMemo } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useWorkloadData } from "@/hooks/useWorkloadData";
 import { useFieldParticles } from "@/hooks/useFieldParticles";
-import { useFieldStore } from "@/stores/fieldStore";
+import { useUiStore } from "@/stores/uiStore";
 import { unassignedRadius as getUnassignedRadius } from "@/utils/fieldPhysics";
 import { renderField, hitTestPos, hitTestUnassignedPos } from "./ResourceFieldRenderer";
 
@@ -62,10 +62,10 @@ export default function ResourceField() {
   teamUtilRef.current = teamUtilization;
 
   // Store actions (stable refs from Zustand)
-  const setHoveredNode = useFieldStore(s => s.setHoveredNode);
-  const clearHover = useFieldStore(s => s.clearHover);
-  const setSelectedNode = useFieldStore(s => s.setSelectedNode);
-  const setTooltipData = useFieldStore(s => s.setTooltipData);
+  const setHoveredNode = useUiStore(s => s.setFieldHoveredNode);
+  const clearHover = useUiStore(s => s.clearFieldHover);
+  const setSelectedNode = useUiStore(s => s.setFieldSelectedNode);
+  const setTooltipData = useUiStore(s => s.setFieldTooltipData);
 
   // ── RAF draw loop ──
   useEffect(() => {
@@ -125,9 +125,9 @@ export default function ResourceField() {
         unassignedRadius: getUnassignedRadius(fieldRadius),
         teamUtilization: teamUtilRef.current,
         colors,
-        hoveredNodeId: useFieldStore.getState().hoveredNodeId,
-        hoveredRingIdx: useFieldStore.getState().hoveredRingIdx,
-        selectedNodeId: useFieldStore.getState().selectedNodeId,
+        hoveredNodeId: useUiStore.getState().fieldHoveredNodeId,
+        hoveredRingIdx: useUiStore.getState().fieldHoveredRingIdx,
+        selectedNodeId: useUiStore.getState().fieldSelectedNodeId,
         time: elapsed,
         reducedMotion: prefersRM,
       });

@@ -1,5 +1,5 @@
 import { useTheme } from '@/hooks/useTheme';
-import { useCoreStore } from '@/stores/coreStore';
+import { useUiStore } from '@/stores/uiStore';
 
 const TABS = [
   { key: "overview", label: "Overview", icon: "M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" },
@@ -12,8 +12,8 @@ const TABS = [
 export default function CoreNav() {
   const C = useTheme();
   const T = C.T;
-  const activeTab = useCoreStore(s => s.activeTab);
-  const setActiveTab = useCoreStore(s => s.setActiveTab);
+  const activeTab = useUiStore(s => s.coreActiveTab);
+  const setActiveTab = useUiStore(s => s.setCoreActiveTab);
 
   return (
     <div style={{

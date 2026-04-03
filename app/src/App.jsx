@@ -35,7 +35,6 @@ import PersistentMusicBar from "@/components/layout/PersistentMusicBar";
 import PageTransition from "@/components/ambient/PageTransition";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
 import PageErrorBoundary from "@/components/shared/PageErrorBoundary";
-import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
 
 // Route-aware error boundary wrapper — resets error state on route navigation
 // so that errors from exiting pages don't flash the error UI during page transitions
@@ -544,7 +543,7 @@ function AppContent() {
   }, [persistenceLoaded]);
   const appReady = persistenceLoaded || forceShow;
   const [showDraftPanel, setShowDraftPanel] = useState(false);
-  const cmdPaletteOpen = useCommandPaletteStore(s => s.open);
+  const cmdPaletteOpen = useUiStore(s => s.cmdOpen);
   const aiChatOpen = useUiStore(s => s.aiChatOpen);
   const sessionKicked = useUiStore(s => s.sessionKicked);
 

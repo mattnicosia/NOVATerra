@@ -7,7 +7,6 @@ import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useDatabaseStore } from "@/stores/databaseStore";
 import { useDrawingsStore } from "@/stores/drawingsStore";
 import { useUiStore } from "@/stores/uiStore";
-import { useCoreStore } from "@/stores/coreStore";
 import NovaIntelligenceMeter from "@/components/core/NovaIntelligenceMeter";
 import ConfidenceEngineAdmin from "@/components/core/ConfidenceEngineAdmin";
 import CsvImportModal from "@/components/import/CsvImportModal";
@@ -88,7 +87,7 @@ function KpiCard({ icon, label, value, sub, color, accent }) {
 export default function CoreOverview() {
   const C = useTheme();
   const T = C.T;
-  const setActiveTab = useCoreStore(s => s.setActiveTab);
+  const setActiveTab = useUiStore(s => s.setCoreActiveTab);
   const activeCompanyId = useUiStore(s => s.appSettings.activeCompanyId);
 
   // Data sources

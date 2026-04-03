@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
-import { useCommandPaletteStore } from "@/stores/commandPaletteStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useUiStore } from "@/stores/uiStore";
 import { loadEstimate } from "@/hooks/usePersistence";
@@ -54,7 +53,7 @@ export default function CommandPalette() {
   const ov = a => (isDk ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`);
 
   const navigate = useNavigate();
-  const { open, query, recentIds, close, setQuery, addRecent } = useCommandPaletteStore();
+  const { cmdOpen: open, cmdQuery: query, cmdRecentIds: recentIds, cmdClose: close, setCmdQuery: setQuery, addCmdRecent: addRecent } = useUiStore();
   const estimates = useEstimatesStore(s => s.estimatesIndex);
   const activeCompanyId = useUiStore(s => s.appSettings.activeCompanyId);
   const setAiChatOpen = useUiStore(s => s.setAiChatOpen);

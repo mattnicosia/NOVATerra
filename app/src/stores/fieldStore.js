@@ -1,31 +1,16 @@
-import { create } from "zustand";
-
-export const useFieldStore = create(set => ({
-  // View sub-mode within the Field view
-  mode: "field", // "field" | "plan" | "transitioning"
-
-  // Transition animation state
-  transitionProgress: 0, // 0–1 during animation
-  transitionDirection: null, // "to-plan" | "to-field"
-
-  // Hover/selection state
-  hoveredNodeId: null,
-  hoveredRingIdx: null,
-  selectedNodeId: null,
-
-  // Tooltip
-  tooltipData: null, // { x, y, label, hours, bidDue, status } or null
-
-  // Actions
-  setMode: v => set({ mode: v }),
-  setTransitionProgress: v => set({ transitionProgress: v }),
-  setTransitionDirection: v => set({ transitionDirection: v }),
-  setHoveredNode: (nodeId, ringIdx) => set({ hoveredNodeId: nodeId, hoveredRingIdx: ringIdx }),
-  clearHover: () => set({ hoveredNodeId: null, hoveredRingIdx: null, tooltipData: null }),
-  setSelectedNode: v => set({ selectedNodeId: v }),
-  setTooltipData: v => set({ tooltipData: v }),
-  toggleMode: () =>
-    set(s => ({
-      mode: s.mode === "field" ? "plan" : "field",
-    })),
-}));
+// DEPRECATED — consolidated into uiStore. Use useUiStore directly.
+import { useUiStore } from "./uiStore";
+export const useFieldStore = (selector) => useUiStore(s => {
+  const mapped = {
+    mode: s.fieldMode, transitionProgress: s.fieldTransitionProgress,
+    transitionDirection: s.fieldTransitionDirection,
+    hoveredNodeId: s.fieldHoveredNodeId, hoveredRingIdx: s.fieldHoveredRingIdx,
+    selectedNodeId: s.fieldSelectedNodeId, tooltipData: s.fieldTooltipData,
+    setMode: s.setFieldMode, setTransitionProgress: s.setFieldTransitionProgress,
+    setTransitionDirection: s.setFieldTransitionDirection,
+    setHoveredNode: s.setFieldHoveredNode, clearHover: s.clearFieldHover,
+    setSelectedNode: s.setFieldSelectedNode, setTooltipData: s.setFieldTooltipData,
+    toggleMode: s.toggleFieldMode,
+  };
+  return selector ? selector(mapped) : mapped;
+});

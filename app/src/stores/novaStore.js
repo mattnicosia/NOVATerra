@@ -98,4 +98,13 @@ export const useNovaStore = create((set, get) => ({
 
   // Reset to idle
   resetStatus: () => set({ status: "idle", activity: null, activeTask: null }),
+
+  // ── Audio Assets (was novaAudioStore) ──
+  audioAssets: {},
+  audioVolumes: { drone: 1.0, textPing: 1.0, activation: 1.0 },
+  setAudioAsset: (slot, meta) => set(s => ({ audioAssets: { ...s.audioAssets, [slot]: meta } })),
+  removeAudioAsset: slot => set(s => { const next = { ...s.audioAssets }; delete next[slot]; return { audioAssets: next }; }),
+  setAudioSlotVolume: (slot, level) => set(s => ({ audioVolumes: { ...s.audioVolumes, [slot]: Math.max(0, Math.min(1, level)) } })),
+  setAllAudioAssets: assets => set({ audioAssets: assets || {} }),
+  setAllAudioVolumes: vols => set({ audioVolumes: { drone: 1.0, textPing: 1.0, activation: 1.0, ...vols } }),
 }));

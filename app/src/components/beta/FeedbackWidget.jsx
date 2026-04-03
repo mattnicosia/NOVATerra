@@ -14,7 +14,7 @@ import { useState, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuthStore } from "@/stores/authStore";
-import { useFeatureFlagStore } from "@/stores/featureFlagStore";
+import { useUiStore } from "@/stores/uiStore";
 import { supabase } from "@/utils/supabase";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
@@ -32,7 +32,7 @@ export default function FeedbackWidget() {
   const T = C.T;
   const location = useLocation();
   const user = useAuthStore(s => s.user);
-  const isEnabled = useFeatureFlagStore(s => s.isEnabled("feedback-widget"));
+  const isEnabled = useUiStore(s => s.isFeatureEnabled("feedback-widget"));
 
   const [open, setOpen] = useState(false);
   const [category, setCategory] = useState("general");
