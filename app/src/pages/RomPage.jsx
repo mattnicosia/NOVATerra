@@ -258,6 +258,88 @@ function PathSelector({ onSelect }) {
 }
 
 /* ════════════════════════════════════════════════════════════════
+   EMAIL CAPTURE — Lead gen for ROM results
+   ════════════════════════════════════════════════════════════════ */
+function EmailCapture({ romResult }) {
+  const [email, setEmail] = useState("");
+  const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
+  const ff = { fontFamily: "Switzer, -apple-system, sans-serif" };
+
+  if (sent) {
+    return (
+      <div style={{ textAlign: "center", padding: "12px 0 16px", ...ff }}>
+        <div style={{ fontSize: 13, color: "#00D4AA", fontWeight: 500 }}>Estimate sent to your inbox</div>
+      </div>
+    );
+  }
+
+  async function handleSend(e) {
+    e?.preventDefault();
+    if (!email.includes("@")) { setError("Enter a valid email"); return; }
+    setSending(true);
+    setError("");
+    try {
+      const totals = romResult?.totals || {};
+      const perSF = romResult?.perSF || {};
+      await fetch("/api/send-rom-results", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          buildingType: romResult?.buildingType || romResult?.jobType || "",
+          projectSF: romResult?.projectSF || 0,
+          totalLow: totals.low, totalMid: totals.mid, totalHigh: totals.high,
+          perSFLow: perSF.low, perSFMid: perSF.mid, perSFHigh: perSF.high,
+          tradeCount: romResult?.tradeCount || null,
+          itemCount: romResult?.itemCount || null,
+          source: romResult?.source || "basics",
+        }),
+      });
+      setSent(true);
+    } catch (err) {
+      setError("Failed to send — try again");
+    }
+    setSending(false);
+  }
+
+  return (
+    <form onSubmit={handleSend} style={{
+      display: "flex", alignItems: "center", gap: 8,
+      padding: "10px 16px", borderRadius: 10, marginBottom: 16,
+      background: "rgba(0,212,170,0.06)", border: "1px solid rgba(0,212,170,0.15)",
+    }}>
+      <svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="rgba(0,212,170,0.6)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="1" y="1" width="14" height="10" rx="2" />
+        <path d="M1 1l7 5 7-5" />
+      </svg>
+      <input
+        type="email"
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        placeholder="Enter email to receive this estimate"
+        style={{
+          flex: 1, padding: "6px 10px", fontSize: 13, ...ff,
+          background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+          borderRadius: 6, color: "#EEEDF5", outline: "none",
+        }}
+        onFocus={e => (e.currentTarget.style.borderColor = "#00D4AA")}
+        onBlur={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)")}
+      />
+      <button type="submit" disabled={sending} style={{
+        padding: "6px 16px", fontSize: 12, fontWeight: 600, ...ff,
+        background: "#00D4AA", color: "#000", border: "none",
+        borderRadius: 6, cursor: "pointer", opacity: sending ? 0.5 : 1,
+      }}>
+        {sending ? "Sending..." : "Send"}
+      </button>
+      {error && <span style={{ fontSize: 11, color: "#ef4444", ...ff }}>{error}</span>}
+    </form>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
    AUTH GATE — Login/signup inline
    ════════════════════════════════════════════════════════════════ */
 function AuthGate({ onAuth }) {
@@ -1230,6 +1312,9 @@ function RomPageInner() {
                 </span>
               </div>
             </div>
+
+            {/* Email capture — lead gen */}
+            <EmailCapture romResult={romResult} />
 
             <RomResult rom={romResult} email={email} />
 
