@@ -58,6 +58,7 @@ export default function TasksWidget() {
 
   const [quickInput, setQuickInput] = useState("");
   const [quickDueDate, setQuickDueDate] = useState(""); // due date for quick-add
+  const [quickProjectId, setQuickProjectId] = useState(""); // assign to project
   const [filter, setFilter] = useState("active"); // "active" | "all" | "today" | "ai"
   const [hoveredId, setHoveredId] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
@@ -183,12 +184,13 @@ export default function TasksWidget() {
       type,
       priority,
       dueDate,
-      estimateId: activeEstimateId || null,
+      estimateId: quickProjectId || activeEstimateId || null,
     });
     setQuickInput("");
     setQuickDueDate("");
+    setQuickProjectId("");
     inputRef.current?.focus();
-  }, [quickInput, quickDueDate, todayStr, addTask, activeEstimateId]);
+  }, [quickInput, quickDueDate, quickProjectId, todayStr, addTask, activeEstimateId]);
 
   const handleKeyDown = useCallback(
     e => {
@@ -573,38 +575,98 @@ export default function TasksWidget() {
       </div>
 
       {/* ── Quick-add input (moved to top) ────────────────── */}
-      <div style={{ marginBottom: 6, display: "flex", gap: 3 }}>
-        <input
-          ref={inputRef}
-          type="text"
-          value={quickInput}
-          onChange={e => setQuickInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Add task..."
-          style={{
-            flex: 1, padding: "4px 7px", fontSize: 9.5,
-            fontFamily: font, fontWeight: 500,
-            background: dk ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
-            border: `1px solid ${dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
-            borderRadius: 5, color: C.text, outline: "none",
-            transition: "border-color 0.15s",
-          }}
-          onFocus={e => (e.currentTarget.style.borderColor = C.accent)}
-          onBlur={e => (e.currentTarget.style.borderColor = dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)")}
-        />
-        <button
-          onClick={handleQuickAdd}
-          disabled={!quickInput.trim()}
-          style={bt(C, {
-            padding: "4px 8px", fontSize: 9, fontWeight: 600, fontFamily: font,
-            background: quickInput.trim() ? C.accent : "transparent",
-            color: quickInput.trim() ? "#fff" : C.textDim,
-            border: quickInput.trim() ? "none" : `1px solid ${dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
-            borderRadius: 5, cursor: quickInput.trim() ? "pointer" : "default",
+      <div style={{ marginBottom: 6, display: "flex", flexDirection: "column", gap: 3 }}>
+        <div style={{ display: "flex", gap: 3 }}>
+          <input
+            ref={inputRef}
+            type="text"
+            value={quickInput}
+            onChange={e => setQuickInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Add task..."
+            style={{
+              flex: 1, padding: "4px 7px", fontSize: 9.5,
+              fontFamily: font, fontWeight: 500,
+              background: dk ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
+              border: `1px solid ${dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
+              borderRadius: 5, color: C.text, outline: "none",
+              transition: "border-color 0.15s",
+            }}
+            onFocus={e => (e.currentTarget.style.borderColor = C.accent)}
+            onBlur={e => (e.currentTarget.style.borderColor = dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)")}
+          />
+          <button
+            onClick={handleQuickAdd}
+            disabled={!quickInput.trim()}
+            style={bt(C, {
+              padding: "4px 8px", fontSize: 9, fontWeight: 600, fontFamily: font,
+              background: quickInput.trim() ? C.accent : "transparent",
+              color: quickInput.trim() ? "#fff" : C.textDim,
+              border: quickInput.trim() ? "none" : `1px solid ${dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
+              borderRadius: 5, cursor: quickInput.trim() ? "pointer" : "default",
+            })}
+          >
+            +
+          </button>
+        </div>
+        {/* Due date + project assignment row */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <input
+            type="date"
+            value={quickDueDate}
+            onChange={e => setQuickDueDate(e.target.value)}
+            style={{
+              fontSize: 8, fontFamily: font, padding: "2px 4px",
+              borderRadius: 3, width: 0, flex: 1,
+              border: `1px solid ${quickDueDate ? C.accent + "60" : dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`,
+              background: dk ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+              color: quickDueDate ? C.text : C.textDim, outline: "none",
+            }}
+          />
+          {["Today", "Tmrw", "+7d"].map(label => {
+            const getDate = () => {
+              const d = new Date();
+              if (label === "Tmrw") d.setDate(d.getDate() + 1);
+              if (label === "+7d") d.setDate(d.getDate() + 7);
+              return d.toISOString().split("T")[0];
+            };
+            const targetDate = getDate();
+            const isActive = quickDueDate === targetDate;
+            return (
+              <button
+                key={label}
+                onClick={() => setQuickDueDate(isActive ? "" : targetDate)}
+                style={{
+                  padding: "2px 4px", fontSize: 7, fontWeight: 600,
+                  color: isActive ? C.accent : C.textDim,
+                  background: isActive ? `${C.accent}12` : "transparent",
+                  border: "none", borderRadius: 3, cursor: "pointer",
+                  fontFamily: font, transition: "all 0.15s",
+                }}
+              >
+                {label}
+              </button>
+            );
           })}
-        >
-          +
-        </button>
+          {/* Project assignment */}
+          <select
+            value={quickProjectId}
+            onChange={e => setQuickProjectId(e.target.value)}
+            title="Assign to project"
+            style={{
+              fontSize: 8, fontFamily: font, padding: "2px 3px",
+              borderRadius: 3, width: 0, flex: 1,
+              border: `1px solid ${quickProjectId ? C.accent + "60" : dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`,
+              background: dk ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+              color: quickProjectId ? C.text : C.textDim, outline: "none",
+            }}
+          >
+            <option value="">No project</option>
+            {(estimatesIndex || []).filter(e => !e.deleted_at).slice(0, 20).map(e => (
+              <option key={e.id} value={e.id}>{(e.name || e.projectName || "Untitled").slice(0, 25)}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* ── Task list ──────────────────────────────────────── */}
