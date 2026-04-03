@@ -1553,8 +1553,21 @@ function RomPageInner() {
               <RomResult rom={romResult} email={email} />
             </div>
 
-            {/* Actions */}
-            <div style={{ marginTop: 32, display: "flex", gap: 16, alignItems: "center" }}>
+            {/* Actions — funnel to platform */}
+            <div style={{ marginTop: 32, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+              <button onClick={() => {
+                // Navigate to signup/login with ROM data preserved
+                const bt = romResult?.buildingType || romResult?.jobType || "";
+                const sf = romResult?.projectSF || "";
+                window.location.href = `/login?from=rom&buildingType=${encodeURIComponent(bt)}&sf=${sf}`;
+              }} style={{
+                padding: "12px 28px", borderRadius: 10, border: "none",
+                background: "#00D4AA", color: "#000", cursor: "pointer",
+                fontSize: 14, fontWeight: 600, ...ff,
+                boxShadow: "0 0 20px rgba(0,212,170,0.25)",
+              }}>
+                Create Detailed Estimate
+              </button>
               <button onClick={handleReset} style={{
                 padding: "10px 24px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)",
                 background: "transparent", color: "rgba(238,237,245,0.5)", cursor: "pointer", fontSize: 13, fontWeight: 500, ...ff,

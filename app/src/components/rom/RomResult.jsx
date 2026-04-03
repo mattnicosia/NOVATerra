@@ -102,6 +102,13 @@ export default function RomResult({ rom, email }) {
   const [showScopeItems, setShowScopeItems] = useState(true);
   const [showTradeScopes, setShowTradeScopes] = useState(true);
   const [expandedTrade, setExpandedTrade] = useState(null);
+  // Line item toggle — excluded items by code (shared between scope detail + trade scopes)
+  const [excludedItems, setExcludedItems] = useState(new Set());
+  const toggleItem = (code) => setExcludedItems(prev => {
+    const next = new Set(prev);
+    next.has(code) ? next.delete(code) : next.add(code);
+    return next;
+  });
   const [divisionAdjustments, setDivisionAdjustments] = useState({}); // { divCode: multiplier }
 
   const [editingSub, setEditingSub] = useState(null);
@@ -596,7 +603,8 @@ export default function RomResult({ rom, email }) {
 
             {Object.entries(byDiv).sort(([a], [b]) => a.localeCompare(b)).map(([divCode, items]) => {
               const divName = divisions?.[divCode]?.name || `Division ${divCode}`;
-              const divTotal = items.reduce((sum, i) => sum + (i.midCost || 0), 0);
+              const activeItems = items.filter(i => !excludedItems.has(i.code));
+              const divTotal = activeItems.reduce((sum, i) => sum + (i.midCost || 0), 0);
 
               return (
                 <div key={divCode} style={{ marginBottom: 16 }}>
@@ -615,11 +623,13 @@ export default function RomResult({ rom, email }) {
                     </span>
                   </div>
 
-                  {/* Line items */}
-                  {items.map((item, idx) => (
+                  {/* Line items with toggle */}
+                  {items.map((item, idx) => {
+                    const isExcluded = excludedItems.has(item.code);
+                    return (
                     <div key={idx} style={{
                       display: "grid",
-                      gridTemplateColumns: "1fr 70px 40px 80px 80px 80px",
+                      gridTemplateColumns: "20px 1fr 70px 40px 80px 80px 80px",
                       gap: 8,
                       padding: "4px 0",
                       fontSize: 11,
@@ -627,7 +637,11 @@ export default function RomResult({ rom, email }) {
                       color: C.textMuted,
                       borderBottom: idx < items.length - 1 ? `1px solid ${C.borderLight}` : "none",
                       alignItems: "center",
+                      opacity: isExcluded ? 0.35 : 1,
+                      textDecoration: isExcluded ? "line-through" : "none",
                     }}>
+                      <input type="checkbox" checked={!isExcluded} onChange={() => toggleItem(item.code)}
+                        style={{ accentColor: C.accent, cursor: "pointer", width: 13, height: 13 }} />
                       <span style={{ color: C.text, fontSize: 11.5 }}>
                         <span style={{ color: C.textDim, marginRight: 6 }}>{item.code}</span>
                         {item.description}
@@ -647,24 +661,37 @@ export default function RomResult({ rom, email }) {
                         {item.highCost ? fmt(item.highCost) : "—"}
                       </span>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               );
             })}
 
-            {/* Scope totals */}
-            <div style={{
-              display: "grid", gridTemplateColumns: "1fr 70px 40px 80px 80px 80px",
-              gap: 8, padding: "8px 0", borderTop: `2px solid ${C.border}`, marginTop: 8,
-              fontSize: 12, fontWeight: 700, fontFamily: T.font.sans, color: C.text,
-            }}>
-              <span>TOTAL ({scopeResult.itemCount} items)</span>
-              <span />
-              <span />
-              <span style={{ textAlign: "right", fontFamily: T.font.mono || T.font.sans }}>{fmt(scopeResult.grandTotal.low)}</span>
-              <span style={{ textAlign: "right", fontFamily: T.font.mono || T.font.sans, color: C.accent }}>{fmt(scopeResult.grandTotal.mid)}</span>
-              <span style={{ textAlign: "right", fontFamily: T.font.mono || T.font.sans }}>{fmt(scopeResult.grandTotal.high)}</span>
-            </div>
+            {/* Scope totals — recalculated excluding toggled items */}
+            {(() => {
+              const active = scopeResult.items.filter(i => !excludedItems.has(i.code));
+              const adjTotal = {
+                low: active.reduce((s, i) => s + (i.lowCost || 0), 0),
+                mid: active.reduce((s, i) => s + (i.midCost || 0), 0),
+                high: active.reduce((s, i) => s + (i.highCost || 0), 0),
+              };
+              const excluded = scopeResult.itemCount - active.length;
+              return (
+              <div style={{
+                display: "grid", gridTemplateColumns: "20px 1fr 70px 40px 80px 80px 80px",
+                gap: 8, padding: "8px 0", borderTop: `2px solid ${C.border}`, marginTop: 8,
+                fontSize: 12, fontWeight: 700, fontFamily: T.font.sans, color: C.text,
+              }}>
+                <span />
+                <span>TOTAL ({active.length} items{excluded > 0 ? `, ${excluded} excluded` : ""})</span>
+                <span />
+                <span />
+                <span style={{ textAlign: "right", fontFamily: T.font.mono || T.font.sans }}>{fmt(adjTotal.low)}</span>
+                <span style={{ textAlign: "right", fontFamily: T.font.mono || T.font.sans, color: C.accent }}>{fmt(adjTotal.mid)}</span>
+                <span style={{ textAlign: "right", fontFamily: T.font.mono || T.font.sans }}>{fmt(adjTotal.high)}</span>
+              </div>
+              );
+            })()}
             <div style={{
               display: "grid", gridTemplateColumns: "1fr 70px 40px 80px 80px 80px",
               gap: 8, padding: "4px 0", fontSize: 11, fontFamily: T.font.sans, color: C.textMuted,
@@ -768,25 +795,31 @@ export default function RomResult({ rom, email }) {
                         </div>
                       )}
 
-                      {/* Line items */}
+                      {/* Line items with toggle */}
                       <div style={{
-                        display: "grid", gridTemplateColumns: "1fr 70px 40px 80px",
+                        display: "grid", gridTemplateColumns: "18px 1fr 60px 35px 70px",
                         gap: 4, fontSize: 10, fontFamily: T.font.sans, color: C.textDim,
                         padding: "4px 0", borderBottom: `1px solid ${C.border}06`, fontWeight: 600,
                       }}>
+                        <span />
                         <span>Description</span>
                         <span style={{ textAlign: "right" }}>Qty</span>
                         <span style={{ textAlign: "center" }}>Unit</span>
                         <span style={{ textAlign: "right" }}>Est. Cost</span>
                       </div>
-                      {trade.items.map((item, idx) => (
+                      {trade.items.map((item, idx) => {
+                        const isExcluded = excludedItems.has(item.code);
+                        return (
                         <div key={idx} style={{
-                          display: "grid", gridTemplateColumns: "1fr 70px 40px 80px",
+                          display: "grid", gridTemplateColumns: "18px 1fr 60px 35px 70px",
                           gap: 4, padding: "3px 0", fontSize: 10.5, fontFamily: T.font.sans,
                           borderBottom: idx < trade.items.length - 1 ? `1px solid ${C.borderLight || C.border}06` : "none",
                           alignItems: "center",
+                          opacity: isExcluded ? 0.35 : 1,
                         }}>
-                          <span style={{ color: C.text }}>
+                          <input type="checkbox" checked={!isExcluded} onChange={() => toggleItem(item.code)}
+                            style={{ accentColor: tradeColor, cursor: "pointer", width: 12, height: 12 }} />
+                          <span style={{ color: C.text, textDecoration: isExcluded ? "line-through" : "none" }}>
                             <span style={{ color: C.textDim, marginRight: 4, fontSize: 9 }}>{item.code}</span>
                             {item.description}
                           </span>
@@ -798,19 +831,27 @@ export default function RomResult({ rom, email }) {
                             {item.midCost ? fmt(item.midCost) : "—"}
                           </span>
                         </div>
-                      ))}
+                        );
+                      })}
 
-                      {/* Trade subtotal */}
+                      {/* Trade subtotal — recalculated excluding toggled items */}
+                      {(() => {
+                        const activeItems = trade.items.filter(i => !excludedItems.has(i.code));
+                        const adjMid = activeItems.reduce((s, i) => s + (i.midCost || 0), 0);
+                        return (
                       <div style={{
-                        display: "grid", gridTemplateColumns: "1fr 70px 40px 80px",
+                        display: "grid", gridTemplateColumns: "18px 1fr 60px 35px 70px",
                         gap: 4, padding: "6px 0 0", borderTop: `1px solid ${tradeColor}20`, marginTop: 4,
                         fontSize: 11, fontWeight: 700, fontFamily: T.font.sans, color: tradeColor,
                       }}>
-                        <span>Subtotal</span>
+                        <span />
+                        <span>Subtotal{activeItems.length < trade.items.length ? ` (${activeItems.length}/${trade.items.length})` : ""}</span>
                         <span />
                         <span />
-                        <span style={{ textAlign: "right" }}>{fmt(trade.costMid)}</span>
+                        <span style={{ textAlign: "right" }}>{fmt(adjMid)}</span>
                       </div>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
