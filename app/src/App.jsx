@@ -56,6 +56,7 @@ const CommandPalette = lazy(() => import("@/components/shared/CommandPalette"));
 const FeedbackWidget = lazy(() => import("@/components/beta/FeedbackWidget"));
 const SpotlightOverlay = lazy(() => import("@/components/onboarding/SpotlightOverlay"));
 const ConflictMergeModal = lazy(() => import("@/components/shared/ConflictMergeModal"));
+const AutopilotPanel = lazy(() => import("@/components/nova/AutopilotPanel"));
 // SideRail removed — board voted to keep top header, style it per theme instead
 
 // ── Spatial interface — completely separate UI tree ──
@@ -945,6 +946,7 @@ function AppContent() {
       <SyncStatusBar />
       <Suspense fallback={null}><SpotlightOverlay /></Suspense>
       <Suspense fallback={null}><ConflictMergeModal /></Suspense>
+      <Suspense fallback={null}><AutopilotPanel /></Suspense>
       {aiChatOpen && (
         <Suspense fallback={null}>
           <AIChatPanel />
