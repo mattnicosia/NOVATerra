@@ -604,6 +604,7 @@ function DrawingUploadPath({ onResult, onBack }) {
   const [error, setError] = useState("");
   const [buildingType, setBuildingType] = useState("commercial-office");
   const [projectSFInput, setProjectSFInput] = useState("");
+  const [locationInput, setLocationInput] = useState("");
   const fileRef = useRef(null);
 
   const handleDrop = useCallback((e) => {
@@ -773,6 +774,7 @@ function DrawingUploadPath({ onResult, onBack }) {
       // Generate calibrated ROM — user-selected type overrides AI detection
       const effectiveType = buildingType || buildingParams.detectedType || "commercial-office";
       if (projectSFInput && parseFloat(projectSFInput) > 0) projectSF = parseFloat(projectSFInput);
+      if (locationInput) buildingParams.location = locationInput;
       const rom = generateBaselineROM(projectSF, effectiveType, "", null, buildingParams);
 
       // Combine ROM + line items
@@ -880,6 +882,15 @@ function DrawingUploadPath({ onResult, onBack }) {
             <label style={{ fontSize: 10, color: "rgba(238,237,245,0.3)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.1em", ...ff }}>Approx SF</label>
             <input value={projectSFInput} onChange={e => setProjectSFInput(e.target.value)} placeholder="e.g. 3500"
               type="number" style={{
+                width: "100%", padding: "8px 12px", fontSize: 13, ...ff,
+                background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: 8, color: "#EEEDF5", outline: "none",
+              }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={{ fontSize: 10, color: "rgba(238,237,245,0.3)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.1em", ...ff }}>Location</label>
+            <input value={locationInput} onChange={e => setLocationInput(e.target.value)} placeholder="City, State or ZIP"
+              style={{
                 width: "100%", padding: "8px 12px", fontSize: 13, ...ff,
                 background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
                 borderRadius: 8, color: "#EEEDF5", outline: "none",
