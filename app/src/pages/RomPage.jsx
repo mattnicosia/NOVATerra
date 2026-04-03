@@ -622,7 +622,14 @@ function DrawingUploadPath({ onResult, onBack }) {
       for (const file of files) {
         setProgress(`Reading ${file.name}...`);
         const buffer = await file.arrayBuffer();
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+        // Chunked base64 conversion — spread operator overflows on large files
+        const bytes = new Uint8Array(buffer);
+        let binary = "";
+        const CHUNK = 8192;
+        for (let i = 0; i < bytes.length; i += CHUNK) {
+          binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+        }
+        const base64 = btoa(binary);
         drawings.push({ name: file.name, data: `data:application/pdf;base64,${base64}`, pages: 0 });
       }
 
