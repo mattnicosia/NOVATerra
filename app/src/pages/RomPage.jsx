@@ -641,7 +641,7 @@ function DrawingUploadPath({ onResult, onBack }) {
       const { callAnthropic, optimizeImageForAI, imageBlock, SCAN_MODEL } = await import("@/utils/ai");
       const { buildDetectionPrompt, buildParsePrompt, normalizeScheduleData } = await import("@/utils/scheduleParsers");
       const { generateBaselineROM, generateScheduleLineItems, extractBuildingParamsFromSchedules } = await import("@/utils/romEngine");
-      const { renderPdfPage } = await import("@/utils/drawingUtils");
+      const { loadPdfJs } = await import("@/utils/pdf");
       const { novaPlans } = await import("@/nova/agents/plans");
 
       // Get knowledge-augmented system prompts for better detection
@@ -652,16 +652,36 @@ function DrawingUploadPath({ onResult, onBack }) {
       const allEntries = [];
 
       for (const drawing of drawings) {
-        setProgress(`Scanning ${drawing.name}...`);
+        setProgress(`Rendering ${drawing.name}...`);
 
-        // Scan ALL pages (not just 10) — schedules can be on any page
-        for (let p = 1; p <= 40; p++) {
+        // Load pdf.js and parse the PDF directly (not via drawingsStore)
+        await loadPdfJs();
+        let pdf;
+        try {
+          const resp = await fetch(drawing.data);
+          const buf = await resp.arrayBuffer();
+          pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
+        } catch (e) {
+          setProgress(`Failed to load ${drawing.name}: ${e.message}`);
+          continue;
+        }
+        const numPages = Math.min(pdf.numPages, 40);
+        drawing.pages = numPages;
+
+        // Scan ALL pages
+        for (let p = 1; p <= numPages; p++) {
           try {
-            const canvas = await renderPdfPage(drawing.data, p);
-            if (!canvas) break;
-            drawing.pages = p;
+            // Render page to canvas directly
+            const pg = await pdf.getPage(p);
+            const scale = 1.0; // lower scale for speed on scan
+            const vp = pg.getViewport({ scale });
+            const canvas = document.createElement("canvas");
+            canvas.width = vp.width;
+            canvas.height = vp.height;
+            await pg.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise;
 
-            const optimized = await optimizeImageForAI(canvas.toDataURL("image/jpeg", 0.8));
+            const optimized = await optimizeImageForAI(canvas.toDataURL("image/jpeg", 0.7));
+            canvas.width = 0; canvas.height = 0; // free memory
             if (!optimized?.base64) continue;
 
             setProgress(`Scanning ${drawing.name} page ${p}...`);
