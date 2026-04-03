@@ -1,14 +1,9 @@
-*.png
-*.jpg
-*.jpeg
-*.mp4
-*.webm
-*.pdf
-*.zip
-*.docx
-*.blend
-*.blend1
-*.py
+# Minimal: only exclude what's necessary
+.git/
+training/
+Archive/
+pascal-editor/
+.claude/
 blender/
 renders/
 NOVA/
@@ -17,14 +12,9 @@ files/
 strategy/
 Database Input/
 NOVA Knowledge Base/
-Lamborghini*
-build-docx.js
-clean_craftsman.py
-parse_craftsman.py
-estimate-element-map.html
-estimate-legend.html
-BLDG-Omni-Brand-Kit.html
-*.sql
-!app/**
+Proposals/
+scripts/
+vector-api/
 node_modules/
-.git/
+*.blend
+*.blend1
