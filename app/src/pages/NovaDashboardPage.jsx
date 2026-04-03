@@ -34,6 +34,13 @@ export default function NovaDashboardPage() {
   const createEstimate = useEstimatesStore(s => s.createEstimate);
   const activeCompanyId = useUiStore(s => s.appSettings.activeCompanyId);
 
+  // ── Cloud sync indicator — suppress stale-data flash ──
+  const cloudSyncInProgress = useUiStore(s => s.cloudSyncInProgress);
+  const cloudSyncLastFullAt = useUiStore(s => s.cloudSyncLastFullAt);
+  const syncFresh =
+    cloudSyncLastFullAt && Date.now() - new Date(cloudSyncLastFullAt).getTime() < 30_000;
+  const showSyncBanner = cloudSyncInProgress && !syncFresh;
+
   // ── ROM Prefill: auto-create estimate from /rom upsell CTA ──
   const romHandled = useRef(false);
   useEffect(() => {
@@ -175,6 +182,37 @@ export default function NovaDashboardPage() {
           fontFamily: T.font.display,
         }}
       >
+        {/* Cloud sync indicator — fades out when sync completes */}
+        {showSyncBanner && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "6px 0",
+              fontSize: 10.5,
+              fontWeight: 500,
+              fontFamily: T.font.display,
+              color: C.textMuted,
+              letterSpacing: "0.02em",
+              animation: "fadeUp 0.4s cubic-bezier(0.16,1,0.3,1) both",
+            }}
+          >
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                background: C.accent,
+                opacity: 0.7,
+                animation: "pulse 1.5s ease-in-out infinite",
+              }}
+            />
+            Syncing latest data...
+          </div>
+        )}
+
         {/* Widget grid fills available space */}
         <div
           style={{
