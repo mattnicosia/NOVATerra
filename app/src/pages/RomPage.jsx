@@ -637,22 +637,25 @@ function DrawingUploadPath({ onResult, onBack }) {
 
       setProgress("Scanning schedules and extracting scope...");
 
-      // Call the scan API through our proxy
-      const { callAnthropic, optimizeImageForAI, imageBlock, SCAN_MODEL, INTERPRET_MODEL, NARRATIVE_MODEL } = await import("@/utils/ai");
-      const { buildDetectionPrompt, buildParsePrompt, normalizeScheduleData, SCHEDULE_TYPES } = await import("@/utils/scheduleParsers");
+      // Call the scan API — use knowledge-augmented prompts for accuracy
+      const { callAnthropic, optimizeImageForAI, imageBlock, SCAN_MODEL } = await import("@/utils/ai");
+      const { buildDetectionPrompt, buildParsePrompt, normalizeScheduleData } = await import("@/utils/scheduleParsers");
       const { generateBaselineROM, generateScheduleLineItems, extractBuildingParamsFromSchedules } = await import("@/utils/romEngine");
       const { renderPdfPage } = await import("@/utils/drawingUtils");
+      const { novaPlans } = await import("@/nova/agents/plans");
 
-      // Render pages and scan for schedules
+      // Get knowledge-augmented system prompts for better detection
+      const { systemPrompt: detectionSys } = novaPlans.augmentDetectionPrompt("", "");
+      const usePublic = !user;
+
       const allSchedules = [];
       const allEntries = [];
 
       for (const drawing of drawings) {
         setProgress(`Scanning ${drawing.name}...`);
 
-        // Render first 10 pages
-        const pageCount = Math.min(10, 20); // we'll detect page count from the PDF
-        for (let p = 1; p <= pageCount; p++) {
+        // Scan ALL pages (not just 10) — schedules can be on any page
+        for (let p = 1; p <= 40; p++) {
           try {
             const canvas = await renderPdfPage(drawing.data, p);
             if (!canvas) break;
@@ -663,21 +666,23 @@ function DrawingUploadPath({ onResult, onBack }) {
 
             setProgress(`Scanning ${drawing.name} page ${p}...`);
 
-            // Detect schedules on this page
+            // Detect schedules — with knowledge-augmented system prompt
             const prompt = buildDetectionPrompt(`Page ${p}`);
             const result = await callAnthropic({
               model: SCAN_MODEL,
-              max_tokens: 1000,
+              max_tokens: 1500,
+              system: detectionSys,
               messages: [{ role: "user", content: [imageBlock(optimized.base64), { type: "text", text: prompt }] }],
-              _publicProxy: !user,
+              _publicProxy: usePublic,
             });
 
             // Parse detection result
+            const text = typeof result === "string" ? result : result?.content?.[0]?.text || "";
             try {
-              const startBracket = result.indexOf("[");
-              const endBracket = result.lastIndexOf("]");
+              const startBracket = text.indexOf("[");
+              const endBracket = text.lastIndexOf("]");
               if (startBracket >= 0 && endBracket > startBracket) {
-                const detected = JSON.parse(result.slice(startBracket, endBracket + 1));
+                const detected = JSON.parse(text.slice(startBracket, endBracket + 1));
                 for (const det of detected) {
                   if (det.type && det.confidence !== "none") {
                     allSchedules.push({ ...det, sheetId: `${drawing.name}-p${p}`, pageNum: p, imgBase64: optimized.base64 });
@@ -687,33 +692,38 @@ function DrawingUploadPath({ onResult, onBack }) {
             } catch { /* parse failed, skip */ }
           } catch (e) {
             if (e.message?.includes("Invalid PDF")) break;
-            // page doesn't exist, stop
-            break;
+            break; // page doesn't exist
           }
         }
       }
 
       setProgress(`Found ${allSchedules.length} schedules. Parsing details...`);
 
-      // Parse each detected schedule
+      // Parse each schedule — with knowledge-augmented parse prompts
       for (const sched of allSchedules) {
         try {
           const parsePrompt = buildParsePrompt(sched.type);
           if (!parsePrompt) continue;
+
+          // Get augmented parse system prompt with abbreviations + OCR misread knowledge
+          let parseSys;
+          try { parseSys = novaPlans.augmentParsePrompt(sched.type, "", "")?.systemPrompt; } catch { parseSys = null; }
 
           setProgress(`Parsing ${sched.type} from page ${sched.pageNum}...`);
 
           const result = await callAnthropic({
             model: SCAN_MODEL,
             max_tokens: 4000,
+            ...(parseSys ? { system: parseSys } : {}),
             messages: [{ role: "user", content: [imageBlock(sched.imgBase64), { type: "text", text: parsePrompt }] }],
-            _publicProxy: !user,
+            _publicProxy: usePublic,
           });
 
-          const startBracket = result.indexOf("[");
-          const endBracket = result.lastIndexOf("]");
+          const text = typeof result === "string" ? result : result?.content?.[0]?.text || "";
+          const startBracket = text.indexOf("[");
+          const endBracket = text.lastIndexOf("]");
           if (startBracket >= 0 && endBracket > startBracket) {
-            const parsed = JSON.parse(result.slice(startBracket, endBracket + 1));
+            const parsed = JSON.parse(text.slice(startBracket, endBracket + 1));
             const normalized = normalizeScheduleData(sched.type, parsed);
             allEntries.push({ type: sched.type, entries: normalized, sheetId: sched.sheetId });
           }
