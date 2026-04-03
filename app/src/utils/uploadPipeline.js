@@ -239,17 +239,28 @@ export async function extractDrawingPages(file, options = {}) {
   const numPages = pdf.numPages;
   const newIds = [];
 
+  // Render pages progressively — yield between pages to keep UI responsive.
+  // Page 1 renders immediately, remaining pages yield via setTimeout(0) to
+  // prevent blocking the main thread on large PDFs (6MB+ architectural sets).
   for (let p = 1; p <= numPages; p++) {
     try {
-      // Render page to canvas → JPEG at scale 1.5 (matches PDF_RENDER_DPI = 108)
+      // Yield to UI thread after first page (let the page appear before continuing)
+      if (p > 1) await new Promise(r => setTimeout(r, 0));
+
       const pg = await pdf.getPage(p);
-      const scale = 1.5;
+      // Scale 1.0 for pages 2+ in large PDFs (faster), full scale for page 1
+      const isLargePdf = numPages > 5 || file.size > 4_000_000;
+      const scale = (p === 1 || !isLargePdf) ? 1.5 : 1.0;
+      const quality = (p === 1 || !isLargePdf) ? 0.85 : 0.7;
       const vp = pg.getViewport({ scale });
       const canvas = document.createElement("canvas");
       canvas.width = vp.width;
       canvas.height = vp.height;
       await pg.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise;
-      const jpegDataUrl = canvas.toDataURL("image/jpeg", 0.85);
+      const jpegDataUrl = canvas.toDataURL("image/jpeg", quality);
+      // Release canvas GPU memory immediately
+      canvas.width = 0;
+      canvas.height = 0;
 
       const drawing = {
         id: uid(),
@@ -260,7 +271,6 @@ export async function extractDrawingPages(file, options = {}) {
         type: "pdf",
         pdfPreRendered: true,
         data: jpegDataUrl,
-        // pdfRawBase64 no longer stored per-page — raw PDF persisted in separate IDB (bldg-pdf-raw)
         fileName: file.name,
         uploadDate: nowStr(),
         pdfPage: p,
