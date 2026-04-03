@@ -229,6 +229,7 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
         const sheetLabel = d.sheetTitle || d.label || d.sheetNumber;
         const prompt = buildDetectionPrompt(sheetLabel, ocrText);
         const { systemPrompt: detectionSys } = novaPlans.augmentDetectionPrompt(sheetLabel, ocrText);
+        const detectStart = Date.now();
         const result = await callAnthropic({
           model: SCAN_MODEL,
           max_tokens: 1000,
@@ -238,6 +239,11 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
 
         try {
           const parsed = extractJSON(result, "array");
+          const detected = Array.isArray(parsed) ? parsed : [];
+          try {
+            const { logAICall } = await import("@/nova/learning/evaluationLogger");
+            logAICall({ phase: 'detect', model: 'haiku', inputSummary: `Sheet ${sheetLabel}`, aiResult: detected, latencyMs: Date.now() - detectStart });
+          } catch {}
           if (!parsed) return { sheetId: d.id, sheetLabel, schedules: [], ocrText };
           return {
             sheetId: d.id,
@@ -245,7 +251,7 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
             imgBase64: optimized.base64,
             imgWidth: optimized.width,
             imgHeight: optimized.height,
-            schedules: Array.isArray(parsed) ? parsed : [],
+            schedules: detected,
             ocrText,
           };
         } catch {
@@ -543,6 +549,7 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
             + (vectorCorrectionContext ? "\n\n" + vectorCorrectionContext : "");
           if (!parsePrompt) return { ...sched, entries: [], error: "Unknown schedule type" };
           const { systemPrompt: parseSys } = novaPlans.augmentParsePrompt(sched.type, cropOcrText);
+          const parseStart = Date.now();
           const result = await callAnthropic({
             model: SCAN_MODEL,
             max_tokens: 4000,
@@ -551,6 +558,17 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
           });
           try {
             const parsed = extractJSON(result, "array");
+            try {
+              const { logAICall } = await import("@/nova/learning/evaluationLogger");
+              logAICall({
+                phase: 'parse', model: 'haiku',
+                inputSummary: `${sched.type} schedule`,
+                aiResult: { entryCount: parsed?.length || 0 },
+                latencyMs: Date.now() - parseStart,
+                correctionContextUsed: !!(localCorrectionCtx || vectorCorrectionContext),
+                vectorCorrectionsUsed: vectorCorrectionContext ? (vectorCorrectionContext.match(/^-/gm) || []).length : 0,
+              });
+            } catch {}
             if (!parsed) return { ...sched, entries: [] };
             return { ...sched, entries: normalizeScheduleData(sched.type, parsed) };
           } catch {
@@ -885,12 +903,19 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
       drawings: useDrawingsStore.getState().drawings,
       specs: useSpecsStore.getState().specs,
     });
+    const romStart = Date.now();
     const augmentedROM = await augmentROMWithAI({
       baseline,
       scheduleItems: scheduleLineItems,
       projectContext: projectCtx,
       notesContext,
     });
+    try {
+      const resolvedJobType = proj.jobType || 'unknown';
+      const resolvedSF = effectiveSF || proj.projectSF || 0;
+      const { logAICall } = await import("@/nova/learning/evaluationLogger");
+      logAICall({ phase: 'rom', model: 'sonnet', inputSummary: `${resolvedJobType} ${resolvedSF}SF`, aiResult: { totalMid: augmentedROM?.totals?.mid, divCount: Object.keys(augmentedROM?.divisions || {}).length }, latencyMs: Date.now() - romStart });
+    } catch {}
 
     // ── Phase 3.1: Verify ROM (agent self-check) ──
     try {

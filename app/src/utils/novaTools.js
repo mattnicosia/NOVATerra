@@ -103,6 +103,64 @@ export const NOVA_TOOLS = [
       required: ["item_ids"],
     },
   },
+  {
+    name: "search_cost_database",
+    description:
+      "Search the cost database for materials, assemblies, and elements by description or CSI code. Returns matching items with unit costs.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Search query (material name, CSI code, or description)" },
+        limit: { type: "number", description: "Max results (default 5)" },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "search_proposals",
+    description:
+      "Search historical proposals and cost data for similar projects. Returns matching proposals with $/SF benchmarks.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Search query (project type, building description, or trade)" },
+        limit: { type: "number", description: "Max results (default 5)" },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "calculate_totals",
+    description:
+      "Calculate current estimate totals grouped by division, trade, or bid context. Returns cost breakdowns with $/SF.",
+    input_schema: {
+      type: "object",
+      properties: {
+        group_by: {
+          type: "string",
+          enum: ["division", "trade", "bid_context"],
+          description: "How to group the totals (default: division)",
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "query_project_info",
+    description:
+      "Get current project metadata, scan results, and ROM data.",
+    input_schema: {
+      type: "object",
+      properties: {
+        include: {
+          type: "array",
+          items: { type: "string" },
+          description: "Fields to include: 'project', 'rom', 'scan', 'schedules'. Default: all",
+        },
+      },
+      required: [],
+    },
+  },
 ];
 
 // ── Preview — returns structured proposal data without executing ──────
@@ -202,7 +260,7 @@ function clampQty(v) {
 
 // ── Tool Executor ─────────────────────────────────────────────────────
 
-export function executeNovaTool(toolName, toolInput) {
+export async function executeNovaTool(toolName, toolInput) {
   const store = useItemsStore.getState();
   const projectStore = useProjectStore.getState();
   const divFromCode = projectStore.divFromCode;
@@ -373,6 +431,118 @@ export function executeNovaTool(toolName, toolInput) {
         message: `Removed ${removedCount} item${removedCount !== 1 ? "s" : ""}`,
         results,
       };
+    }
+
+    case "search_cost_database": {
+      const { searchSimilar } = await import("@/utils/vectorSearch");
+      const { results } = await searchSimilar(toolInput.query, {
+        kinds: ['seed_element', 'user_element', 'assembly'],
+        limit: toolInput.limit || 5,
+        threshold: 0.3,
+      });
+      return {
+        success: true,
+        action: "search_cost_database",
+        results: results.map(r => ({
+          content: r.content,
+          kind: r.kind,
+          similarity: r.similarity,
+          ...r.metadata,
+        })),
+      };
+    }
+
+    case "search_proposals": {
+      const { searchSimilar } = await import("@/utils/vectorSearch");
+      const { results } = await searchSimilar(toolInput.query, {
+        kinds: ['proposal'],
+        limit: toolInput.limit || 5,
+        threshold: 0.3,
+      });
+      return {
+        success: true,
+        action: "search_proposals",
+        results: results.map(r => ({
+          content: r.content,
+          similarity: r.similarity,
+          ...r.metadata,
+        })),
+      };
+    }
+
+    case "calculate_totals": {
+      const items = store.items;
+      const project = projectStore.project;
+      const sf = parseFloat(project?.buildingSF) || 0;
+      const groupBy = toolInput.group_by || 'division';
+
+      const groups = {};
+      for (const item of items) {
+        const key = item[groupBy] || item.divisionCode || 'Unassigned';
+        if (!groups[key]) groups[key] = { items: 0, totalCost: 0 };
+        groups[key].items++;
+        const cost = store.getItemTotal?.(item.id) || 0;
+        groups[key].totalCost += cost;
+      }
+
+      const grandTotal = Object.values(groups).reduce((s, g) => s + g.totalCost, 0);
+      return {
+        success: true,
+        action: "calculate_totals",
+        groups: Object.entries(groups).map(([key, g]) => ({
+          [groupBy]: key,
+          itemCount: g.items,
+          totalCost: Math.round(g.totalCost),
+          perSF: sf > 0 ? Math.round(g.totalCost / sf * 100) / 100 : null,
+        })).sort((a, b) => b.totalCost - a.totalCost),
+        grandTotal: Math.round(grandTotal),
+        perSF: sf > 0 ? Math.round(grandTotal / sf * 100) / 100 : null,
+        itemCount: items.length,
+        buildingSF: sf || 'not set',
+      };
+    }
+
+    case "query_project_info": {
+      const { useScanStore } = await import("@/stores/scanStore");
+      const { useDrawingsStore } = await import("@/stores/drawingsStore");
+      const include = toolInput.include || ['project', 'rom', 'scan', 'schedules'];
+      const result = {};
+
+      if (include.includes('project')) {
+        const project = projectStore.project;
+        result.project = {
+          name: project?.name, client: project?.client, location: project?.location,
+          buildingSF: project?.buildingSF, jobType: project?.jobType,
+          buildingType: project?.buildingType, bidDue: project?.bidDue,
+        };
+      }
+      if (include.includes('rom')) {
+        const scanResults = useScanStore.getState().scanResults;
+        const rom = scanResults?.rom;
+        if (rom?.totals) {
+          result.rom = {
+            totals: rom.totals,
+            divisionCount: Object.keys(rom.divisions || {}).length,
+            verified: rom._verificationResult || null,
+          };
+        }
+      }
+      if (include.includes('scan')) {
+        const scanResults = useScanStore.getState().scanResults;
+        result.scan = {
+          hasResults: !!scanResults,
+          drawingCount: useDrawingsStore.getState().drawings.length,
+          schedulesDetected: scanResults?.schedules?.length || 0,
+          notesExtracted: scanResults?.notes?.length || 0,
+        };
+      }
+      if (include.includes('schedules')) {
+        const scanResults = useScanStore.getState().scanResults;
+        result.schedules = (scanResults?.schedules || []).map(s => ({
+          type: s.type, entryCount: s.entries?.length || 0, sheetLabel: s.sheetLabel,
+        }));
+      }
+      return { success: true, action: "query_project_info", ...result };
     }
 
     default:

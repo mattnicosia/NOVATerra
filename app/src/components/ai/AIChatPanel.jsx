@@ -211,7 +211,7 @@ export default function AIChatPanel() {
           const toolResults = [];
           for (const tc of toolCalls) {
             try {
-              const result = executeNovaTool(tc.name, tc.input);
+              const result = await executeNovaTool(tc.name, tc.input);
               toolResults.push({ tool_use_id: tc.id, ...result });
               allToolResults.push({ tool_use_id: tc.id, ...result });
             } catch (err) {

@@ -395,13 +395,13 @@ export default function TakeoffNOVAPanel({
           }
         } else {
           // Takeoff context → execute immediately
-          const toolResults = allToolCalls.map(tc => {
+          const toolResults = await Promise.all(allToolCalls.map(async tc => {
             try {
-              return { tool_use_id: tc.id, ...executeNovaTool(tc.name, tc.input) };
+              return { tool_use_id: tc.id, ...(await executeNovaTool(tc.name, tc.input)) };
             } catch (err) {
               return { tool_use_id: tc.id, success: false, message: err.message };
             }
-          });
+          }));
           setNovaChatMessages([
             ...updated,
             { role: "assistant", text: allTextParts.join("\n") || "", actions: toolResults },
