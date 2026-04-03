@@ -1,6 +1,6 @@
 // RomResult — Full ROM result display with division breakdown table
 // Features: Low/Mid/High range selector, editable markups, subdivision drill-down
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { card, sectionLabel, colHeader } from "@/utils/styles";
 import { useSubdivisionStore } from "@/stores/subdivisionStore";
@@ -565,10 +565,16 @@ export default function RomResult({ rom, email }) {
 
       {/* ── Scope Detail Items (from template engine) ── */}
       {showScopeItems && (() => {
-        const scopeResult = generateScopeTemplate(jobType, projectSF, {
-          floors: rom.floors || 1,
-          workType: rom.workType || "",
-        });
+        let scopeResult;
+        try {
+          scopeResult = generateScopeTemplate(jobType, projectSF, {
+            floors: rom.floors || 1,
+            workType: rom.workType || "",
+          });
+        } catch (e) {
+          console.error("[RomResult] Scope template generation failed:", e);
+          return null;
+        }
         if (!scopeResult || !scopeResult.items.length) return null;
 
         // Group items by division
@@ -687,12 +693,18 @@ export default function RomResult({ rom, email }) {
 
       {/* ── Trade-Separated Scopes of Work ── */}
       {showTradeScopes && (() => {
-        const tradeResult = generateTradeScopes(jobType, projectSF, {
-          floors: rom.floors || 1,
-          workType: rom.workType || "",
-          romDivisions: divisions,
-        });
-        if (!tradeResult.trades.length) return null;
+        let tradeResult;
+        try {
+          tradeResult = generateTradeScopes(jobType, projectSF, {
+            floors: rom.floors || 1,
+            workType: rom.workType || "",
+            romDivisions: divisions,
+          });
+        } catch (e) {
+          console.error("[RomResult] Trade scope generation failed:", e);
+          return null;
+        }
+        if (!tradeResult?.trades?.length) return null;
 
         return (
           <div style={card(C, { padding: `${T.space[5]}px`, marginBottom: T.space[4] })}>
