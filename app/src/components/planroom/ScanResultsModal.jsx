@@ -118,6 +118,27 @@ export default function ScanResultsModal({ scanResults, onClose, onApplyToEstima
               return parts.length > 0 ? parts.join(" · ") : "Drawings analyzed — see ROM Overview";
             })()}
           </div>
+          {/* NOVA Intelligence banner — shows what memory was applied */}
+          {scanResults.novaIntelligence && (scanResults.novaIntelligence.correctionsApplied > 0 || scanResults.novaIntelligence.firmPatternsUsed > 0) && (
+            <div style={{
+              marginTop: 6, padding: "4px 10px", borderRadius: 6,
+              background: `${C.accent}08`, border: `1px solid ${C.accent}15`,
+              display: "flex", alignItems: "center", gap: 6, fontSize: 9, color: C.accent,
+            }}>
+              <Ic d={I.ai} size={10} color={C.accent} />
+              <span style={{ fontWeight: 600 }}>NOVA applied learned intelligence:</span>
+              {scanResults.novaIntelligence.correctionsApplied > 0 && (
+                <span style={{ color: C.textDim }}>
+                  {scanResults.novaIntelligence.correctionsApplied} corrections · {scanResults.novaIntelligence.patternsLearned} patterns
+                </span>
+              )}
+              {scanResults.novaIntelligence.firmPatternsUsed > 0 && (
+                <span style={{ color: C.textDim }}>
+                  · {scanResults.novaIntelligence.firmPatternsUsed} firm-specific patterns{scanResults.novaIntelligence.firmName ? ` for ${scanResults.novaIntelligence.firmName}` : ""}
+                </span>
+              )}
+            </div>
+          )}
         </div>
         <button
           onClick={onClose}

@@ -44,6 +44,7 @@ import { extractTitleBlockFields, mapBuildingTypeKey, inferWorkType } from "@/ut
 import { generateScopeOutline } from "@/utils/scopeOutlineGenerator";
 import { novaPlans } from "@/nova/agents/plans";
 import { useFirmMemoryStore } from "@/nova/learning/firmMemory";
+import { useCorrectionStore } from "@/nova/learning/correctionStore";
 import { useSnapshotsStore } from "@/stores/snapshotsStore";
 import { autoTradeFromCode } from "@/constants/tradeGroupings";
 import { renderPdfPage } from "@/utils/drawingUtils";
@@ -918,6 +919,21 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
       scopeOutline: scopeOutlineStats,
       timestamp: Date.now(),
     };
+    // ── NOVA Intelligence Summary: what memory was applied ──
+    try {
+      const proj = useProjectStore.getState().project;
+      const corrStats = useCorrectionStore.getState().getStats();
+      const firmName = proj?.architect || proj?.engineer;
+      const firmCtx = firmName ? useFirmMemoryStore.getState().buildFirmContext(firmName, 200) : "";
+      results.novaIntelligence = {
+        correctionsApplied: corrStats.totalCorrections,
+        patternsLearned: corrStats.uniquePatterns,
+        firmName: firmName || null,
+        firmPatternsUsed: firmCtx ? firmCtx.split("\n").filter(l => l.trim()).length : 0,
+        topCorrections: corrStats.topPatterns?.slice(0, 3).map(p => `${p.type}:${p.field} (${p.frequency}x)`) || [],
+      };
+    } catch { /* intelligence summary non-critical */ }
+
     setScanResults(results);
     setScanProgress({ phase: null, current: 0, total: 0, message: "" });
 
