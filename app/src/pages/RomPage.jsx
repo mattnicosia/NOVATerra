@@ -12,6 +12,7 @@ import { useRomStore } from "@/stores/romStore";
 import { generateBaselineROM } from "@/utils/romEngine";
 import RomResult from "@/components/rom/RomResult";
 import RomUpsell from "@/components/rom/RomUpsell";
+import RomChat from "@/components/rom/RomChat";
 import NOVAThinking from "@/components/rom/NOVAThinking";
 
 const BUILDING_TYPES = [
@@ -1608,6 +1609,7 @@ function RomPageInner() {
             </div>
 
             <div style={{ marginTop: 48 }}><RomUpsell /></div>
+            <RomChat />
           </section>
         )}
 
