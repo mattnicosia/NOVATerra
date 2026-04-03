@@ -20,11 +20,41 @@ import { TRADE_GROUPINGS, autoTradeFromCode, TRADE_MAP } from "@/constants/trade
  * @returns {{ trades: TradeScope[], grandTotal, perSF, itemCount }}
  */
 export function generateTradeScopes(buildingType, sf, opts = {}) {
-  const { floors = 1, workType = "", romDivisions } = opts;
+  const { floors = 1, workType = "", romDivisions, scanLineItems } = opts;
 
   // Step 1: Generate scope template items with quantities + costs
   const template = generateScopeTemplate(buildingType, sf, { floors, workType });
   if (!template.items.length) return { trades: [], grandTotal: template.grandTotal, perSF: template.perSF, itemCount: 0 };
+
+  // Step 1.5: Merge scan-derived line items (from uploaded drawings)
+  // These are project-specific items extracted from actual schedules.
+  // They get a "scan" badge and supplement the template items.
+  if (scanLineItems?.length > 0) {
+    const existingCodes = new Set(template.items.map(i => i.code));
+    for (const li of scanLineItems) {
+      if (!li.code || !li.description) continue;
+      // If template already has this code, skip (avoid duplicates)
+      if (existingCodes.has(li.code)) continue;
+      template.items.push({
+        division: li.code.split(".")[0].padStart(2, "0"),
+        code: li.code,
+        description: li.description + (li.source?.entry ? ` (${li.source.entry})` : ""),
+        qty: li.qty || 1,
+        unit: li.unit || "EA",
+        lowRate: null,
+        highRate: null,
+        midRate: null,
+        lowCost: li.m || 0,
+        midCost: Math.round(((li.m || 0) + (li.l || 0) + (li.e || 0)) * (li.qty || 1)),
+        highCost: Math.round(((li.m || 0) + (li.l || 0) + (li.e || 0)) * (li.qty || 1) * 1.3),
+        source: "scan",
+        confidence: li.confidence || "medium",
+        _fromDrawings: true, // flag for UI badge
+      });
+      existingCodes.add(li.code);
+    }
+    template.itemCount = template.items.length;
+  }
 
   // Step 2: Map each item to its trade bundle
   const tradeMap = {}; // tradeKey → { items[], costLow, costMid, costHigh }

@@ -9,6 +9,24 @@ import { SUBDIVISION_BENCHMARKS, DEFAULT_SUBDIVISIONS } from "@/constants/subdiv
 import { computeSubdivisionBreakdown } from "@/utils/confidenceEngine";
 import { generateAllSubdivisions } from "@/utils/subdivisionAI";
 
+// ─── Benchmark Sample Counts — how many real proposals calibrate each type ──
+// Source: 32 Montana GC proposals + 25 Violante sub proposals = 57 total
+const BENCHMARK_SAMPLE_COUNTS = {
+  "commercial-office": { _default: 12, "09": 15, "26": 10, "23": 10, "03": 8 },
+  retail:              { _default: 8, "09": 12, "08": 10, "26": 8 },
+  restaurant:          { _default: 6, "09": 8, "22": 7, "11": 6 },
+  healthcare:          { _default: 4 },
+  education:           { _default: 3 },
+  "residential-single":{ _default: 5, "06": 8, "09": 7, "03": 6 },
+  "residential-multi": { _default: 4, "09": 6, "22": 5, "26": 5 },
+  industrial:          { _default: 3 },
+  hospitality:         { _default: 3 },
+  "mixed-use":         { _default: 4 },
+  government:          { _default: 2 },
+  religious:           { _default: 2 },
+  parking:             { _default: 2 },
+};
+
 // ─── Division Benchmarks ($/SF by job type) ───────────────────────────
 // Low = budget/value, Mid = typical, High = premium/complex
 const BENCHMARKS = {
@@ -369,13 +387,23 @@ export function generateBaselineROM(projectSF, buildingTypeOrJobType, workTypeOr
       }
     }
 
+    // Confidence metadata — based on calibration data quality for this building type
+    const tpiSamples = tpi?.lump_sum_per_sf?.sampleCount || 0;
+    const calCount = typeof calEntry === "object" ? (calEntry.count || 0) : 0;
+    const baseSamples = BENCHMARK_SAMPLE_COUNTS[buildingType]?.[div] || BENCHMARK_SAMPLE_COUNTS[buildingType]?._default || 0;
+    const totalSamples = baseSamples + tpiSamples + calCount;
+    const confLevel = totalSamples >= 8 ? "strong" : totalSamples >= 3 ? "moderate" : "baseline";
+
     divisions[div] = {
       label: range.label,
+      name: range.label,
       perSF: { low: Math.round(low * 100) / 100, mid: Math.round(mid * 100) / 100, high: Math.round(high * 100) / 100 },
       total:
         sf > 0
           ? { low: Math.round(sf * low), mid: Math.round(sf * mid), high: Math.round(sf * high) }
           : { low: 0, mid: 0, high: 0 },
+      sampleCount: totalSamples,
+      confidence: confLevel,
     };
 
     totalLow += sf * low;

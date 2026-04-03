@@ -726,6 +726,7 @@ export default function RomResult({ rom, email }) {
             floors: rom.floors || 1,
             workType: rom.workType || "",
             romDivisions: divisions,
+            scanLineItems: rom.scheduleLineItems || [],
           });
         } catch (e) {
           console.error("[RomResult] Trade scope generation failed:", e);
@@ -822,6 +823,11 @@ export default function RomResult({ rom, email }) {
                           <span style={{ color: C.text, textDecoration: isExcluded ? "line-through" : "none" }}>
                             <span style={{ color: C.textDim, marginRight: 4, fontSize: 9 }}>{item.code}</span>
                             {item.description}
+                            {item._fromDrawings && (
+                              <span style={{ fontSize: 7, fontWeight: 700, padding: "1px 4px", borderRadius: 3, marginLeft: 4, background: `${C.green}18`, color: C.green }}>
+                                FROM DRAWINGS
+                              </span>
+                            )}
                           </span>
                           <span style={{ textAlign: "right", fontFamily: T.font.mono || T.font.sans, color: C.textMuted }}>
                             {item.qty?.toLocaleString()}
@@ -1013,7 +1019,18 @@ export default function RomResult({ rom, email }) {
                       </span>
                       {divNum}
                     </td>
-                    <td style={{ ...cellBase, color: C.text, fontWeight: T.fontWeight.medium }}>{div.label}</td>
+                    <td style={{ ...cellBase, color: C.text, fontWeight: T.fontWeight.medium }}>
+                      {div.label}
+                      {div.sampleCount > 0 && (
+                        <span style={{
+                          fontSize: 7, fontWeight: 600, padding: "1px 4px", borderRadius: 3, marginLeft: 6,
+                          background: div.confidence === "strong" ? `${C.green}15` : div.confidence === "moderate" ? `${C.accent}12` : `${C.textDim}10`,
+                          color: div.confidence === "strong" ? C.green : div.confidence === "moderate" ? C.accent : C.textDim,
+                        }}>
+                          {div.sampleCount} proposal{div.sampleCount !== 1 ? "s" : ""}
+                        </span>
+                      )}
+                    </td>
                     <td style={{ ...cellBase, ...rightAlign, ...colHighlight("low"), fontFeatureSettings: "'tnum'" }}>
                       {fmtSF(div.perSF.low * getDivisionMultiplier(divNum))}
                     </td>
