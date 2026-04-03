@@ -57,6 +57,7 @@ export const useCorrectionStore = create((set, get) => ({
       field: details.field || null,
       sheetLabel: details.sheetLabel || null,
       architect: details.architect || null,
+      _synced: false,
     };
 
     set(s => {
@@ -66,6 +67,15 @@ export const useCorrectionStore = create((set, get) => ({
 
     // Also update global patterns
     get()._updateGlobalPattern(type, correction);
+
+    // Debounced vector sync (non-blocking, 5s delay to batch)
+    clearTimeout(useCorrectionStore._syncTimer);
+    useCorrectionStore._syncTimer = setTimeout(async () => {
+      try {
+        const { syncCorrectionsToVector } = await import("./correctionSync");
+        await syncCorrectionsToVector();
+      } catch { /* non-critical */ }
+    }, 5000);
 
     return correction;
   },
@@ -147,6 +157,7 @@ export const useCorrectionStore = create((set, get) => ({
           frequency: 1,
           lastSeen: Date.now(),
           examples: [{ original: correction.original, corrected: correction.corrected }],
+          _synced: false,
         });
       }
 

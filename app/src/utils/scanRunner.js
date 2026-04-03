@@ -528,7 +528,19 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
           } catch {
             /* optional */
           }
-          const parsePrompt = buildParsePrompt(sched.type, cropOcrText, notesContext);
+          // Search for similar past corrections (cloud vector store)
+          let vectorCorrectionContext = "";
+          try {
+            const { searchSimilarCorrections } = await import("@/nova/learning/correctionSync");
+            vectorCorrectionContext = await searchSimilarCorrections(sched.type, cropOcrText);
+          } catch { /* non-critical — local corrections still apply */ }
+
+          // Build local correction context from global patterns
+          const localCorrectionCtx = useCorrectionStore.getState().buildCorrectionContext?.(sched.type) || "";
+
+          const parsePrompt = buildParsePrompt(sched.type, cropOcrText, notesContext)
+            + (localCorrectionCtx ? "\n\n" + localCorrectionCtx : "")
+            + (vectorCorrectionContext ? "\n\n" + vectorCorrectionContext : "");
           if (!parsePrompt) return { ...sched, entries: [], error: "Unknown schedule type" };
           const { systemPrompt: parseSys } = novaPlans.augmentParsePrompt(sched.type, cropOcrText);
           const result = await callAnthropic({
@@ -549,6 +561,52 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
       );
 
       validSchedules = parsedSchedules.filter(s => !s.error && s.entries?.length > 0);
+
+      // ── Phase 2.4: Verify parsed schedules (agent self-check) ──
+      checkAbort();
+      try {
+        const { verifyScheduleParse } = await import("@/utils/scanVerifier");
+        const corrPatterns = useCorrectionStore.getState().globalPatterns || [];
+        // Build OCR meta from detection phase
+        const ocrMeta = {};
+        for (const sched of validSchedules) {
+          if (sched.drawingId) ocrMeta[sched.drawingId] = { rowCount: sched._detectedRowCount || 0 };
+        }
+        const verification = verifyScheduleParse(validSchedules, ocrMeta, corrPatterns);
+        if (!verification.pass && verification.rerunItems.length > 0) {
+          console.log(`[scanRunner] Phase 2.4: Re-parsing ${verification.rerunItems.length} low-confidence schedules with Sonnet`);
+          for (const item of verification.rerunItems.slice(0, 3)) { // max 3 re-runs (cost guard)
+            checkAbort();
+            const sched = validSchedules.find(s => s.drawingId === item.drawingId && s.type === item.schedType);
+            if (!sched) continue;
+            const drawing = currentDrawings.find(d => d.id === sched.drawingId);
+            if (!drawing) continue;
+            try {
+              const cropOcrText = drawing._ocrCache || "";
+              const reParsePrompt = buildParsePrompt(sched.type, cropOcrText, notesContext) +
+                `\n\nPREVIOUS ATTEMPT (needs improvement — ${item.reason}):\n${JSON.stringify(sched.entries?.slice(0, 3))}`;
+              const reResult = await callAnthropic({
+                model: INTERPRET_MODEL, // Upgrade from Haiku to Sonnet for retry
+                messages: [{ role: "user", content: reParsePrompt }],
+                max_tokens: 4000,
+              });
+              const reParsed = extractJSON(reResult, "array");
+              if (reParsed && reParsed.length > sched.entries.length) {
+                sched.entries = normalizeScheduleData(sched.type, reParsed);
+                sched._reVerified = true;
+                console.log(`[scanRunner] Phase 2.4: Re-parse improved ${sched.type} from ${item.originalCount} to ${sched.entries.length} entries`);
+              }
+            } catch (reErr) {
+              console.warn(`[scanRunner] Phase 2.4: Re-parse failed for ${sched.type}:`, reErr.message);
+            }
+          }
+        }
+        if (verification.issues.length > 0) {
+          console.log(`[scanRunner] Phase 2.4: ${verification.issues.length} issues flagged`, verification.issues.map(i => i.reason));
+        }
+      } catch (verifyErr) {
+        console.warn("[scanRunner] Phase 2.4 (verification) non-critical:", verifyErr.message);
+      }
 
       // ── Phase 2.3: Count items on floor plans ──
       const countableTypes = new Set([
@@ -833,6 +891,47 @@ export async function runFullScan({ onComplete, onError, signal } = {}) {
       projectContext: projectCtx,
       notesContext,
     });
+
+    // ── Phase 3.1: Verify ROM (agent self-check) ──
+    try {
+      const { verifyROM } = await import("@/utils/scanVerifier");
+      const calFactors = useScanStore.getState().getCalibrationFactors?.(proj.jobType, proj.workType || "", proj.laborType || "") || {};
+      const romVerification = verifyROM(augmentedROM, effectiveSF, proj.jobType, calFactors);
+      if (!romVerification.pass) {
+        console.log(`[scanRunner] Phase 3.1: ROM verification flagged ${romVerification.issues.length} issues`);
+        // Apply clamped adjustments
+        for (const [divCode, adj] of Object.entries(romVerification.adjustments || {})) {
+          if (augmentedROM?.divisions?.[divCode]) {
+            const div = augmentedROM.divisions[divCode];
+            if (adj.clampedMid !== undefined) {
+              const ratio = adj.clampedMid / (div.perSF?.mid || 1);
+              div.low = Math.round(div.low * ratio);
+              div.mid = Math.round(div.mid * ratio);
+              div.high = Math.round(div.high * ratio);
+              if (div.perSF) {
+                div.perSF.low = Math.round(div.perSF.low * ratio * 100) / 100;
+                div.perSF.mid = Math.round(div.perSF.mid * ratio * 100) / 100;
+                div.perSF.high = Math.round(div.perSF.high * ratio * 100) / 100;
+              }
+              div._verified = "adjusted";
+            }
+          }
+        }
+        // Recalculate totals after adjustments
+        if (Object.keys(romVerification.adjustments || {}).length > 0) {
+          let totalLow = 0, totalMid = 0, totalHigh = 0;
+          for (const div of Object.values(augmentedROM.divisions || {})) {
+            totalLow += div.low || 0;
+            totalMid += div.mid || 0;
+            totalHigh += div.high || 0;
+          }
+          augmentedROM.totals = { low: totalLow, mid: totalMid, high: totalHigh };
+        }
+      }
+      augmentedROM._verificationResult = { pass: romVerification.pass, issueCount: romVerification.issues.length };
+    } catch (verifyErr) {
+      console.warn("[scanRunner] Phase 3.1 (ROM verification) non-critical:", verifyErr.message);
+    }
 
     // ── Phase 3.5: Auto-populate scope outline (only for empty estimates) ──
     let scopeOutlineStats = null;
