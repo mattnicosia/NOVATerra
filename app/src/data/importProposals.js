@@ -9,10 +9,10 @@ import { MONTANA_PROPOSALS } from "./montana-proposals";
 import { VIOLANTE_PROPOSALS } from "./violante-proposals";
 import { AREA_BUILDERS_PROPOSALS } from "./area-builders-proposals";
 
-const IMPORT_KEY = "proposals-imported-montana-v8"; // v8: all proposals now have ZIP codes
+const IMPORT_KEY = "proposals-imported-montana-v9"; // v9: added 7 non-residential proposals (Apr 2026)
 const VIOLANTE_IMPORT_KEY = "proposals-imported-violante-v8"; // v8: all proposals now have ZIP codes
 const AREA_BUILDERS_IMPORT_KEY = "proposals-imported-area-builders-v1";
-const CALIBRATION_KEY = "proposals-calibrated-v9"; // v9: recalibrate with Area Builders data
+const CALIBRATION_KEY = "proposals-calibrated-v10"; // v10: recalibrate with 7 new non-residential proposals
 
 // ── Generate a learning record from a proposal (same logic as HistoricalProposalsPanel) ──
 function generateLearningRecord(proposal) {
