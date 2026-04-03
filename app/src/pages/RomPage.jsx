@@ -660,6 +660,7 @@ function DrawingUploadPath({ onResult, onBack }) {
               model: SCAN_MODEL,
               max_tokens: 1000,
               messages: [{ role: "user", content: [imageBlock(optimized.base64), { type: "text", text: prompt }] }],
+              _publicProxy: !user,
             });
 
             // Parse detection result
@@ -697,6 +698,7 @@ function DrawingUploadPath({ onResult, onBack }) {
             model: SCAN_MODEL,
             max_tokens: 4000,
             messages: [{ role: "user", content: [imageBlock(sched.imgBase64), { type: "text", text: parsePrompt }] }],
+            _publicProxy: !user,
           });
 
           const startBracket = result.indexOf("[");
@@ -821,13 +823,7 @@ function DrawingUploadPath({ onResult, onBack }) {
       )}
 
       {/* Auth gate on scan only — AI calls require JWT. Upload is free. */}
-      {!user && files.length > 0 ? (
-        <div style={{ marginTop: 16, padding: "12px 16px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", ...ff }}>
-          <div style={{ fontSize: 12, color: "rgba(238,237,245,0.5)", marginBottom: 8 }}>
-            AI drawing scan requires a free account. Use <strong style={{ color: "#00D4AA" }}>Quick Basics</strong> below for an instant estimate — no account needed.
-          </div>
-        </div>
-      ) : (
+      {(
         <button onClick={handleScan} disabled={!files.length || scanning} style={{
           width: "100%", padding: "15px 24px", borderRadius: 12, border: "none",
           background: files.length && !scanning ? "#00D4AA" : "rgba(255,255,255,0.06)",

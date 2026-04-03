@@ -66,7 +66,27 @@ export async function callAnthropic({
   tools,
   tool_choice,
   signal,
+  _publicProxy = false, // internal: use /api/rom-ai without auth
 }) {
+  // Public proxy mode: no auth needed, uses /api/rom-ai
+  if (_publicProxy) {
+    const body = { model, max_tokens, messages };
+    if (system) body.system = system;
+    if (temperature !== undefined) body.temperature = temperature;
+    const resp = await fetch("/api/rom-ai", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: signal || AbortSignal.timeout(120_000),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err?.error || `Public AI error ${resp.status}`);
+    }
+    const data = await resp.json();
+    return data?.content?.[0]?.text || data;
+  }
+
   // apiKey param is now ignored — kept for backwards compat so callers don't break
   const token = await getAuthToken();
   if (!token) throw new Error("Please sign in to use AI features.");

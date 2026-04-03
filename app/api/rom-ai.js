@@ -1,0 +1,90 @@
+// Public AI proxy for free ROM scans — no auth required
+// Uses IP-based rate limiting (5 requests per minute) instead of JWT auth.
+// Only allows Haiku model (cheapest) to control costs.
+
+import { cors } from "./lib/cors.js";
+import { checkRateLimit } from "./lib/rateLimiter.js";
+
+const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
+const MAX_BODY_BYTES = 20 * 1024 * 1024; // 20 MB (smaller than auth'd proxy)
+const ALLOWED_MODELS = ["claude-3-5-haiku-20241022", "claude-haiku-3-5-20241022"];
+
+function readRawBody(req) {
+  return new Promise((resolve, reject) => {
+    if (req.body && typeof req.body === "object") { resolve(req.body); return; }
+    const chunks = [];
+    let totalBytes = 0;
+    req.on("data", chunk => {
+      totalBytes += chunk.length;
+      if (totalBytes > MAX_BODY_BYTES) { reject(new Error("Request too large")); req.destroy(); return; }
+      chunks.push(chunk);
+    });
+    req.on("end", () => {
+      try { resolve(JSON.parse(Buffer.concat(chunks).toString("utf-8"))); }
+      catch (err) { reject(new Error("Invalid JSON")); }
+    });
+    req.on("error", reject);
+  });
+}
+
+function getClientIp(req) {
+  return req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
+    req.headers["x-real-ip"] ||
+    req.socket?.remoteAddress ||
+    "unknown";
+}
+
+export default async function handler(req, res) {
+  if (cors(req, res)) return;
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
+  // IP-based rate limit: 5 requests per minute per IP
+  const ip = getClientIp(req);
+  const { allowed, retryAfter } = checkRateLimit(`rom_${ip}`, { maxRequests: 5, windowMs: 60_000 });
+  if (!allowed) {
+    return res.status(429).json({ error: "Too many requests — please wait", retryAfter });
+  }
+
+  const apiKey = (process.env.ANTHROPIC_API_KEY || "").replace(/\\n/g, "").replace(/\n/g, "").replace(/\r/g, "").replace(/"/g, "").trim();
+  if (!apiKey) return res.status(500).json({ error: "AI service not configured" });
+
+  let parsed;
+  try { parsed = await readRawBody(req); }
+  catch (err) { return res.status(400).json({ error: err.message }); }
+
+  const { model, max_tokens, messages, system, temperature } = parsed;
+  if (!messages || !Array.isArray(messages)) return res.status(400).json({ error: "messages required" });
+
+  // Force Haiku model only — prevent abuse of expensive models
+  const safeModel = ALLOWED_MODELS.includes(model) ? model : "claude-3-5-haiku-20241022";
+
+  const body = { model: safeModel, max_tokens: Math.min(max_tokens || 1000, 2000), messages };
+  if (system) body.system = system;
+  if (temperature !== undefined) body.temperature = temperature;
+
+  console.log(`[rom-ai] ip=${ip} model=${safeModel} msgs=${messages.length}`);
+
+  try {
+    const resp = await fetch(ANTHROPIC_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify(body),
+    });
+
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      console.error(`[rom-ai] Anthropic error ${resp.status}:`, data?.error?.message);
+      return res.status(resp.status === 401 ? 502 : resp.status).json({ error: data?.error?.message || "AI error" });
+    }
+    return res.status(200).json(data);
+  } catch (err) {
+    console.error("[rom-ai] Error:", err);
+    return res.status(500).json({ error: "AI proxy error" });
+  }
+}
+
+export const config = { api: { bodyParser: false } };
