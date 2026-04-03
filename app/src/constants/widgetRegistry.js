@@ -217,7 +217,7 @@ export const WIDGET_REGISTRY = {
   tasks: {
     label: "Tasks",
     description: "Urgency-sorted task list with smart quick-add and NOVA AI integration",
-    defaultW: 3,
+    defaultW: 2,
     defaultH: 8,
     minW: 2,
     minH: 5,

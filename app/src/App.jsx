@@ -943,6 +943,7 @@ function AppContent() {
         </div>
       </div>
       <Toast />
+      <SyncStatusBar />
       <Suspense fallback={null}><SpotlightOverlay /></Suspense>
       <Suspense fallback={null}><ConflictMergeModal /></Suspense>
       {aiChatOpen && (
@@ -959,6 +960,30 @@ function AppContent() {
       <Suspense fallback={null}>
         <ProximityLight />
       </Suspense>
+    </div>
+  );
+}
+
+// Sync status bar — subtle bottom indicator during active cloud sync
+function SyncStatusBar() {
+  const syncStatus = useUiStore(s => s.cloudSyncStatus);
+  const C = useTheme();
+  if (syncStatus === "idle" || syncStatus === "synced") return null;
+  const isError = syncStatus === "error";
+  return (
+    <div style={{
+      position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 9990,
+      height: 3, overflow: "hidden",
+      background: isError ? `${C.red || "#EF4444"}30` : "transparent",
+    }}>
+      {!isError && (
+        <div style={{
+          height: 3, width: "30%",
+          background: `linear-gradient(90deg, transparent, ${C.accent}80, transparent)`,
+          animation: "syncSlide 1.5s ease-in-out infinite",
+        }} />
+      )}
+      <style>{`@keyframes syncSlide { 0% { margin-left: -30%; } 100% { margin-left: 100%; } }`}</style>
     </div>
   );
 }

@@ -1141,18 +1141,7 @@ function NovaHeader({ onDraftPanelToggle }) {
           </div>
         )}
 
-        {/* Sync Status Indicator */}
-        {(() => {
-          const syncStatus = useUiStore(s => s.cloudSyncStatus);
-          if (syncStatus === "idle" || syncStatus === "synced") return null;
-          return (
-            <div title={syncStatus === "syncing" ? "Syncing to cloud..." : "Sync error"} style={{
-              width: 8, height: 8, borderRadius: "50%", marginLeft: 4,
-              background: syncStatus === "syncing" ? "#eab308" : "#ef4444",
-              animation: syncStatus === "syncing" ? "pulse 1.5s infinite" : "none",
-            }} />
-          );
-        })()}
+        {/* Sync status moved to bottom bar — see SyncStatusBar */}
 
         {/* Theme Switcher — Single button with dropdown */}
         <div style={{ position: "relative", marginLeft: 2 }}>
