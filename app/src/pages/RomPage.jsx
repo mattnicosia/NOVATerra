@@ -602,6 +602,8 @@ function DrawingUploadPath({ onResult, onBack }) {
   const [scanning, setScanning] = useState(false);
   const [progress, setProgress] = useState("");
   const [error, setError] = useState("");
+  const [buildingType, setBuildingType] = useState("commercial-office");
+  const [projectSFInput, setProjectSFInput] = useState("");
   const fileRef = useRef(null);
 
   const handleDrop = useCallback((e) => {
@@ -738,9 +740,10 @@ function DrawingUploadPath({ onResult, onBack }) {
       // Generate line items from schedules
       const lineItems = await generateScheduleLineItems(allEntries);
 
-      // Generate calibrated ROM
-      const buildingType = buildingParams.detectedType || "commercial-office";
-      const rom = generateBaselineROM(projectSF, buildingType, "", null, buildingParams);
+      // Generate calibrated ROM — user-selected type overrides AI detection
+      const effectiveType = buildingType || buildingParams.detectedType || "commercial-office";
+      if (projectSFInput && parseFloat(projectSFInput) > 0) projectSF = parseFloat(projectSFInput);
+      const rom = generateBaselineROM(projectSF, effectiveType, "", null, buildingParams);
 
       // Combine ROM + line items
       const result = {
@@ -817,6 +820,43 @@ function DrawingUploadPath({ onResult, onBack }) {
           </div>
         )}
       </div>
+
+      {/* Building type + SF — helps NOVA produce accurate results */}
+      {files.length > 0 && !scanning && (
+        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+          <div style={{ flex: 2 }}>
+            <label style={{ fontSize: 10, color: "rgba(238,237,245,0.3)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.1em", ...ff }}>Building Type</label>
+            <select value={buildingType} onChange={e => setBuildingType(e.target.value)} style={{
+              width: "100%", padding: "8px 12px", fontSize: 13, ...ff,
+              background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: 8, color: "#EEEDF5", outline: "none", cursor: "pointer",
+            }}>
+              <option value="residential-single">Residential — Single Family</option>
+              <option value="residential-multi">Residential — Multi-Family</option>
+              <option value="commercial-office">Commercial Office</option>
+              <option value="retail">Retail</option>
+              <option value="restaurant">Restaurant</option>
+              <option value="healthcare">Healthcare</option>
+              <option value="education">Education</option>
+              <option value="industrial">Industrial</option>
+              <option value="hospitality">Hospitality</option>
+              <option value="mixed-use">Mixed-Use</option>
+              <option value="government">Government</option>
+              <option value="religious">Religious</option>
+              <option value="parking">Parking</option>
+            </select>
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={{ fontSize: 10, color: "rgba(238,237,245,0.3)", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.1em", ...ff }}>Approx SF</label>
+            <input value={projectSFInput} onChange={e => setProjectSFInput(e.target.value)} placeholder="e.g. 3500"
+              type="number" style={{
+                width: "100%", padding: "8px 12px", fontSize: 13, ...ff,
+                background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: 8, color: "#EEEDF5", outline: "none",
+              }} />
+          </div>
+        </div>
+      )}
 
       {error && <div style={{ color: "#FB7185", fontSize: 13, marginBottom: 16, ...ff }}>{error}</div>}
 
