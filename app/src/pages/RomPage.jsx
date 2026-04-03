@@ -656,15 +656,20 @@ function DrawingUploadPath({ onResult, onBack }) {
       for (const drawing of drawings) {
         setProgress(`Rendering ${drawing.name}...`);
 
-        // Load pdf.js and parse the PDF directly (not via drawingsStore)
+        // Load pdf.js and parse the PDF directly
         await loadPdfJs();
         let pdf;
         try {
+          // Use fetch for data URL → ArrayBuffer (handles large files without stack overflow)
           const resp = await fetch(drawing.data);
+          if (!resp.ok) throw new Error(`Fetch failed: ${resp.status}`);
           const buf = await resp.arrayBuffer();
-          pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
+          setProgress(`Loaded ${drawing.name} (${(buf.byteLength / 1024 / 1024).toFixed(1)} MB)...`);
+          pdf = await window.pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
+          setProgress(`${drawing.name}: ${pdf.numPages} pages found`);
         } catch (e) {
           setProgress(`Failed to load ${drawing.name}: ${e.message}`);
+          console.error("[ROM scan] PDF load error:", e);
           continue;
         }
         const numPages = Math.min(pdf.numPages, 40);
@@ -713,8 +718,10 @@ function DrawingUploadPath({ onResult, onBack }) {
               }
             } catch { /* parse failed, skip */ }
           } catch (e) {
-            if (e.message?.includes("Invalid PDF")) break;
-            break; // page doesn't exist
+            console.warn(`[ROM scan] Page ${p} error:`, e.message);
+            if (e.message?.includes("Invalid PDF") || e.message?.includes("No page")) break;
+            // Don't break on API errors — try next page
+            continue;
           }
         }
       }
