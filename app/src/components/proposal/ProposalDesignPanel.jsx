@@ -122,21 +122,49 @@ export default function ProposalDesignPanel() {
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 4 }}>
-          {/* Drawing selector + generate */}
+          {/* Drawing thumbnail grid */}
           {drawings.length > 0 && (
             <>
-              <select
-                value={selectedDrawingId}
-                onChange={e => setSelectedDrawingId(e.target.value)}
-                style={inp(C, { width: "100%", fontSize: 10, padding: "5px 8px" })}
-              >
-                <option value="">Select a drawing page...</option>
-                {drawings.filter(d => !d.superseded).map(d => (
-                  <option key={d.id} value={d.id}>
-                    {d.sheetNumber ? `${d.sheetNumber} — ` : ""}{d.label || d.name || "Untitled"}
-                  </option>
-                ))}
-              </select>
+              <div style={{ fontSize: 9, color: C.textDim, marginBottom: 2 }}>Select an elevation or exterior drawing:</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, maxHeight: 200, overflowY: "auto" }}>
+                {drawings.filter(d => !d.superseded).map(d => {
+                  const isSelected = selectedDrawingId === d.id;
+                  const thumbSrc = d.data || d.thumbnail;
+                  return (
+                    <div
+                      key={d.id}
+                      onClick={() => setSelectedDrawingId(d.id)}
+                      style={{
+                        border: `2px solid ${isSelected ? C.accent : C.border}`,
+                        borderRadius: T.radius.sm,
+                        overflow: "hidden",
+                        cursor: "pointer",
+                        background: isSelected ? `${C.accent}08` : C.bg2,
+                        transition: "border-color 0.15s",
+                      }}
+                    >
+                      {thumbSrc ? (
+                        <img
+                          src={thumbSrc}
+                          alt={d.label || d.sheetNumber || ""}
+                          style={{ width: "100%", height: 60, objectFit: "cover", display: "block" }}
+                        />
+                      ) : (
+                        <div style={{ width: "100%", height: 60, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: C.textDim }}>
+                          No preview
+                        </div>
+                      )}
+                      <div style={{
+                        padding: "3px 5px", fontSize: 8, fontWeight: isSelected ? 700 : 500,
+                        color: isSelected ? C.accent : C.textDim,
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      }}>
+                        {d.sheetNumber || d.label || "Page"}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
               <button
                 onClick={handleGenerateRendering}
                 disabled={!selectedDrawingId || renderLoading}
