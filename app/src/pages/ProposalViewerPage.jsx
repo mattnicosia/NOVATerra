@@ -169,7 +169,7 @@ export default function ProposalViewerPage() {
   const sections = pd.visibleSections || [];
   const proposalData = {
     project: pi,
-    masterData: { companyInfo: ci },
+    masterData: { companyInfo: ci, clients: [], companyProfiles: [] },
     companyInfo: ci,
     totals: pd.totals || {},
     usedDivisions: pd.usedDivisions || [],

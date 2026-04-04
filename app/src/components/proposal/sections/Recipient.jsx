@@ -1,6 +1,6 @@
 export default function Recipient({ data, proposalStyles: PS, sectionNumber }) {
   const { project, masterData } = data;
-  const cl = masterData.clients.find(c => c.company === project.client);
+  const cl = masterData.clients?.find(c => c.company === project.client);
 
   const font = PS?.font?.body || "'Inter', sans-serif";
   const type = PS?.type || {};

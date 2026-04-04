@@ -2,7 +2,7 @@ import { useReportsStore } from '@/stores/reportsStore';
 
 export default function Greeting({ data, proposalStyles: PS }) {
   const { project, masterData } = data;
-  const cl = masterData.clients.find(c => c.company === project.client);
+  const cl = masterData.clients?.find(c => c.company === project.client);
   const defaultText = `Dear ${cl?.contact || "Sir/Madam"},`;
   const proposalText = useReportsStore(s => s.proposalText);
   const setProposalText = useReportsStore(s => s.setProposalText);
