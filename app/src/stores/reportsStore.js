@@ -107,12 +107,18 @@ export const useReportsStore = create((set, get) => ({
       sectionVisibility: { ...DEFAULT_SECTION_VISIBILITY },
     }),
 
-  // Special sections (page break / spacer)
-  addSpecialSection: type =>
+  // Special sections (page break / spacer) — inserts after afterIdx if provided, else at end
+  addSpecialSection: (type, afterIdx) =>
     set(s => {
       const id = `${type}_${crypto.randomUUID().slice(0, 8)}`;
+      const order = [...s.sectionOrder];
+      if (afterIdx != null && afterIdx >= 0 && afterIdx < order.length) {
+        order.splice(afterIdx + 1, 0, id);
+      } else {
+        order.push(id);
+      }
       return {
-        sectionOrder: [...s.sectionOrder, id],
+        sectionOrder: order,
         sectionVisibility: { ...s.sectionVisibility, [id]: true },
       };
     }),

@@ -6,6 +6,10 @@
   padding: 0;
 }
 
+/* ── Proposal builder: insert zone hover ── */
+.insert-zone { height: 12px !important; margin: -6px 0; }
+.insert-zone:hover .insert-buttons { display: flex !important; }
+
 /* ── Anchor reset — prevent browser default purple on visited links ── */
 a {
   color: inherit;

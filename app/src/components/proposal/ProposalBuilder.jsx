@@ -121,22 +121,9 @@ export default function ProposalBuilder({ conditionalEmpty }) {
 
       {/* ── Sections tab ── */}
       {activeTab === "sections" && <>
-      {/* Insert special sections */}
-      <div style={{ display: "flex", gap: T.space[2], padding: `${T.space[3]}px ${T.space[4]}px`, borderBottom: `1px solid ${C.border}` }}>
-        <button
-          className="ghost-btn"
-          onClick={() => addSpecialSection("pagebreak")}
-          style={bt(C, { background: `${C.accent}08`, border: `1px solid ${C.accent}30`, color: C.accent, padding: "6px 10px", fontSize: 10, flex: 1, fontWeight: 600 })}
-        >
-          <Ic d={I.pageBreak} size={11} color={C.accent} /> + Page Break
-        </button>
-        <button
-          className="ghost-btn"
-          onClick={() => addSpecialSection("spacer")}
-          style={bt(C, { background: `${C.accent}08`, border: `1px solid ${C.accent}30`, color: C.accent, padding: "6px 10px", fontSize: 10, flex: 1, fontWeight: 600 })}
-        >
-          <Ic d={I.spacer} size={11} color={C.accent} /> + Spacer
-        </button>
+      {/* Tip: hover between sections to insert page breaks */}
+      <div style={{ padding: `6px ${T.space[4]}px`, borderBottom: `1px solid ${C.border}`, fontSize: 9, color: C.textDim }}>
+        Hover between sections to insert page breaks
       </div>
 
       {/* Draggable section list */}
@@ -149,8 +136,41 @@ export default function ProposalBuilder({ conditionalEmpty }) {
           const isConditionalAndEmpty = meta.conditional && isEmpty;
           const isSpecial = meta.special;
           return (
+            <div key={id} style={{ position: "relative" }}>
+            {/* Insert zone — hover to reveal page break / spacer buttons */}
             <div
-              key={id}
+              className="insert-zone"
+              style={{
+                height: 0, overflow: "visible", position: "relative", zIndex: 2,
+                display: "flex", justifyContent: "center",
+              }}
+            >
+              <div
+                className="insert-buttons"
+                style={{
+                  display: "none", position: "absolute", top: -8,
+                  gap: 4, background: C.bg1, padding: "2px 6px",
+                  borderRadius: 12, border: `1px solid ${C.accent}30`,
+                  boxShadow: `0 2px 6px rgba(0,0,0,0.1)`,
+                }}
+              >
+                <button
+                  onClick={e => { e.stopPropagation(); addSpecialSection("pagebreak", idx - 1); }}
+                  style={{ border: "none", background: "transparent", fontSize: 9, color: C.accent, cursor: "pointer", fontWeight: 600, padding: "2px 6px", whiteSpace: "nowrap" }}
+                  title="Insert page break here"
+                >
+                  ┄ Page Break
+                </button>
+                <button
+                  onClick={e => { e.stopPropagation(); addSpecialSection("spacer", idx - 1); }}
+                  style={{ border: "none", background: "transparent", fontSize: 9, color: C.textDim, cursor: "pointer", fontWeight: 600, padding: "2px 6px", whiteSpace: "nowrap" }}
+                  title="Insert spacer here"
+                >
+                  ↕ Spacer
+                </button>
+              </div>
+            </div>
+            <div
               onPointerDown={e => onPointerDown(e, idx)}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
@@ -210,6 +230,7 @@ export default function ProposalBuilder({ conditionalEmpty }) {
                   }} />
                 </button>
               )}
+            </div>
             </div>
           );
         })}

@@ -188,7 +188,7 @@ export default function ReportsPage() {
       <div style={{ maxWidth: 1000 }}>
         {/* Report tabs */}
         <div className="no-print" style={{ display: "inline-flex", gap: 0, marginBottom: T.space[4], background: C.bg2, borderRadius: T.radius.md, padding: 3 }}>
-          {[{ k: "proposal", l: "Proposal" }, { k: "summary", l: "Cost Summary" }, { k: "sov", l: "Schedule of Values" }, { k: "bidForm", l: "Bid Form" }, { k: "detailed", l: "Detailed Estimate" }, { k: "alternates", l: "Alternates" }].map(tab => (
+          {[{ k: "proposal", l: "Proposal" }, { k: "bidForm", l: "Bid Form" }].map(tab => (
             <button key={tab.k} onClick={() => setReportType(tab.k)}
               style={bt(C, { background: reportType === tab.k ? C.accent : "transparent", color: reportType === tab.k ? "#fff" : C.textMuted, padding: "6px 14px", fontSize: 11, border: "none", borderRadius: T.radius.sm })}>{tab.l}</button>
           ))}

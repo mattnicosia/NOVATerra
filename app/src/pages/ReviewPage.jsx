@@ -15,11 +15,90 @@ import { useItemsStore } from "@/stores/itemsStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { runValidation } from "@/utils/costValidation";
 import { detectScopeGaps } from "@/nova/predictive/scopeGapDetector";
-import { fmt } from "@/utils/format";
+import { nn, fmt } from "@/utils/format";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 
 const ScheduleOfValuesPage = lazy(() => import("./ScheduleOfValuesPage"));
+
+// ─── Cost Summary Card ──────────────────────────────────────────────────────
+function CostSummaryCard({ items, project }) {
+  const C = useTheme();
+  const T = C.T;
+  const markup = useItemsStore(s => s.markup);
+  const markupOrder = useItemsStore(s => s.markupOrder) || [];
+
+  const totals = useMemo(() => {
+    let material = 0, labor = 0, equipment = 0, sub = 0;
+    items.forEach(it => {
+      const q = nn(it.quantity);
+      material += q * nn(it.material);
+      labor += q * nn(it.labor);
+      equipment += q * nn(it.equipment);
+      sub += q * nn(it.subcontractor);
+    });
+    const direct = material + labor + equipment + sub;
+    let running = direct;
+    const markupLines = [];
+    markupOrder.forEach(mo => {
+      const p = nn(markup[mo.key]);
+      if (p === 0) return;
+      const base = mo.compound ? running : direct;
+      const amt = base * p / 100;
+      markupLines.push({ label: mo.label, pct: p, amount: amt });
+      running += amt;
+    });
+    return { material, labor, equipment, sub, direct, markupLines, grand: running };
+  }, [items, markup, markupOrder]);
+
+  const sf = nn(project?.projectSF);
+  const mono = "'JetBrains Mono', monospace";
+  const row = (label, val, color, bold) => (
+    <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${C.border}` }}>
+      <span style={{ fontSize: 12, color: bold ? C.text : C.textMuted, fontWeight: bold ? 600 : 400 }}>{label}</span>
+      <span style={{ fontSize: 12, fontFamily: mono, fontWeight: bold ? 700 : 500, color: color || C.text, fontVariantNumeric: "tabular-nums" }}>{fmt(val)}</span>
+    </div>
+  );
+
+  return (
+    <div style={{ background: C.bg1, border: `1px solid ${C.border}`, borderRadius: T.radius.lg, overflow: "hidden" }}>
+      <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.border}` }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>Cost Summary</span>
+        {sf > 0 && <span style={{ fontSize: 11, color: C.textDim, marginLeft: 8 }}>{sf.toLocaleString()} SF</span>}
+      </div>
+      <div style={{ padding: "8px 16px" }}>
+        {row("Material", totals.material, C.green)}
+        {row("Labor", totals.labor, C.blue)}
+        {row("Equipment", totals.equipment, C.orange)}
+        {row("Subcontractor", totals.sub, C.purple)}
+        <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0 6px", borderBottom: `2px solid ${C.accent}` }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Direct Cost</span>
+          <span style={{ fontSize: 14, fontFamily: mono, fontWeight: 800, color: C.accent, fontVariantNumeric: "tabular-nums" }}>{fmt(totals.direct)}</span>
+        </div>
+        {sf > 0 && (
+          <div style={{ fontSize: 10, color: C.textDim, textAlign: "right", padding: "2px 0 8px" }}>
+            ${(totals.direct / sf).toFixed(2)}/SF
+          </div>
+        )}
+        {totals.markupLines.map((ml, i) => (
+          <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.border}` }}>
+            <span style={{ fontSize: 11, color: C.textMuted }}>{ml.label} ({ml.pct}%)</span>
+            <span style={{ fontSize: 11, fontFamily: mono, color: C.textMuted, fontVariantNumeric: "tabular-nums" }}>{fmt(ml.amount)}</span>
+          </div>
+        ))}
+        <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0 8px" }}>
+          <span style={{ fontSize: 15, fontWeight: 800, color: C.text }}>Grand Total</span>
+          <span style={{ fontSize: 18, fontFamily: mono, fontWeight: 800, color: C.accent, fontVariantNumeric: "tabular-nums" }}>{fmt(totals.grand)}</span>
+        </div>
+        {sf > 0 && (
+          <div style={{ fontSize: 11, color: C.textDim, textAlign: "right", paddingBottom: 4 }}>
+            ${(totals.grand / sf).toFixed(2)}/SF
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // ─── Completeness Check ──────────────────────────────────────────────────────
 function computeCompleteness(items) {
@@ -132,7 +211,7 @@ export default function ReviewPage() {
   }, [items, project.buildingType, project.workType, project.projectSF, project.laborType]);
 
   // ─── SOV tab state ─────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState("checklist"); // "checklist" | "sov"
+  const [activeTab, setActiveTab] = useState("checklist"); // "checklist" | "sov" | "summary"
 
   const pctColor = completeness.pct >= 90 ? C.green : completeness.pct >= 60 ? "#eab308" : "#ef4444";
 
@@ -153,23 +232,27 @@ export default function ReviewPage() {
         <div style={{ flex: 1 }} />
 
         {/* Tab pills */}
-        {["checklist", "sov"].map(tab => (
+        {[
+          { id: "checklist", label: "Checklist" },
+          { id: "summary", label: "Cost Summary" },
+          { id: "sov", label: "Schedule of Values" },
+        ].map(tab => (
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
             className="ghost-btn"
             style={{
               padding: "5px 14px",
               borderRadius: T.radius.full,
               border: "none",
-              background: activeTab === tab ? `${C.accent}14` : "transparent",
-              color: activeTab === tab ? C.accent : C.textDim,
-              fontSize: 11, fontWeight: activeTab === tab ? 600 : 500,
+              background: activeTab === tab.id ? `${C.accent}14` : "transparent",
+              color: activeTab === tab.id ? C.accent : C.textDim,
+              fontSize: 11, fontWeight: activeTab === tab.id ? 600 : 500,
               cursor: "pointer", fontFamily: T.font.sans,
               transition: "all 150ms",
             }}
           >
-            {tab === "checklist" ? "Checklist" : "Schedule of Values"}
+            {tab.label}
           </button>
         ))}
       </div>
@@ -361,6 +444,11 @@ export default function ReviewPage() {
                 })()}
               </div>
             </ReviewCard>
+          </div>
+        ) : activeTab === "summary" ? (
+          /* Cost Summary Tab */
+          <div style={{ maxWidth: 800, margin: "0 auto" }}>
+            <CostSummaryCard items={items} project={project} />
           </div>
         ) : (
           /* SOV Tab — render the full ScheduleOfValuesPage */
