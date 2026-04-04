@@ -125,6 +125,9 @@ export const useUiStore = create((set, _get) => ({
   // Multi-device session awareness
   otherSessions: [], // [{ device, browser, lastSeen }]
 
+  // Filtered takeoff suggestions (set by NOVA chat filter_takeoff_suggestions tool)
+  filteredSuggestions: null, // null = no filter applied, Array = filtered list
+
   // Value engineering
   veLoading: false,
   veSuggestions: [],
@@ -184,6 +187,9 @@ export const useUiStore = create((set, _get) => ({
   setOtherSessions: v => set({ otherSessions: v }),
   sessionKicked: false,
   setSessionKicked: v => set({ sessionKicked: v }),
+
+  setFilteredSuggestions: v => set({ filteredSuggestions: v }),
+  clearFilteredSuggestions: () => set({ filteredSuggestions: null }),
 
   setVeLoading: v => set({ veLoading: v }),
   setVeSuggestions: v => set({ veSuggestions: v }),

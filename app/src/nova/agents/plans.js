@@ -15,6 +15,8 @@
 // Import knowledge documents as raw strings (Vite ?raw)
 import drawingsKnowledge from "../knowledge/drawings.md?raw";
 import abbreviationsKnowledge from "../knowledge/abbreviations.md?raw";
+import blueprintLiteracy from "../knowledge/blueprint-literacy.md?raw";
+import blueprintEstimating from "../knowledge/blueprint-estimating.md?raw";
 import { useCorrectionStore } from "../learning/correctionStore";
 import { useFirmMemoryStore } from "../learning/firmMemory";
 
@@ -69,8 +71,17 @@ function systemPrompt(context = {}) {
 
   if (abbreviationsKnowledge && abbreviationsKnowledge.length > 50) {
     parts.push("\n\n--- ABBREVIATION DICTIONARY ---\n");
-    // For abbreviations, always include the full dictionary (it's a reference)
     parts.push(abbreviationsKnowledge);
+  }
+
+  if (blueprintLiteracy && blueprintLiteracy.length > 50) {
+    parts.push("\n\n--- BLUEPRINT VISUAL LITERACY ---\n");
+    parts.push(blueprintLiteracy);
+  }
+
+  if (blueprintEstimating && blueprintEstimating.length > 50) {
+    parts.push("\n\n--- BLUEPRINT ESTIMATING DATA ---\n");
+    parts.push(blueprintEstimating);
   }
 
   if (context.projectType) {
@@ -114,6 +125,10 @@ function getKnowledge(section, _context = {}) {
       return extractSection(drawingsKnowledge, "Common OCR Misreads");
     case "abbreviations":
       return abbreviationsKnowledge || "";
+    case "visual-literacy":
+      return blueprintLiteracy || "";
+    case "estimating-data":
+      return blueprintEstimating || "";
     default:
       return "";
   }

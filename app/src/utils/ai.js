@@ -456,6 +456,34 @@ export function buildProjectContext({ project, items, takeoffs, specs, drawings 
     parts.push(`\nDRAWINGS (${drawings.length} sheets):`);
     drawings.forEach(d => parts.push(`  ${d.sheetNumber || "?"} — ${d.sheetTitle || d.label || "Untitled"}`));
   }
+
+  // ── Estimate Summary Totals ──
+  if (items?.length) {
+    const itemTotal = items.reduce((s, i) => {
+      const unit = (i.material || 0) + (i.labor || 0) + (i.equipment || 0) + (i.subcontractor || 0);
+      return s + unit * (i.quantity || 0);
+    }, 0);
+    parts.push(`\n[Estimate Summary]`);
+    parts.push(`Total Items: ${items.length}`);
+    parts.push(`Subtotal: $${Math.round(itemTotal).toLocaleString()}`);
+    if (project?.projectSF > 0) {
+      parts.push(`Cost per SF: $${(itemTotal / project.projectSF).toFixed(2)}/SF`);
+    }
+
+    // Division coverage (lightweight — no heavy deps)
+    const divisionsCovered = new Set(items.filter(i => i.division).map(i => i.division.substring(0, 2)));
+    parts.push(`Divisions with scope: ${divisionsCovered.size}`);
+  }
+
+  // ── Drawing Sheet Index — for NOVA to cite by sheet number ──
+  if (drawings?.length) {
+    parts.push(`\n[Drawing Sheets — reference these by sheet number in your responses]`);
+    drawings.slice(0, 30).forEach(d => {
+      parts.push(`Sheet ${d.sheetNumber || d.label}: ${d.sheetTitle || d.label} [drawingId:${d.id}]`);
+    });
+    if (drawings.length > 30) parts.push(`  ... and ${drawings.length - 30} more sheets`);
+  }
+
   return parts.join("\n");
 }
 

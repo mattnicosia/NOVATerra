@@ -52,6 +52,7 @@ export const QUICK_ACTIONS = [
   { label: "What's my biggest cost risk?", icon: "⚠️" },
   { label: "Suggest value engineering options", icon: "💡" },
   { label: "Help me write scope exclusions", icon: "✏️" },
+  { label: "Show me my scope gaps", icon: "🎯" },
 ];
 
 export default function AIChatPanel() {
@@ -429,6 +430,40 @@ export default function AIChatPanel() {
                 </button>
               ))}
             </div>
+            {/* Proactive scope gap indicator */}
+            {(() => {
+              try {
+                if (!items?.length) return null;
+                const gapResult = detectScopeGaps({
+                  items,
+                  buildingType: project?.buildingType,
+                  workType: project?.workType,
+                  projectSF: project?.projectSF,
+                  laborType: project?.laborType,
+                });
+                if (gapResult.missingCount > 0) {
+                  return (
+                    <div style={{
+                      padding: "8px 12px",
+                      marginTop: 10,
+                      background: `${P.accent}08`,
+                      border: `1px solid ${P.accent}20`,
+                      borderRadius: 6,
+                      fontSize: 11,
+                      color: P.text,
+                    }}>
+                      <div style={{ fontWeight: 700, marginBottom: 2 }}>
+                        Estimate {gapResult.completionPct}% complete — {gapResult.missingCount} divisions missing
+                      </div>
+                      <div style={{ color: P.textDim, fontSize: 10 }}>
+                        ~${Math.round(gapResult.totalMissingCost).toLocaleString()} in potential missing scope. Ask NOVA for details.
+                      </div>
+                    </div>
+                  );
+                }
+              } catch { /* scope gap detection is non-critical */ }
+              return null;
+            })()}
           </div>
         )}
 
@@ -789,10 +824,60 @@ export function MessageBubble({ msg, C, streaming }) {
   );
 }
 
-// Render inline markdown (bold, code, italic)
+// Render inline markdown (bold, code, italic, sheet refs)
 function renderInline(text, C) {
   const T = C.T;
   if (!text) return text;
+
+  // Drawing sheet references — make clickable before markdown parsing
+  // Match patterns like [Sheet A3.01], (Sheet A3), "Sheet S-201", Sheet A3.01
+  const sheetMatch = text.match(/\[?[Ss]heet\s+([A-Z]?[\w.-]+)\]?/);
+  if (sheetMatch) {
+    const sheetRef = sheetMatch[1];
+    const idx = text.indexOf(sheetMatch[0]);
+    const before = text.slice(0, idx);
+    const after = text.slice(idx + sheetMatch[0].length);
+
+    // Find matching drawing
+    const allDrawings = useDrawingsStore.getState().drawings;
+    const match = allDrawings.find(d =>
+      d.sheetNumber === sheetRef ||
+      d.sheetNumber?.replace(/[.-]/g, "") === sheetRef.replace(/[.-]/g, "") ||
+      d.label?.includes(sheetRef)
+    );
+
+    return (
+      <>
+        {before && renderInline(before, C)}
+        <span
+          onClick={match ? () => {
+            useDrawingsStore.getState().setSelectedDrawingId(match.id);
+            // Navigate to takeoffs if not already there
+            if (!window.location.pathname.includes("/takeoffs")) {
+              const estMatch = window.location.pathname.match(/\/estimate\/([^/]+)/);
+              if (estMatch) window.location.hash = "";
+              // Let drawing selection work on current page — user can navigate manually
+            }
+          } : undefined}
+          style={{
+            color: match ? (C.accent || "#8B5CF6") : (C.textDim || "#666"),
+            cursor: match ? "pointer" : "default",
+            fontWeight: 600,
+            textDecoration: match ? "underline" : "none",
+            fontSize: 11,
+            padding: "1px 4px",
+            borderRadius: 3,
+            background: match ? `${C.accent || "#8B5CF6"}12` : "transparent",
+          }}
+          title={match ? `Navigate to ${match.sheetTitle || match.label}` : `Sheet not found: ${sheetRef}`}
+        >
+          {sheetMatch[0].replace(/[[\]]/g, "")}
+        </span>
+        {after && renderInline(after, C)}
+      </>
+    );
+  }
+
   const parts = [];
   let remaining = text;
   let key = 0;

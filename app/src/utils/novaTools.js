@@ -161,6 +161,28 @@ export const NOVA_TOOLS = [
       required: [],
     },
   },
+  {
+    name: "filter_takeoff_suggestions",
+    description:
+      "Filter the auto-generated takeoff suggestions. Use when the user asks to narrow down, keep only certain items, or remove items from the auto-takeoff list. Modifies the pending suggestions before they are added to the estimate.",
+    input_schema: {
+      type: "object",
+      properties: {
+        action: {
+          type: "string",
+          enum: ["keep_only", "remove", "keep_divisions", "remove_divisions"],
+          description:
+            "keep_only: keep items matching criteria. remove: remove items matching criteria. keep_divisions: keep only specified CSI divisions. remove_divisions: remove specified CSI divisions.",
+        },
+        criteria: {
+          type: "string",
+          description:
+            "For keep_only/remove: text to match against item descriptions (case-insensitive). For keep_divisions/remove_divisions: comma-separated CSI division codes like '09,22,23'",
+        },
+      },
+      required: ["action", "criteria"],
+    },
+  },
 ];
 
 // ── Preview — returns structured proposal data without executing ──────
@@ -543,6 +565,63 @@ export async function executeNovaTool(toolName, toolInput) {
         }));
       }
       return { success: true, action: "query_project_info", ...result };
+    }
+
+    case "filter_takeoff_suggestions": {
+      const { action, criteria } = toolInput;
+      const { useScanStore } = await import("@/stores/scanStore");
+      const { useUiStore } = await import("@/stores/uiStore");
+      const { generateTakeoffSuggestions } = await import("@/nova/predictive/generateSuggestions");
+      const scanResults = useScanStore.getState().scanResults;
+      if (!scanResults) return { success: false, message: "No scan results available. Run a plan scan first." };
+
+      const suggestions = generateTakeoffSuggestions(scanResults);
+      if (!suggestions.length) return { success: false, message: "No takeoff suggestions generated from scan data." };
+
+      let kept = [];
+      let removed = [];
+      const lowerCriteria = criteria.toLowerCase();
+
+      switch (action) {
+        case "keep_only":
+          kept = suggestions.filter(s => s.description.toLowerCase().includes(lowerCriteria));
+          removed = suggestions.filter(s => !s.description.toLowerCase().includes(lowerCriteria));
+          break;
+        case "remove":
+          kept = suggestions.filter(s => !s.description.toLowerCase().includes(lowerCriteria));
+          removed = suggestions.filter(s => s.description.toLowerCase().includes(lowerCriteria));
+          break;
+        case "keep_divisions": {
+          const divs = criteria.split(",").map(d => d.trim());
+          kept = suggestions.filter(s => divs.some(d => s.code?.startsWith(d)));
+          removed = suggestions.filter(s => !divs.some(d => s.code?.startsWith(d)));
+          break;
+        }
+        case "remove_divisions": {
+          const divs = criteria.split(",").map(d => d.trim());
+          kept = suggestions.filter(s => !divs.some(d => s.code?.startsWith(d)));
+          removed = suggestions.filter(s => divs.some(d => s.code?.startsWith(d)));
+          break;
+        }
+        default:
+          return { success: false, message: `Unknown action: ${action}` };
+      }
+
+      // Store filtered suggestions in uiStore for AutoTakeoffModal to pick up
+      useUiStore.getState().setFilteredSuggestions(kept);
+
+      return {
+        success: true,
+        action: "filter_takeoff_suggestions",
+        message: `Filtered: ${kept.length} items kept, ${removed.length} removed. ${
+          action === "keep_only" || action === "keep_divisions"
+            ? `Keeping items matching "${criteria}"`
+            : `Removed items matching "${criteria}"`
+        }`,
+        kept: kept.length,
+        removed: removed.length,
+        keptSummary: kept.slice(0, 8).map(s => ({ code: s.code, desc: s.description.slice(0, 60) })),
+      };
     }
 
     default:
