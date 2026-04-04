@@ -201,6 +201,8 @@ export default function ProposalViewerPage() {
           {/* Render sections */}
           {sections.map((id) => {
             const isSpecial = id.startsWith("pagebreak_") || id.startsWith("spacer_") || id.startsWith("doc_");
+            // Skip uploaded doc sections on public viewer (no store data)
+            if (id.startsWith("doc_")) return null;
             if (!isSpecial && NUMBERED_SECTIONS.has(id)) counter++;
             const sn = (!isSpecial && data.design_config?.showSectionNumbers && NUMBERED_SECTIONS.has(id)) ? counter : null;
 

@@ -1,7 +1,7 @@
 import { useReportsStore } from "@/stores/reportsStore";
 
 export default function UploadedDocumentSection({ sectionId, proposalStyles: PS }) {
-  const doc = useReportsStore(s => s.uploadedDocuments.find(d => d.id === sectionId));
+  const doc = useReportsStore(s => (s.uploadedDocuments || []).find(d => d.id === sectionId));
   if (!doc) return null;
 
   const font = PS?.font?.body || "sans-serif";
