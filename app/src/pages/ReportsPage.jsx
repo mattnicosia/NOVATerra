@@ -50,6 +50,7 @@ export default function ReportsPage() {
   const sovSort = useReportsStore(s => s.sovSort);
   const setSovSort = useReportsStore(s => s.setSovSort);
   const proposalDesign = useReportsStore(s => s.proposalDesign);
+  const heroImage = useReportsStore(s => s.heroImage);
 
   // Build proposal design system from user preferences
   const PS = useMemo(() => buildProposalStyles(proposalDesign), [proposalDesign]);
@@ -555,6 +556,12 @@ export default function ReportsPage() {
                   {/* Accent bar */}
                   {proposalDesign.showAccentBar && (
                     <div style={PS.section.accentBar} />
+                  )}
+                  {/* Hero image */}
+                  {heroImage && (
+                    <div style={{ marginBottom: 16, borderRadius: 8, overflow: "hidden" }}>
+                      <img src={heroImage} alt="" style={{ width: "100%", height: 280, objectFit: "cover", display: "block" }} />
+                    </div>
                   )}
                   {visibleSections.map((id, visIdx) => {
                     // Track section number — only increment for sections that display a numbered header

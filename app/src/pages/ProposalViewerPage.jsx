@@ -32,6 +32,7 @@ export default function ProposalViewerPage() {
   const [activeSection, setActiveSection] = useState(null);
   const [acceptForm, setAcceptForm] = useState({ name: "", title: "" });
   const [accepted, setAccepted] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
   const containerRef = useRef(null);
 
   // Override body overflow:hidden from App.css so this page scrolls
@@ -40,6 +41,17 @@ export default function ProposalViewerPage() {
     document.body.style.background = "#f5f5f7";
     document.documentElement.style.overflow = "auto";
     return () => { document.body.style.overflow = ""; document.body.style.background = ""; document.documentElement.style.overflow = ""; };
+  }, []);
+
+  // Scroll progress bar
+  useEffect(() => {
+    const handleScrollProgress = () => {
+      const scrollTop = window.scrollY;
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      setScrollProgress(docHeight > 0 ? scrollTop / docHeight : 0);
+    };
+    window.addEventListener("scroll", handleScrollProgress, { passive: true });
+    return () => window.removeEventListener("scroll", handleScrollProgress);
   }, []);
 
   // Extract token from URL
@@ -207,11 +219,40 @@ export default function ProposalViewerPage() {
 
   return (
     <div ref={containerRef} style={{ minHeight: "100vh", background: "#f5f5f7", fontFamily: font }}>
+      {/* Scroll progress bar */}
+      <div style={{ position: "fixed", top: 0, left: 0, right: 0, height: 3, zIndex: 100, background: "#eee" }}>
+        <div style={{ height: "100%", background: accent, width: `${scrollProgress * 100}%`, transition: "width 0.1s" }} />
+      </div>
+
       {/* Top accent bar */}
       <div style={{ height: 4, background: accent }} />
 
       {/* Content */}
       <div style={{ maxWidth: 800, margin: "0 auto", padding: "40px 24px 80px" }}>
+        {/* Hero Image */}
+        {pd.heroImage && (
+          <div style={{ position: "relative", width: "100%", marginBottom: -40, borderRadius: "12px 12px 0 0", overflow: "hidden" }}>
+            <img
+              src={pd.heroImage}
+              alt={pi.projectName || "Project Rendering"}
+              style={{ width: "100%", height: 360, objectFit: "cover", display: "block" }}
+            />
+            <div style={{
+              position: "absolute", bottom: 0, left: 0, right: 0,
+              background: "linear-gradient(transparent, rgba(0,0,0,0.7))",
+              padding: "60px 32px 24px",
+            }}>
+              <div style={{ fontSize: 28, fontWeight: 800, color: "#fff", fontFamily: font, letterSpacing: -0.5 }}>
+                {pi.projectName || pi.name || ""}
+              </div>
+              {pi.client && (
+                <div style={{ fontSize: 14, color: "rgba(255,255,255,0.7)", fontFamily: font, marginTop: 4 }}>
+                  For {pi.client}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 12px rgba(0,0,0,0.08)", padding: PS.page.padding, fontFamily: font, lineHeight: 1.6 }}>
           {/* Render sections */}
           {sections.map((id) => {

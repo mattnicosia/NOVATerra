@@ -56,6 +56,7 @@ export default function ProposalShareModal({ onClose }) {
 
       // Snapshot proposal data
       const proposalData = {
+        heroImage: useReportsStore.getState().heroImage || null,
         items: items.map(i => ({ id: i.id, description: i.description, code: i.code, unit: i.unit, quantity: i.quantity, material: i.material, labor: i.labor, equipment: i.equipment, subcontractor: i.subcontractor, division: i.division, trade: i.trade, allowanceOf: i.allowanceOf })),
         totals,
         divTotals,

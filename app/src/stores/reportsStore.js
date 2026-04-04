@@ -7,6 +7,10 @@ import { idbKey } from "@/utils/idbKey";
 const TEMPLATES_KEY = "bldg-proposal-templates";
 
 export const useReportsStore = create((set, get) => ({
+  // Hero rendering image (AI-generated from drawing)
+  heroImage: null, // base64 data URL
+  setHeroImage: v => set({ heroImage: v }),
+
   reportType: "proposal",
   proposalConfig: {
     scope: "",

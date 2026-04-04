@@ -1,6 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useReportsStore } from "@/stores/reportsStore";
+import { useDrawingsStore } from "@/stores/drawingsStore";
+import { useProjectStore } from "@/stores/projectStore";
+import { supabase } from "@/utils/supabase";
 import { PROPOSAL_FONTS, PROPOSAL_ACCENTS, PROPOSAL_ORIENTATIONS, loadProposalFont } from "@/constants/proposalStyles";
 import { bt, inp } from "@/utils/styles";
 
@@ -19,8 +22,16 @@ export default function ProposalDesignPanel() {
   const design = useReportsStore(s => s.proposalDesign);
   const setDesign = useReportsStore(s => s.setProposalDesign);
   const resetDesign = useReportsStore(s => s.resetProposalDesign);
+  const heroImage = useReportsStore(s => s.heroImage);
+  const setHeroImage = useReportsStore(s => s.setHeroImage);
+  const drawings = useDrawingsStore(s => s.drawings);
+  const project = useProjectStore(s => s.project);
 
   const [customHex, setCustomHex] = useState(design.customAccent || "");
+  const [selectedDrawingId, setSelectedDrawingId] = useState("");
+  const [renderLoading, setRenderLoading] = useState(false);
+  const [renderError, setRenderError] = useState(null);
+  const uploadRef = useRef(null);
 
   // Load all proposal fonts so previews render in their actual typeface
   useEffect(() => {
@@ -37,8 +48,126 @@ export default function ProposalDesignPanel() {
     marginTop: 14,
   };
 
+  // Convert drawing canvas to base64
+  const getDrawingBase64 = async (drawingId) => {
+    const drawing = drawings.find(d => d.id === drawingId);
+    if (!drawing) return null;
+    // Drawings may have imageData (base64) or pdfCanvas
+    if (drawing.imageData) return drawing.imageData;
+    const canvas = useDrawingsStore.getState().pdfCanvases[drawingId];
+    if (canvas) return canvas.toDataURL("image/png");
+    return null;
+  };
+
+  const handleGenerateRendering = async () => {
+    if (!selectedDrawingId) return;
+    setRenderLoading(true);
+    setRenderError(null);
+    try {
+      const imageBase64 = await getDrawingBase64(selectedDrawingId);
+      if (!imageBase64) throw new Error("Could not read drawing image");
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) throw new Error("Not logged in");
+
+      const res = await fetch("/api/generate-rendering", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          imageBase64,
+          buildingType: project?.buildingType || "",
+          projectName: project?.projectName || project?.name || "",
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Rendering failed");
+      setHeroImage(json.image);
+    } catch (err) {
+      setRenderError(err.message);
+    } finally {
+      setRenderLoading(false);
+    }
+  };
+
+  const handleUploadCustom = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setHeroImage(reader.result);
+    reader.readAsDataURL(file);
+  };
+
   return (
     <div style={{ padding: `${T.space[3]}px ${T.space[4]}px`, display: "flex", flexDirection: "column", gap: 2 }}>
+
+      {/* ── Hero Image ── */}
+      <div style={sectionLabel}>Hero Image</div>
+      {heroImage ? (
+        <div style={{ position: "relative", borderRadius: T.radius.sm, overflow: "hidden", marginBottom: 4 }}>
+          <img src={heroImage} alt="Hero rendering" style={{ width: "100%", height: 120, objectFit: "cover", display: "block", borderRadius: T.radius.sm }} />
+          <button
+            onClick={() => setHeroImage(null)}
+            style={{
+              position: "absolute", top: 4, right: 4,
+              width: 20, height: 20, borderRadius: 10,
+              background: "rgba(0,0,0,0.6)", border: "none",
+              color: "#fff", fontSize: 12, cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              lineHeight: 1,
+            }}
+          >
+            x
+          </button>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 4 }}>
+          {/* Drawing selector + generate */}
+          {drawings.length > 0 && (
+            <>
+              <select
+                value={selectedDrawingId}
+                onChange={e => setSelectedDrawingId(e.target.value)}
+                style={inp(C, { width: "100%", fontSize: 10, padding: "5px 8px" })}
+              >
+                <option value="">Select a drawing page...</option>
+                {drawings.filter(d => !d.superseded).map(d => (
+                  <option key={d.id} value={d.id}>
+                    {d.sheetNumber ? `${d.sheetNumber} — ` : ""}{d.label || d.name || "Untitled"}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={handleGenerateRendering}
+                disabled={!selectedDrawingId || renderLoading}
+                style={bt(C, {
+                  width: "100%", padding: "6px 10px", fontSize: 10, fontWeight: 700,
+                  background: (!selectedDrawingId || renderLoading) ? C.bg2 : (C.gradient || C.accent),
+                  color: (!selectedDrawingId || renderLoading) ? C.textDim : "#fff",
+                  cursor: (!selectedDrawingId || renderLoading) ? "not-allowed" : "pointer",
+                })}
+              >
+                {renderLoading ? "NOVA is rendering..." : "Generate AI Rendering"}
+              </button>
+            </>
+          )}
+          {renderError && (
+            <div style={{ fontSize: 9, color: C.red, padding: "2px 0" }}>{renderError}</div>
+          )}
+          {/* Upload custom */}
+          <input ref={uploadRef} type="file" accept="image/*" onChange={handleUploadCustom} style={{ display: "none" }} />
+          <button
+            onClick={() => uploadRef.current?.click()}
+            style={bt(C, {
+              width: "100%", padding: "5px 10px", fontSize: 10,
+              background: "transparent", border: `1px solid ${C.border}`,
+              color: C.textMuted, cursor: "pointer",
+            })}
+          >
+            Upload Custom Image
+          </button>
+        </div>
+      )}
 
       {/* ── Font ── */}
       <div style={sectionLabel}>Font</div>
