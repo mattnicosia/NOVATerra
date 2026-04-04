@@ -69,19 +69,27 @@ export default function ProposalShareModal({ onClose }) {
       };
 
       const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) throw new Error("Not logged in — please refresh and try again");
+
+      // Limit items to prevent payload too large (keep first 200)
+      const limitedProposalData = {
+        ...proposalData,
+        items: proposalData.items.slice(0, 200),
+      };
 
       const res = await fetch("/api/create-living-proposal", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${sessionData?.session?.access_token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           estimateId: activeEstimateId,
-          proposalData,
+          proposalData: limitedProposalData,
           designConfig: proposalDesign,
           companyInfo: companyInfo || {},
-          projectInfo: { ...project },
+          projectInfo: { name: project?.name, projectName: project?.projectName, client: project?.client, projectSF: project?.projectSF, buildingType: project?.buildingType, address: project?.address, bidDate: project?.bidDate, workType: project?.workType, laborType: project?.laborType },
           recipientName,
           recipientEmail: recipientEmail || null,
           password: password || null,
@@ -89,8 +97,10 @@ export default function ProposalShareModal({ onClose }) {
         }),
       });
 
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Failed to create");
+      const text = await res.text();
+      let json;
+      try { json = JSON.parse(text); } catch { throw new Error(`Server error (${res.status}): ${text.slice(0, 200)}`); }
+      if (!res.ok) throw new Error(json.error || `Failed (${res.status})`);
       setResult(json);
     } catch (err) {
       alert(err.message);
