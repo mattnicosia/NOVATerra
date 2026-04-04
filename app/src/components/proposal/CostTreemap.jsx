@@ -8,13 +8,35 @@ const DIV_LABELS = {
   "27": "Communications", "28": "Safety", "31": "Earthwork", "32": "Site", "33": "Utilities",
 };
 
-const DIV_COLORS = [
-  "#3b82f6", "#ef4444", "#22c55e", "#f59e0b", "#8b5cf6",
-  "#ec4899", "#14b8a6", "#f97316", "#6366f1", "#84cc16",
-  "#06b6d4", "#d946ef", "#0ea5e9", "#10b981", "#a855f7",
-];
+/**
+ * Generate muted, sophisticated color palette from an accent color.
+ * Creates variations by adjusting opacity and hue rotation.
+ */
+function generatePalette(accent) {
+  // Base palette: muted tones that work with any accent
+  return [
+    accent,
+    adjustColor(accent, 0.75),
+    adjustColor(accent, 0.55),
+    adjustColor(accent, 0.40),
+    adjustColor(accent, 0.30),
+    adjustColor(accent, 0.22),
+    adjustColor(accent, 0.16),
+    adjustColor(accent, 0.12),
+    adjustColor(accent, 0.09),
+    adjustColor(accent, 0.07),
+  ];
+}
 
-export default function CostTreemap({ divTotals, grand, accent, font }) {
+function adjustColor(hex, opacity) {
+  // Convert hex to rgba with opacity
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${opacity})`;
+}
+
+export default function CostTreemap({ divTotals, grand, accent = "#1a1a2e", font }) {
   const items = useMemo(() => {
     if (!divTotals || !grand) return [];
     return Object.entries(divTotals)
@@ -22,45 +44,105 @@ export default function CostTreemap({ divTotals, grand, accent, font }) {
         const amount = typeof val === "number" ? val : val?.total || val?.mid || 0;
         return { div, label: DIV_LABELS[div] || `Div ${div}`, amount, pct: (amount / grand) * 100 };
       })
-      .filter(d => d.amount > 0 && d.pct >= 1) // Only show divisions >= 1%
+      .filter(d => d.amount > 0 && d.pct >= 1)
       .sort((a, b) => b.amount - a.amount);
   }, [divTotals, grand]);
 
+  const palette = useMemo(() => generatePalette(accent), [accent]);
+
   if (!items.length) return null;
 
-  // Simple treemap: proportional rectangles in a flex-wrap layout
+  // SVG donut chart
+  const size = 200;
+  const cx = size / 2;
+  const cy = size / 2;
+  const outerR = 88;
+  const innerR = 55;
+
+  // Build arc segments
+  let cumAngle = -90; // Start from top
+  const segments = items.map((item, i) => {
+    const angle = (item.pct / 100) * 360;
+    const startAngle = cumAngle;
+    cumAngle += angle;
+    const endAngle = cumAngle;
+
+    const startRad = (startAngle * Math.PI) / 180;
+    const endRad = (endAngle * Math.PI) / 180;
+
+    const x1 = cx + outerR * Math.cos(startRad);
+    const y1 = cy + outerR * Math.sin(startRad);
+    const x2 = cx + outerR * Math.cos(endRad);
+    const y2 = cy + outerR * Math.sin(endRad);
+    const x3 = cx + innerR * Math.cos(endRad);
+    const y3 = cy + innerR * Math.sin(endRad);
+    const x4 = cx + innerR * Math.cos(startRad);
+    const y4 = cy + innerR * Math.sin(startRad);
+
+    const largeArc = angle > 180 ? 1 : 0;
+
+    const path = [
+      `M ${x1} ${y1}`,
+      `A ${outerR} ${outerR} 0 ${largeArc} 1 ${x2} ${y2}`,
+      `L ${x3} ${y3}`,
+      `A ${innerR} ${innerR} 0 ${largeArc} 0 ${x4} ${y4}`,
+      `Z`,
+    ].join(" ");
+
+    return { ...item, path, color: palette[i % palette.length], index: i };
+  });
+
+  const mono = "'JetBrains Mono', monospace";
+
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 2, borderRadius: 8, overflow: "hidden" }}>
-      {items.map((item, i) => (
-        <div
-          key={item.div}
-          style={{
-            flexBasis: `${Math.max(item.pct, 8)}%`,
-            flexGrow: item.pct,
-            minWidth: 80,
-            padding: "12px 10px",
-            background: DIV_COLORS[i % DIV_COLORS.length],
-            color: "#fff",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "space-between",
-            minHeight: item.pct > 10 ? 80 : 56,
-            borderRadius: 4,
-            fontFamily: font,
-          }}
-          title={`${item.label}: $${item.amount.toLocaleString()} (${item.pct.toFixed(1)}%)`}
-        >
-          <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, opacity: 0.85 }}>
-            {item.label}
+    <div style={{ display: "flex", alignItems: "flex-start", gap: 32, fontFamily: font }}>
+      {/* Donut chart */}
+      <div style={{ flexShrink: 0 }}>
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          {segments.map(seg => (
+            <path
+              key={seg.div}
+              d={seg.path}
+              fill={seg.color}
+              stroke="#fff"
+              strokeWidth={1.5}
+              style={{ transition: "opacity 0.2s" }}
+            >
+              <title>{`${seg.label}: $${seg.amount.toLocaleString()} (${seg.pct.toFixed(1)}%)`}</title>
+            </path>
+          ))}
+          {/* Center text */}
+          <text x={cx} y={cy - 6} textAnchor="middle" style={{ fontSize: 11, fontWeight: 700, fill: accent, fontFamily: font }}>
+            TOTAL
+          </text>
+          <text x={cx} y={cy + 12} textAnchor="middle" style={{ fontSize: 14, fontWeight: 800, fill: "#222", fontFamily: mono, fontVariantNumeric: "tabular-nums" }}>
+            ${(grand / 1000).toFixed(0)}K
+          </text>
+        </svg>
+      </div>
+
+      {/* Legend */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4, paddingTop: 4 }}>
+        {segments.slice(0, 10).map(seg => (
+          <div key={seg.div} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 10, height: 10, borderRadius: 2, background: seg.color, flexShrink: 0 }} />
+            <span style={{ flex: 1, fontSize: 11, color: "#444", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {seg.label}
+            </span>
+            <span style={{ fontSize: 10, fontFamily: mono, color: "#666", fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>
+              ${seg.amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            </span>
+            <span style={{ fontSize: 9, color: "#999", width: 36, textAlign: "right", flexShrink: 0 }}>
+              {seg.pct.toFixed(1)}%
+            </span>
           </div>
-          <div>
-            <div style={{ fontSize: item.pct > 10 ? 16 : 12, fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", fontVariantNumeric: "tabular-nums" }}>
-              ${item.amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-            </div>
-            <div style={{ fontSize: 9, opacity: 0.7 }}>{item.pct.toFixed(1)}%</div>
+        ))}
+        {items.length > 10 && (
+          <div style={{ fontSize: 9, color: "#999", marginTop: 2 }}>
+            +{items.length - 10} more divisions
           </div>
-        </div>
-      ))}
+        )}
+      </div>
     </div>
   );
 }
