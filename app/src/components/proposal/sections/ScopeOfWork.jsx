@@ -125,25 +125,6 @@ export default function ScopeOfWork({ data, proposalStyles: PS, sectionNumber })
               }}
             >
               <span style={{ ...type.h2, fontFamily: font, color: color.accent, fontSize: type.h2?.fontSize || 12, fontWeight: type.h2?.fontWeight || 600 }}>{label}</span>
-              <button
-                className="no-print"
-                onClick={() => toggleMode(label)}
-                style={{
-                  background: isNarrative ? `${color.accent}12` : "transparent",
-                  border: `1px solid ${isNarrative ? `${color.accent}4d` : color.border}`,
-                  borderRadius: 4,
-                  padding: "2px 8px",
-                  fontSize: 9,
-                  cursor: "pointer",
-                  color: isNarrative ? color.accent : color.textDim,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 3,
-                }}
-              >
-                <Ic d={I.ai} size={9} color={isNarrative ? color.accent : color.textDim} />
-                {isNarrative ? "Show Items" : "AI Summary"}
-              </button>
             </div>
 
             {/* Content */}
