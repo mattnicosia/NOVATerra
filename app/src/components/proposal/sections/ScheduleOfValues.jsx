@@ -1,10 +1,13 @@
 import { nn, fmt } from "@/utils/format";
 import { getTradeLabel, getTradeSortOrder } from "@/constants/tradeGroupings";
 
-export default function ScheduleOfValues({ data }) {
+export default function ScheduleOfValues({ data, proposalStyles: PS, sectionNumber }) {
   const { totals, items, T } = data;
-  const sovFont = T.font.sans;
-  const sovMono = T.font.mono;
+
+  const font = PS?.font?.body || "'Inter', sans-serif";
+  const mono = PS?.font?.mono || "monospace";
+  const type = PS?.type || {};
+  const color = PS?.color || { text: "#1a1a2e", textDim: "#666", accent: "#1a1a2e", bgSubtle: "#f8f9fa" };
 
   // Build trade breakdown rows with markup wrapped in
   const wrappedMultiplier = totals.direct > 0 ? totals.grand / totals.direct : 1;
@@ -29,16 +32,17 @@ export default function ScheduleOfValues({ data }) {
       {/* Section title */}
       <div
         style={{
-          fontSize: 14,
-          fontWeight: 800,
-          color: "#1a1a2e",
+          ...type.h2,
+          fontFamily: font,
+          color: color.accent,
+          fontSize: type.h2?.fontSize || 14,
+          fontWeight: type.h2?.fontWeight || 800,
           letterSpacing: 1.5,
           textTransform: "uppercase",
           marginBottom: 12,
-          fontFamily: sovFont,
         }}
       >
-        Schedule of Values
+        {sectionNumber ? `${sectionNumber}.0  ` : ""}Schedule of Values
       </div>
 
       {/* Column headers */}
@@ -49,13 +53,14 @@ export default function ScheduleOfValues({ data }) {
           gap: 10,
           paddingBottom: 8,
           marginBottom: 2,
-          borderBottom: "1.5px solid #1a1a2e",
-          fontSize: 9,
-          fontWeight: 700,
-          color: "#666",
+          borderBottom: `2px solid ${color.accent}`,
+          ...type.label,
+          fontFamily: font,
+          fontSize: type.label?.fontSize || 9,
+          fontWeight: type.label?.fontWeight || 700,
+          color: color.accent,
           textTransform: "uppercase",
           letterSpacing: 0.8,
-          fontFamily: sovFont,
         }}
       >
         <span>No.</span>
@@ -64,7 +69,7 @@ export default function ScheduleOfValues({ data }) {
       </div>
 
       {/* Rows */}
-      {rows.map(row => (
+      {rows.map((row, idx) => (
         <div
           key={row.num}
           style={{
@@ -72,21 +77,23 @@ export default function ScheduleOfValues({ data }) {
             gridTemplateColumns: "48px 2fr 1fr",
             gap: 10,
             padding: "8px 0",
-            borderBottom: "1px solid #eee",
+            borderBottom: `1px solid ${color.border || "#eee"}`,
             alignItems: "center",
+            background: idx % 2 === 1 ? (color.bgSubtle || "transparent") : "transparent",
           }}
         >
-          <span style={{ fontFamily: sovMono, fontSize: 10, color: "#aaa", fontVariantNumeric: "tabular-nums" }}>
+          <span style={{ fontFamily: mono, fontSize: 10, color: color.textMuted || "#aaa", fontVariantNumeric: "tabular-nums" }}>
             {String(row.num).padStart(3, "0")}
           </span>
-          <span style={{ fontSize: 12, fontWeight: 500, color: "#222", fontFamily: sovFont }}>{row.label}</span>
+          <span style={{ ...type.body, fontFamily: font, fontSize: type.body?.fontSize || 12, fontWeight: 500, color: color.text }}>{row.label}</span>
           <span
             style={{
               textAlign: "right",
-              fontFamily: sovMono,
-              fontSize: 12,
-              fontWeight: 600,
-              color: "#222",
+              ...type.money,
+              fontFamily: mono,
+              fontSize: type.money?.fontSize || 12,
+              fontWeight: type.money?.fontWeight || 600,
+              color: color.text,
               fontVariantNumeric: "tabular-nums",
             }}
           >
@@ -102,19 +109,20 @@ export default function ScheduleOfValues({ data }) {
           gridTemplateColumns: "48px 2fr 1fr",
           gap: 10,
           padding: "14px 0 8px",
-          borderTop: "2.5px solid #1a1a2e",
+          borderTop: `2px solid ${color.accent}`,
           marginTop: 6,
         }}
       >
         <span />
-        <span style={{ fontSize: 14, fontWeight: 800, color: "#1a1a2e", fontFamily: sovFont }}>TOTAL CONTRACT SUM</span>
+        <span style={{ ...type.moneyLg, fontFamily: font, color: color.accent, fontSize: type.moneyLg?.fontSize || 14, fontWeight: type.moneyLg?.fontWeight || 800 }}>TOTAL CONTRACT SUM</span>
         <span
           style={{
             textAlign: "right",
-            fontFamily: sovMono,
-            fontSize: 16,
-            fontWeight: 800,
-            color: "#1a1a2e",
+            ...type.moneyLg,
+            fontFamily: mono,
+            fontSize: type.moneyLg?.fontSize ? type.moneyLg.fontSize + 2 : 16,
+            fontWeight: type.moneyLg?.fontWeight || 800,
+            color: color.accent,
             fontVariantNumeric: "tabular-nums",
           }}
         >

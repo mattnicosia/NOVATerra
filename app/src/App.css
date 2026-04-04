@@ -1821,6 +1821,11 @@ button:disabled {
    PRINT
    ═══════════════════════════════════════════════════════════ */
 @media print {
+  @page {
+    margin: 0.4in 0.5in;
+    size: auto;
+  }
+
   body {
     background: #fff !important;
     color: #000 !important;

@@ -1,4 +1,4 @@
-import { isPageBreak, isSpacer } from '@/constants/proposalSections';
+import { isPageBreak, isSpacer, isUploadedDoc } from '@/constants/proposalSections';
 import CoverLetterSection from './CoverLetterSection';
 import Letterhead from './sections/Letterhead';
 import Recipient from './sections/Recipient';
@@ -17,6 +17,7 @@ import Acceptance from './sections/Acceptance';
 import ScheduleOfValues from './sections/ScheduleOfValues';
 import PageBreak from './sections/PageBreak';
 import Spacer from './sections/Spacer';
+import UploadedDocumentSection from './UploadedDocumentSection';
 
 const SECTION_MAP = {
   coverLetter: CoverLetterSection,
@@ -40,6 +41,7 @@ const SECTION_MAP = {
 export default function ProposalSection({ sectionId, data, proposalStyles, sectionNumber }) {
   if (isPageBreak(sectionId)) return <PageBreak />;
   if (isSpacer(sectionId)) return <Spacer />;
+  if (isUploadedDoc(sectionId)) return <UploadedDocumentSection sectionId={sectionId} proposalStyles={proposalStyles} />;
 
   const Comp = SECTION_MAP[sectionId];
   if (!Comp) return null;

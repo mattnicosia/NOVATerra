@@ -29,9 +29,52 @@ export const useReportsStore = create((set, get) => ({
   coverLetterText: "",
   setCoverLetterText: text => set({ coverLetterText: text }),
 
+  // Uploaded documents for proposal insertion
+  uploadedDocuments: [], // [{ id, name, type, data (base64), pageCount, insertedAt }]
+
+  addUploadedDocument: (doc) =>
+    set(s => ({
+      uploadedDocuments: [...s.uploadedDocuments, {
+        id: `doc_${crypto.randomUUID().slice(0, 8)}`,
+        name: doc.name,
+        type: doc.type, // 'pdf' | 'image'
+        data: doc.data, // base64
+        pageCount: doc.pageCount || 1,
+        insertedAt: Date.now(),
+      }],
+    })),
+
+  removeUploadedDocument: (id) =>
+    set(s => ({
+      uploadedDocuments: s.uploadedDocuments.filter(d => d.id !== id),
+      sectionOrder: s.sectionOrder.filter(sid => sid !== id),
+      sectionVisibility: (() => {
+        const vis = { ...s.sectionVisibility };
+        delete vis[id];
+        return vis;
+      })(),
+    })),
+
+  insertUploadedDocument: (afterIdx, docData) =>
+    set(s => {
+      const docId = `doc_${crypto.randomUUID().slice(0, 8)}`;
+      const doc = { id: docId, ...docData, insertedAt: Date.now() };
+      const order = [...s.sectionOrder];
+      if (afterIdx != null && afterIdx >= 0) {
+        order.splice(afterIdx + 1, 0, docId);
+      } else {
+        order.push(docId);
+      }
+      return {
+        uploadedDocuments: [...s.uploadedDocuments, doc],
+        sectionOrder: order,
+        sectionVisibility: { ...s.sectionVisibility, [docId]: true },
+      };
+    }),
+
   // Proposal design preferences
   proposalDesign: {
-    fontId: "switzer",
+    fontId: "inter",
     accentId: "navy",
     customAccent: "",
     orientation: "portrait",
@@ -48,7 +91,7 @@ export const useReportsStore = create((set, get) => ({
   resetProposalDesign: () =>
     set({
       proposalDesign: {
-        fontId: "switzer", accentId: "navy", customAccent: "",
+        fontId: "inter", accentId: "navy", customAccent: "",
         orientation: "portrait", showSectionNumbers: true, showPageNumbers: true,
         showAccentBar: true, showProjectSummary: true, showDraftWatermark: false,
       },

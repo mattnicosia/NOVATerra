@@ -8,15 +8,33 @@
 
 // Available font families for proposal output
 export const PROPOSAL_FONTS = [
-  { id: "switzer", label: "Switzer", family: "'Switzer', -apple-system, sans-serif", category: "Modern Sans" },
-  { id: "georgia", label: "Georgia", family: "Georgia, 'Times New Roman', serif", category: "Classic Serif" },
-  { id: "garamond", label: "Garamond", family: "'EB Garamond', Garamond, 'Times New Roman', serif", category: "Elegant Serif" },
-  { id: "palatino", label: "Palatino", family: "'Palatino Linotype', Palatino, 'Book Antiqua', serif", category: "Professional Serif" },
-  { id: "helvetica", label: "Helvetica", family: "'Helvetica Neue', Helvetica, Arial, sans-serif", category: "Clean Sans" },
-  { id: "inter", label: "Inter", family: "'Inter', -apple-system, sans-serif", category: "Technical Sans" },
-  { id: "times", label: "Times New Roman", family: "'Times New Roman', Times, serif", category: "Traditional Serif" },
-  { id: "cambria", label: "Cambria", family: "Cambria, Georgia, serif", category: "Modern Serif" },
+  { id: "inter", label: "Inter", family: "'Inter', -apple-system, sans-serif", category: "Modern Sans", googleFontsUrl: "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" },
+  { id: "dm-sans", label: "DM Sans", family: "'DM Sans', -apple-system, sans-serif", category: "Geometric Sans", googleFontsUrl: "https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" },
+  { id: "plus-jakarta", label: "Plus Jakarta Sans", family: "'Plus Jakarta Sans', -apple-system, sans-serif", category: "Humanist Sans", googleFontsUrl: "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" },
+  { id: "source-serif", label: "Source Serif 4", family: "'Source Serif 4', Georgia, serif", category: "Editorial Serif", googleFontsUrl: "https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@300;400;500;600;700;800&display=swap" },
+  { id: "libre-baskerville", label: "Libre Baskerville", family: "'Libre Baskerville', Georgia, serif", category: "Classic Serif", googleFontsUrl: "https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&display=swap" },
+  { id: "cormorant", label: "Cormorant Garamond", family: "'Cormorant Garamond', Garamond, serif", category: "Elegant Serif", googleFontsUrl: "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&display=swap" },
+  { id: "roboto", label: "Roboto", family: "'Roboto', Arial, sans-serif", category: "Universal Sans", googleFontsUrl: "https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" },
+  { id: "eb-garamond", label: "EB Garamond", family: "'EB Garamond', 'Times New Roman', serif", category: "Traditional Serif", googleFontsUrl: "https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;600;700;800&display=swap" },
 ];
+
+/**
+ * Dynamically load a Google Font by injecting a <link> tag.
+ * Idempotent — won't add duplicate links for the same font.
+ */
+export function loadProposalFont(fontId) {
+  const fontDef = PROPOSAL_FONTS.find(f => f.id === fontId);
+  if (!fontDef?.googleFontsUrl) return;
+
+  const linkId = `proposal-font-${fontId}`;
+  if (document.getElementById(linkId)) return; // Already loaded
+
+  const link = document.createElement("link");
+  link.id = linkId;
+  link.rel = "stylesheet";
+  link.href = fontDef.googleFontsUrl;
+  document.head.appendChild(link);
+}
 
 export const PROPOSAL_ORIENTATIONS = [
   { id: "portrait", label: "Portrait", icon: "P" },
@@ -186,9 +204,9 @@ export function buildProposalStyles(config = {}) {
   };
 }
 
-// Default styles (Switzer, Navy, Portrait)
+// Default styles (Inter, Navy, Portrait)
 export const DEFAULT_PROPOSAL_STYLES = buildProposalStyles({
-  fontId: "switzer",
+  fontId: "inter",
   accentId: "navy",
   orientation: "portrait",
 });

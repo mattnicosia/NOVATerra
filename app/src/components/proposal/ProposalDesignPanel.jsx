@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useReportsStore } from "@/stores/reportsStore";
-import { PROPOSAL_FONTS, PROPOSAL_ACCENTS, PROPOSAL_ORIENTATIONS } from "@/constants/proposalStyles";
+import { PROPOSAL_FONTS, PROPOSAL_ACCENTS, PROPOSAL_ORIENTATIONS, loadProposalFont } from "@/constants/proposalStyles";
 import { bt, inp } from "@/utils/styles";
 
 const TOGGLE_OPTIONS = [
@@ -21,6 +21,11 @@ export default function ProposalDesignPanel() {
   const resetDesign = useReportsStore(s => s.resetProposalDesign);
 
   const [customHex, setCustomHex] = useState(design.customAccent || "");
+
+  // Load all proposal fonts so previews render in their actual typeface
+  useEffect(() => {
+    PROPOSAL_FONTS.forEach(f => loadProposalFont(f.id));
+  }, []);
 
   const sectionLabel = {
     fontSize: 9,

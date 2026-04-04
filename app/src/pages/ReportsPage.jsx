@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useTheme } from '@/hooks/useTheme';
 import { useItemsStore, DEFAULT_MARKUP_ORDER } from '@/stores/itemsStore';
 import { useProjectStore } from '@/stores/projectStore';
@@ -18,7 +18,7 @@ import ProposalBuilder from '@/components/proposal/ProposalBuilder';
 import { getTradeLabel, getTradeSortOrder } from '@/constants/tradeGroupings';
 import SendProposalModal from '@/components/reports/SendProposalModal';
 import { exportEstimateXlsx } from '@/utils/exportXlsx';
-import { buildProposalStyles } from '@/constants/proposalStyles';
+import { buildProposalStyles, loadProposalFont } from '@/constants/proposalStyles';
 
 export default function ReportsPage() {
   const C = useTheme();
@@ -51,6 +51,11 @@ export default function ReportsPage() {
 
   // Build proposal design system from user preferences
   const PS = useMemo(() => buildProposalStyles(proposalDesign), [proposalDesign]);
+
+  // Load the selected Google Font when it changes
+  useEffect(() => {
+    loadProposalFont(proposalDesign.fontId);
+  }, [proposalDesign.fontId]);
 
   // Resolve company info: project-selected profile or default
   const companyInfo = getCompanyInfo(project.companyProfileId);
@@ -465,7 +470,7 @@ export default function ReportsPage() {
           return (
             <div style={{ display: "flex", gap: 0 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div id="proposal-print" style={{ position: "relative", background: "#fff", color: "#1a1a2e", padding: PS.page.padding, maxWidth: PS.page.maxWidth, borderRadius: T.radius.lg, border: `1px solid ${C.border}`, fontFamily: PS.font.body, lineHeight: 1.6, boxShadow: T.shadow.lg }}>
+                <div id="proposal-print" style={{ position: "relative", background: "#fff", color: "#1a1a2e", padding: PS.page.padding, maxWidth: PS.page.maxWidth, width: "100%", borderRadius: T.radius.lg, border: `1px solid ${C.border}`, fontFamily: PS.font.body, lineHeight: 1.6, boxShadow: T.shadow.lg, ...(proposalDesign.orientation === "landscape" ? { minWidth: 900, maxWidth: 1100 } : {}) }}>
                   {/* Draft watermark overlay */}
                   {proposalDesign.showDraftWatermark && (
                     <div style={{

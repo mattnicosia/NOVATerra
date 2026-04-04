@@ -27,10 +27,15 @@ export const DEFAULT_SECTION_VISIBILITY = Object.fromEntries(
 
 export function isPageBreak(id) { return id.startsWith("pagebreak_"); }
 export function isSpacer(id) { return id.startsWith("spacer_"); }
-export function isSpecialSection(id) { return isPageBreak(id) || isSpacer(id); }
+export function isUploadedDoc(id) { return id.startsWith("doc_"); }
+export function isSpecialSection(id) { return isPageBreak(id) || isSpacer(id) || isUploadedDoc(id); }
 
 export function getSpecialSectionMeta(id) {
   if (isPageBreak(id)) return { id, label: "Page Break", icon: I.pageBreak, special: true, type: "pagebreak" };
   if (isSpacer(id)) return { id, label: "Spacer", icon: I.spacer, special: true, type: "spacer" };
+  if (isUploadedDoc(id)) {
+    // Dynamic label — caller should override with actual doc name from store
+    return { id, label: "Document", icon: I.file, special: true, type: "doc" };
+  }
   return null;
 }

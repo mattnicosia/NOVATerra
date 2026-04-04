@@ -26,6 +26,9 @@ export default function ProposalBuilder({ conditionalEmpty }) {
   const deleteTemplate = useReportsStore(s => s.deleteTemplate);
   const addSpecialSection = useReportsStore(s => s.addSpecialSection);
   const removeSpecialSection = useReportsStore(s => s.removeSpecialSection);
+  const insertUploadedDocument = useReportsStore(s => s.insertUploadedDocument);
+  const removeUploadedDocument = useReportsStore(s => s.removeUploadedDocument);
+  const uploadedDocuments = useReportsStore(s => s.uploadedDocuments);
 
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [loadModalOpen, setLoadModalOpen] = useState(false);
@@ -35,7 +38,13 @@ export default function ProposalBuilder({ conditionalEmpty }) {
   const { listRef, onPointerDown, onPointerMove, onPointerUp } = useDragReorder(reorderSection);
 
   const standardMeta = Object.fromEntries(PROPOSAL_SECTIONS.map(s => [s.id, s]));
-  const getMeta = (id) => standardMeta[id] || getSpecialSectionMeta(id);
+  const getMeta = (id) => {
+    if (id.startsWith("doc_")) {
+      const doc = uploadedDocuments.find(d => d.id === id);
+      return { id, label: doc?.name || "Document", icon: I.file, special: true, type: "doc" };
+    }
+    return standardMeta[id] || getSpecialSectionMeta(id);
+  };
 
   const handleSave = () => {
     if (!templateName.trim()) return;
@@ -168,6 +177,39 @@ export default function ProposalBuilder({ conditionalEmpty }) {
                 >
                   ↕ Spacer
                 </button>
+                <button
+                  onClick={e => {
+                    e.stopPropagation();
+                    const input = document.createElement("input");
+                    input.type = "file";
+                    input.accept = ".pdf,.png,.jpg,.jpeg";
+                    input.onchange = async (ev) => {
+                      const file = ev.target.files[0];
+                      if (!file) return;
+                      if (file.size > 5 * 1024 * 1024) {
+                        alert("File must be under 5MB");
+                        return;
+                      }
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        const base64 = reader.result;
+                        const isImage = file.type.startsWith("image/");
+                        insertUploadedDocument(idx - 1, {
+                          name: file.name,
+                          type: isImage ? "image" : "pdf",
+                          data: base64,
+                          pageCount: 1,
+                        });
+                      };
+                      reader.readAsDataURL(file);
+                    };
+                    input.click();
+                  }}
+                  style={{ border: "none", background: "transparent", fontSize: 9, color: C.green || C.accent, cursor: "pointer", fontWeight: 600, padding: "2px 6px", whiteSpace: "nowrap" }}
+                  title="Upload document here"
+                >
+                  + Doc
+                </button>
               </div>
             </div>
             <div
@@ -204,7 +246,7 @@ export default function ProposalBuilder({ conditionalEmpty }) {
               {isSpecial ? (
                 <button
                   className="icon-btn"
-                  onClick={e => { e.stopPropagation(); removeSpecialSection(id); }}
+                  onClick={e => { e.stopPropagation(); id.startsWith("doc_") ? removeUploadedDocument(id) : removeSpecialSection(id); }}
                   style={{ width: 24, height: 24, border: "none", background: "transparent", borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
                 >
                   <Ic d={I.trash} size={11} color={C.red} />

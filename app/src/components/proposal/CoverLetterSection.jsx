@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useReportsStore } from '@/stores/reportsStore';
 import { callAnthropic, NARRATIVE_MODEL } from '@/utils/ai';
 import { fmt } from '@/utils/format';
-import { T } from '@/utils/designTokens';
 
 // Generate cover letter body via AI from project context
 async function generateCoverLetter(project, items, totalCost, companyName) {
@@ -26,12 +25,16 @@ Keep it concise, professional, construction-industry tone. No placeholder bracke
   });
 }
 
-export default function CoverLetterSection({ data }) {
+export default function CoverLetterSection({ data, proposalStyles: PS }) {
   const { project, companyInfo, totals, items, masterData } = data;
   const coverLetterText = useReportsStore(s => s.coverLetterText);
   const setCoverLetterText = useReportsStore(s => s.setCoverLetterText);
   const [loading, setLoading] = useState(false);
   const [generated, setGenerated] = useState(false);
+
+  const font = PS?.font?.body || "'Inter', sans-serif";
+  const type = PS?.type || {};
+  const color = PS?.color || { text: "#1a1a2e", textDim: "#666", textMed: "#333", accent: "#1a1a2e", textMuted: "#888" };
 
   const client = masterData.clients?.find(c => c.company === project.client);
   const clientName = client?.contact || project.client || "Sir/Madam";
@@ -72,36 +75,36 @@ export default function CoverLetterSection({ data }) {
         {companyInfo?.logo ? (
           <img src={companyInfo.logo} alt="" style={{ maxHeight: 48, maxWidth: 200, marginBottom: 8 }} />
         ) : (
-          <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1a2e", letterSpacing: 0.5 }}>{companyName}</div>
+          <div style={{ ...type.h1, fontFamily: font, color: color.text, fontSize: type.h1?.fontSize || 16, fontWeight: type.h1?.fontWeight || 700, letterSpacing: 0.5 }}>{companyName}</div>
         )}
         {companyInfo?.address && (
-          <div style={{ fontSize: 10, color: "#888" }}>
+          <div style={{ ...type.caption, fontFamily: font, color: color.textMuted || "#888", fontSize: type.caption?.fontSize || 10 }}>
             {companyInfo.address}{companyInfo?.city ? `, ${companyInfo.city}` : ""}{companyInfo?.state ? `, ${companyInfo.state}` : ""} {companyInfo?.zip || ""}
           </div>
         )}
         {(companyInfo?.phone || companyInfo?.email) && (
-          <div style={{ fontSize: 10, color: "#888" }}>
+          <div style={{ ...type.caption, fontFamily: font, color: color.textMuted || "#888", fontSize: type.caption?.fontSize || 10 }}>
             {companyInfo.phone}{companyInfo?.email ? ` \u2022 ${companyInfo.email}` : ""}
           </div>
         )}
       </div>
 
       {/* Date */}
-      <div style={{ fontSize: 11, color: "#444", marginBottom: 20 }}>{dateStr}</div>
+      <div style={{ ...type.body, fontFamily: font, color: color.textMed || "#444", fontSize: type.body?.fontSize || 11, marginBottom: 20 }}>{dateStr}</div>
 
       {/* RE line */}
-      <div style={{ fontSize: 11, fontWeight: 600, color: "#1a1a2e", marginBottom: 16 }}>
+      <div style={{ ...type.body, fontFamily: font, fontWeight: 600, color: color.text, fontSize: type.body?.fontSize || 11, marginBottom: 16 }}>
         RE: {project.name || "Project Estimate"} — {buildingType} Estimate
       </div>
 
       {/* Salutation */}
-      <div style={{ fontSize: 11, color: "#222", marginBottom: 12 }}>
+      <div style={{ ...type.body, fontFamily: font, color: color.text, fontSize: type.body?.fontSize || 11, marginBottom: 12 }}>
         Dear {clientName},
       </div>
 
       {/* AI-generated body (editable) */}
       {loading ? (
-        <div style={{ padding: "12px 0", fontSize: 11, color: "#999", fontStyle: "italic" }}>
+        <div style={{ padding: "12px 0", fontSize: 11, fontFamily: font, color: color.textDim, fontStyle: "italic" }}>
           Generating cover letter...
         </div>
       ) : (
@@ -111,9 +114,9 @@ export default function CoverLetterSection({ data }) {
             onChange={e => setCoverLetterText(e.target.value)}
             rows={6}
             style={{
-              width: "100%", fontSize: 11, fontFamily: T.font.sans, lineHeight: 1.7,
+              width: "100%", fontSize: 11, fontFamily: font, lineHeight: 1.7,
               border: "1px dashed transparent", borderRadius: 3, padding: "4px 6px",
-              background: "transparent", color: "#333", resize: "vertical", outline: "none",
+              background: "transparent", color: color.textMed || "#333", resize: "vertical", outline: "none",
             }}
             onFocus={e => { e.target.style.borderColor = "#ccc"; }}
             onBlur={e => { e.target.style.borderColor = "transparent"; }}
@@ -125,7 +128,7 @@ export default function CoverLetterSection({ data }) {
             onClick={handleGenerate}
             disabled={loading}
             style={{
-              position: "absolute", top: -24, right: 0, fontSize: 9, color: "#999",
+              position: "absolute", top: -24, right: 0, fontSize: 9, color: color.accent,
               background: "none", border: "none", cursor: "pointer", padding: "2px 6px",
             }}
           >
@@ -135,22 +138,22 @@ export default function CoverLetterSection({ data }) {
       )}
 
       {/* Closing */}
-      <div style={{ marginTop: 20, fontSize: 11, color: "#222", lineHeight: 1.7 }}>
+      <div style={{ marginTop: 20, ...type.body, fontFamily: font, color: color.text, fontSize: type.body?.fontSize || 11, lineHeight: 1.7 }}>
         We appreciate the opportunity to provide this estimate and look forward to discussing it further.
       </div>
 
       {/* Signature block */}
       <div style={{ marginTop: 28 }}>
-        <div style={{ fontSize: 11, color: "#222" }}>Sincerely,</div>
-        <div style={{ marginTop: 32, borderTop: "1px solid #ccc", width: 220, paddingTop: 6 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: "#1a1a2e" }}>{companyName}</div>
-          {companyInfo?.phone && <div style={{ fontSize: 10, color: "#888" }}>{companyInfo.phone}</div>}
-          {companyInfo?.email && <div style={{ fontSize: 10, color: "#888" }}>{companyInfo.email}</div>}
+        <div style={{ ...type.body, fontFamily: font, color: color.text, fontSize: type.body?.fontSize || 11 }}>Sincerely,</div>
+        <div style={{ marginTop: 32, borderTop: `1px solid ${color.accent}`, width: 220, paddingTop: 6 }}>
+          <div style={{ ...type.h1, fontFamily: font, color: color.text, fontSize: type.h1?.fontSize || 12, fontWeight: type.h1?.fontWeight || 600 }}>{companyName}</div>
+          {companyInfo?.phone && <div style={{ ...type.caption, fontFamily: font, color: color.textMuted || "#888", fontSize: type.caption?.fontSize || 10 }}>{companyInfo.phone}</div>}
+          {companyInfo?.email && <div style={{ ...type.caption, fontFamily: font, color: color.textMuted || "#888", fontSize: type.caption?.fontSize || 10 }}>{companyInfo.email}</div>}
         </div>
       </div>
 
       {/* Visual separator before rest of proposal */}
-      <div style={{ marginTop: 32, borderBottom: "2px solid #1a1a2e" }} />
+      <div style={{ marginTop: 32, borderBottom: `2px solid ${color.accent}` }} />
     </div>
   );
 }

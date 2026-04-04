@@ -1,15 +1,17 @@
 import { useState } from 'react';
 import { useReportsStore } from '@/stores/reportsStore';
-import { T } from '@/utils/designTokens';
 import { callAnthropic } from '@/utils/ai';
 
-export default function IntroParagraph({ data }) {
+export default function IntroParagraph({ data, proposalStyles: PS }) {
   const { project, companyInfo, items, totals } = data;
   const defaultText = `Thank you for the opportunity to submit our proposal for the above-referenced project. We have reviewed the plans and specifications${project.architect ? ` prepared by ${project.architect}` : ""} and are pleased to provide the following:`;
   const proposalText = useReportsStore(s => s.proposalText);
   const setProposalText = useReportsStore(s => s.setProposalText);
   const value = proposalText.intro || "";
   const [generating, setGenerating] = useState(false);
+
+  const font = PS?.font?.body || "'Inter', sans-serif";
+  const color = PS?.color || { text: "#1a1a2e" };
 
   const generateCoverLetter = async () => {
     setGenerating(true);
@@ -66,9 +68,9 @@ Rules:
         placeholder={defaultText}
         rows={4}
         style={{
-          width: "100%", fontSize: 11, fontFamily: T.font.sans, lineHeight: 1.6,
+          width: "100%", fontSize: 11, fontFamily: font, lineHeight: 1.6,
           border: "1px dashed transparent", borderRadius: 3, padding: "2px 4px",
-          background: "transparent", color: "#1a1a2e", resize: "vertical", outline: "none",
+          background: "transparent", color: color.text, resize: "vertical", outline: "none",
         }}
         onFocus={e => { e.target.style.borderColor = "#ccc"; }}
         onBlur={e => { e.target.style.borderColor = "transparent"; }}

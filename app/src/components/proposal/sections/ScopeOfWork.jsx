@@ -5,8 +5,14 @@ import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 import { getTradeLabel, getTradeSortOrder } from "@/constants/tradeGroupings";
 
-export default function ScopeOfWork({ data }) {
+export default function ScopeOfWork({ data, proposalStyles: PS, sectionNumber }) {
   const { items, T } = data;
+
+  const font = PS?.font?.body || "'Inter', sans-serif";
+  const mono = PS?.font?.mono || "monospace";
+  const type = PS?.type || {};
+  const color = PS?.color || { text: "#1a1a2e", textDim: "#666", textMed: "#333", accent: "#1a1a2e", border: "#ddd" };
+  const space = PS?.space || { sm: 8, md: 16 };
 
   const scopeNarratives = useReportsStore(s => s.scopeNarratives);
   const scopeNarrativeLoading = useReportsStore(s => s.scopeNarrativeLoading);
@@ -73,12 +79,14 @@ export default function ScopeOfWork({ data }) {
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          marginBottom: T.space[2],
-          borderBottom: "1px solid #ddd",
-          paddingBottom: T.space[1],
+          marginBottom: space.sm,
+          borderBottom: `1px solid ${color.border}`,
+          paddingBottom: space.sm / 2,
         }}
       >
-        <span style={{ fontSize: T.fontSize.base, fontWeight: T.fontWeight.bold }}>SCOPE OF WORK</span>
+        <span style={{ ...type.h2, fontFamily: font, color: color.accent, fontSize: type.h2?.fontSize || T.fontSize.base, fontWeight: type.h2?.fontWeight || T.fontWeight.bold }}>
+          {sectionNumber ? `${sectionNumber}.0  ` : ""}SCOPE OF WORK
+        </span>
         <label
           className="no-print"
           style={{
@@ -87,14 +95,14 @@ export default function ScopeOfWork({ data }) {
             gap: 6,
             cursor: "pointer",
             fontSize: 9,
-            color: "#888",
+            color: color.textDim,
           }}
         >
           <input
             type="checkbox"
             checked={scopeShowQuantities}
             onChange={e => setScopeShowQuantities(e.target.checked)}
-            style={{ width: 12, height: 12, accentColor: "#0A84FF" }}
+            style={{ width: 12, height: 12, accentColor: color.accent }}
           />
           Show Quantities
         </label>
@@ -112,27 +120,27 @@ export default function ScopeOfWork({ data }) {
                 justifyContent: "space-between",
                 alignItems: "center",
                 padding: "4px 0",
-                borderBottom: "1px solid #e8e8e8",
+                borderBottom: `2px solid ${color.accent}`,
               }}
             >
-              <span style={{ fontSize: 12, fontWeight: 600, color: "#1a1a2e" }}>{label}</span>
+              <span style={{ ...type.h2, fontFamily: font, color: color.accent, fontSize: type.h2?.fontSize || 12, fontWeight: type.h2?.fontWeight || 600 }}>{label}</span>
               <button
                 className="no-print"
                 onClick={() => toggleMode(label)}
                 style={{
-                  background: isNarrative ? "rgba(10,132,255,0.08)" : "transparent",
-                  border: `1px solid ${isNarrative ? "rgba(10,132,255,0.3)" : "#ddd"}`,
+                  background: isNarrative ? `${color.accent}12` : "transparent",
+                  border: `1px solid ${isNarrative ? `${color.accent}4d` : color.border}`,
                   borderRadius: 4,
                   padding: "2px 8px",
                   fontSize: 9,
                   cursor: "pointer",
-                  color: isNarrative ? "#0A84FF" : "#888",
+                  color: isNarrative ? color.accent : color.textDim,
                   display: "flex",
                   alignItems: "center",
                   gap: 3,
                 }}
               >
-                <Ic d={I.ai} size={9} color={isNarrative ? "#0A84FF" : "#888"} />
+                <Ic d={I.ai} size={9} color={isNarrative ? color.accent : color.textDim} />
                 {isNarrative ? "Show Items" : "AI Summary"}
               </button>
             </div>
@@ -140,12 +148,12 @@ export default function ScopeOfWork({ data }) {
             {/* Content */}
             {isNarrative ? (
               scopeNarrativeLoading[label] ? (
-                <div style={{ fontSize: 11, color: "#888", padding: "6px 0 6px 12px", fontStyle: "italic" }}>
+                <div style={{ ...type.body, fontFamily: font, fontSize: 11, color: color.textDim, padding: "6px 0 6px 12px", fontStyle: "italic" }}>
                   Generating scope narrative...
                 </div>
               ) : (
                 <div style={{ padding: "4px 0 4px 12px" }}>
-                  <div style={{ fontSize: 11, lineHeight: 1.7, color: "#333" }}>
+                  <div style={{ ...type.body, fontFamily: font, fontSize: 11, lineHeight: 1.7, color: color.textMed || "#333" }}>
                     {scopeNarratives[label] || "No narrative generated."}
                   </div>
                   <button
@@ -155,7 +163,7 @@ export default function ScopeOfWork({ data }) {
                       background: "none",
                       border: "none",
                       fontSize: 9,
-                      color: "#999",
+                      color: color.textDim,
                       cursor: "pointer",
                       padding: "4px 0",
                       display: "flex",
@@ -163,26 +171,40 @@ export default function ScopeOfWork({ data }) {
                       gap: 3,
                     }}
                   >
-                    <Ic d={I.refresh} size={9} color="#999" /> Regenerate
+                    <Ic d={I.refresh} size={9} color={color.textDim} /> Regenerate
                   </button>
                 </div>
               )
             ) : (
-              groupItems.map(item => (
+              (() => {
+                // Deduplicate items by description within each trade group
+                const uniqueItems = [];
+                const seen = new Set();
+                groupItems.forEach(item => {
+                  const key = item.description?.trim().toLowerCase();
+                  if (key && seen.has(key)) return;
+                  if (key) seen.add(key);
+                  uniqueItems.push(item);
+                });
+                return uniqueItems;
+              })().map(item => (
                 <div
                   key={item.id}
                   style={{
+                    ...type.body,
+                    fontFamily: font,
                     fontSize: 11,
                     padding: "2px 0 2px 12px",
                     display: "flex",
                     justifyContent: "space-between",
                     gap: 8,
-                    borderBottom: "1px solid #f5f5f5",
+                    borderBottom: `1px solid ${color.bgSubtle || "#f5f5f5"}`,
+                    color: color.textMed || "#333",
                   }}
                 >
-                  <span style={{ color: "#333" }}>{item.description || "Unnamed item"}</span>
+                  <span>{item.description || "Unnamed item"}</span>
                   {scopeShowQuantities && (
-                    <span style={{ fontFamily: T.font.mono, fontSize: 10, color: "#888", whiteSpace: "nowrap" }}>
+                    <span style={{ fontFamily: mono, fontSize: 10, color: color.textDim, whiteSpace: "nowrap" }}>
                       {item.quantity} {item.unit}
                     </span>
                   )}
