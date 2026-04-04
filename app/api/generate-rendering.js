@@ -73,12 +73,9 @@ Output a single photorealistic architectural visualization photograph at eye-lev
         errMsg = errJson.error?.message || errMsg;
       } catch {}
 
-      // If Responses API not available, fall back to Claude + DALL-E
-      if (response.status === 404 || errMsg.includes("not found")) {
-        return await fallbackRender(res, base64Clean, mediaType, buildingType, OPENAI_API_KEY);
-      }
-
-      throw new Error(errMsg);
+      // Fall back to Claude + DALL-E 3 on any Responses API failure
+      console.log("[generate-rendering] Responses API failed, falling back. Status:", response.status);
+      return await fallbackRender(res, base64Clean, mediaType, buildingType, OPENAI_API_KEY);
     }
 
     const json = await response.json();
