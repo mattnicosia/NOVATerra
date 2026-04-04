@@ -380,13 +380,32 @@ async function syncEstimates() {
   let cloudEstimates = await cloudSync.pullAllEstimatesWithMeta();
 
   // ── Solo→org migration: if org cloud is empty, check solo-mode cloud ──
-  if (cloudEstimates.length === 0) {
+  // If org has estimates, merge solo estimates in (don't replace).
+  {
     const soloIndex = await cloudSync.pullSoloFallback("index");
     const soloEstimates = await cloudSync.pullAllEstimatesSoloFallback();
     if (soloEstimates.length > 0) {
-      console.log(`[cloudSync] Estimates: org cloud empty — migrating ${soloEstimates.length} from solo-mode cloud`);
-      cloudEstimates = soloEstimates;
-      if (soloIndex && !cloudIndexResult) cloudIndexResult = soloIndex;
+      if (cloudEstimates.length === 0) {
+        console.log(`[cloudSync] Estimates: org cloud empty — migrating ${soloEstimates.length} from solo-mode cloud`);
+        cloudEstimates = soloEstimates;
+        if (soloIndex && !cloudIndexResult) cloudIndexResult = soloIndex;
+      } else {
+        // Merge: add solo estimates not already present in org cloud
+        const orgIds = new Set(cloudEstimates.map(e => e.estimate_id));
+        const newFromSolo = soloEstimates.filter(e => !orgIds.has(e.estimate_id));
+        if (newFromSolo.length > 0) {
+          console.log(`[cloudSync] Estimates: merging ${newFromSolo.length} solo-mode estimates into org cloud (${cloudEstimates.length} existing)`);
+          cloudEstimates = [...cloudEstimates, ...newFromSolo];
+        }
+        // Merge solo index entries too
+        if (soloIndex?.data && Array.isArray(soloIndex.data) && cloudIndexResult?.data) {
+          const orgIndexIds = new Set(cloudIndexResult.data.map(e => e.id));
+          const newIndexEntries = soloIndex.data.filter(e => !orgIndexIds.has(e.id));
+          if (newIndexEntries.length > 0) {
+            cloudIndexResult = { ...cloudIndexResult, data: [...cloudIndexResult.data, ...newIndexEntries] };
+          }
+        }
+      }
     }
   }
 

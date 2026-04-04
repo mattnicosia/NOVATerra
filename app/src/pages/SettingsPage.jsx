@@ -178,8 +178,7 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* Company Profiles — hidden to simplify Settings (data preserved in masterDataStore) */}
-        {/* <CompanyProfilesSection
+        <CompanyProfilesSection
           C={C}
           T={T}
           masterData={masterData}
@@ -188,7 +187,7 @@ export default function SettingsPage() {
           handleLogoUpload={handleLogoUpload}
           updateCompanyInfo={updateCompanyInfo}
           readOnly={companyReadOnly}
-        /> */}
+        />
 
         {/* Default Markup & Tax Rates */}
         <Sec title="Default Markup & Tax Rates">
