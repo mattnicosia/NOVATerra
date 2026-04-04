@@ -42,23 +42,30 @@ const DIVISION_LABELS = {
  * @param {{ scheduleLineItems, rom, project, notesContext }} params
  * @returns {{ items: Array, scheduleItemCount: number, aiItemCount: number }}
  */
-export async function generateScopeOutline({ scheduleLineItems = [], rom, project = {}, notesContext = "" }) {
+export async function generateScopeOutline({ scheduleLineItems = [], rom, project = {}, notesContext = "", perspective = "gc" }) {
+  const isSub = perspective === "sub";
+
   // 1. Convert schedule line items to scope items (high confidence)
   const scheduleItems = scheduleLineItems
     .filter(li => li.code && li.description)
     .map(li => {
       const divCode = (li.code || "").split(".")[0].padStart(2, "0");
       const divLabel = DIVISION_LABELS[divCode] || "";
+      const rawMat = li.m || li.material || 0;
+      const rawLab = li.l || li.labor || 0;
+      const rawEquip = li.e || li.equipment || 0;
+      const totalCost = rawMat + rawLab + rawEquip;
       return {
         code: li.code,
         description: li.description,
         division: divLabel ? `${divCode} - ${divLabel}` : divCode,
         unit: li.unit || "EA",
         quantity: li.qty || li.quantity || 1,
-        material: li.m || li.material || 0,
-        labor: li.l || li.labor || 0,
-        equipment: li.e || li.equipment || 0,
-        subcontractor: 0,
+        material: isSub ? 0 : rawMat,
+        labor: isSub ? 0 : rawLab,
+        equipment: isSub ? 0 : rawEquip,
+        subcontractor: isSub ? totalCost : 0,
+        bidContext: isSub ? "subcontractor" : "self-performed",
         source: "nova-schedule",
         confidence: 0.9,
       };
@@ -101,7 +108,7 @@ export async function generateScopeOutline({ scheduleLineItems = [], rom, projec
   // 5. Generate AI scope items for gap divisions
   let aiItems = [];
   try {
-    aiItems = await generateGapItems(gapDivisions, project, notesContext, rom);
+    aiItems = await generateGapItems(gapDivisions, project, notesContext, rom, isSub);
   } catch (err) {
     console.warn("[ScopeOutline] AI gap-fill failed:", err.message);
     // Non-critical — still return schedule items
@@ -122,7 +129,7 @@ export async function generateScopeOutline({ scheduleLineItems = [], rom, projec
 }
 
 // ─── AI Gap-Fill Generation ───────────────────────────────────────────
-async function generateGapItems(gapDivisions, project, notesContext, rom) {
+async function generateGapItems(gapDivisions, project, notesContext, rom, isSub = false) {
   const sf = parseFloat(project.projectSF) || rom?.projectSF || 0;
   const buildingType = project.buildingType || rom?.buildingType || "commercial-office";
   const workType = project.workType || rom?.workType || "new-construction";
@@ -221,17 +228,25 @@ Generate 2–5 line items per division. Keep total costs aligned with the budget
   // Validate and normalize each item
   return parsed
     .filter(item => item && item.code && item.description)
-    .map(item => ({
-      code: item.code || "",
-      description: item.description || "",
-      division: item.division || "",
-      unit: item.unit || "EA",
-      quantity: item.quantity || 1,
-      material: item.material || 0,
-      labor: item.labor || 0,
-      equipment: item.equipment || 0,
-      subcontractor: item.subcontractor || 0,
-      source: "nova-ai",
-      confidence: 0.6,
-    }));
+    .map(item => {
+      const rawMat = item.material || 0;
+      const rawLab = item.labor || 0;
+      const rawEquip = item.equipment || 0;
+      const rawSub = item.subcontractor || 0;
+      const totalCost = rawMat + rawLab + rawEquip + rawSub;
+      return {
+        code: item.code || "",
+        description: item.description || "",
+        division: item.division || "",
+        unit: item.unit || "EA",
+        quantity: item.quantity || 1,
+        material: isSub ? 0 : rawMat,
+        labor: isSub ? 0 : rawLab,
+        equipment: isSub ? 0 : rawEquip,
+        subcontractor: isSub ? totalCost : rawSub,
+        bidContext: isSub ? "subcontractor" : "self-performed",
+        source: "nova-ai",
+        confidence: 0.6,
+      };
+    });
 }

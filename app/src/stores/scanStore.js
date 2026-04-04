@@ -92,84 +92,118 @@ export const useScanStore = create((set, get) => ({
   // Sub proposals calibrate the RAW TRADE COST layer (no GC markup).
   // The ROM can use either: sub factor for trade-level accuracy, gc factor for total project accuracy.
   getCalibrationFactors: (buildingType, workType, laborType) => {
-    let records = get().learningRecords;
-    if (records.length === 0) return {};
+    const allRecords = get().learningRecords;
 
-    // Filter by taxonomy if provided (fall back to all records if no matches)
+    // ── Cold-start fallback map: nearest building type when no calibration data ──
+    const FALLBACK_TYPE_MAP = {
+      restaurant: "retail",
+      religious: "commercial-office",
+      parking: "industrial",
+      "mixed-use": "commercial-office",
+      hospitality: "retail",
+      government: "education",
+    };
+
+    // Helper: compute factors from a set of records
+    const computeFactors = (records, bootstrapped = false) => {
+      const currentYear = new Date().getFullYear();
+      const divTotals = {};
+
+      records.forEach(rec => {
+        if (!rec.romPrediction?.divisions || !rec.actuals?.divisions) return;
+
+        const recYear = rec.normalizedToYear || rec.originalYear || currentYear;
+        const age = Math.max(0, currentYear - recYear);
+        const recencyWeight = Math.pow(0.85, age);
+
+        const divCount = Object.keys(rec.actuals.divisions).length;
+        const completenessWeight = Math.min(1, divCount / 10);
+
+        const isGC = rec.proposalType === "gc";
+        const typeWeight = isGC ? 1.0 : 0.85;
+
+        const weight = recencyWeight * completenessWeight * typeWeight;
+
+        Object.keys(rec.romPrediction.divisions).forEach(div => {
+          const predicted = rec.romPrediction.divisions[div]?.mid || 0;
+          const actual = rec.actuals.divisions[div] || 0;
+          if (predicted > 0 && actual > 0) {
+            if (!divTotals[div]) divTotals[div] = {
+              predicted: 0, actual: 0, count: 0,
+              gcPredicted: 0, gcActual: 0, gcCount: 0,
+              subPredicted: 0, subActual: 0, subCount: 0,
+            };
+            divTotals[div].predicted += predicted * weight;
+            divTotals[div].actual += actual * weight;
+            divTotals[div].count += 1;
+
+            if (isGC) {
+              divTotals[div].gcPredicted += predicted * weight;
+              divTotals[div].gcActual += actual * weight;
+              divTotals[div].gcCount += 1;
+            } else {
+              divTotals[div].subPredicted += predicted * weight;
+              divTotals[div].subActual += actual * weight;
+              divTotals[div].subCount += 1;
+            }
+          }
+        });
+      });
+
+      const factors = {};
+      Object.entries(divTotals).forEach(([div, d]) => {
+        if (d.count >= 1 && d.predicted > 0) {
+          const factor = d.actual / d.predicted;
+          const confidence = d.count < 3 ? "low" : d.count < 8 ? "medium" : "high";
+          factors[div] = {
+            factor,
+            count: d.count,
+            confidence,
+            gcFactor: d.gcCount > 0 && d.gcPredicted > 0 ? d.gcActual / d.gcPredicted : null,
+            gcCount: d.gcCount,
+            subFactor: d.subCount > 0 && d.subPredicted > 0 ? d.subActual / d.subPredicted : null,
+            subCount: d.subCount,
+            bootstrapped,
+          };
+        }
+      });
+      factors.bootstrapped = bootstrapped;
+      return factors;
+    };
+
+    // No learning records at all — return bootstrapped empty baseline
+    if (allRecords.length === 0) return { bootstrapped: true };
+
+    // Step 1: Try exact building type match
+    let records = allRecords;
     if (buildingType || workType || laborType) {
-      const filtered = records.filter(rec => {
+      const filtered = allRecords.filter(rec => {
         if (buildingType && rec.buildingType && rec.buildingType !== buildingType) return false;
         if (workType && rec.workType && rec.workType !== workType) return false;
         if (laborType && rec.laborType && rec.laborType !== laborType) return false;
         return true;
       });
-      if (filtered.length > 0) records = filtered;
+      if (filtered.length > 0) {
+        return computeFactors(filtered, false);
+      }
     }
 
-    const currentYear = new Date().getFullYear();
-    // Separate tracks: GC vs Sub
-    const divTotals = {}; // { div: { predicted, actual, count, gcPredicted, gcActual, gcCount, subPredicted, subActual, subCount } }
-
-    records.forEach(rec => {
-      if (!rec.romPrediction?.divisions || !rec.actuals?.divisions) return;
-
-      const recYear = rec.normalizedToYear || rec.originalYear || currentYear;
-      const age = Math.max(0, currentYear - recYear);
-      const recencyWeight = Math.pow(0.85, age);
-
-      const divCount = Object.keys(rec.actuals.divisions).length;
-      const completenessWeight = Math.min(1, divCount / 10);
-
-      // GC proposals get slightly more weight (full-scope, more divisions)
-      const isGC = rec.proposalType === "gc";
-      const typeWeight = isGC ? 1.0 : 0.85; // Sub proposals weighted slightly less (partial scope)
-
-      const weight = recencyWeight * completenessWeight * typeWeight;
-
-      Object.keys(rec.romPrediction.divisions).forEach(div => {
-        const predicted = rec.romPrediction.divisions[div]?.mid || 0;
-        const actual = rec.actuals.divisions[div] || 0;
-        if (predicted > 0 && actual > 0) {
-          if (!divTotals[div]) divTotals[div] = {
-            predicted: 0, actual: 0, count: 0,
-            gcPredicted: 0, gcActual: 0, gcCount: 0,
-            subPredicted: 0, subActual: 0, subCount: 0,
-          };
-          divTotals[div].predicted += predicted * weight;
-          divTotals[div].actual += actual * weight;
-          divTotals[div].count += 1;
-
-          if (isGC) {
-            divTotals[div].gcPredicted += predicted * weight;
-            divTotals[div].gcActual += actual * weight;
-            divTotals[div].gcCount += 1;
-          } else {
-            divTotals[div].subPredicted += predicted * weight;
-            divTotals[div].subActual += actual * weight;
-            divTotals[div].subCount += 1;
-          }
-        }
+    // Step 2: Try fallback building type
+    if (buildingType && FALLBACK_TYPE_MAP[buildingType]) {
+      const fallbackType = FALLBACK_TYPE_MAP[buildingType];
+      const fallbackFiltered = allRecords.filter(rec => {
+        if (rec.buildingType && rec.buildingType !== fallbackType) return false;
+        if (workType && rec.workType && rec.workType !== workType) return false;
+        if (laborType && rec.laborType && rec.laborType !== laborType) return false;
+        return true;
       });
-    });
-
-    const factors = {};
-    Object.entries(divTotals).forEach(([div, d]) => {
-      if (d.count >= 1 && d.predicted > 0) {
-        const factor = d.actual / d.predicted;
-        const confidence = d.count < 3 ? "low" : d.count < 8 ? "medium" : "high";
-        factors[div] = {
-          factor,
-          count: d.count,
-          confidence,
-          // Separate GC and Sub factors for visibility
-          gcFactor: d.gcCount > 0 && d.gcPredicted > 0 ? d.gcActual / d.gcPredicted : null,
-          gcCount: d.gcCount,
-          subFactor: d.subCount > 0 && d.subPredicted > 0 ? d.subActual / d.subPredicted : null,
-          subCount: d.subCount,
-        };
+      if (fallbackFiltered.length > 0) {
+        return computeFactors(fallbackFiltered, true);
       }
-    });
-    return factors;
+    }
+
+    // Step 3: No type-specific records found — use all records as bootstrapped baseline
+    return computeFactors(allRecords, true);
   },
 
   // ── Parameter Correction Tracking ──
