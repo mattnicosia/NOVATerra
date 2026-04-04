@@ -51,8 +51,6 @@ Add:
 - Sidewalks and realistic street context
 - Photorealistic depth of field
 
-Do NOT include any text, signage, logos, lettering, or brand names anywhere in the image.
-
 Output a single photorealistic architectural visualization photograph at eye-level street perspective.`,
               },
             ],
@@ -134,7 +132,7 @@ async function fallbackRender(res, base64Clean, mediaType, buildingType, OPENAI_
 - Materials for EVERY surface (be specific: "running bond red brick", "gray EIFS with reveals", "dark bronze aluminum storefront", etc.)
 - Columns, cornices, parapets, any projections or recesses
 This is ${buildingType ? `a ${buildingType}` : "a commercial"} building.
-ONLY the description. No commentary. No mentioning signage or brand names.` },
+ONLY the description. No commentary.` },
         ],
       }],
     }),
@@ -156,8 +154,7 @@ ONLY the description. No commentary. No mentioning signage or brand names.` },
       model: "dall-e-3",
       prompt: `Photorealistic architectural exterior rendering of EXACTLY this building (do not deviate): ${description}
 
-Eye-level street perspective. Golden hour lighting. Blue sky. Landscaping. Photorealistic materials and textures.
-CRITICAL: Do NOT include ANY text, signage, logos, lettering, words, or brand names anywhere. Leave sign areas as blank material.`,
+Eye-level street perspective. Golden hour lighting. Blue sky. Landscaping. Photorealistic materials and textures. Professional architectural visualization photograph.`,
       n: 1,
       size: "1792x1024",
       quality: "hd",

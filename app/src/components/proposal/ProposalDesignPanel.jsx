@@ -30,6 +30,7 @@ export default function ProposalDesignPanel() {
   const [customHex, setCustomHex] = useState(design.customAccent || "");
   const [selectedDrawingId, setSelectedDrawingId] = useState("");
   const [renderLoading, setRenderLoading] = useState(false);
+  const [renderStep, setRenderStep] = useState(0);
   const [renderError, setRenderError] = useState(null);
   const uploadRef = useRef(null);
 
@@ -84,10 +85,23 @@ export default function ProposalDesignPanel() {
     return null;
   };
 
+  const RENDER_STEPS = [
+    "Analyzing drawing...",
+    "Identifying materials & geometry...",
+    "Generating photorealistic render...",
+    "Applying lighting & landscaping...",
+    "Finalizing visualization...",
+  ];
+
   const handleGenerateRendering = async () => {
     if (!selectedDrawingId) return;
     setRenderLoading(true);
+    setRenderStep(0);
     setRenderError(null);
+    // Cycle through progress steps
+    const stepInterval = setInterval(() => {
+      setRenderStep(s => Math.min(s + 1, RENDER_STEPS.length - 1));
+    }, 5000);
     try {
       const imageBase64 = await getDrawingBase64(selectedDrawingId);
       if (!imageBase64) throw new Error("Could not read drawing image");
@@ -111,7 +125,9 @@ export default function ProposalDesignPanel() {
     } catch (err) {
       setRenderError(err.message);
     } finally {
+      clearInterval(stepInterval);
       setRenderLoading(false);
+      setRenderStep(0);
     }
   };
 
@@ -200,7 +216,7 @@ export default function ProposalDesignPanel() {
                   cursor: (!selectedDrawingId || renderLoading) ? "not-allowed" : "pointer",
                 })}
               >
-                {renderLoading ? "NOVA is rendering..." : "Generate AI Rendering"}
+                {renderLoading ? RENDER_STEPS[renderStep] : "Generate AI Rendering"}
               </button>
             </>
           )}
