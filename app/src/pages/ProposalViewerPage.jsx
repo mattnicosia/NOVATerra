@@ -190,8 +190,15 @@ export default function ProposalViewerPage() {
   const NUMBERED_SECTIONS = new Set(["scope", "baseBid", "sov", "alternates", "exclusions", "allowances", "clarifications", "qualifications", "acceptance"]);
   let counter = 0;
 
+  // Override body overflow:hidden from App.css so this page scrolls
+  useEffect(() => {
+    document.body.style.overflow = "auto";
+    document.body.style.background = "#f5f5f7";
+    return () => { document.body.style.overflow = ""; document.body.style.background = ""; };
+  }, []);
+
   return (
-    <div ref={containerRef} style={{ minHeight: "100vh", background: "#f5f5f7", fontFamily: font, overflowY: "auto" }}>
+    <div ref={containerRef} style={{ minHeight: "100vh", background: "#f5f5f7", fontFamily: font }}>
       {/* Top accent bar */}
       <div style={{ height: 4, background: accent }} />
 
