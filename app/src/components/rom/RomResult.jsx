@@ -9,6 +9,7 @@ import { getConfidenceTier } from "@/utils/confidenceEngine";
 import { generateScopeTemplate } from "@/constants/scopeTemplates";
 import { generateTradeScopes } from "@/utils/tradeScopeGenerator";
 import { TRADE_COLORS } from "@/constants/tradeGroupings";
+import { useCorrectionStore } from "@/nova/learning/correctionStore";
 
 const BUILDING_TYPE_LABELS = {
   "commercial-office": "Commercial Office",
@@ -320,6 +321,9 @@ export default function RomResult({ rom, email }) {
 
   // Division adjustment handlers
   const adjustDivision = (divCode, delta) => {
+    const oldMult = divisionAdjustments[divCode] || 1.0;
+    const newMult = Math.max(0, Math.round((oldMult + delta) * 100) / 100);
+    useCorrectionStore.getState().logRomAdjustment(divCode, oldMult, newMult);
     setDivisionAdjustments(prev => {
       const current = prev[divCode] || 1.0;
       const next = Math.max(0, Math.round((current + delta) * 100) / 100);

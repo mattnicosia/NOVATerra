@@ -154,6 +154,14 @@ Base pricing on the user's historical data when available, supplemented by RS Me
             scheduleType: item.code,
           });
         } else {
+          // Log acceptance so NOVA learns what pricing users agree with
+          logCorrection("pricing:adjust", {
+            context: `Accepted AI ${f} for "${item.description}"`,
+            original: item[f] || 0,
+            corrected: result[f],
+            field: f,
+            scheduleType: item.code,
+          });
           updateItem(item.id, f, result[f]);
         }
       }
@@ -183,6 +191,15 @@ Base pricing on the user's historical data when available, supplemented by RS Me
   };
 
   const handleApplyAlt = alt => {
+    // Log alternative selection
+    if (result) {
+      useCorrectionStore.getState().logCorrection("pricing:adjust", {
+        context: `Chose alternative "${alt.name}" over primary for "${item.description}"`,
+        original: { m: result.material, l: result.labor, e: result.equipment },
+        corrected: { m: alt.material, l: alt.labor, e: alt.equipment, name: alt.name },
+        field: item.code,
+      });
+    }
     if (alt.name) updateItem(item.id, "description", alt.name);
     updateItem(item.id, "material", alt.material || 0);
     updateItem(item.id, "labor", alt.labor || 0);

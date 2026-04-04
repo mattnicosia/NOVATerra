@@ -18,7 +18,9 @@ import NotesPanel from "@/components/estimate/NotesPanel";
 import ScenariosPanel from "@/components/estimate/ScenariosPanel";
 import RFIPanel from "@/components/estimate/RFIPanel";
 import TakeoffNOVAPanel from "@/components/takeoffs/TakeoffNOVAPanel";
+import AutoTakeoffModal from "@/components/takeoffs/AutoTakeoffModal";
 import { useProjectStore } from "@/stores/projectStore";
+import { useScanStore } from "@/stores/scanStore";
 import { callAnthropic } from "@/utils/ai";
 import {
   TO_COLORS,
@@ -143,6 +145,7 @@ export default function TakeoffLeftPanel({
   const setTkDbResults = useTakeoffsStore(s => s.setTkDbResults);
 
   const project = useProjectStore(s => s.project);
+  const scanResults = useScanStore(s => s.scanResults);
 
   const activeModule = useModuleStore(s => s.activeModule);
   const setActiveModule = useModuleStore(s => s.setActiveModule);
@@ -157,6 +160,7 @@ export default function TakeoffLeftPanel({
   const [actionMenuPos, setActionMenuPos] = useState(null);
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const [isDraggingPanel, setIsDraggingPanel] = useState(false);
+  const [showAutoTakeoff, setShowAutoTakeoff] = useState(false);
 
   const plusMenuRef = useRef(null);
   const actionMenuRef = useRef(null);
@@ -1343,6 +1347,42 @@ export default function TakeoffLeftPanel({
                       >
                         {/* Takeoff list (left) */}
                         <div style={{ width: "50%", height: "100%", overflowY: "auto", padding: "0 8px 8px" }}>
+                          {/* Auto-Generate from Plans button — shows when scan data exists */}
+                          {scanResults?.schedules?.length > 0 && (
+                            <button
+                              onClick={() => setShowAutoTakeoff(true)}
+                              style={{
+                                width: "100%",
+                                padding: "6px 10px",
+                                marginBottom: 8,
+                                background: `linear-gradient(135deg, ${C.accent}18, ${C.accent}08)`,
+                                border: `1px solid ${C.accent}30`,
+                                borderRadius: 6,
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 6,
+                                transition: "all 0.15s",
+                              }}
+                              onMouseEnter={e => { e.currentTarget.style.borderColor = C.accent + "60"; }}
+                              onMouseLeave={e => { e.currentTarget.style.borderColor = C.accent + "30"; }}
+                            >
+                              <Ic d={I.ai} size={12} color={C.accent} />
+                              <span style={{ fontSize: 11, fontWeight: 600, color: C.accent }}>
+                                Auto-Generate from Plans
+                              </span>
+                              <span style={{
+                                marginLeft: "auto",
+                                fontSize: 9,
+                                color: C.textDim,
+                                background: C.bg2,
+                                padding: "1px 6px",
+                                borderRadius: 8,
+                              }}>
+                                {scanResults.schedules.reduce((n, s) => n + (s.entries?.length || 0), 0)} items detected
+                              </span>
+                            </button>
+                          )}
                           {Object.entries(takeoffGroups).map(([group, tos]) => {
                             const isGroupCollapsed = !!collapsedGroups[group];
                             return (
@@ -2596,6 +2636,8 @@ export default function TakeoffLeftPanel({
           </div>
         )}
       </div>
+      {/* Auto-Generate from Plans modal */}
+      {showAutoTakeoff && <AutoTakeoffModal onClose={() => setShowAutoTakeoff(false)} />}
     </>
   );
 }

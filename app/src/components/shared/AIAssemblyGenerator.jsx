@@ -54,6 +54,7 @@ export default function AIAssemblyGenerator({ onClose }) {
   const [error, setError] = useState("");
   const [editingIdx, setEditingIdx] = useState(null);
   const abortRef = useRef(null);
+  const editOrigRef = useRef(null);
 
   const generate = async () => {
     if (!prompt.trim()) return;
@@ -137,6 +138,16 @@ export default function AIAssemblyGenerator({ onClose }) {
 
   const removeElement = idx => {
     if (!result) return;
+    // Log element removal for learning
+    const removed = result.elements[idx];
+    if (removed) {
+      useCorrectionStore.getState().logCorrection("assembly:edit", {
+        context: `Removed element from "${result.name}": ${removed.desc}`,
+        original: `${removed.code} ${removed.desc} ${removed.unit} M:${removed.m} L:${removed.l}`,
+        corrected: null,
+        field: "element-removed",
+      });
+    }
     const updated = { ...result };
     updated.elements = updated.elements.filter((_, i) => i !== idx);
     setResult(updated);
@@ -571,7 +582,24 @@ export default function AIAssemblyGenerator({ onClose }) {
                             {fmt2(elTotal)}
                           </div>
                           <button
-                            onClick={() => setEditingIdx(null)}
+                            onClick={() => {
+                              // Log edit diff before exiting edit mode
+                              if (editOrigRef.current && result.elements[idx]) {
+                                const orig = editOrigRef.current;
+                                const curr = result.elements[idx];
+                                const changed = orig.desc !== curr.desc || orig.m !== curr.m || orig.l !== curr.l || orig.e !== curr.e || orig.unit !== curr.unit || orig.code !== curr.code;
+                                if (changed) {
+                                  useCorrectionStore.getState().logCorrection("assembly:edit", {
+                                    context: `Edited element in "${result.name}": ${orig.desc} → ${curr.desc}`,
+                                    original: `${orig.code} ${orig.desc} M:${orig.m} L:${orig.l} E:${orig.e}`,
+                                    corrected: `${curr.code} ${curr.desc} M:${curr.m} L:${curr.l} E:${curr.e}`,
+                                    field: "element-edit",
+                                  });
+                                }
+                                editOrigRef.current = null;
+                              }
+                              setEditingIdx(null);
+                            }}
                             style={{
                               width: 22,
                               height: 22,
@@ -655,7 +683,10 @@ export default function AIAssemblyGenerator({ onClose }) {
                           </span>
                           <div style={{ display: "flex", gap: 1 }}>
                             <button
-                              onClick={() => setEditingIdx(idx)}
+                              onClick={() => {
+                                editOrigRef.current = { ...result.elements[idx] };
+                                setEditingIdx(idx);
+                              }}
                               title="Edit"
                               style={{
                                 width: 18,
