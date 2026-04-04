@@ -163,11 +163,17 @@ export default function ReportsPage() {
   };
 
   // ── PDF download handler ──
-  const handleDownloadPDF = async () => {
+  // ── PDF generation (shared by download + preview) ──
+  const buildPDF = async (mode = "save") => {
     const el = document.getElementById("proposal-print");
-    if (!el) { window.print(); return; }
-    const { proposalDesign } = useReportsStore.getState();
-    const isLandscape = proposalDesign?.orientation === "landscape";
+    if (!el) return null;
+    const { proposalDesign: pd } = useReportsStore.getState();
+    const isLandscape = pd?.orientation === "landscape";
+
+    // Hide no-print elements before html2pdf capture
+    const noPrintEls = el.querySelectorAll(".no-print");
+    noPrintEls.forEach(e => (e._prevDisplay = e.style.display, e.style.display = "none"));
+
     const html2pdf = (await import("html2pdf.js")).default;
     const opt = {
       margin: [10, 10, 10, 10],
@@ -181,21 +187,28 @@ export default function ReportsPage() {
       },
       pagebreak: { mode: ["css", "legacy"] },
     };
-    await html2pdf().set(opt).from(el).save();
+
+    let result = null;
+    if (mode === "save") {
+      await html2pdf().set(opt).from(el).save();
+    } else if (mode === "blob") {
+      result = await html2pdf().set(opt).from(el).outputPdf("blob");
+    }
+
+    // Restore no-print elements
+    noPrintEls.forEach(e => (e.style.display = e._prevDisplay || ""));
+    return result;
   };
 
-  // ── Browser print handler ──
-  const handleBrowserPrint = () => {
-    let style = document.getElementById('bldg-print-page');
-    if (!style) {
-      style = document.createElement('style');
-      style.id = 'bldg-print-page';
-      document.head.appendChild(style);
+  const handleDownloadPDF = () => buildPDF("save");
+
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const handlePreviewPDF = async () => {
+    const blob = await buildPDF("blob");
+    if (blob) {
+      const url = URL.createObjectURL(blob);
+      setPreviewUrl(url);
     }
-    style.textContent = reportType !== 'sov'
-      ? '@media print { @page { margin: 60px 15mm 15mm 15mm; } }'
-      : '@media print { @page { margin: 15mm; } }';
-    window.print();
   };
 
   return (
@@ -220,11 +233,11 @@ export default function ReportsPage() {
         </div>
 
         <div className="no-print" style={{ display: "flex", gap: 8, marginBottom: 12, justifyContent: "flex-end" }}>
+          <button className="accent-btn" onClick={handlePreviewPDF} style={bt(C, { background: C.accent, color: "#fff", padding: "7px 14px", fontSize: 11 })}>
+            <Ic d={I.eye || I.search} size={13} color="#fff" sw={1.5} /> Preview PDF
+          </button>
           <button className="accent-btn" onClick={handleDownloadPDF} style={bt(C, { background: C.blue, color: "#fff", padding: "7px 14px", fontSize: 11 })}>
             <Ic d={I.download} size={13} color="#fff" sw={1.5} /> Download PDF
-          </button>
-          <button className="accent-btn" onClick={handleBrowserPrint} style={bt(C, { background: "transparent", border: `1px solid ${C.border}`, color: C.textMuted, padding: "7px 14px", fontSize: 11 })}>
-            <Ic d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z" size={13} color={C.textMuted} sw={1.5} /> Print
           </button>
           <button className="accent-btn" onClick={() => {
             const totals = useItemsStore.getState().getTotals();
@@ -237,10 +250,35 @@ export default function ReportsPage() {
               <Ic d={I.send} size={13} color="#fff" sw={1.5} /> Email
             </button>
           )}
-          <button className="accent-btn" onClick={exportCSV} style={bt(C, { background: C.accent, color: "#fff", padding: "7px 14px", fontSize: 11 })}>
-            <Ic d={I.download} size={13} color="#fff" sw={2} /> Export CSV
-          </button>
         </div>
+
+        {/* PDF Preview Modal */}
+        {previewUrl && (
+          <div
+            onClick={() => { URL.revokeObjectURL(previewUrl); setPreviewUrl(null); }}
+            style={{
+              position: "fixed", inset: 0, zIndex: 10000,
+              background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              padding: 24,
+            }}
+          >
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{ width: "90%", maxWidth: 900, height: "90vh", background: "#fff", borderRadius: 8, overflow: "hidden", display: "flex", flexDirection: "column" }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 16px", borderBottom: `1px solid ${C.border}` }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>PDF Preview</span>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={handleDownloadPDF} style={bt(C, { background: C.blue, color: "#fff", padding: "5px 12px", fontSize: 11 })}>Download</button>
+                  <button onClick={() => setSendModalOpen(true)} style={bt(C, { background: C.green, color: "#fff", padding: "5px 12px", fontSize: 11 })}>Email</button>
+                  <button onClick={() => { URL.revokeObjectURL(previewUrl); setPreviewUrl(null); }} style={bt(C, { background: "transparent", border: `1px solid ${C.border}`, color: C.textMuted, padding: "5px 12px", fontSize: 11 })}>Close</button>
+                </div>
+              </div>
+              <iframe src={previewUrl} style={{ flex: 1, border: "none", width: "100%" }} title="PDF Preview" />
+            </div>
+          </div>
+        )}
 
         {/* COST SUMMARY */}
         {reportType === "summary" && (<>
@@ -511,16 +549,20 @@ export default function ReportsPage() {
                   {proposalDesign.showAccentBar && (
                     <div style={PS.section.accentBar} />
                   )}
-                  {visibleSections.map(id => {
+                  {visibleSections.map((id, visIdx) => {
                     // Track section number — only increment for sections that display a numbered header
-                    const isSpecial = id.startsWith("pageBreak_") || id.startsWith("spacer_");
+                    const isSpecial = id.startsWith("pageBreak_") || id.startsWith("spacer_") || id.startsWith("doc_");
                     if (!isSpecial && NUMBERED_SECTIONS.has(id)) sectionCounter++;
                     const sectionNumber = (!isSpecial && proposalDesign.showSectionNumbers && NUMBERED_SECTIONS.has(id)) ? sectionCounter : null;
+
+                    // Auto page break before major sections (skip first section and non-numbered sections)
+                    const AUTO_BREAK_SECTIONS = new Set(["scope", "baseBid", "sov", "qualifications", "acceptance"]);
+                    const shouldBreak = visIdx > 0 && !isSpecial && AUTO_BREAK_SECTIONS.has(id);
 
                     // Insert project summary card after letterhead
                     const showSummaryHere = id === "letterhead" && proposalDesign.showProjectSummary;
                     return (
-                      <div key={id}>
+                      <div key={id} style={shouldBreak ? { pageBreakBefore: "always" } : undefined}>
                         <ProposalSection sectionId={id} data={proposalData} proposalStyles={PS} sectionNumber={sectionNumber} />
                         {showSummaryHere && (
                           <div style={{
