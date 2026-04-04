@@ -9,6 +9,7 @@ import CoreProposals from "@/components/core/CoreProposals";
 import CostDatabasePage from "@/pages/CostDatabasePage";
 import CoreSources from "@/components/core/CoreSources";
 import CoreExplorer from "@/components/core/CoreExplorer";
+import { importBatchParsedProposals, calibrateFromImportedProposals } from "@/data/importProposals";
 
 
 // Lightweight per-tab error catcher — prevents one tab crash from killing the page
@@ -80,6 +81,20 @@ export default function CorePage() {
     if (tab && tab !== activeTab) setActiveTab(tab);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]); // only sync on URL param change, not on activeTab
+
+  // Auto-import batch-parsed proposals from Supabase ingestion_runs (once per version)
+  useEffect(() => {
+    const key = "bldg-batch-import-v1";
+    if (!localStorage.getItem(key)) {
+      importBatchParsedProposals().then(count => {
+        if (count > 0) {
+          localStorage.setItem(key, Date.now().toString());
+          calibrateFromImportedProposals();
+          console.log(`[CorePage] Auto-imported ${count} batch-parsed proposals`);
+        }
+      }).catch(err => console.warn("[CorePage] Batch import skipped:", err.message));
+    }
+  }, []);
 
   const tabContent = {
     overview: (

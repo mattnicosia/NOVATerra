@@ -719,6 +719,39 @@ export default function CostDatabasePage({ embedded = false }) {
           ...(embedded ? { flex: 1, minHeight: 0 } : { height: "calc(100vh - 160px)" }),
         }}
       >
+        {/* Batch Import Summary Banner */}
+        {embedded && (() => {
+          const batchKey = localStorage.getItem("bldg-batch-import-v1");
+          const batchParsedKey = localStorage.getItem("proposals-imported-batch-v1");
+          if (!batchKey && !batchParsedKey) return null;
+          const seedCount = elements.filter(e => e.id?.startsWith("s")).length;
+          const userCount = elements.filter(e => !e.id?.startsWith("s")).length;
+          return (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "8px 14px",
+                borderRadius: 8,
+                background: "rgba(59,130,246,0.05)",
+                border: "1px solid rgba(59,130,246,0.12)",
+                marginBottom: 8,
+                fontSize: 11,
+                color: "#3B82F6",
+              }}
+            >
+              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2C6.48 2 2 4.02 2 6.5S6.48 11 12 11s10-2.02 10-4.5S17.52 2 12 2z M2 6.5v5c0 2.48 4.48 4.5 10 4.5s10-2.02 10-4.5v-5" />
+              </svg>
+              <span>
+                <strong>{seedCount + userCount}</strong> cost items ({seedCount} seed, {userCount} user-created)
+                {batchParsedKey && " — batch ingestion data imported"}
+              </span>
+            </div>
+          );
+        })()}
+
         {/* Code System Selector */}
         <div style={{ display: "flex", gap: 8, marginBottom: 8, padding: "0 2px", alignItems: "stretch" }}>
           {Object.values(CODE_SYSTEMS).map((sys, si) => {

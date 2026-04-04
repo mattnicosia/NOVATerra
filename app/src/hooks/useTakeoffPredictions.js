@@ -4,6 +4,7 @@ import { useDrawingsStore } from "@/stores/drawingsStore";
 import { useTakeoffsStore } from "@/stores/takeoffsStore";
 import { hexAlpha } from "@/utils/fieldPhysics";
 import { extractPageData, isExtracted } from "@/utils/pdfExtractor";
+import { runSmartPredictions } from "@/utils/predictiveEngine";
 
 /**
  * useTakeoffPredictions
@@ -35,6 +36,38 @@ export default function useTakeoffPredictions({ canvasRef }) {
   const tkPredRefining = useTakeoffsStore(s => s.tkPredRefining);
   const tkActiveTakeoffId = useTakeoffsStore(s => s.tkActiveTakeoffId);
   const takeoffs = useTakeoffsStore(s => s.takeoffs);
+  const tkRefinementPending = useTakeoffsStore(s => s.tkRefinementPending);
+  const tkTool = useTakeoffsStore(s => s.tkTool);
+
+  // ─── PREDICTIVE TAKEOFF: Refinement re-fire after consecutive misses ───
+  useEffect(() => {
+    if (!tkRefinementPending) return;
+    // Clear the flag immediately to prevent loops
+    useTakeoffsStore.getState().clearRefinementPending();
+
+    // Gather current context from stores (fresh reads to avoid stale closures)
+    const { tkActiveTakeoffId: toId, takeoffs: tks, tkTool: tool } = useTakeoffsStore.getState();
+    const { selectedDrawingId: dwgId, drawings: dwgs } = useDrawingsStore.getState();
+    const activeTo = tks.find(t => t.id === toId);
+    const drawing = dwgs.find(d => d.id === dwgId);
+    if (!activeTo || !drawing) return;
+
+    const measureType = tool === "count" ? "count" : tool === "area" ? "area" : "linear";
+
+    // Re-run smart predictions with updated context
+    runSmartPredictions(drawing, activeTo, measureType, null)
+      .then(result => {
+        if (result && result.predictions?.length > 0) {
+          useTakeoffsStore.getState().setTkPredictions(result);
+        } else {
+          // No new predictions found — clear refining state
+          useTakeoffsStore.getState().setTkPredRefining(false);
+        }
+      })
+      .catch(() => {
+        useTakeoffsStore.getState().setTkPredRefining(false);
+      });
+  }, [tkRefinementPending]);
 
   // ─── PREDICTIVE TAKEOFF: Background PDF extraction when drawing changes ───
   // Extracts selected drawing immediately, then pre-extracts adjacent drawings (next/prev)

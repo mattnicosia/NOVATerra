@@ -57,6 +57,7 @@ export const useTakeoffsStore = create((set, get) => ({
   tkPredRejected: [], // IDs of rejected predictions
   tkPredContext: null, // { tag, source, confidence, matchCount, missCount, consecutiveMisses, refining }
   tkPredRefining: false, // true while NOVA is re-analyzing after misses
+  tkRefinementPending: false, // signals useTakeoffPredictions to re-fire
   tkNovaPanelOpen: false, // NOVA Vision right-side panel
 
   setTkPredictions: v =>
@@ -139,7 +140,7 @@ export const useTakeoffsStore = create((set, get) => ({
     }),
 
   // Record a user measurement miss (clicked far from any prediction)
-  recordPredictionMiss: () =>
+  recordPredictionMiss: () => {
     set(s => {
       const ctx = s.tkPredContext;
       if (!ctx) return {};
@@ -154,9 +155,26 @@ export const useTakeoffsStore = create((set, get) => ({
         // Start refining state after 2 consecutive misses
         tkPredRefining: newMiss >= 2,
       };
-    }),
+    });
+    // After state update, check if we crossed the threshold and trigger refinement
+    const { tkPredRefining, triggerRefinement } = get();
+    if (tkPredRefining) triggerRefinement();
+  },
 
   setTkPredRefining: v => set({ tkPredRefining: v }),
+
+  // Trigger refinement: clears stale predictions and signals hook to re-fire
+  triggerRefinement: () => {
+    set(s => ({
+      tkPredictions: s.tkPredictions ? { ...s.tkPredictions, predictions: [] } : null,
+      tkPredRefining: true,
+      tkRefinementPending: true,
+      tkPredContext: s.tkPredContext
+        ? { ...s.tkPredContext, consecutiveMisses: 0, refining: true }
+        : null,
+    }));
+  },
+  clearRefinementPending: () => set({ tkRefinementPending: false }),
 
   // Initialize prediction context when predictions are first generated
   initPredContext: (tag, source, confidence) =>

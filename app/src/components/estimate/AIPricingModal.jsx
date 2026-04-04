@@ -264,8 +264,51 @@ Base pricing on the user's historical data when available, supplemented by RS Me
           background: `${C.accent}12`, border: `1px solid ${C.accent}30`,
           fontSize: 11,
         }}>
-          <div style={{ fontWeight: 700, color: C.accent, marginBottom: 4, fontSize: 12 }}>
-            Your Data — {tradeIndex.trade_name} ({tradeIndex.sample_count} proposals)
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+            <div style={{ fontWeight: 700, color: C.accent, fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+              Your Data — {tradeIndex.trade_name} ({tradeIndex.sample_count} proposals)
+              <span style={{
+                padding: "1px 6px",
+                borderRadius: 3,
+                fontSize: 9,
+                fontWeight: 600,
+                background: tradeIndex.sample_count >= 8 ? `${C.green}18` :
+                            tradeIndex.sample_count >= 3 ? `${C.orange}18` : `${C.red}18`,
+                color: tradeIndex.sample_count >= 8 ? C.green :
+                       tradeIndex.sample_count >= 3 ? C.orange : C.red,
+              }}>
+                {tradeIndex.sample_count >= 8 ? "HIGH" : tradeIndex.sample_count >= 3 ? "MEDIUM" : "LOW"} confidence
+              </span>
+            </div>
+            <button
+              onClick={() => {
+                const median = parseFloat(tradeIndex.median);
+                if (!median || !item.unit) return;
+                const splits = { m: 0.40, l: 0.35, e: 0.05, s: 0.20 };
+                updateItem(item.id, "material", Math.round(median * splits.m * 100) / 100);
+                updateItem(item.id, "labor", Math.round(median * splits.l * 100) / 100);
+                updateItem(item.id, "equipment", Math.round(median * splits.e * 100) / 100);
+                updateItem(item.id, "subcontractor", Math.round(median * splits.s * 100) / 100);
+                useCorrectionStore.getState().logCorrection("pricing:source", {
+                  context: `Applied trade index median for "${item.description}"`,
+                  original: { m: item.material, l: item.labor, e: item.equipment, s: item.subcontractor },
+                  corrected: { median, source: "trade_pricing_index", samples: tradeIndex.sample_count },
+                  field: item.code,
+                });
+                showToast(`Applied your median pricing ($${median})`);
+                setPricingModal(null);
+              }}
+              style={bt(C, {
+                background: `${C.accent}15`,
+                border: `1px solid ${C.accent}40`,
+                color: C.accent,
+                padding: "3px 10px",
+                fontSize: 11,
+                fontWeight: 600,
+              })}
+            >
+              Apply Your Median
+            </button>
           </div>
           <div style={{ display: "flex", gap: 12, color: C.text }}>
             <span>Median: <b>${parseFloat(tradeIndex.median).toLocaleString()}</b>{tradeIndex.unit ? `/${tradeIndex.unit}` : ""}</span>
@@ -379,6 +422,39 @@ Base pricing on the user's historical data when available, supplemented by RS Me
             </span>
             {result.source && <span style={{ color: C.textDim, lineHeight: 1.4 }}>{result.source}</span>}
           </div>
+
+          {/* Deviation warning: AI vs user historical data */}
+          {tradeIndex && (() => {
+            const aiTotal = (result.material || 0) + (result.labor || 0) + (result.equipment || 0) + (result.subcontractor || 0);
+            const userMedian = parseFloat(tradeIndex.median) || 0;
+            if (userMedian <= 0 || aiTotal <= 0) return null;
+            const deviation = ((aiTotal - userMedian) / userMedian) * 100;
+            if (Math.abs(deviation) < 15) return null;
+            const severe = Math.abs(deviation) > 30;
+            const warnColor = severe ? C.red : C.orange;
+            return (
+              <div style={{
+                padding: "6px 10px",
+                background: `${warnColor}10`,
+                border: `1px solid ${warnColor}30`,
+                borderRadius: 4,
+                fontSize: 11,
+                marginBottom: 8,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                flexWrap: "wrap",
+              }}>
+                <span style={{ color: warnColor, fontWeight: 600 }}>
+                  {deviation > 0 ? "\u25B2" : "\u25BC"} AI is {Math.abs(Math.round(deviation))}% {deviation > 0 ? "above" : "below"} your historical median
+                </span>
+                <span style={{ color: C.textDim }}>
+                  (Your: ${userMedian.toFixed(2)} vs AI: ${aiTotal.toFixed(2)})
+                </span>
+              </div>
+            );
+          })()}
+
           {result.subNote && (
             <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 8, fontStyle: "italic" }}>
               {result.subNote}

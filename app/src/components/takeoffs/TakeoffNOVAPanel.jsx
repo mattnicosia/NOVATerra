@@ -668,7 +668,7 @@ export default function TakeoffNOVAPanel({
                 const isRejected = tkPredRejected.includes(pred.id);
                 const isPending = !isAccepted && !isRejected;
                 const predConf = Math.round((pred.confidence || 0) * 100);
-                const confColor = predConf >= 80 ? C.green : predConf >= 50 ? C.blue : C.orange;
+                const confColor = predConf >= 80 ? C.green : predConf >= 50 ? (C.yellow || "#F1C40F") : C.red;
                 return (
                   <div
                     key={pred.id}
@@ -706,7 +706,19 @@ export default function TakeoffNOVAPanel({
                       >
                         {pred.tag || pred.type || "Prediction"}
                       </span>
-                      <span style={{ fontSize: 9, fontWeight: 700, color: confColor, fontFamily: T.font.sans }}>
+                      <span
+                        style={{
+                          fontSize: 9,
+                          fontWeight: 700,
+                          color: confColor,
+                          fontFamily: T.font.mono || T.font.sans,
+                          background: confColor + "14",
+                          padding: "1px 5px",
+                          borderRadius: 3,
+                          border: `1px solid ${confColor}25`,
+                          letterSpacing: 0.3,
+                        }}
+                      >
                         {predConf}%
                       </span>
                       {isAccepted && <span style={{ fontSize: 8, fontWeight: 700, color: C.green }}>Added</span>}
@@ -760,22 +772,29 @@ export default function TakeoffNOVAPanel({
             {tkPredRefining && (
               <div
                 style={{
-                  padding: "6px 14px",
-                  borderTop: `1px solid ${C.border}`,
+                  padding: "8px 14px",
+                  borderTop: `1px solid ${C.orange}20`,
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
-                  gap: 5,
-                  background: `${C.orange}04`,
-                  fontSize: 9,
+                  gap: 8,
+                  background: `${C.orange}08`,
+                  fontSize: 11,
                   color: C.orange,
                   fontWeight: 600,
+                  fontFamily: T.font.sans,
                 }}
               >
-                <span style={{ display: "inline-block", animation: "spin 1s linear infinite", fontSize: 11 }}>
-                  &#x27F3;
-                </span>
-                Refining predictions...
+                <div
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: 4,
+                    background: C.orange,
+                    animation: "pulse 1.5s ease-in-out infinite",
+                    flexShrink: 0,
+                  }}
+                />
+                NOVA is re-analyzing predictions with updated context...
               </div>
             )}
           </div>
