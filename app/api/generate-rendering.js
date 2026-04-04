@@ -10,7 +10,7 @@ export default async function handler(req, res) {
   const { data: { user }, error: authErr } = await supabaseAdmin.auth.getUser(auth);
   if (authErr || !user) return res.status(401).json({ error: "Invalid token" });
 
-  const { imageBase64, buildingType, projectName } = req.body || {};
+  const { imageBase64, buildingType } = req.body || {};
   if (!imageBase64) return res.status(400).json({ error: "Missing image" });
 
   const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -18,66 +18,90 @@ export default async function handler(req, res) {
 
   try {
     const base64Clean = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+    const mediaType = imageBase64.startsWith("data:image/jpeg") ? "image/jpeg" : "image/png";
 
-    // Use gpt-image-1 with the drawing as input — it sees the actual geometry
-    const response = await fetch("https://api.openai.com/v1/images/generations", {
+    // Use OpenAI Responses API — sends the actual drawing as input + generates image output
+    const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "gpt-image-1",
-        prompt: `Transform this architectural drawing into a photorealistic exterior rendering. This is ${buildingType ? `a ${buildingType}` : "a commercial"} building.
+        model: "gpt-4o",
+        input: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "input_image",
+                image_url: `data:${mediaType};base64,${base64Clean}`,
+              },
+              {
+                type: "input_text",
+                text: `Transform this architectural drawing into a photorealistic exterior rendering. This is ${buildingType ? `a ${buildingType}` : "a commercial"} building.
 
-CRITICAL: Maintain the EXACT building geometry, proportions, window placement, roof shape, and architectural details from the input drawing. Do not change the building design — only add:
-- Realistic exterior materials and textures (appropriate for the building type)
+You MUST maintain the EXACT building geometry, proportions, window placement, roof shape, and all architectural details from this drawing. Do not change the design at all.
+
+Add:
+- Realistic exterior materials and textures appropriate for this building type
 - Natural golden hour lighting with soft shadows
-- Blue sky with light clouds
-- Landscaping (trees, shrubs, grass)
-- Sidewalks and street context
+- Clear blue sky with light clouds
+- Landscaping with trees, shrubs, and grass
+- Sidewalks and realistic street context
 - Photorealistic depth of field
 
-IMPORTANT: Do NOT include any text, signage, logos, lettering, words, or brand names on the building or anywhere in the image. Leave sign areas blank or as plain material.
+Do NOT include any text, signage, logos, lettering, or brand names anywhere in the image.
 
-Style: Professional architectural visualization photograph. Eye-level street perspective. High detail, 8K quality.`,
-        image: {
-          type: "base64",
-          data: base64Clean,
-        },
-        n: 1,
-        size: "1536x1024",
-        quality: "high",
+Output a single photorealistic architectural visualization photograph at eye-level street perspective.`,
+              },
+            ],
+          },
+        ],
+        tools: [{ type: "image_generation", size: "1536x1024", quality: "high" }],
       }),
     });
 
     if (!response.ok) {
       const errText = await response.text();
+      console.error("[generate-rendering] Responses API error:", errText);
+
+      // Parse error for better message
       let errMsg = "Image generation failed";
       try {
         const errJson = JSON.parse(errText);
         errMsg = errJson.error?.message || errMsg;
       } catch {}
 
-      // If gpt-image-1 fails (maybe not available), fall back to DALL-E 3 with Claude description
-      if (response.status === 404 || response.status === 400) {
-        console.log("[generate-rendering] gpt-image-1 not available, falling back to Claude + DALL-E 3");
-        return await fallbackRender(req, res, base64Clean, imageBase64, buildingType, projectName, OPENAI_API_KEY);
+      // If Responses API not available, fall back to Claude + DALL-E
+      if (response.status === 404 || errMsg.includes("not found")) {
+        return await fallbackRender(res, base64Clean, mediaType, buildingType, OPENAI_API_KEY);
       }
 
       throw new Error(errMsg);
     }
 
     const json = await response.json();
-    // gpt-image-1 returns b64_json in data array
-    const imageData = json.data?.[0]?.b64_json || json.data?.[0]?.url;
-    if (!imageData) throw new Error("No image data returned");
 
-    const resultImage = imageData.startsWith("http")
-      ? imageData // URL format
-      : `data:image/png;base64,${imageData}`; // base64 format
+    // Extract generated image from response output
+    const imageOutput = json.output?.find(o => o.type === "image_generation_call");
+    if (imageOutput?.result) {
+      return res.status(200).json({
+        image: `data:image/png;base64,${imageOutput.result}`,
+        method: "responses-api",
+      });
+    }
 
-    return res.status(200).json({ image: resultImage });
+    // Try alternate response format
+    const contentOutput = json.output?.find(o => o.type === "message");
+    const imgContent = contentOutput?.content?.find(c => c.type === "image");
+    if (imgContent?.image_url) {
+      return res.status(200).json({ image: imgContent.image_url, method: "responses-api" });
+    }
+
+    // If no image found, fall back
+    console.log("[generate-rendering] No image in response, falling back. Output:", JSON.stringify(json.output?.map(o => o.type)));
+    return await fallbackRender(res, base64Clean, mediaType, buildingType, OPENAI_API_KEY);
 
   } catch (err) {
     console.error("[generate-rendering]", err);
@@ -86,13 +110,11 @@ Style: Professional architectural visualization photograph. Eye-level street per
 }
 
 // Fallback: Claude describes → DALL-E 3 generates
-async function fallbackRender(req, res, base64Clean, imageBase64, buildingType, projectName, OPENAI_API_KEY) {
+async function fallbackRender(res, base64Clean, mediaType, buildingType, OPENAI_API_KEY) {
   const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-  if (!ANTHROPIC_API_KEY) throw new Error("Anthropic API key not configured for fallback");
+  if (!ANTHROPIC_API_KEY) throw new Error("Fallback requires Anthropic API key");
 
-  const mediaType = imageBase64.startsWith("data:image/jpeg") ? "image/jpeg" : "image/png";
-
-  // Claude analyzes the drawing
+  // Claude analyzes the drawing with extreme detail
   const descResponse = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -107,17 +129,15 @@ async function fallbackRender(req, res, base64Clean, imageBase64, buildingType, 
         role: "user",
         content: [
           { type: "image", source: { type: "base64", media_type: mediaType, data: base64Clean } },
-          { type: "text", text: `You are an architectural visualization expert. Describe this architectural drawing in EXTREME detail for a photorealistic rendering. Be obsessively specific about:
-- EXACT building shape, width, height, number of stories
-- EXACT roof shape and pitch
-- EXACT window count, size, placement pattern on each facade
-- EXACT door locations, sizes, and styles
-- Materials for each surface (be specific: red brick, gray stucco, glass curtain wall, standing seam metal, etc.)
-- Any overhangs, canopies, columns, or projections
-- Signage areas or unique features
-
-This is ${buildingType ? `a ${buildingType}` : "a commercial"} building${projectName ? ` called "${projectName}"` : ""}.
-Respond with ONLY the description. No commentary.` },
+          { type: "text", text: `Describe this architectural drawing in EXTREME detail for a rendering. Be obsessively specific about:
+- EXACT building shape, width, height, number of stories, overall massing
+- EXACT roof shape, pitch, overhangs
+- EXACT window count per floor, sizes, spacing, style (single/double hung, casement, storefront, etc.)
+- EXACT door locations, sizes, styles, any vestibules or canopies
+- Materials for EVERY surface (be specific: "running bond red brick", "gray EIFS with reveals", "dark bronze aluminum storefront", etc.)
+- Columns, cornices, parapets, any projections or recesses
+This is ${buildingType ? `a ${buildingType}` : "a commercial"} building.
+ONLY the description. No commentary. No mentioning signage or brand names.` },
         ],
       }],
     }),
@@ -128,7 +148,7 @@ Respond with ONLY the description. No commentary.` },
   const description = descJson.content?.[0]?.text || "";
   if (!description) throw new Error("Could not analyze drawing");
 
-  // DALL-E 3 generates from the description
+  // DALL-E 3 generates from description
   const genResponse = await fetch("https://api.openai.com/v1/images/generations", {
     method: "POST",
     headers: {
@@ -137,9 +157,10 @@ Respond with ONLY the description. No commentary.` },
     },
     body: JSON.stringify({
       model: "dall-e-3",
-      prompt: `Create a photorealistic architectural exterior rendering based on this EXACT description. Do NOT deviate from the described building: ${description}
+      prompt: `Photorealistic architectural exterior rendering of EXACTLY this building (do not deviate): ${description}
 
-Eye-level street perspective. Golden hour natural lighting. Blue sky. Landscaping. Photorealistic materials. No people. IMPORTANT: Do NOT include any text, signage, logos, lettering, words, or brand names anywhere in the image. Leave all sign areas blank. Professional architectural visualization photograph.`,
+Eye-level street perspective. Golden hour lighting. Blue sky. Landscaping. Photorealistic materials and textures.
+CRITICAL: Do NOT include ANY text, signage, logos, lettering, words, or brand names anywhere. Leave sign areas as blank material.`,
       n: 1,
       size: "1792x1024",
       quality: "hd",
@@ -149,7 +170,7 @@ Eye-level street perspective. Golden hour natural lighting. Blue sky. Landscapin
 
   if (!genResponse.ok) {
     const genErr = await genResponse.text();
-    throw new Error(`Fallback rendering failed: ${genErr.slice(0, 200)}`);
+    throw new Error(`Rendering failed: ${genErr.slice(0, 200)}`);
   }
 
   const genJson = await genResponse.json();
@@ -158,7 +179,6 @@ Eye-level street perspective. Golden hour natural lighting. Blue sky. Landscapin
 
   return res.status(200).json({
     image: `data:image/png;base64,${imageData}`,
-    method: "fallback",
-    description: description.slice(0, 300),
+    method: "fallback-dalle3",
   });
 }
