@@ -1,7 +1,14 @@
-import { useState, useEffect, useRef, useCallback, lazy, Suspense } from "react";
+import { useState, useEffect, useRef, useCallback, Component } from "react";
 import { buildProposalStyles, loadProposalFont } from "@/constants/proposalStyles";
 import ProposalSection from "@/components/proposal/ProposalSection";
 import CostTreemap from "@/components/proposal/CostTreemap";
+
+// Simple error boundary for individual sections — prevents one bad section from crashing entire viewer
+class SectionErrorBoundary extends Component {
+  state = { hasError: false };
+  static getDerivedStateFromError() { return { hasError: true }; }
+  render() { return this.state.hasError ? null : this.props.children; }
+}
 
 // Generate a session ID for analytics
 const SESSION_ID = crypto.randomUUID();
@@ -26,6 +33,14 @@ export default function ProposalViewerPage() {
   const [acceptForm, setAcceptForm] = useState({ name: "", title: "" });
   const [accepted, setAccepted] = useState(false);
   const containerRef = useRef(null);
+
+  // Override body overflow:hidden from App.css so this page scrolls
+  useEffect(() => {
+    document.body.style.overflow = "auto";
+    document.body.style.background = "#f5f5f7";
+    document.documentElement.style.overflow = "auto";
+    return () => { document.body.style.overflow = ""; document.body.style.background = ""; document.documentElement.style.overflow = ""; };
+  }, []);
 
   // Extract token from URL
   useEffect(() => {
@@ -190,13 +205,6 @@ export default function ProposalViewerPage() {
   const NUMBERED_SECTIONS = new Set(["scope", "baseBid", "sov", "alternates", "exclusions", "allowances", "clarifications", "qualifications", "acceptance"]);
   let counter = 0;
 
-  // Override body overflow:hidden from App.css so this page scrolls
-  useEffect(() => {
-    document.body.style.overflow = "auto";
-    document.body.style.background = "#f5f5f7";
-    return () => { document.body.style.overflow = ""; document.body.style.background = ""; };
-  }, []);
-
   return (
     <div ref={containerRef} style={{ minHeight: "100vh", background: "#f5f5f7", fontFamily: font }}>
       {/* Top accent bar */}
@@ -222,7 +230,9 @@ export default function ProposalViewerPage() {
                   trackEvent(data.id, "section_view", { sectionId: id });
                 }}
               >
-                <ProposalSection sectionId={id} data={proposalData} proposalStyles={PS} sectionNumber={sn} />
+                <SectionErrorBoundary>
+                  <ProposalSection sectionId={id} data={proposalData} proposalStyles={PS} sectionNumber={sn} />
+                </SectionErrorBoundary>
               </div>
             );
           })}
