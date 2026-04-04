@@ -864,51 +864,7 @@ function NovaHeader({ onDraftPanelToggle }) {
           </kbd>
         </button>
 
-        {/* AI Chat */}
-        <button
-          data-interactive
-          onClick={() => setAiChatOpen(!aiChatOpen)}
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: 8,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: aiChatOpen ? `${accent}18` : "transparent",
-            border: aiChatOpen ? `1px solid ${accent}33` : "1px solid transparent",
-            cursor: "pointer",
-            color: aiChatOpen ? accent : btnDim,
-            transition: "all 0.18s ease",
-          }}
-          onMouseEnter={e => {
-            if (!aiChatOpen) {
-              e.currentTarget.style.color = btnHover;
-              e.currentTarget.style.background = ov(0.05, 0.03);
-              e.currentTarget.style.borderColor = ov(0.07, 0.04);
-            }
-          }}
-          onMouseLeave={e => {
-            if (!aiChatOpen) {
-              e.currentTarget.style.color = btnDim;
-              e.currentTarget.style.background = "transparent";
-              e.currentTarget.style.borderColor = "transparent";
-            }
-          }}
-        >
-          <svg
-            width={15}
-            height={15}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M12 2l2.09 6.26L20 10l-4.69 3.98L16.91 20 12 16.27 7.09 20l1.6-6.02L4 10l5.91-1.74L12 2z" />
-          </svg>
-        </button>
+        {/* AI Chat button removed */}
 
         {/* Notifications */}
         <button
