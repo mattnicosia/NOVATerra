@@ -616,7 +616,7 @@ function NovaHeader({ onDraftPanelToggle }) {
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        padding: isTablet ? "0 14px" : "0 28px",
+        padding: isTablet ? "0 14px" : "0 20px 0 12px",
         background: COLORS.bg.primary,
         boxShadow: "none",
         borderBottom: `1px solid ${COLORS.border.subtle}`,
@@ -627,7 +627,7 @@ function NovaHeader({ onDraftPanelToggle }) {
       }}
     >
       {/* Left — NOVATerra wordmark */}
-      <div style={{ display: "flex", alignItems: "center" }}>
+      <div style={{ display: "flex", alignItems: "center", flex: 1 }}>
         <img
           src="/novaterra-wordmark.png"
           alt="NOVATerra"
@@ -670,7 +670,7 @@ function NovaHeader({ onDraftPanelToggle }) {
         </>
       )}
       {!isTablet && (
-      <nav style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 2, flex: 1 }}>
+      <nav style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 2 }}>
         {NAV_ITEMS.filter(item => !item.managerOnly || isManager || !hasOrg).map(item => (
           <NavLink
             key={item.key}
