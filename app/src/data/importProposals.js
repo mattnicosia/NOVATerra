@@ -8,11 +8,13 @@ import { generateBaselineROM, computeCalibration } from "@/utils/romEngine";
 import { MONTANA_PROPOSALS } from "./montana-proposals";
 import { VIOLANTE_PROPOSALS } from "./violante-proposals";
 import { AREA_BUILDERS_PROPOSALS } from "./area-builders-proposals";
+import { EXTRACTED_PROPOSALS } from "./extracted-proposals";
 
 const IMPORT_KEY = "proposals-imported-montana-v9"; // v9: added 7 non-residential proposals (Apr 2026)
 const VIOLANTE_IMPORT_KEY = "proposals-imported-violante-v8"; // v8: all proposals now have ZIP codes
 const AREA_BUILDERS_IMPORT_KEY = "proposals-imported-area-builders-v1";
-const CALIBRATION_KEY = "proposals-calibrated-v10"; // v10: recalibrate with 7 new non-residential proposals
+const EXTRACTED_IMPORT_KEY = "proposals-imported-extracted-v1"; // v1: 160 batch-extracted GC proposals (Apr 2026)
+const CALIBRATION_KEY = "proposals-calibrated-v11"; // v11: recalibrate with 160 batch-extracted proposals
 
 // ── Generate a learning record from a proposal (same logic as HistoricalProposalsPanel) ──
 function generateLearningRecord(proposal) {
@@ -194,6 +196,58 @@ export function importAreaBuildersProposals() {
 
   localStorage.setItem(AREA_BUILDERS_IMPORT_KEY, new Date().toISOString());
   console.log(`[proposals] Imported ${imported} Area Builders proposals (all GC, open shop NYC)`);
+  return imported;
+}
+
+// ── Import 160 batch-extracted GC proposals (from PDF extraction pipeline) ──
+export function importExtractedProposals() {
+  if (localStorage.getItem(EXTRACTED_IMPORT_KEY)) return false;
+
+  const store = useMasterDataStore.getState();
+  const existing = store.masterData?.historicalProposals || [];
+
+  // Remove old extracted imports for clean reimport
+  const oldExtracted = existing.filter(p => p.source === "extracted-import");
+  if (oldExtracted.length > 0) {
+    console.log(`[proposals] Removing ${oldExtracted.length} old extracted imports for clean reimport`);
+    const cleaned = existing.filter(p => !oldExtracted.includes(p));
+    store.setMasterData({ ...store.masterData, historicalProposals: cleaned });
+  }
+
+  const currentExisting = store.masterData?.historicalProposals || [];
+  const batchImportNames = new Set(
+    currentExisting
+      .filter(p => p.source === "extracted-import")
+      .map(p => (p.projectName || p.name || "").toLowerCase())
+  );
+
+  let imported = 0;
+  let skipped = 0;
+  for (const p of EXTRACTED_PROPOSALS) {
+    if (batchImportNames.has((p.projectName || "").toLowerCase())) continue;
+
+    // Skip low-quality: zero cost, empty divisions, or low confidence with <3 divisions
+    if (!p.totalCost || p.totalCost <= 0) { skipped++; continue; }
+    const divCount = Object.keys(p.divisions || {}).length;
+    if (divCount === 0) { skipped++; continue; }
+    if (p.extractionConfidence === "low" && divCount < 3) { skipped++; continue; }
+
+    store.addHistoricalProposal({
+      projectName: p.projectName, client: p.client, architect: p.architect,
+      totalCost: p.totalCost, proposalCost: p.totalCost, projectSF: p.projectSF,
+      jobType: p.jobType, workType: p.workType, laborType: p.laborType,
+      date: p.date, address: p.address,
+      divisions: p.divisions, source: "extracted-import",
+      sourceFileName: p.sourceFileName,
+      proposalType: "gc", // All are GC proposals
+      gcCompany: "Anonymous GC-2", // Anonymized
+      extractionConfidence: p.extractionConfidence,
+    });
+    imported++;
+  }
+
+  localStorage.setItem(EXTRACTED_IMPORT_KEY, new Date().toISOString());
+  console.log(`[proposals] Imported ${imported} batch-extracted proposals, skipped ${skipped} (quality filter)`);
   return imported;
 }
 
