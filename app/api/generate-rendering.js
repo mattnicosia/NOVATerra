@@ -39,19 +39,14 @@ export default async function handler(req, res) {
               },
               {
                 type: "input_text",
-                text: `Transform this architectural drawing into a photorealistic exterior rendering. This is ${buildingType ? `a ${buildingType}` : "a commercial"} building.
+                text: `Apply realistic colors and materials directly to this architectural drawing. Do NOT recreate or redraw the building — keep the EXACT same drawing, lines, layout, and perspective. Only add:
 
-You MUST maintain the EXACT building geometry, proportions, window placement, roof shape, and all architectural details from this drawing. Do not change the design at all.
+- Realistic material colors and textures (brick, glass, metal, wood, concrete, etc.) applied to the existing surfaces
+- A sky background behind the building
+- Ground plane with simple landscaping
+- Subtle shadows for depth
 
-Add:
-- Realistic exterior materials and textures appropriate for this building type
-- Natural golden hour lighting with soft shadows
-- Clear blue sky with light clouds
-- Landscaping with trees, shrubs, and grass
-- Sidewalks and realistic street context
-- Photorealistic depth of field
-
-Output a single photorealistic architectural visualization photograph at eye-level street perspective.`,
+Keep the architectural drawing style. This should look like the same drawing but with colors and materials applied — like an architectural watercolor or colored elevation render. Do NOT generate a new building or change the geometry in any way.`,
               },
             ],
           },
@@ -124,13 +119,13 @@ async function fallbackRender(res, base64Clean, mediaType, buildingType, OPENAI_
         role: "user",
         content: [
           { type: "image", source: { type: "base64", media_type: mediaType, data: base64Clean } },
-          { type: "text", text: `Describe this architectural drawing in EXTREME detail for a rendering. Be obsessively specific about:
-- EXACT building shape, width, height, number of stories, overall massing
-- EXACT roof shape, pitch, overhangs
-- EXACT window count per floor, sizes, spacing, style (single/double hung, casement, storefront, etc.)
-- EXACT door locations, sizes, styles, any vestibules or canopies
-- Materials for EVERY surface (be specific: "running bond red brick", "gray EIFS with reveals", "dark bronze aluminum storefront", etc.)
-- Columns, cornices, parapets, any projections or recesses
+          { type: "text", text: `Describe this architectural elevation drawing in EXTREME detail so an image generator can apply colors and materials to a building matching this EXACT design. Include:
+- EXACT building shape, proportions, number of stories
+- EXACT roof profile
+- EXACT window count, sizes, and placement on each facade
+- EXACT door locations and styles
+- What materials should be applied to each surface (be specific: "running bond red brick", "gray stucco", "dark bronze storefront glazing", etc.)
+- Any canopies, columns, overhangs, or architectural details
 This is ${buildingType ? `a ${buildingType}` : "a commercial"} building.
 ONLY the description. No commentary.` },
         ],
@@ -152,9 +147,9 @@ ONLY the description. No commentary.` },
     },
     body: JSON.stringify({
       model: "dall-e-3",
-      prompt: `Photorealistic architectural exterior rendering of EXACTLY this building (do not deviate): ${description}
+      prompt: `Architectural colored elevation render of this EXACT building design (do not change the geometry): ${description}
 
-Eye-level street perspective. Golden hour lighting. Blue sky. Landscaping. Photorealistic materials and textures. Professional architectural visualization photograph.`,
+Apply realistic material colors and textures to the drawing. Keep the same perspective and proportions. Add a sky background and simple ground plane with landscaping. This should look like a professional colored architectural elevation — NOT a photograph, but the drawing itself with materials applied. Clean, crisp, architectural illustration style.`,
       n: 1,
       size: "1792x1024",
       quality: "hd",
