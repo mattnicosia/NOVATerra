@@ -6,7 +6,7 @@ export default function Acceptance({ data, proposalStyles: PS, sectionNumber }) 
   const color = PS?.color || { text: "#1a1a2e", textDim: "#666", textMuted: "#888", border: "#ccc" };
 
   return (
-    <div style={{ marginTop: T.space[8], padding: `${T.space[5]}px ${T.space[6]}px`, border: `1px solid ${color.border}`, borderRadius: T.radius.md }}>
+    <div style={{ marginTop: T.space[8], padding: 20, border: `1px solid ${color.border}`, borderTop: `3px solid ${color.accent}`, borderRadius: 4 }}>
       <div style={{ ...type.h2, fontFamily: font, color: color.text, fontSize: type.h2?.fontSize || 11, fontWeight: type.h2?.fontWeight || 700, marginBottom: 12 }}>
         {sectionNumber ? `${sectionNumber}.0  ` : ""}ACCEPTANCE
       </div>

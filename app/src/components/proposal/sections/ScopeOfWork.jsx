@@ -119,8 +119,9 @@ export default function ScopeOfWork({ data, proposalStyles: PS, sectionNumber })
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                padding: "4px 0",
-                borderBottom: `2px solid ${color.accent}`,
+                padding: "4px 0 4px 10px",
+                borderLeft: `3px solid ${color.accent}`,
+                marginTop: 20,
               }}
             >
               <span style={{ ...type.h2, fontFamily: font, color: color.accent, fontSize: type.h2?.fontSize || 12, fontWeight: type.h2?.fontWeight || 600 }}>{label}</span>

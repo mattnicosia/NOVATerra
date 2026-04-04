@@ -6,8 +6,9 @@ export const PROPOSAL_SECTIONS = [
   { id: "recipient", label: "Recipient", icon: I.user, required: true },
   { id: "greeting", label: "Greeting", icon: I.send },
   { id: "intro", label: "Introduction", icon: I.plans },
-  { id: "scope", label: "Scope of Work", icon: I.estimate, required: true },
+  { id: "scope", label: "Scope of Work", icon: I.estimate },
   { id: "baseBid", label: "Base Bid", icon: I.dollar, required: true },
+  { id: "sov", label: "Schedule of Values", icon: I.dollar },
   { id: "alternates", label: "Alternates", icon: I.change, conditional: true },
   { id: "exclusions", label: "Exclusions", icon: I.x, conditional: true },
   { id: "allowances", label: "Allowances", icon: I.dollar, conditional: true },
@@ -16,7 +17,6 @@ export const PROPOSAL_SECTIONS = [
   { id: "closing", label: "Closing", icon: I.send },
   { id: "signature", label: "Signature", icon: I.user, required: true },
   { id: "acceptance", label: "Acceptance", icon: I.check },
-  { id: "sov", label: "Schedule of Values", icon: I.dollar },
 ];
 
 export const DEFAULT_SECTION_ORDER = PROPOSAL_SECTIONS.map(s => s.id);

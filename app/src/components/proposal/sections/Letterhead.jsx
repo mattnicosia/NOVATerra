@@ -15,9 +15,11 @@ export default function Letterhead({ data, proposalStyles: PS, sectionNumber }) 
         display: "flex",
         justifyContent: "space-between",
         alignItems: "flex-start",
-        marginBottom: space.section || 24,
+        marginBottom: space.section || 28,
         paddingBottom: space.md || 16,
-        borderBottom: `3px solid ${color.accent}`,
+        paddingLeft: space.md || 16,
+        borderLeft: `4px solid ${color.accent}`,
+        borderBottom: `1px solid ${color.borderLight || "#eee"}`,
       }}
     >
       <div>

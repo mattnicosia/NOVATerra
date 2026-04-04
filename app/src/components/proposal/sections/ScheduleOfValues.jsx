@@ -76,10 +76,11 @@ export default function ScheduleOfValues({ data, proposalStyles: PS, sectionNumb
             display: "grid",
             gridTemplateColumns: "48px 2fr 1fr",
             gap: 10,
-            padding: "8px 0",
+            padding: "8px 8px",
             borderBottom: `1px solid ${color.border || "#eee"}`,
             alignItems: "center",
-            background: idx % 2 === 1 ? (color.bgSubtle || "transparent") : "transparent",
+            borderRadius: 2,
+            background: idx % 2 === 0 ? "transparent" : (color.bgSubtle || "#f8f9fa"),
           }}
         >
           <span style={{ fontFamily: mono, fontSize: 10, color: color.textMuted || "#aaa", fontVariantNumeric: "tabular-nums" }}>
@@ -108,13 +109,15 @@ export default function ScheduleOfValues({ data, proposalStyles: PS, sectionNumb
           display: "grid",
           gridTemplateColumns: "48px 2fr 1fr",
           gap: 10,
-          padding: "14px 0 8px",
-          borderTop: `2px solid ${color.accent}`,
+          padding: "14px 8px 8px",
+          background: color.accent,
+          color: "#fff",
+          borderRadius: 4,
           marginTop: 6,
         }}
       >
         <span />
-        <span style={{ ...type.moneyLg, fontFamily: font, color: color.accent, fontSize: type.moneyLg?.fontSize || 14, fontWeight: type.moneyLg?.fontWeight || 800 }}>TOTAL CONTRACT SUM</span>
+        <span style={{ ...type.moneyLg, fontFamily: font, color: "#fff", fontSize: type.moneyLg?.fontSize || 14, fontWeight: type.moneyLg?.fontWeight || 800 }}>TOTAL CONTRACT SUM</span>
         <span
           style={{
             textAlign: "right",
@@ -122,7 +125,7 @@ export default function ScheduleOfValues({ data, proposalStyles: PS, sectionNumb
             fontFamily: mono,
             fontSize: type.moneyLg?.fontSize ? type.moneyLg.fontSize + 2 : 16,
             fontWeight: type.moneyLg?.fontWeight || 800,
-            color: color.accent,
+            color: "#fff",
             fontVariantNumeric: "tabular-nums",
           }}
         >

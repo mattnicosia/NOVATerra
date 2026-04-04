@@ -162,16 +162,36 @@ export default function ReportsPage() {
     URL.revokeObjectURL(url);
   };
 
-  // ── Print handler with dynamic @page margin ──
-  const handlePrint = () => {
+  // ── PDF download handler ──
+  const handleDownloadPDF = async () => {
+    const el = document.getElementById("proposal-print");
+    if (!el) { window.print(); return; }
+    const { proposalDesign } = useReportsStore.getState();
+    const isLandscape = proposalDesign?.orientation === "landscape";
+    const html2pdf = (await import("html2pdf.js")).default;
+    const opt = {
+      margin: [10, 10, 10, 10],
+      filename: `Proposal_${(project.projectName || project.name || "Project").replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().toISOString().slice(0, 10)}.pdf`,
+      image: { type: "jpeg", quality: 0.95 },
+      html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+      jsPDF: {
+        unit: "mm",
+        format: isLandscape ? [279, 216] : "letter",
+        orientation: isLandscape ? "landscape" : "portrait",
+      },
+      pagebreak: { mode: ["css", "legacy"] },
+    };
+    await html2pdf().set(opt).from(el).save();
+  };
+
+  // ── Browser print handler ──
+  const handleBrowserPrint = () => {
     let style = document.getElementById('bldg-print-page');
     if (!style) {
       style = document.createElement('style');
       style.id = 'bldg-print-page';
       document.head.appendChild(style);
     }
-    // SOV uses table-header-group for repeating headers — no extra top margin needed
-    // All other reports use position:fixed print header — needs top margin for logo
     style.textContent = reportType !== 'sov'
       ? '@media print { @page { margin: 60px 15mm 15mm 15mm; } }'
       : '@media print { @page { margin: 15mm; } }';
@@ -200,8 +220,11 @@ export default function ReportsPage() {
         </div>
 
         <div className="no-print" style={{ display: "flex", gap: 8, marginBottom: 12, justifyContent: "flex-end" }}>
-          <button className="accent-btn" onClick={handlePrint} style={bt(C, { background: C.blue, color: "#fff", padding: "7px 14px", fontSize: 11 })}>
-            <Ic d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z" size={13} color="#fff" sw={1.5} /> Print
+          <button className="accent-btn" onClick={handleDownloadPDF} style={bt(C, { background: C.blue, color: "#fff", padding: "7px 14px", fontSize: 11 })}>
+            <Ic d={I.download} size={13} color="#fff" sw={1.5} /> Download PDF
+          </button>
+          <button className="accent-btn" onClick={handleBrowserPrint} style={bt(C, { background: "transparent", border: `1px solid ${C.border}`, color: C.textMuted, padding: "7px 14px", fontSize: 11 })}>
+            <Ic d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z" size={13} color={C.textMuted} sw={1.5} /> Print
           </button>
           <button className="accent-btn" onClick={() => {
             const totals = useItemsStore.getState().getTotals();
@@ -467,10 +490,11 @@ export default function ReportsPage() {
             .filter(id => sectionVisibility[id])
             .filter(id => !conditionalEmpty[id]);
           let sectionCounter = 0;
+          const NUMBERED_SECTIONS = new Set(["scope", "baseBid", "sov", "alternates", "exclusions", "allowances", "clarifications", "qualifications", "acceptance"]);
           return (
             <div style={{ display: "flex", gap: 0 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div id="proposal-print" style={{ position: "relative", background: "#fff", color: "#1a1a2e", padding: PS.page.padding, maxWidth: PS.page.maxWidth, width: "100%", borderRadius: T.radius.lg, border: `1px solid ${C.border}`, fontFamily: PS.font.body, lineHeight: 1.6, boxShadow: T.shadow.lg, ...(proposalDesign.orientation === "landscape" ? { minWidth: 900, maxWidth: 1100 } : {}) }}>
+              <div style={{ flex: 1, minWidth: 0, overflow: "auto" }}>
+                <div id="proposal-print" style={{ position: "relative", background: "#fff", color: "#1a1a2e", padding: PS.page.padding, maxWidth: PS.page.maxWidth, width: "100%", borderRadius: T.radius.lg, border: `1px solid ${C.border}`, fontFamily: PS.font.body, lineHeight: 1.6, boxShadow: T.shadow.lg, ...(proposalDesign.orientation === "landscape" ? { maxWidth: "none" } : {}) }}>
                   {/* Draft watermark overlay */}
                   {proposalDesign.showDraftWatermark && (
                     <div style={{
@@ -488,10 +512,10 @@ export default function ReportsPage() {
                     <div style={PS.section.accentBar} />
                   )}
                   {visibleSections.map(id => {
-                    // Track section number (skip page breaks / spacers for numbering)
+                    // Track section number — only increment for sections that display a numbered header
                     const isSpecial = id.startsWith("pageBreak_") || id.startsWith("spacer_");
-                    if (!isSpecial) sectionCounter++;
-                    const sectionNumber = (!isSpecial && proposalDesign.showSectionNumbers) ? sectionCounter : null;
+                    if (!isSpecial && NUMBERED_SECTIONS.has(id)) sectionCounter++;
+                    const sectionNumber = (!isSpecial && proposalDesign.showSectionNumbers && NUMBERED_SECTIONS.has(id)) ? sectionCounter : null;
 
                     // Insert project summary card after letterhead
                     const showSummaryHere = id === "letterhead" && proposalDesign.showProjectSummary;
