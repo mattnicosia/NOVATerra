@@ -6,7 +6,7 @@ import { callAnthropicStream } from "@/utils/ai";
 import { useCorrectionStore } from "@/nova/learning/correctionStore";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
-import NovaSceneLazy from "@/components/nova/NovaSceneLazy";
+// NovaSceneLazy removed — backed up in _backup/
 import { bt, inp, nInp } from "@/utils/styles";
 import { nn, fmt2, titleCase } from "@/utils/format";
 
@@ -197,7 +197,7 @@ export default function AIAssemblyGenerator({ onClose }) {
               position: "relative",
             }}
           >
-            <NovaSceneLazy width={36} height={36} size={0.8} intensity={0.6} lightweight />
+            <Ic d={I.ai} size={24} color={C.accent} />
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>NOVA Assembly Builder</div>
@@ -403,7 +403,7 @@ export default function AIAssemblyGenerator({ onClose }) {
                   justifyContent: "center",
                 }}
               >
-                <NovaSceneLazy width={56} height={56} size={0.8} intensity={0.6} lightweight />
+                <Ic d={I.ai} size={32} color={C.accent} />
               </div>
               <div style={{ fontSize: 12, color: C.textMuted }}>NOVA is building your assembly...</div>
             </div>

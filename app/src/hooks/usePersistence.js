@@ -801,38 +801,83 @@ export function usePersistenceLoad() {
             }
           }
 
-          // Pull master data
-          const cloudMaster = await cloudSync.pullData("master");
+          // Pull master data — try org row first, fall back to solo row if org is empty
+          let cloudMaster = await cloudSync.pullData("master");
+
+          // If org pull returned empty/default data, check the solo row (pre-org data)
+          const activeOrgId = useOrgStore?.getState?.()?.orgId;
+          if (activeOrgId && cloudMaster) {
+            const hasContent = cloudMaster.companyProfiles?.length > 0 ||
+              cloudMaster.clients?.length > 0 || cloudMaster.subcontractors?.length > 0;
+            if (!hasContent) {
+              console.log("[usePersistence] Org master data empty — checking solo row for migration");
+              const soloMaster = await cloudSync.pullDataWithOrgId("master", null);
+              if (soloMaster) {
+                const soloHasContent = soloMaster.companyProfiles?.length > 0 ||
+                  soloMaster.clients?.length > 0 || soloMaster.subcontractors?.length > 0;
+                if (soloHasContent) {
+                  console.log("[usePersistence] Found rich solo data — migrating to org row");
+                  cloudMaster = soloMaster;
+                  // Push the solo data to org row so future pulls find it
+                  cloudSync.pushData("master", soloMaster).catch(() => {});
+                }
+              }
+            }
+          }
+
           if (cloudMaster) {
-            // Merge cloud data into local store
+            // Merge cloud data into local store — protect arrays from empty-clobber.
+            // Shallow spread replaces arrays entirely, so cloud returning [] kills local data.
+            // Rule: for array fields, keep the longer (richer) version; for objects, cloud wins.
             const localMaster = useMasterDataStore.getState().masterData;
             const merged = { ...localMaster, ...cloudMaster };
-            // CRITICAL: Merge historicalProposals arrays (don't replace)
-            // Cloud might have fewer proposals than local (batch imports not yet pushed)
-            if (localMaster.historicalProposals?.length > 0 || cloudMaster.historicalProposals?.length > 0) {
-              const localProposals = localMaster.historicalProposals || [];
-              const cloudProposals = cloudMaster.historicalProposals || [];
-              // Merge by ID — keep both, cloud wins on duplicates
-              const byId = new Map();
-              localProposals.forEach(p => byId.set(p.id || p.projectName, p));
-              cloudProposals.forEach(p => byId.set(p.id || p.projectName, p));
-              merged.historicalProposals = Array.from(byId.values());
-              console.log(`[usePersistence] Master merge: ${localProposals.length} local + ${cloudProposals.length} cloud → ${merged.historicalProposals.length} merged`);
+
+            // Protect all array fields — keep the version with more data
+            const arrayFields = [
+              "companyProfiles", "clients", "architects", "engineers",
+              "estimators", "subcontractors", "historicalProposals",
+            ];
+            for (const key of arrayFields) {
+              const local = localMaster[key] || [];
+              const cloud = cloudMaster[key] || [];
+              if (key === "historicalProposals") {
+                // Merge by ID — keep both, cloud wins on duplicates
+                const byId = new Map();
+                local.forEach(p => byId.set(p.id || p.projectName, p));
+                cloud.forEach(p => byId.set(p.id || p.projectName, p));
+                merged[key] = Array.from(byId.values());
+              } else {
+                // For other arrays: keep the longer version (don't clobber with empty)
+                // If both have data, cloud wins (it's the cross-device source of truth)
+                if (cloud.length === 0 && local.length > 0) {
+                  merged[key] = local;
+                } else {
+                  merged[key] = cloud.length > 0 ? cloud : local;
+                }
+              }
             }
+
+            if (localMaster.historicalProposals?.length > 0 || cloudMaster.historicalProposals?.length > 0) {
+              console.log(`[usePersistence] Master merge: ${(localMaster.historicalProposals||[]).length} local + ${(cloudMaster.historicalProposals||[]).length} cloud → ${merged.historicalProposals.length} merged proposals`);
+            }
+
             useMasterDataStore.getState().setMasterData(merged);
             // Save the MERGED state to IDB, not just cloudMaster
             await storage.set(idbKey("bldg-master"), JSON.stringify(merged));
             if (hadCorruptedMaster) recoveredFromCloud = true;
           }
 
-          // Pull settings — cloud version wins over stale local IDB
+          // Pull settings — cloud version merges into local (preserves local-only keys like widgetLayouts)
           const cloudSettings = await cloudSync.pullData("settings");
           if (cloudSettings) {
-            useUiStore.getState().setAppSettings({
+            const merged = {
               ...useUiStore.getState().appSettings,
               ...cloudSettings,
-            });
-            await storage.set(idbKey("bldg-settings"), JSON.stringify(cloudSettings));
+            };
+            useUiStore.getState().setAppSettings(merged);
+            // Save MERGED settings to IDB — not just cloud.
+            // Raw cloudSettings may be missing local-only keys (widgetLayouts, etc.)
+            await storage.set(idbKey("bldg-settings"), JSON.stringify(merged));
           }
           // Gate: allow auto-save to push settings to cloud now that we've pulled
           useUiStore.getState().setCloudSettingsLoaded(true);
@@ -1217,16 +1262,17 @@ export function usePersistenceLoad() {
 
       // ── One-time data imports + calibration (run after persistence loads) ──
       try {
-        const { importMontanaProposals, importViolanteProposals, importAreaBuildersProposals, calibrateFromImportedProposals } = await import("@/data/importProposals");
+        const { importMontanaProposals, importViolanteProposals, importAreaBuildersProposals, importExtractedProposals, calibrateFromImportedProposals } = await import("@/data/importProposals");
         const mCount = importMontanaProposals();
         const vCount = importViolanteProposals();
         const abCount = importAreaBuildersProposals();
+        const exCount = importExtractedProposals();
         // Generate learning records from ALL imported proposals — this is what
         // makes them actually calibrate the ROM instead of just sitting in storage.
         await calibrateFromImportedProposals();
         // If any proposals were imported, persist immediately to IDB + cloud
         // so cloud sync doesn't overwrite with stale data
-        if (mCount || vCount || abCount) {
+        if (mCount || vCount || abCount || exCount) {
           console.log(`[usePersistence] Imports changed data — persisting immediately`);
           await saveMasterData();
         }

@@ -565,38 +565,7 @@ export default function TakeoffDrawingViewer({
               {/* Settings gear removed */}
             </>
           )}
-          {/* ── Running estimate total — always visible ── */}
-          {(() => {
-            const totals = getTotals();
-            const grand = nn(totals.grand);
-            if (grand <= 0) return null;
-            return (
-              <div
-                style={{
-                  marginLeft: "auto",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  paddingLeft: 8,
-                  borderLeft: `1px solid ${C.border}`,
-                  flexShrink: 0,
-                }}
-              >
-                <span style={{ fontSize: 8, fontWeight: 600, color: C.textDim, letterSpacing: "0.04em" }}>EST</span>
-                <span
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 700,
-                    color: C.accent,
-                    fontVariantNumeric: "tabular-nums",
-                    animation: "subtlePulse 3s ease-in-out infinite",
-                  }}
-                >
-                  {fmt(grand)}
-                </span>
-              </div>
-            );
-          })()}
+          {/* Running total removed — shown in journey bar pills */}
         </div>
       </div>
 

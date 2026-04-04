@@ -39,7 +39,7 @@ import { getCurrentYear } from "@/constants/constructionCostIndex";
 import { MARKUP_CATEGORIES, classifyMarkup } from "@/constants/markupTaxonomy";
 import CostHistoryEntryForm from "@/components/costHistory/CostHistoryEntryForm";
 import CostHistoryAnalytics from "@/components/costHistory/CostHistoryAnalytics";
-import NovaOrb from "@/components/dashboard/NovaOrb";
+// NovaOrb removed — backed up in _backup/
 import Sec from "@/components/shared/Sec";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
@@ -1208,7 +1208,7 @@ Return ONLY a JSON object. Example:
               border: `1px solid ${C.orange}25`,
             }}
           >
-            <NovaOrb size={14} scheme="nova" />
+            <Ic d={I.ai} size={12} color={C.accent} />
             <span style={{ fontSize: 10, color: C.orange, fontWeight: 600 }}>
               Extracting {queueExtracting} PDF{queueExtracting !== 1 ? "s" : ""}...
             </span>
@@ -1339,7 +1339,7 @@ Return ONLY a JSON object. Example:
                       gap: 3,
                     }}
                   >
-                    <NovaOrb size={10} scheme="nova" /> {queueExtracting} active
+                    <Ic d={I.ai} size={10} color={C.accent} /> {queueExtracting} active
                   </span>
                 )}
                 {queueFailed > 0 && (
@@ -2201,7 +2201,7 @@ Return ONLY a JSON object. Example:
                             gap: 4,
                           })}
                         >
-                          <NovaOrb size={12} scheme="nova" />
+                          <Ic d={I.ai} size={12} color={C.accent} />
                           {hasLearning ? "Recalibrate" : "Calibrate"}
                         </button>
                       )}

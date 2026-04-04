@@ -21,44 +21,15 @@ import Pill from "@/components/shared/Pill";
 import { fmt } from "@/utils/format";
 import { detectScopeGaps } from "@/nova/predictive/scopeGapDetector";
 
-// ─── Stage → sub-tab mapping ─────────────────────────────────────────────────
+// ─── Stage definitions (7 pills, no sub-tabs) ──────────────────────────────
 const JOURNEY_STAGES = [
-  {
-    key: "define",
-    label: "Info",
-    defaultPath: "info",
-    subTabs: [{ key: "info", label: "Project Info", path: "info" }],
-  },
-  {
-    key: "discover",
-    label: "Discover",
-    defaultPath: "plans",
-    subTabs: [{ key: "plans", label: "Plans", path: "plans" }],
-  },
-  {
-    key: "estimate",
-    label: "Estimate",
-    defaultPath: "takeoffs",
-    subTabs: [
-      { key: "takeoffs", label: "Scope", path: "takeoffs" },
-      { key: "alternates", label: "Alternates", path: "alternates" },
-      { key: "sov", label: "SOV", path: "sov" },
-    ],
-  },
-  {
-    key: "network",
-    label: "Network",
-    defaultPath: "network",
-    subTabs: [],
-  },
-  {
-    key: "propose",
-    label: "Reports",
-    defaultPath: "reports",
-    subTabs: [
-      { key: "reports", label: "Reports", path: "reports" },
-    ],
-  },
+  { key: "define",     label: "Info",      defaultPath: "info",       subTabs: [] },
+  { key: "documents",  label: "Docs",      defaultPath: "documents",  subTabs: [] },
+  { key: "discover",   label: "Discovery", defaultPath: "plans",      subTabs: [] },
+  { key: "estimate",   label: "Estimate",  defaultPath: "takeoffs",   subTabs: [] },
+  { key: "review",     label: "Review",    defaultPath: "review",     subTabs: [] },
+  { key: "network",    label: "Network",   defaultPath: "network",    subTabs: [] },
+  { key: "propose",    label: "Reports",   defaultPath: "reports",    subTabs: [] },
 ];
 
 // Flat route segment → stage key lookup
@@ -71,8 +42,9 @@ JOURNEY_STAGES.forEach(stage => {
     ROUTE_TO_STAGE[tab.path] = stage.key;
   });
 });
-// Also map legacy "documents" route to discover
-ROUTE_TO_STAGE.documents = "discover";
+// Also map legacy routes
+ROUTE_TO_STAGE.alternates = "estimate"; // alternates live within estimate now
+ROUTE_TO_STAGE.sov = "review";          // SOV moved to review stage
 
 // ─── Keyframes ────────────────────────────────────────────────────────────────
 const KEYFRAMES = `
@@ -394,50 +366,45 @@ export default function EstimateJourneyBar() {
                 const prevIsActive = prevStage && prevStage.key === activeStageKey;
                 const connectorTraveled = prevComplete || prevIsActive;
 
-                // Circle style by state
-                const circleSize = 20;
-                let circleStyle = {
-                  width: circleSize,
-                  height: circleSize,
-                  borderRadius: "50%",
+                // Pill style by state
+                let pillStyle = {
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
+                  gap: 4,
+                  padding: "4px 12px",
+                  borderRadius: 99,
+                  fontSize: 10,
+                  fontWeight: isActive ? 600 : 500,
+                  letterSpacing: "0.01em",
+                  whiteSpace: "nowrap",
+                  cursor: "pointer",
                   transition: "all 200ms ease",
                   flexShrink: 0,
-                  cursor: "pointer",
+                  border: "none",
+                  fontFamily: T.font.sans,
                 };
 
                 if (isActive) {
-                  circleStyle = {
-                    ...circleStyle,
-                    background: C.accent,
-                    boxShadow: `0 0 0 1px ${C.accent}15, 0 0 8px ${C.accent}30`,
+                  pillStyle = {
+                    ...pillStyle,
+                    background: `${C.accent}18`,
+                    color: C.accent,
+                    boxShadow: `0 0 0 1px ${C.accent}25`,
                   };
                 } else if (isComplete) {
-                  circleStyle = {
-                    ...circleStyle,
-                    background: `${C.green}B3`,
+                  pillStyle = {
+                    ...pillStyle,
+                    background: `${C.green}10`,
+                    color: `${C.green}CC`,
                     animation: isAnimating ? "jbCompletePulse 400ms cubic-bezier(0.175,0.885,0.32,1.275)" : undefined,
                   };
                 } else {
-                  circleStyle = {
-                    ...circleStyle,
+                  pillStyle = {
+                    ...pillStyle,
                     background: "transparent",
-                    border: `1.5px solid ${isHovered ? `${C.text}50` : `${C.textDim}40`}`,
+                    color: isHovered ? C.textMuted : C.textDim,
                   };
                 }
-
-                // Label style
-                const labelStyle = {
-                  fontSize: 9,
-                  letterSpacing: "0.02em",
-                  whiteSpace: "nowrap",
-                  fontWeight: isActive ? 600 : 500,
-                  color: isActive ? C.text : isComplete ? C.textMuted : isHovered ? C.textMuted : C.textDim,
-                  transition: "color 150ms ease",
-                  marginTop: 2,
-                };
 
                 return (
                   <Fragment key={stage.key}>
@@ -473,36 +440,16 @@ export default function EstimateJourneyBar() {
                       </div>
                     )}
 
-                    {/* Node */}
+                    {/* Pill node */}
                     <div
                       onClick={() => handleStageClick(stage)}
                       onMouseEnter={() => setHoveredStage(stage.key)}
                       onMouseLeave={() => setHoveredStage(null)}
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        gap: 0,
-                        cursor: "pointer",
-                        flexShrink: 0,
-                        padding: "0 2px",
-                      }}
-                      title={compact ? `${stage.label}${isComplete ? " ✓" : ""}` : undefined}
+                      style={pillStyle}
+                      title={`${stage.label}${isComplete ? " ✓" : ""}`}
                     >
-                      <div style={circleStyle}>
-                        {isComplete && !isActive && <Checkmark animate={isAnimating} />}
-                        {isActive && (
-                          <div
-                            style={{
-                              width: 6,
-                              height: 6,
-                              borderRadius: "50%",
-                              background: "rgba(255,255,255,0.9)",
-                            }}
-                          />
-                        )}
-                      </div>
-                      {!compact && <span style={labelStyle}>{stage.label}</span>}
+                      {isComplete && !isActive && <Checkmark animate={isAnimating} />}
+                      {stage.label}
                     </div>
                   </Fragment>
                 );
@@ -562,6 +509,9 @@ export default function EstimateJourneyBar() {
               } catch { return null; }
             })()}
             <Pill label="Items" value={items.length} />
+            {project.projectSF > 0 && (
+              <Pill label="$/SF" value={`$${(getTotals().grand / project.projectSF).toFixed(0)}`} />
+            )}
             <Pill label="Total" value={fmt(getTotals().grand)} accent />
           </div>
         </div>

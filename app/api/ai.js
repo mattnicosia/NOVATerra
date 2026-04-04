@@ -9,6 +9,17 @@ import { checkRateLimit } from "./lib/rateLimiter.js";
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const MAX_BODY_BYTES = 50 * 1024 * 1024; // 50 MB
 
+// Remap deprecated model names to current equivalents
+const MODEL_REMAP = {
+  "claude-3-5-haiku-20241022": "claude-haiku-4-5-20251001",
+  "claude-haiku-3-5-20241022": "claude-haiku-4-5-20251001",
+  "claude-3-5-sonnet-20241022": "claude-sonnet-4-20250514",
+  "claude-3-5-sonnet-20240620": "claude-sonnet-4-20250514",
+  "claude-3-opus-20240229": "claude-sonnet-4-20250514",
+  "claude-3-haiku-20240307": "claude-haiku-4-5-20251001",
+  "claude-3-sonnet-20240229": "claude-sonnet-4-20250514",
+};
+
 // Read the raw request body manually (bypasses Vercel's default ~5 MB body parser limit)
 function readRawBody(req) {
   return new Promise((resolve, reject) => {
@@ -90,7 +101,8 @@ export default async function handler(req, res) {
     `[ai-proxy] model=${model || "default"} content=[${contentTypes}] bodySize=${(bodySize / 1024 / 1024).toFixed(1)}MB`,
   );
 
-  const body = { model: model || "claude-sonnet-4-20250514", max_tokens: max_tokens || 1000, messages };
+  const resolvedModel = MODEL_REMAP[model] || model || "claude-sonnet-4-20250514";
+  const body = { model: resolvedModel, max_tokens: max_tokens || 1000, messages };
   if (system) body.system = system;
   if (temperature !== undefined) body.temperature = temperature;
   if (tools) body.tools = tools;

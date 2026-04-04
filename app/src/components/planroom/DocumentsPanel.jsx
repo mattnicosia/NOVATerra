@@ -26,10 +26,34 @@ const DOC_TYPES = [
 const TAG_COLORS = ["#4A90D9", "#50B83C", "#E07B39", "#DE3618", "#9C6ADE", "#47C1BF", "#F49342", "#6B7280"];
 const METHODS = ["email", "planroom", "hand-delivery", "ftp"];
 
+// ── Construction Change Management — Color-Coded Document Types ──────────
+// Based on AIA/CSI standards for document control in construction
+const CHANGE_TYPES = [
+  { key: "bid-set",    label: "BID SET",   color: "#8B95A2", description: "Original issue" },
+  { key: "addendum",   label: "ADDENDUM",  color: "#E8913A", description: "Pre-bid modification — reprice" },
+  { key: "revision",   label: "REVISION",  color: "#4A90D9", description: "Drawing update" },
+  { key: "bulletin",   label: "BULLETIN",  color: "#D94A4A", description: "Post-contract change — price this" },
+  { key: "asi",        label: "ASI",       color: "#2EAA7B", description: "Architect clarification — no cost impact" },
+  { key: "rfi-sketch", label: "RFI SK",    color: "#8B5CF6", description: "Supplemental sketch" },
+];
+const CHANGE_TYPE_MAP = Object.fromEntries(CHANGE_TYPES.map(ct => [ct.key, ct]));
+
+// Smart detection from filename patterns
+function detectChangeType(filename) {
+  if (!filename) return null;
+  const f = filename.toLowerCase();
+  if (/\badd(endum|enda)\b/i.test(f) || /\badd[-_]?\d/i.test(f)) return "addendum";
+  if (/\bbull(etin)?\b/i.test(f) || /\bblt[-_]?\d/i.test(f)) return "bulletin";
+  if (/\basi[-_]?\d/i.test(f) || /\basi\b/i.test(f)) return "asi";
+  if (/\bsk[-_]\d/i.test(f) || /\brfi[-_]?sk/i.test(f)) return "rfi-sketch";
+  if (/\brev[-_]?[a-z0-9]/i.test(f)) return "revision";
+  return null;
+}
+
 /* ═══════════════════════════════════════════════════════════════
    DocumentsPanel — full document management for Discovery page
    ═══════════════════════════════════════════════════════════════ */
-export default function DocumentsPanel({ onRemove }) {
+export default function DocumentsPanel({ onRemove, categoryFilter }) {
   const C = useTheme();
   const T = C.T;
 
@@ -66,6 +90,29 @@ export default function DocumentsPanel({ onRemove }) {
 
   const filtered = useMemo(() => {
     let list = documents;
+    // Category filter from parent (DocumentsPage cards)
+    if (categoryFilter) {
+      const CAT_DOCTYPE_MAP = {
+        drawings: ["drawing"],
+        specifications: ["specification"],
+        bidding: ["rfp", "bidding"],
+        contracts: ["contract"],
+        insurance: ["insurance"],
+        permits: ["permit"],
+        reports: ["report"],
+        submittals: ["submittal"],
+        photos: ["photo", "rendering"],
+        schedule: ["schedule"],
+        rules: ["rules"],
+      };
+      const CAT_CHANGE_MAP = {
+        addenda: ["addendum", "bulletin", "asi"],
+      };
+      const docTypes = CAT_DOCTYPE_MAP[categoryFilter];
+      const changeTypes = CAT_CHANGE_MAP[categoryFilter];
+      if (docTypes) list = list.filter(d => docTypes.includes(d.docType));
+      else if (changeTypes) list = list.filter(d => changeTypes.includes(d.changeType || detectChangeType(d.filename)));
+    }
     if (hideSuperseded) list = list.filter((d) => !d.replacedById);
     if (search) {
       const q = search.toLowerCase();
@@ -77,7 +124,7 @@ export default function DocumentsPanel({ onRemove }) {
     else if (folderFilter) list = list.filter((d) => d.folder === folderFilter);
     if (tagFilter) list = list.filter((d) => (d.tags || []).includes(tagFilter));
     return list;
-  }, [documents, search, typeFilter, statusFilter, folderFilter, tagFilter, hideSuperseded]);
+  }, [documents, search, typeFilter, statusFilter, folderFilter, tagFilter, hideSuperseded, categoryFilter]);
 
   if (documents.length === 0) return null;
 
@@ -246,6 +293,25 @@ export default function DocumentsPanel({ onRemove }) {
           </button>
         </div>
 
+        {/* ── Change Type Legend ── */}
+        <div style={{
+          padding: `4px ${T.space[3]}px`, display: "flex", gap: 6, alignItems: "center",
+          borderBottom: `1px solid ${C.border}06`, flexWrap: "wrap",
+        }}>
+          <span style={{ fontSize: 8, color: C.textDim, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+            Type:
+          </span>
+          {CHANGE_TYPES.map(ct => (
+            <span key={ct.key} style={{
+              fontSize: 7, fontWeight: 600, padding: "1px 5px", borderRadius: 3,
+              background: `${ct.color}12`, color: ct.color, letterSpacing: "0.02em",
+              cursor: "default",
+            }} title={ct.description}>
+              {ct.label}
+            </span>
+          ))}
+        </div>
+
         {/* ── Search + Filters ── */}
         <div style={{ padding: `${T.space[2]}px ${T.space[3]}px`, display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
           <input
@@ -397,6 +463,20 @@ export default function DocumentsPanel({ onRemove }) {
                 <span style={{ fontSize: 8, fontWeight: 700, color: dtMeta.color(C), textTransform: "uppercase", minWidth: 30 }}>
                   {dtMeta.label}
                 </span>
+                {/* change type badge (addendum/revision/bulletin/ASI) */}
+                {(() => {
+                  const ct = CHANGE_TYPE_MAP[doc.changeType || detectChangeType(doc.filename)];
+                  if (!ct || ct.key === "bid-set") return null;
+                  return (
+                    <span style={{
+                      fontSize: 7, fontWeight: 700, letterSpacing: "0.04em",
+                      padding: "1px 5px", borderRadius: 3,
+                      background: `${ct.color}18`, color: ct.color,
+                    }}>
+                      {ct.label}
+                    </span>
+                  );
+                })()}
                 {/* folder indicator */}
                 {doc.folder && (
                   <span style={{ fontSize: 8, color: C.textDim, opacity: 0.6 }}>{doc.folder}/</span>
@@ -486,6 +566,19 @@ export default function DocumentsPanel({ onRemove }) {
                           <option value="drawing">Drawing</option>
                           <option value="specification">Specification</option>
                           <option value="general">General</option>
+                        </select>
+                      </div>
+                      {/* Change type (addendum/revision/bulletin/ASI) */}
+                      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                        <span style={{ color: C.textDim, minWidth: 50 }}>Change:</span>
+                        <select
+                          value={doc.changeType || detectChangeType(doc.filename) || "bid-set"}
+                          onChange={(e) => store().updateDocument(doc.id, { changeType: e.target.value })}
+                          style={{ ...inp(C, { padding: "2px 6px", fontSize: 10, width: "auto", borderRadius: 4 }) }}
+                        >
+                          {CHANGE_TYPES.map(ct => (
+                            <option key={ct.key} value={ct.key}>{ct.label} — {ct.description}</option>
+                          ))}
                         </select>
                       </div>
                       {editingDoc?.id === doc.id && (

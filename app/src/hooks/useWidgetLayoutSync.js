@@ -6,9 +6,14 @@ import { WIDGET_REGISTRY } from '@/constants/widgetRegistry';
 /* ────────────────────────────────────────────────────────
    useWidgetLayoutSync — persist/restore widget layouts
    Bridges widgetStore ↔ appSettings.widgetLayouts.
-   The existing useAutoSave + saveSettings pipeline handles
-   IndexedDB + cloud sync automatically.
+
+   Three-tier persistence:
+   1. localStorage (sync boot — no flash)
+   2. IndexedDB via appSettings (durable local)
+   3. Cloud via pushData/pullData (cross-device)
    ──────────────────────────────────────────────────────── */
+
+const LS_KEY = "nova-widget-layouts";
 
 function cleanLayout(layouts) {
   const result = {};
@@ -25,6 +30,8 @@ function hydrateFromSettings() {
     const cleaned = cleanLayout(saved);
     if (cleaned.lg && cleaned.lg.length > 0) {
       useWidgetStore.getState().setLayouts(cleaned);
+      // Also update localStorage for instant boot
+      try { localStorage.setItem(LS_KEY, JSON.stringify(cleaned)); } catch {}
       return true;
     }
   }
@@ -43,17 +50,18 @@ export function useWidgetLayoutSync() {
   }, [persistenceLoaded]);
 
   // Re-hydrate when appSettings.widgetLayouts changes (e.g., cloud pull arrives
-  // after initial IDB load). This ensures cross-device layout sync works —
-  // the cloud pull overwrites appSettings AFTER the initial hydration above,
-  // so we need to pick up the newer cloud version.
+  // after initial IDB load). This ensures cross-device layout sync works.
+  // Compare serialized values to avoid re-hydrating from our own writes.
+  const lastCloudRef = useRef(null);
   useEffect(() => {
     const unsub = useUiStore.subscribe(
       (state, prevState) => {
         if (!initialized.current) return;
-        const prev = prevState.appSettings?.widgetLayouts;
         const next = state.appSettings?.widgetLayouts;
-        // Only re-hydrate if widgetLayouts actually changed (cloud pull arrived)
-        if (next && next !== prev) {
+        if (!next) return;
+        const serialized = JSON.stringify(next);
+        if (serialized !== lastCloudRef.current) {
+          lastCloudRef.current = serialized;
           hydrateFromSettings();
         }
       }
@@ -61,12 +69,14 @@ export function useWidgetLayoutSync() {
     return unsub;
   }, []);
 
-  // Persist layout changes to appSettings (auto-save picks it up)
+  // Persist layout changes to appSettings + localStorage
   useEffect(() => {
-    // Subscribe to widgetStore layout changes
     const unsub = useWidgetStore.subscribe(
       (state, prevState) => {
         if (state.layouts !== prevState.layouts && initialized.current) {
+          // localStorage — instant boot on next load
+          try { localStorage.setItem(LS_KEY, JSON.stringify(state.layouts)); } catch {}
+          // appSettings — triggers auto-save to IDB + cloud
           useUiStore.getState().updateSetting('widgetLayouts', state.layouts);
         }
       }

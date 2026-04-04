@@ -670,7 +670,7 @@ function NovaHeader({ onDraftPanelToggle }) {
         </>
       )}
       {!isTablet && (
-      <nav style={{ display: "flex", alignItems: "center", gap: 2 }}>
+      <nav style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 2, flex: 1 }}>
         {NAV_ITEMS.filter(item => !item.managerOnly || isManager || !hasOrg).map(item => (
           <NavLink
             key={item.key}

@@ -1270,6 +1270,30 @@ export default function TakeoffsPage() {
         }
         return;
       }
+
+      // Delete / Backspace — remove selected takeoff (skip when typing)
+      if ((e.key === "Delete" || e.key === "Backspace") && !isTyping) {
+        if (tkSelectedTakeoffId && tkMeasureState !== "measuring") {
+          e.preventDefault();
+          useTakeoffsStore.getState().removeTakeoff(tkSelectedTakeoffId);
+          setTkSelectedTakeoffId(null);
+        }
+        return;
+      }
+
+      // Ctrl/Cmd + D — duplicate selected takeoff (skip when typing)
+      if ((e.metaKey || e.ctrlKey) && e.key === "d" && !isTyping) {
+        if (tkSelectedTakeoffId) {
+          e.preventDefault();
+          const allTos = useTakeoffsStore.getState().takeoffs;
+          const src = allTos.find(t => t.id === tkSelectedTakeoffId);
+          if (src) {
+              const dup = { ...src, id: uid(), linkedItemId: "", measurements: [] };
+            useTakeoffsStore.getState().setTakeoffs([...allTos, dup]);
+          }
+        }
+        return;
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);

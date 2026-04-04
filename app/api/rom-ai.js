@@ -7,7 +7,12 @@ import { checkRateLimit } from "./lib/rateLimiter.js";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const MAX_BODY_BYTES = 20 * 1024 * 1024; // 20 MB (smaller than auth'd proxy)
-const ALLOWED_MODELS = ["claude-3-5-haiku-20241022", "claude-haiku-3-5-20241022"];
+const ALLOWED_MODELS = ["claude-haiku-4-5-20251001"];
+const MODEL_REMAP = {
+  "claude-3-5-haiku-20241022": "claude-haiku-4-5-20251001",
+  "claude-haiku-3-5-20241022": "claude-haiku-4-5-20251001",
+  "claude-3-haiku-20240307": "claude-haiku-4-5-20251001",
+};
 
 function readRawBody(req) {
   return new Promise((resolve, reject) => {
@@ -56,7 +61,8 @@ export default async function handler(req, res) {
   if (!messages || !Array.isArray(messages)) return res.status(400).json({ error: "messages required" });
 
   // Force Haiku model only — prevent abuse of expensive models
-  const safeModel = ALLOWED_MODELS.includes(model) ? model : "claude-3-5-haiku-20241022";
+  const remapped = MODEL_REMAP[model] || model;
+  const safeModel = ALLOWED_MODELS.includes(remapped) ? remapped : "claude-haiku-4-5-20251001";
 
   const body = { model: safeModel, max_tokens: Math.min(max_tokens || 1000, 2000), messages };
   if (system) body.system = system;

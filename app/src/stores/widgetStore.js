@@ -4,7 +4,25 @@ import { WIDGET_REGISTRY, computePresetSize } from "@/constants/widgetRegistry";
 
 /* ────────────────────────────────────────────────────────
    widgetStore — layout state for the widget dashboard
+
+   Boot order:
+   1. Try localStorage (sync, instant — no flash)
+   2. Fall back to DEFAULT_LAYOUT
+   3. useWidgetLayoutSync hydrates from IDB/cloud later
    ──────────────────────────────────────────────────────── */
+
+const LS_KEY = "nova-widget-layouts";
+
+function loadBootLayout() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed?.lg?.length > 0) return parsed;
+    }
+  } catch { /* corrupted — fall through */ }
+  return null;
+}
 
 const DEFAULT_LAYOUT = [
   // Pipeline hero — full width across top
@@ -26,7 +44,7 @@ const DEFAULT_LAYOUT = [
 ];
 
 export const useWidgetStore = create((set, _get) => ({
-  layouts: { lg: DEFAULT_LAYOUT },
+  layouts: loadBootLayout() || { lg: DEFAULT_LAYOUT },
   editMode: false,
   movingWidgetId: null,
   activeMenuId: null,

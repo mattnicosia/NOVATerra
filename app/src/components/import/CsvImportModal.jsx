@@ -14,7 +14,7 @@ import { parseCSV } from "@/utils/csvParser";
 import { parseXLSX } from "@/utils/xlsxParser";
 import { isBluebeamXml, parseBluebeamXml } from "@/utils/bluebeamXmlParser";
 import { OMNI_FIELDS, suggestColumnMappings, heuristicMapping, applyMappings } from "@/utils/csvColumnMapper";
-import NovaOrb from "@/components/dashboard/NovaOrb";
+// NovaOrb removed — backed up in _backup/
 import Modal from "@/components/shared/Modal";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
@@ -502,7 +502,7 @@ export default function CsvImportModal({ onClose, mode }) {
                 color: C.accent,
               }}
             >
-              <NovaOrb size={18} scheme="nova" /> NOVA is mapping your columns...
+              <Ic d={I.ai} size={14} color={C.accent} /> NOVA is mapping your columns...
             </div>
           )}
 

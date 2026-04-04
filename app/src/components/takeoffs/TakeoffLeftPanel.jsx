@@ -1899,26 +1899,29 @@ export default function TakeoffLeftPanel({
                                                   }}
                                                   title="More actions"
                                                   style={{
-                                                    width: 20,
-                                                    height: 20,
-                                                    border: "none",
+                                                    width: 24,
+                                                    height: 24,
+                                                    border: actionMenuId === to.id ? `1px solid ${C.accent}40` : `1px solid ${C.border}`,
                                                     background:
-                                                      actionMenuId === to.id ? `${C.accent}18` : "transparent",
-                                                    color: actionMenuId === to.id ? C.accent : C.textDim,
-                                                    borderRadius: 3,
+                                                      actionMenuId === to.id ? `${C.accent}18` : C.bg2,
+                                                    color: actionMenuId === to.id ? C.accent : C.textMuted,
+                                                    borderRadius: 5,
                                                     display: "flex",
                                                     alignItems: "center",
                                                     justifyContent: "center",
-                                                    fontSize: 14,
+                                                    fontSize: 12,
                                                     fontWeight: 700,
-                                                    letterSpacing: 1,
-                                                    transition: "transform 0.15s ease",
+                                                    letterSpacing: 2,
+                                                    transition: "all 0.15s ease",
                                                     cursor: "pointer",
+                                                    flexShrink: 0,
+                                                    position: "relative",
+                                                    zIndex: 2,
                                                   }}
-                                                  onMouseEnter={e => (e.currentTarget.style.transform = "scale(1.1)")}
-                                                  onMouseLeave={e => (e.currentTarget.style.transform = "scale(1)")}
+                                                  onMouseEnter={e => { e.currentTarget.style.borderColor = C.accent + "60"; e.currentTarget.style.color = C.accent; }}
+                                                  onMouseLeave={e => { e.currentTarget.style.borderColor = actionMenuId === to.id ? C.accent + "40" : C.border; e.currentTarget.style.color = actionMenuId === to.id ? C.accent : C.textMuted; }}
                                                 >
-                                                  ...
+                                                  ···
                                                 </button>
                                               </div>
                                               {/* Floating action menu */}
@@ -2127,7 +2130,7 @@ export default function TakeoffLeftPanel({
                                                   top: "100%",
                                                   left: 0,
                                                   right: 0,
-                                                  zIndex: T.z.dropdown,
+                                                  zIndex: 50,
                                                   padding: "8px 10px 8px 27px",
                                                   background: `linear-gradient(180deg, ${C.bg1}, ${C.bg2}30)`,
                                                   border: `1px solid ${C.border}`,

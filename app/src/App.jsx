@@ -71,6 +71,8 @@ const PlanRoomPage = lazy(() => import("@/pages/PlanRoomPage"));
 const TakeoffsPage = lazy(() => import("@/pages/TakeoffsPage"));
 const AlternatesPage = lazy(() => import("@/pages/AlternatesPage"));
 const ScheduleOfValuesPage = lazy(() => import("@/pages/ScheduleOfValuesPage"));
+const ReviewPage = lazy(() => import("@/pages/ReviewPage"));
+const DocumentsPage = lazy(() => import("@/pages/DocumentsPage"));
 // CostDatabasePage now embedded inside CorePage — lazy import removed
 const AssembliesPage = lazy(() => import("@/pages/AssembliesPage"));
 const ReportsPage = lazy(() => import("@/pages/ReportsPage"));
@@ -760,8 +762,8 @@ function AppContent() {
                   path="/estimate/:id/documents"
                   element={
                     <EstimateLoader>
-                      <RouteErrorBoundary pageName="Plan Room">
-                        <PlanRoomPage />
+                      <RouteErrorBoundary pageName="Documents">
+                        <DocumentsPage />
                       </RouteErrorBoundary>
                     </EstimateLoader>
                   }
@@ -799,15 +801,17 @@ function AppContent() {
                   }
                 />
                 <Route
-                  path="/estimate/:id/sov"
+                  path="/estimate/:id/review"
                   element={
                     <EstimateLoader>
-                      <RouteErrorBoundary pageName="Schedule of Values">
-                        <ScheduleOfValuesPage />
+                      <RouteErrorBoundary pageName="Review">
+                        <ReviewPage />
                       </RouteErrorBoundary>
                     </EstimateLoader>
                   }
                 />
+                {/* SOV moved into Review page — redirect old URLs */}
+                <Route path="/estimate/:id/sov" element={<Navigate to="../review" replace />} />
                 <Route
                   path="/estimate/:id/reports"
                   element={
@@ -1215,15 +1219,7 @@ export default function App() {
     );
   }
 
-  // Sphere test page — dev only
-  if (window.location.pathname.startsWith("/sphere-test")) {
-    const SphereTestPage = lazy(() => import("@/pages/SphereTestPage"));
-    return (
-      <Suspense fallback={<AuthLoading />}>
-        <SphereTestPage />
-      </Suspense>
-    );
-  }
+  // Sphere test page removed — backed up in _backup/
 
   // Login mockup — dev only (3D sphere hero concept)
   if (window.location.pathname.startsWith("/login-mockup")) {

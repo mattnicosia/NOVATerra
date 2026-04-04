@@ -28,8 +28,7 @@ import DocumentsPanel from "@/components/planroom/DocumentsPanel";
 import FactorBar from "@/components/planroom/FactorBar";
 const DrawingOverlay = lazy(() => import("@/components/planroom/DrawingOverlay"));
 import Modal from "@/components/shared/Modal";
-import NovaOrb from "@/components/dashboard/NovaOrb";
-import NovaSceneLazy from "@/components/nova/NovaSceneLazy";
+// NovaOrb + NovaSceneLazy removed — backed up in _backup/
 // EmptyState available for future use
 // import EmptyState from "@/components/shared/EmptyState";
 
@@ -396,7 +395,7 @@ export default function PlanRoomPage() {
       >
         <div style={{ maxWidth: 520, width: "100%", textAlign: "center" }}>
           <div style={{ marginBottom: 24, display: "flex", justifyContent: "center" }}>
-            <NovaSceneLazy width={48} height={48} size={0.8} intensity={0.6} lightweight />
+            <Ic d={I.ai} size={32} color={C.accent} />
           </div>
           <h1
             style={{
@@ -425,7 +424,7 @@ export default function PlanRoomPage() {
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                <NovaOrb size={22} scheme="nova" />
+                <Ic d={I.ai} size={18} color={C.accent} />
                 <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>NOVA is analyzing your drawings...</div>
               </div>
               {scanProgress.phase && (
@@ -691,121 +690,7 @@ export default function PlanRoomPage() {
           </div>
         </div>
 
-        {/* ─── Collapsible Upload Zone ─── */}
-        {documents.length === 0 || uploadExpanded ? (
-          <div
-            onDragOver={onDragOver}
-            onDragLeave={onDragLeave}
-            onDrop={onDrop}
-            onClick={() => fileInputRef.current?.click()}
-            style={{
-              ...card(C),
-              padding: documents.length === 0 ? T.space[6] : T.space[4],
-              textAlign: "center",
-              cursor: "pointer",
-              border: dragOver ? `2px dashed ${C.accent}` : `2px dashed ${C.border}`,
-              background: dragOver ? `${C.accent}08` : C.glassBg,
-              transition: "all 0.2s ease",
-              marginBottom: T.space[4],
-            }}
-          >
-            {documents.length === 0 ? (
-              <>
-                <div
-                  style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: T.radius.md,
-                    background: `${C.accent}12`,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    margin: "0 auto",
-                    marginBottom: T.space[3],
-                  }}
-                >
-                  <Ic d={I.upload} size={22} color={C.accent} />
-                </div>
-                <div
-                  style={{
-                    fontSize: T.fontSize.sm,
-                    fontWeight: T.fontWeight.semibold,
-                    color: C.text,
-                    marginBottom: T.space[1],
-                  }}
-                >
-                  {dragOver ? "Drop files here" : "Drop files here or click to browse"}
-                </div>
-                <div style={{ fontSize: T.fontSize.xs, color: C.textDim }}>
-                  PDF drawings, specifications, addenda, or any project document
-                </div>
-              </>
-            ) : (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center" }}>
-                <Ic d={I.upload} size={16} color={C.accent} />
-                <span style={{ fontSize: 12, fontWeight: 600, color: C.text }}>
-                  {dragOver ? "Drop files here" : "Drop more files or click to browse"}
-                </span>
-                <button
-                  onClick={e => {
-                    e.stopPropagation();
-                    setUploadExpanded(false);
-                  }}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    cursor: "pointer",
-                    padding: "2px 6px",
-                    color: C.textDim,
-                    fontSize: 10,
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
-            )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept=".pdf,.jpg,.jpeg,.png,.tif,.tiff,.doc,.docx,.xls,.xlsx,.ifc,.dwg,.dxf,image/*"
-              style={{ display: "none" }}
-              onChange={e => {
-                handleUpload(Array.from(e.target.files || []));
-                e.target.value = "";
-              }}
-            />
-          </div>
-        ) : (
-          <button
-            onClick={() => setUploadExpanded(true)}
-            style={bt(C, {
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              fontSize: 11,
-              fontWeight: 500,
-              color: C.accent,
-              padding: "6px 14px",
-              marginBottom: T.space[4],
-              background: `${C.accent}06`,
-              border: `1px solid ${C.accent}20`,
-              borderRadius: T.radius.sm,
-              cursor: "pointer",
-              transition: "all 0.15s ease",
-            })}
-            onMouseEnter={e => {
-              e.currentTarget.style.background = `${C.accent}12`;
-              e.currentTarget.style.borderColor = `${C.accent}40`;
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background = `${C.accent}06`;
-              e.currentTarget.style.borderColor = `${C.accent}20`;
-            }}
-          >
-            <Ic d={I.upload} size={13} color={C.accent} /> Add More Documents
-          </button>
-        )}
+        {/* Upload zone removed — lives on Documents page now */}
 
         {/* Scan progress */}
         {scanProgress.phase && (
@@ -836,7 +721,7 @@ export default function PlanRoomPage() {
                   gap: 6,
                 }}
               >
-                <NovaOrb size={18} scheme="nova" />
+                <Ic d={I.ai} size={14} color={C.accent} />
                 {scanProgress.message}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -925,8 +810,20 @@ export default function PlanRoomPage() {
           </div>
         )}
 
-        {/* ─── Documents Panel (search, folders, tags, versions, transmittals) ─── */}
-        <DocumentsPanel onRemove={removeDocument} />
+        {/* ─── Documents link (panel moved to Documents page) ─── */}
+        {documents.length > 0 && (
+          <div style={{ marginBottom: T.space[4] }}>
+            <button
+              onClick={() => navigate(`/estimate/${estId}/documents`)}
+              style={bt(C)}
+            >
+              <Ic d={I.folder} size={14} color={C.accent} />
+              <span style={{ marginLeft: 6, fontSize: 11 }}>
+                Manage Documents ({documents.length} files)
+              </span>
+            </button>
+          </div>
+        )}
 
         {/* Reset All confirmation */}
         {showResetConfirm && (
@@ -1342,7 +1239,7 @@ export default function PlanRoomPage() {
                       border: `1px solid ${C.accent}20`,
                     }}
                   >
-                    <NovaOrb size={20} scheme="nova" />
+                    <Ic d={I.ai} size={16} color={C.accent} />
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 11, fontWeight: 600, color: C.text }}>
                         {drawings.length} drawings ready for discovery
@@ -1916,285 +1813,7 @@ export default function PlanRoomPage() {
               </div>
             )}
 
-            {/* ─── Drawing Index Card ─── */}
-            {drawings.length > 0 && (
-              <div style={{ ...card(C), padding: T.space[5] }}>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    marginBottom: T.space[3],
-                    cursor: "pointer",
-                  }}
-                  onClick={() => setDrawingsExpanded(!drawingsExpanded)}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: T.space[2] }}>
-                    <Ic d={I.layers} size={16} color={C.blue} />
-                    <span style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.bold, color: C.text }}>
-                      Drawing Index
-                    </span>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: T.space[2] }}>
-                    <span
-                      style={{
-                        fontSize: 10,
-                        color: labeledCount === drawings.length ? C.green : C.textMuted,
-                        fontWeight: 600,
-                      }}
-                    >
-                      {labeledCount}/{drawings.length} labeled
-                    </span>
-                    <span
-                      style={{
-                        fontSize: 10,
-                        color: scaledCount === drawings.length ? C.green : C.textMuted,
-                        fontWeight: 600,
-                      }}
-                    >
-                      {scaledCount}/{drawings.length} scaled
-                    </span>
-                    <Ic
-                      d={I.chevron}
-                      size={10}
-                      color={C.textDim}
-                      style={{
-                        transform: drawingsExpanded ? "rotate(90deg)" : "rotate(0deg)",
-                        transition: "transform 0.2s",
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Discipline filter pills */}
-                {Object.keys(disciplines).length > 1 && (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: T.space[2] }}>
-                    <button
-                      onClick={e => {
-                        e.stopPropagation();
-                        setActiveDiscipline(null);
-                      }}
-                      style={{
-                        padding: "2px 8px",
-                        borderRadius: T.radius.full,
-                        background: !activeDiscipline ? `${C.blue}18` : `${C.blue}08`,
-                        border: !activeDiscipline ? `1px solid ${C.blue}30` : "1px solid transparent",
-                        fontSize: 10,
-                        fontWeight: !activeDiscipline ? 700 : 500,
-                        color: C.blue,
-                        cursor: "pointer",
-                      }}
-                    >
-                      All ({drawings.length})
-                    </button>
-                    {Object.entries(disciplines)
-                      .sort((a, b) => b[1] - a[1])
-                      .map(([name, count]) => (
-                        <button
-                          key={name}
-                          onClick={e => {
-                            e.stopPropagation();
-                            setActiveDiscipline(activeDiscipline === name ? null : name);
-                          }}
-                          style={{
-                            padding: "2px 8px",
-                            borderRadius: T.radius.full,
-                            background: activeDiscipline === name ? `${C.blue}18` : `${C.blue}08`,
-                            border: activeDiscipline === name ? `1px solid ${C.blue}30` : "1px solid transparent",
-                            fontSize: 10,
-                            fontWeight: activeDiscipline === name ? 700 : 500,
-                            color: C.blue,
-                            cursor: "pointer",
-                          }}
-                        >
-                          {name}: {count}
-                        </button>
-                      ))}
-                  </div>
-                )}
-
-                <div
-                  style={{
-                    maxHeight: drawingsExpanded ? "none" : 260,
-                    overflowY: drawingsExpanded ? "visible" : "auto",
-                    transition: "max-height 0.3s ease",
-                  }}
-                >
-                  {drawings
-                    .filter(d => {
-                      if (!activeDiscipline) return true;
-                      const num = d.sheetNumber || "";
-                      const prefix = num.match(/^([A-Z])/i)?.[1]?.toUpperCase() || "?";
-                      const labels = {
-                        A: "Architectural",
-                        S: "Structural",
-                        M: "Mechanical",
-                        E: "Electrical",
-                        P: "Plumbing",
-                        L: "Landscape",
-                        C: "Civil",
-                        G: "General",
-                      };
-                      return (labels[prefix] || "Other") === activeDiscipline;
-                    })
-                    .map(d => (
-                      <div
-                        key={d.id}
-                        className="nav-item"
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: T.space[2],
-                          padding: "5px 4px",
-                          borderBottom: `1px solid ${C.border}08`,
-                          fontSize: T.fontSize.xs,
-                          borderRadius: 4,
-                          transition: "background 0.15s",
-                          cursor: "pointer",
-                        }}
-                        onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}06`)}
-                        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-                      >
-                        {/* Thumbnail — click to preview */}
-                        <div
-                          onClick={() => setPreviewDrawingId(d.id)}
-                          title="Click to preview"
-                          style={{
-                            width: 48,
-                            height: 32,
-                            borderRadius: 3,
-                            overflow: "hidden",
-                            background: C.bg2,
-                            flexShrink: 0,
-                            cursor: "pointer",
-                            border: `1px solid ${C.border}20`,
-                            transition: "border-color 0.15s, box-shadow 0.15s",
-                          }}
-                          onMouseEnter={e => {
-                            e.currentTarget.style.borderColor = C.accent + "50";
-                            e.currentTarget.style.boxShadow = `0 0 6px ${C.accent}20`;
-                          }}
-                          onMouseLeave={e => {
-                            e.currentTarget.style.borderColor = C.border + "20";
-                            e.currentTarget.style.boxShadow = "none";
-                          }}
-                        >
-                          {pdfCanvases[d.id] ? (
-                            <img
-                              src={pdfCanvases[d.id]}
-                              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                            />
-                          ) : d.type === "image" && d.data ? (
-                            <img src={d.data} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                          ) : (
-                            <span
-                              style={{
-                                fontSize: 7,
-                                color: C.textDim,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                height: "100%",
-                              }}
-                            >
-                              PDF
-                            </span>
-                          )}
-                        </div>
-                        <input
-                          value={d.sheetNumber || ""}
-                          placeholder="—"
-                          onChange={e => useDrawingsStore.getState().updateDrawing(d.id, "sheetNumber", e.target.value)}
-                          onClick={e => e.stopPropagation()}
-                          style={{
-                            fontFamily: T.font.sans,
-                            fontWeight: 700,
-                            color: C.accent,
-                            width: 70,
-                            fontSize: 10,
-                            background: "transparent",
-                            border: `1px solid transparent`,
-                            borderRadius: 3,
-                            padding: "2px 4px",
-                            outline: "none",
-                            flexShrink: 0,
-                            transition: "border-color 0.15s, background 0.15s",
-                          }}
-                          onFocus={e => {
-                            e.target.style.borderColor = C.accent + "4D";
-                            e.target.style.background = `${C.accent}06`;
-                          }}
-                          onBlur={e => {
-                            e.target.style.borderColor = "transparent";
-                            e.target.style.background = "transparent";
-                          }}
-                        />
-                        <input
-                          value={d.sheetTitle || ""}
-                          placeholder={d.label || "Untitled"}
-                          onChange={e => useDrawingsStore.getState().updateDrawing(d.id, "sheetTitle", e.target.value)}
-                          onClick={e => e.stopPropagation()}
-                          style={{
-                            flex: 1,
-                            color: C.text,
-                            fontSize: 10,
-                            background: "transparent",
-                            border: `1px solid transparent`,
-                            borderRadius: 3,
-                            padding: "2px 4px",
-                            outline: "none",
-                            minWidth: 0,
-                            transition: "border-color 0.15s, background 0.15s",
-                          }}
-                          onFocus={e => {
-                            e.target.style.borderColor = C.border;
-                            e.target.style.background = `${C.accent}06`;
-                          }}
-                          onBlur={e => {
-                            e.target.style.borderColor = "transparent";
-                            e.target.style.background = "transparent";
-                          }}
-                        />
-                        {outlines[d.id] && (
-                          <span
-                            style={{
-                              fontSize: 8,
-                              fontWeight: 600,
-                              color: C.green,
-                              background: `${C.green}12`,
-                              padding: "1px 5px",
-                              borderRadius: 3,
-                            }}
-                          >
-                            OUTLINE
-                          </span>
-                        )}
-                        {drawingScales[d.id] && (
-                          <span style={{ fontSize: 9, color: C.green, fontWeight: 500 }}>
-                            {getScaleLabel(drawingScales[d.id])}
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                </div>
-                {!drawingsExpanded && drawings.length > 8 && (
-                  <div
-                    onClick={() => setDrawingsExpanded(true)}
-                    style={{
-                      textAlign: "center",
-                      padding: "6px 0",
-                      fontSize: 10,
-                      color: C.accent,
-                      cursor: "pointer",
-                      fontWeight: 600,
-                      marginTop: 2,
-                    }}
-                  >
-                    Show all {drawings.length} drawings
-                  </div>
-                )}
-              </div>
-            )}
+            {/* Drawing Index moved to Documents page */}
 
             {/* ─── Drawing Lightbox Preview ─── */}
             {previewDrawingId &&
