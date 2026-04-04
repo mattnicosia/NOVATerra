@@ -17,6 +17,7 @@ import ProposalSection from '@/components/proposal/ProposalSection';
 import ProposalBuilder from '@/components/proposal/ProposalBuilder';
 import { getTradeLabel, getTradeSortOrder } from '@/constants/tradeGroupings';
 import SendProposalModal from '@/components/reports/SendProposalModal';
+import ProposalShareModal from '@/components/proposal/ProposalShareModal';
 import { exportEstimateXlsx } from '@/utils/exportXlsx';
 import { buildProposalStyles, loadProposalFont } from '@/constants/proposalStyles';
 
@@ -40,6 +41,7 @@ export default function ReportsPage() {
   const reportType = useReportsStore(s => s.reportType);
   const setReportType = useReportsStore(s => s.setReportType);
   const [sendModalOpen, setSendModalOpen] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
   const sectionOrder = useReportsStore(s => s.sectionOrder);
   const sectionVisibility = useReportsStore(s => s.sectionVisibility);
   const activeEstimateId = useEstimatesStore(s => s.activeEstimateId);
@@ -246,9 +248,14 @@ export default function ReportsPage() {
             <Ic d={I.download} size={13} color={C.textMuted} sw={1.5} /> XLSX
           </button>
           {(reportType === "proposal" || reportType === "sov") && (
-            <button className="accent-btn" onClick={() => setSendModalOpen(true)} style={bt(C, { background: C.green, color: "#fff", padding: "7px 14px", fontSize: 11 })}>
-              <Ic d={I.send} size={13} color="#fff" sw={1.5} /> Email
-            </button>
+            <>
+              <button className="accent-btn" onClick={() => setShareModalOpen(true)} style={bt(C, { background: C.gradient || C.accent, color: "#fff", padding: "7px 14px", fontSize: 11 })}>
+                <Ic d={I.send} size={13} color="#fff" sw={1.5} /> Share Live
+              </button>
+              <button className="accent-btn" onClick={() => setSendModalOpen(true)} style={bt(C, { background: C.green, color: "#fff", padding: "7px 14px", fontSize: 11 })}>
+                <Ic d={I.send} size={13} color="#fff" sw={1.5} /> Email
+              </button>
+            </>
           )}
         </div>
 
@@ -771,6 +778,11 @@ export default function ReportsPage() {
       {/* Send Proposal Modal */}
       {sendModalOpen && (
         <SendProposalModal onClose={() => setSendModalOpen(false)} totals={totals} reportType={reportType} />
+      )}
+
+      {/* Share as Living Proposal Modal */}
+      {shareModalOpen && (
+        <ProposalShareModal onClose={() => setShareModalOpen(false)} />
       )}
     </div>
   );

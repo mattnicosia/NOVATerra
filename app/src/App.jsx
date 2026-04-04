@@ -1316,6 +1316,16 @@ export default function App() {
     );
   }
 
+  // Living Proposal viewer — public, no auth required
+  if (window.location.pathname.startsWith("/p/")) {
+    const ProposalViewerPage = lazy(() => import("@/pages/ProposalViewerPage"));
+    return (
+      <Suspense fallback={<div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ fontSize: 13, color: "#999" }}>Loading...</div></div>}>
+        <ProposalViewerPage />
+      </Suspense>
+    );
+  }
+
   // Public portal — bypasses auth gate entirely (subs don't need accounts)
   if (window.location.pathname.startsWith("/portal/")) {
     return (
