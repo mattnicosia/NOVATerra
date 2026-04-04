@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "./lib/supabaseAdmin.js";
 import { cors } from "./lib/cors.js";
+import crypto from "crypto";
 
 export default async function handler(req, res) {
   if (cors(req, res)) return;
@@ -19,16 +20,12 @@ export default async function handler(req, res) {
   }
 
   // Generate unique token (URL-safe, 12 chars)
-  const token = Array.from(crypto.getRandomValues(new Uint8Array(9)))
-    .map(b => "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"[b % 64])
-    .join("");
+  const token = crypto.randomBytes(9).toString("base64url").slice(0, 12);
 
   // Optional password hash
   let passwordHash = null;
   if (password) {
-    const enc = new TextEncoder();
-    const hash = await crypto.subtle.digest("SHA-256", enc.encode(password));
-    passwordHash = btoa(String.fromCharCode(...new Uint8Array(hash)));
+    passwordHash = crypto.createHash("sha256").update(password).digest("base64");
   }
 
   // Compute expiry

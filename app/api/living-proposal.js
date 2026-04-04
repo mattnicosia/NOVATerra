@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "./lib/supabaseAdmin.js";
 import { cors } from "./lib/cors.js";
+import crypto from "crypto";
 
 export default async function handler(req, res) {
   if (cors(req, res)) return;
@@ -29,9 +30,7 @@ export default async function handler(req, res) {
     if (proposal.password_hash) {
       const pwd = req.query.pwd || req.headers["x-proposal-password"];
       if (!pwd) return res.status(403).json({ error: "Password required", passwordRequired: true });
-      const enc = new TextEncoder();
-      const hash = await crypto.subtle.digest("SHA-256", enc.encode(pwd));
-      const hashB64 = btoa(String.fromCharCode(...new Uint8Array(hash)));
+      const hashB64 = crypto.createHash("sha256").update(pwd).digest("base64");
       if (hashB64 !== proposal.password_hash) {
         return res.status(403).json({ error: "Incorrect password", passwordRequired: true });
       }
