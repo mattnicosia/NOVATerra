@@ -27,8 +27,8 @@ const JOURNEY_STAGES = [
   { key: "documents",  label: "Docs",      defaultPath: "documents",  subTabs: [] },
   { key: "discover",   label: "Discovery", defaultPath: "plans",      subTabs: [] },
   { key: "estimate",   label: "Estimate",  defaultPath: "takeoffs",   subTabs: [] },
-  { key: "review",     label: "Review",    defaultPath: "review",     subTabs: [] },
   { key: "network",    label: "Network",   defaultPath: "network",    subTabs: [] },
+  { key: "review",     label: "Review",    defaultPath: "review",     subTabs: [] },
   { key: "propose",    label: "Reports",   defaultPath: "reports",    subTabs: [] },
 ];
 

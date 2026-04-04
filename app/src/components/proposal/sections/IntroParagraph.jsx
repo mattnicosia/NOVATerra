@@ -74,22 +74,7 @@ Rules:
         onBlur={e => { e.target.style.borderColor = "transparent"; }}
         className="no-print-border"
       />
-      <button
-        onClick={generateCoverLetter}
-        disabled={generating}
-        className="no-print"
-        style={{
-          position: "absolute", top: -2, right: 0,
-          fontSize: 9, fontWeight: 600, padding: "3px 8px",
-          border: "1px solid #ddd", borderRadius: 4,
-          background: generating ? "#f3f4f6" : "#fff",
-          color: generating ? "#999" : "#6366f1",
-          cursor: generating ? "wait" : "pointer",
-          fontFamily: T.font.sans,
-        }}
-      >
-        {generating ? "Writing..." : "AI Generate"}
-      </button>
+      {/* AI Generate button removed — use Cover Letter section instead */}
     </div>
   );
 }
