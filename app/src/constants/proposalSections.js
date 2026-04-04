@@ -1,6 +1,7 @@
 import { I } from './icons';
 
 export const PROPOSAL_SECTIONS = [
+  { id: "coverLetter", label: "Cover Letter", icon: I.send },
   { id: "letterhead", label: "Letterhead", icon: I.layers, required: true },
   { id: "recipient", label: "Recipient", icon: I.user, required: true },
   { id: "greeting", label: "Greeting", icon: I.send },
@@ -21,7 +22,7 @@ export const PROPOSAL_SECTIONS = [
 export const DEFAULT_SECTION_ORDER = PROPOSAL_SECTIONS.map(s => s.id);
 
 export const DEFAULT_SECTION_VISIBILITY = Object.fromEntries(
-  PROPOSAL_SECTIONS.map(s => [s.id, true])
+  PROPOSAL_SECTIONS.map(s => [s.id, s.id === "coverLetter" ? false : true])
 );
 
 export function isPageBreak(id) { return id.startsWith("pagebreak_"); }

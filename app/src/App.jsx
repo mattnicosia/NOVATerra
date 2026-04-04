@@ -56,6 +56,7 @@ const CommandPalette = lazy(() => import("@/components/shared/CommandPalette"));
 const FeedbackWidget = lazy(() => import("@/components/beta/FeedbackWidget"));
 const SpotlightOverlay = lazy(() => import("@/components/onboarding/SpotlightOverlay"));
 const ConflictMergeModal = lazy(() => import("@/components/shared/ConflictMergeModal"));
+const BetaGate = lazy(() => import("@/components/shared/BetaGate"));
 const AutopilotPanel = lazy(() => import("@/components/nova/AutopilotPanel"));
 // SideRail removed — board voted to keep top header, style it per theme instead
 
@@ -969,27 +970,141 @@ function AppContent() {
   );
 }
 
-// Sync status bar — subtle bottom indicator during active cloud sync
+// Sync status pill — bottom-right indicator with manual sync trigger
 function SyncStatusBar() {
   const syncStatus = useUiStore(s => s.cloudSyncStatus);
+  const syncLastFullAt = useUiStore(s => s.cloudSyncLastFullAt);
+  const syncError = useUiStore(s => s.cloudSyncError);
   const C = useTheme();
-  if (syncStatus === "idle" || syncStatus === "synced") return null;
+  const T = C.T;
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isForceSyncing, setIsForceSyncing] = useState(false);
+  const [hovered, setHovered] = useState(false);
+
+  // Network status detection
+  useEffect(() => {
+    const goOnline = () => {
+      setIsOnline(true);
+      // Auto-sync when coming back online
+      import("@/hooks/useCloudSync").then(m => m.retryCloudSync()).catch(() => {});
+    };
+    const goOffline = () => setIsOnline(false);
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+  }, []);
+
+  // Relative time display
+  const getRelativeTime = () => {
+    if (!syncLastFullAt) return null;
+    const diff = Date.now() - new Date(syncLastFullAt).getTime();
+    if (diff < 60_000) return "just now";
+    if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
+    if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
+    return `${Math.floor(diff / 86_400_000)}d ago`;
+  };
+
+  // Force sync handler
+  const handleForceSync = async () => {
+    if (isForceSyncing || !isOnline) return;
+    setIsForceSyncing(true);
+    try {
+      const { retryCloudSync } = await import("@/hooks/useCloudSync");
+      await retryCloudSync();
+    } catch {
+      // Errors are handled by cloudSync internals
+    } finally {
+      setIsForceSyncing(false);
+    }
+  };
+
+  // Determine display state
+  const isSyncing = syncStatus === "syncing" || isForceSyncing;
   const isError = syncStatus === "error";
+  const isOffline = !isOnline;
+
+  let label, dotColor, pillBg;
+  if (isOffline) {
+    label = "Offline";
+    dotColor = "#8E8E93";
+    pillBg = "rgba(142,142,147,0.12)";
+  } else if (isSyncing) {
+    label = "Syncing...";
+    dotColor = C.accent || "#6366f1";
+    pillBg = `${C.accent || "#6366f1"}15`;
+  } else if (isError) {
+    label = "Sync error";
+    dotColor = C.red || "#EF4444";
+    pillBg = `${C.red || "#EF4444"}15`;
+  } else {
+    const rel = getRelativeTime();
+    label = rel ? `Synced ${rel}` : "Synced";
+    dotColor = "#34C759";
+    pillBg = "rgba(52,199,89,0.08)";
+  }
+
   return (
-    <div style={{
-      position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 9990,
-      height: 3, overflow: "hidden",
-      background: isError ? `${C.red || "#EF4444"}30` : "transparent",
-    }}>
-      {!isError && (
+    <>
+      <div
+        onClick={handleForceSync}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        title={
+          isOffline ? "No internet connection" :
+          isError ? (syncError || "Sync failed — click to retry") :
+          isSyncing ? "Syncing with cloud..." :
+          "Click to sync now"
+        }
+        style={{
+          position: "fixed",
+          bottom: 14,
+          right: 16,
+          zIndex: 9990,
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "5px 12px 5px 10px",
+          borderRadius: 20,
+          background: hovered ? (pillBg.replace(/[\d.]+\)$/, m => {
+            const n = parseFloat(m); return (n + 0.08).toFixed(2) + ")";
+          })) : pillBg,
+          border: `1px solid ${isOffline ? "rgba(142,142,147,0.15)" : isError ? `${dotColor}25` : "rgba(255,255,255,0.06)"}`,
+          cursor: isOffline ? "default" : "pointer",
+          transition: "all 0.2s ease",
+          fontFamily: T?.font?.sans || "system-ui, sans-serif",
+          userSelect: "none",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+        }}
+      >
+        {/* Status dot */}
         <div style={{
-          height: 3, width: "30%",
-          background: `linear-gradient(90deg, transparent, ${C.accent}80, transparent)`,
-          animation: "syncSlide 1.5s ease-in-out infinite",
+          width: 7,
+          height: 7,
+          borderRadius: "50%",
+          background: dotColor,
+          flexShrink: 0,
+          ...(isSyncing ? { animation: "syncPulse 1.2s ease-in-out infinite" } : {}),
         }} />
-      )}
-      <style>{`@keyframes syncSlide { 0% { margin-left: -30%; } 100% { margin-left: 100%; } }`}</style>
-    </div>
+        {/* Label */}
+        <span style={{
+          fontSize: 11,
+          fontWeight: 500,
+          color: isOffline ? "#8E8E93" : isError ? (C.red || "#EF4444") : (C.textMuted || "#999"),
+          letterSpacing: 0.1,
+          whiteSpace: "nowrap",
+        }}>
+          {label}
+        </span>
+      </div>
+      <style>{`
+        @keyframes syncPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        @keyframes syncSlide { 0% { margin-left: -30%; } 100% { margin-left: 100%; } }
+      `}</style>
+    </>
   );
 }
 
@@ -1333,11 +1448,20 @@ export default function App() {
     );
   }
 
+  // Beta gate: for now all users pass, but infrastructure is ready to flip
+  const isBetaApproved = true; // TODO: check user.beta_approved from Supabase profile
+
   // Normal NOVATerra app — straight to dashboard (existing users see zero changes)
   return (
     <ThemeProvider>
       <ErrorBoundary>
-        <AppContent />
+        {!isBetaApproved ? (
+          <Suspense fallback={<AuthLoading />}>
+            <BetaGate />
+          </Suspense>
+        ) : (
+          <AppContent />
+        )}
       </ErrorBoundary>
     </ThemeProvider>
   );

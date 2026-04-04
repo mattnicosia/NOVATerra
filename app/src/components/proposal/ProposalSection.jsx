@@ -1,4 +1,5 @@
 import { isPageBreak, isSpacer } from '@/constants/proposalSections';
+import CoverLetterSection from './CoverLetterSection';
 import Letterhead from './sections/Letterhead';
 import Recipient from './sections/Recipient';
 import Greeting from './sections/Greeting';
@@ -18,6 +19,7 @@ import PageBreak from './sections/PageBreak';
 import Spacer from './sections/Spacer';
 
 const SECTION_MAP = {
+  coverLetter: CoverLetterSection,
   letterhead: Letterhead,
   recipient: Recipient,
   greeting: Greeting,

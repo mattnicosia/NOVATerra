@@ -25,6 +25,10 @@ export const useReportsStore = create((set, get) => ({
     signature: "",
   },
 
+  // Cover letter text (AI-generated, user-editable, cached)
+  coverLetterText: "",
+  setCoverLetterText: text => set({ coverLetterText: text }),
+
   // Proposal builder state
   sectionOrder: [...DEFAULT_SECTION_ORDER],
   sectionVisibility: { ...DEFAULT_SECTION_VISIBILITY },
