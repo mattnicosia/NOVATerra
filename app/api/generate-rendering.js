@@ -28,7 +28,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: "gpt-image-1",
-        prompt: `Transform this architectural drawing into a photorealistic exterior rendering. This is ${buildingType ? `a ${buildingType}` : "a commercial"} building${projectName ? ` called "${projectName}"` : ""}.
+        prompt: `Transform this architectural drawing into a photorealistic exterior rendering. This is ${buildingType ? `a ${buildingType}` : "a commercial"} building.
 
 CRITICAL: Maintain the EXACT building geometry, proportions, window placement, roof shape, and architectural details from the input drawing. Do not change the building design — only add:
 - Realistic exterior materials and textures (appropriate for the building type)
@@ -37,6 +37,8 @@ CRITICAL: Maintain the EXACT building geometry, proportions, window placement, r
 - Landscaping (trees, shrubs, grass)
 - Sidewalks and street context
 - Photorealistic depth of field
+
+IMPORTANT: Do NOT include any text, signage, logos, lettering, words, or brand names on the building or anywhere in the image. Leave sign areas blank or as plain material.
 
 Style: Professional architectural visualization photograph. Eye-level street perspective. High detail, 8K quality.`,
         image: {
@@ -137,7 +139,7 @@ Respond with ONLY the description. No commentary.` },
       model: "dall-e-3",
       prompt: `Create a photorealistic architectural exterior rendering based on this EXACT description. Do NOT deviate from the described building: ${description}
 
-Eye-level street perspective. Golden hour natural lighting. Blue sky. Landscaping. Photorealistic materials. No people. Professional architectural visualization photograph.`,
+Eye-level street perspective. Golden hour natural lighting. Blue sky. Landscaping. Photorealistic materials. No people. IMPORTANT: Do NOT include any text, signage, logos, lettering, words, or brand names anywhere in the image. Leave all sign areas blank. Professional architectural visualization photograph.`,
       n: 1,
       size: "1792x1024",
       quality: "hd",
