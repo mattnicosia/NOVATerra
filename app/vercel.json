@@ -113,6 +113,18 @@
     },
     "api/send-rom-results.js": {
       "maxDuration": 10
+    },
+    "api/create-living-proposal.js": {
+      "maxDuration": 15
+    },
+    "api/living-proposal.js": {
+      "maxDuration": 15
+    },
+    "api/track-proposal-event.js": {
+      "maxDuration": 10
+    },
+    "api/accept-living-proposal.js": {
+      "maxDuration": 15
     }
   },
   "rewrites": [
