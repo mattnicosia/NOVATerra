@@ -48,14 +48,39 @@ export default function ProposalDesignPanel() {
     marginTop: 14,
   };
 
-  // Convert drawing canvas to base64
+  // Convert drawing to base64 for API
   const getDrawingBase64 = async (drawingId) => {
     const drawing = drawings.find(d => d.id === drawingId);
     if (!drawing) return null;
-    // Drawings may have imageData (base64) or pdfCanvas
-    if (drawing.imageData) return drawing.imageData;
-    const canvas = useDrawingsStore.getState().pdfCanvases[drawingId];
-    if (canvas) return canvas.toDataURL("image/png");
+
+    // Check all possible data fields
+    const raw = drawing.data || drawing.imageData || drawing.thumbnail;
+    if (raw && typeof raw === "string" && raw.startsWith("data:")) return raw;
+
+    // Try PDF canvas
+    const canvases = useDrawingsStore.getState().pdfCanvases;
+    const canvas = canvases?.[drawingId];
+    if (canvas?.toDataURL) return canvas.toDataURL("image/jpeg", 0.85);
+
+    // Try to render from the DOM (the drawing viewer canvas)
+    const canvasEl = document.querySelector(`canvas[data-drawing-id="${drawingId}"]`)
+      || document.querySelector("#drawing-canvas")
+      || document.querySelector("canvas.pdf-canvas");
+    if (canvasEl?.toDataURL) return canvasEl.toDataURL("image/jpeg", 0.85);
+
+    // Last resort: if raw is a blob URL, fetch it
+    if (raw && typeof raw === "string" && raw.startsWith("blob:")) {
+      try {
+        const resp = await fetch(raw);
+        const blob = await resp.blob();
+        return new Promise(resolve => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.readAsDataURL(blob);
+        });
+      } catch { return null; }
+    }
+
     return null;
   };
 
