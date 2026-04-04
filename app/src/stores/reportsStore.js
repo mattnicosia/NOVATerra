@@ -29,6 +29,31 @@ export const useReportsStore = create((set, get) => ({
   coverLetterText: "",
   setCoverLetterText: text => set({ coverLetterText: text }),
 
+  // Proposal design preferences
+  proposalDesign: {
+    fontId: "switzer",
+    accentId: "navy",
+    customAccent: "",
+    orientation: "portrait",
+    showSectionNumbers: true,
+    showPageNumbers: true,
+    showAccentBar: true,
+    showProjectSummary: true,
+    showDraftWatermark: false,
+  },
+  setProposalDesign: (key, value) =>
+    set(s => ({
+      proposalDesign: { ...s.proposalDesign, [key]: value },
+    })),
+  resetProposalDesign: () =>
+    set({
+      proposalDesign: {
+        fontId: "switzer", accentId: "navy", customAccent: "",
+        orientation: "portrait", showSectionNumbers: true, showPageNumbers: true,
+        showAccentBar: true, showProjectSummary: true, showDraftWatermark: false,
+      },
+    }),
+
   // Proposal builder state
   sectionOrder: [...DEFAULT_SECTION_ORDER],
   sectionVisibility: { ...DEFAULT_SECTION_VISIBILITY },

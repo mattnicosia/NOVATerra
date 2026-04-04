@@ -7,6 +7,7 @@ import Ic from '@/components/shared/Ic';
 import { I } from '@/constants/icons';
 import Modal from '@/components/shared/Modal';
 import { bt, inp } from '@/utils/styles';
+import ProposalDesignPanel from './ProposalDesignPanel';
 
 export default function ProposalBuilder({ conditionalEmpty }) {
   const C = useTheme();
@@ -29,6 +30,7 @@ export default function ProposalBuilder({ conditionalEmpty }) {
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [loadModalOpen, setLoadModalOpen] = useState(false);
   const [templateName, setTemplateName] = useState("");
+  const [activeTab, setActiveTab] = useState("sections"); // "sections" | "design"
 
   const { listRef, onPointerDown, onPointerMove, onPointerUp } = useDragReorder(reorderSection);
 
@@ -69,20 +71,56 @@ export default function ProposalBuilder({ conditionalEmpty }) {
       borderRadius: `0 ${T.radius.md}px ${T.radius.md}px 0`,
       display: "flex", flexDirection: "column", overflow: "hidden",
     }}>
-      {/* Header */}
-      <div style={{
-        display: "flex", justifyContent: "space-between", alignItems: "center",
-        padding: `${T.space[3]}px ${T.space[4]}px`, borderBottom: `1px solid ${C.border}`,
-      }}>
-        <span style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.bold, color: C.text }}>Proposal Sections</span>
-        <button className="icon-btn" onClick={toggleBuilder} style={{
-          width: 24, height: 24, border: "none", background: "transparent", borderRadius: T.radius.sm,
-          display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+      {/* Header + tabs */}
+      <div style={{ borderBottom: `1px solid ${C.border}` }}>
+        <div style={{
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          padding: `${T.space[3]}px ${T.space[4]}px`,
         }}>
-          <Ic d={I.chevron} size={14} color={C.textDim} />
-        </button>
+          <span style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.bold, color: C.text }}>Proposal Builder</span>
+          <button className="icon-btn" onClick={toggleBuilder} style={{
+            width: 24, height: 24, border: "none", background: "transparent", borderRadius: T.radius.sm,
+            display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+          }}>
+            <Ic d={I.chevron} size={14} color={C.textDim} />
+          </button>
+        </div>
+        {/* Tab bar */}
+        <div style={{ display: "flex", padding: `0 ${T.space[4]}px`, gap: T.space[1] }}>
+          {[
+            { id: "sections", label: "Sections" },
+            { id: "design", label: "Design" },
+          ].map(tab => {
+            const active = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                style={{
+                  flex: 1, padding: "6px 0", border: "none", cursor: "pointer",
+                  fontSize: 11, fontWeight: active ? 700 : 500,
+                  color: active ? C.accent : C.textDim,
+                  background: "transparent",
+                  borderBottom: active ? `2px solid ${C.accent}` : "2px solid transparent",
+                  transition: "color 100ms, border-color 100ms",
+                }}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
+      {/* ── Design tab ── */}
+      {activeTab === "design" && (
+        <div style={{ flex: 1, overflowY: "auto" }}>
+          <ProposalDesignPanel />
+        </div>
+      )}
+
+      {/* ── Sections tab ── */}
+      {activeTab === "sections" && <>
       {/* Insert special sections */}
       <div style={{ display: "flex", gap: T.space[2], padding: `${T.space[3]}px ${T.space[4]}px`, borderBottom: `1px solid ${C.border}` }}>
         <button
@@ -206,6 +244,7 @@ export default function ProposalBuilder({ conditionalEmpty }) {
           Reset Default
         </button>
       </div>
+      </>}
 
       {/* Save template modal */}
       {saveModalOpen && (

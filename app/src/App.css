@@ -1934,6 +1934,28 @@ button:disabled {
       sans-serif !important;
     font-variant-numeric: tabular-nums;
   }
+
+  /* ── Proposal footer — visible at bottom of printed pages ── */
+  .proposal-footer {
+    display: flex !important;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 6px 20px;
+    font-size: 8px;
+    color: #999;
+    border-top: 1px solid #ddd;
+    background: #fff;
+  }
+
+  @page {
+    @bottom-center {
+      content: "Page " counter(page) " of " counter(pages);
+      font-size: 8px;
+      color: #999;
+    }
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════

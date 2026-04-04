@@ -37,11 +37,11 @@ const SECTION_MAP = {
   sov: ScheduleOfValues,
 };
 
-export default function ProposalSection({ sectionId, data }) {
+export default function ProposalSection({ sectionId, data, proposalStyles, sectionNumber }) {
   if (isPageBreak(sectionId)) return <PageBreak />;
   if (isSpacer(sectionId)) return <Spacer />;
 
   const Comp = SECTION_MAP[sectionId];
   if (!Comp) return null;
-  return <Comp data={data} />;
+  return <Comp data={data} proposalStyles={proposalStyles} sectionNumber={sectionNumber} />;
 }

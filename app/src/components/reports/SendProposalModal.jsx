@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useTheme } from '@/hooks/useTheme';
 import { useProjectStore } from '@/stores/projectStore';
 import { useMasterDataStore } from '@/stores/masterDataStore';
+import { useReportsStore } from '@/stores/reportsStore';
 import { useUiStore } from '@/stores/uiStore';
 import Modal from '@/components/shared/Modal';
 import Ic from '@/components/shared/Ic';
@@ -47,6 +48,10 @@ export default function SendProposalModal({ onClose, totals, reportType }) {
         || document.querySelector(".sov-doc");
       if (!element) throw new Error("Proposal not found — make sure a Proposal or SOV is visible");
 
+      // Respect orientation from proposal design preferences
+      const { proposalDesign } = useReportsStore.getState();
+      const isLandscape = proposalDesign.orientation === "landscape";
+
       // Generate PDF as blob
       const pdfBlob = await html2pdf()
         .set({
@@ -54,7 +59,11 @@ export default function SendProposalModal({ onClose, totals, reportType }) {
           filename: `Proposal_${project.name || "estimate"}.pdf`,
           image: { type: "jpeg", quality: 0.95 },
           html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-          jsPDF: { unit: "mm", format: "letter", orientation: "portrait" },
+          jsPDF: {
+            unit: "mm",
+            format: isLandscape ? [279, 216] : "letter",
+            orientation: isLandscape ? "landscape" : "portrait",
+          },
           pagebreak: { mode: ["css", "legacy"] },
         })
         .from(element)

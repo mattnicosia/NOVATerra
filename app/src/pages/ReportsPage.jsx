@@ -18,6 +18,7 @@ import ProposalBuilder from '@/components/proposal/ProposalBuilder';
 import { getTradeLabel, getTradeSortOrder } from '@/constants/tradeGroupings';
 import SendProposalModal from '@/components/reports/SendProposalModal';
 import { exportEstimateXlsx } from '@/utils/exportXlsx';
+import { buildProposalStyles } from '@/constants/proposalStyles';
 
 export default function ReportsPage() {
   const C = useTheme();
@@ -46,6 +47,10 @@ export default function ReportsPage() {
   const setSovMode = useReportsStore(s => s.setSovMode);
   const sovSort = useReportsStore(s => s.sovSort);
   const setSovSort = useReportsStore(s => s.setSovSort);
+  const proposalDesign = useReportsStore(s => s.proposalDesign);
+
+  // Build proposal design system from user preferences
+  const PS = useMemo(() => buildProposalStyles(proposalDesign), [proposalDesign]);
 
   // Resolve company info: project-selected profile or default
   const companyInfo = getCompanyInfo(project.companyProfileId);
@@ -453,15 +458,76 @@ export default function ReportsPage() {
             allowances: allowanceItems.length === 0,
             clarifications: clarifications.length === 0,
           };
+          const visibleSections = sectionOrder
+            .filter(id => sectionVisibility[id])
+            .filter(id => !conditionalEmpty[id]);
+          let sectionCounter = 0;
           return (
             <div style={{ display: "flex", gap: 0 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div id="proposal-print" style={{ background: "#fff", color: "#1a1a2e", padding: "40px 48px", borderRadius: T.radius.lg, border: `1px solid ${C.border}`, fontFamily: T.font.sans, lineHeight: 1.6, boxShadow: T.shadow.lg }}>
-                  {sectionOrder
-                    .filter(id => sectionVisibility[id])
-                    .filter(id => !conditionalEmpty[id])
-                    .map(id => <ProposalSection key={id} sectionId={id} data={proposalData} />)
-                  }
+                <div id="proposal-print" style={{ position: "relative", background: "#fff", color: "#1a1a2e", padding: PS.page.padding, maxWidth: PS.page.maxWidth, borderRadius: T.radius.lg, border: `1px solid ${C.border}`, fontFamily: PS.font.body, lineHeight: 1.6, boxShadow: T.shadow.lg }}>
+                  {/* Draft watermark overlay */}
+                  {proposalDesign.showDraftWatermark && (
+                    <div style={{
+                      position: "absolute", top: "50%", left: "50%",
+                      transform: "translate(-50%, -50%) rotate(-35deg)",
+                      fontSize: 80, fontWeight: 900, color: "#00000008",
+                      letterSpacing: 20, pointerEvents: "none", userSelect: "none",
+                      zIndex: 0, whiteSpace: "nowrap",
+                    }}>
+                      DRAFT
+                    </div>
+                  )}
+                  {/* Accent bar */}
+                  {proposalDesign.showAccentBar && (
+                    <div style={PS.section.accentBar} />
+                  )}
+                  {visibleSections.map(id => {
+                    // Track section number (skip page breaks / spacers for numbering)
+                    const isSpecial = id.startsWith("pageBreak_") || id.startsWith("spacer_");
+                    if (!isSpecial) sectionCounter++;
+                    const sectionNumber = (!isSpecial && proposalDesign.showSectionNumbers) ? sectionCounter : null;
+
+                    // Insert project summary card after letterhead
+                    const showSummaryHere = id === "letterhead" && proposalDesign.showProjectSummary;
+                    return (
+                      <div key={id}>
+                        <ProposalSection sectionId={id} data={proposalData} proposalStyles={PS} sectionNumber={sectionNumber} />
+                        {showSummaryHere && (
+                          <div style={{
+                            display: "grid",
+                            gridTemplateColumns: "1fr 1fr 1fr 1fr",
+                            gap: 12,
+                            padding: "12px 16px",
+                            background: PS.color.bgSubtle,
+                            border: `1px solid ${PS.color.borderLight}`,
+                            borderRadius: 4,
+                            marginBottom: PS.space.section,
+                            ...PS.type.caption,
+                            fontFamily: PS.font.body,
+                          }}>
+                            <div><span style={{ color: PS.color.textMuted, ...PS.type.label }}>Project</span><br/>{project?.projectName || project?.name || "\u2014"}</div>
+                            <div><span style={{ color: PS.color.textMuted, ...PS.type.label }}>Client</span><br/>{project?.client || "\u2014"}</div>
+                            <div><span style={{ color: PS.color.textMuted, ...PS.type.label }}>Size</span><br/>{project?.projectSF ? `${Number(project.projectSF).toLocaleString()} SF` : "\u2014"}</div>
+                            <div><span style={{ color: PS.color.textMuted, ...PS.type.label }}>Bid Date</span><br/>{project?.bidDate || "\u2014"}</div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {/* Proposal footer */}
+                  {proposalDesign.showPageNumbers && (
+                    <div className="proposal-footer" style={{
+                      ...PS.footer,
+                      marginTop: PS.space.xl,
+                      display: "flex",
+                      justifyContent: "space-between",
+                    }}>
+                      <span>{companyInfo?.name || ""}</span>
+                      <span>{project?.name || ""} {project?.client ? `\u2022 ${project.client}` : ""}</span>
+                      <span>Confidential</span>
+                    </div>
+                  )}
                 </div>
               </div>
               <ProposalBuilder conditionalEmpty={conditionalEmpty} />
