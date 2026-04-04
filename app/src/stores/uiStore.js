@@ -183,6 +183,7 @@ export const useUiStore = create((set, _get) => ({
   setCloudSyncStatus: status =>
     set({ cloudSyncStatus: status, ...(status !== "error" ? { cloudSyncError: null } : {}) }),
   setCloudSyncLastAt: ts => set({ cloudSyncLastAt: ts }),
+  setCloudSyncLastFullAt: ts => set({ cloudSyncLastFullAt: ts }),
   setCloudSyncError: msg => set({ cloudSyncError: msg }),
   setOtherSessions: v => set({ otherSessions: v }),
   sessionKicked: false,

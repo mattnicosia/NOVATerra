@@ -147,20 +147,20 @@ Base pricing on the user's historical data when available, supplemented by RS Me
         if (!selected[f]) {
           // User rejected this component — log it
           logCorrection("pricing:adjust", {
-            context: `Rejected AI ${f} for "${item.description}"`,
+            context: `Rejected AI ${f} for "${item.description || "item"}"`,
             original: result[f],
             corrected: 0,
             field: f,
-            scheduleType: item.code,
+            scheduleType: item.code || "",
           });
         } else {
           // Log acceptance so NOVA learns what pricing users agree with
           logCorrection("pricing:adjust", {
-            context: `Accepted AI ${f} for "${item.description}"`,
+            context: `Accepted AI ${f} for "${item.description || "item"}"`,
             original: item[f] || 0,
             corrected: result[f],
             field: f,
-            scheduleType: item.code,
+            scheduleType: item.code || "",
           });
           updateItem(item.id, f, result[f]);
         }

@@ -119,12 +119,14 @@ async function runCloudSync() {
     useUiStore
       .getState()
       .setCloudSyncLastAt(new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }));
+    if (useUiStore.getState().setCloudSyncLastFullAt) useUiStore.getState().setCloudSyncLastFullAt(new Date().toISOString());
     nova.sync.info("Bidirectional sync complete");
   } else if (failures <= 3) {
     useUiStore.getState().setCloudSyncStatus("partial");
     useUiStore
       .getState()
       .setCloudSyncLastAt(new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }));
+    if (useUiStore.getState().setCloudSyncLastFullAt) useUiStore.getState().setCloudSyncLastFullAt(new Date().toISOString());
     nova.sync.warn(`Completed with ${failures}/6 failure(s)`, { failures });
   } else {
     nova.sync.error(`${failures}/6 sync operations failed`, { failures });

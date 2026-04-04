@@ -135,7 +135,7 @@ export default function OnboardingSequence() {
   }, [updateSetting, navigate]);
 
   const handleGenerateROM = useCallback(() => {
-    if (!romBuildingType || !romSF) return;
+    if (!romBuildingType || !romSF || parseFloat(romSF) <= 0) return;
     setRomGenerating(true);
     // Small timeout so spinner renders
     setTimeout(() => {

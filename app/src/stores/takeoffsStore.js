@@ -255,6 +255,7 @@ export const useTakeoffsStore = create((set, get) => ({
       redo: () => set(s => ({ takeoffs: [...s.takeoffs, newTakeoff] })),
       timestamp: Date.now(),
     });
+    return newId;
   },
 
   updateTakeoff: (id, field, value) => {
