@@ -9,21 +9,91 @@
 
 import { resolveLocationFactors } from "@/constants/locationFactors";
 
-// ── Labor type multipliers (relative to open-shop = 1.0) ──
-const LABOR_FACTORS = {
-  "open-shop": 1.0,
-  "open shop": 1.0,
-  "": 1.0,
-  "prevailing": 1.35,
-  "prevailing-wage": 1.35,
-  "prevailing wage": 1.35,
-  "union": 1.45,
+// ── Trade-specific labor multipliers (relative to open-shop = 1.0) ──
+// Calibrated from Violante + Montana proposal data.
+// Higher-skill trades (plumbing, HVAC, electrical) carry steeper premiums
+// under prevailing wage / union regimes than lower-skill-gap trades.
+const TRADE_LABOR_MULTIPLIERS = {
+  prevailing: {
+    "03": 1.30, // Concrete
+    "04": 1.30, // Masonry
+    "05": 1.40, // Metals / Structural Steel
+    "06": 1.25, // Wood / Carpentry
+    "07": 1.25, // Thermal & Moisture Protection
+    "08": 1.30, // Openings
+    "09": 1.25, // Finishes (drywall, paint, tile)
+    "10": 1.25, // Specialties
+    "22": 1.50, // Plumbing
+    "23": 1.45, // HVAC
+    "26": 1.40, // Electrical
+    "27": 1.35, // Communications
+    "28": 1.35, // Electronic Safety
+    _default: 1.35,
+  },
+  union: {
+    "03": 1.40, // Concrete
+    "04": 1.40, // Masonry
+    "05": 1.50, // Metals / Structural Steel
+    "06": 1.35, // Wood / Carpentry
+    "07": 1.35, // Thermal & Moisture Protection
+    "08": 1.40, // Openings
+    "09": 1.35, // Finishes (drywall, paint, tile)
+    "10": 1.35, // Specialties
+    "22": 1.60, // Plumbing
+    "23": 1.55, // HVAC
+    "26": 1.50, // Electrical
+    "27": 1.45, // Communications
+    "28": 1.45, // Electronic Safety
+    _default: 1.45,
+  },
+  open_shop: { _default: 1.0 },
 };
 
-function getLaborFactor(laborType) {
-  if (!laborType) return 1.0;
-  const key = laborType.toLowerCase().trim();
-  return LABOR_FACTORS[key] ?? 1.0;
+// Canonical labor-type aliases → key into TRADE_LABOR_MULTIPLIERS
+const LABOR_TYPE_ALIASES = {
+  "open-shop": "open_shop",
+  "open shop": "open_shop",
+  "": "open_shop",
+  "prevailing": "prevailing",
+  "prevailing-wage": "prevailing",
+  "prevailing wage": "prevailing",
+  "union": "union",
+};
+
+/**
+ * Resolve the canonical labor-type key from any user-facing string.
+ */
+function resolveLaborKey(laborType) {
+  if (!laborType) return "open_shop";
+  return LABOR_TYPE_ALIASES[laborType.toLowerCase().trim()] ?? "open_shop";
+}
+
+/**
+ * Get the trade-specific labor multiplier for a given labor type and CSI division.
+ *
+ * @param {string} laborType  - "open-shop" | "prevailing" | "union" (any alias)
+ * @param {string} [divisionCode] - 2-digit CSI division code ("03", "22", etc.).
+ *   If omitted or unknown, falls back to the regime's `_default`.
+ * @returns {number} The multiplier (relative to open-shop = 1.0)
+ */
+export function getTradeMultiplier(laborType, divisionCode) {
+  const key = resolveLaborKey(laborType);
+  const regime = TRADE_LABOR_MULTIPLIERS[key] || TRADE_LABOR_MULTIPLIERS.open_shop;
+  if (divisionCode) {
+    // Normalize to 2-digit string (handles "03", "3", "03000", etc.)
+    const div2 = String(divisionCode).replace(/\D/g, "").slice(0, 2).padStart(2, "0");
+    if (regime[div2] !== undefined) return regime[div2];
+  }
+  return regime._default;
+}
+
+/**
+ * Get labor factor — backward-compatible wrapper.
+ * @param {string} laborType
+ * @param {string} [divisionCode] - optional CSI division for trade-specific multiplier
+ */
+function getLaborFactor(laborType, divisionCode) {
+  return getTradeMultiplier(laborType, divisionCode);
 }
 
 /**
@@ -43,11 +113,12 @@ function getCombinedLocationFactor(zip) {
  * @param {number} rawPerSF - The raw $/SF from the proposal
  * @param {string} zip - Project ZIP code
  * @param {string} laborType - "open-shop", "prevailing", "union"
+ * @param {string} [divisionCode] - Optional 2-digit CSI division for trade-specific labor multiplier
  * @returns {{ normalized: number, locationFactor: number, laborFactor: number, combinedFactor: number }}
  */
-export function normalizePerSF(rawPerSF, zip, laborType) {
+export function normalizePerSF(rawPerSF, zip, laborType, divisionCode) {
   const locationFactor = getCombinedLocationFactor(zip);
-  const laborFactor = getLaborFactor(laborType);
+  const laborFactor = getLaborFactor(laborType, divisionCode);
   const combinedFactor = locationFactor * laborFactor;
   const normalized = combinedFactor > 0 ? rawPerSF / combinedFactor : rawPerSF;
 
@@ -67,11 +138,12 @@ export function normalizePerSF(rawPerSF, zip, laborType) {
  * @param {number} normalizedPerSF - National open-shop baseline $/SF
  * @param {string} zip - Target project ZIP code
  * @param {string} laborType - Target labor type
+ * @param {string} [divisionCode] - Optional 2-digit CSI division for trade-specific labor multiplier
  * @returns {{ denormalized: number, locationFactor: number, laborFactor: number }}
  */
-export function denormalizePerSF(normalizedPerSF, zip, laborType) {
+export function denormalizePerSF(normalizedPerSF, zip, laborType, divisionCode) {
   const locationFactor = getCombinedLocationFactor(zip);
-  const laborFactor = getLaborFactor(laborType);
+  const laborFactor = getLaborFactor(laborType, divisionCode);
   const denormalized = normalizedPerSF * locationFactor * laborFactor;
 
   return {
@@ -94,6 +166,7 @@ export function normalizeProposal(proposal) {
   const zip = proposal.zipCode || proposal.location || "";
   const laborType = proposal.laborType || "";
   const locationFactor = getCombinedLocationFactor(zip);
+  // Project-level (blended default) labor factor — used for totals & markups
   const laborFactor = getLaborFactor(laborType);
   const combinedFactor = locationFactor * laborFactor;
 
@@ -106,16 +179,21 @@ export function normalizeProposal(proposal) {
     const cost = parseFloat(rawCost) || 0;
     if (cost <= 0) continue;
 
+    // Trade-specific labor multiplier for this division
+    const divLaborFactor = getLaborFactor(laborType, divCode);
+    const divCombinedFactor = locationFactor * divLaborFactor;
+
     const rawPerSF = sf > 0 ? cost / sf : 0;
-    const normalizedPerSF = combinedFactor > 0 ? rawPerSF / combinedFactor : rawPerSF;
-    const normalizedTotal = sf > 0 ? normalizedPerSF * sf : cost / combinedFactor;
+    const normalizedPerSF = divCombinedFactor > 0 ? rawPerSF / divCombinedFactor : rawPerSF;
+    const normalizedTotal = sf > 0 ? normalizedPerSF * sf : cost / divCombinedFactor;
 
     normalizedDivisions[divCode] = {
       rawTotal: Math.round(cost),
       rawPerSF: Math.round(rawPerSF * 100) / 100,
       normalizedPerSF: Math.round(normalizedPerSF * 100) / 100,
       normalizedTotal: Math.round(normalizedTotal),
-      factor: Math.round(combinedFactor * 1000) / 1000,
+      laborFactor: divLaborFactor,
+      factor: Math.round(divCombinedFactor * 1000) / 1000,
     };
   }
 
