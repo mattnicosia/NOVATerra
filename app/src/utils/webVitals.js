@@ -1,5 +1,5 @@
 /**
- * Web Vitals reporter — measures Core Web Vitals and reports to analytics + Sentry.
+ * Web Vitals reporter — measures Core Web Vitals and reports to analytics.
  * Runs once on initial page load. Reports: LCP, FID, CLS, TTFB, INP.
  */
 import { track, EVENTS } from "@/utils/analytics";
@@ -16,16 +16,6 @@ export function reportWebVitals() {
         delta: Math.round(metric.delta),
         navigationType: metric.navigationType,
       });
-
-      // Report to Sentry as custom measurement
-      if (window.__SENTRY__) {
-        try {
-          const Sentry = window.__SENTRY__.hub?.getClient?.() ? window.__SENTRY__ : null;
-          if (Sentry?.hub) {
-            Sentry.hub.getScope?.()?.setMeasurement?.(metric.name, metric.value, "millisecond");
-          }
-        } catch { /* Sentry measurement non-critical */ }
-      }
     };
 
     onLCP(report);

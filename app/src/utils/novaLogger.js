@@ -1,10 +1,10 @@
 /**
- * NOVA Logger — Centralized error tracking with Sentry integration
+ * NOVA Logger — Centralized structured logging
  *
  * Replaces scattered console.warn/error calls with structured logging
- * that sends breadcrumbs and events to Sentry with proper categorization.
+ * and an in-memory ring buffer for debug dumps.
  *
- * Categories map to Sentry tags for dashboarding:
+ * Categories:
  *   - data:sync       → Cloud sync operations
  *   - data:idb        → IndexedDB read/write
  *   - data:orphan     → Orphaned index entries
@@ -18,8 +18,6 @@
  *   - collab:lock     → Estimate locking / collaboration
  *   - collab:presence → Real-time presence
  */
-
-import * as Sentry from "@sentry/react";
 
 // Severity levels
 const LEVEL = { DEBUG: "debug", INFO: "info", WARN: "warning", ERROR: "error", FATAL: "fatal" };
@@ -38,7 +36,7 @@ function pushRing(entry) {
  * @param {string} category - e.g. "data:sync", "estimate:load"
  * @param {string} level - "debug" | "info" | "warning" | "error" | "fatal"
  * @param {string} message - Human-readable message
- * @param {object} [data] - Extra context (merged into Sentry breadcrumb/event)
+ * @param {object} [data] - Extra context
  */
 function log(category, level, message, data = {}) {
   const timestamp = new Date().toISOString();
@@ -54,58 +52,9 @@ function log(category, level, message, data = {}) {
   } else if (level === LEVEL.DEBUG) {
     // Debug only in development
     if (import.meta.env.DEV) console.debug(prefix, message, data);
-    return; // Don't send debug to Sentry
   } else {
     console.log(prefix, message, data);
   }
-
-  // Sentry breadcrumb (for all non-debug levels)
-  Sentry.addBreadcrumb({
-    category,
-    message,
-    level,
-    data: sanitizeForSentry(data),
-    timestamp: Date.now() / 1000,
-  });
-
-  // For errors/fatals, also capture a Sentry event
-  if (level === LEVEL.ERROR || level === LEVEL.FATAL) {
-    Sentry.withScope(scope => {
-      scope.setTag("nova.category", category);
-      scope.setLevel(level);
-      for (const [k, v] of Object.entries(sanitizeForSentry(data))) {
-        scope.setExtra(k, v);
-      }
-      if (data.error instanceof Error) {
-        Sentry.captureException(data.error);
-      } else {
-        Sentry.captureMessage(`${category}: ${message}`, level);
-      }
-    });
-  }
-}
-
-// Strip large data (blobs, full estimate objects) before sending to Sentry
-function sanitizeForSentry(data) {
-  const clean = {};
-  for (const [k, v] of Object.entries(data)) {
-    if (k === "error" && v instanceof Error) {
-      clean.errorMessage = v.message;
-      clean.errorStack = v.stack?.slice(0, 500);
-    } else if (typeof v === "string" && v.length > 500) {
-      clean[k] = v.slice(0, 500) + "…";
-    } else if (v && typeof v === "object" && !(v instanceof Error)) {
-      try {
-        const json = JSON.stringify(v);
-        clean[k] = json.length > 500 ? json.slice(0, 500) + "…" : v;
-      } catch {
-        clean[k] = "[unserializable]";
-      }
-    } else {
-      clean[k] = v;
-    }
-  }
-  return clean;
 }
 
 // ── Convenience methods ──

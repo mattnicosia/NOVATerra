@@ -24,17 +24,6 @@ export default class PageErrorBoundary extends Component {
   componentDidCatch(error, errorInfo) {
     const page = this.props.pageName || "Unknown";
     console.error(`[PageErrorBoundary:${page}]`, error, errorInfo);
-    // Report to Sentry if available
-    if (typeof window !== "undefined" && window.__SENTRY__) {
-      try {
-        const Sentry = window.__SENTRY__.hub || window.Sentry;
-        if (Sentry?.captureException) {
-          Sentry.captureException(error, { extra: { page, componentStack: errorInfo?.componentStack } });
-        }
-      } catch {
-        // Sentry not available, silently continue
-      }
-    }
   }
 
   componentDidUpdate(prevProps) {

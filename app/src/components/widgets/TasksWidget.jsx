@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "@/hooks/useTheme";
-import { useTaskStore, TASK_TYPES, BID_DAY_TEMPLATES, computeUrgency } from "@/stores/taskStore";
+import { useTaskStore, TASK_TYPES, computeUrgency } from "@/stores/taskStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useUiStore } from "@/stores/uiStore";
 import { today } from "@/utils/format";
@@ -22,7 +22,7 @@ const STATUS_COLORS = {
   cancelled: "dim",
 };
 
-const PRIORITY_DOTS = { critical: "\u{1F534}", high: "\u{1F7E0}", medium: "", low: "" };
+const PRIORITY_DOTS = { critical: "!", high: "!", medium: "", low: "" };
 
 function relativeDate(dateStr) {
   if (!dateStr) return null;
@@ -49,21 +49,17 @@ export default function TasksWidget() {
   const addTask = useTaskStore(s => s.addTask);
   const toggleComplete = useTaskStore(s => s.toggleComplete);
   const deleteTask = useTaskStore(s => s.deleteTask);
-  const generateBidDayChecklist = useTaskStore(s => s.generateBidDayChecklist);
-
   const estimates = useEstimatesStore(s => s.estimates);
   const estimatesIndex = useEstimatesStore(s => s.estimatesIndex);
   const activeEstimateId = useUiStore(s => s.activeEstimateId);
-  const showToast = useUiStore(s => s.showToast);
 
   const [quickInput, setQuickInput] = useState("");
   const [quickDueDate, setQuickDueDate] = useState(""); // due date for quick-add
   const [quickProjectId, setQuickProjectId] = useState(""); // assign to project
-  const [filter, setFilter] = useState("active"); // "active" | "all" | "today" | "ai"
+  const [filter, setFilter] = useState("active"); // "active" | "all" | "today"
   const [hoveredId, setHoveredId] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const [editingDateId, setEditingDateId] = useState(null); // task id being date-edited
-  const [showBidMenu, setShowBidMenu] = useState(false);
   const inputRef = useRef(null);
 
   // ── Computed lists ──────────────────────────────────────
@@ -77,18 +73,8 @@ export default function TasksWidget() {
       overdue: active.filter(t => t.dueDate && t.dueDate < todayStr).length,
       dueToday: active.filter(t => t.dueDate === todayStr).length,
       done: tasks.filter(t => t.status === "done").length,
-      ai: active.filter(t => t.aiGenerated).length,
     };
   }, [tasks, todayStr]);
-
-  // Bidding estimates with deadlines (for bid day checklist generator)
-  const biddingEstimates = useMemo(() => {
-    const idx = estimatesIndex || [];
-    return idx
-      .filter(e => e.bidDue && (e.status === "Bidding" || e.status === "Submitted"))
-      .sort((a, b) => new Date(a.bidDue) - new Date(b.bidDue))
-      .slice(0, 6);
-  }, [estimatesIndex]);
 
   const displayTasks = useMemo(() => {
     let filtered;
@@ -96,11 +82,6 @@ export default function TasksWidget() {
       case "today":
         filtered = tasks.filter(
           t => t.status !== "done" && t.status !== "cancelled" && t.dueDate === todayStr,
-        );
-        break;
-      case "ai":
-        filtered = tasks.filter(
-          t => t.status !== "done" && t.status !== "cancelled" && t.aiGenerated,
         );
         break;
       case "all":
@@ -207,30 +188,6 @@ export default function TasksWidget() {
     [handleQuickAdd],
   );
 
-  // ── Bid day checklist generation ───────────────────────
-
-  const handleGenerateBidDay = useCallback(
-    (templateKey, estimate) => {
-      const existing = tasks.filter(
-        t => t.estimateId === estimate.id && t.tags?.includes("bid-day"),
-      );
-      if (existing.length > 0) {
-        if (showToast) showToast(`Bid day tasks already exist for ${estimate.name || "this estimate"}`);
-        setShowBidMenu(false);
-        return;
-      }
-      const created = generateBidDayChecklist(
-        templateKey,
-        estimate.id,
-        estimate.bidDue,
-        estimate.name || estimate.projectName || "",
-      );
-      if (showToast) showToast(`Generated ${created.length} bid day tasks`);
-      setShowBidMenu(false);
-    },
-    [tasks, generateBidDayChecklist, showToast],
-  );
-
   // ── Context navigation ─────────────────────────────────
 
   const handleNavigateContext = useCallback(
@@ -317,187 +274,6 @@ export default function TasksWidget() {
           )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          {stats.ai > 0 && (
-            <span
-              style={{
-                fontSize: 7,
-                fontWeight: 700,
-                letterSpacing: 0.5,
-                color: C.accent,
-                background: `${C.accent}15`,
-                padding: "1px 5px",
-                borderRadius: 3,
-              }}
-            >
-              NOVA {stats.ai}
-            </span>
-          )}
-          {/* Bid day checklist generator */}
-          <div style={{ position: "relative" }}>
-            <button
-              onClick={() => setShowBidMenu(!showBidMenu)}
-              title="Generate bid day checklist"
-              style={{
-                width: 20,
-                height: 20,
-                border: `1px solid ${dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
-                borderRadius: 4,
-                background: showBidMenu ? `${C.accent}15` : "transparent",
-                color: showBidMenu ? C.accent : C.textDim,
-                fontSize: 11,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                transition: "all 0.15s",
-              }}
-            >
-              📋
-            </button>
-            {showBidMenu && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: "100%",
-                  right: 0,
-                  marginTop: 4,
-                  zIndex: 50,
-                  background: C.bg,
-                  border: `1px solid ${C.border}`,
-                  borderRadius: 8,
-                  padding: 8,
-                  boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
-                  minWidth: 220,
-                  maxHeight: 300,
-                  overflowY: "auto",
-                }}
-                onClick={e => e.stopPropagation()}
-              >
-                <div
-                  style={{
-                    fontSize: 9,
-                    fontWeight: 700,
-                    color: C.text,
-                    marginBottom: 6,
-                    letterSpacing: 0.3,
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Bid Day Checklist
-                </div>
-
-                {biddingEstimates.length === 0 && (
-                  <div style={{ fontSize: 9, color: C.textDim, padding: "8px 0" }}>
-                    No bidding estimates with due dates.
-                    <br />
-                    Set a bid due date on an estimate first.
-                  </div>
-                )}
-
-                {biddingEstimates.map(est => {
-                  const daysLeft = Math.ceil(
-                    (new Date(est.bidDue) - new Date()) / 86400000,
-                  );
-                  const hasExisting = tasks.some(
-                    t => t.estimateId === est.id && t.tags?.includes("bid-day"),
-                  );
-                  return (
-                    <div
-                      key={est.id}
-                      style={{
-                        padding: "6px 8px",
-                        borderRadius: 5,
-                        marginBottom: 4,
-                        background: dk ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
-                        border: `1px solid ${dk ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"}`,
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          marginBottom: 4,
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: 10,
-                            fontWeight: 600,
-                            color: C.text,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                            maxWidth: 130,
-                          }}
-                        >
-                          {est.name || "Untitled"}
-                        </span>
-                        <span
-                          style={{
-                            fontSize: 8,
-                            fontWeight: 600,
-                            color:
-                              daysLeft <= 3 ? C.red : daysLeft <= 7 ? C.orange : C.textDim,
-                          }}
-                        >
-                          {daysLeft <= 0
-                            ? "Overdue!"
-                            : daysLeft === 1
-                              ? "Tomorrow"
-                              : `${daysLeft}d`}
-                        </span>
-                      </div>
-                      {hasExisting ? (
-                        <div style={{ fontSize: 8, color: C.green, fontWeight: 600 }}>
-                          ✓ Checklist generated
-                        </div>
-                      ) : (
-                        <div style={{ display: "flex", gap: 3 }}>
-                          {Object.entries(BID_DAY_TEMPLATES).map(([key, tmpl]) => (
-                            <button
-                              key={key}
-                              onClick={() => handleGenerateBidDay(key, est)}
-                              style={bt(C, {
-                                padding: "2px 6px",
-                                fontSize: 7,
-                                fontWeight: 600,
-                                fontFamily: font,
-                                background: `${C.accent}10`,
-                                color: C.accent,
-                                border: `1px solid ${C.accent}30`,
-                                borderRadius: 3,
-                                cursor: "pointer",
-                              })}
-                            >
-                              {tmpl.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-
-                <button
-                  onClick={() => setShowBidMenu(false)}
-                  style={{
-                    width: "100%",
-                    marginTop: 4,
-                    padding: "3px 0",
-                    fontSize: 8,
-                    color: C.textDim,
-                    background: "transparent",
-                    border: "none",
-                    cursor: "pointer",
-                    fontFamily: font,
-                  }}
-                >
-                  Close
-                </button>
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
@@ -549,7 +325,6 @@ export default function TasksWidget() {
         {[
           { key: "active", label: "Active", count: stats.active },
           { key: "today", label: "Today", count: stats.dueToday },
-          { key: "ai", label: "NOVA", count: stats.ai },
           { key: "all", label: "All", count: null },
         ].map(tab => (
           <button
@@ -683,15 +458,12 @@ export default function TasksWidget() {
               padding: "12px 0",
             }}
           >
-            <span style={{ fontSize: 20, opacity: 0.5 }}>✓</span>
             <div style={{ fontSize: 11, color: C.textMuted, textAlign: "center" }}>
               {filter === "active"
                 ? "All clear"
                 : filter === "today"
                   ? "Nothing due today"
-                  : filter === "ai"
-                    ? "No NOVA suggestions"
-                    : "No tasks yet"}
+                  : "No tasks yet"}
             </div>
           </div>
         )}
@@ -843,18 +615,7 @@ export default function TasksWidget() {
                   />
                 )}
                 {checkProgress && (
-                  <span style={{ fontSize: 8, color: C.textDim, flexShrink: 0 }}>☐ {checkProgress}</span>
-                )}
-                {task.aiGenerated && (
-                  <span
-                    style={{
-                      fontSize: 6, fontWeight: 800, letterSpacing: 0.5,
-                      color: C.accent, background: `${C.accent}12`,
-                      padding: "0px 4px", borderRadius: 2,
-                    }}
-                  >
-                    NOVA
-                  </span>
+                  <span style={{ fontSize: 8, color: C.textDim, flexShrink: 0 }}>{checkProgress}</span>
                 )}
                 {estimate && (
                   <span
@@ -894,7 +655,7 @@ export default function TasksWidget() {
                             textDecoration: ci.done ? "line-through" : "none", cursor: "pointer",
                           }}
                         >
-                          <span style={{ fontSize: 8 }}>{ci.done ? "☑" : "☐"}</span>
+                          <span style={{ fontSize: 8, color: ci.done ? C.green : C.textDim }}>{ci.done ? "x" : "-"}</span>
                           {ci.text}
                         </div>
                       ))}
@@ -927,7 +688,7 @@ export default function TasksWidget() {
                           borderRadius: 3, cursor: "pointer",
                         })}
                       >
-                        {task.status === "in-progress" ? "⏸ Pause" : "▶ Start"}
+                        {task.status === "in-progress" ? "Pause" : "Start"}
                       </button>
                     )}
                     {/* Quick date set from expanded view */}
@@ -941,7 +702,7 @@ export default function TasksWidget() {
                           borderRadius: 3, cursor: "pointer",
                         })}
                       >
-                        📅 Set Date
+                        Set Date
                       </button>
                     )}
                   </div>
