@@ -19,6 +19,7 @@ const useExtractionStore = create((set, get) => ({
       file,
       status: "pending",
       progress: 0,
+      statusMessage: null,
       documentType: null,
       markdown: null,
       rawExtraction: null,

@@ -33,6 +33,8 @@ async function datalabOCR(pdfBase64, filename) {
   const formData = new FormData();
   formData.append("file", new Blob([pdfBuffer], { type: "application/pdf" }), filename || "proposal.pdf");
   formData.append("output_format", "markdown");
+  formData.append("force_ocr", "true");
+  formData.append("paginate_output", "true");
 
   // Submit to Datalab
   const submitRes = await fetch("https://www.datalab.to/api/v1/marker", {
@@ -187,10 +189,24 @@ export default async function handler(req, res) {
   const effectiveFilename = filename || "proposal.pdf";
   const effectiveFolderType = folderType || "gc";
 
+  // ── Streaming response setup ──
+  // Send newline-delimited JSON events so the client sees each stage live
+  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  res.setHeader("Transfer-Encoding", "chunked");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("X-Accel-Buffering", "no"); // Disable Vercel/nginx buffering
+  res.status(200);
+
+  const emit = (event) => {
+    res.write(JSON.stringify(event) + "\n");
+  };
+
   let runId = null;
 
   try {
     // ── Step 1: Create ingestion_runs record ──
+    emit({ event: "started", message: "Creating extraction record..." });
+
     const { data: run, error: insertErr } = await supabaseAdmin
       .from("ingestion_runs")
       .insert({
@@ -208,6 +224,7 @@ export default async function handler(req, res) {
     runId = run.id;
 
     // ── Step 2: Datalab OCR ──
+    emit({ event: "ocr_start", message: "Running OCR on PDF...", progress: 15 });
     console.log(`[extract-proposal] OCR start: ${effectiveFilename} (run=${runId})`);
     const markdownText = await datalabOCR(pdfBase64, effectiveFilename);
 
@@ -216,8 +233,12 @@ export default async function handler(req, res) {
         .from("ingestion_runs")
         .update({ parse_status: "error", parse_error: "OCR returned insufficient text", updated_at: new Date().toISOString() })
         .eq("id", runId);
-      return res.status(200).json({ status: "ocr_failed", error: "OCR returned insufficient text", runId });
+      emit({ event: "error", error: "OCR returned insufficient text", runId });
+      return res.end();
     }
+
+    const wordCount = markdownText.split(/\s+/).length;
+    emit({ event: "ocr_complete", message: `OCR complete — ${wordCount} words extracted`, progress: 35 });
 
     // Update status
     await supabaseAdmin
@@ -226,6 +247,7 @@ export default async function handler(req, res) {
       .eq("id", runId);
 
     // ── Step 3: Haiku classification ──
+    emit({ event: "classifying", message: "Identifying document type...", progress: 45 });
     const client = new Anthropic({ apiKey: anthropicKey });
 
     const classifyRes = await client.messages.create({
@@ -242,6 +264,16 @@ export default async function handler(req, res) {
 
     const classifyText = classifyRes.content.filter((b) => b.type === "text").map((b) => b.text).join("");
     const classification = extractJSON(classifyText);
+
+    const typeLabels = { gc_proposal: "GC Proposal", sub_proposal: "Sub Proposal", vendor_quote: "Vendor Quote", other: "Other Document" };
+    const typeLabel = typeLabels[classification.documentType] || classification.documentType;
+    const companyLabel = classification.companyName ? ` from ${classification.companyName}` : "";
+    emit({
+      event: "classified",
+      message: `Identified: ${typeLabel}${companyLabel}`,
+      classification,
+      progress: 55,
+    });
 
     // Update with classification
     await supabaseAdmin
@@ -271,17 +303,24 @@ export default async function handler(req, res) {
 
       console.log(`[extract-proposal] Skipping extraction for type="${docType}" (run=${runId})`);
 
-      return res.status(200).json({
+      emit({
+        event: "complete",
         status: "classified",
+        message: "Not a bid document — skipping extraction",
         classification,
         parsedData: null,
         runId,
         lineItemCount: 0,
+        progress: 100,
       });
+      return res.end();
     }
 
     // ── Step 4: Sonnet extraction ──
+    emit({ event: "extracting", message: "Extracting line items and pricing...", progress: 65 });
 
+    // Send the original PDF as a vision document so Sonnet can see tables/layouts
+    // that Datalab OCR may have missed, plus include the OCR markdown as supplementary text
     const extractRes = await client.messages.create({
       model: "claude-sonnet-4-20250514",
       max_tokens: 4000,
@@ -289,7 +328,16 @@ export default async function handler(req, res) {
       messages: [
         {
           role: "user",
-          content: `Extract all structured data from this ${docType} document:\n\n${markdownText}`,
+          content: [
+            {
+              type: "document",
+              source: { type: "base64", media_type: "application/pdf", data: pdfBase64 },
+            },
+            {
+              type: "text",
+              text: `Extract all structured data from this ${docType} document. OCR text for reference:\n\n${markdownText.slice(0, 20000)}`,
+            },
+          ],
         },
       ],
     });
@@ -299,6 +347,7 @@ export default async function handler(req, res) {
 
     // ── Step 5: Write final results to ingestion_runs ──
     const lineItemCount = parsedData.lineItems?.length || 0;
+    emit({ event: "saving", message: `Saving ${lineItemCount} line items to database...`, progress: 90 });
 
     await supabaseAdmin
       .from("ingestion_runs")
@@ -313,17 +362,22 @@ export default async function handler(req, res) {
       })
       .eq("id", runId);
 
+    const totalLabel = parsedData.totalBid ? ` — $${Number(parsedData.totalBid).toLocaleString()}` : "";
     console.log(
       `[extract-proposal] OK file=${effectiveFilename} type=${docType} total=${parsedData.totalBid} items=${lineItemCount} (run=${runId})`,
     );
 
-    return res.status(200).json({
+    emit({
+      event: "complete",
       status: "parsed",
+      message: `Done! ${lineItemCount} line items extracted${totalLabel}`,
       classification,
       parsedData,
       runId,
       lineItemCount,
+      progress: 100,
     });
+    return res.end();
   } catch (err) {
     console.error("[extract-proposal]", err);
 
@@ -336,6 +390,7 @@ export default async function handler(req, res) {
         .catch(() => {});
     }
 
-    return res.status(500).json({ error: err.message });
+    emit({ event: "error", error: err.message, runId });
+    return res.end();
   }
 }

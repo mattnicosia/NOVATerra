@@ -21,7 +21,7 @@ import WidgetActionMenu from "./WidgetActionMenu";
 const CARD_MATERIALS = {
   // Carbon Fiber — hero widget, directional weave pattern
   "project-pulse": (C) => ({
-    background: "#111116",
+    background: "#000000",
     backgroundImage: `
       repeating-linear-gradient(
         45deg,
@@ -40,7 +40,7 @@ const CARD_MATERIALS = {
 
   // Brushed Aluminum — precision instrument, horizontal grain
   calendar: (C) => ({
-    background: `linear-gradient(135deg, #131318 0%, #0F0F14 100%)`,
+    background: "#000000",
     backgroundImage: `
       repeating-linear-gradient(
         90deg,
@@ -54,7 +54,7 @@ const CARD_MATERIALS = {
 
   // Obsidian Glass — deep reflective surface for market observation
   "market-intel": (C) => ({
-    background: `linear-gradient(180deg, #0E0E14 0%, #0A0A10 100%)`,
+    background: "#000000",
     backgroundImage: "none",
     border: `1px solid rgba(255,255,255,0.05)`,
     boxShadow: `0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -1px 0 rgba(255,255,255,0.02)`,
@@ -62,7 +62,7 @@ const CARD_MATERIALS = {
 
   // Satin Titanium — instrument gauge, diagonal sheen
   benchmarks: (C) => ({
-    background: `linear-gradient(135deg, #131318 0%, #101015 50%, #131318 100%)`,
+    background: "#000000",
     backgroundImage: "none",
     border: `1px solid rgba(255,255,255,0.07)`,
     boxShadow: `0 1px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)`,
@@ -70,7 +70,7 @@ const CARD_MATERIALS = {
 
   // Polished Slate — writing surface, slightly warm
   inbox: (C) => ({
-    background: `linear-gradient(180deg, #121214 0%, #0E0E11 100%)`,
+    background: "#000000",
     backgroundImage: "none",
     border: `1px solid rgba(255,255,255,0.06)`,
     boxShadow: `0 1px 3px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.05)`,
@@ -78,7 +78,7 @@ const CARD_MATERIALS = {
 
   // Matte Carbon — default workhorse, max text contrast
   _default: (C) => ({
-    background: "#0D0D11",
+    background: "#000000",
     backgroundImage: "none",
     border: `1px solid rgba(255,255,255,0.06)`,
     boxShadow: `0 1px 3px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.04)`,
@@ -98,7 +98,7 @@ CARD_MATERIALS["deadline-countdown"] = CARD_MATERIALS._default;
 CARD_MATERIALS.spotify = CARD_MATERIALS._default;
 CARD_MATERIALS.iframe = CARD_MATERIALS._default;
 CARD_MATERIALS["pipeline-hero"] = (C) => ({
-  background: "#111110",
+  background: "#000000",
   backgroundImage: `
     repeating-linear-gradient(45deg, rgba(255,255,255,0.016) 0 1px, transparent 1px 8px),
     repeating-linear-gradient(-45deg, rgba(0,0,0,0.22) 0 1px, transparent 1px 8px)

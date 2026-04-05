@@ -196,7 +196,7 @@ export const PALETTES = [
       glassBg: "rgba(15,15,18,0.80)",
       glassBorder: "rgba(255,255,255,0.05)",
       glassBgDark: "rgba(9,9,11,0.80)",
-      bgGradient: "#09090B",
+      bgGradient: "#333333",
       forceDark: true,
       bgTexture: TOPO_TEXTURE,
     },

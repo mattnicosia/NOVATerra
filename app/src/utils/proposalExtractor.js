@@ -1,5 +1,5 @@
 // Proposal Extraction Pipeline — client orchestrator
-// Sends PDF to /api/extract-proposal (server handles Datalab + AI + ingestion_runs)
+// Sends PDF to /api/extract-proposal, reads streaming progress events
 
 import useExtractionStore from "@/stores/extractionStore";
 import { useAuthStore } from "@/stores/authStore";
@@ -21,7 +21,7 @@ function fileToBase64(file) {
 
 /**
  * Run the full extraction pipeline for a single file.
- * Sends to server endpoint which handles Datalab + AI + DB write.
+ * Reads streaming NDJSON events from the server for real-time progress.
  */
 export async function extractProposal(file) {
   const store = useExtractionStore.getState();
@@ -30,7 +30,7 @@ export async function extractProposal(file) {
 
   try {
     // Convert file to base64
-    update({ status: "uploading", progress: 10 });
+    update({ status: "uploading", progress: 10, statusMessage: "Reading PDF..." });
     const pdfBase64 = await fileToBase64(file);
 
     // Get auth token
@@ -41,7 +41,7 @@ export async function extractProposal(file) {
     }
 
     // Send to server
-    update({ status: "converting", progress: 25 });
+    update({ status: "sending", progress: 20, statusMessage: "Uploading to server..." });
     const resp = await fetch("/api/extract-proposal", {
       method: "POST",
       headers: {
@@ -61,32 +61,85 @@ export async function extractProposal(file) {
       return null;
     }
 
-    const result = await resp.json();
+    // ── Read streaming NDJSON events ──
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let finalResult = null;
 
-    if (result.status === "skipped") {
-      update({
-        status: "done",
-        progress: 100,
-        documentType: "other",
-        rawExtraction: result.classification,
-      });
-      return result;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop(); // keep incomplete last line in buffer
+
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const evt = JSON.parse(line);
+
+          // Update progress and status message from each event
+          const progressUpdate = {
+            ...(evt.progress != null ? { progress: evt.progress } : {}),
+            ...(evt.message ? { statusMessage: evt.message } : {}),
+          };
+
+          switch (evt.event) {
+            case "started":
+              update({ status: "processing", ...progressUpdate });
+              break;
+            case "ocr_start":
+              update({ status: "ocr", ...progressUpdate });
+              break;
+            case "ocr_complete":
+              update({ status: "ocr_done", ...progressUpdate });
+              break;
+            case "classifying":
+              update({ status: "classifying", ...progressUpdate });
+              break;
+            case "classified":
+              update({
+                status: "classified",
+                documentType: evt.classification?.documentType,
+                ...progressUpdate,
+              });
+              break;
+            case "extracting":
+              update({ status: "extracting", ...progressUpdate });
+              break;
+            case "saving":
+              update({ status: "saving", ...progressUpdate });
+              break;
+            case "complete":
+              finalResult = evt;
+              update({
+                status: "done",
+                progress: 100,
+                statusMessage: evt.message,
+                documentType: evt.classification?.documentType,
+                rawExtraction: evt.parsedData,
+                normalized: evt,
+              });
+              if (evt.parsedData) {
+                useExtractionStore.getState().setResult(id, evt);
+              }
+              break;
+            case "error":
+              update({ status: "error", error: evt.error, statusMessage: evt.error });
+              return null;
+            default:
+              // Unknown event — update message if present
+              if (evt.message) update(progressUpdate);
+          }
+        } catch {
+          // Skip malformed JSON lines
+        }
+      }
     }
 
-    if (result.status === "parsed") {
-      update({
-        status: "done",
-        progress: 100,
-        documentType: result.classification?.documentType,
-        rawExtraction: result.parsedData,
-        normalized: result,
-      });
-      useExtractionStore.getState().setResult(id, result);
-      return result;
-    }
-
-    update({ status: "error", error: result.error || "Unknown status" });
-    return null;
+    return finalResult;
   } catch (err) {
     console.error("[extractProposal] Error:", err);
     update({ status: "error", error: err.message });
