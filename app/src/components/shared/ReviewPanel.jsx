@@ -3,7 +3,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useEstimatesStore } from "@/stores/estimatesStore";
 import { useOrgStore, selectIsManager } from "@/stores/orgStore";
 import { useAuthStore } from "@/stores/authStore";
-import { useReviewStore } from "@/stores/reviewStore";
+import { useCollaborationStore } from "@/stores/collaborationStore";
 import { useWorkloadData } from "@/hooks/useWorkloadData";
 import { callAnthropicStream } from "@/utils/ai";
 import Avatar from "@/components/shared/Avatar";
@@ -48,11 +48,11 @@ export default function ReviewPanel({ open, onClose }) {
   const estimatesIndex = useEstimatesStore(s => s.estimatesIndex);
   const workload = useWorkloadData();
 
-  const reviews = useReviewStore(s => s.reviews);
-  const createReview = useReviewStore(s => s.createReview);
-  const setBriefing = useReviewStore(s => s.setBriefing);
-  const updateStatus = useReviewStore(s => s.updateStatus);
-  const deleteReview = useReviewStore(s => s.deleteReview);
+  const reviews = useCollaborationStore(s => s.reviews);
+  const createReview = useCollaborationStore(s => s.createReview);
+  const setBriefing = useCollaborationStore(s => s.setBriefing);
+  const updateStatus = useCollaborationStore(s => s.updateStatus);
+  const deleteReview = useCollaborationStore(s => s.deleteReview);
 
   const [mode, setMode] = useState("list"); // list | create | view
   const [createType, setCreateType] = useState("request"); // request | setup
@@ -152,7 +152,7 @@ Review notes: ${review.notes || "None provided"}`;
           },
         });
         // Save the final briefing
-        const finalText = useReviewStore.getState().reviews.find(r => r.id === review.id)?.briefing;
+        const finalText = useCollaborationStore.getState().reviews.find(r => r.id === review.id)?.briefing;
         if (!finalText) {
           // Get latest briefing text from closure
           setBriefing(review.id, "briefing_pending");

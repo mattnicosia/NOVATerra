@@ -2,14 +2,14 @@
 // Renders between NovaHeader and ProjectTabBar in App.jsx
 import { useState } from "react";
 import { useTheme } from "@/hooks/useTheme";
-import { useAutoResponseStore } from "@/stores/autoResponseStore";
+import { useCollaborationStore } from "@/stores/collaborationStore";
 import Ic from "@/components/shared/Ic";
 import { I } from "@/constants/icons";
 
 export default function AutoResponseBanner({ onReviewClick }) {
   const C = useTheme();
   const T = C.T;
-  const pendingCount = useAutoResponseStore(s => s.getPendingCount());
+  const pendingCount = useCollaborationStore(s => s.getPendingCount());
   const [snoozed, setSnoozed] = useState(false);
 
   if (pendingCount === 0 || snoozed) return null;

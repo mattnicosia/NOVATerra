@@ -21,14 +21,12 @@ import { useDrawingPipelineStore } from "@/stores/drawingPipelineStore";
 import { useBidManagementStore } from "@/stores/bidManagementStore";
 import { useAlternatesStore } from "@/stores/alternatesStore";
 import { useDocumentManagementStore } from "@/stores/documentManagementStore";
-import { useCorrespondenceStore } from "@/stores/correspondenceStore";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useDatabaseStore } from "@/stores/databaseStore";
 import { useModuleStore } from "@/stores/moduleStore";
 import { useCalendarStore } from "@/stores/calendarStore";
 import { useTaskStore } from "@/stores/taskStore";
 import { useGroupsStore } from "@/stores/groupsStore";
-import { useAutoResponseStore } from "@/stores/autoResponseStore";
 import { useSubdivisionStore } from "@/stores/subdivisionStore";
 import { useUiStore } from "@/stores/uiStore";
 
@@ -123,7 +121,7 @@ export function useAutoSave() {
       subSlice(useDocumentManagementStore, s => s.specs, scheduleEstSave),
       subSlice(useDocumentManagementStore, s => s.exclusions, scheduleEstSave),
       subSlice(useDocumentManagementStore, s => s.clarifications, scheduleEstSave),
-      subSlice(useCorrespondenceStore, s => s.correspondences, scheduleEstSave),
+      subSlice(useCollaborationStore, s => s.correspondences, scheduleEstSave),
       subSlice(useModuleStore, s => s.moduleInstances, scheduleEstSave),
       subSlice(useGroupsStore, s => s.groups, scheduleEstSave),
       subSlice(useBidManagementStore, s => s.bidPackages, scheduleEstSave),
@@ -273,7 +271,7 @@ export function useAutoSave() {
   }, [persistenceLoaded, bpPresets]);
 
   // ── Auto-response config (debounced) ──────────────────
-  const arTriggerConfig = useAutoResponseStore(s => s.triggerConfig);
+  const arTriggerConfig = useCollaborationStore(s => s.triggerConfig);
   useEffect(() => {
     if (!persistenceLoaded) return;
     if (arConfigTimer.current) clearTimeout(arConfigTimer.current);
@@ -288,7 +286,7 @@ export function useAutoSave() {
   }, [persistenceLoaded, arTriggerConfig]);
 
   // ── Auto-response drafts (debounced) ──────────────────
-  const arDrafts = useAutoResponseStore(s => s.drafts);
+  const arDrafts = useCollaborationStore(s => s.drafts);
   useEffect(() => {
     if (!persistenceLoaded) return;
     if (arDraftsTimer.current) clearTimeout(arDraftsTimer.current);

@@ -11,7 +11,7 @@ import { useCalendarStore } from "@/stores/calendarStore";
 import { useTaskStore } from "@/stores/taskStore";
 import { useBidManagementStore } from "@/stores/bidManagementStore";
 import { useSubdivisionStore } from "@/stores/subdivisionStore";
-import { useAutoResponseStore } from "@/stores/autoResponseStore";
+import { useCollaborationStore } from "@/stores/collaborationStore";
 import * as cloudSync from "@/utils/cloudSync";
 import * as cloudSyncProfiles from "@/utils/cloudSyncProfiles";
 import { idbKey } from "@/utils/idbKey";
@@ -135,7 +135,7 @@ export async function saveSubdivisionConfig() {
 
 // Save auto-response trigger config
 export async function saveAutoResponseConfig() {
-  const config = useAutoResponseStore.getState().triggerConfig;
+  const config = useCollaborationStore.getState().triggerConfig;
   const ok = await storage.set(idbKey("bldg-auto-response-config"), JSON.stringify(config));
   if (!ok) {
     console.error("[usePersistence] Failed to save auto-response config");
@@ -144,7 +144,7 @@ export async function saveAutoResponseConfig() {
 
 // Save auto-response drafts queue
 export async function saveAutoResponseDrafts() {
-  const drafts = useAutoResponseStore.getState().drafts;
+  const drafts = useCollaborationStore.getState().drafts;
   const keep = drafts.filter(d => d.status !== "dismissed");
   const ok = await storage.set(idbKey("bldg-auto-response-drafts"), JSON.stringify(keep));
   if (!ok) {

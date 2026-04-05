@@ -1,2 +1,2 @@
-// SHIM — consolidated into novaLearningStore. Use imports from novaLearningStore directly.
-export { logAICall, recordOutcome, getEvaluationSummary } from "@/stores/novaLearningStore";
+// SHIM — consolidated into novaStore. Use imports from novaStore directly.
+export { logAICall, recordOutcome, getEvaluationSummary } from "@/stores/novaStore";

@@ -3,7 +3,7 @@
 
 import { useMemo, useState } from "react";
 import { useTheme } from "@/hooks/useTheme";
-import { useScheduleStore } from "@/stores/scheduleStore";
+import { useTaskStore } from "@/stores/taskStore";
 import { fmt } from "@/utils/format";
 
 const ROW_H = 36;
@@ -15,9 +15,9 @@ const BAR_PAD = 5;
 
 export default function GanttChart() {
   const C = useTheme();
-  const activities = useScheduleStore(s => s.activities);
-  const selectedId = useScheduleStore(s => s.selectedActivityId);
-  const setSelected = useScheduleStore(s => s.setSelectedActivityId);
+  const activities = useTaskStore(s => s.schedActivities);
+  const selectedId = useTaskStore(s => s.schedSelectedActivityId);
+  const setSelected = useTaskStore(s => s.setSchedSelectedActivityId);
 
   const [hoveredId, setHoveredId] = useState(null);
 

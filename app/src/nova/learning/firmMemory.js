@@ -1,3 +1,3 @@
-// SHIM — consolidated into novaLearningStore. Use useNovaLearningStore directly.
-import { useNovaLearningStore } from "@/stores/novaLearningStore";
-export const useFirmMemoryStore = useNovaLearningStore;
+// SHIM — consolidated into novaStore. Use useNovaStore directly.
+import { useNovaStore } from "@/stores/novaStore";
+export const useFirmMemoryStore = useNovaStore;

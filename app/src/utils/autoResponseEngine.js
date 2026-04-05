@@ -1,5 +1,5 @@
 // Auto-Response Engine — fires triggers, generates AI drafts, manages the queue
-import { useAutoResponseStore, TRIGGER_TYPES } from "@/stores/autoResponseStore";
+import { useCollaborationStore, TRIGGER_TYPES } from "@/stores/collaborationStore";
 import { callAnthropic } from "@/utils/ai";
 
 /* ─── AI prompt templates per trigger type ─── */
@@ -78,7 +78,7 @@ const DEFAULT_BODIES = {
 
 /* ─── Main trigger function ─── */
 export async function fireAutoResponse(triggerType, context) {
-  const store = useAutoResponseStore.getState();
+  const store = useCollaborationStore.getState();
 
   // 1. Check if trigger is enabled
   const config = store.triggerConfig[triggerType];
@@ -178,7 +178,7 @@ export async function sendAutoResponse(draft) {
   const result = await resp.json();
 
   // Mark as sent in store
-  useAutoResponseStore.getState().markSent(draft.id, result.emailId);
+  useCollaborationStore.getState().markSent(draft.id, result.emailId);
   return result;
 }
 

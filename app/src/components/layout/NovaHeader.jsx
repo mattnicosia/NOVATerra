@@ -10,7 +10,7 @@ import NovaTerraLogo from "@/components/shared/NovaTerraLogo";
 import { useNovaStore } from "@/stores/novaStore";
 import NotificationCenter from "@/components/shared/NotificationCenter";
 import LogoPill from "@/components/shared/LogoPill";
-import { useAutoResponseStore } from "@/stores/autoResponseStore";
+import { useCollaborationStore } from "@/stores/collaborationStore";
 import { useOrgStore, selectIsManager } from "@/stores/orgStore";
 import { COLORS, SPACING, MOTION } from "@/constants/designTokens";
 
@@ -559,7 +559,7 @@ function NovaHeader({ onDraftPanelToggle }) {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [companyMenuOpen, setCompanyMenuOpen] = useState(false);
-  const draftPendingCount = useAutoResponseStore(s => s.getPendingCount());
+  const draftPendingCount = useCollaborationStore(s => s.getPendingCount());
   const { isTablet } = useResponsive();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const toggleDrawer = useCallback(() => setDrawerOpen(v => !v), []);

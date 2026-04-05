@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useMasterDataStore } from "@/stores/masterDataStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
-import { useCorrespondenceStore } from "@/stores/correspondenceStore";
+import { useCollaborationStore } from "@/stores/collaborationStore";
 import { useUiStore } from "@/stores/uiStore";
 import { loadEstimate } from "@/hooks/usePersistence";
 import { computeEstimatorExperience, computeMatchScore } from "@/utils/estimatorExperience";
@@ -158,7 +158,7 @@ export default function BarContextMenu({ pos, bar, currentEstimator, onClose }) 
     if (activeId !== bar.id) {
       await loadEstimate(bar.id);
     }
-    useCorrespondenceStore.getState().addCorrespondence({
+    useCollaborationStore.getState().addCorrespondence({
       title: corrTitle.trim(),
       dueDate: corrDue,
       estimatedHours: Number(corrHours) || 0,

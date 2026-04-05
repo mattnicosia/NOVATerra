@@ -1,7 +1,7 @@
 // Draft Approval Panel — glass morphism popover for reviewing/approving auto-response drafts
 import { useState, useRef, useEffect } from "react";
 import { useTheme } from "@/hooks/useTheme";
-import { useAutoResponseStore, TRIGGER_TYPES } from "@/stores/autoResponseStore";
+import { useCollaborationStore, TRIGGER_TYPES } from "@/stores/collaborationStore";
 import { sendAutoResponse, generateAlternatives } from "@/utils/autoResponseEngine";
 import { useUiStore } from "@/stores/uiStore";
 
@@ -10,9 +10,9 @@ export default function DraftApprovalPanel({ open, onClose }) {
   const T = C.T;
   const dk = C.isDark !== false;
   const ref = useRef(null);
-  const pendingDrafts = useAutoResponseStore(s => s.getPendingDrafts());
-  const updateDraft = useAutoResponseStore(s => s.updateDraft);
-  const dismissDraft = useAutoResponseStore(s => s.dismissDraft);
+  const pendingDrafts = useCollaborationStore(s => s.getPendingDrafts());
+  const updateDraft = useCollaborationStore(s => s.updateDraft);
+  const dismissDraft = useCollaborationStore(s => s.dismissDraft);
   const showToast = useUiStore(s => s.showToast);
 
   const [editingId, setEditingId] = useState(null);

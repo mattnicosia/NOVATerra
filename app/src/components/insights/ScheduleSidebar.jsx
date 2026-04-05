@@ -3,7 +3,7 @@
 
 import { useMemo } from "react";
 import { useTheme } from "@/hooks/useTheme";
-import { useScheduleStore } from "@/stores/scheduleStore";
+import { useTaskStore } from "@/stores/taskStore";
 import { dayToDate, formatDate } from "@/utils/scheduleEngine";
 import { fmt } from "@/utils/format";
 import { card, sectionLabel, bt, inp } from "@/utils/styles";
@@ -39,25 +39,25 @@ export default function ScheduleSidebar() {
   const C = useTheme();
   const T = C.T;
 
-  const activities = useScheduleStore(s => s.activities);
-  const selectedActivity = useScheduleStore(s => s.getSelectedActivity());
-  const setSelected = useScheduleStore(s => s.setSelectedActivityId);
-  const selectedId = useScheduleStore(s => s.selectedActivityId);
-  const viewMode = useScheduleStore(s => s.viewMode);
-  const setViewMode = useScheduleStore(s => s.setViewMode);
-  const startDate = useScheduleStore(s => s.projectStartDate);
-  const setStartDate = useScheduleStore(s => s.setProjectStartDate);
-  const workDays = useScheduleStore(s => s.workDaysPerWeek);
-  const setWorkDays = useScheduleStore(s => s.setWorkDaysPerWeek);
-  const zones = useScheduleStore(s => s.zones);
-  const addZone = useScheduleStore(s => s.addZone);
-  const removeZone = useScheduleStore(s => s.removeZone);
-  const renameZone = useScheduleStore(s => s.renameZone);
-  const setTradeOverride = useScheduleStore(s => s.setTradeOverride);
-  const clearTradeOverride = useScheduleStore(s => s.clearTradeOverride);
-  const tradeOverrides = useScheduleStore(s => s.tradeOverrides);
+  const activities = useTaskStore(s => s.schedActivities);
+  const selectedActivity = useTaskStore(s => s.getSchedSelectedActivity());
+  const setSelected = useTaskStore(s => s.setSchedSelectedActivityId);
+  const selectedId = useTaskStore(s => s.schedSelectedActivityId);
+  const viewMode = useTaskStore(s => s.schedViewMode);
+  const setViewMode = useTaskStore(s => s.setSchedViewMode);
+  const startDate = useTaskStore(s => s.schedProjectStartDate);
+  const setStartDate = useTaskStore(s => s.setSchedProjectStartDate);
+  const workDays = useTaskStore(s => s.schedWorkDaysPerWeek);
+  const setWorkDays = useTaskStore(s => s.setSchedWorkDaysPerWeek);
+  const zones = useTaskStore(s => s.schedZones);
+  const addZone = useTaskStore(s => s.addSchedZone);
+  const removeZone = useTaskStore(s => s.removeSchedZone);
+  const renameZone = useTaskStore(s => s.renameSchedZone);
+  const setTradeOverride = useTaskStore(s => s.setSchedTradeOverride);
+  const clearTradeOverride = useTaskStore(s => s.clearSchedTradeOverride);
+  const tradeOverrides = useTaskStore(s => s.schedTradeOverrides);
 
-  const projectEndDay = useScheduleStore(s => s.getProjectEndDay());
+  const projectEndDay = useTaskStore(s => s.getSchedProjectEndDay());
   const criticalPathDays = useMemo(() => {
     const crit = activities.filter(a => a.isCritical);
     if (crit.length === 0) return 0;

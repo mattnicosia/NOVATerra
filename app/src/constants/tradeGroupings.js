@@ -36,9 +36,9 @@ const TRADE_ALIASES = { metalFraming: "drywall" };
 const resolveTradeKey = key => TRADE_ALIASES[key] || key;
 
 // Resolve active bundles — checks databaseStore for custom overrides
-import { useDatabaseUiStore } from "@/stores/databaseUiStore";
+import { useDatabaseStore } from "@/stores/databaseStore";
 const getActiveBundles = () => {
-  const custom = useDatabaseUiStore.getState().customBundles;
+  const custom = useDatabaseStore.getState().customBundles;
   return custom || TRADE_GROUPINGS;
 };
 

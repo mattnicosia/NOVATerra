@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useItemsStore } from "@/stores/itemsStore";
-import { useDatabaseUiStore } from "@/stores/databaseUiStore";
+import { useDatabaseStore } from "@/stores/databaseStore";
 import { useUiStore } from "@/stores/uiStore";
 import { useDocumentManagementStore } from "@/stores/documentManagementStore";
 import { UNITS, BASE_UNITS, CONVERSIONS } from "@/constants/units";
@@ -111,7 +111,7 @@ export default function ItemDetailPanel({ itemId, onClose, onNavigate, panelWidt
   const addSubItem = useItemsStore(s => s.addSubItem);
   const updateSubItem = useItemsStore(s => s.updateSubItem);
   const removeSubItem = useItemsStore(s => s.removeSubItem);
-  const setPickerForItemId = useDatabaseUiStore(s => s.setPickerForItemId);
+  const setPickerForItemId = useDatabaseStore(s => s.setPickerForItemId);
   const setPricingModal = useUiStore(s => s.setPricingModal);
   const showToast = useUiStore(s => s.showToast);
 

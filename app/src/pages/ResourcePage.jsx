@@ -31,7 +31,7 @@ import BoardView from "@/components/resources/BoardView";
 import ScheduleSettings from "@/components/resources/ScheduleSettings";
 import MyWorkloadView from "@/components/resources/MyWorkloadView";
 import Modal from "@/components/shared/Modal";
-import { useReviewStore } from "@/stores/reviewStore";
+import { useCollaborationStore } from "@/stores/collaborationStore";
 
 /* ────────────────────────────────────────────────────────
    ResourcePage — Gantt Timeline
@@ -902,7 +902,7 @@ export default function ResourcePage() {
   const [showWhatIf, setShowWhatIf] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [quickAction, setQuickAction] = useState(null); // { id, name, x, y, ... } for ProjectQuickActions popover
-  const pendingReviews = useReviewStore(s => s.reviews.filter(r => r.status !== "completed").length);
+  const pendingReviews = useCollaborationStore(s => s.reviews.filter(r => r.status !== "completed").length);
   const isManager = useOrgStore(selectIsManager);
   const hasOrg = !!useOrgStore(s => s.org);
 

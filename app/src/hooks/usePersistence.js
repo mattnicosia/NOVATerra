@@ -11,7 +11,7 @@ import { useDiscoveryStore } from "@/stores/discoveryStore";
 import { useCalendarStore } from "@/stores/calendarStore";
 import { useTaskStore } from "@/stores/taskStore";
 import { useBidManagementStore } from "@/stores/bidManagementStore";
-import { useAutoResponseStore } from "@/stores/autoResponseStore";
+import { useCollaborationStore } from "@/stores/collaborationStore";
 import { useSubdivisionStore } from "@/stores/subdivisionStore";
 import * as cloudSync from "@/utils/cloudSync";
 import { loadAudioMeta } from "@/utils/novaAudioStorage";
@@ -455,8 +455,8 @@ export function usePersistenceLoad() {
           const config = JSON.parse(arConfigRaw.value);
           if (config && typeof config === "object") {
             // Merge with defaults so new triggers get default values
-            const current = useAutoResponseStore.getState().triggerConfig;
-            useAutoResponseStore.getState().setTriggerConfig({ ...current, ...config });
+            const current = useCollaborationStore.getState().triggerConfig;
+            useCollaborationStore.getState().setTriggerConfig({ ...current, ...config });
           }
         } catch (err) {
           console.warn("[usePersistence] Failed to parse auto-response config:", err);
@@ -469,7 +469,7 @@ export function usePersistenceLoad() {
         try {
           const drafts = JSON.parse(arDraftsRaw.value);
           if (Array.isArray(drafts)) {
-            useAutoResponseStore.getState().setDrafts(drafts);
+            useCollaborationStore.getState().setDrafts(drafts);
           }
         } catch (err) {
           console.warn("[usePersistence] Failed to parse auto-response drafts:", err);

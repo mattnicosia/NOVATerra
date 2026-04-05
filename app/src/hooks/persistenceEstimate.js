@@ -14,13 +14,12 @@ import { useBidManagementStore } from "@/stores/bidManagementStore";
 import { useDatabaseStore } from "@/stores/databaseStore";
 import { useAlternatesStore } from "@/stores/alternatesStore";
 import { useDocumentManagementStore } from "@/stores/documentManagementStore";
-import { useCorrespondenceStore } from "@/stores/correspondenceStore";
+import { useCollaborationStore } from "@/stores/collaborationStore";
 import { useModuleStore, migrateModuleInstances } from "@/stores/moduleStore";
 import { useUiStore } from "@/stores/uiStore";
 import { useDiscoveryStore } from "@/stores/discoveryStore";
 import { useGroupsStore, DEFAULT_GROUPS } from "@/stores/groupsStore";
 import { useSubdivisionStore } from "@/stores/subdivisionStore";
-import { useCollaborationStore } from "@/stores/collaborationStore";
 import * as cloudSync from "@/utils/cloudSync";
 import { idbKey } from "@/utils/idbKey";
 import { useAuthStore } from "@/stores/authStore";
@@ -279,7 +278,7 @@ export async function loadEstimate(id) {
     useDocumentManagementStore.getState().setExclusions(data.exclusions || []);
     useDocumentManagementStore.getState().setClarifications(data.clarifications || []);
     useAlternatesStore.getState().setAlternates(data.alternates || []);
-    useCorrespondenceStore.getState().setCorrespondences(data.correspondences || []);
+    useCollaborationStore.getState().setCorrespondences(data.correspondences || []);
     useDocumentManagementStore.getState().setDocuments(data.documents || []);
     useDocumentManagementStore.getState().setTagPalette(data.docTagPalette || []);
     useDocumentManagementStore.getState().setTransmittals(data.docTransmittals || []);
@@ -426,7 +425,7 @@ export async function saveEstimate(overrideId) {
     specs: useDocumentManagementStore.getState().specs,
     specPdf: useDocumentManagementStore.getState().specPdf,
     alternates: useAlternatesStore.getState().alternates,
-    correspondences: useCorrespondenceStore.getState().correspondences,
+    correspondences: useCollaborationStore.getState().correspondences,
     documents: useDocumentManagementStore.getState().documents,
     docTagPalette: useDocumentManagementStore.getState().tagPalette,
     docTransmittals: useDocumentManagementStore.getState().transmittals,

@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useCallback } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useItemsStore } from "@/stores/itemsStore";
-import { useScheduleStore } from "@/stores/scheduleStore";
+import { useTaskStore } from "@/stores/taskStore";
 import { generateSchedule } from "@/utils/scheduleEngine";
 import { fmt } from "@/utils/format";
 import { card, bt } from "@/utils/styles";
@@ -20,14 +20,14 @@ export default function ScheduleTab() {
   const T = C.T;
 
   const items = useItemsStore(s => s.items);
-  const activities = useScheduleStore(s => s.activities);
-  const generated = useScheduleStore(s => s.generated);
-  const generating = useScheduleStore(s => s.generating);
-  const setActivities = useScheduleStore(s => s.setActivities);
-  const setGenerating = useScheduleStore(s => s.setGenerating);
-  const viewMode = useScheduleStore(s => s.viewMode);
-  const tradeOverrides = useScheduleStore(s => s.tradeOverrides);
-  const projectEndDay = useScheduleStore(s => s.getProjectEndDay());
+  const activities = useTaskStore(s => s.schedActivities);
+  const generated = useTaskStore(s => s.schedGenerated);
+  const generating = useTaskStore(s => s.schedGenerating);
+  const setActivities = useTaskStore(s => s.setSchedActivities);
+  const setGenerating = useTaskStore(s => s.setSchedGenerating);
+  const viewMode = useTaskStore(s => s.schedViewMode);
+  const tradeOverrides = useTaskStore(s => s.schedTradeOverrides);
+  const projectEndDay = useTaskStore(s => s.getSchedProjectEndDay());
 
   // Summary stats
   const criticalCount = useMemo(() => activities.filter(a => a.isCritical).length, [activities]);

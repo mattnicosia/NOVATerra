@@ -3,7 +3,7 @@
 
 import { useMemo, useState } from "react";
 import { useTheme } from "@/hooks/useTheme";
-import { useScheduleStore } from "@/stores/scheduleStore";
+import { useTaskStore } from "@/stores/taskStore";
 import { generateTaktData } from "@/utils/scheduleEngine";
 
 const PAD_L = 100; // Zone label width
@@ -14,10 +14,10 @@ const ZONE_H = 80; // Height per zone row
 
 export default function TaktChart() {
   const C = useTheme();
-  const activities = useScheduleStore(s => s.activities);
-  const zones = useScheduleStore(s => s.zones);
-  const selectedId = useScheduleStore(s => s.selectedActivityId);
-  const setSelected = useScheduleStore(s => s.setSelectedActivityId);
+  const activities = useTaskStore(s => s.schedActivities);
+  const zones = useTaskStore(s => s.schedZones);
+  const selectedId = useTaskStore(s => s.schedSelectedActivityId);
+  const setSelected = useTaskStore(s => s.setSchedSelectedActivityId);
 
   const [hoveredId, setHoveredId] = useState(null);
 

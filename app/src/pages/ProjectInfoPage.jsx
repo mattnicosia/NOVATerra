@@ -20,7 +20,7 @@ import { I } from "@/constants/icons";
 import { inp, nInp, bt } from "@/utils/styles";
 // uid available for future use
 // import { uid } from "@/utils/format";
-import { useCorrespondenceStore } from "@/stores/correspondenceStore";
+import { useCollaborationStore } from "@/stores/collaborationStore";
 import { resolveLocationFactors, getAllLocations } from "@/constants/locationFactors";
 import { suggestEstimatedHours } from "@/utils/hoursEstimator";
 import { supabase } from "@/utils/supabase";
@@ -236,10 +236,10 @@ export default function ProjectInfoPage() {
   const prevEstNumRef = useRef("");
 
   // Correspondences
-  const correspondences = useCorrespondenceStore(s => s.correspondences);
-  const addCorrespondence = useCorrespondenceStore(s => s.addCorrespondence);
-  const updateCorrespondence = useCorrespondenceStore(s => s.updateCorrespondence);
-  const removeCorrespondence = useCorrespondenceStore(s => s.removeCorrespondence);
+  const correspondences = useCollaborationStore(s => s.correspondences);
+  const addCorrespondence = useCollaborationStore(s => s.addCorrespondence);
+  const updateCorrespondence = useCollaborationStore(s => s.updateCorrespondence);
+  const removeCorrespondence = useCollaborationStore(s => s.removeCorrespondence);
   const [corrExpanded, setCorrExpanded] = useState(null);
 
   // Communications timeline — linked emails from inbox

@@ -2,7 +2,7 @@
 // Runs on an interval, checks all active bid packages for approaching due dates
 import { useEffect, useRef } from "react";
 import { useBidManagementStore } from "@/stores/bidManagementStore";
-import { useAutoResponseStore } from "@/stores/autoResponseStore";
+import { useCollaborationStore } from "@/stores/collaborationStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { fireAutoResponse } from "@/utils/autoResponseEngine";
 
@@ -14,7 +14,7 @@ export default function useAutoResponseTimers() {
   useEffect(() => {
     const checkDeadlines = () => {
       const { bidPackages, invitations } = useBidManagementStore.getState();
-      const { hasDraft, triggerConfig } = useAutoResponseStore.getState();
+      const { hasDraft, triggerConfig } = useCollaborationStore.getState();
       const project = useProjectStore.getState().project;
 
       const hasDeadlineTriggers = triggerConfig.bidDue48h?.enabled || triggerConfig.bidDue24h?.enabled;

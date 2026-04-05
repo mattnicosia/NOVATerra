@@ -1,6 +1,6 @@
 // Auto-Response Settings — toggle triggers, view status
 import { useTheme } from "@/hooks/useTheme";
-import { useAutoResponseStore, TRIGGER_TYPES } from "@/stores/autoResponseStore";
+import { useCollaborationStore, TRIGGER_TYPES } from "@/stores/collaborationStore";
 
 const TRIGGER_ORDER = [
   "portalOpened",
@@ -16,9 +16,9 @@ export default function AutoResponseSettings() {
   const C = useTheme();
   const T = C.T;
   const dk = C.isDark !== false;
-  const triggerConfig = useAutoResponseStore(s => s.triggerConfig);
-  const updateTrigger = useAutoResponseStore(s => s.updateTrigger);
-  const drafts = useAutoResponseStore(s => s.drafts);
+  const triggerConfig = useCollaborationStore(s => s.triggerConfig);
+  const updateTrigger = useCollaborationStore(s => s.updateTrigger);
+  const drafts = useCollaborationStore(s => s.drafts);
 
   const sentCount = drafts.filter(d => d.status === "sent").length;
   const pendingCount = drafts.filter(d => d.status === "pending").length;

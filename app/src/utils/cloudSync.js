@@ -139,7 +139,7 @@ async function _reloadActiveEstimate(data) {
     const { useGroupsStore } = await import("@/stores/groupsStore");
     const { useBidManagementStore } = await import("@/stores/bidManagementStore");
     const { useAlternatesStore } = await import("@/stores/alternatesStore");
-    const { useCorrespondenceStore } = await import("@/stores/correspondenceStore");
+    const { useCollaborationStore: useCorrespondenceStore } = await import("@/stores/collaborationStore");
     const { useModuleStore } = await import("@/stores/moduleStore");
 
     if (data.project) useProjectStore.getState().setProject(data.project);
