@@ -650,16 +650,23 @@ async function syncEstimates() {
   const currentIndex = useEstimatesStore.getState().estimatesIndex;
   const currentIndexMap = new Map(currentIndex.map(e => [e.id, e]));
 
-  // Only ADD entries pulled from cloud that aren't already in store and aren't deleted
+  // Only ADD entries pulled from cloud that aren't already in store and aren't deleted.
+  // Pre-filter against the snapshot we just read — but the real dedup happens inside
+  // the functional setState below, which reads store state at write-time.
   const toAdd = pulledEntries.filter(e => !currentIndexMap.has(e.id) && !freshDeletedSet.has(e.id));
 
   if (toAdd.length > 0) {
     console.log(`[cloudSync] Estimates: adding ${toAdd.length} cloud-pulled entries to store`);
-    // ATOMIC: Use functional setState so concurrent user creates/deletes are preserved.
-    // This reads the store state at write-time, not from a stale closure variable.
-    useEstimatesStore.setState(state => ({
-      estimatesIndex: [...state.estimatesIndex, ...toAdd.filter(e => !state.estimatesIndex.some(ex => ex.id === e.id))],
-    }));
+    // ATOMIC: functional setState reads store at write-time, not from the stale
+    // closure snapshot. Re-check BOTH current store IDs AND freshDeletedSet inside
+    // the updater so user creates/deletes between the filter above and this write
+    // are respected (closes the Phase 4→5 race window).
+    useEstimatesStore.setState(state => {
+      const existingIds = new Set(state.estimatesIndex.map(ex => ex.id));
+      const safe = toAdd.filter(e => !existingIds.has(e.id) && !freshDeletedSet.has(e.id));
+      if (safe.length === 0) return state; // no-op, avoid new array allocation
+      return { estimatesIndex: [...state.estimatesIndex, ...safe] };
+    });
     const merged = useEstimatesStore.getState().estimatesIndex;
     const idxJson = JSON.stringify(merged);
     await storage.set(idbKey("bldg-index"), idxJson);

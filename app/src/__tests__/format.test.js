@@ -152,28 +152,18 @@ describe("formatCurrency / parseCurrency round-trip", () => {
   });
 });
 
-// ─── uid() — unique ID generation ───────────────────────────────
+// ─── uid() — unique ID generation (UUID v4) ───────────────────────
 
 describe("uid()", () => {
-  it("returns a non-empty string", () => {
+  it("returns a valid UUID v4 string", () => {
     const id = uid();
     expect(typeof id).toBe("string");
-    expect(id.length).toBeGreaterThan(0);
+    expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   });
 
-  it("returns alphanumeric characters only", () => {
-    const id = uid();
-    expect(id).toMatch(/^[a-z0-9]+$/);
-  });
-
-  it("generates unique IDs across multiple calls", () => {
-    const ids = new Set(Array.from({ length: 100 }, () => uid()));
-    expect(ids.size).toBe(100);
-  });
-
-  it("returns a string of up to 9 characters", () => {
-    const id = uid();
-    expect(id.length).toBeLessThanOrEqual(9);
+  it("generates unique IDs across 1000 calls", () => {
+    const ids = new Set(Array.from({ length: 1000 }, () => uid()));
+    expect(ids.size).toBe(1000);
   });
 });
 

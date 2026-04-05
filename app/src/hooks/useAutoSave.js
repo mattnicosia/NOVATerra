@@ -160,9 +160,17 @@ export function useAutoSave() {
   }, [persistenceLoaded]);
 
   // ── Master data (debounced) ───────────────────────────────────
+  // NOT gated on persistenceLoaded — saveMasterData() has its own auth/scope
+  // checks. Gating here caused a race: edits made before orgReady (and thus
+  // before persistenceLoaded) were silently dropped, losing company profiles.
   const masterData = useMasterDataStore(s => s.masterData);
+  const masterDataInitRef = useRef(true);
   useEffect(() => {
-    if (!persistenceLoaded) return;
+    // Skip the very first render (initial store hydration, not a user edit)
+    if (masterDataInitRef.current) {
+      masterDataInitRef.current = false;
+      return;
+    }
     if (masterTimer.current) clearTimeout(masterTimer.current);
     masterTimer.current = setTimeout(() => {
       saveMasterData().catch(err => {
@@ -172,7 +180,7 @@ export function useAutoSave() {
     return () => {
       if (masterTimer.current) clearTimeout(masterTimer.current);
     };
-  }, [persistenceLoaded, masterData]);
+  }, [masterData]);
 
   // ── Settings (debounced) ───────────────────────────────────
   const appSettings = useUiStore(s => s.appSettings);

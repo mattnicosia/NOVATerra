@@ -1,4 +1,4 @@
-export const uid = () => Math.random().toString(36).substr(2, 9);
+export const uid = () => crypto.randomUUID();
 
 export const fmt = (v) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(v || 0);
