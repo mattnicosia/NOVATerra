@@ -40,6 +40,7 @@ export default function AdminUnitRatesPage() {
   const [editingId, setEditingId] = useState(null);
   const [editValues, setEditValues] = useState({});
   const [search, setSearch] = useState("");
+  const [sourceFilter, setSourceFilter] = useState("all");
 
   // Build a lookup from existing DB elements for duplicate detection
   const dbElements = useDatabaseStore(s => s.elements);
@@ -91,7 +92,7 @@ export default function AdminUnitRatesPage() {
     setLoading(true);
     const { data: runs, error } = await supabase
       .from("ingestion_runs")
-      .select("id, filename, company_name, folder_type, parsed_data, classification")
+      .select("id, filename, company_name, folder_type, parsed_data, classification, source, uploaded_by")
       .eq("parse_status", "parsed");
 
     if (error || !runs) { setLoading(false); return; }
@@ -129,6 +130,7 @@ export default function AdminUnitRatesPage() {
           locationFactor: norm.combinedFactor,
           quantity: item.quantity || null,
           amount: item.amount || null,
+          source: run.source || "batch_parse",
           status: "pending",
         });
       }
@@ -264,6 +266,7 @@ export default function AdminUnitRatesPage() {
   const filtered = items.filter(i => {
     if (filter !== "all" && i.status !== filter) return false;
     if (csiFilter !== "all" && i.csiCode !== csiFilter) return false;
+    if (sourceFilter !== "all" && i.source !== sourceFilter) return false;
     if (search) {
       const s = search.toLowerCase();
       const match = (i.label || "").toLowerCase().includes(s) ||
@@ -344,6 +347,12 @@ export default function AdminUnitRatesPage() {
           placeholder="Search by name, company, file..."
           style={{ ...inp, marginLeft: "auto", minWidth: 220 }}
         />
+        <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value)}
+          style={{ ...inp, minWidth: 120 }}>
+          <option value="all">All Sources</option>
+          <option value="batch_parse">Batch Parse</option>
+          <option value="extraction_pipeline">Extracted</option>
+        </select>
         <select value={csiFilter} onChange={e => setCsiFilter(e.target.value)}
           style={{ ...inp, minWidth: 120 }}>
           <option value="all">All Divisions</option>
@@ -485,9 +494,14 @@ export default function AdminUnitRatesPage() {
               })()}
 
               {/* Source */}
-              <span style={{ fontSize: 10, color: T?.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+              <span style={{ fontSize: 10, color: T?.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center" }}
                 title={`${item.company} — ${item.filename}`}>
                 {item.company}
+                {item.source === "extraction_pipeline" && (
+                  <span style={{ fontSize: 8, padding: "1px 5px", borderRadius: 3, background: `${C.accent}15`, color: C.accent, fontWeight: 600, marginLeft: 4, flexShrink: 0 }}>
+                    EXTRACTED
+                  </span>
+                )}
               </span>
 
               {/* Actions */}

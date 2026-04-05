@@ -9,6 +9,7 @@ import CoreProposals from "@/components/core/CoreProposals";
 import CostDatabasePage from "@/pages/CostDatabasePage";
 import CoreSources from "@/components/core/CoreSources";
 import CoreExplorer from "@/components/core/CoreExplorer";
+import CoreExtraction from "@/components/core/CoreExtraction";
 import { importBatchParsedProposals, calibrateFromImportedProposals } from "@/data/importProposals";
 
 
@@ -120,6 +121,11 @@ export default function CorePage() {
     explorer: (
       <TabErrorBoundary key="explorer">
         <CoreExplorer />
+      </TabErrorBoundary>
+    ),
+    extraction: (
+      <TabErrorBoundary key="extraction">
+        <CoreExtraction />
       </TabErrorBoundary>
     ),
   };
