@@ -41,6 +41,7 @@ export const useUiStore = create((set, _get) => ({
     density: "comfortable", // "comfortable" | "compact"
     sidebarDefault: "open",
     fredApiKey: "",
+    datalabApiKey: "", // Datalab.to API key for proposal extraction pipeline
     defaultMarkup: {
       overhead: 10,
       profit: 10,
