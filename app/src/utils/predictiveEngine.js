@@ -7,12 +7,11 @@ import {
   extractPageData,
   findNearestTag,
   findAdjacentText,
-  findPlanTagInstances,
-  isLikelyTag,
-  detectScheduleRegions,
-  isInScheduleRegion,
-  getScheduleRegions,
-} from "./pdfExtractor";
+  isValidTag,
+  isPointInSchedule,
+  getOrDetectScheduleRegions,
+  getTagInstancesOnPlan,
+} from "./extractionAdapter";
 
 import { analyzeDrawingGeometry, generateAutoMeasurements } from "./geometryEngine";
 
@@ -349,14 +348,14 @@ export async function warmPredictions(drawing, description) {
 
     // For tag-based/structural: pre-score all tags against the description
     // Use combined schedule regions (detected + external from scan system)
-    const scheduleRegions = getScheduleRegions(drawing.id) || data.scheduleRegions || detectScheduleRegions(data);
+    const scheduleRegions = getOrDetectScheduleRegions(drawing.id, data);
     const headerPositions = findScheduleHeaderPositions(data.text);
     const tagScores = new Map(); // tagText → relevance score
     const allTags = [];
 
     for (const item of data.text) {
-      if (!isLikelyTag(item.text)) continue;
-      if (isInScheduleRegion(item.x, item.y, scheduleRegions)) continue;
+      if (!isValidTag(item.text)) continue;
+      if (isPointInSchedule(item.x, item.y, scheduleRegions)) continue;
       // Suppress tags near schedule header keywords
       if (headerPositions.length > 0 && isNearScheduleHeader(item, headerPositions)) continue;
       const score = description ? scoreTagRelevance(item.text, description) : 0;
@@ -793,12 +792,12 @@ export function findNearestRelevantTag(data, x, y, description) {
     }
   }
 
-  // Search wider radius for any relevant tag (must pass isLikelyTag to avoid noise)
+  // Search wider radius for any relevant tag (must pass isValidTag to avoid noise)
   let bestTag = null;
   let bestScore = 0;
 
   for (const item of data.text) {
-    if (!isLikelyTag(item.text)) continue;
+    if (!isValidTag(item.text)) continue;
     const dx = item.x - x;
     const dy = item.y - y;
     const dist = Math.sqrt(dx * dx + dy * dy);
@@ -817,7 +816,7 @@ export function findNearestRelevantTag(data, x, y, description) {
 
   // Constrained fallback: search text within 500px of click point (NOT whole page)
   // for description-relevant matches. Filter out schedule/legend regions.
-  const scheduleRegions = data.scheduleRegions || detectScheduleRegions(data);
+  const scheduleRegions = getOrDetectScheduleRegions(data);
   const headerPositions = findScheduleHeaderPositions(data.text);
   const fallbackRadius = 500;
   let pagebestTag = null;
@@ -830,7 +829,7 @@ export function findNearestRelevantTag(data, x, y, description) {
     const dy = item.y - y;
     const dist = Math.sqrt(dx * dx + dy * dy);
     if (dist > fallbackRadius) continue; // constrain to nearby area
-    if (isInScheduleRegion(item.x, item.y, scheduleRegions)) continue;
+    if (isPointInSchedule(item.x, item.y, scheduleRegions)) continue;
     if (headerPositions.length > 0 && isNearScheduleHeader(item, headerPositions)) continue;
     const relevance = scoreTagRelevance(t, description);
     if (relevance < 0.5) continue;
@@ -965,7 +964,7 @@ function nextPredId() {
  * @param {string} takeoffDescription - Description of the active takeoff for differentiator detection
  */
 export function predictCounts(extractedData, tag, excludePositions = [], takeoffDescription = "") {
-  const instances = findPlanTagInstances(extractedData, tag);
+  const instances = getTagInstancesOnPlan(extractedData, tag);
 
   return instances
     .filter(inst => {
@@ -1007,7 +1006,7 @@ export function predictWalls(
   excludePositions = [],
   takeoffDescription = "",
 ) {
-  const instances = findPlanTagInstances(extractedData, tag);
+  const instances = getTagInstancesOnPlan(extractedData, tag);
 
   return instances
     .filter(inst => {
@@ -1187,7 +1186,7 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
 
   // Step 2: Classify takeoff strategy (use warm cache if available)
   const strategy = warm?.strategy || classifyTakeoffStrategy(description);
-  const _tagCount = data.text ? data.text.filter(i => isLikelyTag(i.text)).length : 0;
+  const _tagCount = data.text ? data.text.filter(i => isValidTag(i.text)).length : 0;
   console.log(
     "[NOVA] Strategy:",
     strategy,
@@ -1314,11 +1313,11 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
   let nearestTag;
   if (warm?.tagScores && warm.tagScores.size > 0 && description) {
     // Fast path: use pre-scored tags from warm cache
-    const scheduleRegions = warm.scheduleRegions || getScheduleRegions(drawing.id) || detectScheduleRegions(data);
+    const scheduleRegions = warm.scheduleRegions || getOrDetectScheduleRegions(drawing.id, data);
     let bestTag = null,
       bestScore = 0;
     for (const item of warm.allTags || []) {
-      if (isInScheduleRegion(item.x, item.y, scheduleRegions)) continue;
+      if (isPointInSchedule(item.x, item.y, scheduleRegions)) continue;
       const dx = item.x - clickPoint.x,
         dy = item.y - clickPoint.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
@@ -1388,7 +1387,7 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
         source: "tag",
         confidence: Math.min(1, 0.85 * Math.max(relevance, 0.5) * learnMult),
         extractionStats: data.stats,
-        totalInstances: findPlanTagInstances(data, nearestTag.text).length,
+        totalInstances: getTagInstancesOnPlan(data, nearestTag.text).length,
         strategy,
         takeoffId: takeoff.id,
       };
@@ -1523,7 +1522,7 @@ export async function runSmartPredictions(drawing, takeoff, measurementType, cli
   // Common cause: CAD PDFs with SHX fonts produce sparse text (pdf.js can't
   // extract custom AutoCAD/Revit fonts). Vision analysis reads the image instead.
   const _txtLen = data.text?.length || 0;
-  const _tagItems = data.text ? data.text.filter(i => isLikelyTag(i.text)) : [];
+  const _tagItems = data.text ? data.text.filter(i => isValidTag(i.text)) : [];
   const _nearTag = nearestTag ? `near="${nearestTag.text}"` : "near=NONE";
   console.log(
     "[NOVA] Final fallthrough:",
@@ -1643,7 +1642,7 @@ export async function scanAllSheets(drawings, tag, _measurementType) {
 
     try {
       const data = await extractPageData(drawing);
-      const instances = findPlanTagInstances(data, tag);
+      const instances = getTagInstancesOnPlan(data, tag);
       if (instances.length > 0) {
         results.push({
           drawingId: drawing.id,

@@ -28,24 +28,8 @@ export const useDatabaseStore = create((set, get) => ({
   // This is the list all UI reads — same shape as before, so nothing breaks.
   elements: [...MASTER_COST_DB],
 
-  dbExpandedDivs: new Set(),
-  dbSelectedSub: null,
-  dbSearch: "",
-  dbZipCode: "",
-  createDbItem: null,
-  editDbItem: null,
-  sendToDbModal: null,
-  sendToDbCode: "",
-  pickerForItemId: null,
-  overwriteModal: null,
-
   // Assemblies
   assemblies: [...SEED_ASSEMBLIES],
-  dbAssemblySearch: "",
-  dbActiveTab: "items",
-
-  // Custom trade bundle overrides: [{ key, label, sort, divisions }]
-  customBundles: null,
 
   // ─── Getters ────────────────────────────────────────────────
 
@@ -83,21 +67,8 @@ export const useDatabaseStore = create((set, get) => ({
   // ─── Setters ────────────────────────────────────────────────
 
   setElements: v => set({ elements: v }),
-  setDbExpandedDivs: v => set({ dbExpandedDivs: v }),
-  setDbSelectedSub: v => set({ dbSelectedSub: v }),
-  setDbSearch: v => set({ dbSearch: v }),
-  setDbZipCode: v => set({ dbZipCode: v }),
-  setCreateDbItem: v => set({ createDbItem: v }),
-  setEditDbItem: v => set({ editDbItem: v }),
-  setSendToDbModal: v => set({ sendToDbModal: v }),
-  setSendToDbCode: v => set({ sendToDbCode: v }),
-  setPickerForItemId: v => set({ pickerForItemId: v }),
-  setOverwriteModal: v => set({ overwriteModal: v }),
 
   setAssemblies: v => set({ assemblies: v }),
-  setDbAssemblySearch: v => set({ dbAssemblySearch: v }),
-  setDbActiveTab: v => set({ dbActiveTab: v }),
-  setCustomBundles: v => set({ customBundles: v }),
 
   // ─── Master / Override Operations ──────────────────────────
 
@@ -303,10 +274,4 @@ export const useDatabaseStore = create((set, get) => ({
       assemblies: s.assemblies.filter(a => a.id !== id),
     })),
 
-  toggleDbDiv: dc =>
-    set(s => {
-      const next = new Set(s.dbExpandedDivs);
-      next.has(dc) ? next.delete(dc) : next.add(dc);
-      return { dbExpandedDivs: next };
-    }),
 }));

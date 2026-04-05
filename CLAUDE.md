@@ -69,7 +69,7 @@ On every user prompt, start with a brief header before working:
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **BLDG Estimator** (6627 symbols, 14394 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **BLDG Estimator** (6639 symbols, 14418 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
@@ -165,25 +165,25 @@ To check whether embeddings exist, inspect `.gitnexus/meta.json` — the `stats.
 | Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
 | Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
-| Work in the Widgets area (214 symbols) | `.claude/skills/generated/widgets/SKILL.md` |
-| Work in the Hooks area (211 symbols) | `.claude/skills/generated/hooks/SKILL.md` |
-| Work in the Pages area (175 symbols) | `.claude/skills/generated/pages/SKILL.md` |
+| Work in the Widgets area (219 symbols) | `.claude/skills/generated/widgets/SKILL.md` |
+| Work in the Hooks area (213 symbols) | `.claude/skills/generated/hooks/SKILL.md` |
+| Work in the Pages area (154 symbols) | `.claude/skills/generated/pages/SKILL.md` |
 | Work in the Estimate area (111 symbols) | `.claude/skills/generated/estimate/SKILL.md` |
-| Work in the Resources area (102 symbols) | `.claude/skills/generated/resources/SKILL.md` |
-| Work in the Api area (82 symbols) | `.claude/skills/generated/api/SKILL.md` |
-| Work in the Insights area (72 symbols) | `.claude/skills/generated/insights/SKILL.md` |
-| Work in the Takeoffs area (68 symbols) | `.claude/skills/generated/takeoffs/SKILL.md` |
-| Work in the Constants area (56 symbols) | `.claude/skills/generated/constants/SKILL.md` |
-| Work in the Planroom area (52 symbols) | `.claude/skills/generated/planroom/SKILL.md` |
-| Work in the Stores area (40 symbols) | `.claude/skills/generated/stores/SKILL.md` |
-| Work in the Admin area (39 symbols) | `.claude/skills/generated/admin/SKILL.md` |
-| Work in the Agents area (28 symbols) | `.claude/skills/generated/agents/SKILL.md` |
+| Work in the Resources area (107 symbols) | `.claude/skills/generated/resources/SKILL.md` |
+| Work in the Api area (83 symbols) | `.claude/skills/generated/api/SKILL.md` |
+| Work in the Insights area (70 symbols) | `.claude/skills/generated/insights/SKILL.md` |
+| Work in the Takeoffs area (63 symbols) | `.claude/skills/generated/takeoffs/SKILL.md` |
+| Work in the Admin area (57 symbols) | `.claude/skills/generated/admin/SKILL.md` |
+| Work in the Planroom area (53 symbols) | `.claude/skills/generated/planroom/SKILL.md` |
+| Work in the Constants area (51 symbols) | `.claude/skills/generated/constants/SKILL.md` |
+| Work in the Settings area (38 symbols) | `.claude/skills/generated/settings/SKILL.md` |
 | Work in the Database area (23 symbols) | `.claude/skills/generated/database/SKILL.md` |
-| Work in the Settings area (23 symbols) | `.claude/skills/generated/settings/SKILL.md` |
 | Work in the Rom area (19 symbols) | `.claude/skills/generated/rom/SKILL.md` |
 | Work in the Scripts area (19 symbols) | `.claude/skills/generated/scripts/SKILL.md` |
 | Work in the Blender area (18 symbols) | `.claude/skills/generated/blender/SKILL.md` |
 | Work in the Building-viewer area (18 symbols) | `.claude/skills/generated/building-viewer/SKILL.md` |
 | Work in the Predictive area (17 symbols) | `.claude/skills/generated/predictive/SKILL.md` |
+| Work in the Data area (17 symbols) | `.claude/skills/generated/data/SKILL.md` |
+| Work in the Training area (17 symbols) | `.claude/skills/generated/training/SKILL.md` |
 
 <!-- gitnexus:end -->

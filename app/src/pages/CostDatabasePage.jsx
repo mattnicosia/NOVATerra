@@ -3,6 +3,7 @@ import { Virtuoso } from "react-virtuoso";
 import { useTheme } from "@/hooks/useTheme";
 import { useProjectStore } from "@/stores/projectStore";
 import { useDatabaseStore } from "@/stores/databaseStore";
+import { useDatabaseUiStore } from "@/stores/databaseUiStore";
 import { useItemsStore } from "@/stores/itemsStore";
 import { useUiStore } from "@/stores/uiStore";
 import { CODE_SYSTEMS } from "@/constants/codeSystems";
@@ -536,12 +537,12 @@ export default function CostDatabasePage({ embedded = false }) {
 
   const elements = useDatabaseStore(s => s.elements);
   const setElements = useDatabaseStore(s => s.setElements);
-  const dbExpandedDivs = useDatabaseStore(s => s.dbExpandedDivs);
-  const toggleDbDiv = useDatabaseStore(s => s.toggleDbDiv);
-  const dbSelectedSub = useDatabaseStore(s => s.dbSelectedSub);
-  const setDbSelectedSub = useDatabaseStore(s => s.setDbSelectedSub);
-  const dbSearch = useDatabaseStore(s => s.dbSearch);
-  const setDbSearch = useDatabaseStore(s => s.setDbSearch);
+  const dbExpandedDivs = useDatabaseUiStore(s => s.dbExpandedDivs);
+  const toggleDbDiv = useDatabaseUiStore(s => s.toggleDbDiv);
+  const dbSelectedSub = useDatabaseUiStore(s => s.dbSelectedSub);
+  const setDbSelectedSub = useDatabaseUiStore(s => s.setDbSelectedSub);
+  const dbSearch = useDatabaseUiStore(s => s.dbSearch);
+  const setDbSearch = useDatabaseUiStore(s => s.setDbSearch);
   const removeElement = useDatabaseStore(s => s.removeElement);
   const updateElement = useDatabaseStore(s => s.updateElement);
   const duplicateElement = useDatabaseStore(s => s.duplicateElement);
@@ -549,15 +550,15 @@ export default function CostDatabasePage({ embedded = false }) {
   const revertOverride = useDatabaseStore(s => s.revertOverride);
 
   const assemblies = useDatabaseStore(s => s.assemblies);
-  const dbActiveTab = useDatabaseStore(s => s.dbActiveTab);
-  const setDbActiveTab = useDatabaseStore(s => s.setDbActiveTab);
-  const dbAssemblySearch = useDatabaseStore(s => s.dbAssemblySearch);
-  const setDbAssemblySearch = useDatabaseStore(s => s.setDbAssemblySearch);
+  const dbActiveTab = useDatabaseUiStore(s => s.dbActiveTab);
+  const setDbActiveTab = useDatabaseUiStore(s => s.setDbActiveTab);
+  const dbAssemblySearch = useDatabaseUiStore(s => s.dbAssemblySearch);
+  const setDbAssemblySearch = useDatabaseUiStore(s => s.setDbAssemblySearch);
   const addAssembly = useDatabaseStore(s => s.addAssembly);
   const removeAssembly = useDatabaseStore(s => s.removeAssembly);
 
-  const customBundles = useDatabaseStore(s => s.customBundles);
-  const setCustomBundles = useDatabaseStore(s => s.setCustomBundles);
+  const customBundles = useDatabaseUiStore(s => s.customBundles);
+  const setCustomBundles = useDatabaseUiStore(s => s.setCustomBundles);
 
   const addElement = useItemsStore(s => s.addElement);
   const showToast = useUiStore(s => s.showToast);

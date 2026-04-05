@@ -23,6 +23,11 @@ import ResourceField from "@/components/resources/ResourceField";
 import ResourcePulse from "@/components/resources/ResourcePulse";
 import AtAGlance from "@/components/resources/AtAGlance";
 import EstimatorHeatmap from "@/components/resources/EstimatorHeatmap";
+import EstimatorContextMenu from "@/components/resources/EstimatorContextMenu";
+import ProjectQuickActions from "@/components/resources/ProjectQuickActions";
+import BoardView from "@/components/resources/BoardView";
+import ScheduleSettings from "@/components/resources/ScheduleSettings";
+import MyWorkloadView from "@/components/resources/MyWorkloadView";
 import Modal from "@/components/shared/Modal";
 import { useReviewStore } from "@/stores/reviewStore";
 
@@ -36,173 +41,68 @@ import { useReviewStore } from "@/stores/reviewStore";
    • Today line, unassigned queue at bottom
    ──────────────────────────────────────────────────────── */
 
-// ── Extracted utilities (re-imported for internal use) ───
-import { toDateStr, parseDateStr, addDays } from "@/utils/dateHelpers";
-import { SCHEDULE_COLORS, getStatusColors, utilizationColor, hexAlpha } from "@/utils/resourceColors";
-import { ScheduleLegend, GanttRangeNav } from "@/components/resources/ScheduleControls";
-import ByHoursView from "@/components/resources/ByHoursView";
-import ByDueDateView from "@/components/resources/ByDueDateView";
-import ResourceGuideModal from "@/components/resources/ResourceGuideModal";
+// ── Constants ────────────────────────────────────────────
+// Theme-aware status colors — call with C from useTheme()
+const getStatusColors = (C) => ({
+  Qualifying: C.orange,
+  Bidding: C.purple,
+  Submitted: C.blue,
+  Won: C.green,
+  Lost: C.red,
+  "On Hold": C.yellow,
+  Draft: C.textDim,
+});
+
+const SCHEDULE_COLORS = {
+  ahead: "#30D158",
+  "on-track": "#60A5FA",
+  behind: "#FF9500",
+  overdue: "#FF3B30",
+  conflict: "#FF3B30",
+};
+
+function utilizationColor(hours, capacity = 7) {
+  const pct = hours / capacity;
+  if (pct <= 0) return "transparent";
+  if (pct <= 0.5) return "#30D158";
+  if (pct <= 0.875) return "#FF9500";
+  if (pct <= 1.0) return "#FBBF24";
+  return "#FF3B30";
+}
+
+// ── Date Helpers ─────────────────────────────────────────
+const toDateStr = dt =>
+  `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+
+const parseDateStr = s => {
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y, m - 1, d);
+};
+
+const addDays = (d, n) => {
+  const r = new Date(d);
+  r.setDate(r.getDate() + n);
+  return r;
+};
+
+const _isWeekdayFn = (d, workWeek = "mon-fri") => {
+  const day = d.getDay();
+  if (workWeek === "mon-sat") return day !== 0; // Sun off only
+  return day !== 0 && day !== 6;
+};
+
+const hexAlpha = (hex, alpha) => {
+  const a = Math.round(alpha * 255)
+    .toString(16)
+    .padStart(2, "0");
+  return hex + a;
+};
 
 const TODAY = toDateStr(new Date());
 
 const DAY_WIDTH = 44; // px per day column
 
-// ══════════════════════════════════════════════════════════
-// ESTIMATOR CONTEXT MENU (right-click on estimator name)
-// ══════════════════════════════════════════════════════════
-function EstimatorContextMenu({ pos, name, color, projectCount, C, _T, onViewScorecard, onRemove, onClose }) {
-  const menuRef = useRef(null);
-  const [confirming, setConfirming] = useState(false);
-
-  useEffect(() => {
-    const handler = e => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) onClose();
-    };
-    const t = setTimeout(() => document.addEventListener("mousedown", handler), 0);
-    return () => {
-      clearTimeout(t);
-      document.removeEventListener("mousedown", handler);
-    };
-  }, [onClose]);
-
-  useEffect(() => {
-    const handler = e => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [onClose]);
-
-  const x = Math.min(pos.x, window.innerWidth - 200);
-  const y = Math.min(pos.y, window.innerHeight - 180);
-
-  const itemStyle = {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    padding: "7px 12px",
-    borderRadius: 6,
-    fontSize: 11,
-    fontWeight: 500,
-    color: C.text,
-    cursor: "pointer",
-    transition: "background 80ms",
-    border: "none",
-    background: "transparent",
-    width: "100%",
-    textAlign: "left",
-  };
-
-  return (
-    <div
-      ref={menuRef}
-      onClick={e => e.stopPropagation()}
-      style={{
-        position: "fixed",
-        left: x,
-        top: y,
-        zIndex: 1000,
-        background: C.isDark
-          ? "linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.04))"
-          : "linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.90))",
-        backdropFilter: "blur(40px) saturate(1.8)",
-        WebkitBackdropFilter: "blur(40px) saturate(1.8)",
-        border: `1px solid ${C.isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.10)"}`,
-        borderRadius: 10,
-        padding: "6px 4px",
-        minWidth: 180,
-        boxShadow: C.isDark
-          ? "0 12px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)"
-          : "0 8px 30px rgba(0,0,0,0.15)",
-      }}
-    >
-      <div
-        style={{
-          padding: "4px 12px 6px",
-          fontSize: 9,
-          fontWeight: 700,
-          color: C.textDim,
-          textTransform: "uppercase",
-          letterSpacing: "0.06em",
-          borderBottom: `1px solid ${C.border}20`,
-          marginBottom: 2,
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-        }}
-      >
-        <div
-          style={{
-            width: 12,
-            height: 12,
-            borderRadius: "50%",
-            background: color,
-          }}
-        />
-        {name}
-      </div>
-      {confirming ? (
-        <div style={{ padding: "8px 12px" }}>
-          <div style={{ fontSize: 10, color: C.textMuted, marginBottom: 6 }}>
-            Remove <strong>{name}</strong>?
-            {projectCount > 0 && (
-              <>
-                {" "}
-                {projectCount} project{projectCount !== 1 ? "s" : ""} will become unassigned.
-              </>
-            )}
-          </div>
-          <div style={{ display: "flex", gap: 4 }}>
-            <button
-              onClick={onRemove}
-              style={{
-                ...itemStyle,
-                width: "auto",
-                padding: "4px 10px",
-                background: "#FF3B3015",
-                color: "#FF3B30",
-                fontWeight: 600,
-                borderRadius: 4,
-              }}
-            >
-              Remove
-            </button>
-            <button
-              onClick={() => setConfirming(false)}
-              style={{ ...itemStyle, width: "auto", padding: "4px 10px", color: C.textMuted, borderRadius: 4 }}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : (
-        <>
-          <button
-            onClick={onViewScorecard}
-            style={itemStyle}
-            onMouseEnter={e => (e.target.style.background = `${C.accent}12`)}
-            onMouseLeave={e => (e.target.style.background = "transparent")}
-          >
-            <span style={{ fontSize: 13, width: 18, textAlign: "center" }}>📊</span>
-            View Scorecard
-          </button>
-          <div style={{ height: 1, background: `${C.border}40`, margin: "4px 8px" }} />
-          <button
-            onClick={() => setConfirming(true)}
-            style={{ ...itemStyle, color: "#FF3B30" }}
-            onMouseEnter={e => (e.target.style.background = "#FF3B3010")}
-            onMouseLeave={e => (e.target.style.background = "transparent")}
-          >
-            <span style={{ fontSize: 13, width: 18, textAlign: "center" }}>✕</span>
-            Remove Estimator
-          </button>
-        </>
-      )}
-    </div>
-  );
-}
-
+// EstimatorContextMenu — extracted to @/components/resources/EstimatorContextMenu.jsx
 // ══════════════════════════════════════════════════════════
 // GANTT CHART
 // ══════════════════════════════════════════════════════════
@@ -1520,449 +1420,128 @@ function AlertsSection({ warnings, C, T }) {
   );
 }
 
-// ScheduleLegend, GanttRangeNav — extracted to @/components/resources/ScheduleControls
-
 // ══════════════════════════════════════════════════════════
-// PROJECT QUICK ACTIONS POPOVER
+// SCHEDULE LEGEND
 // ══════════════════════════════════════════════════════════
-function ProjectQuickActions({ data, onClose, estimatorRows, C, T, navigate }) {
-  const STATUS_COLORS = getStatusColors(C);
-  const ref = useRef(null);
-  const {
-    id,
-    name,
-    client,
-    status,
-    bidDue,
-    daysRemaining,
-    hoursLogged,
-    estimatedHours,
-    percentComplete,
-    estimator,
-    manualPercentComplete,
-    manualHoursLogged,
-    delegatedBy,
-    scheduleStatus,
-  } = data;
-
-  const [pctVal, setPctVal] = useState(manualPercentComplete != null ? manualPercentComplete : percentComplete);
-  const [hoursVal, setHoursVal] = useState(manualHoursLogged != null ? String(manualHoursLogged) : "");
-  const [assignVal, setAssignVal] = useState(estimator || "");
-  const [showDelegate, setShowDelegate] = useState(false);
-
-  // Close on outside click
-  useEffect(() => {
-    const handler = e => {
-      if (ref.current && !ref.current.contains(e.target)) onClose();
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [onClose]);
-
-  // Position clamping (keep popover in viewport)
-  const [pos, setPos] = useState({ x: data.x, y: data.y });
-  useEffect(() => {
-    if (!ref.current) return;
-    const rect = ref.current.getBoundingClientRect();
-    let x = data.x,
-      y = data.y;
-    if (x + rect.width > window.innerWidth - 16) x = window.innerWidth - rect.width - 16;
-    if (y + rect.height > window.innerHeight - 16) y = window.innerHeight - rect.height - 16;
-    if (x < 16) x = 16;
-    if (y < 16) y = 16;
-    setPos({ x, y });
-  }, [data.x, data.y]);
-
-  const save = (field, value) => {
-    useEstimatesStore.getState().updateIndexEntry(id, { [field]: value });
-  };
-
-  const handlePctChange = val => {
-    const v = Math.max(0, Math.min(100, Number(val) || 0));
-    setPctVal(v);
-    save("manualPercentComplete", v);
-  };
-
-  const handleHoursChange = val => {
-    setHoursVal(val);
-    const num = parseFloat(val);
-    if (!isNaN(num) && num >= 0) {
-      save("manualHoursLogged", Math.round(num * 10) / 10);
-    }
-  };
-
-  const handleClearHours = () => {
-    setHoursVal("");
-    save("manualHoursLogged", null);
-  };
-
-  const handleClearPct = () => {
-    setPctVal(percentComplete);
-    save("manualPercentComplete", null);
-  };
-
-  const handleAssign = newEstimator => {
-    setAssignVal(newEstimator);
-    save("estimator", newEstimator);
-    useUiStore.getState().showToast(`Assigned "${name}" to ${newEstimator || "Unassigned"}`);
-  };
-
-  const handleDelegate = newEstimator => {
-    if (!newEstimator || newEstimator === estimator) return;
-    useEstimatesStore.getState().updateIndexEntry(id, {
-      estimator: newEstimator,
-      delegatedBy: estimator || "",
-    });
-    setAssignVal(newEstimator);
-    setShowDelegate(false);
-    useUiStore.getState().showToast(`Delegated "${name}" from ${estimator} → ${newEstimator}`);
-  };
-
-  const dk = C.isDark;
-  const ov = a => (dk ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`);
-  const statusColor = SCHEDULE_COLORS[scheduleStatus] || STATUS_COLORS[status] || C.purple;
-  const pctColor = pctVal >= 100 ? "#30D158" : pctVal >= 50 ? "#FF9500" : statusColor;
-
-  const sectionTitle = {
-    fontSize: 9,
-    fontWeight: 700,
-    color: C.textDim,
-    textTransform: "uppercase",
-    letterSpacing: "0.06em",
-    marginBottom: 6,
-    marginTop: 12,
-  };
-  const inputStyle = {
-    width: "100%",
-    padding: "6px 8px",
-    fontSize: T.fontSize.xs,
-    background: dk ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)",
-    border: `1px solid ${C.border}`,
-    borderRadius: T.radius.sm,
-    color: C.text,
-    fontFamily: T.font.display,
-    outline: "none",
-  };
-  const selectStyle = {
-    ...inputStyle,
-    cursor: "pointer",
-    appearance: "none",
-    WebkitAppearance: "none",
-    backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23999' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
-    backgroundRepeat: "no-repeat",
-    backgroundPosition: "right 8px center",
-    paddingRight: 24,
-  };
-  const linkBtn = {
-    background: "none",
-    border: "none",
-    fontSize: 9,
-    fontWeight: 600,
-    cursor: "pointer",
-    padding: 0,
-    fontFamily: T.font.display,
-  };
-
+function ScheduleLegend({ C, T }) {
+  const items = [
+    { label: "Ahead", color: SCHEDULE_COLORS.ahead },
+    { label: "On Track", color: SCHEDULE_COLORS["on-track"] },
+    { label: "Behind", color: SCHEDULE_COLORS.behind },
+    { label: "Overdue", color: SCHEDULE_COLORS.overdue },
+    { label: "Conflict", color: SCHEDULE_COLORS.conflict },
+  ];
   return (
-    <div
-      ref={ref}
-      style={{
-        position: "fixed",
-        left: pos.x,
-        top: pos.y,
-        width: 320,
-        zIndex: 9999,
-        background: C.bg1,
-        border: `1px solid ${C.border}`,
-        borderRadius: 12,
-        boxShadow: dk ? "0 16px 48px rgba(0,0,0,0.6)" : "0 16px 48px rgba(0,0,0,0.18)",
-        padding: 16,
-        fontFamily: T.font.display,
-        animation: "modalEnter 0.15s ease-out both",
-      }}
-      onClick={e => e.stopPropagation()}
-    >
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 4 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div
-            style={{
-              fontSize: T.fontSize.sm,
-              fontWeight: T.fontWeight.bold,
-              color: C.text,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {name}
-          </div>
-          {client && <div style={{ fontSize: 10, color: C.textMuted, marginTop: 1 }}>{client}</div>}
+    <div style={{ display: "flex", gap: T.space[4], alignItems: "center" }}>
+      {items.map(item => (
+        <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <div style={{ width: 8, height: 8, borderRadius: 2, background: item.color }} />
+          <span style={{ fontSize: 9, color: C.textDim }}>{item.label}</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-          <span
-            style={{
-              fontSize: 9,
-              fontWeight: 600,
-              padding: "2px 6px",
-              borderRadius: 4,
-              background: hexAlpha(statusColor, 0.12),
-              color: statusColor,
-            }}
-          >
-            {status}
-          </span>
-          <button
-            onClick={onClose}
-            style={{ ...linkBtn, color: C.textDim, fontSize: 14, lineHeight: 1, padding: "0 2px" }}
-          >
-            ×
-          </button>
-        </div>
-      </div>
-
-      {/* Due date */}
-      {bidDue && (
-        <div style={{ fontSize: 10, color: C.textDim, marginBottom: 2 }}>
-          Due {parseDateStr(bidDue).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-          {daysRemaining > 0 ? ` · ${daysRemaining}d left` : daysRemaining === 0 ? " · Today" : " · Overdue"}
-        </div>
-      )}
-
-      {/* Delegated By label */}
-      {delegatedBy && (
-        <div style={{ fontSize: 9, color: "#FF9500", fontWeight: 600, marginTop: 4 }}>Delegated by {delegatedBy}</div>
-      )}
-
-      {/* ─── % Complete ─── */}
-      <div style={sectionTitle}>% Complete</div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={pctVal}
-          onChange={e => handlePctChange(e.target.value)}
-          style={{ flex: 1, accentColor: pctColor, cursor: "pointer", height: 4 }}
-        />
-        <input
-          type="number"
-          min={0}
-          max={100}
-          value={pctVal}
-          onChange={e => handlePctChange(e.target.value)}
-          style={{ ...inputStyle, width: 50, textAlign: "center", padding: "4px 4px" }}
-        />
-        <span style={{ fontSize: 10, color: C.textDim, fontWeight: 600 }}>%</span>
-      </div>
-      {manualPercentComplete != null && (
-        <button onClick={handleClearPct} style={{ ...linkBtn, color: C.textDim, marginTop: 4, fontSize: 8 }}>
-          Reset to auto ({percentComplete}%)
-        </button>
-      )}
-
-      {/* ─── Hours ─── */}
-      <div style={sectionTitle}>Hours</div>
-      <div style={{ display: "flex", gap: 12, marginBottom: 6 }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 8, color: C.textDim, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 2 }}>Estimated</div>
-          <div style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.bold, color: C.text }}>{estimatedHours}h</div>
-        </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 8, color: C.textDim, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 2 }}>Logged</div>
-          <div style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.bold, color: C.text }}>{hoursLogged}h</div>
-        </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 8, color: C.textDim, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 2 }}>Remaining</div>
-          <div style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.bold, color: estimatedHours - hoursLogged <= 0 ? "#30D158" : C.text }}>{Math.max(0, estimatedHours - hoursLogged)}h</div>
-        </div>
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <input
-          type="number"
-          min={0}
-          step={0.5}
-          placeholder={`${hoursLogged}h (auto)`}
-          value={hoursVal}
-          onChange={e => handleHoursChange(e.target.value)}
-          style={{ ...inputStyle, flex: 1 }}
-        />
-        <span style={{ fontSize: 10, color: C.textDim, fontWeight: 600, whiteSpace: "nowrap" }}>
-          override
-        </span>
-      </div>
-      {manualHoursLogged != null && (
-        <button onClick={handleClearHours} style={{ ...linkBtn, color: C.textDim, marginTop: 4, fontSize: 8 }}>
-          Reset to timer-based
-        </button>
-      )}
-
-      {/* Progress bar */}
-      <div style={{ height: 4, borderRadius: 2, background: ov(0.06), marginTop: 8, overflow: "hidden" }}>
-        <div
-          style={{
-            height: "100%",
-            width: `${Math.min(100, pctVal)}%`,
-            background: pctColor,
-            borderRadius: 2,
-            transition: "width 200ms",
-          }}
-        />
-      </div>
-
-      {/* ─── Assign / Reassign ─── */}
-      <div style={sectionTitle}>{estimator ? "Reassign" : "Assign"}</div>
-      <select value={assignVal} onChange={e => handleAssign(e.target.value)} style={selectStyle}>
-        <option value="">Unassigned</option>
-        {estimatorRows.map(r => (
-          <option key={r.name} value={r.name}>
-            {r.name}
-          </option>
-        ))}
-      </select>
-
-      {/* ─── Delegate ─── */}
-      {estimator && (
-        <>
-          <div style={sectionTitle}>Delegate</div>
-          {!showDelegate ? (
-            <button
-              onClick={() => setShowDelegate(true)}
-              style={{
-                ...inputStyle,
-                cursor: "pointer",
-                color: C.textMuted,
-                textAlign: "left",
-                background: dk ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
-              }}
-            >
-              Delegate to another estimator…
-            </button>
-          ) : (
-            <select
-              autoFocus
-              value=""
-              onChange={e => handleDelegate(e.target.value)}
-              onBlur={() => setShowDelegate(false)}
-              style={selectStyle}
-            >
-              <option value="" disabled>
-                Select estimator…
-              </option>
-              {estimatorRows
-                .filter(r => r.name !== estimator)
-                .map(r => (
-                  <option key={r.name} value={r.name}>
-                    {r.name}
-                  </option>
-                ))}
-            </select>
-          )}
-        </>
-      )}
-
-      {/* Footer */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginTop: 14,
-          paddingTop: 10,
-          borderTop: `1px solid ${C.border}`,
-        }}
-      >
-        <button
-          onClick={() => {
-            onClose();
-            navigate(`/estimate/${id}/info`);
-          }}
-          style={{ ...linkBtn, color: C.accent, fontSize: 10 }}
-        >
-          Open Full Details →
-        </button>
-        <button onClick={onClose} style={{ ...linkBtn, color: C.textDim, fontSize: 10 }}>
-          Close
-        </button>
-      </div>
+      ))}
     </div>
   );
 }
 
 // ══════════════════════════════════════════════════════════
-// BOARD VIEW — drag-and-drop estimator assignment
+// GANTT RANGE CONTROLS
 // ══════════════════════════════════════════════════════════
-function BoardView({ workload, C, T, navigate, onDrop, onProjectClick }) {
+function GanttRangeNav({ rangeLabel, onPrev, onNext, onToday, C, T }) {
+  const btnStyle = {
+    ...bt(C),
+    padding: "4px 10px",
+    fontSize: T.fontSize.sm,
+    borderRadius: T.radius.sm,
+    color: C.textMuted,
+    background: C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)",
+    border: `1px solid ${C.border}`,
+  };
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: T.space[2] }}>
+      <button onClick={onPrev} style={btnStyle}>
+        ←
+      </button>
+      <span
+        style={{
+          fontSize: T.fontSize.base,
+          fontWeight: T.fontWeight.semibold,
+          color: C.text,
+          minWidth: 200,
+          textAlign: "center",
+        }}
+      >
+        {rangeLabel}
+      </span>
+      <button onClick={onNext} style={btnStyle}>
+        →
+      </button>
+      <button
+        onClick={onToday}
+        style={{ ...btnStyle, marginLeft: T.space[2], color: C.accent, borderColor: `${C.accent}30` }}
+      >
+        Today
+      </button>
+    </div>
+  );
+}
+
+// ProjectQuickActions — extracted to @/components/resources/ProjectQuickActions.jsx
+// BoardView — extracted to @/components/resources/BoardView.jsx
+// ══════════════════════════════════════════════════════════
+// BY HOURS VIEW
+// ══════════════════════════════════════════════════════════
+function ByHoursView({ workload, C, T, navigate, onProjectClick }) {
   const { estimatorRows, unassignedEstimates, CAPACITY_HOURS, effectiveHoursPerDay, dailyLoad } = workload;
   const capHours = effectiveHoursPerDay || CAPACITY_HOURS;
   const todayStr = new Date().toISOString().slice(0, 10);
-  const [dragOverTarget, setDragOverTarget] = useState(null); // estimator name or "__unassigned__"
 
-  // ── Inline hours editor state ──
-  const [editingHoursId, setEditingHoursId] = useState(null);
-  const [editingHoursVal, setEditingHoursVal] = useState("");
+  const ProgressBar = ({ value, max, color }) => (
+    <div
+      style={{
+        height: 6,
+        borderRadius: 3,
+        background: C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
+        overflow: "hidden",
+        flex: 1,
+      }}
+    >
+      <div
+        style={{
+          height: "100%",
+          width: `${Math.min(100, max > 0 ? (value / max) * 100 : 0)}%`,
+          background: color,
+          borderRadius: 3,
+          transition: "width 300ms",
+        }}
+      />
+    </div>
+  );
 
-  // ── Draggable Project Card ──
-  const ProjectCard = ({ est, estimatorName }) => {
-    const statusColor = SCHEDULE_COLORS[est.scheduleStatus] || C.purple;
-    const pct = est.estimatedHours > 0 ? Math.min(100, (est.hoursLogged / est.estimatedHours) * 100) : 0;
-    const isEditingHours = editingHoursId === est.id;
-
-    const saveHours = () => {
-      const h = Number(editingHoursVal);
-      if (h >= 0) {
-        useEstimatesStore.getState().updateIndexEntry(est.id, { estimatedHours: h });
-        useUiStore.getState().showToast(`Updated "${est.name}" to ${h}h`);
-      }
-      setEditingHoursId(null);
-    };
-
+  const EstimateRow = ({ est, estimatorName }) => {
+    const color = SCHEDULE_COLORS[est.scheduleStatus] || C.purple;
     return (
       <div
-        draggable={!isEditingHours}
-        onDragStart={e => {
-          if (isEditingHours) {
-            e.preventDefault();
-            return;
-          }
-          e.dataTransfer.setData("estimateId", est.id);
-          e.dataTransfer.setData("fromEstimator", estimatorName || "");
-          e.dataTransfer.effectAllowed = "move";
-        }}
         onClick={e => {
-          if (isEditingHours) return;
-          if (onProjectClick) onProjectClick({ ...est, estimator: estimatorName || "" }, e);
+          if (onProjectClick) {
+            onProjectClick({ ...est, estimator: estimatorName || "" }, e);
+          } else {
+            navigate(`/estimate/${est.id}/info`);
+          }
         }}
-        onDoubleClick={() => {
-          if (!isEditingHours) navigate(`/estimate/${est.id}/info`);
-        }}
+        onDoubleClick={() => navigate(`/estimate/${est.id}/info`)}
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 8,
-          padding: "8px 10px",
+          gap: T.space[3],
+          padding: `${T.space[2]}px ${T.space[3]}px`,
           borderRadius: T.radius.sm,
-          background: C.isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+          cursor: "pointer",
+          background: C.isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
           border: `1px solid ${C.border}40`,
-          cursor: isEditingHours ? "default" : "grab",
-          transition: "background 100ms, box-shadow 100ms",
-        }}
-        onMouseEnter={e => {
-          e.currentTarget.style.background = C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)";
-          e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.08)";
-        }}
-        onMouseLeave={e => {
-          e.currentTarget.style.background = C.isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)";
-          e.currentTarget.style.boxShadow = "none";
+          transition: "background 100ms",
         }}
       >
-        {/* Grab handle */}
-        <div style={{ fontSize: 10, color: C.textDim, cursor: "grab", userSelect: "none", lineHeight: 1 }}>⠿</div>
-
-        {/* Status dot */}
-        <div style={{ width: 7, height: 7, borderRadius: "50%", background: statusColor, flexShrink: 0 }} />
-
-        {/* Content */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
             style={{
@@ -1976,136 +1555,130 @@ function BoardView({ workload, C, T, navigate, onDrop, onProjectClick }) {
           >
             {est.name}
           </div>
-          <div style={{ fontSize: 9, color: C.textDim, marginTop: 1, display: "flex", gap: 6 }}>
-            {est.bidDue && (
-              <span>
-                {parseDateStr(est.bidDue).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                {est.daysRemaining > 0
-                  ? ` · ${est.daysRemaining}d`
-                  : est.daysRemaining === 0
-                    ? " · Today"
-                    : " · Overdue"}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Hours progress — click to edit */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-          <div
-            style={{
-              width: 40,
-              height: 4,
-              borderRadius: 2,
-              background: C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                height: "100%",
-                width: `${pct}%`,
-                background: statusColor,
-                borderRadius: 2,
-              }}
-            />
-          </div>
-          {isEditingHours ? (
-            <input
-              type="number"
-              min={0}
-              step={1}
-              autoFocus
-              value={editingHoursVal}
-              onChange={e => setEditingHoursVal(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === "Enter") saveHours();
-                if (e.key === "Escape") setEditingHoursId(null);
-              }}
-              onBlur={saveHours}
-              onClick={e => e.stopPropagation()}
-              style={{
-                width: 48,
-                padding: "2px 4px",
-                fontSize: 9,
-                fontWeight: 600,
-                borderRadius: 4,
-                border: `1px solid ${C.accent}`,
-                background: C.isDark ? "rgba(255,255,255,0.08)" : "#fff",
-                color: C.text,
-                outline: "none",
-                textAlign: "right",
-              }}
-            />
-          ) : (
-            <span
-              onClick={e => {
-                e.stopPropagation();
-                setEditingHoursId(est.id);
-                setEditingHoursVal(est.estimatedHours || 0);
-              }}
-              title="Click to edit estimated hours"
-              style={{
-                fontSize: 9,
-                color: C.textMuted,
-                fontWeight: 600,
-                minWidth: 50,
-                textAlign: "right",
-                cursor: "text",
-                padding: "2px 4px",
-                borderRadius: 4,
-                transition: "background 100ms",
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = `${C.accent}15`)}
-              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-            >
-              {est.hoursLogged}h/{est.estimatedHours}h
-            </span>
+          {est.bidDue && (
+            <div style={{ fontSize: 9, color: C.textDim, marginTop: 1 }}>
+              Due {parseDateStr(est.bidDue).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+              {est.daysRemaining > 0
+                ? ` · ${est.daysRemaining}d left`
+                : est.daysRemaining === 0
+                  ? " · Today"
+                  : " · Overdue"}
+            </div>
           )}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: T.space[2], flexShrink: 0 }}>
+          <ProgressBar value={est.hoursLogged} max={est.estimatedHours} color={color} />
+          <span style={{ fontSize: 10, fontWeight: 600, color: C.textMuted, minWidth: 60, textAlign: "right" }}>
+            {est.hoursLogged}h / {est.estimatedHours}h
+          </span>
         </div>
       </div>
     );
   };
 
-  // ── Drop zone handlers ──
-  const onDragOver = (e, target) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    setDragOverTarget(target);
-  };
-  const onDragLeave = () => setDragOverTarget(null);
-  const onDropHandler = (e, targetEstimator) => {
-    e.preventDefault();
-    setDragOverTarget(null);
-    const estimateId = e.dataTransfer.getData("estimateId");
-    const fromEstimator = e.dataTransfer.getData("fromEstimator");
-    if (estimateId && onDrop) {
-      onDrop(estimateId, targetEstimator, fromEstimator);
-    }
-  };
-
   return (
-    <div>
-      {/* Unassigned Tray */}
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(380px, 1fr))", gap: T.space[4] }}>
+      {estimatorRows.map(row => {
+        const totalHours = row.estimates.reduce((s, e) => s + e.estimatedHours, 0);
+        const totalLogged = row.estimates.reduce((s, e) => s + e.hoursLogged, 0);
+        const sorted = [...row.estimates].sort((a, b) => b.estimatedHours - a.estimatedHours);
+        // Daily capacity used — read actual overlapping load for today
+        const todayLoad = dailyLoad?.get(todayStr)?.get(row.name);
+        const dailyHours = todayLoad?.totalHours || 0;
+        const utilPct = Math.round((dailyHours / capHours) * 100);
+        const utilColor = utilizationColor(dailyHours, capHours);
+
+        return (
+          <div key={row.name} style={{ ...cardSolid(C), padding: T.space[4] }}>
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", gap: T.space[3], marginBottom: T.space[3] }}>
+              <Avatar name={row.name} color={row.color} size={32} fontSize={12} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: T.fontSize.base, fontWeight: T.fontWeight.bold, color: C.text }}>
+                  {row.name}
+                </div>
+                <div style={{ fontSize: 9, color: C.textDim }}>
+                  {row.estimates.length} active project{row.estimates.length !== 1 ? "s" : ""}
+                </div>
+              </div>
+              {/* Utilization badge */}
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: utilColor,
+                  padding: "3px 8px",
+                  borderRadius: T.radius.sm,
+                  background: hexAlpha(utilColor, 0.12),
+                }}
+              >
+                {utilPct}% utilized
+              </div>
+            </div>
+
+            {/* Hours summary */}
+            <div style={{ display: "flex", gap: T.space[4], marginBottom: T.space[3] }}>
+              <div>
+                <div style={{ fontSize: T.fontSize.lg, fontWeight: T.fontWeight.bold, color: C.text }}>
+                  {totalHours}h
+                </div>
+                <div style={{ fontSize: 8, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  Estimated
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: T.fontSize.lg, fontWeight: T.fontWeight.bold, color: C.text }}>
+                  {totalLogged}h
+                </div>
+                <div style={{ fontSize: 8, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  Logged
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: T.fontSize.lg, fontWeight: T.fontWeight.bold, color: C.text }}>
+                  {Math.max(0, totalHours - totalLogged)}h
+                </div>
+                <div style={{ fontSize: 8, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  Remaining
+                </div>
+              </div>
+            </div>
+
+            {/* Utilization bar */}
+            <div style={{ marginBottom: T.space[3] }}>
+              <div
+                style={{
+                  height: 4,
+                  borderRadius: 2,
+                  background: C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    height: "100%",
+                    width: `${Math.min(100, utilPct)}%`,
+                    background: utilColor,
+                    borderRadius: 2,
+                    transition: "width 300ms",
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Estimates list */}
+            <div style={{ display: "flex", flexDirection: "column", gap: T.space[2] }}>
+              {sorted.map(est => (
+                <EstimateRow key={est.id} est={est} estimatorName={row.name} />
+              ))}
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Unassigned card */}
       {unassignedEstimates.length > 0 && (
-        <div
-          onDragOver={e => onDragOver(e, "__unassigned__")}
-          onDragLeave={onDragLeave}
-          onDrop={e => onDropHandler(e, "")}
-          style={{
-            ...cardSolid(C),
-            padding: T.space[4],
-            marginBottom: T.space[4],
-            border: `1px solid ${dragOverTarget === "__unassigned__" ? "#FBBF24" : "#FBBF2430"}`,
-            background:
-              dragOverTarget === "__unassigned__"
-                ? C.isDark
-                  ? "rgba(251,191,36,0.08)"
-                  : "rgba(251,191,36,0.05)"
-                : undefined,
-            transition: "border-color 150ms, background 150ms",
-          }}
-        >
+        <div style={{ ...cardSolid(C), padding: T.space[4], border: `1px solid #FBBF2430` }}>
           <div style={{ display: "flex", alignItems: "center", gap: T.space[3], marginBottom: T.space[3] }}>
             <div
               style={{
@@ -2117,8 +1690,6 @@ function BoardView({ workload, C, T, navigate, onDrop, onProjectClick }) {
                 alignItems: "center",
                 justifyContent: "center",
                 fontSize: 14,
-                color: "#FBBF24",
-                fontWeight: 700,
               }}
             >
               ?
@@ -2128,481 +1699,470 @@ function BoardView({ workload, C, T, navigate, onDrop, onProjectClick }) {
                 Unassigned
               </div>
               <div style={{ fontSize: 9, color: C.textDim }}>
-                {unassignedEstimates.length} project{unassignedEstimates.length !== 1 ? "s" : ""} need assignment — drag
-                to an estimator below
+                {unassignedEstimates.length} project{unassignedEstimates.length !== 1 ? "s" : ""} need assignment
               </div>
             </div>
           </div>
-          <div
-            style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: T.space[2] }}
-          >
+          <div style={{ display: "flex", flexDirection: "column", gap: T.space[2] }}>
             {unassignedEstimates.map(est => (
-              <ProjectCard key={est.id} est={est} estimatorName="" />
+              <EstimateRow key={est.id} est={est} estimatorName="" />
             ))}
           </div>
         </div>
       )}
+    </div>
+  );
+}
 
-      {/* Estimator Columns Grid */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
-          gap: T.space[4],
-        }}
-      >
-        {estimatorRows.map(row => {
-          const todayLoad = dailyLoad?.get(todayStr)?.get(row.name);
-          const dailyHours = todayLoad?.totalHours || 0;
-          const utilPct = Math.round((dailyHours / capHours) * 100);
-          const utilColor = utilizationColor(dailyHours, capHours);
-          const isOver = dragOverTarget === row.name;
-          const sorted = [...row.estimates].sort((a, b) => {
-            if (!a.bidDue) return 1;
-            if (!b.bidDue) return -1;
-            return a.bidDue.localeCompare(b.bidDue);
-          });
+// ══════════════════════════════════════════════════════════
+// BY DUE DATE VIEW
+// ══════════════════════════════════════════════════════════
+function ByDueDateView({ workload, C, T, navigate, onProjectClick }) {
+  const { allEstimates } = workload;
+  const today = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
 
-          return (
+  // Sort by bid due date (soonest first)
+  const sorted = useMemo(() => {
+    return [...(allEstimates || [])].sort((a, b) => {
+      if (!a.bidDue) return 1;
+      if (!b.bidDue) return -1;
+      return a.bidDue.localeCompare(b.bidDue);
+    });
+  }, [allEstimates]);
+
+  // Group by week
+  const weeks = useMemo(() => {
+    const groups = new Map();
+    const _todayKey = toDateStr(today);
+
+    for (const est of sorted) {
+      if (!est.bidDue) continue;
+      const due = parseDateStr(est.bidDue);
+      // Get Monday of due week
+      const day = due.getDay();
+      const monday = new Date(due);
+      monday.setDate(due.getDate() - ((day + 6) % 7));
+      const weekKey = toDateStr(monday);
+
+      // Label
+      const thisMonday = new Date(today);
+      thisMonday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+      const thisMondayKey = toDateStr(thisMonday);
+      const nextMonday = addDays(thisMonday, 7);
+      const nextMondayKey = toDateStr(nextMonday);
+
+      let label;
+      if (weekKey < thisMondayKey) label = "Overdue";
+      else if (weekKey === thisMondayKey) label = "This Week";
+      else if (weekKey === nextMondayKey) label = "Next Week";
+      else label = `Week of ${monday.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+
+      if (!groups.has(label)) groups.set(label, { label, weekKey, estimates: [] });
+      groups.get(label).estimates.push(est);
+    }
+
+    return Array.from(groups.values()).sort((a, b) => {
+      // Overdue first, then chronological
+      if (a.label === "Overdue") return -1;
+      if (b.label === "Overdue") return 1;
+      return a.weekKey.localeCompare(b.weekKey);
+    });
+  }, [sorted, today]);
+
+  const urgencyColor = daysRemaining => {
+    if (daysRemaining < 0) return "#FF3B30"; // overdue
+    if (daysRemaining <= 3) return "#FF9500"; // critical
+    if (daysRemaining <= 7) return "#FBBF24"; // warning
+    return "#30D158"; // comfortable
+  };
+
+  if (sorted.length === 0) {
+    return (
+      <div style={{ ...cardSolid(C), padding: T.space[6], textAlign: "center" }}>
+        <div style={{ fontSize: T.fontSize.md, color: C.textMuted }}>No active bids with due dates</div>
+        <div style={{ fontSize: T.fontSize.xs, color: C.textDim, marginTop: 4 }}>
+          Set bid due dates on your estimates to see them here
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: T.space[5] }}>
+      {weeks.map(week => (
+        <div key={week.label}>
+          {/* Week header */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: T.space[2],
+              marginBottom: T.space[3],
+            }}
+          >
             <div
-              key={row.name}
-              onDragOver={e => onDragOver(e, row.name)}
-              onDragLeave={onDragLeave}
-              onDrop={e => onDropHandler(e, row.name)}
               style={{
-                ...cardSolid(C),
-                padding: T.space[4],
-                border: isOver ? `1px solid ${C.accent}` : undefined,
-                background: isOver ? (C.isDark ? C.accentBg : C.accentBg) : undefined,
-                transition: "border-color 150ms, background 150ms",
-                minHeight: 120,
+                fontSize: T.fontSize.sm,
+                fontWeight: T.fontWeight.bold,
+                color: week.label === "Overdue" ? "#FF3B30" : C.text,
               }}
             >
-              {/* Estimator Header */}
-              <div style={{ display: "flex", alignItems: "center", gap: T.space[3], marginBottom: T.space[3] }}>
-                <div style={{ position: "relative" }}>
-                  <Avatar name={row.name} color={row.pending ? "#666" : row.color} size={32} fontSize={12} />
-                  {row.pending && (
+              {week.label}
+            </div>
+            <div
+              style={{
+                fontSize: 9,
+                fontWeight: 600,
+                color: C.textDim,
+                padding: "2px 8px",
+                borderRadius: T.radius.full,
+                background: C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+              }}
+            >
+              {week.estimates.length} bid{week.estimates.length !== 1 ? "s" : ""}
+            </div>
+            <div style={{ flex: 1, height: 1, background: C.border }} />
+          </div>
+
+          {/* Estimate cards */}
+          <div
+            style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: T.space[3] }}
+          >
+            {week.estimates.map(est => {
+              const uColor = urgencyColor(est.daysRemaining);
+              const schedColor = SCHEDULE_COLORS[est.scheduleStatus] || C.purple;
+              const hoursRemaining = Math.max(0, est.estimatedHours - est.hoursLogged);
+              return (
+                <div
+                  key={est.id}
+                  onClick={e => {
+                    if (onProjectClick) {
+                      onProjectClick({ ...est, estimator: est.estimator || "" }, e);
+                    } else {
+                      navigate(`/estimate/${est.id}/info`);
+                    }
+                  }}
+                  onDoubleClick={() => navigate(`/estimate/${est.id}/info`)}
+                  style={{
+                    ...cardSolid(C),
+                    padding: T.space[3],
+                    cursor: "pointer",
+                    borderLeft: `3px solid ${uColor}`,
+                    transition: "background 100ms",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: T.space[3] }}>
+                    {/* Estimator avatar */}
+                    {est.estimator ? (
+                      <Avatar name={est.estimator} color={est.estimatorColor} size={28} fontSize={10} />
+                    ) : (
+                      <div
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: "50%",
+                          background: "#FBBF2420",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 11,
+                          color: "#FBBF24",
+                        }}
+                      >
+                        ?
+                      </div>
+                    )}
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {/* Name */}
+                      <div
+                        style={{
+                          fontSize: T.fontSize.sm,
+                          fontWeight: T.fontWeight.semibold,
+                          color: C.text,
+                          overflow: "hidden",
+                          whiteSpace: "nowrap",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {est.name}
+                      </div>
+                      {/* Estimator name */}
+                      <div style={{ fontSize: 9, color: C.textDim, marginTop: 1 }}>{est.estimator || "Unassigned"}</div>
+                    </div>
+
+                    {/* Due date badge */}
                     <div
                       style={{
-                        position: "absolute",
-                        bottom: -2,
-                        right: -2,
-                        width: 12,
-                        height: 12,
-                        borderRadius: "50%",
-                        background: "#FBBF24",
-                        border: `2px solid ${C.isDark ? "#1a1a2e" : "#fff"}`,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 7,
+                        fontSize: 10,
                         fontWeight: 700,
+                        color: uColor,
+                        padding: "3px 8px",
+                        borderRadius: T.radius.sm,
+                        background: hexAlpha(uColor, 0.12),
+                        flexShrink: 0,
                       }}
                     >
-                      ✉
+                      {est.daysRemaining < 0
+                        ? `${Math.abs(est.daysRemaining)}d overdue`
+                        : est.daysRemaining === 0
+                          ? "Due today"
+                          : `${est.daysRemaining}d left`}
                     </div>
-                  )}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span
+                  </div>
+
+                  {/* Stats row */}
+                  <div style={{ display: "flex", gap: T.space[4], marginTop: T.space[2], paddingLeft: 40 }}>
+                    <div style={{ fontSize: 9, color: C.textDim }}>
+                      <span style={{ fontWeight: 600, color: C.text }}>{est.estimatedHours}h</span> estimated
+                    </div>
+                    <div style={{ fontSize: 9, color: C.textDim }}>
+                      <span style={{ fontWeight: 600, color: C.text }}>{est.hoursLogged}h</span> logged
+                    </div>
+                    <div style={{ fontSize: 9, color: C.textDim }}>
+                      <span style={{ fontWeight: 600, color: uColor }}>{hoursRemaining}h</span> remaining
+                    </div>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div style={{ marginTop: T.space[2], paddingLeft: 40 }}>
+                    <div
                       style={{
-                        fontSize: T.fontSize.base,
-                        fontWeight: T.fontWeight.bold,
-                        color: row.pending ? C.textMuted : C.text,
+                        height: 4,
+                        borderRadius: 2,
+                        background: C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
+                        overflow: "hidden",
                       }}
                     >
-                      {row.name}
-                    </span>
-                    {row.pending && (
+                      <div
+                        style={{
+                          height: "100%",
+                          width: `${est.percentComplete}%`,
+                          background: schedColor,
+                          borderRadius: 2,
+                          transition: "width 300ms",
+                        }}
+                      />
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
+                      <span style={{ fontSize: 8, color: C.textDim }}>{est.percentComplete}% complete</span>
                       <span
                         style={{
                           fontSize: 8,
-                          fontWeight: 700,
-                          color: "#FBBF24",
-                          background: "#FBBF2418",
-                          border: "1px solid #FBBF2430",
-                          padding: "1px 6px",
-                          borderRadius: T.radius.sm,
-                          textTransform: "uppercase",
-                          letterSpacing: 0.5,
+                          fontWeight: 600,
+                          color: schedColor,
+                          textTransform: "capitalize",
                         }}
                       >
-                        Invited
+                        {est.scheduleStatus?.replace("-", " ")}
                       </span>
-                    )}
-                  </div>
-                  <div style={{ fontSize: 9, color: C.textDim }}>
-                    {row.pending
-                      ? row.email || "Pending acceptance"
-                      : `${row.estimates.length} project${row.estimates.length !== 1 ? "s" : ""}`}
+                    </div>
                   </div>
                 </div>
-                {/* Utilization badge */}
-                <div
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 700,
-                    color: utilColor,
-                    padding: "3px 8px",
-                    borderRadius: T.radius.sm,
-                    background: hexAlpha(utilColor === "transparent" ? "#30D158" : utilColor, 0.12),
-                  }}
-                >
-                  {utilPct}%
-                </div>
-              </div>
-
-              {/* Pipeline revenue — revenue-linked allocation */}
-              {!row.pending && sorted.length > 0 && (() => {
-                const pipeline = sorted.reduce((s, e) => s + (e.grandTotal || 0), 0);
-                if (pipeline <= 0) return null;
-                const fmtPipeline = pipeline >= 1000000
-                  ? `$${(pipeline / 1000000).toFixed(1)}M`
-                  : pipeline >= 1000
-                    ? `$${(pipeline / 1000).toFixed(0)}K`
-                    : `$${pipeline.toLocaleString()}`;
-                return (
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      marginBottom: T.space[2],
-                      padding: "4px 8px",
-                      borderRadius: T.radius.sm,
-                      background: C.isDark ? "rgba(48,209,88,0.06)" : "rgba(48,209,88,0.04)",
-                      border: `1px solid ${C.isDark ? "rgba(48,209,88,0.15)" : "rgba(48,209,88,0.10)"}`,
-                    }}
-                  >
-                    <span style={{ fontSize: 9, color: C.textDim, fontWeight: 600 }}>Pipeline</span>
-                    <span style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.bold, color: "#30D158" }}>
-                      {fmtPipeline}
-                    </span>
-                  </div>
-                );
-              })()}
-
-              {/* Utilization bar */}
-              <div style={{ marginBottom: T.space[3] }}>
-                <div
-                  style={{
-                    height: 3,
-                    borderRadius: 2,
-                    background: C.isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
-                    overflow: "hidden",
-                  }}
-                >
-                  <div
-                    style={{
-                      height: "100%",
-                      width: `${Math.min(100, utilPct)}%`,
-                      background: utilColor === "transparent" ? "#30D158" : utilColor,
-                      borderRadius: 2,
-                      transition: "width 300ms",
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Project cards */}
-              <div style={{ display: "flex", flexDirection: "column", gap: T.space[2] }}>
-                {sorted.map(est => (
-                  <ProjectCard key={est.id} est={est} estimatorName={row.name} />
-                ))}
-                {row.estimates.length === 0 && (
-                  <div
-                    style={{
-                      padding: "16px 12px",
-                      textAlign: "center",
-                      fontSize: T.fontSize.xs,
-                      color: C.textDim,
-                      borderRadius: T.radius.sm,
-                      border: `1px dashed ${row.pending ? "#FBBF2430" : `${C.border}40`}`,
-                    }}
-                  >
-                    {row.pending ? "Awaiting acceptance — assign projects after they join" : "Drop projects here"}
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Empty state — no estimators and no unassigned */}
-      {estimatorRows.length === 0 && unassignedEstimates.length === 0 && (
-        <div
-          style={{
-            ...cardSolid(C),
-            padding: `${T.space[8]}px ${T.space[6]}px`,
-            textAlign: "center",
-          }}
-        >
-          <div
-            style={{ fontSize: T.fontSize.lg, fontWeight: T.fontWeight.bold, color: C.text, marginBottom: T.space[2] }}
-          >
-            No active bids
-          </div>
-          <div style={{ fontSize: T.fontSize.sm, color: C.textMuted }}>
-            Create an estimate and set it to "Bidding" status to see it here.
+              );
+            })}
           </div>
         </div>
-      )}
+      ))}
     </div>
   );
 }
 
-// ByHoursView — extracted to @/components/resources/ByHoursView
-// ByDueDateView — extracted to @/components/resources/ByDueDateView
+// ScheduleSettings — extracted to @/components/resources/ScheduleSettings.jsx
 
 // ══════════════════════════════════════════════════════════
-// SCHEDULE SETTINGS POPOVER (Manager-only)
+// RESOURCE GUIDE MODAL
 // ══════════════════════════════════════════════════════════
-function ScheduleSettings({ C, T }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-  const productionHours = useUiStore(s => s.appSettings?.productionHoursPerDay) || 7;
-  const bufferHours = useUiStore(s => s.appSettings?.bufferHours) || 0;
-  const overheadPercent = useUiStore(s => s.appSettings?.overheadPercent) ?? 15;
-  const behindThreshold = useUiStore(s => s.appSettings?.behindThreshold) ?? 20;
-  const aheadThreshold = useUiStore(s => s.appSettings?.aheadThreshold) ?? 15;
-  const updateSetting = useUiStore(s => s.updateSetting);
+const GUIDE_VIDEO_URL = null; // Set to a Loom/YouTube embed URL to show video section
 
-  // Close on outside click
-  useEffect(() => {
-    if (!open) return;
-    const handler = e => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
+const GUIDE_STEPS = [
+  {
+    num: "1",
+    title: "Create & Set Status",
+    desc: 'Create an estimate from the Projects page, then set its status to "Bidding" to make it appear here.',
+  },
+  {
+    num: "2",
+    title: "Drag to Assign",
+    desc: "Unassigned projects appear in the amber tray at the top. Drag any project card onto an estimator to assign it.",
+  },
+  {
+    num: "3",
+    title: "Reassign Anytime",
+    desc: "Drag a project between estimator columns to reassign. Drop it back on the unassigned tray to remove the assignment.",
+  },
+  {
+    num: "4",
+    title: "Track Utilization",
+    desc: "Each estimator shows a utilization percentage — green means capacity, amber means busy, red means overloaded.",
+  },
+  {
+    num: "5",
+    title: "NOVA Plan & Scenarios",
+    desc: 'Use "NOVA Plan" to auto-balance workloads, or "Scenarios" to simulate adding or removing projects.',
+  },
+];
+
+const GUIDE_TIPS = [
+  "Use This Week view for day-by-day scheduling and drag-to-reschedule",
+  "Double-click any project card to jump straight to the estimate",
+  "The schedule status dot on each card shows if it's ahead, on-track, or behind",
+  "Use the By Hours view to see detailed time breakdowns per estimator",
+];
+
+function ResourceGuideModal({ open, onClose }) {
+  const C = useTheme();
+  const T = C.T;
 
   return (
-    <div style={{ position: "relative" }} ref={ref}>
-      <button
-        onClick={() => setOpen(o => !o)}
-        style={{
-          ...bt(C),
-          padding: "6px 10px",
-          fontSize: T.fontSize.xs,
-          color: C.textMuted,
-          background: open ? `${C.accent}12` : C.isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)",
-          border: `1px solid ${open ? C.accent + "30" : C.border}`,
-          borderRadius: T.radius.sm,
-          display: "flex",
-          alignItems: "center",
-          gap: 4,
-        }}
-        title="Settings"
-      >
-        <span style={{ fontSize: 13 }}>⚙</span>
-        <span style={{ fontWeight: 600 }}>Settings</span>
-      </button>
-      {open && (
+    <Modal open={open} onClose={onClose} wide>
+      {/* Header */}
+      <div style={{ marginBottom: T.space[5] }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div
+              style={{
+                fontSize: T.fontSize.xl,
+                fontWeight: T.fontWeight.bold,
+                color: C.text,
+                letterSpacing: "-0.01em",
+              }}
+            >
+              Resource Management
+            </div>
+            <div style={{ fontSize: T.fontSize.sm, color: C.textMuted, marginTop: 2 }}>
+              Assign estimators, balance workloads, and track capacity
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              ...bt(C),
+              padding: "6px 14px",
+              fontSize: T.fontSize.xs,
+              fontWeight: 600,
+              color: C.textMuted,
+              border: `1px solid ${C.border}`,
+              borderRadius: T.radius.sm,
+            }}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+
+      {/* Video Section (if URL is set) */}
+      {GUIDE_VIDEO_URL && (
         <div
           style={{
-            position: "absolute",
-            top: "calc(100% + 6px)",
-            left: 0,
-            background: C.bg1,
-            border: `1px solid ${C.border}`,
+            marginBottom: T.space[5],
             borderRadius: T.radius.md,
-            padding: T.space[4],
-            boxShadow: T.shadow?.md || "0 4px 12px rgba(0,0,0,0.15)",
-            zIndex: 50,
-            minWidth: 240,
+            overflow: "hidden",
+            border: `1px solid ${C.border}`,
+            aspectRatio: "16/9",
           }}
         >
-          <div
-            style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.bold, color: C.text, marginBottom: T.space[3] }}
-          >
-            Settings
-          </div>
-
-          {/* Production Hours/Day */}
-          <div style={{ marginBottom: T.space[3] }}>
-            <label
-              style={{
-                fontSize: 9,
-                fontWeight: 700,
-                color: C.textDim,
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
-                display: "block",
-                marginBottom: 4,
-              }}
-            >
-              Production Hours / Day
-            </label>
-            <input
-              type="number"
-              min={1}
-              max={12}
-              step={0.5}
-              value={productionHours}
-              onChange={e => updateSetting("productionHoursPerDay", Number(e.target.value) || 7)}
-              style={{
-                ...inp(C),
-                width: "100%",
-                padding: "6px 10px",
-                fontSize: T.fontSize.xs,
-              }}
-            />
-            <div style={{ fontSize: 8, color: C.textDim, marginTop: 2 }}>
-              Expected productive hours per estimator per day
-            </div>
-          </div>
-
-          {/* Buffer Hours */}
-          <div>
-            <label
-              style={{
-                fontSize: 9,
-                fontWeight: 700,
-                color: C.textDim,
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
-                display: "block",
-                marginBottom: 4,
-              }}
-            >
-              Buffer Between Estimates (hrs)
-            </label>
-            <input
-              type="number"
-              min={0}
-              max={24}
-              step={1}
-              value={bufferHours}
-              onChange={e => updateSetting("bufferHours", Number(e.target.value) || 0)}
-              style={{
-                ...inp(C),
-                width: "100%",
-                padding: "6px 10px",
-                fontSize: T.fontSize.xs,
-              }}
-            />
-            <div style={{ fontSize: 8, color: C.textDim, marginTop: 2 }}>
-              Gap between consecutive estimate blocks (0 = no gap)
-            </div>
-          </div>
-
-          {/* Divider */}
-          <div style={{ borderTop: `1px solid ${C.border}40`, margin: `${T.space[3]}px 0` }} />
-
-          {/* Overhead % */}
-          <div style={{ marginBottom: T.space[3] }}>
-            <label
-              style={{
-                fontSize: 9,
-                fontWeight: 700,
-                color: C.textDim,
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
-                display: "block",
-                marginBottom: 4,
-              }}
-            >
-              Overhead %
-            </label>
-            <input
-              type="number"
-              min={0}
-              max={50}
-              step={5}
-              value={overheadPercent}
-              onChange={e => updateSetting("overheadPercent", Math.min(50, Math.max(0, Number(e.target.value) || 0)))}
-              style={{
-                ...inp(C),
-                width: "100%",
-                padding: "6px 10px",
-                fontSize: T.fontSize.xs,
-              }}
-            />
-            <div style={{ fontSize: 8, color: C.textDim, marginTop: 2 }}>
-              Non-production time: admin, meetings, walkthroughs
-            </div>
-          </div>
-
-          {/* Behind Threshold */}
-          <div style={{ marginBottom: T.space[3] }}>
-            <label
-              style={{
-                fontSize: 9,
-                fontWeight: 700,
-                color: C.textDim,
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
-                display: "block",
-                marginBottom: 4,
-              }}
-            >
-              Behind Threshold %
-            </label>
-            <input
-              type="number"
-              min={5}
-              max={50}
-              step={5}
-              value={behindThreshold}
-              onChange={e => updateSetting("behindThreshold", Math.min(50, Math.max(5, Number(e.target.value) || 20)))}
-              style={{
-                ...inp(C),
-                width: "100%",
-                padding: "6px 10px",
-                fontSize: T.fontSize.xs,
-              }}
-            />
-            <div style={{ fontSize: 8, color: C.textDim, marginTop: 2 }}>
-              Flag "behind" when progress lags day progress by this %
-            </div>
-          </div>
-
-          {/* Ahead Threshold */}
-          <div>
-            <label
-              style={{
-                fontSize: 9,
-                fontWeight: 700,
-                color: C.textDim,
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
-                display: "block",
-                marginBottom: 4,
-              }}
-            >
-              Ahead Threshold %
-            </label>
-            <input
-              type="number"
-              min={5}
-              max={50}
-              step={5}
-              value={aheadThreshold}
-              onChange={e => updateSetting("aheadThreshold", Math.min(50, Math.max(5, Number(e.target.value) || 15)))}
-              style={{
-                ...inp(C),
-                width: "100%",
-                padding: "6px 10px",
-                fontSize: T.fontSize.xs,
-              }}
-            />
-            <div style={{ fontSize: 8, color: C.textDim, marginTop: 2 }}>
-              Flag "ahead" when progress exceeds day progress by this %
-            </div>
-          </div>
+          <iframe
+            src={GUIDE_VIDEO_URL}
+            title="Resource Management Guide"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            style={{ width: "100%", height: "100%", border: "none" }}
+          />
         </div>
       )}
-    </div>
+
+      {/* Steps */}
+      <div style={{ display: "flex", flexDirection: "column", gap: T.space[3], marginBottom: T.space[5] }}>
+        {GUIDE_STEPS.map(step => (
+          <div
+            key={step.num}
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: T.space[3],
+              padding: `${T.space[3]}px ${T.space[4]}px`,
+              borderRadius: T.radius.md,
+              background: C.isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+              border: `1px solid ${C.border}30`,
+            }}
+          >
+            {/* Step number circle */}
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: "50%",
+                background: `${C.accent}15`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 13,
+                fontWeight: 800,
+                color: C.accent,
+                flexShrink: 0,
+                marginTop: 1,
+              }}
+            >
+              {step.num}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  fontSize: T.fontSize.sm,
+                  fontWeight: T.fontWeight.bold,
+                  color: C.text,
+                  marginBottom: 2,
+                }}
+              >
+                {step.title}
+              </div>
+              <div style={{ fontSize: T.fontSize.xs, color: C.textMuted, lineHeight: 1.5 }}>{step.desc}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Pro Tips */}
+      <div
+        style={{
+          padding: `${T.space[3]}px ${T.space[4]}px`,
+          borderRadius: T.radius.md,
+          background: C.accentBg,
+          border: `1px solid ${C.accent}20`,
+        }}
+      >
+        <div
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            color: C.accent,
+            textTransform: "uppercase",
+            letterSpacing: "0.08em",
+            marginBottom: T.space[2],
+          }}
+        >
+          Pro Tips
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {GUIDE_TIPS.map((tip, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+              <span style={{ color: C.accent, fontSize: 10, marginTop: 2, flexShrink: 0 }}>&#9679;</span>
+              <span style={{ fontSize: T.fontSize.xs, color: C.textMuted, lineHeight: 1.5 }}>{tip}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Modal>
   );
 }
-
-// ResourceGuideModal — extracted to @/components/resources/ResourceGuideModal
-
-// (ResourceGuideModal function removed — imported from extracted file)
 
 // ══════════════════════════════════════════════════════════
 // CONFLICT PULSE ANIMATION
@@ -2619,339 +2179,7 @@ if (!document.querySelector("[data-conflict-pulse]")) {
   document.head.appendChild(conflictKeyframes);
 }
 
-// ══════════════════════════════════════════════════════════
-// MY WORKLOAD — role-gated view for estimator-role users
-// ══════════════════════════════════════════════════════════
-function MyWorkloadView() {
-  const C = useTheme();
-  const T = C.T;
-  const navigate = useNavigate();
-  const userId = useAuthStore(s => s.user?.id);
-  const estimatesIndex = useEstimatesStore(s => s.estimatesIndex);
-
-  // Filter to only this user's estimates
-  const myEstimates = useMemo(() => {
-    if (!userId) return [];
-    return estimatesIndex.filter(
-      e => e.ownerId === userId || (Array.isArray(e.assignedTo) && e.assignedTo.includes(userId)),
-    );
-  }, [estimatesIndex, userId]);
-
-  // Utilization: total estimated hours this week
-  const now = new Date();
-  const weekStart = new Date(now);
-  weekStart.setDate(now.getDate() - now.getDay() + 1); // Monday
-  weekStart.setHours(0, 0, 0, 0);
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekStart.getDate() + 6);
-
-  const weeklyHours = useMemo(() => {
-    return myEstimates.reduce((sum, e) => {
-      const hrs = parseFloat(e.estimatedHours) || 0;
-      // Count if the estimate is active (Bidding/Qualifying)
-      if (e.status === "Bidding" || e.status === "Qualifying") return sum + hrs;
-      return sum;
-    }, 0);
-  }, [myEstimates]);
-
-  const CAPACITY = 40;
-  const utilizationPct = Math.min((weeklyHours / CAPACITY) * 100, 100);
-  const utilizationBarColor =
-    utilizationPct <= 50 ? "#30D158" : utilizationPct <= 85 ? "#FF9500" : "#FF3B30";
-
-  // Upcoming deadlines sorted by bidDue
-  const deadlines = useMemo(() => {
-    return myEstimates
-      .filter(e => e.bidDue && (e.status === "Bidding" || e.status === "Qualifying"))
-      .sort((a, b) => (a.bidDue > b.bidDue ? 1 : -1));
-  }, [myEstimates]);
-
-  const fmtDate = d => {
-    if (!d) return "—";
-    const dt = new Date(d + "T00:00:00");
-    return dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  };
-
-  const daysUntil = d => {
-    if (!d) return null;
-    const dt = new Date(d + "T00:00:00");
-    const diff = Math.ceil((dt - now) / 86400000);
-    if (diff < 0) return "Overdue";
-    if (diff === 0) return "Today";
-    if (diff === 1) return "Tomorrow";
-    return `${diff} days`;
-  };
-
-  const statusBadge = status => {
-    const colors = {
-      Qualifying: C.orange,
-      Bidding: C.purple,
-      Submitted: C.blue,
-      Won: C.green,
-      Lost: C.red,
-      "On Hold": C.yellow,
-      Draft: C.textDim,
-    };
-    return {
-      display: "inline-block",
-      padding: "2px 8px",
-      borderRadius: 4,
-      fontSize: 10,
-      fontWeight: 600,
-      background: (colors[status] || "#8E8E93") + "20",
-      color: colors[status] || "#8E8E93",
-    };
-  };
-
-  return (
-    <div style={{ padding: T.space[6], maxWidth: 900, margin: "0 auto" }}>
-      {/* Header */}
-      <div style={{ marginBottom: T.space[6] }}>
-        <h1
-          style={{
-            fontFamily: "Switzer, sans-serif",
-            fontSize: 22,
-            fontWeight: 700,
-            color: C.text,
-            margin: 0,
-          }}
-        >
-          My Workload
-        </h1>
-        <p
-          style={{
-            fontFamily: "Switzer, sans-serif",
-            fontSize: 12,
-            color: C.textSecondary,
-            marginTop: 4,
-          }}
-        >
-          {myEstimates.length} estimate{myEstimates.length !== 1 ? "s" : ""} assigned
-        </p>
-      </div>
-
-      {/* Utilization Summary */}
-      <div style={{ ...cardSolid(C), padding: T.space[5], marginBottom: T.space[5] }}>
-        <div
-          style={{
-            fontFamily: "Switzer, sans-serif",
-            fontSize: 11,
-            fontWeight: 600,
-            color: C.textSecondary,
-            textTransform: "uppercase",
-            letterSpacing: 0.5,
-            marginBottom: T.space[3],
-          }}
-        >
-          Weekly Utilization
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: T.space[3] }}>
-          <div
-            style={{
-              flex: 1,
-              height: 8,
-              borderRadius: 4,
-              background: C.surface2 || C.bg2 || "#1C1C1E",
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                width: `${utilizationPct}%`,
-                height: "100%",
-                borderRadius: 4,
-                background: utilizationBarColor,
-                transition: "width 300ms ease",
-              }}
-            />
-          </div>
-          <span
-            style={{
-              fontFamily: "Switzer, sans-serif",
-              fontSize: 12,
-              fontWeight: 600,
-              color: C.text,
-              minWidth: 80,
-              textAlign: "right",
-            }}
-          >
-            {weeklyHours.toFixed(1)}h / {CAPACITY}h
-          </span>
-        </div>
-      </div>
-
-      {/* My Estimates */}
-      <div style={{ marginBottom: T.space[5] }}>
-        <div
-          style={{
-            fontFamily: "Switzer, sans-serif",
-            fontSize: 11,
-            fontWeight: 600,
-            color: C.textSecondary,
-            textTransform: "uppercase",
-            letterSpacing: 0.5,
-            marginBottom: T.space[3],
-          }}
-        >
-          My Estimates
-        </div>
-        {myEstimates.length === 0 && (
-          <div
-            style={{
-              ...cardSolid(C),
-              padding: T.space[6],
-              textAlign: "center",
-              fontFamily: "Switzer, sans-serif",
-              fontSize: 13,
-              color: C.textSecondary,
-            }}
-          >
-            No estimates assigned yet
-          </div>
-        )}
-        <div style={{ display: "flex", flexDirection: "column", gap: T.space[3] }}>
-          {myEstimates.map(est => (
-            <div
-              key={est.id}
-              onClick={() => {
-                useEstimatesStore.getState().setActiveEstimateId(est.id);
-                navigate("/");
-              }}
-              style={{
-                ...cardSolid(C),
-                padding: T.space[4],
-                cursor: "pointer",
-                transition: "border-color 120ms",
-              }}
-              onMouseEnter={e => (e.currentTarget.style.borderColor = C.accent || "#6366F1")}
-              onMouseLeave={e => (e.currentTarget.style.borderColor = "transparent")}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
-                  marginBottom: T.space[2],
-                }}
-              >
-                <div>
-                  <div
-                    style={{
-                      fontFamily: "Switzer, sans-serif",
-                      fontSize: 14,
-                      fontWeight: 600,
-                      color: C.text,
-                    }}
-                  >
-                    {est.name || "Untitled"}
-                  </div>
-                  {est.client && (
-                    <div
-                      style={{
-                        fontFamily: "Switzer, sans-serif",
-                        fontSize: 11,
-                        color: C.textSecondary,
-                        marginTop: 2,
-                      }}
-                    >
-                      {est.client}
-                    </div>
-                  )}
-                </div>
-                <span style={statusBadge(est.status)}>{est.status}</span>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  gap: T.space[4],
-                  fontFamily: "Switzer, sans-serif",
-                  fontSize: 11,
-                  color: C.textSecondary,
-                }}
-              >
-                {est.bidDue && (
-                  <span>
-                    Due: {fmtDate(est.bidDue)}
-                    {(() => {
-                      const d = daysUntil(est.bidDue);
-                      if (!d) return null;
-                      const isUrgent = d === "Overdue" || d === "Today" || d === "Tomorrow";
-                      return (
-                        <span
-                          style={{
-                            marginLeft: 4,
-                            color: isUrgent ? "#FF3B30" : C.textSecondary,
-                            fontWeight: isUrgent ? 600 : 400,
-                          }}
-                        >
-                          ({d})
-                        </span>
-                      );
-                    })()}
-                  </span>
-                )}
-                {est.estimatedHours > 0 && <span>{est.estimatedHours}h estimated</span>}
-                {est.grandTotal > 0 && (
-                  <span>${Number(est.grandTotal).toLocaleString("en-US", { maximumFractionDigits: 0 })}</span>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Upcoming Deadlines */}
-      {deadlines.length > 0 && (
-        <div>
-          <div
-            style={{
-              fontFamily: "Switzer, sans-serif",
-              fontSize: 11,
-              fontWeight: 600,
-              color: C.textSecondary,
-              textTransform: "uppercase",
-              letterSpacing: 0.5,
-              marginBottom: T.space[3],
-            }}
-          >
-            Upcoming Deadlines
-          </div>
-          <div style={{ ...cardSolid(C), padding: T.space[4] }}>
-            {deadlines.map(est => {
-              const d = daysUntil(est.bidDue);
-              const isUrgent = d === "Overdue" || d === "Today" || d === "Tomorrow";
-              return (
-                <div
-                  key={est.id}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    padding: `${T.space[2]}px 0`,
-                    borderBottom: `1px solid ${C.border || "#2C2C2E"}`,
-                    fontFamily: "Switzer, sans-serif",
-                    fontSize: 12,
-                  }}
-                >
-                  <span style={{ color: C.text, fontWeight: 500 }}>{est.name || "Untitled"}</span>
-                  <span
-                    style={{
-                      color: isUrgent ? "#FF3B30" : C.textSecondary,
-                      fontWeight: isUrgent ? 600 : 400,
-                      fontSize: 11,
-                    }}
-                  >
-                    {fmtDate(est.bidDue)} ({d})
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+// MyWorkloadView — extracted to @/components/resources/MyWorkloadView.jsx
 
 // ══════════════════════════════════════════════════════════
 // MAIN PAGE

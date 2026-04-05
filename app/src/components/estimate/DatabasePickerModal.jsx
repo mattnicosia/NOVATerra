@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useDatabaseStore } from "@/stores/databaseStore";
+import { useDatabaseUiStore } from "@/stores/databaseUiStore";
 import { useItemsStore } from "@/stores/itemsStore";
 import { useProjectStore } from "@/stores/projectStore";
 import { useUiStore } from "@/stores/uiStore";
@@ -14,8 +15,8 @@ import { nn, fmt, titleCase } from "@/utils/format";
 export default function DatabasePickerModal() {
   const C = useTheme();
   const elements = useDatabaseStore(s => s.elements);
-  const pickerForItemId = useDatabaseStore(s => s.pickerForItemId);
-  const setPickerForItemId = useDatabaseStore(s => s.setPickerForItemId);
+  const pickerForItemId = useDatabaseUiStore(s => s.pickerForItemId);
+  const setPickerForItemId = useDatabaseUiStore(s => s.setPickerForItemId);
   const updateItem = useItemsStore(s => s.updateItem);
   const getActiveCodes = useProjectStore(s => s.getActiveCodes);
   const divFromCode = useProjectStore(s => s.divFromCode);

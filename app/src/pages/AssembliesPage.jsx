@@ -1,10 +1,10 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useDatabaseStore } from "@/stores/databaseStore";
+import { useDatabaseUiStore } from "@/stores/databaseUiStore";
 
 export default function AssembliesPage() {
   const navigate = useNavigate();
-  const setDbActiveTab = useDatabaseStore(s => s.setDbActiveTab);
+  const setDbActiveTab = useDatabaseUiStore(s => s.setDbActiveTab);
 
   useEffect(() => {
     setDbActiveTab("assemblies");

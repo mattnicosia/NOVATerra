@@ -3,7 +3,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useProjectStore } from "@/stores/projectStore";
 import { useItemsStore } from "@/stores/itemsStore";
 import { useBidLevelingStore } from "@/stores/bidLevelingStore";
-import { useDatabaseStore } from "@/stores/databaseStore";
+import { useDatabaseUiStore } from "@/stores/databaseUiStore";
 import { useSpecsStore } from "@/stores/specsStore";
 import { useUiStore } from "@/stores/uiStore";
 import { useEstimatesStore } from "@/stores/estimatesStore";
@@ -73,7 +73,7 @@ export default function EstimatePage() {
   const showToast = useUiStore(s => s.showToast);
   const activeGroupId = useUiStore(s => s.activeGroupId);
   const appSettings = useUiStore(s => s.appSettings);
-  const setPickerForItemId = useDatabaseStore(s => s.setPickerForItemId);
+  const setPickerForItemId = useDatabaseUiStore(s => s.setPickerForItemId);
   const project = useProjectStore(s => s.project);
 
   // Local state

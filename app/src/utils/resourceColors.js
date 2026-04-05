@@ -1,18 +1,8 @@
-/**
- * Resource page color/style utilities — extracted from ResourcePage.
- * Pure functions, no state dependencies.
- */
+// ── Resource Color Utilities ────────────────────────────
+// Shared color constants and helpers for resource management views
 
-export const SCHEDULE_COLORS = {
-  ahead: "#30D158",
-  "on-track": "#60A5FA",
-  behind: "#FF9500",
-  overdue: "#FF3B30",
-  conflict: "#FF3B30",
-};
-
-/** Theme-aware status colors — call with C from useTheme() */
-export const getStatusColors = C => ({
+// Theme-aware status colors — call with C from useTheme()
+export const getStatusColors = (C) => ({
   Qualifying: C.orange,
   Bidding: C.purple,
   Submitted: C.blue,
@@ -21,6 +11,14 @@ export const getStatusColors = C => ({
   "On Hold": C.yellow,
   Draft: C.textDim,
 });
+
+export const SCHEDULE_COLORS = {
+  ahead: "#30D158",
+  "on-track": "#60A5FA",
+  behind: "#FF9500",
+  overdue: "#FF3B30",
+  conflict: "#FF3B30",
+};
 
 export function utilizationColor(hours, capacity = 7) {
   const pct = hours / capacity;
