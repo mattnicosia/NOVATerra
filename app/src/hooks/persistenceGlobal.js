@@ -13,6 +13,7 @@ import { useBidPackagesStore } from "@/stores/bidPackagesStore";
 import { useSubdivisionStore } from "@/stores/subdivisionStore";
 import { useAutoResponseStore } from "@/stores/autoResponseStore";
 import * as cloudSync from "@/utils/cloudSync";
+import * as cloudSyncProfiles from "@/utils/cloudSyncProfiles";
 import { idbKey } from "@/utils/idbKey";
 
 // Save master data (company profiles, clients, proposals, etc.)
@@ -38,6 +39,10 @@ export async function saveMasterData() {
   await cloudSync.pushData("master", master).catch(err => {
     console.warn("[usePersistence] Cloud push failed for master:", err?.message);
   });
+
+  // Dual-write to normalized tables (fire-and-forget)
+  cloudSyncProfiles.pushProfiles(master).catch(() => {});
+  cloudSyncProfiles.pushContacts(master).catch(() => {});
 }
 
 // Save app settings

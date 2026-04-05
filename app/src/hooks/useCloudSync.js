@@ -274,6 +274,10 @@ async function syncMasterData() {
 
   // Push merged data to cloud so the other device gets it
   await cloudSync.pushData("master", merged);
+
+  // Seed normalized tables from JSONB blob (one-time migration)
+  const { seedFromJsonb } = await import("@/utils/cloudSyncProfiles");
+  await seedFromJsonb(merged).catch(() => {});
 }
 
 /**

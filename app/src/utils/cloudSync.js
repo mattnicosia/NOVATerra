@@ -61,6 +61,9 @@ export {
   pullAllEstimates,
 };
 
+// ---------- Re-exports: normalized profile/contact sync ----------
+export { pushProfiles, pullProfiles, pushContacts, pullContacts, seedFromJsonb } from "./cloudSyncProfiles";
+
 // ---------- Realtime sync helpers ----------
 // These are used by useRealtimeSync to apply incoming changes from other devices.
 
