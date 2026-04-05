@@ -90,11 +90,6 @@ vi.mock("@/stores/collaborationStore", () => ({
   ),
 }));
 
-// Command palette store
-vi.mock("@/stores/commandPaletteStore", () => ({
-  useCommandPaletteStore: selector => (typeof selector === "function" ? selector({ open: false }) : { open: false }),
-}));
-
 // Mock all hooks that run side effects
 vi.mock("@/hooks/usePersistence", () => ({
   usePersistenceLoad: vi.fn(),

@@ -1,7 +1,10 @@
 import { create } from "zustand";
+import { uid } from "@/utils/format";
 import { supabase } from "@/utils/supabase";
 import { useAuthStore } from "@/stores/authStore";
 import { useOrgStore, selectIsManager } from "@/stores/orgStore";
+import { useEstimatesStore } from "@/stores/estimatesStore";
+import { useCalendarStore } from "@/stores/calendarStore";
 
 const HEARTBEAT_MS = 60_000; // 60s heartbeat
 const LOCK_TTL_MS = 180_000; // 3 min TTL
@@ -21,12 +24,56 @@ function getOrgId() {
   return useOrgStore.getState().org?.id;
 }
 
+/* ─── Auto-response trigger type definitions ─── */
+export const TRIGGER_TYPES = {
+  portalOpened: { label: "Portal Opened", description: "Sub viewed the bid portal", color: "#7C5CFC" },
+  proposalSubmitted: { label: "Proposal Submitted", description: "Sub uploaded their bid", color: "#34C759" },
+  bidDue48h: { label: "48h Reminder", description: "Bid due in 48 hours", color: "#FF9F0A" },
+  bidDue24h: { label: "24h Reminder", description: "Bid due in 24 hours", color: "#FF453A" },
+  postAwardWinner: { label: "Award (Winner)", description: "Sub was awarded the bid", color: "#30D158" },
+  postAwardLoser: { label: "Award (Result)", description: "Sub was not awarded", color: "#8E8E93" },
+  noResponse72h: {
+    label: "No Response (72h)",
+    description: "Sub hasn't opened invitation in 72 hours",
+    color: "#FF9F0A",
+  },
+};
+
+const DEFAULT_TRIGGER_CONFIG = {
+  portalOpened: { enabled: true },
+  proposalSubmitted: { enabled: true },
+  bidDue48h: { enabled: true },
+  bidDue24h: { enabled: true },
+  postAwardWinner: { enabled: true },
+  postAwardLoser: { enabled: true },
+  noResponse72h: { enabled: true },
+};
+
+/* ─── Correspondence sync helper ─── */
+function syncCorrespondenceToIndex() {
+  const { correspondences } = useCollaborationStore.getState();
+  const id = useEstimatesStore.getState().activeEstimateId;
+  if (!id) return;
+  const pending = correspondences.filter(c => c.status === "pending" || c.status === "in_progress");
+  const nextDue = pending.filter(c => c.dueDate).sort((a, b) => a.dueDate.localeCompare(b.dueDate))[0]?.dueDate || "";
+  useEstimatesStore.getState().updateIndexEntry(id, {
+    correspondenceCount: correspondences.length,
+    correspondencePendingCount: pending.length,
+    correspondenceNextDue: nextDue,
+    correspondenceTotalHours: correspondences.reduce((s, c) => s + (c.estimatedHours || 0), 0),
+  });
+}
+
 export const useCollaborationStore = create((set, get) => ({
-  // ── State ─────────────────────────────────────────────
-  currentLock: null, // { estimateId, lockedBy, lockedByName, lockedByColor, expiresAt, acquiredAt }
+
+  // ═══════════════════════════════════════════════════════════
+  // LOCKS & PRESENCE DOMAIN (original collaborationStore)
+  // ═══════════════════════════════════════════════════════════
+
+  currentLock: null,
   isLockHolder: false,
   lockError: null,
-  viewers: [], // [{ userId, userName, userColor, lastSeen }]
+  viewers: [],
   _lockChannel: null,
   _presenceChannel: null,
   _heartbeatInterval: null,
@@ -44,7 +91,6 @@ export const useCollaborationStore = create((set, get) => ({
     if (!userId) return;
 
     try {
-      // 1. Clean up expired locks
       await supabase
         .from("estimate_locks")
         .delete()
@@ -52,7 +98,6 @@ export const useCollaborationStore = create((set, get) => ({
         .eq("org_id", orgId)
         .lt("expires_at", new Date().toISOString());
 
-      // 2. Try to insert lock
       const expiresAt = new Date(Date.now() + LOCK_TTL_MS).toISOString();
       const { data, error } = await supabase
         .from("estimate_locks")
@@ -68,9 +113,7 @@ export const useCollaborationStore = create((set, get) => ({
         .single();
 
       if (error) {
-        // Conflict — someone else holds the lock (unique constraint or HTTP 409)
         if (error.code === "23505" || error.code === "409" || error.message?.includes("409")) {
-          // Fetch existing lock
           const { data: existing } = await supabase
             .from("estimate_locks")
             .select("*")
@@ -79,9 +122,7 @@ export const useCollaborationStore = create((set, get) => ({
             .single();
 
           if (existing) {
-            // Check if the lock is expired (race condition cleanup)
             if (new Date(existing.expires_at) < new Date()) {
-              // Expired — delete and retry (with recursion guard)
               await supabase.from("estimate_locks").delete().eq("id", existing.id);
               if (!get()._lockRetried) {
                 set({ _lockRetried: true });
@@ -89,7 +130,6 @@ export const useCollaborationStore = create((set, get) => ({
                 set({ _lockRetried: false });
                 return result;
               }
-              // Already retried once — give up to prevent infinite loop
               console.warn("[collab] Lock retry exhausted for", estimateId);
               set({ _lockRetried: false });
               return;
@@ -108,7 +148,6 @@ export const useCollaborationStore = create((set, get) => ({
               lockError: null,
             });
 
-            // If we own it (same user, different tab), start heartbeat
             if (existing.locked_by === userId) {
               get()._startHeartbeat(estimateId);
             }
@@ -120,7 +159,6 @@ export const useCollaborationStore = create((set, get) => ({
         return;
       }
 
-      // Success — we hold the lock
       set({
         currentLock: {
           estimateId,
@@ -165,7 +203,6 @@ export const useCollaborationStore = create((set, get) => ({
     const orgId = getOrgId();
     if (!orgId || !supabase) return;
 
-    // Manager/owner can delete any lock
     const isManager = selectIsManager(useOrgStore.getState());
     if (!isManager) return;
 
@@ -178,7 +215,6 @@ export const useCollaborationStore = create((set, get) => ({
 
       set({ currentLock: null, isLockHolder: false, lockError: null });
 
-      // Try to acquire for ourselves
       await get().acquireLock(estimateId || get()._currentEstimateId);
     } catch (err) {
       console.error("[collab] Force release error:", err);
@@ -227,7 +263,6 @@ export const useCollaborationStore = create((set, get) => ({
 
     set({ _currentEstimateId: estimateId });
 
-    // Upsert presence row
     try {
       await supabase.from("estimate_presence").upsert(
         {
@@ -244,10 +279,8 @@ export const useCollaborationStore = create((set, get) => ({
       console.error("[collab] Join presence error:", err);
     }
 
-    // Fetch current viewers
     await get()._refreshViewers(estimateId);
 
-    // Start presence heartbeat
     const presInterval = setInterval(async () => {
       if (!supabase) return;
       try {
@@ -272,14 +305,12 @@ export const useCollaborationStore = create((set, get) => ({
     const { userId } = getUserInfo();
     const eid = estimateId || get()._currentEstimateId;
 
-    // Stop presence heartbeat
     const { _presenceInterval } = get();
     if (_presenceInterval) {
       clearInterval(_presenceInterval);
       set({ _presenceInterval: null });
     }
 
-    // Delete presence row
     try {
       await supabase
         .from("estimate_presence")
@@ -294,7 +325,6 @@ export const useCollaborationStore = create((set, get) => ({
     set({ viewers: [], _currentEstimateId: null });
   },
 
-  /** Update current user's activity in presence (debounced 2s) */
   updateActivity: (activity) => {
     const prev = get()._activityDebounce;
     if (prev) clearTimeout(prev);
@@ -345,7 +375,6 @@ export const useCollaborationStore = create((set, get) => ({
     if (!orgId) return;
     const { userId } = getUserInfo();
 
-    // Clean up existing channel
     const { _lockChannel } = get();
     if (_lockChannel) {
       try {
@@ -362,13 +391,8 @@ export const useCollaborationStore = create((set, get) => ({
         { event: "*", schema: "public", table: "estimate_locks", filter: `estimate_id=eq.${estimateId}` },
         payload => {
           if (payload.eventType === "DELETE") {
-            // Lock was released — if we're not the holder, we can try to acquire
             const wasOurLock = get().isLockHolder;
             set({ currentLock: null, isLockHolder: false });
-            if (!wasOurLock) {
-              // Optionally auto-acquire (or just notify)
-              // For now, just clear the lock state — user sees "Available" and can click to edit
-            }
           } else if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
             const row = payload.new;
             set({
@@ -410,7 +434,6 @@ export const useCollaborationStore = create((set, get) => ({
         "postgres_changes",
         { event: "*", schema: "public", table: "estimate_presence", filter: `estimate_id=eq.${estimateId}` },
         () => {
-          // Refresh viewers on any change
           get()._refreshViewers(estimateId);
         },
       )
@@ -424,15 +447,12 @@ export const useCollaborationStore = create((set, get) => ({
   cleanup: async () => {
     const { _lockChannel, _presenceChannel, _currentEstimateId, isLockHolder } = get();
 
-    // Stop heartbeats
     get()._stopHeartbeat();
     const { _presenceInterval } = get();
     if (_presenceInterval) {
       clearInterval(_presenceInterval);
     }
 
-    // Unsubscribe channels — delay slightly to let in-flight subscriptions settle
-    // This avoids "WebSocket closed before connection" warnings from Supabase
     const cleanupChannels = () => {
       if (_lockChannel) {
         try {
@@ -449,15 +469,12 @@ export const useCollaborationStore = create((set, get) => ({
         }
       }
     };
-    // If channels are still connecting, give them 100ms to finish before tearing down
     setTimeout(cleanupChannels, 100);
 
-    // Release lock if we hold it
     if (isLockHolder && _currentEstimateId) {
       await get().releaseLock(_currentEstimateId);
     }
 
-    // Leave presence
     if (_currentEstimateId) {
       await get().leaveEstimate(_currentEstimateId);
     }
@@ -474,4 +491,212 @@ export const useCollaborationStore = create((set, get) => ({
       _currentEstimateId: null,
     });
   },
+
+  // ═══════════════════════════════════════════════════════════
+  // REVIEWS DOMAIN (was reviewStore)
+  // ═══════════════════════════════════════════════════════════
+
+  reviews: [],
+
+  createReview: review => {
+    const id = `rev_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const entry = {
+      id,
+      type: review.type || "request",
+      estimatorName: review.estimatorName || "",
+      managerName: review.managerName || "",
+      estimateIds: review.estimateIds || [],
+      estimateNames: review.estimateNames || [],
+      status: "pending",
+      createdAt: new Date().toISOString(),
+      briefing: null,
+      notes: "",
+      feedback: "",
+    };
+    set(s => ({ reviews: [entry, ...s.reviews] }));
+    return id;
+  },
+
+  setBriefing: (reviewId, briefing) => {
+    set(s => ({
+      reviews: s.reviews.map(r => (r.id === reviewId ? { ...r, briefing } : r)),
+    }));
+  },
+
+  updateStatus: (reviewId, status, feedback) => {
+    set(s => ({
+      reviews: s.reviews.map(r =>
+        r.id === reviewId ? { ...r, status, ...(feedback !== undefined ? { feedback } : {}) } : r,
+      ),
+    }));
+  },
+
+  setNotes: (reviewId, notes) => {
+    set(s => ({
+      reviews: s.reviews.map(r => (r.id === reviewId ? { ...r, notes } : r)),
+    }));
+  },
+
+  deleteReview: reviewId => {
+    set(s => ({ reviews: s.reviews.filter(r => r.id !== reviewId) }));
+  },
+
+  getReviewsForEstimator: name => get().reviews.filter(r => r.estimatorName === name),
+  getReviewsForManager: name => get().reviews.filter(r => r.managerName === name),
+  getPendingReviews: () => get().reviews.filter(r => r.status === "pending" || r.status === "in_progress"),
+
+  // ═══════════════════════════════════════════════════════════
+  // CORRESPONDENCE DOMAIN (was correspondenceStore)
+  // ═══════════════════════════════════════════════════════════
+
+  correspondences: [],
+
+  setCorrespondences: v => set({ correspondences: v }),
+
+  addCorrespondence: (fields = {}) => {
+    const c = {
+      id: uid(),
+      title: "",
+      question: "",
+      response: "",
+      respondent: "",
+      category: "clarification",
+      status: "pending",
+      dueDate: "",
+      estimatedHours: 0,
+      hoursLogged: 0,
+      createdAt: new Date().toISOString(),
+      answeredAt: "",
+      ...fields,
+    };
+    set(s => ({ correspondences: [...s.correspondences, c] }));
+    syncCorrespondenceToIndex();
+    if (c.dueDate) {
+      const estimateId = useEstimatesStore.getState().activeEstimateId;
+      useCalendarStore.getState().addTask({
+        title: `Correspondence: ${c.title || "Untitled"}`,
+        date: c.dueDate,
+        description: c.question || "",
+        color: "#60A5FA",
+        estimateId: estimateId || "",
+        correspondenceId: c.id,
+      });
+    }
+    return c;
+  },
+
+  updateCorrespondence: (id, updates) => {
+    const prev = get().correspondences.find(c => c.id === id);
+    set(s => ({
+      correspondences: s.correspondences.map(c => (c.id === id ? { ...c, ...updates } : c)),
+    }));
+    syncCorrespondenceToIndex();
+    if (updates.dueDate !== undefined && prev) {
+      const tasks = useCalendarStore.getState().tasks;
+      const linked = tasks.find(t => t.correspondenceId === id);
+      if (linked) {
+        useCalendarStore.getState().updateTask(linked.id, { date: updates.dueDate });
+      } else if (updates.dueDate) {
+        const estimateId = useEstimatesStore.getState().activeEstimateId;
+        useCalendarStore.getState().addTask({
+          title: `Correspondence: ${updates.title || prev.title || "Untitled"}`,
+          date: updates.dueDate,
+          description: updates.question || prev.question || "",
+          color: "#60A5FA",
+          estimateId: estimateId || "",
+          correspondenceId: id,
+        });
+      }
+    }
+    if (updates.status === "answered" || updates.status === "closed") {
+      const tasks = useCalendarStore.getState().tasks;
+      const linked = tasks.find(t => t.correspondenceId === id);
+      if (linked) {
+        useCalendarStore.getState().updateTask(linked.id, { completed: true });
+      }
+    }
+  },
+
+  removeCorrespondence: id => {
+    set(s => ({
+      correspondences: s.correspondences.filter(c => c.id !== id),
+    }));
+    syncCorrespondenceToIndex();
+    const tasks = useCalendarStore.getState().tasks;
+    const linked = tasks.find(t => t.correspondenceId === id);
+    if (linked) {
+      useCalendarStore.getState().deleteTask(linked.id);
+    }
+  },
+
+  // ═══════════════════════════════════════════════════════════
+  // AUTO-RESPONSE DOMAIN (was autoResponseStore)
+  // ═══════════════════════════════════════════════════════════
+
+  triggerConfig: { ...DEFAULT_TRIGGER_CONFIG },
+  drafts: [],
+
+  setTriggerConfig: v => set({ triggerConfig: v }),
+  setDrafts: v => set({ drafts: v }),
+
+  updateTrigger: (type, updates) =>
+    set(s => ({
+      triggerConfig: {
+        ...s.triggerConfig,
+        [type]: { ...(s.triggerConfig[type] || {}), ...updates },
+      },
+    })),
+
+  addDraft: draft =>
+    set(s => ({
+      drafts: [
+        ...s.drafts,
+        {
+          id: uid(),
+          status: "pending",
+          createdAt: new Date().toISOString(),
+          ...draft,
+        },
+      ],
+    })),
+
+  updateDraft: (id, updates) =>
+    set(s => ({
+      drafts: s.drafts.map(d => (d.id === id ? { ...d, ...updates } : d)),
+    })),
+
+  approveDraft: id =>
+    set(s => ({
+      drafts: s.drafts.map(d => (d.id === id ? { ...d, status: "approved" } : d)),
+    })),
+
+  dismissDraft: id =>
+    set(s => ({
+      drafts: s.drafts.map(d => (d.id === id ? { ...d, status: "dismissed" } : d)),
+    })),
+
+  markSent: (id, emailId) =>
+    set(s => ({
+      drafts: s.drafts.map(d =>
+        d.id === id ? { ...d, status: "sent", sentAt: new Date().toISOString(), emailId } : d,
+      ),
+    })),
+
+  removeDraft: id => set(s => ({ drafts: s.drafts.filter(d => d.id !== id) })),
+
+  getPendingDrafts: () => get().drafts.filter(d => d.status === "pending"),
+  getPendingCount: () => get().drafts.filter(d => d.status === "pending").length,
+
+  hasDraft: (triggerType, invitationId) =>
+    get().drafts.some(
+      d =>
+        d.triggerType === triggerType &&
+        d.invitationId === invitationId &&
+        (d.status === "pending" || d.status === "sent"),
+    ),
 }));
+
+// ── Backward-compatible aliases ──
+export const useReviewStore = useCollaborationStore;
+export const useCorrespondenceStore = useCollaborationStore;
+export const useAutoResponseStore = useCollaborationStore;
