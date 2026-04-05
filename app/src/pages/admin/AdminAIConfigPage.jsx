@@ -92,6 +92,47 @@ export default function AdminAIConfigPage() {
         </div>
       </div>
 
+      {/* Datalab API Key */}
+      <div style={{ marginBottom: 24 }}>
+        <label
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            color: C.textDim,
+            textTransform: "uppercase",
+            letterSpacing: 0.5,
+            display: "block",
+            marginBottom: 6,
+          }}
+        >
+          Datalab API Key (Proposal Extraction)
+        </label>
+        <input
+          type="password"
+          value={appSettings.datalabApiKey || ""}
+          onChange={e => updateSetting("datalabApiKey", e.target.value)}
+          placeholder="Your Datalab API key..."
+          style={inp(C, {
+            padding: "8px 12px",
+            fontSize: 12,
+            fontFamily: T.font.sans,
+            width: "100%",
+            maxWidth: 500,
+          })}
+        />
+        <div style={{ fontSize: 10, color: C.textDim, marginTop: 6 }}>
+          Extracts structured data ($/SF, unit rates, material costs) from proposal PDFs. Get a key at{" "}
+          <a
+            href="https://www.datalab.to"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: C.accent, fontWeight: 500, textDecoration: "none" }}
+          >
+            datalab.to
+          </a>
+        </div>
+      </div>
+
       {/* Feature List */}
       <div style={{ padding: "14px 16px", background: C.bg2, borderRadius: 8, border: `1px solid ${C.border}` }}>
         <div

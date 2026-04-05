@@ -28,6 +28,7 @@ import ProjectSummaryCard from "@/components/planroom/ProjectSummaryCard";
 import NovaROMCard from "@/components/planroom/NovaROMCard";
 import DrawingLightbox from "@/components/planroom/DrawingLightbox";
 import SpecificationsCard from "@/components/planroom/SpecificationsCard";
+import ProposalUploader from "@/components/widgets/ProposalUploader";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Discovery Page — Combined upload + findings dashboard
@@ -327,6 +328,10 @@ export default function PlanRoomPage() {
             <NovaROMCard C={C} T={T} scanResults={scanResults} />
             <DrawingLightbox C={C} T={T} drawings={drawings} drawingScales={drawingScales} pdfCanvases={pdfCanvases} previewDrawingId={previewDrawingId} setPreviewDrawingId={setPreviewDrawingId} />
             <SpecificationsCard C={C} T={T} specs={specs} items={items} />
+            <div style={{ ...card(C), padding: T.space[5], gridColumn: "1 / -1" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: T.space[2], marginBottom: T.space[3] }}><Ic d={I.upload} size={16} color={C.accent} /><span style={{ fontSize: T.fontSize.sm, fontWeight: T.fontWeight.bold, color: C.text }}>Proposal Extraction</span><span style={{ fontSize: 9, color: C.textDim, padding: "2px 8px", borderRadius: T.radius.full, background: C.bg2 }}>NOVA</span></div>
+              <ProposalUploader />
+            </div>
             <div style={{ gridColumn: "1 / -1" }}><BuildingParametersSection /></div>
             {novaHistory.length > 0 && (
               <div style={{ ...card(C), padding: T.space[5], gridColumn: "1 / -1" }}>
