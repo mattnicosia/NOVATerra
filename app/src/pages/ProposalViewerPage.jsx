@@ -278,13 +278,7 @@ export default function ProposalViewerPage() {
             );
           })}
 
-          {/* Cost Treemap */}
-          {pd.divTotals && Object.keys(pd.divTotals).length > 0 && (
-            <div style={{ marginTop: 32, marginBottom: 32 }}>
-              <div style={{ ...PS.type.h2, fontFamily: font, color: accent, marginBottom: 16 }}>COST DISTRIBUTION</div>
-              <CostTreemap divTotals={pd.divTotals} grand={pd.totals?.grand || 0} accent={accent} font={font} />
-            </div>
-          )}
+          {/* CostTreemap now renders via managed "costGraph" section in ProposalSection */}
 
           {/* Accept Block */}
           {!accepted ? (

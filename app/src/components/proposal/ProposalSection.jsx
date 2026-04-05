@@ -18,6 +18,7 @@ import ScheduleOfValues from './sections/ScheduleOfValues';
 import PageBreak from './sections/PageBreak';
 import Spacer from './sections/Spacer';
 import UploadedDocumentSection from './UploadedDocumentSection';
+import CostTreemap from './CostTreemap';
 
 const SECTION_MAP = {
   coverLetter: CoverLetterSection,
@@ -42,6 +43,21 @@ export default function ProposalSection({ sectionId, data, proposalStyles, secti
   if (isPageBreak(sectionId)) return <PageBreak />;
   if (isSpacer(sectionId)) return <Spacer />;
   if (isUploadedDoc(sectionId)) return <UploadedDocumentSection sectionId={sectionId} proposalStyles={proposalStyles} />;
+
+  // Cost distribution graph section
+  if (sectionId === "costGraph") {
+    const { divTotals = {}, totals = {} } = data;
+    const grand = totals?.grand || 0;
+    if (!divTotals || !Object.keys(divTotals).length) return null;
+    return (
+      <div style={{ marginTop: 32, marginBottom: 32 }}>
+        <div style={{ ...proposalStyles.type.h2, fontFamily: proposalStyles.font.body, color: proposalStyles.color.accent, marginBottom: 16 }}>
+          COST DISTRIBUTION
+        </div>
+        <CostTreemap divTotals={divTotals} grand={grand} accent={proposalStyles.color.accent} font={proposalStyles.font.body} />
+      </div>
+    );
+  }
 
   const Comp = SECTION_MAP[sectionId];
   if (!Comp) return null;

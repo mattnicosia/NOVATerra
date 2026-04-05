@@ -17,6 +17,7 @@ export const PROPOSAL_SECTIONS = [
   { id: "closing", label: "Closing", icon: I.send },
   { id: "signature", label: "Signature", icon: I.user, required: true },
   { id: "acceptance", label: "Acceptance", icon: I.check },
+  { id: "costGraph", label: "Cost Distribution", icon: I.report, conditional: true },
 ];
 
 export const DEFAULT_SECTION_ORDER = PROPOSAL_SECTIONS.map(s => s.id);
